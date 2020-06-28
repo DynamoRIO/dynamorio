@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,10 +43,8 @@
 class view_t : public analysis_tool_t {
 public:
     view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-           const std::string &syntax, unsigned int verbose);
-    virtual ~view_t()
-    {
-    }
+           const std::string &syntax, unsigned int verbose,
+           const std::string &alt_module_dir = "");
     std::string
     initialize() override;
     bool
@@ -55,18 +53,32 @@ public:
     print_results() override;
 
 protected:
-    void *dcontext;
-    std::string module_file_path;
-    std::unique_ptr<module_mapper_t> module_mapper;
-    raw2trace_directory_t directory;
-    unsigned int knob_verbose;
-    uint64_t instr_count;
+    struct dcontext_cleanup_last_t {
+    public:
+        ~dcontext_cleanup_last_t()
+        {
+            if (dcontext != nullptr)
+                dr_standalone_exit();
+        }
+        void *dcontext = nullptr;
+    };
+
+    /* We make this the first field so that dr_standalone_exit() is called after
+     * destroying the other fields which may use DR heap.
+     */
+    dcontext_cleanup_last_t dcontext_;
+    std::string module_file_path_;
+    std::unique_ptr<module_mapper_t> module_mapper_;
+    raw2trace_directory_t directory_;
+    unsigned int knob_verbose_;
+    uint64_t instr_count_;
     static const std::string TOOL_NAME;
-    uint64_t knob_skip_refs;
-    uint64_t knob_sim_refs;
-    std::string knob_syntax;
-    uint64_t num_disasm_instrs;
-    std::unordered_map<app_pc, std::string> disasm_cache;
+    uint64_t knob_skip_refs_;
+    uint64_t knob_sim_refs_;
+    std::string knob_syntax_;
+    std::string knob_alt_module_dir_;
+    uint64_t num_disasm_instrs_;
+    std::unordered_map<app_pc, std::string> disasm_cache_;
 };
 
 #endif /* _VIEW_H_ */

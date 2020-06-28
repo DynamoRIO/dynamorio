@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,6 +63,14 @@
 # define MACOS64
 #endif
 
+/* host, when different */
+#cmakedefine DR_HOST_X86
+#cmakedefine DR_HOST_ARM
+#cmakedefine DR_HOST_AARCH64
+#cmakedefine DR_HOST_AARCHXX
+#cmakedefine DR_HOST_X64
+#cmakedefine DR_HOST_NOT_TARGET
+
 /* set by high-level VMAP/VMSAFE/VPS configurations */
 #cmakedefine PROGRAM_SHEPHERDING
 #cmakedefine CLIENT_INTERFACE
@@ -84,6 +92,8 @@
 #endif
 #cmakedefine PARAMS_IN_REGISTRY
 #cmakedefine RECORD_MEMQUERY
+#cmakedefine BUILD_TESTS
+#cmakedefine AUTOMATED_TESTING
 
 /* when packaging */
 #cmakedefine VERSION_NUMBER ${VERSION_NUMBER}
@@ -192,8 +202,6 @@
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
-#    $(D)CUSTOM_EXIT_STUBS -- optional part of CLIENT_INTERFACE
-#      we may want it for our own internal use too, though
 #    $(D)CUSTOM_TRACES -- optional part of CLIENT_INTERFACE
 #      has some sub-features that are aggressive and not supported by default:
 #      $(D)CUSTOM_TRACES_RET_REMOVAL = support for removing inlined rets
@@ -298,9 +306,7 @@
 # define DYNAMORIO_IR_EXPORTS
 # define CUSTOM_TRACES
 # define CLIENT_SIDELINE
-  /* PR 200409: not part of our current API, xref PR 215179 on -pad_jmps
-   * issues with CUSTOM_EXIT_STUBS
-# define CUSTOM_EXIT_STUBS
+  /* TODO i#4045: Remove completely from the code base.
 # define UNSUPPORTED_API
    */
 #endif

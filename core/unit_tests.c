@@ -88,5 +88,6 @@ main(int argc, char **argv, char **envp)
     unit_test_atomic_ops();
     unit_test_jit_fragment_tree();
     print_file(STDERR, "all done\n");
+    standalone_exit();
     return 0;
 }

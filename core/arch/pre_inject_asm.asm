@@ -114,6 +114,8 @@ do_not_unload:
          */
         mov      eax, 0
 #ifdef X64
+        /* repair the stack and return */
+        pop      rcx
         ret
 #else
         ret      HEX(0c)

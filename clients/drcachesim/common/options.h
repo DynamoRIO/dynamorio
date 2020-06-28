@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -50,6 +50,7 @@
 #define BASIC_COUNTS "basic_counts"
 #define OPCODE_MIX "opcode_mix"
 #define VIEW "view"
+#define FUNC_VIEW "func_view"
 #define CACHE_TYPE_INSTRUCTION "instruction"
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
@@ -65,6 +66,8 @@ extern droption_t<std::string> op_subdir_prefix;
 extern droption_t<std::string> op_infile;
 extern droption_t<std::string> op_indir;
 extern droption_t<std::string> op_module_file;
+extern droption_t<std::string> op_alt_module_dir;
+extern droption_t<std::string> op_funclist_file;
 extern droption_t<unsigned int> op_num_cores;
 extern droption_t<unsigned int> op_line_size;
 extern droption_t<bytesize_t> op_L1I_size;
@@ -77,6 +80,7 @@ extern droption_t<std::string> op_LL_miss_file;
 extern droption_t<bytesize_t> op_L0I_size;
 extern droption_t<bool> op_L0_filter;
 extern droption_t<bytesize_t> op_L0D_size;
+extern droption_t<bool> op_instr_only_trace;
 extern droption_t<bool> op_coherence;
 extern droption_t<bool> op_use_physical;
 extern droption_t<unsigned int> op_virt2phys_freq;
@@ -97,14 +101,17 @@ extern droption_t<unsigned int> op_TLB_L2_assoc;
 extern droption_t<std::string> op_TLB_replace_policy;
 extern droption_t<std::string> op_simulator_type;
 extern droption_t<unsigned int> op_verbose;
+extern droption_t<bool> op_show_func_trace;
 extern droption_t<int> op_jobs;
 #ifdef DEBUG
 extern droption_t<bool> op_test_mode;
 #endif
+extern droption_t<bool> op_disable_optimizations;
 extern droption_t<std::string> op_dr_root;
 extern droption_t<bool> op_dr_debug;
 extern droption_t<std::string> op_dr_ops;
 extern droption_t<std::string> op_tracer;
+extern droption_t<std::string> op_tracer_alt;
 extern droption_t<std::string> op_tracer_ops;
 extern droption_t<bytesize_t> op_skip_refs;
 extern droption_t<bytesize_t> op_warmup_refs;
@@ -120,6 +127,8 @@ extern droption_t<std::string> op_view_syntax;
 extern droption_t<std::string> op_record_function;
 extern droption_t<bool> op_record_heap;
 extern droption_t<std::string> op_record_heap_value;
+extern droption_t<bool> op_record_dynsym_only;
+extern droption_t<bool> op_record_replace_retaddr;
 extern droption_t<unsigned int> op_miss_count_threshold;
 extern droption_t<double> op_miss_frac_threshold;
 extern droption_t<double> op_confidence_threshold;

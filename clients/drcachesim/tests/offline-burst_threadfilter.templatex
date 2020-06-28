@@ -14,6 +14,7 @@ all done
 Basic counts tool results:
 Total counts:
     *[0-9]* total \(fetched\) instructions
+    *[0-9]* total unique \(fetched\) instructions
     *[0-9]* total non-fetched instructions
     *[0-9]* total prefetches
     *[0-9]* total data loads
@@ -25,5 +26,5 @@ Total counts:
            0 total function return address markers
            0 total function argument markers
            0 total function return value markers
-           0 total other markers
+           4 total other markers
 .*

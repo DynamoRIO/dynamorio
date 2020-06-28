@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -133,7 +133,47 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 7.1.0 include the following compatibility
+The changes between version \DR_VERSION and 8.0.0 include the following compatibility
+changes:
+
+ Nothing yet.
+
+The changes between version \DR_VERSION and 8.0.0 include the following minor
+compatibility changes:
+
+ - drconfiglib (and thus drrun and drconfig) now sets only the new client path
+   options which are added in this release to support other-bitwidth child processes.
+   This means that a drconfiglib from this version will not properly configure for a
+   DynamoRIO core library from a prior version.
+
+Further non-compatibility-affecting changes include:
+
+ - Added drmgr_register_opcode_instrumentation_event() and
+   drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
+   opcode event instrumentation.
+ - Added dr_num_app_args(), dr_get_app_args() and dr_app_arg_as_cstring() to
+   enable the gathering of application command-line args. Currently, implemented
+   for Unix systems only.
+ - Added dr_get_error_code() to obtain the error code of the last failed API routine.
+   Not all API routines support the setting of error codes. Please look at their
+   documentation to check if they do.
+ - Added -instr_only_trace option to drcachesim.
+ - Added other-bitwidth child process support, with the other client library
+   specified by "-c32" "-c64" to drrun or drdeploy, by dr_register_client_ex()
+   with #dr_config_client_t.is_alt_bitwidth=true to drconfiglib, and by
+   CLIENT{32,64}_{ABS,REL} in tool files.
+   Added dr_get_client_info_ex() and dr_client_iterator_next_ex() to support
+   querying other-bitwidth client registration.
+
+**************************************************
+<hr>
+
+Version 8.0.0 includes Dr. Memory and the
+Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
+provides the umbra, drsyscall, and drsymcache Extensions for use by
+clients.
+
+The changes between version 8.0.0 and 7.1.0 include the following compatibility
 changes:
 
  - Changed the enumeration of the DR_REG_ enum by adding x86 AVX-512 registers as well
@@ -143,8 +183,22 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
+ - Added a requirement that a C++11-complient compiler be used with \ref page_droption.
+ - Changed the syntax of the drcachesim -record_function option.  It no longer takes
+   in an identifier: the identifier is computed by the tracer.  It thus takes pairs,
+   with an optional third argument for flags such as "noret" to indicate that the
+   return value should not be recorded.
+   The tracer writes out a file listing functions traced and their identifiers
+   with "id,library!symbol" on each line of the file.
+ - Added free_key_func to the drcontainers hashtable_configure(), which adds a field
+   to #hashtable_config_t.  Binary compatibility is maintained via the size field
+   of the struct, but users who were not zeroing the whole structure and who update
+   and recompile without setting the field may see crashes due to
+   free_key_func being uninitialized.
+ - Changed the 32-bit x86 stack alignment of DynamoRIO and clients built using
+   DR's CMake configuration from 4 to 16 on Linux to match modern conventions.
 
-The changes between version \DR_VERSION and 7.1.0 include the following minor
+The changes between version 8.0.0 and 7.1.0 include the following minor
 compatibility changes:
 
  - Added the define #MCXT_NUM_SIMD_SLOTS that was renamed from NUM_SIMD_SLOTS.
@@ -174,6 +228,13 @@ compatibility changes:
  - Changed the #PFX format string specifier to use %p rather than %x internally.
  - DR no longer forwards _snprintf, _snwprintf, _vsnprintf, sprintf, or sscanf to
    ntdll.  Clients should use the dr_-prefixed versions of these functions.
+ - PC-relative control transfer instructions are now auto-re-relativized by the
+   general decoder and encoder.  This affects clients and standalone tools that use
+   decode_from_copy() or instr_encode_to_copy() or instrlist_encode_to_copy().
+   Previously, re-relativization for instruction references only happened when an
+   instruction was re-encoded.  This auto-PC-relativization can be avoided by calling
+   instr_set_rip_rel_valid() and setting the validity of the PC-relative data to false.
+ - Fixed major synchronization bugs on ARM and AArch64.
 
 Further non-compatibility-affecting changes include:
 
@@ -200,6 +261,7 @@ Further non-compatibility-affecting changes include:
  - Added the type #dr_encoding_hint_type_t.
  - Added #INSTR_ENCODING_HINT macro.
  - Added dr_standalone_exit() with support for re-attaching afterward.
+ - Added dr_register_low_on_memory_event() for tracking low on memory events.
  - Added dr_mcontext_zmm_fields_valid() to query the state of lazy AVX-512 context
    switching.
  - Added the function proc_avx512_enabled().
@@ -212,6 +274,53 @@ Further non-compatibility-affecting changes include:
  - Added the functions instr_is_gather() and instr_is_scatter().
  - Added the function drx_expand_scatter_gather().
  - Added the function dr_atomic_add64_return_sum().
+ - Added the function instr_reads_from_exact_reg() to test whether instructions
+   read from exact registers.
+ - Added the function reg_is_vector_simd() to test whether registers are
+   either XMM, YMM or ZMM, excluding any MMX register checks.
+ - Added DR_NUM_SIMD_VECTOR_REGS as an alias to MCXT_NUM_SIMD_SLOTS in order
+   to get the static number of supported SIMD vectors.
+ - Added drmgr_register_low_on_memory_event(), drmgr_unregister_low_on_memory_event()
+   and their variants so that drmgr can support low-on-memory events.
+ - Added drmgr_is_first_nonlabel_instr() and instrlist_first_nonlabel().
+ - Added a new standalone tool "drdisas" which disassembles raw bytes using
+   DR's decoder.
+ - Added decode_sizeof_ex() and instr_get_rel_data_or_instr_target() handling
+   relative instruction references.
+ - Added drx_instrlist_size() and drx_instrlist_app_size() to obtain the size
+   of a basic block.
+ - Added drreg_restore_all() to restore all unreserved registers currently
+   maintained by drreg.
+ - Added a func_view tool to drcachesim for analyzing function traces.
+ - Added a non-heap-using instruction structure #instr_noalloc_t for use when
+   decoding in a signal handler, along with instr_noalloc_init() and
+   instr_from_noalloc().
+ - Added drwrap_get_stats().
+ - Added #DRWRAP_NO_DYNAMIC_RETADDRS for reducing drwrap overhead at the cost
+   of missing some post-call callbacks.
+ - Added #DRWRAP_REPLACE_RETADDR for an alternative method of setting up post-call
+   control points by replacing return addresses.  This does not work for every
+   application, but reduces overhead.
+ - Added -record_dynsym_only to drcachesim for faster function tracing symbol
+   lookups when internal symbols are not needed.
+ - Added -record_replace_retaddr_only to drcachesim for faster function tracing
+   wrapping for well-behaved applications.
+ - Added dr_merge_arith_flags() as a convenience routine to merge arithmetic flags
+   for restoration done by outlined code.
+ - Added dr_annotation_pass_pc() to obtain the interrupted PC in an annotation
+   handler.
+ - Added atomics for safe and visible aligned loads and stores on all platforms:
+   dr_atomic_load32(), dr_atomic_store32(), dr_atomic_load64() dr_atomic_store64().
+ - The state restore event (dr_register_restore_state_event()) is now called for
+   all translation attempts, even when the register state already contains
+   application values, to allow clients to restore memory.
+ - Added the function dr_get_process_id_from_drcontext() for obtaining a process ID
+   associated with the given drcontext, which may be different from the current
+   dr_get_process_id() in some contexts.
+ - The private loader's malloc redirection now guarantees double-pointer-sized
+   alignment, to match what system-provided allocators use.
+ - Added a new DR extension, namely "drbbdup", which enables different case
+   instrumentation of the same basic block by duplicating code.
 
 **************************************************
 <hr>

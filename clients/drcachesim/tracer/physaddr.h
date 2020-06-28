@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,11 +51,11 @@ public:
 private:
     // Assumed to be single-threaded
 #ifdef LINUX
-    addr_t last_vpage;
-    addr_t last_ppage;
-    int fd;
-    std::unordered_map<addr_t, addr_t> v2p;
-    unsigned int count;
+    addr_t last_vpage_;
+    addr_t last_ppage_;
+    int fd_;
+    std::unordered_map<addr_t, addr_t> v2p_;
+    unsigned int count_;
 #endif
 };
 

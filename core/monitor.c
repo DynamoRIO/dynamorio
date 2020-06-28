@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -143,10 +143,7 @@ delete_private_copy(dcontext_t *dcontext)
     }
 }
 
-/* Returns false if f has been deleted and no copy can be made. FIXME - also returns
- * false if the emitted private fragment can't be added to a trace (for pad_jmps
- * insertion reasons xref PR 215179). */
-static bool
+static void
 create_private_copy(dcontext_t *dcontext, fragment_t *f)
 {
     monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
@@ -201,26 +198,7 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
         disassemble_fragment(dcontext, md->last_fragment, d_r_stats->loglevel <= 3);
     });
     KSTOP(temp_private_bb);
-    /* FIXME - PR 215179, with current hack pad_jmps sometimes marks fragments as
-     * CANNOT_BE_TRACE during emit (since we don't yet have a good way to handle
-     * inserted nops during tracing). This can happen for UNIX syscall fence exits and
-     * CLIENT_INTERFACE added exits.  However, it depends on the starting alignment of
-     * the fragment! So it's possible to have a fragment that is ok turn into a
-     * fragment that isn't when re-emitted here.  We could keep the ilist around and
-     * use that to extend the trace later (instead of decoding the TEMP bb), but better
-     * to come up with a general fix for tracing through nops.
-     */
-    /* PR 299808: this can happen even more easily now that we re-pass the bb
-     * to the client.  FRAG_MUST_END_TRACE is handled in internal_extend_trace.
-     */
-    if (TEST(FRAG_CANNOT_BE_TRACE, md->last_fragment->flags)) {
-        delete_private_copy(dcontext);
-        md->last_fragment = NULL;
-        md->last_copy = NULL;
-        STATS_INC(pad_jmps_block_trace_reemit);
-        return false;
-    }
-    return true;
+    ASSERT(!TEST(FRAG_CANNOT_BE_TRACE, md->last_fragment->flags));
 }
 
 #ifdef CLIENT_INTERFACE
@@ -680,7 +658,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
         (dcontext_in == GLOBAL_DCONTEXT) ? get_thread_private_dcontext() : dcontext_in;
     ASSERT(dcontext != NULL);
 
-    LOG(THREAD, LOG_MONITOR, 4, "marking F%d (" PFX ") as trace head\n", f->id, f->tag);
+    LOG(THREAD, LOG_MONITOR, 3, "marking F%d (" PFX ") as trace head\n", f->id, f->tag);
     ASSERT(!TEST(FRAG_IS_TRACE, f->flags));
     ASSERT(!NEED_SHARED_LOCK(f->flags) || self_owns_recursive_lock(&change_linking_lock));
 
@@ -1914,6 +1892,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     check_fine_to_coarse_trace_head(dcontext, f);
 
     if (md->trace_tag != NULL) { /* in trace selection mode */
+
         KSTART(trace_building);
 
         /* unprotect local heap */
@@ -2034,28 +2013,25 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                  * determinism issues that arise when check_thread_vm_area()
                  * changes its mind over time.
                  */
-                if (create_private_copy(dcontext, f)) {
-                    /* operate on new f from here on */
-                    if (md->trace_tag == NULL) {
-                        /* trace was aborted b/c our new fragment clobbered
-                         * someone (see comments in create_private_copy) --
-                         * when emitting our private bb we can kill the
-                         * last_fragment): just exit now
-                         */
-                        LOG(THREAD, LOG_MONITOR, 4,
-                            "Private copy ended up aborting trace!\n");
-                        STATS_INC(num_trace_private_copy_abort);
-                        /* trace abort happened in emit_fragment, so we went and
-                         * undid the clearing of last_fragment by assigning it
-                         * to last_copy, must re-clear!
-                         */
-                        md->last_fragment = NULL;
-                        return f;
-                    }
-                    f = md->last_fragment;
-                } else {
-                    end_trace = true;
+                create_private_copy(dcontext, f);
+                /* operate on new f from here on */
+                if (md->trace_tag == NULL) {
+                    /* trace was aborted b/c our new fragment clobbered
+                     * someone (see comments in create_private_copy) --
+                     * when emitting our private bb we can kill the
+                     * last_fragment): just exit now
+                     */
+                    LOG(THREAD, LOG_MONITOR, 4,
+                        "Private copy ended up aborting trace!\n");
+                    STATS_INC(num_trace_private_copy_abort);
+                    /* trace abort happened in emit_fragment, so we went and
+                     * undid the clearing of last_fragment by assigning it
+                     * to last_copy, must re-clear!
+                     */
+                    md->last_fragment = NULL;
+                    return f;
                 }
+                f = md->last_fragment;
             }
 
             if (!end_trace &&
@@ -2204,22 +2180,19 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                 acquire_recursive_lock(&change_linking_lock);
                 if (TEST(FRAG_TRACE_BUILDING, f->flags)) {
                     /* trace_t building w/this tag is already in-progress. */
+                    LOG(THREAD, LOG_MONITOR, 3,
+                        "Not going to start trace with already-in-trace-progress F%d "
+                        "(tag " PFX ")\n",
+                        f->id, f->tag);
                     STATS_INC(num_trace_building_race);
                 } else {
+                    LOG(THREAD, LOG_MONITOR, 3,
+                        "Going to start trace with F%d (tag " PFX ")\n", f->id, f->tag);
                     f->flags |= FRAG_TRACE_BUILDING;
                     start_trace = true;
                 }
                 release_recursive_lock(&change_linking_lock);
             }
-        }
-        if (!start_trace) {
-            /* Back up the counter by one. This ensures that the
-             * counter will be == trace_threshold if this thread is later
-             * able to start building a trace w/this tag and ensures
-             * that our one-up sentinel works for lazy clearing.
-             */
-            ctr->counter--;
-            ASSERT(ctr->counter < INTERNAL_OPTION(trace_threshold));
         }
     }
 
@@ -2248,12 +2221,20 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
          * determinism issues that arise when check_thread_vm_area()
          * changes its mind over time.
          */
-        if (create_private_copy(dcontext, f)) {
-            /* operate on new f from here on */
-            f = md->last_fragment;
-        } else {
-            start_trace = false;
-        }
+        create_private_copy(dcontext, f);
+        /* operate on new f from here on */
+        f = md->last_fragment;
+    }
+    if (!start_trace && ctr->counter >= INTERNAL_OPTION(trace_threshold)) {
+        /* Back up the counter by one. This ensures that the
+         * counter will be == trace_threshold if this thread is later
+         * able to start building a trace w/this tag and ensures
+         * that our one-up sentinel works for lazy clearing.
+         */
+        LOG(THREAD, LOG_MONITOR, 3, "Backing up F%d counter from %d\n", f->id,
+            ctr->counter);
+        ctr->counter--;
+        ASSERT(ctr->counter < INTERNAL_OPTION(trace_threshold));
     }
     if (start_trace) {
         KSTART(trace_building);

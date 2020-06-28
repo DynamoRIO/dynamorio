@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -121,9 +121,6 @@ static const uint BLOCK_SIZES[] = {
 #    else
 /* release == instr_t */
 #    endif
-#elif defined(CUSTOM_EXIT_STUBS)
-#    error "FIXME i#3611: Fix build and check the heap buckets for the correct order."
-/* all other bb/trace buckets are 8 larger but in same order */
 #else
     sizeof(fragment_t) + sizeof(direct_linkstub_t) +
         sizeof(cbr_fallthrough_linkstub_t), /* 60 dbg / 56 rel */
@@ -341,6 +338,15 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
  */
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t global_alloc_lock,
                       INIT_RECURSIVE_LOCK(global_alloc_lock));
+
+#ifdef CLIENT_INTERFACE
+/* Used to sync low on memory event */
+DECLARE_CXTSWPROT_VAR(static recursive_lock_t low_on_memory_pending_lock,
+                      INIT_RECURSIVE_LOCK(low_on_memory_pending_lock));
+
+/* Denotes whether or not low on memory event requires triggering. */
+DECLARE_FREQPROT_VAR(bool low_on_memory_pending, false);
+#endif
 
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING) && defined(HOT_PATCHING_INTERFACE)
 static int
@@ -825,7 +831,9 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
         if (!REL32_REACHABLE(app_base, (app_pc)DYNAMO_OPTION(vm_base)) ||
             !REL32_REACHABLE(app_base,
                              (app_pc)DYNAMO_OPTION(vm_base) +
-                                 DYNAMO_OPTION(vm_max_offset))) {
+                                 DYNAMO_OPTION(vm_max_offset)) ||
+            ((app_pc)DYNAMO_OPTION(vm_base) < app_end &&
+             (app_pc)DYNAMO_OPTION(vm_base) + DYNAMO_OPTION(vm_max_offset) > app_base)) {
             byte *reach_base = MAX(REACHABLE_32BIT_START(app_base, app_end),
                                    heap_allowable_region_start);
             byte *reach_end =
@@ -1478,6 +1486,34 @@ reached_beyond_vmm(void)
     }
 }
 
+#ifdef CLIENT_INTERFACE
+void
+vmm_heap_handle_pending_low_on_memory_event_trigger()
+{
+    bool trigger = false;
+
+    acquire_recursive_lock(&low_on_memory_pending_lock);
+    if (low_on_memory_pending) {
+        bool value = false;
+        ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
+        trigger = true;
+    }
+    release_recursive_lock(&low_on_memory_pending_lock);
+
+    if (trigger)
+        instrument_low_on_memory();
+}
+#endif
+
+static void
+schedule_low_on_memory_event_trigger()
+{
+#ifdef CLIENT_INTERFACE
+    bool value = true;
+    ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
+#endif
+}
+
 /* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
 vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
@@ -1495,8 +1531,10 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             (DYNAMO_OPTION(switch_to_os_at_vmm_reset_limit) &&
              at_reset_at_vmm_limit(vmh))) {
             DO_ONCE({
-                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit))
+                if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)) {
                     schedule_reset(RESET_ALL);
+                }
+                schedule_low_on_memory_event_trigger();
                 DOCHECK(1, {
                     if (!INTERNAL_OPTION(vm_use_last)) {
                         ASSERT_CURIOSITY(false && "running low on vm reserve");
@@ -1526,6 +1564,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
 
         if (at_reset_at_vmm_limit(vmh)) {
             /* We're running low on our reservation, trigger a reset */
+            schedule_low_on_memory_event_trigger();
             if (schedule_reset(RESET_ALL)) {
                 STATS_INC(reset_low_vmm_count);
                 DO_THRESHOLD_SAFE(
@@ -1566,8 +1605,11 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             DODEBUG({ out_of_vmheap_once = true; });
             if (!INTERNAL_OPTION(skip_out_of_vm_reserve_curiosity)) {
                 /* this maybe unsafe for early services w.r.t. case 666 */
-                SYSLOG_INTERNAL_WARNING("Out of vmheap reservation - reserving %dKB."
+                SYSLOG_INTERNAL_WARNING("Out of %s reservation - reserving %dKB. "
                                         "Falling back onto OS allocation",
+                                        (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())
+                                            ? "vmcode"
+                                            : "vmheap",
                                         size / 1024);
                 ASSERT_CURIOSITY(false && "Out of vmheap reservation");
             }
@@ -2328,6 +2370,10 @@ d_r_heap_exit()
 
     DELETE_RECURSIVE_LOCK(heap_unit_lock);
     DELETE_RECURSIVE_LOCK(global_alloc_lock);
+#ifdef CLIENT_INTERFACE
+    DELETE_RECURSIVE_LOCK(low_on_memory_pending_lock);
+#endif
+
 #ifdef X64
     DELETE_LOCK(request_region_be_heap_reachable_lock);
 #endif
@@ -3370,6 +3416,16 @@ heap_vmareas_synch_units()
 static void *
 common_global_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        return malloc(size);
+    }
+#endif
     void *p;
     acquire_recursive_lock(&global_alloc_lock);
     p = common_heap_alloc(tu, size HEAPACCT(which));
@@ -3393,6 +3449,17 @@ static void
 common_global_heap_free(thread_units_t *tu, void *p,
                         size_t size HEAPACCT(which_heap_t which))
 {
+#ifdef STATIC_LIBRARY
+    if (standalone_library) {
+        /* i#3316: Use regular malloc for better multi-thread performance and better
+         * interoperability with tools like sanitizers.
+         * We limit this to static DR b/c we can have a direct call to libc malloc
+         * there and b/c that is the common use case for standalone mode these days.
+         */
+        free(p);
+        return;
+    }
+#endif
     bool ok;
     if (p == NULL) {
         ASSERT(false && "attempt to free NULL");
@@ -3428,6 +3495,7 @@ global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
     if (heapmgt == &temp_heapmgt &&
         /* We prevent recrusion by checking for a field that heap_init writes. */
         !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
 #endif
@@ -4706,6 +4774,7 @@ heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t whi
     if (heapmgt == &temp_heapmgt &&
         /* We prevent recrusion by checking for a field that heap_init writes. */
         !heapmgt->global_heap_writable) {
+        /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
 #endif

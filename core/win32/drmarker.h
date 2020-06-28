@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,7 +70,10 @@ enum {
 #define DR_MARKER_VERSION_1 1
 #define DR_MARKER_VERSION_2 2
 
-#define WINDBG_CMD_MAX_LEN 2048
+/* The dr_marker_t struct must be <4096 for the PAGE_START assumptions of the
+ * marker location code to work.
+ */
+#define WINDBG_CMD_MAX_LEN 3072
 
 /* CAUTION: This structure is shared across processes, so any changes to it
  *          should only be field addtions.  NO DELETIONS ALLOWED; to obsolete

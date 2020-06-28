@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -95,6 +95,7 @@ DR_DISALLOW_UNSAFE_STATIC
 static char logsubdir[MAXIMUM_PATH];
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
+static file_t funclist_file = INVALID_FILE;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -145,7 +146,7 @@ typedef struct {
 /* For online simulation, we write to a single global pipe */
 static named_pipe_t ipc_pipe;
 
-#define MAX_INSTRU_SIZE 64 /* the max obj size of instr_t or its children */
+#define MAX_INSTRU_SIZE 128 /* the max obj size of instr_t or its children */
 static instru_t *instru;
 
 static client_id_t client_id;
@@ -250,6 +251,7 @@ drmemtrace_buffer_handoff(drmemtrace_handoff_func_t handoff_func,
 }
 
 static char modlist_path[MAXIMUM_PATH];
+static char funclist_path[MAXIMUM_PATH];
 
 drmemtrace_status_t
 drmemtrace_get_output_path(OUT const char **path)
@@ -266,6 +268,15 @@ drmemtrace_get_modlist_path(OUT const char **path)
     if (path == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     *path = modlist_path;
+    return DRMEMTRACE_SUCCESS;
+}
+
+drmemtrace_status_t
+drmemtrace_get_funclist_path(OUT const char **path)
+{
+    if (path == NULL)
+        return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+    *path = funclist_path;
     return DRMEMTRACE_SUCCESS;
 }
 
@@ -537,13 +548,19 @@ static void
 append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (data->seg_base == NULL)
+    if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     for (int i = 0; i < vec->size; i++) {
         BUF_PTR(data->seg_base) +=
             instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
                                   vec->entries[i].marker_value);
     }
+    /* In a filtered data-only trace, a block with no memrefs today still has
+     * a redzone check at the end guarding a clean call to memtrace(), but to
+     * be a litte safer in case that changes we also do a redzone check here.
+     */
+    if (BUF_PTR(data->seg_base) - data->buf_base > static_cast<ssize_t>(trace_buf_size))
+        memtrace(drcontext, false);
 }
 
 static void
@@ -883,9 +900,12 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
 
 static int
 instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t *where,
-                  reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, bool write,
-                  dr_pred_type_t pred)
+                  reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, int ref_index,
+                  bool write, dr_pred_type_t pred)
 {
+    if (op_instr_only_trace.get_value()) {
+        return adjust;
+    }
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {
@@ -899,7 +919,7 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     if (op_L0_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
     adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app, ref,
-                                       write, pred);
+                                       ref_index, write, pred);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
@@ -971,7 +991,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drmgr_disable_auto_predication(drcontext, bb);
 
     if (op_L0_filter.get_value() && ud->repstr &&
-        drmgr_is_first_instr(drcontext, instr)) {
+        drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         // XXX: the control flow added for repstr ends up jumping over the
         // aflags spill for the memref, yet it hits the lazily-delayed aflags
         // restore.  We don't have a great solution (repstr violates drreg's
@@ -991,7 +1011,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          ud->last_app_pc == instr_get_app_pc(instr)) &&
         ud->strex == NULL &&
         // Ensure we have an instr entry for the start of the bb.
-        !drmgr_is_first_instr(drcontext, instr))
+        !drmgr_is_first_nonlabel_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
 
     // FIXME i#1698: there are constraints for code between ldrex/strex pairs.
@@ -1012,7 +1032,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     // Optimization: delay the simple instr trace instrumentation if possible.
     // For offline traces we want a single instr entry for the start of the bb.
-    if ((!op_offline.get_value() || !drmgr_is_first_instr(drcontext, instr)) &&
+    if ((!op_offline.get_value() || !drmgr_is_first_nonlabel_instr(drcontext, instr)) &&
         !(instr_reads_memory(instr) || instr_writes_memory(instr)) &&
         // Avoid dropping trailing instrs
         !drmgr_is_last_instr(drcontext, instr) &&
@@ -1024,7 +1044,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
         ud->strex == NULL &&
         // Don't bundle the zero-rep-string-iter instr.
-        (!ud->repstr || !drmgr_is_first_instr(drcontext, instr)) &&
+        (!ud->repstr || !drmgr_is_first_nonlabel_instr(drcontext, instr)) &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
@@ -1081,7 +1101,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         adjust =
             instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, ud->strex);
         adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust, ud->strex,
-                                   instr_get_dst(ud->strex, 0), true,
+                                   instr_get_dst(ud->strex, 0), 0, true,
                                    instr_get_predicate(ud->strex));
         ud->strex = NULL;
     }
@@ -1101,7 +1121,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // ifetch and not any of the expansion instrs.  We instrument the first
     // one to handle a zero-iter loop.  For offline, we just record the pc; for
     // online we have to ignore "instr" here in instru_online::instrument_instr().
-    if (!ud->repstr || drmgr_is_first_instr(drcontext, instr)) {
+    if (!ud->repstr || drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);
@@ -1117,15 +1137,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         /* insert code to add an entry for each memory reference opnd */
         for (i = 0; i < instr_num_srcs(instr); i++) {
             if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
-                                           instr, instr_get_src(instr, i), false, pred);
+                adjust =
+                    instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust, instr,
+                                      instr_get_src(instr, i), i, false, pred);
             }
         }
 
         for (i = 0; i < instr_num_dsts(instr); i++) {
             if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
                 adjust = instrument_memref(drcontext, ud, bb, instr, reg_ptr, adjust,
-                                           instr, instr_get_dst(instr, i), true, pred);
+                                           instr, instr_get_dst(instr, i), i, true, pred);
             }
         }
         if (adjust != 0)
@@ -1222,6 +1243,7 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     trace_marker_type_t marker_type;
+    uintptr_t marker_val = 0;
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
     switch (info->type) {
@@ -1234,16 +1256,31 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     case DR_XFER_SIGNAL_DELIVERY:
     case DR_XFER_EXCEPTION_DISPATCHER:
     case DR_XFER_RAISE_DISPATCHER:
-    case DR_XFER_CALLBACK_DISPATCHER: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT; break;
+    case DR_XFER_CALLBACK_DISPATCHER:
+    case DR_XFER_RSEQ_ABORT: marker_type = TRACE_MARKER_TYPE_KERNEL_EVENT; break;
     case DR_XFER_SIGNAL_RETURN:
     case DR_XFER_CALLBACK_RETURN:
     case DR_XFER_CONTINUE:
     case DR_XFER_SET_CONTEXT_THREAD: marker_type = TRACE_MARKER_TYPE_KERNEL_XFER; break;
-    default: return;
+    case DR_XFER_CLIENT_REDIRECT: return;
+    default: DR_ASSERT(false && "unknown kernel xfer type"); return;
     }
     NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
+    /* TODO i3937: We need something similar to this for online too, to place signals
+     * inside instr bundles.
+     */
+    if (op_offline.get_value() && info->source_mcontext != nullptr) {
+        /* Enable post-processing to figure out the ordering of this xfer vs
+         * non-memref instrs in the bb.
+         */
+        uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
+            drcontext, info->source_mcontext->pc);
+        marker_val = static_cast<uintptr_t>(modoffs);
+        NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
+               info->source_mcontext->pc, marker_val);
+    }
     BUF_PTR(data->seg_base) +=
-        instru->append_marker(BUF_PTR(data->seg_base), marker_type, 0);
+        instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
     if (file_ops_func.handoff_buf == NULL)
         memtrace(drcontext, false);
 }
@@ -1360,7 +1397,7 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                             bool for_trace, bool translating, void *user_data)
 {
     uint num_instrs;
-    if (!drmgr_is_first_instr(drcontext, instr))
+    if (!drmgr_is_first_nonlabel_instr(drcontext, instr))
         return DR_EMIT_DEFAULT;
     num_instrs = (uint)(ptr_uint_t)user_data;
     drmgr_disable_auto_predication(drcontext, bb);
@@ -1446,8 +1483,28 @@ init_thread_in_process(void *drcontext)
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
         /* Write initial headers at the top of the first buffer. */
+        offline_file_type_t file_type = op_L0_filter.get_value()
+            ? OFFLINE_FILE_TYPE_FILTERED
+            : OFFLINE_FILE_TYPE_DEFAULT;
+        if (op_disable_optimizations.get_value()) {
+            file_type = static_cast<offline_file_type_t>(
+                file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
+        }
+        if (op_instr_only_trace.get_value() ||
+            // Data entries are removed from trace if -L0_filter and -L0D_size 0
+            (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
+            file_type = static_cast<offline_file_type_t>(
+                file_type | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
+        }
+        file_type = static_cast<offline_file_type_t>(
+            file_type |
+            IF_X86_ELSE(
+                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
+                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
+                            OFFLINE_FILE_TYPE_ARCH_ARM32)));
         data->init_header_size =
-            instru->append_thread_header(data->buf_base, dr_get_thread_id(drcontext));
+            reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
+                data->buf_base, dr_get_thread_id(drcontext), file_type);
         BUF_PTR(data->seg_base) =
             data->buf_base + data->init_header_size + buf_hdr_slots_size;
     } else {
@@ -1566,9 +1623,11 @@ event_exit(void)
     instru->~instru_t();
     dr_global_free(instru, MAX_INSTRU_SIZE);
 
-    if (op_offline.get_value())
+    if (op_offline.get_value()) {
         file_ops_func.close_file(module_file);
-    else
+        if (funclist_file != INVALID_FILE)
+            file_ops_func.close_file(funclist_file);
+    } else
         ipc_pipe.close();
 
     if (file_ops_func.exit_cb != NULL)
@@ -1661,7 +1720,14 @@ init_offline_dir(void)
     NULL_TERMINATE_BUFFER(modlist_path);
     module_file = file_ops_func.open_file(
         modlist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
-    return (module_file != INVALID_FILE);
+
+    dr_snprintf(funclist_path, BUFFER_SIZE_ELEMENTS(funclist_path), "%s%s%s", logsubdir,
+                DIRSEP, DRMEMTRACE_FUNCTION_LIST_FILENAME);
+    NULL_TERMINATE_BUFFER(funclist_path);
+    funclist_file = file_ops_func.open_file(
+        funclist_path, DR_FILE_WRITE_REQUIRE_NEW IF_UNIX(| DR_FILE_CLOSE_ON_FORK));
+
+    return (module_file != INVALID_FILE && funclist_file != INVALID_FILE);
 }
 
 #ifdef UNIX
@@ -1712,15 +1778,15 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     } else if (op_offline.get_value() && op_outdir.get_value().empty()) {
         FATAL("Usage error: outdir is required\nUsage:\n%s",
               droption_parser_t::usage_short(DROPTION_SCOPE_ALL).c_str());
+    } else if (!op_offline.get_value() &&
+               (op_record_heap.get_value() || !op_record_function.get_value().empty())) {
+        FATAL("Usage error: function recording is only supported for -offline\n");
     }
     if (op_L0_filter.get_value() &&
         ((!IS_POWER_OF_2(op_L0I_size.get_value()) && op_L0I_size.get_value() != 0) ||
          (!IS_POWER_OF_2(op_L0D_size.get_value()) && op_L0D_size.get_value() != 0))) {
         FATAL("Usage error: L0I_size and L0D_size must be 0 or powers of 2.");
     }
-
-    if (!func_trace_init(append_marker_seg_base))
-        DR_ASSERT(false);
 
     drreg_init_and_fill_vector(&scratch_reserve_vec, true);
 #ifdef X86
@@ -1738,9 +1804,13 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         /* we use placement new for better isolation */
         DR_ASSERT(MAX_INSTRU_SIZE >= sizeof(offline_instru_t));
         placement = dr_global_alloc(MAX_INSTRU_SIZE);
-        instru = new (placement)
-            offline_instru_t(insert_load_buf_ptr, op_L0_filter.get_value(),
-                             &scratch_reserve_vec, file_ops_func.write_file, module_file);
+        instru = new (placement) offline_instru_t(
+            insert_load_buf_ptr, op_L0_filter.get_value(), &scratch_reserve_vec,
+            file_ops_func.write_file, module_file, op_disable_optimizations.get_value());
+        if (op_use_physical.get_value()) {
+            /* TODO i#4014: Add support for this combination. */
+            FATAL("Usage error: -offline does not currently support -use_physical.");
+        }
     } else {
         void *placement;
         /* we use placement new for better isolation */
@@ -1770,6 +1840,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #endif
         if (!ipc_pipe.maximize_buffer())
             NOTIFY(1, "Failed to maximize pipe buffer: performance may suffer.\n");
+    }
+
+    if (op_offline.get_value() &&
+        !func_trace_init(append_marker_seg_base, file_ops_func.write_file,
+                         funclist_file)) {
+        FATAL("Failed to initialized function tracing.\n");
     }
 
     /* We need an extra for -L0_filter. */

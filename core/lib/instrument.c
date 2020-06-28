@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -43,12 +43,12 @@
 #include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 #include "instrument.h"
-#include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "ir_utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
 #include "../emit.h"
@@ -210,6 +210,9 @@ static callback_list_t fork_init_callbacks = {
     0,
 };
 #    endif
+static callback_list_t low_on_memory_callbacks = {
+    0,
+};
 static callback_list_t bb_callbacks = {
     0,
 };
@@ -822,6 +825,7 @@ free_all_callback_lists()
 #    ifdef UNIX
     free_callback_list(&fork_init_callbacks);
 #    endif
+    free_callback_list(&low_on_memory_callbacks);
     free_callback_list(&bb_callbacks);
     free_callback_list(&trace_callbacks);
 #    ifdef CUSTOM_TRACES
@@ -857,15 +861,7 @@ free_all_callback_lists()
 }
 
 void
-instrument_exit_post_sideline(void)
-{
-#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
-    DELETE_LOCK(client_thread_count_lock);
-#    endif
-}
-
-void
-instrument_exit(void)
+instrument_exit_event(void)
 {
     /* Note - currently own initexit lock when this is called (see PR 227619). */
 
@@ -876,6 +872,12 @@ instrument_exit(void)
              /* It seems the compiler is confused if we pass no var args
               * to the call_all macro.  Bogus NULL arg */
              NULL);
+}
+
+void
+instrument_exit(void)
+{
+    /* Note - currently own initexit lock when this is called (see PR 227619). */
 
     if (IF_DEBUG_ELSE(true, doing_detach)) {
         /* Unload all client libs and free any allocated storage */
@@ -894,6 +896,9 @@ instrument_exit(void)
     num_client_libs = 0;
 #    ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
+#    endif
+#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+    DELETE_LOCK(client_thread_count_lock);
 #    endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }
@@ -1119,6 +1124,18 @@ dr_unregister_fork_init_event(void (*func)(void *drcontext))
     return remove_callback(&fork_init_callbacks, (void (*)(void))func, true);
 }
 #    endif
+
+void
+dr_register_low_on_memory_event(void (*func)())
+{
+    add_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_unregister_low_on_memory_event(void (*func)())
+{
+    return remove_callback(&low_on_memory_callbacks, (void (*)(void))func, true);
+}
 
 void
 dr_register_module_load_event(void (*func)(void *drcontext, const module_data_t *info,
@@ -1399,6 +1416,12 @@ instrument_fork_init(dcontext_t *dcontext)
     call_all(fork_init_callbacks, int (*)(void *), (void *)dcontext);
 }
 #    endif
+
+void
+instrument_low_on_memory()
+{
+    call_all(low_on_memory_callbacks, int (*)());
+}
 
 /* PR 536058: split the exit event from thread cleanup, to provide a
  * dcontext in the process exit event
@@ -1791,6 +1814,44 @@ instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
     CLIENT_ASSERT(!restore_memory || res,
                   "translation should not fail for restore_memory=true");
     return res;
+}
+
+/* The client may need to translate memory (e.g., DRWRAP_REPLACE_RETADDR using
+ * sentinel addresses outside of the code cache as targets) even when the register
+ * state already contains application values.
+ */
+bool
+instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_memory,
+                                            INOUT priv_mcontext_t *mcontext,
+                                            OUT dr_mcontext_t *client_mcontext)
+{
+    if (!dr_xl8_hook_exists())
+        return true;
+    dr_restore_state_info_t client_info;
+    dr_mcontext_init(client_mcontext);
+    priv_mcontext_to_dr_mcontext(client_mcontext, mcontext);
+    client_info.raw_mcontext = client_mcontext;
+    client_info.raw_mcontext_valid = true;
+    client_info.mcontext = client_mcontext;
+    client_info.fragment_info.tag = NULL;
+    client_info.fragment_info.cache_start_pc = NULL;
+    client_info.fragment_info.is_trace = false;
+    client_info.fragment_info.app_code_consistent = true;
+    bool res = instrument_restore_state(dcontext, restore_memory, &client_info);
+    dr_mcontext_to_priv_mcontext(mcontext, client_mcontext);
+    return res;
+}
+
+/* The large dr_mcontext_t on the stack makes a difference, so we provide two
+ * versions to avoid a double alloc on the same callstack.
+ */
+bool
+instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
+                                   INOUT priv_mcontext_t *mcontext)
+{
+    dr_mcontext_t client_mcontext;
+    return instrument_restore_nonfcache_state_prealloc(dcontext, restore_memory, mcontext,
+                                                       &client_mcontext);
 }
 
 #    ifdef CUSTOM_TRACES
@@ -2723,10 +2784,81 @@ dr_get_application_name(void)
 #    endif
 }
 
+void
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code)
+{
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+
+    dcontext->client_data->error_code = error_code;
+}
+
+dr_error_code_t
+dr_get_error_code(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+
+    CLIENT_ASSERT(dcontext != NULL, "invalid drcontext");
+    return dcontext->client_data->error_code;
+}
+
+int
+dr_num_app_args(void)
+{
+    /* XXX i#2662: Add support for Windows. */
+    return num_app_args();
+}
+
+int
+dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+{
+    /* XXX i#2662: Add support for Windows. */
+    return get_app_args(args_array, (int)args_count);
+}
+
+const char *
+dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
+{
+    if (app_arg == NULL) {
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+
+    switch (app_arg->encoding) {
+    case DR_APP_ARG_CSTR_COMPAT: return (char *)app_arg->start;
+    case DR_APP_ARG_UTF_16:
+        /* XXX i#2662: To implement using utf16_to_utf8(). */
+        ASSERT_NOT_IMPLEMENTED(false);
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+        break;
+    default: set_client_error_code(NULL, DR_ERROR_UNKNOWN_ENCODING);
+    }
+
+    return NULL;
+}
+
 DR_API process_id_t
 dr_get_process_id(void)
 {
     return (process_id_t)get_process_id();
+}
+
+DR_API process_id_t
+dr_get_process_id_from_drcontext(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    CLIENT_ASSERT(drcontext != NULL,
+                  "dr_get_process_id_from_drcontext: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_get_process_id_from_drcontext: drcontext is invalid");
+#    ifdef UNIX
+    return dcontext->owning_process;
+#    else
+    return dr_get_process_id();
+#    endif
 }
 
 #    ifdef UNIX
@@ -3183,7 +3315,6 @@ dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size)
     return res;
 }
 
-#    ifdef UNIX
 DR_API
 /* With ld's -wrap option, we can supply a replacement for malloc.
  * This routine allocates memory from DR's global memory pool.  Unlike
@@ -3230,7 +3361,13 @@ __wrap_free(void *mem)
 {
     redirect_free(mem);
 }
-#    endif
+
+DR_API
+char *
+__wrap_strdup(const char *str)
+{
+    return redirect_strdup(str);
+}
 
 DR_API
 bool
@@ -3877,6 +4014,36 @@ dr_atomic_add64_return_sum(volatile int64 *dest, int64 val)
 }
 #    endif
 
+DR_API
+int
+dr_atomic_load32(volatile int *src)
+{
+    return atomic_aligned_read_int(src);
+}
+
+DR_API
+void
+dr_atomic_store32(volatile int *dest, int val)
+{
+    ATOMIC_4BYTE_ALIGNED_WRITE(dest, val, false);
+}
+
+#    ifdef X64
+DR_API
+int64
+dr_atomic_load64(volatile int64 *src)
+{
+    return atomic_aligned_read_int64(src);
+}
+
+DR_API
+void
+dr_atomic_store64(volatile int64 *dest, int64 val)
+{
+    ATOMIC_8BYTE_ALIGNED_WRITE(dest, val, false);
+}
+#    endif
+
 /***************************************************************************
  * MODULES
  */
@@ -4151,7 +4318,10 @@ dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
 bool
 dr_unmap_executable_file(byte *base, size_t size)
 {
-    return d_r_unmap_file(base, size);
+    if (standalone_library)
+        return os_unmap_file(base, size);
+    else
+        return d_r_unmap_file(base, size);
 }
 
 DR_API
@@ -5486,13 +5656,13 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     else
         encode_pc = vmcode_get_start();
     dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where, encode_pc);
-#ifdef X64
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
-     * aligned, which is what insert_meta_call_vargs requires. */
+     * aligned, which is what insert_meta_call_vargs requires.
+     */
     if (cci.should_align) {
-        CLIENT_ASSERT(ALIGNED(dstack_offs, 16), "internal error: bad stack alignment");
+        CLIENT_ASSERT(ALIGNED(dstack_offs, get_ABI_stack_alignment()),
+                      "internal error: bad stack alignment");
     }
-#endif
     if (save_fpstate) {
         /* save on the stack: xref PR 202669 on clients using more stack */
         buf_sz = proc_fpstate_save_size();
@@ -5689,6 +5859,10 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
 
     CLIENT_ASSERT(reg_is_pointer_sized(reg), "dr_save_reg requires pointer-sized gpr");
 
+#    ifdef AARCH64
+    CLIENT_ASSERT(reg != DR_REG_XSP, "dr_save_reg: store from XSP is not supported");
+#    endif
+
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
@@ -5730,6 +5904,10 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "dr_restore_reg requires a pointer-sized gpr");
+
+#    ifdef AARCH64
+    CLIENT_ASSERT(reg != DR_REG_XSP, "dr_restore_reg: load into XSP is not supported");
+#    endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
@@ -6031,6 +6209,23 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
         ilist, where,
         INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV), opnd_create_reg(reg)));
 #    endif /* X86/ARM/AARCH64 */
+}
+
+DR_API reg_t
+dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag)
+{
+#    ifdef AARCHXX
+    cur_xflags &= ~(EFLAGS_ARITH);
+    cur_xflags |= saved_xflag;
+#    elif defined(X86)
+    uint sahf = (saved_xflag & 0xff00) >> 8;
+    cur_xflags &= ~(EFLAGS_ARITH);
+    cur_xflags |= sahf;
+    if (TEST(1, saved_xflag)) /* seto */
+        cur_xflags |= EFLAGS_OF;
+#    endif
+
+    return cur_xflags;
 }
 
 /* providing functionality of old -instr_calls and -instr_branches flags
@@ -7442,33 +7637,6 @@ dr_trace_exists_at(void *drcontext, void *tag)
 #    endif
     return trace;
 }
-
-#    ifdef UNSUPPORTED_API
-DR_API
-/* All basic blocks created after this routine is called will have a prefix
- * that restores the ecx register.  Exit ctis can be made to target this prefix
- * instead of the normal entry point by using the instr_branch_set_prefix_target()
- * routine.
- * WARNING: this routine should almost always be called during client
- * initialization, since having a mixture of prefixed and non-prefixed basic
- * blocks can lead to trouble.
- */
-void
-dr_add_prefixes_to_basic_blocks(void)
-{
-    if (DYNAMO_OPTION(coarse_units)) {
-        /* coarse_units doesn't support prefixes in general.
-         * the variation by addr prefix according to processor type
-         * is also not stored in pcaches.
-         */
-        CLIENT_ASSERT(false,
-                      "dr_add_prefixes_to_basic_blocks() not supported with -opt_memory");
-    }
-    options_make_writable();
-    dynamo_options.bb_prefixes = true;
-    options_restore_readonly();
-}
-#    endif /* UNSUPPORTED_API */
 
 DR_API
 /* Insert code to get the segment base address pointed at by seg into

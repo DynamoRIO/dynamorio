@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -82,6 +82,8 @@ file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
   get_filename_component(dir ${dir} PATH)
   # FIXME i#1874: named pipe not working on Android.
+  # We should build anyway since -offline should work.
+  # This also prevents us from building the docs on Android!
   if (NOT ANDROID OR NOT ${dir} MATCHES "drcachesim")
     # FIXME i#1732: drcpusim has no ARM support yet
     if (NOT ANDROID OR NOT ${dir} MATCHES "drcpusim")

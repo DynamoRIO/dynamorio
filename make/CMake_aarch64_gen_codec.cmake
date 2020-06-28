@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2020 Google, Inc.   All rights reserved.
 # Copyright (c) 2018 Arm Limited    All rights reserved.
 # **********************************************************
 
@@ -43,12 +44,12 @@ set(AARCH64_CODEC_GEN_SRCS
 )
 set_source_files_properties(${AARCH64_CODEC_GEN_SRCS} PROPERTIES GENERATED true)
 
-set(CODEC_TXT "${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt")
+set(CODEC_TXT "${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.txt")
 
 execute_process(
   COMMAND ${PYTHON_EXECUTABLE}
           "${PROJECT_SOURCE_DIR}/make/aarch64_check_codec_order.py"
-          "${PROJECT_SOURCE_DIR}/core/arch/aarch64"
+          "${PROJECT_SOURCE_DIR}/core/ir/aarch64"
   RESULT_VARIABLE CHECK_RC
   OUTPUT_VARIABLE CHECK_MSG
 )
@@ -60,11 +61,11 @@ endif()
 # Auto-generate decoder files from codec.txt.
 add_custom_command(
   OUTPUT  ${AARCH64_CODEC_GEN_SRCS}
-  DEPENDS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
-          ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
+  DEPENDS ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.py
+          ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.txt
   COMMAND ${PYTHON_EXECUTABLE}
-  ARGS ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.py
-       ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}/codec.txt
+  ARGS ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.py
+       ${PROJECT_SOURCE_DIR}/core/ir/${ARCH_NAME}/codec.txt
        ${PROJECT_BINARY_DIR}
   VERBATIM # recommended: p260
 )

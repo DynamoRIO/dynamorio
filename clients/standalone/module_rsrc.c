@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2006 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -78,5 +79,6 @@ main(int argc, char *argv[])
     if (info.product_name != NULL)
         printf("Product Name = \"%S\"\n", info.product_name);
 
+    dr_standalone_exit();
     return 0;
 }

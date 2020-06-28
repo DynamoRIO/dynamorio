@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,22 +49,22 @@ public:
     {
     }
     virtual bool
-    init(cache_t **caches_, int num_snooped_caches_);
+    init(cache_t **caches, int num_snooped_caches);
     virtual void
-    snoop(addr_t tag, int id_in, bool is_write);
+    snoop(addr_t tag, int id, bool is_write);
     virtual void
-    snoop_eviction(addr_t tag, int id_in);
+    snoop_eviction(addr_t tag, int id);
     void
     print_stats(void);
 
 protected:
     // XXX: This initial coherence implementation uses a perfect snoop filter.
-    std::unordered_map<addr_t, coherence_table_entry_t> coherence_table;
-    cache_t **caches;
-    int num_snooped_caches;
-    int_least64_t num_writes;
-    int_least64_t num_writebacks;
-    int_least64_t num_invalidates;
+    std::unordered_map<addr_t, coherence_table_entry_t> coherence_table_;
+    cache_t **caches_;
+    int num_snooped_caches_;
+    int_least64_t num_writes_;
+    int_least64_t num_writebacks_;
+    int_least64_t num_invalidates_;
 };
 
 #endif /* _SNOOP_FILTER_H_ */

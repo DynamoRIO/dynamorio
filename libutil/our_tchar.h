@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,6 +43,7 @@
 #    define _tcslen strlen
 #    define _tcscmp strcmp
 #    define _tcsncpy strncpy
+/* TODO: Switch to DR's snprintf for consistent behavior, like dr_config.c has done. */
 #    define _sntprintf snprintf
 #    define _tcstoul strtoul
 #    define _TEXT(str) str

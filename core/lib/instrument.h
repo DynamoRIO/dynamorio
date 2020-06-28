@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,6 +68,8 @@ instrument_load_client_libs(void);
 void
 instrument_init(void);
 void
+instrument_exit_event(void);
+void
 instrument_exit(void);
 bool
 is_in_client_lib(app_pc addr);
@@ -103,6 +105,13 @@ instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags);
 bool
 instrument_restore_state(dcontext_t *dcontext, bool restore_memory,
                          dr_restore_state_info_t *info);
+bool
+instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
+                                   INOUT priv_mcontext_t *mcontext);
+bool
+instrument_restore_nonfcache_state_prealloc(dcontext_t *dcontext, bool restore_memory,
+                                            INOUT priv_mcontext_t *mcontext,
+                                            OUT dr_mcontext_t *client_mcontext);
 
 module_data_t *
 copy_module_area_to_module_data(const module_area_t *area);
@@ -123,6 +132,8 @@ void
 instrument_post_syscall(dcontext_t *dcontext, int sysnum);
 bool
 instrument_invoke_another_syscall(dcontext_t *dcontext);
+void
+instrument_low_on_memory();
 /* returns whether a client event was called which might have changed the context */
 bool
 instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
@@ -134,9 +145,6 @@ instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
 
 void
 instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
-/* post instrument_event() cleanup */
-void
-instrument_exit_post_sideline(void);
 #    ifdef WINDOWS
 bool
 instrument_exception(dcontext_t *dcontext, dr_exception_t *exception);
@@ -155,6 +163,9 @@ void
 instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
                               security_violation_t violation, action_type_t *action);
 #    endif
+
+void
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code);
 
 #endif /* CLIENT_INTERFACE */
 

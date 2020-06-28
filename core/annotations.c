@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -604,6 +604,25 @@ dr_annotation_register_return(const char *annotation_name, void *return_value)
         handler->receiver_list = receiver;
     } else {
         result = false; /* Existing handler prevents the new return value. */
+    }
+    TABLE_RWLOCK(handlers, write, unlock);
+    return result;
+}
+
+bool
+dr_annotation_pass_pc(const char *annotation_name)
+{
+    bool result = true;
+    dr_annotation_handler_t *handler;
+
+    TABLE_RWLOCK(handlers, write, lock);
+    ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
+    handler = (dr_annotation_handler_t *)strhash_hash_lookup(GLOBAL_DCONTEXT, handlers,
+                                                             annotation_name);
+    if (handler == NULL) {
+        result = false;
+    } else {
+        handler->pass_pc_in_slot = true;
     }
     TABLE_RWLOCK(handlers, write, unlock);
     return result;

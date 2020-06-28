@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2606,7 +2606,7 @@ translate_sigcontext(dcontext_t *dcontext, kernel_ucontext_t *uc, bool avoid_fai
         success = true;
     } else {
         if (avoid_failure) {
-            ASSERT_NOT_REACHED(); /* is ok to break things, is UNIX :) */
+            ASSERT_NOT_REACHED(); /* Raise a visible debug error: sthg is wrong. */
             /* FIXME : what to do? reg state might be wrong at least get pc */
             if (safe_is_in_fcache(dcontext, (cache_pc)sc->SC_XIP, (app_pc)sc->SC_XSP)) {
                 sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, f);
@@ -3393,9 +3393,14 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         sig_full_cxt_t sc_full;
         sig_full_initialize(&sc_full, uc);
         sc->SC_XIP = (ptr_uint_t)next_pc;
+        /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
+        ptr_uint_t official_xl8 = sc_interrupted->SC_XIP;
+        sc_interrupted->SC_XIP =
+            (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
         if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_interrupted_full,
                                    NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL, sig))
             next_pc = canonicalize_pc_target(dcontext, (app_pc)sc->SC_XIP);
+        sc_interrupted->SC_XIP = official_xl8;
     }
 #endif
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
@@ -5012,8 +5017,14 @@ master_signal_handler_C(byte *xsp)
         if (can_always_delay[sig])
             return;
 
-        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 2, get_application_name(),
-                                    get_application_pid());
+        char signum_str[8];
+        snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
+        NULL_TERMINATE_BUFFER(signum_str);
+        char tid_str[16];
+        snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
+        NULL_TERMINATE_BUFFER(tid_str);
+        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 4, get_application_name(),
+                                    get_application_pid(), signum_str, tid_str);
     }
 
     /* we may be entering dynamo from code cache! */
@@ -5700,10 +5711,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 #ifdef CLIENT_INTERFACE
     mcontext->pc = dcontext->next_tag;
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
+    /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
+    ptr_uint_t official_xl8 = sc->SC_XIP;
+    sc->SC_XIP =
+        (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
     if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_full, NULL, NULL,
                                dcontext->next_tag, mcontext->xsp, osc_empty, mcontext,
                                sig))
         dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
+    sc->SC_XIP = official_xl8;
 #endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to " PFX "\n", xsp);
@@ -7190,7 +7206,9 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #ifdef MACOS
         ASSERT(sizeof(notify_var->sem) == 4);
 #endif
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86)
 #    ifndef MACOS
         /* i#2632: recent clang for 32-bit annoyingly won't do the right thing for
          * "jmp dynamorio_condvar_wake_and_jmp" and leaves relocs so we ensure it's PIC.
@@ -7218,7 +7236,9 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #endif
     } else {
         ksynch_set_value(notify_var, 1);
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86)
         asm("mov %0, %%" ASM_XSP : : "m"(xsp));
         asm("mov %0, %%" ASM_XAX : : "m"(continuation));
         asm("jmp *%" ASM_XAX);

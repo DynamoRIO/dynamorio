@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -90,12 +90,6 @@ struct _os_privmod_data_t {
     app_pc tls_image;    /* tls block address in memory */
 };
 
-#ifdef DEBUG
-/* i#975: used for debug checks for static-link-ready clients. */
-#    define DR_DISALLOW_UNSAFE_STATIC_NAME "_DR_DISALLOW_UNSAFE_STATIC_"
-extern bool disallow_unsafe_static_calls;
-#endif
-
 #ifdef MACOS
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
  * There is no official support for that on Linux or Windows and for now we do
@@ -104,10 +98,12 @@ extern bool disallow_unsafe_static_calls;
 #    ifdef X64
 typedef struct mach_header_64 mach_header_t;
 typedef struct segment_command_64 segment_command_t;
+typedef struct section_64 section_t;
 typedef struct nlist_64 nlist_t;
 #    else
 typedef struct mach_header mach_header_t;
 typedef struct segment_command segment_command_t;
+typedef struct section section_t;
 typedef struct nlist nlist_t;
 #    endif
 bool

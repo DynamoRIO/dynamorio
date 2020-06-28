@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited.  All rights reserved.
  * **********************************************************/
 
@@ -39,6 +39,14 @@
 
 #define GD GLOBAL_DCONTEXT
 
+#define ASSERT(x)                                                                    \
+    ((void)((!(x)) ? (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
+                      abort(), 0)                                                    \
+                   : 0))
+
+#define BUFFER_SIZE_BYTES(buf) sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf) (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
+
 static void
 test_disasm(void)
 {
@@ -49,10 +57,45 @@ test_disasm(void)
         pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
 }
 
+/* XXX: It would be nice to share some of this code w/ the other
+ * platforms but we'd need cross-platform register references or keep
+ * the encoded instr around and compare operands or sthg.
+ */
+static void
+test_noalloc(void)
+{
+    byte buf[128];
+    byte *pc, *end;
+
+    instr_t *to_encode = XINST_CREATE_load(GD, opnd_create_reg(DR_REG_X0),
+                                           OPND_CREATE_MEMPTR(DR_REG_X0, 0));
+    end = instr_encode(GD, to_encode, buf);
+    ASSERT(end - buf < BUFFER_SIZE_ELEMENTS(buf));
+    instr_destroy(GD, to_encode);
+
+    instr_noalloc_t noalloc;
+    instr_noalloc_init(GD, &noalloc);
+    instr_t *instr = instr_from_noalloc(&noalloc);
+    pc = decode(GD, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_X0);
+
+    instr_reset(GD, instr);
+    pc = decode(GD, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_X0);
+
+    /* There should be no leak reported even w/o a reset b/c there's no
+     * extra heap.
+     */
+}
+
 int
 main()
 {
     test_disasm();
+
+    test_noalloc();
 
     printf("done\n");
 

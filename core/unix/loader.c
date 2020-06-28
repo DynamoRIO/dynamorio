@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -39,7 +39,7 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
-#include "../arch/instr.h" /* SEG_GS/SEG_FS */
+#include "../ir/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h" /* HEAPACCT */
@@ -497,7 +497,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
     /* NOTE: all but the client lib will be added to DR areas list b/c using
      * d_r_map_file()
      */
-    if (dynamo_heap_initialized) {
+    if (dynamo_heap_initialized && !standalone_library) {
         map_func = d_r_map_file;
         unmap_func = d_r_unmap_file;
         prot_func = set_protection;
@@ -516,7 +516,12 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         ELF_ALTARCH_HEADER_TYPE *altarch = (ELF_ALTARCH_HEADER_TYPE *)elf_header;
         if (!TEST(MODLOAD_NOT_PRIVLIB, flags) && elf_header->e_version == 1 &&
             altarch->e_ehsize == sizeof(ELF_ALTARCH_HEADER_TYPE) &&
-            altarch->e_machine == IF_X64_ELSE(EM_386, EM_X86_64)) {
+            altarch->e_machine ==
+                IF_X64_ELSE(IF_AARCHXX_ELSE(EM_ARM, EM_386),
+                            IF_AARCHXX_ELSE(EM_AARCH64, EM_X86_64))) {
+            /* XXX i#147: Should we try some path substs like s/lib32/lib64/?
+             * Maybe it's better to error out to avoid loading some unintended lib.
+             */
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3, get_application_name(),
                    get_application_pid(), filename);
         }
@@ -597,7 +602,7 @@ privload_process_imports(privmod_t *mod)
 }
 
 bool
-privload_call_entry(privmod_t *privmod, uint reason)
+privload_call_entry(dcontext_t *dcontext, privmod_t *privmod, uint reason)
 {
     os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
     ASSERT(os_get_priv_tls_base(NULL, TLS_REG_LIB) != NULL);
@@ -729,6 +734,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
     ASSERT(opd != NULL);
     dyn = (ELF_DYNAMIC_ENTRY_TYPE *)opd->dyn;
     strtab = (char *)opd->os_data.dynstr;
+    bool lib_found = false;
     /* support $ORIGIN expansion to lib's current directory */
     while (dyn->d_tag != DT_NULL) {
         if (dyn->d_tag == (runpath ? DT_RUNPATH : DT_RPATH)) {
@@ -754,13 +760,10 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                              len - strlen(RPATH_ORIGIN) - pre_len,
                              origin + strlen(RPATH_ORIGIN));
                     NULL_TERMINATE_BUFFER(path);
-                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 } else {
                     snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s", len, list);
                     NULL_TERMINATE_BUFFER(path);
-                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                 }
-                filename[MAXIMUM_PATH - 1] = 0;
 #    ifdef CLIENT_INTERFACE
                 if (mod->is_client) {
                     /* We are adding a client's lib rpath to the general search path. This
@@ -786,11 +789,19 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     }
                 }
 #    endif
-                LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
-                    filename);
-                if (os_file_exists(filename, false /*!is_dir*/) &&
-                    module_file_has_module_header(filename)) {
-                    return true;
+                if (!lib_found) {
+                    snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
+                    filename[MAXIMUM_PATH - 1] = 0;
+                    LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__,
+                        filename);
+                    if (os_file_exists(filename, false /*!is_dir*/) &&
+                        module_file_has_module_header(filename)) {
+#    ifdef CLIENT_INTERFACE
+                        lib_found = true;
+#    else
+                        return true;
+#    endif
+                    }
                 }
                 list += len;
                 if (sep != NULL)
@@ -799,6 +810,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
         }
         ++dyn;
     }
+    return lib_found;
 #else
     /* XXX i#1285: implement MacOS private loader */
 #endif
@@ -1230,19 +1242,6 @@ privload_fill_os_module_info(app_pc base, OUT app_pc *out_base /* relative pc */
  * Function Redirection
  */
 
-#ifdef DEBUG
-/* i#975: used for debug checks for static-link-ready clients. */
-bool disallow_unsafe_static_calls;
-#endif
-
-void
-loader_allow_unsafe_static_behavior(void)
-{
-#ifdef DEBUG
-    disallow_unsafe_static_calls = false;
-#endif
-}
-
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
@@ -1346,9 +1345,13 @@ static const redirect_import_t redirect_imports[] = {
     { "malloc", (app_pc)redirect_malloc },
     { "free", (app_pc)redirect_free },
     { "realloc", (app_pc)redirect_realloc },
-/* FIXME: we should also redirect functions including:
- * malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
- * Any other functions need to be redirected?
+    { "strdup", (app_pc)redirect_strdup },
+/* TODO i#4243: we should also redirect functions including:
+ * + malloc_usable_size, memalign, valloc, mallinfo, mallopt, etc.
+ * + tcmalloc: tc_malloc, tc_free, etc.
+ * + __libc_malloc, __libc_free, etc.
+ * + OSX: malloc_zone_malloc, etc.?  Or just malloc_create_zone?
+ * + C++ operators in case they don't just call libc malloc?
  */
 #if defined(LINUX) && !defined(ANDROID)
     { "__tls_get_addr", (app_pc)redirect___tls_get_addr },
@@ -1391,6 +1394,7 @@ static const redirect_import_t redirect_debug_imports[] = {
     { "malloc", (app_pc)redirect_malloc_initonly },
     { "free", (app_pc)redirect_free_initonly },
     { "realloc", (app_pc)redirect_realloc_initonly },
+    { "strdup", (app_pc)redirect_strdup_initonly },
 };
 #    define REDIRECT_DEBUG_IMPORTS_NUM \
         (sizeof(redirect_debug_imports) / sizeof(redirect_debug_imports[0]))
@@ -1518,8 +1522,6 @@ reserve_brk(app_pc post_app)
     if (getenv(DYNAMORIO_VAR_NO_EMULATE_BRK) == NULL) {
         /* i#1004: we're going to emulate the brk via our own mmap.
          * Reserve the initial brk now before any of DR's mmaps to avoid overlap.
-         * XXX: reserve larger APP_BRK_GAP here and then unmap back to 1 page
-         * in d_r_os_init() to ensure no DR mmap limits its size?
          */
         dynamo_options.emulate_brk = true; /* not parsed yet */
         init_emulated_brk(post_app);
@@ -1636,8 +1638,16 @@ privload_mem_is_elf_so_header(byte *mem)
     if (elf_hdr->e_type != ET_DYN)
         return false;
     /* ARM or X86 */
-    if (elf_hdr->e_machine !=
-        IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386), IF_X64_ELSE(EM_AARCH64, EM_ARM)))
+    /* i#1684: We do allow mixing arches of the same bitwidth. See the i#1684
+     * comment in is_elf_so_header_common().
+     */
+    if (
+#        ifdef X64
+        elf_hdr->e_machine != EM_X86_64 && elf_hdr->e_machine != EM_AARCH64
+#        else
+        elf_hdr->e_machine != EM_386 && elf_hdr->e_machine != EM_ARM
+#        endif
+    )
         return false;
     if (elf_hdr->e_ehsize != sizeof(ELF_HEADER_TYPE))
         return false;
@@ -1903,6 +1913,11 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      * have to tell get_application_name() to use this path.
      */
     set_executable_path(exe_path);
+
+    /* XXX i#2662: Currently, we only support getting args for early injection.
+     * Add support for late injection.
+     */
+    set_app_args((int *)argc, argv);
 
     success = elf_loader_read_headers(&exe_ld, exe_path);
     apicheck(success,

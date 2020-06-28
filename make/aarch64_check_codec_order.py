@@ -31,7 +31,7 @@
 # DAMAGE.
 
 # Script to check the order of operands in codec.txt and codec.c
-#   Usage: python aarch64_codec_codec_order.py <path to core/arch/aarch64/>
+#   Usage: python aarch64_codec_codec_order.py <path to core/ir/aarch64/>
 
 
 import sys

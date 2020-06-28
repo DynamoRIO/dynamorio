@@ -20,6 +20,7 @@ All done
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions
+     .* total unique \(fetched\) instructions
      .* total non-fetched instructions
      .* total prefetches
      .* total data loads
@@ -35,9 +36,10 @@ Total counts:
      .* total function return address markers
      .* total function argument markers
      .* total function return value markers
-           0 total other markers
+           1 total other markers
 Thread .* counts:
      .* \(fetched\) instructions
+     .* unique \(fetched\) instructions
      .* non-fetched instructions
      .* prefetches
      .* data loads
@@ -52,4 +54,4 @@ Thread .* counts:
      .* function return address markers
      .* function argument markers
      .* function return value markers
-           0 other markers
+           1 other markers

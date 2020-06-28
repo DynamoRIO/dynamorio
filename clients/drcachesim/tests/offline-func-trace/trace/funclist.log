@@ -1,0 +1,3 @@
+0,1,0x00007f3ac9a2a95a,tool.fib_plus!fib
+1,2,0x00007f3ac9a2a92f,noret,tool.fib_plus!noret_func
+2,0,0x00007f3ac9a2a924,tool.fib_plus!noargs

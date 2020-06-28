@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -170,8 +170,12 @@ typedef enum {
 typedef enum {
     /**
      * The subsequent instruction is the start of a handler for a kernel-initiated
-     * event: a signal handler on UNIX, or an APC, exception, or callback dispatcher
-     * on Windows.
+     * event: a signal handler or restartable sequence abort handler on UNIX, or an
+     * APC, exception, or callback dispatcher on Windows.
+     * The value holds the module offset of the interruption point PC,
+     * which is used in post-processing.  The value is 0 for some types, namely
+     * Windows callbacks and Linux rseq aborts, but these can be assumed to target
+     * the start of a block and so there is no loss of accuracy when post-processing.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
@@ -224,6 +228,22 @@ typedef enum {
      * marker entry
      */
     TRACE_MARKER_TYPE_FUNC_RETVAL,
+
+    /* This is a non-public type only present in an offline raw trace. To support a
+     * full 64-bit marker value in an offline trace where
+     * offline_entry_t.extended.valueA contains <64 bits, we use two consecutive
+     * entries.  We rely on these being adjacent in the trace.  This entry must come
+     * first, and its valueA is left-shited 32 and then OR-ed with the subsequent
+     * entry's valueA to produce the final marker value.
+     */
+    TRACE_MARKER_TYPE_SPLIT_VALUE,
+
+    /**
+     * The marker value contains the OFFLINE_FILE_TYPE_* bitfields of type
+     * #offline_file_type_t identifying the architecture and other key high-level
+     * attributes of the trace.
+     */
+    TRACE_MARKER_TYPE_FILETYPE,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -317,7 +337,9 @@ typedef enum {
 // Sub-type when the primary type is OFFLINE_TYPE_EXTENDED.
 // These differ in what they store in offline_entry_t.extended.value.
 typedef enum {
-    // The initial entry in the file.  The valueA field holds the version.
+    // The initial entry in the file.  The valueA field holds the version
+    // (OFFLINE_FILE_VERSION*) while valueB holds the type
+    // (OFFLINE_FILE_TYPE*).
     OFFLINE_EXT_TYPE_HEADER,
     // The final entry in the file.  The value fields are 0.
     OFFLINE_EXT_TYPE_FOOTER,
@@ -337,7 +359,60 @@ typedef enum {
 #define PC_INSTR_COUNT_BITS 12
 #define PC_TYPE_BITS 3
 
-#define OFFLINE_FILE_VERSION 2
+#define OFFLINE_FILE_VERSION_NO_ELISION 2
+#define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
+#define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE
+
+/**
+ * Bitfields used to describe the high-level characteristics of both an
+ * offline final trace and a raw not-yet-postprocessed trace.
+ * In a final trace these are stored in a marker of type #TRACE_MARKER_TYPE_FILETYPE.
+ */
+typedef enum {
+    OFFLINE_FILE_TYPE_DEFAULT = 0x00,
+    OFFLINE_FILE_TYPE_FILTERED = 0x01, /**< Addresses filtered online. */
+    OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS = 0x02,
+    OFFLINE_FILE_TYPE_INSTRUCTION_ONLY = 0x04, /**< Trace has no data references. */
+    OFFLINE_FILE_TYPE_ARCH_AARCH64 = 0x08,     /**< Recorded on AArch64. */
+    OFFLINE_FILE_TYPE_ARCH_ARM32 = 0x10,       /**< Recorded on ARM (32-bit). */
+    OFFLINE_FILE_TYPE_ARCH_X86_32 = 0x20,      /**< Recorded on x86 (32-bit). */
+    OFFLINE_FILE_TYPE_ARCH_X86_64 = 0x40,      /**< Recorded on x86 (64-bit). */
+    OFFLINE_FILE_TYPE_ARCH_ALL = OFFLINE_FILE_TYPE_ARCH_AARCH64 |
+        OFFLINE_FILE_TYPE_ARCH_ARM32 | OFFLINE_FILE_TYPE_ARCH_X86_32 |
+        OFFLINE_FILE_TYPE_ARCH_X86_64, /**< All possible architecture types. */
+    // For raw files, this is currently stored in an 8-bit field.
+    // If we run out of flags we should swap the version to be in valueB and
+    // the flags in valueA, leaving the bottom few bits of valueA for compatibility
+    // with old versions.
+} offline_file_type_t;
+
+static inline const char *
+trace_arch_string(offline_file_type_t type)
+{
+    return TESTANY(OFFLINE_FILE_TYPE_ARCH_AARCH64, type)
+        ? "aarch64"
+        : (TESTANY(OFFLINE_FILE_TYPE_ARCH_ARM32, type)
+               ? "arm"
+               : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_32, type)
+                      ? "i386"
+                      : (TESTANY(OFFLINE_FILE_TYPE_ARCH_X86_64, type) ? "x86_64"
+                                                                      : "unspecified")));
+}
+
+/* We have non-client targets including this header that do not include API
+ * headers defining IF_X86_ELSE, etc.  Those don't need this function so we
+ * simply exclude them.
+ */
+#ifdef IF_X86_ELSE
+static inline offline_file_type_t
+build_target_arch_type()
+{
+    return IF_X86_ELSE(
+        IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
+        IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32));
+}
+#endif
 
 START_PACKED_STRUCTURE
 struct _offline_entry_t {
@@ -378,5 +453,20 @@ struct _offline_entry_t {
     };
 } END_PACKED_STRUCTURE;
 typedef struct _offline_entry_t offline_entry_t;
+
+/**
+ * The name of the file in -offline mode where module data is written.
+ * Its creation can be customized using drmemtrace_custom_module_data()
+ * and then modified before passing to raw2trace via
+ * drmodtrack_add_custom_data() and drmodtrack_offline_write().
+ * Use drmemtrace_get_modlist_path() to obtain the full path.
+ */
+#define DRMEMTRACE_MODULE_LIST_FILENAME "modules.log"
+
+/**
+ * The name of the file in -offline mode where function tracing names
+ * are written.  Use drmemtrace_get_funclist_path() to obtain the full path.
+ */
+#define DRMEMTRACE_FUNCTION_LIST_FILENAME "funclist.log"
 
 #endif /* _TRACE_ENTRY_H_ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,7 +49,7 @@
  * We thus directly include opnd.h here for reg_id_t to resolve the circular
  * dependence (cleaner than having to use ushort instead of reg_id_t).
  */
-#include "../arch/opnd.h"
+#include "../ir/opnd.h"
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #    define getpid getpid_forbidden_use_get_process_id
@@ -69,7 +69,7 @@
 /* We steal a segment register, and so use fs for x86 (where pthreads
  * uses gs) and gs for x64 (where pthreads uses fs) (presumably to
  * avoid conflicts w/ wine).
- * Keep this consistent w/ the TLS_SEG_OPCODE define in arch/instr.h
+ * Keep this consistent w/ the TLS_SEG_OPCODE define in ir/instr.h
  * and TLS_SEG in arch/asm_defines.asm
  *
  * PR 205276 covers transparently stealing our segment selector.
@@ -285,11 +285,11 @@ disable_env(const char *name);
         asm(".section __DATA," name);      \
         asm(".align 12"); /* 2^12 */
 #else
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define DECLARE_DATA_SECTION(name, wx)                \
             asm(".section " name ", \"a" wx "\", @progbits"); \
             asm(".align 0x1000");
-#    elif defined(AARCHXX)
+#    elif defined(DR_HOST_AARCHXX)
 #        define DECLARE_DATA_SECTION(name, wx)     \
             asm(".section " name ", \"a" wx "\""); \
             asm(".align 12"); /* 2^12 */
@@ -308,12 +308,12 @@ disable_env(const char *name);
         asm(".align 12");                   \
         asm(".text");
 #else
-#    ifdef X86
+#    ifdef DR_HOST_X86
 #        define END_DATA_SECTION_DECLARATIONS() \
             asm(".section .data");              \
             asm(".align 0x1000");               \
             asm(".text");
-#    elif defined(AARCHXX)
+#    elif defined(DR_HOST_AARCHXX)
 #        define END_DATA_SECTION_DECLARATIONS() \
             asm(".section .data");              \
             asm(".align 12");                   \
@@ -569,6 +569,9 @@ rseq_remove_fragment(dcontext_t *dcontext, fragment_t *f);
 
 void
 rseq_shared_fragment_flushtime_update(dcontext_t *dcontext);
+
+void
+rseq_process_native_abort(dcontext_t *dcontext);
 
 #endif
 

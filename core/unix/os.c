@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -129,13 +129,13 @@ typedef struct rlimit64 rlimit64_t;
  * values in xdx:xax.
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
-#if defined(AARCH64)
+#if defined(DR_HOST_AARCH64)
 #    define ASM_R2 "x2"
 #    define ASM_R3 "x3"
 #    define READ_TP_TO_R3_DISP_IN_R2    \
         "mrs " ASM_R3 ", tpidr_el0\n\t" \
         "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
-#elif defined(ARM)
+#elif defined(DR_HOST_ARM)
 #    define ASM_R2 "r2"
 #    define ASM_R3 "r3"
 #    define READ_TP_TO_R3_DISP_IN_R2                                           \
@@ -294,6 +294,13 @@ static app_pc executable_end = NULL;
 /* Used by get_application_name(). */
 static char executable_path[MAXIMUM_PATH];
 static char *executable_basename;
+
+/* Pointers to arguments. Refers to the main stack set up by the kernel.
+ * These are only written once during process init and we can live with
+ * the non-guaranteed-delay until they are visible to other cores.
+ */
+static int *app_argc = NULL;
+static char **app_argv = NULL;
 
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
@@ -823,7 +830,7 @@ get_uname(void)
      * crash with no output: I'd rather have two messages than silent crashing.
      */
     if (DYNAMO_OPTION(max_supported_os_version) != 0) { /* 0 disables */
-        /* We only support OSX 10.7.5 - 10.9.1.  That means kernels 11.x-13.x. */
+        /* We only support OSX 10.7.5+.  That means kernels 11.x+. */
 #    define MIN_DARWIN_VERSION_SUPPORTED 11
         int kernel_major;
         if (sscanf(uinfo.release, "%d", &kernel_major) != 1 ||
@@ -1097,6 +1104,58 @@ DYNAMORIO_EXPORT const char *
 get_application_short_name(void)
 {
     return get_application_name_helper(false, false /* short name */);
+}
+
+/* Sets pointers to the application's command-line arguments. These pointers are then used
+ * by get_app_args().
+ */
+void
+set_app_args(IN int *app_argc_in, IN char **app_argv_in)
+{
+    app_argc = app_argc_in;
+    app_argv = app_argv_in;
+}
+
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#endif
+        return -1;
+    }
+
+    return *app_argc;
+}
+
+/* Returns the application's command-line arguments. */
+int
+get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+{
+    if (args_array == NULL || args_count < 0) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
+#endif
+        return -1;
+    }
+
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#endif
+        return -1;
+    }
+
+    int num_args = num_app_args();
+    int min = (args_count < num_args) ? args_count : num_args;
+    for (int i = 0; i < min; i++) {
+        args_array[i].start = (void *)app_argv[i];
+        args_array[i].size = strlen(app_argv[i]) + 1 /* consider NULL byte */;
+        args_array[i].encoding = DR_APP_ARG_CSTR_COMPAT;
+    }
+    return min;
 }
 
 /* Processor information provided by kernel */
@@ -1398,7 +1457,14 @@ os_timeout(int time_in_milliseconds)
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
-#ifdef MACOS64
+#ifdef DR_HOST_NOT_TARGET
+#    define WRITE_TLS_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define READ_TLS_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define WRITE_TLS_INT_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define READ_TLS_INT_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define WRITE_TLS_SLOT(offs, var) offs = var ? 0 : 1, ASSERT_NOT_REACHED()
+#    define READ_TLS_SLOT(offs, var) var = (void *)(ptr_uint_t)offs, ASSERT_NOT_REACHED()
+#elif defined(MACOS64)
 /* For now we have both a directly-addressable os_local_state_t and a pointer to
  * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
  * we would probably get rid of the indirection here and directly access slot fields.
@@ -3045,17 +3111,22 @@ void
 init_emulated_brk(app_pc exe_end)
 {
     ASSERT(DYNAMO_OPTION(emulate_brk));
-    if (app_brk_map != NULL)
+    if (app_brk_map != NULL) {
         return;
-    /* i#1004: emulate brk via a separate mmap.
-     * The real brk starts out empty, but we need at least a page to have an
-     * mmap placeholder.
+    }
+    /* i#1004: emulate brk via a separate mmap.  The real brk starts out empty, but
+     * we need at least a page to have an mmap placeholder.  We also want to reserve
+     * enough memory to avoid a client lib or other mmap truncating the brk at a
+     * too-small size, which can crash the app (i#3982).
      */
-    app_brk_map = mmap_syscall(exe_end, PAGE_SIZE, PROT_READ | PROT_WRITE,
+#    define BRK_INITIAL_SIZE 4 * 1024 * 1024
+    app_brk_map = mmap_syscall(exe_end, BRK_INITIAL_SIZE, PROT_READ | PROT_WRITE,
                                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     ASSERT(mmap_syscall_succeeded(app_brk_map));
     app_brk_cur = app_brk_map;
-    app_brk_end = app_brk_map + PAGE_SIZE;
+    app_brk_end = app_brk_map + BRK_INITIAL_SIZE;
+    LOG(GLOBAL, LOG_HEAP, 1, "%s: initial brk is " PFX "-" PFX "\n", __FUNCTION__,
+        app_brk_cur, app_brk_end);
 }
 
 static byte *
@@ -3725,6 +3796,18 @@ client_thread_run(void)
     byte *xsp;
     GET_STACK_PTR(xsp);
     void *crec = get_clone_record((reg_t)xsp);
+    /* i#2335: we support setup separate from start, and we want to allow a client
+     * to create a client thread during init, but we do not support that thread
+     * executing until the app has started (b/c we have no signal handlers in place).
+     */
+    /* i#3973: in addition to _executing_ a client thread before the
+     * app has started, if we even create the thread before
+     * dynamo_initialized is set, we will not copy tls blocks.  By
+     * waiting for the app to be started before dynamo_thread_init is
+     * called, we ensure this race condition can never happen, since
+     * dynamo_initialized will always be set before the app is started.
+     */
+    wait_for_event(dr_app_started, 0);
     IF_DEBUG(int rc =)
     dynamo_thread_init(get_clone_record_dstack(crec), NULL, crec, true);
     ASSERT(rc != -1); /* this better be a new thread */
@@ -3738,12 +3821,6 @@ client_thread_run(void)
 
     void *arg = (void *)get_clone_record_app_xsp(crec);
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
-
-    /* i#2335: we support setup separate from start, and we want to allow a client
-     * to create a client thread during init, but we do not support that thread
-     * executing until the app has started (b/c we have no signal handlers in place).
-     */
-    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 
@@ -4073,7 +4150,6 @@ os_open_protected(const char *fname, int os_open_flags)
     file_t res = os_open(fname, os_open_flags);
     if (res < 0)
         return res;
-
     /* we could have os_open() always switch to a private fd but it's probably
      * not worth the extra syscall for temporary open/close sequences so we
      * only use it for persistent files
@@ -4318,8 +4394,8 @@ os_create_memory_file(const char *name, size_t size)
         return INVALID_FILE;
     }
     file_t priv_fd = fd_priv_dup(fd);
+    close_syscall(fd); /* Close the old descriptor on success *and* error. */
     if (priv_fd < 0) {
-        close_syscall(fd);
         return INVALID_FILE;
     }
     fd = priv_fd;
@@ -7246,6 +7322,13 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param3 = sys_param(dcontext, 5);
         data_t *data_param = (data_t *)dcontext->sys_param3;
         data_t data;
+        if (data_param == NULL) {
+            /* The kernel does not consider a NULL 6th+7th-args struct to be an error but
+             * just a NULL sigmask.
+             */
+            dcontext->sys_param4 = (reg_t)NULL;
+            break;
+        }
         /* Refer to comments in SYS_ppoll above. Taking extra steps here due to struct
          * argument in pselect6.
          */
@@ -8161,6 +8244,8 @@ post_system_call(dcontext_t *dcontext)
         /* We assumed in pre_system_call() that the unmap would succeed
          * and flushed fragments and removed the region from exec areas.
          * If the unmap failed, we re-add the region to exec areas.
+         * For zero-length unmaps we don't need to re-add anything,
+         * and we hit an assert in vmareas.c if we try (i#4031).
          *
          * The same logic can be used on Windows (but isn't yet).
          */
@@ -8176,7 +8261,7 @@ post_system_call(dcontext_t *dcontext)
          *
          * See case 7559 for a better approach.
          */
-        if (!success) {
+        if (!success && len != 0) {
             dr_mem_info_t info;
             /* must go to os to get real memory since we already removed */
             DEBUG_DECLARE(ok =)

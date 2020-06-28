@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+# Copyright () 2016-2020 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,12 @@
 # a Travis matrix of builds.
 # Travis only supports Linux and Mac, so we're ok relying on perl.
 
+# XXX: We currently have a patchwork of scripts and methods of passing arguments
+# (some are env vars while others are command-line parameters) and thus have
+# too many control points for the details of test builds and package builds.
+# Maybe we can clean it up and eliminate this layer of script by moving logic
+# in both directions (.{travis,appveyor}.yml and {runsuite,package}.cmake)?
+
 use strict;
 use Config;
 use Cwd 'abs_path';
@@ -58,35 +64,86 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     }
 }
 
+my $osdir = $mydir;
+if ($^O eq 'cygwin') {
+    # CMake is native Windows so pass it a Windows path.
+    # We use the full path to cygpath as git's cygpath is earlier on
+    # the PATH for AppVeyor and it fails.
+    $osdir = `/usr/bin/cygpath -wi \"$mydir\"`;
+    chomp $osdir;
+}
+
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
+print "Forking child for stdout tee\n";
 my $res = '';
 my $child = open(CHILD, '-|');
 die "Failed to fork: $!" if (!defined($child));
 if ($child) {
     # Parent
-    my $output;
-    while (<CHILD>) {
-        print STDOUT $_;
-        $res .= $_;
+    # i#4126: We include extra printing to help diagnose hangs on Travis.
+    if ($^O ne 'cygwin') {
+        print "Parent tee-ing child stdout...\n";
+        local $SIG{ALRM} = sub {
+            print "\nxxxxxxxxxx 30s elapsed xxxxxxxxxxx\n";
+            alarm(30);
+        };
+        alarm(30);
+        while (<CHILD>) {
+            print STDOUT $_;
+            $res .= $_;
+        }
+    } else {
+        while (<CHILD>) {
+            print STDOUT $_;
+            $res .= $_;
+        }
     }
     close(CHILD);
-} else {
-    # We have no way to access the log files, so we can -VV to ensure
-    # we can diagnose failures, but it makes for a large online result
-    # that has to be manually downloaded.  We thus stick with -V for
-    # Travis.  For Appveyor where many devs have no local Visual
-    # Studio we do use -VV so build warning details are visible.
-    my $verbose = "-V";
-    if ($^O eq 'cygwin') {
-        $verbose = "-VV";
-        # CMake is native Windows so pass it a Windows path.
-        # We use the full path to cygpath as git's cygpath is earlier on
-        # the PATH for AppVeyor and it fails.
-        $mydir = `/usr/bin/cygpath -wi \"$mydir\"`;
-        chomp $mydir;
+} elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
+         $ENV{'APPVEYOR_REPO_TAG'} eq 'true') {
+    # A package build.
+    my $build = "0";
+    # We trigger by setting VERSION_NUMBER in Travis.
+    # That sets a tag and we propagate the name into the Appveyor build from the tag:
+    if ($ENV{'APPVEYOR_REPO_TAG_NAME'} =~ /release_(.*)/) {
+        $ENV{'VERSION_NUMBER'} = $1;
     }
-    system("ctest --output-on-failure ${verbose} -S \"${mydir}/runsuite.cmake${args}\" 2>&1");
+    if ($ENV{'VERSION_NUMBER'} =~ /-(\d+)$/) {
+        $build = $1;
+    }
+    if ($args eq '') {
+        $args = ",";
+    } else {
+        $args .= ";";
+    }
+    $args .= "build=${build}";
+    if ($ENV{'VERSION_NUMBER'} =~ /^(\d+\.\d+\.\d+)/) {
+        my $version = $1;
+        $args .= ";version=${version}";
+    }
+    if ($ENV{'DEPLOY_DOCS'} eq 'yes') {
+        $args .= ";copy_docs";
+    }
+    # Include Dr. Memory.
+    if (($is_aarchxx || $ENV{'DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY'} eq 'yes') &&
+        $args =~ /64_only/) {
+        # Dr. Memory is not ported to AArch64 yet.
+    } else {
+        $args .= ";invoke=${osdir}/../drmemory/package.cmake;drmem_only";
+    }
+    my $cmd = "ctest -VV -S \"${osdir}/../make/package.cmake${args}\"";
+    print "Running ${cmd}\n";
+    system("${cmd} 2>&1");
+    exit 0;
+} else {
+    # We have no way to access the log files, so we use -VV to ensure
+    # we can diagnose failures.
+    my $verbose = "-VV";
+    my $cmd = "ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\"";
+    print "Running ${cmd}\n";
+    system("${cmd} 2>&1");
+    print "Finished running ${cmd}\n";
     exit 0;
 }
 
@@ -107,6 +164,13 @@ for (my $i = 0; $i < $#lines; ++$i) {
         } elsif ($line =~ /(\d+) tests failed, of which (\d+)/) {
             $fail = 1 if ($2 < $1);
         }
+    } elsif ($line =~ /CMake Error.*runsuite/) {
+        # Try to catch things like failing to read a file (i#4312) in
+        # our runsuite code, but ruling out non-suite-fatal errors like
+        # missing optional cross-compilation setups.
+        $fail = 1;
+        $should_print = 1;
+        $name = "runsuite script itself";
     } elsif ($line =~ /^\s*ERROR: diff contains/) {
         $fail = 1;
         $should_print = 1;
@@ -123,14 +187,33 @@ for (my $i = 0; $i < $#lines; ++$i) {
             %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
                                    'code_api|security-win32.gbop-test' => 1, # i#2972
                                    'code_api|win32.reload-newaddr' => 1,
+                                   'code_api|win32.rsbtest' => 1, # i#4058
+                                   'code_api|client.alloc' => 1, # i#4058
+                                   'code_api|client.winxfer' => 1, # i#4058
+                                   'code_api|client.drutil-test' => 1, # i#4058
+                                   'code_api|tool.drcacheoff.view' => 1, # i#4058
+                                   'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4058
                                    'code_api|client.pcache-use' => 1,
                                    'code_api|api.detach' => 1, # i#2246
                                    'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
                                    'code_api|client.drmgr-test' => 1, # i#653
                                    'code_api|client.nudge_test' => 1, # i#2978
-                                   'code_api|client.nudge_ex' => 1);
+                                   'code_api|client.nudge_ex' => 1,
+                                   'code_api|client.drwrap-test-detach' => 1); # i#4058
             %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
+                                   'code_api|common.decode' => 1, # i#4058
+                                   'code_api|common.decode-stress' => 1, # i#4058
+                                   'code_api|common.nativeexec' => 1, # i#4058
+                                   'code_api|win32.mixedmode_late' => 1, # i#4058
+                                   'code_api|win32.callback' => 1, # i#4058
+                                   'code_api|client.alloc' => 1, # i#4058
+                                   'code_api|client.cleancall' => 1, # i#4058
+                                   'code_api|client.loader' => 1, # i#4058
+                                   'code_api|client.pcache-use' => 1, # i#4058
+                                   'code_api|tool.drcachesim.invariants' => 1, # i#4058
+                                   'code_api|tool.drcacheoff.view' => 1, # i#4058
+                                   'code_api|tool.histogram.offline' => 1, # i#4058
                                    'code_api|win32.reload-newaddr' => 1,
                                    'code_api|client.loader' => 1,
                                    'code_api|client.drmgr-test' => 1, # i#1369
@@ -140,7 +223,8 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
                                    'code_api|api.static_noclient' => 1,
-                                   'code_api|api.static_noinit' => 1);
+                                   'code_api|api.static_noinit' => 1,
+                                   'code_api|client.drwrap-test-detach' => 1); # i#4058
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
             # FIXME i#2416: fix flaky AArch32 tests
@@ -155,9 +239,14 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|tool.drcachesim.invariants' => 1, # i#2892
                                    'code_api|tool.drcacheoff.simple' => 1,
                                    'code_api|tool.histogram.gzip' => 1);
-            # FIXME i#2417: fix flaky AArch64 tests
+            # FIXME i#2417: fix flaky/regressed AArch64 tests
             %ignore_failures_64 = ('code_api|linux.sigsuspend' => 1,
-                                   'code_api|pthreads.pthreads_exit' => 1);
+                                   'code_api|pthreads.pthreads_exit' => 1,
+                                   'code_api|tool.drcachesim.invariants' => 1, # i#2892
+                                   'code_api|tool.histogram.offline' => 1, # i#3980
+                                   'code_api|linux.fib-conflict' => 1,
+                                   'code_api|linux.fib-conflict-early' => 1,
+                                   'code_api|linux.mangle_asynch' => 1);
             if ($is_32) {
                 $issue_no = "#2416";
             } else {

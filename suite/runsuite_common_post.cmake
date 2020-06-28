@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -66,16 +66,11 @@ if (build_package)
     endif ()
   endif ()
 
-  # Remove results from prior build (else ctest_submit() will copy as
-  # though results from package build)
-  file(GLOB pre_package_res "${last_package_build_dir}/Testing/2*")
-  if (EXISTS "${pre_package_res}")
-    file(REMOVE_RECURSE "${pre_package_res}")
-  endif (EXISTS "${pre_package_res}")
-
   ctest_start(${SUITE_TYPE})
   ctest_build(BUILD "${CTEST_BINARY_DIRECTORY}")
-  ctest_submit() # copy into xml dir
+  if (CTEST_DROP_METHOD MATCHES "http")
+    ctest_submit()
+  endif ()
 else (build_package)
   # workaround for http://www.cmake.org/Bug/view.php?id=9647
   # it complains and returns error if CTEST_BINARY_DIRECTORY not set at
@@ -113,12 +108,13 @@ foreach (xml ${all_xml})
   get_filename_component(fname "${xml}" NAME_WE)
   string(REGEX REPLACE "^___([^_]+)___.*$" "\\1" build "${fname}")
   file(READ ${xml} string)
-  if ("${string}" MATCHES "Configuring incomplete")
+  if ("${string}" MATCHES "Configuring incomplete" OR
+      "${string}" MATCHES "Generate step failed")
     file(APPEND ${outf} "${build}: **** pre-build configure errors ****\n")
     string(REGEX MATCHALL "CMake Error at .*errors occurred!"
       config_error "${string}")
     file(APPEND ${outf} "\t${config_error}\n")
-  else ("${string}" MATCHES "Configuring incomplete")
+  else ()
     string(REGEX REPLACE "Configure.xml$" "Build.xml" xml "${xml}")
     file(READ ${xml} string)
     # i#835: make sure to treat warnings-as-errors as errors
@@ -221,7 +217,7 @@ foreach (xml ${all_xml})
         endif (passed)
       endif (test_errors)
     endif (build_errors)
-  endif ("${string}" MATCHES "Configuring incomplete")
+  endif ()
 endforeach (xml)
 
 file(READ ${outf} string)

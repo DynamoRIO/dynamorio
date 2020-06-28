@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -73,17 +73,17 @@ protected:
     void
     print_shard_results(const shard_data_t *shard);
 
-    const unsigned int knob_verbose;
-    const unsigned int knob_line_size;
-    const unsigned int line_size_bits;
+    const unsigned int knob_verbose_;
+    const unsigned int knob_line_size_;
+    const unsigned int line_size_bits_;
 
     static const std::string TOOL_NAME;
 
     // In parallel operation the keys are "shard indices": just ints.
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex;
+    std::mutex shard_map_mutex_;
 };
 
 #endif /* _REUSE_TIME_H_ */

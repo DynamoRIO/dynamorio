@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -232,7 +232,8 @@ unit_test_drwinapi(void)
 {
     print_file(STDERR, "testing drwinapi\n");
 
-    loader_init(); /* not called by standalone_init */
+    loader_init_prologue();                /* not called by standalone_init */
+    loader_init_epilogue(GLOBAL_DCONTEXT); /* not called by standalone_init */
 
     unit_test_drwinapi_kernel32_proc();
     unit_test_drwinapi_kernel32_mem();
@@ -242,5 +243,6 @@ unit_test_drwinapi(void)
     unit_test_drwinapi_kernel32_misc();
     unit_test_drwinapi_rpcrt4();
     unit_test_drwinapi_advapi32();
+    swap_peb_pointer(GLOBAL_DCONTEXT, false);
 }
 #endif

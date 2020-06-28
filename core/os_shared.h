@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -314,6 +314,45 @@ char *
 get_application_pid(void);
 char *
 get_application_name(void);
+
+/* DR_API EXPORT BEGIN */
+/**
+ * Encodings of an application's command-line argument.
+ */
+typedef enum {
+    /**
+     * C String Encoding.
+     */
+    DR_APP_ARG_CSTR_COMPAT,
+    /**
+     * UTF 16 String Encoding.
+     */
+    DR_APP_ARG_UTF_16,
+} dr_app_arg_encoding_t;
+
+/**
+ * Contains information regarding an application's command-line argument.
+ */
+typedef struct _dr_app_arg_t {
+    /**
+     * The start boundary where the content of the arg begins.
+     */
+    void *start;
+    /**
+     * The size, in bytes, of the argument.
+     */
+    size_t size;
+    /**
+     * The encoding of the argument.
+     */
+    dr_app_arg_encoding_t encoding;
+} dr_app_arg_t;
+/* DR_API EXPORT END */
+
+int
+num_app_args();
+int
+get_app_args(OUT dr_app_arg_t *args_array, int args_count);
 const char *
 get_application_short_name(void);
 char *
@@ -1212,7 +1251,7 @@ intercept_function_t(app_state_at_intercept_t *args);
 
 /* opcodes and encoding constants that we sometimes directly use */
 #ifdef X86
-/* FIXME: if we add more opcodes maybe should be exported by arch/ */
+/* XXX: if we add more opcodes maybe should be exported by ir/ */
 enum {
     JMP_REL32_OPCODE = 0xe9,
     JMP_REL32_SIZE = 5, /* size in bytes of 32-bit rel jmp */
@@ -1339,13 +1378,17 @@ unload_private_library(app_pc modbase);
 app_pc
 locate_and_load_private_library(const char *name, bool reachable);
 void
-loader_init(void);
+loader_init_prologue(void);
+void
+loader_init_epilogue(dcontext_t *dcontext);
 void
 loader_exit(void);
 void
 loader_thread_init(dcontext_t *dcontext);
 void
 loader_thread_exit(dcontext_t *dcontext);
+void
+loader_make_exit_calls(dcontext_t *dcontext);
 bool
 in_private_library(app_pc pc);
 void

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -295,12 +295,23 @@ if (NOT DEFINED DynamoRIO_USE_LIBC)
   set(DynamoRIO_USE_LIBC ON)
 endif ()
 
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
-  set(ARM 1) # This means AArch32.
-elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
-  set(AARCH64 1)
-else ()
-  set(X86 1) # This means IA-32 or AMD64
+if (NOT DEFINED ARM AND NOT DEFINED AARCH64 AND NOT DEFINED X86)
+  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+    set(ARM 1) # This means AArch32.
+  elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+    set(AARCH64 1)
+  else ()
+    set(X86 1) # This means IA-32 or AMD64
+  endif ()
+endif ()
+if (NOT DEFINED DR_HOST_ARM AND NOT DEFINED DR_HOST_AARCH64 AND NOT DEFINED DR_HOST_X86)
+  if (ARM)
+    set(DR_HOST_ARM 1)
+  elseif (AARCH64)
+    set(DR_HOST_AARCH64 1)
+  else ()
+    set(DR_HOST_X86 1)
+  endif ()
 endif ()
 
 if (WIN32 OR ANDROID)
@@ -578,6 +589,21 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   else (UNIX)
     set(extra_cflags "${extra_cflags} -DWINDOWS")
   endif (UNIX)
+  if (DynamoRIO_INTERNAL)
+    if (DR_HOST_ARM)
+      set(extra_cflags "${extra_cflags} -DDR_HOST_ARM")
+    elseif (DR_HOST_AARCH64)
+      set(extra_cflags "${extra_cflags} -DDR_HOST_AARCH64")
+    elseif (DR_HOST_X86)
+      set(extra_cflags "${extra_cflags} -DDR_HOST_X86")
+    endif ()
+    if (DR_HOST_X64)
+      set(extra_cflags "${extra_cflags} -DDR_HOST_X64")
+    endif ()
+    if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
+      set(extra_cflags "${extra_cflags} -DDR_HOST_NOT_TARGET")
+    endif ()
+  endif ()
 
   if (DynamoRIO_REG_COMPATIBILITY)
     set(extra_cflags "${extra_cflags} -DDR_REG_ENUM_COMPATIBILITY")
@@ -736,20 +762,6 @@ function (_DR_set_compile_flags target is_client extra_flags)
       endif (flag_present)
 
     endif (is_client)
-
-    # i#847 keep stack boundary 4-byte aligned for compatibility.
-    # The new gcc may use different stack alignment for using SSE
-    # instructions. We make both DynamoRIO and clients use 4-byte
-    # stack alignment to avoid any back compatibility issue without
-    # using extra stack space or changing performance.
-    # On Mac we have to use the ABI's 16-byte alignment, but we have
-    # no compatibility there as we're starting fresh.
-    # On ARM, '-mpreferred-stack-boundary' is unrecognized.
-    # i#1800: '-mpreferred-stack-boundary' is not supported by clang,
-    # so clang's build may not run legacy binaries.
-    if (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
-      set(extra_flags "${extra_flags} -mpreferred-stack-boundary=2")
-    endif (NOT tgt_x64 AND NOT APPLE AND NOT ARM AND NOT CMAKE_COMPILER_IS_CLANG)
 
     if (NOT APPLE AND NOT ANDROID) # no .gnu.hash support on Android
       # Generate the .hash section in addition to .gnu.hash for every target, to
@@ -955,11 +967,11 @@ function (configure_DynamoRIO_client target)
         set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/${target}.ldscript)
         # We do NOT add ${LD_SCRIPT} as an ADDITIONAL_MAKE_CLEAN_FILES since it's
         # configure-time built not make-time built
-        if (X86)
+        if (DR_HOST_X86)
           set(LD_FLAGS "-melf_x86_64")
-        elseif (ARM)
+        elseif (DR_HOST_ARM)
           set(LD_FLAGS "-marmelf_linux_eabi")
-        elseif (AARCH64)
+        elseif (DR_HOST_AARCH64)
           set(LD_FLAGS "-maarch64linux")
         endif ()
 
@@ -1189,6 +1201,11 @@ function (use_DynamoRIO_extension target extname)
     target_link_libraries(${target} ${extname})
   endif (NOT DynamoRIO_EXT_${extname}_NOLIB)
 
+  if ("${extname}" MATCHES "^droption$")
+    if (NOT WIN32)
+      _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+    endif ()
+  endif ()
 endfunction (use_DynamoRIO_extension)
 
 # For clients to configure their custom annotations
@@ -1229,7 +1246,9 @@ function (use_DynamoRIO_drmemtrace target)
       _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "/MT")
     endif ()
   endif ()
-  _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  if (NOT WIN32)
+    _DR_append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
+  endif ()
 endfunction ()
 
 function (use_DynamoRIO_drmemtrace_tracer target)

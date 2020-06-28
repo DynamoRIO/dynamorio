@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -323,7 +323,7 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
             /* No alignment check necessary, hot_patch parameter provided for \
              * consistency.                                                   \
              */                                                               \
-            _InterlockedExchange8((volatile CHAR *)target, (CHAR)value);      \
+            _InterlockedExchange8((volatile CHAR *)(target), (CHAR)(value));  \
         } while (0)
 #    define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
         do {                                                                \
@@ -331,7 +331,18 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
             /* test that we aren't crossing a cache line boundary */        \
             CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);               \
             /* we use xchgl instead of mov for non-4-byte-aligned writes */ \
-            _InterlockedExchange((volatile LONG *)target, (LONG)value);     \
+            _InterlockedExchange((volatile LONG *)(target), (LONG)(value)); \
+        } while (0)
+#    define ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+        do {                                                     \
+            ASSERT(sizeof(value) == 4);                          \
+            ASSERT(ALIGNED(target, 4));                          \
+            *(volatile LONG *)(target) = (LONG)(value);          \
+        } while (0)
+#    define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)       \
+        do {                                                    \
+            ASSERT(ALIGNED(addr_src, 4));                       \
+            *(LONG *)(addr_res) = *(volatile LONG *)(addr_src); \
         } while (0)
 #    ifdef X64
 #        define ATOMIC_8BYTE_WRITE(target, value, hot_patch)                        \
@@ -343,6 +354,19 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
                 CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);                   \
                 /* we use xchgl instead of mov for non-4-byte-aligned writes */     \
                 _InterlockedExchange64((volatile __int64 *)target, (__int64)value); \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch) \
+            do {                                                     \
+                ASSERT(sizeof(value) == 8);                          \
+                ASSERT(ALIGNED(target, 8));                          \
+                /* Not currently used to write code */               \
+                ASSERT_CURIOSITY(!hot_patch);                        \
+                *(volatile __int64 *)(target) = (__int64)(value);    \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)             \
+            do {                                                          \
+                ASSERT(ALIGNED(addr_src, 8));                             \
+                *(__int64 *)(addr_res) = *(volatile __int64 *)(addr_src); \
             } while (0)
 #    endif
 
@@ -444,7 +468,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 #    define atomic_add_exchange atomic_add_exchange_int
 
 #else /* UNIX */
-#    ifdef X86
+#    ifdef DR_HOST_X86
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
@@ -474,6 +498,24 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                                      : "+m"(*(int *)(target)), "+r"(_myval)        \
                                      :);                                           \
             } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch)               \
+            do {                                                                   \
+                /* allow a constant to be passed in by supplying our own lvalue */ \
+                int _myval = value;                                                \
+                ASSERT(sizeof(value) == 4);                                        \
+                ASSERT(ALIGNED(target, 4));                                        \
+                __asm__ __volatile__("movl %1, %0"                                 \
+                                     : "=m"(*(int *)(target))                      \
+                                     : "r"(_myval));                               \
+            } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)         \
+            do {                                                      \
+                ASSERT(ALIGNED(addr_src, 4));                         \
+                __asm__ __volatile__("movl %1, %%eax; movl %%eax, %0" \
+                                     : "=m"(*(int *)(addr_res))       \
+                                     : "m"(*(int *)(addr_src))        \
+                                     : "eax");                        \
+            } while (0)
 #        ifdef X64
 #            define ATOMIC_8BYTE_WRITE(target, value, hot_patch)                       \
                 do {                                                                   \
@@ -489,6 +531,26 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                     __asm__ __volatile__("xchgq %0, %1"                                \
                                          : "+m"(*(int64 *)(target)), "+r"(_myval)      \
                                          :);                                           \
+                } while (0)
+#            define ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch)               \
+                do {                                                                   \
+                    /* allow a constant to be passed in by supplying our own lvalue */ \
+                    int64 _myval = value;                                              \
+                    ASSERT(sizeof(value) == 8);                                        \
+                    /* Not currently used to write code */                             \
+                    ASSERT_CURIOSITY(!hot_patch);                                      \
+                    ASSERT(ALIGNED(target, 8));                                        \
+                    __asm__ __volatile__("movq %1, %0"                                 \
+                                         : "=m"(*(int64 *)(target))                    \
+                                         : "r"(_myval));                               \
+                } while (0)
+#            define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)         \
+                do {                                                      \
+                    ASSERT(ALIGNED(addr_src, 8));                         \
+                    __asm__ __volatile__("movq %1, %%rax; movq %%rax, %0" \
+                                         : "=m"(*(int64 *)(addr_res))     \
+                                         : "m"(*(int64 *)addr_src)        \
+                                         : "rax");                        \
                 } while (0)
 #        endif /* X64 */
 #        define ATOMIC_INC_suffix(suffix, var) \
@@ -570,41 +632,62 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 #        define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
 #        define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
-#    elif defined(AARCH64)
+#    elif defined(DR_HOST_AARCH64)
 
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
                 ASSERT(sizeof(value) == 1);                    \
                 /* Not currently used to write code */         \
                 ASSERT_CURIOSITY(!hot_patch);                  \
-                __asm__ __volatile__("strb %w0, [%1]"          \
+                __asm__ __volatile__("stlrb %w0, [%1]"         \
                                      :                         \
                                      : "r"(value), "r"(target) \
                                      : "memory");              \
             } while (0)
-#        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                 \
-            do {                                                             \
-                ASSERT(sizeof(value) == 4);                                  \
-                /* Not currently used to write code */                       \
-                ASSERT_CURIOSITY(!hot_patch);                                \
-                /* Aligned load/store instructions are atomic on AArch64. */ \
-                ASSERT(ALIGNED(target, 4));                                  \
-                __asm__ __volatile__("str %w0, [%1]"                         \
-                                     :                                       \
-                                     : "r"(value), "r"(target)               \
-                                     : "memory");                            \
+#        define ATOMIC_4BYTE_WRITE(target, value, hot_patch)                    \
+            do {                                                                \
+                ASSERT(sizeof(value) == 4);                                     \
+                /* Not currently used to write code */                          \
+                ASSERT_CURIOSITY(!hot_patch);                                   \
+                /* We use "store-release" to add a barrier to make the store */ \
+                /* visible promptly and not just atomic as in untorn which */   \
+                /* alignment gives us by itself. */                             \
+                ASSERT(ALIGNED(target, 4));                                     \
+                __asm__ __volatile__("stlr %w0, [%1]"                           \
+                                     :                                          \
+                                     : "r"(value), "r"(target)                  \
+                                     : "memory");                               \
             } while (0)
-#        define ATOMIC_8BYTE_WRITE(target, value, hot_patch)                 \
-            do {                                                             \
-                ASSERT(sizeof(value) == 8);                                  \
-                /* Not currently used to write code */                       \
-                ASSERT_CURIOSITY(!hot_patch);                                \
-                /* Aligned load/store instructions are atomic on AArch64. */ \
-                ASSERT(ALIGNED(target, 8));                                  \
-                __asm__ __volatile__("str %0, [%1]"                          \
-                                     :                                       \
-                                     : "r"(value), "r"(target)               \
-                                     : "memory");                            \
+#        define ATOMIC_4BYTE_ALIGNED_WRITE ATOMIC_4BYTE_WRITE
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                ASSERT(ALIGNED(addr_src, 4));                       \
+                /* We use "load-acquire" to add a barrier. */       \
+                __asm__ __volatile__("ldar w0, [%0]; str w0, [%1]"  \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "w0", "memory");             \
+            } while (0)
+#        define ATOMIC_8BYTE_WRITE(target, value, hot_patch)   \
+            do {                                               \
+                ASSERT(sizeof(value) == 8);                    \
+                /* Not currently used to write code */         \
+                ASSERT_CURIOSITY(!hot_patch);                  \
+                ASSERT(ALIGNED(target, 8));                    \
+                __asm__ __volatile__("stlr %0, [%1]"           \
+                                     :                         \
+                                     : "r"(value), "r"(target) \
+                                     : "memory");              \
+            } while (0)
+#        define ATOMIC_8BYTE_ALIGNED_WRITE ATOMIC_8BYTE_WRITE
+#        define ATOMIC_8BYTE_ALIGNED_READ(addr_src, addr_res)       \
+            do {                                                    \
+                ASSERT(ALIGNED(addr_src, 8));                       \
+                /* We use "load-acquire" to add a barrier. */       \
+                __asm__ __volatile__("ldar x0, [%0]; str x0, [%1]"  \
+                                     :                              \
+                                     : "r"(addr_src), "r"(addr_res) \
+                                     : "x0", "memory");             \
             } while (0)
 
 #        define DEF_ATOMIC_incdec(fname, type, r, op)                             \
@@ -612,9 +695,9 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             {                                                                     \
                 type tmp1;                                                        \
                 int tmp2;                                                         \
-                __asm__ __volatile__("1: ldxr  %" r "0, [%x2]           \n\t"     \
+                __asm__ __volatile__("1: ldaxr  %" r "0, [%x2]           \n\t"    \
                                      "  " op "   %" r "0, %" r "0, #1       \n\t" \
-                                     "   stxr  %w1, %" r "0, [%x2]      \n\t"     \
+                                     "   stlxr  %w1, %" r "0, [%x2]      \n\t"    \
                                      "   cbnz  %w1, 1b                \n\t"       \
                                      : "=&r"(tmp1), "=&r"(tmp2)                   \
                                      : "r"(var));                                 \
@@ -633,9 +716,9 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
             {                                                                     \
                 type tmp1;                                                        \
                 int tmp2;                                                         \
-                __asm__ __volatile__("1: ldxr  %" r "0, [%x2]           \n\t"     \
+                __asm__ __volatile__("1: ldaxr  %" r "0, [%x2]           \n\t"    \
                                      "   add   %" r "0, %" r "0, %" r "3    \n\t" \
-                                     "   stxr  %w1, %" r "0, [%x2]      \n\t"     \
+                                     "   stlxr  %w1, %" r "0, [%x2]      \n\t"    \
                                      "   cbnz  %w1, 1b                \n\t"       \
                                      : "=&r"(tmp1), "=&r"(tmp2)                   \
                                      : "r"(var), "r"(val));                       \
@@ -651,9 +734,9 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
             {                                                                         \
                 type ret;                                                             \
                 int tmp;                                                              \
-                __asm__ __volatile__("1: ldxr  %" reg "1, [%x2]             \n\t"     \
+                __asm__ __volatile__("1: ldaxr  %" reg "1, [%x2]             \n\t"    \
                                      "   add   %" reg "1, %" reg "1, %" reg "3  \n\t" \
-                                     "   stxr  %w0, %" reg "1, [%x2]        \n\t"     \
+                                     "   stlxr  %w0, %" reg "1, [%x2]        \n\t"    \
                                      "   cbnz  %w0, 1b                    \n\t"       \
                                      : "=&r"(tmp), "=&r"(ret)                         \
                                      : "r"(var), "r"(val));                           \
@@ -671,10 +754,10 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
                 type tmp1;                                                            \
                 int tmp2;                                                             \
                 bool ret;                                                             \
-                __asm__ __volatile__("1: ldxr  %" r "0, [%x3]           \n\t"         \
+                __asm__ __volatile__("1: ldaxr  %" r "0, [%x3]           \n\t"        \
                                      "   cmp   %" r "0, %" r "4           \n\t"       \
                                      "   b.ne  2f                     \n\t"           \
-                                     "   stxr  %w1, %" r "5, [%x3]      \n\t"         \
+                                     "   stlxr  %w1, %" r "5, [%x3]      \n\t"        \
                                      "   cbnz  %w1, 1b                \n\t"           \
                                      "   cmp   %" r "0, %" r "4           \n\t"       \
                                      "2: clrex                        \n\t"           \
@@ -692,8 +775,8 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
                                                                       int newval)
 {
     int tmp, ret;
-    __asm__ __volatile__("1: ldxr  %w0, [%x2]             \n\t"
-                         "   stxr  %w1, %w3, [%x2]        \n\t"
+    __asm__ __volatile__("1: ldaxr  %w0, [%x2]             \n\t"
+                         "   stlxr  %w1, %w3, [%x2]        \n\t"
                          "   cbnz  %w1, 1b                \n\t"
                          : "=&r"(ret), "=&r"(tmp)
                          : "r"(var), "r"(newval));
@@ -734,12 +817,12 @@ atomic_dec_becomes_zero(volatile int *var)
     return atomic_add_exchange_int(var, -1) == 0;
 }
 
-#    elif defined(ARM)
+#    elif defined(DR_HOST_ARM)
 
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
                 ASSERT(sizeof(value) == 1);                    \
-                __asm__ __volatile__("strb %0, [%1]"           \
+                __asm__ __volatile__("dmb ish; strb %0, [%1]"  \
                                      :                         \
                                      : "r"(value), "r"(target) \
                                      : "memory");              \
@@ -750,10 +833,19 @@ atomic_dec_becomes_zero(volatile int *var)
                 /* Load and store instructions are atomic on ARM if aligned. */  \
                 /* FIXME i#1551: we need patch the whole instruction instead. */ \
                 ASSERT(ALIGNED(target, 4));                                      \
-                __asm__ __volatile__("str %0, [%1]"                              \
+                __asm__ __volatile__("dmb ish; str %0, [%1]"                     \
                                      :                                           \
                                      : "r"(value), "r"(target)                   \
                                      : "memory");                                \
+            } while (0)
+#        define ATOMIC_4BYTE_ALIGNED_WRITE ATOMIC_4BYTE_WRITE
+#        define ATOMIC_4BYTE_ALIGNED_READ(addr_src, addr_res)              \
+            do {                                                           \
+                ASSERT(ALIGNED(addr_src, 4));                              \
+                __asm__ __volatile__("ldr r0, [%0]; dmb ish; str r0, [%1]" \
+                                     :                                     \
+                                     : "r"(addr_src), "r"(addr_res)        \
+                                     : "r0", "memory");                    \
             } while (0)
 
 /* OP_swp is deprecated and OP_ldrex and OP_strex are introduced in
@@ -765,7 +857,8 @@ atomic_dec_becomes_zero(volatile int *var)
  */
 /* FIXME i#1551: should we allow infinite loops for those ATOMIC ops */
 #        define ATOMIC_INC_suffix(suffix, var)                                     \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t"          \
+            __asm__ __volatile__("   dmb ish                        \n\t"          \
+                                 "1: ldrex" suffix " r2, %0         \n\t"          \
                                  "   add" suffix " r2, r2, #1     \n\t"            \
                                  "   strex" suffix " r3, r2, %0     \n\t"          \
                                  "   cmp   r3, #0                   \n\t"          \
@@ -778,7 +871,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("d", var)
 #        define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
 #        define ATOMIC_DEC_suffix(suffix, var)                                     \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t"          \
+            __asm__ __volatile__("   dmb ish                        \n\t"          \
+                                 "1: ldrex" suffix " r2, %0         \n\t"          \
                                  "   sub" suffix " r2, r2, #1     \n\t"            \
                                  "   strex" suffix " r3, r2, %0     \n\t"          \
                                  "   cmp   r3, #0                   \n\t"          \
@@ -791,7 +885,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("d", var)
 #        define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 #        define ATOMIC_ADD_suffix(suffix, var, value)                              \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t"          \
+            __asm__ __volatile__("   dmb ish                        \n\t"          \
+                                 "1: ldrex" suffix " r2, %0         \n\t"          \
                                  "   add" suffix " r2, r2, %1     \n\t"            \
                                  "   strex" suffix " r3, r2, %0     \n\t"          \
                                  "   cmp   r3, #0                   \n\t"          \
@@ -805,7 +900,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 /* Not safe for general use, just for atomic_add_exchange(), undefed below */
 #        define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result)    \
-            __asm__ __volatile__("1: ldrex" suffix " r2, %0         \n\t" \
+            __asm__ __volatile__("   dmb ish                        \n\t" \
+                                 "1: ldrex" suffix " r2, %0         \n\t" \
                                  "   add" suffix " r2, r2, %2     \n\t"   \
                                  "   strex" suffix " r3, r2, %0     \n\t" \
                                  "   cmp   r3, #0                   \n\t" \
@@ -820,7 +916,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
             ATOMIC_ADD_EXCHANGE_suffix("d", var, val, res)
 #        define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange)           \
-            __asm__ __volatile__("2: ldrex" suffix " r2, %0       \n\t"                  \
+            __asm__ __volatile__("   dmb ish                      \n\t"                  \
+                                 "2: ldrex" suffix " r2, %0       \n\t"                  \
                                  "   cmp" suffix " r2, %1       \n\t"                    \
                                  "   bne    1f                    \n\t"                  \
                                  "   strex" suffix " r3, %2, %0   \n\t"                  \
@@ -836,7 +933,8 @@ atomic_dec_becomes_zero(volatile int *var)
 #        define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
             ATOMIC_COMPARE_EXCHANGE_suffix("d", var, compare, exchange)
 #        define ATOMIC_EXCHANGE(var, newval, result)            \
-            __asm__ __volatile__("1: ldrex r2, %0         \n\t" \
+            __asm__ __volatile__("   dmb ish              \n\t" \
+                                 "1: ldrex r2, %0         \n\t" \
                                  "   strex r3, %2, %0     \n\t" \
                                  "   cmp   r3, #0         \n\t" \
                                  "   bne   1b             \n\t" \
@@ -881,7 +979,7 @@ proc_get_timestamp(void);
 #        define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 #    endif
 
-#    ifndef AARCH64
+#    ifndef DR_HOST_AARCH64
 /* Atomically increments *var by 1
  * Returns true if the resulting value is zero, otherwise returns false
  */
@@ -1000,6 +1098,24 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 
 #endif /* UNIX */
 
+static inline int
+atomic_aligned_read_int(volatile int *var)
+{
+    int temp;
+    ATOMIC_4BYTE_ALIGNED_READ(var, &temp);
+    return temp;
+}
+
+#ifdef X64
+static inline int64
+atomic_aligned_read_int64(volatile int64 *var)
+{
+    int64 temp;
+    ATOMIC_8BYTE_ALIGNED_READ(var, &temp);
+    return temp;
+}
+#endif
+
 #define atomic_compare_exchange atomic_compare_exchange_int
 #ifdef X64
 #    define atomic_compare_exchange_ptr(v, c, e) \
@@ -1039,6 +1155,18 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
                      !atomic_compare_exchange_int64(                                   \
                          (int64 *)&(maxvar), atomic_max__maxval, atomic_max__curval)); \
         } while (0)
+#endif
+
+/* Our ATOMIC_* macros target release-acquire semantics.  ATOMIC_PTRSZ_ALIGNED_WRITE
+ * is a Store-Release and ensures prior stores in program order in this thread
+ * are not observed by another thread after this store.
+ */
+#ifdef X64
+#    define ATOMIC_PTRSZ_ALIGNED_WRITE(target, value, hot_patch) \
+        ATOMIC_8BYTE_ALIGNED_WRITE(target, value, hot_patch)
+#else
+#    define ATOMIC_PTRSZ_ALIGNED_WRITE(target, value, hot_patch) \
+        ATOMIC_4BYTE_ALIGNED_WRITE(target, value, hot_patch)
 #endif
 
 #define ATOMIC_MAX(type, maxvar, curvar) ATOMIC_MAX_##type(type, maxvar, curvar)
@@ -1518,7 +1646,7 @@ use_addr_prefix_on_short_disp(void)
 /** Specifies which processor mode to use when decoding or encoding. */
 typedef enum _dr_isa_mode_t {
     DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
-    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
+    DR_ISA_X86 = DR_ISA_IA32, /**< Alias for DR_ISA_IA32. */
     DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
     DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
     DR_ISA_ARM_THUMB,         /**< Thumb (ARM T32). */
@@ -1575,6 +1703,9 @@ canonicalize_pc_target(dcontext_t *dcontext, app_pc pc);
 
 void
 d_r_decode_init(void);
+
+bool
+fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 
 /***************************************************************************
  * Arch-specific defines
@@ -1663,10 +1794,8 @@ d_r_decode_init(void);
 #    define STUB_COARSE_DIRECT_SIZE(flags) \
         (FRAG_IS_32(flags) ? STUB_COARSE_DIRECT_SIZE32 : STUB_COARSE_DIRECT_SIZE64)
 
-/* Writes nops into the address range.
- * XXX i#3828: Better to use the newer multi-byte nops.
- */
-#    define SET_TO_NOPS(isa_mode, addr, size) memset(addr, 0x90, size)
+/* Writes nops into the address range. */
+#    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) memset(addr, 0xcc, size)
 /* check if region is SET_TO_NOP */
@@ -1736,8 +1865,6 @@ d_r_decode_init(void);
 #    define ARM_BKPT 0xe1200070
 #    define THUMB_BKPT 0xbe00
 /* writes nops into the address range */
-bool
-fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #    define SET_TO_NOPS(isa_mode, addr, size) fill_with_nops(isa_mode, addr, size)
 /* writes debugbreaks into the address range */
 #    define SET_TO_DEBUG(addr, size) ASSERT_NOT_IMPLEMENTED(false)
@@ -1938,9 +2065,34 @@ cache_pc
 get_native_ret_ibl_xfer_entry(dcontext_t *dcontext);
 #endif
 
+/* DR_API EXPORT TOFILE dr_ir_instr.h */
+/* DR_API EXPORT BEGIN */
 enum {
 #ifdef X86
     MAX_INSTR_LENGTH = 17,
+    MAX_SRC_OPNDS = 8, /* pusha */
+    MAX_DST_OPNDS = 8, /* popa */
+#elif defined(AARCH64)
+    /* The maximum instruction length is 64 to allow for an OP_ldstex containing
+     * up to 16 real instructions. The longest such block seen so far in real
+     * code had 7 instructions so this is likely to be enough. With the current
+     * implementation, a larger value would significantly slow down the search
+     * for such blocks in the decoder: see decode_ldstex().
+     */
+    MAX_INSTR_LENGTH = 64,
+    MAX_SRC_OPNDS = 8,
+    MAX_DST_OPNDS = 8,
+#elif defined(ARM)
+    MAX_INSTR_LENGTH = 4,
+    /* With register lists we can see quite long operand lists. */
+    MAX_SRC_OPNDS = 33, /* vstm s0-s31 */
+    MAX_DST_OPNDS = MAX_SRC_OPNDS,
+#endif
+};
+/* DR_API EXPORT END */
+
+enum {
+#ifdef X86
     /* size of 32-bit-offset jcc instr, assuming it has no
      * jcc branch hint!
      */
@@ -1961,20 +2113,12 @@ enum {
     CTI_FAR_ABS_LENGTH = 7, /* 9A 1B 07 00 34 39 call 0739:3400071B            */
                             /* 07                                              */
 #elif defined(AARCH64)
-    /* The maximum instruction length is 64 to allow for an OP_ldstex containing
-     * up to 16 real instructions. The longest such block seen so far in real
-     * code had 7 instructions so this is likely to be enough. With the current
-     * implementation, a larger value would significantly slow down the search
-     * for such blocks in the decoder: see decode_ldstex().
-     */
-    MAX_INSTR_LENGTH = 64,
     CBR_LONG_LENGTH = 4,
     JMP_LONG_LENGTH = 4,
     JMP_SHORT_LENGTH = 4,
     CBR_SHORT_REWRITE_LENGTH = 4,
     SVC_LENGTH = 4,
 #elif defined(ARM)
-    MAX_INSTR_LENGTH = ARM_INSTR_SIZE,
     CBR_LONG_LENGTH = ARM_INSTR_SIZE,
     JMP_LONG_LENGTH = ARM_INSTR_SIZE,
     JMP_SHORT_LENGTH = THUMB_SHORT_INSTR_SIZE,

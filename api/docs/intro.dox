@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -387,6 +387,15 @@ of time for the child application.  To instead only
 follow children that are configured (via \c drconfig.exe), use the
 \ref op_children "-no_follow_children" runtime option.
 
+To ensure a client is loaded into a child process of a different
+bitwidth (i.e., a 32-bit child created by a 64-bit parent), use the \c
+-c32 and \c -c64 options to \c drconfig or \c drrun, with \c -- ending
+the first client's options:
+
+bin32/drrun.exe -c32 samples/bin32/bbsize.dll -- -c64 samples/bin64/bbsize.dll -- notepad
+
+The order matters: \c -c32 must come first.
+
 To \ref sec_comm "nudge" all instances of \c notepad.exe running under
 DynamoRIO with argument "5", use:
 \code
@@ -594,6 +603,15 @@ Client options are not allowed to contain semicolons.  Additionally, the
 client option string combined with the path to the client library cannot
 contain all three quote characters (', ", `) simultaneously.
 
+To ensure a client is loaded into a child process of a different
+bitwidth (i.e., a 32-bit child created by a 64-bit parent), use the \c
+-c32 and \c -c64 options to \c drconfig or \c drrun, with \c -- ending
+the first client's options:
+
+bin32/drrun -c32 samples/bin32/bbsize.dll -- -c64 samples/bin64/bbsize.dll -- notepad
+
+The order matters: \c -c32 must come first.
+
 \section multi_client Multiple Clients
 
 DynamoRIO does support multiple clients.  It is each client's
@@ -626,19 +644,26 @@ option.  To use the option, first create a file in the \p tools
 subdirectory of the root of the DynamoRIO installation called \p
 toolname.drrun32 or \p toolname.drrun64, depending on the target
 architecture.  Here, \p toolname is the desired external name of the tool.
-This file should contain one of the following lines:
+This file should contain one of the following lines, or two if
+they are a pair of CLIENT32_* and CLIENT64_* specifiers:
 
 \code
 CLIENT_ABS=/absolute/path/to/client
+CLIENT32_ABS=/absolute/path/to/32-bit-client
+CLIENT64_ABS=/absolute/path/to/64-bit-client
 \endcode
 
 or
 
 \code
 CLIENT_REL=relative/path/to/client/from/DynamoRIO/root
+CLIENT32_REL=relative/path/to/32-bit-client/from/DynamoRIO/root
+CLIENT64_REL=relative/path/to/64-bit-client/from/DynamoRIO/root
 \endcode
 
-This enables \p drrun to locate the tool's client library.
+This enables \p drrun to locate the tool's client library.  The 32 and
+64 specifiers allow pointing at alternate-bitwidth paths for use if
+the target application creates a child process of a different bitwidth.
 
 The file can also modify the default DynamoRIO runtime options (see \ref
 sec_options) via \p DR_OP= lines.  Each line contains only one option string
@@ -698,8 +723,8 @@ FRONTEND_REL=relative/path/to/front-end/from/DynamoRIO/root
 \endcode
 
 This will cause \p drrun to transfer control to the specified front-end
-executable, passing any tool arguments (including a client path, if \p
-CLIENT_ABS or \p CLIENT_REL appears after the \p FRONTEND_* command)
+executable, passing any tool arguments (including client paths, if \p
+CLIENT{,32,64}_{ABS,REL} appears after the \p FRONTEND_* command)
 followed by "--" and the target application command line.
 
 The path to the DynamoRIO install base can be included in the front-end
@@ -1189,13 +1214,6 @@ endif(NOT DynamoRIO_FOUND)
 configure_DynamoRIO_client(myclient)
 \endcode
 
-Note that when building a 32-bit client in Linux using \p gcc, the stack
-alignment should be 4-byte only.
-Using the function \p configure_DynamoRIO_client() will configure the
-build settings correctly.
-Otherwise, appropriate options should be passed to the compiler: e.g.,
-\p -mpreferred-stack-boundary=2.
-
 The \p samples/CMakeLists.txt file in the release package serves as another
 example.  The top of \p DynamoRIOConfig.cmake contains detailed
 instructions as well.
@@ -1375,7 +1393,7 @@ DynamoRIO's global memory pool.  Use the -Xlinker flag with gcc to replace
 the libc routines with DynamoRIO's _wrap routines, e.g.,
 
 \code
-  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free ...
+  gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free -Xlinker -wrap=strdup ...
 \endcode
 
 The ability to override the memory allocation routines makes it
@@ -2077,19 +2095,6 @@ headers for use with \p drdecode.
 When using DynamoRIO's CMake support, use the configure_DynamoRIO_decoder()
 function to set up include directories and to link with \p drdecode.  The
 next section describes how to link with the DynamoRIO shared library.
-
-\subsection sec_relativize Re-Relativization of Jumps and Calls
-
-When encoding a relative jump or call to a different location than it was
-decoded from while in standalone mode, a re-encode must be forced in order
-to work around an issue where DynamoRIO does not re-relativize the target:
-
-\code
-instr_set_raw_bits_valid(instr, false)
-\endcode
-
-When not in standalone mode, all branches are mangled and thus this is
-never an issue.  This should be fixed in a future release.
 
 
 \section sec_standalone_shared DynamoRIO Shared Library Issues

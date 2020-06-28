@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1504,7 +1504,11 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     int min = 0;
     int max = v->length - 1;
 
-    ASSERT(start < end || end == NULL /* wraparound */);
+    /* We support an empty range start==end in general but we do
+     * complain about 0..0 to catch bugs like i#4097.
+     */
+    ASSERT(start != NULL || end != NULL);
+    ASSERT(start <= end || end == NULL /* wraparound */);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, READWRITE);
     LOG(GLOBAL, LOG_VMAREAS, 7, "Binary search for " PFX "-" PFX " on this vector:\n",
@@ -1515,7 +1519,7 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
         int i = (min + max) / 2;
         if (end != NULL && end <= v->buf[i].start)
             max = i - 1;
-        else if (start >= v->buf[i].end)
+        else if (start >= v->buf[i].end || start == end)
             min = i + 1;
         else {
             if (area != NULL || index != NULL) {
@@ -1539,7 +1543,7 @@ binary_search(vm_area_vector_t *v, app_pc start, app_pc end, vm_area_t **area /*
     /* now max < min */
     LOG(GLOBAL, LOG_VMAREAS, 7, "\tdid not find " PFX "-" PFX "!\n", start, end);
     if (index != NULL) {
-        ASSERT((max < 0 || v->buf[max].end <= start) &&
+        ASSERT((max < 0 || v->buf[max].end <= start || start == end) &&
                (min > v->length - 1 || v->buf[min].start >= end));
         *index = max;
     }
@@ -3176,6 +3180,9 @@ executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_are
     vm_area_t *area;
     if (found_area != NULL)
         *found_area = false;
+    /* For flushing the whole address space make sure we don't pass 0..0. */
+    if (page_end == NULL && page_start == NULL)
+        page_start = (app_pc)1UL;
     ASSERT(page_start < page_end || page_end == NULL); /* wraparound */
     /* We have subpage regions from some of our rules, we should return true
      * if any area on the list that overlaps the pages enclosing the addr_[start,end)
@@ -4863,7 +4870,7 @@ check_origins_bb_pattern(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t
      * all of these must be targeted by a call
      */
     if (instr_get_opcode(first) == OP_mov_imm ||
-        /* funny case where store of immed is mov_st -- see arch/decode_table.c */
+        /* funny case where store of immed is mov_st -- see ir/decode_table.c */
         (instr_get_opcode(first) == OP_mov_st &&
          opnd_is_immed(instr_get_src(first, 0)))) {
         bool ok = false;
@@ -5175,7 +5182,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     mark_module_exempted(addr);
                     allow = true;
                 } else {
-                    uint prot = 0;
+                    uint memprot = 0;
                     list_default_or_append_t deflist = LIST_NO_MATCH;
                     /* Xref case 10526, in the common case app_mem_prot_change() adds
                      * this region, however it can miss -> rx transitions if they
@@ -5183,8 +5190,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                      * require signifigant restructuring of that routine, see comments
                      * there) so we also check here. */
                     if (DYNAMO_OPTION(executable_if_rx_text) &&
-                        get_memory_info(addr, NULL, NULL, &prot) &&
-                        (TEST(MEMPROT_EXEC, prot) && !TEST(MEMPROT_WRITE, prot))) {
+                        get_memory_info(addr, NULL, NULL, &memprot) &&
+                        (TEST(MEMPROT_EXEC, memprot) && !TEST(MEMPROT_WRITE, memprot))) {
                         /* matches -executable_if_rx_text */
                         /* case 9799: we don't mark exempted for default-on options */
                         allow = true;
@@ -5263,7 +5270,7 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
             if (is_in_dot_data_section(modbase, addr, &sec_start, &sec_end)) {
                 bool allow = false;
                 bool onlist = false;
-                uint prot = 0;
+                uint memprot = 0;
                 if (!DYNAMO_OPTION(executable_if_dot_data) &&
                     DYNAMO_OPTION(exempt_dot_data) &&
                     !IS_STRING_OPTION_EMPTY(exempt_dot_data_list)) {
@@ -5300,8 +5307,8 @@ check_origins_helper(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t *si
                     allow = true;
                     ;
                 }
-                if (!allow && get_memory_info(addr, NULL, NULL, &prot) &&
-                    TEST(MEMPROT_EXEC, prot)) {
+                if (!allow && get_memory_info(addr, NULL, NULL, &memprot) &&
+                    TEST(MEMPROT_EXEC, memprot)) {
                     /* check the _x versions */
                     if (!DYNAMO_OPTION(executable_if_dot_data_x) &&
                         DYNAMO_OPTION(exempt_dot_data_x) &&
@@ -8262,7 +8269,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * is best done prior to drreg storing them elsewhere; plus, it makes it
              * easier to turn on full_decode for simpler mangling.
              */
-            bool entered_rseq = false;
+            bool entered_rseq = false, exited_rseq = false;
             app_pc rseq_start, next_boundary = NULL;
             if (vmvector_lookup_data(d_r_rseq_areas, pc, &rseq_start, &next_boundary,
                                      NULL)) {
@@ -8272,6 +8279,14 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                 app_pc prev_end;
                 if (vmvector_lookup_prev_next(d_r_rseq_areas, pc, NULL, &prev_end,
                                               &next_boundary, NULL)) {
+                    if (tag < prev_end) {
+                        /* Avoiding instructions after the rseq endpoint simplifies
+                         * drmemtrace and other clients when the native rseq execution
+                         * aborts, and shrinks the block with the large native rseq
+                         * mangling.
+                         */
+                        exited_rseq = true;
+                    }
                     if (prev_end == pc)
                         next_boundary = prev_end;
                 }
@@ -8279,11 +8294,11 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (next_boundary != NULL && next_boundary < *stop) {
                 /* Ensure we check again before we hit a boundary. */
                 *stop = next_boundary;
-                if (xfer && (entered_rseq || pc == next_boundary)) {
-                    LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
-                        "Stopping bb at rseq boundary " PFX "\n", pc);
-                    result = false;
-                }
+            }
+            if (xfer && (entered_rseq || exited_rseq || pc == next_boundary)) {
+                LOG(THREAD, LOG_VMAREAS | LOG_INTERP, 3,
+                    "Stopping bb at rseq boundary " PFX "\n", pc);
+                result = false;
             }
         }
 #endif
@@ -8292,10 +8307,10 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
     }
 
     /* we are building a real bb, assert consistency checks */
-    /* XXX i#1979: These memqueries are surprisingly slow on Mac64.
-     * Investigation is needed.
+    /* XXX i#4257: These memqueries are surprisingly slow on Mac64 and AArch64.
+     * Investigation is needed.  For now we avoid them in default debug runs.
      */
-    DOCHECK(IF_MACOS64_ELSE(3, 1), {
+    DOCHECK(IF_MACOS64_ELSE(3, IF_AARCH64_ELSE(3, 1)), {
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||
@@ -11818,6 +11833,40 @@ unit_test_vmareas(void)
     check_vec(&v, 0, INT_TO_PC(1), INT_TO_PC(2), 0, 0, NULL);
     check_vec(&v, 1, INT_TO_PC(2), INT_TO_PC(3), 0, FRAG_SELFMOD_SANDBOXED, NULL);
     check_vec(&v, 2, INT_TO_PC(3), INT_TO_PC(4), 0, 0, NULL);
+    remove_vm_area(&v, INT_TO_PC(0), UNIVERSAL_REGION_END, false);
+
+    /* TEST 6: Binary search.
+     */
+    add_vm_area(&v, INT_TO_PC(1), INT_TO_PC(3), 0, 0, NULL _IF_DEBUG("A"));
+    add_vm_area(&v, INT_TO_PC(4), INT_TO_PC(5), 0, 0, NULL _IF_DEBUG("B"));
+    add_vm_area(&v, INT_TO_PC(7), INT_TO_PC(9), 0, 0, NULL _IF_DEBUG("C"));
+    vm_area_t *container = NULL;
+    int index = -1;
+    bool found = binary_search(&v, INT_TO_PC(2), INT_TO_PC(3), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(container->start, 1);
+    EXPECT(container->end, 3);
+    EXPECT(index, 0);
+    found = binary_search(&v, INT_TO_PC(6), INT_TO_PC(7), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 1);
+    /* Test start==end. */
+    found = binary_search(&v, INT_TO_PC(8), INT_TO_PC(8), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 2);
+    /* Test wraparound searching to NULL (i#4097). */
+    found = binary_search(&v, INT_TO_PC(1), INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 0);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 1);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, true);
+    EXPECT(index, 2);
+    found = binary_search(&v, container->end, INT_TO_PC(0), &container, &index, true);
+    EXPECT(found, false);
+    EXPECT(index, 2);
 
     vmvector_tests();
 }

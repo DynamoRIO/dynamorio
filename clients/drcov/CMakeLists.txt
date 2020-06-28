@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -125,11 +125,23 @@ else (X64)
 endif (X64)
 
 function (write_config_file dst libdir)
+  # We include the alternate-bitwidth path, though it won't be there for
+  # a single build dir and such a child will have a fatal error.
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   file(WRITE  ${dst} "# drcov tool config file\n")
   file(APPEND ${dst} "# DynamoRIO options\n")
   file(APPEND ${dst} "DR_OP=-nop_initial_bblock\n")
   file(APPEND ${dst} "# client tool path\n")
-  file(APPEND ${dst} "CLIENT_REL=${libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
   file(APPEND ${dst} "# client tool options\n")
   file(APPEND ${dst} "TOOL_OP=\n")
 endfunction ()
@@ -174,6 +186,7 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND}
   ARGS -D src=${srcdoc}
        -D dst=${gendoc}
+       -D CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}
        -D prog=$<TARGET_FILE:drcov2lcov>
        -D prog_arg=-help_html
        -P ${CMAKE_CURRENT_SOURCE_DIR}/../common/gendocs.cmake

@@ -173,6 +173,45 @@ test_unique_files(void)
     CHECK(res, "drx_open_unique_appid_dir failed");
 }
 
+static void
+test_instrlist()
+{
+
+    void *drcontext;
+    instrlist_t *bb;
+    size_t size;
+
+    drcontext = dr_get_current_drcontext();
+
+    bb = instrlist_create(drcontext);
+    instrlist_init(bb);
+
+    size = drx_instrlist_size(bb);
+    CHECK(size == 0, "drmgr_get_bb_size should return 0");
+    size = drx_instrlist_app_size(bb);
+    CHECK(size == 0, "drmgr_get_bb_app_size should return 0");
+
+#ifdef X86
+    instr_t *instr;
+    instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XCX),
+                                OPND_CREATE_MEMPTR(DR_REG_XBP, 8));
+    instrlist_append(bb, instr);
+    instr = INSTR_CREATE_mov_ld(drcontext, opnd_create_reg(DR_REG_XDI),
+                                OPND_CREATE_MEMPTR(DR_REG_XBP, 16));
+    instrlist_append(bb, instr);
+    instr = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_XDI),
+                             opnd_create_reg(DR_REG_XCX));
+    instrlist_meta_append(bb, instr);
+
+    size = drx_instrlist_size(bb);
+    CHECK(size == 3, "drmgr_get_bb_size should return 3");
+    size = drx_instrlist_app_size(bb);
+    CHECK(size == 2, "drmgr_get_bb_app_size should return 2");
+#endif
+
+    instrlist_clear_and_destroy(drcontext, bb);
+}
+
 DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -184,4 +223,5 @@ dr_init(client_id_t id)
     dr_register_nudge_event(event_nudge, id);
     dr_register_bb_event(event_basic_block);
     test_unique_files();
+    test_instrlist();
 }

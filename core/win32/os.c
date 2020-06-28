@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1224,13 +1224,15 @@ os_fast_exit(void)
      *
      * The curiosity is also relaxed if we enter DR using the API
      */
-    ASSERT_CURIOSITY(reached_image_entry_yet() ||
+    ASSERT_CURIOSITY(reached_image_entry_yet() || standalone_library ||
                      RUNNING_WITHOUT_CODE_CACHE() IF_APP_EXPORTS(|| dr_api_entry)
                      /* Clients can go native.  XXX: add var for whether client did? */
                      IF_CLIENT_INTERFACE(|| CLIENTS_EXIST()));
 
     DOLOG(1, LOG_TOP, { print_mem_quota(); });
     DOLOG(1, LOG_TOP, { print_mem_stats(); });
+
+    os_take_over_exit();
 
 #    ifdef WINDOWS_PC_SAMPLE
     if (dynamo_options.profile_pcs) {
@@ -1310,7 +1312,6 @@ os_slow_exit(void)
     syscall_interception_exit();
     aslr_exit();
     eventlog_slow_exit();
-    os_take_over_exit();
 
     tls_dcontext_offs = TLS_UNINITIALIZED;
 }
@@ -1896,13 +1897,6 @@ os_take_over_init(void)
         takeover_table_entry_free _IF_DEBUG("takeover table"));
 }
 
-/* Only called on slow exit */
-static void
-os_take_over_exit(void)
-{
-    generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
-}
-
 /* We need to distinguish a thread intercepted via APC hook but that is in ntdll
  * code (e.g., waiting for a lock) so we mark threads during init prior to being
  * added to the main thread table
@@ -2051,6 +2045,13 @@ thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
 }
 
+static void
+thread_attach_context_revert_from_data(CONTEXT *cxt INOUT, takeover_data_t *data)
+{
+    cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
+    thread_attach_restore_full_state(data);
+}
+
 void
 thread_attach_context_revert(CONTEXT *cxt INOUT)
 {
@@ -2060,8 +2061,7 @@ thread_attach_context_revert(CONTEXT *cxt INOUT)
                                                   (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, read, unlock);
     if (data != NULL && data != INVALID_PAYLOAD) {
-        cxt->CXT_XIP = (ptr_uint_t)data->continuation_pc;
-        thread_attach_restore_full_state(data);
+        thread_attach_context_revert_from_data(cxt, data);
         thread_attach_remove_from_table(data);
     } else
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
@@ -2075,6 +2075,52 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc)
     generic_hash_remove(GLOBAL_DCONTEXT, takeover_table,
                         (ptr_uint_t)dcontext->owning_thread);
     TABLE_RWLOCK(takeover_table, write, unlock);
+}
+
+static void
+os_take_over_exit(void)
+{
+    if (takeover_table == NULL)
+        return;
+    /* There may be threads we tried to attach to that were never scheduled.  We
+     * can't just check init_apc_go_native in thread_attach_takeover_callee because
+     * it can't just return to go native: it's not interception a static PC, and the
+     * continuation PC is stored in our heap which we'll free when we exit!  Just
+     * waiting for these threads prior to detach is not guaranteed, so instead we
+     * just revert the attach.
+     */
+    char buf[MAX_CONTEXT_SIZE];
+    TABLE_RWLOCK(takeover_table, write, lock);
+    int iter = 0;
+    takeover_data_t *data;
+    ptr_uint_t key;
+    do {
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, takeover_table, iter, &key,
+                                         (void **)&data);
+        if (iter < 0)
+            break;
+        CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+        HANDLE handle = thread_handle_from_id(data->tid);
+        LOG(GLOBAL, LOG_THREADS, 1,
+            "Reverting attached-but-never-scheduled thread " TIDFMT "\n", data->tid);
+        if (nt_thread_suspend(handle, NULL) && NT_SUCCESS(nt_get_context(handle, cxt))) {
+            thread_attach_context_revert_from_data(cxt, data);
+            if (!NT_SUCCESS(nt_set_context(handle, cxt)) ||
+                !nt_thread_resume(handle, NULL)) {
+                SYSLOG_INTERNAL_WARNING(
+                    "Failed to resume attached-but-never-scheduled thread " TIDFMT,
+                    data->tid);
+            }
+        } else {
+            SYSLOG_INTERNAL_WARNING(
+                "Failed to suspend attached-but-never-scheduled thread " TIDFMT,
+                data->tid);
+        }
+        iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, takeover_table, iter, key);
+    } while (true);
+    TABLE_RWLOCK(takeover_table, write, unlock);
+    generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
+    takeover_table = NULL;
 }
 
 #    ifndef X64
@@ -2712,10 +2758,24 @@ thread_attach_setup(priv_mcontext_t *mc)
                                                   (ptr_uint_t)d_r_get_thread_id());
     TABLE_RWLOCK(takeover_table, write, unlock);
     if (data == NULL || data == INVALID_PAYLOAD) {
+        ASSERT(standalone_library);
+        /* In release better to let thread run native than to crash.
+         * However, returning here does not just go back native: we've lost the
+         * PC to go back to and the thread will just crash.
+         */
         ASSERT_NOT_REACHED();
-        /* in release better to let thread run native than to crash */
         EXITING_DR();
         return;
+    }
+    if (init_apc_go_native) {
+        /* We can't return back through the interception routine since the return
+         * point is dynamic.  We directly do an NtContinue.  (For threads that
+         * are still not scheduled when we go to exit, os_take_over_exit()
+         * sets the context back).
+         */
+        mc->pc = data->continuation_pc;
+        thread_set_self_mcontext(mc);
+        ASSERT_NOT_REACHED();
     }
     /* Preclude double takeover if we become suspended while in ntdll */
     data->in_progress = true;
@@ -2793,12 +2853,6 @@ client_thread_target(void *param)
     ASSERT(IS_CLIENT_THREAD(dcontext));
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d *****\n\n", d_r_get_thread_id());
     LOG(THREAD, LOG_ALL, 1, "func=" PFX ", arg=" PFX "\n", func, arg);
-
-    /* i#2335: we support setup separate from start, and we want to allow a client
-     * to create a client thread during init, but we do not support that thread
-     * executing until the app has started (b/c we have no signal handlers in place).
-     */
-    wait_for_event(dr_app_started, 0);
 
     (*func)(arg);
 
@@ -3138,6 +3192,32 @@ is_phandle_me(HANDLE phandle)
         process_id_t pid = process_id_from_handle(phandle);
         return is_pid_me(pid);
     }
+}
+
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+#    ifdef CLIENT_INTERFACE
+    set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#    endif
+
+    return -1;
+}
+
+/* Returns the application's command-line arguments. */
+int
+get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
+{
+    /* XXX i#2662: Add support for Windows. */
+    ASSERT_NOT_IMPLEMENTED(false);
+#    ifdef CLIENT_INTERFACE
+    set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#    endif
+
+    return -1;
 }
 
 /* used only in get_dynamorio_library_path() but file level namespace
@@ -4128,7 +4208,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
         } else {
             bool needs_processing = false;
             int num_threads = 0;
-            thread_record_t **all_threads = NULL;
+            thread_record_t **thread_table = NULL;
 
             /* For hotp_only, image processing is done in two steps.  The
              * first one is done without suspending all threads (expensive if
@@ -4147,7 +4227,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                dynamo_initialized ? &needs_processing : NULL, NULL, 0);
             if (needs_processing) {
                 DEBUG_DECLARE(bool ok =)
-                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &all_threads,
+                synch_with_all_threads(THREAD_SYNCH_SUSPENDED, &thread_table,
                                        /* Case 6821: other synch-all-thread uses that
                                         * only care about threads carrying fcache
                                         * state can ignore us
@@ -4158,9 +4238,9 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
                                         * FIXME: retry instead? */
                                        THREAD_SYNCH_SUSPEND_FAILURE_IGNORE);
                 ASSERT(ok);
-                hotp_process_image(base, add, false, false, NULL, all_threads,
+                hotp_process_image(base, add, false, false, NULL, thread_table,
                                    num_threads);
-                end_synch_with_all_threads(all_threads, num_threads, true /*resume*/);
+                end_synch_with_all_threads(thread_table, num_threads, true /*resume*/);
             }
         }
     }

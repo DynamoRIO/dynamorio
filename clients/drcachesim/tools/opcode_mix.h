@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,7 +43,8 @@
 
 class opcode_mix_t : public analysis_tool_t {
 public:
-    opcode_mix_t(const std::string &module_file_path, unsigned int verbose);
+    opcode_mix_t(const std::string &module_file_path, unsigned int verbose,
+                 const std::string &alt_module_dir = "");
     virtual ~opcode_mix_t();
     std::string
     initialize() override;
@@ -77,8 +78,8 @@ protected:
             , instr_count(0)
         {
         }
-        shard_data_t(worker_data_t *worker_in)
-            : worker(worker_in)
+        shard_data_t(worker_data_t *worker)
+            : worker(worker)
             , instr_count(0)
             , last_trace_module_start(nullptr)
             , last_trace_module_size(0)
@@ -94,36 +95,37 @@ protected:
         app_pc last_mapped_module_start;
     };
 
-    // XXX: Share this for use in other C++ code.
-    struct scoped_mutex_t {
-        scoped_mutex_t(void *mutex_in)
-            : mutex(mutex_in)
+    struct dcontext_cleanup_last_t {
+    public:
+        ~dcontext_cleanup_last_t()
         {
-            dr_mutex_lock(mutex);
+            if (dcontext != nullptr)
+                dr_standalone_exit();
         }
-        ~scoped_mutex_t()
-        {
-            dr_mutex_unlock(mutex);
-        }
-        void *mutex;
+        void *dcontext = nullptr;
     };
 
-    void *dcontext;
-    std::string module_file_path;
-    std::unique_ptr<module_mapper_t> module_mapper;
-    void *mapper_mutex;
+    /* We make this the first field so that dr_standalone_exit() is called after
+     * destroying the other fields which may use DR heap.
+     */
+    dcontext_cleanup_last_t dcontext_;
+    std::string module_file_path_;
+    std::unique_ptr<module_mapper_t> module_mapper_;
+    std::mutex mapper_mutex_;
+
     // We reference directory.modfile_bytes throughout operation, so its lifetime
     // must match ours.
-    raw2trace_directory_t directory;
-    std::unordered_map<memref_tid_t, shard_data_t *> shard_map;
+    raw2trace_directory_t directory_;
+    std::unordered_map<memref_tid_t, shard_data_t *> shard_map_;
     // This mutex is only needed in parallel_shard_init.  In all other accesses to
     // shard_map (process_memref, print_results) we are single-threaded.
-    std::mutex shard_map_mutex;
-    unsigned int knob_verbose;
+    std::mutex shard_map_mutex_;
+    unsigned int knob_verbose_;
+    std::string knob_alt_module_dir_;
     static const std::string TOOL_NAME;
     // For serial operation.
-    worker_data_t serial_worker;
-    shard_data_t serial_shard;
+    worker_data_t serial_worker_;
+    shard_data_t serial_shard_;
 };
 
 #endif /* _OPCODE_MIX_H_ */

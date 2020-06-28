@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -170,15 +170,30 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
-/* FIXME i#1551: NYI on ARM */
 /*
  * dr_app_start - Causes application to run under Dynamo control
  */
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+        push     {lr}
+        vstmdb   sp!, {d16-d31}
+        vstmdb   sp!, {d0-d15}
+        mrs      REG_R0, cpsr /* r0 is scratch */
+        push     {REG_R0}
+        /* We can't push all regs w/ writeback */
+        stmdb    sp, {REG_R0-r15}
+        str      lr, [sp, #(PRIV_MCXT_PC_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        /* we need the sp at function entry */
+        mov      REG_R0, sp
+        add      REG_R0, REG_R0, #(PRIV_MCXT_SIMD_SIZE + 8) /* offset simd,cpsr,lr */
+        str      REG_R0, [sp, #(PRIV_MCXT_SP_FROM_SIMD+4)] /* +4 b/c we pushed cpsr */
+        sub      sp, sp, #(PRIV_MCXT_SIZE-PRIV_MCXT_SIMD_SIZE-4) /* simd,cpsr */
+        mov      REG_R0, sp
+        CALLC1(GLOBAL_REF(dr_app_start_helper), REG_R0)
+        /* if we get here, DR is not taking over */
+        add      sp, sp, #PRIV_MCXT_SIZE
+        pop      {pc}
         END_FUNC(dr_app_start)
 
 /*
@@ -188,7 +203,6 @@ GLOBAL_LABEL(dr_app_start:)
  */
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
 GLOBAL_LABEL(dr_app_take_over:)
-        /* FIXME i#1551: NYI on ARM */
         b        GLOBAL_REF(dynamorio_app_take_over)
         END_FUNC(dr_app_take_over)
 
@@ -200,9 +214,8 @@ GLOBAL_LABEL(dr_app_take_over:)
  */
         DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
 GLOBAL_LABEL(dr_app_running_under_dynamorio:)
-        /* FIXME i#1551: NYI on ARM */
         mov      r0, #0
-        bl       GLOBAL_REF(unexpected_return)
+        bx       lr
         END_FUNC(dr_app_running_under_dynamorio)
 #endif /* DR_APP_EXPORTS */
 
@@ -397,55 +410,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         mov      REG_R0, ARG2
         bx       lr
         END_FUNC(safe_read_asm)
-
-
-#ifdef UNIX
-/* i#46: Private memcpy and memset for libc isolation.  Xref comment in x86.asm.
- */
-
-/* Private memcpy.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memcpy)
-GLOBAL_LABEL(memcpy:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        ldrb     REG_R3, [ARG2]
-        strb     REG_R3, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG2, ARG2, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memcpy)
-
-/* Private memset.
- * FIXME i#1551: we should optimize this as it can be on the critical path.
- */
-        DECLARE_FUNC(memset)
-GLOBAL_LABEL(memset:)
-        cmp      ARG3, #0
-        mov      REG_R12/*scratch reg*/, ARG1
-1:      beq      2f
-        strb     ARG2, [ARG1]
-        subs     ARG3, ARG3, #1
-        add      ARG1, ARG1, #1
-        b        1b
-2:      mov      REG_R0, REG_R12
-        bx       lr
-        END_FUNC(memset)
-
-/* See x86.asm notes about needing these to avoid gcc invoking *_chk */
-.global __memcpy_chk
-.hidden __memcpy_chk
-.set __memcpy_chk,memcpy
-
-.global __memset_chk
-.hidden __memset_chk
-.set __memset_chk,memset
-#endif /* UNIX */
 
 
 #ifdef CLIENT_INTERFACE

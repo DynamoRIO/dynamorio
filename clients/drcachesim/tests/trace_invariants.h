@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,17 +44,23 @@ class trace_invariants_t : public analysis_tool_t {
 public:
     trace_invariants_t(bool offline = true, unsigned int verbose = 0);
     virtual ~trace_invariants_t();
-    virtual bool
-    process_memref(const memref_t &memref);
-    virtual bool
-    print_results();
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
 
 protected:
-    bool knob_offline;
-    unsigned int knob_verbose;
-    memref_t prev_instr;
-    memref_t prev_marker;
-    std::unordered_map<memref_tid_t, bool> thread_exited;
+    bool knob_offline_;
+    unsigned int knob_verbose_;
+    memref_t prev_instr_;
+    memref_t prev_xfer_marker_;
+    memref_t prev_entry_;
+    memref_t prev_prev_entry_;
+    memref_t pre_signal_instr_;
+    int instrs_until_interrupt_;
+    int memrefs_until_interrupt_;
+    addr_t app_handler_pc_;
+    std::unordered_map<memref_tid_t, bool> thread_exited_;
 };
 
 #endif /* _TRACE_INVARIANTS_H_ */

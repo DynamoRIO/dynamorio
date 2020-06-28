@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -294,26 +294,19 @@ bytes_for_exitstub_alignment(dcontext_t *dcontext, linkstub_t *l, fragment_t *f,
 uint
 extend_trace_pad_bytes(fragment_t *add_frag)
 {
-    /* FIXME : this is a poor estimate, we could do better by looking at the
-     * linkstubs and checking if we are inlining ibl, but since this is just
-     * used by monitor.c for a max size check should be fine to overestimate
-     * we'll just end up with slightly shorter max size traces */
-    /* we don't trace through traces in normal builds, so don't worry about
-     * number of exits (FIXME this also assumes bbs don't trace through
-     * conditional or indirect branches) */
-    ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_IS_TRACE, add_frag->flags));
-    /* Also, if -pad_jmps_shift_bb we assume that we don't need to remove
-     * any nops from fragments added to traces since there shouldn't be any if
-     * we only add bbs (nop_pad_ilist has an assert that verifies we don't add
-     * any nops to bbs when -pad_jmps_shift_bb without marking as CANNOT_BE_TRACE,
-     * so here we also verify that we only add bbs) - Xref PR 215179, UNIX syscall
-     * fence exits and CLIENT_INTERFACE added/moved exits can lead to bbs with
-     * additional hot_patchable locations.  We mark such bb fragments as CANNOT_BE_TRACE
-     * in nop_pad_ilist() if -pad_jmps_mark_no_trace is set or assert otherwise to avoid
-     * various difficulties so should not see them here. */
-    /* A standard bb has at most 2 patchable locations (ends in conditional or ends
-     * in indirect that is promoted to inlined). */
-    return 2 * MAX_PAD_SIZE;
+    /* To estimate we count the number of exit ctis by counting the linkstubs. */
+    bool inline_ibl_head = TEST(FRAG_IS_TRACE, add_frag->flags)
+        ? DYNAMO_OPTION(inline_trace_ibl)
+        : DYNAMO_OPTION(inline_bb_ibl);
+    int num_patchables = 0;
+    for (linkstub_t *l = FRAGMENT_EXIT_STUBS(add_frag); l != NULL;
+         l = LINKSTUB_NEXT_EXIT(l)) {
+        num_patchables++;
+        if (LINKSTUB_INDIRECT(l->flags) && inline_ibl_head)
+            num_patchables += 2;
+        /* We ignore cbr_fallthrough: only one of them should need nops. */
+    }
+    return num_patchables * MAX_PAD_SIZE;
 }
 
 /* return startpc shifted by the necessary bytes to pad patchable jmps of the
@@ -440,11 +433,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
                  bool hot_patch)
 {
 #ifdef TRACE_HEAD_CACHE_INCR
-#    ifdef CUSTOM_EXIT_STUBS
-    byte *stub_pc = (byte *)(EXIT_FIXED_STUB_PC(dcontext, f, l));
-#    else
     byte *stub_pc = (byte *)(EXIT_STUB_PC(dcontext, f, l));
-#    endif
 #endif
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
     ASSERT(LINKSTUB_DIRECT(l->flags));
@@ -465,17 +454,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
 #endif
 
     /* change jmp target to point to the passed-in target */
-#ifdef UNSUPPORTED_API
-    if ((l->flags & LINK_TARGET_PREFIX) != 0) {
-        /* want to target just the xcx restore, not the eflags restore
-         * (only ibl targets eflags restore)
-         */
-        patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l),
-                     FCACHE_PREFIX_ENTRY_PC(targetf), hot_patch);
-    } else
-#endif
-
-        if (exit_cti_reaches_target(dcontext, f, l, (cache_pc)FCACHE_ENTRY_PC(targetf))) {
+    if (exit_cti_reaches_target(dcontext, f, l, (cache_pc)FCACHE_ENTRY_PC(targetf))) {
         patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), FCACHE_ENTRY_PC(targetf),
                      hot_patch);
         return true; /* do not need stub anymore */
@@ -504,11 +483,7 @@ unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 
 #ifdef TRACE_HEAD_CACHE_INCR
     if (dl->target_fragment != NULL) { /* HACK to tell if targeted trace head */
-#    ifdef CUSTOM_EXIT_STUBS
-        byte *pc = (byte *)(EXIT_FIXED_STUB_PC(dcontext, f, l));
-#    else
         byte *pc = (byte *)(EXIT_STUB_PC(dcontext, f, l));
-#    endif
         /* FIXME: more efficient way than multiple calls to get size-5? */
         ASSERT(linkstub_size(dcontext, f, l) == DIRECT_EXIT_STUB_SIZE(f->flags));
         patch_branch(FRAG_ISA_MODE(f->flags), pc + DIRECT_EXIT_STUB_SIZE(f->flags) - 5,
@@ -538,9 +513,6 @@ link_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool hot_
      * state (we do have multi-stage modifications for inlined stubs)
      */
     byte *stub_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#ifdef CUSTOM_EXIT_STUBS
-    byte *fixed_stub_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#endif
 
     ASSERT(!TEST(FRAG_COARSE_GRAIN, f->flags));
 
@@ -1279,11 +1251,7 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 {
     generated_code_t *code =
         get_emitted_routines_code(dcontext _IF_X86_64(FRAGMENT_GENCODE_MODE(f->flags)));
-#ifdef CUSTOM_EXIT_STUBS
-    byte *start_pc = (byte *)EXIT_FIXED_STUB_PC(dcontext, f, l);
-#else
     byte *start_pc = (byte *)EXIT_STUB_PC(dcontext, f, l);
-#endif
     ibl_branch_type_t branch_type;
 
     ASSERT(linkstub_owned_by_fragment(dcontext, f, l));
@@ -1743,26 +1711,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                                              0, ERRNO_TIB_OFFSET, OPSZ_4),
                                    opnd_create_reg(scratch32)));
         }
-        /* We also swap TEB->NlsCache.  Unlike TEB->ProcessEnvironmentBlock, which is
-         * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
-         * both values and swap between them which is expensive.
-         */
-        PRE(ilist, next,
-            XINST_CREATE_load(dcontext, opnd_create_reg(reg_scratch),
-                              opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
-                                                        NLS_CACHE_TIB_OFFSET, OPSZ_PTR)));
-        PRE(ilist, next,
-            SAVE_TO_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
-                               to_priv ? APP_NLS_CACHE_OFFSET : PRIV_NLS_CACHE_OFFSET));
-        PRE(ilist, next,
-            RESTORE_FROM_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
-                                    to_priv ? PRIV_NLS_CACHE_OFFSET
-                                            : APP_NLS_CACHE_OFFSET));
-        PRE(ilist, next,
-            XINST_CREATE_store(dcontext,
-                               opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
-                                                         NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
-                               opnd_create_reg(reg_scratch)));
         /* We also swap TEB->FlsData.  Unlike TEB->ProcessEnvironmentBlock, which is
          * constant, and TEB->LastErrorCode, which is not peristent, we have to maintain
          * both values and swap between them which is expensive.
@@ -1799,6 +1747,45 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
             XINST_CREATE_store(dcontext,
                                opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
                                                          NT_RPC_TIB_OFFSET, OPSZ_PTR),
+                               opnd_create_reg(reg_scratch)));
+        /* We also swap TEB->NlsCache. */
+        PRE(ilist, next,
+            XINST_CREATE_load(dcontext, opnd_create_reg(reg_scratch),
+                              opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
+                                                        NLS_CACHE_TIB_OFFSET, OPSZ_PTR)));
+        PRE(ilist, next,
+            SAVE_TO_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                               to_priv ? APP_NLS_CACHE_OFFSET : PRIV_NLS_CACHE_OFFSET));
+        PRE(ilist, next,
+            RESTORE_FROM_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                    to_priv ? PRIV_NLS_CACHE_OFFSET
+                                            : APP_NLS_CACHE_OFFSET));
+        PRE(ilist, next,
+            XINST_CREATE_store(dcontext,
+                               opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
+                                                         NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
+                               opnd_create_reg(reg_scratch)));
+        /* We also have to swap TEB->ThreadLocalStoragePointer.  Unlike the other
+         * fields, we control this private one so we never set it from the TEB field.
+         */
+        if (to_priv) {
+            PRE(ilist, next,
+                XINST_CREATE_load(dcontext, opnd_create_reg(reg_scratch),
+                                  opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                            0, STATIC_TLS_TIB_OFFSET,
+                                                            OPSZ_PTR)));
+            PRE(ilist, next,
+                SAVE_TO_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                   APP_STATIC_TLS_OFFSET));
+        }
+        PRE(ilist, next,
+            RESTORE_FROM_DC_VIA_REG(absolute, dcontext, reg_dr, reg_scratch,
+                                    to_priv ? PRIV_STATIC_TLS_OFFSET
+                                            : APP_STATIC_TLS_OFFSET));
+        PRE(ilist, next,
+            XINST_CREATE_store(dcontext,
+                               opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
+                                                         STATIC_TLS_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
     }
 #    endif /* CLIENT_INTERFACE */

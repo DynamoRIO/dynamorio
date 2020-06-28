@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -117,6 +117,9 @@ kernel_is_64bit(void)
 void
 clear_icache(void *beg, void *end)
 {
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_REACHED();
+#    else
     static size_t cache_info = 0;
     size_t dcache_line_size;
     size_t icache_line_size;
@@ -159,6 +162,7 @@ clear_icache(void *beg, void *end)
 
     /* Instruction Synchronization Barrier */
     __asm__ __volatile__("isb" : : : "memory");
+#    endif
 }
 #endif
 

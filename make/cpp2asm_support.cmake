@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2015 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -208,7 +208,7 @@ if (APPLE)
     set(ASM_FLAGS "${ASM_FLAGS} -g")
   endif (DEBUG)
 elseif (UNIX)
-  if (X86)
+  if (DR_HOST_X86)
     set(ASM_FLAGS "-mmnemonic=intel -msyntax=intel -mnaked-reg")
     if (X64)
       set(ASM_FLAGS "${ASM_FLAGS} --64")
@@ -216,7 +216,7 @@ elseif (UNIX)
       # putting --32 last so we fail on -mmnemonic=intel on older as, not --32
       set(ASM_FLAGS "${ASM_FLAGS} --32")
     endif (X64)
-  elseif (ARM)
+  elseif (DR_HOST_ARM)
     # No 64-bit support yet.
     # Some tests and libgcc/arm use deprecated instructions, disable warnings.
     set(ASM_FLAGS "${ASM_FLAGS} -mfpu=neon -mno-warn-deprecated")
