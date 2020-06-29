@@ -37,7 +37,7 @@ f()
 {
 }
 
-#if defined(__arch64__)
+#if defined(__aarch64__)
 void
 prfm(void)
 {
@@ -102,7 +102,7 @@ prfum(void)
 int
 main(void)
 {
-#if defined(__arch64__)
+#if defined(__aarch64__)
     prfm();
     prfum();
 #endif
