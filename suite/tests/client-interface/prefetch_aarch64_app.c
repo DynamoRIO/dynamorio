@@ -99,11 +99,8 @@ prfum(void)
 int
 main(void)
 {
-#if defined(AARCH64)
     prfm();
     prfum();
-#endif
-
     printf("Hello, world!\n");
     return 0;
 }
