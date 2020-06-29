@@ -6,6 +6,8 @@ Total counts:
      .* total non-fetched instructions
 #if defined(AARCH64)
           34 total prefetches
+#elif defined(X86) && !defined(X64)
+           0 total prefetches
 #else
            8 total prefetches
 #endif
@@ -25,6 +27,8 @@ Thread .* counts:
      .* non-fetched instructions
 #if defined(AARCH64)
           34 prefetches
+#elif defined(X86) && !defined(X64)
+           0 prefetches
 #else
            8 prefetches
 #endif
