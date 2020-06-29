@@ -652,12 +652,14 @@ set(ci_shared_app simple_app)
 set(ci_shared_app_src client-interface/${ci_shared_app}.c)
 add_exe(${ci_shared_app} ${ci_shared_app_src})
 
-# An app with prefetch instructions.
-set(ci_prefetch_app prefetch_app)
-set(ci_prefetch_app_src client-interface/${ci_prefetch_app}.c)
-add_exe(${ci_prefetch_app} ${ci_prefetch_app_src})
+if (CMAKE_COMPILER_IS_GNUCC)
+  # An app with prefetch instructions.
+  set(ci_prefetch_app prefetch_app)
+  set(ci_prefetch_app_src client-interface/${ci_prefetch_app}.c)
+  add_exe(${ci_prefetch_app} ${ci_prefetch_app_src})
+endif ()
 
-If (AARCH64)
+if (AARCH64)
   # An AArch64 app with prefetch instructions.
   set(ci_prefetch_aarch64_app prefetch_aarch64_app)
   set(ci_prefetch_aarch64_app_src client-interface/${ci_prefetch_aarch64_app}.c)
@@ -3120,8 +3122,10 @@ if (CLIENT_INTERFACE)
 
       torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
-      torunonly_drcachesim(prefetch-basic-counts ${ci_prefetch_app} "-simulator_type basic_counts" "")
-      unset(tool.drcachesim.prefetch-basic-counts_rawtemp) # use preprocessor
+      if (CMAKE_COMPILER_IS_GNUCC)
+        torunonly_drcachesim(prefetch-basic-counts ${ci_prefetch_app} "-simulator_type basic_counts" "")
+        unset(tool.drcachesim.prefetch-basic-counts_rawtemp) # use preprocessor
+      endif ()
 
       if (AARCH64)
         torunonly_drcachesim(prefetch-aarch64-basic-counts ${ci_prefetch_aarch64_app} "-simulator_type basic_counts" "")
@@ -3350,8 +3354,10 @@ if (CLIENT_INTERFACE)
       torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
       torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
-      torunonly_drcacheoff(prefetch-basic-counts ${ci_prefetch_app} "" "@-simulator_type@basic_counts" "")
-      unset(tool.drcacheoff.prefetch-basic-counts_rawtemp) # use preprocessor
+      if (CMAKE_COMPILER_IS_GNUCC)
+        torunonly_drcacheoff(prefetch-basic-counts ${ci_prefetch_app} "" "@-simulator_type@basic_counts" "")
+        unset(tool.drcacheoff.prefetch-basic-counts_rawtemp) # use preprocessor
+      endif ()
 
       if (AARCH64)
         torunonly_drcacheoff(prefetch-aarch64-basic-counts ${ci_prefetch_aarch64_app} "" "@-simulator_type@basic_counts" "")
