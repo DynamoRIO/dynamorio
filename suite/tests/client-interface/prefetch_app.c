@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,57 +30,31 @@
  * DAMAGE.
  */
 
-#include "trace_entry.h"
+#include <stdio.h>
+int
+main(void)
+{
+    int d = 1;
 
-const char *const trace_type_names[] = {
-    "read",
-    "write",
-    "prefetch",
-    "prefetcht0",
-    "prefetcht1",
-    "prefetcht2",
-    "prefetchnta",
-    "prefetch_read",
-    "prefetch_write",
-    "prefetch_instr",
-    "instr",
-    "direct_jump",
-    "indirect_jump",
-    "conditional_jump",
-    "direct_call",
-    "indirect_call",
-    "return",
-    "instr_bundle",
-    "instr_flush",
-    "instr_flush_end",
-    "data_flush",
-    "data_flush_end",
-    "thread",
-    "thread_exit",
-    "pid",
-    "header",
-    "footer",
-    "hw prefetch",
-    "marker",
-    "non-fetched instr",
-    "maybe-fetched instr",
-    "sysenter",
-    "prefetch_pldl1keep",
-    "prefetch_pldl1strm",
-    "prefetch_pldl2keep",
-    "prefetch_pldl2strm",
-    "prefetch_pldl3keep",
-    "prefetch_pldl3strm",
-    "prefetch_plil1keep",
-    "prefetch_plil1strm",
-    "prefetch_plil2keep",
-    "prefetch_plil2strm",
-    "prefetch_plil3keep",
-    "prefetch_plil3strm",
-    "prefetch_pstl1keep",
-    "prefetch_pstl1strm",
-    "prefetch_pstl2keep",
-    "prefetch_pstl2strm",
-    "prefetch_pstl3keep",
-    "prefetch_pstl3strm",
-};
+    // Prefetch for read.
+    // Non-temporal
+    __builtin_prefetch(&d, 0, 0);
+    // L1
+    __builtin_prefetch(&d, 0, 3);
+    // L2
+    __builtin_prefetch(&d, 0, 2);
+    // L3
+    __builtin_prefetch(&d, 0, 1);
+
+    // Prefetch for write.
+    // Non-temporal
+    __builtin_prefetch(&d, 1, 0);
+    // L1
+    __builtin_prefetch(&d, 1, 3);
+    // L2
+    __builtin_prefetch(&d, 1, 2);
+    // L3
+    __builtin_prefetch(&d, 1, 1);
+    printf("Hello, world!\n");
+    return 0;
+}

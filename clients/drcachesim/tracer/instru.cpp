@@ -78,6 +78,51 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     return TRACE_TYPE_INSTR;
 }
 
+#ifdef AARCH64
+unsigned short
+get_aarch64_prefetch_target_policy(ptr_int_t prfop)
+{
+    // Least significant three bits of prfop represent prefetch target and
+    // policy [... b2 b1 b0]
+    //
+    // b2 b1 : prefetch target
+    // 0b00 - L1 cache, 0b01 - L2 cache, 0b10 - L3 cache
+    //
+    // b0 : prefetch policy
+    // 0b0 - temporal prefetch, 0b1 - streaming (non-temporal) prefetch
+    return prfop & 0b111;
+}
+
+unsigned short
+get_aarch64_prefetch_op_type(ptr_int_t prfop)
+{
+    // Bits at position 3 and 4 in prfop represent prefetch operation type
+    // [... b4 b3 ...]
+    // 0b00 - prefetch for load
+    // 0b01 - prefetch for instruction
+    // 0b10 - prefetch for store
+    return (prfop >> 3) & 0b11;
+}
+
+unsigned short
+get_aarch64_prefetch_type(ptr_int_t prfop)
+{
+    unsigned short target_policy = get_aarch64_prefetch_target_policy(prfop);
+    unsigned short op_type = get_aarch64_prefetch_op_type(prfop);
+    DR_ASSERT_MSG(target_policy < 6 and op_type < 3,
+                  "Unsupported AArch64 prefetch operation.");
+    switch (op_type) {
+    case 0: // prefetch for load
+        return TRACE_TYPE_PREFETCH_PLDL1KEEP + target_policy;
+    case 1: // prefetch for instruction
+        return TRACE_TYPE_PREFETCH_PLIL1KEEP + target_policy;
+    case 2: // prefetch for store
+        return TRACE_TYPE_PREFETCH_PSTL1KEEP + target_policy;
+    }
+    return TRACE_TYPE_PREFETCH; // unreachable.
+}
+#endif
+
 unsigned short
 instru_t::instr_to_prefetch_type(instr_t *instr)
 {
@@ -94,6 +139,12 @@ instru_t::instr_to_prefetch_type(instr_t *instr)
     case OP_pld: return TRACE_TYPE_PREFETCH_READ;
     case OP_pldw: return TRACE_TYPE_PREFETCH_WRITE;
     case OP_pli: return TRACE_TYPE_PREFETCH_INSTR;
+#endif
+#ifdef AARCH64
+    case OP_prfm:
+        return get_aarch64_prefetch_type(opnd_get_immed_int(instr_get_src(instr, 0)));
+    case OP_prfum:
+        return get_aarch64_prefetch_type(opnd_get_immed_int(instr_get_src(instr, 0)));
 #endif
     default: return TRACE_TYPE_PREFETCH;
     }

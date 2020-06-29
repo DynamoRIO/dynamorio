@@ -1,0 +1,40 @@
+Hello, world!
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+     .* total \(fetched\) instructions
+     .* total unique \(fetched\) instructions
+     .* total non-fetched instructions
+#if defined(AARCH64)
+          34 total prefetches
+#else
+           8 total prefetches
+#endif
+     .* total data loads
+     .* total data stores
+           1 total threads
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+     .* total other markers
+Thread .* counts:
+     .* \(fetched\) instructions
+     .* unique \(fetched\) instructions
+     .* non-fetched instructions
+#if defined(AARCH64)
+          34 prefetches
+#else
+           8 prefetches
+#endif
+     .* data loads
+     .* data stores
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
+     .* other markers

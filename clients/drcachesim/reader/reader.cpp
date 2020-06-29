@@ -78,6 +78,24 @@ reader_t::operator++()
         case TRACE_TYPE_PREFETCH_READ:
         case TRACE_TYPE_PREFETCH_WRITE:
         case TRACE_TYPE_PREFETCH_INSTR:
+        case TRACE_TYPE_PREFETCH_PLDL1KEEP:
+        case TRACE_TYPE_PREFETCH_PLDL1STRM:
+        case TRACE_TYPE_PREFETCH_PLDL2KEEP:
+        case TRACE_TYPE_PREFETCH_PLDL2STRM:
+        case TRACE_TYPE_PREFETCH_PLDL3KEEP:
+        case TRACE_TYPE_PREFETCH_PLDL3STRM:
+        case TRACE_TYPE_PREFETCH_PLIL1KEEP:
+        case TRACE_TYPE_PREFETCH_PLIL1STRM:
+        case TRACE_TYPE_PREFETCH_PLIL2KEEP:
+        case TRACE_TYPE_PREFETCH_PLIL2STRM:
+        case TRACE_TYPE_PREFETCH_PLIL3KEEP:
+        case TRACE_TYPE_PREFETCH_PLIL3STRM:
+        case TRACE_TYPE_PREFETCH_PSTL1KEEP:
+        case TRACE_TYPE_PREFETCH_PSTL1STRM:
+        case TRACE_TYPE_PREFETCH_PSTL2KEEP:
+        case TRACE_TYPE_PREFETCH_PSTL2STRM:
+        case TRACE_TYPE_PREFETCH_PSTL3KEEP:
+        case TRACE_TYPE_PREFETCH_PSTL3STRM:
             have_memref = true;
             assert(cur_tid_ != 0 && cur_pid_ != 0);
             cur_ref_.data.pid = cur_pid_;
