@@ -37,6 +37,7 @@ f()
 {
 }
 
+#if defined(__arch64__)
 void
 prfm(void)
 {
@@ -66,6 +67,7 @@ prfm(void)
     __asm__ __volatile__("prfm\tpstl3keep,[%0]" : : "r"(d));
     __asm__ __volatile__("prfm\tpstl3strm,[%0]" : : "r"(d));
 }
+
 void
 prfum(void)
 {
@@ -95,12 +97,16 @@ prfum(void)
     __asm__ __volatile__("prfum\tpstl3keep,[%0]" : : "r"(d));
     __asm__ __volatile__("prfum\tpstl3strm,[%0]" : : "r"(d));
 }
+#endif
 
 int
 main(void)
 {
+#if defined(__arch64__)
     prfm();
     prfum();
+#endif
+
     printf("Hello, world!\n");
     return 0;
 }

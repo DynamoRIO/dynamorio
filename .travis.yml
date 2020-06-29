@@ -153,10 +153,6 @@ install:
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY == yes ]]; then
       sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu; fi
-  # Install cross-compilers for cross-compiling A64 build:
-  - >
-      if [[ "`uname`" == "Linux" && $DYNAMORIO_A64_ON_X86_ONLY == yes ]]; then
-      sudo apt-get -y install g++-aarch64-linux-gnu; fi
   # Fetch and install Android NDK for Andoid cross-compile build only.
   - >
       if [[ "`uname`" == "Linux" && $DYNAMORIO_CROSS_ANDROID_ONLY == yes ]]; then
