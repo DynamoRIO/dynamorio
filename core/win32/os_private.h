@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -68,12 +68,12 @@ extern app_pc dynamo_dll_end;
 
 extern dcontext_t *early_inject_load_helper_dcontext;
 
-/* passed to early injection init by parent */
+/* Passed to early injection init by parent.  Sized to work for any bitwidth. */
 typedef struct {
-    byte *dr_base;
-    byte *ntdll_base;
-    byte *tofree_base;
-    byte *hook_location;
+    uint64 dr_base;
+    uint64 ntdll_base;
+    uint64 tofree_base;
+    uint64 hook_location;
     bool late_injection;
     char dynamorio_lib_path[MAX_PATH];
 } earliest_args_t;
@@ -346,7 +346,9 @@ os_rename_file_in_directory(IN HANDLE rootdir, const wchar_t *orig_name,
 
 /* see notes in intercept_new_thread() about these values */
 #define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
-#define THREAD_START_ARG IF_X64_ELSE(CXT_XDX, CXT_XBX)
+#define THREAD_START_ARG64 CXT_XDX
+#define THREAD_START_ARG32 CXT_XBX
+#define THREAD_START_ARG IF_X64_ELSE(THREAD_START_ARG64, THREAD_START_ARG32)
 
 void
 callback_init(void);

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -50,6 +50,7 @@
 cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
+include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
 
 option(TEST_LONG "run long set of tests")
 option(SKIP_FLAKY_TESTS "do not run tests named *_FLAKY")
@@ -4373,6 +4374,78 @@ else (UNIX)
   #tobuild_runall(runall.processchain runall/processchain.runall "")
 
   tobuild_csharp(win32.dotnet win32/dotnet.cs)
+
+  # Cross-arch injection tests.
+  if (X86)
+    set(xarch_dir ${CMAKE_CURRENT_BINARY_DIR}/xarch)
+    set(test_bindir suite/tests/bin)
+    file(MAKE_DIRECTORY ${xarch_dir})
+    # Unfortunately, while CMake 3.13+ supports create_symlink on Windows, that
+    # only works if the user has the right privileges, so we can't set up
+    # lib dir symlinks like we do for unix cross-arch build-and-test.
+    # We have to make a copy in order to have parallel dirs with the two bitwidths.
+    file(MAKE_DIRECTORY "${xarch_dir}/${INSTALL_LIB}")
+    set(xarch_copy_stamp "${CMAKE_CURRENT_BINARY_DIR}/xarch_copy.stamp")
+    add_custom_command(OUTPUT "${xarch_copy_stamp}"
+      DEPENDS dynamorio
+      COMMAND ${CMAKE_COMMAND} ARGS
+      -E touch "${xarch_copy_stamp}"
+      COMMAND ${CMAKE_COMMAND} ARGS
+      -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
+      "${xarch_dir}/${INSTALL_LIB}/dynamorio.dll"
+      VERBATIM)
+    add_custom_target(xarch_copy DEPENDS "${xarch_copy_stamp}")
+    add_dependencies(drcopy xarch_copy)
+    # We use a client that takes some options and prints something at
+    # init and at exit to test cross-arch injection with clients.
+    get_target_path_for_execution(cur_client_path client.large_options.dll
+      "${location_suffix}")
+    set(xarch_client_path ${xarch_dir}/${test_bindir}/client.large_options.dll.dll)
+    get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+    if (X64)
+      set(client32_path ${xarch_client_path})
+      set(client64_path ${cur_client_path})
+      set(other_is64 OFF)
+    else ()
+      set(client32_path ${cur_client_path})
+      set(client64_path ${xarch_client_path})
+      set(other_is64 ON)
+    endif ()
+    if (DEBUG)
+      set(config_type -DDEBUG=ON)
+    else ()
+      set(config_type "")
+    endif ()
+    # I abandoned --build-generator-platform (3.13+ only; VS gen only) or explicitly
+    # setting the full generator (fails w/ Ninja) and went with the env var scheme we
+    # use in our test suite.
+    _DR_set_VS_bitwidth_env_vars(${other_is64} env_names)
+    foreach (env ${env_names})
+      # Escape internal ; since this goes into a CMake "var=value;..." list.
+      string(REPLACE ";" "\\;" value "${${env}_env_value}")
+      list(APPEND test_env_pairs "${env}=${value}")
+    endforeach ()
+    add_test(win32.xarch ${CMAKE_CTEST_COMMAND} -V
+      --build-and-test ${PROJECT_SOURCE_DIR} ${xarch_dir}
+      --build-generator ${CMAKE_GENERATOR}
+      --build-target dynamorio
+      --build-target common.eflags
+      --build-target client.large_options.dll
+      --build-noclean # Else it tries to clean between each target!
+      --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+      --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
+      -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
+      --test-command ${drrun_path} -dr_home ${xarch_dir} ${dr_test_ops}
+      -c32 ${client32_path} -paramA foo -paramB bar --
+      -c64 ${client64_path} -paramA foo -paramB bar --
+      ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+      ${xarch_dir}/${test_bindir}/common.eflags.exe)
+    file(READ win32/xarch.templatex expect)
+    set_tests_properties(win32.xarch PROPERTIES ENVIRONMENT
+      "${test_env_pairs}"
+      # We start with .* for all the config and build stuff.
+      PASS_REGULAR_EXPRESSION ".*${expect}[ \n]*$")
+  endif (X86)
 
   # Cross-arch mixedmode/x86_to_x64 test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
