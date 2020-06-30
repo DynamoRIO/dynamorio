@@ -163,8 +163,17 @@ protected:
         trace_entry_t header, next, pid = {};
         for (index_ = 0; index_ < input_files_.size(); ++index_) {
             if (!read_next_thread_entry(index_, &header, &thread_eof_[index_]) ||
-                header.type != TRACE_TYPE_HEADER || header.addr != TRACE_ENTRY_VERSION) {
+                header.type != TRACE_TYPE_HEADER) {
                 ERRMSG("Invalid header for input file #%zu\n", index_);
+                return false;
+            }
+            // We can handle the older version 1 as well which simply omits the
+            // early marker with the arch tag.
+            if (header.addr > TRACE_ENTRY_VERSION) {
+                ERRMSG(
+                    "Cannot handle version #%zu (expect version <= #%u) for input file "
+                    "#%zu\n",
+                    header.addr, TRACE_ENTRY_VERSION, index_);
                 return false;
             }
             // Read the meta entries until we hit the pid.
