@@ -109,7 +109,7 @@ get_aarch64_prefetch_type(ptr_int_t prfop)
 {
     unsigned short target_policy = get_aarch64_prefetch_target_policy(prfop);
     unsigned short op_type = get_aarch64_prefetch_op_type(prfop);
-    DR_ASSERT_MSG(target_policy < 6 and op_type < 3,
+    DR_ASSERT_MSG(target_policy < 6 && op_type < 3,
                   "Unsupported AArch64 prefetch operation.");
     switch (op_type) {
     case 0: // prefetch for load
