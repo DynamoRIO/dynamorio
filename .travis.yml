@@ -136,10 +136,6 @@ jobs:
       compiler: gcc
       env: DYNAMORIO_CROSS_ANDROID_ONLY=yes DYNAMORIO_ANDROID_TOOLCHAIN='/tmp/android-gcc-arm-ndk-10e' DEPLOY=yes EXTRA_ARGS=32_only
 
-before_install:
-  # workaround for https://github.com/travis-ci/travis-ci/issues/8973
-  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
-
 # For C/C++ there is no default install, so we set "install", not "before_install".
 install:
   - uname -a
