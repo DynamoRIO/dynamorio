@@ -47,6 +47,7 @@ branches:
 sudo: required
 dist: xenial
 osx_image: xcode11.3
+group: stable
 
 language:
   - c
