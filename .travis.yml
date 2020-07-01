@@ -109,14 +109,12 @@ jobs:
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
       after_script:
         # Travis logs for OSX builds are truncated because the VM exits early.
-        # Sleep to allow Travis to capture complete log. More context on
-        # DynamoRIO/dynamorio#4223.
+        # Sleep to allow Travis to capture complete log. More context on i#4223.
         - sleep 10
         - echo "--end--"
       after_failure:
         # Travis logs for OSX builds are truncated because the VM exits early.
-        # Sleep to allow Travis to capture complete log. More context on
-        # DynamoRIO/dynamorio#4223.
+        # Sleep to allow Travis to capture complete log. More context on i#4223.
         - sleep 10
         - echo "--end--"
 
