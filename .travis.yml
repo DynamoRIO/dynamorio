@@ -185,12 +185,16 @@ script:
   - travis_wait 45 suite/runsuite_wrapper.pl travis $EXTRA_ARGS
 
 after_script:
-  # Workaround for DynamoRIO/dynamorio#4223
+  # Travis logs for OSX builds are truncated because the VM exits early.
+  # Sleep to allow Travis to capture complete log. More context on
+  # DynamoRIO/dynamorio#4223.
   - test $SLEEP_AFTER_SCRIPT_OR_FAILURE = "yes" && sleep 10
   - echo "--end--"
 
 after_failure:
-  # Workaround for DynamoRIO/dynamorio#4223
+  # Travis logs for OSX builds are truncated because the VM exits early.
+  # Sleep to allow Travis to capture complete log. More context on
+  # DynamoRIO/dynamorio#4223.
   - test $SLEEP_AFTER_SCRIPT_OR_FAILURE = "yes" && sleep 10
   - echo "--end--"
 
