@@ -708,6 +708,11 @@ enum {
     DR_REG_TPIDRURO, /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
+    /* AArch64 Counter/Timer Register(s) */
+    DR_REG_CNTVCT_EL0, /**< Virtual Timer Count Register, EL0. */
+#    endif
+
+#    ifdef AARCH64
     /* SVE vector registers */
     DR_REG_Z0,
     DR_REG_Z1,
