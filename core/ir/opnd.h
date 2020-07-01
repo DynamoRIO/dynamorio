@@ -708,11 +708,6 @@ enum {
     DR_REG_TPIDRURO, /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
-    /* AArch64 Counter/Timer Register(s) */
-    DR_REG_CNTVCT_EL0, /**< Virtual Timer Count Register, EL0. */
-#    endif
-
-#    ifdef AARCH64
     /* SVE vector registers */
     DR_REG_Z0,
     DR_REG_Z1,
@@ -764,6 +759,11 @@ enum {
     DR_REG_P13,
     DR_REG_P14,
     DR_REG_P15,
+#    endif
+
+#    ifdef AARCH64
+    /* AArch64 Counter/Timer Register(s) */
+    DR_REG_CNTVCT_EL0, /**< Virtual Timer Count Register, EL0. */
 #    endif
 
 /* Aliases below here: */
@@ -825,8 +825,8 @@ enum {
     DR_REG_CP15_C13_3 = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
 
 #    ifdef AARCH64
-    DR_REG_LAST_VALID_ENUM = DR_REG_P15, /**< Last valid register enum */
-    DR_REG_LAST_ENUM = DR_REG_P15,       /**< Last value of register enums */
+    DR_REG_LAST_VALID_ENUM = DR_REG_CNTVCT_EL0, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_CNTVCT_EL0,       /**< Last value of register enums */
 #    else
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO,       /**< Last value of register enums */
