@@ -106,7 +106,7 @@ jobs:
       os: osx
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
-      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
+      env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only SLEEP_AFTER_SCRIPT_OR_FAILURE=yes
     # AArch64 drdecode and drmemtrace on x86:
     - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: linux
@@ -185,11 +185,13 @@ script:
   - travis_wait 45 suite/runsuite_wrapper.pl travis $EXTRA_ARGS
 
 after_script:
-  - sleep 10
+  # Workaround for DynamoRIO/dynamorio#4223
+  - test $SLEEP_AFTER_SCRIPT_OR_FAILURE = "yes" && sleep 10
   - echo "--end--"
 
 after_failure:
-  - sleep 10
+  # Workaround for DynamoRIO/dynamorio#4223
+  - test $SLEEP_AFTER_SCRIPT_OR_FAILURE = "yes" && sleep 10
   - echo "--end--"
 
 # We switch to package.cmake for these builds in runsuite_wrapper.pl by looking
