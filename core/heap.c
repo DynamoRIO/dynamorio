@@ -2505,6 +2505,9 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
         SYSLOG_CUSTOM_NOTIFY(SYSLOG_CRITICAL, MSG_OUT_OF_MEMORY, 4,
                              "Out of memory.  Program aborted.", get_application_name(),
                              get_application_pid(), oom_source_code, status_hex);
+        /* Stats can be very useful to diagnose why we hit OOM. */
+        if (INTERNAL_OPTION(rstats_to_stderr))
+            dump_global_rstats_to_stderr();
 
         /* FIXME: case 7306 can't specify arguments in SYSLOG_CUSTOM_NOTIFY */
         SYSLOG_INTERNAL_WARNING("OOM Status: %s %s", oom_source_code, status_hex);
@@ -4029,6 +4032,7 @@ heap_thread_exit(dcontext_t *dcontext)
     }
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         ASSERT(th->reachable_heap != NULL);
+        threadunits_exit(th->reachable_heap, dcontext);
         global_heap_free(th->reachable_heap,
                          sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
     }

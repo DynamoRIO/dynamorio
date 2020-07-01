@@ -941,7 +941,13 @@ OPTION_COMMAND(bool, thread_private, IF_HAVE_TLS_ELSE(false, true), "thread_priv
                        options->inline_trace_ibl = true;
                    IF_NOT_X64(IF_WINDOWS(
                        options->shared_fragment_shared_syscalls =
-                           (!options->thread_private && options->shared_syscalls);))
+                           (!options->thread_private && options->shared_syscalls)));
+                   /* If most stubs are private, turn on separate ones and pay
+                    * the cost of individual frees on thread exit (i#4334) for
+                    * more compact caches.  (ARM can't reach, so x86-only.)
+                    */
+                   IF_X86(options->separate_private_stubs = !options->thread_private);
+                   IF_X86(options->free_private_stubs = !options->thread_private);
                },
                "use thread-private code caches", STATIC, OP_PCACHE_GLOBAL)
 
@@ -973,15 +979,19 @@ PC_OPTION_DEFAULT(bool, private_ib_in_tls,
 OPTION_INTERNAL(bool, single_thread_in_DR, "only one thread in DR at a time")
 /* deprecated: we have finer-grained synch that works now */
 
-/* Due to ARM reachability complexities we only support local stubs */
-OPTION_DEFAULT(bool, separate_private_stubs, IF_X86_ELSE(true, false),
+/* Due to ARM reachability complexities we only support local stubs there.
+ * For x86, we avoid separate private stubs when they are rare due to shared
+ * caches being on by default, to avoid having to walk and free individual fragments
+ * in order to free the stubs on thread exit (i#4334).
+ */
+OPTION_DEFAULT(bool, separate_private_stubs, false,
                "place private direct exit stubs in a separate area from the code cache")
 
 /* Due to ARM reachability complexities we only support local stubs */
 OPTION_DEFAULT(bool, separate_shared_stubs, IF_X86_ELSE(true, false),
                "place shared direct exit stubs in a separate area from the code cache")
 
-OPTION_DEFAULT(bool, free_private_stubs, IF_X86_ELSE(true, false),
+OPTION_DEFAULT(bool, free_private_stubs, false,
                "free separated private direct exit stubs when not pointed at")
 
 /* FIXME Freeing shared stubs is currently an unsafe option due to a lack of

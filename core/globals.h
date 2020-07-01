@@ -306,6 +306,16 @@ typedef struct _dr_stats_t {
      * an un-translatable spot.
      */
     uint64 synchs_not_at_safe_spot;
+    /** Peak number of memory blocks used for heaps. */
+    uint64 peak_vmm_blocks_heap;
+    /** Peak number of memory blocks used for thread stacks. */
+    uint64 peak_vmm_blocks_stack;
+    /** Peak number of memory blocks used for code caches. */
+    uint64 peak_vmm_blocks_cache;
+    /** Peak number of memory blocks used for specialized heaps. */
+    uint64 peak_vmm_blocks_special_heap;
+    /** Peak number of memory blocks used for mappings not in other categories. */
+    uint64 peak_vmm_blocks_special_mmap;
 } dr_stats_t;
 
 /**
