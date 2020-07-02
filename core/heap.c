@@ -1517,7 +1517,7 @@ schedule_low_on_memory_event_trigger()
 /* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
 vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
-                 which_vmm_t which)
+                 which_vmm_t which, bool reachable)
 {
     vm_addr_t p;
     vm_heap_t *vmh = vmheap_for_which(which);
@@ -1545,14 +1545,18 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             });
             reached_beyond_vmm();
 #ifdef X64
-            /* PR 215395, make sure allocation satisfies heap reachability contraints */
-            p = os_heap_reserve_in_region(
-                (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
-                (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
-                error_code, executable);
-            /* ensure future heap allocations are reachable from this allocation */
-            if (p != NULL)
-                request_region_be_heap_reachable(p, size);
+            if (reachable) {
+                /* PR 215395, make sure allocation satisfies heap reachability
+                 * contraints */
+                p = os_heap_reserve_in_region(
+                    (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+                    (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
+                    error_code, executable);
+                /* ensure future heap allocations are reachable from this allocation */
+                if (p != NULL)
+                    request_region_be_heap_reachable(p, size);
+            } else
+                p = os_heap_reserve(NULL, size, error_code, executable);
 #else
             p = os_heap_reserve(NULL, size, error_code, executable);
 #endif
@@ -1844,7 +1848,8 @@ vmm_heap_decommit(vm_addr_t p, size_t size, heap_error_code_t *error_code,
 static void *
 vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_t which)
 {
-    vm_addr_t p = vmm_heap_reserve(size, error_code, TEST(MEMPROT_EXEC, prot), which);
+    vm_addr_t p =
+        vmm_heap_reserve(size, error_code, TEST(MEMPROT_EXEC, prot), which, true);
     if (!p)
         return NULL; /* out of reserved memory */
 
@@ -2795,8 +2800,10 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
     }
 #endif
 
-    if (try_vmm)
-        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
+    if (try_vmm) {
+        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which,
+                             true);
+    }
 
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
     if (!try_vmm || p < (vm_addr_t)min_addr) {
@@ -2817,7 +2824,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
             SYSLOG_INTERNAL_WARNING_ONCE("Unable to allocate dstack above app stack");
             if (!try_vmm) {
                 p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot),
-                                     which);
+                                     which, true);
             }
         }
     }
@@ -2831,7 +2838,8 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
         heap_low_on_memory();
         fcache_low_on_memory();
 
-        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
+        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which,
+                             false);
         if (p == NULL) {
             report_low_on_memory(OOM_RESERVE, error_code);
         }
