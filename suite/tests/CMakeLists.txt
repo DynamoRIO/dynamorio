@@ -2892,6 +2892,11 @@ if (CLIENT_INTERFACE)
       tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
          api/static_maps_mixup.c "" "" OFF)
     endif ()
+
+    if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
+      tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
+      link_with_pthread(api.thread_churn)
+    endif ()
   endif ()
 
   if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM

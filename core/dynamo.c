@@ -2750,6 +2750,11 @@ dr_app_setup(void)
      */
     int res;
     dcontext_t *dcontext;
+    /* If this is a re-attach, .data might be read-only.
+     * We'll re-protect at the end of dynamorio_app_init().
+     */
+    if (DATASEC_WRITABLE(DATASEC_RARELY_PROT) == 0)
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dr_api_entry = true;
     res = dynamorio_app_init();
     /* For dr_api_entry, we do not install all our signal handlers during init (to avoid

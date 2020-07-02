@@ -1345,8 +1345,11 @@ void
 instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
 {
     if (dcontext->client_data == NULL) {
+        /* We use PROTECTED partly to keep it local (unprotected "local" heap is
+         * global and adds complexity to thread exit: i#271).
+         */
         dcontext->client_data =
-            HEAP_TYPE_ALLOC(dcontext, client_data_t, ACCT_OTHER, UNPROTECTED);
+            HEAP_TYPE_ALLOC(dcontext, client_data_t, ACCT_OTHER, PROTECTED);
         memset(dcontext->client_data, 0x0, sizeof(client_data_t));
 
 #    ifdef CLIENT_SIDELINE
@@ -1462,7 +1465,7 @@ instrument_thread_exit(dcontext_t *dcontext)
 #    endif
 
 #    ifdef DEBUG
-    /* PR 470957: avoid racy crashes by not freeing in release build */
+    /* i#271: avoid racy crashes by not freeing in release build. */
 
 #        ifdef CLIENT_SIDELINE
     DELETE_LOCK(dcontext->client_data->sideline_mutex);
@@ -1475,7 +1478,7 @@ instrument_thread_exit(dcontext_t *dcontext)
         if (todo->ilist != NULL) {
             instrlist_clear_and_destroy(dcontext, todo->ilist);
         }
-        HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
+        HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_CLIENT, PROTECTED);
         todo = next_todo;
     }
 
@@ -1483,12 +1486,11 @@ instrument_thread_exit(dcontext_t *dcontext)
     flush = dcontext->client_data->flush_list;
     while (flush != NULL) {
         client_flush_req_t *next_flush = flush->next;
-        HEAP_TYPE_FREE(dcontext, flush, client_flush_req_t, ACCT_CLIENT, UNPROTECTED);
+        HEAP_TYPE_FREE(dcontext, flush, client_flush_req_t, ACCT_CLIENT, PROTECTED);
         flush = next_flush;
     }
 
-    HEAP_TYPE_FREE(dcontext, dcontext->client_data, client_data_t, ACCT_OTHER,
-                   UNPROTECTED);
+    HEAP_TYPE_FREE(dcontext, dcontext->client_data, client_data_t, ACCT_OTHER, PROTECTED);
     dcontext->client_data = NULL;              /* for mutex_wait_contended_lock() */
     dcontext->is_client_thread_exiting = true; /* for is_using_app_peb() */
 
@@ -7006,8 +7008,9 @@ dr_delete_fragment(void *drcontext, void *tag)
 #    endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
+        /* We avoid "local unprotected" as it is global, complicating thread exit. */
         client_todo_list_t *todo =
-            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
+            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, PROTECTED);
         client_todo_list_t *iter = dcontext->client_data->to_do;
         todo->next = NULL;
         todo->ilist = NULL;
@@ -7082,8 +7085,9 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     frag_found = (f != NULL);
     if (frag_found) {
         client_todo_list_t *iter = dcontext->client_data->to_do;
+        /* We avoid "local unprotected" as it is global, complicating thread exit. */
         client_todo_list_t *todo =
-            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
+            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, PROTECTED);
         todo->next = NULL;
         todo->ilist = ilist;
         todo->tag = tag;
@@ -7140,7 +7144,8 @@ dr_flush_fragments(void *drcontext, void *curr_tag, void *flush_tag)
     if (curr_tag != NULL)
         vm_area_unlink_incoming(dcontext, (app_pc)curr_tag);
 
-    flush = HEAP_TYPE_ALLOC(dcontext, client_flush_req_t, ACCT_CLIENT, UNPROTECTED);
+    /* We avoid "local unprotected" as it is global, complicating thread exit. */
+    flush = HEAP_TYPE_ALLOC(dcontext, client_flush_req_t, ACCT_CLIENT, PROTECTED);
     flush->flush_callback = NULL;
     if (flush_tag == NULL) {
         flush->start = UNIVERSAL_REGION_BASE;
