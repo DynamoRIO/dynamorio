@@ -46,8 +46,7 @@ branches:
 # We use Xenial.
 sudo: required
 dist: xenial
-osx_image: xcode9
-group: stable
+osx_image: xcode11.3
 
 language:
   - c
@@ -105,7 +104,6 @@ jobs:
     # 64-bit OSX build with clang and run tests:
     - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: osx
-      osx_image: xcode9
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
@@ -115,9 +113,6 @@ jobs:
         - sleep 10
         - echo "--end--"
       after_failure:
-        # i#4347: to debug build killed by OOM killer
-        - sudo dmesg | grep -i -A 5 -B 10 kill
-
         # Travis logs for OSX builds are truncated because the VM exits early.
         # Sleep to allow Travis to capture complete log. More context on i#4223.
         - sleep 10
