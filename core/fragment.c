@@ -1148,10 +1148,7 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
             ASSERT_TABLE_SYNCHRONIZED(table, WRITE);
     });
 #    if !defined(DEBUG) && defined(CLIENT_INTERFACE)
-    /* We need to walk the table if either we need to notify clients, or we
-     * need to free stubs that are not in the regular heap or cache units.
-     */
-    if (!dr_fragment_deleted_hook_exists() && !DYNAMO_OPTION(separate_private_stubs))
+    if (!dr_fragment_deleted_hook_exists())
         return;
     /* i#4226: Avoid the slow deletion code and just invoke the event. */
     for (i = 0; i < (int)table->capacity; i++) {
@@ -1164,8 +1161,7 @@ hashtable_fragment_reset(dcontext_t *dcontext, fragment_table_t *table)
          */
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
     }
-    if (!DYNAMO_OPTION(separate_private_stubs))
-        return;
+    return;
 #    endif
     /* Go in reverse order (for efficiency) since using
      * hashtable_fragment_remove_helper to keep all reachable, which is required
