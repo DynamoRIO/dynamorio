@@ -107,6 +107,17 @@ jobs:
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
+      after_script:
+        # Travis logs for OSX builds are truncated because the VM exits early.
+        # Sleep to allow Travis to capture complete log. More context on i#4223.
+        - sleep 10
+        - echo "--end--"
+      after_failure:
+        # Travis logs for OSX builds are truncated because the VM exits early.
+        # Sleep to allow Travis to capture complete log. More context on i#4223.
+        - sleep 10
+        - echo "--end--"
+
     # AArch64 drdecode and drmemtrace on x86:
     - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: linux
@@ -183,6 +194,12 @@ install:
 # it all at the end.
 script:
   - travis_wait 45 suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+
+after_script:
+  - echo "--end--"
+
+after_failure:
+  - echo "--end--"
 
 # We switch to package.cmake for these builds in runsuite_wrapper.pl by looking
 # for $TRAVIS_EVENT_TYPE=="cron".
