@@ -2453,23 +2453,22 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
             /* FIXME i#2088: we need to restore the app's aux seg, if any, instead. */
             os_set_dr_tls_base(dcontext, NULL, (byte *)&uninit_tls);
         }
-        DODEBUG({
-            HEAP_TYPE_FREE(dcontext, ostd->clone_tls, os_local_state_t, ACCT_THREAD_MGT,
-                           UNPROTECTED);
-        });
+        /* We have to free in release build too b/c "local unprotected" is global. */
+        HEAP_TYPE_FREE(dcontext, ostd->clone_tls, os_local_state_t, ACCT_THREAD_MGT,
+                       UNPROTECTED);
     }
 #endif
 
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_loader))
+        privload_tls_exit(IF_UNIT_TEST_ELSE(NULL, ostd->priv_lib_tls_base));
+#endif
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
         if (MACHINE_TLS_IS_DR_TLS) {
 #ifdef X86
             heap_free(dcontext, ostd->app_thread_areas,
                       sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS HEAPACCT(ACCT_OTHER));
-#endif
-#ifdef CLIENT_INTERFACE
-            if (INTERNAL_OPTION(private_loader))
-                privload_tls_exit(IF_UNIT_TEST_ELSE(NULL, ostd->priv_lib_tls_base));
 #endif
         }
         heap_free(dcontext, ostd, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));

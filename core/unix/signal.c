@@ -1376,9 +1376,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
     IF_LINUX(signalfd_thread_exit(dcontext, info));
     special_heap_exit(info->sigheap);
     DELETE_LOCK(info->child_lock);
-#ifdef DEBUG
-    /* for non-debug we do fast exit path and don't free local heap */
-#    ifdef HAVE_SIGALTSTACK
+#ifdef HAVE_SIGALTSTACK
     if (info->sigstack.ss_sp != NULL) {
         /* i#552: to raise client exit event, we may call dynamo_process_exit
          * on sigstack in signal handler.
@@ -1386,7 +1384,9 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
          */
         stack_free(info->sigstack.ss_sp + info->sigstack.ss_size, info->sigstack.ss_size);
     }
-#    endif
+#endif
+#ifdef DEBUG
+    /* for non-debug we do fast exit path and don't free local heap */
     HEAP_TYPE_FREE(dcontext, info, thread_sig_info_t, ACCT_OTHER, PROTECTED);
 #endif
 #ifdef PAPI
