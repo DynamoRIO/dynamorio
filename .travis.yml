@@ -115,8 +115,8 @@ jobs:
         - sleep 10
         - echo "--end--"
       after_failure:
-	# i#4347: to debug build killed by OOM killer
-	- dmesg | grep -i -A 5 -B 10 kill
+        # i#4347: to debug build killed by OOM killer
+        - dmesg | grep -i -A 5 -B 10 kill
 
         # Travis logs for OSX builds are truncated because the VM exits early.
         # Sleep to allow Travis to capture complete log. More context on i#4223.
