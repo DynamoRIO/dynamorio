@@ -6437,16 +6437,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      *    intercept SIGILL.
      * I'm going with #1 for now b/c the common case is simpler.
      */
-    dcontext_t *dcontext = get_thread_private_dcontext();
-#if defined(LINUX) && defined(X86)
-    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-#endif
-    char frame_no_xstate[sizeof(sigframe_rt_t)];
-    sigframe_rt_t *frame = (sigframe_rt_t *)frame_no_xstate;
     int sig;
-    dr_where_am_i_t cur_whereami = dcontext->whereami;
-    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
-    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
     switch (type) {
     case ILLEGAL_INSTRUCTION_EXCEPTION: sig = SIGILL; break;
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
@@ -6457,6 +6448,21 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
         sig = SIGSEGV;
         break;
     }
+    dr_forge_signal(target_pc, sig);
+}
+
+void
+dr_forge_signal(app_pc target_pc, int sig) {
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    char frame_no_xstate[sizeof(sigframe_rt_t)];
+    sigframe_rt_t *frame = (sigframe_rt_t *)frame_no_xstate;
+    dr_where_am_i_t cur_whereami = dcontext->whereami;
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
+
+#if defined(LINUX) && defined(X86)
+    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+#endif
 
     LOG(GLOBAL, LOG_ASYNCH, 1, "os_forge_exception sig=%d\n", sig);
 

@@ -1676,6 +1676,16 @@ dr_standalone_exit(void);
  * UTILITY ROUTINES
  */
 
+#    ifdef UNIX
+DR_API
+/**
+ * Forge (emulate) OS signal with a given number at the specified PC.
+ * \note Only Unix.
+ */
+void
+dr_forge_signal(app_pc target_pc, int signal);
+#    endif
+
 #    ifdef WINDOWS
 /**
  * If \p x is false, displays a message about an assertion failure
