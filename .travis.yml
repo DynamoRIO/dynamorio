@@ -46,7 +46,6 @@ branches:
 # We use Xenial.
 sudo: required
 dist: xenial
-osx_image: xcode11.3
 
 language:
   - c
@@ -104,6 +103,7 @@ jobs:
     # 64-bit OSX build with clang and run tests:
     - if: type != cron AND env(TRAVIS_EVENT_TYPE) != cron
       os: osx
+      osx_image: xcode11.3
       # gcc on Travis claims to not be CMAKE_COMPILER_IS_GNUCC so we only run clang.
       compiler: clang
       env: DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY=no DEPLOY=no EXTRA_ARGS=64_only
