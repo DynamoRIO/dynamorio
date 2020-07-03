@@ -45,7 +45,7 @@ branches:
 
 # We use Xenial.
 sudo: required
-dist: xenial
+dist: bionic
 
 language:
   - c
