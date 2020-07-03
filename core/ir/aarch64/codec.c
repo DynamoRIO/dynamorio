@@ -211,6 +211,8 @@ decode_sysreg(uint imm15)
     case 0x5a20: sysreg = DR_REG_FPCR; break;
     case 0x5a21: sysreg = DR_REG_FPSR; break;
     case 0x5e82: sysreg = DR_REG_TPIDR_EL0; break;
+    case 0x5e83: sysreg = DR_REG_TPIDRRO_EL0; break;
+    case 0x5f02: sysreg = DR_REG_CNTVCT_EL0; break;
     default: return opnd_create_immed_uint(imm15, OPSZ_2);
     }
     return opnd_create_reg(sysreg);
@@ -225,6 +227,8 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
         case DR_REG_FPCR: *imm15 = 0x5a20; break;
         case DR_REG_FPSR: *imm15 = 0x5a21; break;
         case DR_REG_TPIDR_EL0: *imm15 = 0x5e82; break;
+        case DR_REG_TPIDRRO_EL0: *imm15 = 0x5e83; break;
+        case DR_REG_CNTVCT_EL0: *imm15 = 0x5f02; break;
         default: return false;
         }
         return true;
