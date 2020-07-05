@@ -79,8 +79,9 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
 }
 
 #ifdef AARCH64
+// XXX: this decoding logic may be moved to DR's IR for reuse.
 unsigned short
-get_aarch64_prefetch_target_policy(ptr_int_t prfop)
+instru_t::get_aarch64_prefetch_target_policy(ptr_int_t prfop)
 {
     // Least significant three bits of prfop represent prefetch target and
     // policy [... b2 b1 b0]
@@ -94,7 +95,7 @@ get_aarch64_prefetch_target_policy(ptr_int_t prfop)
 }
 
 unsigned short
-get_aarch64_prefetch_op_type(ptr_int_t prfop)
+instru_t::get_aarch64_prefetch_op_type(ptr_int_t prfop)
 {
     // Bits at position 3 and 4 in prfop represent prefetch operation type
     // [... b4 b3 ...]
@@ -105,7 +106,7 @@ get_aarch64_prefetch_op_type(ptr_int_t prfop)
 }
 
 unsigned short
-get_aarch64_prefetch_type(ptr_int_t prfop)
+instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
 {
     unsigned short target_policy = get_aarch64_prefetch_target_policy(prfop);
     unsigned short op_type = get_aarch64_prefetch_op_type(prfop);
@@ -113,11 +114,11 @@ get_aarch64_prefetch_type(ptr_int_t prfop)
                   "Unsupported AArch64 prefetch operation.");
     switch (op_type) {
     case 0: // prefetch for load
-        return TRACE_TYPE_PREFETCH_PLDL1KEEP + target_policy;
+        return TRACE_TYPE_PREFETCH_READ_L1 + target_policy;
     case 1: // prefetch for instruction
-        return TRACE_TYPE_PREFETCH_PLIL1KEEP + target_policy;
+        return TRACE_TYPE_PREFETCH_INSTR_L1 + target_policy;
     case 2: // prefetch for store
-        return TRACE_TYPE_PREFETCH_PSTL1KEEP + target_policy;
+        return TRACE_TYPE_PREFETCH_WRITE_L1 + target_policy;
     }
     return TRACE_TYPE_PREFETCH; // unreachable.
 }

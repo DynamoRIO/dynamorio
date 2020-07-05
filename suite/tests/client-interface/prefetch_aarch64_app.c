@@ -44,28 +44,28 @@ prfm(void)
     int d = 1;
 
     // prfm for read.
-    __asm__ __volatile__("prfm\tpldl1keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpldl1strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpldl2keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpldl2strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpldl3keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpldl3strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pldl1keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pldl1strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pldl2keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pldl2strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pldl3keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pldl3strm,[%0]" : : "r"(d));
 
     // prfm for instruction.
-    __asm__ __volatile__("prfm\tplil1keep,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfm\tplil1strm,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfm\tplil2keep,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfm\tplil2strm,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfm\tplil3keep,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfm\tplil3strm,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfm plil1keep,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfm plil1strm,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfm plil2keep,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfm plil2strm,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfm plil3keep,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfm plil3strm,[%0]" : : "r"(f));
 
     // prfm for write.
-    __asm__ __volatile__("prfm\tpstl1keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpstl1strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpstl2keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpstl2strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpstl3keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfm\tpstl3strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pstl1keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pstl1strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pstl2keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pstl2strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pstl3keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfm pstl3strm,[%0]" : : "r"(d));
 }
 
 void
@@ -74,28 +74,28 @@ prfum(void)
     int d = 1;
 
     // prfum for read.
-    __asm__ __volatile__("prfum\tpldl1keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpldl1strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpldl2keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpldl2strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpldl3keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpldl3strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pldl1keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pldl1strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pldl2keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pldl2strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pldl3keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pldl3strm,[%0]" : : "r"(d));
 
     // prfum for instruction.
-    __asm__ __volatile__("prfum\tplil1keep,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfum\tplil1strm,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfum\tplil2keep,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfum\tplil2strm,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfum\tplil3keep,[%0]" : : "r"(f));
-    __asm__ __volatile__("prfum\tplil3strm,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfum plil1keep,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfum plil1strm,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfum plil2keep,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfum plil2strm,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfum plil3keep,[%0]" : : "r"(f));
+    __asm__ __volatile__("prfum plil3strm,[%0]" : : "r"(f));
 
     // prfum for write.
-    __asm__ __volatile__("prfum\tpstl1keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpstl1strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpstl2keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpstl2strm,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpstl3keep,[%0]" : : "r"(d));
-    __asm__ __volatile__("prfum\tpstl3strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pstl1keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pstl1strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pstl2keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pstl2strm,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pstl3keep,[%0]" : : "r"(d));
+    __asm__ __volatile__("prfum pstl3strm,[%0]" : : "r"(d));
 }
 #endif
 

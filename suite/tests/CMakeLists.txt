@@ -652,6 +652,7 @@ set(ci_shared_app simple_app)
 set(ci_shared_app_src client-interface/${ci_shared_app}.c)
 add_exe(${ci_shared_app} ${ci_shared_app_src})
 
+# __builtin_prefetch used in ci_prefetch_app is available only on gcc.
 if (CMAKE_COMPILER_IS_GNUCC)
   # An app with prefetch instructions.
   set(ci_prefetch_app prefetch_app)
@@ -3122,6 +3123,7 @@ if (CLIENT_INTERFACE)
 
       torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
+      # __builtin_prefetch used in ci_prefetch_app is available only on gcc.
       if (CMAKE_COMPILER_IS_GNUCC)
         torunonly_drcachesim(prefetch-basic-counts ${ci_prefetch_app} "-simulator_type basic_counts" "")
         unset(tool.drcachesim.prefetch-basic-counts_rawtemp) # use preprocessor

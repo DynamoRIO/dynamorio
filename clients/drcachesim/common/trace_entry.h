@@ -163,48 +163,29 @@ typedef enum {
      */
     TRACE_TYPE_INSTR_SYSENTER,
 
-    /** AArch64 specific prefetch trace entries.
-     *  Relative order of these enum values is relevant to the handling of AArch64
-     * prefetch instructions.
-     */
-    TRACE_TYPE_PREFETCH_PLDL1KEEP, /**< An AArch64 load prefetch to level 1 of the cache.
-                                    */
-    TRACE_TYPE_PREFETCH_PLDL1STRM, /**< An AArch64 streaming load prefetch to level 1 of
-                                      the cache. */
-    TRACE_TYPE_PREFETCH_PLDL2KEEP, /**< An AArch64 load prefetch to level 2 of the cache.
-                                    */
-    TRACE_TYPE_PREFETCH_PLDL2STRM, /**< An AArch64 streaming load prefetch to level 2 of
-                                      the cache. */
-    TRACE_TYPE_PREFETCH_PLDL3KEEP, /**< An AArch64 load prefetch to level 3 of the cache.
-                                    */
-    TRACE_TYPE_PREFETCH_PLDL3STRM, /**< An AArch64 streaming load prefetch to level 3 of
-                                      the cache. */
+    // Trace entry types for prefetch instructions.
+    // Relative order of these enum values is relevant to the handling of prefetch
+    // instructions.
+    TRACE_TYPE_PREFETCH_READ_L1,    /**< Load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_READ_L1_NT, /**< Non-temporal load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_READ_L2,    /**< Load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_READ_L2_NT, /**< Non-temporal load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_READ_L3,    /**< Load prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_READ_L3_NT, /**< Non-temporal load prefetch to L3 cache. */
 
-    TRACE_TYPE_PREFETCH_PLIL1KEEP, /**< An AArch64 instruction prefetch to level 1 of the
-                                      cache. */
-    TRACE_TYPE_PREFETCH_PLIL1STRM, /**< An AArch64 streaming instruction prefetch to level
-                                      1 of the cache. */
-    TRACE_TYPE_PREFETCH_PLIL2KEEP, /**< An AArch64 instruction prefetch to level 2 of the
-                                      cache. */
-    TRACE_TYPE_PREFETCH_PLIL2STRM, /**< An AArch64 streaming instruction prefetch to level
-                                      2 of the cache. */
-    TRACE_TYPE_PREFETCH_PLIL3KEEP, /**< An AArch64 instruction prefetch to level 3 of the
-                                      cache. */
-    TRACE_TYPE_PREFETCH_PLIL3STRM, /**< An AArch64 streaming instruction prefetch to level
-                                      3 of the cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L1,    /**< Instr prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L1_NT, /**< Non-temporal instr prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L2,    /**< Instr prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L2_NT, /**< Non-temporal instr prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L3,    /**< Instr prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L3_NT, /**< Non-temporal instr prefetch to L3 cache. */
 
-    TRACE_TYPE_PREFETCH_PSTL1KEEP, /**< An AArch64 store prefetch to level 1 of the cache.
-                                    */
-    TRACE_TYPE_PREFETCH_PSTL1STRM, /**< An AArch64 streaming store prefetch to level 1 of
-                                      the cache. */
-    TRACE_TYPE_PREFETCH_PSTL2KEEP, /**< An AArch64 store prefetch to level 2 of the cache.
-                                    */
-    TRACE_TYPE_PREFETCH_PSTL2STRM, /**< An AArch64 streaming store prefetch to level 2 of
-                                      the cache. */
-    TRACE_TYPE_PREFETCH_PSTL3KEEP, /**< An AArch64 store prefetch to level 3 of the cache.
-                                    */
-    TRACE_TYPE_PREFETCH_PSTL3STRM, /**< An AArch64 streaming store prefetch to level 3 of
-                                      the cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L1,    /**< Store prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L1_NT, /**< Non-temporal store prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L2,    /**< Store prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L2_NT, /**< Non-temporal store prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L3,    /**< Store prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L3_NT, /**< Non-temporal store prefetch to L3 cache. */
 
     // Update trace_type_names[] when adding here.
 } trace_type_t;
@@ -320,8 +301,8 @@ static inline bool
 type_is_prefetch(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR) ||
-        (type >= TRACE_TYPE_PREFETCH_PLDL1KEEP &&
-         type <= TRACE_TYPE_PREFETCH_PSTL3STRM) ||
+        (type >= TRACE_TYPE_PREFETCH_READ_L1 &&
+         type <= TRACE_TYPE_PREFETCH_WRITE_L3_NT) ||
         type == TRACE_TYPE_HARDWARE_PREFETCH;
 }
 
