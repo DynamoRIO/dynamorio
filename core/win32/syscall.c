@@ -1191,6 +1191,9 @@ thread_handle_to_pid(HANDLE thread_handle, thread_id_t tid /*optional*/)
     if (tid != INVALID_THREAD_ID) {
         /* Get a handle with more privileges */
         thread_handle = thread_handle_from_id(tid);
+        process_id_t pid = process_id_from_thread_handle(thread_handle);
+        close_handle(thread_handle);
+        return pid;
     }
     return process_id_from_thread_handle(thread_handle);
 }
