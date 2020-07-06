@@ -3353,10 +3353,12 @@ if (CLIENT_INTERFACE)
         torunonly_drcacheoff(prefetch-aarch64-basic-counts prefetch_aarch64 "" "@-simulator_type@basic_counts" "")
       endif ()
 
-      set(thread_trace_dir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.prefetch.aarch64.tracedir")
-      torunonly_simtool(offline-trace-prefetch-aarch64-basic-counts ${ci_shared_app}
-        "-indir ${thread_trace_dir} -simulator_type basic_counts" "")
-      set(tool.offline-trace-prefetch-aarch64-basic-counts_rawtemp ON) # no preprocessor
+      if (ZLIB_FOUND)
+        set(thread_trace_dir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.prefetch.aarch64.tracedir")
+        torunonly_simtool(offline-trace-prefetch-aarch64-basic-counts ${ci_shared_app}
+          "-indir ${thread_trace_dir} -simulator_type basic_counts" "")
+        set(tool.offline-trace-prefetch-aarch64-basic-counts_rawtemp ON) # no preprocessor
+      endif ()
 
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
