@@ -652,21 +652,6 @@ set(ci_shared_app simple_app)
 set(ci_shared_app_src client-interface/${ci_shared_app}.c)
 add_exe(${ci_shared_app} ${ci_shared_app_src})
 
-# __builtin_prefetch used in ci_prefetch_app is available only on gcc.
-if (CMAKE_COMPILER_IS_GNUCC)
-  # An app with prefetch instructions.
-  set(ci_prefetch_app prefetch_app)
-  set(ci_prefetch_app_src client-interface/${ci_prefetch_app}.c)
-  add_exe(${ci_prefetch_app} ${ci_prefetch_app_src})
-endif ()
-
-if (AARCH64)
-  # An AArch64 app with prefetch instructions.
-  set(ci_prefetch_aarch64_app prefetch_aarch64_app)
-  set(ci_prefetch_aarch64_app_src client-interface/${ci_prefetch_aarch64_app}.c)
-  add_exe(${ci_prefetch_aarch64_app} ${ci_prefetch_aarch64_app_src})
-endif ()
-
 function(setup_test_client_dll_basics test)
   configure_DynamoRIO_client(${test})
   append_property_string(TARGET ${test} LINK_FLAGS "${ARCH_DEBUG}")
@@ -3123,14 +3108,16 @@ if (CLIENT_INTERFACE)
 
       torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
-      # __builtin_prefetch used in ci_prefetch_app is available only on gcc.
+      # __builtin_prefetch used in the test is available only on gcc.
       if (CMAKE_COMPILER_IS_GNUCC)
-        torunonly_drcachesim(prefetch-basic-counts ${ci_prefetch_app} "-simulator_type basic_counts" "")
-        unset(tool.drcachesim.prefetch-basic-counts_rawtemp) # use preprocessor
+        add_exe(builtin_prefetch ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/builtin_prefetch.c)
+        torunonly_drcachesim(builtin-prefetch-basic-counts builtin_prefetch "-simulator_type basic_counts" "")
+        unset(tool.drcachesim.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
       endif ()
 
       if (AARCH64)
-        torunonly_drcachesim(prefetch-aarch64-basic-counts ${ci_prefetch_aarch64_app} "-simulator_type basic_counts" "")
+        add_exe(prefetch_aarch64 ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/prefetch_aarch64.c)
+        torunonly_drcachesim(prefetch-aarch64-basic-counts prefetch_aarch64 "-simulator_type basic_counts" "")
       endif ()
 
       torunonly_drcachesim(delay-simple ${ci_shared_app}
@@ -3356,13 +3343,14 @@ if (CLIENT_INTERFACE)
       torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
       torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
+      # __builtin_prefetch used in the test is available only on gcc.
       if (CMAKE_COMPILER_IS_GNUCC)
-        torunonly_drcacheoff(prefetch-basic-counts ${ci_prefetch_app} "" "@-simulator_type@basic_counts" "")
-        unset(tool.drcacheoff.prefetch-basic-counts_rawtemp) # use preprocessor
+        torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")
+        unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
       endif ()
 
       if (AARCH64)
-        torunonly_drcacheoff(prefetch-aarch64-basic-counts ${ci_prefetch_aarch64_app} "" "@-simulator_type@basic_counts" "")
+        torunonly_drcacheoff(prefetch-aarch64-basic-counts prefetch_aarch64 "" "@-simulator_type@basic_counts" "")
       endif ()
 
       # We run common.decode-bad to test markers for faults
