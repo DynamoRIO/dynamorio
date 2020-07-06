@@ -89,8 +89,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     if (knobs_.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs_.data_prefetcher != PREFETCH_POLICY_NONE) {
         // Unknown value.
-        error_string_ =
-            " unknown data_prefetcher: '" + knobs_.data_prefetcher + "'";
+        error_string_ = " unknown data_prefetcher: '" + knobs_.data_prefetcher + "'";
         success_ = false;
         return;
     }
