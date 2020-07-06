@@ -64,7 +64,8 @@ static droption_t<std::string> op_module_file(
 
 static droption_t<std::string> op_alt_module_dir(
     DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
-    "Specifies a directory containing libraries referenced in -module_file.");
+    "Specifies a directory containing libraries referenced in -module_file.  "
+    "This directory takes precedence over the recorded path.");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
