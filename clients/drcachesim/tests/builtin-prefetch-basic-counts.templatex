@@ -5,12 +5,10 @@ Total counts:
      .* total \(fetched\) instructions
      .* total unique \(fetched\) instructions
      .* total non-fetched instructions
-#if defined(AARCH64)
-          34 total prefetches
-#elif defined(X86) && !defined(X64)
+#if defined(X86) && !defined(X64)
            0 total prefetches
 #else
-           8 total prefetches
+     [ ]*[1-9][0-9]* total prefetches
 #endif
      .* total data loads
      .* total data stores
@@ -26,12 +24,10 @@ Thread .* counts:
      .* \(fetched\) instructions
      .* unique \(fetched\) instructions
      .* non-fetched instructions
-#if defined(AARCH64)
-          34 prefetches
-#elif defined(X86) && !defined(X64)
+#if defined(X86) && !defined(X64)
            0 prefetches
 #else
-           8 prefetches
+     [ ]*[1-9][0-9]* prefetches
 #endif
      .* data loads
      .* data stores

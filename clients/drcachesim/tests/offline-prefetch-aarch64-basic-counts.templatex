@@ -4,7 +4,7 @@ Total counts:
      .* total \(fetched\) instructions
      .* total unique \(fetched\) instructions
      .* total non-fetched instructions
-          62 total prefetches
+     [ ]*[1-9][0-9]* total prefetches
      .* total data loads
      .* total data stores
            1 total threads
@@ -19,7 +19,7 @@ Thread .* counts:
      .* \(fetched\) instructions
      .* unique \(fetched\) instructions
      .* non-fetched instructions
-          62 prefetches
+     [ ]*[1-9][0-9]* prefetches
      .* data loads
      .* data stores
      .* scheduling markers

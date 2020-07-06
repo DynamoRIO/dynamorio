@@ -1,14 +1,9 @@
-Hello, world!
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions
      .* total unique \(fetched\) instructions
      .* total non-fetched instructions
-#if defined(X86) && !defined(X64)
-           0 total prefetches
-#else
-     [ ]*[1-9][0-9]* total prefetches
-#endif
+          62 total prefetches
      .* total data loads
      .* total data stores
            1 total threads
@@ -23,11 +18,7 @@ Thread .* counts:
      .* \(fetched\) instructions
      .* unique \(fetched\) instructions
      .* non-fetched instructions
-#if defined(X86) && !defined(X64)
-           0 prefetches
-#else
-     [ ]*[1-9][0-9]* prefetches
-#endif
+          62 prefetches
      .* data loads
      .* data stores
      .* scheduling markers

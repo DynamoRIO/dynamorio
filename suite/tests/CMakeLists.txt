@@ -3353,6 +3353,11 @@ if (CLIENT_INTERFACE)
         torunonly_drcacheoff(prefetch-aarch64-basic-counts prefetch_aarch64 "" "@-simulator_type@basic_counts" "")
       endif ()
 
+      set(thread_trace_dir "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.prefetch.aarch64.tracedir")
+      torunonly_simtool(offline-trace-prefetch-aarch64-basic-counts ${ci_shared_app}
+        "-indir ${thread_trace_dir} -simulator_type basic_counts" "")
+      set(tool.offline-trace-prefetch-aarch64-basic-counts_rawtemp ON) # no preprocessor
+
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
         # Do not cap the trace size (done to shorten tests) b/c it will then miss
