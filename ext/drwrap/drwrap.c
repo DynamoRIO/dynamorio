@@ -1624,7 +1624,10 @@ drwrap_replace_native_fini(void *drcontext)
      */
     volatile app_pc app_retaddr;
     byte *xsp = (byte *)dr_read_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT);
-#ifdef AARCHXX
+#ifdef DR_HOST_NOT_TARGET
+    byte *cur_xsp = NULL;
+    ASSERT(false, "cross-arch execution is not supported");
+#elif defined(AARCHXX)
     byte *cur_xsp = get_cur_xsp();
 #endif
     ASSERT(xsp != NULL, "did client clobber TLS slot?");
