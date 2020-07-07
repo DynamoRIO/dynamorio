@@ -77,6 +77,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     // This configuration allows for one shared LLC only.
     cache_t *llc = create_cache(knobs_.replace_policy);
     if (llc == NULL) {
+        error_string_ = "create_cache failed for the LLC";
         success_ = false;
         return;
     }
@@ -88,6 +89,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     if (knobs_.data_prefetcher != PREFETCH_POLICY_NEXTLINE &&
         knobs_.data_prefetcher != PREFETCH_POLICY_NONE) {
         // Unknown value.
+        error_string_ = " unknown data_prefetcher: '" + knobs_.data_prefetcher + "'";
         success_ = false;
         return;
     }
@@ -115,12 +117,14 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     for (unsigned int i = 0; i < knobs_.num_cores; i++) {
         l1_icaches_[i] = create_cache(knobs_.replace_policy);
         if (l1_icaches_[i] == NULL) {
+            error_string_ = "create_cache failed for an l1_icache";
             success_ = false;
             return;
         }
         snooped_caches_[2 * i] = l1_icaches_[i];
         l1_dcaches_[i] = create_cache(knobs_.replace_policy);
         if (l1_dcaches_[i] == NULL) {
+            error_string_ = "create_cache failed for an l1_dcache";
             success_ = false;
             return;
         }
