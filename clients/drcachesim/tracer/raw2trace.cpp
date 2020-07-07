@@ -311,6 +311,14 @@ raw2trace_t::read_and_map_modules()
     return module_mapper_->get_last_error();
 }
 
+// Maps each module into the address space.
+// There are several types of mapping entries in the module list:
+// 1) Raw bits directly stored.  It is simply pointed at.
+// 2) Extra segments for a module.  A single mapping is used for all
+//    segments, so extras are ignored.
+// 3) A main segment.  The module's file is located by first looking in
+//    the alt_module_dir_; if not found, the path present during tracing
+//    is searched.
 void
 module_mapper_t::read_and_map_modules()
 {
@@ -345,18 +353,28 @@ module_mapper_t::read_and_map_modules()
                                        // 0 size indicates this is a secondary segment.
                                        modvec_[info.containing_index].map_base, 0));
         } else {
-            size_t map_size;
-            byte *base_pc =
-                dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
-            if (base_pc == NULL && !alt_module_dir_.empty()) {
+            size_t map_size = 0;
+            byte *base_pc = NULL;
+            if (!alt_module_dir_.empty()) {
+                // First try the specified module dir.  It takes precedence to allow
+                // overriding the recorded path even when an identical-seeming path
+                // exists on the processing machine (e.g., system libraries).
+                // XXX: We should add a checksum on UNIX to match Windows and have
+                // a sanity check on the library version.
                 std::string basename(info.path);
                 size_t sep_index = basename.find_last_of(DIRSEP ALT_DIRSEP);
                 if (sep_index != std::string::npos)
                     basename = std::string(basename, sep_index + 1, std::string::npos);
                 std::string new_path = alt_module_dir_ + DIRSEP + basename;
-                VPRINT(1, "Failed to find %s; trying %s\n", info.path, new_path.c_str());
+                VPRINT(2, "Trying to map %s\n", new_path.c_str());
                 base_pc = dr_map_executable_file(new_path.c_str(),
                                                  DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
+            if (base_pc == NULL) {
+                // Try the recorded path.
+                VPRINT(2, "Trying to map %s\n", info.path);
+                base_pc =
+                    dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
             }
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
