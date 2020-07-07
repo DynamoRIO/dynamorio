@@ -311,6 +311,14 @@ raw2trace_t::read_and_map_modules()
     return module_mapper_->get_last_error();
 }
 
+// Maps each module into the address space.
+// There are several types of mapping entries in the module list:
+// 1) Raw bits directly stored.  It is simply pointed at.
+// 2) Extra segments for a module.  A single mapping is used for all
+//    segments, so extras are ignored.
+// 3) A main segment.  The module's file is located by first looking in
+//    the alt_module_dir_; if not found, the path present during tracing
+//    is searched.
 void
 module_mapper_t::read_and_map_modules()
 {
@@ -345,7 +353,7 @@ module_mapper_t::read_and_map_modules()
                                        // 0 size indicates this is a secondary segment.
                                        modvec_[info.containing_index].map_base, 0));
         } else {
-            size_t map_size;
+            size_t map_size = 0;
             byte *base_pc = NULL;
             if (!alt_module_dir_.empty()) {
                 // First try the specified module dir.  It takes precedence to allow
