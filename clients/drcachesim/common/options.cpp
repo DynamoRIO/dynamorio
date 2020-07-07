@@ -98,7 +98,7 @@ droption_t<std::string> op_alt_module_dir(
     DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
     "Specifies a directory containing libraries referenced in -module_file for "
     "analysis tools, or in the raw modules file for post-prcoessing of offline "
-    "raw trace files.");
+    "raw trace files.  This directory takes precedence over the recorded path.");
 
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",
