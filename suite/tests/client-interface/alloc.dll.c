@@ -503,13 +503,6 @@ custom_unix_test(void)
         dr_fprintf(STDERR, "error: unable to query brk\n");
 #    endif
 
-#    ifdef X86_64
-    /* i#4335: Test allocation of more than 2.8GB in unreachable heap */
-    for (int i = 0; i != 50; ++i) {
-        malloc(100000000);
-    }
-#    endif
-
     dr_fprintf(STDERR, "success\n");
 }
 #endif
@@ -634,6 +627,12 @@ inline_alloc_test(void)
 #endif
 #ifdef X64
     reachability_test();
+#endif
+#if defined(LINUX) && defined(X86_64)
+    /* i#4335: Test allocation of more than 2.8GB in unreachable heap */
+    for (int i = 0; i != 50; ++i) {
+        malloc(100000000);
+    }
 #endif
 }
 
