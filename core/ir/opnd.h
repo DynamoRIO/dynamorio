@@ -761,6 +761,11 @@ enum {
     DR_REG_P15,
 #    endif
 
+#    ifdef AARCH64
+    /* AArch64 Counter/Timer Register(s) */
+    DR_REG_CNTVCT_EL0, /**< Virtual Timer Count Register, EL0. */
+#    endif
+
 /* Aliases below here: */
 
 #    ifdef AARCH64
@@ -816,12 +821,12 @@ enum {
     /** Thread Pointer/ID Register, Read-Only, EL0. */
     DR_REG_TPIDRRO_EL0 = DR_REG_TPIDRURO,
     /* ARMv7 Thread Registers */
-    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
-    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
+    DR_REG_CP15_C13_2 = DR_REG_TPIDRURW,        /**< User Read/Write Thread ID Register */
+    DR_REG_CP15_C13_3 = DR_REG_TPIDRURO,        /**< User Read-Only Thread ID Register */
 
 #    ifdef AARCH64
-    DR_REG_LAST_VALID_ENUM = DR_REG_P15, /**< Last valid register enum */
-    DR_REG_LAST_ENUM = DR_REG_P15,       /**< Last value of register enums */
+    DR_REG_LAST_VALID_ENUM = DR_REG_CNTVCT_EL0, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_CNTVCT_EL0,       /**< Last value of register enums */
 #    else
     DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_TPIDRURO,       /**< Last value of register enums */
