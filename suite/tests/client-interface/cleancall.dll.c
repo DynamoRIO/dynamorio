@@ -600,14 +600,6 @@ static void
 app_exit_event(void)
 {
     check_stack_alignment();
-
-#if defined(LINUX) && defined(X86_64)
-    /* i#4335: Test allocation of more than 2.8GB in unreachable heap */
-    for (int i = 0; i != 50; ++i)
-    {
-        malloc(100000000);
-    }
-#endif
 }
 
 DR_EXPORT void

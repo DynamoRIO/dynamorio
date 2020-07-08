@@ -1545,7 +1545,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             });
             reached_beyond_vmm();
 #ifdef X64
-            if (which & VMM_REACHABLE) {
+            if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
                 /* PR 215395, make sure allocation satisfies heap reachability
                  * contraints */
                 p = os_heap_reserve_in_region(
