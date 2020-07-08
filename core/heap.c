@@ -1517,7 +1517,7 @@ schedule_low_on_memory_event_trigger()
 /* Reserve virtual address space without committing swap space for it */
 static vm_addr_t
 vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
-                 which_vmm_t which, bool reachable)
+                 which_vmm_t which)
 {
     vm_addr_t p;
     vm_heap_t *vmh = vmheap_for_which(which);
@@ -1545,7 +1545,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             });
             reached_beyond_vmm();
 #ifdef X64
-            if (reachable) {
+            if (which & VMM_REACHABLE) {
                 /* PR 215395, make sure allocation satisfies heap reachability
                  * contraints */
                 p = os_heap_reserve_in_region(
@@ -1848,8 +1848,7 @@ vmm_heap_decommit(vm_addr_t p, size_t size, heap_error_code_t *error_code,
 static void *
 vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_t which)
 {
-    vm_addr_t p =
-        vmm_heap_reserve(size, error_code, TEST(MEMPROT_EXEC, prot), which, true);
+    vm_addr_t p = vmm_heap_reserve(size, error_code, TEST(MEMPROT_EXEC, prot), which);
     if (!p)
         return NULL; /* out of reserved memory */
 
@@ -2800,10 +2799,8 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
     }
 #endif
 
-    if (try_vmm) {
-        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which,
-                             true);
-    }
+    if (try_vmm)
+        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
 
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
     if (!try_vmm || p < (vm_addr_t)min_addr) {
@@ -2824,7 +2821,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
             SYSLOG_INTERNAL_WARNING_ONCE("Unable to allocate dstack above app stack");
             if (!try_vmm) {
                 p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot),
-                                     which, true);
+                                     which);
             }
         }
     }
@@ -2838,8 +2835,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
         heap_low_on_memory();
         fcache_low_on_memory();
 
-        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which,
-                             false);
+        p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
         if (p == NULL) {
             report_low_on_memory(OOM_RESERVE, error_code);
         }
