@@ -115,10 +115,10 @@ raw2trace_directory_t::open_thread_log_file(const char *basename)
     const char *basename_pre_suffix = nullptr;
     bool is_gzipped = false;
 #ifdef HAS_ZLIB
-    basename_pre_suffix = strstr(basename_dot, OUTFILE_SUFFIX_GZ);
+    basename_pre_suffix =
+        strstr(basename_dot - strlen(OUTFILE_SUFFIX_GZ), OUTFILE_SUFFIX_GZ);
     if (basename_pre_suffix != nullptr) {
         is_gzipped = true;
-        basename_dot = strrchr(basename_pre_suffix, '.');
     }
 #endif
     if (basename_pre_suffix == nullptr)

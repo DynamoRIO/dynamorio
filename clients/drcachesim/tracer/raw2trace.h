@@ -62,7 +62,7 @@
 
 #define OUTFILE_SUFFIX "raw"
 #ifdef HAS_ZLIB
-#    define OUTFILE_SUFFIX_GZ "gz"
+#    define OUTFILE_SUFFIX_GZ "raw.gz"
 #endif
 #define OUTFILE_SUBDIR "raw"
 #define TRACE_SUBDIR "trace"
