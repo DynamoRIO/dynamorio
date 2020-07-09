@@ -1545,14 +1545,18 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             });
             reached_beyond_vmm();
 #ifdef X64
-            /* PR 215395, make sure allocation satisfies heap reachability contraints */
-            p = os_heap_reserve_in_region(
-                (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
-                (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
-                error_code, executable);
-            /* ensure future heap allocations are reachable from this allocation */
-            if (p != NULL)
-                request_region_be_heap_reachable(p, size);
+            if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
+                /* PR 215395, make sure allocation satisfies heap reachability
+                 * contraints */
+                p = os_heap_reserve_in_region(
+                    (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+                    (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
+                    error_code, executable);
+                /* ensure future heap allocations are reachable from this allocation */
+                if (p != NULL)
+                    request_region_be_heap_reachable(p, size);
+            } else
+                p = os_heap_reserve(NULL, size, error_code, executable);
 #else
             p = os_heap_reserve(NULL, size, error_code, executable);
 #endif
