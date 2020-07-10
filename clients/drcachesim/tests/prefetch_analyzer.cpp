@@ -33,7 +33,6 @@
 #include "../common/trace_entry.h"
 #include "prefetch_analyzer.h"
 #include <iostream>
-#include <string.h>
 
 bool
 prefetch_analyzer_t::process_memref(const memref_t &memref)
@@ -48,8 +47,9 @@ bool
 prefetch_analyzer_t::print_results()
 {
     std::cout << "Prefetch operation frequencies:\n";
-    for (auto x : trace_type_freq_)
+    for (auto x : trace_type_freq_) {
         std::cout << std::setw(12) << x.second << " " << trace_type_names[x.first]
                   << "\n";
+    }
     return true;
 }
