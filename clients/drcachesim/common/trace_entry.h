@@ -73,10 +73,16 @@ typedef enum {
 
     TRACE_TYPE_PREFETCH, /**< A general prefetch to the level 1 data cache. */
     // X86 specific prefetch
-    TRACE_TYPE_PREFETCHT0,  /**< An x86 prefetch to all levels of the cache. */
-    TRACE_TYPE_PREFETCHT1,  /**< An x86 prefetch to level 1 of the cache. */
-    TRACE_TYPE_PREFETCHT2,  /**< An x86 prefetch to level 2 of the cache. */
-    TRACE_TYPE_PREFETCHNTA, /**< An x86 non-temporal prefetch. */
+    TRACE_TYPE_PREFETCHT0, /**< An x86 prefetch to all levels of the cache. */
+    TRACE_TYPE_PREFETCH_READ_L1 =
+        TRACE_TYPE_PREFETCHT0, /**< Load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCHT1,     /**< An x86 prefetch to level 2 cache and higher. */
+    TRACE_TYPE_PREFETCH_READ_L2 =
+        TRACE_TYPE_PREFETCHT1, /**< Load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCHT2,     /**< An x86 prefetch to level 3 cache and higher. */
+    TRACE_TYPE_PREFETCH_READ_L3 =
+        TRACE_TYPE_PREFETCHT2, /**< Load prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCHNTA,    /**< An x86 non-temporal prefetch. */
     // ARM specific prefetch
     TRACE_TYPE_PREFETCH_READ,  /**< An ARM load prefetch. */
     TRACE_TYPE_PREFETCH_WRITE, /**< An ARM store prefetch. */
@@ -164,13 +170,8 @@ typedef enum {
     TRACE_TYPE_INSTR_SYSENTER,
 
     // Trace entry types for prefetch instructions.
-    // Relative order of these enum values is relevant to the handling of prefetch
-    // instructions.
-    TRACE_TYPE_PREFETCH_READ_L1,    /**< Load prefetch to L1 cache. */
     TRACE_TYPE_PREFETCH_READ_L1_NT, /**< Non-temporal load prefetch to L1 cache. */
-    TRACE_TYPE_PREFETCH_READ_L2,    /**< Load prefetch to L2 cache. */
     TRACE_TYPE_PREFETCH_READ_L2_NT, /**< Non-temporal load prefetch to L2 cache. */
-    TRACE_TYPE_PREFETCH_READ_L3,    /**< Load prefetch to L3 cache. */
     TRACE_TYPE_PREFETCH_READ_L3_NT, /**< Non-temporal load prefetch to L3 cache. */
 
     TRACE_TYPE_PREFETCH_INSTR_L1,    /**< Instr prefetch to L1 cache. */
@@ -301,7 +302,7 @@ static inline bool
 type_is_prefetch(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR) ||
-        (type >= TRACE_TYPE_PREFETCH_READ_L1 &&
+        (type >= TRACE_TYPE_PREFETCH_READ_L1_NT &&
          type <= TRACE_TYPE_PREFETCH_WRITE_L3_NT) ||
         type == TRACE_TYPE_HARDWARE_PREFETCH;
 }
