@@ -3543,24 +3543,26 @@ if (CLIENT_INTERFACE)
       set(${testname_full}_postcmd2
         "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
 
-      set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
-      torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim
-        "offline-allasm-aarch64-prefetch-counts"
-        "-offline -subdir_prefix ${testname_full}" "" "")
-      set(${testname_full}_toolname "drcachesim")
-      set(${testname_full}_basedir
-        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
-      set(${testname_full}_rawtemp ON) # no preprocessor
-      get_target_path_for_execution(prefetch_analyzer_path prefetch_analyzer_launcher "${location_suffix}")
-      prefix_cmd_if_necessary(prefetch_analyzer_path ON ${prefetch_analyzer_path})
-      set(${testname_full}_runcmp
-        "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-      set(${testname_full}_precmd
-        "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
-      set(${testname_full}_postcmd
-        "${drcachesim_path}@-indir@${testname_full}.*.dir@-simulator_type@basic_counts")
-      set(${testname_full}_postcmd2
-        "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
+      if (AARCH64)
+        set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
+        torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim
+          "offline-allasm-aarch64-prefetch-counts"
+          "-offline -subdir_prefix ${testname_full}" "" "")
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(${testname_full}_rawtemp ON) # no preprocessor
+        get_target_path_for_execution(prefetch_analyzer_path prefetch_analyzer_launcher "${location_suffix}")
+        prefix_cmd_if_necessary(prefetch_analyzer_path ON ${prefetch_analyzer_path})
+        set(${testname_full}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(${testname_full}_precmd
+          "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+        set(${testname_full}_postcmd
+          "${drcachesim_path}@-indir@${testname_full}.*.dir@-simulator_type@basic_counts")
+        set(${testname_full}_postcmd2
+          "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
+      endif ()
 
       find_program(GZIP gzip "gzip compression utility")
       if (UNIX AND ZLIB_FOUND AND GZIP)
