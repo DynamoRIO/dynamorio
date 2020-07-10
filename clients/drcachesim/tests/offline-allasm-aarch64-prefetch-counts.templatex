@@ -31,10 +31,10 @@ Thread .* counts:
            1 other markers
 Prefetch operation frequencies:
            2 prefetch_read_l1
-           3 prefetch_read_l1_nt
            4 prefetch_read_l2
-           5 prefetch_read_l2_nt
            6 prefetch_read_l3
+           3 prefetch_read_l1_nt
+           5 prefetch_read_l2_nt
            7 prefetch_read_l3_nt
            7 prefetch_instr_l1
            6 prefetch_instr_l1_nt
