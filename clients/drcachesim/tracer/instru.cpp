@@ -110,16 +110,54 @@ instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
 {
     unsigned short target_policy = get_aarch64_prefetch_target_policy(prfop);
     unsigned short op_type = get_aarch64_prefetch_op_type(prfop);
-    DR_ASSERT_MSG(target_policy < 6 && op_type < 3,
-                  "Unsupported AArch64 prefetch operation.");
     switch (op_type) {
-    case 0: // prefetch for load
-        return TRACE_TYPE_PREFETCH_READ_L1 + target_policy;
-    case 1: // prefetch for instruction
-        return TRACE_TYPE_PREFETCH_INSTR_L1 + target_policy;
-    case 2: // prefetch for store
-        return TRACE_TYPE_PREFETCH_WRITE_L1 + target_policy;
+    case 0b00: // prefetch for load
+        switch(target_policy) {
+          case 0b000:
+            return TRACE_TYPE_PREFETCH_READ_L1;
+          case 0b001:
+            return TRACE_TYPE_PREFETCH_READ_L1_NT;
+          case 0b010:
+            return TRACE_TYPE_PREFETCH_READ_L2;
+          case 0b011:
+            return TRACE_TYPE_PREFETCH_READ_L2_NT;
+          case 0b100:
+            return TRACE_TYPE_PREFETCH_READ_L3;
+          case 0b101:
+            return TRACE_TYPE_PREFETCH_READ_L3_NT;
+        }
+    case 0b01: // prefetch for instruction
+        switch(target_policy) {
+          case 0b000:
+            return TRACE_TYPE_PREFETCH_INSTR_L1;
+          case 0b001:
+            return TRACE_TYPE_PREFETCH_INSTR_L1_NT;
+          case 0b010:
+            return TRACE_TYPE_PREFETCH_INSTR_L2;
+          case 0b011:
+            return TRACE_TYPE_PREFETCH_INSTR_L2_NT;
+          case 0b100:
+            return TRACE_TYPE_PREFETCH_INSTR_L3;
+          case 0b101:
+            return TRACE_TYPE_PREFETCH_INSTR_L3_NT;
+        }
+    case 0b10: // prefetch for store
+        switch(target_policy) {
+          case 0b000:
+            return TRACE_TYPE_PREFETCH_WRITE_L1;
+          case 0b001:
+            return TRACE_TYPE_PREFETCH_WRITE_L1_NT;
+          case 0b010:
+            return TRACE_TYPE_PREFETCH_WRITE_L2;
+          case 0b011:
+            return TRACE_TYPE_PREFETCH_WRITE_L2_NT;
+          case 0b100:
+            return TRACE_TYPE_PREFETCH_WRITE_L3;
+          case 0b101:
+            return TRACE_TYPE_PREFETCH_WRITE_L3_NT;
+        }
     }
+    DR_ASSERT_MSG(false, "Unsupported AArch64 prefetch operation.");
     return TRACE_TYPE_PREFETCH; // unreachable.
 }
 #endif
