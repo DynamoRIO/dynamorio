@@ -1,9 +1,11 @@
+Hello, world!
+---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions
      .* total unique \(fetched\) instructions
      .* total non-fetched instructions
-          62 total prefetches
+          36 total prefetches
      .* total data loads
      .* total data stores
            1 total threads
@@ -18,7 +20,7 @@ Thread .* counts:
      .* \(fetched\) instructions
      .* unique \(fetched\) instructions
      .* non-fetched instructions
-          62 prefetches
+          36 prefetches
      .* data loads
      .* data stores
      .* scheduling markers
