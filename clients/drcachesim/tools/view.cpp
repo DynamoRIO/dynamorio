@@ -99,6 +99,18 @@ view_t::initialize()
 bool
 view_t::process_memref(const memref_t &memref)
 {
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+            !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
+            error_string_ = std::string("Architecture mismatch: trace recorded on ") +
+                trace_arch_string(static_cast<offline_file_type_t>(
+                    memref.marker.marker_value)) +
+                " but tool built for " + trace_arch_string(build_target_arch_type());
+            return false;
+        }
+    }
+
     if (instr_count_ < knob_skip_refs_ ||
         instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
         if (type_is_instr(memref.instr.type) ||
@@ -109,16 +121,6 @@ view_t::process_memref(const memref_t &memref)
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         switch (memref.marker.marker_type) {
-        case TRACE_MARKER_TYPE_FILETYPE:
-            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
-                !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
-                error_string_ = std::string("Architecture mismatch: trace recorded on ") +
-                    trace_arch_string(static_cast<offline_file_type_t>(
-                        memref.marker.marker_value)) +
-                    " but tool built for " + trace_arch_string(build_target_arch_type());
-                return false;
-            }
-            break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
             std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
             break;
