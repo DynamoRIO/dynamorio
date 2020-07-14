@@ -1749,16 +1749,10 @@ function (link_with_pthread target)
 endfunction ()
 
 # zlib and snappy are used for some clients/ and tests.
-if (CMAKE_CROSSCOMPILING)
-  # find_package looks at the host system.
-  # XXX i#2285: we should re-visit the CMAKE_FIND_ROOT_PATH settings!
-  set(ZLIB_FOUND OFF)
-else ()
-  find_package(ZLIB)
-  # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
-  if (UNIX AND X64)
-    find_library(libsnappy snappy)
-  endif ()
+find_package(ZLIB)
+# On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
+if (UNIX AND X64)
+  find_library(libsnappy snappy)
 endif ()
 
 if (BUILD_CLIENTS)
