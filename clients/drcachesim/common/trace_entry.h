@@ -85,7 +85,7 @@ typedef enum {
         TRACE_TYPE_PREFETCHT2, /**< Load prefetch to L3 cache. */
     // This prefetches data into a non-temporal cache structure and into a location
     // close to the processor, minimizing cache pollution.
-    TRACE_TYPE_PREFETCHNTA,    /**< An x86 non-temporal prefetch. */
+    TRACE_TYPE_PREFETCHNTA, /**< An x86 non-temporal prefetch. */
 
     // ARM specific prefetch
     TRACE_TYPE_PREFETCH_READ,  /**< An ARM load prefetch. */
