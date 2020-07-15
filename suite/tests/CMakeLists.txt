@@ -3120,8 +3120,8 @@ if (CLIENT_INTERFACE)
 
       torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
-      # __builtin_prefetch used in the test is available only on gcc.
-      if (CMAKE_COMPILER_IS_GNUCC)
+      # __builtin_prefetch used in the test is not defined on MSVC.
+      if (NOT MSVC)
         add_exe(builtin_prefetch ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/builtin_prefetch.c)
         torunonly_drcachesim(builtin-prefetch-basic-counts builtin_prefetch "-simulator_type basic_counts" "")
         unset(tool.drcachesim.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
@@ -3353,8 +3353,8 @@ if (CLIENT_INTERFACE)
       torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
       torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
-      # __builtin_prefetch used in the test is available only on gcc.
-      if (CMAKE_COMPILER_IS_GNUCC)
+      # __builtin_prefetch used in the test is not defined on MSVC.
+      if (NOT MSVC)
         torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")
         unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
       endif ()
