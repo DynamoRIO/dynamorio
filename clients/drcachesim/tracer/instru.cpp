@@ -139,8 +139,12 @@ instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
         case 0b101: return TRACE_TYPE_PREFETCH_WRITE_L3_NT;
         }
     }
+
+#    ifdef DEBUG
     DR_ASSERT_MSG(false, "Unsupported AArch64 prefetch operation.");
-    return TRACE_TYPE_PREFETCH; // unreachable.
+#    endif
+
+    return TRACE_TYPE_PREFETCH;
 }
 #endif
 
