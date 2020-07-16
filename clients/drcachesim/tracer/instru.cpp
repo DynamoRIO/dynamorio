@@ -141,6 +141,9 @@ instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
     }
 
 #    ifdef DEBUG
+    // Some AArch64 prefetch operation encodings are not accessible using prfop.
+    // For debug builds, we throw an error if we encounter any such prefetch operation.
+    // For release builds, we map them to the default TRACE_TYPE_PREFETCH.
     DR_ASSERT_MSG(false, "Unsupported AArch64 prefetch operation.");
 #    endif
 
