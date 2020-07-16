@@ -195,10 +195,10 @@
 
 /* Define ARM ELF machine types to support compiling on old Linux distors. */
 #ifndef EM_ARM
-#define EM_ARM 40
+#   define EM_ARM 40
 #endif
 #ifndef EM_AARCH64
-#define EM_AARCH64 183
+#   define EM_AARCH64 183
 #endif
 
 bool
