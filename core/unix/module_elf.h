@@ -193,7 +193,7 @@
 #    endif                 /* ANDROID */
 #endif                     /* X86/ARM */
 
-/* Define ARM ELF machine types to support compiling on old Linux distors. */
+/* Define ARM ELF machine types to support compiling on old Linux distros. */
 #ifndef EM_ARM
 #    define EM_ARM 40
 #endif
