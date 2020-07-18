@@ -85,7 +85,7 @@ if (BUILD_TESTS)
   set(SHOW_RESULTS_DEFAULT OFF)
 else (BUILD_TESTS)
   set(SHOW_RESULTS_DEFAULT ON)
- endif (BUILD_TESTS)
+endif (BUILD_TESTS)
 
 option(SHOW_RESULTS
   "Display client results in pop-up (Windows) or console message (Linux)"
