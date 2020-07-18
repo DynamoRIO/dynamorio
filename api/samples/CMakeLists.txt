@@ -258,7 +258,7 @@ set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 
 if (WIN32)
   # This client is Windows-only.
-  add_sample_client(stats     "stats.c;utils.c"         "drmgr;drreg;drx")
+  add_sample_client(stats     "stats.c;utils.c"         "drmgr;drreg;drx" OFF)
 
   # XXX i#893: drwrap's asm isn't SEH compliant.
   _DR_append_property_string(TARGET wrap LINK_FLAGS "/safeseh:no")
