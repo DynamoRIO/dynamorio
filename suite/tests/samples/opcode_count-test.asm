@@ -36,4 +36,4 @@ _start:
     or eax,eax
     mov eax, 1
     xor edx, edx
-    int	0x80
+    int 0x80
