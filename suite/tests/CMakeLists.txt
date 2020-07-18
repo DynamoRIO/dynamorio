@@ -3022,7 +3022,7 @@ if (CLIENT_INTERFACE)
 
             torunonly_ci(sample.${sample} sample.opcode_count-test ${sample}
               samples/opcode_count-test.asm "-opcode 5" "" "")
-          endif(X86 AND UNIX)
+          endif(X86 AND (NOT X64) AND UNIX)
         endif()
       endforeach ()
     endif (NOT ANDROID)
