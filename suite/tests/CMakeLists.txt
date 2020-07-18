@@ -3011,8 +3011,18 @@ if (CLIENT_INTERFACE)
                 client-interface/memval-test.c "" "" "")
           endif(X86 AND (NOT X64) AND UNIX)
         elseif (sample STREQUAL "opcode_count")
-          torunonly_ci(sample.${sample} common.${control_flags} ${sample}
-            common/${control_flags}.c "-opcode 5" "" "")
+          # We do not do a simple sanity test for opcode_count, but a normal test
+          # that checks the sample's output.
+          # FIXME i#4372: The test is currently only supported on X86 32-bit.
+          # The test program is implemented in pure asm (for UNIX).
+          if (X86 AND (NOT X64) AND UNIX)
+            tobuild(sample.opcode_count-test samples/opcode_count-test.asm)
+            set_target_properties(sample.opcode_count-test PROPERTIES LINKER_LANGUAGE C)
+            append_link_flags(sample.opcode_count-test "-nostartfiles -nodefaultlibs -static")
+
+            torunonly_ci(sample.${sample} sample.opcode_count-test ${sample}
+              samples/opcode_count-test.asm "-opcode 5" "" "")
+          endif(X86 AND UNIX)
         endif()
       endforeach ()
     endif (NOT ANDROID)

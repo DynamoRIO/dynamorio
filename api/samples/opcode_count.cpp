@@ -68,7 +68,7 @@ event_exit(void)
 #ifdef SHOW_RESULTS
     char msg[512];
     int len;
-    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%u/%u instructions executed\n",
+    len = dr_snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%u/%u instructions executed.\n",
                       global_opcode_count, global_total_count);
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
