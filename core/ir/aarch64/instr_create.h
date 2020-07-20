@@ -2522,7 +2522,7 @@
 /**
  * Creates a DMB instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param imm The integer constant opnd_t operand.
+ * \param imm     The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_dmb(dc, imm)\
     instr_create_0dst_1src((dc), OP_dmb, (imm))
