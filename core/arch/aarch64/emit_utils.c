@@ -752,9 +752,8 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* Load tag from fragment_entry_t* in the hashtable to x0. */
     /* ldr x0, [x1], #tag_fragment_offset */
     APP(&ilist,
-        INSTR_CREATE_ldr_imm(
-            dc, opnd_create_reg(DR_REG_X0), DR_REG_X1,
-            OPND_CREATE_INTPTR(sizeof(fragment_entry_t)), true));
+        INSTR_CREATE_ldr_imm(dc, opnd_create_reg(DR_REG_X0), DR_REG_X1,
+                             OPND_CREATE_INTPTR(sizeof(fragment_entry_t)), true));
     /* Did we hit? */
     APP(&ilist, compare_tag);
     /* cbz x0, not_hit */
