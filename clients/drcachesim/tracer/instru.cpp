@@ -78,6 +78,79 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     return TRACE_TYPE_INSTR;
 }
 
+#ifdef AARCH64
+// XXX: this decoding logic may be moved to DR's IR for reuse.
+unsigned short
+instru_t::get_aarch64_prefetch_target_policy(ptr_int_t prfop)
+{
+    // Least significant three bits of prfop represent prefetch target and
+    // policy [... b2 b1 b0]
+    //
+    // b2 b1 : prefetch target
+    // 0b00 - L1 cache, 0b01 - L2 cache, 0b10 - L3 cache
+    //
+    // b0 : prefetch policy
+    // 0b0 - temporal prefetch, 0b1 - streaming (non-temporal) prefetch
+    return prfop & 0b111;
+}
+
+unsigned short
+instru_t::get_aarch64_prefetch_op_type(ptr_int_t prfop)
+{
+    // Bits at position 3 and 4 in prfop represent prefetch operation type
+    // [... b4 b3 ...]
+    // 0b00 - prefetch for load
+    // 0b01 - prefetch for instruction
+    // 0b10 - prefetch for store
+    return (prfop >> 3) & 0b11;
+}
+
+unsigned short
+instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
+{
+    unsigned short target_policy = get_aarch64_prefetch_target_policy(prfop);
+    unsigned short op_type = get_aarch64_prefetch_op_type(prfop);
+    switch (op_type) {
+    case 0b00: // prefetch for load
+        switch (target_policy) {
+        case 0b000: return TRACE_TYPE_PREFETCH_READ_L1;
+        case 0b001: return TRACE_TYPE_PREFETCH_READ_L1_NT;
+        case 0b010: return TRACE_TYPE_PREFETCH_READ_L2;
+        case 0b011: return TRACE_TYPE_PREFETCH_READ_L2_NT;
+        case 0b100: return TRACE_TYPE_PREFETCH_READ_L3;
+        case 0b101: return TRACE_TYPE_PREFETCH_READ_L3_NT;
+        }
+    case 0b01: // prefetch for instruction
+        switch (target_policy) {
+        case 0b000: return TRACE_TYPE_PREFETCH_INSTR_L1;
+        case 0b001: return TRACE_TYPE_PREFETCH_INSTR_L1_NT;
+        case 0b010: return TRACE_TYPE_PREFETCH_INSTR_L2;
+        case 0b011: return TRACE_TYPE_PREFETCH_INSTR_L2_NT;
+        case 0b100: return TRACE_TYPE_PREFETCH_INSTR_L3;
+        case 0b101: return TRACE_TYPE_PREFETCH_INSTR_L3_NT;
+        }
+    case 0b10: // prefetch for store
+        switch (target_policy) {
+        case 0b000: return TRACE_TYPE_PREFETCH_WRITE_L1;
+        case 0b001: return TRACE_TYPE_PREFETCH_WRITE_L1_NT;
+        case 0b010: return TRACE_TYPE_PREFETCH_WRITE_L2;
+        case 0b011: return TRACE_TYPE_PREFETCH_WRITE_L2_NT;
+        case 0b100: return TRACE_TYPE_PREFETCH_WRITE_L3;
+        case 0b101: return TRACE_TYPE_PREFETCH_WRITE_L3_NT;
+        }
+    }
+
+#    ifdef DEBUG
+    // Some AArch64 prefetch operation encodings are not accessible using prfop.
+    // For debug builds, we throw an error if we encounter any such prefetch operation.
+    // For release builds, we map them to the default TRACE_TYPE_PREFETCH.
+    DR_ASSERT_MSG(false, "Unsupported AArch64 prefetch operation.");
+#    endif
+
+    return TRACE_TYPE_PREFETCH;
+}
+#endif
+
 unsigned short
 instru_t::instr_to_prefetch_type(instr_t *instr)
 {
@@ -94,6 +167,12 @@ instru_t::instr_to_prefetch_type(instr_t *instr)
     case OP_pld: return TRACE_TYPE_PREFETCH_READ;
     case OP_pldw: return TRACE_TYPE_PREFETCH_WRITE;
     case OP_pli: return TRACE_TYPE_PREFETCH_INSTR;
+#endif
+#ifdef AARCH64
+    case OP_prfm:
+        return get_aarch64_prefetch_type(opnd_get_immed_int(instr_get_src(instr, 0)));
+    case OP_prfum:
+        return get_aarch64_prefetch_type(opnd_get_immed_int(instr_get_src(instr, 0)));
 #endif
     default: return TRACE_TYPE_PREFETCH;
     }
