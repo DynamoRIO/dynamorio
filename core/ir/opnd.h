@@ -1702,7 +1702,7 @@ DR_API
 opnd_t
 opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg,
                              int scale, int disp, opnd_size_t size, bool encode_zero_disp,
-                             bool force_full_disp, bool disp_short_addr);
+                             bool force_full_disp, bool disp_short_addr, bool post_index);
 
 #ifdef ARM
 DR_API

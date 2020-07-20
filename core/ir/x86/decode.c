@@ -1746,7 +1746,7 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
             *rm_opnd = opnd_create_far_base_disp_ex(
                 di->seg_override, base_reg, index_reg, scale, disp,
                 resolve_variable_size(di, opsize, false), encode_zero_disp,
-                force_full_disp, TEST(PREFIX_ADDR, di->prefixes));
+                force_full_disp, TEST(PREFIX_ADDR, di->prefixes), false);
         } else {
             /* Note that OP_{jmp,call}_far_ind does NOT have a far base disp
              * operand: it is a regular base disp containing 6 bytes that
