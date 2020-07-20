@@ -720,7 +720,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, instr_create_save_to_tls(dc, DR_REG_X0, TLS_REG3_SLOT));
     /* Load hash mask before loading hash_table, with DMB to prevent memory-access
      * instructions from being reordered. A corresponding store-release is in
-     * update_lookuptable_tls() to ensure a new hast_table will be written after a
+     * update_lookuptable_tls() to ensure a new hash_table will be written after a
      * new hash mask write has been issued.
      */
     APP(&ilist,
@@ -732,11 +732,8 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist,
         INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X1),
                          opnd_create_reg(DR_REG_X2)));
-    /* dmb ishld to prevent memory-access instructions from being reordered across the
-     * barrier. DMB results generally in better performances compared to LDAR in the case.
-     */
-    APP(&ilist,
-        instr_create_0dst_1src(dc, OP_dmb, OPND_CREATE_INT(/* DR_DMB_ISHLD */ 9)));
+    /* dmb to prevent memory-access instrs from being reordered across the barrier. */
+    APP(&ilist, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISHLD)));
     /* ldr x0, [x28, hash_table] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
@@ -754,12 +751,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist, load_tag);
     /* Load tag from fragment_entry_t* in the hashtable to x0. */
     /* ldr x0, [x1], #tag_fragment_offset */
-    instr_t *instr = instr_create_2dst_3src(
-        dc, OP_ldr, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
-        OPND_CREATE_MEMPTR(DR_REG_X1, 0), opnd_create_reg(DR_REG_X1),
-        OPND_CREATE_INTPTR(sizeof(fragment_entry_t)));
-    instr->src0.value.base_disp.pre_index = 0; /* Post-index */
-    APP(&ilist, instr);
+    APP(&ilist,
+        INSTR_CREATE_ldr_imm(
+            dc, opnd_create_reg(DR_REG_X0), DR_REG_X1,
+            OPND_CREATE_INTPTR(sizeof(fragment_entry_t)), true));
     /* Did we hit? */
     APP(&ilist, compare_tag);
     /* cbz x0, not_hit */

@@ -5044,7 +5044,7 @@ dr_raw_tls_opnd(void *drcontext, reg_id_t tls_register, uint tls_offs)
                                                 /* modern processors don't want addr16
                                                  * prefixes
                                                  */
-                                                false, true, false);
+                                                false, true, false, false);
         },
         { return OPND_CREATE_MEMPTR(tls_register, tls_offs); });
 }
