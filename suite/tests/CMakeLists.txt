@@ -2078,6 +2078,18 @@ if (DR_HOST_AARCH64)
     # with some tool chains (such as SUSE GCC 6.2) results in an executable that
     # is not properly static. Adding --no-export-dynamic avoids the problem.
     "-Wl,--no-export-dynamic")
+
+  add_exe(allasm_aarch64_prefetch
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_prefetch.asm
+    "-early_inject" "")
+  set_target_properties(allasm_aarch64_prefetch PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(allasm_aarch64_prefetch
+    "-nostartfiles -nodefaultlibs -static")
+  append_property_string(TARGET allasm_aarch64_prefetch LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+    # is not properly static. Adding --no-export-dynamic avoids the problem.
+    "-Wl,--no-export-dynamic")
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
@@ -3113,6 +3125,13 @@ if (CLIENT_INTERFACE)
 
       torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
+      # __builtin_prefetch used in the test is not defined on MSVC.
+      if (NOT MSVC)
+        add_exe(builtin_prefetch ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/builtin_prefetch.c)
+        torunonly_drcachesim(builtin-prefetch-basic-counts builtin_prefetch "-simulator_type basic_counts" "")
+        unset(tool.drcachesim.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
+      endif ()
+
       torunonly_drcachesim(delay-simple ${ci_shared_app}
         "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
 
@@ -3163,6 +3182,9 @@ if (CLIENT_INTERFACE)
           # XXX i#2676: We disable the data prefetcher until someone with A64
           # hardware gets a chance to update the expected output.
           "-data_prefetcher none" "")
+
+        torunonly_drcachesim(allasm-aarch64-prefetch-basic-counts allasm_aarch64_prefetch
+          "-simulator_type basic_counts" "")
       endif ()
 
       # XXX i#1703: add more dedicated tests (in suite/tests/clients/) for which
@@ -3335,6 +3357,12 @@ if (CLIENT_INTERFACE)
 
       torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
       torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
+
+      # __builtin_prefetch used in the test is not defined on MSVC.
+      if (NOT MSVC)
+        torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")
+        unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
+      endif ()
 
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
@@ -3519,6 +3547,27 @@ if (CLIENT_INTERFACE)
         "${drcachesim_path}@-indir@${testname_full}.*.dir")
       set(${testname_full}_postcmd2
         "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
+
+      if (AARCH64)
+        set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
+        torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim
+          "offline-allasm-aarch64-prefetch-counts"
+          "-offline -subdir_prefix ${testname_full}" "" "")
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(${testname_full}_rawtemp ON) # no preprocessor
+        get_target_path_for_execution(prefetch_analyzer_path prefetch_analyzer_launcher "${location_suffix}")
+        prefix_cmd_if_necessary(prefetch_analyzer_path ON ${prefetch_analyzer_path})
+        set(${testname_full}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(${testname_full}_precmd
+          "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+        set(${testname_full}_postcmd
+          "${drcachesim_path}@-indir@${testname_full}.*.dir@-simulator_type@basic_counts")
+        set(${testname_full}_postcmd2
+          "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
+      endif ()
 
       find_program(GZIP gzip "gzip compression utility")
       if (UNIX AND ZLIB_FOUND AND GZIP)
