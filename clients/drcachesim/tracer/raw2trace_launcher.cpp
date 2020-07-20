@@ -57,7 +57,7 @@ static droption_t<std::string>
 static droption_t<std::string> op_alt_module_dir(
     DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
     "Specifies a directory to look for binaries needed to post-process "
-    "the trace that are not found in the path recorded during tracing.");
+    "the trace.  This directory takes precedence over the recorded path.");
 
 static droption_t<unsigned int> op_verbose(DROPTION_SCOPE_FRONTEND, "verbose", 0,
                                            "Verbosity level for diagnostic output",

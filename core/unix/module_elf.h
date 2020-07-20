@@ -193,6 +193,14 @@
 #    endif                 /* ANDROID */
 #endif                     /* X86/ARM */
 
+/* Define ARM ELF machine types to support compiling on old Linux distros. */
+#ifndef EM_ARM
+#    define EM_ARM 40
+#endif
+#ifndef EM_AARCH64
+#    define EM_AARCH64 183
+#endif
+
 bool
 get_elf_platform(file_t f, dr_platform_t *platform);
 

@@ -53,7 +53,7 @@
 
 typedef uintptr_t addr_t; /**< The type of a memory address. */
 
-#define TRACE_ENTRY_VERSION 1 /**< The version of the trace format. */
+#define TRACE_ENTRY_VERSION 2 /**< The version of the trace format. */
 
 /** The type of a trace entry in a #memref_t structure. */
 // The type identifier for trace entries in the raw trace_entry_t passed to
