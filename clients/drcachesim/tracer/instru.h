@@ -124,6 +124,14 @@ public:
                 bool repstr_expanded) = 0;
 
     // Utilities.
+#ifdef AARCH64
+    static unsigned short
+    get_aarch64_prefetch_target_policy(ptr_int_t prfop);
+    static unsigned short
+    get_aarch64_prefetch_op_type(ptr_int_t prfop);
+    static unsigned short
+    get_aarch64_prefetch_type(ptr_int_t prfop);
+#endif
     static unsigned short
     instr_to_prefetch_type(instr_t *instr);
     static unsigned short

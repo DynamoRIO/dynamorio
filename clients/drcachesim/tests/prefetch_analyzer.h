@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,54 +30,26 @@
  * DAMAGE.
  */
 
-#include "trace_entry.h"
+/* prefetch_analyzer: Analyzer to compute prefetch instruction statistics.
+ */
 
-const char *const trace_type_names[] = {
-    "read",
-    "write",
-    "prefetch",
-    "prefetch_read_l1",
-    "prefetch_read_l2",
-    "prefetch_read_l3",
-    "prefetchnta",
-    "prefetch_read",
-    "prefetch_write",
-    "prefetch_instr",
-    "instr",
-    "direct_jump",
-    "indirect_jump",
-    "conditional_jump",
-    "direct_call",
-    "indirect_call",
-    "return",
-    "instr_bundle",
-    "instr_flush",
-    "instr_flush_end",
-    "data_flush",
-    "data_flush_end",
-    "thread",
-    "thread_exit",
-    "pid",
-    "header",
-    "footer",
-    "hw prefetch",
-    "marker",
-    "non-fetched instr",
-    "maybe-fetched instr",
-    "sysenter",
-    "prefetch_read_l1_nt",
-    "prefetch_read_l2_nt",
-    "prefetch_read_l3_nt",
-    "prefetch_instr_l1",
-    "prefetch_instr_l1_nt",
-    "prefetch_instr_l2",
-    "prefetch_instr_l2_nt",
-    "prefetch_instr_l3",
-    "prefetch_instr_l3_nt",
-    "prefetch_write_l1",
-    "prefetch_write_l1_nt",
-    "prefetch_write_l2",
-    "prefetch_write_l2_nt",
-    "prefetch_write_l3",
-    "prefetch_write_l3_nt",
+#ifndef _PREFETCH_ANALYZER_H_
+#define _PREFETCH_ANALYZER_H_ 1
+
+#include "../analysis_tool.h"
+#include "../common/memref.h"
+#include "../common/trace_entry.h"
+#include <map>
+
+class prefetch_analyzer_t : public analysis_tool_t {
+public:
+    bool
+    process_memref(const memref_t &memref) override;
+    bool
+    print_results() override;
+
+protected:
+    std::map<trace_type_t, int> trace_type_freq_;
 };
+
+#endif /* _PREFETCH_ANALYZER_H_ */

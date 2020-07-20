@@ -71,12 +71,22 @@ typedef enum {
     TRACE_TYPE_READ,  /**< A data load. */
     TRACE_TYPE_WRITE, /**< A data store. */
 
-    TRACE_TYPE_PREFETCH, /**< A general prefetch to the level 1 data cache. */
+    TRACE_TYPE_PREFETCH, /**< A general prefetch. */
+
     // X86 specific prefetch
-    TRACE_TYPE_PREFETCHT0,  /**< An x86 prefetch to all levels of the cache. */
-    TRACE_TYPE_PREFETCHT1,  /**< An x86 prefetch to level 1 of the cache. */
-    TRACE_TYPE_PREFETCHT2,  /**< An x86 prefetch to level 2 of the cache. */
+    TRACE_TYPE_PREFETCHT0, /**< An x86 prefetch to all levels of the cache. */
+    TRACE_TYPE_PREFETCH_READ_L1 =
+        TRACE_TYPE_PREFETCHT0, /**< Load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCHT1,     /**< An x86 prefetch to level 2 cache and higher. */
+    TRACE_TYPE_PREFETCH_READ_L2 =
+        TRACE_TYPE_PREFETCHT1, /**< Load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCHT2,     /**< An x86 prefetch to level 3 cache and higher. */
+    TRACE_TYPE_PREFETCH_READ_L3 =
+        TRACE_TYPE_PREFETCHT2, /**< Load prefetch to L3 cache. */
+    // This prefetches data into a non-temporal cache structure and into a location
+    // close to the processor, minimizing cache pollution.
     TRACE_TYPE_PREFETCHNTA, /**< An x86 non-temporal prefetch. */
+
     // ARM specific prefetch
     TRACE_TYPE_PREFETCH_READ,  /**< An ARM load prefetch. */
     TRACE_TYPE_PREFETCH_WRITE, /**< An ARM store prefetch. */
@@ -162,6 +172,25 @@ typedef enum {
      * counter execution sequence.
      */
     TRACE_TYPE_INSTR_SYSENTER,
+
+    // Architecture-agnostic trace entry types for prefetch instructions.
+    TRACE_TYPE_PREFETCH_READ_L1_NT, /**< Non-temporal load prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_READ_L2_NT, /**< Non-temporal load prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_READ_L3_NT, /**< Non-temporal load prefetch to L3 cache. */
+
+    TRACE_TYPE_PREFETCH_INSTR_L1,    /**< Instr prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L1_NT, /**< Non-temporal instr prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L2,    /**< Instr prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L2_NT, /**< Non-temporal instr prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L3,    /**< Instr prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_INSTR_L3_NT, /**< Non-temporal instr prefetch to L3 cache. */
+
+    TRACE_TYPE_PREFETCH_WRITE_L1,    /**< Store prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L1_NT, /**< Non-temporal store prefetch to L1 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L2,    /**< Store prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L2_NT, /**< Non-temporal store prefetch to L2 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L3,    /**< Store prefetch to L3 cache. */
+    TRACE_TYPE_PREFETCH_WRITE_L3_NT, /**< Non-temporal store prefetch to L3 cache. */
 
     // Update trace_type_names[] when adding here.
 } trace_type_t;
@@ -277,6 +306,8 @@ static inline bool
 type_is_prefetch(const trace_type_t type)
 {
     return (type >= TRACE_TYPE_PREFETCH && type <= TRACE_TYPE_PREFETCH_INSTR) ||
+        (type >= TRACE_TYPE_PREFETCH_READ_L1_NT &&
+         type <= TRACE_TYPE_PREFETCH_WRITE_L3_NT) ||
         type == TRACE_TYPE_HARDWARE_PREFETCH;
 }
 

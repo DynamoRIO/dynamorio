@@ -1,0 +1,50 @@
+Hello, world!
+Basic counts tool results:
+Total counts:
+          96 total \(fetched\) instructions
+          96 total unique \(fetched\) instructions
+           0 total non-fetched instructions
+          81 total prefetches
+           0 total data loads
+           0 total data stores
+           1 total threads
+           6 total scheduling markers
+           0 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           1 total other markers
+Thread .* counts:
+          96 \(fetched\) instructions
+          96 unique \(fetched\) instructions
+           0 non-fetched instructions
+          81 prefetches
+           0 data loads
+           0 data stores
+           6 scheduling markers
+           0 transfer markers
+           0 function id markers
+           0 function return address markers
+           0 function argument markers
+           0 function return value markers
+           1 other markers
+Prefetch operation frequencies:
+           2 prefetch_read_l1
+           4 prefetch_read_l2
+           6 prefetch_read_l3
+           3 prefetch_read_l1_nt
+           5 prefetch_read_l2_nt
+           7 prefetch_read_l3_nt
+           7 prefetch_instr_l1
+           6 prefetch_instr_l1_nt
+           5 prefetch_instr_l2
+           4 prefetch_instr_l2_nt
+           3 prefetch_instr_l3
+           2 prefetch_instr_l3_nt
+           5 prefetch_write_l1
+           4 prefetch_write_l1_nt
+           3 prefetch_write_l2
+           2 prefetch_write_l2_nt
+           7 prefetch_write_l3
+           6 prefetch_write_l3_nt

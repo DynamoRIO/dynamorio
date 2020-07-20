@@ -246,8 +246,8 @@ instr_is_mov_constant(instr_t *instr, ptr_int_t *value)
 bool
 instr_is_prefetch(instr_t *instr)
 {
-    /* FIXME i#1569: NYI */
-    return false;
+    int opcode = instr_get_opcode(instr);
+    return opcode == OP_prfm || opcode == OP_prfum;
 }
 
 bool
