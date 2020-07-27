@@ -84,7 +84,8 @@ view_t::initialize()
     error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
-    dr_disasm_flags_t flags = DR_DISASM_ATT;
+    dr_disasm_flags_t flags =
+        IF_X86_ELSE(DR_DISASM_ATT, IF_AARCH64_ELSE(DR_DISASM_DR, DR_DISASM_ARM));
     if (knob_syntax_ == "intel") {
         flags = DR_DISASM_INTEL;
     } else if (knob_syntax_ == "dr") {
