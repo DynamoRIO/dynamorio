@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -120,6 +120,7 @@ instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
         case 0b100: return TRACE_TYPE_PREFETCH_READ_L3;
         case 0b101: return TRACE_TYPE_PREFETCH_READ_L3_NT;
         }
+        break;
     case 0b01: // prefetch for instruction
         switch (target_policy) {
         case 0b000: return TRACE_TYPE_PREFETCH_INSTR_L1;
@@ -129,6 +130,7 @@ instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
         case 0b100: return TRACE_TYPE_PREFETCH_INSTR_L3;
         case 0b101: return TRACE_TYPE_PREFETCH_INSTR_L3_NT;
         }
+        break;
     case 0b10: // prefetch for store
         switch (target_policy) {
         case 0b000: return TRACE_TYPE_PREFETCH_WRITE_L1;
@@ -138,6 +140,7 @@ instru_t::get_aarch64_prefetch_type(ptr_int_t prfop)
         case 0b100: return TRACE_TYPE_PREFETCH_WRITE_L3;
         case 0b101: return TRACE_TYPE_PREFETCH_WRITE_L3_NT;
         }
+        break;
     }
 
 #    ifdef DEBUG
