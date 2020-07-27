@@ -294,6 +294,11 @@ public:
     bool
     label_marks_elidable(instr_t *instr, OUT int *opnd_index, OUT int *memopnd_index,
                          OUT bool *is_write, OUT bool *needs_base);
+    static int
+    print_module_data_fields(char *dst, size_t max_len, const void *custom_data,
+                             size_t custom_size,
+                             int (*user_print_cb)(void *data, char *dst, size_t max_len),
+                             void *user_cb_data);
 
 private:
     struct custom_module_data_t {
