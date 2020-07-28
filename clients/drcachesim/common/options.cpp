@@ -384,11 +384,15 @@ droption_t<bytesize_t>
                 "and the references following the simulated ones are dropped.");
 
 droption_t<std::string>
-    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att",
+    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr",
                    "Syntax to use for disassembly.",
                    "Specifies the syntax to use when viewing disassembled offline traces."
-                   "The option can be set to one of att (default), intel, dr and arm."
-                   "An invalid specification falls back to the default.");
+                   // TODO i#4382: Add aarch64 syntax support.
+                   " The option can be set to one of \"att\" (AT&T style), \"intel\""
+                   " (Intel style), \"dr\" (DynamoRIO's native style with all implicit"
+                   " operands listed), and \"arm\" (32-bit ARM style). An invalid"
+                   " specification falls back to the default, which is \"att\" for x86,"
+                   " \"arm\" for ARM (32-bit), and \"dr\" for AArch64.");
 
 droption_t<std::string>
     op_config_file(DROPTION_SCOPE_FRONTEND, "config_file", "",
