@@ -227,7 +227,8 @@ OPTION_INTERNAL(bool, tracedump_text, "text dump of traces (after optimization)"
 OPTION_INTERNAL(bool, tracedump_origins, "write out original instructions for each trace")
 OPTION(bool, syntax_intel, "use Intel disassembly syntax")
 OPTION(bool, syntax_att, "use AT&T disassembly syntax")
-OPTION(bool, syntax_arm, "use ARM disassembly syntax")
+OPTION(bool, syntax_arm, "use ARM (32-bit) disassembly syntax")
+/* TODO i#4382: Add syntax_aarch64. */
 /* whether to mark gray-area instrs as invalid when we know the length (i#1118) */
 OPTION(bool, decode_strict, "mark all known-invalid instructions as invalid")
 OPTION(uint, disasm_mask, "disassembly style as a dr_disasm_flags_t bitmask")

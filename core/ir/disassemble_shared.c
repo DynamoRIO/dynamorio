@@ -1113,6 +1113,11 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 
     if (TESTANY(DR_DISASM_INTEL | DR_DISASM_ATT | DR_DISASM_ARM,
                 DYNAMO_OPTION(disasm_mask))) {
+#    ifdef AARCH64
+        /* TODO i#4382: Implement DR_DISASM_AARCH64. */
+        SYSLOG_INTERNAL_WARNING_ONCE("Selected disassembly style is not implemented for "
+                                     "AArch64: no operands will be printed.");
+#    endif
         instr_disassemble_opnds_noimplicit(buf, bufsz, sofar, dcontext, instr);
         /* we avoid trailing spaces if no operands */
         if (*sofar == offs_pre_opnds) {
