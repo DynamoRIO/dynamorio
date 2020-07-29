@@ -556,6 +556,10 @@
     instr_create_1dst_1src((dc), OP_mrs, (Xt), (sysreg))
 #define INSTR_CREATE_msr(dc, sysreg, Xt) \
     instr_create_1dst_1src((dc), OP_msr, (sysreg), (Xt))
+#define INSTR_CREATE_sys(dc, op1, CRn, CRm, op2, Rn) \
+    instr_create_0dst_5src(dc, OP_sys, op1, CRn, CRm, op2, Rn)
+#define INSTR_CREATE_sysl(dc, Rd, op1, CRn, CRm, op2) \
+    instr_create_1dst_4src(dc, OP_sysl, Rd, op1, CRn, CRm, op2)
 #define INSTR_CREATE_nop(dc) instr_create_0dst_0src((dc), OP_nop)
 #define INSTR_CREATE_ret(dc, Rn) instr_create_0dst_1src((dc), OP_ret, (Rn))
 #define INSTR_CREATE_stp(dc, mem, rt1, rt2) \
