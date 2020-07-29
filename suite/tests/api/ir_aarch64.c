@@ -3976,37 +3976,34 @@ test_sys(void *dc)
 
     /* DC ZVA, Xt => SYS #3, C7, C4, #1, Xt */
     instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(3, OPSZ_3b), // op1
-                                 opnd_create_immed_int(7, OPSZ_4b), // CRn
-                                 opnd_create_immed_int(4, OPSZ_4b), // CRm
-                                 opnd_create_immed_int(1, OPSZ_3b), // op2
-                                 opnd_create_reg(DR_REG_X0));
+                             opnd_create_immed_int(7, OPSZ_4b),     // CRn
+                             opnd_create_immed_int(4, OPSZ_4b),     // CRm
+                             opnd_create_immed_int(1, OPSZ_3b),     // op2
+                             opnd_create_reg(DR_REG_X0));
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CVAC, Xt => SYS #3, C7, C10, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(3, OPSZ_3b),
-                                 opnd_create_immed_int(7, OPSZ_4b),
-                                 opnd_create_immed_int(10, OPSZ_4b),
-                                 opnd_create_immed_int(1, OPSZ_3b),
-                                 opnd_create_reg(DR_REG_X1));
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
+        opnd_create_immed_int(10, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
+        opnd_create_reg(DR_REG_X1));
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CVAU, Xt => SYS #3, C7, C11, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(3, OPSZ_3b),
-                                 opnd_create_immed_int(7, OPSZ_4b),
-                                 opnd_create_immed_int(11, OPSZ_4b),
-                                 opnd_create_immed_int(1, OPSZ_3b),
-                                 opnd_create_reg(DR_REG_X2));
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
+        opnd_create_immed_int(11, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
+        opnd_create_reg(DR_REG_X2));
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CIVAC Xt => SYS #3, C7, C14, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(3, OPSZ_3b),
-                                 opnd_create_immed_int(7, OPSZ_4b),
-                                 opnd_create_immed_int(14, OPSZ_4b),
-                                 opnd_create_immed_int(1, OPSZ_3b),
-                                 opnd_create_reg(DR_REG_X3));
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
+        opnd_create_immed_int(14, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
+        opnd_create_reg(DR_REG_X3));
     test_instr_encoding(dc, OP_sys, instr);
 
-     /*
+    /*
      * Similarly, instruction cache operations are aliases of SYS:
      * IC <ic_op>{, <Xt>}
      * is equivalent to
@@ -4014,18 +4011,17 @@ test_sys(void *dc)
      */
 
     /* IC IVAU, Xt => SYS #3, C7, C5, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(3, OPSZ_3b),
-                                 opnd_create_immed_int(7, OPSZ_4b),
-                                 opnd_create_immed_int(5, OPSZ_4b),
-                                 opnd_create_immed_int(1, OPSZ_3b),
-                                 opnd_create_reg(DR_REG_X4));
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
+        opnd_create_immed_int(5, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
+        opnd_create_reg(DR_REG_X4));
     test_instr_encoding(dc, OP_sys, instr);
 
     instr = INSTR_CREATE_sysl(dc, opnd_create_reg(DR_REG_X0),
-                                  opnd_create_immed_int(3, OPSZ_3b), // op1
-                                  opnd_create_immed_int(7, OPSZ_4b), // CRn
-                                  opnd_create_immed_int(4, OPSZ_4b), // CRm
-                                  opnd_create_immed_int(1, OPSZ_3b));// op2
+                              opnd_create_immed_int(3, OPSZ_3b),  // op1
+                              opnd_create_immed_int(7, OPSZ_4b),  // CRn
+                              opnd_create_immed_int(4, OPSZ_4b),  // CRm
+                              opnd_create_immed_int(1, OPSZ_3b)); // op2
     test_instr_encoding(dc, OP_sysl, instr);
 }
 
