@@ -3963,7 +3963,6 @@ test_asimddiff(void *dc)
 static void
 test_sys(void *dc)
 {
-    byte *pc;
     instr_t *instr;
 
     /* SYS #<op1>, <Cn>, <Cm>, #<op2>{, <Xt>}
@@ -3975,54 +3974,41 @@ test_sys(void *dc)
      */
 
     /* DC ZVA, Xt => SYS #3, C7, C4, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(3, OPSZ_3b), // op1
-                             opnd_create_immed_int(7, OPSZ_4b),     // CRn
-                             opnd_create_immed_int(4, OPSZ_4b),     // CRm
-                             opnd_create_immed_int(1, OPSZ_3b),     // op2
-                             opnd_create_reg(DR_REG_X0));
+    instr = INSTR_CREATE_sys(dc, opnd_create_base_disp_aarch64(DR_REG_X0,
+                             DR_REG_NULL, 0, false, 0, 0, OPSZ_0),
+                             opnd_create_immed_int(DR_DC_ZVA, OPSZ_2));
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CVAC, Xt => SYS #3, C7, C10, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
-        opnd_create_immed_int(10, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
-        opnd_create_reg(DR_REG_X1));
+    instr = INSTR_CREATE_sys(dc, opnd_create_base_disp_aarch64(DR_REG_X1,
+                             DR_REG_NULL, 0, false, 0, 0, OPSZ_0),
+                             opnd_create_immed_int(DR_DC_CVAC, OPSZ_2));
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CVAU, Xt => SYS #3, C7, C11, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
-        opnd_create_immed_int(11, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
-        opnd_create_reg(DR_REG_X2));
+    instr = INSTR_CREATE_sys(dc, opnd_create_base_disp_aarch64(DR_REG_X29,
+                             DR_REG_NULL, 0, false, 0, 0, OPSZ_0),
+                             opnd_create_immed_int(DR_DC_CVAU, OPSZ_2));
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CIVAC Xt => SYS #3, C7, C14, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
-        opnd_create_immed_int(14, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
-        opnd_create_reg(DR_REG_X3));
+    instr = INSTR_CREATE_sys(dc, opnd_create_base_disp_aarch64(DR_REG_X30,
+                             DR_REG_NULL, 0, false, 0, 0, OPSZ_0),
+                             opnd_create_immed_int(DR_DC_CIVAC, OPSZ_2));
     test_instr_encoding(dc, OP_sys, instr);
 
     /*
-     * Similarly, instruction cache operations are aliases of SYS:
+     * Similarly, instruction cache operations are also aliases of SYS:
      * IC <ic_op>{, <Xt>}
      * is equivalent to
      * SYS #<op1>, C7, <Cm>, #<op2>{, <Xt>}
      */
 
     /* IC IVAU, Xt => SYS #3, C7, C5, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(3, OPSZ_3b), opnd_create_immed_int(7, OPSZ_4b),
-        opnd_create_immed_int(5, OPSZ_4b), opnd_create_immed_int(1, OPSZ_3b),
-        opnd_create_reg(DR_REG_X4));
+    instr = INSTR_CREATE_sys(dc, opnd_create_base_disp_aarch64(DR_REG_X1,
+                             DR_REG_NULL, 0, false, 0, 0, OPSZ_0),
+                             opnd_create_immed_int(DR_IC_IVAU, OPSZ_2));
     test_instr_encoding(dc, OP_sys, instr);
-
-    instr = INSTR_CREATE_sysl(dc, opnd_create_reg(DR_REG_X0),
-                              opnd_create_immed_int(3, OPSZ_3b),  // op1
-                              opnd_create_immed_int(7, OPSZ_4b),  // CRn
-                              opnd_create_immed_int(4, OPSZ_4b),  // CRm
-                              opnd_create_immed_int(1, OPSZ_3b)); // op2
-    test_instr_encoding(dc, OP_sysl, instr);
 }
 
 int

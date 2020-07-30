@@ -1060,6 +1060,28 @@ encode_opnd_x0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, false, 0, opnd, enc_out);
 }
 
+/* memx0: memory operand with no offset used as memref for SYS */
+
+static inline bool
+decode_opnd_memx0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_base_disp(decode_reg(extract_uint(enc, 0, 5), true, false),
+                                  DR_REG_NULL, 0, 0, OPSZ_0);
+    return true;
+}
+
+static inline bool
+encode_opnd_memx0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint xn;
+    bool is_x;
+    if (!opnd_is_base_disp(opnd) ||
+        !encode_reg(&xn, &is_x, opnd_get_base(opnd), false) || !is_x)
+        return false;
+    *enc_out = xn;
+    return true;
+}
+
 /* x0p0: even-numbered X register or XZR at bit position 0 */
 
 static inline bool
@@ -1229,20 +1251,6 @@ encode_opnd_prfop(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_opnd_int(0, 5, false, 0, 0, opnd, enc_out);
 }
 
-/* sys_op2: immediate operand for SYS/SYSL instructions */
-
-static inline bool
-decode_opnd_sys_op2(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_int(5, 3, false, 0, OPSZ_3b, 0, enc, opnd);
-}
-
-static inline bool
-encode_opnd_sys_op2(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_int(5, 3, false, 0, 0, opnd, enc_out);
-}
-
 /* w5: W register or WZR at bit position 5 */
 
 static inline bool
@@ -1398,20 +1406,6 @@ encode_opnd_imm4(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(8, 4, false, 0, 0, opnd, enc_out);
 }
 
-/* sys_cm: immediate operand for SYS/SYSL instructions */
-
-static inline bool
-decode_opnd_sys_cm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_int(8, 4, false, 0, OPSZ_4b, 0, enc, opnd);
-}
-
-static inline bool
-encode_opnd_sys_cm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_int(8, 4, false, 0, 0, opnd, enc_out);
-}
-
 /* extam: extend amount, a left shift from 0 to 4 */
 
 static inline bool
@@ -1560,32 +1554,18 @@ encode_opnd_cond(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
 }
 
-/* sys_cn: immediate operand for SYS/SYSL instructions */
+/* sysops: immediate operand for SYS instruction which specifies SYS operations */
 
 static inline bool
-decode_opnd_sys_cn(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_sysops(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_int(12, 4, false, 0, OPSZ_4b, 0, enc, opnd);
+    return decode_opnd_int(5, 14, false, 0, OPSZ_2, 0, enc, opnd);
 }
 
 static inline bool
-encode_opnd_sys_cn(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_sysops(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
-}
-
-/* sys_op1: immediate operand for SYS/SYSL instructions */
-
-static inline bool
-decode_opnd_sys_op1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_int(16, 3, false, 0, OPSZ_3b, 0, enc, opnd);
-}
-
-static inline bool
-encode_opnd_sys_op1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_int(16, 3, false, 0, 0, opnd, enc_out);
+    return encode_opnd_int(5, 14, false, 0, 0, opnd, enc_out);
 }
 
 /* sysreg: system register, operand of MRS/MSR */

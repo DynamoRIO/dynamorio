@@ -2591,16 +2591,6 @@ instr_create_0dst_4src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src
 
 DR_API
 /**
- * Convenience routine that returns an initialized instr_t allocated
- * on the thread-local heap with opcode \p opcode and five sources
- * (\p src1, \p src2, \p src3, \p src4, \p src5).
- */
-instr_t *
-instr_create_0dst_5src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
-                       opnd_t src3, opnd_t src4, opnd_t src5);
-
-DR_API
-/**
  * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode and one destination (\p dst).
  */

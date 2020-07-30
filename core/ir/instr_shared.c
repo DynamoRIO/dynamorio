@@ -2715,19 +2715,6 @@ instr_create_0dst_4src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src
 }
 
 instr_t *
-instr_create_0dst_5src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
-                       opnd_t src3, opnd_t src4, opnd_t src5)
-{
-    instr_t *in = instr_build(dcontext, opcode, 0, 5);
-    instr_set_src(in, 0, src1);
-    instr_set_src(in, 1, src2);
-    instr_set_src(in, 2, src3);
-    instr_set_src(in, 3, src4);
-    instr_set_src(in, 4, src5);
-    return in;
-}
-
-instr_t *
 instr_create_1dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 0);
