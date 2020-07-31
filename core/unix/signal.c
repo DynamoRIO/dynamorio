@@ -6449,10 +6449,12 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
         break;
     }
     dr_forge_signal(target_pc, sig);
+    ASSERT_NOT_REACHED();
 }
 
 void
-dr_forge_signal(app_pc target_pc, int sig) {
+dr_forge_signal(app_pc target_pc, int sig)
+{
     dcontext_t *dcontext = get_thread_private_dcontext();
     char frame_no_xstate[sizeof(sigframe_rt_t)];
     sigframe_rt_t *frame = (sigframe_rt_t *)frame_no_xstate;

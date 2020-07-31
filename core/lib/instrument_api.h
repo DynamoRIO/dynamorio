@@ -1676,16 +1676,6 @@ dr_standalone_exit(void);
  * UTILITY ROUTINES
  */
 
-#    ifdef UNIX
-DR_API
-/**
- * Forge (emulate) OS signal with a given number at the specified PC.
- * \note Only Unix.
- */
-void
-dr_forge_signal(app_pc target_pc, int signal);
-#    endif
-
 #    ifdef WINDOWS
 /**
  * If \p x is false, displays a message about an assertion failure
@@ -1711,6 +1701,20 @@ dr_forge_signal(app_pc target_pc, int signal);
 #    define DR_ASSERT(x) DR_ASSERT_MSG(x, "")
 
 /* DR_API EXPORT END */
+
+#    ifdef UNIX
+DR_API
+/**
+ * Forge (emulate) OS signal with a given number at the specified PC.
+ * \note Only Unix.
+ * \note This function is not supposed to return on success therefore
+ * care should be taken to avoid any stale state or unreleased resources
+ * remaining when the functions is called.
+ * \return If successful, this function does not return.
+ */
+void
+dr_forge_signal(app_pc target_pc, int sig);
+#    endif /* UNIX */
 
 DR_API
 /** Returns true if all DynamoRIO caches are thread private. */
