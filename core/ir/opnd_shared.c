@@ -539,7 +539,7 @@ opnd_create_base_disp_ex(reg_id_t base_reg, reg_id_t index_reg, int scale, int d
 {
     return opnd_create_far_base_disp_ex(REG_NULL, base_reg, index_reg, scale, disp, size,
                                         encode_zero_disp, force_full_disp,
-                                        disp_short_addr, false);
+                                        disp_short_addr);
 }
 
 opnd_t
@@ -547,7 +547,7 @@ opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp
                       opnd_size_t size)
 {
     return opnd_create_far_base_disp_ex(REG_NULL, base_reg, index_reg, scale, disp, size,
-                                        false, false, false, false);
+                                        false, false, false);
 }
 
 static inline void
@@ -567,7 +567,7 @@ opnd_set_disp_helper(opnd_t *opnd, int disp)
 opnd_t
 opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg,
                              int scale, int disp, opnd_size_t size, bool encode_zero_disp,
-                             bool force_full_disp, bool disp_short_addr, bool post_index)
+                             bool force_full_disp, bool disp_short_addr)
 {
     opnd_t opnd;
     opnd.kind = BASE_DISP_kind;
@@ -620,7 +620,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
         opnd.value.base_disp.shift_amount_minus_1 = 0;
     }
 #elif defined(AARCH64)
-    opnd.value.base_disp.pre_index = !post_index;
+    opnd.value.base_disp.pre_index = true;
     opnd.value.base_disp.extend_type = DR_EXTEND_UXTX;
     opnd.value.base_disp.scaled = false;
 #elif defined(X86)
@@ -637,7 +637,7 @@ opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, i
                           int disp, opnd_size_t size)
 {
     return opnd_create_far_base_disp_ex(seg, base_reg, index_reg, scale, disp, size,
-                                        false, false, false, false);
+                                        false, false, false);
 }
 
 #ifdef ARM
@@ -856,6 +856,15 @@ opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
     opnd->value.base_disp.scaled = scaled;
     return true;
 }
+
+opnd_t
+opnd_set_zero_offset_post_index(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd_is_base_disp(opnd),
+                  "opnd_set_zero_offset_post_index called on invalid opnd type");
+    opnd.value.base_disp.pre_index = false;
+    return opnd;
+}
 #endif /* AARCH64 */
 
 bool
@@ -934,7 +943,7 @@ opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
 #endif
         return opnd_create_far_base_disp_ex(seg, REG_NULL, REG_NULL, 0,
                                             (int)(ptr_int_t)addr, data_size, false, false,
-                                            need_addr32, false);
+                                            need_addr32);
     }
 #ifdef X64
     else {
@@ -1219,7 +1228,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             reg_id_t s = (old_reg == os) ? new_reg : os;
             *opnd = opnd_create_far_base_disp_ex(
                 s, b, i, sc, d, size, opnd_is_disp_encode_zero(*opnd),
-                opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd), false);
+                opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
 #endif
             return true;
         }

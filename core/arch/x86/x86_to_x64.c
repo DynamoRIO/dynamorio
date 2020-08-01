@@ -95,7 +95,7 @@ opnd_change_base_reg_to_64(opnd_t opnd)
             opnd_get_segment(opnd), reg_32_to_64(base_reg), index_reg,
             opnd_get_scale(opnd), disp, opnd_get_size(opnd),
             opnd_is_disp_encode_zero(opnd), opnd_is_disp_force_full(opnd),
-            opnd_is_disp_short_addr(opnd), false);
+            opnd_is_disp_short_addr(opnd));
     }
 
     return opnd;

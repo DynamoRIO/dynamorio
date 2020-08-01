@@ -168,7 +168,7 @@ drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
 {
     return opnd_create_far_base_disp_ex(tls_raw_reg, REG_NULL, REG_NULL, 1,
                                         tls_raw_base + (slot_idx * (sizeof(void *))),
-                                        OPSZ_PTR, false, true, false, false);
+                                        OPSZ_PTR, false, true, false);
 }
 
 static void

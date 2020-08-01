@@ -36,6 +36,7 @@
 #define INSTR_CREATE_H 1
 
 #include "../instr_create_shared.h"
+#include "../aarchxx/instr_create_aarchxx.h"
 #include "instr.h"
 
 /* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
@@ -539,12 +540,6 @@
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
-#define INSTR_CREATE_ldr_imm(dc, Rt, Rn, imm, post)                                      \
-    instr_create_2dst_3src((dc), OP_ldr, Rt, opnd_create_reg(Rn),                        \
-                           opnd_create_far_base_disp_ex(DR_REG_NULL, Rn, DR_REG_NULL, 0, \
-                                                        0, OPSZ_8, false, false, false,  \
-                                                        post),                           \
-                           opnd_create_reg(Rn), imm)
 #define INSTR_CREATE_ldrb(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
 #define INSTR_CREATE_ldrh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
 #define INSTR_CREATE_ldar(dc, Rt, mem) instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
@@ -2521,27 +2516,15 @@
     instr_create_1dst_3src(dc, OP_umull2, Rd, Rm, Rn, width)
 
 /**
- * Creates a DMB instruction.
+ * Creates an LDR (immediate) instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param mem     The source memory opnd.
  * \param imm     The integer constant opnd_t operand.
  */
-#define INSTR_CREATE_dmb(dc, imm) instr_create_0dst_1src((dc), OP_dmb, (imm))
-
-/** Immediate values for INSTR_CREATE_dmb(). */
-enum {
-    DR_DMB_OSHLD = 1, /**< DMB Outer Shareable - Loads. */
-    DR_DMB_OSHST = 2, /**< DMB Outer Shareable - Stores. */
-    DR_DMB_OSH = 3,   /**< DMB Outer Shareable - Loads and Stores. */
-    DR_DMB_NSHLD = 5, /**< DMB Non Shareable - Loads. */
-    DR_DMB_NSHST = 6, /**< DMB Non Shareable - Stores. */
-    DR_DMB_NSH = 7,   /**< DMB Non Shareable - Loads and Stores. */
-    DR_DMB_ISHLD = 9, /**< DMB Inner Shareable - Loads. */
-    DR_DMB_ISHST = 10 /**< DMB Inner Shareable - Stores. */,
-    DR_DMB_ISH = 11, /**< DMB Inner Shareable - Loads and Stores. */
-    DR_DMB_LD = 13,  /**< DMB Full System - Loads. */
-    DR_DMB_ST = 14,  /**< DMB Full System - Stores. */
-    DR_DMB_SY = 15,  /**< DMB Full System - Loads and Stores. */
-};
+#define INSTR_CREATE_ldr_imm(dc, Rd, mem, imm)                                      \
+    instr_create_2dst_3src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), \
+                           (mem), opnd_create_reg(opnd_get_base(mem)), imm)
 
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */

@@ -1702,7 +1702,7 @@ DR_API
 opnd_t
 opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg,
                              int scale, int disp, opnd_size_t size, bool encode_zero_disp,
-                             bool force_full_disp, bool disp_short_addr, bool post_index);
+                             bool force_full_disp, bool disp_short_addr);
 
 #ifdef ARM
 DR_API
@@ -2316,6 +2316,16 @@ DR_API
  */
 bool
 opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled);
+
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Sets the index register to be post-indexed.
+ * Returns memop operand.
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_set_zero_offset_post_index(opnd_t opnd);
 #endif /* AARCH64 */
 
 DR_API
