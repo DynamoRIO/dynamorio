@@ -306,7 +306,39 @@ typedef struct _dr_stats_t {
      * an un-translatable spot.
      */
     uint64 synchs_not_at_safe_spot;
+    /** Peak number of memory blocks used for heaps. */
+    uint64 peak_vmm_blocks_heap;
+    /** Peak number of memory blocks used for thread stacks. */
+    uint64 peak_vmm_blocks_stack;
+    /** Peak number of memory blocks used for code caches. */
+    uint64 peak_vmm_blocks_cache;
+    /** Peak number of memory blocks used for specialized heaps. */
+    uint64 peak_vmm_blocks_special_heap;
+    /** Peak number of memory blocks used for mappings not in other categories. */
+    uint64 peak_vmm_blocks_special_mmap;
 } dr_stats_t;
+
+/**
+ * Error codes of DR API routines.
+ */
+typedef enum {
+    /**
+     * Invalid parameter passed to the API routine.
+     */
+    DR_ERROR_INVALID_PARAMETER = 1,
+    /**
+     * Insufficient size of passed buffer.
+     */
+    DR_ERROR_INSUFFICIENT_SPACE = 2,
+    /**
+     * String encoding is unknown.
+     */
+    DR_ERROR_UNKNOWN_ENCODING = 3,
+    /**
+     * Feature of API routine not yet implemented.
+     */
+    DR_ERROR_NOT_IMPLEMENTED = 4,
+} dr_error_code_t;
 
 /* DR_API EXPORT END */
 
@@ -450,6 +482,11 @@ typedef struct _client_data_t {
     /* 2 other ways to point at a context for dr_{g,s}et_mcontext() */
     priv_mcontext_t *cur_mc;
     os_cxt_ptr_t os_cxt;
+
+    /* The error code of last failed API routine. Not updated on successful API calls
+     * but only upon failures.
+     */
+    dr_error_code_t error_code;
 } client_data_t;
 #else
 #    define IS_CLIENT_THREAD(dcontext) false

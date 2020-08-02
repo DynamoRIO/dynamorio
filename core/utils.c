@@ -3067,17 +3067,16 @@ stats_thread_init(dcontext_t *dcontext)
 void
 stats_thread_exit(dcontext_t *dcontext)
 {
-#    ifdef DEBUG
-    /* for non-debug we do fast exit path and don't free local heap */
-    /* no clean up needed */
+    /* We need to free even in non-debug b/c unprot local heap is global. */
     if (dcontext->thread_stats) {
         thread_local_statistics_t *old_thread_stats = dcontext->thread_stats;
+#    ifdef DEBUG
         DELETE_LOCK(old_thread_stats->thread_stats_lock);
+#    endif
         dcontext->thread_stats = NULL; /* disable thread stats before freeing memory */
         HEAP_TYPE_FREE(dcontext, old_thread_stats, thread_local_statistics_t, ACCT_STATS,
                        UNPROTECTED);
     }
-#    endif
 }
 
 void
@@ -3454,6 +3453,8 @@ utils_exit()
 {
     LOG(GLOBAL, LOG_STATS, 1, "-prng_seed " PFX " for reproducing random sequence\n",
         initial_random_seed);
+    if (doing_detach)
+        enable_new_log_dir(); /* For potential re-attach. */
 
     DELETE_LOCK(report_buf_lock);
     DELETE_RECURSIVE_LOCK(logdir_mutex);
@@ -4608,6 +4609,14 @@ stats_get_snapshot(dr_stats_t *drstats)
     drstats->num_threads_created = GLOBAL_STAT(num_threads_created);
     if (drstats->size > offsetof(dr_stats_t, synchs_not_at_safe_spot)) {
         drstats->synchs_not_at_safe_spot = GLOBAL_STAT(synchs_not_at_safe_spot);
+    }
+    if (drstats->size > offsetof(dr_stats_t, peak_vmm_blocks_heap)) {
+        /* These fields were added all at once. */
+        drstats->peak_vmm_blocks_heap = GLOBAL_STAT(peak_vmm_blocks_heap);
+        drstats->peak_vmm_blocks_stack = GLOBAL_STAT(peak_vmm_blocks_stack);
+        drstats->peak_vmm_blocks_cache = GLOBAL_STAT(peak_vmm_blocks_cache);
+        drstats->peak_vmm_blocks_special_heap = GLOBAL_STAT(peak_vmm_blocks_special_heap);
+        drstats->peak_vmm_blocks_special_mmap = GLOBAL_STAT(peak_vmm_blocks_special_mmap);
     }
     return true;
 }

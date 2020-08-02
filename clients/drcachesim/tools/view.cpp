@@ -47,19 +47,23 @@ const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
 view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
-                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose)
+                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
+                 const std::string &alt_module_dir)
 {
-    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose);
+    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose,
+                      alt_module_dir);
 }
 
 view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-               const std::string &syntax, unsigned int verbose)
+               const std::string &syntax, unsigned int verbose,
+               const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , instr_count_(0)
     , knob_skip_refs_(skip_refs)
     , knob_sim_refs_(sim_refs)
     , knob_syntax_(syntax)
+    , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
 {
 }
@@ -73,13 +77,15 @@ view_t::initialize()
     std::string error = directory_.initialize_module_file(module_file_path_);
     if (!error.empty())
         return "Failed to initialize directory: " + error;
-    module_mapper_ = module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr,
-                                             nullptr, nullptr, knob_verbose_);
+    module_mapper_ =
+        module_mapper_t::create(directory_.modfile_bytes_, nullptr, nullptr, nullptr,
+                                nullptr, knob_verbose_, knob_alt_module_dir_);
     module_mapper_->get_loaded_modules();
     error = module_mapper_->get_last_error();
     if (!error.empty())
         return "Failed to load binaries: " + error;
-    dr_disasm_flags_t flags = DR_DISASM_ATT;
+    dr_disasm_flags_t flags =
+        IF_X86_ELSE(DR_DISASM_ATT, IF_AARCH64_ELSE(DR_DISASM_DR, DR_DISASM_ARM));
     if (knob_syntax_ == "intel") {
         flags = DR_DISASM_INTEL;
     } else if (knob_syntax_ == "dr") {
@@ -94,6 +100,18 @@ view_t::initialize()
 bool
 view_t::process_memref(const memref_t &memref)
 {
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+            !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
+            error_string_ = std::string("Architecture mismatch: trace recorded on ") +
+                trace_arch_string(static_cast<offline_file_type_t>(
+                    memref.marker.marker_value)) +
+                " but tool built for " + trace_arch_string(build_target_arch_type());
+            return false;
+        }
+    }
+
     if (instr_count_ < knob_skip_refs_ ||
         instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
         if (type_is_instr(memref.instr.type) ||
@@ -148,7 +166,7 @@ view_t::process_memref(const memref_t &memref)
     if (cached_disasm != disasm_cache_.end()) {
         disasm = cached_disasm->second;
     } else {
-        // MAX_INSTR_DIS_SZ is set to 196 in core/arch/disassemble.h but is not
+        // MAX_INSTR_DIS_SZ is set to 196 in core/ir/disassemble.h but is not
         // exported so we just use the same value here.
         char buf[196];
         byte *next_pc = disassemble_to_buffer(

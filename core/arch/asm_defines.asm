@@ -41,24 +41,41 @@
 
 #include "configure.h"
 
-#if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
-# define X64
-#endif
+#ifdef DR_HOST_NOT_TARGET
+#   undef X86
+#   undef AARCH64
+#   undef AARCHXX
+#   undef X64
+#   ifdef DR_HOST_X86
+#       define X86
+#   elif defined(DR_HOST_AARCH64)
+#       define AARCH64
+#   elif defined(DR_HOST_ARM)
+#       define ARM
+#   endif
+#   if defined(DR_HOST_X64)
+#       define X64
+#   endif
+#else
+#   if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
+#     define X64
+#   endif
 
-#if (defined(X86_64) || defined(X86_32)) && !defined(X86)
-# define X86
-#endif
+#   if (defined(X86_64) || defined(X86_32)) && !defined(X86)
+#     define X86
+#   endif
 
-#if defined(ARM_64) && !defined(AARCH64)
-# define AARCH64
-#endif
+#   if defined(ARM_64) && !defined(AARCH64)
+#     define AARCH64
+#   endif
 
-#if defined(ARM_32) && !defined(ARM)
-# define ARM
-#endif
+#   if defined(ARM_32) && !defined(ARM)
+#     define ARM
+#   endif
 
-#if (defined(ARM_32) || defined(ARM_64)) && !defined(AARCHXX)
-# define AARCHXX
+#   if (defined(ARM_32) || defined(ARM_64)) && !defined(AARCHXX)
+#     define AARCHXX
+#   endif
 #endif
 
 #if (defined(ARM) && defined(X64)) || (defined(AARCH64) && !defined(X64))

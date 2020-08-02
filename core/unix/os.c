@@ -129,13 +129,13 @@ typedef struct rlimit64 rlimit64_t;
  * values in xdx:xax.
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
-#if defined(AARCH64)
+#if defined(DR_HOST_AARCH64)
 #    define ASM_R2 "x2"
 #    define ASM_R3 "x3"
 #    define READ_TP_TO_R3_DISP_IN_R2    \
         "mrs " ASM_R3 ", tpidr_el0\n\t" \
         "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
-#elif defined(ARM)
+#elif defined(DR_HOST_ARM)
 #    define ASM_R2 "r2"
 #    define ASM_R3 "r3"
 #    define READ_TP_TO_R3_DISP_IN_R2                                           \
@@ -294,6 +294,13 @@ static app_pc executable_end = NULL;
 /* Used by get_application_name(). */
 static char executable_path[MAXIMUM_PATH];
 static char *executable_basename;
+
+/* Pointers to arguments. Refers to the main stack set up by the kernel.
+ * These are only written once during process init and we can live with
+ * the non-guaranteed-delay until they are visible to other cores.
+ */
+static int *app_argc = NULL;
+static char **app_argv = NULL;
 
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
@@ -1099,6 +1106,58 @@ get_application_short_name(void)
     return get_application_name_helper(false, false /* short name */);
 }
 
+/* Sets pointers to the application's command-line arguments. These pointers are then used
+ * by get_app_args().
+ */
+void
+set_app_args(IN int *app_argc_in, IN char **app_argv_in)
+{
+    app_argc = app_argc_in;
+    app_argv = app_argv_in;
+}
+
+/* Returns the number of application's command-line arguments. */
+int
+num_app_args()
+{
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#endif
+        return -1;
+    }
+
+    return *app_argc;
+}
+
+/* Returns the application's command-line arguments. */
+int
+get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+{
+    if (args_array == NULL || args_count < 0) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
+#endif
+        return -1;
+    }
+
+    if (!DYNAMO_OPTION(early_inject)) {
+#ifdef CLIENT_INTERFACE
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+#endif
+        return -1;
+    }
+
+    int num_args = num_app_args();
+    int min = (args_count < num_args) ? args_count : num_args;
+    for (int i = 0; i < min; i++) {
+        args_array[i].start = (void *)app_argv[i];
+        args_array[i].size = strlen(app_argv[i]) + 1 /* consider NULL byte */;
+        args_array[i].encoding = DR_APP_ARG_CSTR_COMPAT;
+    }
+    return min;
+}
+
 /* Processor information provided by kernel */
 #define PROC_CPUINFO "/proc/cpuinfo"
 #define CPUMHZ_LINE_LENGTH 64
@@ -1398,7 +1457,14 @@ os_timeout(int time_in_milliseconds)
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
-#ifdef MACOS64
+#ifdef DR_HOST_NOT_TARGET
+#    define WRITE_TLS_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define READ_TLS_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define WRITE_TLS_INT_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define READ_TLS_INT_SLOT_IMM(imm, var) var = 0, ASSERT_NOT_REACHED()
+#    define WRITE_TLS_SLOT(offs, var) offs = var ? 0 : 1, ASSERT_NOT_REACHED()
+#    define READ_TLS_SLOT(offs, var) var = (void *)(ptr_uint_t)offs, ASSERT_NOT_REACHED()
+#elif defined(MACOS64)
 /* For now we have both a directly-addressable os_local_state_t and a pointer to
  * it in slot 6.  If we settle on always doing the full os_local_state_t in slots,
  * we would probably get rid of the indirection here and directly access slot fields.
@@ -2387,23 +2453,22 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
             /* FIXME i#2088: we need to restore the app's aux seg, if any, instead. */
             os_set_dr_tls_base(dcontext, NULL, (byte *)&uninit_tls);
         }
-        DODEBUG({
-            HEAP_TYPE_FREE(dcontext, ostd->clone_tls, os_local_state_t, ACCT_THREAD_MGT,
-                           UNPROTECTED);
-        });
+        /* We have to free in release build too b/c "local unprotected" is global. */
+        HEAP_TYPE_FREE(dcontext, ostd->clone_tls, os_local_state_t, ACCT_THREAD_MGT,
+                       UNPROTECTED);
     }
 #endif
 
+#ifdef CLIENT_INTERFACE
+    if (INTERNAL_OPTION(private_loader))
+        privload_tls_exit(IF_UNIT_TEST_ELSE(NULL, ostd->priv_lib_tls_base));
+#endif
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
         if (MACHINE_TLS_IS_DR_TLS) {
 #ifdef X86
             heap_free(dcontext, ostd->app_thread_areas,
                       sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS HEAPACCT(ACCT_OTHER));
-#endif
-#ifdef CLIENT_INTERFACE
-            if (INTERNAL_OPTION(private_loader))
-                privload_tls_exit(IF_UNIT_TEST_ELSE(NULL, ostd->priv_lib_tls_base));
 #endif
         }
         heap_free(dcontext, ostd, sizeof(os_thread_data_t) HEAPACCT(ACCT_OTHER));

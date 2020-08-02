@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -70,32 +70,35 @@ endif ()
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
-add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
-  "_core" "" "${asm_deps}")
-if (NOT "${ARCH_NAME}" STREQUAL "${ARCH_NAME_SHARED}")
-  add_asm_target(arch/${ARCH_NAME_SHARED}/${ARCH_NAME_SHARED}.asm
+add_asm_target(arch/${DR_HOST_ARCH_NAME}/${DR_HOST_ARCH_NAME}.asm
+  arch_core_asm_src arch_core_asm_tgt "_core" "" "${asm_deps}")
+if (NOT "${DR_HOST_ARCH_NAME}" STREQUAL "${DR_HOST_ARCH_NAME_SHARED}")
+  add_asm_target(arch/${DR_HOST_ARCH_NAME_SHARED}/${DR_HOST_ARCH_NAME_SHARED}.asm
     archshared_core_asm_src archshared_core_asm_tgt
     "_core" "" "${asm_deps}")
 endif ()
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
-if (UNIX AND X86)
+if (UNIX)
   # i#3315: We want our own memcpy and memset for the shared-lib DR core and
   # for drinjectlib + drfrontendlib to avoid glibc-versioned symbols in
   # our auxiliary tools (i#1504), but we do *not* want our own memcpy and
   # memset for static-lib DR core.  Thus we separate them out.  The i#1504
   # glibc versioning is only an issue on x86.
-  add_asm_target(arch/x86/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
+  add_asm_target(arch/${DR_HOST_ARCH_NAME}/memfuncs.asm memfuncs_asm_src memfuncs_asm_tgt
     "_memfuncs" "" "${asm_deps}")
   add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
   add_gen_events_deps(drmemfuncs)
+  if (CLIENT_INTERFACE OR APP_EXPORTS)
+    add_dependencies(drmemfuncs api_headers)
+  endif ()
 endif ()
 
 # i#1409: to share core libc-ish code with non-core, we use the "drlibc" library.
 add_asm_target(drlibc/drlibc_xarch.asm drlibc_xarch_asm_src drlibc_xarch_asm_tgt
   "_core" "" "${asm_deps}")
-add_asm_target(drlibc/drlibc_${ARCH_NAME}.asm drlibc_arch_asm_src
+add_asm_target(drlibc/drlibc_${DR_HOST_ARCH_NAME}.asm drlibc_arch_asm_src
   drlibc_arch_asm_tgt
   "" "" "${asm_deps}")
 set(DRLIBC_SRCS
@@ -224,47 +227,49 @@ endif (WIN32 AND NOT X64)
 # perhaps we should separate the naming schemes.  "opnd_xarch.c" and
 # "inject_xlib.c"?
 set(DECODER_SRCS
-  arch/opnd_shared.c
-  arch/${ARCH_NAME_SHARED}/opnd.c
-  arch/instr_shared.c
-  arch/${ARCH_NAME}/instr.c
-  arch/instrlist.c
-  arch/decode_shared.c
-  arch/${ARCH_NAME}/decode.c
-  arch/encode_shared.c
-  arch/${ARCH_NAME}/encode.c
-  arch/disassemble_shared.c
-  arch/${ARCH_NAME}/disassemble.c
+  ir/opnd_shared.c
+  ir/${ARCH_NAME_SHARED}/opnd.c
+  ir/instr_shared.c
+  ir/${ARCH_NAME}/instr.c
+  ir/instrlist.c
+  ir/decode_shared.c
+  ir/${ARCH_NAME}/decode.c
+  ir/encode_shared.c
+  ir/${ARCH_NAME}/encode.c
+  ir/disassemble_shared.c
+  ir/${ARCH_NAME}/disassemble.c
+  ir/ir_utils_shared.c
+  ir/${ARCH_NAME_SHARED}/ir_utils.c
   )
 if (X86)
   set(DECODER_SRCS ${DECODER_SRCS}
-    arch/${ARCH_NAME}/decode_table.c
-    arch/${ARCH_NAME}/decode_fast.c)
+    ir/${ARCH_NAME}/decode_table.c
+    ir/${ARCH_NAME}/decode_fast.c)
 elseif (ARM)
   set(DECODER_SRCS ${DECODER_SRCS}
-    arch/${ARCH_NAME}/table_a32_pred.c
-    arch/${ARCH_NAME}/table_a32_unpred.c
-    arch/${ARCH_NAME}/table_encode.c
-    arch/${ARCH_NAME}/table_t32_base.c
-    arch/${ARCH_NAME}/table_t32_coproc.c
-    arch/${ARCH_NAME}/table_t32_16.c
-    arch/${ARCH_NAME}/table_t32_16_it.c)
+    ir/${ARCH_NAME}/table_a32_pred.c
+    ir/${ARCH_NAME}/table_a32_unpred.c
+    ir/${ARCH_NAME}/table_encode.c
+    ir/${ARCH_NAME}/table_t32_base.c
+    ir/${ARCH_NAME}/table_t32_coproc.c
+    ir/${ARCH_NAME}/table_t32_16.c
+    ir/${ARCH_NAME}/table_t32_16_it.c)
 elseif (AARCH64)
   set(DECODER_SRCS ${DECODER_SRCS}
-    arch/${ARCH_NAME}/codec.c
-    arch/${ARCH_NAME}/build_ldstex.c)
+    ir/${ARCH_NAME}/codec.c
+    ir/${ARCH_NAME}/build_ldstex.c)
 endif ()
 
 set(ARCH_SRCS
   arch/arch.c
   arch/emit_utils_shared.c
   arch/${ARCH_NAME}/emit_utils.c
+  # TODO i#1684: Link with drdecode rather than compiling all the same files.
   ${DECODER_SRCS}
   arch/interp.c
   arch/proc_shared.c
   arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
-  arch/mangle_utils.c
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
@@ -581,7 +586,7 @@ add_library(dynamorio SHARED
   )
 
 configure_core_lib(dynamorio)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset for isolation.
   # They're separated out for sharing for i#1504.
   target_link_libraries(dynamorio drmemfuncs)
@@ -901,7 +906,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(${PRELOAD_NAME} ${preinject_asm_tgt})
 endif ()
 target_link_libraries(${PRELOAD_NAME} drlibc)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset for isolation.
   target_link_libraries(${PRELOAD_NAME} drmemfuncs)
 endif ()
@@ -958,9 +963,7 @@ endif (UNIX)
 # static decoding library
 add_library(drdecode
   ${DECODER_SRCS}
-  arch/${ARCH_NAME_SHARED}/mangle.c
-  arch/mangle_utils.c
-  arch/decodelib.c
+  ir/decodelib.c
   string.c
   io.c
   )
@@ -995,7 +998,7 @@ endif ()
 add_library(drinjectlib ${inject_lib_type} ${INJECTOR_SRCS})
 add_gen_events_deps(drinjectlib)
 target_link_libraries(drinjectlib drdecode drlibc)
-if (UNIX AND X86)
+if (UNIX)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drinjectlib drmemfuncs)
 endif ()
@@ -1047,7 +1050,10 @@ endif ()
 ###########################################################################
 # Unit tests
 
-if (BUILD_TESTS)
+# We can't run core unit tests when the target is not the host, just like we can't
+# run DR itself managing an app: DR is a same-arch system for code cache operation
+# and only supports target!=host for decoding and drmemtrace analysis (i#1684).
+if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
   add_executable(unit_tests unit_tests.c
     # These unit tests have been moved from the x86_code module into a new x86_code
     # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
@@ -1121,7 +1127,7 @@ if (BUILD_TESTS)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
   endif ()
   copy_target_to_device(unit_tests "${location_suffix}")
-endif (BUILD_TESTS)
+endif ()
 
 ###########################################################################
 
@@ -1130,8 +1136,10 @@ endif (BUILD_TESTS)
 include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/arch
+  ${CMAKE_CURRENT_SOURCE_DIR}/ir
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH_NAME}
+  ${CMAKE_CURRENT_SOURCE_DIR}/ir/${ARCH_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/drlibc
   )
 
@@ -1168,7 +1176,7 @@ install_exported_target(drdecode ${INSTALL_LIB})
 # We have to export drlibc as static libs we're exporting depend on it.
 DR_export_target(drlibc)
 install_exported_target(drlibc ${INSTALL_LIB_BASE})
-if (UNIX AND X86)
+if (UNIX)
   DR_export_target(drmemfuncs)
   install_exported_target(drmemfuncs ${INSTALL_LIB_BASE})
 endif ()

@@ -164,6 +164,9 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
                               security_violation_t violation, action_type_t *action);
 #    endif
 
+void
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code);
+
 #endif /* CLIENT_INTERFACE */
 
 bool

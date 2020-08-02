@@ -1376,9 +1376,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
     IF_LINUX(signalfd_thread_exit(dcontext, info));
     special_heap_exit(info->sigheap);
     DELETE_LOCK(info->child_lock);
-#ifdef DEBUG
-    /* for non-debug we do fast exit path and don't free local heap */
-#    ifdef HAVE_SIGALTSTACK
+#ifdef HAVE_SIGALTSTACK
     if (info->sigstack.ss_sp != NULL) {
         /* i#552: to raise client exit event, we may call dynamo_process_exit
          * on sigstack in signal handler.
@@ -1386,7 +1384,9 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
          */
         stack_free(info->sigstack.ss_sp + info->sigstack.ss_size, info->sigstack.ss_size);
     }
-#    endif
+#endif
+#ifdef DEBUG
+    /* for non-debug we do fast exit path and don't free local heap */
     HEAP_TYPE_FREE(dcontext, info, thread_sig_info_t, ACCT_OTHER, PROTECTED);
 #endif
 #ifdef PAPI
@@ -7206,7 +7206,9 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #ifdef MACOS
         ASSERT(sizeof(notify_var->sem) == 4);
 #endif
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86)
 #    ifndef MACOS
         /* i#2632: recent clang for 32-bit annoyingly won't do the right thing for
          * "jmp dynamorio_condvar_wake_and_jmp" and leaves relocs so we ensure it's PIC.
@@ -7234,7 +7236,9 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #endif
     } else {
         ksynch_set_value(notify_var, 1);
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+        ASSERT_NOT_REACHED();
+#elif defined(X86)
         asm("mov %0, %%" ASM_XSP : : "m"(xsp));
         asm("mov %0, %%" ASM_XAX : : "m"(continuation));
         asm("jmp *%" ASM_XAX);

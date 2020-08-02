@@ -1057,6 +1057,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         /* XXX i#828: we may eventually support mixed-mode clients.
          * Xref dr_load_aux_x64_library() and load_library_64().
          */
+        /* XXX i#147: Should we try some path substs like s/lib32/lib64/?
+         * Maybe it's better to error out to avoid loading some unintended lib.
+         */
         SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3, get_application_name(),
                get_application_pid(), filename);
         return NULL;

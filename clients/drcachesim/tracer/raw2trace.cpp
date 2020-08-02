@@ -122,10 +122,12 @@ bool module_mapper_t::has_custom_data_global_ = true;
 module_mapper_t::module_mapper_t(
     const char *module_map, const char *(*parse_cb)(const char *src, OUT void **data),
     std::string (*process_cb)(drmodtrack_info_t *info, void *data, void *user_data),
-    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity)
+    void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
+    const std::string &alt_module_dir)
     : modmap_(module_map)
     , cached_user_free_(free_cb)
     , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     // We mutate global state because do_module_parsing() uses drmodtrack, which
     // wants global functions. The state isn't needed past do_module_parsing(), so
@@ -261,9 +263,9 @@ std::string
 raw2trace_t::do_module_parsing()
 {
     if (!module_mapper_) {
-        module_mapper_ =
-            module_mapper_t::create(modmap_, user_parse_, user_process_,
-                                    user_process_data_, user_free_, verbosity_);
+        module_mapper_ = module_mapper_t::create(modmap_, user_parse_, user_process_,
+                                                 user_process_data_, user_free_,
+                                                 verbosity_, alt_module_dir_);
     }
     return module_mapper_->get_last_error();
 }
@@ -309,6 +311,14 @@ raw2trace_t::read_and_map_modules()
     return module_mapper_->get_last_error();
 }
 
+// Maps each module into the address space.
+// There are several types of mapping entries in the module list:
+// 1) Raw bits directly stored.  It is simply pointed at.
+// 2) Extra segments for a module.  A single mapping is used for all
+//    segments, so extras are ignored.
+// 3) A main segment.  The module's file is located by first looking in
+//    the alt_module_dir_; if not found, the path present during tracing
+//    is searched.
 void
 module_mapper_t::read_and_map_modules()
 {
@@ -343,9 +353,29 @@ module_mapper_t::read_and_map_modules()
                                        // 0 size indicates this is a secondary segment.
                                        modvec_[info.containing_index].map_base, 0));
         } else {
-            size_t map_size;
-            byte *base_pc =
-                dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            size_t map_size = 0;
+            byte *base_pc = NULL;
+            if (!alt_module_dir_.empty()) {
+                // First try the specified module dir.  It takes precedence to allow
+                // overriding the recorded path even when an identical-seeming path
+                // exists on the processing machine (e.g., system libraries).
+                // XXX: We should add a checksum on UNIX to match Windows and have
+                // a sanity check on the library version.
+                std::string basename(info.path);
+                size_t sep_index = basename.find_last_of(DIRSEP ALT_DIRSEP);
+                if (sep_index != std::string::npos)
+                    basename = std::string(basename, sep_index + 1, std::string::npos);
+                std::string new_path = alt_module_dir_ + DIRSEP + basename;
+                VPRINT(2, "Trying to map %s\n", new_path.c_str());
+                base_pc = dr_map_executable_file(new_path.c_str(),
+                                                 DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
+            if (base_pc == NULL) {
+                // Try the recorded path.
+                VPRINT(2, "Trying to map %s\n", info.path);
+                base_pc =
+                    dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
+            }
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
@@ -452,9 +482,11 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
-    // Write out the tid, pid, and timestamp.
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
+    // Write the arch and other type flags.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
+    // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
     if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
@@ -978,13 +1010,15 @@ raw2trace_t::get_file_type(void *tls)
 raw2trace_t::raw2trace_t(const char *module_map,
                          const std::vector<std::istream *> &thread_files,
                          const std::vector<std::ostream *> &out_files, void *dcontext,
-                         unsigned int verbosity, int worker_count)
+                         unsigned int verbosity, int worker_count,
+                         const std::string &alt_module_dir)
     : trace_converter_t(dcontext)
     , worker_count_(worker_count)
     , user_process_(nullptr)
     , user_process_data_(nullptr)
     , modmap_(module_map)
     , verbosity_(verbosity)
+    , alt_module_dir_(alt_module_dir)
 {
     if (dcontext == NULL) {
 #ifdef ARM
@@ -1063,12 +1097,21 @@ trace_metadata_reader_t::is_thread_start(const offline_entry_t *entry,
     int ver = static_cast<int>(entry->extended.valueA);
     if (version != nullptr)
         *version = ver;
+    offline_file_type_t type = static_cast<offline_file_type_t>(entry->extended.valueB);
     if (file_type != nullptr)
-        *file_type = static_cast<offline_file_type_t>(entry->extended.valueB);
+        *file_type = type;
     if (ver < OFFLINE_FILE_VERSION_OLDEST_SUPPORTED || ver > OFFLINE_FILE_VERSION) {
         std::stringstream ss;
         ss << "Version mismatch: found " << ver << " but we require between "
            << OFFLINE_FILE_VERSION_OLDEST_SUPPORTED << " and " << OFFLINE_FILE_VERSION;
+        *error = ss.str();
+        return false;
+    }
+    if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, type) &&
+        !TESTANY(build_target_arch_type(), type)) {
+        std::stringstream ss;
+        ss << "Architecture mismatch: trace recorded on " << trace_arch_string(type)
+           << " but tools built for " << trace_arch_string(build_target_arch_type());
         *error = ss.str();
         return false;
     }

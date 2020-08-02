@@ -360,7 +360,18 @@ int
 code_dec(int foo);
 int
 dummy(void);
-#ifdef AARCHXX
+#ifdef DR_HOST_NOT_TARGET
+static inline void
+tools_clear_icache(void *start, void *end)
+{
+    /* We need this function to build, but we expect to never run it for host!=target
+     * (an artifact of imperfect DR modularity for managed execution vs utility
+     * library: i#1684, etc.).
+     */
+    assert(false);
+}
+#elif defined(AARCHXX)
+/* In tools.c asm code. */
 void
 tools_clear_icache(void *start, void *end);
 #endif

@@ -61,6 +61,9 @@
 #endif
 
 #define OUTFILE_SUFFIX "raw"
+#ifdef HAS_ZLIB
+#    define OUTFILE_SUFFIX_GZ "raw.gz"
+#endif
 #define OUTFILE_SUBDIR "raw"
 #define TRACE_SUBDIR "trace"
 #ifdef HAS_ZLIB
@@ -327,10 +330,11 @@ public:
            std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                      void *user_data) = nullptr,
            void *process_cb_user_data = nullptr, void (*free_cb)(void *data) = nullptr,
-           uint verbosity = 0)
+           uint verbosity = 0, const std::string &alt_module_dir = "")
     {
-        return std::unique_ptr<module_mapper_t>(new module_mapper_t(
-            module_map, parse_cb, process_cb, process_cb_user_data, free_cb, verbosity));
+        return std::unique_ptr<module_mapper_t>(
+            new module_mapper_t(module_map, parse_cb, process_cb, process_cb_user_data,
+                                free_cb, verbosity, alt_module_dir));
     }
 
     /**
@@ -390,7 +394,8 @@ private:
                     std::string (*process_cb)(drmodtrack_info_t *info, void *data,
                                               void *user_data) = nullptr,
                     void *process_cb_user_data = nullptr,
-                    void (*free_cb)(void *data) = nullptr, uint verbosity = 0);
+                    void (*free_cb)(void *data) = nullptr, uint verbosity = 0,
+                    const std::string &alt_module_dir = "");
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
     operator=(const module_mapper_t &) = delete;
@@ -439,6 +444,7 @@ private:
     byte *last_map_base_ = nullptr;
 
     uint verbosity_ = 0;
+    std::string alt_module_dir_;
     std::string last_error_;
 };
 
@@ -770,8 +776,9 @@ private:
         // Old versions have no elision.
         if (version <= OFFLINE_FILE_VERSION_NO_ELISION)
             return "";
-        // Filtered traces have no elision.
-        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS,
+        // Filtered and instruction-only traces have no elision.
+        if (TESTANY(OFFLINE_FILE_TYPE_FILTERED | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS |
+                        OFFLINE_FILE_TYPE_INSTRUCTION_ONLY,
                     impl()->get_file_type(tls)))
             return "";
         // Avoid type complaints for 32-bit.
@@ -916,6 +923,8 @@ private:
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
         bool instrs_are_separate = false;
+        bool is_instr_only_trace =
+            TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
         uint64_t cur_modoffs = in_entry->pc.modoffs;
         std::unordered_map<reg_id_t, addr_t> reg_vals;
         if (instr_count == 0) {
@@ -996,7 +1005,9 @@ private:
             // There is no following memref for (instrs_are_separate && !skip_icache).
             if (!interrupted && (!instrs_are_separate || skip_icache) &&
                 // Rule out OP_lea.
-                (instr->reads_memory() || instr->writes_memory())) {
+                (instr->reads_memory() || instr->writes_memory()) &&
+                // No following memref for instruction-only trace type.
+                !is_instr_only_trace) {
                 for (uint j = 0; j < instr->num_mem_srcs(); j++) {
                     error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false,
                                           reg_vals);
@@ -1174,6 +1185,8 @@ private:
                   instr_summary_t::memref_summary_t memref, bool write,
                   std::unordered_map<reg_id_t, addr_t> &reg_vals)
     {
+        DR_ASSERT(
+            !TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls)));
         trace_entry_t *buf = *buf_in;
         const offline_entry_t *in_entry = nullptr;
         bool have_addr = false;
@@ -1289,7 +1302,8 @@ public:
     // caller.  module_map is not a string and can contain binary data.
     raw2trace_t(const char *module_map, const std::vector<std::istream *> &thread_files,
                 const std::vector<std::ostream *> &out_files, void *dcontext = NULL,
-                unsigned int verbosity = 0, int worker_count = -1);
+                unsigned int verbosity = 0, int worker_count = -1,
+                const std::string &alt_module_dir = "");
     virtual ~raw2trace_t();
 
     /**
@@ -1547,6 +1561,8 @@ private:
     std::unique_ptr<module_mapper_t> module_mapper_;
 
     unsigned int verbosity_ = 0;
+
+    std::string alt_module_dir_;
 
     // Our decode_cache duplication will not scale forever on very large code
     // footprint traces, so we set a cap for the default.

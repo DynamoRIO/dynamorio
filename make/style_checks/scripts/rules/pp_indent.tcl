@@ -1,6 +1,6 @@
 #!/usr/bin/tclsh
 # **********************************************************
-# Copyright (c) 2019 Google, Inc. All rights reserved.
+# Copyright (c) 2019-2020 Google, Inc. All rights reserved.
 # Copyright (c) 2017 ARM Limited. All rights reserved.
 # **********************************************************
 
@@ -36,9 +36,9 @@
 # FIXME i#2473: fix macro indentation style violations in exempt files
 set indent_exempt [list {aarch64/instr_create.h}     {1} \
                         {arch/arch.h}                {1} \
-                        {arch/instr_create_shared.h} {1} \
-                        {arch/instr.h}               {1} \
-                        {arch/instr_inline.h}        {1} \
+                        {ir/instr_create_shared.h} {1} \
+                        {ir/instr.h}               {1} \
+                        {ir/instr_inline.h}        {1} \
                         {arch/retcheck.c}            {1} \
                         {arch/sideline.c}            {1} \
                         {arch/steal_reg.c}           {1} \

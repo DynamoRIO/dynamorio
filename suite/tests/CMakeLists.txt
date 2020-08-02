@@ -546,6 +546,10 @@ function(add_exe test source)
   # Some files use asm code, which must be separate for x64, but it's much
   # more convenient to have it in the same source file and auto-split.
   if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
+    if (DR_HOST_NOT_TARGET)
+      # We just don't support such tests.
+      message(FATAL_ERROR "No asm-containing tests supported for host!=target")
+    endif ()
     # we rely on the asm rule doing preprocessing for us, so we just make
     # a copy and set the ASM_CODE_ONLY define
     get_filename_component(source_abs "${source}" ABSOLUTE)
@@ -743,6 +747,11 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   string(REGEX REPLACE "-DCLANG" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DANDROID" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DDR_APP_EXPORTS" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_ARM" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_AARCH64" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_X86" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_X64" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DDR_HOST_NOT_TARGET" "" prop_cflags "${prop_cflags}")
   # FIXME: apparently moving cflags to a target property makes it show up
   # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.
@@ -869,6 +878,10 @@ function(add_api_exe test source use_decoder use_static_DR)
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll"
+        # libutil.drconfig_test needs drconfiglib.
+        COMMAND ${CMAKE_COMMAND} ARGS
+          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/../drconfiglib.dll"
+          "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drconfiglib.dll"
         # We copy drsyms.dll too, for api.symtest
         COMMAND ${CMAKE_COMMAND} ARGS
           -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
@@ -1653,10 +1666,268 @@ function(optimize target)
 endfunction(optimize)
 
 ###########################################################################
+
+# We'll want the latest CTest (2.6.4) so we can use the -W parameter
+# for wider test name fields as ours include the runtime options and
+# app name.
+
+function(ops2testprefix prefix ops)
+  string(REGEX REPLACE " [^-][^ ]*" "" name "${ops}")
+  string(REGEX REPLACE " +-" "," name "${name}")
+  string(REGEX REPLACE "^-" "" name "${name}")
+  string(STRIP "${name}" name)
+  # want it grouped by run, not by test, and it auto-alpha-sorts
+  set(${prefix} "${name}|" PARENT_SCOPE)
+endfunction(ops2testprefix)
+
+function(run2testname testname ops test)
+  ops2testprefix(prefix "${ops}")
+  # want it grouped by run, not by test, and it auto-alpha-sorts
+  set(${testname} "${prefix}${test}" PARENT_SCOPE)
+endfunction(run2testname)
+
+function(is_test_enabled_by_name output name regex)
+  set(enabled OFF)
+  if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
+    if (NOT regex OR "${name}" MATCHES "${regex}")
+      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+          # See above: for particular builds we skip some of the similar tests from
+          # some of the test groups.
+          (("${name}" MATCHES "tool.drcache" AND
+            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+          ("${name}" MATCHES "tool.drcpusim" AND
+            NOT "${name}" MATCHES "Pentium3") OR
+          ("${name}" MATCHES "tool.[^d]" AND
+            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+          # instrcalls is the slowest of the samples.
+          "${name}" MATCHES "sample.instrcalls" OR
+          ("${name}" MATCHES "client.annotation-" AND
+            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+        set(enabled OFF)
+      else ()
+        set(enabled ON)
+      endif ()
+    endif ()
+  endif ()
+  set(${output} ${enabled} PARENT_SCOPE)
+endfunction ()
+
+macro (set_up_test_lists)
+  foreach (run ${run_list})
+    set(enabled OFF)
+
+    string(REGEX MATCHALL "^SHORT::" is_short "${run}")
+    string(REGEX REPLACE "^SHORT::" "" run "${run}")
+    if (is_short OR TEST_LONG)
+      set(enabled ON)
+    endif (is_short OR TEST_LONG)
+
+    string(REGEX MATCHALL "^DEBUG::" is_debug "${run}")
+    string(REGEX REPLACE "^DEBUG::" "" run "${run}")
+    if (is_debug AND NOT DEBUG)
+      set(enabled OFF)
+    endif (is_debug AND NOT DEBUG)
+
+    string(REGEX MATCHALL "^X86::" is_x86 "${run}")
+    string(REGEX REPLACE "^X86::" "" run "${run}")
+    if (is_x86 AND NOT X86)
+      set(enabled OFF)
+    endif ()
+
+    string(REGEX MATCHALL "^X64::" is_x64 "${run}")
+    string(REGEX REPLACE "^X64::" "" run "${run}")
+    if (is_x64 AND NOT X64)
+      set(enabled OFF)
+    endif ()
+
+    string(REGEX MATCHALL "^WIN::" is_win "${run}")
+    string(REGEX REPLACE "^WIN::" "" run "${run}")
+    if (is_win AND UNIX)
+      set(enabled OFF)
+    endif (is_win AND UNIX)
+
+    string(REGEX MATCHALL "^LIN::" is_lin "${run}")
+    string(REGEX REPLACE "^LIN::" "" run "${run}")
+    if (is_lin AND WIN32)
+      set(enabled OFF)
+    endif (is_lin AND WIN32)
+
+    if (enabled)
+
+      string(REGEX MATCHALL "^ONLY::.*::" regex "${run}")
+      string(REGEX REPLACE "^ONLY::.*::" "" run "${run}")
+      string(REGEX REPLACE "^ONLY::(.*)::" "\\1" regex "${regex}")
+
+      if (NOT is_short)
+        # FIXME i#1807: fix the failing long suite tests so we can enable them once again
+        # in our nightly regression runs.  For now we disable the extra tests (but
+        # we leave the extra builds selected in runsuite.cmake) by throttling
+        # all long tests to only run ^common.
+        set(regex "^common")
+      endif ()
+
+      ops2testprefix(prefix "${run}")
+      list(FIND prior_prefixes "${prefix}" index)
+      if (${index} EQUAL -1)
+        list(APPEND prior_prefixes "${prefix}")
+      endif ()
+      foreach (test ${testlist_normal})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_normal("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+      foreach (test ${testlist_ci})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_ci("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+      foreach (test ${testlist_api})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_api("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+      foreach (test ${testlist_runall})
+        is_test_enabled_by_name(name_ok ${test} "${regex}")
+        if (name_ok)
+          run2testname(test_name "${run}" ${test})
+          torun_runall("${test_name}" ${test} "${run}")
+        endif ()
+      endforeach (test)
+
+    endif (enabled)
+  endforeach(run)
+endmacro ()
+
+###########################################################################
 # tests
 
 # This step takes a while so we provide a status message:
 message(STATUS "Processing tests and generating expected output patterns")
+
+# Tests enabled when DR_HOST_NOT_TARGET go first:
+if (CLIENT_INTERFACE)
+  if (ARM)
+    set(sfx "arm")
+  elseif (AARCH64)
+    set(sfx "aarch64")
+  else ()
+    set(sfx "x86")
+  endif ()
+  if (NOT ANDROID)
+    # XXX i#1874: get working on Android
+    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
+    # XXX i#1686: add ARM's headers too once they are all created
+    if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
+      # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
+      # and so doesn't find headers named via macros
+      # (http://www.cmake.org/Bug/view.php?id=13718)
+      set(api_ir_headers # must be full paths:
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_0args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_1args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_mm.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h
+        # The following headers are x86 specific.
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_evex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_vex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
+      append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
+    endif ()
+
+    if (AARCH64)
+        tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
+    endif (AARCH64)
+  endif ()
+
+  # test static decoder library
+  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
+
+  if (ARM)
+    if (NOT ANDROID) # XXX i#1874: get working on Android
+      tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
+    endif ()
+  elseif (AARCH64)
+    tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
+  else ()
+    tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
+  endif ()
+
+  if (BUILD_CLIENTS)
+    ###########################################################################
+    # drdisas tests
+    # XXX: We should try to export or share the test list, filtering, matching,
+    # and other code here to support tests being declared locally rather than
+    # in one central place.
+    if (AARCH64)
+      set(drdisas_args "f94017a0" "a9be7bfd" "88")
+    elseif (ARM)
+      set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
+    else ()
+      set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
+    endif ()
+    torunonly_api(tool.drdisas drdisas
+      "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
+    if (ARM)
+      torunonly_api(tool.drdisas_thumb drdisas
+        # Pass -thumb as a "DR op" to define it in the .template file.
+        "../../clients/drdisas/test_simple.template"
+        "-thumb" "-mode;thumb;${drdisas_args}" ON)
+    endif ()
+    # Test syntax
+    # XXX i#:4021: ARM/AARCH64 not yet supported.
+    if (X86)
+        set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
+        torunonly_api(tool.drdisas_syntax drdisas
+            "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
+    endif ()
+  endif ()
+endif ()
+
+if (DR_HOST_NOT_TARGET)
+  if (CLIENT_INTERFACE)
+    # i#1684,i#4318: Test postprocessing and analysis with an alternate binary directory.
+    # Limited to UNIX because the checked-in modules.log is in UNIX format
+    # (Windows needs extra fields per library).
+    # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
+    if (BUILD_CLIENTS AND UNIX AND ZLIB_FOUND)
+      # We make a writable copy so we can both write the final trace there and run our
+      # analyzer in a single command line.
+      set(srcdir
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+      set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+      file(MAKE_DIRECTORY ${locdir})
+      file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+      get_target_path_for_execution(drcachesim_path drcachesim "${location_suffix}")
+      prefix_cmd_if_necessary(drcachesim_path ON ${drcachesim_path})
+      torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
+        "offline-altbindir.c" ""
+        "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+        OFF)
+      set(tool.drcacheoff.altbindir_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+    endif ()
+  endif ()
+
+  # The tests are not ported to build with host!=target.  Most will never work there,
+  # so rather than spend effort on making everything build when we can only enable
+  # a few tests, we simply enable the few tests here and return, skipping the rest of
+  # the file and avoiding a giant if().
+  set_up_test_lists()
+  return ()
+endif (DR_HOST_NOT_TARGET)
 
 # Make sure we test running a path with spaces (to avoid regressions like i#2538).
 set(common.broadfun_outname "common.broadfun spaces")
@@ -1776,7 +2047,8 @@ endif ()
 #tobuild(common.ops common/ops.c)
 #tobuild(common.recurse common/recurse.c)
 
-if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm apps
+# XXX i#1874: Android loader won't run our static asm apps
+if (DR_HOST_ARM AND NOT ANDROID)
   tobuild_ops(common.allasm_thumb common/allasm_thumb.asm
     # set small -max_bb_instrs to test bb_safe_to_stop()
     "-early_inject -max_bb_instrs 6" "")
@@ -1789,7 +2061,7 @@ if (ARM AND NOT ANDROID) # XXX i#1874: Android loader won't run our static asm a
   append_link_flags(common.allasm_arm "-nostartfiles -nodefaultlibs -static")
 endif ()
 
-if (AARCH64)
+if (DR_HOST_AARCH64)
   tobuild_ops(common.allasm_aarch64_isa common/allasm_aarch64_isa.asm
     "-early_inject" "") # FIXME i#1569: -enable_traces here
   set_target_properties(common.allasm_aarch64_isa PROPERTIES LINKER_LANGUAGE C)
@@ -1806,6 +2078,18 @@ if (AARCH64)
     # with some tool chains (such as SUSE GCC 6.2) results in an executable that
     # is not properly static. Adding --no-export-dynamic avoids the problem.
     "-Wl,--no-export-dynamic")
+
+  add_exe(allasm_aarch64_prefetch
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_prefetch.asm
+    "-early_inject" "")
+  set_target_properties(allasm_aarch64_prefetch PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(allasm_aarch64_prefetch
+    "-nostartfiles -nodefaultlibs -static")
+  append_property_string(TARGET allasm_aarch64_prefetch LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+    # is not properly static. Adding --no-export-dynamic avoids the problem.
+    "-Wl,--no-export-dynamic")
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
@@ -1816,6 +2100,15 @@ if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
 endif ()
 
 if (CLIENT_INTERFACE)
+  set(dr_root ${PROJECT_BINARY_DIR})
+  # Just like frontend_test we request drdecode.
+  tobuild_api(libutil.drconfig_test libutil/drconfig_test.c "" "${dr_root}" ON OFF)
+  target_link_libraries(libutil.drconfig_test drconfiglib)
+  if (WIN32)
+    # We have to copy drconfiglib.dll into the bin dir.
+    add_dependencies(libutil.drconfig_test drcopy)
+  endif ()
+
   set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.h"
@@ -2448,46 +2741,6 @@ if (CLIENT_INTERFACE)
   endif(ARM AND NOT ANDROID)
 
   if (ARM)
-    set(sfx "arm")
-  elseif (AARCH64)
-    set(sfx "aarch64")
-  else ()
-    set(sfx "x86")
-  endif ()
-  if (NOT ANDROID)
-    # XXX i#1874: get working on Android
-    tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
-    # XXX i#1686: add ARM's headers too once they are all created
-    if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
-      # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
-      # and so doesn't find headers named via macros
-      # (http://www.cmake.org/Bug/view.php?id=13718)
-      set(api_ir_headers # must be full paths:
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_0args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_1args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_mm.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args.h
-        # The following headers are x86 specific.
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_evex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_2args_avx512_vex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_evex_mask.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
-      append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
-    endif ()
-
-    if (AARCH64)
-        tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
-    endif (AARCH64)
-  endif ()
-
-  if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
       # Helper exe, used offline to build smaller input binary to test itself:
       add_api_exe(api.dis-create api/dis-create.c OFF OFF)
@@ -2552,18 +2805,6 @@ if (CLIENT_INTERFACE)
       link_with_pthread(${detach_spawn_quick_exit_name})
     endif ()
   endif ()
-  # test static decoder library
-  tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
-
-  if (ARM)
-    if (NOT ANDROID) # XXX i#1874: get working on Android
-      tobuild_api(api.drdecode api/drdecode_arm.c "" "" ON OFF)
-    endif ()
-  elseif (AARCH64)
-    tobuild_api(api.drdecode api/drdecode_aarch64.c "" "" ON OFF)
-  else ()
-    tobuild_api(api.drdecode api/drdecode_x86.c "" "" ON OFF)
-  endif ()
   if (X86)
     if (X64)
       tobuild_api(decenc.drdecode_decenc_x86_64
@@ -2602,7 +2843,7 @@ if (CLIENT_INTERFACE)
       get_filename_component(drname ${drpath} NAME_WE)
       append_link_flags(api.ibl-stress "${drdir}/${drname}.lib")
     endif ()
-endif ()
+  endif ()
 
   # XXX: we should expand this test of drsyms standalone to be cross-platform and
   # not just check libstdc++-6.dll.
@@ -2672,6 +2913,11 @@ endif ()
       tobuild_static_nohide_api(api.static_maps_mixup_novars_FLAKY
          api/static_maps_mixup.c "" "" OFF)
     endif ()
+
+    if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
+      tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
+      link_with_pthread(api.thread_churn)
+    endif ()
   endif ()
 
   if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM
@@ -2697,6 +2943,8 @@ endif ()
     tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
     use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
   endif (X86)
+
+  tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
@@ -2884,6 +3132,15 @@ endif ()
       torunonly_drcachesim(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "")
       torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
 
+      torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
+
+      # __builtin_prefetch used in the test is not defined on MSVC.
+      if (NOT MSVC)
+        add_exe(builtin_prefetch ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/builtin_prefetch.c)
+        torunonly_drcachesim(builtin-prefetch-basic-counts builtin_prefetch "-simulator_type basic_counts" "")
+        unset(tool.drcachesim.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
+      endif ()
+
       torunonly_drcachesim(delay-simple ${ci_shared_app}
         "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
 
@@ -2934,6 +3191,9 @@ endif ()
           # XXX i#2676: We disable the data prefetcher until someone with A64
           # hardware gets a chance to update the expected output.
           "-data_prefetcher none" "")
+
+        torunonly_drcachesim(allasm-aarch64-prefetch-basic-counts allasm_aarch64_prefetch
+          "-simulator_type basic_counts" "")
       endif ()
 
       # XXX i#1703: add more dedicated tests (in suite/tests/clients/) for which
@@ -3101,6 +3361,17 @@ endif ()
       endif ()
 
       torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
+      torunonly_drcacheoff(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "" "")
+      torunonly_drcacheoff(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "" "")
+
+      torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
+      torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
+
+      # __builtin_prefetch used in the test is not defined on MSVC.
+      if (NOT MSVC)
+        torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")
+        unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
+      endif ()
 
       # We run common.decode-bad to test markers for faults
       if (X86) # decode-bad is x86-only
@@ -3286,6 +3557,27 @@ endif ()
       set(${testname_full}_postcmd2
         "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
 
+      if (AARCH64)
+        set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
+        torunonly_ci(${testname_full} allasm_aarch64_prefetch drcachesim
+          "offline-allasm-aarch64-prefetch-counts"
+          "-offline -subdir_prefix ${testname_full}" "" "")
+        set(${testname_full}_toolname "drcachesim")
+        set(${testname_full}_basedir
+          "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+        set(${testname_full}_rawtemp ON) # no preprocessor
+        get_target_path_for_execution(prefetch_analyzer_path prefetch_analyzer_launcher "${location_suffix}")
+        prefix_cmd_if_necessary(prefetch_analyzer_path ON ${prefetch_analyzer_path})
+        set(${testname_full}_runcmp
+          "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+        set(${testname_full}_precmd
+          "foreach@${CMAKE_COMMAND}@-E@remove_directory@${testname_full}.*.dir")
+        set(${testname_full}_postcmd
+          "${drcachesim_path}@-indir@${testname_full}.*.dir@-simulator_type@basic_counts")
+        set(${testname_full}_postcmd2
+          "${prefetch_analyzer_path}@-trace_dir@${testname_full}.*.dir/trace")
+      endif ()
+
       find_program(GZIP gzip "gzip compression utility")
       if (UNIX AND ZLIB_FOUND AND GZIP)
         # Test the gzip file reader.  It does not work with -indir.
@@ -3330,6 +3622,27 @@ endif ()
     if (UNIX AND X86 AND NOT X64)
       set_tests_properties(drmemtrace_proj PROPERTIES ENVIRONMENT
         "CFLAGS=-m32;CXXFLAGS=-m32")
+    endif ()
+
+    # Test postprocessing and analysis with an alternate binary directory.
+    # Limited to UNIX because the checked-in modules.log is in UNIX format
+    # (Windows needs extra fields per library).
+    # Limited to ZLIB_FOUND because we test gzipped .raw files here as well.
+    if (UNIX AND ZLIB_FOUND)
+      # We make a writable copy so we can both write the final trace there and run our
+      # analyzer in a single command line.
+      set(srcdir
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.threadsig.aarch64.raw)
+      set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.threadsig.aarch64)
+      file(REMOVE_RECURSE ${locdir})
+      file(MAKE_DIRECTORY ${locdir})
+      file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+      torunonly_api(tool.drcacheoff.altbindir "${drcachesim_path}"
+        "offline-altbindir.c" ""
+        "-indir;${locdir};-simulator_type;opcode_mix;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+        OFF)
+      set(tool.drcacheoff.altbindir_basedir
+        "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
     endif ()
 
     ###########################################################################
@@ -3406,34 +3719,6 @@ endif ()
       # b/c our tests have too-new instrs for older machines.
     endif (X86)
 
-    ###########################################################################
-    # drdisas tests
-    # XXX: We should try to export or share the test list, filtering, matching,
-    # and other code here to support tests being declared locally rather than
-    # in one central place.
-    if (AARCH64)
-      set(drdisas_args "f94017a0" "a9be7bfd" "88")
-    elseif (ARM)
-      set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
-    else ()
-      set(drdisas_args "-syntax" "dr" "66" "90" "c4" "e2" "65" "90" "14" "80" "88")
-    endif ()
-    torunonly_api(tool.drdisas drdisas
-      "../../clients/drdisas/test_simple.template" "" "${drdisas_args}" ON)
-    if (ARM)
-      torunonly_api(tool.drdisas_thumb drdisas
-        # Pass -thumb as a "DR op" to define it in the .template file.
-        "../../clients/drdisas/test_simple.template"
-        "-thumb" "-mode;thumb;${drdisas_args}" ON)
-    endif ()
-    # Test syntax
-    # XXX i#:4021: ARM/AARCH64 not yet supported.
-    if (X86)
-        set(drdisas_args "66" "90" "c4" "e2" "65" "90" "14" "80")
-        torunonly_api(tool.drdisas_syntax drdisas
-            "../../clients/drdisas/test_syntax.template" "" "${drdisas_args}" ON)
-    endif ()
-
   endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)
@@ -3459,7 +3744,11 @@ if (UNIX)
   # Cross-arch execve test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
-  if (X86)
+  #
+  # i#2971: We test -c32/-c64 here since modern DR focuses on clients, and hence we
+  # have a CLIENT_INTERFACE condition.  TODO i#2971: Remove CLIENT_INTERFACE and
+  # eliminate all of its conditionals.
+  if (X86 AND CLIENT_INTERFACE)
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       if (TEST_SUITE AND TEST_32BIT_PATH)
@@ -3479,6 +3768,11 @@ if (UNIX)
         make_symlink(${32dir}/${INSTALL_LIB_X86}
           ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
         get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+        # We use a client that takes some options and prints something at
+        # init and at exit to test cross-arch injection with clients.
+        get_target_path_for_execution(client64_path client.large_options.dll
+          "${location_suffix}")
+        set(client32_path ${32dir}/${test_bindir}/libclient.large_options.dll.so)
         if (DEBUG)
           set(config_type -DDEBUG=ON)
         else ()
@@ -3490,14 +3784,19 @@ if (UNIX)
           --build-target dynamorio
           --build-target linux.execve32
           --build-target linux.execve-sub32
+          --build-target client.large_options.dll
           --build-noclean # else it tries to clean between each target!
           --build-makeprogram ${CMAKE_MAKE_PROGRAM}
           --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
           -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
           --test-command ${drrun_path} -32
-          -dr_home ${32dir} ${dr_test_ops} -- ${32dir}/${test_bindir}/linux.execve32
+          -dr_home ${32dir} ${dr_test_ops}
+          # We test the "-c32 -c64" syntax here.
+          -c32 ${client32_path} -paramA foo -paramB bar --
+          -c64 ${client64_path} -paramA foo -paramB bar --
+          ${32dir}/${test_bindir}/linux.execve32
           "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve-sub64")
-        file(READ linux/execve.expect expect)
+        file(READ linux/execve-client.expect expect)
         set_tests_properties(linux.execve32 PROPERTIES ENVIRONMENT
           "CFLAGS=-m32;CXXFLAGS=-m32"
           # We do not try to indirect this so we have to read .expect manually.
@@ -3507,7 +3806,10 @@ if (UNIX)
         # We can't get the depends property right b/c execve32 has no prefix,
         # so we do this one directly too.
         add_exe(linux.execve64 linux/execve.c)
-        add_test(linux.execve64 ${drrun_path} ${dr_test_ops} --
+        add_test(linux.execve64 ${drrun_path} ${dr_test_ops}
+          # We test the "-c32 -c64" syntax for the other direction.
+          -c32 ${client32_path} -paramA foo -paramB bar --
+          -c64 ${client64_path} -paramA foo -paramB bar --
           ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64
           "${32dir}/${test_bindir}/linux.execve-sub32")
         set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
@@ -3517,7 +3819,7 @@ if (UNIX)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
     endif (X64)
-  endif (X86)
+  endif ()
 
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
@@ -3986,6 +4288,9 @@ else (UNIX)
   # everywhere (xref i#381, i#234, i#803).
   #
   # XXX i#829: mixed-mode stubs and abs far jmps require -heap_in_lower_4GB
+  #
+  # TODO i#803: Once cross-arch injection works on Windows, add a test of
+  # the "-c32 -c64" syntax like we have for Linux.
   if (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
     if (X64)
       # XXX i#1636: the earliest injection tests below seem to have the child
@@ -4122,140 +4427,9 @@ endif ()
 
 ###########################################################################
 
-# We'll want the latest CTest (2.6.4) so we can use the -W parameter
-# for wider test name fields as ours include the runtime options and
-# app name.
-
-function(ops2testprefix prefix ops)
-  string(REGEX REPLACE " [^-][^ ]*" "" name "${ops}")
-  string(REGEX REPLACE " +-" "," name "${name}")
-  string(REGEX REPLACE "^-" "" name "${name}")
-  string(STRIP "${name}" name)
-  # want it grouped by run, not by test, and it auto-alpha-sorts
-  set(${prefix} "${name}|" PARENT_SCOPE)
-endfunction(ops2testprefix)
-
-function(run2testname testname ops test)
-  ops2testprefix(prefix "${ops}")
-  # want it grouped by run, not by test, and it auto-alpha-sorts
-  set(${testname} "${prefix}${test}" PARENT_SCOPE)
-endfunction(run2testname)
-
-function(is_test_enabled_by_name output name regex)
-  set(enabled OFF)
-  if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
-    if (NOT regex OR "${name}" MATCHES "${regex}")
-      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
-          # See above: for particular builds we skip some of the similar tests from
-          # some of the test groups.
-          (("${name}" MATCHES "tool.drcache" AND
-            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
-          ("${name}" MATCHES "tool.drcpusim" AND
-            NOT "${name}" MATCHES "Pentium3") OR
-          ("${name}" MATCHES "tool.[^d]" AND
-            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
-          # instrcalls is the slowest of the samples.
-          "${name}" MATCHES "sample.instrcalls" OR
-          ("${name}" MATCHES "client.annotation-" AND
-            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
-        set(enabled OFF)
-      else ()
-        set(enabled ON)
-      endif ()
-    endif ()
-  endif ()
-  set(${output} ${enabled} PARENT_SCOPE)
-endfunction ()
-
-foreach (run ${run_list})
-  set(enabled OFF)
-
-  string(REGEX MATCHALL "^SHORT::" is_short "${run}")
-  string(REGEX REPLACE "^SHORT::" "" run "${run}")
-  if (is_short OR TEST_LONG)
-    set(enabled ON)
-  endif (is_short OR TEST_LONG)
-
-  string(REGEX MATCHALL "^DEBUG::" is_debug "${run}")
-  string(REGEX REPLACE "^DEBUG::" "" run "${run}")
-  if (is_debug AND NOT DEBUG)
-    set(enabled OFF)
-  endif (is_debug AND NOT DEBUG)
-
-  string(REGEX MATCHALL "^X86::" is_x86 "${run}")
-  string(REGEX REPLACE "^X86::" "" run "${run}")
-  if (is_x86 AND NOT X86)
-    set(enabled OFF)
-  endif ()
-
-  string(REGEX MATCHALL "^X64::" is_x64 "${run}")
-  string(REGEX REPLACE "^X64::" "" run "${run}")
-  if (is_x64 AND NOT X64)
-    set(enabled OFF)
-  endif ()
-
-  string(REGEX MATCHALL "^WIN::" is_win "${run}")
-  string(REGEX REPLACE "^WIN::" "" run "${run}")
-  if (is_win AND UNIX)
-    set(enabled OFF)
-  endif (is_win AND UNIX)
-
-  string(REGEX MATCHALL "^LIN::" is_lin "${run}")
-  string(REGEX REPLACE "^LIN::" "" run "${run}")
-  if (is_lin AND WIN32)
-    set(enabled OFF)
-  endif (is_lin AND WIN32)
-
-  if (enabled)
-
-    string(REGEX MATCHALL "^ONLY::.*::" regex "${run}")
-    string(REGEX REPLACE "^ONLY::.*::" "" run "${run}")
-    string(REGEX REPLACE "^ONLY::(.*)::" "\\1" regex "${regex}")
-
-    if (NOT is_short)
-      # FIXME i#1807: fix the failing long suite tests so we can enable them once again
-      # in our nightly regression runs.  For now we disable the extra tests (but
-      # we leave the extra builds selected in runsuite.cmake) by throttling
-      # all long tests to only run ^common.
-      set(regex "^common")
-    endif ()
-
-    ops2testprefix(prefix "${run}")
-    list(FIND prior_prefixes "${prefix}" index)
-    if (${index} EQUAL -1)
-      list(APPEND prior_prefixes "${prefix}")
-    endif ()
-    foreach (test ${testlist_normal})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_normal("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-    foreach (test ${testlist_ci})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_ci("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-    foreach (test ${testlist_api})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_api("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-    foreach (test ${testlist_runall})
-      is_test_enabled_by_name(name_ok ${test} "${regex}")
-      if (name_ok)
-        run2testname(test_name "${run}" ${test})
-        torun_runall("${test_name}" ${test} "${run}")
-      endif ()
-    endforeach (test)
-
-  endif (enabled)
-endforeach(run)
+# Remember that we do not reach this point for DR_HOST_NOT_TARGET, so do not
+# place anything here that should be shared across all configurations.
+set_up_test_lists()
 
 if (APPLE)
   # Enable just the quarter of the tests that pass, to get our test suite started

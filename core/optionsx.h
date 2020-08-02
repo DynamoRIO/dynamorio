@@ -227,7 +227,8 @@ OPTION_INTERNAL(bool, tracedump_text, "text dump of traces (after optimization)"
 OPTION_INTERNAL(bool, tracedump_origins, "write out original instructions for each trace")
 OPTION(bool, syntax_intel, "use Intel disassembly syntax")
 OPTION(bool, syntax_att, "use AT&T disassembly syntax")
-OPTION(bool, syntax_arm, "use ARM disassembly syntax")
+OPTION(bool, syntax_arm, "use ARM (32-bit) disassembly syntax")
+/* TODO i#4382: Add syntax_aarch64. */
 /* whether to mark gray-area instrs as invalid when we know the length (i#1118) */
 OPTION(bool, decode_strict, "mark all known-invalid instructions as invalid")
 OPTION(uint, disasm_mask, "disassembly style as a dr_disasm_flags_t bitmask")
@@ -343,14 +344,48 @@ OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring
 
 #    ifdef CLIENT_INTERFACE
 /* FIXME (xref PR 215082): make these external now that our product is our API? */
-/* XXX: note that this does affect pcaches, but we don't want the
- * client option strings to matter, so we check this separately
- * from the general -persist_check_options
+/* XXX: These -client_lib* options do affect pcaches, but we don't want the
+ * client option strings to matter, so we check them separately
+ * from the general -persist_check_options.
  */
 /* This option is ignored for STATIC_LIBRARY. */
+/* XXX: We could save space by removing -client_lib and using only the {32,64}
+ * versions (or by having some kind of true alias where _lib points to the other).
+ */
 OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING,
                         ";-separated string containing client "
                         "lib paths, IDs, and options")
+#        ifdef X64
+OPTION_COMMAND_INTERNAL(liststring_t, client_lib64, EMPTY_STRING, "client_lib64",
+                        {
+                            snprintf(options->client_lib,
+                                     BUFFER_SIZE_ELEMENTS(options->client_lib), "%s",
+                                     options->client_lib64);
+                            NULL_TERMINATE_BUFFER(options->client_lib);
+                        },
+                        ";-separated string containing client "
+                        "lib paths, IDs, and options",
+                        STATIC, OP_PCACHE_NOP /* See note about pcache above. */)
+#            define ALT_CLIENT_LIB_NAME client_lib32
+#        else
+OPTION_COMMAND_INTERNAL(liststring_t, client_lib32, EMPTY_STRING, "client_lib32",
+                        {
+                            snprintf(options->client_lib,
+                                     BUFFER_SIZE_ELEMENTS(options->client_lib), "%s",
+                                     options->client_lib32);
+                            NULL_TERMINATE_BUFFER(options->client_lib);
+                        },
+                        ";-separated string containing client "
+                        "lib paths, IDs, and options",
+                        STATIC, OP_PCACHE_NOP /* See note about pcache above. */)
+#            define ALT_CLIENT_LIB_NAME client_lib64
+#        endif
+OPTION_COMMAND_INTERNAL(liststring_t, ALT_CLIENT_LIB_NAME, EMPTY_STRING,
+                        IF_X64_ELSE("client_lib32", "client_lib64"), {},
+                        ";-separated string containing client "
+                        "lib paths, IDs, and options for other-bitwidth children",
+                        STATIC, OP_PCACHE_GLOBAL)
+
 /* If we revive hotpatching should use this there as well: but for now
  * don't want to mess up any legacy tools that rely on hotp libs in
  * regular loader list
@@ -907,7 +942,13 @@ OPTION_COMMAND(bool, thread_private, IF_HAVE_TLS_ELSE(false, true), "thread_priv
                        options->inline_trace_ibl = true;
                    IF_NOT_X64(IF_WINDOWS(
                        options->shared_fragment_shared_syscalls =
-                           (!options->thread_private && options->shared_syscalls);))
+                           (!options->thread_private && options->shared_syscalls)));
+                   /* If most stubs are private, turn on separate ones and pay
+                    * the cost of individual frees on thread exit (i#4334) for
+                    * more compact caches.  (ARM can't reach, so x86-only.)
+                    */
+                   IF_X86(options->separate_private_stubs = !options->thread_private);
+                   IF_X86(options->free_private_stubs = !options->thread_private);
                },
                "use thread-private code caches", STATIC, OP_PCACHE_GLOBAL)
 
@@ -939,15 +980,19 @@ PC_OPTION_DEFAULT(bool, private_ib_in_tls,
 OPTION_INTERNAL(bool, single_thread_in_DR, "only one thread in DR at a time")
 /* deprecated: we have finer-grained synch that works now */
 
-/* Due to ARM reachability complexities we only support local stubs */
-OPTION_DEFAULT(bool, separate_private_stubs, IF_X86_ELSE(true, false),
+/* Due to ARM reachability complexities we only support local stubs there.
+ * For x86, we avoid separate private stubs when they are rare due to shared
+ * caches being on by default, to avoid having to walk and free individual fragments
+ * in order to free the stubs on thread exit (i#4334).
+ */
+OPTION_DEFAULT(bool, separate_private_stubs, false,
                "place private direct exit stubs in a separate area from the code cache")
 
 /* Due to ARM reachability complexities we only support local stubs */
 OPTION_DEFAULT(bool, separate_shared_stubs, IF_X86_ELSE(true, false),
                "place shared direct exit stubs in a separate area from the code cache")
 
-OPTION_DEFAULT(bool, free_private_stubs, IF_X86_ELSE(true, false),
+OPTION_DEFAULT(bool, free_private_stubs, false,
                "free separated private direct exit stubs when not pointed at")
 
 /* FIXME Freeing shared stubs is currently an unsafe option due to a lack of

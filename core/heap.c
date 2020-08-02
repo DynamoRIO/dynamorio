@@ -1545,14 +1545,18 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             });
             reached_beyond_vmm();
 #ifdef X64
-            /* PR 215395, make sure allocation satisfies heap reachability contraints */
-            p = os_heap_reserve_in_region(
-                (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
-                (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
-                error_code, executable);
-            /* ensure future heap allocations are reachable from this allocation */
-            if (p != NULL)
-                request_region_be_heap_reachable(p, size);
+            if (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP()) {
+                /* PR 215395, make sure allocation satisfies heap reachability
+                 * contraints */
+                p = os_heap_reserve_in_region(
+                    (void *)ALIGN_FORWARD(heap_allowable_region_start, PAGE_SIZE),
+                    (void *)ALIGN_BACKWARD(heap_allowable_region_end, PAGE_SIZE), size,
+                    error_code, executable);
+                /* ensure future heap allocations are reachable from this allocation */
+                if (p != NULL)
+                    request_region_be_heap_reachable(p, size);
+            } else
+                p = os_heap_reserve(NULL, size, error_code, executable);
 #else
             p = os_heap_reserve(NULL, size, error_code, executable);
 #endif
@@ -1605,8 +1609,11 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable,
             DODEBUG({ out_of_vmheap_once = true; });
             if (!INTERNAL_OPTION(skip_out_of_vm_reserve_curiosity)) {
                 /* this maybe unsafe for early services w.r.t. case 666 */
-                SYSLOG_INTERNAL_WARNING("Out of vmheap reservation - reserving %dKB."
+                SYSLOG_INTERNAL_WARNING("Out of %s reservation - reserving %dKB. "
                                         "Falling back onto OS allocation",
+                                        (TEST(VMM_REACHABLE, which) || REACHABLE_HEAP())
+                                            ? "vmcode"
+                                            : "vmheap",
                                         size / 1024);
                 ASSERT_CURIOSITY(false && "Out of vmheap reservation");
             }
@@ -2502,6 +2509,9 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
         SYSLOG_CUSTOM_NOTIFY(SYSLOG_CRITICAL, MSG_OUT_OF_MEMORY, 4,
                              "Out of memory.  Program aborted.", get_application_name(),
                              get_application_pid(), oom_source_code, status_hex);
+        /* Stats can be very useful to diagnose why we hit OOM. */
+        if (INTERNAL_OPTION(rstats_to_stderr))
+            dump_global_rstats_to_stderr();
 
         /* FIXME: case 7306 can't specify arguments in SYSLOG_CUSTOM_NOTIFY */
         SYSLOG_INTERNAL_WARNING("OOM Status: %s %s", oom_source_code, status_hex);
@@ -4026,6 +4036,7 @@ heap_thread_exit(dcontext_t *dcontext)
     }
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         ASSERT(th->reachable_heap != NULL);
+        threadunits_exit(th->reachable_heap, dcontext);
         global_heap_free(th->reachable_heap,
                          sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
     }

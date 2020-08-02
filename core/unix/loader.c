@@ -39,7 +39,7 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
-#include "../arch/instr.h" /* SEG_GS/SEG_FS */
+#include "../ir/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h" /* HEAPACCT */
@@ -516,7 +516,12 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         ELF_ALTARCH_HEADER_TYPE *altarch = (ELF_ALTARCH_HEADER_TYPE *)elf_header;
         if (!TEST(MODLOAD_NOT_PRIVLIB, flags) && elf_header->e_version == 1 &&
             altarch->e_ehsize == sizeof(ELF_ALTARCH_HEADER_TYPE) &&
-            altarch->e_machine == IF_X64_ELSE(EM_386, EM_X86_64)) {
+            altarch->e_machine ==
+                IF_X64_ELSE(IF_AARCHXX_ELSE(EM_ARM, EM_386),
+                            IF_AARCHXX_ELSE(EM_AARCH64, EM_X86_64))) {
+            /* XXX i#147: Should we try some path substs like s/lib32/lib64/?
+             * Maybe it's better to error out to avoid loading some unintended lib.
+             */
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3, get_application_name(),
                    get_application_pid(), filename);
         }
@@ -1633,8 +1638,16 @@ privload_mem_is_elf_so_header(byte *mem)
     if (elf_hdr->e_type != ET_DYN)
         return false;
     /* ARM or X86 */
-    if (elf_hdr->e_machine !=
-        IF_X86_ELSE(IF_X64_ELSE(EM_X86_64, EM_386), IF_X64_ELSE(EM_AARCH64, EM_ARM)))
+    /* i#1684: We do allow mixing arches of the same bitwidth. See the i#1684
+     * comment in is_elf_so_header_common().
+     */
+    if (
+#        ifdef X64
+        elf_hdr->e_machine != EM_X86_64 && elf_hdr->e_machine != EM_AARCH64
+#        else
+        elf_hdr->e_machine != EM_386 && elf_hdr->e_machine != EM_ARM
+#        endif
+    )
         return false;
     if (elf_hdr->e_ehsize != sizeof(ELF_HEADER_TYPE))
         return false;
@@ -1900,6 +1913,11 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
      * have to tell get_application_name() to use this path.
      */
     set_executable_path(exe_path);
+
+    /* XXX i#2662: Currently, we only support getting args for early injection.
+     * Add support for late injection.
+     */
+    set_app_args((int *)argc, argv);
 
     success = elf_loader_read_headers(&exe_ld, exe_path);
     apicheck(success,

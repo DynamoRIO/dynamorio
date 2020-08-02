@@ -41,7 +41,7 @@ else ()
   set(BITS "32")
 endif ()
 
-if (ARM)
+if (DR_HOST_ARM)
   if (ANDROID)
     set(ARCH "-android")
   else ()
@@ -58,7 +58,7 @@ if (ARM)
   endif ()
 endif()
 
-if (AARCH64)
+if (DR_HOST_AARCH64)
   set(ARCH "-aarch64")
 endif ()
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -38,7 +38,7 @@
 #include "../globals.h"
 #include "../module_shared.h"
 #include "os_private.h"
-#include "../arch/instr.h" /* SEG_GS/SEG_FS */
+#include "../ir/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h" /* HEAPACCT */
@@ -411,7 +411,10 @@ redirect____tls_get_addr()
     /* XXX: in some version of ___tls_get_addr, ti is passed via xax
      * How can I generalize it?
      */
-#ifdef X86
+#ifdef DR_HOST_NOT_TARGET
+    ti = NULL;
+    ASSERT_NOT_REACHED();
+#elif defined(X86)
     asm("mov %%" ASM_XAX ", %0" : "=m"((ti)) : : ASM_XAX);
 #elif defined(AARCH64)
     /* FIXME i#1569: NYI */

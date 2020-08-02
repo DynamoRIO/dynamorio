@@ -45,6 +45,7 @@ extern "C" {
 #endif
 
 #include "dr_defines.h"
+#include "drmgr.h"
 
 /***************************************************************************
  * For DRBBDUP
@@ -93,6 +94,26 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_bbdup_event();
+
+DR_EXPORT
+/* Registers a callback that is triggered prior to basic block duplication. This gives
+ * drbbdup the opportunity to modify and analyse the basic block before proceeding with
+ * the generation of multiple copies.
+ *
+ * Note, we cannot use app2app events, because those are granular to per basic block copy.
+ *
+ * Returns true on success.
+ */
+bool
+drmgr_register_bbdup_pre_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
+
+DR_EXPORT
+/* Unregisters a callback function triggered prior basic block duplication.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ */
+bool
+drmgr_unregister_bbdup_pre_event(drmgr_xform_cb_t func);
 
 #ifdef __cplusplus
 }

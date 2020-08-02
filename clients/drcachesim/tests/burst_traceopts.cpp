@@ -232,6 +232,10 @@ main(int argc, const char *argv[])
 #    undef ARM_32
 #    undef ARM_64
 #    undef DR_APP_EXPORTS
+#    undef DR_HOST_X64
+#    undef DR_HOST_X86
+#    undef DR_HOST_ARM
+#    undef DR_HOST_AARCH64
 #    include "asm_defines.asm"
 /* clang-format off */
 START_FILE

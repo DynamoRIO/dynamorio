@@ -43,12 +43,12 @@
 #include "../globals.h" /* just to disable warning C4206 about an empty file */
 
 #include "instrument.h"
-#include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "instrlist.h"
 #include "decode.h"
 #include "disassemble.h"
+#include "ir_utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
 #include "../emit.h"
@@ -1345,8 +1345,11 @@ void
 instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
 {
     if (dcontext->client_data == NULL) {
+        /* We use PROTECTED partly to keep it local (unprotected "local" heap is
+         * global and adds complexity to thread exit: i#271).
+         */
         dcontext->client_data =
-            HEAP_TYPE_ALLOC(dcontext, client_data_t, ACCT_OTHER, UNPROTECTED);
+            HEAP_TYPE_ALLOC(dcontext, client_data_t, ACCT_OTHER, PROTECTED);
         memset(dcontext->client_data, 0x0, sizeof(client_data_t));
 
 #    ifdef CLIENT_SIDELINE
@@ -1462,7 +1465,7 @@ instrument_thread_exit(dcontext_t *dcontext)
 #    endif
 
 #    ifdef DEBUG
-    /* PR 470957: avoid racy crashes by not freeing in release build */
+    /* i#271: avoid racy crashes by not freeing in release build. */
 
 #        ifdef CLIENT_SIDELINE
     DELETE_LOCK(dcontext->client_data->sideline_mutex);
@@ -1475,7 +1478,7 @@ instrument_thread_exit(dcontext_t *dcontext)
         if (todo->ilist != NULL) {
             instrlist_clear_and_destroy(dcontext, todo->ilist);
         }
-        HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
+        HEAP_TYPE_FREE(dcontext, todo, client_todo_list_t, ACCT_CLIENT, PROTECTED);
         todo = next_todo;
     }
 
@@ -1483,12 +1486,11 @@ instrument_thread_exit(dcontext_t *dcontext)
     flush = dcontext->client_data->flush_list;
     while (flush != NULL) {
         client_flush_req_t *next_flush = flush->next;
-        HEAP_TYPE_FREE(dcontext, flush, client_flush_req_t, ACCT_CLIENT, UNPROTECTED);
+        HEAP_TYPE_FREE(dcontext, flush, client_flush_req_t, ACCT_CLIENT, PROTECTED);
         flush = next_flush;
     }
 
-    HEAP_TYPE_FREE(dcontext, dcontext->client_data, client_data_t, ACCT_OTHER,
-                   UNPROTECTED);
+    HEAP_TYPE_FREE(dcontext, dcontext->client_data, client_data_t, ACCT_OTHER, PROTECTED);
     dcontext->client_data = NULL;              /* for mutex_wait_contended_lock() */
     dcontext->is_client_thread_exiting = true; /* for is_using_app_peb() */
 
@@ -2782,6 +2784,62 @@ dr_get_application_name(void)
 #    else
     return get_application_short_unqualified_name();
 #    endif
+}
+
+void
+set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code)
+{
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+
+    dcontext->client_data->error_code = error_code;
+}
+
+dr_error_code_t
+dr_get_error_code(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+
+    CLIENT_ASSERT(dcontext != NULL, "invalid drcontext");
+    return dcontext->client_data->error_code;
+}
+
+int
+dr_num_app_args(void)
+{
+    /* XXX i#2662: Add support for Windows. */
+    return num_app_args();
+}
+
+int
+dr_get_app_args(OUT dr_app_arg_t *args_array, int args_count)
+{
+    /* XXX i#2662: Add support for Windows. */
+    return get_app_args(args_array, (int)args_count);
+}
+
+const char *
+dr_app_arg_as_cstring(IN dr_app_arg_t *app_arg, char *buf, int buf_size)
+{
+    if (app_arg == NULL) {
+        set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+
+    switch (app_arg->encoding) {
+    case DR_APP_ARG_CSTR_COMPAT: return (char *)app_arg->start;
+    case DR_APP_ARG_UTF_16:
+        /* XXX i#2662: To implement using utf16_to_utf8(). */
+        ASSERT_NOT_IMPLEMENTED(false);
+        set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
+        break;
+    default: set_client_error_code(NULL, DR_ERROR_UNKNOWN_ENCODING);
+    }
+
+    return NULL;
 }
 
 DR_API process_id_t
@@ -5803,6 +5861,10 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
 
     CLIENT_ASSERT(reg_is_pointer_sized(reg), "dr_save_reg requires pointer-sized gpr");
 
+#    ifdef AARCH64
+    CLIENT_ASSERT(reg != DR_REG_XSP, "dr_save_reg: store from XSP is not supported");
+#    endif
+
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
@@ -5844,6 +5906,10 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
 
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "dr_restore_reg requires a pointer-sized gpr");
+
+#    ifdef AARCH64
+    CLIENT_ASSERT(reg != DR_REG_XSP, "dr_restore_reg: load into XSP is not supported");
+#    endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
@@ -6942,8 +7008,9 @@ dr_delete_fragment(void *drcontext, void *tag)
 #    endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
+        /* We avoid "local unprotected" as it is global, complicating thread exit. */
         client_todo_list_t *todo =
-            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
+            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, PROTECTED);
         client_todo_list_t *iter = dcontext->client_data->to_do;
         todo->next = NULL;
         todo->ilist = NULL;
@@ -7018,8 +7085,9 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     frag_found = (f != NULL);
     if (frag_found) {
         client_todo_list_t *iter = dcontext->client_data->to_do;
+        /* We avoid "local unprotected" as it is global, complicating thread exit. */
         client_todo_list_t *todo =
-            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, UNPROTECTED);
+            HEAP_TYPE_ALLOC(dcontext, client_todo_list_t, ACCT_CLIENT, PROTECTED);
         todo->next = NULL;
         todo->ilist = ilist;
         todo->tag = tag;
@@ -7076,7 +7144,8 @@ dr_flush_fragments(void *drcontext, void *curr_tag, void *flush_tag)
     if (curr_tag != NULL)
         vm_area_unlink_incoming(dcontext, (app_pc)curr_tag);
 
-    flush = HEAP_TYPE_ALLOC(dcontext, client_flush_req_t, ACCT_CLIENT, UNPROTECTED);
+    /* We avoid "local unprotected" as it is global, complicating thread exit. */
+    flush = HEAP_TYPE_ALLOC(dcontext, client_flush_req_t, ACCT_CLIENT, PROTECTED);
     flush->flush_callback = NULL;
     if (flush_tag == NULL) {
         flush->start = UNIVERSAL_REGION_BASE;

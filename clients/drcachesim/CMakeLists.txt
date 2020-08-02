@@ -220,6 +220,15 @@ target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogra
   drfrontendlib)
 use_DynamoRIO_extension(histogram_launcher droption)
 add_dependencies(histogram_launcher api_headers)
+
+add_executable(prefetch_analyzer_launcher
+  tests/prefetch_analyzer_launcher.cpp
+  tests/prefetch_analyzer.cpp
+  )
+target_link_libraries(prefetch_analyzer_launcher drmemtrace_analyzer drfrontendlib)
+use_DynamoRIO_extension(prefetch_analyzer_launcher droption)
+add_dependencies(prefetch_analyzer_launcher api_headers)
+
 # We have a companion test built using a separate --build-and-test CMake project in
 # tests/analyzer_separate.cpp to better test 3rd-party usage.
 set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_src_dir
@@ -248,6 +257,7 @@ endif ()
 if (ZLIB_FOUND)
   target_link_libraries(drcachesim ${ZLIB_LIBRARIES})
   target_link_libraries(histogram_launcher ${ZLIB_LIBRARIES})
+  target_link_libraries(prefetch_analyzer_launcher ${ZLIB_LIBRARIES})
   target_link_libraries(drmemtrace_raw2trace ${ZLIB_LIBRARIES})
   if (NOT AARCH64 AND NOT APPLE)
     target_link_libraries(opcode_mix_launcher ${ZLIB_LIBRARIES})
@@ -326,6 +336,7 @@ endmacro()
 restore_nonclient_flags(drcachesim)
 restore_nonclient_flags(drraw2trace)
 restore_nonclient_flags(histogram_launcher)
+restore_nonclient_flags(prefetch_analyzer_launcher)
 if (NOT AARCH64 AND NOT APPLE)
   restore_nonclient_flags(opcode_mix_launcher)
 endif ()
@@ -369,6 +380,7 @@ endmacro ()
 add_win32_flags(drcachesim)
 add_win32_flags(drraw2trace)
 add_win32_flags(histogram_launcher)
+add_win32_flags(prefetch_analyzer_launcher)
 add_win32_flags(drmemtrace_raw2trace)
 if (NOT AARCH64 AND NOT APPLE)
   add_win32_flags(opcode_mix_launcher)
@@ -414,6 +426,17 @@ install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
 
 function (write_config_file dst bindir libdir)
+  # We include the alternate-bitwidth path, though it won't be there for
+  # a single build dir and such a child will have a fatal error.
+  if (X64)
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+    set(CUR_BIT "64")
+    set(ALT_BIT "32")
+  else ()
+    set(CUR_BIT "32")
+    set(ALT_BIT "64")
+    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
+  endif ()
   if (DEBUG)
     set(debugopt "TOOL_OP=-dr_debug")
   else ()
@@ -426,8 +449,10 @@ TOOL_OP=-dr\n\
 TOOL_OP_DR_PATH\n\
 TOOL_OP_DR_BUNDLE=-dr_ops\n\
 TOOL_OP=-tracer\n\
-CLIENT_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
-${debugopt}")
+CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+TOOL_OP=-tracer_alt\n\
+CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+${debugopt}\n")
 endfunction ()
 
 if (X64)

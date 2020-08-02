@@ -94,6 +94,12 @@ droption_t<std::string> op_module_file(
     "If the file is named modules.log and is in the same directory as the trace file, "
     "or a raw/ subdirectory below the trace file, this parameter can be omitted.");
 
+droption_t<std::string> op_alt_module_dir(
+    DROPTION_SCOPE_FRONTEND, "alt_module_dir", "", "Alternate module search directory",
+    "Specifies a directory containing libraries referenced in -module_file for "
+    "analysis tools, or in the raw modules file for post-prcoessing of offline "
+    "raw trace files.  This directory takes precedence over the recorded path.");
+
 droption_t<std::string> op_funclist_file(
     DROPTION_SCOPE_ALL, "funclist_file", "",
     "Path to function map file for func_view tool",
@@ -176,6 +182,12 @@ droption_t<bytesize_t> op_L0D_size(
     "Specifies the size of the 'zero-level' data cache for -L0_filter.  "
     "Must be a power of 2 and a multiple of -line_size, unless it is set to 0, "
     "which disables data entries from appearing in the trace.");
+
+droption_t<bool> op_instr_only_trace(
+    DROPTION_SCOPE_CLIENT, "instr_only_trace", false,
+    "Include only instruction fetch entries in trace",
+    "If -instr_only_trace, only instruction fetch entries are included in the "
+    "trace and data entries are omitted.");
 
 droption_t<bool> op_coherence(
     DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
@@ -329,6 +341,13 @@ droption_t<std::string> op_tracer(DROPTION_SCOPE_FRONTEND, "tracer", "",
                                   "Path to the tracer",
                                   "The full path to the tracer library.");
 
+droption_t<std::string> op_tracer_alt(DROPTION_SCOPE_FRONTEND, "tracer_alt", "",
+                                      "Path to the alternate-bitwidth tracer",
+                                      "The full path to the tracer library for the other "
+                                      "bitwidth, for use on child processes with a "
+                                      "different bitwidth from their parent.  If empty, "
+                                      "such child processes will die with fatal errors.");
+
 droption_t<std::string> op_tracer_ops(
     DROPTION_SCOPE_FRONTEND, "tracer_ops",
     DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE | DROPTION_FLAG_INTERNAL, "",
@@ -365,11 +384,15 @@ droption_t<bytesize_t>
                 "and the references following the simulated ones are dropped.");
 
 droption_t<std::string>
-    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att",
+    op_view_syntax(DROPTION_SCOPE_FRONTEND, "view_syntax", "att/arm/dr",
                    "Syntax to use for disassembly.",
                    "Specifies the syntax to use when viewing disassembled offline traces."
-                   "The option can be set to one of att (default), intel, dr and arm."
-                   "An invalid specification falls back to the default.");
+                   // TODO i#4382: Add aarch64 syntax support.
+                   " The option can be set to one of \"att\" (AT&T style), \"intel\""
+                   " (Intel style), \"dr\" (DynamoRIO's native style with all implicit"
+                   " operands listed), and \"arm\" (32-bit ARM style). An invalid"
+                   " specification falls back to the default, which is \"att\" for x86,"
+                   " \"arm\" for ARM (32-bit), and \"dr\" for AArch64.");
 
 droption_t<std::string>
     op_config_file(DROPTION_SCOPE_FRONTEND, "config_file", "",
