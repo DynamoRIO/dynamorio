@@ -36,6 +36,7 @@
 #define INSTR_CREATE_H 1
 
 #include "../instr_create_shared.h"
+#include "../aarchxx/instr_create_aarchxx.h"
 #include "instr.h"
 
 /* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
@@ -2513,6 +2514,17 @@
  */
 #define INSTR_CREATE_umull2_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_umull2, Rd, Rm, Rn, width)
+
+/**
+ * Creates an LDR (immediate) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param mem     The source memory opnd.
+ * \param imm     The integer constant opnd_t operand.
+ */
+#define INSTR_CREATE_ldr_imm(dc, Rd, mem, imm)                                      \
+    instr_create_2dst_3src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), \
+                           (mem), opnd_create_reg(opnd_get_base(mem)), imm)
 
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */
