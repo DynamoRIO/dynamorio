@@ -44,4 +44,3 @@ enum {
 /* DR_API EXPORT END */
 
 #endif /* INSTR_CREATE_H */
-
