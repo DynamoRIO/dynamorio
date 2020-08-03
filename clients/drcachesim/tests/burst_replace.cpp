@@ -198,6 +198,15 @@ post_process()
         assert(error.empty());
         error = raw2trace.do_module_parsing();
         assert(error.empty());
+        // Test writing module data and reading it back in.
+        char buf[128 * 204];
+        size_t wrote;
+        drcovlib_status_t res = module_mapper->write_module_data(
+            buf, BUFFER_SIZE_BYTES(buf), print_cb, &wrote);
+        assert(res == DRCOVLIB_SUCCESS);
+        std::unique_ptr<module_mapper_t> remapper =
+            module_mapper_t::create(buf, parse_cb, process_cb, MAGIC_VALUE, free_cb);
+        assert(remapper->get_last_error().empty());
     }
     /* Now write a final trace to a location that the drcachesim -indir step
      * run by the outer test harness will find (TRACE_FILENAME).
