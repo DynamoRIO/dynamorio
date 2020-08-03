@@ -3032,7 +3032,7 @@ if (CLIENT_INTERFACE)
             set_target_properties(sample.opcode_count-test PROPERTIES LINKER_LANGUAGE C)
             append_link_flags(sample.opcode_count-test "-nostartfiles -nodefaultlibs -static")
 
-            torunonly_ci(sample.${sample} sample.opcode_count-test ${sample}
+            torunonly_ci(sample.${sample} sample.opcode_count-test ${sample}_test
               samples/opcode_count-test.asm "-opcode 5" "" "")
           endif(X86 AND (NOT X64) AND UNIX)
         endif()

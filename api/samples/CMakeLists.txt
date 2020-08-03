@@ -150,22 +150,12 @@ if (OPTIMIZE_SAMPLES)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPT_CFLAGS}")
 endif ()
 
-function (add_sample_client name source_file_list extension_list show_results)
+function (add_sample_client name source_file_list extension_list)
   add_library(${name} SHARED ${source_file_list})
   configure_DynamoRIO_client(${name})
   foreach (ext ${extension_list})
     use_DynamoRIO_extension(${name} ${ext})
   endforeach (ext)
-
-  # Some samples actually have more tests than just simple sanity tests.
-  # The show_results is a passed flag that indicates that we should override
-  # SHOW_RESULTS and always print results. Otherwise, if not result is output,
-  # we cannot run the tests which go beyond simple sanity checks.
-  # Moreover, we do not short-circuit SHOW_RESULTS for Windows, because pop-ups
-  # will hang our automated tests.
-  if (BUILD_TESTS AND UNIX AND show_results)
-    target_compile_definitions(${name} PRIVATE -DSHOW_RESULTS)
-  endif ()
 
   # Provide a hint for how to use the client
   if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
@@ -182,6 +172,20 @@ function (add_sample_client name source_file_list extension_list show_results)
     "${sample_list};${name}")                                     # NON-PUBLIC
   set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
   set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
+
+  # Some samples actually have more tests than just simple sanity tests. These
+  # tests require that results are shown. In order to avoid short-circuiting
+  # the SHOW_RESULTS option, we build an additional sample (which shows results)
+  # for testing purposes.
+  if (BUILD_TESTS)
+    add_library(${name}_test SHARED ${source_file_list})
+    configure_DynamoRIO_client(${name}_test)
+    foreach (ext ${extension_list})
+      use_DynamoRIO_extension(${name}_test ${ext})
+    endforeach (ext)
+    target_compile_definitions(${name}_test PRIVATE -DSHOW_RESULTS)
+    set(tgts ${tgts} ${name}_test PARENT_SCOPE)                        # NON-PUBLIC
+  endif ()
 endfunction (add_sample_client)
 
 function (add_sample_standalone name source_file_list)
@@ -215,60 +219,60 @@ configure_DynamoRIO_global(OFF ON)
 # Use ;-separated lists for source files and extensions.
 
 # FIXME i#4326: Add additional tests for samples that go beyond sanity checks.
-add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx" OFF)
-add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx" OFF)
-add_sample_client(bbsize      "bbsize.c"        "drmgr;drx" OFF)
-add_sample_client(div         "div.c"           "drmgr" OFF)
-add_sample_client(empty       "empty.c"         "" OFF)
-add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx" OFF)
-add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx" OFF)
-add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx" OFF)
+add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
+add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
+add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
+add_sample_client(div         "div.c"           "drmgr")
+add_sample_client(empty       "empty.c"         "")
+add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
+add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
+add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
 # FIXME i#4326: We currently only support additional test for the opcode_count sample on
 # X86 32-bit UNIX. We should port to other archs.
 if (X86 AND (NOT X64) AND UNIX)
-  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption" ON)
+  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
 else ()
-  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption" OFF)
+  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
 endif (X86 AND (NOT X64) AND UNIX)
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
-  add_sample_client(cbr         "cbr.c"           "drmgr" OFF)
-  add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg" OFF)
-  add_sample_client(inc2add     "inc2add.c"       "drmgr;drreg" OFF)
+  add_sample_client(cbr         "cbr.c"           "drmgr")
+  add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")
+  add_sample_client(inc2add     "inc2add.c"       "drmgr;drreg")
   add_sample_client(memtrace_x86_binary "memtrace_x86.c;utils.c"
-    "drcontainers;drmgr;drreg;drutil;drx" OFF)
+    "drcontainers;drmgr;drreg;drutil;drx")
   add_sample_client(memtrace_x86_text   "memtrace_x86.c;utils.c"
-    "drcontainers;drmgr;drreg;drutil;drx" OFF)
+    "drcontainers;drmgr;drreg;drutil;drx")
   _DR_append_property_string(TARGET memtrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(instrace_x86_binary "instrace_x86.c;utils.c"
-    "drcontainers;drmgr;drreg;drx" OFF)
+    "drcontainers;drmgr;drreg;drx")
   add_sample_client(instrace_x86_text   "instrace_x86.c;utils.c"
-    "drcontainers;drmgr;drreg;drx" OFF)
+    "drcontainers;drmgr;drreg;drx")
   _DR_append_property_string(TARGET instrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
-  add_sample_client(prefetch    "prefetch.c"      "drmgr" OFF)
+  add_sample_client(prefetch    "prefetch.c"      "drmgr")
   if (NOT WIN32)
-    add_sample_client(ssljack     "ssljack.c"       "drmgr;drwrap" OFF)
+    add_sample_client(ssljack     "ssljack.c"       "drmgr;drwrap")
   endif (NOT WIN32)
   # dr_insert_mbr_instrumentation is NYI
-  add_sample_client(modxfer     "modxfer.c;utils.c"     "drmgr;drreg;drx" OFF)
-  add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "drmgr" OFF)
-  add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx" OFF)
+  add_sample_client(modxfer     "modxfer.c;utils.c"     "drmgr;drreg;drx")
+  add_sample_client(modxfer_app2lib "modxfer_app2lib.c" "drmgr")
+  add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drmgr;drsyms;drx")
   # dr_insert_cbr_instrument_ex is NYI
-  add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx" OFF)
-  add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx" OFF)
+  add_sample_client(cbrtrace    "cbrtrace.c;utils.c"    "drmgr;drx")
+  add_sample_client(hot_bbcount "hot_bbcount.c"         "drmgr;drreg;drbbdup;drx")
 endif (X86)
-add_sample_client(wrap        "wrap.c"          "drmgr;drwrap" OFF)
-add_sample_client(signal      "signal.c"        "drmgr" OFF)
-add_sample_client(syscall     "syscall.c"       "drmgr" OFF)
-add_sample_client(inline      "inline.c"        "drmgr;drcontainers" OFF)
-add_sample_client(inscount    "inscount.cpp"    "drmgr;droption" OFF)
-add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx" OFF)
-add_sample_client(stl_test    "stl_test.cpp"    "" OFF)
+add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
+add_sample_client(signal      "signal.c"        "drmgr")
+add_sample_client(syscall     "syscall.c"       "drmgr")
+add_sample_client(inline      "inline.c"        "drmgr;drcontainers")
+add_sample_client(inscount    "inscount.cpp"    "drmgr;droption")
+add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx")
+add_sample_client(stl_test    "stl_test.cpp"    "")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 
 if (WIN32)
   # This client is Windows-only.
-  add_sample_client(stats     "stats.c;utils.c"         "drmgr;drreg;drx" OFF)
+  add_sample_client(stats     "stats.c;utils.c"         "drmgr;drreg;drx")
 
   # XXX i#893: drwrap's asm isn't SEH compliant.
   _DR_append_property_string(TARGET wrap LINK_FLAGS "/safeseh:no")
