@@ -1075,8 +1075,8 @@ encode_opnd_memx0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 {
     uint xn;
     bool is_x;
-    if (!opnd_is_base_disp(opnd) ||
-        !encode_reg(&xn, &is_x, opnd_get_base(opnd), false) || !is_x)
+    if (!opnd_is_base_disp(opnd) || !encode_reg(&xn, &is_x, opnd_get_base(opnd), false) ||
+        !is_x)
         return false;
     *enc_out = xn;
     return true;
