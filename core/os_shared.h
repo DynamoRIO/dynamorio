@@ -399,6 +399,9 @@ typedef enum {
 } dr_exception_type_t;
 
 void
+priv_forge_signal(app_pc target_pc, int sig, priv_mcontext_t *mc);
+
+void
 os_forge_exception(app_pc exception_address, dr_exception_type_t type);
 
 /* events for dumpcore_mask */

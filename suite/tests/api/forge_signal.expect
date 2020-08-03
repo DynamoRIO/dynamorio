@@ -1,0 +1,6 @@
+client main
+hello signal
+inserted clean call
+forging signal 12
+received signal 12 (User defined signal 2)
+exit event

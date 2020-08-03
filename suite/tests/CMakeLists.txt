@@ -2988,6 +2988,10 @@ if (CLIENT_INTERFACE)
     endif (UNIX)
   endif ()
 
+  if (UNIX)
+    tobuild_api(api.forge_signal api/forge_signal.c "" "" OFF ON)
+  endif()
+
   if (BUILD_SAMPLES)
     # Sanity tests: we run the samples without SHOW_RESULTS (turned off
     # if BUILD_TESTS is on) so we're only ensuring the client doesn't crash.

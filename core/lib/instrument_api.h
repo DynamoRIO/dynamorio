@@ -1707,13 +1707,14 @@ DR_API
 /**
  * Forge (emulate) OS signal with a given number at the specified PC.
  * \note Only Unix.
+ * \note Can be used only from a clean call.
  * \note This function is not supposed to return on success therefore
  * care should be taken to avoid any stale state or unreleased resources
- * remaining when the functions is called.
+ * remaining when the function is called.
  * \return If successful, this function does not return.
  */
 void
-dr_forge_signal(app_pc target_pc, int sig);
+dr_forge_signal(app_pc target_pc, int sig, dr_mcontext_t *mcontext);
 #    endif /* UNIX */
 
 DR_API

@@ -6448,12 +6448,20 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
         sig = SIGSEGV;
         break;
     }
-    dr_forge_signal(target_pc, sig);
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    priv_forge_signal(target_pc, sig, get_mcontext(dcontext));
     ASSERT_NOT_REACHED();
 }
 
 void
-dr_forge_signal(app_pc target_pc, int sig)
+dr_forge_signal(app_pc target_pc, int sig, dr_mcontext_t *mcontext)
+{
+    priv_forge_signal(target_pc, sig, dr_mcontext_as_priv_mcontext(mcontext));
+    ASSERT_NOT_REACHED();
+}
+
+void
+priv_forge_signal(app_pc target_pc, int sig, priv_mcontext_t *mc)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     char frame_no_xstate[sizeof(sigframe_rt_t)];
@@ -6488,7 +6496,7 @@ dr_forge_signal(app_pc target_pc, int sig)
     /* We use a TLS buffer to avoid too much stack space here. */
     sc->fpstate = (kernel_fpstate_t *)get_and_initialize_xstate_buffer(dcontext);
 #endif
-    mcontext_to_ucontext(uc, get_mcontext(dcontext));
+    mcontext_to_ucontext(uc, mc);
     sc->SC_XIP = (reg_t)target_pc;
     /* We'll fill in fpstate at delivery time.
      * We fill in segment registers to their current values and assume they won't
@@ -6527,7 +6535,7 @@ dr_forge_signal(app_pc target_pc, int sig)
     if (is_couldbelinking(dcontext))
         enter_nolinking(dcontext, NULL, false);
     transfer_to_dispatch(
-        dcontext, get_mcontext(dcontext),
+        dcontext, mc,
         cur_whereami != DR_WHERE_FCACHE && cur_whereami != DR_WHERE_SIGNAL_HANDLER
         /*full_DR_state*/);
     ASSERT_NOT_REACHED();
