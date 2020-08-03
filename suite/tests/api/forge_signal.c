@@ -37,7 +37,7 @@
 #include <string.h>
 
 static void
-clean_callee(app_pc pc)
+clean_callee()
 {
     int sig = SIGUSR2;
     dr_fprintf(STDERR, "forging signal %d\n", sig);
@@ -46,7 +46,7 @@ clean_callee(app_pc pc)
         .flags = DR_MC_ALL
     };
     dr_get_mcontext(dr_get_current_drcontext(), &mc);
-    dr_forge_signal(pc, sig, &mc);
+    dr_forge_signal(mc.pc, sig, &mc);
 }
 
 static dr_emit_flags_t
@@ -54,8 +54,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr = instrlist_last(bb);
     app_pc pc = instr_get_app_pc(instr);
-    dr_insert_clean_call(drcontext, bb, instr, clean_callee, false, 1,
-        OPND_CREATE_INT64(pc));
+    dr_insert_clean_call(drcontext, bb, instr, clean_callee, false, 0);
     dr_fprintf(STDERR, "inserted clean call\n");
     return DR_EMIT_DEFAULT;
 }
