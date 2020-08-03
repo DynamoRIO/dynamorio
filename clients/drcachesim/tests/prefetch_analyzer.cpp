@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,54 +30,26 @@
  * DAMAGE.
  */
 
-#include "trace_entry.h"
+#include "../common/trace_entry.h"
+#include "prefetch_analyzer.h"
+#include <iostream>
 
-const char *const trace_type_names[] = {
-    "read",
-    "write",
-    "prefetch",
-    "prefetch_read_l1",
-    "prefetch_read_l2",
-    "prefetch_read_l3",
-    "prefetchnta",
-    "prefetch_read",
-    "prefetch_write",
-    "prefetch_instr",
-    "instr",
-    "direct_jump",
-    "indirect_jump",
-    "conditional_jump",
-    "direct_call",
-    "indirect_call",
-    "return",
-    "instr_bundle",
-    "instr_flush",
-    "instr_flush_end",
-    "data_flush",
-    "data_flush_end",
-    "thread",
-    "thread_exit",
-    "pid",
-    "header",
-    "footer",
-    "hw prefetch",
-    "marker",
-    "non-fetched instr",
-    "maybe-fetched instr",
-    "sysenter",
-    "prefetch_read_l1_nt",
-    "prefetch_read_l2_nt",
-    "prefetch_read_l3_nt",
-    "prefetch_instr_l1",
-    "prefetch_instr_l1_nt",
-    "prefetch_instr_l2",
-    "prefetch_instr_l2_nt",
-    "prefetch_instr_l3",
-    "prefetch_instr_l3_nt",
-    "prefetch_write_l1",
-    "prefetch_write_l1_nt",
-    "prefetch_write_l2",
-    "prefetch_write_l2_nt",
-    "prefetch_write_l3",
-    "prefetch_write_l3_nt",
-};
+bool
+prefetch_analyzer_t::process_memref(const memref_t &memref)
+{
+    if (type_is_prefetch(memref.data.type)) {
+        trace_type_freq_[memref.data.type]++;
+    }
+    return true;
+}
+
+bool
+prefetch_analyzer_t::print_results()
+{
+    std::cout << "Prefetch operation frequencies:\n";
+    for (auto x : trace_type_freq_) {
+        std::cout << std::setw(12) << x.second << " " << trace_type_names[x.first]
+                  << "\n";
+    }
+    return true;
+}

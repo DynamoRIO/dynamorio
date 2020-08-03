@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -105,13 +105,14 @@ typedef enum {
      */
     DR_DISASM_NO_OPND_SIZE = 0x8,
     /**
-     * Requests standard ARM assembler syntax for disassembly.  This
+     * Requests standard ARM (32-bit) assembler syntax for disassembly.  This
      * sets the same option that is controlled by the runtime option
      * \p -syntax_arm.  Implicit operands are not displayed.
      */
     DR_DISASM_ARM = 0x10,
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
+/* TODO i#4382: Add DR_DISASM_AARCH64. */
 
 void
 disassemble_options_init(void);
