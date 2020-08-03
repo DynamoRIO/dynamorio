@@ -1318,6 +1318,9 @@
 #define INSTR_CREATE_movsxd(dc, d, s) instr_create_1dst_1src((dc), OP_movsxd, (d), (s))
 #define INSTR_CREATE_movbe(dc, d, s) instr_create_1dst_1src((dc), OP_movbe, (d), (s))
 #define INSTR_CREATE_aesimc(dc, d, s) instr_create_1dst_1src((dc), OP_aesimc, (d), (s))
+#define INSTR_CREATE_pabsb(dc, d, s) instr_create_1dst_1src((dc), OP_pabsb, (d), (s))
+#define INSTR_CREATE_pabsw(dc, d, s) instr_create_1dst_1src((dc), OP_pabsw, (d), (s))
+#define INSTR_CREATE_pabsd(dc, d, s) instr_create_1dst_1src((dc), OP_pabsd, (d), (s))
 /* AVX */
 #define INSTR_CREATE_vmovups(dc, d, s) instr_create_1dst_1src((dc), OP_vmovups, (d), (s))
 #define INSTR_CREATE_vmovupd(dc, d, s) instr_create_1dst_1src((dc), OP_vmovupd, (d), (s))
@@ -2863,9 +2866,6 @@
     instr_create_1dst_2src((dc), OP_psignd, (d), (s), (d))
 #define INSTR_CREATE_pmulhrsw(dc, d, s) \
     instr_create_1dst_2src((dc), OP_pmulhrsw, (d), (s), (d))
-#define INSTR_CREATE_pabsb(dc, d, s) instr_create_1dst_2src((dc), OP_pabsb, (d), (s), (d))
-#define INSTR_CREATE_pabsw(dc, d, s) instr_create_1dst_2src((dc), OP_pabsw, (d), (s), (d))
-#define INSTR_CREATE_pabsd(dc, d, s) instr_create_1dst_2src((dc), OP_pabsd, (d), (s), (d))
 #define INSTR_CREATE_pshufb(dc, d, s) \
     instr_create_1dst_2src((dc), OP_pshufb, (d), (s), (d))
 /* SSE4 */
