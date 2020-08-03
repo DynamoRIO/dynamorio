@@ -126,7 +126,6 @@ module_mapper_t::module_mapper_t(
     void *process_cb_user_data, void (*free_cb)(void *data), uint verbosity,
     const std::string &alt_module_dir)
     : modmap_(module_map)
-    , cached_user_parse_(parse_cb)
     , cached_user_free_(free_cb)
     , verbosity_(verbosity)
     , alt_module_dir_(alt_module_dir)

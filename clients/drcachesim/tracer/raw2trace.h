@@ -433,7 +433,6 @@ private:
     const char *modmap_ = nullptr;
     void *modhandle_ = nullptr;
     std::vector<module_t> modvec_;
-    const char *(*cached_user_parse_)(const char *src, OUT void **data);
     void (*const cached_user_free_)(void *data) = nullptr;
 
     // Custom module fields that use drmodtrack are global.
