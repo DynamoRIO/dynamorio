@@ -117,6 +117,7 @@ trace_metadata_writer_t::write_timestamp(byte *buffer, uint64 timestamp)
 
 const char *(*module_mapper_t::user_parse_)(const char *src, OUT void **data) = nullptr;
 void (*module_mapper_t::user_free_)(void *data) = nullptr;
+int (*module_mapper_t::user_print_)(void *data, char *dst, size_t max_len) = nullptr;
 bool module_mapper_t::has_custom_data_global_ = true;
 
 module_mapper_t::module_mapper_t(
@@ -134,6 +135,7 @@ module_mapper_t::module_mapper_t(
     // we make sure to reset it afterwards.
     DR_ASSERT(user_parse_ == nullptr);
     DR_ASSERT(user_free_ == nullptr);
+    DR_ASSERT(user_print_ == nullptr);
 
     user_parse_ = parse_cb;
     user_process_ = process_cb;
@@ -248,6 +250,15 @@ module_mapper_t::parse_custom_module_data(const char *src, OUT void **data)
         buf = (*user_parse_)(buf, &custom_data->user_data);
     *data = custom_data;
     return buf;
+}
+
+int
+module_mapper_t::print_custom_module_data(void *data, char *dst, size_t max_len)
+{
+    custom_module_data_t *custom_data = (custom_module_data_t *)data;
+    return offline_instru_t::print_module_data_fields(
+        dst, max_len, custom_data->contents, custom_data->contents_size, user_print_,
+        custom_data->user_data);
 }
 
 void
@@ -453,6 +464,22 @@ app_pc
 module_mapper_t::find_mapped_trace_address(app_pc trace_address)
 {
     return find_mapped_trace_bounds(trace_address, nullptr, nullptr);
+}
+
+drcovlib_status_t
+module_mapper_t::write_module_data(char *buf, size_t buf_size,
+                                   int (*print_cb)(void *data, char *dst, size_t max_len),
+                                   OUT size_t *wrote)
+{
+    user_print_ = print_cb;
+    drcovlib_status_t res =
+        drmodtrack_add_custom_data(nullptr, print_custom_module_data,
+                                   parse_custom_module_data, free_custom_module_data);
+    if (res == DRCOVLIB_SUCCESS) {
+        res = drmodtrack_offline_write(modhandle_, buf, buf_size, wrote);
+    }
+    user_print_ = nullptr;
+    return res;
 }
 
 /***************************************************************************
