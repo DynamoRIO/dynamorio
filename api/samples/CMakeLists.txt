@@ -159,8 +159,11 @@ function (add_sample_client name source_file_list extension_list show_results)
 
   # Some samples actually have more tests than just simple sanity tests.
   # The show_results is a passed flag that indicates that we should override
-  # SHOW_RESULTS_DEFAULT (if is turned off) for this sample.
-  if (NOT SHOW_RESULTS_DEFAULT AND show_results)
+  # SHOW_RESULTS and always print results. Otherwise, if not result is output,
+  # we cannot run the tests which go beyond simple sanity checks.
+  # Moreover, we do not short-circuit SHOW_RESULTS for Windows, because pop-ups
+  # will hang our automated tests.
+  if (BUILD_TESTS AND UNIX AND show_results)
     target_compile_definitions(${name} PRIVATE -DSHOW_RESULTS)
   endif ()
 
