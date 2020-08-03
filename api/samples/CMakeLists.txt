@@ -173,19 +173,23 @@ function (add_sample_client name source_file_list extension_list)
   set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
   set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
 
-  # Some samples actually have more tests than just simple sanity tests. These
-  # tests require that results are shown. In order to avoid short-circuiting
-  # the SHOW_RESULTS option, we build an additional sample (which shows results)
-  # for testing purposes.
-  if (BUILD_TESTS)
-    add_library(${name}_test SHARED ${source_file_list})
-    configure_DynamoRIO_client(${name}_test)
-    foreach (ext ${extension_list})
-      use_DynamoRIO_extension(${name}_test ${ext})
-    endforeach (ext)
-    target_compile_definitions(${name}_test PRIVATE -DSHOW_RESULTS)
+  # Some samples actually have more tests than just simple sanity # NON-PUBLIC
+  # tests. These tests require that results are shown. In order   # NON-PUBLIC
+  # to avoid short-circuiting the SHOW_RESULTS option, we build   # NON-PUBLIC
+  # an additional sample (which shows results) for testing        # NON-PUBLIC
+  # purposes.                                                     # NON-PUBLIC
+  # FIXME i#4392: Ultimately, when we remove all sanity checks    # NON-PUBLIC
+  # have proper tests for the samples, we will remove the         # NON-PUBLIC
+  # SHOW_RESULTS option.                                          # NON-PUBLIC
+  if (BUILD_TESTS)                                                # NON-PUBLIC
+    add_library(${name}_test SHARED ${source_file_list})          # NON-PUBLIC
+    configure_DynamoRIO_client(${name}_test)                      # NON-PUBLIC
+    foreach (ext ${extension_list})                               # NON-PUBLIC
+      use_DynamoRIO_extension(${name}_test ${ext})                # NON-PUBLIC
+    endforeach (ext)                                              # NON-PUBLIC
+    target_compile_definitions(${name}_test PRIVATE -DSHOW_RESULTS)    # NON-PUBLIC
     set(tgts ${tgts} ${name}_test PARENT_SCOPE)                        # NON-PUBLIC
-  endif ()
+  endif ()                                                             # NON-PUBLIC
 endfunction (add_sample_client)
 
 function (add_sample_standalone name source_file_list)
@@ -218,7 +222,8 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
-# FIXME i#4326: Add additional tests for samples that go beyond sanity checks.
+# FIXME i#4392: Add functioning tests for samples that go beyond  # NON-PUBLIC
+# sanity checks.                                                  # NON-PUBLIC
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
@@ -227,13 +232,7 @@ add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
 add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx")
 add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx")
-# FIXME i#4326: We currently only support additional test for the opcode_count sample on
-# X86 32-bit UNIX. We should port to other archs.
-if (X86 AND (NOT X64) AND UNIX)
-  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
-else ()
-  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
-endif (X86 AND (NOT X64) AND UNIX)
+add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption")
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(cbr         "cbr.c"           "drmgr")
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg")

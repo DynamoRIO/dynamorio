@@ -2999,6 +2999,8 @@ if (CLIENT_INTERFACE)
     if (NOT ANDROID) # FIXME i#2130: On Android, copy samples to device and test.
       get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
       foreach (sample ${sample_list})
+        # FIXME i#4392: Remove sanity checks and replace with functioning tests like
+        # that done for the opcode_count sample.
         torunonly_ci(sample.${sample} common.${control_flags}
           ${sample} common/${control_flags}.c "" "" "")
         if (sample STREQUAL "inscount")
