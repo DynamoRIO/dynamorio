@@ -179,8 +179,8 @@ function (add_sample_client name source_file_list extension_list)
   # an additional sample (which shows results) for testing        # NON-PUBLIC
   # purposes.                                                     # NON-PUBLIC
   # FIXME i#4372 i#4392: Ultimately, when we remove all sanity    # NON-PUBLIC
-  # checks have proper tests for the samples, we will remove the  # NON-PUBLIC
-  # SHOW_RESULTS option.                                          # NON-PUBLIC
+  # checks and have proper tests for the samples, we will         # NON-PUBLIC
+  # remove the SHOW_RESULTS option.                               # NON-PUBLIC
   if (BUILD_TESTS)                                                # NON-PUBLIC
     add_library(${name}_test SHARED ${source_file_list})          # NON-PUBLIC
     configure_DynamoRIO_client(${name}_test)                      # NON-PUBLIC
