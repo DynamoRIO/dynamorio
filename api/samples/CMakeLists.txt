@@ -178,8 +178,8 @@ function (add_sample_client name source_file_list extension_list)
   # to avoid short-circuiting the SHOW_RESULTS option, we build   # NON-PUBLIC
   # an additional sample (which shows results) for testing        # NON-PUBLIC
   # purposes.                                                     # NON-PUBLIC
-  # FIXME i#4392: Ultimately, when we remove all sanity checks    # NON-PUBLIC
-  # have proper tests for the samples, we will remove the         # NON-PUBLIC
+  # FIXME i#4372 i#4392: Ultimately, when we remove all sanity    # NON-PUBLIC
+  # checks have proper tests for the samples, we will remove the  # NON-PUBLIC
   # SHOW_RESULTS option.                                          # NON-PUBLIC
   if (BUILD_TESTS)                                                # NON-PUBLIC
     add_library(${name}_test SHARED ${source_file_list})          # NON-PUBLIC
@@ -222,7 +222,7 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
-# FIXME i#4392: Add functioning tests for samples that go beyond  # NON-PUBLIC
+# FIXME i#4372: Add functioning tests for samples that go beyond  # NON-PUBLIC
 # sanity checks.                                                  # NON-PUBLIC
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
