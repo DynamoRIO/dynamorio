@@ -214,6 +214,7 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
+# FIXME i#4326: Add additional tests for samples that go beyond sanity checks.
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx" OFF)
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx" OFF)
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx" OFF)
@@ -222,7 +223,13 @@ add_sample_client(empty       "empty.c"         "" OFF)
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx" OFF)
 add_sample_client(memval_simple   "memval_simple.c;utils.c"   "drmgr;drreg;drutil;drx" OFF)
 add_sample_client(instrace_simple "instrace_simple.c;utils.c" "drmgr;drreg;drx" OFF)
-add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption" ON)
+# FIXME i#4326: We currently only support additional test for the opcode_count sample on
+# X86 32-bit UNIX. We should port to other archs.
+if (X86 AND (NOT X64) AND UNIX)
+  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption" ON)
+else ()
+  add_sample_client(opcode_count    "opcode_count.cpp"    "drmgr;drreg;drx;droption" OFF)
+endif (X86 AND (NOT X64) AND UNIX)
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   add_sample_client(cbr         "cbr.c"           "drmgr" OFF)
   add_sample_client(countcalls  "countcalls.c"    "drmgr;drreg" OFF)
