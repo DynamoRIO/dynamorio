@@ -3028,7 +3028,7 @@ if (CLIENT_INTERFACE)
           # FIXME i#4372: The test is currently only supported on X86 32-bit.
           # The test program is implemented in pure asm (for UNIX).
           if (X86 AND (NOT X64) AND UNIX)
-            tobuild(sample.opcode_count-test samples/opcode_count-test.asm)
+            add_exe(sample.opcode_count-test samples/opcode_count-test.asm)
             set_target_properties(sample.opcode_count-test PROPERTIES LINKER_LANGUAGE C)
             append_link_flags(sample.opcode_count-test "-nostartfiles -nodefaultlibs -static")
 
