@@ -1066,7 +1066,7 @@ static inline bool
 decode_opnd_memx0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     *opnd = opnd_create_base_disp(decode_reg(extract_uint(enc, 0, 5), true, false),
-                                  DR_REG_NULL, 0, 0, OPSZ_0);
+                                  DR_REG_NULL, 0, 0, OPSZ_sys);
     return true;
 }
 
@@ -1075,8 +1075,10 @@ encode_opnd_memx0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 {
     uint xn;
     bool is_x;
+    /* Only a base address in X reg is valid */
     if (!opnd_is_base_disp(opnd) || !encode_reg(&xn, &is_x, opnd_get_base(opnd), false) ||
-        !is_x)
+        !is_x || opnd_get_size(opnd) != OPSZ_sys || opnd_get_scale(opnd) != 0 ||
+        opnd_get_disp(opnd) != 0 || opnd_get_index(opnd) != DR_REG_NULL)
         return false;
     *enc_out = xn;
     return true;
