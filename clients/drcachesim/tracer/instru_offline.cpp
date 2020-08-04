@@ -139,6 +139,31 @@ offline_instru_t::load_custom_module_data(module_data_t *module)
 }
 
 int
+offline_instru_t::print_module_data_fields(
+    char *dst, size_t max_len, const void *custom_data, size_t custom_size,
+    int (*user_print_cb)(void *data, char *dst, size_t max_len), void *user_cb_data)
+{
+    char *cur = dst;
+    int len = dr_snprintf(dst, max_len, "v#%d,%zu,", CUSTOM_MODULE_VERSION, custom_size);
+    if (len < 0)
+        return -1;
+    cur += len;
+    if (cur - dst + custom_size > max_len)
+        return -1;
+    if (custom_size > 0) {
+        memcpy(cur, custom_data, custom_size);
+        cur += custom_size;
+    }
+    if (user_print_cb != nullptr) {
+        int res = (*user_print_cb)(user_cb_data, cur, max_len - (cur - dst));
+        if (res == -1)
+            return -1;
+        cur += res;
+    }
+    return (int)(cur - dst);
+}
+
+int
 offline_instru_t::print_custom_module_data(void *data, char *dst, size_t max_len)
 {
     custom_module_data_t *custom = (custom_module_data_t *)data;
@@ -148,24 +173,8 @@ offline_instru_t::print_custom_module_data(void *data, char *dst, size_t max_len
     if (custom == nullptr) {
         return dr_snprintf(dst, max_len, "v#%d,0,", CUSTOM_MODULE_VERSION);
     }
-    char *cur = dst;
-    int len = dr_snprintf(dst, max_len, "v#%d,%zu,", CUSTOM_MODULE_VERSION, custom->size);
-    if (len < 0)
-        return -1;
-    cur += len;
-    if (cur - dst + custom->size > max_len)
-        return -1;
-    if (custom->size > 0) {
-        memcpy(cur, custom->base, custom->size);
-        cur += custom->size;
-    }
-    if (user_print_ != nullptr) {
-        int res = (*user_print_)(custom->user_data, cur, max_len - (cur - dst));
-        if (res == -1)
-            return -1;
-        cur += res;
-    }
-    return (int)(cur - dst);
+    return print_module_data_fields(dst, max_len, custom->base, custom->size, user_print_,
+                                    custom->user_data);
 }
 
 void

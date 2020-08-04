@@ -388,6 +388,18 @@ public:
      */
     ~module_mapper_t();
 
+    /**
+     * Writes out the module list to \p buf, whose capacity is \p buf_size.
+     * The written data includes any modifications made by the \p process_cb
+     * passed to create().  Any custom data returned by the \p parse_cb passed to
+     * create() is passed to \p print_cb here for serialization.  The \p print_cb
+     * must return the number of characters printed or -1 on error.
+     */
+    drcovlib_status_t
+    write_module_data(char *buf, size_t buf_size,
+                      int (*print_cb)(void *data, char *dst, size_t max_len),
+                      OUT size_t *wrote);
+
 private:
     module_mapper_t(const char *module_map,
                     const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
@@ -426,8 +438,11 @@ private:
     // Custom module fields that use drmodtrack are global.
     static const char *(*user_parse_)(const char *src, OUT void **data);
     static void (*user_free_)(void *data);
+    static int (*user_print_)(void *data, char *dst, size_t max_len);
     static const char *
     parse_custom_module_data(const char *src, OUT void **data);
+    static int
+    print_custom_module_data(void *data, char *dst, size_t max_len);
     static void
     free_custom_module_data(void *data);
     static bool has_custom_data_global_;

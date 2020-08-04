@@ -370,6 +370,11 @@ macro(add_win32_flags target)
     if (NOT cur MATCHES "-std=")
       append_property_string(TARGET ${target} COMPILE_FLAGS "-std=c++11")
     endif ()
+    if (DEBUG AND NOT cur MATCHES "-g")
+      # We can't use restore_nonclient_flags() for clients, so we manually re-add debug
+      # here.
+      append_property_string(TARGET ${target} COMPILE_FLAGS "-g")
+    endif ()
     if (APPLE)
       # Match the core/ flags.
       append_property_string(TARGET ${target} COMPILE_FLAGS "-mmacosx-version-min=10.9")
