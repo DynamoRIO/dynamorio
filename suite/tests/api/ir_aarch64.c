@@ -3974,28 +3974,28 @@ test_sys(void *dc)
      */
 
     /* DC ZVA, Xt => SYS #3, C7, C4, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(DR_DC_ZVA, OPSZ_2),
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_DC_ZVA, OPSZ_2),
         opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
 
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CVAC, Xt => SYS #3, C7, C10, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(DR_DC_CVAC, OPSZ_2),
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_DC_CVAC, OPSZ_2),
         opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
 
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CVAU, Xt => SYS #3, C7, C11, #1, Xt */
     instr = INSTR_CREATE_sys(
-        dc,
-        opnd_create_immed_int(DR_DC_CVAU, OPSZ_2),
+        dc, opnd_create_immed_int(DR_DC_CVAU, OPSZ_2),
         opnd_create_base_disp_aarch64(DR_REG_X29, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
     test_instr_encoding(dc, OP_sys, instr);
 
     /* DC CIVAC Xt => SYS #3, C7, C14, #1, Xt */
     instr = INSTR_CREATE_sys(
-        dc,
-        opnd_create_immed_int(DR_DC_CIVAC, OPSZ_2),
+        dc, opnd_create_immed_int(DR_DC_CIVAC, OPSZ_2),
         opnd_create_base_disp_aarch64(DR_REG_X30, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
     test_instr_encoding(dc, OP_sys, instr);
 
@@ -4007,7 +4007,8 @@ test_sys(void *dc)
      */
 
     /* IC IVAU, Xt => SYS #3, C7, C5, #1, Xt */
-    instr = INSTR_CREATE_sys(dc, opnd_create_immed_int(DR_IC_IVAU, OPSZ_2),
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_IC_IVAU, OPSZ_2),
         opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
 
     test_instr_encoding(dc, OP_sys, instr);
