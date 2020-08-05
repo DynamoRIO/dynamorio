@@ -62,6 +62,7 @@
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
 ---------------------------xxxxx  w0p1       # ... add 1
 ---------------------------xxxxx  x0         # X register (or XZR)
+---------------------------xxxxx  memx0      # X register used as memref for SYS
 ---------------------------xxxxx  x0p0       # even-numbered X register (or XZR)
 ---------------------------xxxxx  x0p1       # ... add 1
 ---------------------------xxxxx  b0         # B register
@@ -278,8 +279,7 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 11010101000000110011xxxx10011111  dsb    : imm4
 11010101000000110011xxxx10111111  dmb    : imm4
 11010101000000110011xxxx11011111  isb    : imm4
-1101010100001xxxxxxxxxxxxxxxxxxx  sys    : sysops x0
-1101010100101xxxxxxxxxxxxxxxxxxx  sys    x0 : sysops
+1101010100001xxxxxxxxxxxxxxxxxxx  sys    : sysops memx0
 110101010001xxxxxxxxxxxxxxxxxxxx  msr    msr
 # FIXME i#1569: Add: SYSL
 110101010011xxxxxxxxxxxxxxxxxxxx  mrs    x0 : sysreg

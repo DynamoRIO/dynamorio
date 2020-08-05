@@ -1304,16 +1304,19 @@ d5033f5f : clrex                          : clrex  $0x0f
 d5033f9f : dsb    sy                      : dsb    $0x0f
 d5033fbf : dmb    sy                      : dmb    $0x0f
 d5033fdf : isb                            : isb    $0x0f
-d5080000 : sys    #0, C0, C0, #0, x0      : sys    $0x0000 %x0
-d50fffff : sys    #7, C15, C15, #7        : sys    $0x3fff %xzr
+d5080000 : sys    #0, C0, C0, #0, x0      : sys    $0x0000 (%x0)[1byte]
+d50fffff : sys    #7, C15, C15, #7        : sys    $0x3fff (%xzr)[1byte]
+d50b7420 : sys    #3,  C7,  C4, #1, x0    : sys    $0x1ba1 (%x0)[1byte]
+d50b7a21 : sys    #3,  C7,  C10, #1, x1   : sys    $0x1bd1 (%x1)[1byte]
+d50b7b21 : sys    #3,  C7,  C11, #1, x1   : sys    $0x1bd9 (%x1)[1byte]
+d50b7e21 : sys    #3,  C7,  C14, #1, x1   : sys    $0x1bf1 (%x1)[1byte]
+d50b7521 : sys    #3,  C7,  C5,  #1, x1   : sys    $0x1ba9 (%x1)[1byte]
 d5100000 : msr    s2_0_c0_c0_0, x0        : msr    %x0 $0x0000
 d51b4201 : msr    nzcv, x1                : msr    %x1 -> %nzcv
 d51b4402 : msr    fpcr, x2                : msr    %x2 -> %fpcr
 d51b4423 : msr    fpsr, x3                : msr    %x3 -> %fpsr
 d51bd044 : msr    tpidr_el0, x4           : msr    %x4 -> %tpidr_el0
 d51fffff : msr    s3_7_c15_c15_7, xzr     : msr    %xzr $0x7fff
-d5280000 : sysl   x0, #0, C0, C0, #0      : sys    $0x0000 -> %x0
-d52fffff : sysl   xzr, #7, C15, C15, #7   : sys    $0x3fff -> %xzr
 d5300000 : mrs    x0, s2_0_c0_c0_0        : mrs    $0x0000 -> %x0
 d53b4201 : mrs    x1, nzcv                : mrs    %nzcv -> %x1
 d53b4402 : mrs    x2, fpcr                : mrs    %fpcr -> %x2

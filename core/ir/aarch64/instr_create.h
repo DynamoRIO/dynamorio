@@ -114,6 +114,21 @@
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
+/** INSTR_CREATE_sys() operations are specified by the following immediates. */
+enum {
+    DR_DC_ZVA = 0x1ba1,    /**< Zero dcache by address. */
+    DR_DC_IVAC = 0x3b1,    /**< Invalidate dcache to Point of Coherency. */
+    DR_DC_ISW = 0x3b2,     /**< Invalidate dcache by set/way. */
+    DR_DC_CVAC = 0x1bd1,   /**< Clean dcache to point of coherency. */
+    DR_DC_CSW = 0x3d2,     /**< Clean dcache by set/way. */
+    DR_DC_CVAU = 0x1bd9,   /**< Clean dcache to point of unification. */
+    DR_DC_CIVAC = 0x1bf1,  /**< Clean and invalidate dcache to point of coherency. */
+    DR_DC_CISW = 0x3f2,    /**< Clean and invalidate dcache by set/way. */
+    DR_IC_IALLUIS = 0x388, /**< Invalidate icaches in ISD to point of unification. */
+    DR_IC_IALLU = 0x3a8,   /**< Invalidate icaches to point of unification. */
+    DR_IC_IVAU = 0x1ba9 /**< Invalidate icache by address to point of unification. */,
+};
+
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros
  */
@@ -594,6 +609,8 @@
 #define INSTR_CREATE_svc(dc, imm) instr_create_0dst_1src((dc), OP_svc, (imm))
 #define INSTR_CREATE_adr(dc, rt, imm) instr_create_1dst_1src(dc, OP_adr, rt, imm)
 #define INSTR_CREATE_adrp(dc, rt, imm) instr_create_1dst_1src(dc, OP_adrp, rt, imm)
+
+#define INSTR_CREATE_sys(dc, op, Rn) instr_create_0dst_2src(dc, OP_sys, op, Rn)
 
 /* FIXME i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \

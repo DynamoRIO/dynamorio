@@ -3960,6 +3960,60 @@ test_asimddiff(void *dc)
     test_instr_encoding(dc, OP_umull2, instr);
 }
 
+static void
+test_sys(void *dc)
+{
+    instr_t *instr;
+
+    /* SYS #<op1>, <Cn>, <Cm>, #<op2>{, <Xt>}
+     *
+     * Data cache operations are aliases of SYS:
+     * DC <dc_op>, <Xt>
+     * is equivalent to
+     * SYS #<op1>, C7, <Cm>, #<op2>, <Xt>
+     */
+
+    /* DC ZVA, Xt => SYS #3, C7, C4, #1, Xt */
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_DC_ZVA, OPSZ_2),
+        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
+
+    test_instr_encoding(dc, OP_sys, instr);
+
+    /* DC CVAC, Xt => SYS #3, C7, C10, #1, Xt */
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_DC_CVAC, OPSZ_2),
+        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
+
+    test_instr_encoding(dc, OP_sys, instr);
+
+    /* DC CVAU, Xt => SYS #3, C7, C11, #1, Xt */
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_DC_CVAU, OPSZ_2),
+        opnd_create_base_disp_aarch64(DR_REG_X29, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
+    test_instr_encoding(dc, OP_sys, instr);
+
+    /* DC CIVAC Xt => SYS #3, C7, C14, #1, Xt */
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_DC_CIVAC, OPSZ_2),
+        opnd_create_base_disp_aarch64(DR_REG_X30, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
+    test_instr_encoding(dc, OP_sys, instr);
+
+    /*
+     * Similarly, instruction cache operations are also aliases of SYS:
+     * IC <ic_op>{, <Xt>}
+     * is equivalent to
+     * SYS #<op1>, C7, <Cm>, #<op2>{, <Xt>}
+     */
+
+    /* IC IVAU, Xt => SYS #3, C7, C5, #1, Xt */
+    instr = INSTR_CREATE_sys(
+        dc, opnd_create_immed_int(DR_IC_IVAU, OPSZ_2),
+        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
+
+    test_instr_encoding(dc, OP_sys, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4010,6 +4064,9 @@ main(int argc, char *argv[])
 
     test_asimddiff(dcontext);
     print("test_asimddiff complete\n");
+
+    test_sys(dcontext);
+    print("test_sys complete\n");
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER

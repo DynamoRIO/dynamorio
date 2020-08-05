@@ -770,4 +770,10 @@ umull2 %q6 %q3 $0x00 -> %q6
 umull2 %q6 %q3 $0x01 -> %q6
 umull2 %q6 %q3 $0x02 -> %q6
 test_asimddiff complete
+sys    $0x1ba1 (%x0)[1byte]
+sys    $0x1bd1 (%x1)[1byte]
+sys    $0x1bd9 (%x29)[1byte]
+sys    $0x1bf1 (%x30)[1byte]
+sys    $0x1ba9 (%x1)[1byte]
+test_sys complete
 All tests complete
