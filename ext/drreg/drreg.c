@@ -106,7 +106,7 @@
 #define REG_UNKNOWN ((void *)(ptr_uint_t)2) /* only used outside drmgr insert phase */
 
 #ifdef SIMD_SUPPORTED
-/* Liveness states for SIMD (not for mmx).
+/* Liveness states for SIMD vector registers (not for mmx).
  * Note that value order, i.e., SIMD_ZMM_DEAD > SIMD_YMM_DEAD > SIMD_XMM_DEAD,
  * is important as drreg relies on it to reason over states.
  */
@@ -317,9 +317,7 @@ load_indirect_block(void *drcontext, per_thread_t *pt, uint slot, instrlist_t *i
     /* Simply load the pointer of the block to the passed register. */
     dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg, slot, scratch_block_reg);
 }
-#endif
 
-#ifdef SIMD_SUPPORTED
 /* Up to caller to update pt->simd_reg, including .ever_spilled.
  * This routine updates pt->simd_slot_use.
  *
@@ -338,7 +336,7 @@ spill_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
            "internal tracking error");
     drreg_status_t res = drreg_reserve_reg_internal(
         drcontext, DRREG_GPR_SPILL_CLASS, ilist, where, NULL, false, &scratch_block_reg);
-    /* May fail if drreg runs out of regs to use as a temporary register */
+    /* May fail if drreg runs out of regs to use as a temporary register. */
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to reserve temporary register");
     ASSERT(scratch_block_reg != DR_REG_NULL, "invalid register");
@@ -393,7 +391,8 @@ restore_reg_directly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
 
 #ifdef SIMD_SUPPORTED
 /* Up to caller to update pt->simd_reg. This routine updates pt->simd_slot_use if
- * release==true. */
+ * release==true.
+ */
 static void
 restore_reg_indirectly(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                        instrlist_t *ilist, instr_t *where, bool release)
@@ -525,7 +524,7 @@ determine_simd_liveness_state(void *drcontext, instr_t *inst, reg_id_t reg, void
      * If both ZMM0 and YMM0 are read and therefore live, then
      * SIMD_ZMM_LIVE must be assigned and not SIMD_YMM_LIVE.
      *
-     * The inverse also needs to be maintained. If both
+     * The same applies for dead registers. If both
      * ZMM0 and YMM0 are dead, then SIMD_ZMM_DEAD must be
      * assigned and not SIMD_YMM_DEAD.
      *
@@ -665,7 +664,7 @@ drreg_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
             drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, index, value);
         }
 #ifdef SIMD_SUPPORTED
-        /* SIMD liveness */
+        /* SIMD liveness. */
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ":", __FUNCTION__, index,
             get_where_app_pc(inst));
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
@@ -1285,8 +1284,8 @@ drreg_set_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed)
     }
 #ifdef SIMD_SUPPORTED
     else if (reg_is_vector_simd(reg)) {
-        /* We assume the SIMD range is contiguous and no further out of range checks
-         * are performed as it is done above for gprs.
+        /* We assume that the SIMD range is contiguous and no further out of range checks
+         * are performed as done above for GPRs.
          */
         if (vec == NULL)
             return DRREG_ERROR_INVALID_PARAMETER;
@@ -1452,7 +1451,7 @@ get_simd_dead_state(const drreg_spill_class_t spill_class)
 static drreg_spill_class_t
 get_spill_class(const reg_id_t reg)
 {
-    /* TODO i#3844: apart from GPRs and XMMs, other regs are currently unsupported. */
+    /* TODO i#3844: Apart from GPRs and XMMs, other regs are currently unsupported. */
     if (reg_is_gpr(reg)) {
         return DRREG_GPR_SPILL_CLASS;
     } else if (reg_is_strictly_xmm(reg)) {
@@ -2607,11 +2606,11 @@ is_our_spill_or_restore(void *drcontext, instr_t *instr, instr_t *next_instr,
     }
 #ifdef SIMD_SUPPORTED
     else if (tls && offs == tls_simd_offs &&
-             !(is_spilled) /* Can't be a spill bc loading block */) {
+             !(is_spilled) /* Can't be a spill bc loading block. */) {
         /* In order to detect indirect spills, the loading of the pointer
-         * to the indrect block must be done exactly prior. We assume that
-         * nobody else can interfere with our indirect load sequence for
-         * simd registers.
+         * to the indirect block must be done exactly prior to the spill.
+         * We assume that nobody else can interfere with our indirect load
+         * sequence for SIMD registers.
          */
         ASSERT(next_instr != NULL, "next_instr cannot be NULL");
         /* FIXME i#3844: Might need to change this assert when
