@@ -226,6 +226,26 @@
 38400400 : ldrb   w0, [x0],#0             : ldrb   (%x0)[1byte] %x0 $0x0000000000000000 -> %w0 %x0
 38400c00 : ldrb   w0, [x0,#0]!            : ldrb   (%x0)[1byte] %x0 $0x0000000000000000 -> %w0 %x0
 38481041 : ldurb  w1, [x2,#129]           : ldurb  +0x81(%x2)[1byte] -> %w1
+3c400000 : ldur   b0, [x0]                : ldur   (%x0)[1byte] -> %b0
+3c4ff021 : ldur   b1, [x1, #255]          : ldur   +0xff(%x1)[1byte] -> %b1
+7c400042 : ldur   h2, [x2]                : ldur   (%x2)[2byte] -> %h2
+7c500063 : ldur   h3, [x3, #-256]         : ldur   -0x0100(%x3)[2byte] -> %h3
+bc400084 : ldur   s4, [x4]                : ldur   (%x4)[4byte] -> %s4
+bc5000a5 : ldur   s5, [x5, #-256]         : ldur   -0x0100(%x5)[4byte] -> %s5
+fc4000c6 : ldur   d6, [x6]                : ldur   (%x6)[8byte] -> %d6
+fc5000e7 : ldur   d7, [x7, #-256]         : ldur   -0x0100(%x7)[8byte] -> %d7
+3cc00108 : ldur   q8, [x8]                : ldur   (%x8)[16byte] -> %q8
+3cd00129 : ldur   q9, [x9, #-256]         : ldur   -0x0100(%x9)[16byte] -> %q9
+3c00014a : stur   b10, [x10]              : stur   %b10 -> (%x10)[1byte]
+3c0ff16b : stur   b11, [x11, #255]        : stur   %b11 -> +0xff(%x11)[1byte]
+7c00018c : stur   h12, [x12]              : stur   %h12 -> (%x12)[2byte]
+7c0ff1ad : stur   h13, [x13, #255]        : stur   %h13 -> +0xff(%x13)[2byte]
+bc0001ce : stur   s14, [x14]              : stur   %s14 -> (%x14)[4byte]
+bc1001ef : stur   s15, [x15, #-256]       : stur   %s15 -> -0x0100(%x15)[4byte]
+fc000210 : stur   d16, [x16]              : stur   %d16 -> (%x16)[8byte]
+fc100231 : stur   d17, [x17, #-256]       : stur   %d17 -> -0x0100(%x17)[8byte]
+3c800252 : stur   q18, [x18]              : stur   %q18 -> (%x18)[16byte]
+3c900273 : stur   q19, [x19, #-256]       : stur   %q19 -> -0x0100(%x19)[16byte]
 38481441 : ldrb   w1, [x2],#129           : ldrb   (%x2)[1byte] %x2 $0x0000000000000081 -> %w1 %x2
 38481841 : ldtrb  w1, [x2,#129]           : ldtrb  +0x81(%x2)[1byte] -> %w1
 38481c41 : ldrb   w1, [x2,#129]!          : ldrb   +0x81(%x2)[1byte] %x2 $0x0000000000000081 -> %w1 %x2
@@ -416,10 +436,10 @@
 3c7ffbff : ldr    b31, [sp,xzr,sxtx #0]   : ldr    (%sp,%xzr,sxtx #0)[1byte] -> %b31
 3c800400 : str    q0, [x0],#0             : str    %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
 3c800c00 : str    q0, [x0,#0]!            : str    %q0 %x0 $0x0000000000000000 -> (%x0)[16byte] %x0
-3c881041 : stur   q1, [x2,#129]           : stur   %q1 -> +0x81(%x2)[1byte]
+3c881041 : stur   q1, [x2,#129]           : stur   %q1 -> +0x81(%x2)[16byte]
 3c881441 : str    q1, [x2],#129           : str    %q1 %x2 $0x0000000000000081 -> (%x2)[16byte] %x2
 3c881c41 : str    q1, [x2,#129]!          : str    %q1 %x2 $0x0000000000000081 -> +0x81(%x2)[16byte] %x2
-3c9ff3ff : stur   q31, [sp,#-1]           : stur   %q31 -> -0x01(%sp)[1byte]
+3c9ff3ff : stur   q31, [sp,#-1]           : stur   %q31 -> -0x01(%sp)[16byte]
 3c9ff7ff : str    q31, [sp],#-1           : str    %q31 %sp $0xffffffffffffffff -> (%sp)[16byte] %sp
 3c9fffff : str    q31, [sp,#-1]!          : str    %q31 %sp $0xffffffffffffffff -> -0x01(%sp)[16byte] %sp
 3ca34841 : str    q1, [x2,w3,uxtw]        : str    %b1 -> (%x2,%x3,uxtw)[16byte]
@@ -440,10 +460,10 @@
 3cbffbff : str    q31, [sp,xzr,sxtx #4]   : str    %b31 -> (%sp,%xzr,sxtx #4)[16byte]
 3cc00400 : ldr    q0, [x0],#0             : ldr    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %x0
 3cc00c00 : ldr    q0, [x0,#0]!            : ldr    (%x0)[16byte] %x0 $0x0000000000000000 -> %q0 %x0
-3cc81041 : ldur   q1, [x2,#129]           : ldur   +0x81(%x2)[1byte] -> %q1
+3cc81041 : ldur   q1, [x2,#129]           : ldur   +0x81(%x2)[16byte] -> %q1
 3cc81441 : ldr    q1, [x2],#129           : ldr    (%x2)[16byte] %x2 $0x0000000000000081 -> %q1 %x2
 3cc81c41 : ldr    q1, [x2,#129]!          : ldr    +0x81(%x2)[16byte] %x2 $0x0000000000000081 -> %q1 %x2
-3cdff3ff : ldur   q31, [sp,#-1]           : ldur   -0x01(%sp)[1byte] -> %q31
+3cdff3ff : ldur   q31, [sp,#-1]           : ldur   -0x01(%sp)[16byte] -> %q31
 3cdff7ff : ldr    q31, [sp],#-1           : ldr    (%sp)[16byte] %sp $0xffffffffffffffff -> %q31 %sp
 3cdfffff : ldr    q31, [sp,#-1]!          : ldr    -0x01(%sp)[16byte] %sp $0xffffffffffffffff -> %q31 %sp
 3ce34841 : ldr    q1, [x2,w3,uxtw]        : ldr    (%x2,%x3,uxtw)[16byte] -> %q1

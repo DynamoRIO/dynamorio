@@ -279,6 +279,137 @@ test_ldar(void *dc)
 }
 
 static void
+test_ldur_stur(void *dc)
+{
+    byte *pc;
+    instr_t *instr;
+
+    /* LDUR <Bt>, [<Xn|SP>{, #<simm>}] */
+
+    /* LDUR B0, X0 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_B0),
+                          opnd_create_base_disp(DR_REG_X0, DR_REG_NULL, 0, 0, OPSZ_1));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR B1, X1, 255 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_B1),
+                          opnd_create_base_disp(DR_REG_X1, DR_REG_NULL, 0, 255, OPSZ_1));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR H2, X2 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_H2),
+                          opnd_create_base_disp(DR_REG_X2, DR_REG_NULL, 0, 0, OPSZ_2));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR H3, X3, -256 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_H3),
+                          opnd_create_base_disp(DR_REG_X3, DR_REG_NULL, 0, -256, OPSZ_2));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR S4, X4 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_S4),
+                          opnd_create_base_disp(DR_REG_X4, DR_REG_NULL, 0, 0, OPSZ_4));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR S5, X5, -256 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_S5),
+                          opnd_create_base_disp(DR_REG_X5, DR_REG_NULL, 0, -256, OPSZ_4));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR D6, X6 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_D6),
+                          opnd_create_base_disp(DR_REG_X6, DR_REG_NULL, 0, 0, OPSZ_8));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR D7, X7, -256 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_D7),
+                          opnd_create_base_disp(DR_REG_X7, DR_REG_NULL, 0, -256, OPSZ_8));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR Q8, X8 */
+    instr =
+        INSTR_CREATE_ldur(dc, opnd_create_reg(DR_REG_Q8),
+                          opnd_create_base_disp(DR_REG_X8, DR_REG_NULL, 0, 0, OPSZ_16));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* LDUR Q9, X9, -256 */
+    instr = INSTR_CREATE_ldur(
+        dc, opnd_create_reg(DR_REG_Q9),
+        opnd_create_base_disp(DR_REG_X9, DR_REG_NULL, 0, -256, OPSZ_16));
+    test_instr_encoding(dc, OP_ldur, instr);
+
+    /* STUR <Bt>, [<Xn|SP>{, #<simm>}] */
+
+    /* STUR B10, X10 */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X10, DR_REG_NULL, 0, 0, OPSZ_1),
+        opnd_create_reg(DR_REG_B10));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR B11, X11, 0xFF */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X11, DR_REG_NULL, 0, 0xFF, OPSZ_1),
+        opnd_create_reg(DR_REG_B11));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR H12, X12 */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X12, DR_REG_NULL, 0, 0, OPSZ_2),
+        opnd_create_reg(DR_REG_H12));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR H13, X13, 0xFF */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X13, DR_REG_NULL, 0, 0xFF, OPSZ_2),
+        opnd_create_reg(DR_REG_H13));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR S14, X14 */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X14, DR_REG_NULL, 0, 0, OPSZ_4),
+        opnd_create_reg(DR_REG_S14));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR S15, X15, 0xFF */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X15, DR_REG_NULL, 0, 0xFF, OPSZ_4),
+        opnd_create_reg(DR_REG_S15));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR D16, X16 */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X16, DR_REG_NULL, 0, 0, OPSZ_8),
+        opnd_create_reg(DR_REG_D16));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR D17, X17, 0xFF */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X17, DR_REG_NULL, 0, 0xFF, OPSZ_8),
+        opnd_create_reg(DR_REG_D17));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR Q18, X18 */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X18, DR_REG_NULL, 0, 0, OPSZ_16),
+        opnd_create_reg(DR_REG_Q18));
+    test_instr_encoding(dc, OP_stur, instr);
+
+    /* STUR Q19, X19, 0xFF */
+    instr = INSTR_CREATE_stur(
+        dc, opnd_create_base_disp(DR_REG_X19, DR_REG_NULL, 0, 0xFF, OPSZ_16),
+        opnd_create_reg(DR_REG_Q19));
+    test_instr_encoding(dc, OP_stur, instr);
+}
+
+static void
 test_instrs_with_logic_imm(void *dc)
 {
     byte *pc;
@@ -4031,6 +4162,9 @@ main(int argc, char *argv[])
 
     test_ldar(dcontext);
     print("test_ldar complete\n");
+
+    test_ldur_stur(dcontext);
+    print("test_ldur_stur complete\n");
 
     test_instrs_with_logic_imm(dcontext);
     print("test_instrs_with_logic_imm complete\n");

@@ -41,6 +41,27 @@ ldar   (%x1)[8byte] -> %x0
 ldarb  (%x1)[1byte] -> %w0
 ldarh  (%x1)[2byte] -> %w0
 test_ldar complete
+ldur   (%x0)[1byte] -> %b0
+ldur   +0xff(%x1)[1byte] -> %b1
+ldur   (%x2)[2byte] -> %h2
+ldur   -0x0100(%x3)[2byte] -> %h3
+ldur   (%x4)[4byte] -> %s4
+ldur   -0x0100(%x5)[4byte] -> %s5
+ldur   (%x6)[8byte] -> %d6
+ldur   -0x0100(%x7)[8byte] -> %d7
+ldur   (%x8)[16byte] -> %q8
+ldur   -0x0100(%x9)[16byte] -> %q9
+stur   %b10 -> (%x10)[1byte]
+stur   %b11 -> +0xff(%x11)[1byte]
+stur   %h12 -> (%x12)[2byte]
+stur   %h13 -> +0xff(%x13)[2byte]
+stur   %s14 -> (%x14)[4byte]
+stur   %s15 -> +0xff(%x15)[4byte]
+stur   %d16 -> (%x16)[8byte]
+stur   %d17 -> +0xff(%x17)[8byte]
+stur   %q18 -> (%x18)[16byte]
+stur   %q19 -> +0xff(%x19)[16byte]
+test_ldur_stur complete
 and    %x9 $0x000000000000ffff -> %x10
 and    %w5 $0x00000000000000ff -> %w5
 ands   %x19 $0x0000000000ffffff -> %x23
