@@ -425,33 +425,38 @@ x0110111xxxxxxxxxxxxxxxxxxxxxxxx  tbnz   tbz
 
 ## Load/store register (unscaled immediate)
 
-00111000000xxxxxxxxx00xxxxxxxxxx  sturb  mem9 : w0  # STURB Wt,[Xn,#simm]
+# Base
+10111000000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : w0
+11111000000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : x0
+00111000000xxxxxxxxx00xxxxxxxxxx  sturb  mem9 : w0
+01111000000xxxxxxxxx00xxxxxxxxxx  sturh  mem9 : w0
+
+# SIMD
+00111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : b0
+01111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : h0
+10111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : s0
+11111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : d0
+00111100100xxxxxxxxx00xxxxxxxxxx  stur   mem9q : q0
+
+# Base
+10111000010xxxxxxxxx00xxxxxxxxxx  ldur   w0 : mem9
+11111000010xxxxxxxxx00xxxxxxxxxx  ldur   x0 : mem9
 00111000010xxxxxxxxx00xxxxxxxxxx  ldurb  w0 : mem9
+01111000010xxxxxxxxx00xxxxxxxxxx  ldurh  w0 : mem9
 00111000100xxxxxxxxx00xxxxxxxxxx  ldursb x0 : mem9
 00111000110xxxxxxxxx00xxxxxxxxxx  ldursb w0 : mem9
-00111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : b0
-00111100010xxxxxxxxx00xxxxxxxxxx  ldur   b0 : mem9
-00111100100xxxxxxxxx00xxxxxxxxxx  stur   mem9 : q0
-00111100110xxxxxxxxx00xxxxxxxxxx  ldur   q0 : mem9
-
-01111000000xxxxxxxxx00xxxxxxxxxx  sturh  mem9 : w0
-01111000010xxxxxxxxx00xxxxxxxxxx  ldurh  w0 : mem9
 01111000100xxxxxxxxx00xxxxxxxxxx  ldursh x0 : mem9
 01111000110xxxxxxxxx00xxxxxxxxxx  ldursh w0 : mem9
-01111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : h0
-01111100010xxxxxxxxx00xxxxxxxxxx  ldur   h0 : mem9
-
-10111000000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : w0
-10111000010xxxxxxxxx00xxxxxxxxxx  ldur   w0 : mem9
 10111000100xxxxxxxxx00xxxxxxxxxx  ldursw x0 : mem9
-10111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : s0
-10111100010xxxxxxxxx00xxxxxxxxxx  ldur   s0 : mem9
 
-11111000000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : x0
-11111000010xxxxxxxxx00xxxxxxxxxx  ldur   x0 : mem9
-11111000100xxxxxxxxx00xxxxxxxxxx  prfum  : prfop prf9  # PRFUM #imm5,[Xn,#simm]
-11111100000xxxxxxxxx00xxxxxxxxxx  stur   mem9 : d0
+# SIMD
+00111100010xxxxxxxxx00xxxxxxxxxx  ldur   b0 : mem9
+01111100010xxxxxxxxx00xxxxxxxxxx  ldur   h0 : mem9
+10111100010xxxxxxxxx00xxxxxxxxxx  ldur   s0 : mem9
 11111100010xxxxxxxxx00xxxxxxxxxx  ldur   d0 : mem9
+00111100110xxxxxxxxx00xxxxxxxxxx  ldur   q0 : mem9q
+
+11111000100xxxxxxxxx00xxxxxxxxxx  prfum  : prfop prf9  # PRFUM #imm5,[Xn,#simm]
 
 ## Load/store register (immediate post-indexed)
 
