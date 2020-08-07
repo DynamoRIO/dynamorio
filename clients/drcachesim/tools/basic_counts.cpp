@@ -216,7 +216,6 @@ basic_counts_t::print_results()
         std::cerr << std::setw(12) << keyvals.second->func_retval_markers
                   << " function return value markers\n";
         std::cerr << std::setw(12) << keyvals.second->other_markers << " other markers\n";
-
     }
     return true;
 }
