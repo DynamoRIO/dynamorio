@@ -423,6 +423,8 @@ offline_instru_t::insert_save_type_and_size(void *drcontext, instrlist_t *ilist,
         type = instru_t::instr_to_prefetch_type(app);
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
+    } else if (instr_is_flush(app)) {
+        type = instru_t::instr_to_flush_type(app);
     }
     offline_entry_t entry;
     entry.extended.type = OFFLINE_TYPE_EXTENDED;
