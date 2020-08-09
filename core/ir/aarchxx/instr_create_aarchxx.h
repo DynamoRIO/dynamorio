@@ -11,6 +11,11 @@
 /* DR_API EXPORT TOFILE dr_ir_macros_aarchxx.h */
 /* DR_API EXPORT BEGIN */
 
+/**
+ * @file dr_ir_macros_aarchxx.h
+ * @brief AArch64/ARM instruction creation convenience macros.
+ */
+
 /** Immediate values for INSTR_CREATE_dmb(). */
 enum {
     DR_DMB_OSHLD = 1, /**< DMB Outer Shareable - Loads. */
