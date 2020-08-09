@@ -2369,6 +2369,7 @@ d_r_heap_exit()
         u = next_u;
     }
     heapmgt->heap.dead = NULL;
+    heapmgt->global_heap_writable = false; /* This is relied on in global_heap_alloc. */
     release_recursive_lock(&heap_unit_lock);
     dynamo_vm_areas_unlock();
 
@@ -4780,7 +4781,9 @@ heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t whi
      * drdecode but that also have to work with full DR (i#2499).
      */
     if (heapmgt == &temp_heapmgt &&
-        /* We prevent recrusion by checking for a field that heap_init writes. */
+        /* We prevent recursion by checking for a field that d_r_heap_init() sets and
+         * d_r_heap_exit() clears.
+         */
         !heapmgt->global_heap_writable) {
         /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();

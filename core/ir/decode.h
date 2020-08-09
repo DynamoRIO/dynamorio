@@ -382,6 +382,9 @@ enum {
 #define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
 #define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
 #define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
+#ifdef AARCH64
+#    define OPSZ_sys OPSZ_1 /**< Operand size for sys instruction memory reference. */
+#endif
 /* DR_API EXPORT END */
 
 enum {

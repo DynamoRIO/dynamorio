@@ -172,6 +172,24 @@ function (add_sample_client name source_file_list extension_list)
     "${sample_list};${name}")                                     # NON-PUBLIC
   set(srcs ${srcs} ${source_file_list} PARENT_SCOPE)              # NON-PUBLIC
   set(tgts ${tgts} ${name} PARENT_SCOPE)                          # NON-PUBLIC
+
+  # Some samples actually have more tests than just simple sanity # NON-PUBLIC
+  # tests. These tests require that results are shown. In order   # NON-PUBLIC
+  # to avoid short-circuiting the SHOW_RESULTS option, we build   # NON-PUBLIC
+  # an additional sample (which shows results) for testing        # NON-PUBLIC
+  # purposes.                                                     # NON-PUBLIC
+  # FIXME i#4372 i#4392: Ultimately, when we remove all sanity    # NON-PUBLIC
+  # checks and have proper tests for the samples, we will         # NON-PUBLIC
+  # remove the SHOW_RESULTS option.                               # NON-PUBLIC
+  if (BUILD_TESTS)                                                # NON-PUBLIC
+    add_library(${name}_test SHARED ${source_file_list})          # NON-PUBLIC
+    configure_DynamoRIO_client(${name}_test)                      # NON-PUBLIC
+    foreach (ext ${extension_list})                               # NON-PUBLIC
+      use_DynamoRIO_extension(${name}_test ${ext})                # NON-PUBLIC
+    endforeach (ext)                                              # NON-PUBLIC
+    target_compile_definitions(${name}_test PRIVATE -DSHOW_RESULTS)    # NON-PUBLIC
+    set(tgts ${tgts} ${name}_test PARENT_SCOPE)                        # NON-PUBLIC
+  endif ()                                                             # NON-PUBLIC
 endfunction (add_sample_client)
 
 function (add_sample_standalone name source_file_list)
@@ -204,6 +222,8 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
+# FIXME i#4372: Add functioning tests for samples that go beyond  # NON-PUBLIC
+# sanity checks.                                                  # NON-PUBLIC
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
