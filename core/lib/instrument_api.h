@@ -1705,7 +1705,8 @@ dr_standalone_exit(void);
  */
 #    ifdef DEBUG
 #        define DR_DEBUG_ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
-#    else
+#    endif
+#    ifndef DEBUG
 #        define DR_DEBUG_ASSERT(x, msg)
 #    endif
 
