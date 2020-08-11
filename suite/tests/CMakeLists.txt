@@ -3781,6 +3781,9 @@ if (UNIX)
         else ()
           set(config_type "")
         endif ()
+        if (DR_NDEBUG OR NOT DEBUG)
+          set(${config_type} "${config_type} -DDR_NDEBUG=ON")
+        endif (DR_NDEBUG OR NOT DEBUG)
         add_test(linux.execve32 ${CMAKE_CTEST_COMMAND} -V
           --build-and-test ${PROJECT_SOURCE_DIR} ${32dir}
           --build-generator ${CMAKE_GENERATOR}
