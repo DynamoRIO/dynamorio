@@ -31,7 +31,7 @@
  */
 
 /* Tests the drmgr extension */
-
+#define DR_NDEBUG
 #include "dr_api.h"
 #include "drmgr.h"
 #include "client_tools.h"
@@ -344,13 +344,10 @@ dr_init(client_id_t id)
     ok = drmgr_register_kernel_xfer_event_ex(event_kernel_xfer, &priority);
     CHECK(ok, "drmgr_register_kernel_xfer_event_ex failed");
 
-    /* A quick check to ensure DR_DEBUG_ASSERT works on extensions. */
-#ifdef DEBUG
-    DR_DEBUG_ASSERT(true "should not fail");
-#else
-    /* Should not trigger failed assertion. */
-    DR_DEBUG_ASSERT(false, "should not fail");
-#endif
+    /* A quick check to ensure DR_DEBUG_ASSERT works for extension.
+     * Should not trigger failed assertion.
+     */
+    DR_DEBUG_ASSERT(false, "should not execute");
 }
 
 static void

@@ -1701,12 +1701,12 @@ dr_standalone_exit(void);
 #    define DR_ASSERT(x) DR_ASSERT_MSG(x, "")
 
 /**
- * The assertion is only set if DEBUG is defined.
+ * The assertion is only set if DR_NDEBUG is defined.
  */
-#    ifdef DEBUG
+#    ifndef DR_NDEBUG
 #        define DR_DEBUG_ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #    endif
-#    ifndef DEBUG
+#    ifdef DR_NDEBUG
 #        define DR_DEBUG_ASSERT(x, msg)
 #    endif
 
