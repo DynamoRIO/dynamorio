@@ -343,6 +343,14 @@ dr_init(client_id_t id)
     CHECK(ok, "drmgr_unregister_kernel_xfer_event failed");
     ok = drmgr_register_kernel_xfer_event_ex(event_kernel_xfer, &priority);
     CHECK(ok, "drmgr_register_kernel_xfer_event_ex failed");
+
+    /* A quick check to ensure DR_DEBUG_ASSERT works on extensions. */
+#ifdef DEBUG
+    DR_DEBUG_ASSERT(true "should not fail");
+#else
+    /* Should not trigger failed assertion. */
+    DR_DEBUG_ASSERT(false, "should not fail");
+#endif
 }
 
 static void
