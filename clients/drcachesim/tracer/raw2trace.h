@@ -1275,6 +1275,7 @@ private:
                 buf->size = 1;
             } else if (instr->is_flush()) {
                 buf->type = instr->flush_type();
+                // i#4398: Handle flush sizes larger than ushort.
                 buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(memref.opnd));
             } else {
                 if (write)

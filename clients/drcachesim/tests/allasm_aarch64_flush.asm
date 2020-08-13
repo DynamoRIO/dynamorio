@@ -45,12 +45,12 @@ _start:
         adr      x0, helloworld
         adr      x1, .
 
-        // data cache flush operations.
+        // Data cache flush operations.
         dc       civac, x0
         dc       cvac, x0
         dc       cvau, x0
 
-        // instruction cache flush operations.
+        // Instruction cache flush operations.
         ic       ivau, x1
 
         // Exit.
