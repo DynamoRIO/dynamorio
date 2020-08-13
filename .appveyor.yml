@@ -75,8 +75,8 @@ install:
   ##################################################
   # Install packages for docs.
   # i#4000: choco fails to download doxygen.portable so we install ourselves:
-  - appveyor DownloadFile http://doxygen.nl/files/doxygen-1.8.17.windows.x64.bin.zip
-  - 7z x doxygen-1.8.17.windows.x64.bin.zip -oc:\projects\install\doxygen > nul
+  - appveyor DownloadFile http://doxygen.nl/files/doxygen-1.8.19.windows.x64.bin.zip
+  - 7z x doxygen-1.8.19.windows.x64.bin.zip -oc:\projects\install\doxygen > nul
   - set PATH=c:\projects\install\doxygen;%PATH%
 
   ##################################################
