@@ -40,7 +40,6 @@ if (APPLE)
   # FIXME i#1815: get all the tests working.
   set(extra_ctest_args INCLUDE_LABEL OSX)
 endif ()
-set(extra_ctest_args INCLUDE_LABEL ISSUE4403)
 include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 
 # extra args (note that runsuite_common_pre.cmake has already walked
@@ -295,12 +294,12 @@ endif ()
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
   # For cross-arch execve test we need to "make install"
-#  testbuild_ex("debug-internal-32" OFF "
-#    DEBUG:BOOL=ON
-#    INTERNAL:BOOL=ON
-#    ${build_tests}
-#    ${install_path_cache}
-#    " OFF ON "${install_build_args}")
+  testbuild_ex("debug-internal-32" OFF "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    ${build_tests}
+    ${install_path_cache}
+    " OFF ON "${install_build_args}")
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()

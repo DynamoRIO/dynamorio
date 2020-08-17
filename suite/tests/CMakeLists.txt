@@ -3471,7 +3471,6 @@ if (CLIENT_INTERFACE)
         set(tool.drcacheoff.burst_traceopts_nodr ON)
         set(tool.drcacheoff.burst_traceopts_nopost ON)
         torunonly_drcacheoff(burst_traceopts tool.drcacheoff.burst_traceopts "" "" "")
-        set_tests_properties(tool.drcacheoff.burst_traceopts PROPERTIES LABELS ISSUE4403)
 
         if (UNIX)
           # FIXME i#2040: this hits static client issues on Windows
