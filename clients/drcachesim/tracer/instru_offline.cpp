@@ -738,36 +738,37 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
             continue;
         }
         // Use instr_{reads,writes}_memory() to rule out LEA and NOP.
-        if (!instr_reads_memory(instr) && !instr_writes_memory(instr))
-            continue;
-        int mem_count = 0;
-        for (int i = 0; i < instr_num_srcs(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                opnd_check_elidable(drcontext, ilist, instr, instr_get_src(instr, i), i,
-                                    mem_count, false, version, saw_base);
-                ++mem_count;
+        if (instr_reads_memory(instr) || instr_writes_memory(instr)) {
+            int mem_count = 0;
+            for (int i = 0; i < instr_num_srcs(instr); i++) {
+                if (opnd_is_memory_reference(instr_get_src(instr, i))) {
+                    opnd_check_elidable(drcontext, ilist, instr, instr_get_src(instr, i),
+                                        i, mem_count, false, version, saw_base);
+                    ++mem_count;
+                }
+            }
+            // Rule out sharing with any dest if the base is written to.  The ISA
+            // does not specify the ordering of multiple dests.
+            auto reg_it = saw_base.begin();
+            while (reg_it != saw_base.end()) {
+                if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS))
+                    reg_it = saw_base.erase(reg_it);
+                else
+                    ++reg_it;
+            }
+            mem_count = 0;
+            for (int i = 0; i < instr_num_dsts(instr); i++) {
+                if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
+                    opnd_check_elidable(drcontext, ilist, instr, instr_get_dst(instr, i),
+                                        i, mem_count, true, version, saw_base);
+                    ++mem_count;
+                }
             }
         }
-        auto reg_it = saw_base.begin();
-        while (reg_it != saw_base.end()) {
-            if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS))
-                reg_it = saw_base.erase(reg_it);
-            else
-                ++reg_it;
-        }
-        mem_count = 0;
-        for (int i = 0; i < instr_num_dsts(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                opnd_check_elidable(drcontext, ilist, instr, instr_get_dst(instr, i), i,
-                                    mem_count, true, version, saw_base);
-                ++mem_count;
-            }
-        }
-        // Rule out sharing with prior *or* subsequent instrs if the base is written
-        // to.  The ISA does not specify the ordering of multiple dests.
+        // Rule out sharing with subsequent instrs if the base is written to.
         // TODO(i#2001): Add special support for eliding the xsp base of push+pop
         // instructions.
-        reg_it = saw_base.begin();
+        auto reg_it = saw_base.begin();
         while (reg_it != saw_base.end()) {
             if (instr_writes_to_reg(instr, *reg_it, DR_QUERY_INCLUDE_COND_DSTS))
                 reg_it = saw_base.erase(reg_it);

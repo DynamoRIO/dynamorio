@@ -63,7 +63,8 @@ compare_memref(void *dcontext, int64 entry_count, const memref_t &memref1,
                const memref_t &memref2)
 {
     if (memref1.instr.type != memref2.instr.type) {
-        return "Trace types do not match";
+        return "Trace types do not match: " + std::to_string(memref1.instr.type) +
+            " vs " + std::to_string(memref2.instr.type);
     }
     // We check the details of fields which trace optimizations affect: the core
     // instruction and data fetch entries. The current optimizations have no impact
@@ -118,10 +119,34 @@ my_setenv(const char *var, const char *value)
 }
 
 static void
+test_arrays()
+{
+    // We need repeatable addresses, so no heap allocation.
+    constexpr int size = 16;
+    static int array[size];
+    // The current elision only operates on base-reg-only memrefs.
+    // If we use "array[i]" the compiler generates a base+index memref,
+    // so we use a pointer de-ref instead and only add immediates to it.
+    // Even so it is not easy to generate the elision cases from higher-level
+    // code for non-frame-pointer registers for unoptimized builds (our primary
+    // test suite builds).  The code below does trigger i#4403 on my machine
+    // and contains further patterns which hopefully gives more confidence to
+    // our optimizations.
+    register int *ptr = array + 1;
+    for (int i = 1; i < size - 1; ++i) {
+        *ptr += *(ptr - 1) + *(ptr + 1);
+        ptr++;
+        *ptr += 4;
+    }
+    assert(ptr - array <= size);
+}
+
+static void
 do_some_work()
 {
     test_disp_elision();
     test_base_elision();
+    test_arrays();
 }
 
 static std::string
@@ -207,6 +232,14 @@ main(int argc, const char *argv[])
     for (int64 entry_count = 0;
          iter_opt != analyzer_opt.end() && iter_noopt != analyzer_noopt.end();
          ++iter_opt, ++iter_noopt, ++entry_count) {
+        if ((*iter_opt).marker.type != (*iter_noopt).marker.type) {
+            // Allow a header from a trace buffer filling up at a different
+            // point in optimized vs unoptimized.
+            while ((*iter_opt).marker.type == TRACE_TYPE_MARKER)
+                ++iter_opt;
+            while ((*iter_noopt).marker.type == TRACE_TYPE_MARKER)
+                ++iter_noopt;
+        }
         std::string error =
             compare_memref(dr_context, entry_count, *iter_opt, *iter_noopt);
         if (!error.empty()) {
@@ -300,7 +333,11 @@ newblock:
         push     REG_XAX
         mov      REG_XAX, REG_XSP
         mov      REG_XDX, PTRSZ [REG_XAX + 8]
+        // Modify via load.
         mov      REG_XAX, PTRSZ [REG_XAX]
+        mov      REG_XDX, PTRSZ [REG_XAX + 16]
+        // Modify via non-memref.
+        add      REG_XAX, 8
         mov      REG_XDX, PTRSZ [REG_XAX + 16]
         pop      REG_XAX
         ret
@@ -318,7 +355,12 @@ mysym:
         mov      r0, sp
         str      r0, [sp, #-8]
         ldr      r1, [r0, #16]
+        // Modify via load.
         ldr      r0, [sp, #-8]
+        ldr      r1, [r0, #32]
+        ldr      r1, [r0, #16]
+        // Modify via non-memref.
+        add      r0, #8
         ldr      r1, [r0, #32]
 # elif defined(AARCH64)
         // Test pc-relative
@@ -328,7 +370,12 @@ mysym:
         mov      x0, sp
         str      x0, [sp, #-8]
         ldr      x1, [x0, #16]
+        // Modify via load.
         ldr      x0, [sp, #-8]
+        ldr      x1, [x0, #32]
+        ldr      x1, [x0, #16]
+        // Modify via non-memref.
+        add      x0, #8
         ldr      x1, [x0, #32]
         // There are no conditional/predicate loads/stores.
         ret
