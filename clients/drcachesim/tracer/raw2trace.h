@@ -1276,7 +1276,8 @@ private:
             } else if (instr->is_flush()) {
                 buf->type = instr->flush_type();
                 // i#4398: Handle flush sizes larger than ushort.
-                buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(memref.opnd));
+                // i#4406: Handle flush instrs with sizes other than cache line.
+                buf->size = (ushort)proc_get_cache_line_size();
             } else {
                 if (write)
                     buf->type = TRACE_TYPE_WRITE;
