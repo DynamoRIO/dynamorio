@@ -515,7 +515,7 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests)
 
-  if (AARCH64)
+  if (DR_HOST_AARCH64)
     add_executable(tool.drcacheoff.burst_flush_aarch64 tests/burst_flush_aarch64.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_flush_aarch64)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_flush_aarch64 drmemtrace_static)
