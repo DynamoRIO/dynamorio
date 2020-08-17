@@ -305,6 +305,4 @@ if (!$should_print) {
     $exit_code++;
 }
 
-sleep 3600;
-
 exit $exit_code;
