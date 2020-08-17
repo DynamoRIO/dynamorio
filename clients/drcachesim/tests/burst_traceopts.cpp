@@ -215,7 +215,7 @@ reg_id_set_unit_tests()
     reg_id_set_t set;
     assert(set.begin() == set.end());
     // Test non-GPR.
-    auto insert_res = set.insert(DR_REG_XMM0);
+    auto insert_res = set.insert(IF_X86_ELSE(DR_REG_XMM0, DR_REG_Q0));
     assert(insert_res.first == set.end());
     assert(!insert_res.second);
     assert(set.begin() == set.end());
