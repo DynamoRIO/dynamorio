@@ -357,7 +357,7 @@ macro(add_win32_flags target)
     if (DEBUG)
       get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
       string(REPLACE "/MT " "" cur "${cur}") # Avoid override warning.
-      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd")
+      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd /Zi")
       append_property_string(TARGET ${target} LINK_FLAGS "/nodefaultlib:libcmt")
     else ()
       append_property_string(TARGET ${target} COMPILE_FLAGS "/EHsc /MT")
