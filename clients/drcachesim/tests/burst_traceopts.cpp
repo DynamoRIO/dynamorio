@@ -134,12 +134,11 @@ test_arrays()
     // our optimizations.
     register int *ptr = array + 1;
     for (int i = 1; i < size - 1; ++i) {
-        for (int j = 1; j < size - 1; ++j) {
-            *ptr += *(ptr - 1) + *(ptr + 1);
-            ptr++;
-            *ptr += 4;
-        }
+        *ptr += *(ptr - 1) + *(ptr + 1);
+        ptr++;
+        *ptr += 4;
     }
+    assert(ptr - array <= size);
 }
 
 static void
