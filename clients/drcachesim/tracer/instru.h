@@ -141,8 +141,10 @@ public:
         if (id < DR_REG_START_GPR || id > DR_REG_STOP_GPR)
             return std::make_pair(end(), false);
         index_ = id - DR_REG_START_GPR;
-        present_[index_] = true;
-        return std::make_pair(reg_id_set_iterator_t(this, index_), true);
+        bool exists = present_[index_];
+        if (!exists)
+            present_[index_] = true;
+        return std::make_pair(reg_id_set_iterator_t(this, index_), !exists);
     }
 
     reg_id_set_iterator_t

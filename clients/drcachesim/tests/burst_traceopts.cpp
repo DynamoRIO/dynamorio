@@ -249,6 +249,14 @@ reg_id_set_unit_tests()
     assert(set.find(DR_REG_START_GPR + 1) == set.end());
     assert(set.find(DR_REG_START_GPR + 4) != set.end());
     assert(*set.find(DR_REG_START_GPR + 4) == DR_REG_START_GPR + 4);
+    // Test adding duplicates.
+    insert_res = set.insert(DR_REG_START_GPR + 3);
+    assert(insert_res.second);
+    insert_res = set.insert(DR_REG_START_GPR + 3);
+    assert(!insert_res.second);
+    iter = set.erase(insert_res.first);
+    find_res = set.find(DR_REG_START_GPR + 3);
+    assert(find_res == set.end());
 }
 
 int
