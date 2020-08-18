@@ -37,7 +37,8 @@
 #define _INSTRU_H_ 1
 
 #include <stdint.h>
-#include <unordered_set>
+#include <string.h>
+#include "dr_api.h"
 #include "drvector.h"
 #include "trace_entry.h"
 #include "dr_allocator.h"
@@ -47,9 +48,121 @@
 // Versioning for our drmodtrack custom module fields.
 #define CUSTOM_MODULE_VERSION 1
 
-typedef std::unordered_set<reg_id_t, std::hash<reg_id_t>, std::equal_to<reg_id_t>,
-                           dr_allocator_t<reg_id_t>>
-    reg_id_set_t;
+// A std::unordered_set, even using dr_allocator_t, raises transparency risks when
+// statically linked on Windows (from lock functions and other non-allocator
+// resources).  We thus create our own resource-isolated class to track GPR register
+// inclusion, which can easily be implemented with an array.
+// The burst_traceopts test contains unit tests for this class.
+class reg_id_set_t {
+public:
+    reg_id_set_t()
+    {
+        clear();
+    }
+
+    void
+    clear()
+    {
+        memset(present_, 0, sizeof(present_));
+    }
+
+    class reg_id_set_iterator_t
+        : public std::iterator<std::input_iterator_tag, reg_id_t> {
+    public:
+        reg_id_set_iterator_t(reg_id_set_t *set)
+            : set_(set)
+            , index_(-1)
+        {
+        }
+        reg_id_set_iterator_t(reg_id_set_t *set, int index)
+            : set_(set)
+            , index_(index)
+        {
+        }
+
+        reg_id_t operator*()
+        {
+            return static_cast<reg_id_t>(DR_REG_START_GPR + index_);
+        }
+
+        bool
+        operator==(const reg_id_set_iterator_t &rhs) const
+        {
+            return index_ == rhs.index_;
+        }
+        bool
+        operator!=(const reg_id_set_iterator_t &rhs) const
+        {
+            return index_ != rhs.index_;
+        }
+
+        reg_id_set_iterator_t &
+        operator++()
+        {
+            while (++index_ < DR_NUM_GPR_REGS && !set_->present_[index_]) {
+                /* Nothing. */
+            }
+            if (index_ >= DR_NUM_GPR_REGS)
+                index_ = -1;
+            return *this;
+        }
+
+    private:
+        friend class reg_id_set_t;
+        reg_id_set_t *set_;
+        int index_;
+    };
+
+    reg_id_set_iterator_t
+    begin()
+    {
+        reg_id_set_iterator_t iter(this);
+        return ++iter;
+    }
+
+    reg_id_set_iterator_t
+    end()
+    {
+        return reg_id_set_iterator_t(this);
+    }
+
+    reg_id_set_iterator_t
+    erase(const reg_id_set_iterator_t pos)
+    {
+        if (pos.index_ == -1)
+            return end();
+        reg_id_set_iterator_t iter(this, pos.index_);
+        present_[pos.index_] = false;
+        return ++iter;
+    }
+
+    std::pair<reg_id_set_iterator_t, bool>
+    insert(reg_id_t id)
+    {
+        if (id < DR_REG_START_GPR || id > DR_REG_STOP_GPR)
+            return std::make_pair(end(), false);
+        index_ = id - DR_REG_START_GPR;
+        bool exists = present_[index_];
+        if (!exists)
+            present_[index_] = true;
+        return std::make_pair(reg_id_set_iterator_t(this, index_), !exists);
+    }
+
+    reg_id_set_iterator_t
+    find(reg_id_t id)
+    {
+        if (id < DR_REG_START_GPR || id > DR_REG_STOP_GPR)
+            return end();
+        index_ = id - DR_REG_START_GPR;
+        if (!present_[index_])
+            return end();
+        return reg_id_set_iterator_t(this, index_);
+    }
+
+private:
+    bool present_[DR_NUM_GPR_REGS];
+    int index_;
+};
 
 class instru_t {
 public:

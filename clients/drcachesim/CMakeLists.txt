@@ -357,7 +357,7 @@ macro(add_win32_flags target)
     if (DEBUG)
       get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
       string(REPLACE "/MT " "" cur "${cur}") # Avoid override warning.
-      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd")
+      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd /Zi")
       append_property_string(TARGET ${target} LINK_FLAGS "/nodefaultlib:libcmt")
     else ()
       append_property_string(TARGET ${target} COMPILE_FLAGS "/EHsc /MT")
@@ -621,7 +621,9 @@ if (BUILD_TESTS)
     add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
       "_asm" "" "${asm_deps}")
     add_executable(tool.drcacheoff.burst_traceopts ${source_abs}
-      ${asm_source})
+      ${asm_source}
+      # This test includes related unit tests for classes used for trace opts.
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/reg_id_set_unit_tests.cpp")
     configure_DynamoRIO_static(tool.drcacheoff.burst_traceopts)
     if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       add_dependencies(tool.drcacheoff.burst_traceopts ${gen_asm_tgt})

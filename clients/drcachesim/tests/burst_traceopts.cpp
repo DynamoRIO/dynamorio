@@ -50,6 +50,10 @@
 #    include <stdlib.h>
 #    include <string.h>
 
+/* Unit tests for classes used for trace optimizations. */
+void
+reg_id_set_unit_tests();
+
 /* Asm routines. */
 extern "C" {
 void
@@ -212,6 +216,8 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
 int
 main(int argc, const char *argv[])
 {
+    reg_id_set_unit_tests();
+
     std::string dir_opt = gather_trace("", "opt");
     std::string dir_noopt = gather_trace("-disable_optimizations", "noopt");
 
