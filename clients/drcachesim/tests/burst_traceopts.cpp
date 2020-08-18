@@ -50,6 +50,10 @@
 #    include <stdlib.h>
 #    include <string.h>
 
+/* Unit tests for classes used for trace optimizations. */
+void
+reg_id_set_unit_tests();
+
 /* Asm routines. */
 extern "C" {
 void
@@ -207,56 +211,6 @@ gather_trace(const std::string &tracer_ops, const std::string &out_subdir)
     assert(!dr_app_running_under_dynamorio());
 
     return post_process(out_subdir);
-}
-
-static void
-reg_id_set_unit_tests()
-{
-    reg_id_set_t set;
-    assert(set.begin() == set.end());
-    // Test non-GPR.
-    auto insert_res = set.insert(IF_X86_ELSE(DR_REG_XMM0, DR_REG_Q0));
-    assert(insert_res.first == set.end());
-    assert(!insert_res.second);
-    assert(set.begin() == set.end());
-    // Test adding a GPR.
-    insert_res = set.insert(DR_REG_START_GPR + 1);
-    assert(insert_res.first != set.end());
-    assert(insert_res.second);
-    assert(set.begin() != set.end());
-    // Test find not-present.
-    auto find_res = set.find(DR_REG_START_GPR);
-    assert(find_res == set.end());
-    // Test find present.
-    find_res = set.find(DR_REG_START_GPR + 1);
-    assert(find_res != set.end());
-    assert(*find_res == DR_REG_START_GPR + 1);
-    // Test erase with two entries.
-    insert_res = set.insert(DR_REG_START_GPR + 4);
-    assert(insert_res.second);
-    auto iter = set.begin();
-    bool found_next = false;
-    while (iter != set.end()) {
-        if (*iter == DR_REG_START_GPR + 1)
-            iter = set.erase(iter);
-        else {
-            if (*iter == DR_REG_START_GPR + 4)
-                found_next = true;
-            ++iter;
-        }
-    }
-    assert(found_next);
-    assert(set.find(DR_REG_START_GPR + 1) == set.end());
-    assert(set.find(DR_REG_START_GPR + 4) != set.end());
-    assert(*set.find(DR_REG_START_GPR + 4) == DR_REG_START_GPR + 4);
-    // Test adding duplicates.
-    insert_res = set.insert(DR_REG_START_GPR + 3);
-    assert(insert_res.second);
-    insert_res = set.insert(DR_REG_START_GPR + 3);
-    assert(!insert_res.second);
-    iter = set.erase(insert_res.first);
-    find_res = set.find(DR_REG_START_GPR + 3);
-    assert(find_res == set.end());
 }
 
 int

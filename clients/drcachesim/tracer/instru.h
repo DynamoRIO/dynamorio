@@ -38,6 +38,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "dr_api.h"
 #include "drvector.h"
 #include "trace_entry.h"
 #include "dr_allocator.h"
