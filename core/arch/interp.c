@@ -4114,8 +4114,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         dcontext->native_exec_postsyscall = bb->start_pc;
         dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
         dynamo_thread_not_under_dynamo(dcontext);
-        /* i#1582: required for now on ARM */
-        IF_UNIX(os_swap_context_go_native(dcontext, DR_STATE_GO_NATIVE));
+        IF_UNIX(os_swap_context(dcontext, true /*to app*/, DR_STATE_GO_NATIVE));
         /* i#1921: for now we do not support re-attach, so remove handlers */
         os_process_not_under_dynamorio(dcontext);
         bb_build_abort(dcontext, true /*free vmlist*/, false /*don't unlock*/);
