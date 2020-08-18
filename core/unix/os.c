@@ -130,14 +130,10 @@ typedef struct rlimit64 rlimit64_t;
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
 #if defined(DR_HOST_AARCH64)
-#    define ASM_R2 "x2"
-#    define ASM_R3 "x3"
 #    define READ_TP_TO_R3_DISP_IN_R2    \
         "mrs " ASM_R3 ", tpidr_el0\n\t" \
         "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
 #elif defined(DR_HOST_ARM)
-#    define ASM_R2 "r2"
-#    define ASM_R3 "r3"
 #    define READ_TP_TO_R3_DISP_IN_R2                                           \
         "mrc p15, 0, " ASM_R3                                                  \
         ", c13, c0, " STRINGIFY(USR_TLS_REG_OPCODE) " \n\t"                    \
