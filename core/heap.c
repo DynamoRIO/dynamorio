@@ -5827,7 +5827,8 @@ alloc_landing_pad(app_pc addr_to_hook)
                  * then say 'oom' and exit.
                  */
                 SYSLOG_INTERNAL_WARNING("unable to reserve memory for landing pads");
-                report_low_on_memory(VMM_CODE | VMM_REACHABLE, OOM_RESERVE, heap_error);
+                report_low_on_memory(VMM_SPECIAL_MMAP | VMM_REACHABLE, OOM_RESERVE,
+                                     heap_error);
             }
         }
 
