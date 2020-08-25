@@ -2445,8 +2445,7 @@ synchronize_dynamic_options()
      * so this becomes a nop.
      */
     if (self_owns_write_lock(&options_lock) ||
-        /* avoid hangs reporting errors or warnings by using a trylock (xref i#1198)
-         */
+        /* avoid hangs reporting errors or warnings by using a trylock (xref i#1198) */
         (!dynamo_initialized && options_lock.num_readers > 0)) {
         STATS_INC(option_synchronizations_nop);
         return 0;
