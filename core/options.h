@@ -152,17 +152,34 @@ typedef enum {
 #define EMPTY_STRING 0     /* no string in enum */
 #define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
                        description, flag, pcache)                                 \
-    OPTION_DEFAULT_VALUE_##name = (ptr_uint_t)default_value,                      \
     OPTION_IS_INTERNAL_##name = false, OPTION_IS_STRING_##name = ISSTRING_##type, \
     OPTION_AFFECTS_PCACHE_##name = pcache,
 #define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option,  \
                                 statement, description, flag, pcache)            \
-    OPTION_DEFAULT_VALUE_##name = (ptr_uint_t)default_value,                     \
     OPTION_IS_INTERNAL_##name = true, OPTION_IS_STRING_##name = ISSTRING_##type, \
     OPTION_AFFECTS_PCACHE_##name = pcache,
 enum option_is_internal {
 #include "optionsx.h"
 };
+/* We have to make the default values not part of the enum since MSVC uses
+ * "long" as the enum type and we'd have truncation of large values.
+ * Instead we have to declare constant variables.
+ * Hopefully the compiler will treat as constants and optimize away any
+ * memory references.
+ */
+#undef OPTION_COMMAND
+#undef OPTION_COMMAND_INTERNAL
+#define liststring_t int
+#define pathstring_t int
+#define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
+                       description, flag, pcache)                                 \
+    extern const type OPTION_DEFAULT_VALUE_##name;
+#define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                statement, description, flag, pcache)           \
+    extern const type OPTION_DEFAULT_VALUE_##name;
+#include "optionsx.h"
+#undef liststring_t
+#undef pathstring_t
 #undef OPTION_COMMAND
 #undef OPTION_COMMAND_INTERNAL
 #undef OPTION_STRING

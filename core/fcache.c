@@ -2528,8 +2528,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         while (unit->cur_pc + slot_size > unit->end_pc + commit_size)
             commit_size *= 2;
         if (unit->end_pc + commit_size > unit->reserved_end_pc) {
-            ASSERT_TRUNCATE(commit_size, uint, unit->reserved_end_pc - unit->end_pc);
-            commit_size = (uint)(unit->reserved_end_pc - unit->end_pc);
+            commit_size = unit->reserved_end_pc - unit->end_pc;
         }
         cache_extend_commitment(unit, commit_size);
         if (unit->cur_pc + slot_size > unit->end_pc) {

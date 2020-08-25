@@ -153,6 +153,36 @@ const internal_options_t default_internal_options = {
 #    undef OPTION_COMMAND
 #endif
 
+/* Definitions for our default values.  See options.h for why we can't
+ * have them in an enum in the header.
+ */
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* We don't have strings in the default values. */
+#define OPTION_STRING(x) 0
+#define EMPTY_STRING 0
+#define liststring_t int
+#define pathstring_t int
+#define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
+                       description, flag, pcache)                                 \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                statement, description, flag, pcache)           \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#include "optionsx.h"
+#undef liststring_t
+#undef pathstring_t
+#undef OPTION_COMMAND
+#undef OPTION_COMMAND_INTERNAL
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* Restore. */
+#define OPTION_STRING(x) x
+#define EMPTY_STRING \
+    {                \
+        0            \
+    }
+
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    define OPTION_COMMAND_INTERNAL OPTION_COMMAND
 #else
@@ -2695,14 +2725,14 @@ unit_test_options(void)
 
 #    ifdef X64
     /* Sanity-check pointer-sized integer values handling >int sizes. */
-    set_dynamo_options(&dynamo_options, "-vmheap_size 8192M -stack_size 64K");
+    set_dynamo_options(&dynamo_options, "-vmheap_size 16384M -stack_size 64K");
     EXPECT_EQ(dynamo_options.vmheap_size, 8 * 1024 * 1024 * 1024ULL);
     char opstring[MAX_OPTIONS_STRING];
     /* Ensure we print it back out with the shortest value+suffix.
      * We include -stack_size to avoid printing out "0G" or sthg.
      */
     get_dynamo_options_string(&dynamo_options, opstring, sizeof(opstring), true);
-    EXPECT_EQ(0, strcmp(opstring, "-stack_size 64K -vmheap_size 8G "));
+    EXPECT_EQ(0, strcmp(opstring, "-stack_size 64K -vmheap_size 16G "));
 #    endif
 
     SELF_PROTECT_OPTIONS();
