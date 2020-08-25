@@ -464,7 +464,7 @@ typedef struct {
 void
 module_calculate_digest(/*OUT*/ module_digest_t *digest, app_pc module_base,
                         size_t module_size, bool full_digest, bool short_digest,
-                        uint short_digest_size, uint sec_char_include,
+                        size_t short_digest_size, uint sec_char_include,
                         uint sec_char_exclude);
 
 /* actually in utils.c since os-independent */
