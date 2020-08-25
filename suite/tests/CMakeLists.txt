@@ -2150,10 +2150,11 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.alloc client-interface/alloc.c ""
       # For the subtest "targeting upper 2GB of low 4GB" we move -vm_base out of the
       # way.  We also raise the checklevel so we get memory filling for client allocs.
-      "-no_vm_base_near_app -vm_base 0x120000000 -checklevel 3" "")
+      # We keep vmheap_size at 2G to more easily trigger OOM.
+      "-no_vm_base_near_app -vm_base 0x120000000 -vmheap_size 2G -checklevel 3" "")
     # A second test for i#4335's OOM despite a reset.  We leave checklevel for CI speed.
     tobuild_ci(client.alloc-noreset client-interface/alloc.c ""
-      "-no_enable_reset -no_vm_base_near_app -vm_base 0x120000000" "")
+      "-no_enable_reset -no_vm_base_near_app -vm_base 0x120000000 -vmheap_size 2G" "")
     # XXX i#1312, i#3504: The test doesn't currently compile with CFLAGS_AVX512 but
     # attempts to test features based on it. The compile flag needs to be added.
     tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
