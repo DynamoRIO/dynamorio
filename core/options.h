@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -111,11 +111,7 @@ enum {
 };
 
 /* for all option uses */
-/* N.B.: for 64-bit should we make the uint_size options be size_t?
- * For now we're ok with all such options maxing out at 4GB, and in fact
- * some like the fcache options are assumed to not be larger.
- */
-#define uint_size uint
+#define uint_size ptr_uint_t
 #define uint_time uint
 /* So far all addr_t are external so we don't have a 64-bit problem */
 #define uint_addr ptr_uint_t
@@ -255,7 +251,7 @@ extern const internal_options_t default_internal_options;
  * option value
  */
 bool
-check_param_bounds(uint *val, uint min, uint max, const char *name);
+check_param_bounds(ptr_uint_t *val, ptr_uint_t min, ptr_uint_t max, const char *name);
 
 int
 options_init(void);
