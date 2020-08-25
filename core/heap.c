@@ -625,7 +625,8 @@ typedef enum {
 } oom_source_t;
 
 static void
-report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code);
+report_low_on_memory(which_vmm_t which, oom_source_t source,
+                     heap_error_code_t os_error_code);
 
 /* Maximum reservation is 512MB for 32-bit or 2GB for 64-bit. */
 #ifdef X64
@@ -1005,7 +1006,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size, bool is_vmcode, const char *name
                 LOG(GLOBAL, LOG_HEAP, 1,
                     "vmm_heap_unit_init %s: failed to allocate writable vmcode!\n");
                 vmm_heap_initialize_unusable(vmh);
-                report_low_on_memory(OOM_INIT, error_code);
+                report_low_on_memory(VMM_CACHE | VMM_REACHABLE, OOM_INIT, error_code);
                 ASSERT_NOT_REACHED();
             }
             heapmgt->vmcode_writable_base = (heap_pc)ALIGN_FORWARD(
@@ -1034,7 +1035,7 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size, bool is_vmcode, const char *name
          * interoperability issue, in staging mode we should probably
          * get out from the process since we haven't really started yet
          */
-        report_low_on_memory(OOM_INIT, error_code);
+        report_low_on_memory(VMM_HEAP, OOM_INIT, error_code);
         ASSERT_NOT_REACHED();
     }
     vmh->end_addr = vmh->start_addr + size;
@@ -2493,7 +2494,8 @@ silent_oom_for_process(oom_source_t source)
  * independent layer.
  */
 static void
-report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
+report_low_on_memory(which_vmm_t which, oom_source_t source,
+                     heap_error_code_t os_error_code)
 {
     if (TESTANY(DYNAMO_OPTION(silent_oom_mask), source) ||
         silent_oom_for_process(source)) {
@@ -2504,21 +2506,18 @@ report_low_on_memory(oom_source_t source, heap_error_code_t os_error_code)
             os_dump_core("Out of memory, silently aborting program.");
     } else {
         const char *oom_source_code = get_oom_source_name(source);
-        char status_hex[19]; /* FIXME: for 64bit hex need 16+NULL */
-        /* note 0x prefix added by the syslog */
-        snprintf(status_hex, BUFFER_SIZE_ELEMENTS(status_hex), PFX, /* FIXME: 32bit */
-                 os_error_code);
+        char type_hex[19];
+        snprintf(type_hex, BUFFER_SIZE_ELEMENTS(type_hex), PFX, which);
+        NULL_TERMINATE_BUFFER(type_hex);
+        char status_hex[19];
+        snprintf(status_hex, BUFFER_SIZE_ELEMENTS(status_hex), PFX, os_error_code);
         NULL_TERMINATE_BUFFER(status_hex);
         /* SYSLOG first */
-        SYSLOG_CUSTOM_NOTIFY(SYSLOG_CRITICAL, MSG_OUT_OF_MEMORY, 4,
-                             "Out of memory.  Program aborted.", get_application_name(),
-                             get_application_pid(), oom_source_code, status_hex);
+        SYSLOG(SYSLOG_CRITICAL, OUT_OF_MEMORY, 4, get_application_name(),
+               get_application_pid(), oom_source_code, type_hex, status_hex);
         /* Stats can be very useful to diagnose why we hit OOM. */
         if (INTERNAL_OPTION(rstats_to_stderr))
             dump_global_rstats_to_stderr();
-
-        /* FIXME: case 7306 can't specify arguments in SYSLOG_CUSTOM_NOTIFY */
-        SYSLOG_INTERNAL_WARNING("OOM Status: %s %s", oom_source_code, status_hex);
 
         /* XXX: case 7296 - ldmp even if we have decided not to produce an event above */
         if (TEST(DUMPCORE_OUT_OF_MEM, DYNAMO_OPTION(dumpcore_mask)))
@@ -2689,7 +2688,7 @@ get_real_memory(size_t size, uint prot, bool add_vm,
          */
         p = vmm_heap_alloc(size, prot, &error_code, which);
         if (p == NULL) {
-            report_low_on_memory(OOM_RESERVE, error_code);
+            report_low_on_memory(which, OOM_RESERVE, error_code);
         }
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory -- but still alive after "
                                      "emergency free.");
@@ -2751,7 +2750,8 @@ extend_commitment(vm_addr_t p, size_t size, uint prot, bool initial_commit,
         fcache_low_on_memory();
         /* see low-memory ideas in get_real_memory */
         if (!vmm_heap_commit(p, size, prot, &error_code, which)) {
-            report_low_on_memory(initial_commit ? OOM_COMMIT : OOM_EXTEND, error_code);
+            report_low_on_memory(which, initial_commit ? OOM_COMMIT : OOM_EXTEND,
+                                 error_code);
         }
 
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory in extend - still alive "
@@ -2841,7 +2841,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
 
         p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
         if (p == NULL) {
-            report_low_on_memory(OOM_RESERVE, error_code);
+            report_low_on_memory(which, OOM_RESERVE, error_code);
         }
 
         SYSLOG_INTERNAL_WARNING_ONCE("Out of memory on reserve - but still "
@@ -5830,7 +5830,8 @@ alloc_landing_pad(app_pc addr_to_hook)
                  * then say 'oom' and exit.
                  */
                 SYSLOG_INTERNAL_WARNING("unable to reserve memory for landing pads");
-                report_low_on_memory(OOM_RESERVE, heap_error);
+                report_low_on_memory(VMM_SPECIAL_MMAP | VMM_REACHABLE, OOM_RESERVE,
+                                     heap_error);
             }
         }
 
