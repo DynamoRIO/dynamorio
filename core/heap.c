@@ -1892,14 +1892,14 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
      * stack, global_do_syscall.
      */
     DOCHECK(1, {
-        uint perstack = (uint)
-            (ALIGN_FORWARD_UINT(
-                DYNAMO_OPTION(stack_size) +
-                    (DYNAMO_OPTION(guard_pages)
-                         ? (2 * PAGE_SIZE)
-                         : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
-                DYNAMO_OPTION(vmm_block_size)) /
-             DYNAMO_OPTION(vmm_block_size));
+        uint perstack =
+            (uint)(ALIGN_FORWARD_UINT(
+                       DYNAMO_OPTION(stack_size) +
+                           (DYNAMO_OPTION(guard_pages)
+                                ? (2 * PAGE_SIZE)
+                                : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
+                       DYNAMO_OPTION(vmm_block_size)) /
+                   DYNAMO_OPTION(vmm_block_size));
         uint unfreed_blocks;
         if (!contains_stacks IF_CLIENT_INTERFACE(|| standalone_library))
             unfreed_blocks = 0;
