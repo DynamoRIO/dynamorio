@@ -2725,14 +2725,14 @@ unit_test_options(void)
 
 #    ifdef X64
     /* Sanity-check pointer-sized integer values handling >int sizes. */
-    set_dynamo_options(&dynamo_options, "-vmheap_size 16384M -stack_size 64K");
+    set_dynamo_options(&dynamo_options, "-vmheap_size 16384M -persist_short_digest 8K");
     EXPECT_EQ(dynamo_options.vmheap_size, 16 * 1024 * 1024 * 1024ULL);
     char opstring[MAX_OPTIONS_STRING];
     /* Ensure we print it back out with the shortest value+suffix.
-     * We include -stack_size to avoid printing out "0G" or sthg.
+     * We include a smaller option to ensure we avoid printing out "0G".
      */
     get_dynamo_options_string(&dynamo_options, opstring, sizeof(opstring), true);
-    EXPECT_EQ(0, strcmp(opstring, "-stack_size 64K -vmheap_size 16G "));
+    EXPECT_EQ(0, strcmp(opstring, "-vmheap_size 16G -persist_short_digest 8K "));
 #    endif
 
     SELF_PROTECT_OPTIONS();
