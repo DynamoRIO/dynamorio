@@ -69,7 +69,9 @@ int
 main(int argc, const char *argv[])
 {
     signal(SIGILL, sigill_handler);
-    if (!my_setenv("DYNAMORIO_OPTIONS", "-signal_stack_size 64K -client_lib ';;-offline'"))
+    if (!my_setenv("DYNAMORIO_OPTIONS",
+                   "-stderr_mask 0xc -signal_stack_size 64K "
+                   "-client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
     std::cerr << "pre-DR init\n";
