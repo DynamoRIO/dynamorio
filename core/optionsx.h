@@ -1568,12 +1568,11 @@ OPTION_DEFAULT(uint_size, vm_size,
                IF_X64_ELSE(IF_WINDOWS_ELSE(512, 1024UL), 128) * 1024 * 1024,
                "capacity of virtual memory region reserved (maximum supported is "
                "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
-OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(2048UL, 128) * 1024 * 1024,
-               /* XXX: default value is currently not good enough for sqlserver,
+OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(8192ULL, 128) * 1024 * 1024,
+               /* XXX: default value is currently not good enough for 32-bit sqlserver,
                 * for which we need more than 256MB.
                 */
-               "capacity of virtual memory region reserved (maximum supported is "
-               "512MB for 32-bit and 2GB for 64-bit) for unreachable heap")
+               "capacity of virtual memory region reserved for unreachable heap")
 
 /* We hardcode an address in the mmap_text region here, but verify via
  * in vmk_init().
