@@ -342,7 +342,7 @@ os_rename_file_in_directory(IN HANDLE rootdir, const wchar_t *orig_name,
  * in case we hook the image entry on an early cbret.
  * i#2138: on Win10-x64 extra space is needed for dr_syscall_intercept_natively.
  */
-#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(9 * 4096, 7 * 4096)
+#define INTERCEPTION_CODE_SIZE IF_X64_ELSE(9 * 4096, 8 * 4096)
 
 /* see notes in intercept_new_thread() about these values */
 #define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
