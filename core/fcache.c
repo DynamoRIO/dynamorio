@@ -487,11 +487,11 @@ typedef struct _fcache {
      * not much of a space hit at all since there are 2 caches per thread
      * and then 2 global caches.
      */
-    uint max_size; /* maximum sum of sizes */
-    uint max_unit_size;
-    uint max_quadrupled_unit_size;
-    uint free_upgrade_size;
-    uint init_unit_size;
+    size_t max_size; /* maximum sum of sizes */
+    size_t max_unit_size;
+    size_t max_quadrupled_unit_size;
+    size_t free_upgrade_size;
+    size_t init_unit_size;
     bool finite_cache;
     uint regen_param;
     uint replace_param;
@@ -1525,11 +1525,10 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
 /* assuming size will either be aligned at VM_ALLOCATION_BOUNDARY or
  * smaller where no adjustment is necessary
  */
-#define FCACHE_GUARDED(size)                                     \
-    ((size) -                                                    \
-     ((DYNAMO_OPTION(guard_pages) &&                             \
-       ((size) >= VM_ALLOCATION_BOUNDARY - 2 * (uint)PAGE_SIZE)) \
-          ? (2 * (uint)PAGE_SIZE)                                \
+#define FCACHE_GUARDED(size)                                                             \
+    ((size) -                                                                            \
+     ((DYNAMO_OPTION(guard_pages) && ((size) >= VM_ALLOCATION_BOUNDARY - 2 * PAGE_SIZE)) \
+          ? (2 * PAGE_SIZE)                                                              \
           : 0))
 
 #define SET_CACHE_PARAMS(cache, which)                                                  \
@@ -2518,7 +2517,7 @@ static bool
 try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
                    uint slot_size)
 {
-    uint commit_size = DYNAMO_OPTION(cache_commit_increment);
+    size_t commit_size = DYNAMO_OPTION(cache_commit_increment);
     ASSERT(CACHE_PROTECTED(cache));
 
     if (unit->end_pc < unit->reserved_end_pc &&
@@ -2529,8 +2528,7 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         while (unit->cur_pc + slot_size > unit->end_pc + commit_size)
             commit_size *= 2;
         if (unit->end_pc + commit_size > unit->reserved_end_pc) {
-            ASSERT_TRUNCATE(commit_size, uint, unit->reserved_end_pc - unit->end_pc);
-            commit_size = (uint)(unit->reserved_end_pc - unit->end_pc);
+            commit_size = unit->reserved_end_pc - unit->end_pc;
         }
         cache_extend_commitment(unit, commit_size);
         if (unit->cur_pc + slot_size > unit->end_pc) {

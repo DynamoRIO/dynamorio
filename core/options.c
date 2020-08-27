@@ -122,7 +122,7 @@ typedef enum option_modifier_t {
     OPTION_MOD_DYNAMIC
 } option_modifier_t;
 
-typedef uint uint_size;
+typedef ptr_uint_t uint_size;
 typedef uint uint_time;
 typedef ptr_uint_t uint_addr;
 
@@ -152,6 +152,36 @@ const internal_options_t default_internal_options = {
 #    undef OPTION_COMMAND_INTERNAL
 #    undef OPTION_COMMAND
 #endif
+
+/* Definitions for our default values.  See options.h for why we can't
+ * have them in an enum in the header.
+ */
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* We don't have strings in the default values. */
+#define OPTION_STRING(x) 0
+#define EMPTY_STRING 0
+#define liststring_t int
+#define pathstring_t int
+#define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
+                       description, flag, pcache)                                 \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                statement, description, flag, pcache)           \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#include "optionsx.h"
+#undef liststring_t
+#undef pathstring_t
+#undef OPTION_COMMAND
+#undef OPTION_COMMAND_INTERNAL
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* Restore. */
+#define OPTION_STRING(x) x
+#define EMPTY_STRING \
+    {                \
+        0            \
+    }
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    define OPTION_COMMAND_INTERNAL OPTION_COMMAND
@@ -416,13 +446,13 @@ parse_uint(uint *var, void *value)
 }
 
 static void
-parse_uint_size(uint *var, void *value)
+parse_uint_size(ptr_uint_t *var, void *value)
 {
     char unit;
-    int num;
-    int factor = 0;
+    ptr_int_t num;
+    ptr_int_t factor = 0;
 
-    if (sscanf((char *)value, "%d%c", &num, &unit) == 1) {
+    if (sscanf((char *)value, SZFMT "%c", &num, &unit) == 1) {
         /* no unit specifier, default unit is Kilo for compatibility */
         factor = 1024;
     } else {
@@ -434,7 +464,7 @@ parse_uint_size(uint *var, void *value)
         case 'M': // Mega (bytes)
         case 'm': factor = 1024 * 1024; break;
         case 'G': // Giga (bytes)
-        case 'g': factor = 1024 * 1024 * 1024; break;
+        case 'g': factor = 1024ULL * 1024 * 1024; break;
         default:
             /* var should be pre-initialized to default */
             OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4,
@@ -674,20 +704,21 @@ set_dynamo_options_other_process(options_t *options, const char *optstr)
  * option value
  */
 bool
-check_param_bounds(uint *val, uint min, uint max, const char *name)
+check_param_bounds(ptr_uint_t *val, ptr_uint_t min, ptr_uint_t max, const char *name)
 {
     bool ret = false;
-    uint new_val;
+    ptr_uint_t new_val;
     if ((max == 0 && *val != 0 && *val < min) ||
         (max > 0 && (*val < min || *val > max))) {
         if (max == 0) {
             new_val = min;
-            USAGE_ERROR("%s must be >= %u, resetting from %u to %u", name, min, *val,
-                        new_val);
+            USAGE_ERROR("%s must be >= " SZFMT ", resetting from " SZFMT " to " SZFMT,
+                        name, min, *val, new_val);
         } else {
             new_val = max;
-            USAGE_ERROR("%s must be >= %u and <= %u, resetting from %u to %u", name, min,
-                        max, *val, new_val);
+            USAGE_ERROR("%s must be >= " SZFMT " and <= " SZFMT ", resetting from " SZFMT
+                        " to " SZFMT,
+                        name, min, max, *val, new_val);
         }
         *val = new_val;
         ret = true;
@@ -696,7 +727,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         if (*val == 0) {
             LOG(GLOBAL, LOG_CACHE, 1, "%s: <unlimited>\n", name);
         } else {
-            LOG(GLOBAL, LOG_CACHE, 1, "%s: %u KB\n", name, *val / 1024);
+            LOG(GLOBAL, LOG_CACHE, 1, "%s: " SZFMT " KB\n", name, *val / 1024);
         }
     });
     return ret;
@@ -728,9 +759,19 @@ PRINT_STRING_uint(char *optionbuff, const void *val_ptr, const char *option)
 static void
 PRINT_STRING_uint_size(char *optionbuff, const void *val_ptr, const char *option)
 {
-    uint value = *(const uint *)val_ptr;
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d%s ", option,
-             (value % 1024 == 0 ? value / 1024 : value), (value % 1024 == 0 ? "K" : "B"));
+    ptr_uint_t value = *(const ptr_uint_t *)val_ptr;
+    char code = 'B';
+    if (value >= 1024ULL * 1024 * 1024 && value % 1024ULL * 1024 * 1024 == 0) {
+        value = value / (1024ULL * 1024 * 1024);
+        code = 'G';
+    } else if (value >= 1024 * 1024 && value % 1024 * 1024 == 0) {
+        value = value / (1024 * 1024);
+        code = 'M';
+    } else if (value >= 1024 && value % 1024 == 0) {
+        value = value / 1024;
+        code = 'K';
+    }
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s " SZFMT "%c ", option, value, code);
 }
 static void
 PRINT_STRING_uint_time(char *optionbuff, const void *val_ptr, const char *option)
@@ -799,7 +840,9 @@ DIFF_uint(const void *ptr1, const void *ptr2)
 static int
 DIFF_uint_size(const void *ptr1, const void *ptr2)
 {
-    return DIFF_uint(ptr1, ptr2);
+    ptr_uint_t val1 = *(const ptr_uint_t *)(ptr1);
+    ptr_uint_t val2 = *(const ptr_uint_t *)(ptr2);
+    return val1 != val2;
 }
 static int
 DIFF_uint_time(const void *ptr1, const void *ptr2)
@@ -809,7 +852,7 @@ DIFF_uint_time(const void *ptr1, const void *ptr2)
 static int
 DIFF_uint_addr(const void *ptr1, const void *ptr2)
 {
-    return DIFF_uint(ptr1, ptr2);
+    return DIFF_uint_size(ptr1, ptr2);
 }
 static int
 DIFF_pathstring_t(const void *ptr1, const void *ptr2)
@@ -854,7 +897,7 @@ COPY_uint(void *ptr1, const void *ptr2)
 static void
 COPY_uint_size(void *ptr1, const void *ptr2)
 {
-    COPY_uint(ptr1, ptr2);
+    *(ptr_uint_t *)(ptr1) = *(const ptr_uint_t *)(ptr2);
 }
 static void
 COPY_uint_time(void *ptr1, const void *ptr2)
@@ -864,7 +907,7 @@ COPY_uint_time(void *ptr1, const void *ptr2)
 static void
 COPY_uint_addr(void *ptr1, const void *ptr2)
 {
-    *(ptr_uint_t *)(ptr1) = *(const ptr_uint_t *)(ptr2);
+    COPY_uint_size(ptr1, ptr2);
 }
 static void
 COPY_pathstring_t(void *ptr1, const void *ptr2)
@@ -2679,6 +2722,19 @@ unit_test_options(void)
     set_dynamo_options_defaults(&dynamo_options);
     get_dynamo_options_string(&dynamo_options, buf, MAXIMUM_PATH, 1);
     print_file(STDERR, "default ops string: %s\n", buf);
+
+#    ifdef X64
+    /* Sanity-check pointer-sized integer values handling >int sizes. */
+    set_dynamo_options(&dynamo_options, "-vmheap_size 16384M -stack_size 64K");
+    EXPECT_EQ(dynamo_options.vmheap_size, 16 * 1024 * 1024 * 1024ULL);
+    char opstring[MAX_OPTIONS_STRING];
+    /* Ensure we print it back out with the shortest value+suffix.
+     * We include -stack_size to avoid printing out "0G" or sthg.
+     */
+    get_dynamo_options_string(&dynamo_options, opstring, sizeof(opstring), true);
+    EXPECT_EQ(0, strcmp(opstring, "-stack_size 64K -vmheap_size 16G "));
+#    endif
+
     SELF_PROTECT_OPTIONS();
     d_r_write_unlock(&options_lock);
 }

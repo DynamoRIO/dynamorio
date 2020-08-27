@@ -1119,7 +1119,7 @@ vmm_is_reserved_unit(vm_heap_t *vmh, vm_addr_t p, size_t size)
     ASSERT(CHECK_TRUNCATE_TYPE_uint(size / DYNAMO_OPTION(vmm_block_size)));
     ASSERT(bitmap_are_reserved_blocks(vmh->blocks, vmh->num_blocks,
                                       vmm_addr_to_block(vmh, p),
-                                      (uint)size / DYNAMO_OPTION(vmm_block_size)));
+                                      (uint)(size / DYNAMO_OPTION(vmm_block_size))));
     return true;
 }
 
@@ -1380,7 +1380,7 @@ vmm_heap_reserve_blocks(vm_heap_t *vmh, size_t size_in, byte *base, which_vmm_t 
 
     size = ALIGN_FORWARD(size_in, DYNAMO_OPTION(vmm_block_size));
     ASSERT_TRUNCATE(request, uint, size / DYNAMO_OPTION(vmm_block_size));
-    request = (uint)size / DYNAMO_OPTION(vmm_block_size);
+    request = (uint)(size / DYNAMO_OPTION(vmm_block_size));
 
     if (base != NULL)
         must_start = vmm_addr_to_block(vmh, base);
@@ -1437,7 +1437,7 @@ vmm_heap_free_blocks(vm_heap_t *vmh, vm_addr_t p, size_t size_in, which_vmm_t wh
 
     size = ALIGN_FORWARD(size_in, DYNAMO_OPTION(vmm_block_size));
     ASSERT_TRUNCATE(request, uint, size / DYNAMO_OPTION(vmm_block_size));
-    request = (uint)size / DYNAMO_OPTION(vmm_block_size);
+    request = (uint)(size / DYNAMO_OPTION(vmm_block_size));
 
     LOG(GLOBAL, LOG_HEAP, 2, "vmm_heap_free_blocks %s: size=%d blocks=%d p=" PFX "\n",
         vmh->name, size, request, p);
@@ -1893,13 +1893,13 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
      */
     DOCHECK(1, {
         uint perstack =
-            ALIGN_FORWARD_UINT(
-                DYNAMO_OPTION(stack_size) +
-                    (DYNAMO_OPTION(guard_pages)
-                         ? (2 * PAGE_SIZE)
-                         : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
-                DYNAMO_OPTION(vmm_block_size)) /
-            DYNAMO_OPTION(vmm_block_size);
+            (uint)(ALIGN_FORWARD_UINT(
+                       DYNAMO_OPTION(stack_size) +
+                           (DYNAMO_OPTION(guard_pages)
+                                ? (2 * PAGE_SIZE)
+                                : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
+                       DYNAMO_OPTION(vmm_block_size)) /
+                   DYNAMO_OPTION(vmm_block_size));
         uint unfreed_blocks;
         if (!contains_stacks IF_CLIENT_INTERFACE(|| standalone_library))
             unfreed_blocks = 0;
