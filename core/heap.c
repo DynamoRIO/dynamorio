@@ -629,7 +629,7 @@ report_low_on_memory(which_vmm_t which, oom_source_t source,
                      heap_error_code_t os_error_code);
 
 #define MAX_VMCODE_SIZE (2ULL * 1024 * 1024 * 1024)
-#define MAX_VMHEAP_SIZE (128ULL * 1024 * 1024 * 1024)
+#define MAX_VMHEAP_SIZE (IF_X64_ELSE(128ULL, (4ULL - 1)) * 1024 * 1024 * 1024)
 
 /* We should normally have only one large unit, so this is in fact
  * the maximum we should count on in one process
@@ -1051,9 +1051,10 @@ vmm_heap_unit_init(vm_heap_t *vmh, size_t size, bool is_vmcode, const char *name
         "vmm_heap_unit_init %s reservation: [" PFX "," PFX ") total=%d free=%d\n", name,
         vmh->start_addr, vmh->end_addr, vmh->num_blocks, vmh->num_free_blocks);
 
-    /* Make sure the vmm area is properly aligned on block boundaries. */
+    /* Make sure the vmm area is properly aligned on block boundaries.
+     * The size was aligned above.
+     */
     ASSERT(ALIGNED(vmh->blocks, DYNAMO_OPTION(vmm_block_size)));
-    ASSERT(ALIGNED(size, DYNAMO_OPTION(vmm_block_size)));
 
     which_vmm_t which = VMM_HEAP | (is_vmcode ? VMM_REACHABLE : 0);
     /* We have to commit first which our code does support. */
