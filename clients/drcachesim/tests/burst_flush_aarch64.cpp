@@ -1,3 +1,4 @@
+
 /* **********************************************************
  * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
@@ -37,32 +38,64 @@
 #include <assert.h>
 #include <iostream>
 #include <signal.h>
+#include <setjmp.h>
+
+static sigjmp_buf mark;
+static int handled_sigill_count = 0;
 
 bool
 my_setenv(const char *var, const char *value)
 {
-#ifdef UNIX
     return setenv(var, value, 1 /*override*/) == 0;
-#else
-    return SetEnvironmentVariable(var, value) == TRUE;
-#endif
 }
 
 void
 sigill_handler(int signal)
 {
-    dr_app_stop_and_cleanup();
-    std::cerr << "all done\n";
-    _Exit(0);
+    handled_sigill_count++;
+    siglongjmp(mark, handled_sigill_count);
+    exit(-1);
+}
+
+static void
+dc_ivac()
+{
+    int d = 0;
+    // Expected to raise SIGILL.
+    // Control will be transferred to sigill_handler
+    __asm__ __volatile__("dc ivac, %0" : : "r"(&d));
+}
+
+static void
+dc_unprivileged_flush()
+{
+    int d = 0;
+    __asm__ __volatile__("dc civac, %0" : : "r"(&d));
+    __asm__ __volatile__("dc cvac , %0" : : "r"(&d));
+    __asm__ __volatile__("dc cvau , %0" : : "r"(&d));
+}
+
+static void
+ic_unprivileged_flush()
+{
+    __asm__ __volatile__("ic ivau , %0" : : "r"(ic_unprivileged_flush));
 }
 
 static void
 do_some_work()
 {
-    int d = 0;
-    // Expected to send SIGILL.
-    // Control will be transferred to sigill_handler
-    __asm__ __volatile__("dc ivac, %0" : : "r"(d));
+    dc_unprivileged_flush();
+    ic_unprivileged_flush();
+
+    // Testing privileged instructions requires handling SIGILL.
+    // We use sigsetjmp/siglongjmp to resume execution after handling the
+    // signal.
+    handled_sigill_count = 0;
+    int i = sigsetjmp(mark, 1);
+    switch (i) {
+    case 0: dc_ivac();
+    }
+    return;
 }
 
 int
@@ -70,6 +103,8 @@ main(int argc, const char *argv[])
 {
     signal(SIGILL, sigill_handler);
     if (!my_setenv("DYNAMORIO_OPTIONS",
+                   // XXX i#4425: Fix debug-build stack overflow issue and
+                   // remove custom signal_stack_size below.
                    "-stderr_mask 0xc -signal_stack_size 64K "
                    "-client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
@@ -81,32 +116,7 @@ main(int argc, const char *argv[])
     dr_app_start();
     assert(dr_app_running_under_dynamorio());
     do_some_work();
-
+    dr_app_stop_and_cleanup();
+    std::cerr << "all done\n";
     return 0;
 }
-
-/* FIXME i#2099: the weak symbol is not supported on Windows. */
-#if defined(UNIX) && defined(TEST_APP_DR_CLIENT_MAIN)
-#    ifdef __cplusplus
-extern "C" {
-#    endif
-
-/* Test if the drmemtrace_client_main() in drmemtrace will be called. */
-DR_EXPORT WEAK void
-drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
-{
-    std::cerr << "wrong drmemtrace_client_main\n";
-}
-
-/* This dr_client_main should be called instead of the one in tracer.cpp */
-DR_EXPORT void
-dr_client_main(client_id_t id, int argc, const char *argv[])
-{
-    std::cerr << "app dr_client_main\n";
-    drmemtrace_client_main(id, argc, argv);
-}
-
-#    ifdef __cplusplus
-}
-#    endif
-#endif /* UNIX && TEST_APP_DR_CLIENT_MAIN */

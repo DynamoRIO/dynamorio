@@ -1275,8 +1275,8 @@ private:
                 buf->size = 1;
             } else if (instr->is_flush()) {
                 buf->type = instr->flush_type();
-                // i#4398: Handle flush sizes larger than ushort.
-                // i#4406: Handle flush instrs with sizes other than cache line.
+                // TODO i#4398: Handle flush sizes larger than ushort.
+                // TODO i#4406: Handle flush instrs with sizes other than cache line.
                 buf->size = (ushort)proc_get_cache_line_size();
             } else {
                 if (write)

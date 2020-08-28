@@ -2092,8 +2092,7 @@ if (DR_HOST_AARCH64)
     "-Wl,--no-export-dynamic")
 
   add_exe(allasm_aarch64_flush
-    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_flush.asm
-    "-early_inject" "")
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_flush.asm "" "")
   set_target_properties(allasm_aarch64_flush PROPERTIES LINKER_LANGUAGE C)
   append_link_flags(allasm_aarch64_flush
     "-nostartfiles -nodefaultlibs -static")
@@ -3389,10 +3388,6 @@ if (CLIENT_INTERFACE)
       if (NOT MSVC)
         torunonly_drcacheoff(builtin-prefetch-basic-counts builtin_prefetch "" "@-simulator_type@basic_counts" "")
         unset(tool.drcacheoff.builtin-prefetch-basic-counts_rawtemp) # use preprocessor
-      endif ()
-
-      if (AARCH64)
-        torunonly_drcacheoff(allasm-aarch64-flush-basic-counts allasm_aarch64_flush "" "@-simulator_type@basic_counts" "")
       endif ()
 
       # We run common.decode-bad to test markers for faults
