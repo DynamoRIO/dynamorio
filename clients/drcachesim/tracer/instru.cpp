@@ -200,7 +200,7 @@ instru_t::is_aarch64_dcache_flush_op(instr_t *instr)
     if (instr_get_opcode(instr) != OP_sys)
         return false;
     switch (opnd_get_immed_int(instr_get_src(instr, 0))) {
-    // i#4328: Handle privileged dcache operations.
+    // TODO i#4406: Handle all privileged dcache operations.
     case DR_DC_IVAC:
     case DR_DC_CVAU:
     case DR_DC_CIVAC:

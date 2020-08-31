@@ -35,10 +35,13 @@
  * a "burst" of execution in the middle of the application.  It then detaches.
  */
 #include "dr_api.h"
+#include "../../../suite/tests/client_tools.h"
 #include <assert.h>
 #include <iostream>
 #include <signal.h>
 #include <setjmp.h>
+
+#define ASSERT_NOT_REACHED() ASSERT_MSG(false, "Shouldn't be reached")
 
 static sigjmp_buf mark;
 static int handled_sigill_count = 0;
@@ -54,15 +57,19 @@ sigill_handler(int signal)
 {
     handled_sigill_count++;
     siglongjmp(mark, handled_sigill_count);
-    exit(-1);
+    ASSERT_NOT_REACHED();
 }
 
+/* Attempts to execute the privileged 'dc ivac' instruction.
+ * This will raise a SIGILL. Caller must register a SIGILL handler before
+ * invoking this function.
+ */
 static void
 dc_ivac()
 {
     int d = 0;
     // Expected to raise SIGILL.
-    // Control will be transferred to sigill_handler
+    // Control will be transferred to sigill_handler.
     __asm__ __volatile__("dc ivac, %0" : : "r"(&d));
 }
 
@@ -93,7 +100,9 @@ do_some_work()
     handled_sigill_count = 0;
     int i = sigsetjmp(mark, 1);
     switch (i) {
-    case 0: dc_ivac();
+    case 0:
+        dc_ivac();
+        // TODO i#4406: Test other privileged dc and ic flush instructions too.
     }
     return;
 }
