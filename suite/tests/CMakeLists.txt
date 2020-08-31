@@ -2090,6 +2090,17 @@ if (DR_HOST_AARCH64)
     # with some tool chains (such as SUSE GCC 6.2) results in an executable that
     # is not properly static. Adding --no-export-dynamic avoids the problem.
     "-Wl,--no-export-dynamic")
+
+  add_exe(allasm_aarch64_flush
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_flush.asm "" "")
+  set_target_properties(allasm_aarch64_flush PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(allasm_aarch64_flush
+    "-nostartfiles -nodefaultlibs -static")
+  append_property_string(TARGET allasm_aarch64_flush LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+    # is not properly static. Adding --no-export-dynamic avoids the problem.
+    "-Wl,--no-export-dynamic")
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android
@@ -3201,6 +3212,9 @@ if (CLIENT_INTERFACE)
 
         torunonly_drcachesim(allasm-aarch64-prefetch-basic-counts allasm_aarch64_prefetch
           "-simulator_type basic_counts" "")
+
+        torunonly_drcachesim(allasm-aarch64-flush-basic-counts allasm_aarch64_flush
+          "-simulator_type basic_counts" "")
       endif ()
 
       # XXX i#1703: add more dedicated tests (in suite/tests/clients/) for which
@@ -3447,6 +3461,11 @@ if (CLIENT_INTERFACE)
 
       if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
         torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
+      endif ()
+
+      if (AARCH64)
+        set(tool.drcacheoff.burst_flush_aarch64_nodr ON)
+        torunonly_drcacheoff(burst_flush_aarch64 tool.drcacheoff.burst_flush_aarch64 "" "@-simulator_type@basic_counts" "")
       endif ()
 
       # FIXME i#2007: fails to link on A64
