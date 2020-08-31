@@ -51,8 +51,8 @@
 #include "../drlibc/drlibc_unix.h"
 
 /* for inline asm */
-#ifdef X86
-#    ifdef X64
+#ifdef DR_HOST_X86
+#    ifdef DR_HOST_X64
 #        define ASM_XAX "rax"
 #        define ASM_XCX "rcx"
 #        define ASM_XDX "rdx"
@@ -66,15 +66,18 @@
 #        define ASM_XBP "ebp"
 #        define ASM_XSP "esp"
 #    endif /* 64/32-bit */
-#elif defined(AARCH64)
+#elif defined(DR_HOST_AARCH64)
 #    define ASM_R0 "x0"
 #    define ASM_R1 "x1"
-#    define ASM_XSP "sp"
+#    define ASM_R2 "x2"
+#    define ASM_R3 "x3"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "br"
-#elif defined(ARM)
+#elif defined(DR_HOST_ARM)
 #    define ASM_R0 "r0"
 #    define ASM_R1 "r1"
+#    define ASM_R2 "r2"
+#    define ASM_R3 "r3"
 #    define ASM_XSP "sp"
 #    define ASM_INDJMP "bx"
 #endif /* X86/ARM */

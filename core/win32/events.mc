@@ -248,7 +248,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_OUT_OF_MEMORY
 Language=English
-Application %1!s! (%2!s!).  Out of memory.  Program aborted. Status %3!s! 0x%4!s!
+Application %1!s! (%2!s!).  Out of memory.  Program aborted.  Source %3!s!, type %3!s!, code %4!s!.
 .
 
 MessageId =

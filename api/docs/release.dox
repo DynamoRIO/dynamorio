@@ -136,7 +136,11 @@ clients.
 The changes between version \DR_VERSION and 8.0.0 include the following compatibility
 changes:
 
- Nothing yet.
+ - A source compatibilty change in drcachesim analysis tools for users
+   who have created derived classes from existing analysis tools:
+   member fields of classes are now following a consistent style with
+   an underscore suffix.  References to renamed fields will need to be
+   updated.
 
 The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:
