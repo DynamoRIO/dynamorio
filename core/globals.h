@@ -306,16 +306,22 @@ typedef struct _dr_stats_t {
      * an un-translatable spot.
      */
     uint64 synchs_not_at_safe_spot;
-    /** Peak number of memory blocks used for heaps. */
-    uint64 peak_vmm_blocks_heap;
-    /** Peak number of memory blocks used for thread stacks. */
-    uint64 peak_vmm_blocks_stack;
-    /** Peak number of memory blocks used for code caches. */
-    uint64 peak_vmm_blocks_cache;
-    /** Peak number of memory blocks used for specialized heaps. */
-    uint64 peak_vmm_blocks_special_heap;
-    /** Peak number of memory blocks used for mappings not in other categories. */
-    uint64 peak_vmm_blocks_special_mmap;
+    /** Peak number of memory blocks used for unreachable heaps. */
+    uint64 peak_vmm_blocks_unreach_heap;
+    /** Peak number of memory blocks used for (unreachable) thread stacks. */
+    uint64 peak_vmm_blocks_unreach_stack;
+    /** Peak number of memory blocks used for unreachable specialized heaps. */
+    uint64 peak_vmm_blocks_unreach_special_heap;
+    /** Peak number of memory blocks used for other unreachable mappings. */
+    uint64 peak_vmm_blocks_unreach_special_mmap;
+    /** Peak number of memory blocks used for reachable heaps. */
+    uint64 peak_vmm_blocks_reach_heap;
+    /** Peak number of memory blocks used for (reachable) code caches. */
+    uint64 peak_vmm_blocks_reach_cache;
+    /** Peak number of memory blocks used for reachable specialized heaps. */
+    uint64 peak_vmm_blocks_reach_special_heap;
+    /** Peak number of memory blocks used for other reachable mappings. */
+    uint64 peak_vmm_blocks_reach_special_mmap;
 } dr_stats_t;
 
 /**
