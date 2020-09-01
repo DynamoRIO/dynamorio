@@ -1887,7 +1887,6 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_
 void
 vmm_heap_init()
 {
-    IF_WINDOWS(ASSERT(DYNAMO_OPTION(vmm_block_size) == OS_ALLOC_GRANULARITY));
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
     /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
