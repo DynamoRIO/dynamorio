@@ -1352,29 +1352,54 @@ rel32_reachable_from_current_vmcode(byte *tgt)
 static inline void
 vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
 {
+    /* We do not split the stats for cache (always reachable) nor stack (never reachable).
+     * We confirm our assumptions here.
+     */
+    ASSERT(!TESTALL(VMM_REACHABLE | VMM_STACK, which) &&
+           (TEST(VMM_REACHABLE, which) || !TEST(VMM_CACHE, which)));
     /* XXX: find some way to make a stats array */
     if (add) {
-        if (TEST(VMM_HEAP, which))
-            RSTATS_ADD_PEAK(vmm_blocks_heap, num_blocks);
-        else if (TEST(VMM_CACHE, which))
-            RSTATS_ADD_PEAK(vmm_blocks_cache, num_blocks);
+        if (TEST(VMM_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_heap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_heap, num_blocks);
+        } else if (TEST(VMM_CACHE, which))
+            RSTATS_ADD_PEAK(vmm_blocks_reach_cache, num_blocks);
         else if (TEST(VMM_STACK, which))
-            RSTATS_ADD_PEAK(vmm_blocks_stack, num_blocks);
-        else if (TEST(VMM_SPECIAL_HEAP, which))
-            RSTATS_ADD_PEAK(vmm_blocks_special_heap, num_blocks);
-        else if (TEST(VMM_SPECIAL_MMAP, which))
-            RSTATS_ADD_PEAK(vmm_blocks_special_mmap, num_blocks);
+            RSTATS_ADD_PEAK(vmm_blocks_unreach_stack, num_blocks);
+        else if (TEST(VMM_SPECIAL_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_special_heap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_special_heap, num_blocks);
+        } else if (TEST(VMM_SPECIAL_MMAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_special_mmap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_special_mmap, num_blocks);
+        }
     } else {
-        if (TEST(VMM_HEAP, which))
-            RSTATS_SUB(vmm_blocks_heap, num_blocks);
-        else if (TEST(VMM_CACHE, which))
-            RSTATS_SUB(vmm_blocks_cache, num_blocks);
+        if (TEST(VMM_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_heap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_heap, num_blocks);
+        } else if (TEST(VMM_CACHE, which))
+            RSTATS_SUB(vmm_blocks_reach_cache, num_blocks);
         else if (TEST(VMM_STACK, which))
-            RSTATS_SUB(vmm_blocks_stack, num_blocks);
-        else if (TEST(VMM_SPECIAL_HEAP, which))
-            RSTATS_SUB(vmm_blocks_special_heap, num_blocks);
-        else if (TEST(VMM_SPECIAL_MMAP, which))
-            RSTATS_SUB(vmm_blocks_special_mmap, num_blocks);
+            RSTATS_SUB(vmm_blocks_unreach_stack, num_blocks);
+        else if (TEST(VMM_SPECIAL_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_special_heap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_special_heap, num_blocks);
+        } else if (TEST(VMM_SPECIAL_MMAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_special_mmap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_special_mmap, num_blocks);
+        }
     }
 }
 

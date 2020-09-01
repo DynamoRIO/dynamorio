@@ -974,16 +974,28 @@ STATS_DEF("Peak total unallocatable free space", peak_total_wasted_vsize)
 STATS_DEF("Number of unaligned allocations (TEB's etc.)", unaligned_allocations)
 STATS_DEF("Peak unaligned allocations", peak_unaligned_allocations)
 #endif
-RSTATS_DEF("Current vmm blocks for heap", vmm_blocks_heap)
-RSTATS_DEF("Peak vmm blocks for heap", peak_vmm_blocks_heap)
-RSTATS_DEF("Current vmm blocks for cache", vmm_blocks_cache)
-RSTATS_DEF("Peak vmm blocks for cache", peak_vmm_blocks_cache)
-RSTATS_DEF("Current vmm blocks for stack", vmm_blocks_stack)
-RSTATS_DEF("Peak vmm blocks for stack", peak_vmm_blocks_stack)
-RSTATS_DEF("Current vmm blocks for special heap", vmm_blocks_special_heap)
-RSTATS_DEF("Peak vmm blocks for special heap", peak_vmm_blocks_special_heap)
-RSTATS_DEF("Current vmm blocks for special mmap", vmm_blocks_special_mmap)
-RSTATS_DEF("Peak vmm blocks for special mmap", peak_vmm_blocks_special_mmap)
+RSTATS_DEF("Current vmm blocks for unreachable heap", vmm_blocks_unreach_heap)
+RSTATS_DEF("Peak vmm blocks for unreachable heap", peak_vmm_blocks_unreach_heap)
+RSTATS_DEF("Current vmm blocks for stack", vmm_blocks_unreach_stack)
+RSTATS_DEF("Peak vmm blocks for stack", peak_vmm_blocks_unreach_stack)
+RSTATS_DEF("Current vmm blocks for unreachable special heap",
+           vmm_blocks_unreach_special_heap)
+RSTATS_DEF("Peak vmm blocks for unreachable special heap",
+           peak_vmm_blocks_unreach_special_heap)
+RSTATS_DEF("Current vmm blocks for unreachable special mmap",
+           vmm_blocks_unreach_special_mmap)
+RSTATS_DEF("Peak vmm blocks for unreachable special mmap",
+           peak_vmm_blocks_unreach_special_mmap)
+RSTATS_DEF("Current vmm blocks for reachable heap", vmm_blocks_reach_heap)
+RSTATS_DEF("Peak vmm blocks for reachable heap", peak_vmm_blocks_reach_heap)
+RSTATS_DEF("Current vmm blocks for cache", vmm_blocks_reach_cache)
+RSTATS_DEF("Peak vmm blocks for cache", peak_vmm_blocks_reach_cache)
+RSTATS_DEF("Current vmm blocks for reachable special heap", vmm_blocks_reach_special_heap)
+RSTATS_DEF("Peak vmm blocks for reachable special heap",
+           peak_vmm_blocks_reach_special_heap)
+RSTATS_DEF("Current vmm blocks for reachable special mmap", vmm_blocks_reach_special_mmap)
+RSTATS_DEF("Peak vmm blocks for reachable special mmap",
+           peak_vmm_blocks_reach_special_mmap)
 STATS_DEF("Our virtual memory blocks in use", vmm_vsize_blocks_used)
 STATS_DEF("Peak our virtual memory blocks in use", peak_vmm_vsize_blocks_used)
 STATS_DEF("Wasted vmm space due to alignment", vmm_vsize_wasted)
