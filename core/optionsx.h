@@ -1263,33 +1263,29 @@ OPTION_INTERNAL(bool, simulate_contention,
                 "simulate lock contention for testing purposes only")
 
 /* Virtual memory manager.
- * Our current default allocation unit matches the allocation granularity on
- * Windows, to avoid worrying about external fragmentation.
- * Since most of our allocations fall within this range this makes the
- * common operation be finding a single empty block.
- *
- * On Linux we save a lot of wasted alignment space by using a smaller
- * granularity (PR 415959, i#2575).
- *
- * XXX: for Windows, if we reserve the whole region up front and
- * just commit pieces, why do we need to match the Windows kernel
- * alloc granularity while within the region?
+ * We assume that our reservations cover 99% of the usage, and that we do not
+ * need to tune our sizes for standalone allocations where we would want 64K
+ * units for Windows.  If we exceed the reservations we'll end up with less
+ * efficient sizing, but that is worth the simpler and cleaner common case
+ * sizing.  We save a lot of wasted alignment space by using a smaller
+ * granularity (PR 415959, i#2575) and we avoid the complexity of adding guard
+ * pages while maintaining larger-than-page sizing (i#2607).
  *
  * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
  */
-OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64, 4) * 1024),
+OPTION_DEFAULT(uint_size, vmm_block_size, 4 * 1024,
                "allocation unit for virtual memory manager")
 /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32 * 1024,
+OPTION_DEFAULT(uint_size, initial_heap_unit_size, 24 * 1024,
                "initial private heap unit size")
 /* We avoid wasted space for every thread on UNIX for the
- * non-persistent heap which often stays under 12K (i#2575) (+8K for guards).
+ * non-persistent heap which often stays under 12K (i#2575).
  */
 /* initial_heap_nonpers_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(32, 20) * 1024,
+OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(24, 12) * 1024,
                "initial private non-persistent heap unit size")
 /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32 * 1024,
+OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 24 * 1024,
                "initial global heap unit size")
 /* if this is too small then once past the vm reservation we have too many
  * DR areas and subsequent problems with DR areas and allmem synch (i#369)
@@ -1314,9 +1310,6 @@ OPTION_DEFAULT(uint_size, cache_commit_increment, 4 * 1024, "cache commit increm
  * FIXME: now that we have cache commit-on-demand we should make the
  * private-configuration caches larger.  We could even get rid of the
  * fcache shifting.
- */
-/* Note that with guard pages any size of 64KB or bigger will get 8KB less than specified
- * to make sure we don't waste virtual memory in the address space
  */
 OPTION(uint_size, cache_bb_max, "max size of bb cache, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
