@@ -855,7 +855,7 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
                      get_random_offset(DYNAMO_OPTION(vm_max_offset) /
                                        DYNAMO_OPTION(vmm_block_size)) *
                          DYNAMO_OPTION(vmm_block_size));
-        preferred = ALIGN_FORWARD(preferred, DYNAMO_OPTION(vmm_block_size));
+        preferred = ALIGN_FORWARD(preferred, OS_ALLOC_GRANULARITY);
         /* overflow check: w/ vm_base shouldn't happen so debug-only check */
         ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
         /* let's assume a single chunk is sufficient to reserve */
@@ -1887,6 +1887,7 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_
 void
 vmm_heap_init()
 {
+    IF_WINDOWS(ASSERT(ALIGNED(OS_ALLOC_GRANULARITY, DYNAMO_OPTION(vmm_block_size))));
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
     /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
