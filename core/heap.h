@@ -119,6 +119,12 @@ typedef enum {
     VMM_SPECIAL_MMAP = 0x0010,
     /* These modify the core types. */
     VMM_REACHABLE = 0x0020,
+    /* This is used to decide whether to add guard pages for -per_thread_guard_pages.
+     * It is not required that all thread-private allocs use this, nor that this
+     * never end up labeling a thread-shared alloc.  It is also not required that
+     * this flag be present at incremental commits: only at reserve and unreserve calls.
+     */
+    VMM_PER_THREAD = 0x0040,
 } which_vmm_t;
 
 void

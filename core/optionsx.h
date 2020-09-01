@@ -1352,6 +1352,7 @@ OPTION_DEFAULT(uint_size, cache_shared_bb_unit_init, (56 * 1024),
                   should be 32*1024 */
                "initial shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
+/* May be adjusted by adjust_defaults_for_page_size(). */
 OPTION_DEFAULT(uint_size, cache_shared_bb_unit_max, (56 * 1024),
                "maximum shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
@@ -1368,6 +1369,7 @@ OPTION_DEFAULT(uint_size, cache_shared_trace_unit_init, (56 * 1024),
                   should be 32*1024 */
                "initial shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
+/* May be adjusted by adjust_defaults_for_page_size(). */
 OPTION_DEFAULT(uint_size, cache_shared_trace_unit_max, (56 * 1024),
                "maximum shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
@@ -1849,7 +1851,12 @@ PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
 OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, IF_LINUX_ELSE(true, false),
                         "use a safe read to identify uninit TLS")
 
-OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
+OPTION_DEFAULT(bool, guard_pages, true,
+               "add guard pages to all thread-shared vmm allocations; if disabled, also "
+               "disables -per_thread_guard_pages")
+OPTION_DEFAULT(
+    bool, per_thread_guard_pages, true,
+    "add guard pages to all thread-private vmm allocations, if -guard_pages is also on")
 /* Today we support just one stack guard page.  We may want to turn this
  * option into a number in the future to catch larger strides beyond TOS.
  * There are problems on Windows where the PAGE_GUARD pages must be used, yet

@@ -428,6 +428,7 @@ typedef struct _fcache_unit_t {
     bool was_shared;
     profile_t *profile;
 #endif
+    bool per_thread;   /* Used for -per_thread_guard_pages. */
     bool pending_free; /* was entire unit flushed and slated for free? */
 #ifdef DEBUG
     bool pending_flush; /* indicates in-limbo unit pre-flush is still live */
@@ -972,7 +973,7 @@ fcache_really_free_unit(fcache_unit_t *u, bool on_dead_list, bool dealloc_unit)
     vmvector_remove(fcache_unit_areas, u->start_pc, u->reserved_end_pc);
     if (dealloc_unit) {
         heap_munmap((void *)u->start_pc, UNIT_RESERVED_SIZE(u),
-                    VMM_CACHE | VMM_REACHABLE);
+                    VMM_CACHE | VMM_REACHABLE | (u->per_thread ? VMM_PER_THREAD : 0));
     }
     /* always dealloc the metadata */
     nonpersistent_heap_free(GLOBAL_DCONTEXT, u,
@@ -1341,6 +1342,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
             fcache_unit_t *prev_u = NULL;
             u = allunits->dead;
             while (u != NULL) {
+                /* We are ok re-using a per-thread-guarded unit in a shared cache. */
                 if (u->size >= size &&
                     (cache->max_size == 0 || cache->size + u->size <= cache->max_size)) {
                     /* remove from dead list */
@@ -1374,6 +1376,7 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
         /* use global heap b/c this can be re-used by later threads */
         u = (fcache_unit_t *)nonpersistent_heap_alloc(
             GLOBAL_DCONTEXT, sizeof(fcache_unit_t) HEAPACCT(ACCT_MEM_MGT));
+        u->per_thread = false;
         if (pc != NULL) {
             u->start_pc = pc;
             commit_size = size;
@@ -1389,9 +1392,19 @@ fcache_create_unit(dcontext_t *dcontext, fcache_t *cache, cache_pc pc, size_t si
              */
             if (commit_size > size)
                 commit_size = size;
+            which_vmm_t which = VMM_CACHE | VMM_REACHABLE;
+            if (!cache->is_shared && cache->units == NULL) {
+                /* Tradeoff (i#4424): no guard pages on per-thread initial units, to
+                 * save space for many-threaded apps.  These units are rarely used.
+                 * We do not bother to mark subsequent units this way: the goal is to
+                 * reduce up-front per-thread costs in common usage, while additional
+                 * units indicate -thread_private or other settings.
+                 */
+                which |= VMM_PER_THREAD;
+                u->per_thread = true;
+            }
             u->start_pc = (cache_pc)heap_mmap_reserve(
-                size, commit_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
-                VMM_CACHE | VMM_REACHABLE);
+                size, commit_size, MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, which);
         }
         ASSERT(u->start_pc != NULL);
         ASSERT(proc_is_cache_aligned((void *)u->start_pc));
