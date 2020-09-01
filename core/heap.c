@@ -1365,9 +1365,9 @@ vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
             else
                 RSTATS_ADD_PEAK(vmm_blocks_unreach_heap, num_blocks);
         } else if (TEST(VMM_CACHE, which))
-            RSTATS_ADD_PEAK(vmm_blocks_cache, num_blocks);
+            RSTATS_ADD_PEAK(vmm_blocks_reach_cache, num_blocks);
         else if (TEST(VMM_STACK, which))
-            RSTATS_ADD_PEAK(vmm_blocks_stack, num_blocks);
+            RSTATS_ADD_PEAK(vmm_blocks_unreach_stack, num_blocks);
         else if (TEST(VMM_SPECIAL_HEAP, which)) {
             if (TEST(VMM_REACHABLE, which))
                 RSTATS_ADD_PEAK(vmm_blocks_reach_special_heap, num_blocks);
@@ -1386,9 +1386,9 @@ vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
             else
                 RSTATS_SUB(vmm_blocks_unreach_heap, num_blocks);
         } else if (TEST(VMM_CACHE, which))
-            RSTATS_SUB(vmm_blocks_cache, num_blocks);
+            RSTATS_SUB(vmm_blocks_reach_cache, num_blocks);
         else if (TEST(VMM_STACK, which))
-            RSTATS_SUB(vmm_blocks_stack, num_blocks);
+            RSTATS_SUB(vmm_blocks_unreach_stack, num_blocks);
         else if (TEST(VMM_SPECIAL_HEAP, which)) {
             if (TEST(VMM_REACHABLE, which))
                 RSTATS_SUB(vmm_blocks_reach_special_heap, num_blocks);

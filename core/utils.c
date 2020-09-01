@@ -4613,13 +4613,14 @@ stats_get_snapshot(dr_stats_t *drstats)
     if (drstats->size > offsetof(dr_stats_t, peak_vmm_blocks_unreach_heap)) {
         /* These fields were added all at once. */
         drstats->peak_vmm_blocks_unreach_heap = GLOBAL_STAT(peak_vmm_blocks_unreach_heap);
-        drstats->peak_vmm_blocks_unreach_stack = GLOBAL_STAT(peak_vmm_blocks_stack);
+        drstats->peak_vmm_blocks_unreach_stack =
+            GLOBAL_STAT(peak_vmm_blocks_unreach_stack);
         drstats->peak_vmm_blocks_unreach_special_heap =
             GLOBAL_STAT(peak_vmm_blocks_unreach_special_heap);
         drstats->peak_vmm_blocks_unreach_special_mmap =
             GLOBAL_STAT(peak_vmm_blocks_unreach_special_mmap);
         drstats->peak_vmm_blocks_reach_heap = GLOBAL_STAT(peak_vmm_blocks_reach_heap);
-        drstats->peak_vmm_blocks_reach_cache = GLOBAL_STAT(peak_vmm_blocks_cache);
+        drstats->peak_vmm_blocks_reach_cache = GLOBAL_STAT(peak_vmm_blocks_reach_cache);
         drstats->peak_vmm_blocks_reach_special_heap =
             GLOBAL_STAT(peak_vmm_blocks_reach_special_heap);
         drstats->peak_vmm_blocks_reach_special_mmap =
