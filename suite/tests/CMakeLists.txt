@@ -4519,4 +4519,7 @@ if (APPLE)
   endif ()
 endif ()
 
+set_tests_properties(code_api|tool.drcachesim.threads PROPERTIES LABELS i2609)
+set_tests_properties(code_api|tool.drcachesim.threads-with-config-file PROPERTIES LABELS i2609)
+set_tests_properties(code_api|tool.drcachesim.TLB-threads PROPERTIES LABELS i2609)
 set_tests_properties(code_api|tool.drcachesim.coherence PROPERTIES LABELS i2609)
