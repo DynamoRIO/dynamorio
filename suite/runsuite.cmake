@@ -35,6 +35,7 @@ set(CTEST_PROJECT_NAME "DynamoRIO")
 set(cpack_project_name "DynamoRIO")
 set(run_tests ON)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
+set(extra_ctest_args INCLUDE_LABEL i2609)
 if (APPLE)
   # For now we run just a quarter of the tests, using a test label.
   # FIXME i#1815: get all the tests working.
@@ -294,12 +295,12 @@ endif ()
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
   # For cross-arch execve test we need to "make install"
-  testbuild_ex("debug-internal-32" OFF "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    ${build_tests}
-    ${install_path_cache}
-    " OFF ON "${install_build_args}")
+#  testbuild_ex("debug-internal-32" OFF "
+#    DEBUG:BOOL=ON
+#    INTERNAL:BOOL=ON
+#    ${build_tests}
+#    ${install_path_cache}
+#    " OFF ON "${install_build_args}")
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
@@ -339,13 +340,13 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
   endif ()
   set(orig_extra_ctest_args ${extra_ctest_args})
   set(extra_ctest_args INCLUDE_LABEL RUN_IN_RELEASE)
-  testbuild_ex("release-external-64" ON "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${build_release_tests}
-    ${install_path_cache}
-    ${32bit_path}
-    " OFF ${arg_package} "${install_build_args}")
+#  testbuild_ex("release-external-64" ON "
+#    DEBUG:BOOL=OFF
+#    INTERNAL:BOOL=OFF
+#    ${build_release_tests}
+#    ${install_path_cache}
+#    ${32bit_path}
+#    " OFF ${arg_package} "${install_build_args}")
   set(extra_ctest_args ${orig_extra_ctest_args})
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
