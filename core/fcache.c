@@ -1522,28 +1522,19 @@ fcache_free_unit(dcontext_t *dcontext, fcache_unit_t *unit, bool dealloc_or_reus
     }
 }
 
-/* assuming size will either be aligned at VM_ALLOCATION_BOUNDARY or
- * smaller where no adjustment is necessary
+/* We do not consider guard pages in our sizing, since the VMM no longer uses
+ * larger-than-page block sizing (i#2607, i#4424).  Guards will be added on top.
  */
-#define FCACHE_GUARDED(size)                                                             \
-    ((size) -                                                                            \
-     ((DYNAMO_OPTION(guard_pages) && ((size) >= VM_ALLOCATION_BOUNDARY - 2 * PAGE_SIZE)) \
-          ? (2 * PAGE_SIZE)                                                              \
-          : 0))
-
-#define SET_CACHE_PARAMS(cache, which)                                                  \
-    do {                                                                                \
-        cache->max_size = FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_max));           \
-        cache->max_unit_size = FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_max)); \
-        cache->max_quadrupled_unit_size =                                               \
-            FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_quadruple));              \
-        cache->free_upgrade_size =                                                      \
-            FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_upgrade));                \
-        cache->init_unit_size =                                                         \
-            FCACHE_GUARDED(FCACHE_OPTION(cache_##which##_unit_init));                   \
-        cache->finite_cache = dynamo_options.finite_##which##_cache;                    \
-        cache->regen_param = dynamo_options.cache_##which##_regen;                      \
-        cache->replace_param = dynamo_options.cache_##which##_replace;                  \
+#define SET_CACHE_PARAMS(cache, which)                                                   \
+    do {                                                                                 \
+        cache->max_size = FCACHE_OPTION(cache_##which##_max);                            \
+        cache->max_unit_size = FCACHE_OPTION(cache_##which##_unit_max);                  \
+        cache->max_quadrupled_unit_size = FCACHE_OPTION(cache_##which##_unit_quadruple); \
+        cache->free_upgrade_size = FCACHE_OPTION(cache_##which##_unit_upgrade);          \
+        cache->init_unit_size = FCACHE_OPTION(cache_##which##_unit_init);                \
+        cache->finite_cache = dynamo_options.finite_##which##_cache;                     \
+        cache->regen_param = dynamo_options.cache_##which##_regen;                       \
+        cache->replace_param = dynamo_options.cache_##which##_replace;                   \
     } while (0);
 
 static fcache_t *

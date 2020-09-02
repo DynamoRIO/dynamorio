@@ -323,8 +323,7 @@ OPTION_DEFAULT_INTERNAL(bool, heap_accounting_assert, true,
 
 #if defined(UNIX)
 OPTION_NAME_INTERNAL(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
-/* for default size 0, special_heap_init() will use initial_heap_unit_size instead */
-OPTION_DEFAULT_INTERNAL(uint_size, prof_pcs_heap_size, 0,
+OPTION_DEFAULT_INTERNAL(uint_size, prof_pcs_heap_size, 24 * 1024,
                         "special heap size for pc-sampling profiling")
 #else
 #    ifdef WINDOWS_PC_SAMPLE
@@ -1263,33 +1262,29 @@ OPTION_INTERNAL(bool, simulate_contention,
                 "simulate lock contention for testing purposes only")
 
 /* Virtual memory manager.
- * Our current default allocation unit matches the allocation granularity on
- * Windows, to avoid worrying about external fragmentation.
- * Since most of our allocations fall within this range this makes the
- * common operation be finding a single empty block.
- *
- * On Linux we save a lot of wasted alignment space by using a smaller
- * granularity (PR 415959, i#2575).
- *
- * XXX: for Windows, if we reserve the whole region up front and
- * just commit pieces, why do we need to match the Windows kernel
- * alloc granularity while within the region?
+ * We assume that our reservations cover 99% of the usage, and that we do not
+ * need to tune our sizes for standalone allocations where we would want 64K
+ * units for Windows.  If we exceed the reservations we'll end up with less
+ * efficient sizing, but that is worth the simpler and cleaner common case
+ * sizing.  We save a lot of wasted alignment space by using a smaller
+ * granularity (PR 415959, i#2575) and we avoid the complexity of adding guard
+ * pages while maintaining larger-than-page sizing (i#2607).
  *
  * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
  */
-OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64, 4) * 1024),
+OPTION_DEFAULT(uint_size, vmm_block_size, 4 * 1024,
                "allocation unit for virtual memory manager")
 /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32 * 1024,
+OPTION_DEFAULT(uint_size, initial_heap_unit_size, 24 * 1024,
                "initial private heap unit size")
 /* We avoid wasted space for every thread on UNIX for the
- * non-persistent heap which often stays under 12K (i#2575) (+8K for guards).
+ * non-persistent heap which often stays under 12K (i#2575).
  */
 /* initial_heap_nonpers_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(32, 20) * 1024,
+OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(24, 12) * 1024,
                "initial private non-persistent heap unit size")
 /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32 * 1024,
+OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 24 * 1024,
                "initial global heap unit size")
 /* if this is too small then once past the vm reservation we have too many
  * DR areas and subsequent problems with DR areas and allmem synch (i#369)
@@ -1315,84 +1310,85 @@ OPTION_DEFAULT(uint_size, cache_commit_increment, 4 * 1024, "cache commit increm
  * private-configuration caches larger.  We could even get rid of the
  * fcache shifting.
  */
-/* Note that with guard pages any size of 64KB or bigger will get 8KB less than specified
- * to make sure we don't waste virtual memory in the address space
- */
 OPTION(uint_size, cache_bb_max, "max size of bb cache, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 /* for default configuration of all-shared we want a tiny bb cache for
  * our temp private bbs
  */
-/* x64 does not support resizing individual cache units so start at 64 */
-OPTION_DEFAULT(uint_size, cache_bb_unit_init, (IF_X64_ELSE(64, 4) * 1024),
+/* The 56K values below are to hit 64K with two 4K guard pages.
+ * We no longer need to hit 64K since VMM blocks are now 4K, but we keep the
+ * sizes to match historical values and to avoid i#4433.
+ */
+/* x64 does not support resizing individual cache units so start at the max. */
+OPTION_DEFAULT(uint_size, cache_bb_unit_init, (IF_X64_ELSE(56, 4) * 1024),
                "initial bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_max, (56 * 1024),
                "maximum bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 /* w/ init at 4, we quadruple to 16 and then to 64 */
-OPTION_DEFAULT(uint_size, cache_bb_unit_quadruple, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_quadruple, (56 * 1024),
                "bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_trace_max, "max size of trace cache, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-/* x64 does not support resizing individual cache units so start at 64 */
-OPTION_DEFAULT(uint_size, cache_trace_unit_init, (IF_X64_ELSE(64, 8) * 1024),
+/* x64 does not support resizing individual cache units so start at the max. */
+OPTION_DEFAULT(uint_size, cache_trace_unit_init, (IF_X64_ELSE(56, 8) * 1024),
                "initial trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_max, (56 * 1024),
                "maximum trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_quadruple, (IF_X64_ELSE(64, 32) * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_quadruple, (IF_X64_ELSE(56, 32) * 1024),
                "trace cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_shared_bb_max, "max size of shared bb cache, in KB or MB")
 /* override the default shared bb fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_max, (56 * 1024),
                "maximum shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_shared_bb_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "shared bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_shared_trace_max, "max size of shared trace cache, in KB or MB")
 /* override the default shared trace fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_max, (56 * 1024),
                "maximum shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_shared_trace_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "shared trace cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_coarse_bb_max, "max size of coarse bb cache, in KB or MB")
 /* override the default coarse bb fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial coarse bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_max, (56 * 1024),
                "maximum coarse bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "coarse bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
@@ -1406,19 +1402,19 @@ OPTION_DEFAULT(bool, finite_shared_trace_cache, false,
                "adaptive working set shared trace cache management")
 OPTION_DEFAULT(bool, finite_coarse_bb_cache, false,
                "adaptive working set shared bb cache management")
-OPTION_DEFAULT(uint_size, cache_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_upgrade, (56 * 1024),
                "bb cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_upgrade, (56 * 1024),
                "trace cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_upgrade, (56 * 1024),
                "shared bb cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_upgrade, (56 * 1024),
                "shared trace cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_upgrade, (56 * 1024),
                "shared coarse cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 

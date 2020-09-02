@@ -166,31 +166,11 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define MEMSET_HEADER(p, value) VARIABLE_SIZE(p) = HEAP_TO_PTR_UINT(value)
 #define GET_VARIABLE_ALLOCATION_SIZE(p) (VARIABLE_SIZE(p) + HEADER_SIZE)
 
-/* heap is allocated in units
- * we start out with a small unit, then each additional unit we
- * need doubles in size, up to a maximum, we default to 32kb initial size
- * (24kb useful with guard pages), max size defaults to 64kb (56kb useful with
- * guard pages), we keep the max small to save memory, it doesn't seem to be
- * perf hit! Though with guard pages we are wasting quite a bit of reserved
- * (though not committed) space */
-/* the only big things global heap is used for are pc sampling
- * hash table and sideline sampling hash table -- if none of those
- * are in use, 16KB should be plenty, we default to 32kb since guard
- * pages are on by default (gives 24kb useful) max size is same as for
- * normal heap units.
- */
-/* the old defaults were 32kb (usable) for initial thread private and 16kb
- * (usable) for initial global, changed to simplify the logic for allocating
- * in multiples of the os allocation granularity.  The new defaults prob.
- * make more sense with the shared cache then the old did anyways.
- */
-/* restrictions -
- * any guard pages are included in the size, size must be > UNITOVERHEAD
- * for best performance sizes should be of the form
- * 2^n * page_size (where n is a positve integer) and max should be a multiple
- * of the os allocation granularity so that with enough doublings we are
- * reserving memory in multiples of the allocation granularity and not wasting
- * any virtual address space (beyond our guard pages)
+/* The heap is allocated in units.
+ * We start out with a small unit. Then each additional unit we
+ * need doubles in size, up to a maximum.
+ * We keep the initial units small for thread-private heaps, since with
+ * thousands of threads the space can add up.
  */
 #define HEAP_UNIT_MIN_SIZE DYNAMO_OPTION(initial_heap_unit_size)
 #define HEAP_UNIT_MAX_SIZE INTERNAL_OPTION(max_heap_unit_size)
@@ -211,12 +191,12 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define UNIT_COMMIT_END(u) (u->end_pc)
 #define UNIT_RESERVED_END(u) (u->reserved_end_pc)
 
-/* gets the allocated size of the unit (reserved size + guard pages) */
-#define UNITALLOC(u) (UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
-/* gets unit overhead, includes the reserved (guard pages) and committed
- * (sizeof(heap_unit_t)) portions
+/* Gets the allocated size of the unit (reserved size; doesn't include guard pages
+ * as those are not considered part of the usable space).
  */
-#define UNITOVERHEAD (sizeof(heap_unit_t) + GUARD_PAGE_ADJUSTMENT)
+#define UNITALLOC(u) (UNIT_RESERVED_SIZE(u))
+/* Gets unit overhead: includes reserved and committed (sizeof(heap_unit_t)) portions. */
+#define UNITOVERHEAD sizeof(heap_unit_t)
 
 /* any alloc request larger than this needs a special unit */
 #define MAXROOM (HEAP_UNIT_MAX_SIZE - UNITOVERHEAD)
@@ -875,7 +855,7 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
                      get_random_offset(DYNAMO_OPTION(vm_max_offset) /
                                        DYNAMO_OPTION(vmm_block_size)) *
                          DYNAMO_OPTION(vmm_block_size));
-        preferred = ALIGN_FORWARD(preferred, DYNAMO_OPTION(vmm_block_size));
+        preferred = ALIGN_FORWARD(preferred, OS_ALLOC_GRANULARITY);
         /* overflow check: w/ vm_base shouldn't happen so debug-only check */
         ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
         /* let's assume a single chunk is sufficient to reserve */
@@ -1907,7 +1887,7 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_
 void
 vmm_heap_init()
 {
-    IF_WINDOWS(ASSERT(DYNAMO_OPTION(vmm_block_size) == OS_ALLOC_GRANULARITY));
+    IF_WINDOWS(ASSERT(ALIGNED(OS_ALLOC_GRANULARITY, DYNAMO_OPTION(vmm_block_size))));
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
     /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
@@ -3812,8 +3792,7 @@ threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size, bool rea
     int i;
     DODEBUG({ tu->num_units = 0; });
     tu->which = VMM_HEAP | (reachable ? VMM_REACHABLE : 0);
-    tu->top_unit =
-        heap_create_unit(tu, size - GUARD_PAGE_ADJUSTMENT, false /*can reuse*/);
+    tu->top_unit = heap_create_unit(tu, size, false /*can reuse*/);
     tu->cur_unit = tu->top_unit;
     tu->dcontext = dcontext;
     tu->writable = true;
@@ -4363,11 +4342,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                             unit_size *= 2;
                         if (unit_size > HEAP_UNIT_MAX_SIZE)
                             unit_size = HEAP_UNIT_MAX_SIZE;
-                        /* size for heap_create_unit doesn't include any guard
-                         * pages */
                         ASSERT(unit_size > UNITOVERHEAD);
-                        ASSERT(unit_size > (size_t)GUARD_PAGE_ADJUSTMENT);
-                        unit_size -= GUARD_PAGE_ADJUSTMENT;
                         new_unit = heap_create_unit(tu, unit_size, false /*can reuse*/);
                         prev->next_local = new_unit;
 #ifdef DEBUG_MEMORY
@@ -4910,7 +4885,7 @@ typedef struct _special_heap_unit_t {
 #define SPECIAL_UNIT_COMMIT_SIZE(u) ((u)->end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_RESERVED_SIZE(u) ((u)->reserved_end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_HEADER_INLINE(u) ((u)->alloc_pc != (u)->start_pc)
-#define SPECIAL_UNIT_ALLOC_SIZE(u) (SPECIAL_UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
+#define SPECIAL_UNIT_ALLOC_SIZE(u) (SPECIAL_UNIT_RESERVED_SIZE(u))
 
 /* the cfree list stores a next ptr and a count */
 typedef struct _cfree_header {
@@ -5143,18 +5118,11 @@ special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
     if (block_alignment != 0)
         block_size = ALIGN_FORWARD(block_size, block_alignment);
     if (unit_size == 0) {
-        unit_size = (block_size * 16 > HEAP_UNIT_MIN_SIZE) ? (block_size * 16)
-                                                           : HEAP_UNIT_MIN_SIZE;
-        /* Whether using 16K or 64K vmm blocks, HEAP_UNIT_MIN_SIZE of 32K wastes
-         * space, and our main uses (stubs, whether global or coarse, and signal
-         * pending queue) don't need a lot of space, so shrinking.
-         * This tuning is a little fragile (just like for regular heap units and
-         * fcache units) so be careful when changing default parameters.
+        /* Our main uses (stubs, whether global or coarse, and signal
+         * pending queue) don't need a lot of space, so we have a smaller min size
+         * than regular heap units which use HEAP_UNIT_MIN_SIZE.
          */
-        if (unit_size == HEAP_UNIT_MIN_SIZE) {
-            ASSERT(unit_size > (size_t)GUARD_PAGE_ADJUSTMENT);
-            unit_size -= GUARD_PAGE_ADJUSTMENT;
-        }
+        unit_size = (block_size * 16 > PAGE_SIZE) ? (block_size * 16) : PAGE_SIZE;
     }
     if (heap_region == NULL) {
         unit_size = (size_t)ALIGN_FORWARD(unit_size, PAGE_SIZE);
