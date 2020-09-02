@@ -1316,75 +1316,75 @@ OPTION(uint_size, cache_bb_max, "max size of bb cache, in KB or MB")
  * our temp private bbs
  */
 /* x64 does not support resizing individual cache units so start at 64 */
-OPTION_DEFAULT(uint_size, cache_bb_unit_init, (IF_X64_ELSE(64, 4) * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_init, (IF_X64_ELSE(56, 4) * 1024),
                "initial bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_max, (56 * 1024),
                "maximum bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 /* w/ init at 4, we quadruple to 16 and then to 64 */
-OPTION_DEFAULT(uint_size, cache_bb_unit_quadruple, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_quadruple, (56 * 1024),
                "bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_trace_max, "max size of trace cache, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 /* x64 does not support resizing individual cache units so start at 64 */
-OPTION_DEFAULT(uint_size, cache_trace_unit_init, (IF_X64_ELSE(64, 8) * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_init, (IF_X64_ELSE(56, 8) * 1024),
                "initial trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_max, (56 * 1024),
                "maximum trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_quadruple, (IF_X64_ELSE(64, 32) * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_quadruple, (IF_X64_ELSE(56, 32) * 1024),
                "trace cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_shared_bb_max, "max size of shared bb cache, in KB or MB")
 /* override the default shared bb fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_max, (56 * 1024),
                "maximum shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_shared_bb_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "shared bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_shared_trace_max, "max size of shared trace cache, in KB or MB")
 /* override the default shared trace fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_max, (56 * 1024),
                "maximum shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_shared_trace_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "shared trace cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_coarse_bb_max, "max size of coarse bb cache, in KB or MB")
 /* override the default coarse bb fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial coarse bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_max, (56 * 1024),
                "maximum coarse bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "coarse bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
@@ -1398,19 +1398,19 @@ OPTION_DEFAULT(bool, finite_shared_trace_cache, false,
                "adaptive working set shared trace cache management")
 OPTION_DEFAULT(bool, finite_coarse_bb_cache, false,
                "adaptive working set shared bb cache management")
-OPTION_DEFAULT(uint_size, cache_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_upgrade, (56 * 1024),
                "bb cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_upgrade, (56 * 1024),
                "trace cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_upgrade, (56 * 1024),
                "shared bb cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_upgrade, (56 * 1024),
                "shared trace cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_upgrade, (56 * 1024),
                "shared coarse cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
