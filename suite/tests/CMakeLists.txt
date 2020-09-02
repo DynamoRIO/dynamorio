@@ -4518,3 +4518,5 @@ if (APPLE)
       PROPERTIES LABELS OSX)
   endif ()
 endif ()
+
+set_tests_properties(code_api|tool.drcachesim.coherence PROPERTIES LABELS i2609)
