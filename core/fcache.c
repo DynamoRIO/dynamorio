@@ -347,8 +347,8 @@ static const uint FREE_LIST_SIZES[] = {
  */
 typedef struct _free_list_header_t {
     struct _free_list_header_t *next;
-    /* We arrange these two so that the FRAG_FCACHE_FREE_LIST flag will be set
-     * at the proper bit as though these were a "uint flags" at the same offset
+    /* We arrange this so that the FRAG_FCACHE_FREE_LIST flag will be set
+     * at the proper bit as though this were a "uint flags" at the same offset
      * in the struct as fragment_t.flags.  Since no one else examines a free list
      * as though it might be a fragment_t, we don't care about the other flags.
      * We have an ASSERT in fcache_init() to ensure the byte ordering is right.
@@ -359,8 +359,12 @@ typedef struct _free_list_header_t {
      * the free list.  Thus to identify a free list entry we must check for
      * either NULL or for the FRAG_FCACHE_FREE_LIST flag.
      */
-    ushort flags;
-    ushort size;
+    uint flags;
+    /* Although fragments are limited to ushort sizes, free entries are coalesced
+     * and can get larger.  We thus make space for a larger size (i#4434), as the
+     * only downside is a smaller MIN_FCACHE_SLOT_SIZE, which is still small enough.
+     */
+    uint size;
     struct _free_list_header_t *prev;
 } free_list_header_t;
 
@@ -369,10 +373,10 @@ typedef struct _free_list_header_t {
  * new free list entries with existing previous entries.
  */
 typedef struct _free_list_footer_t {
-    ushort size;
+    uint size;
 } free_list_footer_t;
 
-#define MAX_FREE_ENTRY_SIZE USHRT_MAX
+#define MAX_FREE_ENTRY_SIZE UINT_MAX
 
 /* See notes above: since f is either fragment_t* or free_list_header_t.next,
  * we're checking the next free list entry's flags by dereferencing, forcing a
@@ -388,10 +392,11 @@ typedef struct _free_list_footer_t {
 /* Caller must know that the next slot is a free slot! */
 #define FRAG_NEXT_FREE(pc, size) ((free_list_header_t *)((pc) + (size)))
 
-/* FIXME: for non-free-list-using caches we could shrink this.
+/* XXX: For non-free-list-using caches we could shrink this.
  * Current smallest bb is 5 bytes (single jmp) align-4 + header is 12,
- * and we're at 16 here, so we are wasting some space, but very few
- * fragments are under 16 bytes (see request_size_histogram[])
+ * and we're at 20 here, so we are wasting some space, but few
+ * fragments are under 20: some are at 16 for 32-bit but almost none
+ * are smaller (see request_size_histogram[]).
  */
 #define MIN_FCACHE_SLOT_SIZE(cache) \
     ((cache)->is_coarse ? 0 : (sizeof(free_list_header_t) + sizeof(free_list_footer_t)))
@@ -860,7 +865,7 @@ fcache_init()
 {
     ASSERT(offsetof(fragment_t, flags) == offsetof(empty_slot_t, flags));
     DOCHECK(1, {
-        /* ensure flag in ushort is at same spot as in uint */
+        /* ensure flag in free list is at same spot as in fragment_t */
         static free_list_header_t free;
         free.flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
         ASSERT(TEST(FRAG_FCACHE_FREE_LIST, ((fragment_t *)(&free))->flags));
@@ -3107,12 +3112,10 @@ add_to_free_list(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
         (free_list_header_t *)vmcode_get_writable_addr((byte *)header);
     header_writable->next = cache->free_list[bucket];
     header_writable->prev = NULL;
-    ASSERT_TRUNCATE(header->size, ushort, size);
-    header_writable->size = (ushort)size;
+    header_writable->size = size;
     header_writable->flags = FRAG_FAKE | FRAG_FCACHE_FREE_LIST;
     free_list_footer_t *footer_writable = free_list_footer_from_header(header_writable);
-    ASSERT_TRUNCATE(footer_writable->size, ushort, size);
-    footer_writable->size = (ushort)size;
+    footer_writable->size = size;
     if (cache->free_list[bucket] != NULL) {
         ASSERT(cache->free_list[bucket]->prev == NULL);
         free_list_header_t *list_writable =
