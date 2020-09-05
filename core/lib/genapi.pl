@@ -198,6 +198,7 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/ir/x86/instr_create.h",
      "$core/ir/aarch64/instr_create.h",
      "$core/ir/arm/instr_create.h",
+     "$core/ir/aarchxx/instr_create_aarchxx.h",
      "$core/ir/decode.h",       # OPSZ_ consts, decode routines
      "$core/ir/decode_fast.h",  # decode routines
      "$core/ir/disassemble.h",  # disassemble routines

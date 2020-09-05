@@ -685,7 +685,6 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     instr_t *load_tag = INSTR_CREATE_label(dc);
     instr_t *compare_tag = INSTR_CREATE_label(dc);
-    instr_t *try_next = INSTR_CREATE_label(dc);
     instr_t *miss = INSTR_CREATE_label(dc);
     instr_t *not_hit = INSTR_CREATE_label(dc);
     instr_t *target_delete_entry = INSTR_CREATE_label(dc);
@@ -717,29 +716,30 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      *     x2: app's x2
      *     TLS_REG1_SLOT: app's x0 (recovered by fragment_prefix)
      */
-
     /* Spill x0. */
-    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG3_SLOT));
-    /* Load-acquire hash mask.  We need a load-acquire to ensure we see updates
-     * properly; the corresponding store-release is in update_lookuptable_tls().
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_X0, TLS_REG3_SLOT));
+    /* Load hash mask before loading hash_table, with DMB to prevent memory-access
+     * instructions from being reordered. A corresponding store-release is in
+     * update_lookuptable_tls() to ensure a new hash_table will be written after a
+     * new hash mask write has been issued.
      */
-    /* add x1, x28 + hash_mask_offs; ldar x1, [x1]    (ldar doesn't take an offs.) */
     APP(&ilist,
-        INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(dr_reg_stolen),
-                         OPND_CREATE_INT32(TLS_MASK_SLOT(ibl_code->branch_type))));
+        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X1),
+                         opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                               TLS_MASK_SLOT(ibl_code->branch_type),
+                                               OPSZ_8)));
+    /* and x1, x1, x2 */
     APP(&ilist,
-        INSTR_CREATE_ldar(dc, opnd_create_reg(DR_REG_X1),
-                          OPND_CREATE_MEMPTR(DR_REG_X1, 0)));
+        INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X1),
+                         opnd_create_reg(DR_REG_X2)));
+    /* dmb to prevent memory-access instrs from being reordered across the barrier. */
+    APP(&ilist, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISHLD)));
     /* ldr x0, [x28, hash_table] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
                          opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
                                                TLS_TABLE_SLOT(ibl_code->branch_type),
                                                OPSZ_8)));
-    /* and x1, x1, x2 */
-    APP(&ilist,
-        INSTR_CREATE_and(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X1),
-                         opnd_create_reg(DR_REG_X2)));
     /* Get table entry. */
     /* add x1, x0, x1, LSL #4 */
     APP(&ilist,
@@ -750,11 +750,12 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* x1 now holds the fragment_entry_t* in the hashtable. */
     APP(&ilist, load_tag);
     /* Load tag from fragment_entry_t* in the hashtable to x0. */
-    /* ldr x0, [x1, #tag_fragment_offset] */
+    /* ldr x0, [x1], #tag_fragment_offset */
     APP(&ilist,
-        INSTR_CREATE_ldr(
+        INSTR_CREATE_ldr_imm(
             dc, opnd_create_reg(DR_REG_X0),
-            OPND_CREATE_MEMPTR(DR_REG_X1, offsetof(fragment_entry_t, tag_fragment))));
+            opnd_set_zero_offset_post_index(OPND_CREATE_MEMPTR(DR_REG_X1, 0)),
+            OPND_CREATE_INTPTR(sizeof(fragment_entry_t))));
     /* Did we hit? */
     APP(&ilist, compare_tag);
     /* cbz x0, not_hit */
@@ -763,50 +764,40 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* sub x0, x0, x2 */
     APP(&ilist,
         XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2)));
-    /* cbnz x0, try_next */
+    /* cbnz x0, load_tag */
     APP(&ilist,
-        INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next), opnd_create_reg(DR_REG_X0)));
+        INSTR_CREATE_cbnz(dc, opnd_create_instr(load_tag), opnd_create_reg(DR_REG_X0)));
 
     /* Hit path: load the app's original value of x0 and x1. */
-    /* ldp x0, x2, [x28] */
-    APP(&ilist,
-        INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2),
-                         opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                               TLS_REG0_SLOT, OPSZ_16)));
-    /* Store x0 in TLS_REG1_SLOT as requied in the fragment prefix. */
-    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG1_SLOT));
-    /* ldr x0, [x1, #start_pc_fragment_offset] */
+    /* sub x1, x1, #16, restore x1 from last post-index increment */
+    APP(&ilist, XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X1), OPND_CREATE_INT8(16)));
+
+    /* ldr x0, [x1, #start_pc_fragment_offset - fragment_entry_t] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_MEMPTR(
                              DR_REG_X1, offsetof(fragment_entry_t, start_pc_fragment))));
-    /* mov x1, x2 */
+    /* ldp x2, x1, [x28] */
     APP(&ilist,
-        XINST_CREATE_move(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
+        INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X2), opnd_create_reg(DR_REG_X1),
+                         opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                               TLS_REG0_SLOT, OPSZ_16)));
+    /* Store x2 in TLS_REG1_SLOT as required in the fragment prefix. */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_X2, TLS_REG1_SLOT));
     /* Recover app's original x2. */
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_X2, TLS_REG2_SLOT));
     /* br x0
      * (keep in sync with instr_is_ibl_hit_jump())
      */
     APP(&ilist, INSTR_CREATE_br(dc, opnd_create_reg(DR_REG_X0)));
 
-    APP(&ilist, try_next);
-
-    /* Try next entry, in case of collision. No wraparound check is needed
-     * because of the sentinel at the end.
-     * ldr x0, [x1, #tag_fragment_offset]! */
-    APP(&ilist,
-        instr_create_2dst_3src(
-            dc, OP_ldr, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
-            OPND_CREATE_MEMPTR(DR_REG_X1, sizeof(fragment_entry_t)),
-            opnd_create_reg(DR_REG_X1), OPND_CREATE_INTPTR(sizeof(fragment_entry_t))));
-    /* b compare_tag */
-    APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(compare_tag)));
-
     APP(&ilist, not_hit);
 
     if (INTERNAL_OPTION(ibl_sentinel_check)) {
         /* Load start_pc from fragment_entry_t* in the hashtable to x0. */
+        /* sub x1, x1, #16, restore x1 from last post-index increment */
+        APP(&ilist,
+            XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X1), OPND_CREATE_INT8(16)));
         /* ldr x0, [x1, #start_pc_fragment] */
         APP(&ilist,
             XINST_CREATE_load(
@@ -822,7 +813,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
             XINST_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), OPND_CREATE_INT8(1)));
         /* cbnz x0, miss */
         APP(&ilist,
-            INSTR_CREATE_cbnz(dc, opnd_create_instr(miss), opnd_create_reg(DR_REG_R0)));
+            INSTR_CREATE_cbnz(dc, opnd_create_instr(miss), opnd_create_reg(DR_REG_X0)));
         /* Point at the first table slot and then go load and compare its tag */
         /* ldr x1, [x28, #table_base] */
         APP(&ilist,
@@ -835,7 +826,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     APP(&ilist, miss);
     /* Recover the dcontext->last_exit to x0 */
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R0, TLS_REG3_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_X0, TLS_REG3_SLOT));
 
     /* Target delete entry */
     APP(&ilist, target_delete_entry);
@@ -851,9 +842,9 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Put ib tgt into dcontext->next_tag */
     insert_shared_get_dcontext(dc, &ilist, NULL, true);
-    APP(&ilist, SAVE_TO_DC(dc, DR_REG_R2, NEXT_TAG_OFFSET));
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R5, DCONTEXT_BASE_SPILL_SLOT));
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+    APP(&ilist, SAVE_TO_DC(dc, DR_REG_X2, NEXT_TAG_OFFSET));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_X5, DCONTEXT_BASE_SPILL_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_X2, TLS_REG2_SLOT));
 
     /* ldr x1, [x(stolen), #(offs)] */
     APP(&ilist,

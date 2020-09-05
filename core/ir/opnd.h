@@ -2316,6 +2316,16 @@ DR_API
  */
 bool
 opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled);
+
+DR_API
+/**
+ * Assumes \p opnd is a base+disp memory reference.
+ * Sets the index register to be post-indexed.
+ * Returns memop operand.
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_set_zero_offset_post_index(opnd_t opnd);
 #endif /* AARCH64 */
 
 DR_API

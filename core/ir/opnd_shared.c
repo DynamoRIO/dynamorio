@@ -856,6 +856,15 @@ opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
     opnd->value.base_disp.scaled = scaled;
     return true;
 }
+
+opnd_t
+opnd_set_zero_offset_post_index(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd_is_base_disp(opnd),
+                  "opnd_set_zero_offset_post_index called on invalid opnd type");
+    opnd.value.base_disp.pre_index = false;
+    return opnd;
+}
 #endif /* AARCH64 */
 
 bool
