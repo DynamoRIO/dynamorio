@@ -7193,7 +7193,6 @@ typedef struct _sig_detach_info_t {
 #endif
 } sig_detach_info_t;
 
-/* xsp is only set for X86 */
 static void
 notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *xsp)
 {
@@ -7206,6 +7205,9 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #ifdef MACOS
         ASSERT(sizeof(notify_var->sem) == 4);
 #endif
+        /* We clobber xsp last just in case the compiler uses xsp to fetch the
+         * variables we're loading into registers.
+         */
 #ifdef DR_HOST_NOT_TARGET
         ASSERT_NOT_REACHED();
 #elif defined(X86)
@@ -7219,7 +7221,7 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #    endif
         asm("mov %0, %%" ASM_XAX : : "m"(notify_var));
         asm("mov %0, %%" ASM_XCX : : "m"(continuation));
-        asm("mov %0, %%" ASM_XSP : : "m"(xsp));
+        asm("mov %0, %%" ASM_XSP : : "m"(xsp)); /* Clobber xsp last (see above). */
 #    ifdef MACOS
         asm("movl $1,4(%" ASM_XAX ")");
         asm("jmp _dynamorio_condvar_wake_and_jmp");
@@ -7232,6 +7234,8 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
         asm("mov " ASM_R1 ", #1");
         asm("str " ASM_R1 ",[" ASM_R0 "]");
         asm("ldr " ASM_R1 ", %0" : : "m"(continuation));
+        asm("ldr " ASM_R2 ", %0" : : "m"(xsp));
+        asm("mov " ASM_XSP ", " ASM_R2); /* Clobber xsp last (see above). */
         asm("b dynamorio_condvar_wake_and_jmp");
 #endif
     } else {
@@ -7239,11 +7243,13 @@ notify_and_jmp_without_stack(KSYNCH_TYPE *notify_var, byte *continuation, byte *
 #ifdef DR_HOST_NOT_TARGET
         ASSERT_NOT_REACHED();
 #elif defined(X86)
-        asm("mov %0, %%" ASM_XSP : : "m"(xsp));
         asm("mov %0, %%" ASM_XAX : : "m"(continuation));
+        asm("mov %0, %%" ASM_XSP : : "m"(xsp)); /* Clobber xsp last (see above). */
         asm("jmp *%" ASM_XAX);
 #elif defined(AARCHXX)
         asm("ldr " ASM_R0 ", %0" : : "m"(continuation));
+        asm("ldr " ASM_R1 ", %0" : : "m"(xsp)); /* Clobber xsp last (see above). */
+        asm("mov " ASM_XSP ", " ASM_R1);
         asm(ASM_INDJMP " " ASM_R0);
 #endif /* X86/ARM */
     }

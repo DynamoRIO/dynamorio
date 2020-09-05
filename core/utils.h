@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2356,6 +2356,12 @@ profile_callers_exit(void);
 /* an ASSERT replacement for use in unit tests */
 #    define FAIL() EXPECT(true, false)
 #    define EXPECT(expr, expected)                                     \
+        do {                                                           \
+            ptr_uint_t value_once = (ptr_uint_t)(expr);                \
+            EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected); \
+        } while (0)
+
+#    define EXPECT_EQ(expr, expected)                                  \
         do {                                                           \
             ptr_uint_t value_once = (ptr_uint_t)(expr);                \
             EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected); \

@@ -95,11 +95,19 @@ main(int argc, char **argv)
     /* XXX: Somehow the first run has *more* heap blocks.  2nd and any subsequent
      * are identical.  Just living with that and requiring <=.
      */
-    assert(stats_B.peak_vmm_blocks_heap <= stats_A.peak_vmm_blocks_heap);
-    assert(stats_B.peak_vmm_blocks_stack <= stats_A.peak_vmm_blocks_stack);
-    assert(stats_B.peak_vmm_blocks_cache <= stats_A.peak_vmm_blocks_cache);
-    assert(stats_B.peak_vmm_blocks_special_heap <= stats_A.peak_vmm_blocks_special_heap);
-    assert(stats_B.peak_vmm_blocks_special_mmap <= stats_A.peak_vmm_blocks_special_mmap);
+    assert(stats_B.peak_vmm_blocks_unreach_heap <= stats_A.peak_vmm_blocks_unreach_heap);
+    assert(stats_B.peak_vmm_blocks_unreach_stack <=
+           stats_A.peak_vmm_blocks_unreach_stack);
+    assert(stats_B.peak_vmm_blocks_unreach_special_heap <=
+           stats_A.peak_vmm_blocks_unreach_special_heap);
+    assert(stats_B.peak_vmm_blocks_unreach_special_mmap <=
+           stats_A.peak_vmm_blocks_unreach_special_mmap);
+    assert(stats_B.peak_vmm_blocks_reach_heap <= stats_A.peak_vmm_blocks_reach_heap);
+    assert(stats_B.peak_vmm_blocks_reach_cache <= stats_A.peak_vmm_blocks_reach_cache);
+    assert(stats_B.peak_vmm_blocks_reach_special_heap <=
+           stats_A.peak_vmm_blocks_reach_special_heap);
+    assert(stats_B.peak_vmm_blocks_reach_special_mmap <=
+           stats_A.peak_vmm_blocks_reach_special_mmap);
 
     print("all done\n");
     return 0;

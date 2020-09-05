@@ -289,9 +289,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
     } else if (instru_t::instr_is_flush(app)) {
-        // XXX: OP_clflush invalidates all levels of the processor cache
-        // hierarchy (data and instruction)
-        type = TRACE_TYPE_DATA_FLUSH;
+        type = instru_t::instr_to_flush_type(app);
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
                               adjust);

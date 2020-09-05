@@ -5,29 +5,33 @@ Total counts:
           96 total unique \(fetched\) instructions
            0 total non-fetched instructions
           81 total prefetches
-           0 total data loads
-           0 total data stores
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
            1 total threads
-           6 total scheduling markers
-           0 total transfer markers
-           0 total function id markers
-           0 total function return address markers
-           0 total function argument markers
-           0 total function return value markers
-           1 total other markers
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+     .* total other markers
 Thread .* counts:
           96 \(fetched\) instructions
           96 unique \(fetched\) instructions
            0 non-fetched instructions
           81 prefetches
-           0 data loads
-           0 data stores
-           6 scheduling markers
-           0 transfer markers
-           0 function id markers
-           0 function return address markers
-           0 function argument markers
-           0 function return value markers
+     .* data loads
+     .* data stores
+     .* icache flushes
+     .* dcache flushes
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
            1 other markers
 Prefetch operation frequencies:
            2 prefetch_read_l1

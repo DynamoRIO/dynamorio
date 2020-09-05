@@ -181,6 +181,35 @@ instru_t::instr_to_prefetch_type(instr_t *instr)
     }
 }
 
+#ifdef AARCH64
+bool
+instru_t::is_aarch64_icache_flush_op(instr_t *instr)
+{
+    if (instr_get_opcode(instr) != OP_sys)
+        return false;
+    switch (opnd_get_immed_int(instr_get_src(instr, 0))) {
+    // TODO i#4406: Handle privileged icache operations.
+    case DR_IC_IVAU: return true;
+    }
+    return false;
+}
+
+bool
+instru_t::is_aarch64_dcache_flush_op(instr_t *instr)
+{
+    if (instr_get_opcode(instr) != OP_sys)
+        return false;
+    switch (opnd_get_immed_int(instr_get_src(instr, 0))) {
+    // TODO i#4406: Handle all privileged dcache operations.
+    case DR_DC_IVAC:
+    case DR_DC_CVAU:
+    case DR_DC_CIVAC:
+    case DR_DC_CVAC: return true;
+    }
+    return false;
+}
+#endif
+
 bool
 instru_t::instr_is_flush(instr_t *instr)
 {
@@ -189,7 +218,31 @@ instru_t::instr_is_flush(instr_t *instr)
     if (instr_get_opcode(instr) == OP_clflush)
         return true;
 #endif
+#ifdef AARCH64
+    if (is_aarch64_dcache_flush_op(instr) || is_aarch64_icache_flush_op(instr))
+        return true;
+#endif
     return false;
+}
+
+unsigned short
+instru_t::instr_to_flush_type(instr_t *instr)
+{
+    DR_ASSERT(instr_is_flush(instr));
+#ifdef X86
+    // XXX: OP_clflush invalidates all levels of the processor cache
+    // hierarchy (data and instruction)
+    if (instr_get_opcode(instr) == OP_clflush)
+        return TRACE_TYPE_DATA_FLUSH;
+#endif
+#ifdef AARCH64
+    if (is_aarch64_icache_flush_op(instr))
+        return TRACE_TYPE_INSTR_FLUSH;
+    if (is_aarch64_dcache_flush_op(instr))
+        return TRACE_TYPE_DATA_FLUSH;
+#endif
+    DR_ASSERT(false);
+    return TRACE_TYPE_DATA_FLUSH; // unreachable.
 }
 
 void
