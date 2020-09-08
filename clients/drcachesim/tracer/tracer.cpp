@@ -911,9 +911,11 @@ back_align_dc_zva_memref_opnd(void *drcontext, instrlist_t *ilist, instr_t *wher
                               opnd_t memref, uint64 alignment, reg_id_t reg_ba_addr)
 {
     reg_id_t reg_tmp;
-    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) != DRREG_SUCCESS)
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) !=
+        DRREG_SUCCESS) {
         FATAL("Fatal error: failed to reserve scratch register for back-aligning DC ZVA "
               "memory reference\n");
+    }
 
     drutil_insert_get_mem_addr(drcontext, ilist, where, memref, reg_ba_addr, reg_tmp);
     MINSERT(ilist, where,
@@ -954,10 +956,10 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     if (is_dc_zva_instr(app)) {
         reg_id_t reg_ba_addr;
         if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ba_addr) !=
-            DRREG_SUCCESS)
+            DRREG_SUCCESS) {
             FATAL("Fatal error: failed to reserve register for back-aligned DC ZVA "
                   "memory reference\n");
-
+        }
         opnd_t back_aligned_memref = back_align_dc_zva_memref_opnd(
             drcontext, ilist, where, ref, proc_get_cache_line_size(), reg_ba_addr);
         adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app,
