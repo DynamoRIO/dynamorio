@@ -4072,11 +4072,15 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * pending or delete an old b/c we might mess up the state so we
          * just drop this one: should only happen for alarm signal
          */
-        (info->accessing_sigpending && !info->nested_pending_ok &&
+        (((info->accessing_sigpending && !info->nested_pending_ok) ||
+          /* It's risky to deliver to an exiting thread: data structs are in unstable
+           * states (i#4438).  Just drop if we can.
+           */
+          dcontext->is_exiting) &&
          /* we do want to report a crash in receive_pending_signal() */
          (can_always_delay[sig] ||
           is_sys_kill(dcontext, pc, (byte *)sc->SC_XSP, &frame->info)))) {
-        LOG(THREAD, LOG_ASYNCH, 1, "nested signal %d\n", sig);
+        LOG(THREAD, LOG_ASYNCH, 1, "nested or exit-time signal %d\n", sig);
         ASSERT(ostd->processing_signal == 0 || sig == SUSPEND_SIGNAL || sig == SIGSEGV);
         ASSERT(can_always_delay[sig] ||
                is_sys_kill(dcontext, pc, (byte *)sc->SC_XSP, &frame->info));
@@ -4085,7 +4089,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * FIXME i#194/PR 453996: do better.
          */
         STATS_INC(num_signals_dropped);
-        SYSLOG_INTERNAL_WARNING_ONCE("dropping nested signal");
+        SYSLOG_INTERNAL_WARNING_ONCE("dropping nested/exit-time signal");
         return;
     }
     ostd->processing_signal++; /* no need for atomicity: thread-private */
