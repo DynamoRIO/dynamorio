@@ -2101,6 +2101,17 @@ if (DR_HOST_AARCH64)
     # with some tool chains (such as SUSE GCC 6.2) results in an executable that
     # is not properly static. Adding --no-export-dynamic avoids the problem.
     "-Wl,--no-export-dynamic")
+
+  add_exe(allasm_aarch64_dc_zva
+    ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_dc_zva.asm "" "")
+  set_target_properties(allasm_aarch64_dc_zva PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(allasm_aarch64_dc_zva
+    "-nostartfiles -nodefaultlibs -static")
+  append_property_string(TARGET allasm_aarch64_dc_zva LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+    # is not properly static. Adding --no-export-dynamic avoids the problem.
+    "-Wl,--no-export-dynamic")
 endif ()
 
 if (CLIENT_INTERFACE AND NOT ANDROID) # XXX i#1874: get working on Android

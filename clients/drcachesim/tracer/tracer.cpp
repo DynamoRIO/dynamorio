@@ -898,6 +898,35 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
     return reg_idx;
 }
 
+#ifdef AARCH64
+static bool
+is_dc_zva_instr(instr_t *instr)
+{
+    return instr_get_opcode(instr) == OP_sys &&
+        opnd_get_immed_int(instr_get_src(instr, 0)) == DR_DC_ZVA;
+}
+
+static opnd_t
+back_align_dc_zva_memref_opnd(void *drcontext, instrlist_t *ilist, instr_t *where,
+                              opnd_t memref, uint64 alignment, reg_id_t reg_ba_addr)
+{
+    reg_id_t reg_tmp;
+    if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_tmp) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve scratch register for back-aligning DC ZVA "
+              "memory reference\n");
+
+    drutil_insert_get_mem_addr(drcontext, ilist, where, memref, reg_ba_addr, reg_tmp);
+    MINSERT(ilist, where,
+            XINST_CREATE_and_s(drcontext, opnd_create_reg(reg_ba_addr),
+                               opnd_create_immed_uint(~(alignment - 1), OPSZ_8)));
+
+    if (drreg_unreserve_register(drcontext, ilist, where, reg_tmp) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
+    return opnd_create_base_disp(reg_ba_addr, DR_REG_NULL, 0, 0, OPSZ_sys);
+}
+#endif
+
 static int
 instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t *where,
                   reg_id_t reg_ptr, int adjust, instr_t *app, opnd_t ref, int ref_index,
@@ -918,8 +947,30 @@ instrument_memref(void *drcontext, user_data_t *ud, instrlist_t *ilist, instr_t 
     }
     if (op_L0_filter.get_value())
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app, ref,
-                                       ref_index, write, pred);
+
+#ifdef AARCH64
+    // TODO i#4400: Use a new operand type to back-align zeroed address, instead of
+    // doing it in drcachesim.
+    if (is_dc_zva_instr(app)) {
+        reg_id_t reg_ba_addr;
+        if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg_ba_addr) !=
+            DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve register for back-aligned DC ZVA "
+                  "memory reference\n");
+
+        opnd_t back_aligned_memref = back_align_dc_zva_memref_opnd(
+            drcontext, ilist, where, ref, proc_get_cache_line_size(), reg_ba_addr);
+        adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app,
+                                           back_aligned_memref, ref_index, write, pred);
+
+        if (drreg_unreserve_register(drcontext, ilist, where, reg_ba_addr) !=
+            DRREG_SUCCESS)
+            DR_ASSERT(false);
+    } else
+#endif
+        adjust = instru->instrument_memref(drcontext, ilist, where, reg_ptr, adjust, app,
+                                           ref, ref_index, write, pred);
+
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, pred, adjust);
