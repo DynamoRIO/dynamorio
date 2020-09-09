@@ -1258,6 +1258,16 @@ vmheap_get_start(void)
 }
 #endif
 
+static inline bool
+has_guard_pages(which_vmm_t which)
+{
+    if (!DYNAMO_OPTION(guard_pages))
+        return false;
+    if (TEST(VMM_PER_THREAD, which) && !DYNAMO_OPTION(per_thread_guard_pages))
+        return false;
+    return true;
+}
+
 void
 iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_data),
                     void *user_data)
@@ -1917,7 +1927,7 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
         uint perstack =
             (uint)(ALIGN_FORWARD_UINT(
                        DYNAMO_OPTION(stack_size) +
-                           (DYNAMO_OPTION(per_thread_guard_pages)
+                           (has_guard_pages(VMM_STACK | VMM_PER_THREAD)
                                 ? (2 * PAGE_SIZE)
                                 : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
                        DYNAMO_OPTION(vmm_block_size)) /
@@ -2802,9 +2812,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
     heap_error_code_t error_code;
     bool try_vmm = true;
     ASSERT(reserve_size >= commit_size);
-    if (!guarded ||
-        (TEST(VMM_PER_THREAD, which) && !DYNAMO_OPTION(per_thread_guard_pages)) ||
-        !DYNAMO_OPTION(guard_pages)) {
+    if (!guarded || !has_guard_pages(which)) {
         if (reserve_size == commit_size)
             return get_real_memory(reserve_size, prot, add_vm, which _IF_DEBUG(comment));
         guard_size = 0;
@@ -2900,9 +2908,7 @@ static void
 release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm, bool guarded,
                             which_vmm_t which)
 {
-    if (!guarded ||
-        (TEST(VMM_PER_THREAD, which) && !DYNAMO_OPTION(per_thread_guard_pages)) ||
-        !dynamo_options.guard_pages) {
+    if (!guarded || !has_guard_pages(which)) {
         release_real_memory(p, size, remove_vm, which);
         return;
     }
@@ -3197,12 +3203,12 @@ stack_alloc(size_t size, byte *min_addr)
      * hurting us in the common case
      */
     size_t alloc_size = size;
-    if (!DYNAMO_OPTION(per_thread_guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) && DYNAMO_OPTION(stack_guard_pages))
         alloc_size += PAGE_SIZE;
     p = get_guarded_real_memory(alloc_size, alloc_size, MEMPROT_READ | MEMPROT_WRITE,
                                 true, true, min_addr,
                                 VMM_STACK | VMM_PER_THREAD _IF_DEBUG("stack_alloc"));
-    if (!DYNAMO_OPTION(per_thread_guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) && DYNAMO_OPTION(stack_guard_pages))
         p = (byte *)p + PAGE_SIZE;
 #ifdef DEBUG_MEMORY
     memset(p, HEAP_ALLOCATED_BYTE, size);
@@ -3230,7 +3236,7 @@ stack_alloc(size_t size, byte *min_addr)
             mark_page_as_guard(guard);
 #else
         /* For UNIX we just mark it as inaccessible. */
-        if (!DYNAMO_OPTION(per_thread_guard_pages))
+        if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD))
             set_protection(guard, PAGE_SIZE, MEMPROT_READ);
 #endif
     }
@@ -3249,7 +3255,8 @@ stack_free(void *p, size_t size)
         size = DYNAMORIO_STACK_SIZE;
     alloc_size = size;
     p = (void *)((vm_addr_t)p - size);
-    if (!DYNAMO_OPTION(per_thread_guard_pages) && DYNAMO_OPTION(stack_guard_pages)) {
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) &&
+        DYNAMO_OPTION(stack_guard_pages)) {
         alloc_size += PAGE_SIZE;
         p = (byte *)p - PAGE_SIZE;
     }
@@ -3340,9 +3347,6 @@ void
 heap_vmareas_synch_units()
 {
     heap_unit_t *u, *next;
-    /* make sure to add guard page on each side, as well */
-    // NOCHECK
-    uint offs = (dynamo_options.guard_pages) ? (uint)PAGE_SIZE : 0;
     /* we again have circular dependence w/ vmareas if it happens to need a
      * new unit in the course of adding these areas, so we use a recursive lock!
      * furthermore, we need to own the global lock now, to avoid deadlock with
@@ -3368,6 +3372,8 @@ heap_vmareas_synch_units()
             u->in_vmarea_list = false;
     }
     for (u = heapmgt->heap.units; u != NULL; u = next) {
+        /* Make sure to add any guard page on each side, as well. */
+        uint offs = has_guard_pages(u->which) ? (uint)PAGE_SIZE : 0;
         app_pc start = (app_pc)u - offs;
         /* support un-aligned heap reservation end: PR 415269 (though as
          * part of that PR we shouldn't have un-aligned anymore)
@@ -3421,6 +3427,7 @@ heap_vmareas_synch_units()
         }
     }
     for (u = heapmgt->heap.dead; u != NULL; u = next) {
+        uint offs = has_guard_pages(u->which) ? (uint)PAGE_SIZE : 0;
         app_pc start = (app_pc)u - offs;
         /* support un-aligned heap reservation end: PR 415269 (though as
          * part of that PR we shouldn't have un-aligned anymore)
