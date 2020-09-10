@@ -2110,7 +2110,8 @@ os_tls_init(void)
      */
     byte *segment = tls_get_dr_addr();
 #    else
-    byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+    byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE,
+                              VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 #    endif
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
@@ -2249,7 +2250,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
     os_local_state_t *os_tls =
         (os_local_state_t *)(((byte *)local_state) - offsetof(os_local_state_t, state));
-    heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP);
+    heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 #    endif
 #else
     global_heap_free(tls_table, MAX_THREADS * sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));

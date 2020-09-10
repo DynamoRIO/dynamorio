@@ -311,8 +311,8 @@ privload_tls_init(void *app_tp)
     /* FIXME: These should be a thread logs, but dcontext is not ready yet. */
     LOG(GLOBAL, LOG_LOADER, 2, "%s: app TLS segment base is " PFX "\n", __FUNCTION__,
         app_tp);
-    dr_tp =
-        heap_mmap(client_tls_alloc_size, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+    dr_tp = heap_mmap(client_tls_alloc_size, MEMPROT_READ | MEMPROT_WRITE,
+                      VMM_SPECIAL_MMAP | VMM_PER_THREAD);
     ASSERT(APP_LIBC_TLS_SIZE + TLS_PRE_TCB_SIZE + tcb_size <= client_tls_alloc_size);
 #ifdef AARCHXX
     /* GDB reads some pthread members (e.g., pid, tid), so we must make sure
@@ -381,7 +381,7 @@ privload_tls_exit(void *dr_tp)
     if (dr_tp == NULL)
         return;
     dr_tp = dr_tp + tcb_size - client_tls_alloc_size;
-    heap_munmap(dr_tp, client_tls_alloc_size, VMM_SPECIAL_MMAP);
+    heap_munmap(dr_tp, client_tls_alloc_size, VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 }
 
 /****************************************************************************
