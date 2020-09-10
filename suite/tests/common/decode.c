@@ -558,7 +558,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * So I'm bailing and going with raw bytes.
          */
         RAW(26) RAW(ff) RAW(21) /* jmp QWORD PTR es:[rcx] */
-    test_far_cti_end_flat:
+    ADDRTAKEN_LABEL(test_far_cti_end_flat:)
         pop   REG_XAX
         CALL_SETJMP
         cmp   REG_XAX, 0
