@@ -113,7 +113,7 @@ static size_t max_buf_size;
 
 static drvector_t scratch_reserve_vec;
 
-/* thread private buffer and counter */
+/* Thread private data.  This is all set to 0 at thread init. */
 typedef struct {
     byte *seg_base;
     byte *buf_base;
@@ -128,6 +128,8 @@ typedef struct {
     /* For level 0 filters */
     byte *l0_dcache;
     byte *l0_icache;
+    /* For max output thresholds. */
+    bool output_disabled;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -390,6 +392,13 @@ is_ok_to_split_before(trace_type_t type)
         type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT;
 }
 
+static inline bool
+is_beyond_global_max(void)
+{
+    return op_max_global_trace_refs.get_value() > 0 &&
+        num_refs_racy > op_max_global_trace_refs.get_value();
+}
+
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
@@ -413,13 +422,29 @@ memtrace(void *drcontext, bool skip_size_cap)
                                               dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
-    if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
-        data->bytes_written > op_max_trace_size.get_value()) {
+    if (!skip_size_cap &&
+        (data->output_disabled ||
+         (((op_max_trace_size.get_value() > 0 &&
+            data->bytes_written > op_max_trace_size.get_value()) ||
+           is_beyond_global_max())))) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
          * beyond.  We also don't put much effort into reducing overhead once
          * beyond the limit: we still instrument and come here.
          */
         do_write = false;
+        if (!data->output_disabled) {
+            data->output_disabled = true;
+            /* std::atomic *should* be safe (we can assert std::atomic_is_lock_free())
+             * but to avoid any risk we use DR's atomics and add 1.  This will only
+             * happen once per thread so the int should never overflow (even if it does
+             * an extra print is not disastrous).
+             */
+            static int notify_once;
+            int count = dr_atomic_add32_return_sum(&notify_once, 1);
+            if (count == 1) {
+                NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+            }
+        }
     } else
         data->bytes_written += buf_ptr - pipe_start;
 
@@ -1555,9 +1580,10 @@ event_thread_init(void *drcontext)
     data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
-    if (should_trace_thread_cb != NULL &&
-        !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
-                                   trace_thread_cb_user_data))
+    if ((should_trace_thread_cb != NULL &&
+         !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
+                                    trace_thread_cb_user_data)) ||
+        is_beyond_global_max())
         BUF_PTR(data->seg_base) = NULL;
     else {
         create_buffer(data);
@@ -1582,7 +1608,11 @@ event_thread_exit(void *drcontext)
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
-        memtrace(drcontext, true);
+        memtrace(drcontext,
+                 /* If this thread already wrote some data, include its exit even
+                  * if we're over a size limit.
+                  */
+                 data->bytes_written > 0);
 
         if (op_offline.get_value())
             file_ops_func.close_file(data->file);
@@ -1663,6 +1693,8 @@ event_exit(void)
     should_trace_thread_cb = nullptr;
     trace_thread_cb_user_data = nullptr;
     thread_filtering_enabled = false;
+    num_refs = 0;
+    num_refs_racy = 0;
 
     dr_mutex_destroy(mutex);
     drutil_exit();
@@ -1920,6 +1952,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef DRMEMTRACE_STATIC
         NOTIFY(0, "-use_physical is unsafe with statically linked clients\n");
 #endif
+    }
+
+    if (op_max_global_trace_refs.get_value() > 0) {
+        /* We need the same is-buffer-zero checks in the instrumentation. */
+        thread_filtering_enabled = true;
     }
 }
 

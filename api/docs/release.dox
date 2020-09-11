@@ -168,6 +168,8 @@ Further non-compatibility-affecting changes include:
    CLIENT{32,64}_{ABS,REL} in tool files.
    Added dr_get_client_info_ex() and dr_client_iterator_next_ex() to support
    querying other-bitwidth client registration.
+ - Added a new drcachesim option \p -max_global_trace_refs for specifying a global
+   trace size limit that does not terminate the process.
 
 **************************************************
 <hr>
