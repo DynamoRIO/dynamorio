@@ -248,7 +248,7 @@ main(int argc, const char *argv[])
         }
     }
     std::cerr << "DC ZVA memref count: " << dc_zva_memref_count << "\n";
-    std::cerr << "All DC ZVA members back-aligned!\n";
+    std::cerr << "All DC ZVA memrefs back-aligned!\n";
     assert(dc_zva_instr_count == dc_zva_memref_count);
 
     dr_standalone_exit();

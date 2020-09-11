@@ -3,7 +3,7 @@ pre-DR start
 all done
 DC ZVA count: 32
 DC ZVA memref count: 32
-All DC ZVA members back-aligned!
+All DC ZVA memrefs back-aligned!
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions
