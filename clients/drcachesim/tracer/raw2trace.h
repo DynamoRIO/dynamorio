@@ -1329,6 +1329,7 @@ private:
         impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type,
                     buf->size, (ptr_uint_t)buf->addr);
 
+#ifdef AARCH64
         // TODO i#4400: Use a new operand type to back-align DC ZVA address, instead of
         // doing it in drcachesim post-processing of offline trace. Doing it this way
         // doesn't provide the intended behaviour in online processing.
@@ -1336,6 +1337,8 @@ private:
             buf->addr =
                 ALIGN_BACKWARD(buf->addr, impl()->get_target_cache_line_size(tls));
         }
+#endif
+
         *buf_in = ++buf;
         return "";
     }
