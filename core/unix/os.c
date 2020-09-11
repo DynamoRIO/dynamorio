@@ -6445,6 +6445,19 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         ptr_uint_t cur_seg = read_thread_register(LIB_SEG_TLS);
         if ((void *)cur_seg == os_tls->app_lib_tls_base)
             return true;
+        if (os_tls->app_lib_tls_base == NULL) {
+            /* XXX i#1578: For pure-asm apps that do not use libc, the app may have no
+             * thread register value.  For detach we would like to write a 0 back into
+             * the thread register, but it complicates our exit code, which wants access
+             * to DR's TLS between dynamo_thread_exit_common()'s call to
+             * dynamo_thread_not_under_dynamo() and its call to
+             * set_thread_private_dcontext(NULL).  For now we just leave our privlib
+             * segment in there.  It seems rather unlikely to cause a problem: app code
+             * is unlikely to read the thread register; it's going to assume it owns it
+             * and will just blindly write to it.
+             */
+            return true;
+        }
         /* On switching to app's TLS, we need put DR's TLS base into app's TLS
          * at the same offset so it can be loaded on entering code cache.
          * Otherwise, the context switch code on entering fcache will fault on
