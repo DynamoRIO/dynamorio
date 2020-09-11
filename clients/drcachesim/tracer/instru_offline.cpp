@@ -253,6 +253,16 @@ offline_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 }
 
 int
+offline_instru_t::append_target_cache_line_size(byte *buf_ptr)
+{
+    offline_entry_t *entry = (offline_entry_t *)buf_ptr;
+    entry->extended.type = OFFLINE_TYPE_EXTENDED;
+    entry->extended.ext = OFFLINE_EXT_TYPE_TARGET_CACHE_LINE_SIZE;
+    entry->extended.valueA = proc_get_cache_line_size();
+    return sizeof(entry);
+}
+
+int
 offline_instru_t::append_tid(byte *buf_ptr, thread_id_t tid)
 {
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
@@ -323,6 +333,7 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += sizeof(*entry);
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
+    new_buf += append_target_cache_line_size(new_buf);
     return (int)(new_buf - buf_ptr);
 }
 

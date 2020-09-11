@@ -506,6 +506,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
     tdata->tid = tid;
+    tdata->target_cache_line_size = header.target_cache_line_size;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
@@ -860,6 +861,12 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
     if (instr_is_cti(instr))
         desc->packed_ |= kIsCtiMask;
 
+#ifdef AARCH64
+    bool is_dc_zva = instru_t::is_aarch64_dc_zva_instr(instr);
+    if (is_dc_zva)
+        desc->packed_ |= kIsAarch64DcZvaMask;
+#endif
+
     desc->type_ = instru_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
     desc->flush_type_ = is_flush ? instru_t::instr_to_flush_type(instr) : 0;
@@ -1027,6 +1034,13 @@ raw2trace_t::get_version(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     return tdata->version;
+}
+
+size_t
+raw2trace_t::get_target_cache_line_size(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    return tdata->target_cache_line_size;
 }
 
 offline_file_type_t

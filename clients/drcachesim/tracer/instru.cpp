@@ -208,6 +208,13 @@ instru_t::is_aarch64_dcache_flush_op(instr_t *instr)
     }
     return false;
 }
+
+bool
+instru_t::is_aarch64_dc_zva_instr(instr_t *instr)
+{
+    return instr_get_opcode(instr) == OP_sys &&
+        opnd_get_immed_int(instr_get_src(instr, 0)) == DR_DC_ZVA;
+}
 #endif
 
 bool

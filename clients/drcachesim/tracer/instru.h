@@ -80,7 +80,8 @@ public:
         {
         }
 
-        reg_id_t operator*()
+        reg_id_t
+        operator*()
         {
             return static_cast<reg_id_t>(DR_REG_START_GPR + index_);
         }
@@ -248,7 +249,8 @@ public:
     is_aarch64_icache_flush_op(instr_t *instr);
     static bool
     is_aarch64_dcache_flush_op(instr_t *instr);
-
+    static bool
+    is_aarch64_dc_zva_instr(instr_t *instr);
 #endif
     static unsigned short
     instr_to_prefetch_type(instr_t *instr);
@@ -456,6 +458,9 @@ private:
     opnd_check_elidable(void *drcontext, instrlist_t *ilist, instr_t *instr, opnd_t memop,
                         int op_index, int memop_index, bool write, int version,
                         reg_id_set_t &saw_base);
+
+    int
+    append_target_cache_line_size(byte *buf_ptr);
 
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).

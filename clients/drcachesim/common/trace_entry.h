@@ -380,6 +380,8 @@ typedef enum {
     // Used for filters on multi-memref instrs where post-processing can't tell
     // which memref passed the filter.
     OFFLINE_EXT_TYPE_MEMINFO,
+    // Stores the traced target processor's cache line size in bytes in valueA.
+    OFFLINE_EXT_TYPE_TARGET_CACHE_LINE_SIZE
 } offline_ext_type_t;
 
 #define EXT_VALUE_A_BITS 48
