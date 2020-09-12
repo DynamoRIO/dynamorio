@@ -234,13 +234,13 @@ main(int argc, const char *argv[])
             all_dc_zva_pc.insert(memref.instr.addr);
         }
         if (all_dc_zva_pc.find(memref.data.pc) != all_dc_zva_pc.end()) {
-            // TODO i#4400: Mark DC ZVA as a store instruction, instead of a load.
-            assert(memref.data.type == TRACE_TYPE_READ ||
+            assert(memref.data.type == TRACE_TYPE_WRITE ||
                    memref.data.type == TRACE_TYPE_INSTR);
             if (memref.data.type == TRACE_TYPE_INSTR)
                 continue;
             dc_zva_memref_count++;
             assert(ALIGNED(memref.data.addr, proc_get_cache_line_size()));
+            assert(memref.data.size == proc_get_cache_line_size());
         }
     }
     std::cerr << "DC ZVA count: " << dc_zva_instr_count << "\n";

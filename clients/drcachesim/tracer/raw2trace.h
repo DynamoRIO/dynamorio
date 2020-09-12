@@ -1330,12 +1330,15 @@ private:
                     buf->size, (ptr_uint_t)buf->addr);
 
 #ifdef AARCH64
-        // TODO i#4400: Use a new operand type to back-align DC ZVA address, instead of
-        // doing it in drcachesim post-processing of offline trace. Doing it this way
-        // doesn't provide the intended behaviour in online processing.
+        // TODO i#4400: Following is a workaround to correctly represent DC ZVA in
+        // offline traces. This doesn't help with online traces, and also causes us
+        // to lose the actually written address. Ideally, we want the actually
+        // written address and also the correct size and type in the IR.
         if (instr->is_aarch64_dc_zva()) {
             buf->addr =
                 ALIGN_BACKWARD(buf->addr, impl()->get_target_cache_line_size(tls));
+            buf->size = impl()->get_target_cache_line_size(tls);
+            buf->type = TRACE_TYPE_WRITE;
         }
 #endif
 

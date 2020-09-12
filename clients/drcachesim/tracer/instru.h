@@ -80,8 +80,7 @@ public:
         {
         }
 
-        reg_id_t
-        operator*()
+        reg_id_t operator*()
         {
             return static_cast<reg_id_t>(DR_REG_START_GPR + index_);
         }
