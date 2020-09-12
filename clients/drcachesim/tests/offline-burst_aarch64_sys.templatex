@@ -1,8 +1,8 @@
 pre-DR init
 pre-DR start
 all done
-DC ZVA count: 32
-DC ZVA memref count: 32
+DC ZVA count: [0-9]*
+DC ZVA memref count: [0-9]*
 All DC ZVA memrefs back-aligned!
 Basic counts tool results:
 Total counts:

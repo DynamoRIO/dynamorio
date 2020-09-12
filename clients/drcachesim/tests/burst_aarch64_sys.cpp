@@ -1,4 +1,3 @@
-
 /* **********************************************************
  * Copyright (c) 2020 Google, Inc.  All rights reserved.
  * **********************************************************/
@@ -56,12 +55,15 @@
 #define ASSERT_NOT_REACHED() ASSERT_MSG(false, "Shouldn't be reached")
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
-// Begin application code.
+/*******************************************************************************
+ * Begin application code.
+ */
 
 static sigjmp_buf mark;
 static int handled_sigill_count = 0;
 
-char to_be_zeroed[128];
+#define TO_BE_ZEROED_ARR_SIZE 128
+char to_be_zeroed[TO_BE_ZEROED_ARR_SIZE];
 
 void
 sigill_handler(int signal)
@@ -74,8 +76,10 @@ sigill_handler(int signal)
 static void
 dc_zva()
 {
+    int n = proc_get_cache_line_size() / sizeof(char);
+    assert(n < TO_BE_ZEROED_ARR_SIZE);
     // Issue a DC ZVA operation for each offset in a cache line.
-    for (int i = 0; i < proc_get_cache_line_size() / sizeof(char); i++) {
+    for (int i = 0; i < n; i++) {
         __asm__ __volatile__("dc zva, %0" : : "r"(&to_be_zeroed[i]));
     }
 }
@@ -128,7 +132,9 @@ do_some_work()
     return;
 }
 
-// End application code.
+/*******************************************************************************
+ * End application code.
+ */
 
 bool
 my_setenv(const char *var, const char *value)
@@ -168,7 +174,6 @@ post_process()
 static std::string
 gather_trace()
 {
-
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    // XXX i#4425: Fix debug-build stack overflow issue and
                    // remove custom signal_stack_size below.
@@ -195,9 +200,12 @@ is_dc_zva_instr(void *dr_context, memref_t memref)
     if (!type_is_instr(memref.instr.type))
         return false;
     app_pc pc = (app_pc)memref.instr.addr;
-    instr_t *instr = instr_create(dr_context);
-    decode(dr_context, pc, instr);
-    return instru_t::is_aarch64_dc_zva_instr(instr);
+    instr_t instr;
+    instr_init(dr_context, &instr);
+    decode(dr_context, pc, &instr);
+    bool is_dc_zva = instru_t::is_aarch64_dc_zva_instr(&instr);
+    instr_free(dr_context, &instr);
+    return is_dc_zva;
 }
 
 int
@@ -211,32 +219,20 @@ main(int argc, const char *argv[])
 
     // First analysis -- count DC ZVA instrs.
     void *dr_context = dr_standalone_init();
-    analyzer_t first_analyzer(trace_dir);
-    if (!first_analyzer) {
-        std::cerr << "Failed to initialize first iterator "
-                  << first_analyzer.get_error_string() << "\n";
+    analyzer_t analyzer(trace_dir);
+    if (!analyzer) {
+        std::cerr << "Failed to initialize iterator " << analyzer.get_error_string()
+                  << "\n";
     }
     int dc_zva_instr_count = 0;
+    int dc_zva_memref_count = 0;
     std::unordered_set<addr_t> all_dc_zva_pc;
-    for (reader_t &iter = first_analyzer.begin(); iter != first_analyzer.end(); ++iter) {
+    for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
         memref_t memref = *iter;
         if (is_dc_zva_instr(dr_context, memref)) {
             dc_zva_instr_count++;
             all_dc_zva_pc.insert(memref.instr.addr);
         }
-    }
-    std::cerr << "DC ZVA count: " << dc_zva_instr_count << "\n";
-
-    // Second analysis -- count DC ZVA memrefs and assert back-alignment.
-    analyzer_t second_analyzer(trace_dir);
-    if (!second_analyzer) {
-        std::cerr << "Failed to initialize second iterator "
-                  << second_analyzer.get_error_string() << "\n";
-    }
-    int dc_zva_memref_count = 0;
-    for (reader_t &iter = second_analyzer.begin(); iter != second_analyzer.end();
-         ++iter) {
-        memref_t memref = *iter;
         if (all_dc_zva_pc.find(memref.data.pc) != all_dc_zva_pc.end()) {
             // TODO i#4400: Mark DC ZVA as a store instruction, instead of a load.
             assert(memref.data.type == TRACE_TYPE_READ ||
@@ -247,6 +243,7 @@ main(int argc, const char *argv[])
             assert(ALIGNED(memref.data.addr, proc_get_cache_line_size()));
         }
     }
+    std::cerr << "DC ZVA count: " << dc_zva_instr_count << "\n";
     std::cerr << "DC ZVA memref count: " << dc_zva_memref_count << "\n";
     std::cerr << "All DC ZVA memrefs back-aligned!\n";
     assert(dc_zva_instr_count == dc_zva_memref_count);
