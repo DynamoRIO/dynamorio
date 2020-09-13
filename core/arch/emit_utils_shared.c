@@ -4887,7 +4887,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     return pc;
 }
 
-#ifdef ARM
+#ifdef AARCHXX
 byte *
 emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *pc)
 {
@@ -4916,27 +4916,44 @@ emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *p
      */
     /* spill r0 */
     APP(&ilist,
-        INSTR_CREATE_str(dcontext, OPND_CREATE_MEM32(DR_REG_SP, -XSP_SZ),
-                         opnd_create_reg(DR_REG_R0)));
+        XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(DR_REG_SP, -XSP_SZ),
+                           opnd_create_reg(DR_REG_R0)));
     /* get target PC */
     APP(&ilist,
-        INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_R0),
-                         OPND_CREATE_MEM32(dr_reg_stolen, 0)));
+        XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_R0),
+                          OPND_CREATE_MEMPTR(dr_reg_stolen, 0)));
     /* store target PC */
     APP(&ilist,
-        INSTR_CREATE_str(dcontext, OPND_CREATE_MEM32(DR_REG_SP, -2 * XSP_SZ),
-                         opnd_create_reg(DR_REG_R0)));
+        XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(DR_REG_SP, -2 * XSP_SZ),
+                           opnd_create_reg(DR_REG_R0)));
     /* restore r0 */
     APP(&ilist,
-        INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_R0),
-                         OPND_CREATE_MEM32(DR_REG_SP, -XSP_SZ)));
+        XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_R0),
+                          OPND_CREATE_MEMPTR(DR_REG_SP, -XSP_SZ)));
     /* restore stolen reg */
     APP(&ilist,
         instr_create_restore_from_tls(dcontext, dr_reg_stolen, TLS_REG_STOLEN_SLOT));
     /* go to stored target PC */
+#    ifdef AARCH64
+    /* For AArch64, we can't jump through memory like on x86, or write
+     * to the PC like on ARM.  For now assume we're at an ABI call
+     * boundary (true for dr_app_stop) and we clobber the caller-saved
+     * register r12.
+     * XXX: The only clean transfer method we have is SYS_rt_sigreturn,
+     * which we do use to send other threads native on detach.
+     * To support externally-triggered detach at non-clean points in the future
+     * we could try changing the callers to invoke thread_set_self_mcontext()
+     * instead of coming here (and also finish implementing that for A64).
+     */
+    APP(&ilist,
+        XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_R12),
+                          OPND_CREATE_MEMPTR(DR_REG_SP, -2 * XSP_SZ)));
+    APP(&ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_R12)));
+#    else
     APP(&ilist,
         INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_PC),
-                         OPND_CREATE_MEM32(DR_REG_SP, -2 * XSP_SZ)));
+                         OPND_CREATE_MEMPTR(DR_REG_SP, -2 * XSP_SZ)));
+#    endif
 
     /* now encode the instructions */
     len = encode_with_patch_list(dcontext, &patch, &ilist, pc);
@@ -4947,7 +4964,7 @@ emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *p
 
     return pc + len;
 }
-#endif /* ARM */
+#endif /* AARCHXX */
 
 #ifdef WINDOWS
 /* like fcache_enter but indirects the dcontext passed in through edi */
