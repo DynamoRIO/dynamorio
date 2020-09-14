@@ -259,9 +259,12 @@ offline_instru_t::append_target_cache_line_size(byte *buf_ptr)
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
     size_t target_cache_line_size = proc_get_cache_line_size();
-    // Assert no truncation.
-    DR_ASSERT((target_cache_line_size >> EXT_VALUE_A_BITS) == 0);
     entry->extended.valueA = target_cache_line_size;
+    // We cannot use sizeof for entry->extended.valueA as its a bitfield.
+    // Also, we cannot use EXT_VALUE_A_BITS as the actual width of the field
+    // also depends on whether it is a 32 or 64 bit build.
+    // Instead, we dynamically verify whether there was any value truncation.
+    DR_ASSERT(entry->extended.valueA == target_cache_line_size);
     entry->extended.valueB = TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE;
     return sizeof(offline_entry_t);
 }
