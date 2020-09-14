@@ -59,4 +59,4 @@ Thread .* counts:
      .* function return address markers
      .* function argument markers
      .* function return value markers
-           0 other markers
+     .* other markers

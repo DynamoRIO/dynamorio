@@ -517,6 +517,9 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
+    buf += trace_metadata_writer_t::write_marker(
+        buf, TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE, header.target_cache_line_size);
+
     if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
     // We have to write this now before we append any bb entries.

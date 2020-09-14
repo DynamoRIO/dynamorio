@@ -32,7 +32,7 @@ Thread .* counts:
      .* function return address markers
      .* function argument markers
      .* function return value markers
-           1 other markers
+     .* other markers
 Prefetch operation frequencies:
            2 prefetch_read_l1
            4 prefetch_read_l2
