@@ -522,6 +522,7 @@ if (BUILD_TESTS)
     target_link_libraries(tool.drcacheoff.burst_aarch64_sys drmemtrace_raw2trace
       drmemtrace_analyzer)
     use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_aarch64_sys)
+    add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
   endif ()
 
   # FIXME i#2007: fails to link on A64
