@@ -298,10 +298,6 @@ drmemtrace_status_t
 drmemtrace_filter_threads(bool (*should_trace_thread)(thread_id_t tid, void *user_data),
                           void *user_value)
 {
-#ifndef X86
-    /* XXX i#2820: only x86 supports thread filtering for now. */
-    return DRMEMTRACE_ERROR_NOT_IMPLEMENTED;
-#endif
     if (should_trace_thread == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     /* We document that this should be called once at init time: i.e., we do not
@@ -700,7 +696,11 @@ insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *whe
 {
     if (reg_barrier != DR_REG_NULL) {
         for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
-            if (reg != reg_barrier) {
+            /* We're not allowed to restore the stolen register this way, but drreg
+             * won't hand it out as a scratch register in any case, so we don't need
+             * a barrier for it.
+             */
+            if (reg != reg_barrier && reg != dr_get_stolen_reg()) {
                 drreg_status_t res =
                     drreg_get_app_value(drcontext, ilist, where, reg, reg);
                 if (res != DRREG_ERROR_NO_APP_VALUE && res != DRREG_SUCCESS)
