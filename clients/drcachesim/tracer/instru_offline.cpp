@@ -257,8 +257,9 @@ offline_instru_t::append_target_cache_line_size(byte *buf_ptr)
 {
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
-    entry->extended.ext = OFFLINE_EXT_TYPE_TARGET_CACHE_LINE_SIZE;
+    entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
     entry->extended.valueA = proc_get_cache_line_size();
+    entry->extended.valueB = TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE;
     return sizeof(offline_entry_t);
 }
 

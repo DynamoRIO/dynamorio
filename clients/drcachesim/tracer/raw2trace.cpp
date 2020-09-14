@@ -1195,8 +1195,9 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
         if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
             offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID ||
             (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
-             offline_entries[timestamp_pos].extended.ext !=
-                 OFFLINE_EXT_TYPE_TARGET_CACHE_LINE_SIZE))
+             offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
+             offline_entries[timestamp_pos].extended.valueB !=
+                 TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE))
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
         ++timestamp_pos;
     }

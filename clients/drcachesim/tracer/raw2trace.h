@@ -766,7 +766,8 @@ protected:
         if (in_entry == nullptr)
             return "Failed to read header from input file";
         DR_ASSERT(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                  in_entry->extended.ext == OFFLINE_EXT_TYPE_TARGET_CACHE_LINE_SIZE);
+                  in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+                  in_entry->extended.valueB == TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE);
         header->target_cache_line_size = in_entry->extended.valueA;
 
         return "";
