@@ -765,11 +765,17 @@ protected:
         in_entry = impl()->get_next_entry(tls);
         if (in_entry == nullptr)
             return "Failed to read header from input file";
-        DR_ASSERT(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
-                  in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                  in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE);
-        header->cache_line_size = in_entry->extended.valueA;
-
+        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
+            header->cache_line_size = in_entry->extended.valueA;
+        } else {
+            impl()->log(2,
+                        "Cache line size not found in raw trace header. Adding "
+                        "current processor's cache line size to final trace instead.\n");
+            header->cache_line_size = proc_get_cache_line_size();
+            impl()->unread_last_entry(tls);
+        }
         return "";
     }
 
