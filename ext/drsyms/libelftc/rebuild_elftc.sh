@@ -98,7 +98,7 @@ function build_for_bits() {
   if [[ "${make_cmd}" -eq "pmake" ]]; then
       # XXX: pmake does not seem to clean properly, but bmake is working fine.
       rm -f */*.so
-      svn status | grep '?' | awk '{print $2}' | xargs rm -f
+      # svn status | grep '?' | awk '{print $2}' | xargs rm -f
   fi
   ${make_cmd} ${make_option} clean
   (cd common   && ${make_cmd} ${make_option} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes all)
