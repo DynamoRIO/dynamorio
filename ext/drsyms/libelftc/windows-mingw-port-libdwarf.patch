@@ -1,0 +1,17 @@
+diff --git a/libdwarf/_libdwarf.h b/libdwarf/_libdwarf.h
+index 3f7986c5..87ad9705 100644
+--- a/libdwarf/_libdwarf.h
++++ b/libdwarf/_libdwarf.h
+@@ -32,4 +32,12 @@
+ 
++#if !(defined _WIN32 && ! defined __CYGWIN__)
+ #include <sys/param.h>
++#else
++#include "windows-mingw/sys_param.h"
++#endif
++#if !(defined _WIN32 && ! defined __CYGWIN__)
+ #include <sys/queue.h>
++#else
++#include "windows-mingw/sys_queue.h"
++#endif
+ #include <assert.h>

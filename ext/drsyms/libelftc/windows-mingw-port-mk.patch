@@ -1,0 +1,38 @@
+diff --git a/mk/elftoolchain.os.mk b/mk/elftoolchain.os.mk
+index e6489786..d71de5af 100644
+--- a/mk/elftoolchain.os.mk
++++ b/mk/elftoolchain.os.mk
+@@ -9,3 +9,3 @@
+ # Determine the host operating system flavor.
+-OS_HOST != uname -s
++OS_HOST != uname -s | cut -d_ -f1
+ 
+diff --git a/mk/os.MINGW32.mk b/mk/os.MINGW32.mk
+new file mode 100644
+index 00000000..564998fb
+--- /dev/null
++++ b/mk/os.MINGW32.mk
+@@ -0,0 +1,3 @@
++# $Id$
++#
++# Build recipes for Windows.
+diff --git a/mk/os.MINGW64.mk b/mk/os.MINGW64.mk
+new file mode 100644
+index 00000000..564998fb
+--- /dev/null
++++ b/mk/os.MINGW64.mk
+@@ -0,0 +1,3 @@
++# $Id$
++#
++# Build recipes for Windows.
+diff --git a/mk/os.MSYS.mk b/mk/os.MSYS.mk
+new file mode 100644
+index 00000000..a3095a1b
+--- /dev/null
++++ b/mk/os.MSYS.mk
+@@ -0,0 +1,5 @@
++# $Id$
++#
++# Build recipes for Windows.
++
++
