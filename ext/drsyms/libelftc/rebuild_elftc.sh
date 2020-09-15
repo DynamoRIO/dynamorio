@@ -30,6 +30,7 @@
 
 # Requires pmake and 32 bit dev libraries to run.
 # On Fedora requires bmake and several patches.
+# On Windows requires bmake.
 # Tested on libelftc r3821 but we have to stay on r3530 until
 # https://sourceforge.net/p/elftoolchain/tickets/581/ is fixed.
 version="-r3530"
@@ -47,11 +48,15 @@ fi
 # Fedora uses bmake.
 # We assume user has already patched according to
 # https://sourceforge.net/p/elftoolchain/wiki/BuildingFromSource/
-if [[ -e /etc/fedora-release ]]
+if [[ -e /etc/fedora-release  || $(uname -s) =~ MINGW.* ]]
 then
     make_cmd=bmake
+    echo "make cmd is bmake."
+    echo;
+    make_option="-B"
 else
     make_cmd=pmake
+    make_option=""
 fi
 
 elftc_dir="$1"
@@ -95,11 +100,11 @@ function build_for_bits() {
       rm -f */*.so
       svn status | grep '?' | awk '{print $2}' | xargs rm -f
   fi
-  ${make_cmd} clean
-  (cd common   && ${make_cmd}  COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes all)
-  (cd libelf   && ${make_cmd} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libelf_pic.a)
-  (cd libdwarf && ${make_cmd} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libdwarf_pic.a)
-  (cd libelftc && ${make_cmd} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libelftc_pic.a)
+  ${make_cmd} ${make_option} clean
+  (cd common   && ${make_cmd} ${make_option} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes all)
+  (cd libelf   && ${make_cmd} ${make_option} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libelf_pic.a)
+  (cd libdwarf && ${make_cmd} ${make_option} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libdwarf_pic.a)
+  (cd libelftc && ${make_cmd} ${make_option} COPTS="-m${bits} -O2 -g ${redir}" LD="ld -m${ld_mode}" MKPIC=yes libelftc_pic.a)
   cp libelf/libelf_pic.a     "${dr_libelftc_dir}/lib${bits}/libelf.a"
   cp libdwarf/libdwarf_pic.a "${dr_libelftc_dir}/lib${bits}/libdwarf.a"
   cp libelftc/libelftc_pic.a "${dr_libelftc_dir}/lib${bits}/libelftc.a"
