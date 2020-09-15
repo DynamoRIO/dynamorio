@@ -262,9 +262,9 @@ private:
     static const int kIsFlushMask = 0x0008;
     static const int kIsCtiMask = 0x0010;
 
-    // kIsAarch64DcZvaMask is available in non-AArch64 builds too, but it's intended for
-    // use only in AArch64 builds. This declaration reserves the assigned mask and makes
-    // it unavailable for future masks.
+    // kIsAarch64DcZvaMask is available during processing of non-AArch64 traces too, but
+    // it's intended for use only for AArch64 traces. This declaration reserves the
+    // assigned mask and makes it unavailable for future masks.
     static const int kIsAarch64DcZvaMask = 0x0020;
 
     instr_summary_t(const instr_summary_t &other) = delete;

@@ -458,9 +458,6 @@ private:
                         int op_index, int memop_index, bool write, int version,
                         reg_id_set_t &saw_base);
 
-    int
-    append_cache_line_size(byte *buf_ptr);
-
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
     static void *(*user_load_)(module_data_t *module);

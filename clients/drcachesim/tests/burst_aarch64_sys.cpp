@@ -45,7 +45,6 @@
 #include <iostream>
 #include <signal.h>
 #include <setjmp.h>
-#include <unordered_set>
 
 #define ASSERT_MSG(x, msg)                                                           \
     ((void)((!(x)) ? (dr_fprintf(STDERR, "ASSERT FAILURE: %s:%d: %s (%s)", __FILE__, \
@@ -202,7 +201,8 @@ is_dc_zva_instr(void *dr_context, memref_t memref)
     app_pc pc = (app_pc)memref.instr.addr;
     instr_t instr;
     instr_init(dr_context, &instr);
-    decode(dr_context, pc, &instr);
+    auto *ret = decode(dr_context, pc, &instr);
+    assert(ret != NULL && instr_valid(&instr));
     bool is_dc_zva = instru_t::is_aarch64_dc_zva_instr(&instr);
     instr_free(dr_context, &instr);
     return is_dc_zva;
@@ -217,7 +217,6 @@ main(int argc, const char *argv[])
     // Gather app trace.
     std::string trace_dir = gather_trace();
 
-    // First analysis -- count DC ZVA instrs.
     void *dr_context = dr_standalone_init();
     analyzer_t analyzer(trace_dir);
     if (!analyzer) {
@@ -227,7 +226,7 @@ main(int argc, const char *argv[])
     bool found_cache_line_size_marker = false;
     int dc_zva_instr_count = 0;
     int dc_zva_memref_count = 0;
-    std::unordered_set<addr_t> all_dc_zva_pc;
+    addr_t last_dc_zva_pc = 0;
     for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
         memref_t memref = *iter;
         if (memref.marker.type == TRACE_TYPE_MARKER &&
@@ -237,13 +236,15 @@ main(int argc, const char *argv[])
         }
         if (is_dc_zva_instr(dr_context, memref)) {
             dc_zva_instr_count++;
-            all_dc_zva_pc.insert(memref.instr.addr);
+            last_dc_zva_pc = memref.instr.addr;
+            continue;
         }
-        if (all_dc_zva_pc.find(memref.data.pc) != all_dc_zva_pc.end()) {
-            assert(memref.data.type == TRACE_TYPE_WRITE ||
-                   memref.data.type == TRACE_TYPE_INSTR);
-            if (memref.data.type == TRACE_TYPE_INSTR)
-                continue;
+        // Look for _memref_data_t entries.
+        if ((memref.data.type == TRACE_TYPE_READ ||
+             memref.data.type == TRACE_TYPE_WRITE || type_is_prefetch(memref.data.type))
+            // Look for memrefs for last seen dc zva pc.
+            && (last_dc_zva_pc != 0 && memref.data.pc == last_dc_zva_pc)) {
+            assert(memref.data.type == TRACE_TYPE_WRITE);
             dc_zva_memref_count++;
             assert(ALIGNED(memref.data.addr, proc_get_cache_line_size()));
             assert(memref.data.size == proc_get_cache_line_size());
@@ -251,7 +252,8 @@ main(int argc, const char *argv[])
     }
     std::cerr << "DC ZVA count: " << dc_zva_instr_count << "\n";
     std::cerr << "DC ZVA memref count: " << dc_zva_memref_count << "\n";
-    std::cerr << "All DC ZVA memrefs back-aligned!\n";
+    std::cerr << "All DC ZVA memrefs are cache-line shaped stores!\n";
+    assert(dc_zva_memref_count != 0);
     assert(dc_zva_instr_count == dc_zva_memref_count);
     assert(found_cache_line_size_marker);
     dr_standalone_exit();
