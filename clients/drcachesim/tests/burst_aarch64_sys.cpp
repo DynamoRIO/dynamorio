@@ -61,7 +61,7 @@
 static sigjmp_buf mark;
 static int handled_sigill_count = 0;
 
-#define TO_BE_ZEROED_ARR_SIZE 128
+#define TO_BE_ZEROED_ARR_SIZE 512
 char to_be_zeroed[TO_BE_ZEROED_ARR_SIZE];
 
 void
@@ -76,9 +76,12 @@ static void
 dc_zva()
 {
     int n = proc_get_cache_line_size() / sizeof(char);
-    assert(n < TO_BE_ZEROED_ARR_SIZE);
-    // Issue a DC ZVA operation for each offset in a cache line.
-    for (int i = 0; i < n; i++) {
+    assert(n * 3 < TO_BE_ZEROED_ARR_SIZE);
+    // Exactly n elements make up a cache line.
+    // We issue a DC ZVA operation for each offset in a cache line.
+    // We use the region [&to_be_zeroed[n], &to_be_zeroed[2*n]) to make sure that
+    // the DC ZVA operation zeroes data only belonging to this array.
+    for (int i = n; i < 2 * n; i++) {
         __asm__ __volatile__("dc zva, %0" : : "r"(&to_be_zeroed[i]));
     }
 }
