@@ -253,19 +253,19 @@ offline_instru_t::append_pid(byte *buf_ptr, process_id_t pid)
 }
 
 int
-offline_instru_t::append_target_cache_line_size(byte *buf_ptr)
+offline_instru_t::append_cache_line_size(byte *buf_ptr)
 {
     offline_entry_t *entry = (offline_entry_t *)buf_ptr;
     entry->extended.type = OFFLINE_TYPE_EXTENDED;
     entry->extended.ext = OFFLINE_EXT_TYPE_MARKER;
-    size_t target_cache_line_size = proc_get_cache_line_size();
-    entry->extended.valueA = target_cache_line_size;
+    size_t cache_line_size = proc_get_cache_line_size();
+    entry->extended.valueA = cache_line_size;
     // We cannot use sizeof on entry->extended.valueA as it is a bitfield.
     // Also, we cannot assume EXT_VALUE_A_BITS as the width of the field
     // as it depends on whether it is a 32 or 64 bit build.
     // Instead, we dynamically verify whether there was any value truncation.
-    DR_ASSERT(entry->extended.valueA == target_cache_line_size);
-    entry->extended.valueB = TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE;
+    DR_ASSERT(entry->extended.valueA == cache_line_size);
+    entry->extended.valueB = TRACE_MARKER_TYPE_CACHE_LINE_SIZE;
     return sizeof(offline_entry_t);
 }
 
@@ -340,7 +340,7 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += sizeof(*entry);
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
-    new_buf += append_target_cache_line_size(new_buf);
+    new_buf += append_cache_line_size(new_buf);
     return (int)(new_buf - buf_ptr);
 }
 

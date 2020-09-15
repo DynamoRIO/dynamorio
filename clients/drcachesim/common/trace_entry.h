@@ -275,10 +275,10 @@ typedef enum {
     TRACE_MARKER_TYPE_FILETYPE,
 
     /**
-     * The marker value contains the traced target processor's cache line size in
+     * The marker value contains the traced processor's cache line size in
      * bytes.
      */
-    TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE,
+    TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
 
     // ...
     // These values are reserved for future built-in marker types.

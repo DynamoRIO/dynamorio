@@ -506,7 +506,7 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     VPRINT(2, "File %u is process %u\n", tdata->index, (uint)header.pid);
     thread_id_t tid = header.tid;
     tdata->tid = tid;
-    tdata->target_cache_line_size = header.target_cache_line_size;
+    tdata->cache_line_size = header.cache_line_size;
     process_id_t pid = header.pid;
     DR_ASSERT(tid != INVALID_THREAD_ID);
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
@@ -517,8 +517,8 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
     buf += trace_metadata_writer_t::write_pid(buf, pid);
-    buf += trace_metadata_writer_t::write_marker(
-        buf, TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE, header.target_cache_line_size);
+    buf += trace_metadata_writer_t::write_marker(buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
+                                                 header.cache_line_size);
 
     if (header.timestamp != 0) // Legacy traces have the timestamp in the header.
         buf += trace_metadata_writer_t::write_timestamp(buf, (uintptr_t)header.timestamp);
@@ -1040,10 +1040,10 @@ raw2trace_t::get_version(void *tls)
 }
 
 size_t
-raw2trace_t::get_target_cache_line_size(void *tls)
+raw2trace_t::get_cache_line_size(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    return tdata->target_cache_line_size;
+    return tdata->cache_line_size;
 }
 
 offline_file_type_t
@@ -1200,7 +1200,7 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
             (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||
              offline_entries[timestamp_pos].extended.ext != OFFLINE_EXT_TYPE_MARKER ||
              offline_entries[timestamp_pos].extended.valueB !=
-                 TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE))
+                 TRACE_MARKER_TYPE_CACHE_LINE_SIZE))
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
         ++timestamp_pos;
     }

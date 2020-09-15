@@ -490,7 +490,7 @@ struct trace_header_t {
     process_id_t pid;
     thread_id_t tid;
     uint64 timestamp;
-    size_t target_cache_line_size;
+    size_t cache_line_size;
 };
 
 // XXX: DR should export this
@@ -767,8 +767,8 @@ protected:
             return "Failed to read header from input file";
         DR_ASSERT(in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
                   in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-                  in_entry->extended.valueB == TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE);
-        header->target_cache_line_size = in_entry->extended.valueA;
+                  in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE);
+        header->cache_line_size = in_entry->extended.valueA;
 
         return "";
     }
@@ -1302,7 +1302,7 @@ private:
                 buf->type = instr->flush_type();
                 // TODO i#4398: Handle flush sizes larger than ushort.
                 // TODO i#4406: Handle flush instrs with sizes other than cache line.
-                buf->size = (ushort)impl()->get_target_cache_line_size(tls);
+                buf->size = (ushort)impl()->get_cache_line_size(tls);
             } else {
                 if (write)
                     buf->type = TRACE_TYPE_WRITE;
@@ -1336,9 +1336,8 @@ private:
         // to lose the actually written address. Ideally, we want the actually
         // written address and also the correct size and type in the IR.
         if (instr->is_aarch64_dc_zva()) {
-            buf->addr =
-                ALIGN_BACKWARD(buf->addr, impl()->get_target_cache_line_size(tls));
-            buf->size = impl()->get_target_cache_line_size(tls);
+            buf->addr = ALIGN_BACKWARD(buf->addr, impl()->get_cache_line_size(tls));
+            buf->size = impl()->get_cache_line_size(tls);
             buf->type = TRACE_TYPE_WRITE;
         }
 #endif
@@ -1499,7 +1498,7 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
-        size_t target_cache_line_size;
+        size_t cache_line_size;
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
@@ -1580,7 +1579,7 @@ private:
     offline_file_type_t
     get_file_type(void *tls);
     size_t
-    get_target_cache_line_size(void *tls);
+    get_cache_line_size(void *tls);
     void
     add_to_statistic(void *tls, raw2trace_statistic_t stat, int value);
     void

@@ -224,15 +224,15 @@ main(int argc, const char *argv[])
         std::cerr << "Failed to initialize iterator " << analyzer.get_error_string()
                   << "\n";
     }
-    bool found_target_cache_line_size_marker = false;
+    bool found_cache_line_size_marker = false;
     int dc_zva_instr_count = 0;
     int dc_zva_memref_count = 0;
     std::unordered_set<addr_t> all_dc_zva_pc;
     for (reader_t &iter = analyzer.begin(); iter != analyzer.end(); ++iter) {
         memref_t memref = *iter;
         if (memref.marker.type == TRACE_TYPE_MARKER &&
-            memref.marker.marker_type == TRACE_MARKER_TYPE_TARGET_CACHE_LINE_SIZE) {
-            found_target_cache_line_size_marker = true;
+            memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
+            found_cache_line_size_marker = true;
             assert(memref.marker.marker_value == proc_get_cache_line_size());
         }
         if (is_dc_zva_instr(dr_context, memref)) {
@@ -253,7 +253,7 @@ main(int argc, const char *argv[])
     std::cerr << "DC ZVA memref count: " << dc_zva_memref_count << "\n";
     std::cerr << "All DC ZVA memrefs back-aligned!\n";
     assert(dc_zva_instr_count == dc_zva_memref_count);
-    assert(found_target_cache_line_size_marker);
+    assert(found_cache_line_size_marker);
     dr_standalone_exit();
 
     return 0;
