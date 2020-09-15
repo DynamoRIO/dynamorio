@@ -1,7 +1,7 @@
-diff --git a/common/_elftc.h b/common/_elftc.h
+diff --git  common/_elftc.h common/_elftc.h
 index 5be8145b..898bee40 100644
---- a/common/_elftc.h
-+++ b/common/_elftc.h
+---  common/_elftc.h
++++ common/_elftc.h
 @@ -325,2 +325,6 @@ struct name {							\
  
 +#ifndef ELFTC_VCSID
@@ -36,11 +36,11 @@ index 5be8145b..898bee40 100644
 +#include "windows-mingw/sys_param.h"
 +#endif
  #include <sys/endian.h>
-diff --git a/common/windows-mingw/_ansi.h b/common/windows-mingw/_ansi.h
+diff --git  common/windows-mingw/_ansi.h common/windows-mingw/_ansi.h
 new file mode 100644
 index 00000000..3a8d0838
 --- /dev/null
-+++ b/common/windows-mingw/_ansi.h
++++ common/windows-mingw/_ansi.h
 @@ -0,0 +1,73 @@
 +/* Provide support for both ANSI and non-ANSI environments.  */
 +
@@ -115,11 +115,11 @@ index 00000000..3a8d0838
 +
 +
 +#endif /* _ANSIDECL_H_ */
-diff --git a/common/windows-mingw/_newlib_version.h b/common/windows-mingw/_newlib_version.h
+diff --git  common/windows-mingw/_newlib_version.h common/windows-mingw/_newlib_version.h
 new file mode 100644
 index 00000000..f79befff
 --- /dev/null
-+++ b/common/windows-mingw/_newlib_version.h
++++ common/windows-mingw/_newlib_version.h
 @@ -0,0 +1,12 @@
 +/* _newlib_version.h.  Generated from _newlib_version.hin by configure.  */
 +/* Version macros for internal and downstream use. */
@@ -133,11 +133,11 @@ index 00000000..f79befff
 +
 +#endif /* !_NEWLIB_VERSION_H__ */
 +
-diff --git a/common/windows-mingw/ar.h b/common/windows-mingw/ar.h
+diff --git  common/windows-mingw/ar.h common/windows-mingw/ar.h
 new file mode 100644
 index 00000000..38d6ff8b
 --- /dev/null
-+++ b/common/windows-mingw/ar.h
++++ common/windows-mingw/ar.h
 @@ -0,0 +1,65 @@
 +/*	$NetBSD: ar.h,v 1.4 1994/10/26 00:55:43 cgd Exp $	*/
 +
@@ -205,11 +205,11 @@ index 00000000..38d6ff8b
 +
 +#endif /* !_AR_H_ */
 \ No newline at end of file
-diff --git a/common/windows-mingw/bits_byteswap.h b/common/windows-mingw/bits_byteswap.h
+diff --git  common/windows-mingw/bits_byteswap.h common/windows-mingw/bits_byteswap.h
 new file mode 100644
 index 00000000..cb7835db
 --- /dev/null
-+++ b/common/windows-mingw/bits_byteswap.h
++++ common/windows-mingw/bits_byteswap.h
 @@ -0,0 +1,37 @@
 +/* bits/byteswap.h
 +
@@ -248,11 +248,11 @@ index 00000000..cb7835db
 +}
 +#endif
 +#endif /* _BITS_BYTESWAP_H */
-diff --git a/common/windows-mingw/endian.h b/common/windows-mingw/endian.h
+diff --git  common/windows-mingw/endian.h common/windows-mingw/endian.h
 new file mode 100644
 index 00000000..5042d72e
 --- /dev/null
-+++ b/common/windows-mingw/endian.h
++++ common/windows-mingw/endian.h
 @@ -0,0 +1,191 @@
 +/* endian.h
 +
@@ -446,11 +446,11 @@ index 00000000..5042d72e
 +
 +#endif /*_ENDIAN_H_*/
 \ No newline at end of file
-diff --git a/common/windows-mingw/machine_endian.h b/common/windows-mingw/machine_endian.h
+diff --git  common/windows-mingw/machine_endian.h common/windows-mingw/machine_endian.h
 new file mode 100644
 index 00000000..1b1d8cd4
 --- /dev/null
-+++ b/common/windows-mingw/machine_endian.h
++++ common/windows-mingw/machine_endian.h
 @@ -0,0 +1,114 @@
 +#ifndef __MACHINE_ENDIAN_H__
 +#define	__MACHINE_ENDIAN_H__
@@ -566,11 +566,11 @@ index 00000000..1b1d8cd4
 +#endif /* __machine_host_to_from_network_defined */
 +
 +#endif /* __MACHINE_ENDIAN_H__ */
-diff --git a/common/windows-mingw/newlib.h b/common/windows-mingw/newlib.h
+diff --git  common/windows-mingw/newlib.h common/windows-mingw/newlib.h
 new file mode 100644
 index 00000000..ccdfc5dd
 --- /dev/null
-+++ b/common/windows-mingw/newlib.h
++++ common/windows-mingw/newlib.h
 @@ -0,0 +1,209 @@
 +/* newlib.h.  Generated from newlib.hin by configure.  */
 +/* newlib.hin.  Manually edited from the output of autoheader to
@@ -781,11 +781,11 @@ index 00000000..ccdfc5dd
 +
 +#endif /* !__NEWLIB_H__ */
 +
-diff --git a/common/windows-mingw/sys_param.h b/common/windows-mingw/sys_param.h
+diff --git  common/windows-mingw/sys_param.h common/windows-mingw/sys_param.h
 new file mode 100644
 index 00000000..63de726e
 --- /dev/null
-+++ b/common/windows-mingw/sys_param.h
++++ common/windows-mingw/sys_param.h
 @@ -0,0 +1,68 @@
 +/* sys/param.h
 +
@@ -855,11 +855,11 @@ index 00000000..63de726e
 +#define    MAX(a,b)    (((a)>(b))?(a):(b))
 +
 +#endif
-diff --git a/common/windows-mingw/sys_queue.h b/common/windows-mingw/sys_queue.h
+diff --git  common/windows-mingw/sys_queue.h common/windows-mingw/sys_queue.h
 new file mode 100644
 index 00000000..006a37fd
 --- /dev/null
-+++ b/common/windows-mingw/sys_queue.h
++++ common/windows-mingw/sys_queue.h
 @@ -0,0 +1,914 @@
 +/*-
 + * Copyright (c) 1991, 1993

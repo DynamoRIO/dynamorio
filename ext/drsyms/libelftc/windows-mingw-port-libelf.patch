@@ -1,7 +1,7 @@
-diff --git a/libelf/_libelf.h b/libelf/_libelf.h
+diff --git  libelf/_libelf.h libelf/_libelf.h
 index 6d73d8f7..e6b6d543 100644
---- a/libelf/_libelf.h
-+++ b/libelf/_libelf.h
+---  libelf/_libelf.h
++++ libelf/_libelf.h
 @@ -31,3 +31,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -10,10 +10,10 @@ index 6d73d8f7..e6b6d543 100644
 +#include "windows-mingw/sys_queue.h"
 +#endif
  
-diff --git a/libelf/_libelf_ar.h b/libelf/_libelf_ar.h
+diff --git  libelf/_libelf_ar.h libelf/_libelf_ar.h
 index d1751a7c..e0be905a 100644
---- a/libelf/_libelf_ar.h
-+++ b/libelf/_libelf_ar.h
+---  libelf/_libelf_ar.h
++++ libelf/_libelf_ar.h
 @@ -36,3 +36,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -22,10 +22,10 @@ index d1751a7c..e0be905a 100644
 +#include "windows-mingw/ar.h"
 +#endif
  
-diff --git a/libelf/_libelf_config.h b/libelf/_libelf_config.h
+diff --git  libelf/_libelf_config.h libelf/_libelf_config.h
 index 2db8c369..bb8da0d4 100644
---- a/libelf/_libelf_config.h
-+++ b/libelf/_libelf_config.h
+---  libelf/_libelf_config.h
++++ libelf/_libelf_config.h
 @@ -165,2 +165,8 @@
  
 +#if (defined _WIN32 && ! defined __CYGWIN__)
@@ -35,10 +35,10 @@ index 2db8c369..bb8da0d4 100644
 +#endif
 +
  /*
-diff --git a/libelf/elf_getident.c b/libelf/elf_getident.c
+diff --git  libelf/elf_getident.c libelf/elf_getident.c
 index 1a71b27c..6debf18b 100644
---- a/libelf/elf_getident.c
-+++ b/libelf/elf_getident.c
+---  libelf/elf_getident.c
++++ libelf/elf_getident.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -47,10 +47,10 @@ index 1a71b27c..6debf18b 100644
 +#include "windows-mingw/ar.h"
 +#endif
  #include <assert.h>
-diff --git a/libelf/elf_next.c b/libelf/elf_next.c
+diff --git  libelf/elf_next.c libelf/elf_next.c
 index ad595a0a..2c3ea10c 100644
---- a/libelf/elf_next.c
-+++ b/libelf/elf_next.c
+---  libelf/elf_next.c
++++ libelf/elf_next.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -59,10 +59,10 @@ index ad595a0a..2c3ea10c 100644
 +#include "windows-mingw/ar.h"
 +#endif
  #include <assert.h>
-diff --git a/libelf/elf_phnum.c b/libelf/elf_phnum.c
+diff --git  libelf/elf_phnum.c libelf/elf_phnum.c
 index b08cc303..cbed1031 100644
---- a/libelf/elf_phnum.c
-+++ b/libelf/elf_phnum.c
+---  libelf/elf_phnum.c
++++ libelf/elf_phnum.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -71,10 +71,10 @@ index b08cc303..cbed1031 100644
 +#include "windows-mingw/ar.h"
 +#endif
  #include <libelf.h>
-diff --git a/libelf/elf_rand.c b/libelf/elf_rand.c
+diff --git  libelf/elf_rand.c libelf/elf_rand.c
 index cd8774d3..d28cf11f 100644
---- a/libelf/elf_rand.c
-+++ b/libelf/elf_rand.c
+---  libelf/elf_rand.c
++++ libelf/elf_rand.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -83,10 +83,10 @@ index cd8774d3..d28cf11f 100644
 +#include "windows-mingw/ar.h"
 +#endif
  #include <libelf.h>
-diff --git a/libelf/elf_scn.c b/libelf/elf_scn.c
+diff --git  libelf/elf_scn.c libelf/elf_scn.c
 index 4a067781..d4233777 100644
---- a/libelf/elf_scn.c
-+++ b/libelf/elf_scn.c
+---  libelf/elf_scn.c
++++ libelf/elf_scn.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -95,10 +95,10 @@ index 4a067781..d4233777 100644
 +#include "windows-mingw/sys_queue.h"
 +#endif
  
-diff --git a/libelf/elf_shnum.c b/libelf/elf_shnum.c
+diff --git  libelf/elf_shnum.c libelf/elf_shnum.c
 index 66c134db..15709856 100644
---- a/libelf/elf_shnum.c
-+++ b/libelf/elf_shnum.c
+---  libelf/elf_shnum.c
++++ libelf/elf_shnum.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -107,10 +107,10 @@ index 66c134db..15709856 100644
 +#include "windows-mingw/ar.h"
 +#endif
  #include <libelf.h>
-diff --git a/libelf/elf_shstrndx.c b/libelf/elf_shstrndx.c
+diff --git  libelf/elf_shstrndx.c libelf/elf_shstrndx.c
 index 3b2384cb..0b07fe78 100644
---- a/libelf/elf_shstrndx.c
-+++ b/libelf/elf_shstrndx.c
+---  libelf/elf_shstrndx.c
++++ libelf/elf_shstrndx.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -119,10 +119,10 @@ index 3b2384cb..0b07fe78 100644
 +#include "windows-mingw/ar.h"
 +#endif
  #include <libelf.h>
-diff --git a/libelf/elf_strptr.c b/libelf/elf_strptr.c
+diff --git  libelf/elf_strptr.c libelf/elf_strptr.c
 index c6a52661..4606b67e 100644
---- a/libelf/elf_strptr.c
-+++ b/libelf/elf_strptr.c
+---  libelf/elf_strptr.c
++++ libelf/elf_strptr.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -131,10 +131,10 @@ index c6a52661..4606b67e 100644
 +#include "windows-mingw/sys_param.h"
 +#endif
  
-diff --git a/libelf/elf_update.c b/libelf/elf_update.c
+diff --git  libelf/elf_update.c libelf/elf_update.c
 index 6417afdc..64aacf8e 100644
---- a/libelf/elf_update.c
-+++ b/libelf/elf_update.c
+---  libelf/elf_update.c
++++ libelf/elf_update.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -143,10 +143,10 @@ index 6417afdc..64aacf8e 100644
 +#include "windows-mingw/sys_param.h"
 +#endif
  #include <sys/stat.h>
-diff --git a/libelf/libelf.h b/libelf/libelf.h
+diff --git  libelf/libelf.h libelf/libelf.h
 index 8d7059b8..ffee3bef 100644
---- a/libelf/libelf.h
-+++ b/libelf/libelf.h
+---  libelf/libelf.h
++++ libelf/libelf.h
 @@ -33,2 +33,7 @@
  
 +#if (defined _WIN32 && ! defined __CYGWIN__)
@@ -155,10 +155,10 @@ index 8d7059b8..ffee3bef 100644
 +#endif
 +
  #include <elfdefinitions.h>
-diff --git a/libelf/libelf_memory.c b/libelf/libelf_memory.c
+diff --git  libelf/libelf_memory.c libelf/libelf_memory.c
 index cc393d16..172a10ae 100644
---- a/libelf/libelf_memory.c
-+++ b/libelf/libelf_memory.c
+---  libelf/libelf_memory.c
++++ libelf/libelf_memory.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -167,10 +167,10 @@ index cc393d16..172a10ae 100644
 +#include "windows-mingw/ar.h"
 +#endif
  #include <assert.h>
-diff --git a/libelf/libelf_open.c b/libelf/libelf_open.c
+diff --git  libelf/libelf_open.c libelf/libelf_open.c
 index ea159c4d..e4c7c7b9 100644
---- a/libelf/libelf_open.c
-+++ b/libelf/libelf_open.c
+---  libelf/libelf_open.c
++++ libelf/libelf_open.c
 @@ -145,4 +145,8 @@ _libelf_open_object(int fd, Elf_Cmd c, int reporterror)
  	 */
 +#if defined(S_ISSOCK)

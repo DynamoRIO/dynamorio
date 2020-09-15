@@ -1,7 +1,7 @@
-diff --git a/libelftc/elftc_bfdtarget.c b/libelftc/elftc_bfdtarget.c
+diff --git  libelftc/elftc_bfdtarget.c libelftc/elftc_bfdtarget.c
 index 75e8692d..f56b977c 100644
---- a/libelftc/elftc_bfdtarget.c
-+++ b/libelftc/elftc_bfdtarget.c
+---  libelftc/elftc_bfdtarget.c
++++ libelftc/elftc_bfdtarget.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -10,10 +10,10 @@ index 75e8692d..f56b977c 100644
 +#include "windows-mingw/sys_param.h"
 +#endif
  #include <string.h>
-diff --git a/libelftc/elftc_demangle.c b/libelftc/elftc_demangle.c
+diff --git  libelftc/elftc_demangle.c libelftc/elftc_demangle.c
 index d5039d6e..3ffe0305 100644
---- a/libelftc/elftc_demangle.c
-+++ b/libelftc/elftc_demangle.c
+---  libelftc/elftc_demangle.c
++++ libelftc/elftc_demangle.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -22,10 +22,10 @@ index d5039d6e..3ffe0305 100644
 +#include "windows-mingw/sys_param.h"
 +#endif
  #include <assert.h>
-diff --git a/libelftc/elftc_string_table.c b/libelftc/elftc_string_table.c
+diff --git  libelftc/elftc_string_table.c libelftc/elftc_string_table.c
 index 2f8a6501..095a2a23 100644
---- a/libelftc/elftc_string_table.c
-+++ b/libelftc/elftc_string_table.c
+---  libelftc/elftc_string_table.c
++++ libelftc/elftc_string_table.c
 @@ -26,4 +26,12 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -39,10 +39,10 @@ index 2f8a6501..095a2a23 100644
 +#include "windows-mingw/sys_queue.h"
 +#endif
  
-diff --git a/libelftc/libelftc_bfdtarget.c b/libelftc/libelftc_bfdtarget.c
+diff --git  libelftc/libelftc_bfdtarget.c libelftc/libelftc_bfdtarget.c
 index 1b8dcbf5..29f561b7 100644
---- a/libelftc/libelftc_bfdtarget.c
-+++ b/libelftc/libelftc_bfdtarget.c
+---  libelftc/libelftc_bfdtarget.c
++++ libelftc/libelftc_bfdtarget.c
 @@ -26,3 +26,7 @@
  
 +#if !(defined _WIN32 && ! defined __CYGWIN__)
@@ -51,10 +51,10 @@ index 1b8dcbf5..29f561b7 100644
 +#include "windows-mingw/sys_param.h"
 +#endif
  #include <libelf.h>
-diff --git a/libelftc/make-toolchain-version b/libelftc/make-toolchain-version
+diff --git  libelftc/make-toolchain-version libelftc/make-toolchain-version
 index 1de0884f..40d18b31 100755
---- a/libelftc/make-toolchain-version
-+++ b/libelftc/make-toolchain-version
+---  libelftc/make-toolchain-version
++++ libelftc/make-toolchain-version
 @@ -10,3 +10,3 @@
  #
 -buildhost=`uname -s`
