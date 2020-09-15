@@ -845,6 +845,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
     desc->packed_ = 0;
 
     bool is_prefetch = instr_is_prefetch(instr);
+    bool is_flush = instru_t::instr_is_flush(instr);
     bool reads_memory = instr_reads_memory(instr);
     bool writes_memory = instr_writes_memory(instr);
 
@@ -861,6 +862,7 @@ instr_summary_t::construct(void *dcontext, app_pc block_start, INOUT app_pc *pc,
 
     desc->type_ = instru_t::instr_to_instr_type(instr);
     desc->prefetch_type_ = is_prefetch ? instru_t::instr_to_prefetch_type(instr) : 0;
+    desc->flush_type_ = is_flush ? instru_t::instr_to_flush_type(instr) : 0;
     desc->length_ = static_cast<byte>(instr_length(dcontext, instr));
 
     if (reads_memory || writes_memory) {

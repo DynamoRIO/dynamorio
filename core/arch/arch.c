@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1212,9 +1212,14 @@ arch_thread_init(dcontext_t *dcontext)
      */
     ASSERT(GENCODE_COMMIT_SIZE < GENCODE_RESERVE_SIZE);
     /* case 9474; share allocation unit w/ thread-private stack */
-    code = heap_mmap_reserve_post_stack(
-        dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
-        MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP | VMM_REACHABLE);
+    code =
+        heap_mmap_reserve_post_stack(dcontext, GENCODE_RESERVE_SIZE, GENCODE_COMMIT_SIZE,
+                                     MEMPROT_EXEC | MEMPROT_READ | MEMPROT_WRITE,
+                                     /* We pass VMM_PER_THREAD here, but not on the
+                                      * incremental commits: it's only needed on the
+                                      * reserve + unreserve.
+                                      */
+                                     VMM_SPECIAL_MMAP | VMM_REACHABLE | VMM_PER_THREAD);
     ASSERT(code != NULL);
     dcontext->private_code = (void *)code;
 
@@ -1437,7 +1442,7 @@ arch_thread_exit(dcontext_t *dcontext _IF_WINDOWS(bool detach_stacked_callbacks)
     if (!detach_stacked_callbacks)
 #endif
         heap_munmap_post_stack(dcontext, dcontext->private_code, GENCODE_RESERVE_SIZE,
-                               VMM_SPECIAL_MMAP | VMM_REACHABLE);
+                               VMM_SPECIAL_MMAP | VMM_REACHABLE | VMM_PER_THREAD);
 }
 
 #ifdef WINDOWS

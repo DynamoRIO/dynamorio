@@ -1380,7 +1380,10 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 
     ASSERT(opnd_is_far_base_disp(oldop));
     seg = opnd_get_segment(oldop);
-    /* we only mangle fs/gs */
+
+    /* We only mangle fs/gs, assuming that ds, es, and cs are flat
+     * (an assumption throughout the code, and always true for x64).
+     */
     if (seg != SEG_GS && seg != SEG_FS)
         return oldop;
 #    ifdef CLIENT_INTERFACE
@@ -1570,10 +1573,14 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef UNIX
     /* i#107, mangle the memory reference opnd that uses segment register. */
     if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(target)) {
-        /* FIXME: we use REG_XCX to store the segment base, which might be used
-         * in target and cause assertion failure in mangle_seg_ref_opnd.
+        /* TODO i#107: We use REG_XCX to store the segment base, which might be used
+         * in "target" and cause failure in mangle_seg_ref_opnd.
+         * We need to spill another register in that case.
          */
-        ASSERT_BUG_NUM(107, !opnd_uses_reg(target, REG_XCX));
+        ASSERT_BUG_NUM(107,
+                       !opnd_uses_reg(target, REG_XCX) ||
+                           (opnd_get_segment(target) != SEG_FS &&
+                            opnd_get_segment(target) != SEG_GS));
         target = mangle_seg_ref_opnd(dcontext, ilist, instr, target, REG_XCX);
     }
 #endif
@@ -1865,10 +1872,14 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef UNIX
     /* i#107, mangle the memory reference opnd that uses segment register. */
     if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(target)) {
-        /* FIXME: we use REG_XCX to store segment base, which might be used
-         * in target and cause assertion failure in mangle_seg_ref_opnd.
+        /* TODO i#107: We use REG_XCX to store the segment base, which might be used
+         * in "target" and cause failure in mangle_seg_ref_opnd.
+         * We need to spill another register in that case.
          */
-        ASSERT_BUG_NUM(107, !opnd_uses_reg(target, REG_XCX));
+        ASSERT_BUG_NUM(107,
+                       !opnd_uses_reg(target, REG_XCX) ||
+                           (opnd_get_segment(target) != SEG_FS &&
+                            opnd_get_segment(target) != SEG_GS));
         target = mangle_seg_ref_opnd(dcontext, ilist, instr, target, REG_XCX);
     }
 #endif

@@ -26,6 +26,8 @@ Total counts:
      .* total prefetches
      .* total data loads
      .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
            1 total threads
      .* total scheduling markers
 #if defined(WINDOWS) && !defined(X64)
@@ -45,6 +47,8 @@ Thread .* counts:
      .* prefetches
      .* data loads
      .* data stores
+     .* icache flushes
+     .* dcache flushes
      .* scheduling markers
 #if defined(WINDOWS) && !defined(X64)
           26 transfer markers

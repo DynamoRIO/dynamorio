@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -119,6 +119,12 @@ typedef enum {
     VMM_SPECIAL_MMAP = 0x0010,
     /* These modify the core types. */
     VMM_REACHABLE = 0x0020,
+    /* This is used to decide whether to add guard pages for -per_thread_guard_pages.
+     * It is not required that all thread-private allocs use this, nor that this
+     * never end up labeling a thread-shared alloc.  It is also not required that
+     * this flag be present at incremental commits: only at reserve and unreserve calls.
+     */
+    VMM_PER_THREAD = 0x0040,
 } which_vmm_t;
 
 void
@@ -351,7 +357,7 @@ global_unprotected_heap_free(void *p, size_t size HEAPACCT(which_heap_t which));
 #define NONPERSISTENT_HEAP_TYPE_FREE(dc, p, type, which) \
     NONPERSISTENT_HEAP_ARRAY_FREE(dc, p, type, 1, which)
 
-#define MIN_VMM_BLOCK_SIZE IF_WINDOWS_ELSE(16U * 1024, 4U * 1024)
+#define MIN_VMM_BLOCK_SIZE (4U * 1024)
 
 /* special heap of same-sized blocks that avoids global locks */
 void *

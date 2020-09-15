@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -549,6 +549,17 @@ DECL_EXTERN(my_setjmp)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         END_PROLOG
+        /* ljmp to base-disp with flat segment */
+        lea   REG_XAX, PTRSZ SYMREF(test_far_cti_end_flat)
+        push  REG_XAX
+        mov   REG_XCX, REG_XSP
+        /* I'm having trouble getting gas to generate this from:
+         *   jmp   PTRSZ SEGMEM(es,REG_XCX)
+         * So I'm bailing and going with raw bytes.
+         */
+        RAW(26) RAW(ff) RAW(21) /* jmp QWORD PTR es:[rcx] */
+    ADDRTAKEN_LABEL(test_far_cti_end_flat:)
+        pop   REG_XAX
         CALL_SETJMP
         cmp   REG_XAX, 0
         jne   test_far_cti_1

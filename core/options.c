@@ -292,23 +292,72 @@ adjust_defaults_for_page_size(options_t *options)
      * future be many more options that depend on the page size.
      */
 
-    /* Some of these are a small multiple of the page size because they include
-     * one or two guard pages.
+    /* To save space, we trade off some stability/security/debugging value of guard
+     * pages by only having them for thread-shared allocations (i#4424).
+     * Since 99% of our allocs are in the vmm, there should still be enough guards
+     * sprinkled to be quite helpful, and we have separate stack guard pages.
      */
+    options->per_thread_guard_pages = false;
+
     options->vmm_block_size = ALIGN_FORWARD(options->vmm_block_size, page_size);
     options->stack_size = MAX(ALIGN_FORWARD(options->stack_size, page_size), page_size);
 #    ifdef UNIX
     options->signal_stack_size =
         MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), page_size);
 #    endif
+    /* These per-thread sizes do *not* have guard pages (i#4424) and
+     * we keep them as small as we can to avoid wasting space.
+     * We'd need sub-page allocs (i#4415) to go any smaller.
+     */
     options->initial_heap_unit_size =
-        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size), 3 * page_size);
+        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size), page_size);
     options->initial_heap_nonpers_size =
-        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size), 3 * page_size);
+        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size), page_size);
+    /* We increase the global units to have a higher content-to-guard-page ratio. */
     options->initial_global_heap_unit_size = MAX(
-        ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size), 3 * page_size);
+        ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size), 8 * page_size);
+    options->max_heap_unit_size =
+        MAX(ALIGN_FORWARD(options->max_heap_unit_size, page_size), 64 * page_size);
     options->heap_commit_increment =
         ALIGN_FORWARD(options->heap_commit_increment, page_size);
+    /* The cache options must all match for x64.  We go ahead and make them the
+     * same for 32-bit as well: the shared cache these days should have large units.
+     */
+    options->cache_shared_bb_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_shared_bb_unit_max, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_shared_bb_unit_init, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_upgrade = MAX(
+        ALIGN_FORWARD(options->cache_shared_bb_unit_upgrade, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_quadruple = MAX(
+        ALIGN_FORWARD(options->cache_shared_bb_unit_quadruple, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_max = MAX(
+        ALIGN_FORWARD(options->cache_shared_trace_unit_max, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_init = MAX(
+        ALIGN_FORWARD(options->cache_shared_trace_unit_init, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_shared_trace_unit_upgrade, page_size),
+            8 * page_size);
+    options->cache_shared_trace_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_shared_trace_unit_quadruple, page_size),
+            8 * page_size);
+    /* Private units just need to be page sized for possible selfprot. */
+    options->cache_bb_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_max, page_size), page_size);
+    options->cache_bb_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_init, page_size), page_size);
+    options->cache_bb_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_upgrade, page_size), page_size);
+    options->cache_bb_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_quadruple, page_size), page_size);
+    options->cache_trace_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_max, page_size), page_size);
+    options->cache_trace_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_init, page_size), page_size);
+    options->cache_trace_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_upgrade, page_size), page_size);
+    options->cache_trace_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_quadruple, page_size), page_size);
     options->cache_commit_increment =
         ALIGN_FORWARD(options->cache_commit_increment, page_size);
 #endif /* !NOT_DYNAMORIO_CORE */

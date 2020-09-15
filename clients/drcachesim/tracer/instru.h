@@ -244,6 +244,11 @@ public:
     get_aarch64_prefetch_op_type(ptr_int_t prfop);
     static unsigned short
     get_aarch64_prefetch_type(ptr_int_t prfop);
+    static bool
+    is_aarch64_icache_flush_op(instr_t *instr);
+    static bool
+    is_aarch64_dcache_flush_op(instr_t *instr);
+
 #endif
     static unsigned short
     instr_to_prefetch_type(instr_t *instr);
@@ -251,6 +256,8 @@ public:
     instr_to_instr_type(instr_t *instr, bool repstr_expanded = false);
     static bool
     instr_is_flush(instr_t *instr);
+    static unsigned short
+    instr_to_flush_type(instr_t *instr);
     static int
     get_cpu_id();
     static uint64

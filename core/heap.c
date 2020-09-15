@@ -166,31 +166,11 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define MEMSET_HEADER(p, value) VARIABLE_SIZE(p) = HEAP_TO_PTR_UINT(value)
 #define GET_VARIABLE_ALLOCATION_SIZE(p) (VARIABLE_SIZE(p) + HEADER_SIZE)
 
-/* heap is allocated in units
- * we start out with a small unit, then each additional unit we
- * need doubles in size, up to a maximum, we default to 32kb initial size
- * (24kb useful with guard pages), max size defaults to 64kb (56kb useful with
- * guard pages), we keep the max small to save memory, it doesn't seem to be
- * perf hit! Though with guard pages we are wasting quite a bit of reserved
- * (though not committed) space */
-/* the only big things global heap is used for are pc sampling
- * hash table and sideline sampling hash table -- if none of those
- * are in use, 16KB should be plenty, we default to 32kb since guard
- * pages are on by default (gives 24kb useful) max size is same as for
- * normal heap units.
- */
-/* the old defaults were 32kb (usable) for initial thread private and 16kb
- * (usable) for initial global, changed to simplify the logic for allocating
- * in multiples of the os allocation granularity.  The new defaults prob.
- * make more sense with the shared cache then the old did anyways.
- */
-/* restrictions -
- * any guard pages are included in the size, size must be > UNITOVERHEAD
- * for best performance sizes should be of the form
- * 2^n * page_size (where n is a positve integer) and max should be a multiple
- * of the os allocation granularity so that with enough doublings we are
- * reserving memory in multiples of the allocation granularity and not wasting
- * any virtual address space (beyond our guard pages)
+/* The heap is allocated in units.
+ * We start out with a small unit. Then each additional unit we
+ * need doubles in size, up to a maximum.
+ * We keep the initial units small for thread-private heaps, since with
+ * thousands of threads the space can add up.
  */
 #define HEAP_UNIT_MIN_SIZE DYNAMO_OPTION(initial_heap_unit_size)
 #define HEAP_UNIT_MAX_SIZE INTERNAL_OPTION(max_heap_unit_size)
@@ -211,12 +191,12 @@ DECLARE_NEVERPROT_VAR(static bool out_of_vmheap_once, false);
 #define UNIT_COMMIT_END(u) (u->end_pc)
 #define UNIT_RESERVED_END(u) (u->reserved_end_pc)
 
-/* gets the allocated size of the unit (reserved size + guard pages) */
-#define UNITALLOC(u) (UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
-/* gets unit overhead, includes the reserved (guard pages) and committed
- * (sizeof(heap_unit_t)) portions
+/* Gets the allocated size of the unit (reserved size; doesn't include guard pages
+ * as those are not considered part of the usable space).
  */
-#define UNITOVERHEAD (sizeof(heap_unit_t) + GUARD_PAGE_ADJUSTMENT)
+#define UNITALLOC(u) (UNIT_RESERVED_SIZE(u))
+/* Gets unit overhead: includes reserved and committed (sizeof(heap_unit_t)) portions. */
+#define UNITOVERHEAD sizeof(heap_unit_t)
 
 /* any alloc request larger than this needs a special unit */
 #define MAXROOM (HEAP_UNIT_MAX_SIZE - UNITOVERHEAD)
@@ -875,7 +855,7 @@ vmm_place_vmcode(vm_heap_t *vmh, size_t size, heap_error_code_t *error_code)
                      get_random_offset(DYNAMO_OPTION(vm_max_offset) /
                                        DYNAMO_OPTION(vmm_block_size)) *
                          DYNAMO_OPTION(vmm_block_size));
-        preferred = ALIGN_FORWARD(preferred, DYNAMO_OPTION(vmm_block_size));
+        preferred = ALIGN_FORWARD(preferred, OS_ALLOC_GRANULARITY);
         /* overflow check: w/ vm_base shouldn't happen so debug-only check */
         ASSERT(!POINTER_OVERFLOW_ON_ADD(preferred, size));
         /* let's assume a single chunk is sufficient to reserve */
@@ -1278,6 +1258,16 @@ vmheap_get_start(void)
 }
 #endif
 
+static inline bool
+has_guard_pages(which_vmm_t which)
+{
+    if (!DYNAMO_OPTION(guard_pages))
+        return false;
+    if (TEST(VMM_PER_THREAD, which) && !DYNAMO_OPTION(per_thread_guard_pages))
+        return false;
+    return true;
+}
+
 void
 iterate_vmm_regions(void (*cb)(byte *region_start, byte *region_end, void *user_data),
                     void *user_data)
@@ -1352,29 +1342,54 @@ rel32_reachable_from_current_vmcode(byte *tgt)
 static inline void
 vmm_update_block_stats(which_vmm_t which, uint num_blocks, bool add)
 {
+    /* We do not split the stats for cache (always reachable) nor stack (never reachable).
+     * We confirm our assumptions here.
+     */
+    ASSERT(!TESTALL(VMM_REACHABLE | VMM_STACK, which) &&
+           (TEST(VMM_REACHABLE, which) || !TEST(VMM_CACHE, which)));
     /* XXX: find some way to make a stats array */
     if (add) {
-        if (TEST(VMM_HEAP, which))
-            RSTATS_ADD_PEAK(vmm_blocks_heap, num_blocks);
-        else if (TEST(VMM_CACHE, which))
-            RSTATS_ADD_PEAK(vmm_blocks_cache, num_blocks);
+        if (TEST(VMM_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_heap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_heap, num_blocks);
+        } else if (TEST(VMM_CACHE, which))
+            RSTATS_ADD_PEAK(vmm_blocks_reach_cache, num_blocks);
         else if (TEST(VMM_STACK, which))
-            RSTATS_ADD_PEAK(vmm_blocks_stack, num_blocks);
-        else if (TEST(VMM_SPECIAL_HEAP, which))
-            RSTATS_ADD_PEAK(vmm_blocks_special_heap, num_blocks);
-        else if (TEST(VMM_SPECIAL_MMAP, which))
-            RSTATS_ADD_PEAK(vmm_blocks_special_mmap, num_blocks);
+            RSTATS_ADD_PEAK(vmm_blocks_unreach_stack, num_blocks);
+        else if (TEST(VMM_SPECIAL_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_special_heap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_special_heap, num_blocks);
+        } else if (TEST(VMM_SPECIAL_MMAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_ADD_PEAK(vmm_blocks_reach_special_mmap, num_blocks);
+            else
+                RSTATS_ADD_PEAK(vmm_blocks_unreach_special_mmap, num_blocks);
+        }
     } else {
-        if (TEST(VMM_HEAP, which))
-            RSTATS_SUB(vmm_blocks_heap, num_blocks);
-        else if (TEST(VMM_CACHE, which))
-            RSTATS_SUB(vmm_blocks_cache, num_blocks);
+        if (TEST(VMM_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_heap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_heap, num_blocks);
+        } else if (TEST(VMM_CACHE, which))
+            RSTATS_SUB(vmm_blocks_reach_cache, num_blocks);
         else if (TEST(VMM_STACK, which))
-            RSTATS_SUB(vmm_blocks_stack, num_blocks);
-        else if (TEST(VMM_SPECIAL_HEAP, which))
-            RSTATS_SUB(vmm_blocks_special_heap, num_blocks);
-        else if (TEST(VMM_SPECIAL_MMAP, which))
-            RSTATS_SUB(vmm_blocks_special_mmap, num_blocks);
+            RSTATS_SUB(vmm_blocks_unreach_stack, num_blocks);
+        else if (TEST(VMM_SPECIAL_HEAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_special_heap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_special_heap, num_blocks);
+        } else if (TEST(VMM_SPECIAL_MMAP, which)) {
+            if (TEST(VMM_REACHABLE, which))
+                RSTATS_SUB(vmm_blocks_reach_special_mmap, num_blocks);
+            else
+                RSTATS_SUB(vmm_blocks_unreach_special_mmap, num_blocks);
+        }
     }
 }
 
@@ -1882,7 +1897,7 @@ vmm_heap_alloc(size_t size, uint prot, heap_error_code_t *error_code, which_vmm_
 void
 vmm_heap_init()
 {
-    IF_WINDOWS(ASSERT(DYNAMO_OPTION(vmm_block_size) == OS_ALLOC_GRANULARITY));
+    IF_WINDOWS(ASSERT(ALIGNED(OS_ALLOC_GRANULARITY, DYNAMO_OPTION(vmm_block_size))));
 #ifdef X64
     /* add reachable regions before we allocate the heap, xref PR 215395 */
     /* i#774, i#901: we no longer need the DR library nor ntdll.dll to be
@@ -1912,7 +1927,7 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
         uint perstack =
             (uint)(ALIGN_FORWARD_UINT(
                        DYNAMO_OPTION(stack_size) +
-                           (DYNAMO_OPTION(guard_pages)
+                           (has_guard_pages(VMM_STACK | VMM_PER_THREAD)
                                 ? (2 * PAGE_SIZE)
                                 : (DYNAMO_OPTION(stack_guard_pages) ? PAGE_SIZE : 0)),
                        DYNAMO_OPTION(vmm_block_size)) /
@@ -2797,7 +2812,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
     heap_error_code_t error_code;
     bool try_vmm = true;
     ASSERT(reserve_size >= commit_size);
-    if (!guarded || !dynamo_options.guard_pages) {
+    if (!guarded || !has_guard_pages(which)) {
         if (reserve_size == commit_size)
             return get_real_memory(reserve_size, prot, add_vm, which _IF_DEBUG(comment));
         guard_size = 0;
@@ -2893,7 +2908,7 @@ static void
 release_guarded_real_memory(vm_addr_t p, size_t size, bool remove_vm, bool guarded,
                             which_vmm_t which)
 {
-    if (!guarded || !dynamo_options.guard_pages) {
+    if (!guarded || !has_guard_pages(which)) {
         release_real_memory(p, size, remove_vm, which);
         return;
     }
@@ -3188,11 +3203,12 @@ stack_alloc(size_t size, byte *min_addr)
      * hurting us in the common case
      */
     size_t alloc_size = size;
-    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) && DYNAMO_OPTION(stack_guard_pages))
         alloc_size += PAGE_SIZE;
     p = get_guarded_real_memory(alloc_size, alloc_size, MEMPROT_READ | MEMPROT_WRITE,
-                                true, true, min_addr, VMM_STACK _IF_DEBUG("stack_alloc"));
-    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages))
+                                true, true, min_addr,
+                                VMM_STACK | VMM_PER_THREAD _IF_DEBUG("stack_alloc"));
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) && DYNAMO_OPTION(stack_guard_pages))
         p = (byte *)p + PAGE_SIZE;
 #ifdef DEBUG_MEMORY
     memset(p, HEAP_ALLOCATED_BYTE, size);
@@ -3216,11 +3232,11 @@ stack_alloc(size_t size, byte *min_addr)
          */
         heap_error_code_t error_code;
         if (vmm_heap_commit(guard, PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE, &error_code,
-                            VMM_STACK))
+                            VMM_STACK | VMM_PER_THREAD))
             mark_page_as_guard(guard);
 #else
         /* For UNIX we just mark it as inaccessible. */
-        if (!DYNAMO_OPTION(guard_pages))
+        if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD))
             set_protection(guard, PAGE_SIZE, MEMPROT_READ);
 #endif
     }
@@ -3239,12 +3255,14 @@ stack_free(void *p, size_t size)
         size = DYNAMORIO_STACK_SIZE;
     alloc_size = size;
     p = (void *)((vm_addr_t)p - size);
-    if (!DYNAMO_OPTION(guard_pages) && DYNAMO_OPTION(stack_guard_pages)) {
+    if (!has_guard_pages(VMM_STACK | VMM_PER_THREAD) &&
+        DYNAMO_OPTION(stack_guard_pages)) {
         alloc_size += PAGE_SIZE;
         p = (byte *)p - PAGE_SIZE;
     }
     release_guarded_real_memory((vm_addr_t)p, alloc_size,
-                                true /*update DR areas immediately*/, true, VMM_STACK);
+                                true /*update DR areas immediately*/, true,
+                                VMM_STACK | VMM_PER_THREAD);
     if (IF_DEBUG_ELSE(!dynamo_exited_log_and_stats, true))
         RSTATS_SUB(stack_capacity, size);
 }
@@ -3259,7 +3277,7 @@ is_stack_overflow(dcontext_t *dcontext, byte *sp)
      * -signal_stack_size, but all dstacks and d_r_initstack should be this size.
      */
     byte *bottom = dcontext->dstack - DYNAMORIO_STACK_SIZE;
-    if (!DYNAMO_OPTION(stack_guard_pages) && !DYNAMO_OPTION(guard_pages))
+    if (!DYNAMO_OPTION(stack_guard_pages) && !DYNAMO_OPTION(per_thread_guard_pages))
         return false;
     /* see if in bottom guard page of dstack */
     if (sp >= bottom - PAGE_SIZE && sp < bottom)
@@ -3329,8 +3347,6 @@ void
 heap_vmareas_synch_units()
 {
     heap_unit_t *u, *next;
-    /* make sure to add guard page on each side, as well */
-    uint offs = (dynamo_options.guard_pages) ? (uint)PAGE_SIZE : 0;
     /* we again have circular dependence w/ vmareas if it happens to need a
      * new unit in the course of adding these areas, so we use a recursive lock!
      * furthermore, we need to own the global lock now, to avoid deadlock with
@@ -3356,6 +3372,8 @@ heap_vmareas_synch_units()
             u->in_vmarea_list = false;
     }
     for (u = heapmgt->heap.units; u != NULL; u = next) {
+        /* Make sure to add any guard page on each side, as well. */
+        uint offs = has_guard_pages(u->which) ? (uint)PAGE_SIZE : 0;
         app_pc start = (app_pc)u - offs;
         /* support un-aligned heap reservation end: PR 415269 (though as
          * part of that PR we shouldn't have un-aligned anymore)
@@ -3409,6 +3427,7 @@ heap_vmareas_synch_units()
         }
     }
     for (u = heapmgt->heap.dead; u != NULL; u = next) {
+        uint offs = has_guard_pages(u->which) ? (uint)PAGE_SIZE : 0;
         app_pc start = (app_pc)u - offs;
         /* support un-aligned heap reservation end: PR 415269 (though as
          * part of that PR we shouldn't have un-aligned anymore)
@@ -3787,8 +3806,15 @@ threadunits_init(dcontext_t *dcontext, thread_units_t *tu, size_t size, bool rea
     int i;
     DODEBUG({ tu->num_units = 0; });
     tu->which = VMM_HEAP | (reachable ? VMM_REACHABLE : 0);
-    tu->top_unit =
-        heap_create_unit(tu, size - GUARD_PAGE_ADJUSTMENT, false /*can reuse*/);
+    if (dcontext != GLOBAL_DCONTEXT) {
+        /* Tradeoff (i#4424): no guard pages on per-thread units, to
+         * save space for many-threaded apps.  These units are rarely used.
+         * Note that this also precludes sharing dead units between thread-private
+         * and shared heaps due to the different "which" value.
+         */
+        tu->which |= VMM_PER_THREAD;
+    }
+    tu->top_unit = heap_create_unit(tu, size, false /*can reuse*/);
     tu->cur_unit = tu->top_unit;
     tu->dcontext = dcontext;
     tu->writable = true;
@@ -4338,11 +4364,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
                             unit_size *= 2;
                         if (unit_size > HEAP_UNIT_MAX_SIZE)
                             unit_size = HEAP_UNIT_MAX_SIZE;
-                        /* size for heap_create_unit doesn't include any guard
-                         * pages */
                         ASSERT(unit_size > UNITOVERHEAD);
-                        ASSERT(unit_size > (size_t)GUARD_PAGE_ADJUSTMENT);
-                        unit_size -= GUARD_PAGE_ADJUSTMENT;
                         new_unit = heap_create_unit(tu, unit_size, false /*can reuse*/);
                         prev->next_local = new_unit;
 #ifdef DEBUG_MEMORY
@@ -4885,7 +4907,7 @@ typedef struct _special_heap_unit_t {
 #define SPECIAL_UNIT_COMMIT_SIZE(u) ((u)->end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_RESERVED_SIZE(u) ((u)->reserved_end_pc - (u)->alloc_pc)
 #define SPECIAL_UNIT_HEADER_INLINE(u) ((u)->alloc_pc != (u)->start_pc)
-#define SPECIAL_UNIT_ALLOC_SIZE(u) (SPECIAL_UNIT_RESERVED_SIZE(u) + GUARD_PAGE_ADJUSTMENT)
+#define SPECIAL_UNIT_ALLOC_SIZE(u) (SPECIAL_UNIT_RESERVED_SIZE(u))
 
 /* the cfree list stores a next ptr and a count */
 typedef struct _cfree_header {
@@ -4911,6 +4933,7 @@ typedef struct _special_units_t {
     bool use_lock : 1;
     bool in_iterator : 1;
     bool persistent : 1;
+    bool per_thread : 1;
     mutex_t lock;
 
     /* Yet another feature added: pclookup, but across multiple heaps,
@@ -4971,6 +4994,8 @@ get_which(special_units_t *su)
     /* We assume that +x special heap must be reachable. */
     if (su->executable)
         which |= VMM_REACHABLE;
+    if (su->per_thread)
+        which |= VMM_PER_THREAD;
     return which;
 }
 
@@ -5118,18 +5143,11 @@ special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
     if (block_alignment != 0)
         block_size = ALIGN_FORWARD(block_size, block_alignment);
     if (unit_size == 0) {
-        unit_size = (block_size * 16 > HEAP_UNIT_MIN_SIZE) ? (block_size * 16)
-                                                           : HEAP_UNIT_MIN_SIZE;
-        /* Whether using 16K or 64K vmm blocks, HEAP_UNIT_MIN_SIZE of 32K wastes
-         * space, and our main uses (stubs, whether global or coarse, and signal
-         * pending queue) don't need a lot of space, so shrinking.
-         * This tuning is a little fragile (just like for regular heap units and
-         * fcache units) so be careful when changing default parameters.
+        /* Our main uses (stubs, whether global or coarse, and signal
+         * pending queue) don't need a lot of space, so we have a smaller min size
+         * than regular heap units which use HEAP_UNIT_MIN_SIZE.
          */
-        if (unit_size == HEAP_UNIT_MIN_SIZE) {
-            ASSERT(unit_size > (size_t)GUARD_PAGE_ADJUSTMENT);
-            unit_size -= GUARD_PAGE_ADJUSTMENT;
-        }
+        unit_size = (block_size * 16 > PAGE_SIZE) ? (block_size * 16) : PAGE_SIZE;
     }
     if (heap_region == NULL) {
         unit_size = (size_t)ALIGN_FORWARD(unit_size, PAGE_SIZE);
@@ -5148,6 +5166,8 @@ special_heap_init_internal(uint block_size, uint block_alignment, bool use_lock,
     su->block_alignment = block_alignment;
     su->executable = executable;
     su->persistent = persistent;
+    /* We assume that a lockless heap is a per-thread heap. */
+    su->per_thread = !use_lock;
     su->writable = true;
     su->free_list = NULL;
     su->cfree_list = NULL;

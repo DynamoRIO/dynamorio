@@ -194,6 +194,11 @@ private:
     {
         return prefetch_type_;
     }
+    uint16_t
+    flush_type() const
+    {
+        return flush_type_;
+    }
 
     bool
     reads_memory() const
@@ -258,6 +263,7 @@ private:
     app_pc pc_ = 0;
     uint16_t type_ = 0;
     uint16_t prefetch_type_ = 0;
+    uint16_t flush_type_ = 0;
     byte length_ = 0;
     app_pc next_pc_ = 0;
 
@@ -1268,8 +1274,10 @@ private:
                 buf->type = instr->prefetch_type();
                 buf->size = 1;
             } else if (instr->is_flush()) {
-                buf->type = TRACE_TYPE_DATA_FLUSH;
-                buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(memref.opnd));
+                buf->type = instr->flush_type();
+                // TODO i#4398: Handle flush sizes larger than ushort.
+                // TODO i#4406: Handle flush instrs with sizes other than cache line.
+                buf->size = (ushort)proc_get_cache_line_size();
             } else {
                 if (write)
                     buf->type = TRACE_TYPE_WRITE;
