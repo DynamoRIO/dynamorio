@@ -1338,9 +1338,10 @@ private:
 
 #ifdef AARCH64
         // TODO i#4400: Following is a workaround to correctly represent DC ZVA in
-        // offline traces. This doesn't help with online traces, and also causes us
-        // to lose the actually written address. Ideally, we want the actually
-        // written address and also the correct size and type in the IR.
+        // offline traces. Note that this doesn't help with online traces.
+        // TODO i#3339: This workaround causes us to lose the address that was present
+        // in the original instruction. For re-encoding fidelity, we may want the
+        // original address in the IR.
         if (instr->is_aarch64_dc_zva()) {
             buf->addr = ALIGN_BACKWARD(buf->addr, impl()->get_cache_line_size(tls));
             buf->size = impl()->get_cache_line_size(tls);
