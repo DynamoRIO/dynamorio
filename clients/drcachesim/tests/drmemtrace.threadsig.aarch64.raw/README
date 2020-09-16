@@ -2,8 +2,10 @@ How to re-generate the drmemtrace.threadsig.aarch64.raw files
 
 The application run is "threadsig" from https://github.com/DynamoRIO/drmemtrace_samples/blob/master/threadsig.aarch64/threadsig.cpp
 
-To save repository space, build it with -Os and -static on an AArch64
-machine or cross-compile it:
+You can run the checked-in "threadsig" binary in the test data
+directory.  If you do end up needing to recompile it for some reason,
+to save repository space, build it with -Os and -static (on an AArch64
+machine or cross-compile it) and strip it:
 
   $ g++ -o threadsig -Os threadsig.cpp -lpthread -static
   $ strip threadsig
@@ -11,7 +13,7 @@ machine or cross-compile it:
 Now run it with 4 threads and 2000 iterations, and possibly
 -unsafe_build_ldstex depending on your architecture:
 
-  $ bin64/drrun -unsafe_build_ldstex -t drcachesim -offline -- ~/threadsig 4 2000
+  $ bin64/drrun -unsafe_build_ldstex -t drcachesim -offline -- threadsig 4 2000
 
 Compress the raw files:
 
@@ -27,9 +29,10 @@ There is no need to change the checked-in libdrmemtrace.so.  It is not
 executed.  I created it by just copying a pure-asm tiny ELF binary:
 e.g., suite/tests/bin/common.allasm_aarch64_isa.
 
-A smaller libdynamorio.so I created by compiling this file
-allasm_svc_a64.s targeting dynamorio_sigreturn (the only code executed
-in libdynamorio.so) to be at address 0x510890:
+Optionally, a smaller libdynamorio.so can be created.  I did so by
+compiling this file allasm_svc_a64.s targeting dynamorio_sigreturn
+(the only code executed in libdynamorio.so) to be at address 0x510890
+(the address of dynamorio_sigreturn in the trace):
 
   --------------------------------------------------
   .text
