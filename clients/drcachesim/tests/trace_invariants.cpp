@@ -83,8 +83,15 @@ trace_invariants_t::process_memref(const memref_t &memref)
         app_handler_pc_ = prev_entry_.instr.addr;
     }
 
-    if (memref.exit.type == TRACE_TYPE_THREAD_EXIT)
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
+        found_cache_line_size_marker_[memref.marker.tid] = true;
+    }
+
+    if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        assert(found_cache_line_size_marker_[memref.exit.tid]);
         thread_exited_[memref.exit.tid] = true;
+    }
     if (type_is_instr(memref.instr.type) ||
         memref.instr.type == TRACE_TYPE_PREFETCH_INSTR ||
         memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) {

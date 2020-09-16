@@ -248,7 +248,8 @@ public:
     is_aarch64_icache_flush_op(instr_t *instr);
     static bool
     is_aarch64_dcache_flush_op(instr_t *instr);
-
+    static bool
+    is_aarch64_dc_zva_instr(instr_t *instr);
 #endif
     static unsigned short
     instr_to_prefetch_type(instr_t *instr);

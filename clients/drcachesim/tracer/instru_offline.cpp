@@ -323,6 +323,8 @@ offline_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += sizeof(*entry);
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
+                             proc_get_cache_line_size());
     return (int)(new_buf - buf_ptr);
 }
 
