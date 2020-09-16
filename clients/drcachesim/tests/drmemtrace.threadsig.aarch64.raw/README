@@ -1,6 +1,6 @@
 How to re-generate the drmemtrace.threadsig.aarch64.raw files
 
-The application run is "threadsig" from https://github.com/DynamoRIO/drmemtrace_samples/blob/master/threadsig.aarch64/threadsig.cp
+The application run is "threadsig" from https://github.com/DynamoRIO/drmemtrace_samples/blob/master/threadsig.aarch64/threadsig.cpp
 
 To save repository space, build it with -Os and -static on an AArch64
 machine or cross-compile it:
