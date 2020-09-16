@@ -197,6 +197,9 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     std::istream *file = dir->in_files_[0];
     // Seek back to the beginning to undo raw2trace_directory_t's validation
     file->seekg(0);
+
+    // XXX: This test is brittle wrt trace header changes. Consider removing it or
+    // making it more flexible.
     offline_entry_t buffer[5];
     file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
 

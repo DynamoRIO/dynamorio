@@ -1195,6 +1195,9 @@ drmemtrace_get_timestamp_from_offline_trace(const void *trace, size_t trace_size
         error.empty()) {
         if (size < 4)
             return DRMEMTRACE_ERROR_INVALID_PARAMETER;
+
+        // XXX: Make it easier to add more markers. Iterate over the entries until
+        // the timestamp entry or some non-meta entry is encountered.
         if (offline_entries[++timestamp_pos].tid.type != OFFLINE_TYPE_THREAD ||
             offline_entries[++timestamp_pos].pid.type != OFFLINE_TYPE_PID ||
             (offline_entries[++timestamp_pos].extended.type != OFFLINE_TYPE_EXTENDED ||

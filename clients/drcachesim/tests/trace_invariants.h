@@ -61,6 +61,7 @@ protected:
     int memrefs_until_interrupt_;
     addr_t app_handler_pc_;
     std::unordered_map<memref_tid_t, bool> thread_exited_;
+    std::unordered_map<memref_tid_t, bool> found_cache_line_size_marker_;
 };
 
 #endif /* _TRACE_INVARIANTS_H_ */
