@@ -39,7 +39,7 @@ Total counts:
      .* total function return address markers
      .* total function argument markers
      .* total function return value markers
-           0 total other markers
+     .* total other markers
 Thread .* counts:
      .* \(fetched\) instructions
      .* unique \(fetched\) instructions
@@ -59,4 +59,4 @@ Thread .* counts:
      .* function return address markers
      .* function argument markers
      .* function return value markers
-           0 other markers
+     .* other markers
