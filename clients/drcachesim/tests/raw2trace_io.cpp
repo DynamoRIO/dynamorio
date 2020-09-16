@@ -198,8 +198,10 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     // Seek back to the beginning to undo raw2trace_directory_t's validation
     file->seekg(0);
 
-    // XXX: This test is brittle wrt trace header changes. Consider removing it or
-    // making it more flexible.
+    // XXX: Some parts of this test are brittle wrt trace header changes, like the
+    // size of this buffer, and the first read for timestamp2 below that checks the
+    // exact position of the timestamp entry. Consider removing some checks or making
+    // them flexible in some way.
     offline_entry_t buffer[5];
     file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
 
