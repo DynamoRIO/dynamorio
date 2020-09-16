@@ -150,7 +150,7 @@
 #  define POUND #
 #  define HEX(n) POUND 0x##n
 # endif
-# define SEGMEM(seg,mem) [seg:mem]
+# define SEGMEM(seg,mem) seg:[mem]
 # define DECL_EXTERN(symbol) /* nothing */
 /* include newline so we can put multiple on one line */
 # define RAW(n) .byte HEX(n) @N@
