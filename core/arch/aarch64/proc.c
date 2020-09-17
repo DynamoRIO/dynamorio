@@ -34,25 +34,9 @@
 #include "proc.h"
 #include "instr.h"
 
-// The whitepaper below documents AArch64 words being 32 bits wide.
-// https://developer.arm.com/-/media/Files/pdf/
-// graphics-and-multimedia/Porting%20to%20ARM%2064-bit.pdf
-#define AARCH64_WORD_SIZE_BYTES 4
-
 static int num_simd_saved;
 static int num_simd_registers;
 static int num_opmask_registers;
-
-void
-set_cache_line_size_using_ctr_el0()
-{
-    uint64 ctr_el0;
-    __asm__ volatile("MRS %0, CTR_EL0" : "=r"(ctr_el0));
-    // Bits [19:16] are Log2 of the number of words in the smallest cache line
-    // of all the data caches and unified caches.
-    // https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/ctr_el0
-    cache_line_size = (1 << ((ctr_el0 >> 16) & 0xf)) * AARCH64_WORD_SIZE_BYTES;
-}
 
 void
 proc_init_arch(void)
@@ -61,7 +45,8 @@ proc_init_arch(void)
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
 
-    set_cache_line_size_using_ctr_el0();
+    set_cache_line_size_using_ctr_el0(/* dcache_line_size= */ &cache_line_size,
+                                      /* icache_line_size= */ NULL);
 
     /* FIXME i#1569: NYI */
 }

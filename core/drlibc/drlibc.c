@@ -120,7 +120,6 @@ clear_icache(void *beg, void *end)
 #    ifdef DR_HOST_NOT_TARGET
     ASSERT_NOT_REACHED();
 #    else
-    static size_t cache_info = 0;
     size_t dcache_line_size;
     size_t icache_line_size;
     ptr_uint_t beg_uint = (ptr_uint_t)beg;
@@ -130,15 +129,7 @@ clear_icache(void *beg, void *end)
     if (beg_uint >= end_uint)
         return;
 
-    /* "Cache Type Register" contains:
-     * CTR_EL0 [31]    : 1
-     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
-     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
-     */
-    if (cache_info == 0)
-        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
-    dcache_line_size = 4 << (cache_info >> 16 & 0xf);
-    icache_line_size = 4 << (cache_info & 0xf);
+    set_cache_line_size_using_ctr_el0(&dcache_line_size, &icache_line_size);
 
     /* Flush data cache to point of unification, one line at a time. */
     addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
@@ -163,6 +154,29 @@ clear_icache(void *beg, void *end)
     /* Instruction Synchronization Barrier */
     __asm__ __volatile__("isb" : : : "memory");
 #    endif
+}
+
+void
+set_cache_line_size_using_ctr_el0(size_t *dcache_line_size, size_t *icache_line_size)
+{
+    static size_t cache_info = 0;
+
+    /* "Cache Type Register" contains:
+     * CTR_EL0 [31]    : 1
+     * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
+     * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
+     * https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/ctr_el0
+     *
+     * Also, the whitepaper below documents AArch64 words being 32 bits wide.
+     * https://developer.arm.com/-/media/Files/pdf/
+     * graphics-and-multimedia/Porting%20to%20ARM%2064-bit.pdf
+     */
+    if (cache_info == 0)
+        __asm__ __volatile__("mrs %0, ctr_el0" : "=r"(cache_info));
+    if (dcache_line_size != NULL)
+        *dcache_line_size = 4 << (cache_info >> 16 & 0xf);
+    if (icache_line_size != NULL)
+        *icache_line_size = 4 << (cache_info & 0xf);
 }
 #endif
 
