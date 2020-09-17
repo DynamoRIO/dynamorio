@@ -67,7 +67,8 @@ void
 clear_icache(void *beg, void *end);
 
 void
-set_cache_line_size_using_ctr_el0(size_t *dcache_line_size, size_t *icache_line_size);
+set_cache_line_size_using_ctr_el0(OUT size_t *dcache_line_size,
+                                  OUT size_t *icache_line_size);
 #endif
 
 void
