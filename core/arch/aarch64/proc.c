@@ -45,10 +45,8 @@ proc_init_arch(void)
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
 
-#ifndef DR_HOST_NOT_TARGET
     set_cache_line_size_using_ctr_el0(/* dcache_line_size= */ &cache_line_size,
                                       /* icache_line_size= */ NULL);
-#endif
 
     /* FIXME i#1569: NYI */
 }
