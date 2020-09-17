@@ -1,0 +1,53 @@
+How to re-generate the drmemtrace.threadsig.aarch64.raw files
+
+The application run is "threadsig" from https://github.com/DynamoRIO/drmemtrace_samples/blob/master/threadsig.aarch64/threadsig.cpp
+
+You can run the checked-in "threadsig" binary in the test data
+directory.  If you do end up needing to recompile it for some reason,
+to save repository space, build it with -Os and -static (on an AArch64
+machine or cross-compile it) and strip it:
+
+  $ g++ -o threadsig -Os threadsig.cpp -lpthread -static
+  $ strip threadsig
+
+Now run it with 4 threads and 2000 iterations, and possibly
+-unsafe_build_ldstex depending on your architecture:
+
+  $ bin64/drrun -unsafe_build_ldstex -t drcachesim -offline -- threadsig 4 2000
+
+Compress the raw files:
+
+  $ gzip `ls -1td drmemtrace.threadsig.*.dir|head -1`/raw/*.raw
+
+Now copy the new data files and the threadsig and libdynamorio.so.
+
+Strip libdynamorio.so, though this may not decrease it much:
+
+  $ strip lib64/release/libdynamorio.so
+
+There is no need to change the checked-in libdrmemtrace.so.  It is not
+executed.  I created it by just copying a pure-asm tiny ELF binary:
+e.g., suite/tests/bin/common.allasm_aarch64_isa.
+
+Optionally, a smaller libdynamorio.so can be created.  I did so by
+compiling this file allasm_svc_a64.s targeting dynamorio_sigreturn
+(the only code executed in libdynamorio.so) to be at address 0x510890
+(the address of dynamorio_sigreturn in the trace):
+
+  --------------------------------------------------
+  .text
+  .globl _start
+  .type _start, @function
+
+          .align   6
+  _start:
+          .skip 0x110790, 0
+          mov      w8, #0x8b
+          svc      #0
+  --------------------------------------------------
+
+  $ /usr/bin/aarch64-linux-gnu-as -o allasm_svc_a64.o allasm_svc_a64.s && /usr/bin/aarch64-linux-gnu-gcc -static -o allasm_svc_a64 allasm_svc_a64.o -nostartfiles
+
+However, it's about 1.1M, vs the real libdynamorio.so at 1.4M, so it
+may not be worth continuing to do so, nor finding the right asm
+directives to set the load segment offset and avoid the empty space.

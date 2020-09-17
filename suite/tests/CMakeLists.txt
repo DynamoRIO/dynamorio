@@ -3464,8 +3464,8 @@ if (CLIENT_INTERFACE)
       endif ()
 
       if (AARCH64)
-        set(tool.drcacheoff.burst_flush_aarch64_nodr ON)
-        torunonly_drcacheoff(burst_flush_aarch64 tool.drcacheoff.burst_flush_aarch64 "" "@-simulator_type@basic_counts" "")
+        set(tool.drcacheoff.burst_aarch64_sys_nodr ON)
+        torunonly_drcacheoff(burst_aarch64_sys tool.drcacheoff.burst_aarch64_sys "" "@-simulator_type@basic_counts" "")
       endif ()
 
       # FIXME i#2007: fails to link on A64

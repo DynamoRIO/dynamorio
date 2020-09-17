@@ -1,6 +1,9 @@
 pre-DR init
 pre-DR start
 all done
+DC ZVA count: [0-9]*
+DC ZVA memref count: [0-9]*
+All DC ZVA memrefs are cache-line shaped stores!
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions

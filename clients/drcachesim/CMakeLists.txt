@@ -516,10 +516,13 @@ if (BUILD_TESTS)
            COMMAND tool.drcachesim.unit_tests)
 
   if (DR_HOST_AARCH64)
-    add_executable(tool.drcacheoff.burst_flush_aarch64 tests/burst_flush_aarch64.cpp)
-    configure_DynamoRIO_static(tool.drcacheoff.burst_flush_aarch64)
-    use_DynamoRIO_static_client(tool.drcacheoff.burst_flush_aarch64 drmemtrace_static)
-    add_win32_flags(tool.drcacheoff.burst_flush_aarch64)
+    add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_aarch64_sys drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_aarch64_sys drmemtrace_raw2trace
+      drmemtrace_analyzer)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_aarch64_sys)
+    add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
   endif ()
 
   # FIXME i#2007: fails to link on A64

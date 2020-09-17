@@ -72,6 +72,8 @@
 #    define TRACE_SUFFIX "trace"
 #endif
 
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
+
 typedef enum {
     RAW2TRACE_STAT_COUNT_ELIDED,
 } raw2trace_statistic_t;
@@ -220,6 +222,13 @@ private:
     {
         return TESTANY(kIsFlushMask, packed_);
     }
+#ifdef AARCH64
+    bool
+    is_aarch64_dc_zva() const
+    {
+        return TESTANY(kIsAarch64DcZvaMask, packed_);
+    }
+#endif
     bool
     is_cti() const
     {
@@ -252,6 +261,11 @@ private:
     static const int kIsPrefetchMask = 0x0004;
     static const int kIsFlushMask = 0x0008;
     static const int kIsCtiMask = 0x0010;
+
+    // kIsAarch64DcZvaMask is available during processing of non-AArch64 traces too, but
+    // it's intended for use only for AArch64 traces. This declaration reserves the
+    // assigned mask and makes it unavailable for future masks.
+    static const int kIsAarch64DcZvaMask = 0x0020;
 
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
@@ -476,6 +490,7 @@ struct trace_header_t {
     process_id_t pid;
     thread_id_t tid;
     uint64 timestamp;
+    size_t cache_line_size;
 };
 
 // XXX: DR should export this
@@ -740,11 +755,27 @@ protected:
         }
         DR_ASSERT(in_entry->tid.type == OFFLINE_TYPE_THREAD);
         header->tid = in_entry->tid.tid;
+
         in_entry = impl()->get_next_entry(tls);
         if (in_entry == nullptr)
             return "Failed to read header from input file";
         DR_ASSERT(in_entry->pid.type == OFFLINE_TYPE_PID);
         header->pid = in_entry->pid.pid;
+
+        in_entry = impl()->get_next_entry(tls);
+        if (in_entry == nullptr)
+            return "Failed to read header from input file";
+        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
+            header->cache_line_size = in_entry->extended.valueA;
+        } else {
+            impl()->log(2,
+                        "Cache line size not found in raw trace header. Adding "
+                        "current processor's cache line size to final trace instead.\n");
+            header->cache_line_size = proc_get_cache_line_size();
+            impl()->unread_last_entry(tls);
+        }
         return "";
     }
 
@@ -1277,7 +1308,7 @@ private:
                 buf->type = instr->flush_type();
                 // TODO i#4398: Handle flush sizes larger than ushort.
                 // TODO i#4406: Handle flush instrs with sizes other than cache line.
-                buf->size = (ushort)proc_get_cache_line_size();
+                buf->size = (ushort)impl()->get_cache_line_size(tls);
             } else {
                 if (write)
                     buf->type = TRACE_TYPE_WRITE;
@@ -1304,6 +1335,20 @@ private:
         }
         impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type,
                     buf->size, (ptr_uint_t)buf->addr);
+
+#ifdef AARCH64
+        // TODO i#4400: Following is a workaround to correctly represent DC ZVA in
+        // offline traces. Note that this doesn't help with online traces.
+        // TODO i#3339: This workaround causes us to lose the address that was present
+        // in the original instruction. For re-encoding fidelity, we may want the
+        // original address in the IR.
+        if (instr->is_aarch64_dc_zva()) {
+            buf->addr = ALIGN_BACKWARD(buf->addr, impl()->get_cache_line_size(tls));
+            buf->size = impl()->get_cache_line_size(tls);
+            buf->type = TRACE_TYPE_WRITE;
+        }
+#endif
+
         *buf_in = ++buf;
         return "";
     }
@@ -1460,6 +1505,7 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
+        size_t cache_line_size;
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
@@ -1539,6 +1585,8 @@ private:
     get_version(void *tls);
     offline_file_type_t
     get_file_type(void *tls);
+    size_t
+    get_cache_line_size(void *tls);
     void
     add_to_statistic(void *tls, raw2trace_statistic_t stat, int value);
     void
