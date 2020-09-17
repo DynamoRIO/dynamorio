@@ -159,6 +159,9 @@ clear_icache(void *beg, void *end)
 void
 set_cache_line_size_using_ctr_el0(size_t *dcache_line_size, size_t *icache_line_size)
 {
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_REACHED();
+#    else
     static size_t cache_info = 0;
 
     /* "Cache Type Register" contains:
@@ -177,6 +180,7 @@ set_cache_line_size_using_ctr_el0(size_t *dcache_line_size, size_t *icache_line_
         *dcache_line_size = 4 << (cache_info >> 16 & 0xf);
     if (icache_line_size != NULL)
         *icache_line_size = 4 << (cache_info & 0xf);
+#    endif
 }
 #endif
 
