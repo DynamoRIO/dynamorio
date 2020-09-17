@@ -129,7 +129,11 @@ clear_icache(void *beg, void *end)
     if (beg_uint >= end_uint)
         return;
 
-    set_cache_line_size_using_ctr_el0(&dcache_line_size, &icache_line_size);
+    if (!get_cache_line_size(&dcache_line_size, &icache_line_size)) {
+        // We don't expect get_cache_line_size to return false, as this code is
+        // invoked only when (not DR_HOST_NOT_TARGET).
+        ASSERT(false);
+    }
 
     /* Flush data cache to point of unification, one line at a time. */
     addr = ALIGN_BACKWARD(beg_uint, dcache_line_size);
@@ -156,9 +160,13 @@ clear_icache(void *beg, void *end)
 #    endif
 }
 
-void
-set_cache_line_size_using_ctr_el0(OUT size_t *dcache_line_size,
-                                  OUT size_t *icache_line_size)
+/* Obtains dcache and icache line size and sets the values at the given pointers.
+ * Returns false if no value was written.
+ * This is required to be called at init time when linked into DR. This is to
+ * avoid races and write issues with the static variable used.
+ */
+bool
+get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
 {
 #    ifndef DR_HOST_NOT_TARGET
     static size_t cache_info = 0;
@@ -179,7 +187,9 @@ set_cache_line_size_using_ctr_el0(OUT size_t *dcache_line_size,
         *dcache_line_size = 4 << (cache_info >> 16 & 0xf);
     if (icache_line_size != NULL)
         *icache_line_size = 4 << (cache_info & 0xf);
+    return true;
 #    endif
+    return false;
 }
 #endif
 

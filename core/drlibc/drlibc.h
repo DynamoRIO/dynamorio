@@ -66,9 +66,8 @@ dynamorio_syscall(uint sysnum, uint num_args, ...);
 void
 clear_icache(void *beg, void *end);
 
-void
-set_cache_line_size_using_ctr_el0(OUT size_t *dcache_line_size,
-                                  OUT size_t *icache_line_size);
+bool
+get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size);
 #endif
 
 void
