@@ -65,6 +65,9 @@ dynamorio_syscall(uint sysnum, uint num_args, ...);
 #ifdef AARCH64
 void
 clear_icache(void *beg, void *end);
+
+bool
+get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size);
 #endif
 
 void
