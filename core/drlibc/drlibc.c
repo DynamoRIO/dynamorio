@@ -130,9 +130,10 @@ clear_icache(void *beg, void *end)
         return;
 
     if (!get_cache_line_size(&dcache_line_size, &icache_line_size)) {
-        // We don't expect get_cache_line_size to return false, as this code is
-        // invoked only when (not DR_HOST_NOT_TARGET).
-        ASSERT(false);
+        /* We don't expect get_cache_line_size to return false, as this code is
+         * invoked only when (not DR_HOST_NOT_TARGET).
+         */
+        ASSERT_NOT_REACHED();
     }
 
     /* Flush data cache to point of unification, one line at a time. */
@@ -164,6 +165,13 @@ clear_icache(void *beg, void *end)
  * Returns false if no value was written.
  * This is required to be called at init time when linked into DR. This is to
  * avoid races and write issues with the static variable used.
+ *
+ * XXX i#1684: Design better support for builds where host!=target, e.g.
+ * a64-on-x86 for which this function does not set any cache line size; also
+ * x86-on-a64 for which we currently attempt to use cpuid (which is not available
+ * on a64) to set cache line size in core/arch/x86/proc.c.
+ * For these builds, it may be better to set some properties like cache_line_size
+ * to the host's value, but not for all e.g. num_simd_registers.
  */
 bool
 get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)

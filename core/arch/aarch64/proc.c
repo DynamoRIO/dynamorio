@@ -45,13 +45,12 @@ proc_init_arch(void)
     num_simd_registers = MCXT_NUM_SIMD_SLOTS;
     num_opmask_registers = MCXT_NUM_OPMASK_SLOTS;
 
-    size_t dcache_line_size;
-    // When DR_HOST_NOT_TARGET, get_cache_line_size returns false and does
-    // not set any value in given args. In that case, we do not want to
-    // overwrite the default cache_line_size.
-    if (get_cache_line_size(&dcache_line_size,
-                            /* icache_line_size= */ NULL)) {
-        cache_line_size = dcache_line_size;
+    /* When DR_HOST_NOT_TARGET, get_cache_line_size returns false and does
+     * not set any value in given args.
+     */
+    if (!get_cache_line_size(&cache_line_size,
+                             /* icache_line_size= */ NULL)) {
+        LOG(GLOBAL, LOG_TOP, 1, "Unable to obtain cache line size");
     }
 
     /* FIXME i#1569: NYI */
