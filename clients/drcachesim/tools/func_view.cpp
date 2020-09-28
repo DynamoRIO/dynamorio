@@ -196,7 +196,7 @@ func_view_t::process_memref(const memref_t &memref)
         std::string indent(shard->nesting_level * 4, ' ');
         // Print a "Tnnn" prefix so threads can be distinguished.
         std::cerr << ((was_nested && shard->prev_was_arg) ? "\n" : "") << "T" << std::dec
-                  << std::left << std::setw(7) << memref.marker.tid
+                  << std::left << std::setw(8) << memref.marker.tid
                   << std::right /*restore*/;
         std::cerr << indent << "0x" << std::hex << memref.marker.marker_value << " => "
                   << *id2info_[shard->last_func_id].names.begin() << "(";
@@ -226,7 +226,7 @@ func_view_t::process_memref(const memref_t &memref)
         std::string indent;
         if (!shard->prev_was_arg) {
             std::cerr
-                << "T" << std::dec << std::left << std::setw(7) << memref.marker.tid
+                << "T" << std::dec << std::left << std::setw(8) << memref.marker.tid
                 << std::right /*restore*/ << std::string(shard->nesting_level * 4, ' ');
         }
         std::cerr << (shard->prev_was_arg ? " =>" : "=>") << std::hex << " 0x"
