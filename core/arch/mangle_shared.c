@@ -144,7 +144,7 @@ clean_call_prepare_stack_size(clean_call_info_t *cci)
     uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
     if (cci->skip_save_flags)
         num_slots -= 2;
-#    ifndef X86_32                   /* x86 uses pusha regardless of regs we could skip */
+#    ifndef X86_32 /* x86 uses pusha regardless of regs we could skip */
     num_slots -= cci->num_regs_skip; /* regs not saved */
 #    endif
     return simd + num_slots * XSP_SZ;
@@ -741,9 +741,15 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
                 /* For A32 it's not OP_b_short */
                 IF_ARM(||
                        (instr_get_opcode(&instr) == OP_jmp &&
-                        opnd_get_pc(instr_get_target(&instr)) == pc + ARM_INSTR_SIZE)))
+                        opnd_get_pc(instr_get_target(&instr)) == pc + ARM_INSTR_SIZE))) {
+#    ifdef AARCH64
+            /* For A64, both skip_pc and cti_pc are an OP_jmp_short instr. */
+            skip_pc = cti_pc;
+            cti_pc = prev_pc;
+#    else
             skip_pc = prev_pc;
-        else if (instr_get_opcode(&instr) == OP_jmp)
+#    endif
+        } else if (instr_get_opcode(&instr) == OP_jmp)
             cti_pc = prev_pc;
         if (pc >= stop_pc) {
             LOG(THREAD, LOG_SYSCALLS, 3, "\tno syscalls found\n");

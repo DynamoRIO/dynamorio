@@ -408,8 +408,16 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
 void
 append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
 {
+#ifdef UNIX
+    instr_t *no_signals = INSTR_CREATE_label(dcontext);
+    /* save callee-saved reg in case we return for a signal */
+    APP(ilist,
+        XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_X1),
+                          opnd_create_reg(REG_DCXT)));
+#endif
     ASSERT_NOT_IMPLEMENTED(!absolute &&
                            !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+
     /* Grab gen routine's parameter dcontext and put it into REG_DCXT:
      * mov x(dxct), x0
      */
@@ -417,9 +425,23 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
         XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
                           opnd_create_reg(DR_REG_X0)));
 
-    /* FIXME i#2019: check dcontext->signals_pending.  First we need a way to
-     * create a conditional branch b.le.
-     */
+#ifdef UNIX
+    APP(ilist,
+        XINST_CREATE_load_1byte(
+            dcontext, opnd_create_reg(DR_REG_W2),
+            OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+    APP(ilist,
+        XINST_CREATE_cmp(dcontext, opnd_create_reg(DR_REG_W2), OPND_CREATE_INT8(0)));
+    APP(ilist,
+        XINST_CREATE_jump_cond(dcontext, DR_PRED_LE, opnd_create_instr(no_signals)));
+
+    /* restore callee-saved reg */
+    APP(ilist,
+        XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
+                          opnd_create_reg(DR_REG_X1)));
+    APP(ilist, XINST_CREATE_return(dcontext));
+    APP(ilist, no_signals);
+#endif
 
     /* set up stolen reg */
     insert_load_dr_tls_base(dcontext, ilist, NULL /*append*/, SCRATCH_REG0);
