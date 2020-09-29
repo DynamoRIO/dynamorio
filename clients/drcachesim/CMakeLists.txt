@@ -571,6 +571,11 @@ if (BUILD_TESTS)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_malloc)
+    if (UNIX)
+      append_property_string(SOURCE tests/burst_malloc.cpp
+        # Allow our different-arg-count aliases.
+        COMPILE_FLAGS "-Wno-attribute-alias")
+    endif ()
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)
