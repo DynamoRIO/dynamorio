@@ -445,7 +445,7 @@ droption_t<std::string> op_record_function(
     " information for each function invocation's return address, function argument"
     " value(s), and (unless \"|noret\" is specified) function return value."
     " (If multiple requested functions map to the same address and differ in whether"
-    " \"noret\" was specified, the attribute from the first one requested will be"
+    " \"noret\" was specified, the attribute from the first one requested will be used."
     " If they differ in the number of args, the minimum value will be used.)"
     " We only record pointer-sized arguments and"
     " return values. The trace identifies which function is involved"

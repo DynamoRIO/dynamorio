@@ -231,7 +231,8 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     NOTIFY(2, "instru_funcs_module_load for %s\n", mod_name);
     // We need to go through all the functions to identify duplicates and adjust
     // arg counts before we can write to funclist.  We use this vector to remember
-    // what to write.  We expect the common case to be zero entries.
+    // what to write.  We expect the common case to be zero entries since the
+    // average app library probably has zero traced functions in it.
     drvector_t vec_pcs;
     drvector_init(&vec_pcs, 0, false, nullptr);
     for (size_t i = 0; i < func_names.entries; i++) {
@@ -245,7 +246,7 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
         int existing_id = (int)(ptr_int_t)hashtable_lookup(&pc2idplus1, (void *)f_pc);
         if (existing_id != 0) {
             // Another symbol mapping to the same pc is already wrapped.
-            // The number of args will be the minimim count for all those registered,
+            // The number of args will be the minimum count for all those registered,
             // since the code must be ignoring extra arguments.
             id = existing_id - 1 /*table stores +1*/;
             func_metadata_t *f_traced =

@@ -70,13 +70,13 @@ return_big_value(int arg)
 // We build with -Wno-attribute-alias to avoid warnings here.
 extern "C" {
 int
-has_aliases(int arg1)
+has_aliases(int arg1, int arg2)
 {
     return arg1;
 }
 
 int
-alias_2args(int arg1, int arg2) __attribute__((alias("has_aliases")));
+alias_1arg(int arg1) __attribute__((alias("has_aliases")));
 int
 alias_3args(int arg1, int arg2, int arg3) __attribute__((alias("has_aliases")));
 }
@@ -95,7 +95,7 @@ do_some_work(int arg)
         *vals[i] = sin(*val);
         *val += *vals[i] + (double)return_big_value(i);
 #ifdef UNIX
-        *val += has_aliases(i);
+        *val += has_aliases(i, i);
 #endif
     }
     for (int i = 0; i < iters; i++) {
@@ -155,7 +155,7 @@ main(int argc, const char *argv[])
                    " -record_replace_retaddr"
 #ifdef UNIX
                    // Test aliases with differing arg counts.
-                   " -record_function \"has_aliases|1&alias_2args|2&alias_3args|3\""
+                   " -record_function \"has_aliases|2&alias_1arg|1&alias_3args|3\""
 #endif
                    // Test large values that require two entries.
                    " -record_function \"malloc|1&return_big_value|1\"'"))
