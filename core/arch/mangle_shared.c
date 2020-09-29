@@ -144,7 +144,7 @@ clean_call_prepare_stack_size(clean_call_info_t *cci)
     uint num_slots = DR_NUM_GPR_REGS + NUM_EXTRA_SLOTS;
     if (cci->skip_save_flags)
         num_slots -= 2;
-#    ifndef X86_32 /* x86 uses pusha regardless of regs we could skip */
+#    ifndef X86_32                   /* x86 uses pusha regardless of regs we could skip */
     num_slots -= cci->num_regs_skip; /* regs not saved */
 #    endif
     return simd + num_slots * XSP_SZ;
