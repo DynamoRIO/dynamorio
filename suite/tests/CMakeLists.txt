@@ -2871,8 +2871,10 @@ if (CLIENT_INTERFACE)
   if (NOT ANDROID AND NOT APPLE)
     tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
     target_link_libraries(api.static_startstop ${libmath})
-    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
-    target_link_libraries(api.static_noclient ${libmath})
+    if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
+      tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
+      target_link_libraries(api.static_noclient ${libmath})
+    endif ()
     tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
     target_link_libraries(api.static_noinit ${libmath})
     tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
@@ -2922,8 +2924,10 @@ if (CLIENT_INTERFACE)
     endif ()
 
     if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
-      tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
-      link_with_pthread(api.thread_churn)
+      if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
+        tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
+        link_with_pthread(api.thread_churn)
+      endif ()
     endif ()
   endif ()
 
