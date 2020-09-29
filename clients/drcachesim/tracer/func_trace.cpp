@@ -32,6 +32,8 @@
 
 // func_trace.cpp: module for recording function traces
 
+#define NOMINMAX // Avoid windows.h messing up std::min.
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <set>
@@ -279,7 +281,7 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
     // Now write out the traced functions.
     dr_mutex_lock(funcs_wrapped_lock);
     for (size_t i = 0; i < vec_pcs.entries; ++i) {
-        app_pc f_pc = (app_pc)drvector_get_entry(&vec_pcs, i);
+        app_pc f_pc = (app_pc)drvector_get_entry(&vec_pcs, (uint)i);
         int id = (int)(ptr_int_t)hashtable_lookup(&pc2idplus1, (void *)f_pc);
         DR_ASSERT(id != 0 && "Failed to maintain pc2idplus1 internal hashtable");
         --id; // Table stores +1.

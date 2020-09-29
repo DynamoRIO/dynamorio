@@ -93,7 +93,10 @@ do_some_work(int arg)
     for (int i = 0; i < iters; ++i) {
         vals[i] = (double *)malloc(sizeof(double));
         *vals[i] = sin(*val);
-        *val += *vals[i] + (double)return_big_value(i) + has_aliases(i);
+        *val += *vals[i] + (double)return_big_value(i);
+#ifdef UNIX
+        *val += has_aliases(i);
+#endif
     }
     for (int i = 0; i < iters; i++) {
         *val += *vals[i];
