@@ -912,11 +912,15 @@ struct _dcontext_t {
 
     dr_where_am_i_t whereami; /* where control is at the moment */
 #ifdef UNIX
-    /* On ARM based machines, char is unsigned by default.
-     * https://www.arm.linux.org.uk/docs/faqs/signedchar.php
-     * But we need signed char, so we explicitly qualify this declaration.
-     */
+/* On ARM based machines, char is unsigned by default.
+ * https://www.arm.linux.org.uk/docs/faqs/signedchar.php
+ * But we need signed char, so we explicitly qualify this declaration.
+ */
+#    if defined(AARCH64) || defined(ARM)
     signed char signals_pending; /* != 0: pending; < 0: currently handling one */
+#    else
+    char signals_pending; /* != 0: pending; < 0: currently handling one */
+#    endif
 #endif
 
     /************* end of offset-crucial fields *********************/
