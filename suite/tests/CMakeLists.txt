@@ -3973,7 +3973,7 @@ if (UNIX)
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
   if (NOT APPLE AND NOT ANDROID) # Test uses Linux-specific timer code.
-    if (NOT AARCH64) # TODO i#2043: Enable this for AArch64.
+    if (NOT AARCH64) # TODO i#1569: Enable this for AArch64.
       tobuild(linux.signal_race linux/signal_race.c)
       target_link_libraries(linux.signal_race rt)
     endif ()
