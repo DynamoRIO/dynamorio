@@ -6445,7 +6445,11 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         ptr_uint_t cur_seg = read_thread_register(LIB_SEG_TLS);
         if ((void *)cur_seg == os_tls->app_lib_tls_base)
             return true;
-        if (os_tls->app_lib_tls_base == NULL) {
+        if (os_tls->app_lib_tls_base == NULL ||
+            /* Also rule out a garbage value, which happens in our own test
+             * common.allasm_aarch_isa.
+             */
+            !is_readable_without_exception(os_tls->app_lib_tls_base, sizeof(void *))) {
             /* XXX i#1578: For pure-asm apps that do not use libc, the app may have no
              * thread register value.  For detach we would like to write a 0 back into
              * the thread register, but it complicates our exit code, which wants access
