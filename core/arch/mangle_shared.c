@@ -1603,14 +1603,16 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 #endif /* X64 || ARM */
 
 #ifdef AARCHXX
-        if (!instr_is_meta(instr) && instr_reads_thread_register(instr)) {
+        if (!instr_is_meta(instr) && instr_reads_thread_register(instr) &&
+            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             next_instr = mangle_reads_thread_register(dcontext, ilist, instr, next_instr);
             continue;
         }
 #endif /* ARM || AARCH64 */
 
 #ifdef AARCH64
-        if (!instr_is_meta(instr) && instr_writes_thread_register(instr)) {
+        if (!instr_is_meta(instr) && instr_writes_thread_register(instr) &&
+            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             next_instr =
                 mangle_writes_thread_register(dcontext, ilist, instr, next_instr);
             continue;
