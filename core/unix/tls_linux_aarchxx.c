@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -66,6 +66,9 @@ void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
     ASSERT((byte *)(os_tls->self) == segment);
+    /* XXX: Keep whether we change the thread register consistent with
+     * os_should_swap_state() and os_switch_seg_to_context() code.
+     */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         LOG(GLOBAL, LOG_THREADS, 2, "tls_thread_init: cur priv lib tls base is " PFX "\n",
             os_tls->os_seg_info.priv_lib_tls_base);

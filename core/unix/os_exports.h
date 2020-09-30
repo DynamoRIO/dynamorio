@@ -153,7 +153,7 @@ extern uint android_tls_base_offs;
  *   {
  *     dtv_t *dtv;
  *     void *private;
- *   } tcbhead_t;
+ *   } tcb_head_t;
  * When using the private loader, we control all the TLS allocation and
  * should be able to avoid using that field.
  * This is also used in asm code, so we use literal instead of sizeof.
@@ -203,8 +203,6 @@ ushort
 os_get_app_tls_reg_offset(reg_id_t seg);
 void *
 os_get_app_tls_base(dcontext_t *dcontext, reg_id_t seg);
-void
-os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags);
 
 #ifdef DEBUG
 void
