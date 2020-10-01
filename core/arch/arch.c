@@ -161,7 +161,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file, const char *code_descri
                 print_file(file, "fcache_return:\n");
             else if (last_pc == code->do_syscall)
                 print_file(file, "do_syscall:\n");
-#    ifdef ARM
+#    ifdef AARCHXX
             else if (last_pc == code->fcache_enter_gonative)
                 print_file(file, "fcache_enter_gonative:\n");
 #    endif
@@ -394,7 +394,7 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
     pc = emit_new_thread_dynamo_start(GLOBAL_DCONTEXT, pc);
 #endif
 
-#ifdef ARM
+#ifdef AARCHXX
     pc = check_size_and_cache_line(isa_mode, gencode, pc);
     gencode->fcache_enter_gonative = pc;
     pc = emit_fcache_enter_gonative(GLOBAL_DCONTEXT, gencode, pc);
@@ -1870,7 +1870,7 @@ get_fcache_enter_private_routine(dcontext_t *dcontext)
 fcache_enter_func_t
 get_fcache_enter_gonative_routine(dcontext_t *dcontext)
 {
-#ifdef ARM
+#ifdef AARCHXX
     generated_code_t *code = THREAD_GENCODE(dcontext);
     return (fcache_enter_func_t)convert_data_to_function(code->fcache_enter_gonative);
 #else
