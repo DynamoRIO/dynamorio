@@ -2636,14 +2636,12 @@ if (CLIENT_INTERFACE)
       "" "" "")
     use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
   endif ()
-  if (NOT ARM AND NOT AARCH64) # FIXME i#1578: fix detach on ARM/AArch64
-    if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
-      set(client.drwrap-test-detach_no_reg_compat)
-      tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
-        "" "" OFF ON)
-      use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
-      link_with_pthread(client.drwrap-test-detach)
-    endif ()
+  if (NOT APPLE) # XXX i#1997: static DR not fully supported on Mac yet
+    set(client.drwrap-test-detach_no_reg_compat)
+    tobuild_api(client.drwrap-test-detach client-interface/drwrap-test-detach.cpp
+      "" "" OFF ON)
+    use_DynamoRIO_extension(client.drwrap-test-detach drwrap_static)
+    link_with_pthread(client.drwrap-test-detach)
   endif ()
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
@@ -2871,15 +2869,13 @@ if (CLIENT_INTERFACE)
   if (NOT ANDROID AND NOT APPLE)
     tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
     target_link_libraries(api.static_startstop ${libmath})
-    if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
-      tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
-      target_link_libraries(api.static_noclient ${libmath})
-    endif ()
+    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
+    target_link_libraries(api.static_noclient ${libmath})
     tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
     target_link_libraries(api.static_noinit ${libmath})
     tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
     target_link_libraries(api.static_detach ${libmath})
-    if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
+    if (NOT AARCHXX) # TODO i#1578: Crashing on AArch64.
       tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON)
       target_link_libraries(api.static_prepop ${libmath})
     endif ()
@@ -2924,10 +2920,8 @@ if (CLIENT_INTERFACE)
     endif ()
 
     if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
-      if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
-        tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
-        link_with_pthread(api.thread_churn)
-      endif ()
+      tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
+      link_with_pthread(api.thread_churn)
     endif ()
   endif ()
 
