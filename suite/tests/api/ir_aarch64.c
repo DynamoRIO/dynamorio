@@ -471,54 +471,50 @@ test_fmov_vector(void *dc)
      * immediate constants in A64 floating-point instructions.' of the Arm
      * Reference Manual.
      */
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q1),
-                                         opnd_create_immed_float(1.0),
-                                         OPND_CREATE_HALF());
+    instr = INSTR_CREATE_fmov_vector_imm(
+        dc, opnd_create_reg(DR_REG_Q1), opnd_create_immed_float(1.0), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q1),
-                                         opnd_create_immed_float(2.0),
-                                         OPND_CREATE_HALF());
+    instr = INSTR_CREATE_fmov_vector_imm(
+        dc, opnd_create_reg(DR_REG_Q1), opnd_create_immed_float(2.0), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q2),
-                                         opnd_create_immed_float(-1.0),
-                                         OPND_CREATE_HALF());
+    instr =
+        INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q2),
+                                     opnd_create_immed_float(-1.0), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q3),
-                                         opnd_create_immed_float(-2.0),
-                                         OPND_CREATE_HALF());
+    instr =
+        INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q3),
+                                     opnd_create_immed_float(-2.0), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q4),
-                                         opnd_create_immed_float(3.5),
-                                         OPND_CREATE_HALF());
+    instr = INSTR_CREATE_fmov_vector_imm(
+        dc, opnd_create_reg(DR_REG_Q4), opnd_create_immed_float(3.5), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q5),
-                                         opnd_create_immed_float(4.25),
-                                         OPND_CREATE_HALF());
+    instr =
+        INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q5),
+                                     opnd_create_immed_float(4.25), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q6),
-                                         opnd_create_immed_float(1.125),
-                                         OPND_CREATE_HALF());
+    instr =
+        INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q6),
+                                     opnd_create_immed_float(1.125), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q7),
-                                         opnd_create_immed_float(-0.25),
-                                         OPND_CREATE_HALF());
+    instr =
+        INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q7),
+                                     opnd_create_immed_float(-0.25), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q8),
-                                         opnd_create_immed_float(7.0),
-                                         OPND_CREATE_HALF());
+    instr = INSTR_CREATE_fmov_vector_imm(
+        dc, opnd_create_reg(DR_REG_Q8), opnd_create_immed_float(7.0), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q9),
-                                         opnd_create_immed_float(1.9375),
-                                         OPND_CREATE_HALF());
+    instr =
+        INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q9),
+                                     opnd_create_immed_float(1.9375), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q10),
@@ -526,9 +522,9 @@ test_fmov_vector(void *dc)
                                          OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 
-    instr = INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q31),
-                                         opnd_create_immed_float(31.0),
-                                         OPND_CREATE_HALF());
+    instr =
+        INSTR_CREATE_fmov_vector_imm(dc, opnd_create_reg(DR_REG_Q31),
+                                     opnd_create_immed_float(31.0), OPND_CREATE_HALF());
     test_instr_encoding(dc, OP_fmov, instr);
 }
 

@@ -1593,14 +1593,17 @@ decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      *     = imm64       (Q=0)
      *     = imm64:imm64 (Q=1)
      */
-    union {__fp16 f; ushort i; } fpv;
+    union {
+        __fp16 f;
+        ushort i;
+    } fpv;
 
     int abc = extract_uint(enc, 16, 3);
     int defgh = extract_uint(enc, 5, 5);
 
     uint a = (abc & 0x4);
     uint b = (abc & 0x2);
-    uint not_b = b == 0 ? 1 : 0; //~(abc & 0x2) & 0x2;
+    uint not_b = b == 0 ? 1 : 0;
 
     uint bb;
     bb = b == 0 ? 0 : 0x3;
@@ -1634,7 +1637,10 @@ encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
      * 0x0    8    0    0     c
      * 0x0    7    c    0     defgh
      */
-    union {__fp16 f; ushort i; } fpv;
+    union {
+        __fp16 f;
+        ushort i;
+    } fpv;
 
     if (opnd_is_immed_float(opnd)) {
         fpv.f = opnd_get_immed_float(opnd);
@@ -1657,7 +1663,6 @@ encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     }
     return false;
 }
-
 
 /* sysops: immediate operand for SYS instruction which specifies SYS operations */
 
@@ -1868,7 +1873,10 @@ decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      * 0x1    F     defgh
      */
     if (extract_uint(enc, 22, 1) == 0) { /* 32 bits */
-        union {float f; uint32_t i; } fpv;
+        union {
+            float f;
+            uint32_t i;
+        } fpv;
 
         uint32_t imm = extract_uint(enc, 13, 8);
 
@@ -1879,19 +1887,21 @@ decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         uint32_t c = imm & 0x20;
         uint32_t defgh = imm & 0x1f;
 
-        uint32_t imm32 = (a << 24) | (not_b << 30) | (bbbbb << 25) | (c << 19) |
-                         (defgh << 19);
+        uint32_t imm32 =
+            (a << 24) | (not_b << 30) | (bbbbb << 25) | (c << 19) | (defgh << 19);
 
         fpv.i = imm32;
         *opnd = opnd_create_immed_float(fpv.f);
-    }
-    else { /* 64 bits */
+    } else { /* 64 bits */
         /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
          * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
          *  _                                                               abcdefgh
          * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
          */
-        union {double f; uint64_t i; } fpv;
+        union {
+            double f;
+            uint64_t i;
+        } fpv;
 
         uint64_t imm = extract_uint(enc, 13, 8);
 
@@ -1902,8 +1912,8 @@ decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         uint64_t c = imm & 0x20;
         uint64_t defgh = imm & 0x1f;
 
-        uint64_t imm64 = (a << 56) | (not_b << 62) | (bbbbbbbb << 55) | (c << 48) |
-                         (defgh << 48);
+        uint64_t imm64 =
+            (a << 56) | (not_b << 62) | (bbbbbbbb << 55) | (c << 48) | (defgh << 48);
 
         fpv.i = imm64;
         *opnd = opnd_create_immed_float(fpv.f);
@@ -1929,7 +1939,10 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
      */
     if (opnd_is_immed_float(opnd)) {
         if (extract_uint(enc, 22, 1) == 0) { /* 32 bits */
-            union {float f; uint32_t i; } fpv;
+            union {
+                float f;
+                uint32_t i;
+            } fpv;
             fpv.f = opnd_get_immed_float(opnd);
             uint32_t imm = fpv.i;
 
@@ -1947,8 +1960,7 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
              *           |--6-->|       0x00f80000 defgh
              */
             *enc_out = (a >> 11) | (b >> 9) | (c >> 6) | (defgh >> 6);
-        }
-        else { /* 64 bits */
+        } else { /* 64 bits */
             /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
              * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
              *  _
@@ -1956,7 +1968,10 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
              *
              * ---- ---- ---a bcde fgh----- --------   immediate encoding
              */
-            union {double f; uint64_t i; } fpv;
+            union {
+                double f;
+                uint64_t i;
+            } fpv;
             fpv.f = opnd_get_immed_float(opnd);
             uint64_t imm = fpv.i;
 
@@ -1965,7 +1980,9 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
             uint c = (imm & 0x0020000000000000);
             uint defgh = (imm & 0x001f000000000000);
 
-            *enc_out = (((a >> 11) | (b >> 10) | (c >> 3) | (defgh >> 3)) & 0xffffffff00000000) >> 32;
+            *enc_out = (((a >> 11) | (b >> 10) | (c >> 3) | (defgh >> 3)) &
+                        0xffffffff00000000) >>
+                32;
         }
         return true;
     }

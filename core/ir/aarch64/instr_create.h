@@ -2549,8 +2549,7 @@ enum {
  * \param Rd      The output scalar register.
  * \param f       The source immediate floating point opnd.
  */
-#define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) \
-    instr_create_1dst_1src(dc, OP_fmov, Rd, f)
+#define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */
