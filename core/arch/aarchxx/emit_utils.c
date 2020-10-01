@@ -82,6 +82,7 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
 {
 #ifdef UNIX
     instr_t *no_signals = INSTR_CREATE_label(dcontext);
+
     /* save callee-saved reg in case we return for a signal */
     APP(ilist,
         XINST_CREATE_move(dcontext, opnd_create_reg(DR_REG_R1),
@@ -89,22 +90,18 @@ append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool abso
 #endif
     ASSERT_NOT_IMPLEMENTED(!absolute &&
                            !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
+
     /* grab gen routine's parameter dcontext and put it into REG_DCXT */
     APP(ilist, XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT), OPND_ARG1));
 #ifdef UNIX
     APP(ilist,
-#    ifdef AARCH64
-        XINST_CREATE_load_1byte(
-            dcontext, opnd_create_reg(DR_REG_W2),
-#    else
         INSTR_CREATE_ldrsb(dcontext, opnd_create_reg(DR_REG_R2),
-#    endif
-            OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+                           OPND_DC_FIELD(absolute, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
     APP(ilist,
-        XINST_CREATE_cmp(dcontext, opnd_create_reg(IF_AARCH64_ELSE(DR_REG_W2, DR_REG_R2)),
-                         OPND_CREATE_INT8(0)));
+        XINST_CREATE_cmp(dcontext, opnd_create_reg(DR_REG_R2), OPND_CREATE_INT8(0)));
     APP(ilist,
         XINST_CREATE_jump_cond(dcontext, DR_PRED_LE, opnd_create_instr(no_signals)));
+
     /* restore callee-saved reg */
     APP(ilist,
         XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
