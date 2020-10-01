@@ -914,9 +914,10 @@ struct _dcontext_t {
 #ifdef UNIX
     /* On ARM based machines, char is unsigned by default.
      * https://www.arm.linux.org.uk/docs/faqs/signedchar.php
-     * But we need signed char, so we explicitly qualify this declaration.
+     * But we need _signed_ char, so we use sbyte which explicitly qualifies
+     * as that.
      */
-    signed char signals_pending; /* != 0: pending; < 0: currently handling one */
+    sbyte signals_pending; /* != 0: pending; < 0: currently handling one */
 #endif
 
     /************* end of offset-crucial fields *********************/
