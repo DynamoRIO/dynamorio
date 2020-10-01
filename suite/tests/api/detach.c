@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -213,7 +213,10 @@ main(void)
 
     /* Detach */
     VPRINT("detaching\n");
-    dr_app_stop_and_cleanup();
+    /* We use the _with_stats variant to catch register errors such as i#4457. */
+    dr_stats_t stats = { sizeof(dr_stats_t) };
+    dr_app_stop_and_cleanup_with_stats(&stats);
+    assert(stats.basic_block_count > 0);
 
     VPRINT("signaling native\n");
     signal_cond_var(go_native);
