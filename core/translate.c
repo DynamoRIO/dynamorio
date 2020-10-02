@@ -1052,6 +1052,17 @@ recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
     return ilist;
 }
 
+static void
+restore_stolen_register(dcontext_t *dcontext, priv_mcontext_t *mcontext)
+{
+#ifdef AARCHXX
+    /* dr_reg_stolen is holding DR's TLS on receiving a signal,
+     * so we need put app's reg value into mcontext instead
+     */
+    set_stolen_reg_val(mcontext, dcontext->local_state->spill_space.reg_stolen);
+#endif
+}
+
 /* The esp in mcontext must either be valid or NULL (if null will be unable to
  * recreate on XP and 03 at vsyscall_after_syscall and on sygate 2k at after syscall).
  * Returns true if successful.  Whether successful or not, attempts to modify
@@ -1086,6 +1097,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             /* no translation needed, ignoring sysenter stack hacks */
             LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
                 "recreate_app no translation needed (at vsyscall)\n");
+            if (!just_pc)
+                restore_stolen_register(tdcontext, mcontext);
 #    ifdef CLIENT_INTERFACE
             if (dr_xl8_hook_exists()) {
                 if (!instrument_restore_nonfcache_state_prealloc(
@@ -1143,6 +1156,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             mcontext->xdx = tdcontext->app_xdx;
         }
 #    endif
+        if (!just_pc)
+            restore_stolen_register(tdcontext, mcontext);
 #    ifdef CLIENT_INTERFACE
         if (dr_xl8_hook_exists()) {
             if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
@@ -1191,6 +1206,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         } else
 #endif
         mcontext->pc = POST_SYSCALL_PC(tdcontext);
+        if (!just_pc)
+            restore_stolen_register(tdcontext, mcontext);
 #ifdef CLIENT_INTERFACE
         if (dr_xl8_hook_exists()) {
             if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
@@ -1203,8 +1220,10 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         LOG(THREAD_GET, LOG_INTERP | LOG_SYNCH, 2,
             "recreate_app at reset exit stub => using next_tag " PFX "\n",
             tdcontext->next_tag);
-        /* context is completely native except the pc */
+        /* Context is completely native except the pc and the stolen register. */
         mcontext->pc = tdcontext->next_tag;
+        if (!just_pc)
+            restore_stolen_register(tdcontext, mcontext);
 #ifdef CLIENT_INTERFACE
         if (dr_xl8_hook_exists()) {
             if (!instrument_restore_nonfcache_state_prealloc(tdcontext, restore_memory,
@@ -1378,13 +1397,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             mc->xdi = get_mcontext(tdcontext)->xdi;
         }
 #endif
-#ifdef AARCHXX
-        /* dr_reg_stolen is holding DR's TLS on receiving a signal,
-         * so we need put app's reg value into mcontext instead
-         */
         if (!just_pc)
-            set_stolen_reg_val(mcontext, tdcontext->local_state->spill_space.reg_stolen);
-#endif
+            restore_stolen_register(tdcontext, mcontext);
 #ifdef CLIENT_INTERFACE
         if (res != RECREATE_FAILURE) {
             /* PR 214962: if the client has a restore callback, invoke it to
