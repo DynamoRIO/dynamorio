@@ -3977,10 +3977,11 @@ if (UNIX)
   endif ()
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
-  # XXX i#2043: enable for A64 once append_fcache_enter_prologue() is finished.
-  if (NOT APPLE AND NOT ANDROID AND NOT AARCH64) # Test uses Linux-specific timer code.
-    tobuild(linux.signal_race linux/signal_race.c)
-    target_link_libraries(linux.signal_race rt)
+  if (NOT APPLE AND NOT ANDROID) # Test uses Linux-specific timer code.
+    if (NOT AARCH64) # TODO i#1569: Enable this for AArch64.
+      tobuild(linux.signal_race linux/signal_race.c)
+      target_link_libraries(linux.signal_race rt)
+    endif ()
     tobuild(linux.signal_racesys linux/signal_racesys.c)
     target_link_libraries(linux.signal_racesys rt)
   endif ()

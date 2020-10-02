@@ -134,7 +134,6 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_SYSNUM_REG SC_XAX
 #    define SC_RETURN_REG SC_XAX
 #elif defined(AARCH64)
-/* FIXME i#1569: NYI */
 #    define SC_XIP SC_FIELD(pc)
 #    define SC_FP SC_FIELD(regs[29])
 #    define SC_R0 SC_FIELD(regs[0])

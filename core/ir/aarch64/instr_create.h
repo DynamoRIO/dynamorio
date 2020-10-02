@@ -567,6 +567,8 @@ enum {
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
 #define INSTR_CREATE_ldrb(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
+#define INSTR_CREATE_ldrsb(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldrsb, (Rd), (mem))
 #define INSTR_CREATE_ldrh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
 #define INSTR_CREATE_ldur(dc, rt, mem) instr_create_1dst_1src(dc, OP_ldur, rt, mem)
 #define INSTR_CREATE_ldar(dc, Rt, mem) instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))

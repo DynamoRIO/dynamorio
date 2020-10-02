@@ -381,50 +381,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 /*             THREAD-PRIVATE/SHARED ROUTINE GENERATION                    */
 /***************************************************************************/
 
-/* Load DR's TLS base to dr_reg_stolen via reg_base. */
-static void
-insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                        reg_id_t reg_base)
-{
-    /* Load TLS base from user-mode thread pointer/ID register:
-     * mrs reg_base, tpidr_el0
-     */
-    PRE(ilist, where,
-        INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg_base),
-                         opnd_create_reg(DR_REG_TPIDR_EL0)));
-    /* ldr dr_reg_stolen, [reg_base, DR_TLS_BASE_OFFSET] */
-    PRE(ilist, where,
-        XINST_CREATE_load(dcontext, opnd_create_reg(dr_reg_stolen),
-                          OPND_CREATE_MEMPTR(reg_base, DR_TLS_BASE_OFFSET)));
-}
-
-/* Having only one thread register (TPIDR_EL0) shared between app and DR,
- * we steal a register for DR's TLS base in the code cache, and store
- * DR's TLS base into an private lib's TLS slot for accessing in C code.
- * On entering the code cache (fcache_enter):
- * - grab gen routine's parameter dcontext and put it into REG_DCXT
- * - load DR's TLS base into dr_reg_stolen from privlib's TLS
- */
-void
-append_fcache_enter_prologue(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
-{
-    ASSERT_NOT_IMPLEMENTED(!absolute &&
-                           !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
-    /* Grab gen routine's parameter dcontext and put it into REG_DCXT:
-     * mov x(dxct), x0
-     */
-    APP(ilist,
-        XINST_CREATE_move(dcontext, opnd_create_reg(REG_DCXT),
-                          opnd_create_reg(DR_REG_X0)));
-
-    /* FIXME i#2019: check dcontext->signals_pending.  First we need a way to
-     * create a conditional branch b.le.
-     */
-
-    /* set up stolen reg */
-    insert_load_dr_tls_base(dcontext, ilist, NULL /*append*/, SCRATCH_REG0);
-}
-
 void
 append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist, bool absolute,
                          bool shared)

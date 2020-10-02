@@ -503,7 +503,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
 #endif
     );
 #ifdef UNIX
-    if (dcontext->signals_pending) {
+    if (dcontext->signals_pending > 0) {
         /* i#2019: the fcache_enter generated code starts with a check for pending
          * signals, allowing the signal handling code to simply queue signals that
          * arrive in DR code and only attempt to unlink for interruption points known

@@ -912,7 +912,12 @@ struct _dcontext_t {
 
     dr_where_am_i_t whereami; /* where control is at the moment */
 #ifdef UNIX
-    char signals_pending; /* != 0: pending; < 0: currently handling one */
+    /* On ARM based machines, char is unsigned by default.
+     * https://www.arm.linux.org.uk/docs/faqs/signedchar.php
+     * But we need _signed_ char, so we use sbyte which explicitly qualifies
+     * as that.
+     */
+    sbyte signals_pending; /* != 0: pending; < 0: currently handling one */
 #endif
 
     /************* end of offset-crucial fields *********************/
