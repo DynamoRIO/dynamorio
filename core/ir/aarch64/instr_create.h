@@ -149,7 +149,18 @@ enum {
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load(dc, r, m) INSTR_CREATE_ldr((dc), (r), (m))
+#define XINST_CREATE_load(dc, r, m)                                                    \
+    ((opnd_is_base_disp(m) &&                                                          \
+      (opnd_get_disp(m) < 0 ||                                                         \
+       opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0))                  \
+         ? INSTR_CREATE_ldur(                                                          \
+               dc,                                                                     \
+               opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m))), \
+               m)                                                                      \
+         : INSTR_CREATE_ldr(                                                           \
+               dc,                                                                     \
+               opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m))), \
+               m))
 
 /**
  * This platform-independent macro creates an instr_t which loads 1 byte
@@ -187,8 +198,9 @@ enum {
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store(dc, m, r)                                                   \
-    (opnd_is_base_disp(m) &&                                                           \
-             opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0              \
+    ((opnd_is_base_disp(m) &&                                                          \
+      (opnd_get_disp(m) < 0 ||                                                         \
+       opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0))                  \
          ? INSTR_CREATE_stur(                                                          \
                dc, m,                                                                  \
                opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))) \

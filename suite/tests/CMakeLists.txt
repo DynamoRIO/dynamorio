@@ -2776,40 +2776,41 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (ARM)
 
-  if (NOT ARM AND NOT AARCH64) # FIXME i#1578: fix detach on ARM/AArch64
+  if (NOT AARCHXX) # TODO i#1578: Crashing on AArch64.
     tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
     link_with_pthread(api.startstop)
-    tobuild_api(api.detach api/detach.c "" "" OFF OFF)
-    link_with_pthread(api.detach)
-    if (LINUX AND X64) # Will take extra work to port to 32-bit.
-      tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
-      target_include_directories(api.detach_state PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/api)
-      link_with_pthread(api.detach_state)
-      if (proc_supports_avx512)
-        append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX512}")
-        set(api.detach_state_runavx512 1)
-      elseif (proc_supports_avx)
-        append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX}")
-        set(api.detach_state_runavx 1)
-      endif ()
+  endif ()
+  tobuild_api(api.detach api/detach.c "" "" OFF OFF)
+  link_with_pthread(api.detach)
+  # TODO: port detach_state to aarchxx
+  if (X86 AND LINUX AND X64) # Will take extra work to port to 32-bit.
+    tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
+    target_include_directories(api.detach_state PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/api)
+    link_with_pthread(api.detach_state)
+    if (proc_supports_avx512)
+      append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX512}")
+      set(api.detach_state_runavx512 1)
+    elseif (proc_supports_avx)
+      append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX}")
+      set(api.detach_state_runavx 1)
     endif ()
-    if (NOT WIN32) # XXX i#2611: fix for Windows
-      if (X64)
-        set(detach_spawn_name api.detach_spawn)
-      else ()
-        # FIXME i#2694: failing sometimes on 32-bit Linux.
-        set(detach_spawn_name api.detach_spawn_FLAKY)
-      endif ()
-      set(detach_spawn_stress_name api.detach_spawn_stress_FLAKY)
-      set(detach_spawn_quick_exit_name api.detach_spawn_quick_exit)
-      tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
-      link_with_pthread(${detach_spawn_name})
-      tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF)
-      link_with_pthread(${detach_spawn_stress_name})
-      tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" "" OFF OFF)
-      link_with_pthread(${detach_spawn_quick_exit_name})
+  endif ()
+  if (NOT WIN32) # XXX i#2611: fix for Windows
+    if (X64)
+      set(detach_spawn_name api.detach_spawn)
+    else ()
+      # FIXME i#2694: failing sometimes on 32-bit Linux.
+      set(detach_spawn_name api.detach_spawn_FLAKY)
     endif ()
+    set(detach_spawn_stress_name api.detach_spawn_stress_FLAKY)
+    set(detach_spawn_quick_exit_name api.detach_spawn_quick_exit)
+    tobuild_api(${detach_spawn_name} api/detach_spawn.c "" "" OFF OFF)
+    link_with_pthread(${detach_spawn_name})
+    tobuild_api(${detach_spawn_stress_name} api/detach_spawn_stress.c "" "" OFF OFF)
+    link_with_pthread(${detach_spawn_stress_name})
+    tobuild_api(${detach_spawn_quick_exit_name} api/detach_spawn_quick_exit.c "" "" OFF OFF)
+    link_with_pthread(${detach_spawn_quick_exit_name})
   endif ()
   if (X86)
     if (X64)
@@ -2867,19 +2868,21 @@ if (CLIENT_INTERFACE)
   # Test DR as a static library
   # XXX i#1996: not fully supported on Android yet
   # XXX i#1997: not fully supported on Mac yet
-  # XXX i#1551: start/stop API NYI on ARM
-  # XXX i#1569: start/stop API NYI on AArch64
-  if (NOT ANDROID AND NOT APPLE AND NOT ARM AND NOT AARCH64)
+  if (NOT ANDROID AND NOT APPLE)
     tobuild_api(api.static_startstop api/static_startstop.c "" "" OFF ON)
     target_link_libraries(api.static_startstop ${libmath})
-    tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
-    target_link_libraries(api.static_noclient ${libmath})
+    if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
+      tobuild_api(api.static_noclient api/static_noclient.c "" "" OFF ON)
+      target_link_libraries(api.static_noclient ${libmath})
+    endif ()
     tobuild_api(api.static_noinit api/static_noinit.c "" "" OFF ON)
     target_link_libraries(api.static_noinit ${libmath})
     tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
     target_link_libraries(api.static_detach ${libmath})
-    tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON)
-    target_link_libraries(api.static_prepop ${libmath})
+    if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
+      tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON)
+      target_link_libraries(api.static_prepop ${libmath})
+    endif ()
 
     if (NOT WIN32)
       tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON)
@@ -2921,8 +2924,10 @@ if (CLIENT_INTERFACE)
     endif ()
 
     if (NOT WIN32) # TODO i#4349: Fix re-attach issues to enable.
-      tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
-      link_with_pthread(api.thread_churn)
+      if (NOT AARCHXX) # TODO i#1578: Failing on AArch64.
+        tobuild_api(api.thread_churn api/thread_churn.c "" "" OFF OFF)
+        link_with_pthread(api.thread_churn)
+      endif ()
     endif ()
   endif ()
 

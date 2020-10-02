@@ -928,7 +928,7 @@ typedef struct _generated_code_t {
 #endif
     byte *do_syscall;
     uint do_syscall_offs; /* offs of pc after actual syscall instr */
-#ifdef ARM
+#ifdef AARCHXX
     byte *fcache_enter_gonative;
 #endif
 #ifdef WINDOWS
@@ -1209,7 +1209,7 @@ emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 byte *fcache_return_pc, bool thread_shared, int interrupt,
                 uint *syscall_offs /*OUT*/);
 
-#ifdef ARM
+#ifdef AARCHXX
 byte *
 emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 #endif

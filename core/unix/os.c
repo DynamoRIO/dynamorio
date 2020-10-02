@@ -2637,6 +2637,13 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
             os_set_dr_tls_base(dcontext, real_tls, (byte *)real_tls);
         }
     }
+#elif defined(AARCHXX)
+    /* For aarchxx we don't have a separate thread register for DR, and we
+     * always leave the DR pointer in the slot inside the app's or privlib's TLS.
+     * That means we have nothing to do here.
+     * For SYS_clone, we are ok with the parent's TLS being inherited until
+     * new_thread_setup() calls set_thread_register_from_clone_record().
+     */
 #endif
 }
 
@@ -2698,12 +2705,7 @@ os_should_swap_state(void)
     return (INTERNAL_OPTION(mangle_app_seg) &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
 #elif defined(AARCHXX)
-    /* FIXME i#1582: this should return true, but there is a lot of complexity
-     * getting os_switch_seg_to_context() to do the right then when called
-     * at main thread init, secondary thread init, early and late injection,
-     * and thread exit, since it is fragile with its writes to app TLS.
-     */
-    return false;
+    return IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false);
 #endif
 }
 
@@ -2736,20 +2738,6 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
         os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
     if (TEST(DR_STATE_DR_TLS, flags))
         os_swap_dr_tls(dcontext, to_app);
-}
-
-void
-os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags)
-{
-#ifdef AARCHXX
-    /* FIXME i#1582: remove this routine once os_should_swap_state()
-     * is not disabled and we can actually call
-     * os_swap_context_go_native() safely from multiple places.
-     */
-    os_switch_seg_to_context(dcontext, LIB_SEG_TLS, true /*to app*/);
-#else
-    os_swap_context(dcontext, true /*to app*/, flags);
-#endif
 }
 
 void
@@ -6453,6 +6441,27 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(INTERNAL_OPTION(private_loader));
     if (to_app) {
+        /* We need to handle being called when we're already in the requested state. */
+        ptr_uint_t cur_seg = read_thread_register(LIB_SEG_TLS);
+        if ((void *)cur_seg == os_tls->app_lib_tls_base)
+            return true;
+        if (os_tls->app_lib_tls_base == NULL ||
+            /* Also rule out a garbage value, which happens in our own test
+             * common.allasm_aarch_isa.
+             */
+            !is_readable_without_exception(os_tls->app_lib_tls_base, sizeof(void *))) {
+            /* XXX i#1578: For pure-asm apps that do not use libc, the app may have no
+             * thread register value.  For detach we would like to write a 0 back into
+             * the thread register, but it complicates our exit code, which wants access
+             * to DR's TLS between dynamo_thread_exit_common()'s call to
+             * dynamo_thread_not_under_dynamo() and its call to
+             * set_thread_private_dcontext(NULL).  For now we just leave our privlib
+             * segment in there.  It seems rather unlikely to cause a problem: app code
+             * is unlikely to read the thread register; it's going to assume it owns it
+             * and will just blindly write to it.
+             */
+            return true;
+        }
         /* On switching to app's TLS, we need put DR's TLS base into app's TLS
          * at the same offset so it can be loaded on entering code cache.
          * Otherwise, the context switch code on entering fcache will fault on
@@ -6476,6 +6485,10 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
             __FUNCTION__, (to_app ? "app" : "dr"), os_tls->app_lib_tls_base);
         res = write_thread_register(os_tls->app_lib_tls_base);
     } else {
+        /* We need to handle being called when we're already in the requested state. */
+        ptr_uint_t cur_seg = read_thread_register(LIB_SEG_TLS);
+        if ((void *)cur_seg == ostd->priv_lib_tls_base)
+            return true;
         /* Restore the app's TLS slot that we used for storing DR's TLS base,
          * and put DR's TLS base back to privlib's TLS slot.
          */

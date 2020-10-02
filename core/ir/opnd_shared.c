@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2164,6 +2164,11 @@ reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz)
         } else {
             CLIENT_ASSERT(false, "invalid size for simd register");
         }
+    } else if (reg_is_simd(reg)) {
+        if (reg_get_size(reg) == sz)
+            return reg;
+        /* XXX i#1569: Add aarchxx SIMD conversions here. */
+        CLIENT_ASSERT(false, "reg_resize_to_opsz: unsupported reg");
     } else {
         CLIENT_ASSERT(false, "reg_resize_to_opsz: unsupported reg");
     }

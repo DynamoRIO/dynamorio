@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
 #endif
 #include "dr_api.h"
 #include "tools.h"
+#include <math.h>
 #include <unistd.h>
 #include <signal.h>
 

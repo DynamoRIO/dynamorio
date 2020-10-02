@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2942,7 +2942,7 @@ opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 #endif /* !STANDALONE_DECODER */
 
 /* stack slot width */
-#define XSP_SZ (sizeof(reg_t))
+#define XSP_SZ ((ssize_t)sizeof(reg_t))
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {
