@@ -5425,9 +5425,10 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where, void *
  */
 typedef enum {
     /**
-     * Save floating-point state (x86-specific).
-     * The last floating-point instruction address in the saved state is left in
-     * an untranslated state (i.e., it may point into the code cache).
+     * Save legacy floating-point state (x86-specific; not saved by default).
+     * The last floating-point instruction address (FIP) in the saved state is
+     * left in an untranslated state (i.e., it may point into the code cache).
+     * This flag is orthogonal to the saving of SIMD registers and related flags below.
      */
     DR_CLEANCALL_SAVE_FLOAT = 0x0001,
     /**
@@ -5437,7 +5438,7 @@ typedef enum {
      * as an uninitialized flags value can cause subtle errors.
      */
     DR_CLEANCALL_NOSAVE_FLAGS = 0x0002,
-    /** Skip saving any XMM or YMM registers. */
+    /** Skip saving any XMM or YMM registers (saved by default). */
     DR_CLEANCALL_NOSAVE_XMM = 0x0004,
     /** Skip saving any XMM or YMM registers that are never used as parameters. */
     DR_CLEANCALL_NOSAVE_XMM_NONPARAM = 0x0008,
