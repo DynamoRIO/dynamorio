@@ -558,12 +558,12 @@ function(add_exe test source)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
-  if ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+  if (ANNOTATIONS AND "${srccode}" MATCHES "include \"dr_annotations.h\"")
     use_DynamoRIO_annotations(${test} test_srcs)
-  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+  endif ()
   if ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
     use_DynamoRIO_test_annotations(${test} test_srcs)
-  endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
+  endif ()
 
   add_executable(${test} ${test_srcs})
   if (DEFINED ${test}_outname)
@@ -783,12 +783,12 @@ function(tobuild_appdll test source)
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
-    if ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+    if (ANNOTATIONS AND "${srccode}" MATCHES "include \"dr_annotations.h\"")
       use_DynamoRIO_annotations(${test}.appdll lib_srcs)
-    endif ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+    endif ()
     if ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
       use_DynamoRIO_test_annotations(${test}.appdll lib_srcs)
-    endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
+    endif ()
 
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
@@ -996,7 +996,9 @@ function (use_DynamoRIO_test_annotations target target_srcs)
   set(dr_annotation_test_srcs
     "${dr_annotation_test_dir}/test_mode_annotations.c"
     "${dr_annotation_test_dir}/test_annotation_arguments.c")
-  configure_DynamoRIO_annotation_sources("${dr_annotation_test_srcs}")
+  if (ANNOTATIONS)
+    configure_DynamoRIO_annotation_sources("${dr_annotation_test_srcs}")
+  endif ()
   set(${target_srcs} ${${target_srcs}} ${dr_annotation_test_srcs} PARENT_SCOPE)
 endfunction (use_DynamoRIO_test_annotations target target_srcs)
 
@@ -2196,18 +2198,18 @@ if (CLIENT_INTERFACE)
     endif ()
   endif ()
 
+  if (UNIX)
+    set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
+    set(annotation_test_args_shorter
+      "libclient.annotation-concurrency.appdll.so" "A" "4" "64" "3")
+  else (UNIX)
+    set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
+    set(annotation_test_args_shorter
+      "client.annotation-concurrency.appdll.dll" "A" "4" "64" "3")
+  endif (UNIX)
   # FIXME i#1799: clang does not support "asm goto"
   if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     set(DynamoRIO_USE_LIBC OFF)
-    if (UNIX)
-      set(annotation_test_args "libclient.annotation-concurrency.appdll.so" "A" "4")
-      set(annotation_test_args_shorter
-        "libclient.annotation-concurrency.appdll.so" "A" "4" "64" "3")
-    else (UNIX)
-      set(annotation_test_args "client.annotation-concurrency.appdll.dll" "A" "4")
-      set(annotation_test_args_shorter
-        "client.annotation-concurrency.appdll.dll" "A" "4" "64" "3")
-    endif (UNIX)
     tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
       "" "" "${annotation_test_args}")
     tobuild_appdll(client.annotation-concurrency
@@ -2318,6 +2320,18 @@ if (CLIENT_INTERFACE)
       client.annotation-detection-opt annotation-detection.native
       client-interface/annotation-detection.c "")
     set(DynamoRIO_USE_LIBC ON)
+  else (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
+    # We build the client.annotation-concurrency app even if we have no annotation
+    # support, since it is used in drcachesim tests.
+    add_exe(client.annotation-concurrency
+      client-interface/annotation-concurrency.c)
+    append_property_string(TARGET client.annotation-concurrency COMPILE_FLAGS
+      "-DANNOTATIONS_DISABLED")
+    link_with_pthread(client.annotation-concurrency)
+    tobuild_appdll(client.annotation-concurrency
+      client-interface/annotation-concurrency.c)
+    append_property_string(TARGET client.annotation-concurrency.appdll COMPILE_FLAGS
+      "-DANNOTATIONS_DISABLED")
   endif (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
 
   if (UNIX)
@@ -3169,36 +3183,32 @@ if (CLIENT_INTERFACE)
       # Test that warmup was enabled but not triggered.
       torunonly_drcachesim(warmup-zeros ${ci_shared_app} "-warmup_refs 1000000000" "")
 
-      # FIXME i#1799: clang does not support "asm goto" used in annotation
-      # FIXME i#1551, i#1569: get working on ARM/AArch64
-      if (NOT ARM AND NOT AARCH64 AND NOT CMAKE_COMPILER_IS_CLANG)
-        # Our pthreads tests don't have many threads so we run this annot test,
-        # though it is a little slow under drcachesim.
-        # XXX i#1703: this may be too flaky: we may want to remove this once
-        # we add some dedicated multi-thread (and multi-process) tests with
-        # more deterministic output.
-        # We test -cpu_scheduling on several tests with many threads.
-        # We use a smaller test (_shorter) to avoid taking multiple minutes on our
-        # CI (i#4059; xref i#2063).
-        torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
-          "${annotation_test_args_shorter}")
+      # Our pthreads tests don't have many threads so we run this annot test,
+      # though it is a little slow under drcachesim.
+      # XXX i#1703: this may be too flaky: we may want to remove this once
+      # we add some dedicated multi-thread (and multi-process) tests with
+      # more deterministic output.
+      # We test -cpu_scheduling on several tests with many threads.
+      # We use a smaller test (_shorter) to avoid taking multiple minutes on our
+      # CI (i#4059; xref i#2063).
+      torunonly_drcachesim(threads client.annotation-concurrency "-cpu_scheduling"
+        "${annotation_test_args_shorter}")
 
-        # Threads test that reads the cache configuration from a config file.
-        torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
-          "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
-          "${annotation_test_args_shorter}")
-        set(tool.drcachesim.threads_timeout 150) # This test is long.
+      # Threads test that reads the cache configuration from a config file.
+      torunonly_drcachesim(threads-with-config-file client.annotation-concurrency
+        "-config_file ${config_files_dir}/cores-1-levels-3-no-missfile.conf"
+        "${annotation_test_args_shorter}")
+      set(tool.drcachesim.threads_timeout 150) # This test is long.
 
-        torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
-          "${annotation_test_args_shorter}")
-        set(tool.drcachesim.coherence_timeout 150) # This test is long.
+      torunonly_drcachesim(coherence client.annotation-concurrency "-coherence"
+        "${annotation_test_args_shorter}")
+      set(tool.drcachesim.coherence_timeout 150) # This test is long.
 
-        # TLB simulator's multi-thread sanity check
-        torunonly_drcachesim(TLB-threads client.annotation-concurrency
-          "-simulator_type TLB -cpu_scheduling" "${annotation_test_args_shorter}")
-        # i#2063: this test can time out.
-        set(tool.drcachesim.TLB-threads_timeout 150)
-      endif ()
+      # TLB simulator's multi-thread sanity check
+      torunonly_drcachesim(TLB-threads client.annotation-concurrency
+        "-simulator_type TLB -cpu_scheduling" "${annotation_test_args_shorter}")
+      # i#2063: this test can time out.
+      set(tool.drcachesim.TLB-threads_timeout 150)
 
       if (ARM)
         torunonly_drcachesim(allasm-thumb common.allasm_thumb "" "")

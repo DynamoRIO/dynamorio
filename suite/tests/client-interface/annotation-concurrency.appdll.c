@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -38,7 +38,8 @@
 #include "test_annotation_arguments.h"
 #include "test_mode_annotations.h"
 
-#if !(defined(WINDOWS) && defined(X64))
+#if !(defined(WINDOWS) && defined(X64)) && !defined(ANNOTATIONS_DISABLED)
+#    define USE_ANNOTATIONS 1
 #    include "memcheck.h"
 #endif
 
@@ -74,7 +75,7 @@ jacobi(double *dst, double *src, double **coefficients, double *rhs_vector, int 
     for (i = 0; i < limit; i++) {
         x_temp[i] = rhs_vector[i];
 
-#if !(defined(WINDOWS) && defined(X64))
+#ifdef USE_ANNOTATIONS
         if (invoke_annotations && worker_id < 3) {
             switch (worker_id) {
             case 0:
@@ -95,7 +96,7 @@ jacobi(double *dst, double *src, double **coefficients, double *rhs_vector, int 
 #endif
             for (j = 0; j < i; j++)
                 x_temp[i] -= src[j] * coefficients[i][j];
-#if !(defined(WINDOWS) && defined(X64))
+#ifdef USE_ANNOTATIONS
         }
 #endif
 

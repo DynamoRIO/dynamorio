@@ -365,6 +365,7 @@ endif ()
 if (X86)
   set(ANNOTATIONS_DEFAULT ON)
 else ()
+  # TODO i#1672: Add annotation support to AArchXX.
   set(ANNOTATIONS_DEFAULT OFF)
 endif ()
 option(ANNOTATIONS "annotations" ${ANNOTATIONS_DEFAULT})
