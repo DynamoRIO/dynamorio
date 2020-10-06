@@ -1360,7 +1360,8 @@ struct _opnd_t {
             int low;  /* IMMED_INTEGER_kind with DR_OPND_MULTI_PART */
             int high; /* IMMED_INTEGER_kind with DR_OPND_MULTI_PART */
         } immed_int_multi_part;
-        float immed_float; /* IMMED_FLOAT_kind */
+        float immed_float;   /* IMMED_FLOAT_kind */
+        double immed_double; /* IMMED_DOUBLE_kind */
         /* PR 225937: today we provide no way of specifying a 16-bit immediate
          * (encoded as a data16 prefix, which also implies a 16-bit EIP,
          * making it only useful for far pcs)
@@ -1443,6 +1444,7 @@ enum {
     NULL_kind,
     IMMED_INTEGER_kind,
     IMMED_FLOAT_kind,
+    IMMED_DOUBLE_kind,
     PC_kind,
     INSTR_kind,
     REG_kind,
@@ -1534,6 +1536,15 @@ DR_API
  */
 opnd_t
 opnd_create_immed_float(float f);
+
+DR_API
+/**
+ * Returns an immediate double operand with value \p d.
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
+opnd_t
+opnd_create_immed_double(double d);
 
 /* not exported */
 opnd_t

@@ -389,6 +389,22 @@ opnd_create_immed_float(float i)
     return opnd;
 }
 
+/* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
+opnd_t
+opnd_create_immed_double(double i)
+{
+    opnd_t opnd;
+    opnd.kind = IMMED_DOUBLE_kind;
+    /* note that manipulating floats and doubles is dangerous - see case 4360
+     * even this copy can end up using fp load/store instrs and could
+     * trigger a pending fp exception (i#386)
+     */
+    opnd.value.immed_double = i;
+    /* currently only used for implicit constants that have no size */
+    opnd.size = OPSZ_0;
+    return opnd;
+}
+
 opnd_t
 opnd_create_immed_float_for_opcode(uint opcode)
 {

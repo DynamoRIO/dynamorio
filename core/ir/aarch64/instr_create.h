@@ -1598,7 +1598,7 @@ enum {
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
- * Creates a FMOV floating point instruction.
+ * Creates an FMOV floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
@@ -2547,7 +2547,7 @@ enum {
     instr_create_1dst_3src(dc, OP_umull2, Rd, Rm, Rn, width)
 
 /**
- * Creates a FMOV immediate to vector floating point move instruction.
+ * Creates an FMOV immediate to vector floating point move instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output vector register.
  * \param f       The source immediate floating point opnd.
@@ -2558,7 +2558,7 @@ enum {
     instr_create_1dst_2src(dc, OP_fmov, Rd, f, width)
 
 /**
- * Creates a FMOV immediate to scalar floating point move instruction.
+ * Creates an FMOV immediate to scalar floating point move instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output scalar register.
  * \param f       The source immediate floating point opnd.

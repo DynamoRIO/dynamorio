@@ -1594,8 +1594,14 @@ decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      *     = imm64:imm64 (Q=1)
      */
     union {
+#ifdef DR_HOST_AARCH64
         __fp16 f;
-        ushort i;
+        uint16_t i;
+#else
+        /* For platforms on which 16 bit (half-precision) FP not yet available */
+        float f;
+        uint32_t i;
+#endif
     } fpv;
 
     int abc = extract_uint(enc, 16, 3);
@@ -1605,14 +1611,21 @@ decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     uint b = (abc & 0x2);
     uint not_b = b == 0 ? 1 : 0;
 
-    uint bb;
-    bb = b == 0 ? 0 : 0x3;
+#ifdef DR_HOST_AARCH64
+    uint bb = ((b == 0) ? 0 : 0x3);
+#else
+    uint bbbbb = ((b == 0) ? 0 : 0x1f);
+#endif
 
     uint cdefgh = ((abc & 0x1) << 5) | (defgh & 0x1f);
 
-    ushort imm16 = (a << 13) | (not_b << 14) | (bb << 12) | (cdefgh << 6);
-
+#ifdef DR_HOST_AARCH64
+    uint16_t imm16 = (a << 13) | (not_b << 14) | (bb << 12) | (cdefgh << 6);
     fpv.i = imm16;
+#else
+    uint32_t imm32 = (a << 29) | (not_b << 30) | (bbbbb << 25) | (cdefgh << 19);
+    fpv.i = imm32;
+#endif
     *opnd = opnd_create_immed_float(fpv.f);
 
     return true;
@@ -1638,30 +1651,50 @@ encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
      * 0x0    7    c    0     defgh
      */
     union {
+#ifdef DR_HOST_AARCH64
         __fp16 f;
-        ushort i;
+        uint16_t i;
+#else
+        /* For platforms on which 16 bit (half-precision) FP not yet available */
+        float f;
+        uint32_t i;
+#endif
     } fpv;
 
-    if (opnd_is_immed_float(opnd)) {
-        fpv.f = opnd_get_immed_float(opnd);
-        ushort imm = fpv.i;
-        uint a = (imm & 0x8000);
-        uint b = (imm & 0x1000);
-        uint c = (imm & 0x800);
-        uint defgh = (imm & 0x7c0);
+    if (!opnd_is_immed_float(opnd))
+        return false;
 
-        /* 3332 2222 2222 1111 1111 11
-         * 1098 7654 3210 9876 5432 1098 7654 3210
-         * ---- ---- ---- -abc ---- --de fgh- ----   immediate encoding
-         *          0x8000 |<-3|  | ||
-         *          0x1000  |<-5--| ||
-         *           0x800   |<--5--||
-         *           0x7c0           |>
-         */
-        *enc_out = (a << 3) | (b << 5) | (c << 5) | (defgh >> 1);
-        return true;
-    }
-    return false;
+    fpv.f = opnd_get_immed_float(opnd);
+#ifdef DR_HOST_AARCH64
+    uint16_t imm = fpv.i;
+    uint a = (imm & 0x8000);
+    uint b = (imm & 0x1000);
+    uint c = (imm & 0x800);
+    uint defgh = (imm & 0x7c0);
+
+    /* 3332 2222 2222 1111 1111 11
+     * 1098 7654 3210 9876 5432 1098 7654 3210
+     * ---- ---- ---- -abc ---- --de fgh- ----   immediate encoding
+     *          0x8000 |<-3|  | ||
+     *          0x1000  |<-5--| ||
+     *           0x800   |<--5--||
+     *           0x7c0           |>
+     */
+    *enc_out = (a << 3) | (b << 5) | (c << 5) | (defgh >> 1);
+#else
+    /* 3332 2222 2222 1111 1111 11
+     * 1098 7654 3210 9876 5432 1098 7654 3210
+     *  _
+     * abbb bbbc defg h000 0000 0000 0000 0000
+     */
+    uint32_t imm = fpv.i;
+    uint a = (imm & 0x80000000);
+    uint b = (imm & 0x10000000);
+    uint c = (imm & 0x1000000);
+    uint defgh = (imm & 0xf80000);
+    *enc_out = (a >> 13) | (b >> 11) | (c >> 8) | (defgh >> 14);
+#endif
+    return true;
 }
 
 /* sysops: immediate operand for SYS instruction which specifies SYS operations */
@@ -1899,7 +1932,7 @@ decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
          * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
          */
         union {
-            double f;
+            double d;
             uint64_t i;
         } fpv;
 
@@ -1916,7 +1949,7 @@ decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
             (a << 56) | (not_b << 62) | (bbbbbbbb << 55) | (c << 48) | (defgh << 48);
 
         fpv.i = imm64;
-        *opnd = opnd_create_immed_float(fpv.f);
+        *opnd = opnd_create_immed_double(fpv.d);
     }
     return true;
 }
