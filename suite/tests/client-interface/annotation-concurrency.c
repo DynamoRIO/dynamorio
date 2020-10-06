@@ -135,7 +135,7 @@ find_function(MODULE_TYPE jacobi_module, const char *name)
 static void *
 find_function(MODULE_TYPE jacobi_module, const char *name)
 {
-    char *error;
+    const char *error;
     void *function = dlsym(jacobi_module, name);
     error = dlerror();
     if (error != NULL) {

@@ -50,7 +50,7 @@
 #endif
 
 #ifndef DYNAMORIO_ANNOTATIONS_X86
-#    if defined(__x86_64__) || defined(__i386__)
+#    if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
 #        define DYNAMORIO_ANNOTATIONS_X86 1
 #    endif
 #endif
@@ -81,10 +81,11 @@
 #    endif
 #endif
 
-#ifndef DYNAMORIO_ANNOTATIONS_X86
+#if !defined(DYNAMORIO_ANNOTATIONS_X86) || defined(__clang__)
 /* TODO i#1672: Add annotation support to AArchXX.
  * For now, we provide a fallback so we can build the annotation-concurrency
  * app for use with drcachesim tests.
+ * We do the same for clang, which has no "asm goto".
  */
 #    define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) /* Nothing. */
 #    define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
