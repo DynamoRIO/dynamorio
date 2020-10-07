@@ -432,7 +432,7 @@ memtrace(void *drcontext, bool skip_size_cap)
          * beyond the limit: we still instrument and come here.
          */
         do_write = false;
-        if (!data->output_disabled) {
+        if (!data->output_disabled && is_beyond_global_max()) {
             data->output_disabled = true;
             /* std::atomic *should* be safe (we can assert std::atomic_is_lock_free())
              * but to avoid any risk we use DR's atomics and add 1.  This will only
