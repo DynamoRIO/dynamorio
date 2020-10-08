@@ -96,6 +96,7 @@ static char logsubdir[MAXIMUM_PATH];
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
+static int notify_beyond_global_max_once;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -436,12 +437,10 @@ memtrace(void *drcontext, bool skip_size_cap)
         do_write = false;
         if (is_num_refs_beyond_global_max()) {
             /* std::atomic *should* be safe (we can assert std::atomic_is_lock_free())
-             * but to avoid any risk we use DR's atomics.  The store cannot be moved
-             * above the load due to the acquire-release semantics.
+             * but to avoid any risk we use DR's atomics.
              */
-            static int notify_once;
-            if (dr_atomic_load32(&notify_once) == 0) {
-                int count = dr_atomic_add32_return_sum(&notify_once, 1);
+            if (dr_atomic_load32(&notify_beyond_global_max_once) == 0) {
+                int count = dr_atomic_add32_return_sum(&notify_beyond_global_max_once, 1);
                 if (count == 1) {
                     NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
                 }
@@ -1696,6 +1695,7 @@ event_exit(void)
     thread_filtering_enabled = false;
     num_refs = 0;
     num_refs_racy = 0;
+    notify_beyond_global_max_once = 0;
 
     dr_mutex_destroy(mutex);
     drutil_exit();
