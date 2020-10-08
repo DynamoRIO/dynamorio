@@ -128,8 +128,6 @@ typedef struct {
     /* For level 0 filters */
     byte *l0_dcache;
     byte *l0_icache;
-    /* For max output thresholds. */
-    bool output_disabled;
 } per_thread_t;
 
 #define MAX_NUM_DELAY_INSTRS 32
@@ -393,10 +391,17 @@ is_ok_to_split_before(trace_type_t type)
 }
 
 static inline bool
-is_beyond_global_max(void)
+is_num_refs_beyond_global_max(void)
 {
     return op_max_global_trace_refs.get_value() > 0 &&
         num_refs_racy > op_max_global_trace_refs.get_value();
+}
+
+static inline bool
+is_bytes_written_beyond_trace_max(per_thread_t *data)
+{
+    return op_max_trace_size.get_value() > 0 &&
+        data->bytes_written > op_max_trace_size.get_value();
 }
 
 static void
@@ -423,26 +428,23 @@ memtrace(void *drcontext, bool skip_size_cap)
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap &&
-        (data->output_disabled ||
-         (((op_max_trace_size.get_value() > 0 &&
-            data->bytes_written > op_max_trace_size.get_value()) ||
-           is_beyond_global_max())))) {
+        (is_bytes_written_beyond_trace_max(data) || is_num_refs_beyond_global_max())) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
          * beyond.  We also don't put much effort into reducing overhead once
          * beyond the limit: we still instrument and come here.
          */
         do_write = false;
-        if (!data->output_disabled && is_beyond_global_max()) {
-            data->output_disabled = true;
+        if (is_num_refs_beyond_global_max()) {
             /* std::atomic *should* be safe (we can assert std::atomic_is_lock_free())
-             * but to avoid any risk we use DR's atomics and add 1.  This will only
-             * happen once per thread so the int should never overflow (even if it does
-             * an extra print is not disastrous).
+             * but to avoid any risk we use DR's atomics.  The store cannot be moved
+             * above the load due to the acquire-release semantics.
              */
             static int notify_once;
-            int count = dr_atomic_add32_return_sum(&notify_once, 1);
-            if (count == 1) {
-                NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+            if (dr_atomic_load32(&notify_once) == 0) {
+                int count = dr_atomic_add32_return_sum(&notify_once, 1);
+                if (count == 1) {
+                    NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+                }
             }
         }
     } else
@@ -1583,7 +1585,7 @@ event_thread_init(void *drcontext)
     if ((should_trace_thread_cb != NULL &&
          !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
                                     trace_thread_cb_user_data)) ||
-        is_beyond_global_max())
+        is_num_refs_beyond_global_max())
         BUF_PTR(data->seg_base) = NULL;
     else {
         create_buffer(data);
@@ -1600,8 +1602,7 @@ event_thread_exit(void *drcontext)
         /* This thread was *not* filtered out. */
 
         /* let the simulator know this thread has exited */
-        if (op_max_trace_size.get_value() > 0 &&
-            data->bytes_written > op_max_trace_size.get_value()) {
+        if (is_bytes_written_beyond_trace_max(data)) {
             // If over the limit, we still want to write the footer, but nothing else.
             BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
         }
@@ -1686,7 +1687,7 @@ event_exit(void)
         DR_ASSERT(false);
     dr_unregister_exit_event(event_exit);
 
-    /* Clear callbacks to support reset. */
+    /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
     if (!offline_instru_t::custom_module_data(nullptr, nullptr, nullptr))
         DR_ASSERT(false && "failed to clear custom module callbacks");

@@ -228,8 +228,9 @@ droption_t<bytesize_t> op_max_trace_size(
 
 droption_t<bytesize_t> op_max_global_trace_refs(
     DROPTION_SCOPE_CLIENT, "max_global_trace_refs", 0,
-    "Cap on the total references traced",
-    "If non-zero, this sets a maximum size on the amount of trace references recorded. "
+    "Cap on the total references of any type traced",
+    "If non-zero, this sets a maximum size on the amount of trace entry references "
+    "(of any type: instructions, loads, stores, markers, etc.) recorded. "
     "Once reached, instrumented execution continues, but no further data is recorded. "
     "This is similar to -exit_after_tracing but without terminating the process."
     "The reference count is approximate.");
