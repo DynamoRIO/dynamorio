@@ -83,7 +83,9 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
     return TLS_FCACHE_RETURN_SLOT;
 }
 
-/* Generate move (immediate) of a 64-bit value using at most 4 instructions. */
+/* Generate move (immediate) of a 64-bit value using at most 4 instructions.
+ * pc must be a writable (vmcode) pc.
+ */
 static uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 {
@@ -110,7 +112,8 @@ int
 insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                              cache_pc stub_pc, ushort l_flags)
 {
-    uint *pc = (uint *)stub_pc;
+    uint *write_stub_pc = (uint *)vmcode_get_writable_addr(stub_pc);
+    uint *pc = write_stub_pc;
     uint num_nops_needed = 0;
     /* FIXME i#1575: coarse-grain NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(!TEST(FRAG_COARSE_GRAIN, f->flags));
@@ -120,7 +123,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
-        num_nops_needed = 4 - (pc - (uint *)stub_pc - 1);
+        num_nops_needed = 4 - (pc - write_stub_pc - 1);
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_fcache_return_tls_offs(dcontext, f->flags) >> 3 << 10);
@@ -135,7 +138,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                  TLS_REG0_SLOT >> 3 << 15);
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
-        num_nops_needed = 4 - (pc - (uint *)stub_pc - 1);
+        num_nops_needed = 4 - (pc - write_stub_pc - 1);
         /* ldr x1, [x(stolen), #(offs)] */
         *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
@@ -150,8 +153,9 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     for (uint j = 0; j < num_nops_needed; j++)
         *pc++ = NOP_INST;
 
-    ASSERT((ptr_int_t)((byte *)pc - (byte *)stub_pc) == DIRECT_EXIT_STUB_SIZE(l_flags));
-    return (int)((byte *)pc - (byte *)stub_pc);
+    ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
+           DIRECT_EXIT_STUB_SIZE(l_flags));
+    return (int)((byte *)pc - (byte *)write_stub_pc);
 }
 
 bool
@@ -181,7 +185,8 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
     ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)stub_pc;
     if (off + 0x8000000 < 0x10000000) {
         /* We can get there with a B (OP_b, 26-bit signed immediate offset). */
-        *(uint *)stub_pc = (0x14000000 | (0x03ffffff & off >> 2));
+        *(uint *)vmcode_get_writable_addr(stub_pc) =
+            (0x14000000 | (0x03ffffff & off >> 2));
         if (hot_patch)
             machine_cache_sync(stub_pc, stub_pc + 4, true);
         return;
@@ -201,8 +206,9 @@ void
 unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     /* Restore the stp x0, x1, [x28] instruction. */
-    *(uint *)stub_pc = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                        TLS_REG0_SLOT >> 3 << 15);
+    *(uint *)vmcode_get_writable_addr(stub_pc) =
+        (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
+         TLS_REG0_SLOT >> 3 << 15);
     if (hot_patch)
         machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
 }
@@ -213,19 +219,19 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
 {
     /* Compute offset as unsigned, modulo arithmetic. */
     ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)branch_pc;
-    uint *p = (uint *)branch_pc;
-    uint enc = *p;
+    uint *pc_writable = (uint *)vmcode_get_writable_addr(branch_pc);
+    uint enc = *pc_writable;
     ASSERT(ALIGNED(branch_pc, 4) && ALIGNED(target_pc, 4));
     if ((enc & 0xfc000000) == 0x14000000) { /* B */
         ASSERT(off + 0x8000000 < 0x10000000);
-        *p = (0x14000000 | (0x03ffffff & off >> 2));
+        *pc_writable = (0x14000000 | (0x03ffffff & off >> 2));
     } else if ((enc & 0xff000010) == 0x54000000 ||
                (enc & 0x7e000000) == 0x34000000) { /* B.cond, CBNZ, CBZ */
         ASSERT(off + 0x40000 < 0x80000);
-        *p = (enc & 0xff00001f) | (0x00ffffe0 & off >> 2 << 5);
+        *pc_writable = (enc & 0xff00001f) | (0x00ffffe0 & off >> 2 << 5);
     } else if ((enc & 0x7e000000) == 0x36000000) { /* TBNZ, TBZ */
         ASSERT(off + 0x2000 < 0x4000);
-        *p = (enc & 0xfff8001f) | (0x0007ffe0 & off >> 2 << 5);
+        *pc_writable = (enc & 0xfff8001f) | (0x0007ffe0 & off >> 2 << 5);
     } else
         ASSERT(false);
     if (hot_patch)
@@ -280,8 +286,9 @@ link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 
     pc = get_stub_branch(pc) - 1;
     /* ldr x1, [x(stolen), #(offs)] */
-    *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-           get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
+    *(uint *)vmcode_get_writable_addr((byte *)pc) =
+        (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+         get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
     if (hot_patch)
         machine_cache_sync(pc, pc + 1, true);
@@ -327,8 +334,9 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     pc = get_stub_branch(pc) - 1;
 
     /* ldr x1, [x(stolen), #(offs)] */
-    *pc = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-           get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
+    *(uint *)vmcode_get_writable_addr((byte *)pc) =
+        (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+         get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
 
     machine_cache_sync(pc, pc + 1, true);
 }
@@ -367,13 +375,14 @@ void
 insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
 {
     /* Always use prefix on AArch64 as there is no load to PC. */
-    byte *pc = (byte *)f->start_pc;
+    byte *write_start = vmcode_get_writable_addr(f->start_pc);
+    byte *pc = write_start;
     ASSERT(f->prefix_size == 0);
     /* ldr x0, [x(stolen), #(off)] */
     *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
                    (dr_reg_stolen - DR_REG_X0) << 5 | ENTRY_PC_SPILL_SLOT >> 3 << 10);
     pc += 4;
-    f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
+    f->prefix_size = (byte)(((cache_pc)pc) - write_start);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }
 
@@ -842,20 +851,22 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
     ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
     ASSERT(code->special_ibl_xfer[index] != NULL);
     pc = (uint *)(code->special_ibl_xfer[index] + code->special_ibl_unlink_offs[index]);
+    uint *write_pc = (uint *)vmcode_get_writable_addr((byte *)pc);
 
     protect_generated_code(code, WRITABLE);
 
     /* ldr x1, [x(stolen), #(offs)] */
-    pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-             get_ibl_entry_tls_offs(dcontext, ibl_tgt) >> 3 << 10);
+    write_pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+                   get_ibl_entry_tls_offs(dcontext, ibl_tgt) >> 3 << 10);
 
     /* br x1 */
-    pc[1] = 0xd61f0000 | 1 << 5;
+    write_pc[1] = 0xd61f0000 | 1 << 5;
 
     machine_cache_sync(pc, pc + 2, true);
     protect_generated_code(code, READONLY);
 }
 
+/* addr must be a writable (vmcode) address. */
 bool
 fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
 {
