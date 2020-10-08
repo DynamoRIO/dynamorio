@@ -719,8 +719,21 @@ during a desired window of execution.
 
 The \p -trace_after_instrs option delays tracing by the specified number of
 dynamic instruction executions.  This can be used to skip initialization
-and arrive at the desired starting point.  The trace's length can also be
-limited by the \p -exit_after_tracing option.
+and arrive at the desired starting point.  The trace's length can be
+limited in several ways:
+
+- The \p -max_global_trace_refs option causes the recording of trace
+  data to cease once the specified threshold is exceeded by the sum of
+  all trace references across all threads.  One trace reference entry
+  equals one recorded address, but due to post-processing expansion a
+  final offline line trace will be larger.  Once recording ceases, the
+  application will continue to run.  Threads that are newly created after
+  the threshold is reached will not appear in the trace.
+- The \p -exit_after_tracing option similarly specifies a global trace
+  reference count, but once it is exceeded, the process is terminated.
+- The \p -max_trace_size option sets a cap on the number of bytes written
+  by each thread.  This is a per-thread limit, and if one thread hits the
+  limit it does not affect the trace recoding of other threads.
 
 If the application can be modified, it can be linked with the \p drcachesim
 tracer and use DynamoRIO's start/stop API routines dr_app_setup_and_start()

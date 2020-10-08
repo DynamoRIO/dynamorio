@@ -3177,6 +3177,13 @@ if (CLIENT_INTERFACE)
       torunonly_drcachesim(delay-simple ${ci_shared_app}
         "-trace_after_instrs 20000 -exit_after_tracing 10000" "")
 
+      # We use a many-threaded test with a small max and test that we only see
+      # 1 thread, testing the thread ignore logic.  The max should be small enough
+      # to not be flaky on any platform.
+      torunonly_drcachesim(delay-global client.annotation-concurrency
+        "-simulator_type basic_counts -trace_after_instrs 20K -max_global_trace_refs 10K"
+        "${annotation_test_args_shorter}")
+
       # Test that "Warmup hits" and "Warmup misses" are printed out
       torunonly_drcachesim(warmup-valid ${ci_shared_app} "-warmup_refs 1" "")
 
@@ -3398,6 +3405,11 @@ if (CLIENT_INTERFACE)
 
       torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
       torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
+
+      # As for the online test, we check that only 1 thread is in the final trace.
+      torunonly_drcacheoff(max-global client.annotation-concurrency
+        "-trace_after_instrs 20K -max_global_trace_refs 10K"
+        "@-simulator_type@basic_counts" "${annotation_test_args_shorter}")
 
       # __builtin_prefetch used in the test is not defined on MSVC.
       if (NOT MSVC)
