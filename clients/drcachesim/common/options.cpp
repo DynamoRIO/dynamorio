@@ -226,6 +226,15 @@ droption_t<bytesize_t> op_max_trace_size(
     "of one internal buffer.  Once reached, instrumentation continues for that thread, "
     "but no further data is recorded.");
 
+droption_t<bytesize_t> op_max_global_trace_refs(
+    DROPTION_SCOPE_CLIENT, "max_global_trace_refs", 0,
+    "Cap on the total references of any type traced",
+    "If non-zero, this sets a maximum size on the amount of trace entry references "
+    "(of any type: instructions, loads, stores, markers, etc.) recorded. "
+    "Once reached, instrumented execution continues, but no further data is recorded. "
+    "This is similar to -exit_after_tracing but without terminating the process."
+    "The reference count is approximate.");
+
 droption_t<bytesize_t> op_trace_after_instrs(
     DROPTION_SCOPE_CLIENT, "trace_after_instrs", 0,
     "Do not start tracing until N instructions",
@@ -238,7 +247,8 @@ droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
     "Exit the process after tracing N references",
     "If non-zero, after tracing the specified number of references, the process is "
-    "exited with an exit code of 0.  The reference count is approximate.");
+    "exited with an exit code of 0.  The reference count is approximate. "
+    "Use -max_global_trace_refs instead to avoid terminating the process.");
 
 droption_t<bool> op_online_instr_types(
     DROPTION_SCOPE_CLIENT, "online_instr_types", false,

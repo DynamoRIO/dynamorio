@@ -96,6 +96,7 @@ static char logsubdir[MAXIMUM_PATH];
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
+static int notify_beyond_global_max_once;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -113,7 +114,7 @@ static size_t max_buf_size;
 
 static drvector_t scratch_reserve_vec;
 
-/* thread private buffer and counter */
+/* Thread private data.  This is all set to 0 at thread init. */
 typedef struct {
     byte *seg_base;
     byte *buf_base;
@@ -390,6 +391,20 @@ is_ok_to_split_before(trace_type_t type)
         type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT;
 }
 
+static inline bool
+is_num_refs_beyond_global_max(void)
+{
+    return op_max_global_trace_refs.get_value() > 0 &&
+        num_refs_racy > op_max_global_trace_refs.get_value();
+}
+
+static inline bool
+is_bytes_written_beyond_trace_max(per_thread_t *data)
+{
+    return op_max_trace_size.get_value() > 0 &&
+        data->bytes_written > op_max_trace_size.get_value();
+}
+
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
@@ -413,13 +428,24 @@ memtrace(void *drcontext, bool skip_size_cap)
                                               dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
-    if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
-        data->bytes_written > op_max_trace_size.get_value()) {
+    if (!skip_size_cap &&
+        (is_bytes_written_beyond_trace_max(data) || is_num_refs_beyond_global_max())) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
          * beyond.  We also don't put much effort into reducing overhead once
          * beyond the limit: we still instrument and come here.
          */
         do_write = false;
+        if (is_num_refs_beyond_global_max()) {
+            /* std::atomic *should* be safe (we can assert std::atomic_is_lock_free())
+             * but to avoid any risk we use DR's atomics.
+             */
+            if (dr_atomic_load32(&notify_beyond_global_max_once) == 0) {
+                int count = dr_atomic_add32_return_sum(&notify_beyond_global_max_once, 1);
+                if (count == 1) {
+                    NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+                }
+            }
+        }
     } else
         data->bytes_written += buf_ptr - pipe_start;
 
@@ -1555,9 +1581,10 @@ event_thread_init(void *drcontext)
     data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
-    if (should_trace_thread_cb != NULL &&
-        !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
-                                   trace_thread_cb_user_data))
+    if ((should_trace_thread_cb != NULL &&
+         !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
+                                    trace_thread_cb_user_data)) ||
+        is_num_refs_beyond_global_max())
         BUF_PTR(data->seg_base) = NULL;
     else {
         create_buffer(data);
@@ -1574,15 +1601,18 @@ event_thread_exit(void *drcontext)
         /* This thread was *not* filtered out. */
 
         /* let the simulator know this thread has exited */
-        if (op_max_trace_size.get_value() > 0 &&
-            data->bytes_written > op_max_trace_size.get_value()) {
+        if (is_bytes_written_beyond_trace_max(data)) {
             // If over the limit, we still want to write the footer, but nothing else.
             BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
         }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
-        memtrace(drcontext, true);
+        memtrace(drcontext,
+                 /* If this thread already wrote some data, include its exit even
+                  * if we're over a size limit.
+                  */
+                 data->bytes_written > 0);
 
         if (op_offline.get_value())
             file_ops_func.close_file(data->file);
@@ -1656,13 +1686,16 @@ event_exit(void)
         DR_ASSERT(false);
     dr_unregister_exit_event(event_exit);
 
-    /* Clear callbacks to support reset. */
+    /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
     if (!offline_instru_t::custom_module_data(nullptr, nullptr, nullptr))
         DR_ASSERT(false && "failed to clear custom module callbacks");
     should_trace_thread_cb = nullptr;
     trace_thread_cb_user_data = nullptr;
     thread_filtering_enabled = false;
+    num_refs = 0;
+    num_refs_racy = 0;
+    notify_beyond_global_max_once = 0;
 
     dr_mutex_destroy(mutex);
     drutil_exit();
@@ -1920,6 +1953,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef DRMEMTRACE_STATIC
         NOTIFY(0, "-use_physical is unsafe with statically linked clients\n");
 #endif
+    }
+
+    if (op_max_global_trace_refs.get_value() > 0) {
+        /* We need the same is-buffer-zero checks in the instrumentation. */
+        thread_filtering_enabled = true;
     }
 }
 
