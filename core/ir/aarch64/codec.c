@@ -2352,7 +2352,7 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
          *  _
          * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
          *
-         * ---- ---- ---a bcde fgh----- -------- immediate encoding 
+         * ---- ---- ---a bcde fgh----- -------- immediate encoding
          */
         union {
             double d;
