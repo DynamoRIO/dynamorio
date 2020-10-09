@@ -1444,7 +1444,6 @@ enum {
     NULL_kind,
     IMMED_INTEGER_kind,
     IMMED_FLOAT_kind,
-    IMMED_DOUBLE_kind,
     PC_kind,
     INSTR_kind,
     REG_kind,
@@ -1458,6 +1457,7 @@ enum {
     ABS_ADDR_kind, /* 64-bit absolute address: x64 only */
 #    endif
     MEM_INSTR_kind,
+    IMMED_DOUBLE_kind,
     LAST_kind, /* sentinal; not a valid opnd kind */
 };
 #endif /* DR_FAST_IR */
@@ -2180,6 +2180,15 @@ DR_API
  */
 float
 opnd_get_immed_float(opnd_t opnd);
+
+DR_API
+/**
+ * Assumes \p opnd is an immediate double and returns its value.
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
+double
+opnd_get_immed_double(opnd_t opnd);
 
 DR_API
 /** Assumes \p opnd is a (near or far) program address and returns its value. */

@@ -593,55 +593,55 @@ test_fmov_scalar(void *dc)
 
     /* FMOV <Dd>, #<imm> (64 bit scalar register) */
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(1.0));
+                                         opnd_create_immed_double(1.0));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(-1.0));
+                                         opnd_create_immed_double(-1.0));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(2.0));
+                                         opnd_create_immed_double(2.0));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(-2.0));
+                                         opnd_create_immed_double(-2.0));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(3.5));
+                                         opnd_create_immed_double(3.5));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(4.25));
+                                         opnd_create_immed_double(4.25));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(1.125));
+                                         opnd_create_immed_double(1.125));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(-1.125));
+                                         opnd_create_immed_double(-1.125));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(0.25));
+                                         opnd_create_immed_double(0.25));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(-0.25));
+                                         opnd_create_immed_double(-0.25));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(1.9375));
+                                         opnd_create_immed_double(1.9375));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(0.2109375));
+                                         opnd_create_immed_double(0.2109375));
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_scalar_imm(dc, opnd_create_reg(DR_REG_D0),
-                                         opnd_create_immed_float(31.0));
+                                         opnd_create_immed_double(31.0));
     test_instr_encoding(dc, OP_fmov, instr);
 }
 

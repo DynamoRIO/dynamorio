@@ -59,6 +59,7 @@
 #undef opnd_is_null
 #undef opnd_is_immed_int
 #undef opnd_is_immed_float
+#undef opnd_is_immed_double
 #undef opnd_is_near_pc
 #undef opnd_is_near_instr
 #undef opnd_is_reg
@@ -81,6 +82,11 @@ bool
 opnd_is_immed_float(opnd_t op)
 {
     return OPND_IS_IMMED_FLOAT(op);
+}
+bool
+opnd_is_immed_double(opnd_t op)
+{
+    return OPND_IS_IMMED_DOUBLE(op);
 }
 bool
 opnd_is_near_pc(opnd_t op)
@@ -125,6 +131,7 @@ opnd_is_valid(opnd_t op)
 #define opnd_is_null OPND_IS_NULL
 #define opnd_is_immed_int OPND_IS_IMMED_INT
 #define opnd_is_immed_float OPND_IS_IMMED_FLOAT
+#define opnd_is_immed_double OPND_IS_IMMED_DOUBLE
 #define opnd_is_near_pc OPND_IS_NEAR_PC
 #define opnd_is_near_instr OPND_IS_NEAR_INSTR
 #define opnd_is_reg OPND_IS_REG
@@ -270,6 +277,7 @@ opnd_get_size(opnd_t opnd)
     case REG_kind: return (opnd.size == 0 ? reg_get_size(opnd_get_reg(opnd)) : opnd.size);
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case BASE_DISP_kind:
 #if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
@@ -379,9 +387,9 @@ opnd_create_immed_float(float i)
 {
     opnd_t opnd;
     opnd.kind = IMMED_FLOAT_kind;
-    /* note that manipulating floats is dangerous - see case 4360
-     * even this copy can end up using fp load/store instrs and could
-     * trigger a pending fp exception (i#386)
+    /* Note that manipulating floats and doubles by copying in this way can
+     * result in using FP load/store instructions which can trigger any pending
+     * FP exception (i#386).
      */
     opnd.value.immed_float = i;
     /* currently only used for implicit constants that have no size */
@@ -395,9 +403,9 @@ opnd_create_immed_double(double i)
 {
     opnd_t opnd;
     opnd.kind = IMMED_DOUBLE_kind;
-    /* note that manipulating floats and doubles is dangerous - see case 4360
-     * even this copy can end up using fp load/store instrs and could
-     * trigger a pending fp exception (i#386)
+    /* Note that manipulating floats and doubles by copying in this way can
+     * result in using FP load/store instructions which can trigger any pending
+     * FP exception (i#386).
      */
     opnd.value.immed_double = i;
     /* currently only used for implicit constants that have no size */
@@ -446,6 +454,14 @@ opnd_get_immed_float(opnd_t opnd)
      * this return shouldn't require any fp state, though
      */
     return opnd.value.immed_float;
+}
+
+double
+opnd_get_immed_double(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd_is_immed_double(opnd),
+                  "opnd_get_immed_double called on non-immed-float");
+    return opnd.value.immed_double;
 }
 
 /* address operands */
@@ -1044,6 +1060,7 @@ opnd_num_regs_used(opnd_t opnd)
     case NULL_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case PC_kind:
     case FAR_PC_kind:
     case INSTR_kind:
@@ -1076,6 +1093,7 @@ opnd_get_reg_used(opnd_t opnd, int index)
     case NULL_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case PC_kind:
     case FAR_PC_kind:
     case MEM_INSTR_kind:
@@ -1168,6 +1186,7 @@ opnd_uses_reg(opnd_t opnd, reg_id_t reg)
     case NULL_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case PC_kind:
     case FAR_PC_kind:
     case INSTR_kind:
@@ -1200,6 +1219,7 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
     case NULL_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case PC_kind:
     case FAR_PC_kind:
     case INSTR_kind:
@@ -1337,6 +1357,8 @@ opnd_same(opnd_t op1, opnd_t op2)
     case IMMED_FLOAT_kind:
         /* avoid any fp instrs (xref i#386) */
         return *(int *)(&op1.value.immed_float) == *(int *)(&op2.value.immed_float);
+    case IMMED_DOUBLE_kind:
+        return *(long *)(&op1.value.immed_double) == *(long *)(&op2.value.immed_double);
     case PC_kind: return op1.value.pc == op2.value.pc;
     case FAR_PC_kind:
         return (op1.aux.far_pc_seg_selector == op2.aux.far_pc_seg_selector &&
@@ -1391,6 +1413,7 @@ opnd_share_reg(opnd_t op1, opnd_t op2)
     case NULL_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case PC_kind:
     case FAR_PC_kind:
     case INSTR_kind:
@@ -1439,6 +1462,7 @@ opnd_defines_use(opnd_t def, opnd_t use)
     case NULL_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case PC_kind:
     case FAR_PC_kind:
     case INSTR_kind:

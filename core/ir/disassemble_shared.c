@@ -578,12 +578,23 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         }
     } break;
     case IMMED_FLOAT_kind: {
-        /* need to save floating state around float printing */
+        /* Save floating state for float printing. */
         PRESERVE_FLOATING_POINT_STATE({
             uint top;
             uint bottom;
             const char *sign;
             double_print(opnd_get_immed_float(opnd), 6, &top, &bottom, &sign);
+            print_to_buffer(buf, bufsz, sofar, "%s%s%u.%.6u", immed_prefix(), sign, top,
+                            bottom);
+        });
+        break;
+    }
+    case IMMED_DOUBLE_kind: {
+        PRESERVE_FLOATING_POINT_STATE({
+            uint top;
+            uint bottom;
+            const char *sign;
+            double_print(opnd_get_immed_double(opnd), 6, &top, &bottom, &sign);
             print_to_buffer(buf, bufsz, sofar, "%s%s%u.%.6u", immed_prefix(), sign, top,
                             bottom);
         });
@@ -640,6 +651,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         case NULL_kind:
         case IMMED_INTEGER_kind:
         case IMMED_FLOAT_kind:
+        case IMMED_DOUBLE_kind:
         case PC_kind:
         case FAR_PC_kind: break;
         case REG_kind:

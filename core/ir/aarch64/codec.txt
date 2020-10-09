@@ -110,7 +110,6 @@
 -----------xxxxx----------------  d16        # D register
 -----------xxxxx----------------  q16        # Q register
 -----------xxxxx----------------  z16        # Z register
------------xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
@@ -129,6 +128,7 @@
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
+--------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)

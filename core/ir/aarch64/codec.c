@@ -1598,7 +1598,7 @@ decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         __fp16 f;
         uint16_t i;
 #else
-        /* For platforms on which 16 bit (half-precision) FP not yet available */
+        /* For platforms on which 16 bit (half-precision) FP is not yet available. */
         float f;
         uint32_t i;
 #endif
@@ -1655,7 +1655,7 @@ encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
         __fp16 f;
         uint16_t i;
 #else
-        /* For platforms on which 16 bit (half-precision) FP not yet available */
+        /* For platforms on which 16 bit (half-precision) FP is not yet available. */
         float f;
         uint32_t i;
 #endif
@@ -1883,143 +1883,6 @@ static inline bool
 encode_opnd_z16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_z(16, opnd, enc_out);
-}
-
-/* fpimm13: floating-point immediate for scalar fmov */
-
-static inline bool
-decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    /*
-     * From the Architecture Reference Manual, 8 bit immediate abcdefgh maps to
-     * floats:
-     *
-     * 3332 2222 2222 1111 1111 11
-     * 1098 7654 3210 9876 5432 1098 7654 3210
-     *  _                            abcd efgh <- 8 bit immediate mapped to
-     * abbb bbbc defg h000 0000 0000 0000 0000 <- 32 bit float
-     *
-     *   abcd efgh  Masks
-     * 0x1    0     a
-     * 0x4    0     b
-     * 0x2    0     c
-     * 0x1    F     defgh
-     */
-    if (extract_uint(enc, 22, 1) == 0) { /* 32 bits */
-        union {
-            float f;
-            uint32_t i;
-        } fpv;
-
-        uint32_t imm = extract_uint(enc, 13, 8);
-
-        uint32_t a = imm & 0x80;
-        uint32_t b = imm & 0x40;
-        uint32_t not_b = ((b == 0) ? 1 : 0);
-        uint32_t bbbbb = ((b == 0) ? 0 : 0x1f);
-        uint32_t c = imm & 0x20;
-        uint32_t defgh = imm & 0x1f;
-
-        uint32_t imm32 =
-            (a << 24) | (not_b << 30) | (bbbbb << 25) | (c << 19) | (defgh << 19);
-
-        fpv.i = imm32;
-        *opnd = opnd_create_immed_float(fpv.f);
-    } else { /* 64 bits */
-        /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
-         * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
-         *  _                                                               abcdefgh
-         * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
-         */
-        union {
-            double d;
-            uint64_t i;
-        } fpv;
-
-        uint64_t imm = extract_uint(enc, 13, 8);
-
-        uint64_t a = imm & 0x80;
-        uint64_t b = imm & 0x40;
-        uint64_t not_b = ((b == 0) ? 1 : 0);
-        uint64_t bbbbbbbb = ((b == 0) ? 0 : 0xff);
-        uint64_t c = imm & 0x20;
-        uint64_t defgh = imm & 0x1f;
-
-        uint64_t imm64 =
-            (a << 56) | (not_b << 62) | (bbbbbbbb << 55) | (c << 48) | (defgh << 48);
-
-        fpv.i = imm64;
-        *opnd = opnd_create_immed_double(fpv.d);
-    }
-    return true;
-}
-
-static inline bool
-encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    /*
-     * From the Architecture Reference Manual, 8 bit immediate abcdefgh maps to
-     * floats:
-     *
-     *   3332 2222 2222 1111 1111 11
-     *   1098 7654 3210 9876 5432 1098 7654 3210
-     *    _
-     *   abbb bbbc defg h000 0000 0000 0000 0000
-     * 0x8    0    0    0    0    0    0    0    a
-     * 0x1    0    0    0    0    0    0    0    b
-     * 0x0    1    0    0    0    0    0    0    c
-     * 0x0    0    f    8    0    0    0    0    defgh
-     */
-    if (opnd_is_immed_float(opnd)) {
-        if (extract_uint(enc, 22, 1) == 0) { /* 32 bits */
-            union {
-                float f;
-                uint32_t i;
-            } fpv;
-            fpv.f = opnd_get_immed_float(opnd);
-            uint32_t imm = fpv.i;
-
-            uint a = (imm & 0x80000000);
-            uint b = (imm & 0x10000000);
-            uint c = (imm & 0x01000000);
-            uint defgh = (imm & 0x00f80000);
-
-            /* 3332 2222 2222 1111 1111 11
-             * 1098 7654 3210 9876 5432 1098 7654 3210
-             * ---- ---- ---a bcde fgh- ---- ---- ----   immediate encoding
-             * |-----11---->|           0x80000000 a
-             *    |-----9---->|         0x10000000 b
-             *         |---6-->|        0x01000000 c
-             *           |--6-->|       0x00f80000 defgh
-             */
-            *enc_out = (a >> 11) | (b >> 9) | (c >> 6) | (defgh >> 6);
-        } else { /* 64 bits */
-            /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
-             * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
-             *  _
-             * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
-             *
-             * ---- ---- ---a bcde fgh----- --------   immediate encoding
-             */
-            union {
-                double f;
-                uint64_t i;
-            } fpv;
-            fpv.f = opnd_get_immed_float(opnd);
-            uint64_t imm = fpv.i;
-
-            uint a = (imm & 0x8000000000000000);
-            uint b = (imm & 0x1000000000000000);
-            uint c = (imm & 0x0020000000000000);
-            uint defgh = (imm & 0x001f000000000000);
-
-            *enc_out = (((a >> 11) | (b >> 10) | (c >> 3) | (defgh >> 3)) &
-                        0xffffffff00000000) >>
-                32;
-        }
-        return true;
-    }
-    return false;
 }
 
 /* mem9off: just the 9-bit offset from mem9 */
@@ -2371,6 +2234,145 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
         return true;
     }
     return false;
+}
+
+/* fpimm13: floating-point immediate for scalar fmov */
+
+static inline bool
+decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    /*
+     * From the Architecture Reference Manual, 8 bit immediate abcdefgh maps to
+     * floats:
+     *
+     * 3332 2222 2222 1111 1111 11
+     * 1098 7654 3210 9876 5432 1098 7654 3210
+     *  _                            abcd efgh <- 8 bit immediate mapped to
+     * abbb bbbc defg h000 0000 0000 0000 0000 <- 32 bit float
+     *
+     *   abcd efgh  Masks
+     * 0x1    0     a
+     * 0x4    0     b
+     * 0x2    0     c
+     * 0x1    F     defgh
+     */
+    if (extract_uint(enc, 22, 1) == 0) { /* 32 bits */
+        union {
+            float f;
+            uint32_t i;
+        } fpv;
+
+        uint32_t imm = extract_uint(enc, 13, 8);
+
+        uint32_t a = imm & 0x80;
+        uint32_t b = imm & 0x40;
+        uint32_t not_b = ((b == 0) ? 1 : 0);
+        uint32_t bbbbb = ((b == 0) ? 0 : 0x1f);
+        uint32_t c = imm & 0x20;
+        uint32_t defgh = imm & 0x1f;
+
+        uint32_t imm32 =
+            (a << 24) | (not_b << 30) | (bbbbb << 25) | (c << 19) | (defgh << 19);
+
+        fpv.i = imm32;
+        *opnd = opnd_create_immed_float(fpv.f);
+    } else { /* 64 bits */
+        /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
+         * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
+         *  _                                                               abcdefgh
+         * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
+         */
+        union {
+            double d;
+            uint64_t i;
+        } fpv;
+
+        uint64_t imm = extract_uint(enc, 13, 8);
+
+        uint64_t a = imm & 0x80;
+        uint64_t b = imm & 0x40;
+        uint64_t not_b = ((b == 0) ? 1 : 0);
+        uint64_t bbbbbbbb = ((b == 0) ? 0 : 0xff);
+        uint64_t c = imm & 0x20;
+        uint64_t defgh = imm & 0x1f;
+
+        uint64_t imm64 =
+            (a << 56) | (not_b << 62) | (bbbbbbbb << 54) | (c << 48) | (defgh << 48);
+
+        fpv.i = imm64;
+        *opnd = opnd_create_immed_double(fpv.d);
+    }
+    return true;
+}
+
+static inline bool
+encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    /*
+     * From the Architecture Reference Manual, 8 bit immediate abcdefgh maps to
+     * floats:
+     *
+     *   3332 2222 2222 1111 1111 11
+     *   1098 7654 3210 9876 5432 1098 7654 3210
+     *    _
+     *   abbb bbbc defg h000 0000 0000 0000 0000
+     * 0x8    0    0    0    0    0    0    0    a
+     * 0x1    0    0    0    0    0    0    0    b
+     * 0x0    1    0    0    0    0    0    0    c
+     * 0x0    0    f    8    0    0    0    0    defgh
+     */
+    if (opnd_is_immed_float(opnd)) {
+        ASSERT(extract_uint(enc, 22, 1) == 0); /* 32 bit floating point */
+        union {
+            float f;
+            uint32_t i;
+        } fpv;
+        fpv.f = opnd_get_immed_float(opnd);
+        uint32_t imm = fpv.i;
+
+        uint a = (imm & 0x80000000);
+        uint b = (imm & 0x10000000);
+        uint c = (imm & 0x01000000);
+        uint defgh = (imm & 0x00f80000);
+
+        /* 3332 2222 2222 1111 1111 11
+         * 1098 7654 3210 9876 5432 1098 7654 3210
+         * ---- ---- ---a bcde fgh- ---- ---- ----   immediate encoding
+         * |-----11---->|           0x80000000 a
+         *    |-----9---->|         0x10000000 b
+         *         |---6-->|        0x01000000 c
+         *           |--6-->|       0x00f80000 defgh
+         */
+        *enc_out = (a >> 11) | (b >> 9) | (c >> 6) | (defgh >> 6);
+    }
+    else if (opnd_is_immed_double(opnd)) {
+        ASSERT(extract_uint(enc, 22, 1) == 1); /* 64 bit floating point */
+        /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
+         * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
+         *  _
+         * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
+         *
+         * ---- ---- ---a bcde fgh----- -------- immediate encoding 
+         */
+        union {
+            double d;
+            uint64_t i;
+        } fpv;
+        fpv.d = opnd_get_immed_double(opnd);
+        uint64_t imm = fpv.i;
+
+        uint64_t a = (imm & 0x8000000000000000);
+        uint64_t b = (imm & 0x1000000000000000);
+        uint64_t c = (imm & 0x0020000000000000);
+        uint64_t defgh = (imm & 0x001f000000000000);
+
+        *enc_out = (((a >> 11) | (b >> 9) | (c >> 3) | (defgh >> 3)) &
+                    0xffffffff00000000) >> 32;
+    }
+    else
+        return false;
+
+    return true;
 }
 
 /* b_sz: Vector element width for SIMD instructions. */
