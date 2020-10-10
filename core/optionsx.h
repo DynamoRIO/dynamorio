@@ -3187,7 +3187,6 @@ OPTION(bool, multi_thread_exit,
 OPTION(bool, skip_thread_exit_at_exit, "skip thread exit events at process exit")
 #endif
 
-#ifdef EXPOSE_INTERNAL_OPTIONS
 OPTION_NAME(bool, optimize, " synthethic", "set if ANY opts are on")
 
 #    define OPTIMIZE_OPTION(type, name)                                     \
@@ -3210,10 +3209,8 @@ OPTIMIZE_OPTION(bool, unroll_loops)
 
 OPTIMIZE_OPTION(bool, instr_counts)
 OPTIMIZE_OPTION(bool, stack_adjust)
-#    ifdef LOAD_TO_CONST
 OPTIMIZE_OPTION(bool, loads_to_const)
 OPTIMIZE_OPTION(bool, safe_loads_to_const)
-#    endif
 
 OPTIMIZE_OPTION(uint, remove_dead_code) /* aggressiveness level */
 OPTIMIZE_OPTION(uint, constant_prop)    /* aggressiveness level */
@@ -3226,8 +3223,6 @@ OPTIMIZE_OPTION(uint, constant_prop)    /* aggressiveness level */
 OPTIMIZE_OPTION(bool, call_return_matching)
 OPTIMIZE_OPTION(bool, remove_unnecessary_zeroing) // FIXME: unnecessarily long option
 OPTIMIZE_OPTION(bool, peephole)
-#    undef OPTIMIZE_OPTION
-#endif /* EXPOSE_INTERNAL_OPTIONS */
 #ifdef HOT_PATCHING_INTERFACE
 OPTION_DEFAULT(bool, hot_patching, false, "enable hot patching")
 
