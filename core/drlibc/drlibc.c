@@ -59,18 +59,6 @@ safe_read_if_fast(const void *base, size_t size, void *out_buf)
     return d_r_safe_read(base, size, out_buf);
 }
 
-WEAK void
-d_r_internal_error(const char *file, int line, const char *expr)
-{
-    /* Do nothing for non-core. */
-}
-
-WEAK bool
-ignore_assert(const char *assert_file_line, const char *expr)
-{
-    return true;
-}
-
 WEAK int
 d_r_strcmp(const char *left, const char *right)
 {
@@ -308,4 +296,15 @@ find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
     result->argv[argc] = NULL;
     return true;
 }
+#endif
+
+#ifdef WINDOWS
+/***************************************************************************
+ * Windows mode switching support.
+ */
+
+/* We set a default equal to the observed 0x2b value on every Windows version.
+ * The core calls d_r_set_ss_selector() to update to the underlying value.
+ */
+int d_r_ss_value = 0x2b;
 #endif

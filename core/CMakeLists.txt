@@ -106,6 +106,8 @@ set(DRLIBC_SRCS
   ${drlibc_arch_asm_src}
   drlibc/drlibc.c
   drlibc/drlibc_notdr_dcxt.c
+  drlibc/drlibc_notdr_error.c
+  drlibc/drlibc_notdr_ignoreassert.c
   drlibc/drlibc_notdr_logfile.c
   drlibc/drlibc_notdr_printlog.c
   drlibc/drlibc_notdr_report.c
