@@ -2344,8 +2344,7 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
          *           |--6-->|       0x00f80000 defgh
          */
         *enc_out = (a >> 11) | (b >> 9) | (c >> 6) | (defgh >> 6);
-    }
-    else if (opnd_is_immed_double(opnd)) {
+    } else if (opnd_is_immed_double(opnd)) {
         ASSERT(extract_uint(enc, 22, 1) == 1); /* 64 bit floating point */
         /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
          * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
@@ -2366,10 +2365,9 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
         uint64_t c = (imm & 0x0020000000000000);
         uint64_t defgh = (imm & 0x001f000000000000);
 
-        *enc_out = (((a >> 11) | (b >> 9) | (c >> 3) | (defgh >> 3)) &
-                    0xffffffff00000000) >> 32;
-    }
-    else
+        *enc_out =
+            (((a >> 11) | (b >> 9) | (c >> 3) | (defgh >> 3)) & 0xffffffff00000000) >> 32;
+    } else
         return false;
 
     return true;

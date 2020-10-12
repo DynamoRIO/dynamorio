@@ -107,7 +107,7 @@ bool
 opnd_is_immed(opnd_t op)
 {
     return op.kind == IMMED_INTEGER_kind || op.kind == IMMED_FLOAT_kind ||
-           op.kind == IMMED_DOUBLE_kind;
+        op.kind == IMMED_DOUBLE_kind;
 }
 
 INSTR_INLINE
