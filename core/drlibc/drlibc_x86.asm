@@ -584,8 +584,8 @@ smc_return_to_32:
          * Re-instating the proper descriptor by re-loading the selector seems
          * to solve the problem.
          */
-        mov      eax, DWORD SYMREF(d_r_ss_value)
-        mov      ss, eax
+        mov      ebx, DWORD SYMREF(d_r_ss_value)
+        mov      ss, ebx
         pop      ebx             /* restore callee-saved reg */
         ret                      /* return value already in eax */
         END_FUNC(FUNCNAME)
