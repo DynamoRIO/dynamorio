@@ -517,6 +517,19 @@ sml_return_to_32:
         END_FUNC(FUNCNAME)
 
 /*
+ * void d_r_set_ss_selector()
+ */
+DECL_EXTERN(d_r_ss_value)
+# undef FUNCNAME
+# define FUNCNAME d_r_set_ss_selector
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      eax, ss
+        mov      DWORD SYMREF(d_r_ss_value), eax
+        ret
+        END_FUNC(FUNCNAME)
+
+/*
  * int switch_modes_and_call(uint64 func, void *arg1, void *arg2, void *arg3)
  */
 # undef FUNCNAME
@@ -564,6 +577,15 @@ smc_transfer_to_64:
         jmp      fword ptr [esp]
 smc_return_to_32:
         add      esp, 8          /* clean up far jmp target */
+        /* i#4091: Work around an AMD processor bug where after switching from 64-bit
+         * back to 32-bit, if a thread switch happens around the same time, the
+         * SS segment descriptor gets corrupted somehow and any ESP reference
+         * raises an access violation with an undocumented Parameter[0]=00000003.
+         * Re-instating the proper descriptor by re-loading the selector seems
+         * to solve the problem.
+         */
+        mov      ebx, DWORD SYMREF(d_r_ss_value)
+        mov      ss, ebx
         pop      ebx             /* restore callee-saved reg */
         ret                      /* return value already in eax */
         END_FUNC(FUNCNAME)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -124,5 +124,13 @@ bool
 find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
                         ssize_t (*reader)(const char *pathname, void *buf, size_t count));
 #endif /* UNIX */
+
+#if defined(WINDOWS) && !defined(X64)
+/* Meant to be called at initialization time when .data is writable and races are
+ * not a concern.
+ */
+void
+d_r_set_ss_selector();
+#endif
 
 #endif /* _DR_LIBC_H_ */
