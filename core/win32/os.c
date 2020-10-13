@@ -1895,6 +1895,9 @@ os_take_over_init(void)
         GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_TAKEOVER,
         80 /* load factor: not perf-critical */, HASHTABLE_SHARED | HASHTABLE_PERSISTENT,
         takeover_table_entry_free _IF_DEBUG("takeover table"));
+#    ifndef X64
+    d_r_set_ss_selector();
+#    endif
 }
 
 /* We need to distinguish a thread intercepted via APC hook but that is in ntdll
