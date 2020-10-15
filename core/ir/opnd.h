@@ -1363,9 +1363,9 @@ struct _opnd_t {
         float immed_float;   /* IMMED_FLOAT_kind */
 #ifndef WINDOWS
         /* XXX i#4488: x87 floating point immediates should be double precision.
-	 * Currently not included for Windows because sizeof(opnd_t) does not
-	 * equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
-	 */
+         * Currently not included for Windows because sizeof(opnd_t) does not
+         * equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+         */
         double immed_double; /* IMMED_DOUBLE_kind */
 #endif
         /* PR 225937: today we provide no way of specifying a 16-bit immediate
