@@ -397,6 +397,10 @@ opnd_create_immed_float(float i)
     return opnd;
 }
 
+#ifndef WINDOWS
+/* Type double currently not included for Windows because sizeof(opnd_t) does
+ * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+ */
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 opnd_t
 opnd_create_immed_double(double i)
@@ -412,6 +416,7 @@ opnd_create_immed_double(double i)
     opnd.size = OPSZ_0;
     return opnd;
 }
+#endif
 
 opnd_t
 opnd_create_immed_float_for_opcode(uint opcode)
@@ -456,6 +461,10 @@ opnd_get_immed_float(opnd_t opnd)
     return opnd.value.immed_float;
 }
 
+#ifndef WINDOWS
+/* Type double currently not included for Windows because sizeof(opnd_t) does
+ * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+ */
 double
 opnd_get_immed_double(opnd_t opnd)
 {
@@ -463,6 +472,7 @@ opnd_get_immed_double(opnd_t opnd)
                   "opnd_get_immed_double called on non-immed-float");
     return opnd.value.immed_double;
 }
+#endif
 
 /* address operands */
 
@@ -1357,8 +1367,13 @@ opnd_same(opnd_t op1, opnd_t op2)
     case IMMED_FLOAT_kind:
         /* avoid any fp instrs (xref i#386) */
         return *(int *)(&op1.value.immed_float) == *(int *)(&op2.value.immed_float);
+#ifndef WINDOWS
+/* Type double currently not included for Windows because sizeof(opnd_t) does
+ * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+ */
     case IMMED_DOUBLE_kind:
         return *(long *)(&op1.value.immed_double) == *(long *)(&op2.value.immed_double);
+#endif
     case PC_kind: return op1.value.pc == op2.value.pc;
     case FAR_PC_kind:
         return (op1.aux.far_pc_seg_selector == op2.aux.far_pc_seg_selector &&
