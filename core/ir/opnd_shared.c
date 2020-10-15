@@ -1368,9 +1368,9 @@ opnd_same(opnd_t op1, opnd_t op2)
         /* avoid any fp instrs (xref i#386) */
         return *(int *)(&op1.value.immed_float) == *(int *)(&op2.value.immed_float);
 #ifndef WINDOWS
-/* Type double currently not included for Windows because sizeof(opnd_t) does
- * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
- */
+        /* Type double currently not included for Windows because sizeof(opnd_t) does
+         * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+         */
     case IMMED_DOUBLE_kind:
         return *(long *)(&op1.value.immed_double) == *(long *)(&op2.value.immed_double);
 #endif

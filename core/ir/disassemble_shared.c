@@ -589,10 +589,10 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         });
         break;
     }
-#ifndef WINDOWS
-/* Type double currently not included for Windows because sizeof(opnd_t) does
- * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
- */
+#    ifndef WINDOWS
+        /* Type double currently not included for Windows because sizeof(opnd_t) does
+         * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+         */
     case IMMED_DOUBLE_kind: {
         PRESERVE_FLOATING_POINT_STATE({
             uint top;
@@ -604,7 +604,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         });
         break;
     }
-#endif
+#    endif
     case PC_kind: {
         app_pc target = opnd_get_pc(opnd);
         if (!print_known_pc_target(buf, bufsz, sofar, dcontext, target)) {
