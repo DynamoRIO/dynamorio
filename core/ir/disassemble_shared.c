@@ -590,7 +590,8 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         break;
     }
 #    ifndef WINDOWS
-        /* Type double currently not included for Windows because sizeof(opnd_t) does
+        /* XXX i#4488: x87 floating point immediates should be double precision.
+         * Type double currently not included for Windows because sizeof(opnd_t) does
          * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
          */
     case IMMED_DOUBLE_kind: {
