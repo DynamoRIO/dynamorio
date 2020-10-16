@@ -52,7 +52,7 @@ public:
 
     // This constructor is used when the arbitrary cache hierarchy is
     // defined in a configuration file.
-    cache_simulator_t(const std::string &config_file);
+    cache_simulator_t(std::istream *config_file);
 
     virtual ~cache_simulator_t();
     bool
