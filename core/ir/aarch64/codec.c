@@ -1594,7 +1594,7 @@ decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      *     = imm64:imm64 (Q=1)
      */
     union {
-#ifdef DR_HOST_AARCH64
+#ifdef HAVE_HALF_FLOAT
         __fp16 f;
         uint16_t i;
 #else
@@ -1611,7 +1611,7 @@ decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     uint b = (abc & 0x2);
     uint not_b = b == 0 ? 1 : 0;
 
-#ifdef DR_HOST_AARCH64
+#ifdef HAVE_HALF_FLOAT
     uint bb = ((b == 0) ? 0 : 0x3);
 #else
     uint bbbbb = ((b == 0) ? 0 : 0x1f);
@@ -1619,7 +1619,7 @@ decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 
     uint cdefgh = ((abc & 0x1) << 5) | (defgh & 0x1f);
 
-#ifdef DR_HOST_AARCH64
+#ifdef HAVE_HALF_FLOAT
     uint16_t imm16 = (a << 13) | (not_b << 14) | (bb << 12) | (cdefgh << 6);
     fpv.i = imm16;
 #else
@@ -1651,7 +1651,7 @@ encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
      * 0x0    7    c    0     defgh
      */
     union {
-#ifdef DR_HOST_AARCH64
+#ifdef HAVE_HALF_FLOAT
         __fp16 f;
         uint16_t i;
 #else
@@ -1665,7 +1665,7 @@ encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
         return false;
 
     fpv.f = opnd_get_immed_float(opnd);
-#ifdef DR_HOST_AARCH64
+#ifdef HAVE_HALF_FLOAT
     uint16_t imm = fpv.i;
     uint a = (imm & 0x8000);
     uint b = (imm & 0x1000);

@@ -1544,7 +1544,8 @@ opnd_t
 opnd_create_immed_float(float f);
 
 #ifndef WINDOWS
-/* Type double currently not included for Windows because sizeof(opnd_t) does
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
  */
 DR_API
@@ -2193,7 +2194,8 @@ float
 opnd_get_immed_float(opnd_t opnd);
 
 #ifndef WINDOWS
-/* Type double currently not included for Windows because sizeof(opnd_t) does
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
  */
 DR_API

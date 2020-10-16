@@ -398,7 +398,8 @@ opnd_create_immed_float(float i)
 }
 
 #ifndef WINDOWS
-/* Type double currently not included for Windows because sizeof(opnd_t) does
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
  */
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
@@ -462,7 +463,8 @@ opnd_get_immed_float(opnd_t opnd)
 }
 
 #ifndef WINDOWS
-/* Type double currently not included for Windows because sizeof(opnd_t) does
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
  * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
  */
 double
@@ -1368,11 +1370,12 @@ opnd_same(opnd_t op1, opnd_t op2)
         /* avoid any fp instrs (xref i#386) */
         return *(int *)(&op1.value.immed_float) == *(int *)(&op2.value.immed_float);
 #ifndef WINDOWS
-        /* Type double currently not included for Windows because sizeof(opnd_t) does
+        /* XXX i#4488: x87 floating point immediates should be double precision.
+         * Type double currently not included for Windows because sizeof(opnd_t) does
          * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
          */
     case IMMED_DOUBLE_kind:
-        return *(long *)(&op1.value.immed_double) == *(long *)(&op2.value.immed_double);
+        return *(int64 *)(&op1.value.immed_double) == *(int64 *)(&op2.value.immed_double);
 #endif
     case PC_kind: return op1.value.pc == op2.value.pc;
     case FAR_PC_kind:
