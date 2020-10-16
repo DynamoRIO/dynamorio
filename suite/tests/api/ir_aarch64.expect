@@ -73,6 +73,46 @@ fmov   %x8 -> %h23
 fmov   %x24 -> %d6
 fmov   %x10 -> %q9
 test_fmov_general complete
+fmov   $1.000000 $0x01 -> %q1
+fmov   $2.000000 $0x01 -> %q1
+fmov   $-1.000000 $0x01 -> %q2
+fmov   $-2.000000 $0x01 -> %q3
+fmov   $3.500000 $0x01 -> %q4
+fmov   $4.250000 $0x01 -> %q5
+fmov   $1.125000 $0x01 -> %q6
+fmov   $-0.250000 $0x01 -> %q7
+fmov   $7.000000 $0x01 -> %q8
+fmov   $1.937500 $0x01 -> %q9
+fmov   $0.210937 $0x01 -> %q10
+fmov   $31.000000 $0x01 -> %q31
+test_fmov_vector complete
+fmov   $1.000000 -> %s0
+fmov   $-1.000000 -> %s0
+fmov   $2.000000 -> %s0
+fmov   $-2.000000 -> %s0
+fmov   $3.500000 -> %s0
+fmov   $4.250000 -> %s0
+fmov   $1.125000 -> %s0
+fmov   $-1.125000 -> %s0
+fmov   $0.250000 -> %s0
+fmov   $-0.250000 -> %s0
+fmov   $1.937500 -> %s0
+fmov   $0.210937 -> %s0
+fmov   $31.000000 -> %s0
+fmov   $1.000000 -> %d0
+fmov   $-1.000000 -> %d0
+fmov   $2.000000 -> %d0
+fmov   $-2.000000 -> %d0
+fmov   $3.500000 -> %d0
+fmov   $4.250000 -> %d0
+fmov   $1.125000 -> %d0
+fmov   $-1.125000 -> %d0
+fmov   $0.250000 -> %d0
+fmov   $-0.250000 -> %d0
+fmov   $1.937500 -> %d0
+fmov   $0.210937 -> %d0
+fmov   $31.000000 -> %d0
+test_fmov_scalar complete
 fmaxnm %d27 %d30 $0x01 -> %d2
 fmaxnm %q27 %q30 $0x01 -> %q2
 fmla   %d0 %d29 %d31 $0x01 -> %d0

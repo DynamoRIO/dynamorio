@@ -578,7 +578,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         }
     } break;
     case IMMED_FLOAT_kind: {
-        /* need to save floating state around float printing */
+        /* Save floating state for float printing. */
         PRESERVE_FLOATING_POINT_STATE({
             uint top;
             uint bottom;
@@ -589,6 +589,23 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         });
         break;
     }
+#    ifndef WINDOWS
+        /* XXX i#4488: x87 floating point immediates should be double precision.
+         * Type double currently not included for Windows because sizeof(opnd_t) does
+         * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+         */
+    case IMMED_DOUBLE_kind: {
+        PRESERVE_FLOATING_POINT_STATE({
+            uint top;
+            uint bottom;
+            const char *sign;
+            double_print(opnd_get_immed_double(opnd), 6, &top, &bottom, &sign);
+            print_to_buffer(buf, bufsz, sofar, "%s%s%u.%.6u", immed_prefix(), sign, top,
+                            bottom);
+        });
+        break;
+    }
+#    endif
     case PC_kind: {
         app_pc target = opnd_get_pc(opnd);
         if (!print_known_pc_target(buf, bufsz, sofar, dcontext, target)) {
@@ -640,6 +657,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         case NULL_kind:
         case IMMED_INTEGER_kind:
         case IMMED_FLOAT_kind:
+        case IMMED_DOUBLE_kind:
         case PC_kind:
         case FAR_PC_kind: break;
         case REG_kind:

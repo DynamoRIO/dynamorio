@@ -55,7 +55,7 @@
 
 --------------------------------  impx30     # implicit X30 operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
---------------------------------  h_sz      # element width of FP vector reg, used to
+--------------------------------  h_sz       # element width of FP vector reg, used to
                                              # distinguish FP16 and float/double encs
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  w0         # W register (or WZR)
@@ -96,6 +96,7 @@
 -----------------xxxxx----------  q10        # Q register
 ----------------xxx-------------  ext        # extend type
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
+-------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------xxxxx----------------  ign16      # ignored reg field in load/store exclusive
@@ -127,6 +128,7 @@
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
+--------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)
@@ -973,12 +975,20 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 # Data Processing - Scalar Floating-Point and Advanced SIMD
 
 
+# FMOV immediate to scalar FP reg
+00011110111xxxxxxxx10000000xxxxx     fmov h0 : fpimm13 # Armv8.2
+00011110001xxxxxxxx10000000xxxxx     fmov s0 : fpimm13
+00011110011xxxxxxxx10000000xxxxx     fmov d0 : fpimm13
+
 # FMOV (general) GPR to FP reg
 0001111011100111000000xxxxxxxxxx     fmov h0 : w5 # Armv8.2
 0001111000100111000000xxxxxxxxxx     fmov s0 : w5
 1001111011100111000000xxxxxxxxxx     fmov h0 : x5 # Armv8.2
 1001111001100111000000xxxxxxxxxx     fmov d0 : x5
 1001111010101111000000xxxxxxxxxx     fmov q0 : x5 # only sets the bit top half of q0
+
+# FMOV immediate to vector reg
+0x00111100000xxx111111xxxxxxxxxx     fmov dq0 : fpimm8 h_sz # Armv8.2
 
 
 # Advanced SIMD three same (FP16)

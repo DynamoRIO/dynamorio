@@ -1361,6 +1361,13 @@ struct _opnd_t {
             int high; /* IMMED_INTEGER_kind with DR_OPND_MULTI_PART */
         } immed_int_multi_part;
         float immed_float; /* IMMED_FLOAT_kind */
+#    ifndef WINDOWS
+        /* XXX i#4488: x87 floating point immediates should be double precision.
+         * Currently not included for Windows because sizeof(opnd_t) does not
+         * equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+         */
+        double immed_double; /* IMMED_DOUBLE_kind */
+#    endif
         /* PR 225937: today we provide no way of specifying a 16-bit immediate
          * (encoded as a data16 prefix, which also implies a 16-bit EIP,
          * making it only useful for far pcs)
@@ -1456,6 +1463,7 @@ enum {
     ABS_ADDR_kind, /* 64-bit absolute address: x64 only */
 #    endif
     MEM_INSTR_kind,
+    IMMED_DOUBLE_kind,
     LAST_kind, /* sentinal; not a valid opnd kind */
 };
 #endif /* DR_FAST_IR */
@@ -1534,6 +1542,21 @@ DR_API
  */
 opnd_t
 opnd_create_immed_float(float f);
+
+#ifndef WINDOWS
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
+ * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+ */
+DR_API
+/**
+ * Returns an immediate double operand with value \p d.
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
+opnd_t
+opnd_create_immed_double(double d);
+#endif
 
 /* not exported */
 opnd_t
@@ -2169,6 +2192,21 @@ DR_API
  */
 float
 opnd_get_immed_float(opnd_t opnd);
+
+#ifndef WINDOWS
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
+ * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+ */
+DR_API
+/**
+ * Assumes \p opnd is an immediate double and returns its value.
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
+double
+opnd_get_immed_double(opnd_t opnd);
+#endif
 
 DR_API
 /** Assumes \p opnd is a (near or far) program address and returns its value. */

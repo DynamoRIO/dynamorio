@@ -1168,6 +1168,13 @@ else ()
   set(HAVE_RSEQ OFF)
 endif ()
 
+# Currently only AArch64 targets supported for half-precision FP.
+if (DR_HOST_AARCH64)
+  set(HAVE_HALF_FLOAT ON)
+else ()
+  set(HAVE_HALF_FLOAT OFF)
+endif ()
+
 ###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not

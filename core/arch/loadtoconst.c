@@ -1601,6 +1601,7 @@ opnd_replace_reg_with_val(opnd_t *opnd, int old_reg, int val)
     case NULL_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
     case PC_kind:
     case FAR_PC_kind:
     case INSTR_kind:

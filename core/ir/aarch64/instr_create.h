@@ -1598,7 +1598,7 @@ enum {
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
- * Creates a FMOV floating point instruction.
+ * Creates an FMOV floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
@@ -2545,6 +2545,25 @@ enum {
  */
 #define INSTR_CREATE_umull2_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_umull2, Rd, Rm, Rn, width)
+
+/**
+ * Creates an FMOV immediate to vector floating point move instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output vector register.
+ * \param f       The source immediate floating point opnd.
+ * \param width   The output vector element width. Use either OPND_CREATE_HALF()
+ *                or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_fmov_vector_imm(dc, Rd, f, width) \
+    instr_create_1dst_2src(dc, OP_fmov, Rd, f, width)
+
+/**
+ * Creates an FMOV immediate to scalar floating point move instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output scalar register.
+ * \param f       The source immediate floating point opnd.
+ */
+#define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */
