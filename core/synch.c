@@ -1749,6 +1749,10 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
                 arch_mcontext_reset_stolen_reg(dcontext, mc);
             }
         });
+        IF_AARCHXX({
+            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
+            IF_ARM(ASSERT_NOT_TESTED());
+        });
         /* We send all threads, regardless of whether was in DR or not, to
          * re-interp from translated cxt, to avoid having to handle stale
          * local state problems if we simply resumed.
