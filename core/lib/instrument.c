@@ -7174,7 +7174,7 @@ DR_API
  * to be !couldbelinking (xref PR 199115, 227619). Caller must use
  * dr_redirect_execution() to return to the cache. */
 bool
-dr_flush_region(app_pc start, size_t size)
+dr_flush_region(app_pc start, size_t size, void (*flush_completion_callback)())
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
@@ -7207,7 +7207,8 @@ dr_flush_region(app_pc start, size_t size)
     if (!executable_vm_area_executed_from(start, start + size))
         return true;
 
-    flush_fragments_from_region(dcontext, start, size, true /*force synchall*/);
+    flush_fragments_from_region(dcontext, start, size, true /*force synchall*/,
+                                flush_completion_callback);
 
     return true;
 }
@@ -7259,7 +7260,8 @@ dr_unlink_flush_region(app_pc start, size_t size)
     if (!executable_vm_area_executed_from(start, start + size))
         return true;
 
-    flush_fragments_from_region(dcontext, start, size, false /*don't force synchall*/);
+    flush_fragments_from_region(dcontext, start, size, false /*don't force synchall*/,
+                                NULL /*flush_completion_callback*/);
 
     return true;
 }

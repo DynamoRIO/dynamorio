@@ -3908,14 +3908,16 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[0] = (app_pc)cxt->Dr0;
                     flush_fragments_from_region(dcontext, d_r_debug_register[0],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[0] != NULL) {
                     flush_fragments_from_region(dcontext, d_r_debug_register[0],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                     d_r_debug_register[0] = NULL;
                 }
             }
@@ -3924,14 +3926,16 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[1] = (app_pc)cxt->Dr1;
                     flush_fragments_from_region(dcontext, d_r_debug_register[1],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[1] != NULL) {
                     flush_fragments_from_region(dcontext, d_r_debug_register[1],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                     d_r_debug_register[1] = NULL;
                 }
             }
@@ -3940,14 +3944,16 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[2] = (app_pc)cxt->Dr2;
                     flush_fragments_from_region(dcontext, d_r_debug_register[2],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[2] != NULL) {
                     flush_fragments_from_region(dcontext, d_r_debug_register[2],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                     d_r_debug_register[2] = NULL;
                 }
             }
@@ -3956,14 +3962,16 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                     d_r_debug_register[3] = (app_pc)cxt->Dr3;
                     flush_fragments_from_region(dcontext, d_r_debug_register[3],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[3] != NULL) {
                     flush_fragments_from_region(dcontext, d_r_debug_register[3],
                                                 1 /* size */,
-                                                false /*don't force synchall*/);
+                                                false /*don't force synchall*/,
+                                                NULL /*flush_completion_callback*/);
                     d_r_debug_register[3] = NULL;
                 }
             }
@@ -5874,7 +5882,8 @@ intercept_exception(app_state_at_intercept_t *state)
                          */
                         flush_fragments_from_region(dcontext, dcontext->next_tag,
                                                     1 /* size */,
-                                                    false /*don't force synchall*/);
+                                                    false /*don't force synchall*/,
+                                                    NULL /*flush_completion_callback*/);
                         /* Sets a field so that build_bb_ilist knows when to stop. */
                         dcontext->single_step_addr = dcontext->next_tag;
                         LOG(THREAD, LOG_ASYNCH, 2,

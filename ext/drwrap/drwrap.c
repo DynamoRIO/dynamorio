@@ -1754,7 +1754,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc decorated_pc,
                 dr_recurlock_unlock(wrap_lock);
             }
             dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
-            dr_flush_region(retaddr, 1);
+            dr_flush_region(retaddr, 1, NULL);
             /* now we are guaranteed no thread is inside the fragment */
             /* another thread may have done a racy competing flush: should be fine */
             dr_rwlock_read_lock(post_call_rwlock);

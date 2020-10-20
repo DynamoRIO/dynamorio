@@ -7655,7 +7655,8 @@ pre_system_call(dcontext_t *dcontext)
                                      * use synch to ensure other threads see the
                                      * new code.
                                      */
-                                    false /*don't force synchall*/);
+                                    false /*don't force synchall*/,
+                                    NULL /*flush_completion_callback*/);
         break;
     }
 #    endif /* ARM */

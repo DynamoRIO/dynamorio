@@ -213,7 +213,8 @@ decode_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc instr_pc)
     instr = instr_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, instr);
     ci->num_instrs++;
-    TRY_EXCEPT(dcontext, { next_pc = decode(GLOBAL_DCONTEXT, instr_pc, instr); },
+    TRY_EXCEPT((dcontext_t *)dr_get_current_drcontext(),
+               { next_pc = decode(GLOBAL_DCONTEXT, instr_pc, instr); },
                { /* EXCEPT */
                  LOG(THREAD, LOG_CLEANCALL, 2,
                      "CLEANCALL: crash on decoding callee instruction at: " PFX "\n",
