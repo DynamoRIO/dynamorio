@@ -230,7 +230,7 @@ at_taken(app_pc src, app_pc targ)
      * time it is executed.  Since the flush will remove the fragment
      * we're already in, redirect execution to the target.
      */
-    dr_flush_region(src, 1);
+    dr_flush_region(src, 1, NULL /*flush_completion_callback*/);
     dr_get_mcontext(drcontext, &mcontext);
     mcontext.pc = targ;
     dr_redirect_execution(&mcontext);
@@ -259,7 +259,7 @@ at_not_taken(app_pc src, app_pc fall)
      * time it is executed.  Since the flush will remove the fragment
      * we're already in, redirect execution to the target.
      */
-    dr_flush_region(src, 1);
+    dr_flush_region(src, 1, NULL /*flush_completion_callback*/);
     dr_get_mcontext(drcontext, &mcontext);
     mcontext.pc = fall;
     dr_redirect_execution(&mcontext);
