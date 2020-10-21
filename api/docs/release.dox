@@ -141,6 +141,10 @@ changes:
    member fields of classes are now following a consistent style with
    an underscore suffix.  References to renamed fields will need to be
    updated.
+ - Changed the signature of the dr_flush_region() instrument API, in order to
+   support a callback function which is executed after completion of flush but
+   before threads are resumed. Existing client source will need to be modified
+   to pass a NULL value for the flush_completion_callback arg.
 
 The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:
