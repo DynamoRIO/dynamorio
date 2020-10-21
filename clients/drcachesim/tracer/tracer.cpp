@@ -1323,7 +1323,7 @@ static void *schedule_tracing_lock;
 #ifdef X86_64
 #    define DELAYED_CHECK_INLINED 1
 #else
-// XXX: we don't have the inlining implemented yet.
+// XXX, i#4487: we don't have the inlining implemented yet.
 #endif
 
 static dr_emit_flags_t
