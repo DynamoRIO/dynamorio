@@ -1502,8 +1502,8 @@ check_option_compatibility_helper(int recurse_count)
             changed_options = true;
         }
 #    ifdef EXPOSE_INTERNAL_OPTIONS
-        else if (INTERNAL_OPTION(reset_at_fragment_count)) {
-            USAGE_ERROR("-reset_at_fragment_count requires -enable_reset, enabling");
+        else if (INTERNAL_OPTION(reset_at_thread_count)) {
+            USAGE_ERROR("-reset_at_thread_count requires -enable_reset, enabling");
             dynamo_options.enable_reset = true;
             changed_options = true;
         }
