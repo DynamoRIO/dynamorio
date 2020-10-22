@@ -7201,11 +7201,15 @@ dr_flush_region(app_pc start, size_t size, void (*flush_completion_callback)())
     CLIENT_ASSERT(size != 0, "dr_flush_region: 0 is invalid size for flush");
 
     /* release build check of requirements, as many as possible at least */
-    if (size == 0 || is_couldbelinking(dcontext))
+    if (size == 0 || is_couldbelinking(dcontext)) {
+        (*flush_completion_callback)();
         return false;
+    }
 
-    if (!executable_vm_area_executed_from(start, start + size))
+    if (!executable_vm_area_executed_from(start, start + size)) {
+        (*flush_completion_callback)();
         return true;
+    }
 
     flush_fragments_from_region(dcontext, start, size, true /*force synchall*/,
                                 flush_completion_callback);
