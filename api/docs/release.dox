@@ -145,8 +145,6 @@ changes:
    support a callback function which is executed after completion of flush but
    before threads are resumed. Existing client source will need to be modified
    to pass a NULL value for the flush_completion_callback arg.
- - Replaces the -reset_at_fragment_count option with -reset_at_thread_count. This
-   was required to make the Linux reset tests more robust.
 
 The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:
@@ -179,6 +177,9 @@ Further non-compatibility-affecting changes include:
  - Added opnd_create_immed_double(), opnd_get_immed_double() and
    opnd_is_immed_double() to enable the creation and handling of double
    precision floating-point operands.
+ - Added -reset_at_thread_count option to allow triggering reset when created thread
+   count reaches the given value. This option is currently used to make Linux reset
+   tests more robust.
 
 **************************************************
 <hr>

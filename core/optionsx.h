@@ -136,6 +136,7 @@
 #define DISABLE_RESET(prefix)                                 \
     {                                                         \
         (prefix)->enable_reset = false;                       \
+        IF_INTERNAL((prefix)->reset_at_fragment_count = 0;)   \
         IF_INTERNAL((prefix)->reset_at_thread_count = 0;)     \
         (prefix)->reset_at_nth_thread = 0;                    \
         (prefix)->reset_at_switch_to_os_at_vmm_limit = false; \
@@ -1492,6 +1493,8 @@ OPTION_COMMAND(bool, enable_reset, IF_X86_ELSE(true, false), "enable_reset",
                "separate persistent memory from non-persistent for resets", STATIC,
                OP_PCACHE_NOP)
 
+OPTION_DEFAULT_INTERNAL(uint, reset_at_fragment_count, 0,
+                        "reset all caches at a certain fragment count")
 OPTION_DEFAULT_INTERNAL(uint, reset_at_thread_count, 0,
                         "reset all caches when thread count reaches given value")
 OPTION(uint, reset_at_nth_thread,
