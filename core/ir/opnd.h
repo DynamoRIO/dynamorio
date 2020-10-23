@@ -1777,6 +1777,34 @@ opnd_t
 opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                               dr_extend_type_t extend_type, bool scaled, int disp,
                               dr_opnd_flags_t flags, opnd_size_t size);
+DR_API
+/**
+ * Creates an unsigned immediate integer operand for condition defined by enum
+ * constant \p cond of type #dr_pred_type_t.
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_create_cond(int cond);
+
+DR_API
+/**
+ * Assumes the operand is an unsigned immediate 4-bit integer and returns a
+ * #dr_pred_type_t constant corresponding to the value of the operand.
+ * \note AArch64-only.
+ */
+int
+opnd_get_cond(opnd_t opnd);
+
+DR_API
+/**
+ * Assumes the operand is an unsigned immediate 4-bit integer and returns an
+ * operand which contains inverted condition (see #dr_pred_type_t).
+ * \note Does not support AL and NV conditions.
+ * \note AArch64-only.
+ */
+opnd_t
+opnd_invert_cond(opnd_t opnd);
+
 #endif
 
 DR_API

@@ -743,7 +743,101 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
         CLIENT_ASSERT(false, "opnd_create_base_disp_aarch64: invalid extend type");
     return opnd;
 }
-#endif
+
+opnd_t
+opnd_create_cond(int cond)
+{
+    /* FIXME i#1569: Move definition of dr_pred_type_t to opnd.h for AArch64
+     * to avoid using int instead of dr_pred_type_t */
+    switch (cond) {
+    case DR_PRED_EQ:
+        return opnd_create_immed_uint(0b0000, OPSZ_4b);
+    case DR_PRED_NE:
+        return opnd_create_immed_uint(0b0001, OPSZ_4b);
+    case DR_PRED_CS:
+        return opnd_create_immed_uint(0b0010, OPSZ_4b);
+    case DR_PRED_CC:
+        return opnd_create_immed_uint(0b0011, OPSZ_4b);
+    case DR_PRED_MI:
+        return opnd_create_immed_uint(0b0100, OPSZ_4b);
+    case DR_PRED_PL:
+        return opnd_create_immed_uint(0b0101, OPSZ_4b);
+    case DR_PRED_VS:
+        return opnd_create_immed_uint(0b0110, OPSZ_4b);
+    case DR_PRED_VC:
+        return opnd_create_immed_uint(0b0111, OPSZ_4b);
+    case DR_PRED_HI:
+        return opnd_create_immed_uint(0b1000, OPSZ_4b);
+    case DR_PRED_LS:
+        return opnd_create_immed_uint(0b1001, OPSZ_4b);
+    case DR_PRED_GE:
+        return opnd_create_immed_uint(0b1010, OPSZ_4b);
+    case DR_PRED_LT:
+        return opnd_create_immed_uint(0b1011, OPSZ_4b);
+    case DR_PRED_GT:
+        return opnd_create_immed_uint(0b1100, OPSZ_4b);
+    case DR_PRED_LE:
+        return opnd_create_immed_uint(0b1101, OPSZ_4b);
+    case DR_PRED_AL:
+        return opnd_create_immed_uint(0b1110, OPSZ_4b);
+    case DR_PRED_NV:
+        return opnd_create_immed_uint(0b1111, OPSZ_4b);
+    default:
+        CLIENT_ASSERT(false, "invalid condition constant");
+        return opnd_create_null();
+    }
+}
+
+int
+opnd_get_cond(opnd_t opnd)
+{
+    /* FIXME i#1569: Move definition of dr_pred_type_t to opnd.h for AArch64
+     * to avoid using int instead of dr_pred_type_t */
+    switch (((uint64)opnd_get_immed_int(opnd) & 0xfu)) {
+    case 0b0000: return DR_PRED_EQ;
+    case 0b0001: return DR_PRED_NE;
+    case 0b0010: return DR_PRED_CS;
+    case 0b0011: return DR_PRED_CC;
+    case 0b0100: return DR_PRED_MI;
+    case 0b0101: return DR_PRED_PL;
+    case 0b0110: return DR_PRED_VS;
+    case 0b0111: return DR_PRED_VC;
+    case 0b1000: return DR_PRED_HI;
+    case 0b1001: return DR_PRED_LS;
+    case 0b1010: return DR_PRED_GE;
+    case 0b1011: return DR_PRED_LT;
+    case 0b1100: return DR_PRED_GT;
+    case 0b1101: return DR_PRED_LE;
+    case 0b1110: return DR_PRED_AL;
+    case 0b1111: return DR_PRED_NV;
+    }
+    return DR_PRED_NONE;
+}
+
+opnd_t
+opnd_invert_cond(opnd_t opnd)
+{
+    switch (opnd_get_cond(opnd)) {
+    case DR_PRED_EQ: return opnd_create_cond(DR_PRED_NE);
+    case DR_PRED_NE: return opnd_create_cond(DR_PRED_EQ);
+    case DR_PRED_CS: return opnd_create_cond(DR_PRED_CC);
+    case DR_PRED_CC: return opnd_create_cond(DR_PRED_CS);
+    case DR_PRED_MI: return opnd_create_cond(DR_PRED_PL);
+    case DR_PRED_PL: return opnd_create_cond(DR_PRED_MI);
+    case DR_PRED_VS: return opnd_create_cond(DR_PRED_VC);
+    case DR_PRED_VC: return opnd_create_cond(DR_PRED_VS);
+    case DR_PRED_HI: return opnd_create_cond(DR_PRED_LS);
+    case DR_PRED_LS: return opnd_create_cond(DR_PRED_HI);
+    case DR_PRED_GE: return opnd_create_cond(DR_PRED_LT);
+    case DR_PRED_LT: return opnd_create_cond(DR_PRED_GE);
+    case DR_PRED_GT: return opnd_create_cond(DR_PRED_LE);
+    case DR_PRED_LE: return opnd_create_cond(DR_PRED_GT);
+    default:
+        CLIENT_ASSERT(false, "invalid condition constant");
+        return opnd_create_null();
+    }
+}
+#endif /* AARCH64 */
 
 #undef opnd_get_base
 #undef opnd_get_disp

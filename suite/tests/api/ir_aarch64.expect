@@ -837,4 +837,17 @@ sys    $0x1bd9 (%x29)[1byte]
 sys    $0x1bf1 (%x30)[1byte]
 sys    $0x1ba9 (%x1)[1byte]
 test_sys complete
+test_ccmn_imm complete
+test_ccmn_reg complete
+test_ccmp_imm complete
+test_ccmp_reg complete
+test_cinc complete
+test_cinv complete
+test_cneg complete
+test_csel complete
+test_cset complete
+test_csetm complete
+test_csinc complete
+test_csinv complete
+test_csneg complete
 All tests complete

@@ -2565,5 +2565,136 @@ enum {
  */
 #define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
+/**
+ * Creates a CCMN (Conditional Compare Negative) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rn      The source register.
+ * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
+ *                to create the operand) or a source register.
+ * \param nzcv    The 4 bit flag bit specifier
+ *                (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_ccmn(dc, Rn, Op, nzcv, cond) \
+    instr_create_0dst_4src(dc, OP_ccmn, Rn, Op, nzcv, cond)
+
+/**
+ * Creates a CCMP (Conditional Compare) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rn      The source register.
+ * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
+ *                to create the operand) or a source register.
+ * \param nzcv    The 4 bit flag bit specifier
+ *                (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_ccmp(dc, Rn, Op, nzcv, cond) \
+    instr_create_0dst_4src(dc, OP_ccmp, Rn, Op, nzcv, cond)
+
+/**
+ * Creates a CINC (Conditional Increment) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_cinc(dc, Rd, Rn, cond) \
+    instr_create_1dst_3src(dc, OP_csinc, Rd, Rn, Rn, opnd_invert_cond(cond))
+
+/**
+ * Creates a CINV (Conditional Invert) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_cinv(dc, Rd, Rn, cond) \
+    instr_create_1dst_3src(dc, OP_csinv, Rd, Rn, Rn,  opnd_invert_cond(cond))
+
+/**
+ * Creates a CNEG (Conditional Negate) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_cneg(dc, Rd, Rn, cond) \
+    instr_create_1dst_3src(dc, OP_csneg, Rd, Rn, Rn, opnd_invert_cond(cond))
+
+/**
+ * Creates a CSEL (Conditional Select) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The first input register.
+ * \param Rm      The second input register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_csel(dc, Rd, Rn, Rm, cond) \
+    instr_create_1dst_3src(dc, OP_csel, Rd, Rn, Rm, cond)
+
+/**
+ * Creates a CSET (Conditional Set) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_cset(dc, Rd, cond) \
+    instr_create_1dst_3src(dc, OP_csinc, Rd, \
+    OPND_CREATE_ZR(Rd), OPND_CREATE_ZR(Rd), opnd_invert_cond(cond))
+
+/**
+ * Creates a CSETM (Conditional Set Mask) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_csetm(dc, Rd, cond) \
+    instr_create_1dst_3src(dc, OP_csinv, Rd, \
+    OPND_CREATE_ZR(Rd), OPND_CREATE_ZR(Rd), opnd_invert_cond(cond))
+
+/**
+ * Creates a CSINC (Conditional Select Increment) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The first input register.
+ * \param Rm      The second input register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_csinc(dc, Rd, Rn, Rm, cond) \
+    instr_create_1dst_3src(dc, OP_csinc, Rd, Rn, Rm, cond)
+
+/**
+ * Creates a CSINV (Conditional Select Invert) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The first input register.
+ * \param Rm      The second input register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_csinv(dc, Rd, Rn, Rm, cond) \
+    instr_create_1dst_3src(dc, OP_csinv, Rd, Rn, Rm, cond)
+
+/**
+ * Creates a CSNEG (Conditional Select Negate) instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The first input register.
+ * \param Rm      The second input register.
+ * \param cond    A 4-bit immediate value for condition
+ *                (use opnd_create_cond(val) to create the operand).
+ */
+#define INSTR_CREATE_csneg(dc, Rd, Rn, Rm, cond) \
+    instr_create_1dst_3src(dc, OP_csneg, Rd, Rn, Rm, cond)
+
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */
