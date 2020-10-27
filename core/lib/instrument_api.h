@@ -6229,13 +6229,18 @@ DR_API
  * \p start. A flush of \p size == 0 is not allowed.
  *
  * \note Use flush_completion_callback to specify logic to be executed after the flush
- * and before the threads are resumed.
+ * and before the threads are resumed. Use NULL if not needed.
  *
  * \note As currently implemented, dr_delay_flush_region() with no completion callback
  * routine specified can be substantially more performant.
  */
 bool
-dr_flush_region(app_pc start, size_t size, void (*flush_completion_callback)());
+dr_flush_region_ex(app_pc start, size_t size, void (*flush_completion_callback)());
+
+DR_API
+/** Equivalent to dr_flush_region_ex(start, size, NULL). */
+bool
+dr_flush_region(app_pc start, size_t size);
 
 /* FIXME - get rid of the no locks requirement by making event callbacks !couldbelinking
  * and no dr locks (see PR 227619) so that client locks owned by this thread can't block

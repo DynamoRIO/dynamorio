@@ -1399,7 +1399,7 @@ hit_instr_count_threshold(app_pc next_pc)
     dr_mutex_unlock(schedule_tracing_lock);
 
     if (do_flush) {
-        if (!dr_flush_region(NULL, ~0UL, change_instrumentation_callback))
+        if (!dr_flush_region_ex(NULL, ~0UL, change_instrumentation_callback))
             DR_ASSERT(false);
 
         dr_mcontext_t mcontext = {

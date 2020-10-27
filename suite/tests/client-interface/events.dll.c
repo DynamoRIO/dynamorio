@@ -507,8 +507,7 @@ exception_event1(void *dcontext, dr_exception_t *excpt)
         dr_fprintf(STDERR, "unregister failed!\n");
 
     /* ensure we get our deletion events */
-    dr_flush_region((app_pc)excpt->record->ExceptionAddress, 1,
-                    NULL /*flush_completion_callback*/);
+    dr_flush_region((app_pc)excpt->record->ExceptionAddress, 1);
     return true;
 }
 
