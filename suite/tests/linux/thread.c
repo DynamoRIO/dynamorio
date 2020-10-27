@@ -84,7 +84,7 @@ int
 main()
 {
     // We need to create multiple threads to verify correctness of reset,
-    // which requires more than one threads.
+    // which requires more than one thread.
     // XXX: Using -reset_at_created_thread_count 2 causes an ASSERT failure,
     // so we use 3 threads for now.
     for (int i = 0; i < 2; i++) {
