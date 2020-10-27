@@ -2187,8 +2187,8 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid), thread_id_t tid
     DOSTATS({
         if (d_r_stats != NULL &&
             (uint)GLOBAL_STAT(num_threads_created) ==
-                INTERNAL_OPTION(reset_at_thread_count)) {
-            ASSERT(INTERNAL_OPTION(reset_at_thread_count) != 0);
+                INTERNAL_OPTION(reset_at_created_thread_count)) {
+            ASSERT(INTERNAL_OPTION(reset_at_created_thread_count) != 0);
             schedule_reset(RESET_ALL);
         }
     });
