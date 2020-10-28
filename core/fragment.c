@@ -5658,15 +5658,15 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                 /* FIXME - for implementation simplicity we do a synch-all flush so
                  * that we can inform the client right away, it might be nice to use
                  * the more performant regular flush when possible. */
-                flush_fragments_from_region(dcontext, iter->start, iter->size,
-                                            true /*force synchall*/,
-                                            NULL /*flush_completion_callback*/);
+                flush_fragments_from_region(
+                    dcontext, iter->start, iter->size, true /*force synchall*/,
+                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 (*iter->flush_callback)(iter->flush_id);
             } else {
                 /* do a regular flush */
-                flush_fragments_from_region(dcontext, iter->start, iter->size,
-                                            false /*don't force synchall*/,
-                                            NULL /*flush_completion_callback*/);
+                flush_fragments_from_region(
+                    dcontext, iter->start, iter->size, false /*don't force synchall*/,
+                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
             }
         }
         HEAP_TYPE_FREE(alloc_dcontext, iter, client_flush_req_t, ACCT_CLIENT,
@@ -6887,7 +6887,9 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
  * FIXME - add argument parameters (free futures etc.) as needed. */
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall, void (*flush_completion_callback)())
+                            bool force_synchall,
+                            void (*flush_completion_callback)(void *user_data),
+                            void *user_data)
 {
     /* we pass false to flush_fragments_in_region_start() below for owning the initexit
      * lock */
@@ -6899,7 +6901,7 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
                                     false /*don't free futures*/, false /*exec valid*/,
                                     force_synchall _IF_DGCDIAG(NULL));
     if (flush_completion_callback != NULL) {
-        (*flush_completion_callback)();
+        (*flush_completion_callback)(user_data);
     }
 
     flush_fragments_in_region_finish(dcontext, false);

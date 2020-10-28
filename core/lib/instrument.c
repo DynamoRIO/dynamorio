@@ -7175,7 +7175,8 @@ DR_API
  * flush completes and before threads are resumed. Caller must use
  * dr_redirect_execution() to return to the cache. */
 bool
-dr_flush_region_ex(app_pc start, size_t size, void (*flush_completion_callback)())
+dr_flush_region_ex(app_pc start, size_t size, void (*flush_completion_callback)(),
+                   void *user_data)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
@@ -7213,7 +7214,7 @@ dr_flush_region_ex(app_pc start, size_t size, void (*flush_completion_callback)(
     }
 
     flush_fragments_from_region(dcontext, start, size, true /*force synchall*/,
-                                flush_completion_callback);
+                                flush_completion_callback, user_data);
 
     return true;
 }
@@ -7223,7 +7224,8 @@ DR_API
 bool
 dr_flush_region(app_pc start, size_t size)
 {
-    return dr_flush_region_ex(start,size, NULL /*flush_completion_callback*/);
+    return dr_flush_region_ex(start, size, NULL /*flush_completion_callback*/,
+                              NULL /*user_data*/);
 }
 
 DR_API
@@ -7274,7 +7276,7 @@ dr_unlink_flush_region(app_pc start, size_t size)
         return true;
 
     flush_fragments_from_region(dcontext, start, size, false /*don't force synchall*/,
-                                NULL /*flush_completion_callback*/);
+                                NULL /*flush_completion_callback*/, NULL /*user_data*/);
 
     return true;
 }

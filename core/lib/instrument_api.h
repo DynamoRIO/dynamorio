@@ -6235,7 +6235,8 @@ DR_API
  * routine specified can be substantially more performant.
  */
 bool
-dr_flush_region_ex(app_pc start, size_t size, void (*flush_completion_callback)());
+dr_flush_region_ex(app_pc start, size_t size,
+                   void (*flush_completion_callback)(void *user_data), void *user_data);
 
 DR_API
 /** Equivalent to dr_flush_region_ex(start, size, NULL). */

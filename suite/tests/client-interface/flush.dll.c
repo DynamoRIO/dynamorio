@@ -178,9 +178,10 @@ flush_event(int flush_id)
 }
 
 static void
-synch_flush_completion_callback()
+synch_flush_completion_callback(void *user_data)
 {
-    dr_fprintf(STDERR, "in synch_flush_completion_callback\n");
+    dr_fprintf(STDERR, "in synch_flush_completion_callback, user_data=%d\n",
+               *(int *)user_data);
 }
 
 static void
@@ -202,7 +203,7 @@ callback(void *tag, app_pc next_pc)
             dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
             dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
             mcontext.pc = next_pc;
-            dr_flush_region_ex(tag, 1, synch_flush_completion_callback);
+            dr_flush_region_ex(tag, 1, synch_flush_completion_callback, &callback_count);
             dr_redirect_execution(&mcontext);
             *(volatile uint *)NULL = 0; /* ASSERT_NOT_REACHED() */
         } else if (use_unlink) {
