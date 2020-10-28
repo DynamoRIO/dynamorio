@@ -1750,6 +1750,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             }
         });
         IF_AARCHXX({
+            // XXX i#4495: Consider saving stolen reg's application value.
             set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
             // XXX: This path is tested by linux.thread-reset and linux.clone-reset.
             // We just haven't run those on ARM yet.

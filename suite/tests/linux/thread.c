@@ -85,8 +85,8 @@ main()
 {
     // We need to create multiple threads to verify correctness of reset,
     // which requires more than one thread.
-    // XXX: Using -reset_at_created_thread_count 2 causes an ASSERT failure,
-    // so we use 3 threads for now.
+    // XXX i#4496: Using -reset_at_created_thread_count 2 causes an ASSERT
+    // failure, so we use 3 total threads for now.
     for (int i = 0; i < 2; i++) {
         sleeptime.tv_sec = 0;
         sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */
