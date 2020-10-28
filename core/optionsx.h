@@ -133,24 +133,23 @@
     PC_OPTION_DEFAULT_INTERNAL(type, name, 0, description)
 
 /* option helper macros */
-#define DISABLE_RESET(prefix)                                 \
-    {                                                         \
-        (prefix)->enable_reset = false;                       \
-        IF_INTERNAL((prefix)->reset_at_fragment_count = 0;)   \
-        IF_INTERNAL(                                          \
-            (prefix)->reset_at_created_thread_count = 0;)     \
-        (prefix)->reset_at_nth_thread = 0;                    \
-        (prefix)->reset_at_switch_to_os_at_vmm_limit = false; \
-        (prefix)->reset_at_vmm_percent_free_limit = 0;        \
-        (prefix)->reset_at_vmm_free_limit = 0;                \
-        (prefix)->reset_at_vmm_full = false;                  \
-        (prefix)->reset_at_commit_percent_free_limit = 0;     \
-        (prefix)->reset_at_commit_free_limit = 0;             \
-        (prefix)->reset_every_nth_pending = 0;                \
-        (prefix)->reset_at_nth_bb_unit = 0;                   \
-        (prefix)->reset_at_nth_trace_unit = 0;                \
-        (prefix)->reset_every_nth_bb_unit = 0;                \
-        (prefix)->reset_every_nth_trace_unit = 0;             \
+#define DISABLE_RESET(prefix)                                     \
+    {                                                             \
+        (prefix)->enable_reset = false;                           \
+        IF_INTERNAL((prefix)->reset_at_fragment_count = 0;)       \
+        IF_INTERNAL((prefix)->reset_at_created_thread_count = 0;) \
+        (prefix)->reset_at_nth_thread = 0;                        \
+        (prefix)->reset_at_switch_to_os_at_vmm_limit = false;     \
+        (prefix)->reset_at_vmm_percent_free_limit = 0;            \
+        (prefix)->reset_at_vmm_free_limit = 0;                    \
+        (prefix)->reset_at_vmm_full = false;                      \
+        (prefix)->reset_at_commit_percent_free_limit = 0;         \
+        (prefix)->reset_at_commit_free_limit = 0;                 \
+        (prefix)->reset_every_nth_pending = 0;                    \
+        (prefix)->reset_at_nth_bb_unit = 0;                       \
+        (prefix)->reset_at_nth_trace_unit = 0;                    \
+        (prefix)->reset_every_nth_bb_unit = 0;                    \
+        (prefix)->reset_every_nth_trace_unit = 0;                 \
     }
 #define REENABLE_RESET(prefix)                                                 \
     {                                                                          \

@@ -7656,7 +7656,8 @@ pre_system_call(dcontext_t *dcontext)
                                      * new code.
                                      */
                                     false /*don't force synchall*/,
-                                    NULL /*flush_completion_callback*/);
+                                    NULL /*flush_completion_callback*/,
+                                    NULL /*user_data*/);
         break;
     }
 #    endif /* ARM */
