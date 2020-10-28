@@ -7175,8 +7175,8 @@ DR_API
  * flush completes and before threads are resumed. Caller must use
  * dr_redirect_execution() to return to the cache. */
 bool
-dr_flush_region_ex(app_pc start, size_t size, void (*flush_completion_callback)(),
-                   void *user_data)
+dr_flush_region_ex(app_pc start, size_t size,
+                   void (*flush_completion_callback)(void *user_data), void *user_data)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
