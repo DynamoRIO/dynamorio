@@ -1403,10 +1403,9 @@ hit_instr_count_threshold(app_pc next_pc)
                                 NULL /*user_data*/))
             DR_ASSERT(false);
 
-        dr_mcontext_t mcontext = {
-            sizeof(mcontext),
-            DR_MC_ALL,
-        };
+        dr_mcontext_t mcontext;
+        mcontext.size = sizeof(mcontext);
+        mcontext.flags = DR_MC_ALL;
         dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
         mcontext.pc = next_pc;
         dr_redirect_execution(&mcontext);

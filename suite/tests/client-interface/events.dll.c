@@ -452,7 +452,8 @@ kernel_xfer_event2(void *drcontext, const dr_kernel_xfer_info_t *info)
     if (info->type == DR_XFER_CLIENT_REDIRECT) {
         /* Test for exception event redirect. */
         ASSERT(info->source_mcontext != NULL);
-        dr_mcontext_t mc = { sizeof(mc) };
+        dr_mcontext_t mc;
+        mc.size = sizeof(mc);
         mc.flags = DR_MC_CONTROL;
         bool ok = dr_get_mcontext(drcontext, &mc);
         ASSERT(ok);
@@ -469,10 +470,7 @@ static bool
 exception_event_redirect(void *dcontext, dr_exception_t *excpt)
 {
     app_pc addr;
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
     module_data_t *data = dr_lookup_module_by_name("client." EVENTS ".exe");
     dr_fprintf(STDERR, "exception event redirect\n");
     if (data == NULL) {

@@ -1211,10 +1211,9 @@ drbbdup_handle_new_case()
         (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
 
     /* Must use DR_MC_ALL due to dr_redirect_execution. */
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
 
     /* Scratch register holds the tag. */
