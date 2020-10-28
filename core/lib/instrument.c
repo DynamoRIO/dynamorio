@@ -7204,12 +7204,12 @@ dr_flush_region_ex(app_pc start, size_t size,
 
     /* release build check of requirements, as many as possible at least */
     if (size == 0 || is_couldbelinking(dcontext)) {
-        (*flush_completion_callback)();
+        (*flush_completion_callback)(user_data);
         return false;
     }
 
     if (!executable_vm_area_executed_from(start, start + size)) {
-        (*flush_completion_callback)();
+        (*flush_completion_callback)(user_data);
         return true;
     }
 
