@@ -1749,6 +1749,14 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
                 arch_mcontext_reset_stolen_reg(dcontext, mc);
             }
         });
+        IF_AARCHXX({
+            // XXX i#4495: Consider saving stolen reg's application value.
+            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
+            // XXX: This path is tested by linux.thread-reset and linux.clone-reset.
+            // We just haven't run those on ARM yet.
+            IF_ARM(ASSERT_NOT_TESTED());
+        });
+
         /* We send all threads, regardless of whether was in DR or not, to
          * re-interp from translated cxt, to avoid having to handle stale
          * local state problems if we simply resumed.

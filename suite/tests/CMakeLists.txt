@@ -4069,10 +4069,14 @@ if (UNIX)
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
 
   # runs of other builds with custom DR options
+  # XXX i#4496: Using -reset_at_created_thread_count 2 causes an ASSERT
+  # failure, so we use -reset_at_created_thread_count 3 instead. When this
+  # is fixed, consider replacing with -reset_at_nth_thread 2 and maybe
+  # remove the reset_at_created_thread_count flag from DR options.
   torunonly(linux.thread-reset linux.thread linux/thread.c
-    "-enable_reset -reset_at_fragment_count 100" "")
+    "-enable_reset -reset_at_created_thread_count 3" "")
   torunonly(linux.clone-reset linux.clone linux/clone.c
-    "-enable_reset -reset_at_fragment_count 100" "")
+    "-enable_reset -reset_at_created_thread_count 3" "")
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig pthreads/ptsig.c)

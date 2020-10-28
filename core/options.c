@@ -1507,6 +1507,12 @@ check_option_compatibility_helper(int recurse_count)
             dynamo_options.enable_reset = true;
             changed_options = true;
         }
+        else if (INTERNAL_OPTION(reset_at_created_thread_count)) {
+            USAGE_ERROR("-reset_at_created_thread_count requires -enable_reset, "
+                        "enabling");
+            dynamo_options.enable_reset = true;
+            changed_options = true;
+        }
 #    endif /* EXPOSE_INTERNAL_OPTIONS */
         else if (DYNAMO_OPTION(reset_at_switch_to_os_at_vmm_limit)) {
             USAGE_ERROR("-reset_at_switch_to_os_at_vmm_limit requires -enable_reset, "
