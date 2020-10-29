@@ -1749,13 +1749,6 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
                 arch_mcontext_reset_stolen_reg(dcontext, mc);
             }
         });
-        IF_AARCHXX({
-            // XXX i#4495: Consider saving stolen reg's application value.
-            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
-            // XXX: This path is tested by linux.thread-reset and linux.clone-reset.
-            // We just haven't run those on ARM yet.
-            IF_ARM(ASSERT_NOT_TESTED());
-        });
 
         /* We send all threads, regardless of whether was in DR or not, to
          * re-interp from translated cxt, to avoid having to handle stale
@@ -1824,6 +1817,19 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         mc->pc = (app_pc)get_reset_exit_stub(dcontext);
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
 #ifdef WINDOWS
+
+        /* The reset exit stub expects the stolen reg to contain the TLS base address.
+         * But the stolen reg was restored to the application value during
+         * translate_mcontext.
+         */
+        IF_AARCHXX({
+            // XXX i#4495: Consider saving stolen reg's translated application value.
+            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
+            // XXX: This path is tested by linux.thread-reset and linux.clone-reset.
+            // We just haven't run those on ARM yet.
+            IF_ARM(ASSERT_NOT_TESTED());
+        });
+
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app
          * now, just in case.  DR routine can handle swapping when already app.
