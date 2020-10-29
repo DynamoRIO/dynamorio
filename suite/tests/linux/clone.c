@@ -73,34 +73,41 @@ static void
 stack_free(void *p, int size);
 
 /* vars for child thread */
-static pid_t child;
-static void *stack;
+static pid_t child[2];
+static void *stack[2];
+static int child_id[2];
 
 /* these are used solely to provide deterministic output */
 /* this is read by child, written by parent, tells child whether to exit */
 static volatile bool child_exit;
 /* this is read by parent, written by child, tells parent whether child done */
-static volatile bool child_done;
+static volatile bool child_done[2];
 
 static struct timespec sleeptime;
 
 void
 test_thread(bool share_sighand)
 {
-    /* First make a thread that shares signal handlers. */
     child_exit = false;
-    child_done = false;
-    child = create_thread(run, NULL, &stack, share_sighand);
-    assert(child > -1);
+    // XXX i#4496: Using -reset_at_nth_thread 2 causes an ASSERT failure,
+    // so we use 3 total threads for now.
+    for (int i = 0; i < 2; i++) {
+        child_id[i] = i;
+        child_done[i] = false;
+        child[i] = create_thread(run, &child_id[i], &stack[i], share_sighand);
+        assert(child[i] > -1);
 
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
-    child_exit = true;
-    /* we want deterministic printf ordering */
-    while (!child_done)
+        /* waste some time */
         nanosleep(&sleeptime, NULL);
-    delete_thread(child, stack);
+
+        /* we want deterministic printf ordering */
+        while (!child_done[i])
+            nanosleep(&sleeptime, NULL);
+    }
+    child_exit = true;
+    for (int i = 0; i < 2; i++) {
+        delete_thread(child[i], stack[i]);
+    }
 }
 
 int
@@ -123,6 +130,7 @@ int
 run(void *arg)
 {
     int i = 0;
+    int child_id = *(int *)arg;
     nolibc_print("Sideline thread started\n");
     while (true) {
         /* do nothing for now */
@@ -135,10 +143,10 @@ run(void *arg)
         if (i % 25000000 == 0)
             break;
     }
+    nolibc_print("Sideline thread finished\n");
+    child_done[child_id] = true;
     while (!child_exit)
         nolibc_nanosleep(&sleeptime);
-    nolibc_print("Sideline thread finished\n");
-    child_done = true;
     return 0;
 }
 

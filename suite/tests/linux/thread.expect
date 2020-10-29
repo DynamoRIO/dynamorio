@@ -10,8 +10,6 @@ i = 20000000
 i = 22500000
 i = 25000000
 Sideline thread finished
-Waiting for child to exit
-Child has exited
 Sideline thread started
 i = 2500000
 i = 5000000
@@ -24,5 +22,7 @@ i = 20000000
 i = 22500000
 i = 25000000
 Sideline thread finished
+Waiting for child to exit
+Child has exited
 Waiting for child to exit
 Child has exited

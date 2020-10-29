@@ -69,41 +69,42 @@ static void
 stack_free(void *p, int size);
 
 /* vars for child thread */
-static pid_t child;
-static void *stack;
+static pid_t child[2];
+static void *stack[2];
+static int child_id[2];
 
 /* these are used solely to provide deterministic output */
 /* this is read by child, written by parent, tells child whether to exit */
 static volatile bool child_exit;
 /* this is read by parent, written by child, tells parent whether child done */
-static volatile bool child_done;
+static volatile bool child_done[2];
 
 static struct timespec sleeptime;
 
 int
 main()
 {
-    // We need to create multiple threads to verify correctness of reset,
-    // which requires more than one thread.
-    // XXX i#4496: Using -reset_at_created_thread_count 2 causes an ASSERT
-    // failure, so we use 3 total threads for now.
+    sleeptime.tv_sec = 0;
+    sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */
+    // XXX i#4496: Using -reset_at_nth_thread 2 causes an ASSERT failure,
+    // so we use 3 total threads for now.
+    child_exit = false;
     for (int i = 0; i < 2; i++) {
-        sleeptime.tv_sec = 0;
-        sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */
-
-        child_exit = false;
-        child_done = false;
-        child = create_thread(run, NULL, &stack);
-        assert(child > -1);
+        child_id[i] = i;
+        child_done[i] = false;
+        child[i] = create_thread(run, &child_id[i], &stack[i]);
+        assert(child[i] > -1);
 
         /* waste some time */
         nanosleep(&sleeptime, NULL);
 
-        child_exit = true;
         /* we want deterministic printf ordering */
-        while (!child_done)
+        while (!child_done[i])
             nanosleep(&sleeptime, NULL);
-        delete_thread(child, stack);
+    }
+    child_exit = true;
+    for (int i = 0; i < 2; i++) {
+        delete_thread(i, stack[i]);
     }
 }
 
@@ -120,8 +121,9 @@ run(void *arg)
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
      * clone system call we could get kernel to do this for us.
      */
-    child = dynamorio_syscall(SYS_gettid, 0);
-    dynamorio_syscall(SYS_set_tid_address, 1, &child);
+    int child_id = *(int *)arg;
+    child[child_id] = dynamorio_syscall(SYS_gettid, 0);
+    dynamorio_syscall(SYS_set_tid_address, 1, &child[child_id]);
     nolibc_print("Sideline thread started\n");
     while (true) {
         /* do nothing for now */
@@ -134,10 +136,10 @@ run(void *arg)
         if (i % 25000000 == 0)
             break;
     }
+    nolibc_print("Sideline thread finished\n");
+    child_done[child_id] = true;
     while (!child_exit)
         nanosleep(&sleeptime, NULL);
-    nolibc_print("Sideline thread finished\n");
-    child_done = true;
 #if defined(X64) || defined(ARM)
     /* FIXME: returning here invokes SYS_exit_group and takes down the
      * parent...what's up with that?  Xref i#94.
@@ -181,9 +183,8 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
 }
 
 static void
-delete_thread(pid_t pid, void *stack)
+delete_thread(int child_id, void *stack)
 {
-    pid_t result;
     /* do not print out pids to make diff easy */
     fprintf(stderr, "Waiting for child to exit\n");
     /* pid is really a tid, and since we used CLONE_THREAD, we cannot use
@@ -191,7 +192,7 @@ delete_thread(pid_t pid, void *stack)
      * so we rely on CLONE_CHILD_CLEARTID.  FIXME: use futex here.
      * for now being really simple.
      */
-    while (child != 0)
+    while (child[child_id] != 0)
         nanosleep(&sleeptime, NULL);
     fprintf(stderr, "Child has exited\n");
     stack_free(stack, THREAD_STACK_SIZE);
