@@ -140,6 +140,7 @@ Facility = DRCore
 SymbolicName = MSG_INFO_RESET_IN_PROGRESS
 Language=English
 Resetting caches and non-persistent memory @ %1!s! fragments in application %2!s! (%3!s!).
+.
 
 ;//;;;;;;;;;;;;;;;;;;; Security
 
