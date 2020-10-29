@@ -4436,8 +4436,8 @@ test_ccmn_reg(void *dc)
                         dc, opnd_create_reg(rn), opnd_create_reg(rm),
                         opnd_create_immed_uint(nzcv, OPSZ_4b), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "ccmn   %%%s %%%s $0x%02x $0x%02x",
-                            get_register_name(rn), get_register_name(rm), nzcv, k);
+                    sprintf(u, "ccmn   %%%s %%%s $0x%02x $0x%02x", get_register_name(rn),
+                            get_register_name(rm), nzcv, k);
                     test_instr_enc(dc, OP_ccmn, instr, u);
                 }
             }
@@ -4459,8 +4459,8 @@ test_ccmn_reg(void *dc)
                         dc, opnd_create_reg(rn), opnd_create_reg(rm),
                         opnd_create_immed_uint(nzcv, OPSZ_4b), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "ccmn   %%%s %%%s $0x%02x $0x%02x",
-                            get_register_name(rn), get_register_name(rm), nzcv, k);
+                    sprintf(u, "ccmn   %%%s %%%s $0x%02x $0x%02x", get_register_name(rn),
+                            get_register_name(rm), nzcv, k);
                     test_instr_enc(dc, OP_ccmn, instr, u);
                 }
             }
@@ -4532,8 +4532,8 @@ test_ccmp_reg(void *dc)
                         dc, opnd_create_reg(rn), opnd_create_reg(rm),
                         opnd_create_immed_uint(nzcv, OPSZ_4b), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "ccmp   %%%s %%%s $0x%02x $0x%02x",
-                            get_register_name(rn), get_register_name(rm), nzcv, k);
+                    sprintf(u, "ccmp   %%%s %%%s $0x%02x $0x%02x", get_register_name(rn),
+                            get_register_name(rm), nzcv, k);
                     test_instr_enc(dc, OP_ccmp, instr, u);
                 }
             }
@@ -4555,8 +4555,8 @@ test_ccmp_reg(void *dc)
                         dc, opnd_create_reg(rn), opnd_create_reg(rm),
                         opnd_create_immed_uint(nzcv, OPSZ_4b), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "ccmp   %%%s %%%s $0x%02x $0x%02x",
-                            get_register_name(rn), get_register_name(rm), nzcv, k);
+                    sprintf(u, "ccmp   %%%s %%%s $0x%02x $0x%02x", get_register_name(rn),
+                            get_register_name(rm), nzcv, k);
                     test_instr_enc(dc, OP_ccmp, instr, u);
                 }
             }
@@ -4581,7 +4581,7 @@ test_cinc(void *dc)
                 instr_t *instr = INSTR_CREATE_cinc(
                     dc, opnd_create_reg(rd), opnd_create_reg(rn), opnd_create_cond(cond));
                 char u[256];
-                sprintf(u,  "csinc  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                sprintf(u, "csinc  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
                         get_register_name(rn),
                         opnd_get_cond(opnd_invert_cond(opnd_create_cond(cond))) - 1,
                         get_register_name(rd));
@@ -4604,7 +4604,7 @@ test_cinc(void *dc)
                 instr_t *instr = INSTR_CREATE_cinc(
                     dc, opnd_create_reg(rd), opnd_create_reg(rn), opnd_create_cond(cond));
                 char u[256];
-                sprintf(u,  "csinc  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                sprintf(u, "csinc  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
                         get_register_name(rn),
                         opnd_get_cond(opnd_invert_cond(opnd_create_cond(cond))) - 1,
                         get_register_name(rd));
@@ -4631,7 +4631,7 @@ test_cinv(void *dc)
                 instr_t *instr = INSTR_CREATE_cinv(
                     dc, opnd_create_reg(rd), opnd_create_reg(rn), opnd_create_cond(cond));
                 char u[256];
-                sprintf(u,  "csinv  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                sprintf(u, "csinv  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
                         get_register_name(rn),
                         opnd_get_cond(opnd_invert_cond(opnd_create_cond(cond))) - 1,
                         get_register_name(rd));
@@ -4654,7 +4654,7 @@ test_cinv(void *dc)
                 instr_t *instr = INSTR_CREATE_cinv(
                     dc, opnd_create_reg(rd), opnd_create_reg(rn), opnd_create_cond(cond));
                 char u[256];
-                sprintf(u,  "csinv  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                sprintf(u, "csinv  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
                         get_register_name(rn),
                         opnd_get_cond(opnd_invert_cond(opnd_create_cond(cond))) - 1,
                         get_register_name(rd));
@@ -4681,7 +4681,7 @@ test_cneg(void *dc)
                 instr_t *instr = INSTR_CREATE_cneg(
                     dc, opnd_create_reg(rd), opnd_create_reg(rn), opnd_create_cond(cond));
                 char u[256];
-                sprintf(u,  "csneg  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                sprintf(u, "csneg  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
                         get_register_name(rn),
                         opnd_get_cond(opnd_invert_cond(opnd_create_cond(cond))) - 1,
                         get_register_name(rd));
@@ -4704,7 +4704,7 @@ test_cneg(void *dc)
                 instr_t *instr = INSTR_CREATE_cneg(
                     dc, opnd_create_reg(rd), opnd_create_reg(rn), opnd_create_cond(cond));
                 char u[256];
-                sprintf(u,  "csneg  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                sprintf(u, "csneg  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
                         get_register_name(rn),
                         opnd_get_cond(opnd_invert_cond(opnd_create_cond(cond))) - 1,
                         get_register_name(rd));
@@ -4718,11 +4718,11 @@ static void
 test_csel(void *dc)
 {
     /* csel <Xd>, <Xn>, <Xm>, <cond> */
-    for (reg_id_t rd = DR_REG_X1; rd <= DR_REG_XZR; rd+=3) {
+    for (reg_id_t rd = DR_REG_X1; rd <= DR_REG_XZR; rd += 3) {
         if (rd == DR_REG_XSP) {
             continue;
         }
-        for (reg_id_t rn = DR_REG_X0; rn <= DR_REG_XZR; rn+=2) {
+        for (reg_id_t rn = DR_REG_X0; rn <= DR_REG_XZR; rn += 2) {
             if (rn == DR_REG_XSP) {
                 continue;
             }
@@ -4736,9 +4736,8 @@ test_csel(void *dc)
                         INSTR_CREATE_csel(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                                           opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csel   %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csel   %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csel, instr, u);
                 }
             }
@@ -4746,11 +4745,11 @@ test_csel(void *dc)
     }
 
     /* csel <Wd>, <Wn>, <Wm>, <cond> */
-    for (reg_id_t rd = DR_REG_W1; rd <= DR_REG_WZR; rd+=3) {
+    for (reg_id_t rd = DR_REG_W1; rd <= DR_REG_WZR; rd += 3) {
         if (rd == DR_REG_WSP) {
             continue;
         }
-        for (reg_id_t rn = DR_REG_W0; rn <= DR_REG_WZR; rn+=2) {
+        for (reg_id_t rn = DR_REG_W0; rn <= DR_REG_WZR; rn += 2) {
             if (rn == DR_REG_WSP) {
                 continue;
             }
@@ -4764,9 +4763,8 @@ test_csel(void *dc)
                         INSTR_CREATE_csel(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                                           opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csel   %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csel   %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csel, instr, u);
                 }
             }
@@ -4796,7 +4794,9 @@ test_cset(void *dc)
 
     /* cset <Wd>, <cond> */
     for (reg_id_t rd = DR_REG_W0; rd <= DR_REG_WZR; rd++) {
-        if (rd == DR_REG_WSP) { continue; }
+        if (rd == DR_REG_WSP) {
+            continue;
+        }
         for (int k = 0b0000; k <= 0b1101; k++) {
             int cond = conditions[k];
             instr_t *instr =
@@ -4870,9 +4870,8 @@ test_csinc(void *dc)
                         INSTR_CREATE_csinc(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                                            opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csinc  %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csinc  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csinc, instr, u);
                 }
             }
@@ -4898,9 +4897,8 @@ test_csinc(void *dc)
                         INSTR_CREATE_csinc(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                                            opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csinc  %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csinc  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csinc, instr, u);
                 }
             }
@@ -4930,9 +4928,8 @@ test_csinv(void *dc)
                         INSTR_CREATE_csinv(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                                            opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csinv  %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csinv  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csinv, instr, u);
                 }
             }
@@ -4958,9 +4955,8 @@ test_csinv(void *dc)
                         INSTR_CREATE_csinv(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                         opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csinv  %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csinv  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csinv, instr, u);
                 }
             }
@@ -4990,9 +4986,8 @@ test_csneg(void *dc)
                         INSTR_CREATE_csneg(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                                            opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csneg  %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csneg  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csneg, instr, u);
                 }
             }
@@ -5018,9 +5013,8 @@ test_csneg(void *dc)
                         INSTR_CREATE_csneg(dc, opnd_create_reg(rd), opnd_create_reg(rn),
                                            opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
-                    sprintf(u, "csneg  %%%s %%%s $0x%02x -> %%%s",
-                            get_register_name(rn), get_register_name(rm),
-                            k, get_register_name(rd));
+                    sprintf(u, "csneg  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
+                            get_register_name(rm), k, get_register_name(rd));
                     test_instr_enc(dc, OP_csneg, instr, u);
                 }
             }
