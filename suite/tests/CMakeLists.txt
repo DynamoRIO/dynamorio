@@ -4073,6 +4073,17 @@ if (UNIX)
     "-enable_reset -reset_at_fragment_count 100" "")
   torunonly(linux.clone-reset linux.clone linux/clone.c
     "-enable_reset -reset_at_fragment_count 100" "")
+  if (AARCHXX)
+    # Test our diagnostic option -steal_reg_at_reset, which is also a stress
+    # test of reset and register stealing.
+    if (ARM)
+      set(new_reg 9)
+    else ()
+      set(new_reg 29)
+    endif ()
+    torunonly(linux.steal-switch linux.thread linux/thread.c
+      "-enable_reset -reset_at_fragment_count 100 -steal_reg_at_reset ${new_reg}" "")
+  endif ()
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig pthreads/ptsig.c)
