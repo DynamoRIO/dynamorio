@@ -750,38 +750,22 @@ opnd_create_cond(int cond)
     /* FIXME i#1569: Move definition of dr_pred_type_t to opnd.h for AArch64
      * to avoid using int instead of dr_pred_type_t */
     switch (cond) {
-    case DR_PRED_EQ:
-        return opnd_create_immed_uint(0b0000, OPSZ_4b);
-    case DR_PRED_NE:
-        return opnd_create_immed_uint(0b0001, OPSZ_4b);
-    case DR_PRED_CS:
-        return opnd_create_immed_uint(0b0010, OPSZ_4b);
-    case DR_PRED_CC:
-        return opnd_create_immed_uint(0b0011, OPSZ_4b);
-    case DR_PRED_MI:
-        return opnd_create_immed_uint(0b0100, OPSZ_4b);
-    case DR_PRED_PL:
-        return opnd_create_immed_uint(0b0101, OPSZ_4b);
-    case DR_PRED_VS:
-        return opnd_create_immed_uint(0b0110, OPSZ_4b);
-    case DR_PRED_VC:
-        return opnd_create_immed_uint(0b0111, OPSZ_4b);
-    case DR_PRED_HI:
-        return opnd_create_immed_uint(0b1000, OPSZ_4b);
-    case DR_PRED_LS:
-        return opnd_create_immed_uint(0b1001, OPSZ_4b);
-    case DR_PRED_GE:
-        return opnd_create_immed_uint(0b1010, OPSZ_4b);
-    case DR_PRED_LT:
-        return opnd_create_immed_uint(0b1011, OPSZ_4b);
-    case DR_PRED_GT:
-        return opnd_create_immed_uint(0b1100, OPSZ_4b);
-    case DR_PRED_LE:
-        return opnd_create_immed_uint(0b1101, OPSZ_4b);
-    case DR_PRED_AL:
-        return opnd_create_immed_uint(0b1110, OPSZ_4b);
-    case DR_PRED_NV:
-        return opnd_create_immed_uint(0b1111, OPSZ_4b);
+    case DR_PRED_EQ: return opnd_create_immed_uint(0b0000, OPSZ_4b);
+    case DR_PRED_NE: return opnd_create_immed_uint(0b0001, OPSZ_4b);
+    case DR_PRED_CS: return opnd_create_immed_uint(0b0010, OPSZ_4b);
+    case DR_PRED_CC: return opnd_create_immed_uint(0b0011, OPSZ_4b);
+    case DR_PRED_MI: return opnd_create_immed_uint(0b0100, OPSZ_4b);
+    case DR_PRED_PL: return opnd_create_immed_uint(0b0101, OPSZ_4b);
+    case DR_PRED_VS: return opnd_create_immed_uint(0b0110, OPSZ_4b);
+    case DR_PRED_VC: return opnd_create_immed_uint(0b0111, OPSZ_4b);
+    case DR_PRED_HI: return opnd_create_immed_uint(0b1000, OPSZ_4b);
+    case DR_PRED_LS: return opnd_create_immed_uint(0b1001, OPSZ_4b);
+    case DR_PRED_GE: return opnd_create_immed_uint(0b1010, OPSZ_4b);
+    case DR_PRED_LT: return opnd_create_immed_uint(0b1011, OPSZ_4b);
+    case DR_PRED_GT: return opnd_create_immed_uint(0b1100, OPSZ_4b);
+    case DR_PRED_LE: return opnd_create_immed_uint(0b1101, OPSZ_4b);
+    case DR_PRED_AL: return opnd_create_immed_uint(0b1110, OPSZ_4b);
+    case DR_PRED_NV: return opnd_create_immed_uint(0b1111, OPSZ_4b);
     default:
         CLIENT_ASSERT(false, "invalid condition constant");
         return opnd_create_null();

@@ -2613,7 +2613,7 @@ enum {
  *                (use opnd_create_cond(val) to create the operand).
  */
 #define INSTR_CREATE_cinv(dc, Rd, Rn, cond) \
-    instr_create_1dst_3src(dc, OP_csinv, Rd, Rn, Rn,  opnd_invert_cond(cond))
+    instr_create_1dst_3src(dc, OP_csinv, Rd, Rn, Rn, opnd_invert_cond(cond))
 
 /**
  * Creates a CNEG (Conditional Negate) instruction.
@@ -2645,9 +2645,9 @@ enum {
  * \param cond    A 4-bit immediate value for condition
  *                (use opnd_create_cond(val) to create the operand).
  */
-#define INSTR_CREATE_cset(dc, Rd, cond) \
-    instr_create_1dst_3src(dc, OP_csinc, Rd, \
-    OPND_CREATE_ZR(Rd), OPND_CREATE_ZR(Rd), opnd_invert_cond(cond))
+#define INSTR_CREATE_cset(dc, Rd, cond)                                              \
+    instr_create_1dst_3src(dc, OP_csinc, Rd, OPND_CREATE_ZR(Rd), OPND_CREATE_ZR(Rd), \
+                           opnd_invert_cond(cond))
 
 /**
  * Creates a CSETM (Conditional Set Mask) instruction.
@@ -2656,9 +2656,9 @@ enum {
  * \param cond    A 4-bit immediate value for condition
  *                (use opnd_create_cond(val) to create the operand).
  */
-#define INSTR_CREATE_csetm(dc, Rd, cond) \
-    instr_create_1dst_3src(dc, OP_csinv, Rd, \
-    OPND_CREATE_ZR(Rd), OPND_CREATE_ZR(Rd), opnd_invert_cond(cond))
+#define INSTR_CREATE_csetm(dc, Rd, cond)                                             \
+    instr_create_1dst_3src(dc, OP_csinv, Rd, OPND_CREATE_ZR(Rd), OPND_CREATE_ZR(Rd), \
+                           opnd_invert_cond(cond))
 
 /**
  * Creates a CSINC (Conditional Select Increment) instruction.
