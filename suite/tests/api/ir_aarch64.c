@@ -4726,7 +4726,7 @@ test_csel(void *dc)
             if (rn == DR_REG_XSP) {
                 continue;
             }
-            for (reg_id_t rm = DR_REG_X1; rm <= DR_REG_XZR; rm+=2) {
+            for (reg_id_t rm = DR_REG_X1; rm <= DR_REG_XZR; rm += 2) {
                 if (rm == DR_REG_XSP) {
                     continue;
                 }
@@ -4753,7 +4753,7 @@ test_csel(void *dc)
             if (rn == DR_REG_WSP) {
                 continue;
             }
-            for (reg_id_t rm = DR_REG_W1; rm <= DR_REG_WZR; rm+=2) {
+            for (reg_id_t rm = DR_REG_W1; rm <= DR_REG_WZR; rm += 2) {
                 if (rm == DR_REG_WSP) {
                     continue;
                 }
@@ -4953,7 +4953,7 @@ test_csinv(void *dc)
                     int cond = conditions[k];
                     instr_t *instr =
                         INSTR_CREATE_csinv(dc, opnd_create_reg(rd), opnd_create_reg(rn),
-                        opnd_create_reg(rm), opnd_create_cond(cond));
+                                           opnd_create_reg(rm), opnd_create_cond(cond));
                     char u[256];
                     sprintf(u, "csinv  %%%s %%%s $0x%02x -> %%%s", get_register_name(rn),
                             get_register_name(rm), k, get_register_name(rd));
