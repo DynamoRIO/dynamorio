@@ -33,7 +33,7 @@
 # Searches /proc/self/maps for the line containing a given address.
 # Usage:
 # 1) Place this line into your ~/.gdbinit:
-#    source ~/bin/gdb-memquery.py
+#    source <path-to>/gdb-memquery.py
 # 2) Execute the command in gdb:
 #    (gdb) memquery $rsp
 #    7ffffffde000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]

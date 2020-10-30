@@ -35,7 +35,7 @@
 # TODO i#2100: Integrate with a revived libdynamorio.so-gdb.py.
 # Usage:
 # 1) Place this line into your ~/.gdbinit:
-#    source ~/bin/gdb-drsymload.py
+#    source <path-to>/gdb-drsymload.py
 # 2) Execute the command in gdb:
 #    (gdb) drsymload
 
