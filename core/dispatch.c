@@ -902,7 +902,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
             app_pc begin = (app_pc)dcontext->local_state->spill_space.r2;
             app_pc end = (app_pc)dcontext->local_state->spill_space.r3;
             dcontext->next_tag = (app_pc)dcontext->local_state->spill_space.r4;
-            flush_fragments_from_region(dcontext, begin, end - begin, true);
+            flush_fragments_from_region(dcontext, begin, end - begin, true,
+                                        NULL /*flush_completion_callback*/,
+                                        NULL /*user_data*/);
         }
 #endif
 

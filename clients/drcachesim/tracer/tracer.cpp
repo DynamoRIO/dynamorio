@@ -1316,13 +1316,14 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
  */
 
 static uint64 instr_count;
-static volatile bool tracing_enabled;
-static void *enable_tracing_lock;
+static bool tracing_enabled;
+static volatile bool tracing_scheduled;
+static void *schedule_tracing_lock;
 
 #ifdef X86_64
 #    define DELAYED_CHECK_INLINED 1
 #else
-// XXX: we don't have the inlining implemented yet.
+// XXX i#4487: we don't have the inlining implemented yet.
 #endif
 
 static dr_emit_flags_t
@@ -1345,7 +1346,7 @@ enable_delay_instrumentation()
     if (!drmgr_register_bb_instrumentation_event(
             event_delay_bb_analysis, event_delay_app_instruction, &memtrace_pri))
         DR_ASSERT(false);
-    enable_tracing_lock = dr_mutex_create();
+    schedule_tracing_lock = dr_mutex_create();
 }
 
 static void
@@ -1358,8 +1359,8 @@ disable_delay_instrumentation()
 static void
 exit_delay_instrumentation()
 {
-    if (enable_tracing_lock != NULL)
-        dr_mutex_destroy(enable_tracing_lock);
+    if (schedule_tracing_lock != NULL)
+        dr_mutex_destroy(schedule_tracing_lock);
 #ifdef DELAYED_CHECK_INLINED
     drx_exit();
 #endif
@@ -1379,28 +1380,46 @@ enable_tracing_instrumentation()
 }
 
 static void
-hit_instr_count_threshold()
+change_instrumentation_callback(void *unused_user_data)
+{
+    NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+    disable_delay_instrumentation();
+    enable_tracing_instrumentation();
+}
+
+static void
+hit_instr_count_threshold(app_pc next_pc)
 {
     bool do_flush = false;
-    dr_mutex_lock(enable_tracing_lock);
-    if (!tracing_enabled) { // Already came here?
-        NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
-        disable_delay_instrumentation();
-        enable_tracing_instrumentation();
+    dr_mutex_lock(schedule_tracing_lock);
+    if (!tracing_scheduled) {
         do_flush = true;
+        tracing_scheduled = true;
     }
-    dr_mutex_unlock(enable_tracing_lock);
-    if (do_flush && !dr_unlink_flush_region(NULL, ~0UL))
+    dr_mutex_unlock(schedule_tracing_lock);
+
+    if (do_flush) {
+        if (!dr_flush_region_ex(NULL, ~0UL, change_instrumentation_callback,
+                                NULL /*user_data*/))
+            DR_ASSERT(false);
+
+        dr_mcontext_t mcontext;
+        mcontext.size = sizeof(mcontext);
+        mcontext.flags = DR_MC_ALL;
+        dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
+        mcontext.pc = next_pc;
+        dr_redirect_execution(&mcontext);
         DR_ASSERT(false);
+    }
 }
 
 #ifndef DELAYED_CHECK_INLINED
 static void
-check_instr_count_threshold(uint incby)
+check_instr_count_threshold(uint incby, app_pc next_pc)
 {
     instr_count += incby;
     if (instr_count > op_trace_after_instrs.get_value())
-        hit_instr_count_threshold();
+        hit_instr_count_threshold(next_pc);
 }
 #endif
 
@@ -1450,7 +1469,8 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     }
     MINSERT(bb, instr, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
     dr_insert_clean_call(drcontext, bb, instr, (void *)hit_instr_count_threshold,
-                         false /*fpstate */, 0);
+                         false /*fpstate */, 1,
+                         OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
     MINSERT(bb, instr, skip_call);
     if (scratch != DR_REG_NULL) {
         if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
@@ -1463,7 +1483,8 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     // XXX: drx_insert_counter_update doesn't support 64-bit, and there's no
     // XINST_CREATE_load_8bytes.  For now we pay the cost of a clean call every time.
     dr_insert_clean_call(drcontext, bb, instr, (void *)check_instr_count_threshold,
-                         false /*fpstate */, 1, OPND_CREATE_INT32(num_instrs));
+                         false /*fpstate */, 2, OPND_CREATE_INT32(num_instrs),
+                         OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
 #endif
     return DR_EMIT_DEFAULT;
 }

@@ -3906,64 +3906,72 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
                 /* Flush only when debug register value changes. */
                 if (d_r_debug_register[0] != (app_pc)cxt->Dr0) {
                     d_r_debug_register[0] = (app_pc)cxt->Dr0;
-                    flush_fragments_from_region(dcontext, d_r_debug_register[0],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[0], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[0] != NULL) {
-                    flush_fragments_from_region(dcontext, d_r_debug_register[0],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[0], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[0] = NULL;
                 }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR1)) {
                 if (d_r_debug_register[1] != (app_pc)cxt->Dr1) {
                     d_r_debug_register[1] = (app_pc)cxt->Dr1;
-                    flush_fragments_from_region(dcontext, d_r_debug_register[1],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[1], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[1] != NULL) {
-                    flush_fragments_from_region(dcontext, d_r_debug_register[1],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[1], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[1] = NULL;
                 }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR2)) {
                 if (d_r_debug_register[2] != (app_pc)cxt->Dr2) {
                     d_r_debug_register[2] = (app_pc)cxt->Dr2;
-                    flush_fragments_from_region(dcontext, d_r_debug_register[2],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[2], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[2] != NULL) {
-                    flush_fragments_from_region(dcontext, d_r_debug_register[2],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[2], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[2] = NULL;
                 }
             }
             if (TESTANY(cxt->Dr7, DEBUG_REGISTERS_FLAG_ENABLE_DR3)) {
                 if (d_r_debug_register[3] != (app_pc)cxt->Dr3) {
                     d_r_debug_register[3] = (app_pc)cxt->Dr3;
-                    flush_fragments_from_region(dcontext, d_r_debug_register[3],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[3], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 }
             } else {
                 /* Disable debug register. */
                 if (d_r_debug_register[3] != NULL) {
-                    flush_fragments_from_region(dcontext, d_r_debug_register[3],
-                                                1 /* size */,
-                                                false /*don't force synchall*/);
+                    flush_fragments_from_region(
+                        dcontext, d_r_debug_register[3], 1 /* size */,
+                        false /*don't force synchall*/,
+                        NULL /*flush_completion_callback*/, NULL /*user_data*/);
                     d_r_debug_register[3] = NULL;
                 }
             }
@@ -5872,9 +5880,10 @@ intercept_exception(app_state_at_intercept_t *state)
                         /* Deletes fragment starting at single step exception
                          * if it exists.
                          */
-                        flush_fragments_from_region(dcontext, dcontext->next_tag,
-                                                    1 /* size */,
-                                                    false /*don't force synchall*/);
+                        flush_fragments_from_region(
+                            dcontext, dcontext->next_tag, 1 /* size */,
+                            false /*don't force synchall*/,
+                            NULL /*flush_completion_callback*/, NULL /*user_data*/);
                         /* Sets a field so that build_bb_ilist knows when to stop. */
                         dcontext->single_step_addr = dcontext->next_tag;
                         LOG(THREAD, LOG_ASYNCH, 2,
