@@ -129,10 +129,9 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static reg_t
 get_val_from_ctx(void *drcontext, reg_id_t reg_id)
 {
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     return reg_get_value(reg_id, &mcontext);
 }

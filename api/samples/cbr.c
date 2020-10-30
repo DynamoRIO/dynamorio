@@ -232,10 +232,14 @@ insert(hash_table_t table, app_pc addr, cbr_state_t state)
 static void
 at_taken(app_pc src, app_pc targ)
 {
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    /*
+     * We've found that the time taken to zero a large struct shows up as
+     * noticeable overhead for optimized clients. So, instead of using partial
+     * struct initialization, we set the fields required individually.
+     */
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     void *drcontext = dr_get_current_drcontext();
 
     /*
@@ -261,10 +265,14 @@ at_taken(app_pc src, app_pc targ)
 static void
 at_not_taken(app_pc src, app_pc fall)
 {
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    /*
+     * We've found that the time taken to zero a large struct shows up as
+     * noticeable overhead for optimized clients. So, instead of using partial
+     * struct initialization, we set the fields required individually.
+     */
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     void *drcontext = dr_get_current_drcontext();
 
     /*
