@@ -54,7 +54,7 @@ class DRSymLoadCommand (gdb.Command):
         super (DRSymLoadCommand, self).__init__ ("drsymload",
                                                 gdb.COMMAND_DATA,
                                                 gdb.COMPLETE_FILENAME)
-    def invoke(self, arg, from_tty):
+    def invoke(self, unused_arg, unused_from_tty):
         pid = int(gdb.selected_inferior().pid)
         exefile = "/proc/%d/exe" % pid
         drfile = str(Path(exefile).resolve())

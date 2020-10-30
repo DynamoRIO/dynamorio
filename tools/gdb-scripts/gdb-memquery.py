@@ -51,7 +51,7 @@ class MemQueryCommand (gdb.Command):
         super (MemQueryCommand, self).__init__ ("memquery",
                                                 gdb.COMMAND_DATA,
                                                 gdb.COMPLETE_FILENAME)
-    def invoke(self, arg, from_tty):
+    def invoke(self, arg, unused_from_tty):
         addr = gdb.parse_and_eval(arg)
         pid = int(gdb.selected_inferior().pid)
         map_name = "/proc/%d/maps" % pid
