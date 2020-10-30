@@ -981,14 +981,16 @@ dr_insert_cbr_instrumentation()
 \subsection sec_adaptive Dynamic Instrumentation
 
 DynamoRIO allows a client to dynamically adjust its instrumentation
-by providing routines to flush all cached fragments corresponding to
-an application code region:
+by providing a routine to flush all cached fragments corresponding to
+an application code region and register (or unregister) instrumentation
+event callbacks:
 
 \code
-dr_flush_region()
-dr_unlink_flush_region()
-dr_delay_flush_region()
+dr_flush_region_ex()
 \endcode
+
+The client should provide a callback to this routine, that unregisters
+old instrumentation event callbacks, and registers new ones.
 
 In order to directly modify the instrumentation on a particular fragment
 (as opposed to replacing instrumentation on all copies of fragments

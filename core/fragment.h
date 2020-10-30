@@ -1141,7 +1141,9 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall);
+                            bool force_synchall,
+                            void (*flush_completion_callback)(void *user_data),
+                            void *user_data);
 
 void
 flush_fragments_custom_list(dcontext_t *dcontext, fragment_t *list,

@@ -7171,10 +7171,12 @@ DR_API
 /* Flush all fragments that contain code from the region [start, start+size).
  * Uses a synchall flush to guarantee that no execution occurs out of the fragments
  * flushed once this returns. Requires caller to be holding no locks (dr or client) and
- * to be !couldbelinking (xref PR 199115, 227619). Caller must use
+ * to be !couldbelinking (xref PR 199115, 227619). Invokes the given callback after the
+ * flush completes and before threads are resumed. Caller must use
  * dr_redirect_execution() to return to the cache. */
 bool
-dr_flush_region(app_pc start, size_t size)
+dr_flush_region_ex(app_pc start, size_t size,
+                   void (*flush_completion_callback)(void *user_data), void *user_data)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
@@ -7198,18 +7200,32 @@ dr_flush_region(app_pc start, size_t size)
                   "dr_flush_region: caller owns a client "
                   "lock or was called from an event callback that doesn't support "
                   "calling this routine; see header file for restrictions.");
-    CLIENT_ASSERT(size != 0, "dr_flush_region: 0 is invalid size for flush");
+    CLIENT_ASSERT(size != 0, "dr_flush_region_ex: 0 is invalid size for flush");
 
     /* release build check of requirements, as many as possible at least */
-    if (size == 0 || is_couldbelinking(dcontext))
+    if (size == 0 || is_couldbelinking(dcontext)) {
+        (*flush_completion_callback)(user_data);
         return false;
+    }
 
-    if (!executable_vm_area_executed_from(start, start + size))
+    if (!executable_vm_area_executed_from(start, start + size)) {
+        (*flush_completion_callback)(user_data);
         return true;
+    }
 
-    flush_fragments_from_region(dcontext, start, size, true /*force synchall*/);
+    flush_fragments_from_region(dcontext, start, size, true /*force synchall*/,
+                                flush_completion_callback, user_data);
 
     return true;
+}
+
+DR_API
+/* Equivalent to dr_flush_region_ex, without the callback. */
+bool
+dr_flush_region(app_pc start, size_t size)
+{
+    return dr_flush_region_ex(start, size, NULL /*flush_completion_callback*/,
+                              NULL /*user_data*/);
 }
 
 DR_API
@@ -7259,7 +7275,8 @@ dr_unlink_flush_region(app_pc start, size_t size)
     if (!executable_vm_area_executed_from(start, start + size))
         return true;
 
-    flush_fragments_from_region(dcontext, start, size, false /*don't force synchall*/);
+    flush_fragments_from_region(dcontext, start, size, false /*don't force synchall*/,
+                                NULL /*flush_completion_callback*/, NULL /*user_data*/);
 
     return true;
 }
