@@ -188,11 +188,9 @@ callback(void *tag, app_pc next_pc)
     if (callback_count % 100 == 0) {
         if (callback_count % 200 == 0) {
             /* For windows test dr_flush_region() half the time */
-            dr_mcontext_t mcontext = {
-                sizeof(mcontext),
-                DR_MC_ALL,
-            };
-
+            dr_mcontext_t mcontext;
+            mcontext.size = sizeof(mcontext);
+            mcontext.flags = DR_MC_ALL;
             dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
             dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
             mcontext.pc = next_pc;
@@ -285,7 +283,8 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     /* Test kernel xfer on dr_redirect_execution */
     dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
     ASSERT(info->source_mcontext != NULL);
-    dr_mcontext_t mc = { sizeof(mc) };
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
     mc.flags = DR_MC_CONTROL;
     bool ok = dr_get_mcontext(drcontext, &mc);
     ASSERT(ok);
