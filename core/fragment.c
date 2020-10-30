@@ -2403,17 +2403,13 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         if (!fragment_lookup_deleted(dcontext, tag) && !TEST(FRAG_COARSE_GRAIN, flags))
             STATS_INC(num_unique_fragments);
     });
-    /* FIXME: make fragment count a release-build stat so we can do this in
-     * release builds
-     */
-    DOSTATS({
-        if (d_r_stats != NULL &&
-            (uint)GLOBAL_STAT(num_fragments) ==
-                INTERNAL_OPTION(reset_at_fragment_count)) {
-            ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
-            schedule_reset(RESET_ALL);
-        }
-    });
+    if (d_r_stats != NULL &&
+        /* num_fragments is debug-only so we use the two release-build stats. */
+        (uint)GLOBAL_STAT(num_bbs) + GLOBAL_STAT(num_traces) ==
+            INTERNAL_OPTION(reset_at_fragment_count)) {
+        ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
+        schedule_reset(RESET_ALL);
+    }
     DODEBUG({
         if ((uint)GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(log_at_fragment_count)) {
             /* we started at loglevel 1 and now we raise to the requested level */

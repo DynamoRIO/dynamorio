@@ -4228,10 +4228,12 @@ fcache_reset_all_caches_proactively(uint target)
 
     LOG(GLOBAL, LOG_CACHE, 2,
         "fcache_reset_all_caches_proactively: walking the threads\n");
-    DOSTATS({
-        SYSLOG_INTERNAL_INFO("proactive reset @ %d fragments",
-                             GLOBAL_STAT(num_fragments));
-    });
+    char buf[16];
+    snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%d",
+             GLOBAL_STAT(num_bbs) + GLOBAL_STAT(num_traces));
+    NULL_TERMINATE_BUFFER(buf);
+    SYSLOG(SYSLOG_INFORMATION, INFO_RESET_IN_PROGRESS, 3, buf, get_application_name(),
+           get_application_pid());
 
     /* reset_free and reset_init may write to .data.
      * All threads are suspended so no security risk.
@@ -4241,7 +4243,7 @@ fcache_reset_all_caches_proactively(uint target)
     /* no lock needed */
     dynamo_resetting = true;
 
-    IF_ARM({
+    IF_AARCHXX({
         if (INTERNAL_OPTION(steal_reg_at_reset) != 0)
             arch_reset_stolen_reg();
     });

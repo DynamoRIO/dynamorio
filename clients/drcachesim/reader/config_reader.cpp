@@ -320,12 +320,8 @@ bool
 config_reader_t::check_cache_config(int num_cores,
                                     std::map<std::string, cache_params_t> &caches_map)
 {
-    int *core_inst_caches = new int[num_cores];
-    int *core_data_caches = new int[num_cores];
-    for (int i = 0; i < num_cores; i++) {
-        core_inst_caches[i] = 0;
-        core_data_caches[i] = 0;
-    }
+    std::vector<int> core_inst_caches(num_cores, 0);
+    std::vector<int> core_data_caches(num_cores, 0);
 
     for (auto &cache_map : caches_map) {
         std::string cache_name = cache_map.first;

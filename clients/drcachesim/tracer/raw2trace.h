@@ -974,7 +974,8 @@ private:
         bool skip_icache = false;
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
-        bool instrs_are_separate = false;
+        bool instrs_are_separate =
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
         uint64_t cur_modoffs = in_entry->pc.modoffs;
@@ -983,8 +984,9 @@ private:
             // L0 filtering adds a PC entry with a count of 0 prior to each memref.
             skip_icache = true;
             instr_count = 1;
-            // We set a flag to avoid peeking forward on instr entries.
-            instrs_are_separate = true;
+            // We should have set a flag to avoid peeking forward on instr entries
+            // based on OFFLINE_FILE_TYPE_FILTERED.
+            DR_ASSERT(instrs_are_separate);
         } else {
             if (!impl()->instr_summary_exists(tls, in_entry->pc.modidx,
                                               in_entry->pc.modoffs, start_pc, 0,
