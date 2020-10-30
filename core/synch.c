@@ -1714,7 +1714,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             free_cxt = false;
         }
 #endif
-        IF_ARM({
+        IF_AARCHXX({
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* We don't want to translate, just update the stolen reg values */
                 arch_mcontext_reset_stolen_reg(dcontext, mc);
@@ -1741,7 +1741,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         }
         LOG(GLOBAL, LOG_CACHE, 2, "\ttranslation pc = " PFX "\n", mc->pc);
         ASSERT(!is_dynamo_address((app_pc)mc->pc) && !in_fcache((app_pc)mc->pc));
-        IF_ARM({
+        IF_AARCHXX({
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* XXX: do we need this?  Will signal.c will fix it up prior
                  * to sigreturn from suspend handler?
@@ -1815,6 +1815,9 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          */
         mc->pc = (app_pc)get_reset_exit_stub(dcontext);
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
+        /* TODO i#4497: Replace with the official fix from PR#4498. */
+        IF_AARCHXX(set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext)));
+        IF_AARCHXX(ASSERT_NOT_TESTED()); /* PR#4498 will improve test coverage. */
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app
