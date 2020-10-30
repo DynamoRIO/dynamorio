@@ -173,10 +173,6 @@ Further non-compatibility-affecting changes include:
  - Added opnd_create_immed_double(), opnd_get_immed_double() and
    opnd_is_immed_double() to enable the creation and handling of double
    precision floating-point operands.
- - Added -reset_at_created_thread_count option to allow triggering reset when
-   created thread count reaches the given value. This is unlike
-   reset_at_nth_thread which checks the existing thread count. This option is
-   currently used to make Linux reset tests more robust.
 
 **************************************************
 <hr>
