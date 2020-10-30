@@ -1817,6 +1817,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
         /* TODO i#4497: Replace with the official fix from PR#4498. */
         IF_AARCHXX(set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext)));
+        IF_AARCHXX(ASSERT_NOT_TESTED()); /* PR#4498 will improve test coverage. */
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app

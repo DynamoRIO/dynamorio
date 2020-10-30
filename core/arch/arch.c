@@ -593,9 +593,9 @@ arch_reset_stolen_reg(void)
      * shared_code, which means we do not need to update each thread's pointers
      * to gencode stored in TLS.
      */
-# ifdef ARM
+#    ifdef ARM
     dr_isa_mode_t old_mode;
-# endif
+#    endif
     dcontext_t *dcontext;
     if (DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset) == dr_reg_stolen)
         return;
@@ -603,9 +603,9 @@ arch_reset_stolen_reg(void)
                          reg_names[DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset)]);
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
-# ifdef ARM
+#    ifdef ARM
     dr_set_isa_mode(dcontext, DR_ISA_ARM_THUMB, &old_mode);
-# endif
+#    endif
 
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dr_reg_stolen = DR_REG_R0 + INTERNAL_OPTION(steal_reg_at_reset);
@@ -615,9 +615,9 @@ arch_reset_stolen_reg(void)
     protect_generated_code(shared_code, READONLY);
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-# ifdef ARM
+#    ifdef ARM
     dr_set_isa_mode(dcontext, old_mode, NULL);
-# endif
+#    endif
     DOLOG(3, LOG_EMIT, {
         dump_emitted_routines(GLOBAL_DCONTEXT, GLOBAL, "swap stolen reg", shared_code,
                               shared_code->gen_end_pc);
