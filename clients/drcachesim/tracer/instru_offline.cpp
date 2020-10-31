@@ -478,7 +478,7 @@ offline_instru_t::insert_save_addr(void *drcontext, instrlist_t *ilist, instr_t 
         res = drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_addr);
         DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
         reserved = true;
-        bool reg_ptr_used;
+        bool reg_ptr_used = false;
         insert_obtain_addr(drcontext, ilist, where, reg_addr, reg_ptr, ref,
                            &reg_ptr_used);
         if (reg_ptr_used) {
