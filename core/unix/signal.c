@@ -2661,7 +2661,6 @@ thread_set_self_context(void *cxt)
     }
 #endif
 
-    dcontext_t *dcontext = get_thread_private_dcontext();
     /* Unlike Windows we can't say "only set this subset of the
      * full machine state", so we need to get the rest of the state,
      */
@@ -2676,6 +2675,7 @@ thread_set_self_context(void *cxt)
     memset(&frame, 0, sizeof(frame));
 #ifdef LINUX
 #    ifdef X86
+    dcontext_t *dcontext = get_thread_private_dcontext();
     byte *xstate = get_and_initialize_xstate_buffer(dcontext);
     frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
 #    endif /* X86 */
@@ -2695,8 +2695,10 @@ thread_set_self_context(void *cxt)
                         sizeof(frame.uc.uc_sigmask));
     LOG(THREAD_GET, LOG_ASYNCH, 2, "thread_set_self_context: pc=" PFX "\n", sc->SC_XIP);
     LOG(THREAD_GET, LOG_ASYNCH, 3, "full sigcontext\n");
-    DOLOG(LOG_ASYNCH, 3,
-          { dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(&frame)); });
+    DOLOG(LOG_ASYNCH, 3, {
+        dcontext_t *dcontext = get_thread_private_dcontext();
+        dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(&frame));
+    });
     /* set up xsp to point at &frame + sizeof(char*) */
     /* For x86 only, we need to skip pretcode while setting xsp. */
     xsp_for_sigreturn = ((app_pc)&frame) IF_X86(+ sizeof(char *));
