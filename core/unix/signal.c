@@ -2701,7 +2701,7 @@ thread_set_self_context(void *cxt)
     });
     /* set up xsp to point at &frame + sizeof(char*) */
     /* For x86 only, we need to skip pretcode while setting xsp. */
-    xsp_for_sigreturn = ((app_pc)&frame) IF_X86(+ sizeof(char *));
+    xsp_for_sigreturn = ((app_pc)&frame)IF_X86(+sizeof(char *));
 #ifdef X86
     asm("mov  %0, %%" ASM_XSP : : "m"(xsp_for_sigreturn));
 #    ifdef MACOS
@@ -2721,7 +2721,7 @@ thread_set_self_context(void *cxt)
 #elif defined(ARM)
     asm("ldr  " ASM_XSP ", %0" : : "m"(xsp_for_sigreturn));
     asm("b    dynamorio_sigreturn");
-#endif /* X86/ARM */
+#endif /* X86/AARCH64/ARM */
     ASSERT_NOT_REACHED();
 }
 
