@@ -2715,7 +2715,7 @@ thread_set_self_context(void *cxt)
     asm("mov  %0, %%" ASM_XCX : : "m"(asm_jmp_tgt));
     asm("jmp  *%" ASM_XCX);
 #    endif /* MACOS/LINUX */
-#elif defined(AARCH64)
+#elif defined(AARCH64) && !defined(DR_HOST_NOT_TARGET)
     asm("mov  " ASM_XSP ", %0" : : "r"(xsp_for_sigreturn));
     asm("b    dynamorio_sigreturn");
 #elif defined(ARM)
