@@ -2681,7 +2681,10 @@ thread_set_self_context(void *cxt)
 #    endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
+    IF_ARM(ASSERT_NOT_TESTED());
+#if defined(LINUX) && defined(X86)
     save_fpstate(dcontext, &frame);
+#endif
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
      * the frame is ok, but the side effect is we can mess up our own altstack
      * settings if we're not careful.  Having invalid ss_size looks good for
@@ -2695,7 +2698,8 @@ thread_set_self_context(void *cxt)
     DOLOG(LOG_ASYNCH, 3,
           { dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(&frame)); });
     /* set up xsp to point at &frame + sizeof(char*) */
-    xsp_for_sigreturn = ((app_pc)&frame) + sizeof(char *);
+    /* For x86 only, we need to skip pretcode while setting xsp. */
+    xsp_for_sigreturn = ((app_pc)&frame) IF_X86(+ sizeof(char *));
 #ifdef X86
     asm("mov  %0, %%" ASM_XSP : : "m"(xsp_for_sigreturn));
 #    ifdef MACOS
@@ -2710,7 +2714,8 @@ thread_set_self_context(void *cxt)
     asm("jmp  *%" ASM_XCX);
 #    endif /* MACOS/LINUX */
 #elif defined(AARCH64)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    asm("mov  " ASM_XSP ", %0" : : "r"(xsp_for_sigreturn));
+    asm("b    dynamorio_sigreturn");
 #elif defined(ARM)
     asm("ldr  " ASM_XSP ", %0" : : "m"(xsp_for_sigreturn));
     asm("b    dynamorio_sigreturn");
@@ -3423,6 +3428,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      * from DR's handler.
      */
     ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
+    // XXX i#4495: Consider saving stolen reg's translated application value.
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #    ifndef AARCH64
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
