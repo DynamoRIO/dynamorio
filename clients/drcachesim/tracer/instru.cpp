@@ -279,8 +279,8 @@ instru_t::insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where
         dr_fprintf(STDERR, "\n");
         DR_ASSERT(ok);
     }
-    if (scratch_used != NULL)
-        *scratch_used = we_used_scratch;
+    if (scratch_used != NULL && we_used_scratch)
+        *scratch_used = true;
 }
 
 // Returns -1 on error.  It's hard for callers to omit the cpu marker though
