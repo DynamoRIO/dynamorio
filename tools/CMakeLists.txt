@@ -161,7 +161,7 @@ else (UNIX)
 endif (UNIX)
 
 # We generate 3 different tools from drdeploy.c.
-if (CMAKE_COMPILER_IS_GNUCC)
+if (CMAKE_COMPILER_IS_GNUCC AND NOT CMAKE_COMPILER_IS_CLANG)
   # Work around a false positive snprintf warning from gcc: i#4363.
   # XXX i#4363: A better solution would be nice to avoid missing
   # warnings on real snprintf issues.
