@@ -631,7 +631,8 @@ inline_alloc_test(void)
 #if defined(LINUX) && defined(X86_64)
     /* i#4335: Test allocation of more than 2.8GB in unreachable heap */
     for (int i = 0; i != 50; ++i) {
-        malloc(100000000);
+        if (malloc(100000000) == NULL)
+            dr_fprintf(STDERR, "Failed to allocate\n");
     }
 #endif
 }
