@@ -6799,7 +6799,7 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     else if (TEST(DR_MC_CONTROL, dmc->flags))
         dmc->xsp = get_mcontext(dcontext)->xsp;
 
-#ifdef ARM
+#ifdef AARCHXX
     if (TEST(DR_MC_INTEGER, dmc->flags)) {
         /* get the stolen register's app value */
         if (mc != NULL) {
