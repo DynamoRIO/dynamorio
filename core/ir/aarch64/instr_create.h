@@ -2569,10 +2569,8 @@ enum {
  * Creates a CCMN (Conditional Compare Negative) instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rn      The source register.
- * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
- *                to create the operand) or a source register.
- * \param nzcv    The 4 bit flag bit specifier
- *                (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
+ * \param Op      Either a 5-bit immediate or a source register.
+ * \param nzcv    The 4 bit flag bit specifier.
  * \param cond    A 4-bit immediate value for condition
  *                (use opnd_create_cond(val) to create the operand).
  */
@@ -2583,10 +2581,8 @@ enum {
  * Creates a CCMP (Conditional Compare) instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rn      The source register.
- * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
- *                to create the operand) or a source register.
- * \param nzcv    The 4 bit flag bit specifier
- *                (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
+ * \param Op      Either a 5-bit immediate or a source register.
+ * \param nzcv    The 4 bit flag bit specifier.
  * \param cond    A 4-bit immediate value for condition
  *                (use opnd_create_cond(val) to create the operand).
  */
