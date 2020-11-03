@@ -2698,8 +2698,8 @@ thread_set_self_context(void *cxt)
     LOG(THREAD_GET, LOG_ASYNCH, 2, "thread_set_self_context: pc=" PFX "\n", sc->SC_XIP);
     LOG(THREAD_GET, LOG_ASYNCH, 3, "full sigcontext\n");
     DOLOG(LOG_ASYNCH, 3, {
-        dcontext_t *dcontext = get_thread_private_dcontext();
-        dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(&frame));
+        dcontext_t *dc = get_thread_private_dcontext();
+        dump_sigcontext(dc, get_sigcontext_from_rt_frame(&frame));
     });
     /* set up xsp to point at &frame + sizeof(char*) */
     /* For x86 only, we need to skip pretcode while setting xsp. */
