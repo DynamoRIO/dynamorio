@@ -2673,9 +2673,11 @@ thread_set_self_context(void *cxt)
     ASSERT_NOT_IMPLEMENTED(false); /* PR 405694: can't use regular sigreturn! */
 #endif
     memset(&frame, 0, sizeof(frame));
+#if defined(LINUX) && defined(X86)
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 #ifdef LINUX
 #    ifdef X86
-    dcontext_t *dcontext = get_thread_private_dcontext();
     byte *xstate = get_and_initialize_xstate_buffer(dcontext);
     frame.uc.uc_mcontext.fpstate = &((kernel_xstate_t *)xstate)->fpstate;
 #    endif /* X86 */
