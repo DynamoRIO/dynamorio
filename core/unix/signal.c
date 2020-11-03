@@ -2682,7 +2682,7 @@ thread_set_self_context(void *cxt)
     frame.uc.uc_mcontext = *sc;
 #endif
     IF_ARM(ASSERT_NOT_TESTED());
-#if defined(X86)
+#if defined(LINUX) && defined(X86)
     save_fpstate(dcontext, &frame);
 #endif
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
@@ -2703,7 +2703,7 @@ thread_set_self_context(void *cxt)
     /* For x86 only, we need to skip pretcode while setting xsp. */
     xsp_for_sigreturn = ((app_pc)&frame)IF_X86(+sizeof(char *));
 #ifdef DR_HOST_NOT_TARGET
-    ASSERT_NOT_REACHED();
+        ASSERT_NOT_REACHED();
 #elif X86
     asm("mov  %0, %%" ASM_XSP : : "m"(xsp_for_sigreturn));
 #    ifdef MACOS
@@ -5580,7 +5580,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* FIXME: we should clear fpstate for app handler itself as that's
      * how our own handler is executed.
      */
-#if defined(X86)
+#if defined(LINUX) && defined(X86)
     ASSERT(sc->fpstate != NULL); /* not doing i#641 yet */
     save_fpstate(dcontext, frame);
 #endif /* LINUX && X86 */
