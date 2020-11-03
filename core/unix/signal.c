@@ -2684,7 +2684,7 @@ thread_set_self_context(void *cxt)
     frame.uc.uc_mcontext = *sc;
 #endif
     IF_ARM(ASSERT_NOT_TESTED());
-#if defined(LINUX) && defined(X86)
+#if defined(X86)
     save_fpstate(dcontext, &frame);
 #endif
     /* The kernel calls do_sigaltstack on sys_rt_sigreturn primarily to ensure
