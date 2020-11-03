@@ -2703,8 +2703,8 @@ thread_set_self_context(void *cxt)
     /* For x86 only, we need to skip pretcode while setting xsp. */
     xsp_for_sigreturn = ((app_pc)&frame)IF_X86(+sizeof(char *));
 #ifdef DR_HOST_NOT_TARGET
-        ASSERT_NOT_REACHED();
-#elif X86
+    ASSERT_NOT_REACHED();
+#elif defined(X86)
     asm("mov  %0, %%" ASM_XSP : : "m"(xsp_for_sigreturn));
 #    ifdef MACOS
     ASSERT_NOT_IMPLEMENTED(false && "need to pass 2 params to SYS_sigreturn");
