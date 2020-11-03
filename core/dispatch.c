@@ -755,7 +755,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
             * thread's context is being reset proactively (due to some -reset_at_*
             * option) or before sending it native.
             */
-           wherewasi == DR_WHERE_DISPATCH);
+           ((dcontext->go_native || dcontext->last_exit == get_reset_linkstub()) &&
+            wherewasi == DR_WHERE_DISPATCH));
     dcontext->whereami = DR_WHERE_DISPATCH;
     ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext);
     ASSERT(check_should_be_protected(DATASEC_RARELY_PROT));
