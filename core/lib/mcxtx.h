@@ -50,6 +50,12 @@
      * or a 32-byte or 64-byte cache line.
      * Any changes in order here must be mirrored in arch/arm.asm offsets.
      */
+    /* The stolen register slot only holds the app's value while in DR.
+     * While in the cache, the app's value is stored in TLS in
+     * dcontext->local_state->spill_space.reg_stolen, and the mcontext slot
+     * actually holds DR's TLS base just due to a quirk of how fcache_enter
+     * operates.
+     */
 #    endif
     reg_t r0;   /**< The r0 register. */
     reg_t r1;   /**< The r1 register. */
