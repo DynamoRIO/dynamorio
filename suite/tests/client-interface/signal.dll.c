@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -122,7 +122,7 @@ signal_event(void *dcontext, dr_siginfo_t *info)
             /* test mcontext changes on delivery.
              * fix up to avoid crash on re-execution.
              */
-            info->mcontext->xax = info->mcontext->xcx;
+            info->mcontext->IF_X86_ELSE(xax, r0) = info->mcontext->IF_X86_ELSE(xcx, r1);
             return DR_SIGNAL_DELIVER;
         }
     } else if (info->sig == SIGCHLD) {
@@ -212,7 +212,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         if (instr_is_nop(instr) && next_instr != NULL && instr_is_nop(next_instr) &&
             next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
 
-            redirect_tag = tag;
+            redirect_tag = dr_app_pc_as_jump_target(instr_get_isa_mode(instr), tag);
             break;
         }
     }
