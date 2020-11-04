@@ -381,7 +381,7 @@ mysym:
         ldr      x1, [x0, #32]
         ldr      x1, [x0, #16]
         // Modify via non-memref.
-        add      x0, #8
+        add      x0, x0, #8
         ldr      x1, [x0, #32]
         // There are no conditional/predicate loads/stores.
         ret
