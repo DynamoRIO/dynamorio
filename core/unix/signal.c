@@ -2450,8 +2450,9 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sig_full_cxt_t *sc_full,
  * obtained from sigcontext_to_mcontext() or must call set_pc_mode_in_cpsr() in
  * order to create a proper sigcontext for sigreturn.  All callers here do so.
  * The only external non-Windows caller of thread_set_mcontext() is
- * translate_from_synchall_to_dispatch() who first does a thread_get_mcontext()
- * and tweaks that context, so cpsr should be there.
+ * translate_from_synchall_to_dispatch() who first does a thread_get_mcontext();
+ * thread_get_mcontext() sets the dcontext isa_mode from cpsr, and thread_set_mcontext()
+ * sets it.
  */
 void
 mcontext_to_sigcontext(sig_full_cxt_t *sc_full, priv_mcontext_t *mc,
@@ -2561,6 +2562,12 @@ get_pc_mode_from_cpsr(sigcontext_t *sc)
     return TEST(EFLAGS_T, sc->SC_XFLAGS) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
 }
 
+dr_isa_mode_t
+get_sigcontext_isa_mode(sig_full_cxt_t *sc_full)
+{
+    return get_pc_mode_from_cpsr(sc_full->sc);
+}
+
 static void
 set_pc_mode_in_cpsr(sigcontext_t *sc, dr_isa_mode_t isa_mode)
 {
@@ -2568,6 +2575,12 @@ set_pc_mode_in_cpsr(sigcontext_t *sc, dr_isa_mode_t isa_mode)
         sc->SC_XFLAGS |= EFLAGS_T;
     else
         sc->SC_XFLAGS &= ~EFLAGS_T;
+}
+
+void
+set_sigcontext_isa_mode(sig_full_cxt_t *sc_full, dr_isa_mode_t isa_mode)
+{
+    set_pc_mode_in_cpsr(sc_full->sc, isa_mode);
 }
 #    endif
 #endif
@@ -2701,7 +2714,7 @@ thread_set_self_context(void *cxt)
         dcontext_t *dc = get_thread_private_dcontext();
         dump_sigcontext(dc, get_sigcontext_from_rt_frame(&frame));
     });
-    /* set up xsp to point at &frame + sizeof(char*) */
+    /* set up xsp to point at &frame */
     /* For x86 only, we need to skip pretcode while setting xsp. */
     xsp_for_sigreturn = ((app_pc)&frame)IF_X86(+sizeof(char *));
 #ifdef DR_HOST_NOT_TARGET
@@ -3434,7 +3447,9 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
      * from DR's handler.
      */
     ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
-    /* XXX i#4495: Save stolen reg's translated application value. */
+    /* Preserve the translated value. */
+    dcontext->local_state->spill_space.reg_stolen = get_sigcxt_stolen_reg(sc);
+    /* Now put DR's base in the sigcontext. */
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #    ifndef AARCH64
     /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
@@ -3444,11 +3459,11 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
 
 #if defined(X64) || defined(ARM)
     /* x64 always uses shared gencode */
-    get_local_state_extended()->spill_space.IF_X86_ELSE(xax, r0) =
+    dcontext->local_state->spill_space.IF_X86_ELSE(xax, r0) =
         sc->IF_X86_ELSE(SC_XAX, SC_R0);
 #    ifdef AARCH64
     /* X1 needs to be spilled because of br x1 in exit stubs. */
-    get_local_state_extended()->spill_space.r1 = sc->SC_R1;
+    dcontext->local_state->spill_space.r1 = sc->SC_R1;
 #    endif
 #else
     get_mcontext(dcontext)->IF_X86_ELSE(xax, r0) = sc->IF_X86_ELSE(SC_XAX, SC_R0);
