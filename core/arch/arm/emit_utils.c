@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -648,6 +648,10 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
      * XXX: we just want to remove the stolen reg from the reg list,
      * so instead of having this extra store, we should provide a help
      * function to create the reg list.
+     * This means that the mcontext stolen reg slot holds DR's base instead of
+     * the app's value while we're in the cache, which can be confusing: but we have
+     * to get the official value from TLS on signal and other transitions anyway,
+     * and DR's base makes it easier to spot bugs than a prior app value.
      */
     APP(ilist, SAVE_TO_DC(dcontext, dr_reg_stolen, REG_OFFSET(dr_reg_stolen)));
     /* prepare for ldm */
