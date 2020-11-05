@@ -454,7 +454,13 @@ append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
     APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, REG_OFFSET(dr_reg_stolen)));
     APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG0, TLS_REG_STOLEN_SLOT));
 
-    /* Save DR's tls base into mcontext. */
+    /* Save DR's tls base into mcontext so we can blindly include it in the
+     * loop of OP_ldp instructions below.
+     * This means that the mcontext stolen reg slot holds DR's base instead of
+     * the app's value while we're in the cache, which can be confusing: but we have
+     * to get the official value from TLS on signal and other transitions anyway,
+     * and DR's base makes it easier to spot bugs than a prior app value.
+     */
     APP(ilist, SAVE_TO_DC(dcontext, dr_reg_stolen, REG_OFFSET(dr_reg_stolen)));
 
     i = (REG_DCXT == DR_REG_X0);
