@@ -1369,6 +1369,9 @@ struct _opnd_t {
         /* For 32-bit ARM we keep alignment at 4 to avoid changing the opnd_t shape.
          * Marking this field as packed seems to do it and avoids other changes
          * that might occur if packing the whole struct.
+         * XXX i#4488: Do any double-loading instructions require 8-byte alignment?
+         * Perhaps we should just break compatibility and align this to 8 for
+         * x86 and ARM 32-bit.
          */
         double immed_double IF_ARM(__attribute__((__packed__))); /* IMMED_DOUBLE_kind */
 #    endif
