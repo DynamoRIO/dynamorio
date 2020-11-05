@@ -3859,9 +3859,21 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * to the app's.
      */
     os_clone_pre(dcontext);
+#        ifdef AARCHXX
+    /* We need to invalidate DR's TLS to avoid get_thread_private_dcontext() finding one
+     * and hitting asserts in dynamo_thread_init lock calls -- yet we don't want to for
+     * app threads, so we're doing this here and not in os_clone_pre().
+     * XXX: Find a way to put this in os_clone_* to simplify the code?
+     */
+    void *tls = (void *)read_thread_register(LIB_SEG_TLS);
+    write_thread_register(NULL);
+#        endif
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
+#        ifdef AARCHXX
+    write_thread_register(tls);
+#        endif
     /* i#501 the app's tls was switched in os_clone_pre. */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, false /*to dr*/);
@@ -6445,11 +6457,22 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         ptr_uint_t cur_seg = read_thread_register(LIB_SEG_TLS);
         if ((void *)cur_seg == os_tls->app_lib_tls_base)
             return true;
-        if (os_tls->app_lib_tls_base == NULL ||
-            /* Also rule out a garbage value, which happens in our own test
+        bool app_mem_valid = true;
+        if (os_tls->app_lib_tls_base == NULL)
+            app_mem_valid = false;
+        else {
+            uint prot;
+            bool rc = get_memory_info(os_tls->app_lib_tls_base, NULL, NULL, &prot);
+            /* Rule out a garbage value, which happens in our own test
              * common.allasm_aarch_isa.
+             * Also rule out an unwritable region, which seems to happen on arm
+             * where at process init the thread reg points at rodata in libc
+             * until properly set to a writable mmap later.
              */
-            !is_readable_without_exception(os_tls->app_lib_tls_base, sizeof(void *))) {
+            if (!rc || !TESTALL(MEMPROT_READ | MEMPROT_WRITE, prot))
+                app_mem_valid = false;
+        }
+        if (!app_mem_valid) {
             /* XXX i#1578: For pure-asm apps that do not use libc, the app may have no
              * thread register value.  For detach we would like to write a 0 back into
              * the thread register, but it complicates our exit code, which wants access
@@ -6511,11 +6534,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2, "%s %s: set_tls swap success=%d for thread " TIDFMT "\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, d_r_get_thread_id());
     return res;
-#elif defined(AARCH64)
-    (void)os_tls;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
-#endif /* X86/ARM/AARCH64 */
+#endif /* X86/AARCHXX */
 }
 
 /* System call interception: put any special handling here
