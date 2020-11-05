@@ -3399,7 +3399,7 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
             (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
         if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_interrupted_full,
                                    NULL, NULL, next_pc, sc->SC_XSP, sc_full, NULL, sig))
-            next_pc = canonicalize_pc_target(dcontext, (app_pc)sc->SC_XIP);
+            next_pc = (app_pc)sc->SC_XIP;
         sc_interrupted->SC_XIP = official_xl8;
     }
 #endif
@@ -5615,18 +5615,18 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         /* send_signal_to_client copied mcontext into frame's sc */
         priv_mcontext_t *mcontext = get_mcontext(dcontext);
         ucontext_to_mcontext(mcontext, uc);
-        dcontext->next_tag = canonicalize_pc_target(dcontext, (app_pc)sc->SC_XIP);
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
         }
-        IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
-        mcontext->pc = dcontext->next_tag;
         sig_full_cxt_t sc_interrupted_full = { &sc_interrupted, NULL /*not provided*/ };
-        if (instrument_kernel_xfer(dcontext, DR_XFER_CLIENT_REDIRECT, sc_interrupted_full,
-                                   NULL, NULL, dcontext->next_tag, mcontext->xsp,
-                                   osc_empty, mcontext, sig))
-            dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
+        instrument_kernel_xfer(dcontext, DR_XFER_CLIENT_REDIRECT, sc_interrupted_full,
+                               NULL, NULL, mcontext->pc, mcontext->xsp, osc_empty,
+                               mcontext, sig);
+        /* We're going back to dispatch and won't use the sigcontext.
+         * canonicalize_pc_target() will set the dcontext ISA mode for us.
+         */
+        dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
         return true; /* don't try another signal */
     } else if (action == DR_SIGNAL_SUPPRESS ||
                (info->app_sigaction[sig] != NULL &&
@@ -5712,8 +5712,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     mcontext->xflags &= ~EFLAGS_DF;
 #endif
     /* Make sure handler is next thing we execute */
-    dcontext->next_tag = canonicalize_pc_target(
-        dcontext, (app_pc)SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]));
+    mcontext->pc = (app_pc)SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]);
 
     if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
@@ -5722,16 +5721,14 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         info->app_sigaction[sig]->handler = (handler_t)SIG_DFL;
     }
 #ifdef CLIENT_INTERFACE
-    mcontext->pc = dcontext->next_tag;
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
     /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
     ptr_uint_t official_xl8 = sc->SC_XIP;
     sc->SC_XIP =
         (ptr_uint_t)translate_last_direct_translation(dcontext, (app_pc)official_xl8);
-    if (instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_full, NULL, NULL,
-                               dcontext->next_tag, mcontext->xsp, osc_empty, mcontext,
-                               sig))
-        dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
+    instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_DELIVERY, sc_full, NULL, NULL,
+                           mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
+    dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     sc->SC_XIP = official_xl8;
 #endif
 
