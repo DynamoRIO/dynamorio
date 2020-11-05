@@ -3937,6 +3937,14 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     } else {
         ASSERT_NOT_REACHED(); /* Inlined syscalls no longer come here. */
     }
+#ifdef AARCHXX
+    /* dr_reg_stolen is holding DR's TLS on receiving a signal,
+     * so we need to put the app's reg value into the ucontext instead.
+     * The translation process normally does this for us, but here we're doing
+     * a custom translation.
+     */
+    set_sigcxt_stolen_reg(sc, dcontext->local_state->spill_space.reg_stolen);
+#endif
     LOG(THREAD, LOG_ASYNCH, 2, "%s: sigreturn pc is now " PFX "\n", __FUNCTION__,
         sc->SC_XIP);
     return true;
@@ -5580,6 +5588,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         dump_sigcontext(dcontext, sc);
         LOG(THREAD, LOG_ASYNCH, 3, "\n");
     }
+    IF_AARCHXX(ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr()));
 #endif
     /* FIXME: other state?  debug regs?
      * if no syscall allowed between master_ (when frame created) and
@@ -6353,7 +6362,12 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
      */
     ASSERT((app_pc)sc->SC_XIP != next_pc);
 #    ifdef AARCHXX
+    ASSERT(get_sigcxt_stolen_reg(sc) != (reg_t)*get_dr_tls_base_addr());
+    /* We're called from DR and are not yet in the cache, so we want to set the
+     * mcontext slot, not the TLS slot, to set the stolen reg value.
+     */
     set_stolen_reg_val(get_mcontext(dcontext), get_sigcxt_stolen_reg(sc));
+    /* The linkstub expects DR's TLS to be in the actual register. */
     set_sigcxt_stolen_reg(sc, (reg_t)*get_dr_tls_base_addr());
 #        ifdef AARCH64
     /* On entry to the do_syscall gencode, we save X1 into TLS_REG1_SLOT.
