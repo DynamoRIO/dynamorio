@@ -2407,9 +2407,9 @@ if (CLIENT_INTERFACE)
     if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
       tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
     endif (X86 OR AARCH64)
+    tobuild_ci(client.signal client-interface/signal.c "" "" "")
+    link_with_pthread(client.signal)
     if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-      tobuild_ci(client.signal client-interface/signal.c "" "" "")
-      link_with_pthread(client.signal)
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
     endif (X86)
     tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
