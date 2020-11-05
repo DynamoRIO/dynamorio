@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -103,6 +103,8 @@ static bool vfp_is_offset = false;
 void
 sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 {
+    if (sc_full->fp_simd_state == NULL)
+        return;
     char *frame = ((char *)sc_full->fp_simd_state +
                    (vfp_is_offset ? sizeof(kernel_iwmmxt_sigframe_t) : 0));
     kernel_vfp_sigframe_t *vfp = (kernel_vfp_sigframe_t *)frame;
@@ -115,6 +117,8 @@ sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sig_full_cxt_t *sc_full)
 void
 mcontext_to_sigcontext_simd(sig_full_cxt_t *sc_full, priv_mcontext_t *mc)
 {
+    if (sc_full->fp_simd_state == NULL)
+        return;
     char *frame = (char *)sc_full->fp_simd_state;
     kernel_vfp_sigframe_t *vfp;
     if (vfp_is_offset) {
