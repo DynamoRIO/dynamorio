@@ -752,9 +752,11 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
            wherewasi == DR_WHERE_APP ||
            /* If the thread was waiting at check_wait_at_safe_point when getting
             * suspended, we were in dispatch (ref i#3427). We will be here after the
-            * thread's context is being reset before sending it native.
+            * thread's context is being reset proactively (due to some -reset_at_*
+            * option) or before sending it native.
             */
-           (dcontext->go_native && wherewasi == DR_WHERE_DISPATCH));
+           ((dcontext->go_native || dcontext->last_exit == get_reset_linkstub()) &&
+            wherewasi == DR_WHERE_DISPATCH));
     dcontext->whereami = DR_WHERE_DISPATCH;
     ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext);
     ASSERT(check_should_be_protected(DATASEC_RARELY_PROT));

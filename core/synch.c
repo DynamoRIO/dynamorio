@@ -1815,9 +1815,18 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          */
         mc->pc = (app_pc)get_reset_exit_stub(dcontext);
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
-        /* TODO i#4497: Replace with the official fix from PR#4498. */
-        IF_AARCHXX(set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext)));
-        IF_AARCHXX(ASSERT_NOT_TESTED()); /* PR#4498 will improve test coverage. */
+        /* The reset exit stub expects the stolen reg to contain the TLS base address.
+         * But the stolen reg was restored to the application value during
+         * translate_mcontext.
+         */
+        IF_AARCHXX({
+            /* XXX i#4495: Save stolen reg's translated application value. */
+            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
+            /* XXX: This path is tested by linux.thread-reset and linux.clone-reset.
+             * We just haven't run those on ARM yet.
+             */
+            IF_ARM(ASSERT_NOT_TESTED());
+        });
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app
