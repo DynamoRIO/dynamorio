@@ -176,6 +176,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_flush_region_ex API that accepts a callback to be executed after synch
    flush but before the threads are resumed. The existing dr_flush_region API
    is modified to invoke dr_flush_region_ex with a NULL callback.
+ - Added instr_is_exclusive_load().
 
 **************************************************
 <hr>
