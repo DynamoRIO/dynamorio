@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -257,7 +257,7 @@ at_taken(app_pc src, app_pc targ)
      */
     dr_flush_region(src, 1);
     dr_get_mcontext(drcontext, &mcontext);
-    mcontext.pc = targ;
+    mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), targ);
     dr_redirect_execution(&mcontext);
 }
 
