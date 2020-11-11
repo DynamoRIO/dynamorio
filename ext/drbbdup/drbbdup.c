@@ -1199,7 +1199,9 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
                       (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_XAX_REG_SLOT));
     }
 
-    mcontext->pc = bb_pc; /* redirect execution to the start of the bb. */
+    mcontext->pc =
+        dr_app_pc_as_jump_target(dr_get_isa_mode(dr_get_current_drcontext()),
+                                 bb_pc); /* redirect execution to the start of the bb. */
 }
 
 static void

@@ -5896,6 +5896,12 @@ DR_API
  * The flags field of \p context must contain DR_MC_ALL; using a partial set
  * of fields is not suported.
  *
+ * For 32-bit ARM, be sure to use dr_app_pc_as_jump_target() to properly set the ISA
+ * mode for the continuation pc if it was obtained from instr_get_app_pc() or a
+ * similar source rather than from dr_get_proc_address().  This will set the least
+ * significant bit of the mcontext pc field to 1 when in Thumb mode
+ * (#DR_ISA_ARM_THUMB), \ref sec_thumb for more information.
+ *
  * \note dr_get_mcontext() can be used to get the register state (except pc)
  * saved in dr_insert_clean_call() or dr_prepare_for_call().
  *
@@ -5917,10 +5923,6 @@ DR_API
  * called from any registered event callback except the exception event
  * (dr_register_exception_event()).  From a signal event callback, use the
  * #DR_SIGNAL_REDIRECT return value rather than calling this routine.
- *
- * \note For ARM, to redirect execution to a Thumb target (#DR_ISA_ARM_THUMB),
- * set the least significant bit of the mcontext pc to 1. Reference
- * \ref sec_thumb for more information.
  *
  * \return false if unsuccessful; if successful, does not return.
  */
@@ -6219,8 +6221,6 @@ DR_API
  * have been flushed. The context to use can be obtained via
  * dr_get_mcontext() with the exception of the pc to continue at which must be passed as
  * an argument to the callout (see instr_get_app_pc()) or otherwise determined.
- * For 32-bit ARM, be sure to use dr_app_pc_as_jump_target() to properly set the ISA
- * mode for the continuation pc.
  *
  * \note This routine may not be called while any locks are held that could block a thread
  * processing a registered event callback or cache callout.
