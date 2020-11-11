@@ -104,7 +104,7 @@ cause_sigsegv(void)
 {
     uintptr_t val = 0;
     /* Generate SIGSEGV with a sentinel in the stolen reg.
-     * This precise instruction sequence is matched by the client.
+     * This precise instruction sequence is matched by the stolen-reg.dll.c client.
      */
 #if defined(AARCH64)
     __asm__ __volatile__("mov x28, #" STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
@@ -131,7 +131,7 @@ cause_sigsegv(void)
 THREAD_FUNC_RETURN_TYPE
 thread_func(void *arg)
 {
-    /* The client looks for this exact sequence of instructions. */
+    /* The stolen-reg.dll.c client looks for this exact sequence of instructions. */
 #if defined(AARCH64)
     __asm__ __volatile__("mov x28, #" STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
                                                                      "nop\n\t"
@@ -182,7 +182,7 @@ main(int argc, char **argv)
 
     /* Now test synchall from another thread (the initiating thread does not
      * hit the i#4495 issue).
-     * The client looks for this exact sequence of instructions.
+     * The stolen-reg.dll.c client looks for this exact sequence of instructions.
      */
 #if defined(AARCH64)
     __asm__ __volatile__("mov x28, #" STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
