@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -199,8 +199,9 @@ callback(void *tag, app_pc next_pc)
             mcontext.size = sizeof(mcontext);
             mcontext.flags = DR_MC_ALL;
             dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
-            dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-            mcontext.pc = next_pc;
+            void *drcontext = dr_get_current_drcontext();
+            dr_get_mcontext(drcontext, &mcontext);
+            mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
             dr_flush_region_ex(tag, 1, synch_flush_completion_callback, &callback_count);
             dr_redirect_execution(&mcontext);
             *(volatile uint *)NULL = 0; /* ASSERT_NOT_REACHED() */
