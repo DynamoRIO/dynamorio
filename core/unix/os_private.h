@@ -418,6 +418,13 @@ void
 set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_pc,
                         uint clone_sysnum, uint clone_flags);
 
+#ifdef ARM
+dr_isa_mode_t
+get_sigcontext_isa_mode(sig_full_cxt_t *sc_full);
+void
+set_sigcontext_isa_mode(sig_full_cxt_t *sc_full, dr_isa_mode_t isa_mode);
+#endif
+
 /* in pcprofile.c */
 void
 pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_info);

@@ -2754,6 +2754,11 @@ if (CLIENT_INTERFACE)
     set(DynamoRIO_SET_PREFERRED_BASE OFF)
   endif (X86)
 
+  if (AARCHXX)
+    tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
+    link_with_pthread(client.stolen-reg)
+  endif ()
+
   if (ARM AND NOT ANDROID)
     # i#2580: DT_RUNPATH is not yet supported on android so we disable this test on
     # android

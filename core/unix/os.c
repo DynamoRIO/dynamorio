@@ -3717,6 +3717,8 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
     sigcontext_to_mcontext(mc, ostd->suspended_sigcxt, DR_MC_ALL);
+    IF_ARM(dr_set_isa_mode(tr->dcontext, get_sigcontext_isa_mode(ostd->suspended_sigcxt),
+                           NULL));
     return true;
 }
 
@@ -3733,6 +3735,8 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
     mcontext_to_sigcontext(ostd->suspended_sigcxt, mc, DR_MC_ALL);
+    IF_ARM(
+        set_sigcontext_isa_mode(ostd->suspended_sigcxt, dr_get_isa_mode(tr->dcontext)));
     return true;
 }
 
