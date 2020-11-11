@@ -1814,18 +1814,18 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          * at a syscall, avoiding problems there (case 5074).
          */
         mc->pc = (app_pc)get_reset_exit_stub(dcontext);
+        /* We need to set ARM mode to match the reset exit stub. */
+        IF_ARM(dr_isa_mode_t prior_mode);
+        IF_ARM(dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, &prior_mode));
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
         /* The reset exit stub expects the stolen reg to contain the TLS base address.
          * But the stolen reg was restored to the application value during
          * translate_mcontext.
          */
         IF_AARCHXX({
-            /* XXX i#4495: Save stolen reg's translated application value. */
+            /* Preserve the translated value from mc before we clobber it. */
+            dcontext->local_state->spill_space.reg_stolen = get_stolen_reg_val(mc);
             set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
-            /* XXX: This path is tested by linux.thread-reset and linux.clone-reset.
-             * We just haven't run those on ARM yet.
-             */
-            IF_ARM(ASSERT_NOT_TESTED());
         });
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
@@ -1841,6 +1841,10 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         ASSERT(res);
         /* cxt is freed by set_synched_thread_context() or target thread */
         free_cxt = false;
+        /* Now that set_synched_thread_context() recorded the mode for the reset
+         * exit stub, restore for the post-exit-stub execution.
+         */
+        IF_ARM(dr_set_isa_mode(dcontext, prior_mode, NULL));
     }
 translate_from_synchall_to_dispatch_exit:
     if (free_cxt) {
