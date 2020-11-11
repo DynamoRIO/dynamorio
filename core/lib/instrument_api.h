@@ -6219,6 +6219,8 @@ DR_API
  * have been flushed. The context to use can be obtained via
  * dr_get_mcontext() with the exception of the pc to continue at which must be passed as
  * an argument to the callout (see instr_get_app_pc()) or otherwise determined.
+ * For 32-bit ARM, be sure to use dr_app_pc_as_jump_target() to properly set the ISA
+ * mode for the continuation pc.
  *
  * \note This routine may not be called while any locks are held that could block a thread
  * processing a registered event callback or cache callout.

@@ -1403,11 +1403,12 @@ hit_instr_count_threshold(app_pc next_pc)
                                 NULL /*user_data*/))
             DR_ASSERT(false);
 
+        void *drcontext = dr_get_current_drcontext();
         dr_mcontext_t mcontext;
         mcontext.size = sizeof(mcontext);
         mcontext.flags = DR_MC_ALL;
-        dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-        mcontext.pc = next_pc;
+        dr_get_mcontext(drcontext, &mcontext);
+        mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
         dr_redirect_execution(&mcontext);
         DR_ASSERT(false);
     }
