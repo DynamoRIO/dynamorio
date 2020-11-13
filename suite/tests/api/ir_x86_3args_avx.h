@@ -78,7 +78,7 @@ OPCODE(vpcmpistrm, vpcmpistrm, vpcmpistrm, 0, REGARG(XMM0), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
 OPCODE(vpcmpistri, vpcmpistri, vpcmpistri, 0, REGARG(XMM0), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
-OPCODE(vcvtps2ph_256, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_32), REGARG(YMM0),
+OPCODE(vcvtps2ph_256, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_16), REGARG(YMM0),
        IMMARG(OPSZ_1))
 OPCODE(vmaskmovps_ld_256, vmaskmovps, vmaskmovps, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32))
