@@ -5614,7 +5614,7 @@ const instr_info_t prefix_extensions[][12] = {
      * This also affects the existing VEX version if it exists.
      */
     {OP_vpmovusdw, 0xf3381318, "vpmovusdw", Wh_e, xx, KEw, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Ve, xx, KEw, We, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2381318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 175 */
     {INVALID,        0x383018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -6076,7 +6076,7 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x0fae33, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 63 */
     {INVALID,   0x66381318, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Vx, xx, Wx, xx, xx, mrm|vex|reqp, x, tpe[174][10]},
+    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[174][10]},
     {PREFIX_EXT,     0x381318, "(prefix ext 174)", xx, xx, xx, xx, xx, mrm|evex, x, 174},
   }, { /* e_vex ext 64 */
     {INVALID,   0x66381818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6128,11 +6128,11 @@ const instr_info_t e_vex_extensions[][3] = {
     {EVEX_W_EXT, 0x663a1918, "(evex_W ext 100)", xx, xx, xx, xx, xx, mrm|evex, x, 100},
   }, { /* e_vex ext 76 */
     {INVALID,   0x663a1d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wx, xx, Vx, Ib, xx, mrm|vex|reqp, x, tvex[76][2]},
+    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wh_x, xx, Vx, Ib, xx, mrm|vex|reqp, x, tvex[76][2]},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", We, xx, KEw, Ve, Ib, mrm|evex|reqp|tthvm, x, END_LIST},
+    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wh_e, xx, KEw, Ve, Ib, mrm|evex|reqp|tthvm, x, END_LIST},
   }, { /* e_vex ext 77 */
     {INVALID,   0x66380c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpermilps, 0x66380c18, "vpermilps", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tvex[77][2]},
