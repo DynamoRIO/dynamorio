@@ -7665,7 +7665,7 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vcvtudq2ps, 0xf20f7a10, "vcvtudq2ps", Ve, xx, KEw, We, xx, mrm|evex|ttfv, x, END_LIST},
     {OP_vcvtuqq2ps, 0xf20f7a50, "vcvtuqq2ps", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 61 */
-    {OP_vcvtudq2pd, 0xf30f7a10, "vcvtudq2pd", Ve, xx, KEb, We, xx, mrm|evex|tthv, x, END_LIST},
+    {OP_vcvtudq2pd, 0xf30f7a10, "vcvtudq2pd", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, END_LIST},
     {OP_vcvtuqq2pd, 0xf30f7a50, "vcvtuqq2pd", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 62 */
     {OP_vfmadd132ps,0x66389818,"vfmadd132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[14]},
