@@ -3,6 +3,8 @@ adc    %w1 %w2 -> %w0
 adc    %x1 %x2 -> %x0
 adcs   %w1 %w2 -> %w0
 adcs   %x1 %x2 -> %x0
+add    %sp %x1 uxtx $0x0000000000000000 -> %x0
+sub    %sp %x1 uxtx $0x0000000000000000 -> %x0
 adds   %w1 %w2 lsl $0x00 -> %w0
 adds   %w1 %w2 lsl $0x1f -> %w0
 adds   %w1 %w2 lsr $0x00 -> %w0
