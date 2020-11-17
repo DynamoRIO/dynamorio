@@ -148,6 +148,16 @@ test_add(void *dc)
                               opnd_create_reg(DR_REG_X2));
     test_instr_encoding(dc, OP_adcs, instr);
 
+    /* Add to sp (tests shift vs extend). */
+    instr = INSTR_CREATE_add(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_SP),
+                             opnd_create_reg(DR_REG_X1));
+    test_instr_encoding(dc, OP_add, instr);
+
+    /* Sub from sp (tests shift vs extend). */
+    instr = INSTR_CREATE_sub(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_SP),
+                             opnd_create_reg(DR_REG_X1));
+    test_instr_encoding(dc, OP_sub, instr);
+
 /* Add and set flags (shifted register, 32-bit)
  * ADDS <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
  */
