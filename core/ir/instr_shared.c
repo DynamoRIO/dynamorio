@@ -1895,6 +1895,30 @@ instr_replace_src_opnd(instr_t *instr, opnd_t old_opnd, opnd_t new_opnd)
 }
 
 bool
+instr_replace_reg_resize(instr_t *instr, reg_id_t old_reg, reg_id_t new_reg)
+{
+    int i;
+    bool found = false;
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        opnd_t opnd = instr_get_src(instr, i);
+        if (opnd_uses_reg(opnd, old_reg)) {
+            found = true;
+            opnd_replace_reg_resize(&opnd, old_reg, new_reg);
+            instr_set_src(instr, i, opnd);
+        }
+    }
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd_t opnd = instr_get_dst(instr, i);
+        if (opnd_uses_reg(opnd, old_reg)) {
+            found = true;
+            opnd_replace_reg_resize(&opnd, old_reg, new_reg);
+            instr_set_dst(instr, i, opnd);
+        }
+    }
+    return found;
+}
+
+bool
 instr_same(instr_t *inst1, instr_t *inst2)
 {
     int dsts, srcs, a;

@@ -178,6 +178,7 @@ Further non-compatibility-affecting changes include:
    is modified to invoke dr_flush_region_ex with a NULL callback.
  - Added instr_is_exclusive_load().
  - Added XINST_CREATE_store_pair() and XINST_CREATE_load_pair().
+ - Added instr_replace_reg_resize() and opnd_replace_reg_resize().
 
 **************************************************
 <hr>

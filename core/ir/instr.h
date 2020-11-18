@@ -1813,9 +1813,19 @@ DR_API
 /**
  * Replaces all instances of \p old_opnd in \p instr's source operands with
  * \p new_opnd (uses opnd_same() to detect sameness).
+ * Returns whether it replaced anything.
  */
 bool
 instr_replace_src_opnd(instr_t *instr, opnd_t old_opnd, opnd_t new_opnd);
+
+DR_API
+/**
+ * Replaces all instances of \p old_reg (or any size variant) in \p instr's operands
+ * with \p new_reg.  Resizes \p new_reg to match sub-full-size uses of \p old_reg.
+ * Returns whether it replaced anything.
+ */
+bool
+instr_replace_reg_resize(instr_t *instr, reg_id_t old_reg, reg_id_t new_reg);
 
 DR_API
 /**
