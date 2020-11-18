@@ -1616,6 +1616,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_16_vex32:
     case OPSZ_16_of_32:
     case OPSZ_16_vex32_evex64:
+    case OPSZ_16_vex32_evex64_bcst8:
 #ifdef X64
     case OPSZ_8x16: /* default size */
 #endif

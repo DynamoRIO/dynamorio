@@ -163,6 +163,7 @@ is_variable_size(opnd_size_t sz)
     case OPSZ_12_rex40_short6:
     case OPSZ_16_vex32:
     case OPSZ_16_vex32_evex64:
+    case OPSZ_16_vex32_evex64_bcst8:
     case OPSZ_vex32_evex64:
     case OPSZ_8x16: return true;
     default: return false;
@@ -264,6 +265,12 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
         return (TEST(PREFIX_EVEX_LL, di->prefixes)
                     ? OPSZ_64
                     : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_16));
+    case OPSZ_16_vex32_evex64_bcst8:
+        return (TEST(PREFIX_EVEX_b, di->prefixes)
+                    ? OPSZ_8
+                    : (TEST(PREFIX_EVEX_LL, di->prefixes)
+                           ? OPSZ_64
+                           : (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_16)));
     case OPSZ_vex32_evex64:
         /* XXX i#1312: There may be a conflict since LL' is also used for rounding
          * control in AVX-512 if used in combination.
