@@ -1235,6 +1235,9 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
             info = NULL; /* invalid encoding */
         else if (TEST(REQUIRES_NOT_K0, info->flags) && di->evex_aaa == 0)
             info = NULL; /* invalid encoding */
+        else if (TEST(REQUIRES_EVEX_b_0, info->flags) &&
+                 TEST(PREFIX_EVEX_b, di->prefixes))
+            info = NULL; /* invalid encoding */
     } else if (info != NULL && !di->evex_encoded && TEST(REQUIRES_EVEX, info->flags))
         info = NULL; /* invalid encoding */
     /* XXX: not currently marking these cases as invalid instructions:

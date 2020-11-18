@@ -290,6 +290,9 @@ enum {
 #define DR_EVEX_INPUT_OPSZ_4 0x80000
 /* 64-bit input size in the context of Intel's AVX-512 compressed disp8. */
 #define DR_EVEX_INPUT_OPSZ_8 0x100000
+/* Instr must be encoded with EVEX.b=0. If EVEX.b=1 this is an invalid instr.
+ */
+#define REQUIRES_EVEX_b_0 0x200000
 
 struct _decode_info_t {
     uint opcode;
