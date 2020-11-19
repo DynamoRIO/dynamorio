@@ -4431,6 +4431,22 @@ test_exclusive_memops(void *dc)
     test_instr_encoding(dc, OP_clrex, instr);
 }
 
+static void
+test_xinst(void *dc)
+{
+    instr_t *instr;
+    /* Sanity check of misc XINST_CREATE_ macros. */
+
+    instr =
+        XINST_CREATE_load_pair(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
+                               OPND_CREATE_MEM64(DR_REG_X2, 0));
+    test_instr_encoding(dc, OP_ldp, instr);
+    instr =
+        XINST_CREATE_store_pair(dc, OPND_CREATE_MEM64(DR_REG_X2, 0),
+                                opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1));
+    test_instr_encoding(dc, OP_stp, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4496,6 +4512,9 @@ main(int argc, char *argv[])
 
     test_exclusive_memops(dcontext);
     print("test_exclusive_memops complete\n");
+
+    test_xinst(dcontext);
+    print("test_xinst complete\n");
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER

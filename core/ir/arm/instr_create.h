@@ -185,6 +185,26 @@ enum {
 #define XINST_CREATE_store_2bytes(dc, m, r) INSTR_CREATE_strh((dc), (m), (r))
 
 /**
+ * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r1  The first register opnd.
+ * \param r2  The second register opnd.
+ */
+#define XINST_CREATE_store_pair(dc, m, r1, r2) INSTR_CREATE_strd((dc), (m), (r1), (r2))
+
+/**
+ * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r1  The first register opnd.
+ * \param r2  The second register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_pair(dc, r1, r2, m) INSTR_CREATE_ldrd((dc), (r1), (r2), (m))
+
+/**
  * This platform-independent macro creates an instr_t for a register
  * to register move instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
