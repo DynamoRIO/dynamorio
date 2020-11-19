@@ -7375,7 +7375,7 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_kandb,0x660f4110,"kandb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
     {OP_kandd,0x660f4150,"kandd",KPd,xx,KVd,KRd,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 84 */
-    {OP_kandnw,0x0f4210,"kandnw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1|reqL1,x,END_LIST},
+    {OP_kandnw,0x0f4210,"kandnw",KPw,xx,KVw,KRw,xx, mrm|vex|reqL1,x,END_LIST},
     {OP_kandnq,0x0f4250,"kandnq",KPq,xx,KVq,KRq,xx, mrm|vex|reqL1,x,END_LIST},
   }, { /* vex_W_ext 85 */
     {OP_kandnb,0x660f4210,"kandnb",KPb,xx,KVb,KRb,xx, mrm|vex|reqL1,x,END_LIST},
