@@ -105,7 +105,7 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
     byte *pc;
 
     ASSERT(instr_get_opcode(instr) == opcode);
-    instr_disassemble(dc, instr, STDOUT);
+    instr_disassemble(dc, instr, STDERR);
     print("\n");
 
     ASSERT(instr_is_encoding_possible(instr));
@@ -4342,6 +4342,95 @@ test_sys(void *dc)
     test_instr_encoding(dc, OP_sys, instr);
 }
 
+static void
+test_exclusive_memops(void *dc)
+{
+    instr_t *instr;
+
+    instr = INSTR_CREATE_ldxr(dc, opnd_create_reg(DR_REG_X0),
+                              OPND_CREATE_MEM64(DR_REG_X1, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldxr, instr);
+    instr = INSTR_CREATE_ldxrb(dc, opnd_create_reg(DR_REG_W0),
+                               OPND_CREATE_MEM8(DR_REG_X1, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldxrb, instr);
+    instr = INSTR_CREATE_ldxrh(dc, opnd_create_reg(DR_REG_W0),
+                               OPND_CREATE_MEM16(DR_REG_X1, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldxrh, instr);
+    instr = INSTR_CREATE_ldxp(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
+                              OPND_CREATE_MEM64(DR_REG_X2, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldxp, instr);
+    instr =
+        INSTR_CREATE_ldxp(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
+                          opnd_create_base_disp(DR_REG_X2, DR_REG_NULL, 0, 0, OPSZ_16));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldxp, instr);
+    instr = INSTR_CREATE_ldaxr(dc, opnd_create_reg(DR_REG_X0),
+                               OPND_CREATE_MEM64(DR_REG_X1, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldaxr, instr);
+    instr = INSTR_CREATE_ldaxrb(dc, opnd_create_reg(DR_REG_W0),
+                                OPND_CREATE_MEM8(DR_REG_X1, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldaxrb, instr);
+    instr = INSTR_CREATE_ldaxrh(dc, opnd_create_reg(DR_REG_W0),
+                                OPND_CREATE_MEM16(DR_REG_X1, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldaxrh, instr);
+    instr = INSTR_CREATE_ldaxp(dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1),
+                               OPND_CREATE_MEM64(DR_REG_X2, 0));
+    ASSERT(instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_ldaxp, instr);
+
+    instr = INSTR_CREATE_stxr(dc, OPND_CREATE_MEM64(DR_REG_X1, 0),
+                              opnd_create_reg(DR_REG_W2), opnd_create_reg(DR_REG_X0));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stxr, instr);
+    instr = INSTR_CREATE_stxrb(dc, OPND_CREATE_MEM8(DR_REG_X1, 0),
+                               opnd_create_reg(DR_REG_W2), opnd_create_reg(DR_REG_W0));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stxrb, instr);
+    instr = INSTR_CREATE_stxrh(dc, OPND_CREATE_MEM16(DR_REG_X1, 0),
+                               opnd_create_reg(DR_REG_W2), opnd_create_reg(DR_REG_W0));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stxrh, instr);
+    instr =
+        INSTR_CREATE_stxp(dc, OPND_CREATE_MEM64(DR_REG_X2, 0), opnd_create_reg(DR_REG_W3),
+                          opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stxp, instr);
+    instr = INSTR_CREATE_stxp(
+        dc, opnd_create_base_disp(DR_REG_X2, DR_REG_NULL, 0, 0, OPSZ_16),
+        opnd_create_reg(DR_REG_W3), opnd_create_reg(DR_REG_X0),
+        opnd_create_reg(DR_REG_X1));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stxp, instr);
+    instr = INSTR_CREATE_stlxr(dc, OPND_CREATE_MEM64(DR_REG_X1, 0),
+                               opnd_create_reg(DR_REG_W2), opnd_create_reg(DR_REG_X0));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stlxr, instr);
+    instr = INSTR_CREATE_stlxrb(dc, OPND_CREATE_MEM8(DR_REG_X1, 0),
+                                opnd_create_reg(DR_REG_W2), opnd_create_reg(DR_REG_W0));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stlxrb, instr);
+    instr = INSTR_CREATE_stlxrh(dc, OPND_CREATE_MEM16(DR_REG_X1, 0),
+                                opnd_create_reg(DR_REG_W2), opnd_create_reg(DR_REG_W0));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stlxrh, instr);
+    instr = INSTR_CREATE_stlxp(dc, OPND_CREATE_MEM64(DR_REG_X2, 0),
+                               opnd_create_reg(DR_REG_W3), opnd_create_reg(DR_REG_W0),
+                               opnd_create_reg(DR_REG_W1));
+    ASSERT(instr_is_exclusive_store(instr));
+    test_instr_encoding(dc, OP_stlxp, instr);
+
+    instr = INSTR_CREATE_clrex(dc);
+    ASSERT(!instr_is_exclusive_store(instr) && !instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_clrex, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4404,6 +4493,9 @@ main(int argc, char *argv[])
 
     test_sys(dcontext);
     print("test_sys complete\n");
+
+    test_exclusive_memops(dcontext);
+    print("test_exclusive_memops complete\n");
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER
