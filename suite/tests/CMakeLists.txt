@@ -1862,6 +1862,11 @@ if (CLIENT_INTERFACE)
 
   # test static decoder library
   tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
+  if (AARCH64)
+    # The ir_aarch64.expect file is too large for CMake's regexes.
+    set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+    set(api.ir-static_runcmp_capture "stderr")
+  endif ()
 
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android
