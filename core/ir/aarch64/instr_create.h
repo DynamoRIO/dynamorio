@@ -486,10 +486,13 @@ enum {
  */
 
 /** \cond disabled_until_i4106_is_fixed */
-#define INSTR_CREATE_add(dc, rd, rn, rm_or_imm)                                     \
-    /* _extend supports sp in rn, so prefer it. */                                  \
-    INSTR_CREATE_add_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
-                            OPND_CREATE_INT(0))
+#define INSTR_CREATE_add(dc, rd, rn, rm_or_imm)                                         \
+    opnd_is_reg(rm_or_imm)                                                              \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        INSTR_CREATE_add_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
+                                OPND_CREATE_INT(0))                                     \
+        : INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
+                                 OPND_CREATE_INT(0))
 #define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa)                             \
     instr_create_1dst_4src(dc, OP_add, rd, rn,                                        \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
@@ -671,10 +674,13 @@ enum {
 /* TODO i#4532: Remove these superfluous 0x1f non-operands. */
 #define INSTR_CREATE_stlxp(dc, mem, rs, rt1, rt2) \
     instr_create_2dst_2src(dc, OP_stlxp, mem, rs, rt1, rt2)
-#define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm)                                     \
-    /* _extend supports sp in rn, so prefer it. */                                  \
-    INSTR_CREATE_sub_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
-                            OPND_CREATE_INT(0))
+#define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm)                                         \
+    opnd_is_reg(rm_or_imm)                                                              \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        INSTR_CREATE_sub_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
+                                OPND_CREATE_INT(0))                                     \
+        : INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
+                                 OPND_CREATE_INT(0))
 #define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa)                             \
     instr_create_1dst_4src(dc, OP_sub, rd, rn,                                        \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
@@ -709,7 +715,8 @@ enum {
  * Creates a CLREX instruction.
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  */
-#define INSTR_CREATE_clrex(dc) instr_create_0dst_0src(dc, OP_clrex)
+/* TODO i#4532: Remove this superfluous operand. */
+#define INSTR_CREATE_clrex(dc) instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(0))
 
 /* FIXME i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
