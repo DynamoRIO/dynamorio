@@ -466,8 +466,13 @@ enum {
  */
 
 /** \cond disabled_until_i4106_is_fixed */
-#define INSTR_CREATE_add(dc, rd, rn, rm_or_imm) \
-    INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_add(dc, rd, rn, rm_or_imm)                                         \
+    opnd_is_reg(rm_or_imm)                                                              \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        INSTR_CREATE_add_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
+                                OPND_CREATE_INT(0))                                     \
+        : INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
+                                 OPND_CREATE_INT(0))
 #define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa)                             \
     instr_create_1dst_4src(dc, OP_add, rd, rn,                                        \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
@@ -595,8 +600,13 @@ enum {
 #define INSTR_CREATE_strh(dc, mem, rt) instr_create_1dst_1src(dc, OP_strh, mem, rt)
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
 #define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
-#define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm) \
-    INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm)                                         \
+    opnd_is_reg(rm_or_imm)                                                              \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        INSTR_CREATE_sub_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
+                                OPND_CREATE_INT(0))                                     \
+        : INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
+                                 OPND_CREATE_INT(0))
 #define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa)                             \
     instr_create_1dst_4src(dc, OP_sub, rd, rn,                                        \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
