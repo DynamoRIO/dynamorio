@@ -1409,8 +1409,16 @@ instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t
 
 DR_API
 /**
+ * Returns true iff \p instr is an exclusive load instruction,
+ * e.g., #OP_ldrex on ARM.
+ */
+bool
+instr_is_exclusive_load(instr_t *instr);
+
+DR_API
+/**
  * Returns true iff \p instr is an exclusive store instruction,
- * e.g., OP_strex on ARM.
+ * e.g., #OP_strex on ARM.
  */
 bool
 instr_is_exclusive_store(instr_t *instr);
