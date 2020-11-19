@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2272,6 +2272,13 @@ instr_is_nop(instr_t *inst)
           opnd_get_base(instr_get_src(inst, 0)) == REG_NULL &&
           opnd_get_scale(instr_get_src(inst, 0)) == 1)))
         return true;
+    return false;
+}
+
+DR_API
+bool
+instr_is_exclusive_load(instr_t *instr)
+{
     return false;
 }
 

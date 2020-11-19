@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -445,6 +445,23 @@ instr_writes_thread_register(instr_t *instr)
     return (instr_get_opcode(instr) == OP_msr && instr_num_dsts(instr) == 1 &&
             opnd_is_reg(instr_get_dst(instr, 0)) &&
             opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_TPIDR_EL0);
+}
+
+DR_API
+bool
+instr_is_exclusive_load(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_ldaxp:
+    case OP_ldaxr:
+    case OP_ldaxrb:
+    case OP_ldaxrh:
+    case OP_ldxp:
+    case OP_ldxr:
+    case OP_ldxrb:
+    case OP_ldxrh: return true;
+    }
+    return false;
 }
 
 DR_API

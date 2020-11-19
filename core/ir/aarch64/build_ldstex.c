@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2020 Google, Inc. All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -59,22 +60,6 @@
 #include "instr_create.h"
 
 #include "build_ldstex.h"
-
-static bool
-instr_is_exclusive_load(instr_t *instr)
-{
-    switch (instr_get_opcode(instr)) {
-    case OP_ldaxp:
-    case OP_ldaxr:
-    case OP_ldaxrb:
-    case OP_ldaxrh:
-    case OP_ldxp:
-    case OP_ldxr:
-    case OP_ldxrb:
-    case OP_ldxrh: return true;
-    }
-    return false;
-}
 
 static bool
 instr_is_nonbranch_pcrel(instr_t *instr)
