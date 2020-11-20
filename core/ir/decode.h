@@ -424,6 +424,9 @@ enum {
                                    * if evex.L then is 256 bits (YMM or memory);
                                    * if evex.L' then is 512 bits (ZMM or memory).
                                    */
+    OPSZ_half_16_vex32_evex64_bcst4, /* OPSZ_half_16_vex_evex64, or if evex.B is set
+                                      * a 4 byte memory operand broadcast to all lanes.
+                                      */
     OPSZ_quarter_16_vex32,        /* quarter of 128 bits (XMM or memory);
                                    * if vex.L then is quarter of 256 bits (YMM or memory).
                                    */

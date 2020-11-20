@@ -523,6 +523,11 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             size_template == OPSZ_32)
             return true; /* will take prefix or no prefix */
         return false;
+    case OPSZ_half_16_vex32_evex64_bcst4:
+        if (size_template == OPSZ_4 || size_template == OPSZ_8 ||
+            size_template == OPSZ_16 || size_template == OPSZ_32)
+            return true; /* will take prefix or no prefix */
+        return false;
     case OPSZ_quarter_16_vex32_evex64:
         if (size_template == OPSZ_4 || size_template == OPSZ_8 ||
             size_template == OPSZ_16)
@@ -713,7 +718,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return true;
             }
             if (size_template == OPSZ_16_vex32_evex64_bcst4 ||
-                size_template == OPSZ_vex32_evex64_bcst4) {
+                size_template == OPSZ_vex32_evex64_bcst4 ||
+                size_template == OPSZ_half_16_vex32_evex64_bcst4) {
                 di->prefixes |= PREFIX_EVEX_b;
                 return true;
             }
@@ -744,7 +750,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             if (size_template == OPSZ_8_of_16_vex32 ||
                 size_template == OPSZ_half_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
-            if (size_template == OPSZ_half_16_vex32_evex64) {
+            if (size_template == OPSZ_half_16_vex32_evex64 ||
+                size_template == OPSZ_half_16_vex32_evex64_bcst4) {
                 return !TEST(PREFIX_VEX_L, di->prefixes) &&
                     !TEST(PREFIX_EVEX_LL, di->prefixes);
             }
@@ -799,7 +806,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 size_template == OPSZ_16_vex32_evex64_bcst4)
                 return !TESTANY(PREFIX_EVEX_LL | PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_half_16_vex32 ||
-                size_template == OPSZ_half_16_vex32_evex64) {
+                size_template == OPSZ_half_16_vex32_evex64 ||
+                size_template == OPSZ_half_16_vex32_evex64_bcst4) {
                 if (!TEST(di->prefixes, PREFIX_EVEX_LL))
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
@@ -835,7 +843,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                     di->prefixes |= PREFIX_VEX_L;
                 return true;
             }
-            if (size_template == OPSZ_half_16_vex32_evex64) {
+            if (size_template == OPSZ_half_16_vex32_evex64 ||
+                size_template == OPSZ_half_16_vex32_evex64_bcst4) {
                 di->prefixes |= PREFIX_EVEX_LL;
                 di->prefixes &= ~PREFIX_VEX_L;
                 return true;
@@ -921,6 +930,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_16_of_32:
         case OPSZ_half_16_vex32:
         case OPSZ_half_16_vex32_evex64:
+        case OPSZ_half_16_vex32_evex64_bcst4:
         case OPSZ_16_of_32_evex64:
         case OPSZ_32_of_64:
         case OPSZ_4_of_32_evex64:
@@ -1020,8 +1030,10 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
     }
     if (opsize == OPSZ_8_of_16_vex32 || opsize == OPSZ_half_16_vex32 ||
         opsize == OPSZ_quarter_16_vex32 || opsize == OPSZ_eighth_16_vex32 ||
-        opsize == OPSZ_half_16_vex32_evex64 || opsize == OPSZ_quarter_16_vex32_evex64 ||
-        opsize == OPSZ_eighth_16_vex32_evex64 || optype == TYPE_VSIB) {
+        opsize == OPSZ_half_16_vex32_evex64 ||
+        opsize == OPSZ_half_16_vex32_evex64_bcst4 ||
+        opsize == OPSZ_quarter_16_vex32_evex64 || opsize == OPSZ_eighth_16_vex32_evex64 ||
+        optype == TYPE_VSIB) {
         if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
             return !TEST(PREFIX_VEX_L, di->prefixes);
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
