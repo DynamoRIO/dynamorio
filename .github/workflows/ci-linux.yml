@@ -30,13 +30,13 @@
 
 
 # Github Actions workflow for Continuous Integration testing on Linux.
-# TODO i#4549: This is a work-in-progress currently.
+# TODO i#4549: This is a work-in-progress and not enabled currently.
 
 name: ci-linux
 on:
   # Run on pushes to any repository branch.
-  # Uncomment when Github Actions integration complete.
-  push:
+  # TODO i#4549: Uncomment when Github Actions integration complete.
+  # push:
 
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
