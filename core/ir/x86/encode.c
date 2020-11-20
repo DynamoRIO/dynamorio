@@ -551,6 +551,14 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             size_template == OPSZ_64)
             return true; /* will take prefix or no prefix */
         return false;
+    case OPSZ_evex64_bcst8:
+        if (size_template == OPSZ_64 || size_template == OPSZ_8)
+            return true; /* will take prefix or no prefix */
+        return false;
+    case OPSZ_evex64_bcst4:
+        if (size_template == OPSZ_64 || size_template == OPSZ_4)
+            return true; /* will take prefix or no prefix */
+        return false;
     default:
         CLIENT_ASSERT(false, "size_ok_varsz() internal decoding error (invalid size)");
         break;
@@ -719,7 +727,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             }
             if (size_template == OPSZ_16_vex32_evex64_bcst4 ||
                 size_template == OPSZ_vex32_evex64_bcst4 ||
-                size_template == OPSZ_half_16_vex32_evex64_bcst4) {
+                size_template == OPSZ_half_16_vex32_evex64_bcst4 ||
+                size_template == OPSZ_evex64_bcst4) {
                 di->prefixes |= PREFIX_EVEX_b;
                 return true;
             }
@@ -771,7 +780,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return true;
             }
             if (size_template == OPSZ_16_vex32_evex64_bcst8 ||
-                size_template == OPSZ_vex32_evex64_bcst8) {
+                size_template == OPSZ_vex32_evex64_bcst8 ||
+                size_template == OPSZ_evex64_bcst8) {
                 di->prefixes |= PREFIX_EVEX_b;
                 return true;
             }
@@ -856,7 +866,9 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 size_template == OPSZ_16_vex32_evex64_bcst4 ||
                 size_template == OPSZ_vex32_evex64 ||
                 size_template == OPSZ_vex32_evex64_bcst8 ||
-                size_template == OPSZ_vex32_evex64_bcst4) {
+                size_template == OPSZ_vex32_evex64_bcst4 ||
+                size_template == OPSZ_evex64_bcst8 ||
+                size_template == OPSZ_evex64_bcst4) {
                 di->prefixes |= PREFIX_EVEX_LL;
                 di->prefixes &= ~PREFIX_VEX_L;
                 return true;
@@ -909,6 +921,8 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_vex32_evex64:
         case OPSZ_vex32_evex64_bcst8:
         case OPSZ_vex32_evex64_bcst4:
+        case OPSZ_evex64_bcst8:
+        case OPSZ_evex64_bcst4:
             return size_ok_varsz(di, size_op, size_template, prefix_data_addr);
         case OPSZ_1_reg4:
         case OPSZ_2_reg4:

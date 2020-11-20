@@ -1652,6 +1652,8 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_52: return 52;
     case OPSZ_56: return 56;
     case OPSZ_60: return 60;
+    case OPSZ_evex64_bcst8: /* default size */
+    case OPSZ_evex64_bcst4: /* default size */
     case OPSZ_64: return 64;
     case OPSZ_68: return 68;
     case OPSZ_72: return 72;

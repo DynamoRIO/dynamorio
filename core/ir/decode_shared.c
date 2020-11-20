@@ -155,6 +155,8 @@ const char *const size_names[] = {
     "OPSZ_16_vex32_evex64_bcst4",
     "OPSZ_vex32_evex64_bcst8",
     "OPSZ_vex32_evex64_bcst4",
+    "OPSZ_evex64_bcst8",
+    "OPSZ_evex64_bcst4",
     "OPSZ_1_of_4",
     "OPSZ_2_of_4",
     "OPSZ_1_of_8",
