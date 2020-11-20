@@ -1622,7 +1622,9 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_8x16: /* default size */
 #endif
         return 16;
-    case OPSZ_vex32_evex64: return 32;
+    case OPSZ_vex32_evex64:
+    case OPSZ_vex32_evex64_bcst8:
+    case OPSZ_vex32_evex64_bcst4: return 32;
     case OPSZ_6x10:
         /* table base + limit; w/ addr16, different format, but same total footprint */
         return IF_X64_ELSE(6, 10);

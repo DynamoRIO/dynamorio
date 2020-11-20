@@ -336,6 +336,10 @@ enum {
                                  * broadcast to all lanes. */
     OPSZ_16_vex32_evex64_bcst4, /**< OPSZ_16_vex32_evex64, or a 4 byte memory operand
                                  * broadcast to all lanes. */
+    OPSZ_vex32_evex64_bcst8,    /**< OPSZ_vex32_evex64, or an 8 byte memory operand
+                                 * broadcast to all lanes. */
+    OPSZ_vex32_evex64_bcst4,    /**< OPSZ_vex32_evex64, or a 4 byte memory operand
+                                 * broadcast to all lanes. */
 #ifdef AVOID_API_EXPORT
 /* Add new size here.  Also update size_names[] in decode_shared.c along with
  * the size routines in opnd_shared.c.
