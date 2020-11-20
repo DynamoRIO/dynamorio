@@ -422,13 +422,16 @@ enum {
     OPSZ_half_16_vex32,      /* half of 128 bits (XMM or memory);
                               * if vex.L then is half of 256 bits (YMM or memory).
                               */
-    OPSZ_half_16_vex32_evex64,    /* 64 bits, but can be half of XMM register;
-                                   * if evex.L then is 256 bits (YMM or memory);
-                                   * if evex.L' then is 512 bits (ZMM or memory).
-                                   */
+    OPSZ_half_16_vex32_evex64, /* 64 bits, but can be half of XMM register;
+                                * if evex.L then is 256 bits (YMM or memory);
+                                * if evex.L' then is 512 bits (ZMM or memory).
+                                */
+    /* clang-format off */
+    /* clang-format wants to push out the adjacent lines beyond 90 chars*/
     OPSZ_half_16_vex32_evex64_bcst4, /* OPSZ_half_16_vex_evex64, or if evex.B is set
                                       * a 4 byte memory operand broadcast to all lanes.
                                       */
+    /* clang-format on */
     OPSZ_quarter_16_vex32,        /* quarter of 128 bits (XMM or memory);
                                    * if vex.L then is quarter of 256 bits (YMM or memory).
                                    */
