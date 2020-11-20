@@ -1,35 +1,108 @@
+# Github Actions workflow for Continuous Integration testing on Linux.
+# TODO i#4549: This is a work-in-progress currently.
+
 name: ci-linux
 on: 
+  # Run on pushes to any repository branch.
+  # Uncomment when Github Actions integration complete.
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-    types: [opened, edited]
+    
+  # Manual trigger using the Actions page. May remove when integration complete.
+  workflow_dispatch:
 
 jobs:
   linux-32bit:
-    # The CMake configure and build commands are platform agnostic and should work equally
-    # well on Windows or Mac.  You can convert this to a matrix build if you need
-    # cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: ubuntu-latest
-
+   
     steps:
     - uses: actions/checkout@v2
+      with:
+        ref: master
 
     - name: Create Build Environment
-      # Some projects don't allow in-source building, so create a separate build directory
-      # We'll use this as our working directory for all subsequent commands
-      run: sudo apt-get -y install g++-multilib; cmake -E make_directory ${{runner.workspace}}/build
-        
-    - name: RunSuite
-      working-directory: ${{runner.workspace}}/build
+      run: 
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev;
+        sudo apt-get -y install g++-multilib;
+      
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
       shell: bash
-      run: suite/runsuite_wrapper.pl github-action $EXTRA_ARGS
+      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         DEPLOY: no
         EXTRA_ARGS: "32_only"
+     
+  linux-64bit:
+    runs-on: ubuntu-latest
 
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: master
+
+    - name: Create Build Environment
+      run: 
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev;
+        sudo apt-get -y install g++-multilib;
+      
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      shell: bash
+      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        DEPLOY: no
+        EXTRA_ARGS: "64_only"
+       
+  archxx-cross-compile:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: master
+
+    - name: Create Build Environment
+      run: 
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev;
+        sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu;
+        
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      shell: bash
+      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        DEPLOY: no
+        
+  android-arm-cross-compile:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: master
+
+    - name: Create Build Environment
+      # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        cd /tmp
+        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+        unzip -q android-ndk-r10e-linux-x86_64.zip
+        android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
+          --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
+          --install-dir=/tmp/android-gcc-arm-ndk-10e
+        ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+        ln -sf arm-linux-androideabi-ld.bfd \
+          /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
+        
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      shell: bash
+      env:
+        DYNAMORIO_CROSS_ANDROID_ONLY: yes
+        DEPLOY: no
+        DYNAMORIO_ANDROID_TOOLCHAIN: '/tmp/android-gcc-arm-ndk-10e'
+      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
