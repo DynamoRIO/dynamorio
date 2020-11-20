@@ -7880,7 +7880,7 @@ const instr_info_t evex_W_extensions[][2] = {
     {OP_vpsrlvq,0x66384558, "vpsrlvq", Ve, xx, KEb, He, Wedb, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 130 */
     {INVALID, 0x66381218,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpsllvw, 0x66381258,"vpsllvw", Ve, xx, KEd, He, We, mrm|evex|reqp|reqb0|ttfvm, x, END_LIST},
+    {OP_vpsllvw, 0x66381258,"vpsllvw", Ve, xx, KEd, He, We, mrm|evex|reqb0|ttfvm, x, END_LIST},
   }, { /* evex_W_ext 131 */
     {OP_vpsllvd, 0x66384718, "vpsllvd", Ve, xx, KEw, He, Wesb, mrm|evex|reqp|ttfv,x,END_LIST},
     {OP_vpsllvq, 0x66384758, "vpsllvq", Ve, xx, KEb, He, Wedb, mrm|evex|reqp|ttfv,x,END_LIST},
