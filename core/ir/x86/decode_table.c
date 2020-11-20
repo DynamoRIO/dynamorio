@@ -8123,11 +8123,11 @@ const instr_info_t evex_W_extensions[][4] = {
   }, { /* evex_W_ext 130 */
     {INVALID, 0x66381208,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x66381218,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpsllvw, 0x66381248,"vpsllvw", Ve, xx, KEd, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
+    {OP_vpsllvw, 0x66381248,"vpsllvw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0x66381258,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 131 */
     {OP_vpsllvd, 0x66384708, "vpsllvd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv,x,tevexw[131][1]},
-    {OP_vpsllvd, 0x66384718, "vpsllvd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpsllvd, 0x66384718, "vpsllvd", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv,x,END_LIST},
     {OP_vpsllvq, 0x66384748, "vpsllvq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv,x,tevexw[131][3]},
     {OP_vpsllvq, 0x66384758, "vpsllvq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 132 */
