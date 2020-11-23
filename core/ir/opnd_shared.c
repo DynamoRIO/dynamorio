@@ -1301,6 +1301,118 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
     }
 }
 
+static reg_id_t
+reg_match_size_and_type(reg_id_t new_reg, opnd_size_t size, reg_id_t old_reg)
+{
+    reg_id_t sized_reg = reg_resize_to_opsz(new_reg, size);
+#ifdef X86
+    /* Convert from L to H version of 8-bit regs. */
+    if (old_reg >= DR_REG_START_x86_8 && old_reg <= DR_REG_STOP_x86_8) {
+        sized_reg = (sized_reg - DR_REG_START_8HL) + DR_REG_START_x86_8;
+        ASSERT(sized_reg <= DR_REG_STOP_x86_8);
+    }
+#endif
+    return sized_reg;
+}
+
+bool
+opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
+{
+    switch (opnd->kind) {
+    case NULL_kind:
+    case IMMED_INTEGER_kind:
+    case IMMED_FLOAT_kind:
+    case IMMED_DOUBLE_kind:
+    case PC_kind:
+    case FAR_PC_kind:
+    case INSTR_kind:
+    case FAR_INSTR_kind:
+    case MEM_INSTR_kind: return false;
+
+    case REG_kind:
+        if (reg_overlap(old_reg, opnd_get_reg(*opnd))) {
+            reg_id_t sized_reg = reg_match_size_and_type(new_reg, opnd_get_size(*opnd),
+                                                         opnd_get_reg(*opnd));
+            *opnd = opnd_create_reg_ex(
+                sized_reg, opnd_is_reg_partial(*opnd) ? opnd_get_size(*opnd) : 0,
+                opnd_get_flags(*opnd));
+            return true;
+        }
+        return false;
+
+    case BASE_DISP_kind: {
+        reg_id_t ob = opnd_get_base(*opnd);
+        reg_id_t oi = opnd_get_index(*opnd);
+        reg_id_t os = opnd_get_segment(*opnd);
+        opnd_size_t size = opnd_get_size(*opnd);
+        bool found = false;
+        reg_id_t new_b = ob;
+        reg_id_t new_i = oi;
+        reg_id_t new_s = os;
+        if (reg_overlap(old_reg, ob)) {
+            found = true;
+            new_b = reg_match_size_and_type(new_reg, reg_get_size(ob), ob);
+        }
+        if (reg_overlap(old_reg, oi)) {
+            found = true;
+            new_i = reg_match_size_and_type(new_reg, reg_get_size(oi), oi);
+        }
+        if (reg_overlap(old_reg, os)) {
+            found = true;
+            new_s = reg_match_size_and_type(new_reg, reg_get_size(os), os);
+        }
+        if (found) {
+            int disp = opnd_get_disp(*opnd);
+#if defined(AARCH64)
+            bool scaled = false;
+            dr_extend_type_t extend = opnd_get_index_extend(*opnd, &scaled, NULL);
+            dr_opnd_flags_t flags = opnd_get_flags(*opnd);
+            *opnd = opnd_create_base_disp_aarch64(new_b, new_i, extend, scaled, disp,
+                                                  flags, size);
+#elif defined(ARM)
+            uint amount;
+            dr_shift_type_t shift = opnd_get_index_shift(*opnd, &amount);
+            dr_opnd_flags_t flags = opnd_get_flags(*opnd);
+            *opnd =
+                opnd_create_base_disp_arm(new_b, new_i, shift, amount, disp, flags, size);
+#elif defined(X86)
+            int sc = opnd_get_scale(*opnd);
+            *opnd = opnd_create_far_base_disp_ex(
+                new_s, new_b, new_i, sc, disp, size, opnd_is_disp_encode_zero(*opnd),
+                opnd_is_disp_force_full(*opnd), opnd_is_disp_short_addr(*opnd));
+#endif
+            return true;
+        }
+    }
+        return false;
+
+#if defined(X64) || defined(ARM)
+    case REL_ADDR_kind:
+        if (reg_overlap(old_reg, opnd_get_segment(*opnd))) {
+            reg_id_t new_s = reg_match_size_and_type(
+                new_reg, reg_get_size(opnd_get_segment(*opnd)), opnd_get_segment(*opnd));
+            *opnd = opnd_create_far_rel_addr(new_s, opnd_get_addr(*opnd),
+                                             opnd_get_size(*opnd));
+            return true;
+        }
+        return false;
+#endif
+#ifdef X64
+    case ABS_ADDR_kind:
+        if (reg_overlap(old_reg, opnd_get_segment(*opnd))) {
+            reg_id_t new_s = reg_match_size_and_type(
+                new_reg, reg_get_size(opnd_get_segment(*opnd)), opnd_get_segment(*opnd));
+            *opnd = opnd_create_far_abs_addr(new_s, opnd_get_addr(*opnd),
+                                             opnd_get_size(*opnd));
+            return true;
+        }
+        return false;
+#endif
+
+    default: CLIENT_ASSERT(false, "opnd_replace_reg: invalid opnd type"); return false;
+    }
+}
+
 /* this is not conservative -- only considers two memory references to
  * be the same if their constituent components (registers, displacement)
  * are the same.
