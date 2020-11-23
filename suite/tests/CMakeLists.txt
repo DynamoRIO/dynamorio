@@ -1432,6 +1432,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       -D postcmd3=${${key}_postcmd3}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -D code=${${key}_code}
+      -D capture=${${key}_runcmp_capture}
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
     set(ALREADY_REGEX ON)
@@ -1824,6 +1825,11 @@ if (CLIENT_INTERFACE)
   if (NOT ANDROID)
     # XXX i#1874: get working on Android
     tobuild_api(api.ir api/ir_${sfx}.c "" "" OFF OFF)
+    if (AARCH64)
+      # The ir_aarch64.expect file is too large for CMake's regexes.
+      set(api.ir_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+      set(api.ir_runcmp_capture "stderr")
+    endif ()
     # XXX i#1686: add ARM's headers too once they are all created
     if (NOT ARM AND NOT AARCH64 AND "${CMAKE_GENERATOR}" MATCHES "Unix Makefiles")
       # CMake's Unix Makefiles dependence analysis doesn't run the preprocessor
@@ -1850,12 +1856,17 @@ if (CLIENT_INTERFACE)
     endif ()
 
     if (AARCH64)
-        tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
+      tobuild_api(api.ir_negative api/ir_aarch64_negative.c "" "" OFF OFF)
     endif (AARCH64)
   endif ()
 
   # test static decoder library
   tobuild_api(api.ir-static api/ir_${sfx}.c "" "" ON OFF)
+  if (AARCH64)
+    # The ir_aarch64.expect file is too large for CMake's regexes.
+    set(api.ir-static_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
+    set(api.ir-static_runcmp_capture "stderr")
+  endif ()
 
   if (ARM)
     if (NOT ANDROID) # XXX i#1874: get working on Android

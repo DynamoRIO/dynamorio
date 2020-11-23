@@ -2290,6 +2290,68 @@ test_noalloc(void *dcontext)
      */
 }
 
+static void
+test_opnd(void *dc)
+{
+    opnd_t op = opnd_create_reg(DR_REG_EAX);
+    ASSERT(opnd_get_reg(op) == DR_REG_EAX);
+    bool found = opnd_replace_reg(&op, DR_REG_AX, DR_REG_CX);
+    ASSERT(!found);
+    found = opnd_replace_reg_resize(&op, DR_REG_AX, DR_REG_CX);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(op) == DR_REG_ECX);
+
+    op = opnd_create_reg(DR_REG_AL);
+    ASSERT(opnd_get_reg(op) == DR_REG_AL);
+    found = opnd_replace_reg(&op, DR_REG_XAX, DR_REG_XCX);
+    ASSERT(!found);
+    found = opnd_replace_reg_resize(&op, DR_REG_XAX, DR_REG_XCX);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(op) == DR_REG_CL);
+
+    op = opnd_create_far_base_disp_ex(DR_SEG_DS, DR_REG_XAX, DR_REG_XCX, 2, 42, OPSZ_PTR,
+                                      true, true, true);
+    ASSERT(opnd_get_base(op) == DR_REG_XAX);
+    ASSERT(opnd_get_index(op) == DR_REG_XCX);
+    ASSERT(opnd_get_scale(op) == 2);
+    ASSERT(opnd_get_disp(op) == 42);
+    ASSERT(opnd_is_disp_encode_zero(op));
+    ASSERT(opnd_is_disp_force_full(op));
+    ASSERT(opnd_is_disp_short_addr(op));
+
+    /* Ensure extra fields are preserved by opnd_replace_reg*(). */
+    found = opnd_replace_reg(&op, DR_REG_AX, DR_REG_DX);
+    ASSERT(!found);
+    found = opnd_replace_reg_resize(&op, DR_REG_AX, DR_REG_DX);
+    ASSERT(found);
+    ASSERT(opnd_get_base(op) == DR_REG_XDX);
+    ASSERT(opnd_get_index(op) == DR_REG_XCX);
+    ASSERT(opnd_get_scale(op) == 2);
+    ASSERT(opnd_get_disp(op) == 42);
+    ASSERT(opnd_is_disp_encode_zero(op));
+    ASSERT(opnd_is_disp_force_full(op));
+    ASSERT(opnd_is_disp_short_addr(op));
+
+    instr_t *instr = XINST_CREATE_load(
+        /* Test the trickiest conversion: high 8-bit. */
+        dc, opnd_create_reg(DR_REG_AH),
+        opnd_create_far_base_disp_ex(DR_SEG_DS, DR_REG_XCX, DR_REG_XAX, 2, 42, OPSZ_PTR,
+                                     true, true, true));
+    found = instr_replace_reg_resize(instr, DR_REG_AX, DR_REG_DX);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_DH);
+    ASSERT(opnd_get_base(instr_get_src(instr, 0)) == DR_REG_XCX);
+    ASSERT(opnd_get_index(instr_get_src(instr, 0)) == DR_REG_XDX);
+    ASSERT(opnd_get_scale(instr_get_src(instr, 0)) == 2);
+    ASSERT(opnd_get_disp(instr_get_src(instr, 0)) == 42);
+    ASSERT(opnd_is_disp_encode_zero(instr_get_src(instr, 0)));
+    ASSERT(opnd_is_disp_force_full(instr_get_src(instr, 0)));
+    ASSERT(opnd_is_disp_short_addr(instr_get_src(instr, 0)));
+    instr_destroy(dc, instr);
+
+    /* XXX: test other routines like opnd_defines_use() */
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2362,6 +2424,8 @@ main(int argc, char *argv[])
     test_re_relativization(dcontext);
 
     test_noalloc(dcontext);
+
+    test_opnd(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
