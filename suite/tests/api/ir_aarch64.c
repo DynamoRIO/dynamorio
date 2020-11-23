@@ -4505,6 +4505,19 @@ test_opnd(void *dc)
     extend = opnd_get_index_extend(op, &scaled, &amount);
     ASSERT(extend == DR_EXTEND_UXTW && scaled && amount == 3);
 
+    instr_t *instr =
+        INSTR_CREATE_stxp(dc, OPND_CREATE_MEM64(DR_REG_X2, 0), opnd_create_reg(DR_REG_W3),
+                          opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1));
+    found = instr_replace_reg_resize(instr, DR_REG_X3, DR_REG_X28);
+    ASSERT(found);
+    found = instr_replace_reg_resize(instr, DR_REG_W2, DR_REG_W14);
+    ASSERT(found);
+    ASSERT(opnd_get_base(instr_get_dst(instr, 0)) == DR_REG_X14);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 1)) == DR_REG_W28);
+    ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_W0);
+    ASSERT(opnd_get_reg(instr_get_src(instr, 1)) == DR_REG_W1);
+    instr_destroy(dc, instr);
+
     /* XXX: test other routines like opnd_defines_use(); test every flag such as
      * register negate and shift across replace and other operations.
      */
