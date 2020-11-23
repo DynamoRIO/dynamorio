@@ -28,7 +28,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-
 # Github Actions workflow for Continuous Integration testing on Linux.
 # TODO i#4549: This is a work-in-progress and not enabled currently.
 
@@ -41,82 +40,88 @@ on:
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+  # We'd like to add common initial steps for all jobs, but that's not supported.
+  # Composite Run Steps can help, but we don't have that many common steps -- just
+  # checkout and fetch for now.
+  # https://docs.github.com/en/free-pro-team@latest/actions/creating-actions/about-actions#composite-run-steps-actions
+  # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
+
 jobs:
   x86:
     runs-on: ubuntu-16.04
 
+    # When checking out the repository that triggered a workflow, actions/checkout@v2
+    # defaults to the reference or SHA for that event. See documentation for ref at
+    # https://github.com/actions/checkout
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    # Fetching multiple branches isn't supported yet: actions/checkout#214
+    # Pending PR that adds this support actions/checkout#155
+    # TODO: Remove/replace this workaround when necessary support is added.
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
-      run:
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev;
-        sudo apt-get -y install g++-multilib;
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-multilib
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
-      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+      run: ./suite/runsuite_wrapper.pl travis 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        DEPLOY: no
-        EXTRA_ARGS: "32_only"
 
   x86-64:
     runs-on: ubuntu-16.04
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
-      run:
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev;
-        sudo apt-get -y install g++-multilib;
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-multilib
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
-      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+      run: ./suite/runsuite_wrapper.pl travis 64_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        DEPLOY: no
-        EXTRA_ARGS: "64_only"
 
   archxx-cross-compile:
     runs-on: ubuntu-16.04
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
-      run:
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev;
-        sudo apt-get -y install g++-arm-linux-gnueabihf g++-aarch64-linux-gnu;
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
-      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+      run: ./suite/runsuite_wrapper.pl travis
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
-        DEPLOY: no
 
   android-arm-cross-compile:
     runs-on: ubuntu-16.04
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
-      # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
       run: |
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
         cd /tmp
@@ -125,15 +130,14 @@ jobs:
         android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
           --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
           --install-dir=/tmp/android-gcc-arm-ndk-10e
+        # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
         ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
         ln -sf arm-linux-androideabi-ld.bfd \
           /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
       env:
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
-        DEPLOY: no
-        DYNAMORIO_ANDROID_TOOLCHAIN: '/tmp/android-gcc-arm-ndk-10e'
-      run: ./suite/runsuite_wrapper.pl travis $EXTRA_ARGS
+        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+      run: ./suite/runsuite_wrapper.pl travis
