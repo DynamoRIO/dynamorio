@@ -59,7 +59,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    # Fetching multiple branches isn't supported yet: actions/checkout#214
+    # We also need origin/master for pre-commit source file checks in runsuite.cmake.
+    # But fetching multiple branches isn't supported yet: actions/checkout#214
     # Pending PR that adds this support actions/checkout#155
     # TODO: Remove/replace this workaround when necessary support is added.
     - run: git fetch --no-tags --depth=1 origin master
