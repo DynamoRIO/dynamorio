@@ -862,4 +862,5 @@ test_exclusive_memops complete
 ldp    (%x2)[8byte] -> %w0 %w1
 stp    %w0 %w1 -> (%x2)[8byte]
 test_xinst complete
+test_opnd complete
 All tests complete
