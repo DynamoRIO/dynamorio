@@ -40,14 +40,30 @@ on:
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+  # We'd like to add common initial steps for all jobs, but that's not supported.
+  # Composite Run Steps can help, but we don't have that many common steps -- just
+  # checkout and fetch for now.
+  # https://docs.github.com/en/free-pro-team@latest/actions/creating-actions/about-actions#composite-run-steps-actions
+  # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
+
 jobs:
   x86:
     runs-on: ubuntu-16.04
 
+    # When checking out the repository that triggered a workflow, actions/checkout@v2
+    # defaults to the reference or SHA for that event. See documentation for ref at
+    # https://github.com/actions/checkout
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    # We also need origin/master for pre-commit source file checks in runsuite.cmake.
+    # But fetching multiple branches isn't supported yet: actions/checkout#214
+    # Pending PR that adds this support actions/checkout#155
+    # TODO: Remove/replace this workaround when necessary support is added.
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
       run: |
@@ -56,19 +72,17 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
-      run: ./suite/runsuite_wrapper.pl travis '32_only'
+      run: ./suite/runsuite_wrapper.pl travis 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        DEPLOY: no
 
   x86-64:
     runs-on: ubuntu-16.04
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
       run: |
@@ -77,19 +91,17 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
-      run: ./suite/runsuite_wrapper.pl travis '64_only'
+      run: ./suite/runsuite_wrapper.pl travis 64_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        DEPLOY: no
 
   archxx-cross-compile:
     runs-on: ubuntu-16.04
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
       run: |
@@ -98,19 +110,17 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
       run: ./suite/runsuite_wrapper.pl travis
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
-        DEPLOY: no
 
   android-arm-cross-compile:
     runs-on: ubuntu-16.04
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: master
+
+    - run: git fetch --no-tags --depth=1 origin master
 
     - name: Create Build Environment
       run: |
@@ -128,9 +138,7 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      shell: bash
       env:
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
-        DEPLOY: no
-        DYNAMORIO_ANDROID_TOOLCHAIN: '/tmp/android-gcc-arm-ndk-10e'
+        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
       run: ./suite/runsuite_wrapper.pl travis
