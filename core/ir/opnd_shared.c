@@ -1240,7 +1240,9 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
 
     case REG_kind:
         if (old_reg == opnd_get_reg(*opnd)) {
-            *opnd = opnd_create_reg(new_reg);
+            *opnd = opnd_create_reg_ex(
+                new_reg, opnd_is_reg_partial(*opnd) ? opnd_get_size(*opnd) : 0,
+                opnd_get_flags(*opnd));
             return true;
         }
         return false;
@@ -1255,8 +1257,10 @@ opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg)
             reg_id_t i = (old_reg == oi) ? new_reg : oi;
             int d = opnd_get_disp(*opnd);
 #if defined(AARCH64)
-            /* FIXME i#1569: Include extension and shift. */
-            *opnd = opnd_create_base_disp(b, i, 0, d, size);
+            bool scaled = false;
+            dr_extend_type_t extend = opnd_get_index_extend(*opnd, &scaled, NULL);
+            dr_opnd_flags_t flags = opnd_get_flags(*opnd);
+            *opnd = opnd_create_base_disp_aarch64(b, i, extend, scaled, d, flags, size);
 #elif defined(ARM)
             uint amount;
             dr_shift_type_t shift = opnd_get_index_shift(*opnd, &amount);

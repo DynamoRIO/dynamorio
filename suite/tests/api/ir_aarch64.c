@@ -4447,6 +4447,69 @@ test_xinst(void *dc)
     test_instr_encoding(dc, OP_stp, instr);
 }
 
+static void
+test_opnd(void *dc)
+{
+    opnd_t op = opnd_create_reg_ex(DR_REG_X28, OPSZ_4, DR_OPND_EXTENDED);
+    ASSERT(opnd_get_reg(op) == DR_REG_X28);
+    ASSERT(opnd_is_reg_partial(op));
+    ASSERT(opnd_get_size(op) == OPSZ_4);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+
+    /* Ensure extra fields are preserved by opnd_replace_reg(). */
+    bool found = opnd_replace_reg(&op, DR_REG_W28, DR_REG_W0);
+    ASSERT(!found);
+    found = opnd_replace_reg(&op, DR_REG_X28, DR_REG_X0);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(op) == DR_REG_X0);
+    ASSERT(opnd_is_reg_partial(op));
+    ASSERT(opnd_get_size(op) == OPSZ_4);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+
+    op = opnd_create_base_disp_aarch64(DR_REG_X7, DR_REG_NULL, DR_EXTEND_SXTX, true, 42,
+                                       DR_OPND_EXTENDED, OPSZ_8);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    bool scaled;
+    uint amount;
+    dr_extend_type_t extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_SXTX && scaled && amount == 3);
+
+    /* Ensure extra fields are preserved by opnd_replace_reg(). */
+    found = opnd_replace_reg(&op, DR_REG_W7, DR_REG_W1);
+    ASSERT(!found);
+    found = opnd_replace_reg(&op, DR_REG_X7, DR_REG_X1);
+    ASSERT(found);
+    ASSERT(opnd_get_base(op) == DR_REG_X1);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_SXTX && scaled && amount == 3);
+
+    /* Another test but this time replacing an index register. */
+    op = opnd_create_base_disp_aarch64(DR_REG_X7, DR_REG_X4, DR_EXTEND_UXTW, true, 0,
+                                       DR_OPND_EXTENDED, OPSZ_8);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_index(op) == DR_REG_X4);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_UXTW && scaled && amount == 3);
+
+    /* Ensure extra fields are preserved by opnd_replace_reg(). */
+    found = opnd_replace_reg(&op, DR_REG_W4, DR_REG_W1);
+    ASSERT(!found);
+    found = opnd_replace_reg(&op, DR_REG_X4, DR_REG_X1);
+    ASSERT(found);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_index(op) == DR_REG_X1);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_UXTW && scaled && amount == 3);
+
+    /* XXX: test other routines like opnd_defines_use(); test every flag such as
+     * register negate and shift across replace and other operations.
+     */
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4515,6 +4578,9 @@ main(int argc, char *argv[])
 
     test_xinst(dcontext);
     print("test_xinst complete\n");
+
+    test_opnd(dcontext);
+    print("test_opnd complete\n");
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER

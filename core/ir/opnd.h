@@ -2756,6 +2756,7 @@ DR_API
 /**
  * Assumes that both \p old_reg and \p new_reg are DR_REG_ constants.
  * Replaces all occurrences of \p old_reg in \p *opnd with \p new_reg.
+ * Returns whether it replaced anything.
  */
 bool
 opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
