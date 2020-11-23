@@ -28,7 +28,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-
 # Github Actions workflow for Continuous Integration testing on Linux.
 # TODO i#4549: This is a work-in-progress and not enabled currently.
 
@@ -36,7 +35,7 @@ name: ci-linux
 on:
   # Run on pushes to any repository branch.
   # TODO i#4549: Uncomment when Github Actions integration complete.
-  # push:
+  push:
 
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
