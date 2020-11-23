@@ -95,7 +95,7 @@ jobs:
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
-  archxx-cross-compile:
+  aarchxx-cross-compile:
     runs-on: ubuntu-16.04
 
     steps:
