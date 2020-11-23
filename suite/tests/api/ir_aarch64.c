@@ -4485,7 +4485,29 @@ test_opnd(void *dc)
     extend = opnd_get_index_extend(op, &scaled, &amount);
     ASSERT(extend == DR_EXTEND_SXTX && scaled && amount == 3);
 
-    /* XXX: test other routines like opnd_defines_use() */
+    /* Another test but this time replacing an index register. */
+    op = opnd_create_base_disp_aarch64(DR_REG_X7, DR_REG_X4, DR_EXTEND_UXTW, true, 0,
+                                       DR_OPND_EXTENDED, OPSZ_8);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_index(op) == DR_REG_X4);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_UXTW && scaled && amount == 3);
+
+    /* Ensure extra fields are preserved by opnd_replace_reg(). */
+    found = opnd_replace_reg(&op, DR_REG_W4, DR_REG_W1);
+    ASSERT(!found);
+    found = opnd_replace_reg(&op, DR_REG_X4, DR_REG_X1);
+    ASSERT(found);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_index(op) == DR_REG_X1);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_UXTW && scaled && amount == 3);
+
+    /* XXX: test other routines like opnd_defines_use(); test every flag such as
+     * register negate and shift across replace and other operations.
+     */
 }
 
 int
