@@ -1958,6 +1958,7 @@ restore_app_value_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_
                                 reg_id_t reg, ushort slot)
 {
     insert_save_to_tls_if_necessary(dcontext, ilist, instr, reg, slot);
+    /* This precise opcode (OP_orr) is checked for in instr_is_stolen_reg_move(). */
     PRE(ilist, instr,
         XINST_CREATE_move(dcontext, opnd_create_reg(reg),
                           opnd_create_reg(dr_reg_stolen)));
@@ -2003,6 +2004,7 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
         });
     }
     /* restore stolen reg from spill reg */
+    /* This precise opcode (OP_orr) is checked for in instr_is_stolen_reg_move(). */
     PRE(ilist, next_instr,
         XINST_CREATE_move(dcontext, opnd_create_reg(dr_reg_stolen),
                           opnd_create_reg(reg)));
