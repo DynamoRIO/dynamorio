@@ -110,7 +110,11 @@ reg_spill_tls_offs(reg_id_t reg)
     case SCRATCH_REG3: return TLS_REG3_SLOT;
 #ifdef AARCH64
     case SCRATCH_REG4: return TLS_REG4_SLOT;
-    case SCRATCH_REG5: return TLS_REG5_SLOT;
+    case SCRATCH_REG5:
+        return TLS_REG5_SLOT;
+        /* We do not include the stolen reg slot b/c its load+stores are reversed
+         * and must be special-cased vs other spills.
+         */
 #endif
     }
     /* don't assert if another reg passed: used on random regs looking for spills */

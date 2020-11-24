@@ -3004,7 +3004,7 @@ bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
                                  bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
 
-#ifdef ARM
+#ifdef AARCHXX
 bool
 instr_reads_thread_register(instr_t *instr);
 bool
@@ -3012,8 +3012,6 @@ instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
 #endif
 
 #ifdef AARCH64
-bool
-instr_reads_thread_register(instr_t *instr);
 bool
 instr_writes_thread_register(instr_t *instr);
 #endif
