@@ -62,7 +62,7 @@ jobs:
     # But fetching multiple branches isn't supported yet: actions/checkout#214
     # Pending PR that adds this support actions/checkout#155
     # TODO i#4549: When necessary support is available, remove/replace the
-    # workaround here and below.
+    # workaround here and from every job below too.
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install multilib for non-cross-compiling Linux build:
