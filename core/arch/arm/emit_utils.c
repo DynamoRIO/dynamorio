@@ -111,7 +111,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch)
 }
 
 static byte *
-insert_spill_reg(byte *pc, fragment_t *f, reg_id_t src
+insert_spill_reg(byte *pc, fragment_t *f, reg_id_t src)
 {
     ushort slot;
     ASSERT(src >= DR_REG_R0 && src <= DR_REG_R4);

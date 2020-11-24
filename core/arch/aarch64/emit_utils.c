@@ -93,7 +93,7 @@ insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
     ASSERT(rt < 31);
     *pc++ = 0xd2800000 | rt | (val & 0xffff) << 5; /* mov  x(rt), #x */
 
-    if ((val >> 16 & 0xffff) != 0
+    if ((val >> 16 & 0xffff) != 0)
         *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
     if ((val >> 32 & 0xffff) != 0)
         *pc++ = 0xf2c00000 | rt | (val >> 32 & 0xffff) << 5; /* movk x(rt), #x, lsl #32 */
