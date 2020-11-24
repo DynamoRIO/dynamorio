@@ -2208,6 +2208,10 @@ reg_32_to_8(reg_id_t reg)
 reg_id_t
 reg_32_to_64(reg_id_t reg)
 {
+#    ifdef AARCH64
+    if (reg == DR_REG_WZR)
+        return DR_REG_XZR;
+#    endif
     CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
                   "reg_32_to_64: passed non-32-bit reg");
     return (reg - REG_START_32) + REG_START_64;
@@ -2216,6 +2220,10 @@ reg_32_to_64(reg_id_t reg)
 reg_id_t
 reg_64_to_32(reg_id_t reg)
 {
+#    ifdef AARCH64
+    if (reg == DR_REG_XZR)
+        return DR_REG_WZR;
+#    endif
     CLIENT_ASSERT(reg >= REG_START_64 && reg <= REG_STOP_64,
                   "reg_64_to_32: passed non-64-bit reg");
     return (reg - REG_START_64) + REG_START_32;
@@ -2255,7 +2263,8 @@ reg_is_avx512_extended(reg_id_t reg)
 reg_id_t
 reg_32_to_opsz(reg_id_t reg, opnd_size_t sz)
 {
-    CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
+    CLIENT_ASSERT((reg >= REG_START_32 && reg <= REG_STOP_32)
+                      IF_AARCH64(|| reg == DR_REG_XZR || reg == DR_REG_WZR),
                   "reg_32_to_opsz: passed non-32-bit reg");
     /* On ARM, we use the same reg for the size of 8, 16, and 32 bit */
     if (sz == OPSZ_4)
@@ -2324,7 +2333,7 @@ reg_resize_to_xmm(reg_id_t simd_reg)
 reg_id_t
 reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz)
 {
-    if (reg_is_gpr(reg)) {
+    if (reg_is_gpr(reg) IF_AARCH64(|| reg == DR_REG_XZR || reg == DR_REG_WZR)) {
         reg = reg_to_pointer_sized(reg);
         return reg_32_to_opsz(IF_X64_ELSE(reg_64_to_32(reg), reg), sz);
     } else if (reg_is_strictly_xmm(reg) || reg_is_strictly_ymm(reg) ||
