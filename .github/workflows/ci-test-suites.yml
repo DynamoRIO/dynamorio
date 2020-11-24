@@ -98,7 +98,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
   # AArchXX cross-compile with gcc, no tests:
-  archxx-cross-compile:
+  aarchxx-cross-compile:
     runs-on: ubuntu-16.04
 
     steps:
