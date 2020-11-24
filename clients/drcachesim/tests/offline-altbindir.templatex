@@ -1,5 +1,5 @@
 #ifdef AARCH64
-Opcode mix tool results:
+Opcode mix tool result:
          126122 : total executed instructions
           15924 :     bcond
           15171 :       stp
