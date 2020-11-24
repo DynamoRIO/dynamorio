@@ -30,7 +30,7 @@
 
 # Github Actions workflow for Mac OSX Continuous Integration testing.
 
-name: ci-test-suite-osx
+name: ci-osx
 on:
   # Run on pushes to any repository branch.
   push:
@@ -44,7 +44,7 @@ defaults:
 
 jobs:
   # 64-bit OSX build with clang and run tests:
-  osx-64bit:
+  osx-x86-64:
     runs-on: macos-10.15
 
     steps:

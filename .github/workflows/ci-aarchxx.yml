@@ -30,7 +30,7 @@
 
 # Github Actions workflow for AArchXX Continuous Integration testing.
 
-name: ci-test-suite-aarchxx
+name: ci-aarchxx
 on:
   # Run on pushes to any repository branch.
   push:

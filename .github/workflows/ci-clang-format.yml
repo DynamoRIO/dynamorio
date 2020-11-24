@@ -30,7 +30,7 @@
 
 # Github Actions workflow for clang-format Continuous Integration testing.
 
-name: ci-test-suite-clang-format
+name: ci-clang-format
 on:
   # Run on pushes to any repository branch.
   push:
