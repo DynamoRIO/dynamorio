@@ -1,0 +1,144 @@
+# **********************************************************
+# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Github Actions workflow for Continuous Integration testing on Linux.
+# TODO i#4549: This is a work-in-progress and not enabled currently.
+
+name: ci-linux
+on:
+  # Run on pushes to any repository branch.
+  # TODO i#4549: Uncomment when Github Actions integration complete.
+  # push:
+
+  # Manual trigger using the Actions page. May remove when integration complete.
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+  # We'd like to add common initial steps for all jobs, but that's not supported.
+  # Composite Run Steps can help, but we don't have that many common steps -- just
+  # checkout and fetch for now.
+  # https://docs.github.com/en/free-pro-team@latest/actions/creating-actions/about-actions#composite-run-steps-actions
+  # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
+
+jobs:
+  x86:
+    runs-on: ubuntu-16.04
+
+    # When checking out the repository that triggered a workflow, actions/checkout@v2
+    # defaults to the reference or SHA for that event. See documentation for ref at
+    # https://github.com/actions/checkout
+    steps:
+    - uses: actions/checkout@v2
+
+    # We also need origin/master for pre-commit source file checks in runsuite.cmake.
+    # But fetching multiple branches isn't supported yet: actions/checkout#214
+    # Pending PR that adds this support actions/checkout#155
+    # TODO i#4549: Remove/replace this workaround when necessary support is added.
+    - run: git fetch --no-tags --depth=1 origin master
+
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-multilib
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl travis 32_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+
+  x86-64:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-multilib
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl travis 64_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+
+  aarchxx-cross-compile:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl travis
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+
+  android-arm-cross-compile:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        cd /tmp
+        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+        unzip -q android-ndk-r10e-linux-x86_64.zip
+        android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
+          --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
+          --install-dir=/tmp/android-gcc-arm-ndk-10e
+        # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
+        ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+        ln -sf arm-linux-androideabi-ld.bfd \
+          /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      env:
+        DYNAMORIO_CROSS_ANDROID_ONLY: yes
+        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+      run: ./suite/runsuite_wrapper.pl travis
