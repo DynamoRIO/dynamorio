@@ -1,0 +1,71 @@
+# **********************************************************
+# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Github Actions workflow for clang-format Continuous Integration testing.
+
+name: ci-clang-format
+on:
+  # Run on pushes to any repository branch.
+  push:
+
+  # Manual trigger using the Actions page. May remove when integration complete.
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
+  # install and require clang-format.
+  # We used to build 32-bit with clang but have decided that is not worth
+  # the CI resources: 64-bit hits most clang-only warnings and 64-bit
+  # is the primary target these days.
+  clang-format:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install multilib for non-cross-compiling Linux build:
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-multilib
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl travis 64_only require_format
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CC: clang-9
+        CXX: clang++-9

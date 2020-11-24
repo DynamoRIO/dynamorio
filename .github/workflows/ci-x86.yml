@@ -28,14 +28,12 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Github Actions workflow for Continuous Integration testing on Linux.
-# TODO i#4549: This is a work-in-progress and not enabled currently.
+# Github Actions workflow for x86 Continuous Integration testing.
 
-name: ci-linux
+name: ci-x86
 on:
   # Run on pushes to any repository branch.
-  # TODO i#4549: Uncomment when Github Actions integration complete.
-  # push:
+  push:
 
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
@@ -50,7 +48,8 @@ defaults:
   # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
 
 jobs:
-  x86:
+  # 32-bit Linux build with gcc and run tests:
+  x86-32:
     runs-on: ubuntu-16.04
 
     # When checking out the repository that triggered a workflow, actions/checkout@v2
@@ -62,9 +61,11 @@ jobs:
     # We also need origin/master for pre-commit source file checks in runsuite.cmake.
     # But fetching multiple branches isn't supported yet: actions/checkout#214
     # Pending PR that adds this support actions/checkout#155
-    # TODO i#4549: Remove/replace this workaround when necessary support is added.
+    # TODO i#4549: When necessary support is available, remove/replace the
+    # workaround here and from every job in other Github Actions CI workflows.
     - run: git fetch --no-tags --depth=1 origin master
 
+    # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
@@ -76,6 +77,7 @@ jobs:
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
+  # 64-bit Linux build with gcc and run tests:
   x86-64:
     runs-on: ubuntu-16.04
 
@@ -84,6 +86,7 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
+    # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
@@ -94,51 +97,3 @@ jobs:
       run: ./suite/runsuite_wrapper.pl travis 64_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-
-  aarchxx-cross-compile:
-    runs-on: ubuntu-16.04
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    - name: Create Build Environment
-      run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
-
-  android-arm-cross-compile:
-    runs-on: ubuntu-16.04
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    - name: Create Build Environment
-      run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
-        cd /tmp
-        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
-        unzip -q android-ndk-r10e-linux-x86_64.zip
-        android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
-          --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
-          --install-dir=/tmp/android-gcc-arm-ndk-10e
-        # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
-        ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
-        ln -sf arm-linux-androideabi-ld.bfd \
-          /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      env:
-        DYNAMORIO_CROSS_ANDROID_ONLY: yes
-        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
-      run: ./suite/runsuite_wrapper.pl travis
