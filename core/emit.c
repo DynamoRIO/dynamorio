@@ -191,7 +191,8 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
     frag_offs_at_end =
         linkstub_frag_offs_at_end(f->flags, num_direct_stubs, num_indirect_stubs);
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-        if (instr_is_exit_cti(inst)) {
+        if (
+instr_is_exit_cti(inst)) {
             /* l is currently zeroed out but otherwise uninitialized
              * stub starts out as unlinked and never-been-linked
              */
