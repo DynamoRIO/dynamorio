@@ -332,7 +332,8 @@ instr_predicate_is_cond(dr_pred_type_t pred)
 bool
 reg_is_gpr(reg_id_t reg)
 {
-    return (DR_REG_X0 <= reg && reg <= DR_REG_WSP);
+    return (reg >= DR_REG_START_64 && reg <= DR_REG_STOP_64) ||
+        (reg >= DR_REG_START_32 && reg <= DR_REG_STOP_32);
 }
 
 bool
