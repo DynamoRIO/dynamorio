@@ -1121,7 +1121,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     } else if (info->type == EVEX_W_EXT) {
         /* discard old info, get new one */
         int code = (int)info->code;
-        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 2 : 0) + (TEST(PREFIX_EVEX_b, di->prefixes) ? 1 : 0);
         info = &evex_W_extensions[code][idx];
     }
 
@@ -1183,7 +1183,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
     } else if (info->type == EVEX_W_EXT) {
         /* discard old info, get new one */
         int code = (int)info->code;
-        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 2 : 0) + (TEST(PREFIX_EVEX_b, di->prefixes) ? 1 : 0);
         info = &evex_W_extensions[code][idx];
     }
 
