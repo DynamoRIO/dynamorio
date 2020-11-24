@@ -2472,6 +2472,9 @@ encode_evex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *inf
     /* XXX i#1312: what about evex.L'? */
     if (TEST(OPCODE_SUFFIX, info->opcode))
         val |= 0x20;
+    /* we override OPCODE_TWOBYTES for evex to mean "requires evex.b" */
+    if (TEST(OPCODE_TWOBYTES, info->opcode))
+        val |= 0x10;
     val |= di->evex_aaa;
     *field_ptr = val;
     field_ptr++;
@@ -3020,7 +3023,9 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     /* second opcode byte, if there is one */
-    if (TEST(OPCODE_TWOBYTES, info->opcode) || TEST(OPCODE_THREEBYTES, info->opcode)) {
+    if (TEST(REQUIRES_EVEX, info->flags) ||
+        TEST(OPCODE_TWOBYTES, info->opcode) ||
+        TEST(OPCODE_THREEBYTES, info->opcode)) {
         *field_ptr = (byte)((info->opcode & 0x0000ff00) >> 8);
         field_ptr++;
     }

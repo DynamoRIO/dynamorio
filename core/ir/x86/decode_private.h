@@ -144,6 +144,8 @@ enum {
  * 2nd = 2nd byte of opcode (if there are 2)
  * 3rd (ls) = split into nibbles
  *   1st nibble (ms) = if bit 1 (OPCODE_TWOBYTES) set, opcode has 2 bytes
+ *                       if REQUIRES_EVEX then this bit instead means that this
+ *                       instruction must have evex.b set
  *                     if bit 2 (OPCODE_REG) set, opcode has /n
  *                     if bit 3 (OPCODE_MODRM) set, opcode based on entire modrm
  *                       that modrm is stored as the byte 0.
@@ -151,8 +153,8 @@ enum {
  *                       that this instruction must have vex.W or evex.W set.
  *                     if bit 4 (OPCODE_SUFFIX) set, opcode based on suffix byte
  *                       that byte is stored as the byte 0
- *                       if REQUIRES_VEX then this bit instead means that
- *                       this instruction must have vex.L set.
+ *                       if REQUIRES_VEX or REQUIRES_EVEX then this bit instead means
+ *                       that this instruction must have vex.L or evex.L set.
  *                     XXX i#1312: Possibly a case for EVEX_LL (L') needs to be
  *                     supported at some point.
  *                     XXX: so we do not support an instr that has an opcode
