@@ -448,6 +448,43 @@ instr_writes_thread_register(instr_t *instr)
             opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_TPIDR_EL0);
 }
 
+/* Identify one of the reg-reg moves inserted as part of stolen reg mangling:
+ *   +0    m4  f9000380   str    %x0 -> (%x28)[8byte]
+ * Move stolen reg to x0:
+ *   +4    m4  aa1c03e0   orr    %xzr %x28 lsl $0x0000000000000000 -> %x0
+ *   +8    m4  f9401b9c   ldr    +0x30(%x28)[8byte] -> %x28
+ *   +12   L3  f81e0ffc   str    %x28 %sp $0xffffffffffffffe0 -> -0x20(%sp)[8byte] %sp
+ * Move x0 back to stolenr eg:
+ *   +16   m4  aa0003fc   orr    %xzr %x0 lsl $0x0000000000000000 -> %x28
+ *   +20   m4  f9400380   ldr    (%x28)[8byte] -> %x0
+ */
+bool
+instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg)
+{
+    CLIENT_ASSERT(instr != NULL, "internal error: NULL argument");
+    if (instr_is_app(instr) || instr_get_opcode(instr) != OP_orr)
+        return false;
+    ASSERT(instr_num_srcs(instr) == 4 && instr_num_dsts(instr) == 1 &&
+           opnd_is_reg(instr_get_src(instr, 1)) && opnd_is_reg(instr_get_dst(instr, 0)));
+    if (opnd_get_reg(instr_get_src(instr, 1)) == dr_reg_stolen) {
+        if (save != NULL)
+            *save = true;
+        if (reg != NULL) {
+            *reg = opnd_get_reg(instr_get_dst(instr, 0));
+            ASSERT(*reg != dr_reg_stolen);
+        }
+        return true;
+    }
+    if (opnd_get_reg(instr_get_dst(instr, 0)) == dr_reg_stolen) {
+        if (save != NULL)
+            *save = false;
+        if (reg != NULL)
+            *reg = opnd_get_reg(instr_get_src(instr, 0));
+        return true;
+    }
+    return false;
+}
+
 DR_API
 bool
 instr_is_exclusive_load(instr_t *instr)
