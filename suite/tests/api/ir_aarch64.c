@@ -4518,6 +4518,15 @@ test_opnd(void *dc)
     ASSERT(opnd_get_reg(instr_get_src(instr, 1)) == DR_REG_W1);
     instr_destroy(dc, instr);
 
+    /* Test reg corner cases. */
+    ASSERT(reg_to_pointer_sized(DR_REG_WZR) == DR_REG_XZR);
+    ASSERT(reg_32_to_64(DR_REG_WZR) == DR_REG_XZR);
+    ASSERT(reg_64_to_32(DR_REG_XZR) == DR_REG_WZR);
+    ASSERT(reg_resize_to_opsz(DR_REG_XZR, OPSZ_4) == DR_REG_WZR);
+    ASSERT(reg_resize_to_opsz(DR_REG_WZR, OPSZ_8) == DR_REG_XZR);
+    ASSERT(!reg_is_gpr(DR_REG_XZR));
+    ASSERT(!reg_is_gpr(DR_REG_WZR));
+
     /* XXX: test other routines like opnd_defines_use(); test every flag such as
      * register negate and shift across replace and other operations.
      */
