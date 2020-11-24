@@ -28,9 +28,9 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Github Actions workflow for Continuous Integration testing on Linux and MacOS.
+# Github Actions workflow for AArchXX Continuous Integration testing.
 
-name: ci-test-suites
+name: ci-test-suite-aarchxx
 on:
   # Run on pushes to any repository branch.
   push:
@@ -41,63 +41,8 @@ on:
 defaults:
   run:
     shell: bash
-  # We'd like to add common initial steps for all jobs, but that's not supported.
-  # Composite Run Steps can help, but we don't have that many common steps -- just
-  # checkout and fetch for now.
-  # https://docs.github.com/en/free-pro-team@latest/actions/creating-actions/about-actions#composite-run-steps-actions
-  # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
 
 jobs:
-  # 32-bit Linux build with gcc and run tests:
-  x86:
-    runs-on: ubuntu-16.04
-
-    # When checking out the repository that triggered a workflow, actions/checkout@v2
-    # defaults to the reference or SHA for that event. See documentation for ref at
-    # https://github.com/actions/checkout
-    steps:
-    - uses: actions/checkout@v2
-
-    # We also need origin/master for pre-commit source file checks in runsuite.cmake.
-    # But fetching multiple branches isn't supported yet: actions/checkout#214
-    # Pending PR that adds this support actions/checkout#155
-    # TODO i#4549: When necessary support is available, remove/replace the
-    # workaround here and from every job below too.
-    - run: git fetch --no-tags --depth=1 origin master
-
-    # Install multilib for non-cross-compiling Linux build:
-    - name: Create Build Environment
-      run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-multilib
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 32_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-
-  # 64-bit Linux build with gcc and run tests:
-  x86-64:
-    runs-on: ubuntu-16.04
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    # Install multilib for non-cross-compiling Linux build:
-    - name: Create Build Environment
-      run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-multilib
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 64_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-
   # AArchXX cross-compile with gcc, no tests:
   aarchxx-cross-compile:
     runs-on: ubuntu-16.04
@@ -149,58 +94,6 @@ jobs:
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
       run: ./suite/runsuite_wrapper.pl travis
-
-  # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
-  # install and require clang-format.
-  # We used to build 32-bit with clang but have decided that is not worth
-  # the CI resources: 64-bit hits most clang-only warnings and 64-bit
-  # is the primary target these days.
-  clang-format:
-    runs-on: ubuntu-16.04
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    # Install multilib for non-cross-compiling Linux build:
-    - name: Create Build Environment
-      run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-multilib
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 64_only require_format
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        CC: clang-9
-        CXX: clang++-9
-
-  # 64-bit OSX build with clang and run tests:
-  osx-64bit:
-    runs-on: macos-10.15
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - run: git fetch --no-tags --depth=1 origin master
-
-    - name: Create Build Environment
-      run: |
-        brew install nasm
-
-    - name: Run Suite
-      working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 64_only
-      env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        # Change xcode version for current session:
-        # https://www.unix.com/man-page/osx/1/xcode-select/
-        # https://github.community/t/selecting-an-xcode-version/16204/3
-        # To find available versions, add the following as a step above:
-        #  - run: ls -l /Applications
-        DEVELOPER_DIR: /Applications/Xcode_11.3.1.app/Contents/Developer
 
   # AArch64 drdecode and drmemtrace on x86:
   a64-on-x86:
