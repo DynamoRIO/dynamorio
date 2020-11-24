@@ -61,7 +61,8 @@ jobs:
     # We also need origin/master for pre-commit source file checks in runsuite.cmake.
     # But fetching multiple branches isn't supported yet: actions/checkout#214
     # Pending PR that adds this support actions/checkout#155
-    # TODO i#4549: Remove/replace this workaround when necessary support is added.
+    # TODO i#4549: When necessary support is available, remove/replace the
+    # workaround here and below.
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install multilib for non-cross-compiling Linux build:
@@ -152,7 +153,7 @@ jobs:
   # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
   # install and require clang-format.
   # We used to build 32-bit with clang but have decided that is not worth
-  # the Travis resources: 64-bit hits most clang-only warnings and 64-bit
+  # the CI resources: 64-bit hits most clang-only warnings and 64-bit
   # is the primary target these days.
   clang-format:
     runs-on: ubuntu-16.04
