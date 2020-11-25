@@ -2838,7 +2838,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
             info->opcode);
         info = get_next_instr_info(info);
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
-        if (info == NULL || info->type == OP_CONTD) {
+        if (info == NULL) {
             DOLOG(1, LOG_EMIT, {
                 LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
                 instr_disassemble(dcontext, instr, THREAD);
@@ -2870,8 +2870,15 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     CLIENT_ASSERT(!di.vex_encoded || !di.evex_encoded,
                   "instr_encode error: flags can't be both vex and evex.");
 
-    if (di.evex_encoded)
+    if (di.evex_encoded) {
+        /* OPCODE_TWOBYTES is repurposed for EVEX encodings (which are
+         * always at least two bytes) to indicate EVEX.b=1. We need to
+         * do this now to make sure we calculate the correct tuple size.
+         */
+        if (TEST(OPCODE_TWOBYTES, info->opcode))
+            di.prefixes |= PREFIX_EVEX_b;
         decode_get_tuple_type_input_size(info, &di);
+    }
     if (di.vex_encoded || di.evex_encoded) {
         if (TEST(OPCODE_MODRM, info->opcode))
             di.prefixes |= PREFIX_REX_W;
