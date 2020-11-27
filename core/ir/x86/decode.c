@@ -1189,6 +1189,11 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         info = &evex_Wb_extensions[code][idx];
     }
 
+    /* can occur AFTER above checks (EVEX_W_EXT, in particular) */
+    if (info->type == MOD_EXT) {
+        info = &mod_extensions[info->code][(di->mod == 3) ? 1 : 0];
+    }
+
     if (TEST(REQUIRES_PREFIX, info->flags)) {
         byte required = (byte)(info->opcode >> 24);
         bool *prefix_var = NULL;

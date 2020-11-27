@@ -295,6 +295,10 @@ enum {
 #define DR_EVEX_INPUT_OPSZ_4 0x80000
 /* 64-bit input size in the context of Intel's AVX-512 compressed disp8. */
 #define DR_EVEX_INPUT_OPSZ_8 0x100000
+/* The EVEX.b bit indicates all exceptions are suppresed. {sae} */
+#define EVEX_b_IS_SAE 0x200000
+/* The EVEX.L/EVEX.LL bits are used for rounding control, not size. {er} */
+#define EVEX_L_LL_IS_ER 0x400000
 
 struct _decode_info_t {
     uint opcode;
