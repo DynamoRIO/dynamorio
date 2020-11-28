@@ -2768,6 +2768,11 @@ if (CLIENT_INTERFACE)
   if (AARCHXX)
     tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
     link_with_pthread(client.stolen-reg)
+
+    if (AARCH64)
+      tobuild_ci(client.set-stolen-reg-mcontext-test client-interface/set-stolen-reg-mcontext.c "" "" "")
+      link_with_pthread(client.set-stolen-reg-mcontext-test)
+    endif ()
   endif ()
 
   if (ARM AND NOT ANDROID)

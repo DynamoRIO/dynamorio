@@ -1,0 +1,11 @@
+check_stolen_reg_spill entered
+setting TLS to 0
+test value = 7
+setting TLS
+check_stolen_reg_spill returning
+check_stolen_reg_restore entered
+test value = 7
+fetching TLS
+mc->stolen_reg after = 7
+check_stolen_reg_restore returning
+finishing test
