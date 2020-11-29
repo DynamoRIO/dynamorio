@@ -1475,6 +1475,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_P:
     case TYPE_Q:
     case TYPE_P_MODRM: return (REG_START_MMX + reg); /* no x64 extensions */
+    case TYPE_H:
     case TYPE_V:
     case TYPE_W:
     case TYPE_V_MODRM:
@@ -2110,23 +2111,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         /* As part of AVX and AVX-512, vex.vvvv selects xmm/ymm/zmm register. Note that
          * vex.vvvv and evex.vvvv are a union.
          */
-        reg_id_t reg = (~di->vex_vvvv) & 0xf; /* bit-inverted */
-        if (TEST(PREFIX_EVEX_VV, di->prefixes)) {
-            /* This assumes that the register ranges of DR_REG_XMM, DR_REG_YMM, and
-             * DR_REG_ZMM are contiguous.
-             */
-            reg += 16;
-        }
-        if (TEST(PREFIX_EVEX_LL, di->prefixes)) {
-            reg += DR_REG_START_ZMM;
-        } else if (TEST(PREFIX_VEX_L, di->prefixes) &&
-                   /* see .LIG notes above */
-                   expand_subreg_size(opsize) != OPSZ_16) {
-            reg += DR_REG_START_YMM;
-        } else {
-            reg += DR_REG_START_XMM;
-        }
-        *opnd = opnd_create_reg(reg);
+        if (di->evex_encoded)
+            *opnd = opnd_create_reg(decode_reg(DECODE_REG_EVEX, di, optype, opsize));
+        else
+            *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
         opnd_set_size(opnd, resolve_variable_size(di, opsize, true /*is reg*/));
         return true;
     }
