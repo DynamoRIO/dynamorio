@@ -1482,9 +1482,10 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_VSIB: {
         reg_id_t extend_reg = extend ? reg + 8 : reg;
         extend_reg = avx512_extend ? extend_reg + 16 : extend_reg;
-        bool operand_is_zmm = TEST(PREFIX_EVEX_LL, di->prefixes) &&
+        bool operand_is_zmm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
             expand_subreg_size(opsize) != OPSZ_16 &&
-            expand_subreg_size(opsize) != OPSZ_32;
+            expand_subreg_size(opsize) != OPSZ_32) ||
+            opsize == OPSZ_64;
         /* Not only do we use this for VEX .LIG and EVEX .LIG (where raw reg is
          * either OPSZ_16 or OPSZ_16_vex32 or OPSZ_32 or OPSZ_vex32_evex64) but
          * also for VSIB which currently does not get up to OPSZ_16 so we can
@@ -1498,7 +1499,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
          */
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
-            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16);
+            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16) ||
+            opsize == OPSZ_32;
         if (operand_is_ymm && operand_is_zmm) {
             /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
              * we need to support decoding non-code for drdecode, etc.
