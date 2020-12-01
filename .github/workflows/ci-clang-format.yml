@@ -38,6 +38,7 @@ on:
     branches:
       - master
   pull_request:
+    types: [opened, reopened, synchronize, edited]
 
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
