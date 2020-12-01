@@ -200,6 +200,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|client.drmgr-test' => 1, # i#653
                                    'code_api|client.nudge_test' => 1, # i#2978
                                    'code_api|client.nudge_ex' => 1,
+                                   'code_api|client.alloc-noreset' => 1, # i#4436
                                    'code_api|client.drwrap-test-detach' => 1); # i#4058
             %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
                                    'code_api|common.decode' => 1, # i#4058
@@ -219,6 +220,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|client.drmgr-test' => 1, # i#1369
                                    'code_api|client.nudge_test' => 1, # i#2978
                                    'code_api|client.nudge_ex' => 1,
+                                   'code_api|client.alloc-noreset' => 1, # i#4436
                                    'code_api|api.detach' => 1, # i#2246
                                    'code_api|api.detach_spawn' => 1, # i#2611
                                    'code_api|api.startstop' => 1, # i#2093
