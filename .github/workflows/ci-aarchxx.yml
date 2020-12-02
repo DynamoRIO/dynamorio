@@ -32,8 +32,13 @@
 
 name: ci-aarchxx
 on:
-  # Run on pushes to any repository branch.
+  # Run on pull requests and pushes to master.
+  # We do not run on pushes to feature branches: pull requests cover those.
   push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
 
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
