@@ -6833,7 +6833,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
     priv_mcontext_t *state;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    IF_ARM(reg_t reg_val = 0 /* silence the compiler warning */;)
+    IF_AARCHXX(reg_t reg_val = 0 /* silence the compiler warning */;)
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
@@ -6864,7 +6864,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      * will override any save_fpstate xmm values, as desired.
      */
     state = get_priv_mcontext_from_dstack(dcontext);
-#    ifdef ARM
+#    ifdef AARCHXX
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* Set the stolen register's app value in TLS, not on stack (we rely
          * on our stolen reg retaining its value on the stack)
@@ -6877,7 +6877,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 #    endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
-#    ifdef ARM
+#    ifdef AARCHXX
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* restore the reg val on the stack clobbered by the copy above */
         set_stolen_reg_val(state, reg_val);
