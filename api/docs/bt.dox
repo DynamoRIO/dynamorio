@@ -1277,7 +1277,7 @@ Inserting a few memory references in between the pair works
 on some but not all hardware. Inserting something heavyweight like a clean
 call is very likely to result in a non-terminating loop.
 
-By default, these sequences are converted to a compare-and-swap
+By default, DynamoRIO converts each such sequence to a compare-and-swap
 sequence which can handle any amount of added instrumentation.
 However, compare-and-swap is not semantically identical: it does not
 detect "ABA" changes and could cause errors in lock-free data
@@ -1292,7 +1292,7 @@ performing strategy anyway for heavyweight tools that want to
 instrument every instruction.  Take a look at the memtrace_simple and
 instrace_simple samples, which check for instr_is_exclusive_store() to
 avoid a clean call in between.  However, even this is not enough on
-some hardware, where instrumentation would have to shifted to before
+some hardware, where instrumentation would have to be shifted to before
 and/or after the monitor region.  The runtime option
 "-unsafe_build_ldstex" may be useful on AArch64 hardware that does not
 allow any loads or stores between an exclusive load and the

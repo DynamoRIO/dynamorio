@@ -407,9 +407,9 @@ GLOBAL_LABEL(FUNCNAME:)
 #ifdef AARCH64
       1:
         ldaxp    w1, w2, [x0]
-        add      w1, w1, #0x1
-        add      w2, w2, #0x1
-        stlxp    w3, w1, w2, [x0]
+        add      w4, w1, #0x1
+        add      w5, w2, #0x1
+        stlxp    w3, w4, w5, [x0]
         cbnz     w3, 1b
       2:
         ldxp     w1, w2, [x0]

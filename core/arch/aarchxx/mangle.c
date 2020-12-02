@@ -2956,6 +2956,9 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 /***************************************************************************
  * Exclusive load/store mangling.
+ * See the design doc at
+ * https://github.com/DynamoRIO/dynamorio/wiki/Exclusive-Monitors for background
+ * information.
  */
 
 static instr_t *
@@ -3001,7 +3004,8 @@ create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg O
 {
     /* It is challenging to know whether to use an acquire or regular load opcode
      * because we do not know what the original load opcode was, especially for
-     * situations like dr_prepopulate_cache() where we have no dynamic information.
+     * situations like dr_prepopulate_cache() where we have no dynamic information
+     * and for cases of two different load opcodes sharing the same store..
      * Our solution is to always use an acquire load, which won't affect correctness.
      *
      * TODO i#1698: An acquire load in Thumb mode raises SIGILL on some processors,
@@ -3129,6 +3133,7 @@ static instr_t *
 mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       instr_t *next_instr)
 {
+    ASSERT(instr_is_exclusive_load(instr));
     LOG(THREAD, LOG_INTERP, 4, "Converting exclusive load @%p to regular\n",
         get_app_instr_xl8(instr));
     RSTATS_INC(num_ldex2cas);
@@ -3150,6 +3155,9 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     bool stex_in_same_block = false;
     for (instr_t *in = instr_get_next(instr); in != NULL; in = instr_get_next(in)) {
+        /* Bail on optimized mangling if followed by another load or a clear of the
+         * monitor before the store, since both invalidate this load's monitor.
+         */
         if (instr_is_app(in) &&
             (instr_is_exclusive_load(in) || instr_get_opcode(in) == OP_clrex))
             break;
@@ -3197,13 +3205,22 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_create_restore_from_tls(dcontext, swap_reg, TLS_REG_STOLEN_SLOT));
         }
         instr_replace_reg_resize(instr, dr_reg_stolen, swap_reg);
+        /* Re-acquire registers we may have replaced. */
         value_reg = reg_to_pointer_sized(opnd_get_reg(instr_get_dst(instr, 0)));
         if (instr_num_dsts(instr) == 2)
             value2_reg = reg_to_pointer_sized(opnd_get_reg(instr_get_dst(instr, 1)));
         base_reg = opnd_get_base(instr_get_src(instr, 0));
     }
     instr_t *where = instr_get_next(instr);
-    if (!stex_in_same_block) {
+    if (stex_in_same_block) {
+        /* Insert a label so subsequent stex mangling knows the ldex was here. */
+        instr_t *marker = INSTR_CREATE_label(dcontext);
+        instr_set_note(marker, (void *)DR_NOTE_LDEX);
+        dr_instr_label_data_t *label_data = instr_get_label_data_area(marker);
+        label_data->data[0] = value_reg;  /* Ruled out dr_reg_stolen above. */
+        label_data->data[1] = value2_reg; /* Ruled out dr_reg_stolen above. */
+        PRE(ilist, where, marker);
+    } else {
         /* Save info on the load for comparison when (if) we hit the store.
          * We insert this *after* the load so we'll have the value loaded.
          */
@@ -3258,14 +3275,6 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (should_restore) {
             PRE(ilist, where, instr_create_restore_from_tls(dcontext, scratch, slot));
         }
-    } else {
-        /* Insert a label so subsequent stex mangling knows the ldex was here. */
-        instr_t *marker = INSTR_CREATE_label(dcontext);
-        instr_set_note(marker, (void *)DR_NOTE_LDEX);
-        dr_instr_label_data_t *label_data = instr_get_label_data_area(marker);
-        label_data->data[0] = value_reg;  /* Ruled out dr_reg_stolen above. */
-        label_data->data[1] = value2_reg; /* Ruled out dr_reg_stolen above. */
-        PRE(ilist, where, marker);
     }
     /* Replace the exclusive load with a non-exclusive version. */
     instr_t *ld_nonex = create_ld_from_ldex(dcontext, instr);
@@ -3289,6 +3298,7 @@ static instr_t *
 mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                        instr_t *next_instr)
 {
+    ASSERT(instr_is_exclusive_store(instr));
     LOG(THREAD, LOG_INTERP, 4, "Converting exclusive store @%p to compare-and-swap\n",
         get_app_instr_xl8(instr));
     RSTATS_INC(num_stex2cas);
@@ -3307,16 +3317,12 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             break;
         }
     }
-    /* If the stex uses the stolen reg, it is easier to swap first than to
-     * special-case the status reg and value reg uses in our mangling for being
-     * the stolen reg.
-     */
     reg_id_t swap_reg = DR_REG_NULL;
     ushort swap_slot = 0;
     bool swap_restore = false;
-    /* If the ldex uses the stolen reg, we do not swap around it as we normally do,
+    /* If the stex uses the stolen reg, we do not swap around it as we normally do,
      * since we have a bunch of TLS refs inside that would then have a non-standard
-     * base and confuse translation code.  Instead we change the ldex.
+     * base and confuse translation code.  Instead we change the stex.
      */
     if (instr_uses_reg(instr, dr_reg_stolen)) {
         /* Make sure we don't clobber a prior value reg, if any.
@@ -3339,7 +3345,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(opnd_is_base_disp(instr_get_dst(instr, 0)) &&
            opnd_get_index(instr_get_dst(instr, 0)) == DR_REG_NULL &&
            opnd_get_disp(instr_get_dst(instr, 0)) == 0);
-    /* XXX i#4352: There is a bogus int opnd we have to account for here. */
+    /* XXX i#4532: There is a bogus int opnd we have to account for here. */
     bool is_pair = instr_num_srcs(instr) > 1 && opnd_is_reg(instr_get_src(instr, 1));
     reg_t reg_base = opnd_get_base(instr_get_dst(instr, 0));
     instr_t *no_match = INSTR_CREATE_label(dcontext);
@@ -3353,7 +3359,16 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     reg_id_t scratch = DR_REG_NULL, scratch2 = DR_REG_NULL, scratch3 = DR_REG_NULL;
     ushort slot, slot2, slot3;
     bool should_restore = false, should_restore2 = false, should_restore3 = false;
-    if (!ldex_in_same_block) {
+    if (ldex_in_same_block) {
+        /* We aren't saving the flags so we can only handle Thumb mode with CBNZ. */
+        IF_ARM(ASSERT(is_cbnz_available(dcontext, reg_res)));
+        if (is_pair) {
+            /* We do need one scratch reg for the value comparison. */
+            scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, scratch, scratch2,
+                                        /*dead_reg_ok=*/false, &slot3, &should_restore3);
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
+        }
+    } else {
         ASSERT(reg_orig_ld_val == DR_REG_NULL &&
                reg_orig_ld_val2 == DR_REG_NULL); /* We only have to avoid swap_reg. */
         /* We pass false to avoid the status reg, which we ourselves use. */
@@ -3370,15 +3385,15 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
         if (is_pair) {
             scratch2 = pick_scratch_reg(dcontext, instr, swap_reg, scratch, DR_REG_NULL,
-                                        false, &slot2, &should_restore2);
+                                        /*dead_reg_ok=*/false, &slot2, &should_restore2);
             scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, scratch, scratch2,
-                                        false, &slot3, &should_restore3);
+                                        /*dead_reg_ok=*/false, &slot3, &should_restore3);
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch2, slot2);
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
         }
         /* Compare address, arranging op_res to show failure on mismatch.
          * XXX i#400: It is possible that the store could fault and the app could
-         * examine ops_res in the handler: i.e., it's not truly dead.  We do not
+         * examine op_res in the handler: i.e., it's not truly dead.  We do not
          * account for that here.
          */
         PRE(ilist, instr,
@@ -3393,9 +3408,6 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         insert_compare_and_jump_not_equal(
             dcontext, ilist, instr, op_res, opnd_create_reg(scratch),
             OPND_CREATE_INT(reg_get_size(reg_st_val)), no_match);
-    } else {
-        /* We aren't saving the flags so we can only handle Thumb mode with CBNZ. */
-        IF_ARM(ASSERT(is_cbnz_available(dcontext, reg_res)));
     }
 
     /* Perform the compare-and-swap. */
