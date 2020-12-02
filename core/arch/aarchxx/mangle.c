@@ -3224,27 +3224,39 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Save info on the load for comparison when (if) we hit the store.
          * We insert this *after* the load so we'll have the value loaded.
          */
-        /* Write the address and value to TLS. */
-#ifdef AARCH64
-        PRE(ilist, where,
-            XINST_CREATE_store_pair(
-                dcontext,
-                opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, TLS_LDSTEX_ADDR_SLOT,
-                                      IF_ARM_ELSE(OPSZ_8, OPSZ_16)),
-                opnd_create_reg(base_reg), opnd_create_reg(value_reg)));
-#else
-        /* Pair store requires consecutive register numbers. */
-        PRE(ilist, where,
-            instr_create_save_to_tls(dcontext, base_reg, TLS_LDSTEX_ADDR_SLOT));
-        PRE(ilist, where,
-            instr_create_save_to_tls(dcontext, value_reg, TLS_LDSTEX_VALUE_SLOT));
-#endif
-        /* Write the size to TLS, using a scratch register. */
+        /* We need a scratch register. */
         ushort slot;
         bool should_restore;
         reg_id_t scratch = pick_scratch_reg(dcontext, instr, swap_reg, DR_REG_NULL,
                                             DR_REG_NULL, true, &slot, &should_restore);
         insert_save_to_tls_if_necessary(dcontext, ilist, where, scratch, slot);
+        /* Write the address and value to TLS. */
+        /* Pair store requires consecutive register numbers for 32-bit. */
+        bool use_pair = IF_AARCH64_ELSE(base_reg != DR_REG_SP, false);
+        if (use_pair) {
+            PRE(ilist, where,
+                XINST_CREATE_store_pair(
+                    dcontext,
+                    opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
+                                          TLS_LDSTEX_ADDR_SLOT,
+                                          IF_ARM_ELSE(OPSZ_8, OPSZ_16)),
+                    opnd_create_reg(base_reg), opnd_create_reg(value_reg)));
+        } else {
+            /* A64 won't let you use sp as a GPR.  Grrr. */
+            if (IF_AARCH64_ELSE(base_reg == DR_REG_SP, false)) {
+                PRE(ilist, where,
+                    XINST_CREATE_move(dcontext, opnd_create_reg(scratch),
+                                      opnd_create_reg(base_reg)));
+                PRE(ilist, where,
+                    instr_create_save_to_tls(dcontext, scratch, TLS_LDSTEX_ADDR_SLOT));
+            } else {
+                PRE(ilist, where,
+                    instr_create_save_to_tls(dcontext, base_reg, TLS_LDSTEX_ADDR_SLOT));
+            }
+            PRE(ilist, where,
+                instr_create_save_to_tls(dcontext, value_reg, TLS_LDSTEX_VALUE_SLOT));
+        }
+        /* Write the size to TLS, using a scratch register. */
         PRE(ilist, where,
             XINST_CREATE_load_int(
                 dcontext, opnd_create_reg(scratch),

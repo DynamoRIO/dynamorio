@@ -527,6 +527,8 @@ GLOBAL_LABEL(FUNCNAME:)
       4:
         /* Test unpaired cases and sp as a base. */
         sub      sp, sp, #16
+        ldxr     x2, [sp]
+        clrex
         stxr     w1, x0, [sp]
         stxr     w1, x0, [sp]
         stxr     w1, x0, [sp]
@@ -572,6 +574,8 @@ GLOBAL_LABEL(FUNCNAME:)
       4:
         /* Test unpaired cases and sp as a base. */
         sub      sp, sp, #16
+        ldrex    r0, [sp]
+        clrex
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
