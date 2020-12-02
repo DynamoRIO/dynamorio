@@ -3030,8 +3030,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     }
 
     /* second opcode byte, if there is one */
-    if (TEST(REQUIRES_EVEX, info->flags) ||
-        TEST(OPCODE_TWOBYTES, info->opcode) ||
+    if (TEST(REQUIRES_EVEX, info->flags) || TEST(OPCODE_TWOBYTES, info->opcode) ||
         TEST(OPCODE_THREEBYTES, info->opcode)) {
         *field_ptr = (byte)((info->opcode & 0x0000ff00) >> 8);
         field_ptr++;
