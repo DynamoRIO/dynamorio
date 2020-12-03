@@ -2769,6 +2769,9 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
     link_with_pthread(client.stolen-reg)
 
+    tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
+    link_with_pthread(client.ldstex)
+
     if (AARCH64)
       tobuild_ci(client.set-stolen-reg-mcontext-test client-interface/set-stolen-reg-mcontext.c "" "" "")
       link_with_pthread(client.set-stolen-reg-mcontext-test)

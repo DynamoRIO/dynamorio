@@ -1623,11 +1623,19 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
                 mangle_writes_thread_register(dcontext, ilist, instr, next_instr);
             continue;
         }
-
+#endif
+#ifdef AARCHXX
+        if (instr_is_app(instr) &&
+            (instr_is_exclusive_load(instr) || instr_is_exclusive_store(instr) ||
+             instr_get_opcode(instr) == OP_clrex)) {
+            next_instr = mangle_exclusive_monitor_op(dcontext, ilist, instr, next_instr);
+            continue;
+        }
+#endif
+#ifdef AARCH64
         if (!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen))
             next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
-#endif /* AARCH64 */
-
+#endif
 #ifdef ARM
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
