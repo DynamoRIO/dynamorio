@@ -1254,3 +1254,7 @@ RSTATS_DEF("Rseq regions identified", num_rseq_regions)
 RSTATS_DEF("Rseq instrumented stores elided", num_rseq_stores_elided)
 RSTATS_DEF("Rseq native calls inserted", num_rseq_native_calls_inserted)
 #endif
+#ifdef AARCHXX
+RSTATS_DEF("Load-exclusive instrs converted to CAS", num_ldex2cas)
+RSTATS_DEF("Store-exclusive instrs converted to CAS", num_stex2cas)
+#endif
