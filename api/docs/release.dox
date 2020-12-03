@@ -149,6 +149,13 @@ compatibility changes:
    options which are added in this release to support other-bitwidth child processes.
    This means that a drconfiglib from this version will not properly configure for a
    DynamoRIO core library from a prior version.
+ - A new option -ldstex2cas is on by default on ARM and AArch64.  This converts
+   load-exclusive store-exclusive sequences to use compare-and-swap instead,
+   which enables normal instrumentation of such sequences without clearing
+   the exclusive monitor and causing infinite loops.  However, the compare-
+   and-swap's semantics are not identical: it does not detect "ABA" changes and
+   could cause errors in lock-free data structures or other application constructs.
+   See \ref sec_ldrex for more information.
 
 Further non-compatibility-affecting changes include:
 

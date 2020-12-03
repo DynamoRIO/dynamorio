@@ -567,6 +567,9 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
+instr_t *
+mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                            instr_t *next_instr);
 #endif
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
@@ -1506,6 +1509,11 @@ get_app_instr_xl8(instr_t *instr);
 /* in x86_to_x64.c */
 void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
+#endif
+
+#ifdef AARCHXX
+bool
+instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst);
 #endif
 
 /****************************************************************************
