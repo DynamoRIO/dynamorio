@@ -43,7 +43,7 @@ check_stolen_reg_restore()
 
     void *drcontext = dr_get_current_drcontext();
 
-    fprintf(stderr, "test value = %d\n", test_value);
+    fprintf(stderr, "test value = %ld\n", test_value);
 
     dr_mcontext_t mc;
     mc.size = sizeof(mc);
@@ -55,7 +55,7 @@ check_stolen_reg_restore()
 
     bool ok = dr_get_mcontext(drcontext, &mc);
 
-    fprintf(stderr, "mc->stolen_reg after = %d\n", mc.r28);
+    fprintf(stderr, "mc->stolen_reg after = %ld\n", mc.r28);
 
     fprintf(stderr, "check_stolen_reg_restore returning\n");
 }
@@ -67,7 +67,7 @@ check_stolen_reg_spill()
 
     void *drcontext = dr_get_current_drcontext();
 
-    fprintf(stderr, "test value = %d\n", test_value);
+    fprintf(stderr, "test value = %ld\n", test_value);
 
     fprintf(stderr, "setting TLS\n");
 
