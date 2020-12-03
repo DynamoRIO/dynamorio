@@ -31,9 +31,10 @@
  * DAMAGE.
  */
 
-
 #include "dr_api.h"
 
+// Random value to detect later.
+static ptr_int_t test_value = 7;
 
 static void
 check_stolen_reg_restore()
@@ -41,8 +42,6 @@ check_stolen_reg_restore()
     fprintf(stderr, "check_stolen_reg_restore entered\n");
 
     void *drcontext = dr_get_current_drcontext();
-
-    reg_t test_value = 7;
 
     fprintf(stderr, "test value = %d\n", test_value);
 
@@ -61,17 +60,12 @@ check_stolen_reg_restore()
     fprintf(stderr, "check_stolen_reg_restore returning\n");
 }
 
-
 static void
 check_stolen_reg_spill()
 {
     fprintf(stderr, "check_stolen_reg_spill entered\n");
 
-    fprintf(stderr, "setting TLS to 0\n");
-
     void *drcontext = dr_get_current_drcontext();
-
-    reg_t test_value = 7;
 
     fprintf(stderr, "test value = %d\n", test_value);
 
@@ -88,7 +82,6 @@ check_stolen_reg_spill()
     fprintf(stderr, "check_stolen_reg_spill returning\n");
 }
 
-
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
@@ -98,15 +91,14 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         next_instr = instr_get_next(instr);
 
         reg_t imm1 = 0;
-        if (instr_is_mov_constant(instr, &imm1) &&
-                opnd_is_reg(instr_get_dst(instr, 0)) &&
-                opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_R27 && imm1 == 1) {
+        if (instr_is_mov_constant(instr, &imm1) && opnd_is_reg(instr_get_dst(instr, 0)) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_R27 && imm1 == 1) {
 
-            dr_insert_clean_call(
-                drcontext, bb, instr, (void *)check_stolen_reg_spill, false /*fpstate */, 0);
+            dr_insert_clean_call(drcontext, bb, instr, (void *)check_stolen_reg_spill,
+                                 false /*fpstate */, 0);
 
-            dr_insert_clean_call(
-                drcontext, bb, instr, (void *)check_stolen_reg_restore, false /*fpstate */, 0);
+            dr_insert_clean_call(drcontext, bb, instr, (void *)check_stolen_reg_restore,
+                                 false /*fpstate */, 0);
 
         }
     }

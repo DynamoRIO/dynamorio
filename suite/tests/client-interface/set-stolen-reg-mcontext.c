@@ -33,7 +33,9 @@
 
 #include <stdio.h>
 
-int main(void){
+int
+main(void)
+{
     // just an instruction to detect in *.dll.c
     __asm__ __volatile__("mov x27, #1" : : : "x27");
     fprintf(stderr, "finishing test\n");
