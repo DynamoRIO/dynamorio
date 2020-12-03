@@ -606,9 +606,10 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Test wrong sizes paired. */
         ldrexd   r2, r3, [sp]
         strex    r4, r1, [sp]
-        cbnz     r4, 5f
+        cmp      r4, #0
+        bne      5f
         mov      r0, #8 /* Should never come here; this will fail caller. */
-        ret
+        bx       lr
       5:
         add      sp, sp, #16
         ldaex    r1, [r0]
