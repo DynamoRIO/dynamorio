@@ -3387,7 +3387,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         IF_ARM(ASSERT(is_cbnz_available(dcontext, reg_res)));
         if (is_pair) {
             /* We do need one scratch reg for the value comparison. */
-            scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, scratch, scratch2,
+            scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, reg_orig_ld_val,
+                                        reg_orig_ld_val2,
                                         /*dead_reg_ok=*/false, &slot3, &should_restore3);
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
         }
