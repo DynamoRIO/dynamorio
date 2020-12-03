@@ -122,9 +122,9 @@ ldstex_inc_shapes(int *counter);
 static void
 test_shapes(void)
 {
-    two_counters_t my_var = { 42, 42 };
+    two_counters_t my_var = { 42, 117 };
     int added = ldstex_inc_pair(&my_var);
-    if (my_var.counter1 != 42 + added || my_var.counter2 != 42 + added)
+    if (my_var.counter1 != 42 + added || my_var.counter2 != 117 + added)
         print("Error in ldstex_inc_pair: %d %d\n", my_var.counter1, my_var.counter2);
     short half_ctr = 42;
     added = ldstex_inc_half(&half_ctr);
@@ -417,7 +417,23 @@ GLOBAL_LABEL(FUNCNAME:)
         add      w2, w2, #0x1
         stxp     w3, w1, w2, [x0]
         cbnz     w3, 2b
-        mov      w0, #2
+        /* Test pair4-single8. */
+      3:
+        ldxp     w1, w2, [x0]
+        add      w1, w1, #0x1
+        add      w2, w2, #0x1
+        orr      x1, x1, x2, lsl #32
+        stxr     w3, x1, [x0]
+        cbnz     w3, 3b
+        /* Test single8-pair4. */
+      4:
+        ldxr     x1, [x0]
+        lsr      x2, x1, #32
+        add      w1, w1, #0x1
+        add      w2, w2, #0x1
+        stxp     w3, w1, w2, [x0]
+        cbnz     w3, 4b
+        mov      w0, #4
         ret
 #elif defined(ARM)
       1:
