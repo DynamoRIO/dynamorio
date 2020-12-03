@@ -99,7 +99,6 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
             dr_insert_clean_call(drcontext, bb, instr, (void *)check_stolen_reg_restore,
                                  false /*fpstate */, 0);
-
         }
     }
 
