@@ -2768,6 +2768,9 @@ if (CLIENT_INTERFACE)
   if (AARCHXX)
     tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
     link_with_pthread(client.stolen-reg)
+
+    tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
+    link_with_pthread(client.ldstex)
   endif ()
 
   if (ARM AND NOT ANDROID)

@@ -108,7 +108,7 @@ reg_spill_tls_offs(reg_id_t reg)
     case SCRATCH_REG1: return TLS_REG1_SLOT;
     case SCRATCH_REG2: return TLS_REG2_SLOT;
     case SCRATCH_REG3: return TLS_REG3_SLOT;
-#ifdef AARCH64
+#ifdef AARCHXX
     case SCRATCH_REG4: return TLS_REG4_SLOT;
     case SCRATCH_REG5:
         return TLS_REG5_SLOT;

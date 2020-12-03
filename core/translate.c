@@ -318,9 +318,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * comment above for post-mangling traces), and so for local
          * spills like rip-rel and ind branches this is fine.
          */
-        if (instr_is_cti(inst)
+        if (instr_is_cti(inst) &&
 #ifdef X86
-            &&
             /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
              * jne (64-bit), since ecx needs to be restored (won't
              * fault, but for thread relocation)
@@ -337,6 +336,15 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
               (!opnd_is_pc(instr_get_target(inst)) ||
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
                 opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
+#else
+            /* Do not reset for cbnz/bne in ldstex mangling, nor for the b after strex. */
+            !(instr_get_opcode(inst) == OP_cbnz ||
+              (instr_get_opcode(inst) == OP_b &&
+               (instr_get_prev(inst) != NULL &&
+                instr_get_opcode(instr_get_prev(inst)) == OP_subs)) ||
+              (instr_get_opcode(inst) == OP_b &&
+               (instr_get_prev(inst) != NULL &&
+                instr_is_exclusive_store(instr_get_prev(inst)))))
 #endif
         ) {
             /* FIXME i#1551: add ARM version of the series of trace cti checks above */
@@ -442,6 +450,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* nothing to do */
         }
 #endif
+#ifdef AARCHXX
+        else if (instr_is_ldstex_mangling(tdcontext, inst)) {
+            /* nothing to do */
+        }
+#endif
         /* Single step mangling adds a nop. */
         else if (instr_is_nop(inst)) {
             /* nothing to do */
@@ -459,8 +472,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * all exit jmps.
          */
         else {
-            DOLOG(4, LOG_INTERP,
-                  d_r_loginst(get_thread_private_dcontext(), 4, inst,
+            /* XXX: Maybe this should be a full SYSLOG since it can lead to
+             * translation failure.
+             */
+            DOLOG(2, LOG_INTERP,
+                  d_r_loginst(get_thread_private_dcontext(), 2, inst,
                               "unsupported mangle instr"););
             walk->unsupported_mangle = true;
         }
@@ -1073,6 +1089,8 @@ restore_stolen_register(dcontext_t *dcontext, priv_mcontext_t *mcontext)
     /* dr_reg_stolen is holding DR's TLS on receiving a signal,
      * so we need put app's reg value into mcontext instead
      */
+    LOG(THREAD_GET, LOG_INTERP, 2, "\trestoring stolen register to " PFX "\n",
+        dcontext->local_state->spill_space.reg_stolen);
     set_stolen_reg_val(mcontext, dcontext->local_state->spill_space.reg_stolen);
 #endif
 }

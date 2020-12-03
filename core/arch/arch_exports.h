@@ -150,13 +150,11 @@ typedef struct _spill_state_t {
     reg_t xax, xbx, xcx, xdx; /* general-purpose registers */
 #elif defined(AARCHXX)
     reg_t r0, r1, r2, r3;
-#    ifdef X64
-    /* These are needed for icache_op_ic_ivau_asm. */
+    /* These are needed for ldex/stex mangling and A64 icache_op_ic_ivau_asm. */
     reg_t r4, r5;
-#    endif
     reg_t reg_stolen; /* slot for the stolen register */
 #endif
-    /* FIXME: move this below the tables to fit more on cache line */
+    /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
 #ifdef AARCHXX
     /* We store addresses here so we can load pointer-sized addresses into
@@ -166,7 +164,16 @@ typedef struct _spill_state_t {
     byte *fcache_return;
     ibl_entry_pc_t trace_ibl[IBL_BRANCH_TYPE_END];
     ibl_entry_pc_t bb_ibl[IBL_BRANCH_TYPE_END];
-    /* FIXME i#1575: coarse-grain NYI on ARM */
+    /* State for converting exclusive monitors into compare-and-swap (-ldstex2cas). */
+    ptr_uint_t ldstex_addr;
+    ptr_uint_t ldstex_value;
+    ptr_uint_t ldstex_value2; /* For 2nd value of a pair. */
+    ptr_uint_t ldstex_size;
+#    ifdef ARM
+    /* In A32 mode we have no OP_cbnz so we have to save the flags. */
+    reg_t ldstex_flags;
+#    endif
+    /* TODO i#1575: coarse-grain NYI on ARM */
 #endif
 } spill_state_t;
 
@@ -201,26 +208,29 @@ typedef struct _local_state_extended_t {
 #    define TLS_REG1_SLOT ((ushort)offsetof(spill_state_t, r1))
 #    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, r2))
 #    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, r3))
-#    ifdef AARCH64
-#        define TLS_REG4_SLOT ((ushort)offsetof(spill_state_t, r4))
-#        define TLS_REG5_SLOT ((ushort)offsetof(spill_state_t, r5))
-#    endif
+#    define TLS_REG4_SLOT ((ushort)offsetof(spill_state_t, r4))
+#    define TLS_REG5_SLOT ((ushort)offsetof(spill_state_t, r5))
 #    define TLS_REG_STOLEN_SLOT ((ushort)offsetof(spill_state_t, reg_stolen))
 #    define SCRATCH_REG0 DR_REG_R0
 #    define SCRATCH_REG1 DR_REG_R1
 #    define SCRATCH_REG2 DR_REG_R2
 #    define SCRATCH_REG3 DR_REG_R3
-#    ifdef AARCH64
-#        define SCRATCH_REG4 DR_REG_R4
-#        define SCRATCH_REG5 DR_REG_R5
-#    endif
-#    define SCRATCH_REG_LAST IF_X64_ELSE(SCRATCH_REG5, SCRATCH_REG3)
+#    define SCRATCH_REG4 DR_REG_R4
+#    define SCRATCH_REG5 DR_REG_R5
+#    define SCRATCH_REG_LAST SCRATCH_REG5
 #endif /* X86/ARM */
 #define IBL_TARGET_REG SCRATCH_REG2
 #define IBL_TARGET_SLOT TLS_REG2_SLOT
 #define TLS_DCONTEXT_SLOT ((ushort)offsetof(spill_state_t, dcontext))
 #ifdef AARCHXX
 #    define TLS_FCACHE_RETURN_SLOT ((ushort)offsetof(spill_state_t, fcache_return))
+#    define TLS_LDSTEX_ADDR_SLOT ((ushort)offsetof(spill_state_t, ldstex_addr))
+#    define TLS_LDSTEX_VALUE_SLOT ((ushort)offsetof(spill_state_t, ldstex_value))
+#    define TLS_LDSTEX_VALUE2_SLOT ((ushort)offsetof(spill_state_t, ldstex_value2))
+#    define TLS_LDSTEX_SIZE_SLOT ((ushort)offsetof(spill_state_t, ldstex_size))
+#    ifdef ARM
+#        define TLS_LDSTEX_FLAGS_SLOT ((ushort)offsetof(spill_state_t, ldstex_flags))
+#    endif
 #endif
 
 #define TABLE_OFFSET (offsetof(local_state_extended_t, table_space))

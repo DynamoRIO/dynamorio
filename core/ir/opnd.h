@@ -995,7 +995,7 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_START_SPILL DR_REG_XAX
 #    define REG_STOP_SPILL DR_REG_XDI
 #elif defined(AARCHXX)
-/* We only normally use r0-r3 but we support more in translation code */
+/* We only normally use r0-r5 but we support more in translation code */
 #    define REG_START_SPILL DR_REG_R0
 #    define REG_STOP_SPILL DR_REG_R10 /* r10 might be used in syscall mangling */
 #endif                                /* X86/ARM */

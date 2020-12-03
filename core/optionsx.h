@@ -603,6 +603,16 @@ OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                         "replace blocks using exclusive load/store with a "
                         "macro-instruction (unsafe)")
 #endif
+#ifdef AARCHXX
+/* TODO i#1698: To enable for ARM we need to fix a few final pieces:
+ * + Handle ldrexd to use even,even+1 regs.
+ * + Handle predication.
+ * + Handle acquire loads being unsupported in Thumb mode on some processors.
+ */
+OPTION_DEFAULT_INTERNAL(bool, ldstex2cas, IF_ARM_ELSE(false, true),
+                        "replace exclusive load/store with compare-and-swap to "
+                        "allow instrumentation, at the risk of ABA errors")
+#endif
 
 #ifdef WINDOWS_PC_SAMPLE
 OPTION_DEFAULT(uint, prof_pcs_DR, 2,

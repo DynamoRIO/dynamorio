@@ -3485,7 +3485,12 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
              (check_disp == os_tls_offset((ushort)TLS_REG0_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
-              check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)))) {
+              check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)
+#    ifdef AARCHXX
+              || check_disp == os_tls_offset((ushort)TLS_REG4_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG5_SLOT)
+#    endif
+                  ))) {
             if (tls != NULL)
                 *tls = true;
             if (offs_out != NULL)
