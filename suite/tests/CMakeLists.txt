@@ -577,6 +577,10 @@ function(add_exe test source)
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
   if (UNIX)
+    # Older CMake would add this for us, but no longer.  We want global syms
+    # in .dynsym for all our executables, so our clients can use dr_get_proc_address()
+    # to find them.
+    append_link_flags(${test} "-rdynamic")
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
     if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
         AND NOT ${test} MATCHES "drdecode")
