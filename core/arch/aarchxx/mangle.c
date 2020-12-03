@@ -3162,7 +3162,12 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             (instr_is_exclusive_load(in) || instr_get_opcode(in) == OP_clrex))
             break;
         if (instr_is_app(in) && instr_is_exclusive_store(in)) {
-            if (opnd_get_size(instr_get_src(in, 0)) ==
+            if (opnd_get_size(instr_get_dst(in, 0)) ==
+                    opnd_get_size(instr_get_src(instr, 0)) &&
+                /* Bail on one side being a pair of half-size and the other not:
+                 * too complicated for the optimized form.
+                 */
+                opnd_get_size(instr_get_src(in, 0)) ==
                     opnd_get_size(instr_get_dst(instr, 0)) &&
                 opnd_get_base(instr_get_dst(in, 0)) == base_reg &&
                 /* We bail on optimizing A32 where we have no OP_cbnz and we'd need
@@ -3171,6 +3176,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 is_cbnz_available(dcontext, opnd_get_reg(instr_get_dst(in, 1)))) {
                 /* Base and size are the same. */
                 stex_in_same_block = true;
+                LOG(THREAD, LOG_INTERP, 4,
+                    "Using optimized same-block ldex-stex mangling\n");
             }
             break;
         }
@@ -3260,7 +3267,7 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, where,
             XINST_CREATE_load_int(
                 dcontext, opnd_create_reg(scratch),
-                OPND_CREATE_INT(opnd_get_size(instr_get_dst(instr, 0)))));
+                OPND_CREATE_INT(opnd_get_size(instr_get_src(instr, 0)))));
         /* If a load-pair, write the 2nd value as well. */
         if (instr_num_dsts(instr) == 2) {
 #ifdef AARCH64
@@ -3317,8 +3324,13 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* TODO i#1698: Preserve ARM predication and add tests. */
     reg_id_t reg_orig_ld_val = DR_REG_NULL;
     reg_id_t reg_orig_ld_val2 = DR_REG_NULL;
+    /* Check whether there's a paired prior ldex with nice behavior (no clear in
+     * between, no write to the base or value regs, etc.: all checked in
+     * mangle_exclusive_load()), indicated by a label.
+     */
     bool ldex_in_same_block = false;
     for (instr_t *in = instr_get_prev(instr); in != NULL; in = instr_get_prev(in)) {
+        /* The label is always after the matching load. */
         if (instr_is_exclusive_load(in) || instr_is_exclusive_store(in))
             break;
         if (instr_is_label(in) && instr_get_note(in) == (void *)DR_NOTE_LDEX) {
@@ -3353,7 +3365,6 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     reg_id_t reg_res = opnd_get_reg(instr_get_dst(instr, 1));
     opnd_t op_res = opnd_create_reg(reg_to_pointer_sized(reg_res));
-    reg_id_t reg_st_val = opnd_get_reg(instr_get_src(instr, 0));
     ASSERT(opnd_is_base_disp(instr_get_dst(instr, 0)) &&
            opnd_get_index(instr_get_dst(instr, 0)) == DR_REG_NULL &&
            opnd_get_disp(instr_get_dst(instr, 0)) == 0);
@@ -3403,7 +3414,9 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch2, slot2);
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
         }
-        /* Compare address, arranging op_res to show failure on mismatch.
+        /* Compare address, arranging op_res to show failure on mismatch (though
+         * now that we have a stex after no_match for fault fidelity it will set
+         * op_res for us; we need a dead/scratch here anyway and op_res fits the bill).
          * XXX i#400: It is possible that the store could fault and the app could
          * examine op_res in the handler: i.e., it's not truly dead.  We do not
          * account for that here.
@@ -3419,7 +3432,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             instr_create_restore_from_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
         insert_compare_and_jump_not_equal(
             dcontext, ilist, instr, op_res, opnd_create_reg(scratch),
-            OPND_CREATE_INT(reg_get_size(reg_st_val)), no_match);
+            OPND_CREATE_INT(opnd_get_size(instr_get_dst(instr, 0))), no_match);
     }
 
     /* Perform the compare-and-swap. */

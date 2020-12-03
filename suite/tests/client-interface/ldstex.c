@@ -125,7 +125,7 @@ test_shapes(void)
     two_counters_t my_var = { 42, 42 };
     int added = ldstex_inc_pair(&my_var);
     if (my_var.counter1 != 42 + added || my_var.counter2 != 42 + added)
-        print("Error in ldstex_inc_pair: %d\n", my_var);
+        print("Error in ldstex_inc_pair: %d %d\n", my_var.counter1, my_var.counter2);
     short half_ctr = 42;
     added = ldstex_inc_half(&half_ctr);
     if (half_ctr != 42 + added)
@@ -532,14 +532,22 @@ GLOBAL_LABEL(FUNCNAME:)
         stxr     w1, x0, [sp]
         stxr     w1, x0, [sp]
         stxr     w1, x0, [sp]
+        /* Test wrong sizes paired. */
+        ldxp     x1, x2, [sp]
+        stxr     w3, x1, [sp]
+        cbnz     w3, 5f
+        mov      w0, #8 /* Should never come here; this will fail caller. */
+        add      sp, sp, #16
+        ret
+      5:
         add      sp, sp, #16
         ldaxr    w1, [x0]
         ldaxr    w1, [x0]
-      5:
+      6:
         ldaxr    w1, [x0]
         add      w2, w1, #0x1
         stlxr    w3, w2, [x0]
-        cbnz     w3, 5b
+        cbnz     w3, 6b
         mov      w0, #2
         ret
 #elif defined(ARM)
@@ -579,15 +587,22 @@ GLOBAL_LABEL(FUNCNAME:)
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
+        /* Test wrong sizes paired. */
+        ldrexd   r1, r2, [sp]
+        strex    r3, r1, [sp]
+        cbnz     r3, 5f
+        mov      r0, #8 /* Should never come here; this will fail caller. */
+        ret
+      5:
         add      sp, sp, #16
         ldaex    r1, [r0]
         ldaex    r1, [r0]
-      5:
+      6:
         ldaex    r1, [r0]
         add      r2, r1, #0x1
         stlex    r3, r2, [r0]
         cmp      r3, #0
-        bne      5b
+        bne      6b
         mov      r0, #2
         bx       lr
 #else
