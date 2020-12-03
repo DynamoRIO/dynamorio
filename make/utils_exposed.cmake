@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2019 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2020 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,10 @@ function (_DR_append_property_string type target name value)
   endif (cur)
   set_property(${type} ${target} PROPERTY ${name} "${value}")
 endfunction (_DR_append_property_string)
+
+function (_DR_append_property_list type target name value)
+  set_property(${type} ${target} PROPERTY ${name} ${value} APPEND)
+endfunction (_DR_append_property_list)
 
 # Drops the last path element from path and stores it in path_out.
 function (_DR_dirname path_out path)

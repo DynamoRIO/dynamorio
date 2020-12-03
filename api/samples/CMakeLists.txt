@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,7 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
   set(DEBUG ON)
@@ -241,12 +241,12 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
     "drcontainers;drmgr;drreg;drutil;drx")
   add_sample_client(memtrace_x86_text   "memtrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drutil;drx")
-  _DR_append_property_string(TARGET memtrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
+  _DR_append_property_list(TARGET memtrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(instrace_x86_binary "instrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drx")
   add_sample_client(instrace_x86_text   "instrace_x86.c;utils.c"
     "drcontainers;drmgr;drreg;drx")
-  _DR_append_property_string(TARGET instrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
+  _DR_append_property_list(TARGET instrace_x86_text COMPILE_DEFINITIONS "OUTPUT_TEXT")
   add_sample_client(prefetch    "prefetch.c"      "drmgr")
   if (NOT WIN32)
     add_sample_client(ssljack     "ssljack.c"       "drmgr;drwrap")

@@ -107,7 +107,7 @@ if (WIN32)
 
   add_library(policy_static ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS})
   set_target_properties(policy_static PROPERTIES
-    COMPILE_FLAGS "${libutil_cflags} -DNOT_DYNAMORIO_CORE")
+    COMPILE_FLAGS "${libutil_cflags}" COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE")
   set_target_properties(policy_static PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
   add_gen_events_deps(policy_static)
@@ -144,7 +144,8 @@ set_target_properties(drconfiglib PROPERTIES
   # Since it's hard to pass spaces in defines (I can get a " through using
   # \\\\\\\" but no spaces) we put strings in resources.rc and select
   # using RC_ defines.
-  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB -DNOT_DYNAMORIO_CORE"
+  COMPILE_FLAGS "${libutil_cflags}"
+  COMPILE_DEFINITIONS "RC_IS_DRCONFIGLIB;NOT_DYNAMORIO_CORE"
   # put in lib dir
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(drconfiglib)
@@ -160,7 +161,8 @@ if (WIN32)
   add_executable(dumpevts dumpevts.c elm.c ${RESOURCES})
   set_target_properties(dumpevts PROPERTIES
     # Set define parameters for resources.rc
-    COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DUMPEVTS -DNOT_DYNAMORIO_CORE")
+    COMPILE_FLAGS "${libutil_cflags}"
+    COMPILE_DEFINITIONS "RC_IS_DUMPEVTS;NOT_DYNAMORIO_CORE")
   set_target_properties(dumpevts PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
   add_gen_events_deps(dumpevts)
@@ -171,7 +173,8 @@ if (WIN32)
       ${RESOURCES} mfapi.c mfapi.res)
     set_target_properties(mfapi PROPERTIES
       # Set define parameters for resources.rc
-      COMPILE_FLAGS "${libutil_cflags} -DRC_IS_MFAPI -DNOT_DYNAMORIO_CORE")
+      COMPILE_FLAGS "${libutil_cflags}"
+      COMPILE_DEFINITIONS "RC_IS_MFAPI;NOT_DYNAMORIO_CORE")
     set_target_properties(mfapi PROPERTIES
       LINK_FLAGS "${libutil_ldflags}")
     add_gen_events_deps(mfapi)
