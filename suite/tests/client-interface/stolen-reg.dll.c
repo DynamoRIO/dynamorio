@@ -208,7 +208,9 @@ dr_init(client_id_t id)
 #endif
         printf("ERROR: stolen reg value has changed, this test needs to be updated");
         DR_ASSERT(false);
+#ifdef AARCHXX
     }
+#endif
 
     dr_register_bb_event(bb_event);
     dr_register_restore_state_event(restore_event);
