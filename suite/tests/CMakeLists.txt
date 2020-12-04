@@ -2780,10 +2780,6 @@ if (CLIENT_INTERFACE)
 
     tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
     link_with_pthread(client.ldstex)
-
-    if (AARCH64)
-      tobuild_ci(client.set-stolen-reg-mcontext client-interface/set-stolen-reg-mcontext.c "" "" "")
-    endif ()
   endif ()
 
   if (ARM AND NOT ANDROID)

@@ -180,6 +180,7 @@ main(int argc, char **argv)
               STOLEN_REG_SENTINEL, val);
     }
 
+
     /* Now test synchall from another thread (the initiating thread does not
      * hit the i#4495 issue).
      * The stolen-reg.dll.c client looks for this exact sequence of instructions.
@@ -201,18 +202,31 @@ main(int argc, char **argv)
 #else
 #    error Unsupported arch
 #endif
+
     thread_t thread = create_thread(thread_func, NULL);
     while (!thread_finished) {
         /* We need to ensure we're *translated* which won't always happen if we're sitting
          * at a syscall.  So we deliberately spin.
          */
     }
+
     join_thread(thread);
+
+    
     val = get_stolen_reg_val();
     if (val != STOLEN_REG_SENTINEL) {
         print("ERROR: Stolen register %d not preserved past synchall: %d\n",
               STOLEN_REG_SENTINEL, val);
     }
+
+    // Checking for this sequence in stolen-reg.dll.c
+#if defined(AARCH64)
+    __asm__ __volatile__("mov x28, #1" : : : "x28");
+#elif defined(ARM)
+    __asm__ __volatile__("mov r10, #1" : : : "x28");
+#else
+#    error Unsupported arch
+#endif
 
     print("Done\n");
 }
