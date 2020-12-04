@@ -145,7 +145,8 @@ else (UNIX)
 
     set_target_properties(${tgt} PROPERTIES
       # Set define parameters for resources.rc
-      COMPILE_FLAGS "${tool_cflags} ${unicode_cflags} -DRC_IS_${tgt}")
+      COMPILE_FLAGS "${tool_cflags} ${unicode_cflags}"
+      COMPILE_DEFINITIONS "RC_IS_${tgt}")
   endforeach (tgt)
 
   # drdeploy.exe links to libutil/drconfiglib.dll.  When we build drdeploy,
@@ -169,13 +170,13 @@ if (CMAKE_COMPILER_IS_GNUCC AND NOT CMAKE_COMPILER_IS_CLANG)
 endif ()
 add_executable(drconfig drdeploy.c ${RESOURCES})
 set_target_properties(drconfig PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drconfig -DDRCONFIG")
+  COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drconfig;DRCONFIG")
 add_executable(drrun drdeploy.c ${RESOURCES})
 set_target_properties(drrun PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drrun -DDRRUN")
+  COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drrun;DRRUN")
 add_executable(drinject drdeploy.c ${RESOURCES})
 set_target_properties(drinject PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drinject -DDRINJECT")
+  COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drinject;DRINJECT")
 set(tgts ${tgts} drconfig drrun drinject)
 
 foreach (deploytgt drconfig drrun drinject)

@@ -454,7 +454,7 @@ else (UNIX)
     win32/resources.rc
     )
   set_target_properties(drearlyhelp1 PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_EARLY1")
+    COMPILE_DEFINITIONS "RC_IS_EARLY1")
   # base = (release base - 64k)
   set_target_properties(drearlyhelp1 PROPERTIES
     # not bothering with map files
@@ -466,7 +466,7 @@ else (UNIX)
     win32/resources.rc
     )
   set_target_properties(drearlyhelp2 PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_EARLY2")
+    COMPILE_DEFINITIONS "RC_IS_EARLY2")
   # base = (helper1 base - 64k)
   set_target_properties(drearlyhelp2 PROPERTIES
     # not bothering with map files
@@ -918,7 +918,7 @@ copy_target_to_device(${PRELOAD_NAME} "${location_suffix}")
 # drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
 # functions.
 set_target_properties(${PRELOAD_NAME} PROPERTIES
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD -DDR_NO_FAST_IR")
+  COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;RC_IS_PRELOAD;DR_NO_FAST_IR")
 
 if (UNIX)
   # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)
@@ -971,7 +971,7 @@ add_library(drdecode
   io.c
   )
 set_target_properties(drdecode PROPERTIES
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
+  COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;STANDALONE_DECODER")
 if (UNIX)
   append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
 endif (UNIX)
@@ -1006,9 +1006,8 @@ if (UNIX)
   target_link_libraries(drinjectlib drmemfuncs)
 endif ()
 set_target_properties(drinjectlib PROPERTIES
-  # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECTLIB")
+  COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;RC_IS_DRINJECTLIB")
 if (WIN32)
   set(drinjectlib_link_flags
     # not bothering with map files
@@ -1103,7 +1102,8 @@ if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
     endif ()
   endif ()
   set_target_properties(unit_tests PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
+    COMPILE_DEFINITIONS "RC_IS_TEST;STANDALONE_UNIT_TEST"
+    COMPILE_FLAGS "${unit_tests_extra_flags}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
     if (NOT APPLE)
