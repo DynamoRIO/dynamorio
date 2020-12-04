@@ -31,7 +31,7 @@
 
 # symbol access library
 
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -157,7 +157,7 @@ macro(configure_drsyms_target target)
     endif ()
   endif ()
   # we always use the elftoolchain library when building with cmake
-  append_property_string(TARGET ${target} COMPILE_FLAGS "-DDRSYM_HAVE_LIBELFTC")
+  append_property_list(TARGET ${target} COMPILE_DEFINITIONS "DRSYM_HAVE_LIBELFTC")
 endmacro(configure_drsyms_target)
 
 configure_drsyms_target(drsyms)

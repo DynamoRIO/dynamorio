@@ -47,7 +47,7 @@
 #   and optionally submit to dashboard.  Use w/o submit as "make runregression".
 
 # We use target_include_directories() which was added in 2.8.11
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -455,7 +455,7 @@ target_link_libraries(tools drlibc)
 
 if (WIN32)
   set_source_files_properties(${PROJECT_SOURCE_DIR}/core/win32/resources.rc
-    PROPERTIES COMPILE_FLAGS "-DRC_IS_TEST")
+    PROPERTIES COMPILE_DEFINITIONS "RC_IS_TEST")
 endif (WIN32)
 
 function (set_cflags source)
@@ -577,6 +577,10 @@ function(add_exe test source)
     # it hard to use other DR builds w/ these apps
     SKIP_BUILD_RPATH ON)
   if (UNIX)
+    # Older CMake would add this for us, but no longer.  We want global syms
+    # in .dynsym for all our executables, so our clients can use dr_get_proc_address()
+    # to find them.
+    append_link_flags(${test} "-rdynamic")
     # This is kind of a hack: perhaps we should add a flag for whether to use libs.
     if (NOT ${source} MATCHES "\\.asm$" AND NOT ${test} MATCHES "static"
         AND NOT ${test} MATCHES "drdecode")
@@ -732,26 +736,30 @@ function(configure_app_api_build_flags test decoder use_static_DR)
     configure_DynamoRIO_standalone(${test})
     set(extra_flags "-DSTANDALONE")
   endif ()
-  # append to properties set by configure_DynamoRIO_standalone
+  # Since we're including configure.h we do not want any default defines.
+  get_target_property(prop_defs ${test} COMPILE_DEFINITIONS)
+  if (NOT prop_defs)
+    set(prop_defs "")
+  endif ()
+  string(REGEX REPLACE "X64" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "LINUX" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "WINDOWS" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "MACOS" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "CLANG" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "ANDROID" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_APP_EXPORTS" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_HOST_ARM" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_HOST_AARCH64" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_HOST_X86" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_HOST_X64" "" prop_defs "${prop_defs}")
+  string(REGEX REPLACE "DR_HOST_NOT_TARGET" "" prop_defs "${prop_defs}")
+  # Append to properties set by configure_DynamoRIO_standalone.
   get_target_property(prop_cflags ${test} COMPILE_FLAGS)
   if (NOT prop_cflags)
     set(prop_cflags "")
   endif ()
   set(prop_cflags "${prop_cflags} ${extra_flags}")
   set(prop_cflags "${prop_cflags} -DUSE_DYNAMO")
-  # since we're including configure.h we do not want any default defines
-  string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DMACOS" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DCLANG" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DANDROID" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DDR_APP_EXPORTS" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DDR_HOST_ARM" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DDR_HOST_AARCH64" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DDR_HOST_X86" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DDR_HOST_X64" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DDR_HOST_NOT_TARGET" "" prop_cflags "${prop_cflags}")
   # FIXME: apparently moving cflags to a target property makes it show up
   # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.
@@ -759,6 +767,7 @@ function(configure_app_api_build_flags test decoder use_static_DR)
   get_target_property(prop_lflags ${test} LINK_FLAGS)
   set_target_properties(${test} PROPERTIES
     COMPILE_FLAGS "${prop_cflags}"
+    COMPILE_DEFINITIONS "${prop_defs}"
     LINK_FLAGS "${pre_lflags} ${prop_lflags}")
 endfunction (configure_app_api_build_flags)
 
@@ -4157,16 +4166,16 @@ if (UNIX)
     tobuild(linux.rseq linux/rseq.c)
     # Test the other sections.  Unfortunately we need a separate binary for each.
     tobuild(linux.rseq_table linux/rseq.c)
-    append_property_string(TARGET linux.rseq_table
-      COMPILE_FLAGS "-DRSEQ_TEST_USE_OLD_SECTION_NAME")
+    append_property_list(TARGET linux.rseq_table
+      COMPILE_DEFINITIONS "RSEQ_TEST_USE_OLD_SECTION_NAME")
     tobuild(linux.rseq_noarray linux/rseq.c)
-    append_property_string(TARGET linux.rseq_noarray
-      COMPILE_FLAGS "-DRSEQ_TEST_USE_NO_ARRAY")
+    append_property_list(TARGET linux.rseq_noarray
+      COMPILE_DEFINITIONS "RSEQ_TEST_USE_NO_ARRAY")
     # Test attaching, which has a separate lazy rseq check.
     # We build with static DR to also test client interactions.
     tobuild_api(api.rseq linux/rseq.c "" "" OFF ON)
     link_with_pthread(api.rseq)
-    append_property_string(TARGET api.rseq COMPILE_FLAGS "-DRSEQ_TEST_ATTACH")
+    append_property_list(TARGET api.rseq COMPILE_DEFINITIONS "RSEQ_TEST_ATTACH")
     set(api.rseq_expectbase rseq_client)
     # Test non-compliant code with our workaround flag.
     tobuild_ops(linux.rseq_disable linux/rseq_disable.c "-disable_rseq" "")

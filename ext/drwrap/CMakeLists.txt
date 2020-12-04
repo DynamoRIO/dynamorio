@@ -19,7 +19,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
@@ -90,7 +90,8 @@ macro(configure_drwrap_target target)
   if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
     # for non-VS generators
-    append_property_string(TARGET ${target} COMPILE_FLAGS "${asm_defs}")
+    string(REPLACE "-D" "" asm_defs_list "${asm_defs}")
+    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${asm_defs_list}")
   endif ()
 
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
