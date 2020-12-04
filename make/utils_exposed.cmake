@@ -96,9 +96,10 @@ function (DynamoRIO_add_rel_rpaths target)
         get_target_property(target_loc ${target} LIBRARY_OUTPUT_DIRECTORY)
       endif()
       # Reading the target paths at configure time is no longer supported in
-      # cmake (CMP0026). This code was added to replace reading the LOCATION
-      # property at configure time. It assumes that targets are in standard locations.
-      get_target_property(lib_loc ${lib} LIBRARY_OUTPUT_DIRECTORY)
+      # cmake (CMP0026).  For an imported target, we can get the path; otherwise
+      # the best we can do is a LOCATION property.
+      DynamoRIO_get_full_path(lib_loc_full dynamorio "")
+      get_filename_component(lib_loc ${lib_loc_full} PATH)
       file(RELATIVE_PATH relpath "${target_loc}" "${lib_loc}")
 
       # Append the new rpath element if it isn't there already.
