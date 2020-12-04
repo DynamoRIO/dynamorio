@@ -203,6 +203,7 @@ dr_init(client_id_t id)
     if (dr_get_stolen_reg() != DR_REG_R28) {
 #elif defined(ARM)
     if (dr_get_stolen_reg() != DR_REG_R10) {
+#else
 #    error Unsupported arch
 #endif
         printf("ERROR: stolen reg value has changed, this test needs to be updated");
