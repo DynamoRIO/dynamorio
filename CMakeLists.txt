@@ -582,6 +582,20 @@ set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 ###########################################################################
 # toolchain
 
+# Figure out avx flags before asm setup, which requires it.
+set(proc_supports_avx OFF)
+set(proc_supports_avx2 OFF)
+set(proc_supports_avx512 OFF)
+if (UNIX)
+  set(CFLAGS_AVX "-mavx")
+  # BMI2 instructions are typically also supported on AVX2 processors.
+  set(CFLAGS_AVX2 "-mavx2 -mbmi2")
+  set(CFLAGS_AVX512 "-mavx512f")
+  check_avx_processor_and_compiler_support(proc_supports_avx)
+  check_avx2_processor_and_compiler_support(proc_supports_avx2)
+  check_avx512_processor_and_compiler_support(proc_supports_avx512)
+endif ()
+
 # Set up assembly support and CMAKE_CPP.
 # Note that in cmake < 2.6.4, I had to fix a bug in
 # /usr/share/cmake/Modules/CMakeASMInformation.cmake
@@ -1532,18 +1546,6 @@ if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
-  set(proc_supports_avx OFF)
-  set(proc_supports_avx2 OFF)
-  set(proc_supports_avx512 OFF)
-  if (UNIX)
-    set(CFLAGS_AVX "-mavx")
-    # BMI2 instructions are typically also supported on AVX2 processors.
-    set(CFLAGS_AVX2 "-mavx2 -mbmi2")
-    set(CFLAGS_AVX512 "-mavx512f")
-    check_avx_processor_and_compiler_support(proc_supports_avx)
-    check_avx2_processor_and_compiler_support(proc_supports_avx2)
-    check_avx512_processor_and_compiler_support(proc_supports_avx512)
-  endif ()
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)

@@ -5389,7 +5389,7 @@ master_signal_handler_C(byte *xsp)
      * The pointers may be different if a thread is on its way to exit, and the app's
      * sigstack was already restored (i#3369).
      */
-    IF_LINUX(ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT ||
+    IF_LINUX(ASSERT(dcontext == NULL || dcontext == GLOBAL_DCONTEXT || dynamo_exited ||
                     dcontext->is_exiting ||
                     frame->uc.uc_stack.ss_sp ==
                         ((thread_sig_info_t *)dcontext->signal_field)->sigstack.ss_sp));

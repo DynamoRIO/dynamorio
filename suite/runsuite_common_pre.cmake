@@ -57,12 +57,12 @@
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"
 
-cmake_minimum_required (VERSION 3.2)
+cmake_minimum_required(VERSION 3.7)
 set(cmake_ver_string
   "${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_RELEASE_VERSION}")
 if (COMMAND cmake_policy)
   # avoid warnings on include()
-  cmake_policy(VERSION 3.2)
+  cmake_policy(VERSION 3.7)
 endif()
 
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())
