@@ -89,9 +89,9 @@ load_stolen_reg_to_mcontext()
 
     dr_get_mcontext(drcontext, &mc);
 
-    fprintf(stderr, "mc->stolen_reg after = %ld\n", mc.r28);
+    fprintf(stderr, "mc->stolen_reg after = %ld\n", mc.IF_ARM_ELSE(r10, r28));
 
-    mc.r28 = orig_value;
+    mc.IF_ARM_ELSE(r10, r28) = orig_value;
 
     dr_set_mcontext(drcontext, &mc);
 }
@@ -112,9 +112,9 @@ save_stolen_reg_to_tls()
     mc.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc);
 
-    orig_value = mc.r28;
+    orig_value = mc.IF_ARM_ELSE(r10, r28);
 
-    mc.r28 = test_value;
+    mc.IF_ARM_ELSE(r10, r28) = test_value;
 
     dr_set_mcontext(drcontext, &mc);
 }
