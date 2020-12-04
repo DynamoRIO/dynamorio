@@ -930,9 +930,9 @@ function (_DR_set_compile_flags target is_client extra_flags)
     endif ()
   endforeach (src)
 
-  set_target_properties(${target} PROPERTIES
-    COMPILE_DEFINITIONS "${extra_defines};${tgt_defines}"
-    COMPILE_FLAGS "${tgt_inc}")
+  set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${tgt_inc}")
+  _DR_append_property_list(TARGET ${target}
+    COMPILE_DEFINITIONS "${extra_defines};${tgt_defines}")
 endfunction(_DR_set_compile_flags)
 
 
