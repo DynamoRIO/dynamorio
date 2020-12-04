@@ -2782,8 +2782,7 @@ if (CLIENT_INTERFACE)
     link_with_pthread(client.ldstex)
 
     if (AARCH64)
-      tobuild_ci(client.set-stolen-reg-mcontext-test client-interface/set-stolen-reg-mcontext.c "" "" "")
-      link_with_pthread(client.set-stolen-reg-mcontext-test)
+      tobuild_ci(client.set-stolen-reg-mcontext client-interface/set-stolen-reg-mcontext.c "" "" "")
     endif ()
   endif ()
 
