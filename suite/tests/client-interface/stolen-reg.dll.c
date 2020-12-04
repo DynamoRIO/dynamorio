@@ -67,17 +67,16 @@ do_flush(app_pc next_pc)
     DR_ASSERT(false);
 }
 
+// Storing the original stolen reg before mconext set.
 static ptr_int_t orig_value = 0;
 
-// Random value to detect later.
+// Random value to detect after mcontext set.
 static ptr_int_t test_value = 7;
 
-
 static void
-check_stolen_reg_restore()
+load_stolen_reg_to_mcontext()
 {
-    fprintf(stderr, "check_stolen_reg_restore entered\n");
-
+    fprintf(stderr, "load_stolen_reg_to_mcontext entered\n");
     void *drcontext = dr_get_current_drcontext();
 
     fprintf(stderr, "test value = %ld\n", test_value);
@@ -88,21 +87,19 @@ check_stolen_reg_restore()
 
     fprintf(stderr, "fetching TLS\n");
 
-    bool ok = dr_get_mcontext(drcontext, &mc);
+    dr_get_mcontext(drcontext, &mc);
 
-    fprintf(stderr, "mc->stolen_reg after = %ld\n", mc.r28);    
+    fprintf(stderr, "mc->stolen_reg after = %ld\n", mc.r28);
 
     mc.r28 = orig_value;
 
     dr_set_mcontext(drcontext, &mc);
-
-    fprintf(stderr, "check_stolen_reg_restore returning\n");
 }
 
 static void
-check_stolen_reg_spill()
+save_stolen_reg_to_tls()
 {
-    fprintf(stderr, "check_stolen_reg_spill entered\n");
+    fprintf(stderr, "save_stolen_reg_to_tls entered\n");
 
     void *drcontext = dr_get_current_drcontext();
 
@@ -120,8 +117,6 @@ check_stolen_reg_spill()
     mc.r28 = test_value;
 
     dr_set_mcontext(drcontext, &mc);
-
-    fprintf(stderr, "check_stolen_reg_spill returning\n");
 }
 
 static dr_emit_flags_t
@@ -184,15 +179,15 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             break;
         }
 
-        // Look for mov <stolen-reg>, #1
+        // Look for mov <stolen-reg>, #1.
         ptr_int_t imm1 = 0;
         if (instr_is_mov_constant(instr, &imm1) && opnd_is_reg(instr_get_dst(instr, 0)) &&
             opnd_get_reg(instr_get_dst(instr, 0)) == dr_get_stolen_reg() && imm1 == 1) {
-            dr_insert_clean_call(drcontext, bb, instr, (void *)check_stolen_reg_spill,
-                                    false /*fpstate */, 0);
+            dr_insert_clean_call(drcontext, bb, instr, (void *)save_stolen_reg_to_tls,
+                                 false /*fpstate */, 0);
 
-            dr_insert_clean_call(drcontext, bb, instr, (void *)check_stolen_reg_restore,
-                                    false /*fpstate */, 0);
+            dr_insert_clean_call(drcontext, bb, instr, (void *)load_stolen_reg_to_mcontext,
+                                 false /*fpstate */, 0);
         }
     }
     return DR_EMIT_DEFAULT;
@@ -204,9 +199,9 @@ dr_init(client_id_t id)
 {
     // Stop test failing silently if we ever change the sotlen reg value.
 #ifdef AARCH64
-    if (dr_get_stolen_reg() != DR_REG_R28){
+    if (dr_get_stolen_reg() != DR_REG_R28) {
 #elif defined(ARM)
-    if (dr_get_stolen_reg() != DR_REG_R10){
+    if (dr_get_stolen_reg() != DR_REG_R10) {
 #    error Unsupported arch
 #endif
         printf("ERROR: stolen reg value has changed, this test needs to be updated");

@@ -180,7 +180,6 @@ main(int argc, char **argv)
               STOLEN_REG_SENTINEL, val);
     }
 
-
     /* Now test synchall from another thread (the initiating thread does not
      * hit the i#4495 issue).
      * The stolen-reg.dll.c client looks for this exact sequence of instructions.
@@ -212,7 +211,6 @@ main(int argc, char **argv)
 
     join_thread(thread);
 
-    
     val = get_stolen_reg_val();
     if (val != STOLEN_REG_SENTINEL) {
         print("ERROR: Stolen register %d not preserved past synchall: %d\n",

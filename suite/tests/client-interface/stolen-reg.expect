@@ -1,13 +1,11 @@
 Got SIGSEGV
 Got SIGSEGV
 Performing synchall flush
-check_stolen_reg_spill entered
+save_stolen_reg_to_tls entered
 test value = 7
 setting TLS
-check_stolen_reg_spill returning
-check_stolen_reg_restore entered
+load_stolen_reg_to_mcontext entered
 test value = 7
 fetching TLS
 mc->stolen_reg after = 7
-check_stolen_reg_restore returning
 Done
