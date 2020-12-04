@@ -186,8 +186,9 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             dr_insert_clean_call(drcontext, bb, instr, (void *)save_stolen_reg_to_tls,
                                  false /*fpstate */, 0);
 
-            dr_insert_clean_call(drcontext, bb, instr, (void *)load_stolen_reg_to_mcontext,
-                                 false /*fpstate */, 0);
+            dr_insert_clean_call(drcontext, bb, instr,
+                                 (void *)load_stolen_reg_to_mcontext, false /*fpstate */,
+                                 0);
         }
     }
     return DR_EMIT_DEFAULT;
