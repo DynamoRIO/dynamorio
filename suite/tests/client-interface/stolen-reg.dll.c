@@ -89,7 +89,8 @@ load_stolen_reg_to_mcontext()
 
     dr_get_mcontext(drcontext, &mc);
 
-    fprintf(stderr, "mc->stolen_reg after = " IF_ARM_ELSE("%d", "%ld") "\n", mc.IF_ARM_ELSE(r10, r28));
+    fprintf(stderr, "mc->stolen_reg after = " IF_ARM_ELSE("%d", "%ld") "\n",
+            mc.IF_ARM_ELSE(r10, r28));
 
     mc.IF_ARM_ELSE(r10, r28) = orig_value;
 
