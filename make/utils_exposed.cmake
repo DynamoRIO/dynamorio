@@ -98,7 +98,7 @@ function (DynamoRIO_add_rel_rpaths target)
       # Reading the target paths at configure time is no longer supported in
       # cmake (CMP0026).  For an imported target, we can get the path; otherwise
       # the best we can do is a LOCATION property.
-      DynamoRIO_get_full_path(lib_loc_full dynamorio "")
+      DynamoRIO_get_full_path(lib_loc_full ${lib} "")
       get_filename_component(lib_loc ${lib_loc_full} PATH)
       file(RELATIVE_PATH relpath "${target_loc}" "${lib_loc}")
 
