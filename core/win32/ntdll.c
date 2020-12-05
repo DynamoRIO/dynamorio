@@ -599,11 +599,24 @@ syscalls_init()
         app_pc wrapper;
         ASSERT(ntdllh != NULL);
         for (i = 0; i < SYS_MAX; i++) {
-            if (syscalls[i] == SYSCALL_NOT_PRESENT) /* presumably matches known ver */
+            print_file(STDERR, "%s: %d==%s 0x%x\n",
+                       __FUNCTION__, i, syscall_names[i], syscalls[i]);
+            if (syscalls[i] == SYSCALL_NOT_PRESENT) { /* presumably matches known ver */
+                print_file(STDERR, "%s: skipping %d==%s\n",
+                           __FUNCTION__, i, syscall_names[i]);
                 continue;
+            }
             wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
-            if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
+            print_file(STDERR, "%s: %d==%s => %p\n",
+                       __FUNCTION__, i, syscall_names[i], wrapper);
+            for (int j = 0; j < 30; j++)
+                print_file(STDERR, "  %02x", *(wrapper+j));
+            print_file(STDERR, "\n");
+            if (wrapper != NULL && !ALLOW_HOOKER(wrapper)) {
                 syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));
+                print_file(STDERR, "%s: set %d==%s to 0x%x\n",
+                           __FUNCTION__, i, syscall_names[i], syscalls[i]);
+            }
             /* We ignore TestAlert complications: we don't call it anyway */
         }
     }
@@ -619,6 +632,10 @@ syscalls_init()
             /* note that this check allows a hooker so we'll need a
              * better way of determining syscall numbers
              */
+            app_pc wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
+            print_file(STDERR, "%s: checking %d==%s 0x%x vs %p => 0x%x\n",
+                       __FUNCTION__, i, syscall_names[i], syscalls[i], wrapper,
+                       *((int *)(wrapper + SYSNUM_OFFS)));
             CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]), i);
         }
     });
