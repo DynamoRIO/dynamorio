@@ -105,8 +105,10 @@ main(int argc, char **argv)
          */
         if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/,
                            CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si,
-                           &pi))
-            print("CreateProcess failure\n");
+                           &pi)) {
+            print("CreateProcess |%s| |%s| failure: 0x%x\n",
+                  argv[0], cmdline, GetLastError());
+        }
         job = CreateJobObject(NULL, "drx-test job");
         if (!AssignProcessToJobObject(job, pi.hProcess))
             fatal_error("AssignProcessToJobObject");
