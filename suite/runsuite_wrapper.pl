@@ -75,10 +75,17 @@ if ($^O eq 'cygwin') {
 
 # We tee to stdout to provide incremental output and avoid the 10-min
 # no-output timeout on Travis.
-print "Forking child for stdout tee\n";
+# If we're on UNIX or we have a Cygwin perl, we do this via a fork.
 my $res = '';
-my $child = open(CHILD, '-|');
-die "Failed to fork: $!" if (!defined($child));
+my $child = 0;
+my $outfile = '';
+if ($^O ne 'MSWin32') {
+    print "Forking child for stdout tee\n";
+    $child = open(CHILD, '-|');
+    die "Failed to fork: $!" if (!defined($child));
+} else {
+    $outfile = "runsuite_output.txt";
+}
 if ($child) {
     # Parent
     # i#4126: We include extra printing to help diagnose hangs on Travis.
@@ -134,17 +141,33 @@ if ($child) {
     }
     my $cmd = "ctest -VV -S \"${osdir}/../make/package.cmake${args}\"";
     print "Running ${cmd}\n";
-    system("${cmd} 2>&1");
-    exit 0;
+    if ($^O eq 'MSWin32') {
+        system("${cmd} 2>&1 | tee ${outfile}");
+    } else {
+        system("${cmd} 2>&1");
+        exit 0;
+    }
 } else {
     # We have no way to access the log files, so we use -VV to ensure
     # we can diagnose failures.
     my $verbose = "-VV";
     my $cmd = "ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\"";
     print "Running ${cmd}\n";
-    system("${cmd} 2>&1");
-    print "Finished running ${cmd}\n";
-    exit 0;
+    if ($^O eq 'MSWin32') {
+        system("${cmd} 2>&1 | tee ${outfile}");
+        print "Finished running ${cmd}\n";
+    } else {
+        system("${cmd} 2>&1");
+        print "Finished running ${cmd}\n";
+        exit 0;
+    }
+}
+
+if ($^O eq 'MSWin32') {
+    open my $handle, '<', "$outfile" or die "Failed to open teed ${outfile}: $!";
+    $res = do {
+        local $/; <$handle>
+    };
 }
 
 my @lines = split('\n', $res);
