@@ -79,7 +79,7 @@ load_stolen_reg_to_mcontext()
     fprintf(stderr, "load_stolen_reg_to_mcontext entered\n");
     void *drcontext = dr_get_current_drcontext();
 
-    fprintf(stderr, "test value = %ld\n", test_value);
+    fprintf(stderr, "test value = %d\n", test_value);
 
     dr_mcontext_t mc;
     mc.size = sizeof(mc);
@@ -89,7 +89,7 @@ load_stolen_reg_to_mcontext()
 
     dr_get_mcontext(drcontext, &mc);
 
-    fprintf(stderr, "mc->stolen_reg after = %ld\n", mc.IF_ARM_ELSE(r10, r28));
+    fprintf(stderr, "mc->stolen_reg after = %d\n", mc.IF_ARM_ELSE(r10, r28));
 
     mc.IF_ARM_ELSE(r10, r28) = orig_value;
 
@@ -103,7 +103,7 @@ save_stolen_reg_to_tls()
 
     void *drcontext = dr_get_current_drcontext();
 
-    fprintf(stderr, "test value = %ld\n", test_value);
+    fprintf(stderr, "test value = %d\n", test_value);
 
     fprintf(stderr, "setting TLS\n");
 
