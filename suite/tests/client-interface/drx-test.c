@@ -52,6 +52,7 @@ fatal_error(const char *function)
     _snprintf(message, BUFFER_SIZE_ELEMENTS(message),
               "Function %s() failed!\nError code 0x%x.\nExiting now.\n", function,
               GetLastError());
+    NULL_TERMINATE_BUFFER(message);
     print(message);
     exit(1);
 }
@@ -82,9 +83,18 @@ main(int argc, char **argv)
             print("Failed to create event");
 
         _snprintf(cmdline, BUFFER_SIZE_ELEMENTS(cmdline), "%s %p", argv[0], event);
+        NULL_TERMINATE_BUFFER(cmdline);
+
+        char exe_path[MAX_PATH];
+        _snprintf(exe_path, BUFFER_SIZE_ELEMENTS(exe_path), "%s", argv[0]);
+        NULL_TERMINATE_BUFFER(exe_path);
+        for (char *c = exe_path; *c != '\0'; c++) {
+            if (*c == '/')
+                *c = '\\';
+        }
 
         print("creating child #1\n");
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/, 0,
+        if (!CreateProcess(exe_path, cmdline, NULL, NULL, TRUE /*inherit handles*/, 0,
                            NULL, NULL, &si, &pi))
             fatal_error("CreateProcess");
         if (WaitForSingleObject(event, INFINITE) == WAIT_FAILED)
@@ -103,11 +113,11 @@ main(int argc, char **argv)
         /* In an msys shell, CREATE_BREAKAWAY_FROM_JOB is required because the shell uses
          * job objects and by default does not have permission to break away (i#1454).
          */
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/,
+        if (!CreateProcess(exe_path, cmdline, NULL, NULL, TRUE /*inherit handles*/,
                            CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si,
                            &pi)) {
             print("CreateProcess |%s| |%s| failure: 0x%x\n",
-                  argv[0], cmdline, GetLastError());
+                  exe_path, cmdline, GetLastError());
         }
         job = CreateJobObject(NULL, "drx-test job");
         if (!AssignProcessToJobObject(job, pi.hProcess))
@@ -131,7 +141,7 @@ main(int argc, char **argv)
             fatal_error("ResetEvent");
 
         print("creating child #3\n");
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/,
+        if (!CreateProcess(exe_path, cmdline, NULL, NULL, TRUE /*inherit handles*/,
                            CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si,
                            &pi))
             print("CreateProcess failure\n");
@@ -159,7 +169,7 @@ main(int argc, char **argv)
 
         /* Test DuplicateHandle (DrMem i#1401) */
         print("creating child #4\n");
-        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE /*inherit handles*/,
+        if (!CreateProcess(exe_path, cmdline, NULL, NULL, TRUE /*inherit handles*/,
                            CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB, NULL, NULL, &si,
                            &pi))
             fatal_error("CreateProcess");
