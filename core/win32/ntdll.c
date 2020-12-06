@@ -627,7 +627,8 @@ syscalls_init()
                  * better way of determining syscall numbers
                  */
                 app_pc wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
-                CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]), i);
+                CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]),
+                                i);
             }
         });
     }
