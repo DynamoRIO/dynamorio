@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -143,16 +143,16 @@ lead to deadlocks.
 As many aspects of the application as possible should be left unchanged:
 
 \anchor sec_trans_floating_point
-\par Floating Point State Transparency
+\par X87 Floating Point State Transparency
 
 Because it is expensive to do so and rarely necessary, on x86 DynamoRIO does
-\e NOT save or restore the floating point state or MMX (64-bit) registers
+\e NOT save or restore the x87 floating point state or MMX (64-bit) registers
 during a context switch away from the application.  The larger multimedia
-registers that are separated from the floating point state (SSE and beyond)
+registers (XMM, YMM, ZMM, whether holding floating-point or integer values)
 are preserved, but if at any time a
-client wishes to use floating point or MMX operations, it
+client wishes to use x87 floating point or MMX operations, it
 must explicitly preserve the state.  The dr_insert_clean_call() routine
-takes a boolean indicating whether floating point state should be preserved
+takes a boolean indicating whether x87 floating point state should be preserved
 across the call; this is the most convenient method for saving the state.
 
 The state can alternatively be saved explicitly from C code using:
@@ -177,7 +177,8 @@ proc_save_fpstate(fp_align);
 \endcode
 
 Note that floating point operations include almost any operation that
-acts on a float, even printing one with %%f.
+acts on a float, even printing one with %%f, on older compilers.  Modern compilers
+typically do not use x87 operations.
 
 The XMM (128-bit) and larger registers are saved by DynamoRIO on context switches and
 clean calls.  See also the dr_mcontext_xmm_fields_valid() routine.

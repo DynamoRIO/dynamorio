@@ -462,7 +462,7 @@ proc_get_cache_size_str(cache_size_t size);
 
 DR_API
 /**
- * Returns the size in bytes needed for a buffer for saving the floating point state.
+ * Returns the size in bytes needed for a buffer for saving the x87 floating point state.
  */
 size_t
 proc_fpstate_save_size(void);
@@ -579,10 +579,10 @@ proc_xstate_area_hi16_zmm_offs(void);
 
 DR_API
 /**
- * Saves the floating point state into the buffer \p buf.
+ * Saves the x87 floating point state into the buffer \p buf.
  *
  * On x86, the buffer must be 16-byte-aligned, and it must be
- * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
+ * 512 (#DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
  * and 108 bytes for those without (where this routine does not support
  * 16-bit operand sizing).  On ARM/AArch64, nothing needs to be saved as the
  * SIMD/FP registers are saved together with the general-purpose registers.
@@ -596,10 +596,11 @@ DR_API
  * The last floating-point instruction address is left in an
  * untranslated state (i.e., it may point into the code cache).
  *
- * DR does NOT save the application's floating-point or MMX state
+ * DR does NOT save the application's x87 floating-point or MMX state
  * on context switches!  Thus if a client performs any floating-point
- * operations in its main routines called by DR, the client must save
- * and restore the floating-point/MMX state.
+ * operations in its main routines called by DR and cannot prove that its
+ * compiler will not use x87 operations, the client must save
+ * and restore the x87 floating-point/MMX state.
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
  * Returns number of bytes written.
@@ -609,9 +610,9 @@ proc_save_fpstate(byte *buf);
 
 DR_API
 /**
- * Restores the floating point state from the buffer \p buf.
+ * Restores the x87 floating point state from the buffer \p buf.
  * On x86, the buffer must be 16-byte-aligned, and it must be
- * 512 (DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
+ * 512 (#DR_FPSTATE_BUF_SIZE) bytes for processors with the FXSR feature,
  * and 108 bytes for those without (where this routine does not support
  * 16-bit operand sizing).  On ARM/AArch64, nothing needs to be restored as the
  * SIMD/FP registers are restored together with the general-purpose registers.
