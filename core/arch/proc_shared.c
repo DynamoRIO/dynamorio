@@ -64,7 +64,9 @@
 size_t cache_line_size = 32;
 static ptr_uint_t mask; /* bits that should be 0 to be cache-line-aligned */
 cpu_info_t cpu_info = { VENDOR_UNKNOWN,
+#ifdef AARCHXX
                         0,
+#endif
                         0,
                         0,
                         0,
