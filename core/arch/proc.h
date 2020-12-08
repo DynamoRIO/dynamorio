@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -314,6 +314,9 @@ typedef struct _cpu_info_t {
      * - arm: implementer, architecture, variant, part, revision, model name, hardware.
      */
     uint vendor;
+#ifdef AARCHXX
+    uint architecture;
+#endif
     uint family;
     uint type;
     uint model;
@@ -355,6 +358,11 @@ DR_API
 /** Returns true only if \p addr is cache-line-aligned. */
 bool
 proc_is_cache_aligned(void *addr);
+
+#ifdef AARCHXX
+uint
+proc_get_architecture(void);
+#endif
 
 void
 machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache);

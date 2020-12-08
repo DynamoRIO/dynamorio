@@ -1628,8 +1628,12 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
         if (instr_is_app(instr) &&
             (instr_is_exclusive_load(instr) || instr_is_exclusive_store(instr) ||
              instr_get_opcode(instr) == OP_clrex)) {
-            next_instr = mangle_exclusive_monitor_op(dcontext, ilist, instr, next_instr);
-            continue;
+            instr_t *res =
+                mangle_exclusive_monitor_op(dcontext, ilist, instr, next_instr);
+            if (res != NULL) {
+                next_instr = res;
+                continue;
+            } /* Else, fall through. */
         }
 #endif
 #ifdef AARCH64
