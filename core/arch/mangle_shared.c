@@ -326,8 +326,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 #endif
         ASSERT((dstack_offs % get_ABI_stack_alignment()) == 0);
     }
-    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_opmask_skip != 0 ||
-           cci->num_regs_skip != 0 ||
+    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 ||
+           IF_X86(cci->num_opmask_skip != 0 ||) cci->num_regs_skip != 0 ||
            (int)dstack_offs ==
                (get_clean_call_switch_stack_size() + clean_call_beyond_mcontext()));
     return dstack_offs;
