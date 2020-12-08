@@ -53,9 +53,21 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         if (instr_is_exclusive_load(instr)) {
             insert_at = instr_get_next(instr);
+#ifdef ARM
+            /* TODO i#1698: DR does not yet convert 32-bit pairs. */
+            if (instr_get_opcode(instr) == OP_ldaexd ||
+                instr_get_opcode(instr) == OP_ldrexd)
+                insert_at = NULL;
+#endif
             break;
         } else if (instr_is_exclusive_store(instr)) {
             insert_at = instr;
+#ifdef ARM
+            /* TODO i#1698: DR does not yet convert 32-bit pairs. */
+            if (instr_get_opcode(instr) == OP_stlexd ||
+                instr_get_opcode(instr) == OP_strexd)
+                insert_at = NULL;
+#endif
             break;
         }
     }

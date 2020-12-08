@@ -3008,11 +3008,16 @@ create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg O
      * because we do not know what the original load opcode was, especially for
      * situations like dr_prepopulate_cache() where we have no dynamic information
      * and for cases of two different load opcodes sharing the same store..
-     * Our solution is to always use an acquire load, which won't affect correctness.
-     *
-     * TODO i#1698: An acquire load in Thumb mode raises SIGILL on some processors,
-     * and is not supported on older processors in any mode.
+     * Our solution is to always use an acquire load, which won't affect correctness,
+     * on processors where it is supported.
      */
+#ifdef ARM
+    /* Ideally we'd read ID_ISAR2 but we can't at EL0.  We assume no v7 processor
+     * has acquire support.  We could record whether we've ever seen any acquire
+     * opcodes and flush if we see one.
+     */
+    bool acquire_supported = proc_get_architecture() >= 8;
+#endif
     opnd_t memop = instr_get_dst(strex, 0);
     /* We can't assume the stored reg equals the prior loaded-into reg, so we have to
      * write to a scratch or dead register.  We assume the dest reg is dead (but xref
@@ -3050,16 +3055,28 @@ create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg O
     case OP_strexd:
         /* TODO i#1698: ARM register pairs must be <even,even+1> which we are
          * certainly not guaranteeing today.  This will take some effort to
-         * arrange scratch registers wrt the app's strex usage.
+         * arrange scratch registers wrt the app's strex usage.  For now we bail
+         * in the caller.
          */
-        return INSTR_CREATE_ldaexd(
-            dcontext, regop, opnd_create_reg(reg_resize_to_opsz(dest_reg2, opsz)), memop);
+        return acquire_supported
+            ? INSTR_CREATE_ldaexd(dcontext, regop,
+                                  opnd_create_reg(reg_resize_to_opsz(dest_reg2, opsz)),
+                                  memop)
+            : INSTR_CREATE_ldrexd(dcontext, regop,
+                                  opnd_create_reg(reg_resize_to_opsz(dest_reg2, opsz)),
+                                  memop);
     case OP_stlex:
-    case OP_strex: return INSTR_CREATE_ldaex(dcontext, regop, memop);
+    case OP_strex:
+        return acquire_supported ? INSTR_CREATE_ldaex(dcontext, regop, memop)
+                                 : INSTR_CREATE_ldrex(dcontext, regop, memop);
     case OP_stlexb:
-    case OP_strexb: return INSTR_CREATE_ldaexb(dcontext, regop, memop);
+    case OP_strexb:
+        return acquire_supported ? INSTR_CREATE_ldaexb(dcontext, regop, memop)
+                                 : INSTR_CREATE_ldrexb(dcontext, regop, memop);
     case OP_stlexh:
-    case OP_strexh: return INSTR_CREATE_ldaexh(dcontext, regop, memop);
+    case OP_strexh:
+        return acquire_supported ? INSTR_CREATE_ldaexh(dcontext, regop, memop)
+                                 : INSTR_CREATE_ldrexh(dcontext, regop, memop);
 #endif
     default: ASSERT_NOT_REACHED();
     }
@@ -3144,6 +3161,23 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       instr_t *next_instr)
 {
     ASSERT(instr_is_exclusive_load(instr));
+#ifdef ARM
+    /* TODO i#1698: Preserve ARM predication and add tests.  For now we bail. */
+    if (instr_is_predicated(instr)) {
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Not converting predicated exclusive load: NYI i#1698");
+        return NULL;
+    }
+    /* TODO i#1698: Pairs on ARM need consecutive registers.  Our scratch + dead reg
+     * usage does not yet support that for our synthetic load.  For now we bail.
+     */
+    bool is_pair = instr_num_dsts(instr) > 1;
+    if (is_pair) {
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Not converting exclusive load-pair to compare-and-swap: NYI i#1698");
+        return NULL;
+    }
+#endif
     LOG(THREAD, LOG_INTERP, 4, "Converting exclusive load @%p to regular\n",
         get_app_instr_xl8(instr));
     RSTATS_INC(num_ldex2cas);
@@ -3343,10 +3377,27 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                        instr_t *next_instr)
 {
     ASSERT(instr_is_exclusive_store(instr));
+    /* XXX i#4532: There is a bogus int opnd we have to account for here. */
+    bool is_pair = instr_num_srcs(instr) > 1 && opnd_is_reg(instr_get_src(instr, 1));
+#ifdef ARM
+    /* TODO i#1698: Preserve ARM predication and add tests.  For now we bail. */
+    if (instr_is_predicated(instr)) {
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Not converting predicated exclusive store to compare-and-swap: NYI i#1698");
+        return NULL;
+    }
+    /* TODO i#1698: Pairs on ARM need consecutive registers.  Our scratch + dead reg
+     * usage does not yet support that for our synthetic load.  For now we bail.
+     */
+    if (is_pair) {
+        SYSLOG_INTERNAL_WARNING_ONCE(
+            "Not converting exclusive store-pair to compare-and-swap: NYI i#1698");
+        return NULL;
+    }
+#endif
     LOG(THREAD, LOG_INTERP, 4, "Converting exclusive store @%p to compare-and-swap\n",
         get_app_instr_xl8(instr));
     RSTATS_INC(num_stex2cas);
-    /* TODO i#1698: Preserve ARM predication and add tests. */
     reg_id_t reg_orig_ld_val = DR_REG_NULL;
     reg_id_t reg_orig_ld_val2 = DR_REG_NULL;
     /* Check whether there's a paired prior ldex with nice behavior (no clear in
@@ -3393,8 +3444,6 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(opnd_is_base_disp(instr_get_dst(instr, 0)) &&
            opnd_get_index(instr_get_dst(instr, 0)) == DR_REG_NULL &&
            opnd_get_disp(instr_get_dst(instr, 0)) == 0);
-    /* XXX i#4532: There is a bogus int opnd we have to account for here. */
-    bool is_pair = instr_num_srcs(instr) > 1 && opnd_is_reg(instr_get_src(instr, 1));
     /* We treat non-same-block A64 pair-4byte as single-8byte to handle ldxr;stxp. */
     if (is_pair && !ldex_in_same_block &&
         opnd_get_size(instr_get_src(instr, 1)) == OPSZ_4)
@@ -3457,7 +3506,10 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                           opnd_create_reg(reg_base),
                                           opnd_create_reg(scratch), no_match);
 
-        /* Compare size, arranging op_res to show failure on mismatch. */
+        /* Compare size, arranging op_res to show failure on mismatch.
+         * TODO i#1698: Size mismatches do not seem to always fail on all processors:
+         * but we assume they cannot be relied upon to succeed.
+         */
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
         insert_compare_and_jump_not_equal(
@@ -3535,12 +3587,13 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     return next_instr;
 }
 
+/* Returns NULL if it did not instrument and the caller should handle stolen reg, etc. */
 instr_t *
 mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                             instr_t *next_instr)
 {
     if (!INTERNAL_OPTION(ldstex2cas))
-        return next_instr;
+        return NULL;
     /* For -ldstex2cas we convert exclusive monitor regions into compare-and-swap
      * operations in order to allow regular instrumentation, with the downside of
      * weaker synchronization semantics.

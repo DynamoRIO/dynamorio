@@ -604,12 +604,12 @@ OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                         "macro-instruction (unsafe)")
 #endif
 #ifdef AARCHXX
-/* TODO i#1698: To enable for ARM we need to fix a few final pieces:
- * + Handle ldrexd to use even,even+1 regs.
- * + Handle predication.
- * + Handle acquire loads being unsupported in Thumb mode on some processors.
+/* TODO i#1698: ARM is still missing the abilty to convert the following:
+ * + ldrexd..strexd.
+ * + Predicated exclusive loads or stores.
+ * It will continue with a debug build warning if it sees those.
  */
-OPTION_DEFAULT_INTERNAL(bool, ldstex2cas, IF_ARM_ELSE(false, true),
+OPTION_DEFAULT_INTERNAL(bool, ldstex2cas, true,
                         "replace exclusive load/store with compare-and-swap to "
                         "allow instrumentation, at the risk of ABA errors")
 #endif
