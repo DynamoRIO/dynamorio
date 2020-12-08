@@ -125,8 +125,10 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
 bool
 clean_call_needs_simd(clean_call_info_t *cci)
 {
-    return (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers() ||
-            cci->num_opmask_skip != proc_num_opmask_registers());
+    return (cci->preserve_mcontext ||
+            cci->num_simd_skip !=
+                proc_num_simd_registers()
+                    IF_X86(|| cci->num_opmask_skip != proc_num_opmask_registers()));
 }
 
 /* Number of extra slots in addition to register slots. */
