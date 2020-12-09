@@ -598,18 +598,20 @@ GLOBAL_LABEL(FUNCNAME:)
       4:
         /* Test unpaired cases and sp as a base. */
         sub      sp, sp, #16
-        ldrex    r0, [sp]
+        ldrex    r2, [sp]
         clrex
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
+#    if 0 /* XXX i#1698: This mismatch succeeds on my A32 processor!  Disabling for now. */
         /* Test wrong sizes paired. */
-        ldrexd   r2, r3, [sp]
-        strex    r4, r1, [sp]
-        cmp      r4, #0
+        ldrexd   r1, r2, [sp]
+        strex    r3, r1, [sp]
+        cmp      r3, #0
         bne      5f
         mov      r0, #8 /* Should never come here; this will fail caller. */
         bx       lr
+#    endif
       5:
         add      sp, sp, #16
         ldaex    r1, [r0]
