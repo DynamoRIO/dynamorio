@@ -159,6 +159,9 @@ enum {
  *                     supported at some point.
  *                     XXX: so we do not support an instr that has an opcode
  *                     dependent on both a prefix and the entire modrm or suffix!
+ *                     XXX: perhaps we should use the flags rather than cramming all
+ *                     of this information into the opcode byte, especially with the
+ *                     VEX/EVEX dependent behavior.
  *   2nd nibble (ls) = bits 1-3 hold /n for OPCODE_REG
  *                     if bit 4 (OPCODE_THREEBYTES) is set, the opcode has
  *                       3 bytes, with the first being an implied 0x0f (so
@@ -225,8 +228,8 @@ enum {
     XOP_A_EXT,
     /* instructions differing based on evex */
     EVEX_PREFIX_EXT,
-    /* instructions differing based on evex.W */
-    EVEX_W_EXT,
+    /* instructions differing based on evex.W and evex.b */
+    EVEX_Wb_EXT,
     /* XXX i#1312: We probably do not need EVEX_LL_EXT. L' does not seem to be part
      * of any instruction's opcode. Remove this comment when this has been finalized.
      */
@@ -549,7 +552,7 @@ extern const byte xop_a_index[256];
 extern const instr_info_t xop_prefix_extensions[][2];
 extern const instr_info_t xop_extensions[];
 extern const instr_info_t evex_prefix_extensions[][2];
-extern const instr_info_t evex_W_extensions[][4];
+extern const instr_info_t evex_Wb_extensions[][4];
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t *const op_instr[];
