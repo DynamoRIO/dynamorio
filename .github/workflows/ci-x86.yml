@@ -63,6 +63,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
     # We also need origin/master for pre-commit source file checks in runsuite.cmake.
     # But fetching multiple branches isn't supported yet: actions/checkout#214
     # Pending PR that adds this support actions/checkout#155

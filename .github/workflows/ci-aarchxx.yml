@@ -55,6 +55,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install cross-compilers for cross-compiling Linux build:
