@@ -4359,9 +4359,10 @@ DR_API
  * \note If the data to be printed is large it will be truncated to
  * an internal buffer size.  Use dr_snprintf() and dr_write_file() for
  * large output.
- * \note When printing floating-point values, the caller's code should
+ * \note When printing floating-point values on x86, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
- * has requested to preserve the floating-point state.
+ * has requested to preserve the floating-point state, unless it can prove
+ * that its compiler will not use x87 operations.
  */
 void
 dr_printf(const char *fmt, ...);
@@ -4389,7 +4390,8 @@ DR_API
  * dr_write_file() if that is a concern.
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
- * has requested to preserve the floating-point state.
+ * has requested to preserve the floating-point state, unless it can prove
+ * that its compiler will not use x87 operations.
  * On success, the number of bytes written is returned.
  * On error, -1 is returned.
  */
@@ -4477,7 +4479,8 @@ DR_API
  * dropping the high-order bytes.
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
- * has requested to preserve the floating-point state.
+ * has requested to preserve the floating-point state, unless it can prove
+ * that its compiler will not use x87 operations..
  */
 int
 dr_snprintf(char *buf, size_t max, const char *fmt, ...);
@@ -5359,14 +5362,16 @@ DR_API
  * be accessed from \c callee using dr_get_mcontext() and modified using
  * dr_set_mcontext().
  *
- * On x86, if \p save_fpstate is true, preserves the fp/mmx state on the
+ * On x86, if \p save_fpstate is true, preserves the x87 floating-point and
+ * MMX state on the
  * DR stack. Note that it is relatively expensive to save this state (on the
  * order of 200 cycles) and that it typically takes 512 bytes to store
  * it (see proc_fpstate_save_size()).
- * The last floating-point instruction address in the saved state is left in
- * an untranslated state (i.e., it may point into the code cache).
- *
- * On ARM/AArch64, \p save_fpstate is ignored.
+ * The last floating-point instruction address in the saved state is left in an
+ * untranslated state (i.e., it may point into the code cache).  This optional
+ * floating-point state preservation is specific to x87; floating-point values in
+ * XMM, YMM, or ZMM registers, or any SIMD register on any non-x86 architecture, are
+ * always preserved.  Thus, on ARM/AArch64, \p save_fpstate is ignored.
  *
  * DR does support translating a fault in an argument (e.g., an
  * argument that references application memory); such a fault will be
@@ -5477,7 +5482,7 @@ dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where, voi
 
 /* Inserts a complete call to callee with the passed-in arguments, wrapped
  * by an app save and restore.
- * On x86, if \p save_fpstate is true, saves the fp/mmx state.
+ * On x86, if \p save_fpstate is true, saves the x87 fp/mmx state.
  * On ARM/AArch64, \p save_fpstate is ignored.
  *
  * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
@@ -5581,9 +5586,9 @@ DR_API
  * Returns the size of the data stored on the DR stack (in case the caller
  * needs to align the stack pointer).
  *
- * \warning On x86, this routine does NOT save the fp/mmx state: to do that
- * the instrumentation routine should call proc_save_fpstate() to save and
- * then proc_restore_fpstate() to restore (or use dr_insert_clean_call()).
+ * \warning On x86, this routine does NOT save the x87 floating-point or MMX state: to do
+ * that the instrumentation routine should call proc_save_fpstate() to save and then
+ * proc_restore_fpstate() to restore (or use dr_insert_clean_call()).
  *
  * \note The preparation modifies the DR_REG_XSP and DR_REG_XAX registers
  * (after saving them).  Use dr_insert_clean_call() instead if an
@@ -5905,10 +5910,10 @@ DR_API
  * \note dr_get_mcontext() can be used to get the register state (except pc)
  * saved in dr_insert_clean_call() or dr_prepare_for_call().
  *
- * \note If floating point state was saved by dr_prepare_for_call() or
+ * \note If x87 floating point state was saved by dr_prepare_for_call() or
  * dr_insert_clean_call() it is not restored (other than the valid xmm
  * fields according to dr_mcontext_xmm_fields_valid(), if
- * DR_MC_MULTIMEDIA is specified in the flags field).  The caller
+ * #DR_MC_MULTIMEDIA is specified in the flags field).  The caller
  * should instead manually save and restore the floating point state
  * with proc_save_fpstate() and proc_restore_fpstate() if necessary.
  *
@@ -6556,7 +6561,7 @@ dr_trace_exists_at(void *drcontext, void *tag);
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to save the
- * floating point state into the 16-byte-aligned buffer referred to by
+ * x87 floating point state into the 16-byte-aligned buffer referred to by
  * \p buf, which must be 512 bytes for processors with the FXSR
  * feature, and 108 bytes for those without (where this routine does
  * not support 16-bit operand sizing).  \p buf should have size of
@@ -6576,7 +6581,7 @@ dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where, opnd
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to restore the
- * floating point state from the 16-byte-aligned buffer referred to by
+ * x87 floating point state from the 16-byte-aligned buffer referred to by
  * buf, which must be 512 bytes for processors with the FXSR feature,
  * and 108 bytes for those without (where this routine does not
  * support 16-bit operand sizing).  \p buf should have size of
