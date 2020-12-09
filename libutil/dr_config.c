@@ -1341,6 +1341,15 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
         return;
     }
 
+    if (debug != NULL) {
+        if (_tcsstr(autoinject, DEBUG32_DLL) != NULL ||
+            _tcsstr(autoinject, DEBUG64_DLL) != NULL) {
+            *debug = true;
+        } else {
+            *debug = false;
+        }
+    }
+
     if (dr_mode != NULL) {
         *dr_mode = opt_info.mode;
         if (read_config_param(IF_REG_ELSE(proc_policy, f),
@@ -1348,15 +1357,6 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
                               BUFFER_SIZE_ELEMENTS(autoinject))) {
             if (_tcscmp(autoinject, _TEXT("0")) == 0)
                 *dr_mode = DR_MODE_DO_NOT_RUN;
-        }
-    }
-
-    if (debug != NULL) {
-        if (_tcsstr(autoinject, DEBUG32_DLL) != NULL ||
-            _tcsstr(autoinject, DEBUG64_DLL) != NULL) {
-            *debug = true;
-        } else {
-            *debug = false;
         }
     }
 
