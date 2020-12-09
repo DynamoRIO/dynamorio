@@ -559,11 +559,13 @@ href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/inline.c">i
 
 
 ********************
-\subsection sec_ex6 Use of Floating Point Operation in a Client
+\subsection sec_ex6 Use of x87 Floating Point Operation in a Client
 
-Because saving the floating point state is very expensive, on x86 DynamoRIO
+Because saving the x87 floating point state is very expensive, on x86 DynamoRIO
 seeks to do so on an as needed basis.  If a client wishes to use floating point
-operations it must save and restore the application's floating point state
+operations and is unsure whether its compiler will use x87 or not, or if it
+wishes to use MMX registers, it must
+save and restore the application's floating point state
 around the usage.  For an inserted clean call out of the code cache, this
 can be conveniently done using dr_insert_clean_call() and passing true for
 the save_fpstate parameter.  It can also be done explicitly using these
@@ -574,7 +576,7 @@ void proc_save_fpstate(byte *buf);
 void proc_restore_fpstate(byte *buf);
 \endcode
 
-These routines must be used if floating point operations are performed in
+These routines must be used if x87 floating point operations are performed in
 non-inserted-call locations, such as event callbacks.  Note that there are
 restrictions on how these methods may be called: see the documentation in
 the header files for additional information.  Note also that the floating
@@ -585,6 +587,9 @@ they are being used in the initialization or termination routines.
 
 On ARM and AArch64 the SIMD/FP registers are always saved, so
 proc_save_fpstate and proc_restore_fpstate are no-ops.
+On x86, modern compilers typically do not use x87 operations, but to be
+safe clients are still advised to either avoid floating-point operations
+or use the preservation routines listed here.
 
 This example client counts the number of basic blocks processed and keeps
 statistics on their average size using floating point operations. Full code

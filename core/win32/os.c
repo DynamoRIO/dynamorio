@@ -5692,8 +5692,9 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
             do {
                 /* sanity checks */
                 if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi) ||
-                    mbi.State == MEM_FREE || mbi.AllocationBase != alloc_base ||
-                    mbi.RegionSize == 0)
+                    mbi.State == MEM_FREE ||
+                    /* This happens: i#4588.  But it's ok to bail in this loop. */
+                    mbi.AllocationBase != alloc_base || mbi.RegionSize == 0)
                     break;
                 if ((byte *)mbi.BaseAddress + mbi.RegionSize <= pc) {
                     forward_query_start = (byte *)mbi.BaseAddress + mbi.RegionSize;
@@ -5713,7 +5714,7 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
         do {
             if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
                 break;
-            if (mbi.State == MEM_FREE || mbi.AllocationBase != alloc_base)
+            if (mbi.State == MEM_FREE)
                 break;
             ASSERT(mbi.RegionSize > 0); /* if > 0, we will NOT infinite loop */
             if ((byte *)mbi.BaseAddress + mbi.RegionSize > pc) {
@@ -5722,6 +5723,10 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
                  * that all-same-prot region
                  */
                 ASSERT(pc >= (byte *)mbi.BaseAddress);
+                /* We don't check for a mismatch in alloc base *before* we reach the
+                 * target b/c we've seen cases with anomalous alloc bases: i#4588.
+                 */
+                ASSERT(mbi.AllocationBase == alloc_base);
                 info->base_pc = mbi.BaseAddress;
                 info->size = mbi.RegionSize;
                 set_memtype_from_mbi(&mbi, info);

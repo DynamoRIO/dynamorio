@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
@@ -74,11 +74,13 @@ callee_info_init(callee_info_t *ci)
      */
     /* assuming all [xyz]mm registers are used */
     ci->num_simd_used = proc_num_simd_registers();
-    ci->num_opmask_used = proc_num_opmask_registers();
     for (i = 0; i < proc_num_simd_registers(); i++)
         ci->simd_used[i] = true;
+#    ifdef X86
+    ci->num_opmask_used = proc_num_opmask_registers();
     for (i = 0; i < proc_num_opmask_registers(); i++)
         ci->opmask_used[i] = true;
+#    endif
     for (i = 0; i < DR_NUM_GPR_REGS; i++)
         ci->reg_used[i] = true;
     ci->spill_reg = DR_REG_INVALID;
@@ -428,12 +430,14 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
             "CLEANCALL: callee " PFX " cannot be inlined: uses SIMD.\n", ci->start);
         opt_inline = false;
     }
+#    ifdef X86
     if (ci->num_opmask_used != 0) {
         LOG(THREAD, LOG_CLEANCALL, 1,
             "CLEANCALL: callee " PFX " cannot be inlined: uses mask register.\n",
             ci->start);
         opt_inline = false;
     }
+#    endif
     if (ci->tls_used) {
         LOG(THREAD, LOG_CLEANCALL, 1,
             "CLEANCALL: callee " PFX " cannot be inlined: accesses TLS.\n", ci->start);
@@ -513,6 +517,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_simd_skip++;
         }
     }
+#    ifdef X86
     for (i = 0; i < proc_num_opmask_registers(); i++) {
         if (info->opmask_used[i]) {
             cci->opmask_skip[i] = false;
@@ -524,6 +529,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_opmask_skip++;
         }
     }
+#    endif
     if (INTERNAL_OPTION(opt_cleancall) > 2 &&
         cci->num_simd_skip != proc_num_simd_registers())
         cci->should_align = false;
@@ -670,10 +676,12 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
         if (cci->num_simd_skip == proc_num_simd_registers()) {
             STATS_INC(cleancall_simd_skipped);
         }
+#    ifdef X86
         if (proc_num_opmask_registers() > 0 &&
             cci->num_opmask_skip == proc_num_opmask_registers()) {
             STATS_INC(cleancall_opmask_skipped);
         }
+#    endif
         if (cci->skip_save_flags) {
             STATS_INC(cleancall_aflags_save_skipped);
         }
@@ -755,7 +763,6 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
 #        define SIMD_SAVE_THRESHOLD 6
     /* Use out-of-line calls if more than 6 GP registers need to be saved. */
 #        define GPR_SAVE_THRESHOLD 6
-#        define OPMASK_SAVE_THRESHOLD 0
 #    endif
 
 #    if defined(X86) || defined(AARCH64)
@@ -766,8 +773,10 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
      * XXX: This should probably be in arch-specific clean_call_opt.c.
      */
     if ((proc_num_simd_registers() - cci->num_simd_skip) > SIMD_SAVE_THRESHOLD ||
-        (proc_num_opmask_registers() - cci->num_opmask_skip) > OPMASK_SAVE_THRESHOLD ||
-        (DR_NUM_GPR_REGS - cci->num_regs_skip) > GPR_SAVE_THRESHOLD || always_out_of_line)
+        IF_X86((proc_num_opmask_registers() - cci->num_opmask_skip) >
+                   OPMASK_SAVE_THRESHOLD ||)(DR_NUM_GPR_REGS - cci->num_regs_skip) >
+            GPR_SAVE_THRESHOLD ||
+        always_out_of_line)
         cci->out_of_line_swap = true;
 #    endif
 

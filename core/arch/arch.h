@@ -408,8 +408,10 @@ typedef struct _clean_call_info_t {
     bool skip_clear_flags;
     int num_simd_skip;
     bool simd_skip[MCXT_NUM_SIMD_SLOTS];
+#ifdef X86
     int num_opmask_skip;
     bool opmask_skip[MCXT_NUM_OPMASK_SLOTS];
+#endif
     uint num_regs_skip;
     bool reg_skip[DR_NUM_GPR_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
@@ -567,6 +569,9 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 instr_t *
 mangle_special_registers(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                          instr_t *next_instr);
+instr_t *
+mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                            instr_t *next_instr);
 #endif
 void
 mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
@@ -1444,20 +1449,22 @@ typedef struct _slot_t {
 
 /* data structure of clean call callee information. */
 typedef struct _callee_info_t {
-    bool bailout;        /* if we bail out on function analysis */
-    uint num_args;       /* number of args that will passed in */
-    int num_instrs;      /* total number of instructions of a function */
-    app_pc start;        /* entry point of a function  */
-    app_pc bwd_tgt;      /* earliest backward branch target */
-    app_pc fwd_tgt;      /* last forward branch target */
-    int num_simd_used;   /* number of SIMD registers (xmms) used by callee */
-    int num_opmask_used; /* number of mask registers used by callee */
+    bool bailout;      /* if we bail out on function analysis */
+    uint num_args;     /* number of args that will passed in */
+    int num_instrs;    /* total number of instructions of a function */
+    app_pc start;      /* entry point of a function  */
+    app_pc bwd_tgt;    /* earliest backward branch target */
+    app_pc fwd_tgt;    /* last forward branch target */
+    int num_simd_used; /* number of SIMD registers (xmms) used by callee */
     /* SIMD ([xyz]mm) registers usage. Part of the array might be left
      * uninitialized if proc_num_simd_registers() < MCXT_NUM_SIMD_SLOTS.
      */
     bool simd_used[MCXT_NUM_SIMD_SLOTS];
+#ifdef X86
+    int num_opmask_used; /* number of mask registers used by callee */
     /* AVX-512 mask register usage. */
     bool opmask_used[MCXT_NUM_OPMASK_SLOTS];
+#endif
     bool reg_used[DR_NUM_GPR_REGS];         /* general purpose registers usage */
     int num_callee_save_regs;               /* number of regs callee saved */
     bool callee_save_regs[DR_NUM_GPR_REGS]; /* callee-save registers */
@@ -1506,6 +1513,11 @@ get_app_instr_xl8(instr_t *instr);
 /* in x86_to_x64.c */
 void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
+#endif
+
+#ifdef AARCHXX
+bool
+instr_is_ldstex_mangling(dcontext_t *dcontext, instr_t *inst);
 #endif
 
 /****************************************************************************

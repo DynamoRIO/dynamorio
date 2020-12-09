@@ -603,6 +603,16 @@ OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                         "replace blocks using exclusive load/store with a "
                         "macro-instruction (unsafe)")
 #endif
+#ifdef AARCHXX
+/* TODO i#1698: ARM is still missing the abilty to convert the following:
+ * + ldrexd..strexd.
+ * + Predicated exclusive loads or stores.
+ * It will continue with a debug build warning if it sees those.
+ */
+OPTION_DEFAULT_INTERNAL(bool, ldstex2cas, true,
+                        "replace exclusive load/store with compare-and-swap to "
+                        "allow instrumentation, at the risk of ABA errors")
+#endif
 
 #ifdef WINDOWS_PC_SAMPLE
 OPTION_DEFAULT(uint, prof_pcs_DR, 2,
