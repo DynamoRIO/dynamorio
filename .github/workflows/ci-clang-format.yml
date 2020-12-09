@@ -59,7 +59,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: git fetch --no-tags --depth=1 origin master
+    # Cancel any prior runs for a PR (but do not cancel master runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - name: Fetch Sources
+      run: git fetch --no-tags --depth=1 origin master
 
     # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
