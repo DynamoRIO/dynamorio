@@ -550,8 +550,8 @@ GLOBAL_LABEL(FUNCNAME:)
         stxr     w1, x0, [sp]
         /* Test wrong sizes paired.
          * On some processors, if the stxr's address range is a subset of the ldxp's
-         * range, it will succeed.  However, the manual states that this is Constrained
-         * Unpredictable behavior: B2.9.5 says "software can rely on a LoadExcl /
+         * range, it will succeed.  However, the manual states that this is CONSTRAINED
+         * UNPREDICTABLE behavior: B2.9.5 says "software can rely on a LoadExcl /
          * StoreExcl pair to eventually succeed only if the LoadExcl and the StoreExcl
          * have the same transaction size."  Similarly for the target VA and reg count.
          * Thus, given the complexity of trying to match the actual processor behavior

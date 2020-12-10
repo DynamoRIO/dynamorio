@@ -3206,6 +3206,14 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             (instr_is_exclusive_load(in) || instr_get_opcode(in) == OP_clrex))
             break;
         if (instr_is_app(in) && instr_is_exclusive_store(in)) {
+            /* Warn on a mismatched pair. */
+            if (opnd_get_size(instr_get_dst(in, 0)) !=
+                opnd_get_size(instr_get_src(instr, 0))) {
+                /* See comment below about CONSTRAINED UNPREDICTABLE. */
+                SYSLOG_INTERNAL_WARNING_ONCE(
+                    "Encountered mismatched-size ldex-stex pair: behavior may not "
+                    "exactly match CONSTRAINED UNPREDICTABLE hardware");
+            }
             if (opnd_get_size(instr_get_dst(in, 0)) ==
                     opnd_get_size(instr_get_src(instr, 0)) &&
                 /* Bail on one side being a pair of 4-byte and the other a single 8-byte:
@@ -3509,7 +3517,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* Compare size, arranging op_res to show failure on mismatch.  On some
          * processors, if the stxr's address range is a subset of the ldxp's range, it
          * will succeed, even if the size or base address are not identical.  However,
-         * the manual states that this is Constrained Unpredictable behavior: B2.9.5 says
+         * the manual states that this is CONSTRAINED UNPREDICTABLE behavior: B2.9.5 says
          * "software can rely on a LoadExcl / StoreExcl pair to eventually succeed only
          * if the LoadExcl and the StoreExcl have the same transaction size."  Similarly
          * for the target VA and reg count.  Thus, given the complexity of trying to
