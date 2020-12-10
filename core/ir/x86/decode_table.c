@@ -1328,154 +1328,155 @@ const instr_info_t * const op_instr[] =
     /* OP_ktestd        */  &vex_W_extensions[105][1],
 
     /* AVX-512 EVEX encoded */
-    /* OP_valignd         */  &evex_W_extensions[154][0],
-    /* OP_valignq         */  &evex_W_extensions[154][1],
-    /* OP_vblendmpd       */  &evex_W_extensions[155][1],
-    /* OP_vblendmps       */  &evex_W_extensions[155][0],
-    /* OP_vbroadcastf32x2 */  &evex_W_extensions[147][0],
-    /* OP_vbroadcastf32x4 */  &evex_W_extensions[148][0],
-    /* OP_vbroadcastf32x8 */  &evex_W_extensions[149][0],
-    /* OP_vbroadcastf64x2 */  &evex_W_extensions[148][1],
-    /* OP_vbroadcastf64x4 */  &evex_W_extensions[149][1],
-    /* OP_vbroadcasti32x2 */  &evex_W_extensions[151][0],
-    /* OP_vbroadcasti32x4 */  &evex_W_extensions[152][0],
-    /* OP_vbroadcasti32x8 */  &evex_W_extensions[153][0],
-    /* OP_vbroadcasti64x2 */  &evex_W_extensions[152][1],
-    /* OP_vbroadcasti64x4 */  &evex_W_extensions[153][1],
-    /* OP_vcompresspd     */  &evex_W_extensions[156][1],
-    /* OP_vcompressps     */  &evex_W_extensions[156][0],
-    /* OP_vcvtpd2qq       */  &evex_W_extensions[46][1],
-    /* OP_vcvtpd2udq      */  &evex_W_extensions[47][1],
-    /* OP_vcvtpd2uqq      */  &evex_W_extensions[48][1],
-    /* OP_vcvtps2qq       */  &evex_W_extensions[46][0],
-    /* OP_vcvtps2udq      */  &evex_W_extensions[47][0],
-    /* OP_vcvtps2uqq      */  &evex_W_extensions[48][0],
-    /* OP_vcvtqq2pd       */  &evex_W_extensions[57][1],
-    /* OP_vcvtqq2ps       */  &evex_W_extensions[56][1],
-    /* OP_vcvtsd2usi      */  &evex_W_extensions[53][0],
-    /* OP_vcvtss2usi      */  &evex_W_extensions[52][0],
-    /* OP_vcvttpd2qq      */  &evex_W_extensions[50][1],
-    /* OP_vcvttpd2udq     */  &evex_W_extensions[49][1],
-    /* OP_vcvttpd2uqq     */  &evex_W_extensions[51][1],
-    /* OP_vcvttps2qq      */  &evex_W_extensions[50][0],
-    /* OP_vcvttps2udq     */  &evex_W_extensions[49][0],
-    /* OP_vcvttps2uqq     */  &evex_W_extensions[51][0],
-    /* OP_vcvttsd2usi     */  &evex_W_extensions[55][0],
-    /* OP_vcvttss2usi     */  &evex_W_extensions[54][0],
-    /* OP_vcvtudq2pd      */  &evex_W_extensions[61][0],
-    /* OP_vcvtudq2ps      */  &evex_W_extensions[60][0],
-    /* OP_vcvtuqq2pd      */  &evex_W_extensions[61][1],
-    /* OP_vcvtuqq2ps      */  &evex_W_extensions[60][1],
-    /* OP_vcvtusi2sd      */  &evex_W_extensions[59][0],
-    /* OP_vcvtusi2ss      */  &evex_W_extensions[58][0],
+    /* OP_valignd         */  &evex_Wb_extensions[155][0],
+    /* OP_valignq         */  &evex_Wb_extensions[155][2],
+    /* OP_vblendmpd       */  &evex_Wb_extensions[156][2],
+    /* OP_vblendmps       */  &evex_Wb_extensions[156][0],
+    /* OP_vbroadcastf32x2 */  &evex_Wb_extensions[148][0],
+    /* OP_vbroadcastf32x4 */  &evex_Wb_extensions[149][0],
+    /* OP_vbroadcastf32x8 */  &evex_Wb_extensions[150][0],
+    /* OP_vbroadcastf64x2 */  &evex_Wb_extensions[149][2],
+    /* OP_vbroadcastf64x4 */  &evex_Wb_extensions[150][2],
+    /* OP_vbroadcasti32x2 */  &evex_Wb_extensions[152][0],
+    /* OP_vbroadcasti32x4 */  &evex_Wb_extensions[153][0],
+    /* OP_vbroadcasti32x8 */  &evex_Wb_extensions[154][0],
+    /* OP_vbroadcasti64x2 */  &evex_Wb_extensions[153][2],
+    /* OP_vbroadcasti64x4 */  &evex_Wb_extensions[154][2],
+    /* OP_vcompresspd     */  &evex_Wb_extensions[157][2],
+    /* OP_vcompressps     */  &evex_Wb_extensions[157][0],
+    /* OP_vcvtpd2qq       */  &evex_Wb_extensions[46][2],
+    /* OP_vcvtpd2udq      */  &evex_Wb_extensions[47][2],
+    /* OP_vcvtpd2uqq      */  &evex_Wb_extensions[48][2],
+    /* OP_vcvtps2qq       */  &evex_Wb_extensions[46][0],
+    /* OP_vcvtps2udq      */  &evex_Wb_extensions[47][0],
+    /* OP_vcvtps2uqq      */  &evex_Wb_extensions[48][0],
+    /* OP_vcvtqq2pd       */  &evex_Wb_extensions[57][2],
+    /* OP_vcvtqq2ps       */  &evex_Wb_extensions[56][2],
+    /* OP_vcvtsd2usi      */  &evex_Wb_extensions[53][0],
+    /* OP_vcvtss2usi      */  &evex_Wb_extensions[52][0],
+    /* OP_vcvttpd2qq      */  &evex_Wb_extensions[50][2],
+    /* OP_vcvttpd2udq     */  &evex_Wb_extensions[49][2],
+    /* OP_vcvttpd2uqq     */  &evex_Wb_extensions[51][2],
+    /* OP_vcvttps2qq      */  &evex_Wb_extensions[50][0],
+    /* OP_vcvttps2udq     */  &evex_Wb_extensions[49][0],
+    /* OP_vcvttps2uqq     */  &evex_Wb_extensions[51][0],
+    /* OP_vcvttsd2usi     */  &evex_Wb_extensions[55][0],
+    /* OP_vcvttss2usi     */  &evex_Wb_extensions[54][0],
+    /* OP_vcvtudq2pd      */  &evex_Wb_extensions[61][0],
+    /* OP_vcvtudq2ps      */  &evex_Wb_extensions[60][0],
+    /* OP_vcvtuqq2pd      */  &evex_Wb_extensions[61][2],
+    /* OP_vcvtuqq2ps      */  &evex_Wb_extensions[60][2],
+    /* OP_vcvtusi2sd      */  &evex_Wb_extensions[59][0],
+    /* OP_vcvtusi2ss      */  &evex_Wb_extensions[58][0],
     /* OP_vdbpsadbw       */  &e_vex_extensions[52][2],
-    /* OP_vexp2pd         */  &evex_W_extensions[184][1],
-    /* OP_vexp2ps         */  &evex_W_extensions[184][0],
-    /* OP_vexpandpd       */  &evex_W_extensions[157][1],
-    /* OP_vexpandps       */  &evex_W_extensions[157][0],
-    /* OP_vextractf32x4   */  &evex_W_extensions[100][0],
-    /* OP_vextractf32x8   */  &evex_W_extensions[101][0],
-    /* OP_vextractf64x2   */  &evex_W_extensions[100][1],
-    /* OP_vextractf64x4   */  &evex_W_extensions[101][1],
-    /* OP_vextracti32x4   */  &evex_W_extensions[102][0],
-    /* OP_vextracti32x8   */  &evex_W_extensions[103][0],
-    /* OP_vextracti64x2   */  &evex_W_extensions[102][1],
-    /* OP_vextracti64x4   */  &evex_W_extensions[103][1],
-    /* OP_vfixupimmpd     */  &evex_W_extensions[158][1],
-    /* OP_vfixupimmps     */  &evex_W_extensions[158][0],
-    /* OP_vfixupimmsd     */  &evex_W_extensions[159][1],
-    /* OP_vfixupimmss     */  &evex_W_extensions[159][0],
-    /* OP_vfpclasspd      */  &evex_W_extensions[182][1],
-    /* OP_vfpclassps      */  &evex_W_extensions[182][0],
-    /* OP_vfpclasssd      */  &evex_W_extensions[183][1],
-    /* OP_vfpclassss      */  &evex_W_extensions[183][0],
-    /* OP_vgatherpf0dpd   */  &evex_W_extensions[196][1],
-    /* OP_vgatherpf0dps   */  &evex_W_extensions[196][0],
-    /* OP_vgatherpf0qpd   */  &evex_W_extensions[197][1],
-    /* OP_vgatherpf0qps   */  &evex_W_extensions[197][0],
-    /* OP_vgatherpf1dpd   */  &evex_W_extensions[198][1],
-    /* OP_vgatherpf1dps   */  &evex_W_extensions[198][0],
-    /* OP_vgatherpf1qpd   */  &evex_W_extensions[199][1],
-    /* OP_vgatherpf1qps   */  &evex_W_extensions[199][0],
-    /* OP_vgetexppd       */  &evex_W_extensions[160][1],
-    /* OP_vgetexpps       */  &evex_W_extensions[160][0],
-    /* OP_vgetexpsd       */  &evex_W_extensions[161][1],
-    /* OP_vgetexpss       */  &evex_W_extensions[161][0],
-    /* OP_vgetmantpd      */  &evex_W_extensions[162][1],
-    /* OP_vgetmantps      */  &evex_W_extensions[162][0],
-    /* OP_vgetmantsd      */  &evex_W_extensions[163][1],
-    /* OP_vgetmantss      */  &evex_W_extensions[163][0],
-    /* OP_vinsertf32x4    */  &evex_W_extensions[104][0],
-    /* OP_vinsertf32x8    */  &evex_W_extensions[105][0],
-    /* OP_vinsertf64x2    */  &evex_W_extensions[104][1],
-    /* OP_vinsertf64x4    */  &evex_W_extensions[105][1],
-    /* OP_vinserti32x4    */  &evex_W_extensions[106][0],
-    /* OP_vinserti32x8    */  &evex_W_extensions[107][0],
-    /* OP_vinserti64x2    */  &evex_W_extensions[106][1],
-    /* OP_vinserti64x4    */  &evex_W_extensions[107][1],
-    /* OP_vmovdqa32       */  &evex_W_extensions[8][0],
-    /* OP_vmovdqa64       */  &evex_W_extensions[8][1],
-    /* OP_vmovdqu16       */  &evex_W_extensions[10][1],
-    /* OP_vmovdqu32       */  &evex_W_extensions[11][0],
-    /* OP_vmovdqu64       */  &evex_W_extensions[11][1],
-    /* OP_vmovdqu8        */  &evex_W_extensions[10][0],
-    /* OP_vpabsq          */  &evex_W_extensions[146][1],
-    /* OP_vpandd          */  &evex_W_extensions[41][0],
-    /* OP_vpandnd         */  &evex_W_extensions[42][0],
-    /* OP_vpandnq         */  &evex_W_extensions[42][1],
-    /* OP_vpandq          */  &evex_W_extensions[41][1],
-    /* OP_vpblendmb       */  &evex_W_extensions[164][0],
-    /* OP_vpblendmd       */  &evex_W_extensions[165][0],
-    /* OP_vpblendmq       */  &evex_W_extensions[165][1],
-    /* OP_vpblendmw       */  &evex_W_extensions[164][1],
+    /* OP_vexp2pd         */  &evex_Wb_extensions[185][2],
+    /* OP_vexp2ps         */  &evex_Wb_extensions[185][0],
+    /* OP_vexpandpd       */  &evex_Wb_extensions[158][2],
+    /* OP_vexpandps       */  &evex_Wb_extensions[158][0],
+    /* OP_vextractf32x4   */  &evex_Wb_extensions[101][0],
+    /* OP_vextractf32x8   */  &evex_Wb_extensions[102][0],
+    /* OP_vextractf64x2   */  &evex_Wb_extensions[101][2],
+    /* OP_vextractf64x4   */  &evex_Wb_extensions[102][2],
+    /* OP_vextracti32x4   */  &evex_Wb_extensions[103][0],
+    /* OP_vextracti32x8   */  &evex_Wb_extensions[104][0],
+    /* OP_vextracti64x2   */  &evex_Wb_extensions[103][2],
+    /* OP_vextracti64x4   */  &evex_Wb_extensions[104][2],
+    /* OP_vfixupimmpd     */  &evex_Wb_extensions[159][2],
+    /* OP_vfixupimmps     */  &evex_Wb_extensions[159][0],
+    /* OP_vfixupimmsd     */  &evex_Wb_extensions[160][2],
+    /* OP_vfixupimmss     */  &evex_Wb_extensions[160][0],
+    /* OP_vfpclasspd      */  &evex_Wb_extensions[183][2],
+    /* OP_vfpclassps      */  &evex_Wb_extensions[183][0],
+    /* OP_vfpclasssd      */  &evex_Wb_extensions[184][2],
+    /* OP_vfpclassss      */  &evex_Wb_extensions[184][0],
+    /* OP_vgatherpf0dpd   */  &evex_Wb_extensions[197][2],
+    /* OP_vgatherpf0dps   */  &evex_Wb_extensions[197][0],
+    /* OP_vgatherpf0qpd   */  &evex_Wb_extensions[198][2],
+    /* OP_vgatherpf0qps   */  &evex_Wb_extensions[198][0],
+    /* OP_vgatherpf1dpd   */  &evex_Wb_extensions[199][2],
+    /* OP_vgatherpf1dps   */  &evex_Wb_extensions[199][0],
+    /* OP_vgatherpf1qpd   */  &evex_Wb_extensions[200][2],
+    /* OP_vgatherpf1qps   */  &evex_Wb_extensions[200][0],
+    /* OP_vgetexppd       */  &evex_Wb_extensions[161][2],
+    /* OP_vgetexpps       */  &evex_Wb_extensions[161][0],
+    /* OP_vgetexpsd       */  &evex_Wb_extensions[162][2],
+    /* OP_vgetexpss       */  &evex_Wb_extensions[162][0],
+    /* OP_vgetmantpd      */  &evex_Wb_extensions[163][2],
+    /* OP_vgetmantps      */  &evex_Wb_extensions[163][0],
+    /* OP_vgetmantsd      */  &evex_Wb_extensions[164][2],
+    /* OP_vgetmantss      */  &evex_Wb_extensions[164][0],
+    /* OP_vinsertf32x4    */  &evex_Wb_extensions[105][0],
+    /* OP_vinsertf32x8    */  &evex_Wb_extensions[106][0],
+    /* OP_vinsertf64x2    */  &evex_Wb_extensions[105][2],
+    /* OP_vinsertf64x4    */  &evex_Wb_extensions[106][2],
+    /* OP_vinserti32x4    */  &evex_Wb_extensions[107][0],
+    /* OP_vinserti32x8    */  &evex_Wb_extensions[108][0],
+    /* OP_vinserti64x2    */  &evex_Wb_extensions[107][2],
+    /* OP_vinserti64x4    */  &evex_Wb_extensions[108][2],
+    /* OP_vmovdqa32       */  &evex_Wb_extensions[8][0],
+    /* OP_vmovdqa64       */  &evex_Wb_extensions[8][2],
+    /* OP_vmovdqu16       */  &evex_Wb_extensions[10][2],
+    /* OP_vmovdqu32       */  &evex_Wb_extensions[11][0],
+    /* OP_vmovdqu64       */  &evex_Wb_extensions[11][2],
+    /* OP_vmovdqu8        */  &evex_Wb_extensions[10][0],
+    /* OP_vpabsq          */  &evex_Wb_extensions[147][2],
+    /* OP_vpandd          */  &evex_Wb_extensions[41][0],
+    /* OP_vpandnd         */  &evex_Wb_extensions[42][0],
+    /* OP_vpandnq         */  &evex_Wb_extensions[42][2],
+    /* OP_vpandq          */  &evex_Wb_extensions[41][2],
+    /* OP_vpblendmb       */  &evex_Wb_extensions[165][0],
+    /* OP_vpblendmd       */  &evex_Wb_extensions[166][0],
+    /* OP_vpblendmq       */  &evex_Wb_extensions[166][2],
+    /* OP_vpblendmw       */  &evex_Wb_extensions[165][2],
     /* OP_vpbroadcastmb2q */  &prefix_extensions[184][9],
     /* OP_vpbroadcastmw2d */  &prefix_extensions[185][9],
-    /* OP_vpcmpb          */  &evex_W_extensions[109][0],
-    /* OP_vpcmpd          */  &evex_W_extensions[111][0],
-    /* OP_vpcmpq          */  &evex_W_extensions[111][1],
-    /* OP_vpcmpub         */  &evex_W_extensions[108][0],
-    /* OP_vpcmpud         */  &evex_W_extensions[110][0],
-    /* OP_vpcmpuq         */  &evex_W_extensions[110][1],
-    /* OP_vpcmpuw         */  &evex_W_extensions[108][1],
-    /* OP_vpcmpw          */  &evex_W_extensions[109][1],
-    /* OP_vpcompressd     */  &evex_W_extensions[166][0],
-    /* OP_vpcompressq     */  &evex_W_extensions[166][1],
-    /* OP_vpconflictd     */  &evex_W_extensions[185][0],
-    /* OP_vpconflictq     */  &evex_W_extensions[185][1],
-    /* OP_vpermi2b        */  &evex_W_extensions[96][0],
-    /* OP_vpermi2d        */  &evex_W_extensions[95][0],
-    /* OP_vpermi2pd       */  &evex_W_extensions[94][1],
-    /* OP_vpermi2ps       */  &evex_W_extensions[94][0],
-    /* OP_vpermi2q        */  &evex_W_extensions[95][1],
-    /* OP_vpermi2w        */  &evex_W_extensions[96][1],
-    /* OP_vpermt2b        */  &evex_W_extensions[97][0],
-    /* OP_vpermt2d        */  &evex_W_extensions[98][0],
-    /* OP_vpermt2pd       */  &evex_W_extensions[99][1],
-    /* OP_vpermt2ps       */  &evex_W_extensions[99][0],
-    /* OP_vpermt2q        */  &evex_W_extensions[98][1],
-    /* OP_vpermt2w        */  &evex_W_extensions[97][1],
-    /* OP_vpermw          */  &third_byte_38[120],
-    /* OP_vpexpandd       */  &evex_W_extensions[167][0],
-    /* OP_vpexpandq       */  &evex_W_extensions[167][1],
-    /* OP_vpextrq         */  &evex_W_extensions[144][1],
-    /* OP_vpinsrq         */  &evex_W_extensions[143][1],
-    /* OP_vplzcntd        */  &evex_W_extensions[186][0],
-    /* OP_vplzcntq        */  &evex_W_extensions[186][1],
-    /* OP_vpmadd52huq     */  &third_byte_38[158],
-    /* OP_vpmadd52luq     */  &third_byte_38[157],
-    /* OP_vpmaxsq         */  &evex_W_extensions[113][1],
-    /* OP_vpmaxuq         */  &evex_W_extensions[115][1],
-    /* OP_vpminsq         */  &evex_W_extensions[112][1],
-    /* OP_vpminuq         */  &evex_W_extensions[114][1],
-    /* OP_vpmovb2m        */  &evex_W_extensions[139][0],
-    /* OP_vpmovd2m        */  &evex_W_extensions[140][0],
+    /* OP_vpcmpb          */  &evex_Wb_extensions[110][0],
+    /* OP_vpcmpd          */  &evex_Wb_extensions[112][0],
+    /* OP_vpcmpq          */  &evex_Wb_extensions[112][2],
+    /* OP_vpcmpub         */  &evex_Wb_extensions[109][0],
+    /* OP_vpcmpud         */  &evex_Wb_extensions[111][0],
+    /* OP_vpcmpuq         */  &evex_Wb_extensions[111][2],
+    /* OP_vpcmpuw         */  &evex_Wb_extensions[109][2],
+    /* OP_vpcmpw          */  &evex_Wb_extensions[110][2],
+    /* OP_vpcompressd     */  &evex_Wb_extensions[167][0],
+    /* OP_vpcompressq     */  &evex_Wb_extensions[167][2],
+    /* OP_vpconflictd     */  &evex_Wb_extensions[186][0],
+    /* OP_vpconflictq     */  &evex_Wb_extensions[186][2],
+    /* OP_vpermb          */  &evex_Wb_extensions[92][0],
+    /* OP_vpermi2b        */  &evex_Wb_extensions[97][0],
+    /* OP_vpermi2d        */  &evex_Wb_extensions[96][0],
+    /* OP_vpermi2pd       */  &evex_Wb_extensions[95][2],
+    /* OP_vpermi2ps       */  &evex_Wb_extensions[95][0],
+    /* OP_vpermi2q        */  &evex_Wb_extensions[96][2],
+    /* OP_vpermi2w        */  &evex_Wb_extensions[97][2],
+    /* OP_vpermt2b        */  &evex_Wb_extensions[98][0],
+    /* OP_vpermt2d        */  &evex_Wb_extensions[99][0],
+    /* OP_vpermt2pd       */  &evex_Wb_extensions[100][2],
+    /* OP_vpermt2ps       */  &evex_Wb_extensions[100][0],
+    /* OP_vpermt2q        */  &evex_Wb_extensions[99][2],
+    /* OP_vpermt2w        */  &evex_Wb_extensions[98][2],
+    /* OP_vpermw          */  &evex_Wb_extensions[92][2],
+    /* OP_vpexpandd       */  &evex_Wb_extensions[168][0],
+    /* OP_vpexpandq       */  &evex_Wb_extensions[168][2],
+    /* OP_vpextrq         */  &evex_Wb_extensions[145][2],
+    /* OP_vpinsrq         */  &evex_Wb_extensions[144][2],
+    /* OP_vplzcntd        */  &evex_Wb_extensions[187][0],
+    /* OP_vplzcntq        */  &evex_Wb_extensions[187][2],
+    /* OP_vpmadd52huq     */  &evex_Wb_extensions[234][2],
+    /* OP_vpmadd52luq     */  &evex_Wb_extensions[220][2],
+    /* OP_vpmaxsq         */  &evex_Wb_extensions[114][2],
+    /* OP_vpmaxuq         */  &evex_Wb_extensions[116][2],
+    /* OP_vpminsq         */  &evex_Wb_extensions[113][2],
+    /* OP_vpminuq         */  &evex_Wb_extensions[115][2],
+    /* OP_vpmovb2m        */  &evex_Wb_extensions[140][0],
+    /* OP_vpmovd2m        */  &evex_Wb_extensions[141][0],
     /* OP_vpmovdb         */  &prefix_extensions[169][9],
     /* OP_vpmovdw         */  &prefix_extensions[172][9],
-    /* OP_vpmovm2b        */  &evex_W_extensions[137][0],
-    /* OP_vpmovm2d        */  &evex_W_extensions[138][0],
-    /* OP_vpmovm2q        */  &evex_W_extensions[138][1],
-    /* OP_vpmovm2w        */  &evex_W_extensions[137][1],
-    /* OP_vpmovq2m        */  &evex_W_extensions[140][1],
+    /* OP_vpmovm2b        */  &evex_Wb_extensions[138][0],
+    /* OP_vpmovm2d        */  &evex_Wb_extensions[139][0],
+    /* OP_vpmovm2q        */  &evex_Wb_extensions[139][2],
+    /* OP_vpmovm2w        */  &evex_Wb_extensions[138][2],
+    /* OP_vpmovq2m        */  &evex_Wb_extensions[141][2],
     /* OP_vpmovqb         */  &prefix_extensions[160][9],
     /* OP_vpmovqd         */  &prefix_extensions[166][9],
     /* OP_vpmovqw         */  &prefix_extensions[163][9],
@@ -1491,88 +1492,88 @@ const instr_info_t * const op_instr[] =
     /* OP_vpmovusqd       */  &prefix_extensions[168][9],
     /* OP_vpmovusqw       */  &prefix_extensions[165][9],
     /* OP_vpmovuswb       */  &prefix_extensions[177][9],
-    /* OP_vpmovw2m        */  &evex_W_extensions[139][1],
+    /* OP_vpmovw2m        */  &evex_Wb_extensions[140][2],
     /* OP_vpmovwb         */  &prefix_extensions[175][9],
-    /* OP_vpmullq         */  &evex_W_extensions[45][1],
-    /* OP_vpord           */  &evex_W_extensions[43][0],
-    /* OP_vporq           */  &evex_W_extensions[43][1],
-    /* OP_vprold          */  &evex_W_extensions[117][0],
-    /* OP_vprolq          */  &evex_W_extensions[117][1],
-    /* OP_vprolvd         */  &evex_W_extensions[116][0],
-    /* OP_vprolvq         */  &evex_W_extensions[116][1],
-    /* OP_vprord          */  &evex_W_extensions[119][0],
-    /* OP_vprorq          */  &evex_W_extensions[119][1],
-    /* OP_vprorvd         */  &evex_W_extensions[118][0],
-    /* OP_vprorvq         */  &evex_W_extensions[118][1],
-    /* OP_vpscatterdd     */  &evex_W_extensions[192][0],
-    /* OP_vpscatterdq     */  &evex_W_extensions[192][1],
-    /* OP_vpscatterqd     */  &evex_W_extensions[193][0],
-    /* OP_vpscatterqq     */  &evex_W_extensions[193][1],
-    /* OP_vpsllvw         */  &evex_W_extensions[129][1],
-    /* OP_vpsraq          */  &evex_W_extensions[120][1],
-    /* OP_vpsravq         */  &evex_W_extensions[127][1],
-    /* OP_vpsravw         */  &evex_W_extensions[126][1],
+    /* OP_vpmullq         */  &evex_Wb_extensions[45][2],
+    /* OP_vpord           */  &evex_Wb_extensions[43][0],
+    /* OP_vporq           */  &evex_Wb_extensions[43][2],
+    /* OP_vprold          */  &evex_Wb_extensions[118][0],
+    /* OP_vprolq          */  &evex_Wb_extensions[118][2],
+    /* OP_vprolvd         */  &evex_Wb_extensions[117][0],
+    /* OP_vprolvq         */  &evex_Wb_extensions[117][2],
+    /* OP_vprord          */  &evex_Wb_extensions[120][0],
+    /* OP_vprorq          */  &evex_Wb_extensions[120][2],
+    /* OP_vprorvd         */  &evex_Wb_extensions[119][0],
+    /* OP_vprorvq         */  &evex_Wb_extensions[119][2],
+    /* OP_vpscatterdd     */  &evex_Wb_extensions[193][0],
+    /* OP_vpscatterdq     */  &evex_Wb_extensions[193][2],
+    /* OP_vpscatterqd     */  &evex_Wb_extensions[194][0],
+    /* OP_vpscatterqq     */  &evex_Wb_extensions[194][2],
+    /* OP_vpsllvw         */  &evex_Wb_extensions[130][2],
+    /* OP_vpsraq          */  &evex_Wb_extensions[121][2],
+    /* OP_vpsravq         */  &evex_Wb_extensions[128][2],
+    /* OP_vpsravw         */  &evex_Wb_extensions[127][2],
     /* OP_vpsrlvw         */  &prefix_extensions[177][10],
-    /* OP_vpternlogd      */  &evex_W_extensions[187][0],
-    /* OP_vpternlogq      */  &evex_W_extensions[187][1],
-    /* OP_vptestmb        */  &evex_W_extensions[168][0],
-    /* OP_vptestmd        */  &evex_W_extensions[169][0],
-    /* OP_vptestmq        */  &evex_W_extensions[169][1],
-    /* OP_vptestmw        */  &evex_W_extensions[168][1],
-    /* OP_vptestnmb       */  &evex_W_extensions[170][0],
-    /* OP_vptestnmd       */  &evex_W_extensions[171][0],
-    /* OP_vptestnmq       */  &evex_W_extensions[171][1],
-    /* OP_vptestnmw       */  &evex_W_extensions[170][1],
-    /* OP_vpxord          */  &evex_W_extensions[44][0],
-    /* OP_vpxorq          */  &evex_W_extensions[44][1],
-    /* OP_vrangepd        */  &evex_W_extensions[172][1],
-    /* OP_vrangeps        */  &evex_W_extensions[172][0],
-    /* OP_vrangesd        */  &evex_W_extensions[173][1],
-    /* OP_vrangess        */  &evex_W_extensions[173][0],
-    /* OP_vrcp14pd        */  &evex_W_extensions[131][1],
-    /* OP_vrcp14ps        */  &evex_W_extensions[131][0],
-    /* OP_vrcp14sd        */  &evex_W_extensions[132][1],
-    /* OP_vrcp14ss        */  &evex_W_extensions[132][0],
-    /* OP_vrcp28pd        */  &evex_W_extensions[133][1],
-    /* OP_vrcp28ps        */  &evex_W_extensions[133][0],
-    /* OP_vrcp28sd        */  &evex_W_extensions[134][1],
-    /* OP_vrcp28ss        */  &evex_W_extensions[134][0],
-    /* OP_vreducepd       */  &evex_W_extensions[174][1],
-    /* OP_vreduceps       */  &evex_W_extensions[174][0],
-    /* OP_vreducesd       */  &evex_W_extensions[175][1],
-    /* OP_vreducess       */  &evex_W_extensions[175][0],
-    /* OP_vrndscalepd     */  &e_vex_extensions[41][2],
-    /* OP_vrndscaleps     */  &e_vex_extensions[40][2],
+    /* OP_vpternlogd      */  &evex_Wb_extensions[188][0],
+    /* OP_vpternlogq      */  &evex_Wb_extensions[188][2],
+    /* OP_vptestmb        */  &evex_Wb_extensions[169][0],
+    /* OP_vptestmd        */  &evex_Wb_extensions[170][0],
+    /* OP_vptestmq        */  &evex_Wb_extensions[170][2],
+    /* OP_vptestmw        */  &evex_Wb_extensions[169][2],
+    /* OP_vptestnmb       */  &evex_Wb_extensions[171][0],
+    /* OP_vptestnmd       */  &evex_Wb_extensions[172][0],
+    /* OP_vptestnmq       */  &evex_Wb_extensions[172][2],
+    /* OP_vptestnmw       */  &evex_Wb_extensions[171][2],
+    /* OP_vpxord          */  &evex_Wb_extensions[44][0],
+    /* OP_vpxorq          */  &evex_Wb_extensions[44][2],
+    /* OP_vrangepd        */  &evex_Wb_extensions[173][2],
+    /* OP_vrangeps        */  &evex_Wb_extensions[173][0],
+    /* OP_vrangesd        */  &evex_Wb_extensions[174][2],
+    /* OP_vrangess        */  &evex_Wb_extensions[174][0],
+    /* OP_vrcp14pd        */  &evex_Wb_extensions[132][2],
+    /* OP_vrcp14ps        */  &evex_Wb_extensions[132][0],
+    /* OP_vrcp14sd        */  &evex_Wb_extensions[133][2],
+    /* OP_vrcp14ss        */  &evex_Wb_extensions[133][0],
+    /* OP_vrcp28pd        */  &evex_Wb_extensions[134][2],
+    /* OP_vrcp28ps        */  &evex_Wb_extensions[134][0],
+    /* OP_vrcp28sd        */  &evex_Wb_extensions[135][2],
+    /* OP_vrcp28ss        */  &evex_Wb_extensions[135][0],
+    /* OP_vreducepd       */  &evex_Wb_extensions[175][2],
+    /* OP_vreduceps       */  &evex_Wb_extensions[175][0],
+    /* OP_vreducesd       */  &evex_Wb_extensions[176][2],
+    /* OP_vreducess       */  &evex_Wb_extensions[176][0],
+    /* OP_vrndscalepd     */  &evex_Wb_extensions[218][2],
+    /* OP_vrndscaleps     */  &evex_Wb_extensions[246][0],
     /* OP_vrndscalesd     */  &e_vex_extensions[43][2],
     /* OP_vrndscaless     */  &e_vex_extensions[42][2],
-    /* OP_vrsqrt14pd      */  &evex_W_extensions[176][1],
-    /* OP_vrsqrt14ps      */  &evex_W_extensions[176][0],
-    /* OP_vrsqrt14sd      */  &evex_W_extensions[177][1],
-    /* OP_vrsqrt14ss      */  &evex_W_extensions[177][0],
-    /* OP_vrsqrt28pd      */  &evex_W_extensions[178][1],
-    /* OP_vrsqrt28ps      */  &evex_W_extensions[178][0],
-    /* OP_vrsqrt28sd      */  &evex_W_extensions[179][1],
-    /* OP_vrsqrt28ss      */  &evex_W_extensions[179][0],
-    /* OP_vscalefpd       */  &evex_W_extensions[180][1],
-    /* OP_vscalefps       */  &evex_W_extensions[180][0],
-    /* OP_vscalefsd       */  &evex_W_extensions[181][1],
-    /* OP_vscalefss       */  &evex_W_extensions[181][0],
-    /* OP_vscatterdpd     */  &evex_W_extensions[194][1],
-    /* OP_vscatterdps     */  &evex_W_extensions[194][0],
-    /* OP_vscatterqpd     */  &evex_W_extensions[195][1],
-    /* OP_vscatterqps     */  &evex_W_extensions[195][0],
-    /* OP_vscatterpf0dpd  */  &evex_W_extensions[200][1],
-    /* OP_vscatterpf0dps  */  &evex_W_extensions[200][0],
-    /* OP_vscatterpf0qpd  */  &evex_W_extensions[201][1],
-    /* OP_vscatterpf0qps  */  &evex_W_extensions[201][0],
-    /* OP_vscatterpf1dpd  */  &evex_W_extensions[202][1],
-    /* OP_vscatterpf1dps  */  &evex_W_extensions[202][0],
-    /* OP_vscatterpf1qpd  */  &evex_W_extensions[203][1],
-    /* OP_vscatterpf1qps  */  &evex_W_extensions[203][0],
-    /* OP_vshuff32x4      */  &evex_W_extensions[141][0],
-    /* OP_vshuff64x2      */  &evex_W_extensions[141][1],
-    /* OP_vshufi32x4      */  &evex_W_extensions[142][0],
-    /* OP_vshufi64x2      */  &evex_W_extensions[142][1],
+    /* OP_vrsqrt14pd      */  &evex_Wb_extensions[177][2],
+    /* OP_vrsqrt14ps      */  &evex_Wb_extensions[177][0],
+    /* OP_vrsqrt14sd      */  &evex_Wb_extensions[178][2],
+    /* OP_vrsqrt14ss      */  &evex_Wb_extensions[178][0],
+    /* OP_vrsqrt28pd      */  &evex_Wb_extensions[179][2],
+    /* OP_vrsqrt28ps      */  &evex_Wb_extensions[179][0],
+    /* OP_vrsqrt28sd      */  &evex_Wb_extensions[180][2],
+    /* OP_vrsqrt28ss      */  &evex_Wb_extensions[180][0],
+    /* OP_vscalefpd       */  &evex_Wb_extensions[181][2],
+    /* OP_vscalefps       */  &evex_Wb_extensions[181][0],
+    /* OP_vscalefsd       */  &evex_Wb_extensions[182][2],
+    /* OP_vscalefss       */  &evex_Wb_extensions[182][0],
+    /* OP_vscatterdpd     */  &evex_Wb_extensions[195][2],
+    /* OP_vscatterdps     */  &evex_Wb_extensions[195][0],
+    /* OP_vscatterqpd     */  &evex_Wb_extensions[196][2],
+    /* OP_vscatterqps     */  &evex_Wb_extensions[196][0],
+    /* OP_vscatterpf0dpd  */  &evex_Wb_extensions[201][2],
+    /* OP_vscatterpf0dps  */  &evex_Wb_extensions[201][0],
+    /* OP_vscatterpf0qpd  */  &evex_Wb_extensions[202][2],
+    /* OP_vscatterpf0qps  */  &evex_Wb_extensions[202][0],
+    /* OP_vscatterpf1dpd  */  &evex_Wb_extensions[203][2],
+    /* OP_vscatterpf1dps  */  &evex_Wb_extensions[203][0],
+    /* OP_vscatterpf1qpd  */  &evex_Wb_extensions[204][2],
+    /* OP_vscatterpf1qps  */  &evex_Wb_extensions[204][0],
+    /* OP_vshuff32x4      */  &evex_Wb_extensions[142][0],
+    /* OP_vshuff64x2      */  &evex_Wb_extensions[142][2],
+    /* OP_vshufi32x4      */  &evex_Wb_extensions[143][0],
+    /* OP_vshufi64x2      */  &evex_Wb_extensions[143][2],
 
     /* Intel SHA extensions */
     /* OP_sha1msg1        */  &third_byte_38[165],
@@ -2084,7 +2085,7 @@ const instr_info_t * const op_instr[] =
 #define tvex (ptr_int_t)&e_vex_extensions
 #define tvexw (ptr_int_t)&vex_W_extensions
 #define txop (ptr_int_t)&xop_extensions
-#define tevexw (ptr_int_t)&evex_W_extensions
+#define tevexwb (ptr_int_t)&evex_Wb_extensions
 
 /****************************************************************************
  * One-byte opcodes
@@ -2937,8 +2938,8 @@ const instr_info_t base_extensions[][8] = {
  },
   /* group 13 (first bytes 0f 72): all assumed to have Ib */
   { /* extensions[20] */
-    {EVEX_W_EXT, 0x660f7230, "(evex_W ext 119)", xx, xx, xx, xx, xx, mrm|evex, x, 119},
-    {EVEX_W_EXT, 0x660f7231, "(evex_W ext 117)", xx, xx, xx, xx, xx, mrm|evex, x, 117},
+    {EVEX_Wb_EXT, 0x660f7220, "(evex_Wb ext 120)", xx, xx, xx, xx, xx, mrm|evex, x, 120},
+    {EVEX_Wb_EXT, 0x660f7221, "(evex_Wb ext 118)", xx, xx, xx, xx, xx, mrm|evex, x, 118},
     {PREFIX_EXT, 0x0f7232, "(prefix ext 107)", xx, xx, xx, xx, xx, no, x, 107},
     {INVALID, 0x0f7233, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {PREFIX_EXT, 0x0f7234, "(prefix ext 108)", xx, xx, xx, xx, xx, no, x, 108},
@@ -3084,23 +3085,23 @@ const instr_info_t base_extensions[][8] = {
   /* group 18 */
   { /* extensions[32] */
     {INVALID, 0x6638c638, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638c639, "(evex_W ext 196)", xx, xx, xx, xx, xx, mrm|reqp, x, 196},
-    {EVEX_W_EXT, 0x6638c63a, "(evex_W ext 198)", xx, xx, xx, xx, xx, mrm|reqp, x, 198},
+    {EVEX_Wb_EXT, 0x6638c639, "(evex_Wb ext 197)", xx, xx, xx, xx, xx, mrm|reqp, x, 197},
+    {EVEX_Wb_EXT, 0x6638c63a, "(evex_Wb ext 199)", xx, xx, xx, xx, xx, mrm|reqp, x, 199},
     {INVALID, 0x6638c63b, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x6638c63c, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638c63d, "(evex_W ext 200)", xx, xx, xx, xx, xx, mrm|reqp, x, 200},
-    {EVEX_W_EXT, 0x6638c63e, "(evex_W ext 202)", xx, xx, xx, xx, xx, mrm|reqp, x, 202},
+    {EVEX_Wb_EXT, 0x6638c63d, "(evex_Wb ext 201)", xx, xx, xx, xx, xx, mrm|reqp, x, 201},
+    {EVEX_Wb_EXT, 0x6638c63e, "(evex_Wb ext 203)", xx, xx, xx, xx, xx, mrm|reqp, x, 203},
     {INVALID, 0x6638c63f, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
   /* group 19 */
   { /* extensions[33] */
     {INVALID, 0x6638c738, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638c739, "(evex_W ext 197)", xx, xx, xx, xx, xx, mrm|reqp, x, 197},
-    {EVEX_W_EXT, 0x6638c73a, "(evex_W ext 199)", xx, xx, xx, xx, xx, mrm|reqp, x, 199},
+    {EVEX_Wb_EXT, 0x6638c739, "(evex_Wb ext 198)", xx, xx, xx, xx, xx, mrm|reqp, x, 198},
+    {EVEX_Wb_EXT, 0x6638c73a, "(evex_Wb ext 200)", xx, xx, xx, xx, xx, mrm|reqp, x, 200},
     {INVALID, 0x6638c73b, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x6638c73c, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638c73d, "(evex_W ext 201)", xx, xx, xx, xx, xx, mrm|reqp, x, 201},
-    {EVEX_W_EXT, 0x6638c73e, "(evex_W ext 203)", xx, xx, xx, xx, xx, mrm|reqp, x, 203},
+    {EVEX_Wb_EXT, 0x6638c73d, "(evex_Wb ext 202)", xx, xx, xx, xx, xx, mrm|reqp, x, 202},
+    {EVEX_Wb_EXT, 0x6638c73e, "(evex_Wb ext 204)", xx, xx, xx, xx, xx, mrm|reqp, x, 204},
     {INVALID, 0x6638c73f, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
 };
@@ -3129,9 +3130,9 @@ const instr_info_t prefix_extensions[][12] = {
     {MOD_EXT,    0xf30f1010, "(mod ext 8)", xx, xx, xx, xx, xx, mrm|vex, x, 8},
     {OP_vmovupd, 0x660f1010, "vmovupd", Vvd, xx, Wvd, xx, xx, mrm|vex, x, tpe[1][6]},
     {MOD_EXT,    0xf20f1010, "(mod ext 9)", xx, xx, xx, xx, xx, mrm|vex, x, 9},
-    {EVEX_W_EXT, 0x0f1010, "(evex_W ext 0)", xx, xx, xx, xx, xx, mrm|evex, x, 0},
+    {EVEX_Wb_EXT, 0x0f1010, "(evex_Wb ext 0)", xx, xx, xx, xx, xx, mrm|evex, x, 0},
     {MOD_EXT,    0xf30f1010, "(mod ext 20)", xx, xx, xx, xx, xx, mrm|evex, x, 20},
-    {EVEX_W_EXT, 0x660f1010, "(evex_W ext 2)", xx, xx, xx, xx, xx, mrm|evex, x, 2},
+    {EVEX_Wb_EXT, 0x660f1010, "(evex_Wb ext 2)", xx, xx, xx, xx, xx, mrm|evex, x, 2},
     {MOD_EXT,    0xf20f1010, "(mod ext 21)", xx, xx, xx, xx, xx, mrm|evex, x, 21},
   }, /* prefix extension 1 */
   {
@@ -3139,13 +3140,13 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_movss,  0xf30f1110, "movss",  Wss, xx, Vss, xx, xx, mrm, x, END_LIST},
     {OP_movupd, 0x660f1110, "movupd", Wpd, xx, Vpd, xx, xx, mrm, x, END_LIST},
     {OP_movsd,  0xf20f1110, "movsd",  Wsd, xx, Vsd, xx, xx, mrm, x, END_LIST},
-    {OP_vmovups,   0x0f1110, "vmovups", Wvs, xx, Vvs, xx, xx, mrm|vex, x, tevexw[0][0]},
+    {OP_vmovups,   0x0f1110, "vmovups", Wvs, xx, Vvs, xx, xx, mrm|vex, x, tevexwb[0][0]},
     {MOD_EXT,    0xf30f1110, "(mod ext 10)", xx, xx, xx, xx, xx, mrm|vex, x, 10},
-    {OP_vmovupd, 0x660f1110, "vmovupd", Wvd, xx, Vvd, xx, xx, mrm|vex, x, tevexw[2][1]},
+    {OP_vmovupd, 0x660f1110, "vmovupd", Wvd, xx, Vvd, xx, xx, mrm|vex, x, tevexwb[2][2]},
     {MOD_EXT,    0xf20f1110, "(mod ext 11)", xx, xx, xx, xx, xx, mrm|vex, x, 11},
-    {EVEX_W_EXT, 0x0f1110, "(evex_W ext 1)", xx, xx, xx, xx, xx, mrm|evex, x, 1},
+    {EVEX_Wb_EXT, 0x0f1110, "(evex_Wb ext 1)", xx, xx, xx, xx, xx, mrm|evex, x, 1},
     {MOD_EXT,    0xf30f1110, "(mod ext 22)", xx, xx, xx, xx, xx, mrm|evex, x, 22},
-    {EVEX_W_EXT, 0x660f1110, "(evex_W ext 3)", xx, xx, xx, xx, xx, mrm|evex, x, 3},
+    {EVEX_Wb_EXT, 0x660f1110, "(evex_Wb ext 3)", xx, xx, xx, xx, xx, mrm|evex, x, 3},
     {MOD_EXT,    0xf20f1110, "(mod ext 23)", xx, xx, xx, xx, xx, mrm|evex, x, 23},
   }, /* prefix extension 2 */
   {
@@ -3158,26 +3159,26 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_movlpd, 0x660f1210, "movlpd", Vq_dq, xx, Mq, xx, xx, mrm, x, tpe[3][2]},
     {OP_movddup, 0xf20f1210, "movddup", Vpd, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
     {OP_vmovlps,    0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|vex|reqL0, x, tpe[3][4]}, /*"vmovhlps" if reg-reg */
-    {OP_vmovsldup,0xf30f1210, "vmovsldup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, tevexw[18][0]},
+    {OP_vmovsldup,0xf30f1210, "vmovsldup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[18][0]},
     {OP_vmovlpd,  0x660f1210, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex, x, tpe[3][6]},
-    {OP_vmovddup, 0xf20f1210, "vmovddup", Vvd, xx, Wh_x, xx, xx, mrm|vex, x, tevexw[19][1]},
-    {EVEX_W_EXT, 0x0f1210, "(evex_W ext 14)", xx, xx, xx, xx, xx, mrm|evex, x, 14},
-    {EVEX_W_EXT, 0xf30f1210, "(evex_W ext 18)", xx, xx, xx, xx, xx, mrm|evex, x, 18},
-    {EVEX_W_EXT, 0x660f1210, "(evex_W ext 16)", xx, xx, xx, xx, xx, mrm|evex, x, 16},
-    {EVEX_W_EXT, 0xf20f1210, "(evex_W ext 19)", xx, xx, xx, xx, xx, mrm|evex, x, 19},
+    {OP_vmovddup, 0xf20f1210, "vmovddup", Vvd, xx, Wh_x, xx, xx, mrm|vex, x, tevexwb[19][2]},
+    {EVEX_Wb_EXT, 0x0f1210, "(evex_Wb ext 14)", xx, xx, xx, xx, xx, mrm|evex, x, 14},
+    {EVEX_Wb_EXT, 0xf30f1210, "(evex_Wb ext 18)", xx, xx, xx, xx, xx, mrm|evex, x, 18},
+    {EVEX_Wb_EXT, 0x660f1210, "(evex_Wb ext 16)", xx, xx, xx, xx, xx, mrm|evex, x, 16},
+    {EVEX_Wb_EXT, 0xf20f1210, "(evex_Wb ext 19)", xx, xx, xx, xx, xx, mrm|evex, x, 19},
   }, /* prefix extension 3 */
   {
     {OP_movlps, 0x0f1310, "movlps", Mq, xx, Vq_dq, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_movlpd, 0x660f1310, "movlpd", Mq, xx, Vq_dq, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovlps, 0x0f1310, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|vex, x, tevexw[14][0]},
+    {OP_vmovlps, 0x0f1310, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|vex, x, tevexwb[14][0]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovlpd, 0x660f1310, "vmovlpd", Mq, xx, Vq_dq, xx, xx, mrm|vex, x, tevexw[16][1]},
+    {OP_vmovlpd, 0x660f1310, "vmovlpd", Mq, xx, Vq_dq, xx, xx, mrm|vex, x, tevexwb[16][2]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f1310, "(evex_W ext 15)", xx, xx, xx, xx, xx, mrm|evex, x, 15},
+    {EVEX_Wb_EXT, 0x0f1310, "(evex_Wb ext 15)", xx, xx, xx, xx, xx, mrm|evex, x, 15},
     {INVALID, 0xf30f1310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f1310, "(evex_W ext 17)", xx, xx, xx, xx, xx, mrm|evex, x, 17},
+    {EVEX_Wb_EXT, 0x660f1310, "(evex_Wb ext 17)", xx, xx, xx, xx, xx, mrm|evex, x, 17},
     {INVALID, 0xf20f1310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 4 */
   {
@@ -3185,13 +3186,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_unpcklpd, 0x660f1410, "unpcklpd", Vpd, xx, Wq_dq, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpcklps, 0x0f1410, "vunpcklps", Vvs, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexw[25][0]},
+    {OP_vunpcklps, 0x0f1410, "vunpcklps", Vvs, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexwb[25][0]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpcklpd, 0x660f1410, "vunpcklpd", Vvd, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexw[26][1]},
+    {OP_vunpcklpd, 0x660f1410, "vunpcklpd", Vvd, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexwb[26][2]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f1410, "(evex_W ext 25)", xx, xx, xx, xx, xx, mrm|evex, x, 25},
+    {EVEX_Wb_EXT, 0x0f1410, "(evex_Wb ext 25)", xx, xx, xx, xx, xx, mrm|evex, x, 25},
     {INVALID, 0xf30f1410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f1410, "(evex_W ext 26)", xx, xx, xx, xx, xx, mrm|evex, x, 26},
+    {EVEX_Wb_EXT, 0x660f1410, "(evex_Wb ext 26)", xx, xx, xx, xx, xx, mrm|evex, x, 26},
     {INVALID, 0xf20f1410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 5 */
   {
@@ -3199,13 +3200,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_unpckhpd, 0x660f1510, "unpckhpd", Vpd, xx, Wq_dq, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpckhps, 0x0f1510, "vunpckhps", Vvs, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexw[27][0]},
+    {OP_vunpckhps, 0x0f1510, "vunpckhps", Vvs, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexwb[27][0]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vunpckhpd, 0x660f1510, "vunpckhpd", Vvd, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexw[28][1]},
+    {OP_vunpckhpd, 0x660f1510, "vunpckhpd", Vvd, xx, Hh_x, Wh_x, xx, mrm|vex, x, tevexwb[28][2]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f1510, "(evex_W ext 27)", xx, xx, xx, xx, xx, mrm|evex, x, 27},
+    {EVEX_Wb_EXT, 0x0f1510, "(evex_Wb ext 27)", xx, xx, xx, xx, xx, mrm|evex, x, 27},
     {INVALID, 0xf30f1510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f1510, "(evex_W ext 28)", xx, xx, xx, xx, xx, mrm|evex, x, 28},
+    {EVEX_Wb_EXT, 0x660f1510, "(evex_Wb ext 28)", xx, xx, xx, xx, xx, mrm|evex, x, 28},
     {INVALID, 0xf20f1510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 6 */
   {
@@ -3218,12 +3219,12 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_movhpd, 0x660f1610, "movhpd", Vq_dq, xx, Mq, xx, xx, mrm, x, tpe[7][2]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmovhps, 0x0f1610, "vmovhps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|vex|reqL0, x, tpe[7][4]}, /*"vmovlhps" if reg-reg */
-    {OP_vmovshdup, 0xf30f1610, "vmovshdup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, tevexw[24][0]},
+    {OP_vmovshdup, 0xf30f1610, "vmovshdup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[24][0]},
     {OP_vmovhpd, 0x660f1610, "vmovhpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex|reqL0, x, tpe[7][6]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f1610, "(evex_W ext 20)", xx, xx, xx, xx, xx, mrm|evex, x, 20},
-    {EVEX_W_EXT, 0xf30f1610, "(evex_W ext 24)", xx, xx, xx, xx, xx, mrm|evex, x, 24},
-    {EVEX_W_EXT, 0x660f1610, "(evex_W ext 22)", xx, xx, xx, xx, xx, mrm|evex, x, 22},
+    {EVEX_Wb_EXT, 0x0f1610, "(evex_Wb ext 20)", xx, xx, xx, xx, xx, mrm|evex, x, 20},
+    {EVEX_Wb_EXT, 0xf30f1610, "(evex_Wb ext 24)", xx, xx, xx, xx, xx, mrm|evex, x, 24},
+    {EVEX_Wb_EXT, 0x660f1610, "(evex_Wb ext 22)", xx, xx, xx, xx, xx, mrm|evex, x, 22},
     {INVALID, 0xf20f1610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 7 */
   {
@@ -3231,13 +3232,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_movhpd, 0x660f1710, "movhpd", Mq, xx, Vq_dq, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovhps, 0x0f1710, "vmovhps", Mq, xx, Vq_dq, xx, xx, mrm|vex|reqL0, x, tevexw[20][0]},
+    {OP_vmovhps, 0x0f1710, "vmovhps", Mq, xx, Vq_dq, xx, xx, mrm|vex|reqL0, x, tevexwb[20][0]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovhpd, 0x660f1710, "vmovhpd", Mq, xx, Vq_dq, xx, xx, mrm|vex|reqL0, x, tevexw[22][1]},
+    {OP_vmovhpd, 0x660f1710, "vmovhpd", Mq, xx, Vq_dq, xx, xx, mrm|vex|reqL0, x, tevexwb[22][2]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f1710, "(evex_W ext 21)", xx, xx, xx, xx, xx, mrm|evex, x, 21},
+    {EVEX_Wb_EXT, 0x0f1710, "(evex_Wb ext 21)", xx, xx, xx, xx, xx, mrm|evex, x, 21},
     {INVALID, 0xf30f1710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f1710, "(evex_W ext 23)", xx, xx, xx, xx, xx, mrm|evex, x, 23},
+    {EVEX_Wb_EXT, 0x660f1710, "(evex_Wb ext 23)", xx, xx, xx, xx, xx, mrm|evex, x, 23},
     {INVALID, 0xf20f1710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 8 */
   {
@@ -3249,9 +3250,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmovapd, 0x660f2810, "vmovapd", Vvd, xx, Wvd, xx, xx, mrm|vex, x, tpe[9][6]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT,   0x0f2810, "(evex_W ext 4)", xx, xx, xx, xx, xx, mrm|evex, x, 4},
+    {EVEX_Wb_EXT,   0x0f2810, "(evex_Wb ext 4)", xx, xx, xx, xx, xx, mrm|evex, x, 4},
     {INVALID,    0xf30f2810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f2810, "(evex_W ext 6)", xx, xx, xx, xx, xx, mrm|evex, x, 6},
+    {EVEX_Wb_EXT, 0x660f2810, "(evex_Wb ext 6)", xx, xx, xx, xx, xx, mrm|evex, x, 6},
     {INVALID,    0xf20f2810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 9 */
   {
@@ -3259,13 +3260,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_movapd, 0x660f2910, "movapd", Wpd, xx, Vpd, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovaps, 0x0f2910, "vmovaps", Wvs, xx, Vvs, xx, xx, mrm|vex, x, tevexw[4][0]},
+    {OP_vmovaps, 0x0f2910, "vmovaps", Wvs, xx, Vvs, xx, xx, mrm|vex, x, tevexwb[4][0]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovapd, 0x660f2910, "vmovapd", Wvd, xx, Vvd, xx, xx, mrm|vex, x, tevexw[6][1]},
+    {OP_vmovapd, 0x660f2910, "vmovapd", Wvd, xx, Vvd, xx, xx, mrm|vex, x, tevexwb[6][2]},
     {INVALID, 0x00000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT,   0x0f2910, "(evex_W ext 5)", xx, xx, xx, xx, xx, mrm|evex, x, 5},
+    {EVEX_Wb_EXT,   0x0f2910, "(evex_Wb ext 5)", xx, xx, xx, xx, xx, mrm|evex, x, 5},
     {INVALID,    0xf30f2910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f2910, "(evex_W ext 7)", xx, xx, xx, xx, xx, mrm|evex, x, 7},
+    {EVEX_Wb_EXT, 0x660f2910, "(evex_Wb ext 7)", xx, xx, xx, xx, xx, mrm|evex, x, 7},
     {INVALID,    0xf20f2910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 10 */
   {
@@ -3274,27 +3275,27 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvtpi2pd, 0x660f2a10, "cvtpi2pd", Vpd, xx, Qq, xx, xx, mrm, x, END_LIST},
     {OP_cvtsi2sd, 0xf20f2a10, "cvtsi2sd", Vsd, xx, Ey, xx, xx, mrm, x, END_LIST},
     {INVALID,  0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vdq, xx, H12_dq, Ey, xx, mrm|vex, x, tevexw[31][0]},
+    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vdq, xx, H12_dq, Ey, xx, mrm|vex, x, tevexwb[31][0]},
     {INVALID, 0x660f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vdq, xx, Hsd, Ey, xx, mrm|vex, x, tevexw[32][0]},
+    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vdq, xx, Hsd, Ey, xx, mrm|vex, x, tevexwb[32][0]},
     {INVALID,   0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf30f2a10, "(evex_W ext 31)", xx, xx, xx, xx, xx, mrm|evex, x, 31},
+    {EVEX_Wb_EXT, 0xf30f2a10, "(evex_Wb ext 31)", xx, xx, xx, xx, xx, mrm|evex, x, 31},
     {INVALID, 0x660f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf20f2a10, "(evex_W ext 32)", xx, xx, xx, xx, xx, mrm|evex, x, 32},
+    {EVEX_Wb_EXT, 0xf20f2a10, "(evex_Wb ext 32)", xx, xx, xx, xx, xx, mrm|evex, x, 32},
   }, /* prefix extension 11 */
   {
     {OP_movntps,   0x0f2b10, "movntps", Mps, xx, Vps, xx, xx, mrm, x, END_LIST},
     {OP_movntss, 0xf30f2b10, "movntss", Mss, xx, Vss, xx, xx, mrm, x, END_LIST},
     {OP_movntpd, 0x660f2b10, "movntpd", Mpd, xx, Vpd, xx, xx, mrm, x, END_LIST},
     {OP_movntsd, 0xf20f2b10, "movntsd", Msd, xx, Vsd, xx, xx, mrm, x, END_LIST},
-    {OP_vmovntps,   0x0f2b10, "vmovntps", Mvs, xx, Vvs, xx, xx, mrm|vex, x, tevexw[33][0]},
+    {OP_vmovntps,   0x0f2b10, "vmovntps", Mvs, xx, Vvs, xx, xx, mrm|vex, x, tevexwb[33][0]},
     /* XXX: AMD doesn't list movntss in their new manual => assuming no vex version */
     {INVALID, 0xf30f2b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovntpd, 0x660f2b10, "vmovntpd", Mvd, xx, Vvd, xx, xx, mrm|vex, x, tevexw[34][1]},
+    {OP_vmovntpd, 0x660f2b10, "vmovntpd", Mvd, xx, Vvd, xx, xx, mrm|vex, x, tevexwb[34][2]},
     {INVALID, 0xf20f2b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f2b10, "(evex_W ext 33)", xx, xx, xx, xx, xx, mrm|evex, x, 33},
+    {EVEX_Wb_EXT, 0x0f2b10, "(evex_Wb ext 33)", xx, xx, xx, xx, xx, mrm|evex, x, 33},
     {INVALID, 0xf30f2b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f2b10, "(evex_W ext 34)", xx, xx, xx, xx, xx, mrm|evex, x, 34},
+    {EVEX_Wb_EXT, 0x660f2b10, "(evex_Wb ext 34)", xx, xx, xx, xx, xx, mrm|evex, x, 34},
     {INVALID, 0xf20f2b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 12 */
   {
@@ -3303,13 +3304,13 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvttpd2pi, 0x660f2c10, "cvttpd2pi", Pq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvttsd2si, 0xf20f2c10, "cvttsd2si", Gy, xx, Wsd, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x0f2c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvttss2si, 0xf30f2c10, "vcvttss2si", Gy, xx, Wss, xx, xx, mrm|vex, x, tevexw[35][0]},
+    {OP_vcvttss2si, 0xf30f2c10, "vcvttss2si", Gy, xx, Wss, xx, xx, mrm|vex, x, tevexwb[35][0]},
     {INVALID, 0x660f2c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvttsd2si, 0xf20f2c10, "vcvttsd2si", Gy, xx, Wsd, xx, xx, mrm|vex, x, tevexw[36][0]},
+    {OP_vcvttsd2si, 0xf20f2c10, "vcvttsd2si", Gy, xx, Wsd, xx, xx, mrm|vex, x, tevexwb[36][0]},
     {INVALID,   0x0f2c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf30f2c10, "(evex_W ext 35)", xx, xx, xx, xx, xx, mrm|evex, x, 35},
+    {EVEX_Wb_EXT, 0xf30f2c10, "(evex_Wb ext 35)", xx, xx, xx, xx, xx, mrm|evex, x, 35},
     {INVALID, 0x660f2c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf20f2c10, "(evex_W ext 36)", xx, xx, xx, xx, xx, mrm|evex, x, 36},
+    {EVEX_Wb_EXT, 0xf20f2c10, "(evex_Wb ext 36)", xx, xx, xx, xx, xx, mrm|evex, x, 36},
   }, /* prefix extension 13 */
   {
     {OP_cvtps2pi, 0x0f2d10, "cvtps2pi", Pq, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
@@ -3317,26 +3318,26 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvtpd2pi, 0x660f2d10, "cvtpd2pi", Pq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtsd2si, 0xf20f2d10, "cvtsd2si", Gy, xx, Wsd, xx, xx, mrm, x, END_LIST},
     {INVALID, 0x0f2d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtss2si, 0xf30f2d10, "vcvtss2si", Gy, xx, Wss, xx, xx, mrm|vex, x, tevexw[29][0]},
+    {OP_vcvtss2si, 0xf30f2d10, "vcvtss2si", Gy, xx, Wss, xx, xx, mrm|vex, x, tevexwb[29][0]},
     {INVALID, 0x660f2d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsd2si, 0xf20f2d10, "vcvtsd2si", Gy, xx, Wsd, xx, xx, mrm|vex, x, tevexw[30][0]},
+    {OP_vcvtsd2si, 0xf20f2d10, "vcvtsd2si", Gy, xx, Wsd, xx, xx, mrm|vex, x, tevexwb[30][0]},
     {INVALID,   0x0f2d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf30f2d10, "(evex_W ext 29)", xx, xx, xx, xx, xx, mrm|evex, x, 29},
+    {EVEX_Wb_EXT, 0xf30f2d10, "(evex_Wb ext 29)", xx, xx, xx, xx, xx, mrm|evex, x, 29},
     {INVALID, 0x660f2d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf20f2d10, "(evex_W ext 30)", xx, xx, xx, xx, xx, mrm|evex, x, 30},
+    {EVEX_Wb_EXT, 0xf20f2d10, "(evex_Wb ext 30)", xx, xx, xx, xx, xx, mrm|evex, x, 30},
   }, /* prefix extension 14 */
   {
     {OP_ucomiss, 0x0f2e10, "ucomiss", xx, xx, Vss, Wss, xx, mrm, fW6, END_LIST},
     {INVALID, 0xf30f2e10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_ucomisd, 0x660f2e10, "ucomisd", xx, xx, Vsd, Wsd, xx, mrm, fW6, END_LIST},
     {INVALID, 0xf20f2e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vucomiss, 0x0f2e10, "vucomiss", xx, xx, Vss, Wss, xx, mrm|vex, fW6, tevexw[37][0]},
+    {OP_vucomiss, 0x0f2e10, "vucomiss", xx, xx, Vss, Wss, xx, mrm|vex, fW6, tevexwb[37][0]},
     {INVALID, 0xf30f2e10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vucomisd, 0x660f2e10, "vucomisd", xx, xx, Vsd, Wsd, xx, mrm|vex, fW6, tevexw[38][1]},
+    {OP_vucomisd, 0x660f2e10, "vucomisd", xx, xx, Vsd, Wsd, xx, mrm|vex, fW6, tevexwb[38][2]},
     {INVALID, 0xf20f2e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f2e10, "(evex_W ext 37)", xx, xx, xx, xx, xx, mrm|evex, x, 37},
+    {EVEX_Wb_EXT, 0x0f2e10, "(evex_Wb ext 37)", xx, xx, xx, xx, xx, mrm|evex, x, 37},
     {INVALID, 0xf30f2e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f2e10, "(evex_W ext 38)", xx, xx, xx, xx, xx, mrm|evex, x, 38},
+    {EVEX_Wb_EXT, 0x660f2e10, "(evex_Wb ext 38)", xx, xx, xx, xx, xx, mrm|evex, x, 38},
     {INVALID, 0xf20f2e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 15 */
   {
@@ -3344,13 +3345,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf30f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_comisd,  0x660f2f10, "comisd",  xx, xx, Vsd, Wsd, xx, mrm, fW6, END_LIST},
     {INVALID, 0xf20f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcomiss,  0x0f2f10, "vcomiss",  xx, xx, Vss, Wss, xx, mrm|vex, fW6, tevexw[39][0]},
+    {OP_vcomiss,  0x0f2f10, "vcomiss",  xx, xx, Vss, Wss, xx, mrm|vex, fW6, tevexwb[39][0]},
     {INVALID, 0xf30f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vcomisd,  0x660f2f10, "vcomisd",  xx, xx, Vsd, Wsd, xx, mrm|vex, fW6, tevexw[40][1]},
+    {OP_vcomisd,  0x660f2f10, "vcomisd",  xx, xx, Vsd, Wsd, xx, mrm|vex, fW6, tevexwb[40][2]},
     {INVALID, 0xf20f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f2e10, "(evex_W ext 39)", xx, xx, xx, xx, xx, mrm|evex, x, 39},
+    {EVEX_Wb_EXT, 0x0f2e10, "(evex_Wb ext 39)", xx, xx, xx, xx, xx, mrm|evex, x, 39},
     {INVALID, 0xf30f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f2e10, "(evex_W ext 40)", xx, xx, xx, xx, xx, mrm|evex, x, 40},
+    {EVEX_Wb_EXT, 0x660f2e10, "(evex_Wb ext 40)", xx, xx, xx, xx, xx, mrm|evex, x, 40},
     {INVALID, 0xf20f2f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 16 */
   {
@@ -3414,13 +3415,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf30f5410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_andpd,  0x660f5410, "andpd",  Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0xf20f5410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vandps,  0x0f5410, "vandps",  Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[20][8]},
+    {OP_vandps,  0x0f5410, "vandps",  Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[205][0]},
     {INVALID, 0xf30f5410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vandpd,  0x660f5410, "vandpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[20][10]},
+    {OP_vandpd,  0x660f5410, "vandpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[205][2]},
     {INVALID, 0xf20f5410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vandps,  0x0f5410, "vandps",  Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5410, "(evex_Wb ext 205)", xx, xx, xx, xx, xx, mrm|evex, x, 205},
     {INVALID, 0xf30f5410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vandpd,  0x660f5450, "vandpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5450, "(evex_Wb ext 205)", xx, xx, xx, xx, xx, mrm|evex, x, 205},
     {INVALID, 0xf20f5410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 21 */
   {
@@ -3428,13 +3429,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf30f5510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_andnpd, 0x660f5510, "andnpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0xf20f5510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vandnps, 0x0f5510, "vandnps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[21][8]},
+    {OP_vandnps, 0x0f5510, "vandnps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[206][0]},
     {INVALID, 0xf30f5510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vandnpd, 0x660f5510, "vandnpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[21][10]},
+    {OP_vandnpd, 0x660f5510, "vandnpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[206][2]},
     {INVALID, 0xf20f5510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vandnps, 0x0f5510, "vandnps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5510, "(evex_Wb ext 206)", xx, xx, xx, xx, xx, mrm|evex, x, 206},
     {INVALID, 0xf30f5510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vandnpd, 0x660f5550, "vandnpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5550, "(evex_Wb ext 206)", xx, xx, xx, xx, xx, mrm|evex, x, 206},
     {INVALID, 0xf20f5510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 22 */
   {
@@ -3442,13 +3443,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf30f5610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_orpd,   0x660f5610, "orpd",   Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0xf20f5610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vorps,   0x0f5610, "vorps",   Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[22][8]},
+    {OP_vorps,   0x0f5610, "vorps",   Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[207][0]},
     {INVALID, 0xf30f5610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vorpd,   0x660f5610, "vorpd",   Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[22][10]},
+    {OP_vorpd,   0x660f5610, "vorpd",   Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[207][2]},
     {INVALID, 0xf20f5610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vorps, 0x0f5610, "vorps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5610, "(evex_Wb ext 207)", xx, xx, xx, xx, xx, mrm|evex, x, 207},
     {INVALID, 0xf30f5610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vorpd, 0x660f5650, "vorpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5650, "(evex_Wb ext 207)", xx, xx, xx, xx, xx, mrm|evex, x, 207},
     {INVALID, 0xf20f5610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 23 */
   {
@@ -3456,13 +3457,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf30f5710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_xorpd,  0x660f5710, "xorpd",  Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {INVALID, 0xf20f5710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vxorps,  0x0f5710, "vxorps",  Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[23][8]},
+    {OP_vxorps,  0x0f5710, "vxorps",  Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[208][0]},
     {INVALID, 0xf30f5710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vxorpd,  0x660f5710, "vxorpd",  Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[23][10]},
+    {OP_vxorpd,  0x660f5710, "vxorpd",  Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[208][2]},
     {INVALID, 0xf20f5710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vxorps, 0x0f5710, "vxorps",  Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5710, "(evex_Wb ext 208)", xx, xx, xx, xx, xx, mrm|evex, x, 208},
     {INVALID, 0xf30f5710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vxorpd, 0x660f5750, "vxorpd",  Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5750, "(evex_Wb ext 208)", xx, xx, xx, xx, xx, mrm|evex, x, 208},
     {INVALID, 0xf20f5710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 24 */
   {
@@ -3470,28 +3471,28 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_addss, 0xf30f5810, "addss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_addpd, 0x660f5810, "addpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_addsd, 0xf20f5810, "addsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vaddps, 0x0f5810, "vaddps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[24][8]},
+    {OP_vaddps, 0x0f5810, "vaddps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[209][0]},
     {OP_vaddss, 0xf30f5810, "vaddss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[24][9]},
-    {OP_vaddpd, 0x660f5810, "vaddpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[24][10]},
+    {OP_vaddpd, 0x660f5810, "vaddpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[209][2]},
     {OP_vaddsd, 0xf20f5810, "vaddsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[24][11]},
-    {OP_vaddps, 0x0f5810, "vaddps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
-    {OP_vaddss, 0xf30f5810, "vaddss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
-    {OP_vaddpd, 0x660f5850, "vaddpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
-    {OP_vaddsd, 0xf20f5850, "vaddsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5810, "(evex_Wb ext 209)", xx, xx, xx, xx, xx, mrm|evex, x, 209},
+    {OP_vaddss, 0xf30f5800, "vaddss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5850, "(evex_Wb ext 209)", xx, xx, xx, xx, xx, mrm|evex, x, 209},
+    {OP_vaddsd, 0xf20f5840, "vaddsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 25 */
   {
     {OP_mulps, 0x0f5910, "mulps", Vps, xx, Wps, Vps, xx, mrm, x, END_LIST},
     {OP_mulss, 0xf30f5910, "mulss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_mulpd, 0x660f5910, "mulpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_mulsd, 0xf20f5910, "mulsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vmulps, 0x0f5910, "vmulps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[25][8]},
+    {OP_vmulps, 0x0f5910, "vmulps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[210][0]},
     {OP_vmulss, 0xf30f5910, "vmulss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[25][9]},
-    {OP_vmulpd, 0x660f5910, "vmulpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[25][10]},
+    {OP_vmulpd, 0x660f5910, "vmulpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[210][2]},
     {OP_vmulsd, 0xf20f5910, "vmulsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[25][11]},
-    {OP_vmulps, 0x0f5910, "vmulps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
-    {OP_vmulss, 0xf30f5910, "vmulss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
-    {OP_vmulpd, 0x660f5950, "vmulpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
-    {OP_vmulsd, 0xf20f5950, "vmulsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5910, "(evex_Wb ext 210)", xx, xx, xx, xx, xx, mrm|evex, x, 210},
+    {OP_vmulss, 0xf30f5900, "vmulss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5950, "(evex_Wb ext 210)", xx, xx, xx, xx, xx, mrm|evex, x, 210},
+    {OP_vmulsd, 0xf20f5940, "vmulsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 26 */
   {
     {OP_cvtps2pd, 0x0f5a10, "cvtps2pd", Vpd, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
@@ -3501,36 +3502,30 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, tpe[26][8]},
+    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[211][0]},
     {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, Hsd, Wss, xx, mrm|vex, x, tpe[26][9]},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, tpe[26][10]},
+    {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, tevexwb[211][2]},
     {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vdq, xx, H12_dq, Wsd, xx, mrm|vex, x, tpe[26][11]},
-    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
-     * This also affects the existing VEX version if it exists.
-     */
-    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Ved, xx, KEb, Wes, xx, mrm|evex|tthv, x, END_LIST},
-    {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, KE1b, Hsd, Wss, mrm|evex|ttt1s, x, END_LIST},
-    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
-     * This also affects the existing VEX version if it exists.
-     */
-    {OP_vcvtpd2ps, 0x660f5a50, "vcvtpd2ps", Ves, xx, KEw, Wed, xx, mrm|evex|ttfv, x, END_LIST},
-    {OP_vcvtsd2ss, 0xf20f5a50, "vcvtsd2ss", Vdq, xx, KE1b, H12_dq, Wsd, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5a10, "(evex_Wb ext 211)", xx, xx, xx, xx, xx, mrm|evex, x, 211},
+    {OP_vcvtss2sd, 0xf30f5a00, "vcvtss2sd", Vdq, xx, KE1b, Hsd, Wss, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5a50, "(evex_Wb ext 211)", xx, xx, xx, xx, xx, mrm|evex, x, 211},
+    {OP_vcvtsd2ss, 0xf20f5a40, "vcvtsd2ss", Vdq, xx, KE1b, H12_dq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 27 */
   {
     {OP_cvtdq2ps, 0x0f5b10, "cvtdq2ps", Vps, xx, Wdq, xx, xx, mrm, x, END_LIST},
     {OP_cvttps2dq, 0xf30f5b10, "cvttps2dq", Vdq, xx, Wps, xx, xx, mrm, x, END_LIST},
     {OP_cvtps2dq, 0x660f5b10, "cvtps2dq", Vdq, xx, Wps, xx, xx, mrm, x, END_LIST},
     {INVALID, 0xf20f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Vvs, xx, Wx, xx, xx, mrm|vex, x, tevexw[56][0]},
-    {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, tpe[27][9]},
-    {OP_vcvtps2dq, 0x660f5b10, "vcvtps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, tpe[27][10]},
+    {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Vvs, xx, Wx, xx, xx, mrm|vex, x, tevexwb[56][0]},
+    {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[250][0]},
+    {OP_vcvtps2dq, 0x660f5b10, "vcvtps2dq", Vx, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[249][0]},
     {INVALID, 0xf20f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f5b10, "(evex_W ext 56)", xx, xx, xx, xx, xx, mrm|evex, x, 56},
-    {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, END_LIST},
-    {OP_vcvtps2dq, 0x660f5b10, "vcvtps2dq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5b10, "(evex_Wb ext 56)", xx, xx, xx, xx, xx, mrm|evex, x, 56},
+    {EVEX_Wb_EXT, 0x660f5b00, "(evex_Wb ext 250)", xx, xx, xx, xx, xx, mrm|evex, x, 250},
+    {EVEX_Wb_EXT, 0x660f5b00, "(evex_Wb ext 249)", xx, xx, xx, xx, xx, mrm|evex, x, 249},
     {INVALID, 0xf20f5b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 28 */
   {
@@ -3538,56 +3533,56 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_subss, 0xf30f5c10, "subss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_subpd, 0x660f5c10, "subpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_subsd, 0xf20f5c10, "subsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vsubps, 0x0f5c10, "vsubps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[28][8]},
+    {OP_vsubps, 0x0f5c10, "vsubps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[212][0]},
     {OP_vsubss, 0xf30f5c10, "vsubss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[28][9]},
-    {OP_vsubpd, 0x660f5c10, "vsubpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[28][10]},
+    {OP_vsubpd, 0x660f5c10, "vsubpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[212][2]},
     {OP_vsubsd, 0xf20f5c10, "vsubsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[28][11]},
-    {OP_vsubps, 0x0f5c10, "vsubps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
-    {OP_vsubss, 0xf30f5c10, "vsubss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
-    {OP_vsubpd, 0x660f5c50, "vsubpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
-    {OP_vsubsd, 0xf20f5c50, "vsubsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5c10, "(evex_Wb ext 212)", xx, xx, xx, xx, xx, mrm|evex, x, 212},
+    {OP_vsubss, 0xf30f5c00, "vsubss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5c50, "(evex_Wb ext 212)", xx, xx, xx, xx, xx, mrm|evex, x, 212},
+    {OP_vsubsd, 0xf20f5c40, "vsubsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 29 */
   {
     {OP_minps, 0x0f5d10, "minps", Vps, xx, Wps, Vps, xx, mrm, x, END_LIST},
     {OP_minss, 0xf30f5d10, "minss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_minpd, 0x660f5d10, "minpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_minsd, 0xf20f5d10, "minsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vminps, 0x0f5d10, "vminps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[29][8]},
+    {OP_vminps, 0x0f5d10, "vminps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[213][0]},
     {OP_vminss, 0xf30f5d10, "vminss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[29][9]},
-    {OP_vminpd, 0x660f5d10, "vminpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[29][10]},
+    {OP_vminpd, 0x660f5d10, "vminpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[213][2]},
     {OP_vminsd, 0xf20f5d10, "vminsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[29][11]},
-    {OP_vminps, 0x0f5d10, "vminps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
-    {OP_vminss, 0xf30f5d10, "vminss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
-    {OP_vminpd, 0x660f5d50, "vminpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
-    {OP_vminsd, 0xf20f5d50, "vminsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5d10, "(evex_Wb ext 213)", xx, xx, xx, xx, xx, mrm|evex, x, 213},
+    {OP_vminss, 0xf30f5d00, "vminss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5d50, "(evex_Wb ext 213)", xx, xx, xx, xx, xx, mrm|evex, x, 213},
+    {OP_vminsd, 0xf20f5d40, "vminsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 30 */
   {
     {OP_divps, 0x0f5e10, "divps", Vps, xx, Wps, Vps, xx, mrm, x, END_LIST},
     {OP_divss, 0xf30f5e10, "divss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_divpd, 0x660f5e10, "divpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_divsd, 0xf20f5e10, "divsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vdivps, 0x0f5e10, "vdivps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[30][8]},
+    {OP_vdivps, 0x0f5e10, "vdivps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[214][0]},
     {OP_vdivss, 0xf30f5e10, "vdivss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[30][9]},
-    {OP_vdivpd, 0x660f5e10, "vdivpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[30][10]},
+    {OP_vdivpd, 0x660f5e10, "vdivpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[214][2]},
     {OP_vdivsd, 0xf20f5e10, "vdivsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[30][11]},
-    {OP_vdivps, 0x0f5e10, "vdivps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
-    {OP_vdivss, 0xf30f5e10, "vdivss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
-    {OP_vdivpd, 0x660f5e50, "vdivpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
-    {OP_vdivsd, 0xf20f5e50, "vdivsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5e10, "(evex_Wb ext 214)", xx, xx, xx, xx, xx, mrm|evex, x, 214},
+    {OP_vdivss, 0xf30f5e00, "vdivss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5e50, "(evex_Wb ext 214)", xx, xx, xx, xx, xx, mrm|evex, x, 214},
+    {OP_vdivsd, 0xf20f5e40, "vdivsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 31 */
   {
     {OP_maxps, 0x0f5f10, "maxps", Vps, xx, Wps, Vps, xx, mrm, x, END_LIST},
     {OP_maxss, 0xf30f5f10, "maxss", Vss, xx, Wss, Vss, xx, mrm, x, END_LIST},
     {OP_maxpd, 0x660f5f10, "maxpd", Vpd, xx, Wpd, Vpd, xx, mrm, x, END_LIST},
     {OP_maxsd, 0xf20f5f10, "maxsd", Vsd, xx, Wsd, Vsd, xx, mrm, x, END_LIST},
-    {OP_vmaxps, 0x0f5f10, "vmaxps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tpe[31][8]},
+    {OP_vmaxps, 0x0f5f10, "vmaxps", Vvs, xx, Hvs, Wvs, xx, mrm|vex, x, tevexwb[215][0]},
     {OP_vmaxss, 0xf30f5f10, "vmaxss", Vdq, xx, Hdq, Wss, xx, mrm|vex, x, tpe[31][9]},
-    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tpe[31][10]},
+    {OP_vmaxpd, 0x660f5f10, "vmaxpd", Vvd, xx, Hvd, Wvd, xx, mrm|vex, x, tevexwb[215][2]},
     {OP_vmaxsd, 0xf20f5f10, "vmaxsd", Vdq, xx, Hdq, Wsd, xx, mrm|vex, x, tpe[31][11]},
-    {OP_vmaxps,   0x0f5f10, "vmaxps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, END_LIST},
-    {OP_vmaxss, 0xf30f5f10, "vmaxss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
-    {OP_vmaxpd, 0x660f5f50, "vmaxpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, END_LIST},
-    {OP_vmaxsd, 0xf20f5f50, "vmaxsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x0f5f10, "(evex_Wb ext 215)", xx, xx, xx, xx, xx, mrm|evex, x, 215},
+    {OP_vmaxss, 0xf30f5f00, "vmaxss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f5f50, "(evex_Wb ext 215)", xx, xx, xx, xx, xx, mrm|evex, x, 215},
+    {OP_vmaxsd, 0xf20f5f40, "vmaxsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, END_LIST},
   }, /* prefix extension 32 */
   {
     {OP_punpcklbw,   0x0f6010, "punpcklbw", Pq, xx, Qq, Pq, xx, mrm, x, tpe[32][2]},
@@ -3600,7 +3595,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf20f6010, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6010, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6010, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpcklbw, 0x660f6010, "vpunpcklbw", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpunpcklbw, 0x660f6000, "vpunpcklbw", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6010, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 33 */
   {
@@ -3614,7 +3609,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf20f6110, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpcklwd, 0x660f6110, "vpunpcklwd", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpunpcklwd, 0x660f6100, "vpunpcklwd", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 34 */
   {
@@ -3624,11 +3619,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf20f6210, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,        0x0f6210, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0xf30f6210, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpunpckldq, 0x660f6210, "vpunpckldq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[34][10]},
+    {OP_vpunpckldq, 0x660f6210, "vpunpckldq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[235][0]},
     {INVALID,      0xf20f6210, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpckldq, 0x660f6210, "vpunpckldq", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f6200, "(evex_Wb ext 235)", xx, xx, xx, xx, xx, mrm|evex, x, 235},
     {INVALID, 0xf20f6210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 35 */
   {
@@ -3642,7 +3637,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,     0xf20f6310, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpacksswb, 0x660f6310, "vpacksswb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpacksswb, 0x660f6300, "vpacksswb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 36 */
   {
@@ -3656,7 +3651,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20f6410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpcmpgtb, 0x660f6410, "vpcmpgtb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpcmpgtb, 0x660f6400, "vpcmpgtb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 37 */
   {
@@ -3670,7 +3665,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20f6510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpcmpgtw, 0x660f6510, "vpcmpgtw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpcmpgtw, 0x660f6500, "vpcmpgtw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 38 */
   {
@@ -3680,11 +3675,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20f6610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0f6610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30f6610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpcmpgtd, 0x660f6610, "vpcmpgtd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[38][10]},
+    {OP_vpcmpgtd, 0x660f6610, "vpcmpgtd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[236][0]},
     {INVALID,    0xf20f6610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpcmpgtd, 0x660f6610, "vpcmpgtd", KPb, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f6600, "(evex_Wb ext 236)", xx, xx, xx, xx, xx, mrm|evex, x, 236},
     {INVALID, 0xf20f6610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 39 */
   {
@@ -3698,7 +3693,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,     0xf20f6710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpackuswb, 0x660f6710, "vpackuswb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpackuswb, 0x660f6700, "vpackuswb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 40 */
   {
@@ -3712,7 +3707,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf20f6810, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpckhbw, 0x660f6810, "vpunpckhbw", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpunpckhbw, 0x660f6800, "vpunpckhbw", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 41 */
   {
@@ -3726,7 +3721,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf20f6910, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpckhwd, 0x660f6910, "vpunpckhwd", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpunpckhwd, 0x660f6900, "vpunpckhwd", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f6910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 42 */
   {
@@ -3736,11 +3731,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf20f6a10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,        0x0f6a10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0xf30f6a10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpunpckhdq, 0x660f6a10, "vpunpckhdq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[42][10]},
+    {OP_vpunpckhdq, 0x660f6a10, "vpunpckhdq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[237][0]},
     {INVALID,      0xf20f6a10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpckhdq, 0x660f6a10, "vpunpckhdq", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f6a00, "(evex_Wb ext 237)", xx, xx, xx, xx, xx, mrm|evex, x, 237},
     {INVALID, 0xf20f6a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 43 */
   {
@@ -3750,11 +3745,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,     0xf20f6b10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,       0x0f6b10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,     0xf30f6b10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpackssdw, 0x660f6b10, "vpackssdw", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[43][10]},
+    {OP_vpackssdw, 0x660f6b10, "vpackssdw", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[238][0]},
     {INVALID,     0xf20f6b10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpackssdw, 0x660f6b10, "vpackssdw", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f6b00, "(evex_Wb ext 238)", xx, xx, xx, xx, xx, mrm|evex, x, 238},
     {INVALID, 0xf20f6b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 44 */
   {
@@ -3764,11 +3759,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf20f6c10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,         0x0f6c10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,       0xf30f6c10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpunpcklqdq, 0x660f6c10, "vpunpcklqdq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[44][10]},
+    {OP_vpunpcklqdq, 0x660f6c10, "vpunpcklqdq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[216][2]},
     {INVALID,       0xf20f6c10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpcklqdq, 0x660f6c50, "vpunpcklqdq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f6c40, "(evex_Wb ext 216)", xx, xx, xx, xx, xx, mrm|evex, x, 216},
     {INVALID, 0xf20f6c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 45 */
   {
@@ -3778,11 +3773,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,       0xf20f6d10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,         0x0f6d10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,       0xf30f6d10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpunpckhqdq, 0x660f6d10, "vpunpckhqdq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[45][10]},
+    {OP_vpunpckhqdq, 0x660f6d10, "vpunpckhqdq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[219][2]},
     {INVALID,       0xf20f6d10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f6d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpunpckhqdq, 0x660f6d50, "vpunpckhqdq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f6d40, "(evex_Wb ext 219)", xx, xx, xx, xx, xx, mrm|evex, x, 219},
     {INVALID, 0xf20f6d10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 46 */
   {
@@ -3798,7 +3793,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f6e10, "(evex_W ext 135)", xx, xx, xx, xx, xx, mrm|evex, x, 135},
+    {EVEX_Wb_EXT, 0x660f6e10, "(evex_Wb ext 136)", xx, xx, xx, xx, xx, mrm|evex, x, 136},
     {INVALID, 0xf20f6e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 47: all assumed to have Ib */
   {
@@ -3808,12 +3803,12 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_pshuflw, 0xf20f7010, "pshuflw", Vdq, xx, Wdq, Ib, xx, mrm, x, END_LIST},
     {INVALID,       0x0f7010, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_vpshufhw, 0xf30f7010, "vpshufhw", Vx, xx, Wx, Ib, xx, mrm|vex, x, tpe[47][9]},
-    {OP_vpshufd,  0x660f7010, "vpshufd",  Vx, xx, Wx, Ib, xx, mrm|vex, x, tpe[47][10]},
+    {OP_vpshufd,  0x660f7010, "vpshufd",  Vx, xx, Wx, Ib, xx, mrm|vex, x, tevexwb[239][0]},
     {OP_vpshuflw, 0xf20f7010, "vpshuflw", Vx, xx, Wx, Ib, xx, mrm|vex, x, tpe[47][11]},
     {INVALID,   0x0f7010, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpshufhw, 0xf30f7010, "vpshufhw", Ve, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
-    {OP_vpshufd,  0x660f7010, "vpshufd",  Ve, xx, KEw, Ib, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vpshuflw, 0xf20f7010, "vpshuflw", Ve, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpshufhw, 0xf30f7000, "vpshufhw", Ve, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f7000, "(evex_Wb ext 239)", xx, xx, xx, xx, xx, mrm|evex, x, 239},
+    {OP_vpshuflw, 0xf20f7000, "vpshuflw", Ve, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
   }, /* prefix extension 48 */
   {
     {OP_pcmpeqb,   0x0f7410, "pcmpeqb", Pq, xx, Qq, Pq, xx, mrm, x, tpe[48][2]},
@@ -3826,7 +3821,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20f7410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f7410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpcmpeqb, 0x660f7410, "vpcmpeqb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpcmpeqb, 0x660f7400, "vpcmpeqb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f7410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 49 */
   {
@@ -3840,7 +3835,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20f7510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f7510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpcmpeqw, 0x660f7510, "vpcmpeqw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpcmpeqw, 0x660f7500, "vpcmpeqw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f7510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 50 */
   {
@@ -3850,11 +3845,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20f7610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0f7610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30f7610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpcmpeqd, 0x660f7610, "vpcmpeqd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[50][10]},
+    {OP_vpcmpeqd, 0x660f7610, "vpcmpeqd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[240][0]},
     {INVALID,    0xf20f7610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0f7610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpcmpeqd, 0x660f7610, "vpcmpeqd", KPw, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f7600, "(evex_Wb ext 240)", xx, xx, xx, xx, xx, mrm|evex, x, 240},
     {INVALID, 0xf20f7610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 51 */
   {
@@ -3869,7 +3864,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf20f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f7e10, "(vex_W ext 136)", xx, xx, xx, xx, xx, mrm|evex, x, 136},
+    {EVEX_Wb_EXT, 0x660f7e10, "(evex_Wb ext 137)", xx, xx, xx, xx, xx, mrm|evex, x, 137},
     {INVALID, 0xf20f7e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 52: all assumed to have Ib */
   {
@@ -3877,14 +3872,14 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cmpss, 0xf30fc210, "cmpss", Vss, xx, Wss, Ib, Vss, mrm, x, END_LIST},
     {OP_cmppd, 0x660fc210, "cmppd", Vpd, xx, Wpd, Ib, Vpd, mrm, x, END_LIST},
     {OP_cmpsd, 0xf20fc210, "cmpsd", Vsd, xx, Wsd, Ib, Vsd, mrm, x, END_LIST},
-    {OP_vcmpps, 0x0fc210, "vcmpps", Vvs, xx, Hvs, Wvs, Ib, mrm|vex, x, tpe[52][8]},
+    {OP_vcmpps, 0x0fc210, "vcmpps", Vvs, xx, Hvs, Wvs, Ib, mrm|vex, x, tevexwb[224][0]},
     {OP_vcmpss, 0xf30fc210, "vcmpss", Vdq, xx, Hdq, Wss, Ib, mrm|vex, x, tpe[52][9]},
-    {OP_vcmppd, 0x660fc210, "vcmppd", Vvd, xx, Hvd, Wvd, Ib, mrm|vex, x, tpe[52][10]},
+    {OP_vcmppd, 0x660fc210, "vcmppd", Vvd, xx, Hvd, Wvd, Ib, mrm|vex, x, tevexwb[224][2]},
     {OP_vcmpsd, 0xf20fc210, "vcmpsd", Vdq, xx, Hdq, Wsd, Ib, mrm|vex, x, tpe[52][11]},
-    {OP_vcmpps, 0x0fc210, "vcmpps", KPw, xx, KEw, Ib, Hes, xop|mrm|evex|ttfv, x, exop[90]},
-    {OP_vcmpss, 0xf30fc210, "vcmpss", KP1b, xx, KE1b, Ib, Hdq, xop|mrm|evex|ttt1s, x, exop[91]},
-    {OP_vcmppd, 0x660fc250, "vcmppd", KPb, xx, KEb, Ib, Hed, xop|mrm|evex|ttfv, x, exop[92]},
-    {OP_vcmpsd, 0xf20fc250, "vcmpsd", KP1b, xx, KE1b, Ib, Hdq, xop|mrm|evex|ttt1s, x, exop[93]},
+    {EVEX_Wb_EXT, 0x0fc200, "(evex_Wb ext 224)", xx, xx, xx, xx, xx, mrm|evex, x, 224},
+    {OP_vcmpss, 0xf30fc200, "vcmpss", KP1b, xx, KE1b, Ib, Hdq, xop|mrm|evex|ttt1s, x, exop[132]},
+    {EVEX_Wb_EXT, 0x660fc240, "(evex_Wb ext 224)", xx, xx, xx, xx, xx, mrm|evex, x, 224},
+    {OP_vcmpsd, 0xf20fc240, "vcmpsd", KP1b, xx, KE1b, Ib, Hdq, xop|mrm|evex|ttt1s, x, exop[133]},
   }, /* prefix extension 53: all assumed to have Ib */
   { /* note that gnu tools print immed first: pinsrw $0x0,(%esp),%xmm0 */
     /* FIXME i#1388: pinsrw actually reads only bottom word of reg */
@@ -3898,7 +3893,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fc410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fc410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpinsrw, 0x660fc410, "vpinsrw", Vdq, xx, H14_dq, Rd_Mw, Ib, mrm|evex|ttt1s|inopsz2, x, END_LIST},
+    {OP_vpinsrw, 0x660fc400, "vpinsrw", Vdq, xx, H14_dq, Rd_Mw, Ib, mrm|evex|ttt1s|inopsz2, x, END_LIST},
     {INVALID, 0xf20fc410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 54: all assumed to have Ib */
   { /* note that gnu tools print immed first: pextrw $0x7,%xmm7,%edx */
@@ -3912,7 +3907,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20fc510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fc510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fc510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpextrw, 0x660fc510, "vpextrw", Gd, xx, Uw_dq, Ib, xx, mrm|evex|ttnone|inopsz2, x, tvex[37][2]},
+    {OP_vpextrw, 0x660fc500, "vpextrw", Gd, xx, Uw_dq, Ib, xx, mrm|evex|ttnone|inopsz2, x, tvex[37][2]},
     {INVALID, 0xf20fc510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 55: all assumed to have Ib */
   {
@@ -3920,13 +3915,13 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID, 0xf30fc610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_shufpd, 0x660fc610, "shufpd", Vpd, xx, Wpd, Ib, Vpd, mrm, x, END_LIST},
     {INVALID, 0xf20fc610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vshufps, 0x0fc610, "vshufps", Vvs, xx, Hvs, Wvs, Ib, mrm|vex, x, tpe[55][8]},
+    {OP_vshufps, 0x0fc610, "vshufps", Vvs, xx, Hvs, Wvs, Ib, mrm|vex, x, tevexwb[221][0]},
     {INVALID, 0xf30fc610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vshufpd, 0x660fc610, "vshufpd", Vvd, xx, Hvd, Wvd, Ib, mrm|vex, x, tpe[55][10]},
+    {OP_vshufpd, 0x660fc610, "vshufpd", Vvd, xx, Hvd, Wvd, Ib, mrm|vex, x, tevexwb[221][2]},
     {INVALID, 0xf20fc610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vshufps, 0x0fc610, "vshufps", Ves, xx, KEw, Ib, Hes, xop|mrm|evex|ttfv, x, exop[94]},
+    {EVEX_Wb_EXT, 0x0fc600, "(evex_Wb ext 221)", xx, xx, xx, xx, xx, mrm|evex, x, 221},
     {INVALID, 0xf30fc610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vshufpd, 0x660fc650, "vshufpd", Ved, xx, KEb, Ib, Hed, xop|mrm|evex|ttfv, x, exop[95]},
+    {EVEX_Wb_EXT, 0x660fc640, "(evex_Wb ext 221)", xx, xx, xx, xx, xx, mrm|evex, x, 221},
     {INVALID, 0xf20fc610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 56 */
   {
@@ -3940,7 +3935,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,  0xf20fd110, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fd110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsrlw, 0x660fd110, "vpsrlw", Ve, xx, KEd, He, Wdq, mrm|evex|ttm128, x, tpe[104][10]},
+    {OP_vpsrlw, 0x660fd100, "vpsrlw", Ve, xx, KEd, He, Wdq, mrm|evex|ttm128, x, tpe[104][10]},
     {INVALID, 0xf20fd110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 57 */
   {
@@ -3954,7 +3949,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,  0xf20fd210, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fd210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660fd210, "(evex_W ext 122)", xx, xx, xx, xx, xx, mrm|evex, x, 122},
+    {EVEX_Wb_EXT, 0x660fd210, "(evex_Wb ext 123)", xx, xx, xx, xx, xx, mrm|evex, x, 123},
     {INVALID, 0xf20fd210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 58 */
   {
@@ -3968,7 +3963,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,  0xf20fd310, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fd310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660fd310, "(evex_W ext 124)", xx, xx, xx, xx, xx, mrm|evex, x, 124},
+    {EVEX_Wb_EXT, 0x660fd310, "(evex_Wb ext 125)", xx, xx, xx, xx, xx, mrm|evex, x, 125},
     {INVALID, 0xf20fd310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 59 */
   {
@@ -3978,11 +3973,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,  0xf20fd410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0fd410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,  0xf30fd410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddq, 0x660fd410, "vpaddq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[59][10]},
+    {OP_vpaddq, 0x660fd410, "vpaddq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[225][2]},
     {INVALID,  0xf20fd410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0fd410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddq, 0x660fd450, "vpaddq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660fd440, "(evex_Wb ext 225)", xx, xx, xx, xx, xx, mrm|evex, x, 225},
     {INVALID, 0xf20fd410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 60 */
   {
@@ -3996,7 +3991,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20fd510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0fd510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmullw, 0x660fd510, "vpmullw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmullw, 0x660fd500, "vpmullw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fd510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 61 */
   {
@@ -4038,7 +4033,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fd810, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fd810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubusb, 0x660fd810, "vpsubusb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsubusb, 0x660fd800, "vpsubusb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fd810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 64 */
   {
@@ -4052,7 +4047,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fd910, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fd910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fd910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubusw, 0x660fd910, "vpsubusw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsubusw, 0x660fd900, "vpsubusw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fd910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 65 */
   {
@@ -4066,7 +4061,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fda10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fda10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fda10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpminub, 0x660fda10, "vpminub", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpminub, 0x660fda00, "vpminub", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fda10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 66 */
   {
@@ -4080,7 +4075,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fdb10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fdb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fdb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660fdb10, "(evex_W ext 41)", xx, xx, xx, xx, xx, mrm|evex, x, 41},
+    {EVEX_Wb_EXT, 0x660fdb10, "(evex_Wb ext 41)", xx, xx, xx, xx, xx, mrm|evex, x, 41},
     {INVALID, 0xf20fdb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 67 */
   {
@@ -4094,7 +4089,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fdc10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fdc10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fdc10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddusb, 0x660fdc10, "vpaddusb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpaddusb, 0x660fdc00, "vpaddusb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fdc10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 68 */
   {
@@ -4108,7 +4103,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fdd10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fdd10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fdd10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddusw, 0x660fdd10, "vpaddusw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpaddusw, 0x660fdd00, "vpaddusw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fdd10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 69 */
   {
@@ -4122,7 +4117,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fde10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fde10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fde10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmaxub, 0x660fde10, "vpmaxub", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmaxub, 0x660fde00, "vpmaxub", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fde10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 70 */
   {
@@ -4136,7 +4131,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fdf10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fdf10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fdf10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660fdf10, "(evex_W ext 42)", xx, xx, xx, xx, xx, mrm|evex, x, 42},
+    {EVEX_Wb_EXT, 0x660fdf10, "(evex_Wb ext 42)", xx, xx, xx, xx, xx, mrm|evex, x, 42},
     {INVALID, 0xf20fdf10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 71 */
   {
@@ -4150,7 +4145,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe010, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe010, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe010, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpavgb, 0x660fe010, "vpavgb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpavgb, 0x660fe000, "vpavgb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fe010, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 72 */
   {
@@ -4164,7 +4159,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe110, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsraw, 0x660fe110, "vpsraw", Ve, xx, KEd, He, Wdq, mrm|evex|ttm128, x, tpe[105][10]},
+    {OP_vpsraw, 0x660fe100, "vpsraw", Ve, xx, KEd, He, Wdq, mrm|evex|ttm128, x, tpe[105][10]},
     {INVALID, 0xf20fe110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 73 */
   {
@@ -4178,7 +4173,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe210, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x60fe210, "(evex_W ext 120)", xx, xx, xx, xx, xx, mrm|evex, x, 120},
+    {EVEX_Wb_EXT, 0x60fe210, "(evex_Wb ext 121)", xx, xx, xx, xx, xx, mrm|evex, x, 121},
     {INVALID, 0xf20fe210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 74 */
   {
@@ -4192,7 +4187,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe310, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpavgw, 0x660fe310, "vpavgw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpavgw, 0x660fe300, "vpavgw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fe310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 75 */
   {
@@ -4206,7 +4201,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmulhuw, 0x660fe410, "vpmulhuw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmulhuw, 0x660fe400, "vpmulhuw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fe410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 76 */
   {
@@ -4220,7 +4215,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmulhw, 0x660fe510, "vpmulhw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmulhw, 0x660fe500, "vpmulhw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fe510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 77 */
   {
@@ -4229,19 +4224,13 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvttpd2dq,0x660fe610, "cvttpd2dq", Vdq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2dq, 0xf20fe610, "cvtpd2dq",  Vdq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {INVALID,        0x0fe610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, tevexw[57][0]},
-    {OP_vcvttpd2dq,0x660fe610, "vcvttpd2dq", Vx, xx, Wvd, xx, xx, mrm|vex, x, tpe[77][10]},
-    {OP_vcvtpd2dq, 0xf20fe610, "vcvtpd2dq",  Vx, xx, Wvd, xx, xx, mrm|vex, x, tpe[77][11]},
+    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, tevexwb[57][0]},
+    {OP_vcvttpd2dq,0x660fe610, "vcvttpd2dq", Vx, xx, Wvd, xx, xx, mrm|vex, x, tevexwb[222][2]},
+    {OP_vcvtpd2dq, 0xf20fe610, "vcvtpd2dq",  Vx, xx, Wvd, xx, xx, mrm|vex, x, tevexwb[223][2]},
     {INVALID,   0x0fe610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf30fe610, "(evex_W ext 57)", xx, xx, xx, xx, xx, mrm|evex, x, 57},
-    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
-     * This also affects the existing VEX version if it exists.
-     */
-    {OP_vcvttpd2dq,0x660fe650, "vcvttpd2dq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
-    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
-     * This also affects the existing VEX version if it exists.
-     */
-    {OP_vcvtpd2dq, 0xf20fe650, "vcvtpd2dq",  Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0xf30fe610, "(evex_Wb ext 57)", xx, xx, xx, xx, xx, mrm|evex, x, 57},
+    {EVEX_Wb_EXT, 0x660fe650, "(evex_Wb ext 222)", xx, xx, xx, xx, xx, mrm|evex, x, 222},
+    {EVEX_Wb_EXT, 0xf20fe650, "(evex_Wb ext 223)", xx, xx, xx, xx, xx, mrm|evex, x, 223},
   }, /* prefix extension 78 */
   {
     {OP_movntq,    0x0fe710, "movntq",  Mq, xx, Pq, xx, xx, mrm, x, END_LIST},
@@ -4254,7 +4243,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf30fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmovntdq, 0x660fe710, "vmovntdq", Me, xx, Ve, xx, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vmovntdq, 0x660fe700, "vmovntdq", Me, xx, Ve, xx, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID,     0xf20fe710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 79 */
   {
@@ -4268,7 +4257,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe810, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubsb, 0x660fe810, "vpsubsb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsubsb, 0x660fe800, "vpsubsb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fe810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 80 */
   {
@@ -4282,7 +4271,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fe910, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fe910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fe910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubsw, 0x660fe910, "vpsubsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsubsw, 0x660fe900, "vpsubsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fe910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 81 */
   {
@@ -4296,7 +4285,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fea10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fea10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fea10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpminsw, 0x660fea10, "vpminsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpminsw, 0x660fea00, "vpminsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fea10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 82 */
   {
@@ -4310,7 +4299,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20feb10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0feb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30feb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660feb10, "(evex_W ext 43)", xx, xx, xx, xx, xx, mrm|evex, x, 43},
+    {EVEX_Wb_EXT, 0x660feb10, "(evex_Wb ext 43)", xx, xx, xx, xx, xx, mrm|evex, x, 43},
     {INVALID, 0xf20feb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 83 */
   {
@@ -4324,7 +4313,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fec10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fec10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fec10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddsb, 0x660fec10, "vpaddsb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpaddsb, 0x660fec00, "vpaddsb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fec10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 84 */
   {
@@ -4338,7 +4327,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fed10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fed10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fed10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddsw, 0x660fed10, "vpaddsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpaddsw, 0x660fed00, "vpaddsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fed10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 85 */
   {
@@ -4352,7 +4341,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fee10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fee10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fee10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmaxsw, 0x660fee10, "vpmaxsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmaxsw, 0x660fee00, "vpmaxsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20fee10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 86 */
   {
@@ -4366,7 +4355,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20fef10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0fef10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30fef10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660fef10, "(evex_W ext 44)", xx, xx, xx, xx, xx, mrm|evex, x, 44},
+    {EVEX_Wb_EXT, 0x660fef10, "(evex_Wb ext 44)", xx, xx, xx, xx, xx, mrm|evex, x, 44},
     {INVALID, 0xf20fef10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 87 */
   {
@@ -4380,7 +4369,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff110, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsllw, 0x660ff110, "vpsllw", Ve, xx, KEd, He, Wdq, mrm|evex|ttm128, x, tpe[106][10]},
+    {OP_vpsllw, 0x660ff100, "vpsllw", Ve, xx, KEd, He, Wdq, mrm|evex|ttm128, x, tpe[106][10]},
     {INVALID, 0xf20ff110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 88 */
   {
@@ -4394,7 +4383,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff210, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpslld, 0x660ff210, "vpslld", Ve, xx, KEw, He, Wdq, mrm|evex|ttm128, x, tpe[109][10]},
+    {EVEX_Wb_EXT, 0x660ff200, "(evex_Wb ext 243)", xx, xx, xx, xx, xx, mrm|evex, x, 243},
     {INVALID, 0xf20ff210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 89 */
   {
@@ -4408,7 +4397,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff310, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsllq, 0x660ff350, "vpsllq", Ve, xx, KEb, He, Wdq, mrm|evex|ttm128, x, tpe[111][10]},
+    {EVEX_Wb_EXT, 0x660ff340, "(evex_Wb ext 228)", xx, xx, xx, xx, xx, mrm|evex, x, 228},
     {INVALID, 0xf20ff310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 90 */
   {
@@ -4418,11 +4407,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0ff410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30ff410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpmuludq, 0x660ff410, "vpmuludq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[90][10]},
+    {OP_vpmuludq, 0x660ff410, "vpmuludq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[217][2]},
     {INVALID,    0xf20ff410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmuludq, 0x660ff450, "vpmuludq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660ff440, "(evex_Wb ext 217)", xx, xx, xx, xx, xx, mrm|evex, x, 217},
     {INVALID, 0xf20ff410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 91 */
   {
@@ -4436,7 +4425,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmaddwd, 0x660ff510, "vpmaddwd", Ve, xx, KEw, He, We, mrm|evex, x, END_LIST},
+    {OP_vpmaddwd, 0x660ff500, "vpmaddwd", Ve, xx, KEw, He, We, mrm|evex, x, END_LIST},
     {INVALID, 0xf20ff510, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 92 */
   {
@@ -4450,7 +4439,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsadbw, 0x660ff610, "vpsadbw", Ve, xx, He, We, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsadbw, 0x660ff600, "vpsadbw", Ve, xx, He, We, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20ff610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 93 */
   {
@@ -4478,7 +4467,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff810, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubb, 0x660ff810, "vpsubb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsubb, 0x660ff800, "vpsubb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20ff810, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 95 */
   {
@@ -4492,7 +4481,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ff910, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ff910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ff910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubw, 0x660ff910, "vpsubw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsubw, 0x660ff900, "vpsubw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20ff910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 96 */
   {
@@ -4502,11 +4491,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ffa10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0ffa10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30ffa10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpsubd, 0x660ffa10, "vpsubd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[96][10]},
+    {OP_vpsubd, 0x660ffa10, "vpsubd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[241][0]},
     {INVALID,    0xf20ffa10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ffa10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ffa10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubd, 0x660ffa10, "vpsubd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660ffa00, "(evex_Wb ext 241)", xx, xx, xx, xx, xx, mrm|evex, x, 241},
     {INVALID, 0xf20ffa10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 97 */
   {
@@ -4516,11 +4505,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,  0xf20ffb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x0ffb10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,  0xf30ffb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubq, 0x660ffb10, "vpsubq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[97][10]},
+    {OP_vpsubq, 0x660ffb10, "vpsubq", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[226][2]},
     {INVALID,  0xf20ffb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0ffb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ffb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsubq, 0x660ffb50, "vpsubq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660ffb40, "(evex_Wb ext 226)", xx, xx, xx, xx, xx, mrm|evex, x, 226},
     {INVALID, 0xf20ffb10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 98 */
   {
@@ -4534,7 +4523,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ffc10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ffc10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ffc10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddb, 0x660ffc10, "vpaddb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpaddb, 0x660ffc00, "vpaddb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20ffc10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 99 */
   {
@@ -4548,7 +4537,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ffd10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ffd10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ffd10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddw, 0x660ffd10, "vpaddw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpaddw, 0x660ffd00, "vpaddw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20ffd10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 100 */
   {
@@ -4558,11 +4547,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0xf20ffe10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0x0ffe10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,    0xf30ffe10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpaddd, 0x660ffe10, "vpaddd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tpe[100][10]},
+    {OP_vpaddd, 0x660ffe10, "vpaddd", Vx, xx, Hx, Wx, xx, mrm|vex, x, tevexwb[242][0]},
     {INVALID,    0xf20ffe10, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0x0ffe10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30ffe10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpaddd, 0x660ffe10, "vpaddd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660ffe00, "(evex_Wb ext 242)", xx, xx, xx, xx, xx, mrm|evex, x, 242},
     {INVALID, 0xf20ffe10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 101: all assumed to have Ib */
   {
@@ -4576,7 +4565,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7333, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7333, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7333, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsrldq, 0x660f7333, "vpsrldq", He, xx, Ib, We, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsrldq, 0x660f7323, "vpsrldq", He, xx, Ib, We, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f7333, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 102: all assumed to have Ib */
   {
@@ -4590,7 +4579,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7337, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7337, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7337, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpslldq, 0x660f7337, "vpslldq", He, xx, Ib, We, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpslldq, 0x660f7327, "vpslldq", He, xx, Ib, We, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f7337, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 103 */
   {
@@ -4621,7 +4610,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7132, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7132, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7132, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsrlw, 0x660f7132, "vpsrlw", He, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsrlw, 0x660f7122, "vpsrlw", He, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f7132, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 105: all assumed to have Ib */
   {
@@ -4636,7 +4625,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7134, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7134, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7134, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsraw, 0x660f7134, "vpsraw", He, xx, KEw, Ib, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsraw, 0x660f7124, "vpsraw", He, xx, KEw, Ib, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f7134, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 106: all assumed to have Ib */
   {
@@ -4651,7 +4640,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7136, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7136, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7136, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsllw,  0x660f7136, "vpsllw", He, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpsllw,  0x660f7126, "vpsllw", He, xx, KEd, Ib, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf20f7136, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 107: all assumed to have Ib */
   {
@@ -4662,11 +4651,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7232, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0f7232, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0xf30f7232, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsrld,  0x660f7232, "vpsrld", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexw[122][0]},
+    {OP_vpsrld,  0x660f7232, "vpsrld", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexwb[123][0]},
     {INVALID,   0xf20f7232, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7232, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7232, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f7232, "(evex_W ext 123)", xx, xx, xx, xx, xx, mrm|evex, x, 123},
+    {EVEX_Wb_EXT, 0x660f7232, "(evex_Wb ext 124)", xx, xx, xx, xx, xx, mrm|evex, x, 124},
     {INVALID, 0xf20f7232, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 108: all assumed to have Ib */
   {
@@ -4677,11 +4666,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7234, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0f7234, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0xf30f7234, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsrad,  0x660f7234, "vpsrad", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexw[120][0]},
+    {OP_vpsrad,  0x660f7234, "vpsrad", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexwb[121][0]},
     {INVALID,   0xf20f7234, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7234, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7234, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x660f7234, "(evex_W ext 121)", xx, xx, xx, xx, xx, mrm|evex, x, 121},
+    {EVEX_Wb_EXT, 0x660f7234, "(evex_Wb ext 122)", xx, xx, xx, xx, xx, mrm|evex, x, 122},
     {INVALID, 0xf20f7234, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 109: all assumed to have Ib */
   {
@@ -4692,11 +4681,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7236, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0f7236, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0xf30f7236, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpslld,  0x660f7236, "vpslld", Hx, xx, Ib, Ux, xx, mrm|vex, x, tpe[88][10]},
+    {OP_vpslld,  0x660f7236, "vpslld", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexwb[243][0]},
     {INVALID,   0xf20f7236, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7236, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7236, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpslld,  0x660f7236, "vpslld", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0xf20f7226, "(evex_Wb ext 244)", xx, xx, xx, xx, xx, mrm|evex, x, 244},
     {INVALID, 0xf20f7236, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 110: all assumed to have Ib */
   {
@@ -4707,11 +4696,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7332, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0f7332, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0xf30f7332, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsrlq,  0x660f7332, "vpsrlq", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexw[124][1]},
+    {OP_vpsrlq,  0x660f7332, "vpsrlq", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexwb[125][2]},
     {INVALID,   0xf20f7332, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7332, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7332, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf20f7332, "(evex_W ext 125)", xx, xx, xx, xx, xx, mrm|evex, x, 125},
+    {EVEX_Wb_EXT, 0xf20f7332, "(evex_Wb ext 126)", xx, xx, xx, xx, xx, mrm|evex, x, 126},
     {INVALID, 0xf20f7332, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 111: all assumed to have Ib */
   {
@@ -4722,11 +4711,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,   0xf20f7336, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0f7336, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0xf30f7336, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsllq,  0x660f7336, "vpsllq", Hx, xx, Ib, Ux, xx, mrm|vex, x, tpe[89][10]},
+    {OP_vpsllq,  0x660f7336, "vpsllq", Hx, xx, Ib, Ux, xx, mrm|vex, x, tevexwb[228][2]},
     {INVALID,   0xf20f7336, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7336, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf30f7336, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsllq,  0x660f7376, "vpsllq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x660f7366, "(evex_Wb ext 229)", xx, xx, xx, xx, xx, mrm|evex, x, 229},
     {INVALID, 0xf20f7336, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, /* prefix extension 112 */
   {
@@ -4739,9 +4728,9 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmovdqa, 0x660f6f10, "vmovdqa", Vx, xx, Wx, xx, xx, mrm|vex, x, tpe[113][6]},
     {INVALID,   0xf20f6f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f6f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf30f6f10, "(evex_W ext 11)", xx, xx, xx, xx, xx, mrm|evex, x, 11},
-    {EVEX_W_EXT, 0x660f6f10, "(evex_W ext 8)", xx, xx, xx, xx, xx, mrm|evex, x, 8},
-    {EVEX_W_EXT, 0xf20f6f10, "(evex_W ext 10)", xx, xx, xx, xx, xx, mrm|evex, x, 10},
+    {EVEX_Wb_EXT, 0xf30f6f10, "(evex_Wb ext 11)", xx, xx, xx, xx, xx, mrm|evex, x, 11},
+    {EVEX_Wb_EXT, 0x660f6f10, "(evex_Wb ext 8)", xx, xx, xx, xx, xx, mrm|evex, x, 8},
+    {EVEX_Wb_EXT, 0xf20f6f10, "(evex_Wb ext 10)", xx, xx, xx, xx, xx, mrm|evex, x, 10},
   }, /* prefix extension 113 */
   {
     {OP_movq,     0x0f7f10, "movq", Qq, xx, Pq, xx, xx, mrm, x, tpe[51][1]},
@@ -4753,9 +4742,9 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_vmovdqa, 0x660f7f10, "vmovdqa", Wx, xx, Vx, xx, xx, mrm|vex, x, END_LIST},
     {INVALID,   0xf20f7f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f7f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf30f7f10, "(evex_W ext 13)", xx, xx, xx, xx, xx, mrm|evex, x, 13},
-    {EVEX_W_EXT, 0x660f7f10, "(evex_W ext 9)", xx, xx, xx, xx, xx, mrm|evex, x, 9},
-    {EVEX_W_EXT, 0xf20f7f10, "(evex_W ext 12)", xx, xx, xx, xx, xx, mrm|evex, x, 12},
+    {EVEX_Wb_EXT, 0xf30f7f10, "(evex_Wb ext 13)", xx, xx, xx, xx, xx, mrm|evex, x, 13},
+    {EVEX_Wb_EXT, 0x660f7f10, "(evex_Wb ext 9)", xx, xx, xx, xx, xx, mrm|evex, x, 9},
+    {EVEX_Wb_EXT, 0xf20f7f10, "(evex_Wb ext 12)", xx, xx, xx, xx, xx, mrm|evex, x, 12},
   }, /* prefix extension 114 */
   {
     {INVALID,     0x0f7c10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -4826,7 +4815,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,     0xf2380018, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x380018, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf3380018, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpshufb,   0x66380018, "vpshufb",   Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpshufb,   0x66380008, "vpshufb",   Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf2380018, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 119 */
     {OP_phaddw,      0x380118, "phaddw",  Pq, xx, Qq, Pq, xx, mrm, x, tpe[119][2]},
@@ -4878,7 +4867,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2380418, "(bad)",    xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x380418, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf3380418, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmaddubsw, 0x66380418, "vpmaddubsw",Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmaddubsw, 0x66380408, "vpmaddubsw",Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf2380418, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 123 */
     {OP_phsubw,      0x380518, "phsubw",  Pq, xx, Qq, Pq, xx, mrm, x, tpe[123][2]},
@@ -4969,7 +4958,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2380b18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x380b18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf3380b18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmulhrsw,  0x66380b18, "vpmulhrsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmulhrsw,  0x66380b08, "vpmulhrsw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf2380b18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 130 */
     {OP_pabsb,       0x381c18, "pabsb",   Pq, xx, Qq, xx, xx, mrm, x, tpe[130][2]},
@@ -4982,7 +4971,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2381c18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x381c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf3381c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpabsb, 0x66381c18, "vpabsb",   Ve, xx, KEq, We, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpabsb, 0x66381c08, "vpabsb",   Ve, xx, KEq, We, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf2381c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 131 */
     {OP_pabsw,       0x381d18, "pabsw",   Pq, xx, Qq, xx, xx, mrm, x, tpe[131][2]},
@@ -4995,7 +4984,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2381d18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x381d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf3381d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpabsw, 0x66381d18, "vpabsw",   Ve, xx, KEd, We, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpabsw, 0x66381d08, "vpabsw",   Ve, xx, KEd, We, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID, 0xf2381d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 132 */
     {OP_pabsd,       0x381e18, "pabsd",   Pq, xx, Qq, xx, xx, mrm, x, tpe[132][2]},
@@ -5004,11 +4993,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf2381e18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x381e18, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,      0xf3381e18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpabsd,     0x66381e18, "vpabsd",   Vx, xx, Wx, xx, xx, mrm|vex, x, tevexw[145][0]},
+    {OP_vpabsd,     0x66381e18, "vpabsd",   Vx, xx, Wx, xx, xx, mrm|vex, x, tevexwb[146][0]},
     {INVALID,      0xf2381e18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x381e18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf3381e18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x66381e18, "(evex_W ext 145)", xx, xx, xx, xx, xx, mrm|evex, x, 145},
+    {EVEX_Wb_EXT, 0x66381e18, "(evex_Wb ext 146)", xx, xx, xx, xx, xx, mrm|evex, x, 146},
     {INVALID, 0xf2381e18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 133: all assumed to have Ib */
     {OP_palignr,     0x3a0f18, "palignr", Pq, xx, Qq, Ib, Pq, mrm, x, tpe[133][2]},
@@ -5021,7 +5010,7 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf23a0f18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x3a0f18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf33a0f18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpalignr, 0x663a0f18, "vpalignr", Ve, xx, KEq, Ib, He, xop|mrm|evex|ttfvm, x, exop[100]},
+    {OP_vpalignr, 0x663a0f08, "vpalignr", Ve, xx, KEq, Ib, He, xop|mrm|evex|ttfvm, x, exop[170]},
     {INVALID, 0xf23a0f18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 134 */
     {OP_vmread,      0x0f7810, "vmread",  Ey, xx, Gy, xx, xx, mrm|o64, x, END_LIST},
@@ -5039,10 +5028,10 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf30f7810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x660f7810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20f7810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f7810, "(evex_W ext 49)", xx, xx, xx, xx, xx, mrm|evex, x, 49},
-    {EVEX_W_EXT, 0xf30f7810, "(evex_W ext 54)", xx, xx, xx, xx, xx, mrm|evex, x, 54},
-    {EVEX_W_EXT, 0x660f7810, "(evex_W ext 51)", xx, xx, xx, xx, xx, mrm|evex, x, 51},
-    {EVEX_W_EXT, 0xf20f7810, "(evex_W ext 55)", xx, xx, xx, xx, xx, mrm|evex, x, 55},
+    {EVEX_Wb_EXT, 0x0f7810, "(evex_Wb ext 49)", xx, xx, xx, xx, xx, mrm|evex, x, 49},
+    {EVEX_Wb_EXT, 0xf30f7810, "(evex_Wb ext 54)", xx, xx, xx, xx, xx, mrm|evex, x, 54},
+    {EVEX_Wb_EXT, 0x660f7810, "(evex_Wb ext 51)", xx, xx, xx, xx, xx, mrm|evex, x, 51},
+    {EVEX_Wb_EXT, 0xf20f7810, "(evex_Wb ext 55)", xx, xx, xx, xx, xx, mrm|evex, x, 55},
   }, { /* prefix extension 135 */
     {OP_vmwrite,     0x0f7910, "vmwrite", Gy, xx, Ey, xx, xx, mrm|o64, x, END_LIST},
     {INVALID,      0xf30f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5053,10 +5042,10 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0xf30f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x660f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x0f7910, "(evex_W ext 47)", xx, xx, xx, xx, xx, mrm|evex, x, 47},
-    {EVEX_W_EXT, 0xf30f7910, "(evex_W ext 52)", xx, xx, xx, xx, xx, mrm|evex, x, 52},
-    {EVEX_W_EXT, 0x660f7910, "(evex_W ext 48)", xx, xx, xx, xx, xx, mrm|evex, x, 48},
-    {EVEX_W_EXT, 0xf20f7910, "(evex_W ext 53)", xx, xx, xx, xx, xx, mrm|evex, x, 53},
+    {EVEX_Wb_EXT, 0x0f7910, "(evex_Wb ext 47)", xx, xx, xx, xx, xx, mrm|evex, x, 47},
+    {EVEX_Wb_EXT, 0xf30f7910, "(evex_Wb ext 52)", xx, xx, xx, xx, xx, mrm|evex, x, 52},
+    {EVEX_Wb_EXT, 0x660f7910, "(evex_Wb ext 48)", xx, xx, xx, xx, xx, mrm|evex, x, 48},
+    {EVEX_Wb_EXT, 0xf20f7910, "(evex_Wb ext 53)", xx, xx, xx, xx, xx, mrm|evex, x, 53},
   }, { /* prefix extension 136 */
     {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, END_LIST},
     /* XXX: if cpuid doesn't show lzcnt support, this is treated as bsr */
@@ -5366,9 +5355,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x660f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20f7b10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x0f7b10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT,   0xf30f7b10, "(evex_W ext 58)", xx, xx, xx, xx, xx, mrm|evex, x, 58},
-    {EVEX_W_EXT,   0x660f7b10, "(evex_W ext 46)", xx, xx, xx, xx, xx, mrm|evex, x, 46},
-    {EVEX_W_EXT,   0xf20f7b10, "(evex_W ext 59)", xx, xx, xx, xx, xx, mrm|evex, x, 59},
+    {EVEX_Wb_EXT,   0xf30f7b10, "(evex_Wb ext 58)", xx, xx, xx, xx, xx, mrm|evex, x, 58},
+    {EVEX_Wb_EXT,   0x660f7b10, "(evex_Wb ext 46)", xx, xx, xx, xx, xx, mrm|evex, x, 46},
+    {EVEX_Wb_EXT,   0xf20f7b10, "(evex_Wb ext 59)", xx, xx, xx, xx, xx, mrm|evex, x, 59},
   }, { /* prefix extension 159 */
     {INVALID,        0x0f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf30f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5379,9 +5368,9 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x660f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20f7a10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x0f7a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT,   0xf30f7a10, "(evex_W ext 61)", xx, xx, xx, xx, xx, mrm|evex, x, 61},
-    {EVEX_W_EXT,   0x660f7a10, "(evex_W ext 50)", xx, xx, xx, xx, xx, mrm|evex, x, 50},
-    {EVEX_W_EXT,   0xf20f7a10, "(evex_W ext 60)", xx, xx, xx, xx, xx, mrm|evex, x, 60},
+    {EVEX_Wb_EXT,   0xf30f7a10, "(evex_Wb ext 61)", xx, xx, xx, xx, xx, mrm|evex, x, 61},
+    {EVEX_Wb_EXT,   0x660f7a10, "(evex_Wb ext 50)", xx, xx, xx, xx, xx, mrm|evex, x, 50},
+    {EVEX_Wb_EXT,   0xf20f7a10, "(evex_Wb ext 60)", xx, xx, xx, xx, xx, mrm|evex, x, 60},
   }, { /* prefix extension 160 */
     {INVALID,        0x383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf3383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5392,11 +5381,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmovqb,   0xf3383218, "vpmovqb", Wj_e, xx, KEb, Ve, xx, mrm|evex|ttovm, x, END_LIST},
+    {OP_vpmovqb,   0xf3383208, "vpmovqb", Wj_e, xx, KEb, Ve, xx, mrm|evex|ttovm, x, END_LIST},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovzxbq, 0x66383218, "vpmovzxbq", Ve, xx, KEb, Wj_e, xx, mrm|evex|ttovm, x, END_LIST},
+    {OP_vpmovzxbq, 0x66383208, "vpmovzxbq", Ve, xx, KEb, Wj_e, xx, mrm|evex|ttovm, x, END_LIST},
     {INVALID,      0xf2383218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 161 */
     {INVALID,        0x382218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5408,11 +5397,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66382218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2382218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmovsqb,  0xf3382218, "vpmovsqb", Wj_e, xx, KEb, Ve, xx, mrm|evex|ttovm, x, END_LIST},
+    {OP_vpmovsqb,  0xf3382208, "vpmovsqb", Wj_e, xx, KEb, Ve, xx, mrm|evex|ttovm, x, END_LIST},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovsxbq, 0x66382218, "vpmovsxbq", Ve, xx, KEb, Wj_e, xx, mrm|evex|ttovm, x, END_LIST},
+    {OP_vpmovsxbq, 0x66382208, "vpmovsxbq", Ve, xx, KEb, Wj_e, xx, mrm|evex|ttovm, x, END_LIST},
     {INVALID,      0xf2382218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 162 */
     {INVALID,        0x381218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5424,8 +5413,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66381218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2381218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x381218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmovusqb, 0xf3381218, "vpmovusqb", Wj_e, xx, KEb, Ve, xx, mrm|evex|ttovm, x, END_LIST},
-    {EVEX_W_EXT,   0x66381218, "(evex_W ext 129)", xx, xx, xx, xx, xx, mrm, x, 129},
+    {OP_vpmovusqb, 0xf3381208, "vpmovusqb", Wj_e, xx, KEb, Ve, xx, mrm|evex|ttovm, x, END_LIST},
+    {EVEX_Wb_EXT,   0x66381218, "(evex_Wb ext 130)", xx, xx, xx, xx, xx, mrm|evex, x, 130},
     {INVALID,      0xf2381218, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 163 */
     {INVALID,        0x383418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5437,11 +5426,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66383418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2383418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x383418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmovqw,   0xf3383418, "vpmovqw", Wi_e, xx, KEb, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovqw,   0xf3383408, "vpmovqw", Wi_e, xx, KEb, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovzxwq, 0x66383418, "vpmovzxwq", Ve, xx, KEb, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovzxwq, 0x66383408, "vpmovzxwq", Ve, xx, KEb, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
     {INVALID,      0xf2383418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 164 */
     {INVALID,        0x382418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5453,11 +5442,11 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66382418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2382418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x382418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmovsqw,  0xf3382418, "vpmovsqw", Wi_e, xx, KEb, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovsqw,  0xf3382408, "vpmovsqw", Wi_e, xx, KEb, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovsxwq, 0x66382418, "vpmovsxwq", Ve, xx, KEb, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovsxwq, 0x66382408, "vpmovsxwq", Ve, xx, KEb, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
     {INVALID,      0xf2382418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 165 */
     {INVALID,        0x381418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5469,8 +5458,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,      0x66381418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf2381418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,        0x381418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpmovusqw, 0xf3381418, "vpmovusqw", Wi_e, xx, KEb, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
-    {EVEX_W_EXT,   0x66381418, "(evex_W ext 118)", xx, xx, xx, xx, xx, mrm|evex, x, 118},
+    {OP_vpmovusqw, 0xf3381408, "vpmovusqw", Wi_e, xx, KEb, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
+    {EVEX_Wb_EXT,   0x66381418, "(evex_Wb ext 119)", xx, xx, xx, xx, xx, mrm|evex, x, 119},
     {INVALID,      0xf2381418, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 166 */
     {INVALID,        0x383518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5485,8 +5474,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovqd,   0xf3383518, "vpmovqd", Wh_e, xx, KEb, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vpmovzxdq, 0x66383518, "vpmovzxdq", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovqd,   0xf3383508, "vpmovqd", Wh_e, xx, KEb, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovzxdq, 0x66383508, "vpmovzxdq", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2383518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 167 */
     {INVALID,        0x382518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5501,8 +5490,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovsqd,  0xf3382518, "vpmovsqd", Wh_e, xx, KEb, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vpmovsxdq, 0x66382518, "vpmovsxdq", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovsqd,  0xf3382508, "vpmovsqd", Wh_e, xx, KEb, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovsxdq, 0x66382508, "vpmovsxdq", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2382518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 168 */
     {INVALID,        0x381518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5517,8 +5506,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovusqd, 0xf3381518, "vpmovusqd", Wh_e, xx, KEb, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {EVEX_W_EXT,   0x66381518, "(evex_W ext 116)", xx, xx, xx, xx, xx, mrm|evex, x, 116},
+    {OP_vpmovusqd, 0xf3381508, "vpmovusqd", Wh_e, xx, KEb, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {EVEX_Wb_EXT,   0x66381518, "(evex_Wb ext 117)", xx, xx, xx, xx, xx, mrm|evex, x, 117},
     {INVALID,      0xf2381518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 169 */
     {INVALID,        0x383118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5533,8 +5522,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovdb,   0xf3383118, "vpmovdb", Wi_e, xx, KEw, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
-    {OP_vpmovzxbd, 0x66383118, "vpmovzxbd", Ve, xx, KEw, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovdb,   0xf3383108, "vpmovdb", Wi_e, xx, KEw, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovzxbd, 0x66383108, "vpmovzxbd", Ve, xx, KEw, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
     {INVALID,      0xf2383118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 170 */
     {INVALID,        0x382118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5549,8 +5538,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovsdb,  0xf3382118, "vpmovsdb", Wi_e, xx, KEw, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
-    {OP_vpmovsxbd, 0x66382118, "vpmovsxbd", Ve, xx, KEw, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovsdb,  0xf3382108, "vpmovsdb", Wi_e, xx, KEw, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
+    {OP_vpmovsxbd, 0x66382108, "vpmovsxbd", Ve, xx, KEw, Wi_e, xx, mrm|evex|ttqvm, x, END_LIST},
     {INVALID,      0xf2382118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 171 */
     {INVALID,        0x381118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5565,8 +5554,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovusdb, 0xf3381118, "vpmovusdb", Wi_e, xx, KEw, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
-    {EVEX_W_EXT,   0x66381118, "(evex_W ext 126)", xx, xx, xx, xx, xx, mrm, x, 126},/*127*/
+    {OP_vpmovusdb, 0xf3381108, "vpmovusdb", Wi_e, xx, KEw, Ve, xx, mrm|evex|ttqvm, x, END_LIST},
+    {EVEX_Wb_EXT,   0x66381118, "(evex_Wb ext 127)", xx, xx, xx, xx, xx, mrm|evex, x, 127},/*127*/
     {INVALID,      0xf2381118, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 172 */
     {INVALID,        0x383318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5581,8 +5570,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovdw,   0xf3383318, "vpmovdw", Wh_e, xx, KEw, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vpmovzxwd, 0x66383318, "vpmovzxwd", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovdw,   0xf3383308, "vpmovdw", Wh_e, xx, KEw, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovzxwd, 0x66383308, "vpmovzxwd", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2383318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 173 */
     {INVALID,        0x382318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5597,8 +5586,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovsdw,  0xf3382318, "vpmovsdw", Wh_e, xx, KEw, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vpmovsxwd, 0x66382318, "vpmovsxwd", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovsdw,  0xf3382308, "vpmovsdw", Wh_e, xx, KEw, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovsxwd, 0x66382308, "vpmovsxwd", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2382318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 174 */
     {INVALID,        0x381318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5613,8 +5602,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovusdw, 0xf3381318, "vpmovusdw", Wh_e, xx, KEw, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vcvtph2ps, 0x66381318, "vcvtph2ps", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovusdw, 0xf3381308, "vpmovusdw", Wh_e, xx, KEw, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vcvtph2ps, 0x66381308, "vcvtph2ps", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2381318, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 175 */
     {INVALID,        0x383018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5629,8 +5618,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovwb,   0xf3383018, "vpmovwb", Wh_e, xx, KEd, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vpmovzxbw, 0x66383018, "vpmovzxbw", Ve, xx, KEd, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovwb,   0xf3383008, "vpmovwb", Wh_e, xx, KEd, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovzxbw, 0x66383008, "vpmovzxbw", Ve, xx, KEd, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2383018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 176 */
     {INVALID,        0x382018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5645,8 +5634,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovswb,  0xf3382018, "vpmovswb", Wh_e, xx, KEd, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vpmovsxbw, 0x66382018, "vpmovsxbw", Ve, xx, KEd, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovswb,  0xf3382008, "vpmovswb", Wh_e, xx, KEd, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpmovsxbw, 0x66382008, "vpmovsxbw", Ve, xx, KEd, Wh_e, xx, mrm|evex|tthvm, x, END_LIST},
     {INVALID,      0xf2382018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 177 */
     {INVALID,        0x381018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5661,8 +5650,8 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vpmovuswb, 0xf3381018, "vpmovuswb", Wh_e, xx, KEd, Ve, xx, mrm|evex|tthvm, x, END_LIST},
-    {OP_vpsrlvw,   0x66381058, "vpsrlvw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpmovuswb, 0xf3381008, "vpmovuswb", Wh_e, xx, KEd, Ve, xx, mrm|evex|tthvm, x, END_LIST},
+    {OP_vpsrlvw,   0x66381048, "vpsrlvw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID,      0xf2381018, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 178 */
     {INVALID,       0x382818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5674,8 +5663,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,     0x66382818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf2382818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0x382818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT,  0xf3382818, "(evex_W ext 137)", xx, xx, xx, xx, xx, mrm, x, 137},
-    {OP_vpmuldq,  0x66382858, "vpmuldq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT,  0xf3382818, "(evex_Wb ext 138)", xx, xx, xx, xx, xx, mrm|evex, x, 138},
+    {EVEX_Wb_EXT,  0x66382848, "(evex_Wb ext 227)", xx, xx, xx, xx, xx, mrm|evex, x, 227},
     {INVALID,     0xf2382818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 179 */
     {INVALID,      0x383818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5687,8 +5676,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0x66383818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf2383818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x383818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf3383818, "(evex_W ext 138)", xx, xx, xx, xx, xx, mrm, x, 138},
-    {OP_vpminsb, 0x66383818, "vpminsb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {EVEX_Wb_EXT, 0xf3383818, "(evex_Wb ext 139)", xx, xx, xx, xx, xx, mrm|evex, x, 139},
+    {OP_vpminsb, 0x66383808, "vpminsb", Ve, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID,    0xf2383818, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 180 */
     {INVALID,       0x382918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5700,8 +5689,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,     0x66382918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0xf2382918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,       0x382918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT,  0xf3382918, "(evex_W ext 139)", xx, xx, xx, xx, xx, mrm, x, 139},
-    {OP_vpcmpeqq, 0x66382958, "vpcmpeqq", KPb, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT,  0xf3382918, "(evex_Wb ext 140)", xx, xx, xx, xx, xx, mrm|evex, x, 140},
+    {EVEX_Wb_EXT,  0x66382948, "(evex_Wb ext 233)", xx, xx, xx, xx, xx, mrm|evex, x, 233},
     {INVALID,     0xf2382918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 181 */
     {INVALID,      0x383918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5713,8 +5702,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0x66383918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf2383918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x383918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf3383918, "(evex_W ext 140)", xx, xx, xx, xx, xx, mrm, x, 140},
-    {EVEX_W_EXT, 0x66383918, "(evex_W ext 112)", xx, xx, xx, xx, xx, mrm|evex, x, 112},
+    {EVEX_Wb_EXT, 0xf3383918, "(evex_Wb ext 141)", xx, xx, xx, xx, xx, mrm|evex, x, 141},
+    {EVEX_Wb_EXT, 0x66383918, "(evex_Wb ext 113)", xx, xx, xx, xx, xx, mrm|evex, x, 113},
     {INVALID,    0xf2383918, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 182 */
     {INVALID,      0x382618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5726,8 +5715,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0x66382618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf2382618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x382618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf3382618, "(evex_W ext 170)", xx, xx, xx, xx, xx, mrm, x, 170},
-    {EVEX_W_EXT, 0x66382618, "(evex_W ext 168)", xx, xx, xx, xx, xx, mrm, x, 168},
+    {EVEX_Wb_EXT, 0xf3382618, "(evex_Wb ext 171)", xx, xx, xx, xx, xx, mrm, x, 171},
+    {EVEX_Wb_EXT, 0x66382618, "(evex_Wb ext 169)", xx, xx, xx, xx, xx, mrm, x, 169},
     {INVALID,    0xf2382618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 183 */
     {INVALID,      0x382718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5739,8 +5728,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0x66382718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf2382718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x382718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0xf3382718, "(evex_W ext 171)", xx, xx, xx, xx, xx, mrm, x, 171},
-    {EVEX_W_EXT, 0x66382718, "(evex_W ext 169)", xx, xx, xx, xx, xx, mrm, x, 169},
+    {EVEX_Wb_EXT, 0xf3382718, "(evex_Wb ext 172)", xx, xx, xx, xx, xx, mrm, x, 172},
+    {EVEX_Wb_EXT, 0x66382718, "(evex_Wb ext 170)", xx, xx, xx, xx, xx, mrm, x, 170},
     {INVALID,    0xf2382718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 184 */
     {INVALID,      0x382a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5752,8 +5741,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0x66382a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf2382a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x382a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpbroadcastmb2q, 0xf3382a58, "vpbroadcastmb2q", Ve, xx, KQb, xx, xx, mrm|evex|ttnone, x, NA},
-    {OP_vmovntdqa, 0x66382a18, "vmovntdqa", Me, xx, Ve, xx, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpbroadcastmb2q, 0xf3382a48, "vpbroadcastmb2q", Ve, xx, KQb, xx, xx, mrm|evex|ttnone, x, NA},
+    {OP_vmovntdqa, 0x66382a08, "vmovntdqa", Me, xx, Ve, xx, xx, mrm|evex|ttfvm, x, END_LIST},
     {INVALID,    0xf2382a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 185 */
     {INVALID,      0x383a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -5765,8 +5754,8 @@ const instr_info_t prefix_extensions[][12] = {
     {INVALID,    0x66383a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0xf2383a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x383a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpbroadcastmw2d, 0xf3383a18, "vpbroadcastmw2d", Ve, xx, KQw, xx, xx, mrm|evex|ttnone, x, NA},
-    {OP_vpminuw, 0x66383a18, "vpminuw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpbroadcastmw2d, 0xf3383a08, "vpbroadcastmw2d", Ve, xx, KQw, xx, xx, mrm|evex|ttnone, x, NA},
+    {OP_vpminuw, 0x66383a08, "vpminuw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
     {INVALID,    0xf2383a18, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   }, { /* prefix extension 186 */
     {OP_bndldx,    0x0f1a10, "bndldx", TRqdq, xx, Mm, xx, xx, mrm, x, END_LIST},
@@ -5860,11 +5849,11 @@ const instr_info_t e_vex_extensions[][3] = {
     {PREFIX_EXT,     0x382518, "(prefix ext 167)", xx, xx, xx, xx, xx, mrm|evex, x, 167},
   }, { /* e_vex ext 10 */
     {OP_pmuldq,  0x66382818, "pmuldq",   Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpmuldq, 0x66382818, "vpmuldq",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tpe[178][10]},
+    {OP_vpmuldq, 0x66382818, "vpmuldq",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[227][2]},
     {PREFIX_EXT,   0x382818, "(prefix ext 178)", xx, xx, xx, xx, xx, mrm|evex, x, 178},
   }, { /* e_vex ext 11 */
     {OP_pcmpeqq,  0x66382918, "pcmpeqq",  Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpcmpeqq, 0x66382918, "vpcmpeqq",  Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tpe[180][10]},
+    {OP_vpcmpeqq, 0x66382918, "vpcmpeqq",  Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[233][2]},
     {PREFIX_EXT,    0x382918, "(prefix ext 180)", xx, xx, xx, xx, xx, mrm|evex, x, 180},
   }, { /* e_vex ext 12 */
     {OP_movntdqa,  0x66382a18, "movntdqa", Mdq, xx, Vdq, xx, xx, mrm|reqp, x, END_LIST},
@@ -5872,8 +5861,8 @@ const instr_info_t e_vex_extensions[][3] = {
     {PREFIX_EXT,    0x382a18, "(prefix ext 184)", xx, xx, xx, xx, xx, mrm|evex, x, 184},
   }, { /* e_vex ext 13 */
     {OP_packusdw,  0x66382b18, "packusdw", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpackusdw, 0x66382b18, "vpackusdw", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tvex[13][2]},
-    {OP_vpackusdw, 0x66382b18, "vpackusdw", Ve, xx, KEd, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpackusdw, 0x66382b18, "vpackusdw", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[245][0]},
+    {EVEX_Wb_EXT,  0x66382b18, "(evex_Wb ext 245)", xx, xx, xx, xx, xx, mrm|evex, x, 245},
   }, { /* e_vex ext 14 */
     {OP_pmovzxbw,  0x66383018, "pmovzxbw", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxbw, 0x66383018, "vpmovzxbw", Vx, xx, Wh_x, xx, xx, mrm|vex|reqp, x, tpe[175][10]},
@@ -5903,15 +5892,15 @@ const instr_info_t e_vex_extensions[][3] = {
     {PREFIX_EXT,     0x383518, "(prefix ext 166)", xx, xx, xx, xx, xx, mrm|evex, x, 166},
   }, { /* e_vex ext 20 */
     {OP_pcmpgtq,  0x66383718, "pcmpgtq",  Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpcmpgtq, 0x66383718, "vpcmpgtq",  Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tvex[20][2]},
-    {OP_vpcmpgtq, 0x66383758, "vpcmpgtq",  KPb, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpcmpgtq, 0x66383718, "vpcmpgtq",  Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[232][2]},
+    {EVEX_Wb_EXT,  0x66383748, "(evex_Wb ext 232)", xx, xx, xx, xx, xx, mrm|evex, x, 232},
   }, { /* e_vex ext 21 */
     {OP_pminsb,  0x66383818, "pminsb",   Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {OP_vpminsb, 0x66383818, "vpminsb",   Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tpe[179][10]},
     {PREFIX_EXT,   0x383818, "(prefix ext 179)", xx, xx, xx, xx, xx, mrm|evex, x, 179},
   }, { /* e_vex ext 22 */
     {OP_pminsd,   0x66383918, "pminsd",   Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpminsd,  0x66383918, "vpminsd",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexw[112][0]},
+    {OP_vpminsd,  0x66383918, "vpminsd",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[113][0]},
     {PREFIX_EXT,    0x383918, "(prefix ext 181)", xx, xx, xx, xx, xx, mrm|evex, x, 181},
   }, { /* e_vex ext 23 */
     {OP_pminuw,   0x66383a18, "pminuw",   Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
@@ -5919,28 +5908,28 @@ const instr_info_t e_vex_extensions[][3] = {
     {PREFIX_EXT,    0x383a18, "(prefix ext 185)", xx, xx, xx, xx, xx, mrm|evex, x, 185},
   }, { /* e_vex ext 24 */
     {OP_pminud,   0x66383b18, "pminud",   Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpminud,  0x66383b18, "vpminud",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexw[114][0]},
-    {EVEX_W_EXT,  0x66383b18, "(evex_W ext 114)", xx, xx, xx, xx, xx, mrm|evex, x, 114},
+    {OP_vpminud,  0x66383b18, "vpminud",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[115][0]},
+    {EVEX_Wb_EXT,  0x66383b18, "(evex_Wb ext 115)", xx, xx, xx, xx, xx, mrm|evex, x, 115},
   }, { /* e_vex ext 25 */
     {OP_pmaxsb,   0x66383c18, "pmaxsb",   Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {OP_vpmaxsb,  0x66383c18, "vpmaxsb",   Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tvex[25][2]},
-    {OP_vpmaxsb,  0x66383c18, "vpmaxsb",   Ve, xx, KEq, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
+    {OP_vpmaxsb,  0x66383c08, "vpmaxsb",   Ve, xx, KEq, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
   }, { /* e_vex ext 26 */
     {OP_pmaxsd,   0x66383d18, "pmaxsd",   Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpmaxsd,  0x66383d18, "vpmaxsd",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexw[113][0]},
-    {EVEX_W_EXT,  0x66383d18, "(evex_W ext 113)", xx, xx, xx, xx, xx, mrm|evex, x, 113},
+    {OP_vpmaxsd,  0x66383d18, "vpmaxsd",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[114][0]},
+    {EVEX_Wb_EXT,  0x66383d18, "(evex_Wb ext 114)", xx, xx, xx, xx, xx, mrm|evex, x, 114},
   }, { /* e_vex ext 27 */
     {OP_pmaxuw,   0x66383e18, "pmaxuw",   Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {OP_vpmaxuw,  0x66383e18, "vpmaxuw",   Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tvex[27][2]},
-    {OP_vpmaxuw,  0x66383e18, "vpmaxuw",   Ve, xx, KEd, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
+    {OP_vpmaxuw,  0x66383e08, "vpmaxuw",   Ve, xx, KEd, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
   }, { /* e_vex ext 28 */
     {OP_pmaxud,   0x66383f18, "pmaxud",   Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpmaxud,  0x66383f18, "vpmaxud",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexw[115][0]},
-    {EVEX_W_EXT,  0x66383f18, "(evex_W ext 115)", xx, xx, xx, xx, xx, mrm|evex, x, 115},
+    {OP_vpmaxud,  0x66383f18, "vpmaxud",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[116][0]},
+    {EVEX_Wb_EXT,  0x66383f18, "(evex_Wb ext 116)", xx, xx, xx, xx, xx, mrm|evex, x, 116},
   }, { /* e_vex ext 29 */
     {OP_pmulld,   0x66384018, "pmulld",   Vdq, xx, Wdq,Vdq, xx, mrm|reqp, x, END_LIST},
-    {OP_vpmulld,  0x66384018, "vpmulld",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexw[45][0]},
-    {EVEX_W_EXT, 0x66384018, "(evex_W ext 45)", xx, xx, xx, xx, xx, mrm|evex, x, 45},
+    {OP_vpmulld,  0x66384018, "vpmulld",   Vx, xx, Hx,Wx, xx, mrm|vex|reqp, x, tevexwb[45][0]},
+    {EVEX_Wb_EXT, 0x66384018, "(evex_Wb ext 45)", xx, xx, xx, xx, xx, mrm|evex, x, 45},
   }, { /* e_vex ext 30 */
     {OP_phminposuw,  0x66384118,"phminposuw",Vdq,xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vphminposuw, 0x66384118,"vphminposuw",Vdq,xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
@@ -5968,35 +5957,35 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 36 */
     {OP_pextrb,   0x663a1418, "pextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vpextrb,  0x663a1418, "vpextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|vex|reqp, x, tvex[36][2]},
-    {OP_vpextrb,  0x663a1418, "vpextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|evex|reqp|ttt1s|inopsz1, x, END_LIST},
+    {OP_vpextrb,  0x663a1408, "vpextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|evex|reqp|ttt1s|inopsz1, x, END_LIST},
   }, { /* e_vex ext 37 */
     {OP_pextrw,   0x663a1518, "pextrw", Rd_Mw, xx, Vw_dq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vpextrw,  0x663a1518, "vpextrw", Rd_Mw, xx, Vw_dq, Ib, xx, mrm|vex|reqp, x, tpe[54][10]},
-    {OP_vpextrw,  0x663a1518, "vpextrw", Rd_Mw, xx, Vw_dq, Ib, xx, mrm|evex|reqp|ttt1s|inopsz2, x, END_LIST},
+    {OP_vpextrw,  0x663a1508, "vpextrw", Rd_Mw, xx, Vw_dq, Ib, xx, mrm|evex|reqp|ttt1s|inopsz2, x, END_LIST},
   }, { /* e_vex ext 38 */
     {OP_pextrd,   0x663a1618, "pextrd",  Ey, xx, Vd_q_dq, Ib, xx, mrm|reqp, x, END_LIST},/*"pextrq" with rex.w*/
-    {OP_vpextrd,  0x663a1618, "vpextrd",  Ey, xx, Vd_q_dq, Ib, xx, mrm|vex|reqp, x, tevexw[144][0]},/*"vpextrq" with rex.w*/
-    {EVEX_W_EXT, 0x663a1618, "(evex_W ext 144)", xx, xx, xx, xx, xx, mrm|evex|ttt1s, x, 144},
+    {OP_vpextrd,  0x663a1618, "vpextrd",  Ey, xx, Vd_q_dq, Ib, xx, mrm|vex|reqp, x, tevexwb[145][0]},/*"vpextrq" with rex.w*/
+    {EVEX_Wb_EXT, 0x663a1618, "(evex_Wb ext 145)", xx, xx, xx, xx, xx, mrm|evex|ttt1s, x, 145},
   }, { /* e_vex ext 39 */
     {OP_extractps,  0x663a1718, "extractps", Ed, xx, Vd_dq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vextractps, 0x663a1718, "vextractps", Ed, xx, Ib, Vd_dq, xx, mrm|vex|reqp, x, tvex[39][2]},
-    {OP_vextractps, 0x663a1718, "vextractps", Ed, xx, Ib, Vd_dq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vextractps, 0x663a1708, "vextractps", Ed, xx, Ib, Vd_dq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
   }, { /* e_vex ext 40 */
     {OP_roundps,  0x663a0818, "roundps",  Vdq, xx, Wdq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vroundps, 0x663a0818, "vroundps",  Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, END_LIST},
-    {OP_vrndscaleps, 0x663a0818, "vrndscaleps",  Ve, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x663a0808, "(evex_Wb ext 246)", xx, xx, xx, xx, xx, mrm|evex|ttt1s, x, 246},
   }, { /* e_vex ext 41 */
     {OP_roundpd,  0x663a0918, "roundpd",  Vdq, xx, Wdq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vroundpd, 0x663a0918, "vroundpd",  Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, END_LIST},
-    {OP_vrndscalepd, 0x663a0958, "vrndscalepd",  Ve, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {EVEX_Wb_EXT, 0x663a0948, "(evex_Wb ext 218)", xx, xx, xx, xx, xx, mrm|evex|ttt1s, x, 218},
   }, { /* e_vex ext 42 */
     {OP_roundss,  0x663a0a18, "roundss",  Vss, xx, Wss, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vroundss, 0x663a0a18, "vroundss",  Vdq, xx, H12_dq, Wss, Ib, mrm|vex|reqp, x, END_LIST},
-    {OP_vrndscaless, 0x663a0a18, "vrndscaless", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[115]},
+    {OP_vrndscaless, 0x663a0a08, "vrndscaless", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[168]},
   }, { /* e_vex ext 43 */
     {OP_roundsd,  0x663a0b18, "roundsd",  Vsd, xx, Wsd, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vroundsd, 0x663a0b18, "vroundsd",  Vdq, xx, Hsd, Wsd, Ib, mrm|vex|reqp, x, END_LIST},
-    {OP_vrndscalesd, 0x663a0b58, "vrndscalesd", Vdq, xx, KE1b, Ib, Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[116]},
+    {OP_vrndscalesd, 0x663a0b48, "vrndscalesd", Vdq, xx, KE1b, Ib, Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[169]},
   }, { /* e_vex ext 44 */
     {OP_blendps,  0x663a0c18, "blendps",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vblendps, 0x663a0c18, "vblendps",  Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, END_LIST},
@@ -6013,15 +6002,15 @@ const instr_info_t e_vex_extensions[][3] = {
     /* FIXME i#1388: pinsrb actually reads only bottom byte of reg */
     {OP_pinsrb,   0x663a2018, "pinsrb",   Vb_dq, xx, Rd_Mb,  Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vpinsrb,  0x663a2018, "vpinsrb",   Vdq, xx, H15_dq, Rd_Mb, Ib, mrm|vex|reqp, x, tvex[47][2]},
-    {OP_vpinsrb,  0x663a2018, "vpinsrb",   Vdq, xx, H15_dq, Rd_Mb, Ib, mrm|evex|reqp|ttt1s|inopsz1, x, END_LIST},
+    {OP_vpinsrb,  0x663a2008, "vpinsrb",   Vdq, xx, H15_dq, Rd_Mb, Ib, mrm|evex|reqp|ttt1s|inopsz1, x, END_LIST},
   }, { /* e_vex ext 48 */
     {OP_insertps, 0x663a2118, "insertps", Vdq, xx, Udq_Md, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vinsertps,0x663a2118, "vinsertps", Vdq, xx, Ib, Hdq, Udq_Md, mrm|vex|reqp|reqL0, x, tvex[48][2]},
-    {OP_vinsertps,0x663a2118, "vinsertps", Vdq, xx, Ib, Hdq, Udq_Md, mrm|evex|reqp|reqL0|ttt1s, x, END_LIST},
+    {OP_vinsertps,0x663a2108, "vinsertps", Vdq, xx, Ib, Hdq, Udq_Md, mrm|evex|reqp|reqL0|ttt1s, x, END_LIST},
   }, { /* e_vex ext 49 */
     {OP_pinsrd,   0x663a2218, "pinsrd",   Vd_q_dq, xx, Ey,Ib, xx, mrm|reqp, x, END_LIST},/*"pinsrq" with rex.w*/
-    {OP_vpinsrd,  0x663a2218, "vpinsrd",   Vdq, xx, H12_8_dq, Ey, Ib, mrm|vex|reqp, x, tevexw[143][0]},/*"vpinsrq" with rex.w*/
-    {EVEX_W_EXT, 0x663a2218, "(evex_W ext 143)", xx, xx, xx, xx, xx, mrm|evex, x, 143},
+    {OP_vpinsrd,  0x663a2218, "vpinsrd",   Vdq, xx, H12_8_dq, Ey, Ib, mrm|vex|reqp, x, tevexwb[144][0]},/*"vpinsrq" with rex.w*/
+    {EVEX_Wb_EXT, 0x663a2218, "(evex_Wb ext 144)", xx, xx, xx, xx, xx, mrm|evex, x, 144},
   }, { /* e_vex ext 50 */
     {OP_dpps,     0x663a4018, "dpps",     Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vdpps,    0x663a4018, "vdpps",     Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, END_LIST},
@@ -6033,7 +6022,7 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 52 */
     {OP_mpsadbw,  0x663a4218, "mpsadbw",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vmpsadbw, 0x663a4218, "vmpsadbw",  Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, END_LIST},
-    {OP_vdbpsadbw, 0x663a4218, "vdbpsadbw",  Ve, xx, KEd, Ib, He, xop|mrm|evex|reqp|ttfvm, x, exop[117]},
+    {OP_vdbpsadbw, 0x663a4208, "vdbpsadbw",  Ve, xx, KEd, Ib, He, xop|mrm|evex|reqp|ttfvm, x, exop[171]},
   }, { /* e_vex ext 53 */
     {OP_pcmpestrm, 0x663a6018, "pcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp|xop, fW6, exop[8]},
     {OP_vpcmpestrm,0x663a6018, "vpcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|vex|reqp|xop, fW6, exop[11]},
@@ -6081,23 +6070,23 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 64 */
     {INVALID,   0x66381818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vbroadcastss, 0x66381818, "vbroadcastss", Vx, xx, Wd_dq, xx, xx, mrm|vex|reqp, x, tvex[64][2]},
-    {OP_vbroadcastss, 0x66381818, "vbroadcastss", Ve, xx, KEw, Wd_dq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vbroadcastss, 0x66381808, "vbroadcastss", Ve, xx, KEw, Wd_dq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
   }, { /* e_vex ext 65 */
     {INVALID,   0x66381918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vbroadcastsd, 0x66381918, "vbroadcastsd", Vqq, xx, Wq_dq, xx, xx, mrm|vex|reqp|reqL1, x, tevexw[147][1]},
-    {EVEX_W_EXT, 0x66381918, "(evex_W ext 147)", xx, xx, xx, xx, xx, mrm|evex, x, 147},
+    {OP_vbroadcastsd, 0x66381918, "vbroadcastsd", Vqq, xx, Wq_dq, xx, xx, mrm|vex|reqp|reqL1, x, tevexwb[148][2]},
+    {EVEX_Wb_EXT, 0x66381918, "(evex_Wb ext 148)", xx, xx, xx, xx, xx, mrm|evex, x, 148},
   }, { /* e_vex ext 66 */
     {INVALID,   0x66381a18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vbroadcastf128, 0x66381a18, "vbroadcastf128", Vqq, xx, Mdq, xx, xx, mrm|vex|reqp|reqL1, x, END_LIST},
-    {EVEX_W_EXT, 0x66381a18, "(evex_W ext 148)", xx, xx, xx, xx, xx, mrm|evex, x, 148},
+    {EVEX_Wb_EXT, 0x66381a18, "(evex_Wb ext 149)", xx, xx, xx, xx, xx, mrm|evex, x, 149},
   }, { /* e_vex ext 67 */
     {INVALID,   0x66382c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmaskmovps, 0x66382c18, "vmaskmovps", Vx, xx, Hx,Mx, xx, mrm|vex|reqp|predcx, x, tvex[69][1]},
-    {EVEX_W_EXT, 0x66382c18, "(evex_W ext 180)", xx, xx, xx, xx, xx, mrm|evex, x, 180},
+    {EVEX_Wb_EXT, 0x66382c18, "(evex_Wb ext 181)", xx, xx, xx, xx, xx, mrm|evex, x, 181},
   }, { /* e_vex ext 68 */
     {INVALID,   0x66382d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmaskmovpd, 0x66382d18, "vmaskmovpd", Vx, xx, Hx,Mx, xx, mrm|vex|reqp|predcx, x, tvex[70][1]},
-    {EVEX_W_EXT, 0x66382d18, "(evex_W ext 181)", xx, xx, xx, xx, xx, mrm|evex, x, 181},
+    {EVEX_Wb_EXT, 0x66382d18, "(evex_Wb ext 182)", xx, xx, xx, xx, xx, mrm|evex, x, 182},
   }, { /* e_vex ext 69 */
     {INVALID,   0x66382e18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmaskmovps, 0x66382e18, "vmaskmovps", Mx, xx, Hx,Vx, xx, mrm|vex|reqp|predcx, x, END_LIST},
@@ -6108,12 +6097,12 @@ const instr_info_t e_vex_extensions[][3] = {
     {INVALID, 0x66382f18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   }, { /* e_vex ext 71 */
     {INVALID,   0x663a0418, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpermilps, 0x663a0418, "vpermilps", Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, tvex[71][2]},
-    {OP_vpermilps, 0x663a0418, "vpermilps", Ve, xx, KEw, We, Ib, mrm|evex|reqp|ttfv, x, tvex[77][1]},
+    {OP_vpermilps, 0x663a0418, "vpermilps", Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, tvex[77][1]},
+    {EVEX_Wb_EXT, 0x663a0418, "(evex_Wb ext 247)", xx, xx, xx, xx, xx, mrm|evex, x, 247},
   }, { /* e_vex ext 72 */
     {INVALID,   0x663a0518, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpermilpd, 0x663a0518, "vpermilpd", Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, tvex[72][2]},
-    {OP_vpermilpd, 0x663a0558, "vpermilpd", Ve, xx, KEb, We, Ib, mrm|evex|reqp|ttfv, x, tvex[78][1]},
+    {OP_vpermilpd, 0x663a0518, "vpermilpd", Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, tvex[78][1]},
+    {EVEX_Wb_EXT, 0x663a0548, "(evex_Wb ext 230)", xx, xx, xx, xx, xx, mrm|evex, x, 230},
   }, { /* e_vex ext 73 */
     {INVALID,   0x663a0618, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vperm2f128, 0x663a0618, "vperm2f128", Vqq, xx, Hqq, Wqq, Ib, mrm|vex|reqp, x, END_LIST},
@@ -6121,26 +6110,26 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 74 */
     {INVALID,   0x663a1818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vinsertf128, 0x663a1818, "vinsertf128", Vqq, xx, Hqq, Wdq, Ib, mrm|vex|reqp, x, END_LIST},
-    {EVEX_W_EXT, 0x663a1818, "(evex_W ext 104)", xx, xx, xx, xx, xx, mrm|evex, x, 104},
+    {EVEX_Wb_EXT, 0x663a1818, "(evex_Wb ext 105)", xx, xx, xx, xx, xx, mrm|evex, x, 105},
   }, { /* e_vex ext 75 */
     {INVALID,   0x663a1918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vextractf128, 0x663a1918, "vextractf128", Wdq, xx, Vdq_qq, Ib, xx, mrm|vex|reqp|reqL1, x, END_LIST},
-    {EVEX_W_EXT, 0x663a1918, "(evex_W ext 100)", xx, xx, xx, xx, xx, mrm|evex, x, 100},
+    {EVEX_Wb_EXT, 0x663a1918, "(evex_Wb ext 101)", xx, xx, xx, xx, xx, mrm|evex, x, 101},
   }, { /* e_vex ext 76 */
     {INVALID,   0x663a1d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wh_x, xx, Vx, Ib, xx, mrm|vex|reqp, x, tvex[76][2]},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Wh_e, xx, KEw, Ve, Ib, mrm|evex|reqp|tthvm, x, END_LIST},
+    {OP_vcvtps2ph, 0x663a1d08, "vcvtps2ph", Wh_e, xx, KEw, Ve, Ib, mrm|evex|reqp|tthvm, x, END_LIST},
   }, { /* e_vex ext 77 */
     {INVALID,   0x66380c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpermilps, 0x66380c18, "vpermilps", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tvex[77][2]},
-    {OP_vpermilps, 0x66380c18, "vpermilps", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpermilps, 0x66380c18, "vpermilps", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[247][0]},
+    {EVEX_Wb_EXT, 0x66380c08, "(evex_Wb ext 248)", xx, xx, xx, xx, xx, mrm|evex, x, 248},
   }, { /* e_vex ext 78 */
     {INVALID,   0x66380d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpermilpd, 0x66380d18, "vpermilpd", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tvex[78][2]},
-    {OP_vpermilpd, 0x66380d58, "vpermilpd", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpermilpd, 0x66380d18, "vpermilpd", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[230][2]},
+    {EVEX_Wb_EXT, 0x66380d48, "(evex_Wb ext 231)", xx, xx, xx, xx, xx, mrm|evex, x, 231},
   }, { /* e_vex ext 79 */
     {OP_seto,    0x0f9010,             "seto", Eb, xx, xx, xx, xx, mrm, fRO, END_LIST},
     {PREFIX_EXT, 0x0f9010, "(prefix ext 144)", xx, xx, xx, xx, xx, mrm,   x, 144},
@@ -6200,147 +6189,147 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 93 */
     {INVALID,      0x66389810,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389818,   "(vex_W ext 0)", xx, xx, xx, xx, xx, mrm|vex, x, 0},
-    {EVEX_W_EXT,   0x66389818, "(evex_W ext 62)", xx, xx, xx, xx, xx, mrm|evex, x, 62},
+    {EVEX_Wb_EXT,   0x66389818, "(evex_Wb ext 62)", xx, xx, xx, xx, xx, mrm|evex, x, 62},
   }, { /* e_vex ext 94 */
     {INVALID,      0x6638a810,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638a818,   "(vex_W ext 1)", xx, xx, xx, xx, xx, mrm|vex, x, 1},
-    {EVEX_W_EXT,   0x6638a818, "(evex_W ext 63)", xx, xx, xx, xx, xx, mrm|evex, x, 63},
+    {EVEX_Wb_EXT,   0x6638a818, "(evex_Wb ext 63)", xx, xx, xx, xx, xx, mrm|evex, x, 63},
   }, { /* e_vex ext 95 */
     {INVALID,      0x6638b810,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638b818,   "(vex_W ext 2)", xx, xx, xx, xx, xx, mrm|vex, x, 2},
-    {EVEX_W_EXT,   0x6638b818, "(evex_W ext 64)", xx, xx, xx, xx, xx, mrm|evex, x, 64},
+    {EVEX_Wb_EXT,   0x6638b818, "(evex_Wb ext 64)", xx, xx, xx, xx, xx, mrm|evex, x, 64},
   }, { /* e_vex ext 96 */
     {INVALID,      0x66389910,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389918,   "(vex_W ext 3)", xx, xx, xx, xx, xx, mrm|vex, x, 3},
-    {EVEX_W_EXT,   0x66389918, "(evex_W ext 65)", xx, xx, xx, xx, xx, mrm|evex, x, 65},
+    {EVEX_Wb_EXT,   0x66389918, "(evex_Wb ext 65)", xx, xx, xx, xx, xx, mrm|evex, x, 65},
   }, { /* e_vex ext 97 */
     {INVALID,      0x6638a910,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638a918,   "(vex_W ext 4)", xx, xx, xx, xx, xx, mrm|vex, x, 4},
-    {EVEX_W_EXT,   0x6638a918, "(evex_W ext 66)", xx, xx, xx, xx, xx, mrm|evex, x, 66},
+    {EVEX_Wb_EXT,   0x6638a918, "(evex_Wb ext 66)", xx, xx, xx, xx, xx, mrm|evex, x, 66},
   }, { /* e_vex ext 98 */
     {INVALID,      0x6638b910,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638b918,   "(vex_W ext 5)", xx, xx, xx, xx, xx, mrm|vex, x, 5},
-    {EVEX_W_EXT,   0x6638b918, "(evex_W ext 67)", xx, xx, xx, xx, xx, mrm|evex, x, 67},
+    {EVEX_Wb_EXT,   0x6638b918, "(evex_Wb ext 67)", xx, xx, xx, xx, xx, mrm|evex, x, 67},
   }, { /* e_vex ext 99 */
     {INVALID,      0x66389610,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389618,   "(vex_W ext 6)", xx, xx, xx, xx, xx, mrm|vex, x, 6},
-    {EVEX_W_EXT,   0x66389618, "(evex_W ext 68)", xx, xx, xx, xx, xx, mrm|evex, x, 68},
+    {EVEX_Wb_EXT,   0x66389618, "(evex_Wb ext 68)", xx, xx, xx, xx, xx, mrm|evex, x, 68},
   }, { /* e_vex ext 100 */
     {INVALID,      0x6638a610,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638a618,   "(vex_W ext 7)", xx, xx, xx, xx, xx, mrm|vex, x, 7},
-    {EVEX_W_EXT,   0x6638a618, "(evex_W ext 69)", xx, xx, xx, xx, xx, mrm|evex, x, 69},
+    {EVEX_Wb_EXT,   0x6638a618, "(evex_Wb ext 69)", xx, xx, xx, xx, xx, mrm|evex, x, 69},
   }, { /* e_vex ext 101 */
     {INVALID,      0x6638b610,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638b618,   "(vex_W ext 8)", xx, xx, xx, xx, xx, mrm|vex, x, 8},
-    {EVEX_W_EXT,   0x6638b618, "(evex_W ext 70)", xx, xx, xx, xx, xx, mrm|evex, x, 70},
+    {EVEX_Wb_EXT,   0x6638b618, "(evex_Wb ext 70)", xx, xx, xx, xx, xx, mrm|evex, x, 70},
   }, { /* e_vex ext 102 */
     {INVALID,      0x66389710,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389718,   "(vex_W ext 9)", xx, xx, xx, xx, xx, mrm|vex, x, 9},
-    {EVEX_W_EXT,   0x66389718, "(evex_W ext 71)", xx, xx, xx, xx, xx, mrm|evex, x, 71},
+    {EVEX_Wb_EXT,   0x66389718, "(evex_Wb ext 71)", xx, xx, xx, xx, xx, mrm|evex, x, 71},
   }, { /* e_vex ext 103 */
     {INVALID,      0x6638a710,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638a718,  "(vex_W ext 10)", xx, xx, xx, xx, xx, mrm|vex, x, 10},
-    {EVEX_W_EXT,   0x6638a718, "(evex_W ext 72)", xx, xx, xx, xx, xx, mrm|evex, x, 72},
+    {EVEX_Wb_EXT,   0x6638a718, "(evex_Wb ext 72)", xx, xx, xx, xx, xx, mrm|evex, x, 72},
   }, { /* e_vex ext 104 */
     {INVALID,      0x6638b710,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638b718,  "(vex_W ext 11)", xx, xx, xx, xx, xx, mrm|vex, x, 11},
-    {EVEX_W_EXT,   0x6638b718, "(evex_W ext 73)", xx, xx, xx, xx, xx, mrm|evex, x, 73},
+    {EVEX_Wb_EXT,   0x6638b718, "(evex_Wb ext 73)", xx, xx, xx, xx, xx, mrm|evex, x, 73},
   }, { /* e_vex ext 105 */
     {INVALID,      0x66389a10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389a18,  "(vex_W ext 12)", xx, xx, xx, xx, xx, mrm|vex, x, 12},
-    {EVEX_W_EXT,   0x66389a18, "(evex_W ext 74)", xx, xx, xx, xx, xx, mrm|evex, x, 74},
+    {EVEX_Wb_EXT,   0x66389a18, "(evex_Wb ext 74)", xx, xx, xx, xx, xx, mrm|evex, x, 74},
   }, { /* e_vex ext 106 */
     {INVALID,      0x6638aa10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638aa18,  "(vex_W ext 13)", xx, xx, xx, xx, xx, mrm|vex, x, 13},
-    {EVEX_W_EXT,   0x6638aa18, "(evex_W ext 75)", xx, xx, xx, xx, xx, mrm|evex, x, 75},
+    {EVEX_Wb_EXT,   0x6638aa18, "(evex_Wb ext 75)", xx, xx, xx, xx, xx, mrm|evex, x, 75},
   }, { /* e_vex ext 107 */
     {INVALID,      0x6638ba10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638ba18,  "(vex_W ext 14)", xx, xx, xx, xx, xx, mrm|vex, x, 14},
-    {EVEX_W_EXT,   0x6638ba18, "(evex_W ext 76)", xx, xx, xx, xx, xx, mrm|evex, x, 76},
+    {EVEX_Wb_EXT,   0x6638ba18, "(evex_Wb ext 76)", xx, xx, xx, xx, xx, mrm|evex, x, 76},
   }, { /* e_vex ext 108 */
     {INVALID,      0x66389b10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389b18,  "(vex_W ext 15)", xx, xx, xx, xx, xx, mrm|vex, x, 15},
-    {EVEX_W_EXT,   0x66389b18, "(evex_W ext 77)", xx, xx, xx, xx, xx, mrm|evex, x, 77},
+    {EVEX_Wb_EXT,   0x66389b18, "(evex_Wb ext 77)", xx, xx, xx, xx, xx, mrm|evex, x, 77},
   }, { /* e_vex ext 109 */
     {INVALID,      0x6638ab10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638ab18,  "(vex_W ext 16)", xx, xx, xx, xx, xx, mrm|vex, x, 16},
-    {EVEX_W_EXT,   0x6638ab18, "(evex_W ext 78)", xx, xx, xx, xx, xx, mrm|evex, x, 78},
+    {EVEX_Wb_EXT,   0x6638ab18, "(evex_Wb ext 78)", xx, xx, xx, xx, xx, mrm|evex, x, 78},
   }, { /* e_vex ext 110 */
     {INVALID,      0x6638bb10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638bb18,  "(vex_W ext 17)", xx, xx, xx, xx, xx, mrm|vex, x, 17},
-    {EVEX_W_EXT,   0x6638bb18, "(evex_W ext 79)", xx, xx, xx, xx, xx, mrm|evex, x, 79},
+    {EVEX_Wb_EXT,   0x6638bb18, "(evex_Wb ext 79)", xx, xx, xx, xx, xx, mrm|evex, x, 79},
   }, { /* e_vex ext 111 */
     {INVALID,      0x66389c10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389c18,  "(vex_W ext 18)", xx, xx, xx, xx, xx, mrm|vex, x, 18},
-    {EVEX_W_EXT,   0x66389c18, "(evex_W ext 80)", xx, xx, xx, xx, xx, mrm|evex, x, 80},
+    {EVEX_Wb_EXT,   0x66389c18, "(evex_Wb ext 80)", xx, xx, xx, xx, xx, mrm|evex, x, 80},
   }, { /* e_vex ext 112 */
     {INVALID,      0x6638ac10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638ac18,  "(vex_W ext 19)", xx, xx, xx, xx, xx, mrm|vex, x, 19},
-    {EVEX_W_EXT,   0x6638ac18, "(evex_W ext 81)", xx, xx, xx, xx, xx, mrm|evex, x, 81},
+    {EVEX_Wb_EXT,   0x6638ac18, "(evex_Wb ext 81)", xx, xx, xx, xx, xx, mrm|evex, x, 81},
   }, { /* e_vex ext 113 */
     {INVALID,      0x6638bc10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638bc18,  "(vex_W ext 20)", xx, xx, xx, xx, xx, mrm|vex, x, 20},
-    {EVEX_W_EXT,   0x6638bc18, "(evex_W ext 82)", xx, xx, xx, xx, xx, mrm|evex, x, 82},
+    {EVEX_Wb_EXT,   0x6638bc18, "(evex_Wb ext 82)", xx, xx, xx, xx, xx, mrm|evex, x, 82},
   }, { /* e_vex ext 114 */
     {INVALID,      0x66389d10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389d18,  "(vex_W ext 21)", xx, xx, xx, xx, xx, mrm|vex, x, 21},
-    {EVEX_W_EXT,   0x66389d18, "(evex_W ext 83)", xx, xx, xx, xx, xx, mrm|evex, x, 83},
+    {EVEX_Wb_EXT,   0x66389d18, "(evex_Wb ext 83)", xx, xx, xx, xx, xx, mrm|evex, x, 83},
   }, { /* e_vex ext 115 */
     {INVALID,      0x6638ad10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638ad18,  "(vex_W ext 22)", xx, xx, xx, xx, xx, mrm|vex, x, 22},
-    {EVEX_W_EXT,   0x6638ad18, "(evex_W ext 84)", xx, xx, xx, xx, xx, mrm|evex, x, 84},
+    {EVEX_Wb_EXT,   0x6638ad18, "(evex_Wb ext 84)", xx, xx, xx, xx, xx, mrm|evex, x, 84},
   }, { /* e_vex ext 116 */
     {INVALID,      0x6638bd10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638bd18,  "(vex_W ext 23)", xx, xx, xx, xx, xx, mrm|vex, x, 23},
-    {EVEX_W_EXT,   0x6638bd18, "(evex_W ext 85)", xx, xx, xx, xx, xx, mrm|evex, x, 85},
+    {EVEX_Wb_EXT,   0x6638bd18, "(evex_Wb ext 85)", xx, xx, xx, xx, xx, mrm|evex, x, 85},
   }, { /* e_vex ext 117 */
     {INVALID,      0x66389e10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389e18,  "(vex_W ext 24)", xx, xx, xx, xx, xx, mrm|vex, x, 24},
-    {EVEX_W_EXT,   0x66389e18, "(evex_W ext 86)", xx, xx, xx, xx, xx, mrm|evex, x, 86},
+    {EVEX_Wb_EXT,   0x66389e18, "(evex_Wb ext 86)", xx, xx, xx, xx, xx, mrm|evex, x, 86},
   }, { /* e_vex ext 118 */
     {INVALID,      0x6638ae10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638ae18,  "(vex_W ext 25)", xx, xx, xx, xx, xx, mrm|vex, x, 25},
-    {EVEX_W_EXT,   0x6638ae18, "(evex_W ext 87)", xx, xx, xx, xx, xx, mrm|evex, x, 87},
+    {EVEX_Wb_EXT,   0x6638ae18, "(evex_Wb ext 87)", xx, xx, xx, xx, xx, mrm|evex, x, 87},
   }, { /* e_vex ext 119 */
     {INVALID,      0x6638be10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638be18,  "(vex_W ext 26)", xx, xx, xx, xx, xx, mrm|vex, x, 26},
-    {EVEX_W_EXT,   0x6638be18, "(evex_W ext 88)", xx, xx, xx, xx, xx, mrm|evex, x, 88},
+    {EVEX_Wb_EXT,   0x6638be18, "(evex_Wb ext 88)", xx, xx, xx, xx, xx, mrm|evex, x, 88},
   }, { /* e_vex ext 120 */
     {INVALID,      0x66389f10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x66389f18,  "(vex_W ext 27)", xx, xx, xx, xx, xx, mrm|vex, x, 27},
-    {EVEX_W_EXT,   0x66389f18, "(evex_W ext 89)", xx, xx, xx, xx, xx, mrm|evex, x, 89},
+    {EVEX_Wb_EXT,   0x66389f18, "(evex_Wb ext 89)", xx, xx, xx, xx, xx, mrm|evex, x, 89},
   }, { /* e_vex ext 121 */
     {INVALID,      0x6638af10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638af18,  "(vex_W ext 28)", xx, xx, xx, xx, xx, mrm|vex, x, 28},
-    {EVEX_W_EXT,   0x6638af18, "(evex_W ext 90)", xx, xx, xx, xx, xx, mrm|evex, x, 90},
+    {EVEX_Wb_EXT,   0x6638af18, "(evex_Wb ext 90)", xx, xx, xx, xx, xx, mrm|evex, x, 90},
   }, { /* e_vex ext 122 */
     {INVALID,      0x6638bf10,           "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT,    0x6638bf18,  "(vex_W ext 29)", xx, xx, xx, xx, xx, mrm|vex, x, 29},
-    {EVEX_W_EXT,   0x6638bf18, "(evex_W ext 91)", xx, xx, xx, xx, xx, mrm|evex, x, 91},
+    {EVEX_Wb_EXT,   0x6638bf18, "(evex_Wb ext 91)", xx, xx, xx, xx, xx, mrm|evex, x, 91},
   }, { /* e_vex ext 123 */
     {INVALID, 0x66383610, "(bad)", xx, xx, xx, xx, xx, no, x, NA },
-    {OP_vpermd, 0x66383618, "vpermd", Vqq, xx, Hqq, Wqq, xx, mrm|vex|reqp, x, tevexw[92][0]},
-    {EVEX_W_EXT, 0x66383618, "(evex_W ext 92)", xx, xx, xx, xx, xx, mrm|evex, x, 92},
+    {OP_vpermd, 0x66383618, "vpermd", Vqq, xx, Hqq, Wqq, xx, mrm|vex|reqp, x, tevexwb[93][0]},
+    {EVEX_Wb_EXT, 0x66383618, "(evex_Wb ext 93)", xx, xx, xx, xx, xx, mrm|evex, x, 93},
   }, { /* e_vex ext 124 */
     {INVALID, 0x66381610, "(bad)", xx, xx, xx, xx, xx, no, x, NA },
-    {OP_vpermps, 0x66381618, "vpermps", Vqq, xx, Hqq, Wqq, xx, mrm|vex|reqp, x, tevexw[93][0]},
-    {EVEX_W_EXT, 0x66381618, "(evex_W ext 93)", xx, xx, xx, xx, xx, mrm|evex, x, 93 },
+    {OP_vpermps, 0x66381618, "vpermps", Vqq, xx, Hqq, Wqq, xx, mrm|vex|reqp, x, tevexwb[94][0]},
+    {EVEX_Wb_EXT, 0x66381618, "(evex_Wb ext 94)", xx, xx, xx, xx, xx, mrm|evex, x, 94 },
   }, { /* e_vex ext 125 */
     {INVALID, 0x663a0010, "(bad)", xx, xx, xx, xx, xx, no, x, NA },
-    {OP_vpermq, 0x663a0058, "vpermq", Vqq, xx, Wqq, Ib, xx, mrm|vex|reqp, x, tvex[125][2]},
-    {OP_vpermq, 0x663a0058, "vpermq", Vf, xx, KEb, Wf, Ib, mrm|evex|reqp|ttfv, x, tevexw[92][1]},
+    {OP_vpermq, 0x663a0058, "vpermq", Vqq, xx, Wqq, Ib, xx, mrm|vex|reqp, x, tevexwb[251][2]},
+    {EVEX_Wb_EXT, 0x663a0048, "(evex_Wb ext 251)", xx, xx, xx, xx, xx, mrm|evex, x, 251 },
   }, { /* e_vex ext 126 */
     {INVALID, 0x663a0010, "(bad)", xx, xx, xx, xx, xx, no, x, NA },
-    {OP_vpermpd, 0x663a0158, "vpermpd", Vqq, xx, Wqq, Ib, xx, mrm|vex|reqp, x, tvex[126][2]},
-    {OP_vpermpd, 0x663a0158, "vpermpd", Vf, xx, KEw, Wf, Ib, mrm|evex|reqp, x, tevexw[93][1]},
+    {OP_vpermpd, 0x663a0158, "vpermpd", Vqq, xx, Wqq, Ib, xx, mrm|vex|reqp, x, tevexwb[252][2]},
+    {EVEX_Wb_EXT, 0x663a0148, "(evex_Wb ext 252)", xx, xx, xx, xx, xx, mrm|evex, x, 252 },
   }, { /* e_vex ext 127 */
     {INVALID, 0x663a3918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vextracti128,0x663a3918, "vextracti128", Wdq, xx, Vqq, Ib, xx, mrm|vex|reqp, x, END_LIST},
-    {EVEX_W_EXT, 0x663a3918, "(evex_W ext 102)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 102},
+    {EVEX_Wb_EXT, 0x663a3918, "(evex_Wb ext 103)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 103},
   }, { /* e_vex ext 128 */
     {INVALID, 0x663a3818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vinserti128, 0x663a3818, "vinserti128", Vqq, xx, Hqq, Wdq, Ib, mrm|vex|reqp, x, END_LIST},
-    {EVEX_W_EXT, 0x663a3818, "(evex_W ext 106)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 106},
+    {EVEX_Wb_EXT, 0x663a3818, "(evex_Wb ext 107)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 107},
   }, { /* e_vex ext 129 */
     {OP_blendvpd, 0x66381518, "blendvpd", Vdq, xx, Wdq, xmm0, Vdq, mrm|reqp, x, END_LIST},
     {INVALID,     0x66381518, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6351,8 +6340,8 @@ const instr_info_t e_vex_extensions[][3] = {
     {PREFIX_EXT, 0x381418, "(prefix ext 165)", xx, xx, xx, xx, xx, mrm, x, 165},
   }, { /* e_vex ext 131 */
     {INVALID, 0x66384618, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpsravd, 0x66384618, "vpsravd", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexw[127][0]},
-    {EVEX_W_EXT, 0x66384618, "(evex_W ext 127)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 127},
+    {OP_vpsravd, 0x66384618, "vpsravd", Vx, xx, Hx, Wx, xx, mrm|vex|reqp, x, tevexwb[128][0]},
+    {EVEX_Wb_EXT, 0x66384618, "(evex_Wb ext 128)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 128},
   }, { /* e_vex ext 132 */
     {OP_pblendvb, 0x66381018, "pblendvb", Vdq, xx, Wdq, xmm0, Vdq, mrm|reqp,x, END_LIST},
     {INVALID, 0x66381018, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6360,67 +6349,67 @@ const instr_info_t e_vex_extensions[][3] = {
   }, { /* e_vex ext 133 */
     {INVALID, 0x66384518, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x66384518, "(vex_W ext 72)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 72},
-    {EVEX_W_EXT, 0x66384518, "(evex_W ext 128)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 128},
+    {EVEX_Wb_EXT, 0x66384518, "(evex_Wb ext 129)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 129},
   }, { /* e_vex ext 134 */
     {INVALID, 0x66384718, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x66384718, "(vex_W ext 73)", xx, xx, xx, xx, xx, mrm|vex|reqp, x, 73},
-    {EVEX_W_EXT, 0x66384718, "(evex_W ext 130)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 130},
+    {EVEX_Wb_EXT, 0x66384718, "(evex_Wb ext 131)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 131},
   }, { /* e_vex ext 135 */
     {INVALID, 0x66387818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpbroadcastb, 0x66387818, "vpbroadcastb", Vx, xx, Wb_dq, xx, xx, mrm|vex|reqp, x, tvex[135][2]},
-    {OP_vpbroadcastb, 0x66387818, "vpbroadcastb", Ve, xx, KEq, Wb_dq, xx, mrm|evex|reqp|ttt1s|inopsz1, x, t38[135]},
+    {OP_vpbroadcastb, 0x66387808, "vpbroadcastb", Ve, xx, KEq, Wb_dq, xx, mrm|evex|reqp|ttt1s|inopsz1, x, t38[135]},
   }, { /* e_vex ext 136 */
     {INVALID, 0x66387918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpbroadcastw, 0x66387918, "vpbroadcastw", Vx, xx, Ww_dq, xx, xx, mrm|vex|reqp, x, tvex[136][2]},
-    {OP_vpbroadcastw, 0x66387918, "vpbroadcastw", Ve, xx, KEd, Ww_dq, xx, mrm|evex|reqp|ttt1s|inopsz2, x, t38[136]},
+    {OP_vpbroadcastw, 0x66387908, "vpbroadcastw", Ve, xx, KEd, Ww_dq, xx, mrm|evex|reqp|ttt1s|inopsz2, x, t38[136]},
   }, { /* e_vex ext 137 */
     {INVALID, 0x66385818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpbroadcastd, 0x66385818, "vpbroadcastd", Vx, xx, Wd_dq, xx, xx, mrm|vex|reqp, x, tvex[137][2]},
-    {OP_vpbroadcastd, 0x66385818, "vpbroadcastd", Ve, xx, KEw, Wd_dq, xx, mrm|evex|reqp|ttt1s, x, tevexw[150][0]},
+    {OP_vpbroadcastd, 0x66385808, "vpbroadcastd", Ve, xx, KEw, Wd_dq, xx, mrm|evex|reqp|ttt1s, x, tevexwb[151][0]},
   }, { /* e_vex ext 138 */
     {INVALID, 0x66385918, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vpbroadcastq, 0x66385918, "vpbroadcastq", Vx, xx, Wq_dq, xx, xx, mrm|vex|reqp, x, tevexw[151][1]},
-    {EVEX_W_EXT, 0x66385918, "(evex_W ext 151)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 151},
+    {OP_vpbroadcastq, 0x66385918, "vpbroadcastq", Vx, xx, Wq_dq, xx, xx, mrm|vex|reqp, x, tevexwb[152][2]},
+    {EVEX_Wb_EXT, 0x66385918, "(evex_Wb ext 152)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 152},
   }, { /* e_vex ext 139 */
     {INVALID, 0x66385a18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vbroadcasti128, 0x66385a18, "vbroadcasti128", Vqq, xx, Mdq, xx, xx, mrm|vex|reqp, x, END_LIST},
-    {EVEX_W_EXT, 0x66385a18, "(evex_W ext 152)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 152},
+    {EVEX_Wb_EXT, 0x66385a18, "(evex_Wb ext 153)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 153},
   }, { /* e_vex ext 140 */
     {INVALID, 0x389018, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x66389018, "(vex_W ext 66)", xx, xx, xx, xx, xx, mrm|vex, x, 66},
-    {EVEX_W_EXT, 0x66389018, "(evex_W ext 188)", xx, xx, xx, xx, xx, mrm|evex, x, 188},
+    {EVEX_Wb_EXT, 0x66389018, "(evex_Wb ext 189)", xx, xx, xx, xx, xx, mrm|evex, x, 189},
   }, { /* e_vex ext 141 */
     {INVALID, 0x389118, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x66389118, "(vex_W ext 67)", xx, xx, xx, xx, xx, mrm|vex, x, 67},
-    {EVEX_W_EXT, 0x66389118, "(evex_W ext 189)", xx, xx, xx, xx, xx, mrm|evex, x, 189},
+    {EVEX_Wb_EXT, 0x66389118, "(evex_Wb ext 190)", xx, xx, xx, xx, xx, mrm|evex, x, 190},
   }, { /* e_vex ext 142 */
     {INVALID, 0x389118, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x66389218, "(vex_W ext 68)", xx, xx, xx, xx, xx, mrm|vex, x, 68},
-    {EVEX_W_EXT, 0x66389218, "(evex_W ext 190)", xx, xx, xx, xx, xx, mrm|evex, x, 190},
+    {EVEX_Wb_EXT, 0x66389218, "(evex_Wb ext 191)", xx, xx, xx, xx, xx, mrm|evex, x, 191},
   }, { /* e_vex ext 143 */
     {INVALID, 0x389318, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {VEX_W_EXT, 0x66389318, "(vex_W ext 69)", xx, xx, xx, xx, xx, mrm|vex, x, 69},
-    {EVEX_W_EXT, 0x66389318, "(evex_W ext 191)", xx, xx, xx, xx, xx, mrm|evex, x, 191},
+    {EVEX_Wb_EXT, 0x66389318, "(evex_Wb ext 192)", xx, xx, xx, xx, xx, mrm|evex, x, 192},
   }, { /* e_vex ext 144 */
     {OP_sha1msg2, 0x38ca18, "sha1msg2", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {INVALID, 0x38ca18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638ca18, "(evex_W ext 133)", xx, xx, xx, xx, xx, mrm|reqp, x, 133},
+    {EVEX_Wb_EXT, 0x6638ca18, "(evex_Wb ext 134)", xx, xx, xx, xx, xx, mrm|reqp, x, 134},
   }, { /* e_vex ext 145 */
     {OP_sha1nexte, 0x38c818, "sha1nexte", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {INVALID, 0x38c818, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638c818, "(evex_W ext 184)", xx, xx, xx, xx, xx, mrm|reqp, x, 184},
+    {EVEX_Wb_EXT, 0x6638c818, "(evex_Wb ext 185)", xx, xx, xx, xx, xx, mrm|reqp, x, 185},
   }, { /* e_vex ext 146 */
     {OP_sha256rnds2, 0x38cb18, "sha256rnds2", Vdq, xx, Wdq, xmm0, Vdq, mrm|reqp, x, END_LIST},
     {INVALID, 0x38cb18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638cb18, "(evex_W ext 134)", xx, xx, xx, xx, xx, mrm|reqp, x, 134},
+    {EVEX_Wb_EXT, 0x6638cb18, "(evex_Wb ext 135)", xx, xx, xx, xx, xx, mrm|reqp, x, 135},
   }, { /* e_vex ext 147 */
     {OP_sha256msg1, 0x38cc18, "sha256msg1", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {INVALID, 0x38cc18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638cc18, "(evex_W ext 178)", xx, xx, xx, xx, xx, mrm|reqp, x, 178},
+    {EVEX_Wb_EXT, 0x6638cc18, "(evex_Wb ext 179)", xx, xx, xx, xx, xx, mrm|reqp, x, 179},
   }, { /* e_vex ext 148 */
     {OP_sha256msg2, 0x38cd18, "sha256msg2", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},
     {INVALID, 0x38cd18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {EVEX_W_EXT, 0x6638cd18, "(evex_W ext 179)", xx, xx, xx, xx, xx, mrm|reqp, x, 179},
+    {EVEX_Wb_EXT, 0x6638cd18, "(evex_Wb ext 180)", xx, xx, xx, xx, xx, mrm|reqp, x, 180},
   },
 };
 
@@ -6521,20 +6510,20 @@ const instr_info_t mod_extensions[][2] = {
     {OP_movsd,  0xf20f1010, "movsd",  Vsd, xx, Usd, xx, xx, mrm, x, tpe[1][3]},
   },
   { /* mod extension 20 */
-    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, KE1b, Wss,  xx, mrm|evex|ttt1s, x, modx[22][0]},
-    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, KE1b, H12_dq, Uss, mrm|evex|ttnone, x, modx[22][1]},
+    {OP_vmovss,  0xf30f1000, "vmovss",  Vdq, xx, KE1b, Wss,  xx, mrm|evex|ttt1s, x, modx[22][0]},
+    {OP_vmovss,  0xf30f1000, "vmovss",  Vdq, xx, KE1b, H12_dq, Uss, mrm|evex|ttnone, x, modx[22][1]},
   },
   { /* mod extension 21 */
-    {OP_vmovsd,  0xf20f1050, "vmovsd",  Vdq, xx, KE1b, Wsd,  xx, mrm|evex|ttt1s, x, modx[23][0]},
-    {OP_vmovsd,  0xf20f1050, "vmovsd",  Vdq, xx, KE1b, Hsd, Usd, mrm|evex|ttnone, x, modx[23][1]},
+    {OP_vmovsd,  0xf20f1040, "vmovsd",  Vdq, xx, KE1b, Wsd,  xx, mrm|evex|ttt1s, x, modx[23][0]},
+    {OP_vmovsd,  0xf20f1040, "vmovsd",  Vdq, xx, KE1b, Hsd, Usd, mrm|evex|ttnone, x, modx[23][1]},
   },
   { /* mod extension 22 */
-    {OP_vmovss,  0xf30f1110, "vmovss",  Wss, xx, KE1b, Vss,  xx, mrm|evex|ttt1s, x, modx[20][1]},
-    {OP_vmovss,  0xf30f1110, "vmovss",  Udq, xx, KE1b, H12_dq, Vss, mrm|evex|ttnone, x, END_LIST},
+    {OP_vmovss,  0xf30f1100, "vmovss",  Wss, xx, KE1b, Vss,  xx, mrm|evex|ttt1s, x, modx[20][1]},
+    {OP_vmovss,  0xf30f1100, "vmovss",  Udq, xx, KE1b, H12_dq, Vss, mrm|evex|ttnone, x, END_LIST},
   },
   { /* mod extension 23 */
-    {OP_vmovsd,  0xf20f1150, "vmovsd",  Wsd, xx, KE1b, Vsd,  xx, mrm|evex|ttt1s, x, modx[21][1]},
-    {OP_vmovsd,  0xf20f1150, "vmovsd",  Udq, xx, KE1b, Hsd, Vsd, mrm|evex|ttnone, x, END_LIST},
+    {OP_vmovsd,  0xf20f1140, "vmovsd",  Wsd, xx, KE1b, Vsd,  xx, mrm|evex|ttt1s, x, modx[21][1]},
+    {OP_vmovsd,  0xf20f1140, "vmovsd",  Udq, xx, KE1b, Hsd, Vsd, mrm|evex|ttnone, x, END_LIST},
   },
 };
 
@@ -6937,49 +6926,49 @@ const instr_info_t third_byte_38[] = {
   {E_VEX_EXT, 0x66387918, "(e_vex ext 136)", xx, xx, xx, xx, xx, mrm|reqp, x, 136},/*117*/
   {E_VEX_EXT, 0x66385818, "(e_vex ext 137)", xx, xx, xx, xx, xx, mrm|reqp, x, 137},/*118*/
   {E_VEX_EXT, 0x66385918, "(e_vex ext 138)", xx, xx, xx, xx, xx, mrm|reqp, x, 138},/*119*/
-  {OP_vpermw, 0x66388d58, "vpermw", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},/*120*/
-  {EVEX_W_EXT, 0x66387718, "(evex_W ext 94)", xx, xx, xx, xx, xx, mrm|reqp, x, 94},/*121*/
-  {EVEX_W_EXT, 0x66387618, "(evex_W ext 95)", xx, xx, xx, xx, xx, mrm|reqp, x, 95},/*122*/
-  {EVEX_W_EXT, 0x66387518, "(evex_W ext 96)", xx, xx, xx, xx, xx, mrm|reqp, x, 96},/*123*/
-  {EVEX_W_EXT, 0x66387d18, "(evex_W ext 97)", xx, xx, xx, xx, xx, mrm|reqp, x, 97},/*124*/
-  {EVEX_W_EXT, 0x66387e18, "(evex_W ext 98)", xx, xx, xx, xx, xx, mrm|reqp, x, 98},/*125*/
-  {EVEX_W_EXT, 0x66387f18, "(evex_W ext 99)", xx, xx, xx, xx, xx, mrm|reqp, x, 99},/*126*/
+  {EVEX_Wb_EXT, 0x66388d18, "(evex_Wb ext 92)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 92},/*120*/
+  {EVEX_Wb_EXT, 0x66387718, "(evex_Wb ext 95)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 95},/*121*/
+  {EVEX_Wb_EXT, 0x66387618, "(evex_Wb ext 96)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 96},/*122*/
+  {EVEX_Wb_EXT, 0x66387518, "(evex_Wb ext 97)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 97},/*123*/
+  {EVEX_Wb_EXT, 0x66387d18, "(evex_Wb ext 98)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 98},/*124*/
+  {EVEX_Wb_EXT, 0x66387e18, "(evex_Wb ext 99)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 99},/*125*/
+  {EVEX_Wb_EXT, 0x66387f18, "(evex_Wb ext 100)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 100},/*126*/
   {PREFIX_EXT, 0x381118, "(prefix ext 171)", xx, xx, xx, xx, xx, mrm, x, 171},  /*127*/
   {PREFIX_EXT, 0x381218, "(prefix ext 162)", xx, xx, xx, xx, xx, mrm, x, 162},  /*128*/
-  {EVEX_W_EXT, 0x66384c18, "(evex_W ext 131)", xx, xx, xx, xx, xx, mrm|reqp, x, 131},/*129*/
-  {EVEX_W_EXT, 0x66384d18, "(evex_W ext 132)", xx, xx, xx, xx, xx, mrm|reqp, x, 132},/*130*/
+  {EVEX_Wb_EXT, 0x66384c18, "(evex_Wb ext 132)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 132},/*129*/
+  {EVEX_Wb_EXT, 0x66384d18, "(evex_Wb ext 133)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 133},/*130*/
   {E_VEX_EXT, 0x38ca18, "(e_vex ext 144)", xx, xx, xx, xx, xx, mrm|reqp, x, 144},/*131*/
   {E_VEX_EXT, 0x38cb18, "(e_vex ext 146)", xx, xx, xx, xx, xx, mrm|reqp, x, 146},/*132*/
-  {EVEX_W_EXT, 0x66381f58, "(evex_W ext 146)", xx, xx, xx, xx, xx, mrm|reqp, x, 146},/*133*/
-  {EVEX_W_EXT, 0x66381b18, "(evex_W ext 149)", xx, xx, xx, xx, xx, mrm|reqp, x, 149},/*134*/
-  {OP_vpbroadcastb, 0x66387a18, "vpbroadcastb", Ve, xx, KEq, Ed, xx, mrm|evex|reqp|ttt1s, x, END_LIST},/*135*/
-  {OP_vpbroadcastw, 0x66387b18, "vpbroadcastw", Ve, xx, KEd, Ed, xx, mrm|evex|reqp|ttt1s|inopsz2, x, END_LIST},/*136*/
-  {EVEX_W_EXT, 0x66387c18, "(evex_W ext 150)", xx, xx, xx, xx, xx, mrm|reqp, x, 150},/*137*/
-  {EVEX_W_EXT, 0x66385b18, "(evex_W ext 153)", xx, xx, xx, xx, xx, mrm|reqp, x, 153},/*138*/
-  {EVEX_W_EXT, 0x66386518, "(evex_W ext 155)", xx, xx, xx, xx, xx, mrm|reqp, x, 155},/*139*/
-  {EVEX_W_EXT, 0x66388a18, "(evex_W ext 156)", xx, xx, xx, xx, xx, mrm|reqp, x, 156},/*140*/
-  {EVEX_W_EXT, 0x66388818, "(evex_W ext 157)", xx, xx, xx, xx, xx, mrm|reqp, x, 157},/*141*/
-  {EVEX_W_EXT, 0x66384218, "(evex_W ext 160)", xx, xx, xx, xx, xx, mrm|reqp, x, 160},/*142*/
-  {EVEX_W_EXT, 0x66384318, "(evex_W ext 161)", xx, xx, xx, xx, xx, mrm|reqp, x, 161},/*143*/
-  {EVEX_W_EXT, 0x66386618, "(evex_W ext 164)", xx, xx, xx, xx, xx, mrm|reqp, x, 164},/*144*/
-  {EVEX_W_EXT, 0x66386418, "(evex_W ext 165)", xx, xx, xx, xx, xx, mrm|reqp, x, 165},/*145*/
-  {EVEX_W_EXT, 0x66388b18, "(evex_W ext 166)", xx, xx, xx, xx, xx, mrm|reqp, x, 166},/*146*/
-  {EVEX_W_EXT, 0x66388918, "(evex_W ext 167)", xx, xx, xx, xx, xx, mrm|reqp, x, 167},/*147*/
+  {EVEX_Wb_EXT, 0x66381f58, "(evex_Wb ext 147)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 147},/*133*/
+  {EVEX_Wb_EXT, 0x66381b18, "(evex_Wb ext 150)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 150},/*134*/
+  {OP_vpbroadcastb, 0x66387a08, "vpbroadcastb", Ve, xx, KEq, Ed, xx, mrm|evex|reqp|ttt1s, x, END_LIST},/*135*/
+  {OP_vpbroadcastw, 0x66387b08, "vpbroadcastw", Ve, xx, KEd, Ed, xx, mrm|evex|reqp|ttt1s|inopsz2, x, END_LIST},/*136*/
+  {EVEX_Wb_EXT, 0x66387c18, "(evex_Wb ext 151)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 151},/*137*/
+  {EVEX_Wb_EXT, 0x66385b18, "(evex_Wb ext 154)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 154},/*138*/
+  {EVEX_Wb_EXT, 0x66386518, "(evex_Wb ext 156)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 156},/*139*/
+  {EVEX_Wb_EXT, 0x66388a18, "(evex_Wb ext 157)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 157},/*140*/
+  {EVEX_Wb_EXT, 0x66388818, "(evex_Wb ext 158)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 158},/*141*/
+  {EVEX_Wb_EXT, 0x66384218, "(evex_Wb ext 161)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 161},/*142*/
+  {EVEX_Wb_EXT, 0x66384318, "(evex_Wb ext 162)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 162},/*143*/
+  {EVEX_Wb_EXT, 0x66386618, "(evex_Wb ext 165)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 165},/*144*/
+  {EVEX_Wb_EXT, 0x66386418, "(evex_Wb ext 166)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 166},/*145*/
+  {EVEX_Wb_EXT, 0x66388b18, "(evex_Wb ext 167)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 167},/*146*/
+  {EVEX_Wb_EXT, 0x66388918, "(evex_Wb ext 168)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 168},/*147*/
   {PREFIX_EXT, 0x382618, "(prefix ext 182)", xx, xx, xx, xx, xx, mrm, x, 182},/*148*/
   {PREFIX_EXT, 0x382718, "(prefix ext 183)", xx, xx, xx, xx, xx, mrm, x, 183},/*149*/
-  {EVEX_W_EXT, 0x66384e18, "(evex_W ext 176)", xx, xx, xx, xx, xx, mrm|reqp, x, 176},/*150*/
-  {EVEX_W_EXT, 0x66384f18, "(evex_W ext 177)", xx, xx, xx, xx, xx, mrm|reqp, x, 177},/*151*/
+  {EVEX_Wb_EXT, 0x66384e18, "(evex_Wb ext 177)", xx, xx, xx, xx, xx, mrm|reqp, x, 177},/*150*/
+  {EVEX_Wb_EXT, 0x66384f18, "(evex_Wb ext 178)", xx, xx, xx, xx, xx, mrm|reqp, x, 178},/*151*/
   {E_VEX_EXT, 0x38cc18, "(e_vex ext 147)", xx, xx, xx, xx, xx, mrm|reqp, x, 147},/*152*/
   {E_VEX_EXT, 0x38cd18, "(e_vex ext 148)", xx, xx, xx, xx, xx, mrm|reqp, x, 148},/*153*/
   {E_VEX_EXT, 0x38c818, "(e_vex ext 145)", xx, xx, xx, xx, xx, mrm|reqp, x, 145},/*154*/
-  {EVEX_W_EXT, 0x6638c418, "(evex_W ext 185)", xx, xx, xx, xx, xx, mrm|reqp, x, 185},/*155*/
-  {EVEX_W_EXT, 0x66384418, "(evex_W ext 186)", xx, xx, xx, xx, xx, mrm|reqp, x, 186},/*156*/
-  {OP_vpmadd52luq, 0x6638b458, "vpmadd52luq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},/*157*/
-  {OP_vpmadd52huq, 0x6638b558, "vpmadd52huq", Ve, xx, KEd, He, We, mrm|evex|reqp|ttfv, x, END_LIST},/*158*/
-  {EVEX_W_EXT, 0x6638a018, "(evex_W ext 192)", xx, xx, xx, xx, xx, mrm|reqp, x, 192},/*159*/
-  {EVEX_W_EXT, 0x6638a118, "(evex_W ext 193)", xx, xx, xx, xx, xx, mrm|reqp, x, 193},/*160*/
-  {EVEX_W_EXT, 0x6638a218, "(evex_W ext 194)", xx, xx, xx, xx, xx, mrm|reqp, x, 194},/*161*/
-  {EVEX_W_EXT, 0x6638a318, "(evex_W ext 195)", xx, xx, xx, xx, xx, mrm|reqp, x, 195},/*162*/
+  {EVEX_Wb_EXT, 0x6638c418, "(evex_Wb ext 186)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 186},/*155*/
+  {EVEX_Wb_EXT, 0x66384418, "(evex_Wb ext 187)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 187},/*156*/
+  {EVEX_Wb_EXT, 0x6638b448, "(evex_Wb ext 220)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 220},/*157*/
+  {EVEX_Wb_EXT, 0x6638b548, "(evex_Wb ext 234)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 234},/*158*/
+  {EVEX_Wb_EXT, 0x6638a018, "(evex_Wb ext 193)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 193},/*159*/
+  {EVEX_Wb_EXT, 0x6638a118, "(evex_Wb ext 194)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 194},/*160*/
+  {EVEX_Wb_EXT, 0x6638a218, "(evex_Wb ext 195)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 195},/*161*/
+  {EVEX_Wb_EXT, 0x6638a318, "(evex_Wb ext 196)", xx, xx, xx, xx, xx, mrm|evex|reqp, x, 196},/*162*/
   {EXTENSION, 0x6638c618, "group 18", xx, xx, xx, xx, xx, mrm, x, 32},/*163*/
   {EXTENSION, 0x6638c718, "group 19", xx, xx, xx, xx, xx, mrm, x, 33},/*164*/
   {OP_sha1msg1, 0x38c918, "sha1msg1", Vdq, xx, Wdq, Vdq, xx, mrm|reqp, x, END_LIST},/*165*/
@@ -7087,28 +7076,28 @@ const instr_info_t third_byte_3a[] = {
   {VEX_W_EXT, 0x663a3110, "(vex_W ext 103)", xx, xx, xx, xx, xx, mrm|reqp, x, 103 },/*64*/
   {VEX_W_EXT, 0x663a3210, "(vex_W ext 100)", xx, xx, xx, xx, xx, mrm|reqp, x, 100 },/*65*/
   {VEX_W_EXT, 0x663a3310, "(vex_W ext 101)", xx, xx, xx, xx, xx, mrm|reqp, x, 101 },/*66*/
-  {EVEX_W_EXT, 0x663a1b18, "(evex_W ext 101)", xx, xx, xx, xx, xx, mrm, x, 101},/*67*/
-  {EVEX_W_EXT, 0x663a3b18, "(evex_W ext 103)", xx, xx, xx, xx, xx, mrm, x, 103},/*68*/
-  {EVEX_W_EXT, 0x663a1a18, "(evex_W ext 105)", xx, xx, xx, xx, xx, mrm, x, 105},/*69*/
-  {EVEX_W_EXT, 0x663a3a18, "(evex_W ext 107)", xx, xx, xx, xx, xx, mrm, x, 107},/*70*/
-  {EVEX_W_EXT, 0x663a3e18, "(evex_W ext 108)", xx, xx, xx, xx, xx, mrm, x, 108},/*71*/
-  {EVEX_W_EXT, 0x663a3f18, "(evex_W ext 109)", xx, xx, xx, xx, xx, mrm, x, 109},/*72*/
-  {EVEX_W_EXT, 0x663a1e18, "(evex_W ext 110)", xx, xx, xx, xx, xx, mrm, x, 110},/*73*/
-  {EVEX_W_EXT, 0x663a1f18, "(evex_W ext 111)", xx, xx, xx, xx, xx, mrm, x, 111},/*74*/
-  {EVEX_W_EXT, 0x663a2318, "(evex_W ext 141)", xx, xx, xx, xx, xx, mrm, x, 141},/*75*/
-  {EVEX_W_EXT, 0x663a4318, "(evex_W ext 142)", xx, xx, xx, xx, xx, mrm, x, 142},/*76*/
-  {EVEX_W_EXT, 0x663a0318, "(evex_W ext 154)", xx, xx, xx, xx, xx, mrm, x, 154},/*77*/
-  {EVEX_W_EXT, 0x663a5418, "(evex_W ext 158)", xx, xx, xx, xx, xx, mrm, x, 158},/*78*/
-  {EVEX_W_EXT, 0x663a5518, "(evex_W ext 159)", xx, xx, xx, xx, xx, mrm, x, 159},/*79*/
-  {EVEX_W_EXT, 0x663a2618, "(evex_W ext 162)", xx, xx, xx, xx, xx, mrm, x, 162},/*80*/
-  {EVEX_W_EXT, 0x663a2718, "(evex_W ext 163)", xx, xx, xx, xx, xx, mrm, x, 163},/*81*/
-  {EVEX_W_EXT, 0x663a5018, "(evex_W ext 172)", xx, xx, xx, xx, xx, mrm, x, 172},/*82*/
-  {EVEX_W_EXT, 0x663a5118, "(evex_W ext 173)", xx, xx, xx, xx, xx, mrm, x, 173},/*83*/
-  {EVEX_W_EXT, 0x663a5618, "(evex_W ext 174)", xx, xx, xx, xx, xx, mrm, x, 174},/*84*/
-  {EVEX_W_EXT, 0x663a5718, "(evex_W ext 175)", xx, xx, xx, xx, xx, mrm, x, 175},/*85*/
-  {EVEX_W_EXT, 0x663a6618, "(evex_W ext 182)", xx, xx, xx, xx, xx, mrm, x, 182},/*86*/
-  {EVEX_W_EXT, 0x663a6718, "(evex_W ext 183)", xx, xx, xx, xx, xx, mrm, x, 183},/*87*/
-  {EVEX_W_EXT, 0x663a2518, "(evex_W ext 187)", xx, xx, xx, xx, xx, mrm, x, 187},/*88*/
+  {EVEX_Wb_EXT, 0x663a1b18, "(evex_Wb ext 102)", xx, xx, xx, xx, xx, mrm, x, 102},/*67*/
+  {EVEX_Wb_EXT, 0x663a3b18, "(evex_Wb ext 104)", xx, xx, xx, xx, xx, mrm, x, 104},/*68*/
+  {EVEX_Wb_EXT, 0x663a1a18, "(evex_Wb ext 106)", xx, xx, xx, xx, xx, mrm, x, 106},/*69*/
+  {EVEX_Wb_EXT, 0x663a3a18, "(evex_Wb ext 108)", xx, xx, xx, xx, xx, mrm, x, 108},/*70*/
+  {EVEX_Wb_EXT, 0x663a3e18, "(evex_Wb ext 109)", xx, xx, xx, xx, xx, mrm, x, 109},/*71*/
+  {EVEX_Wb_EXT, 0x663a3f18, "(evex_Wb ext 110)", xx, xx, xx, xx, xx, mrm, x, 110},/*72*/
+  {EVEX_Wb_EXT, 0x663a1e18, "(evex_Wb ext 111)", xx, xx, xx, xx, xx, mrm, x, 111},/*73*/
+  {EVEX_Wb_EXT, 0x663a1f18, "(evex_Wb ext 112)", xx, xx, xx, xx, xx, mrm, x, 112},/*74*/
+  {EVEX_Wb_EXT, 0x663a2318, "(evex_Wb ext 142)", xx, xx, xx, xx, xx, mrm, x, 142},/*75*/
+  {EVEX_Wb_EXT, 0x663a4318, "(evex_Wb ext 143)", xx, xx, xx, xx, xx, mrm, x, 143},/*76*/
+  {EVEX_Wb_EXT, 0x663a0318, "(evex_Wb ext 155)", xx, xx, xx, xx, xx, mrm, x, 155},/*77*/
+  {EVEX_Wb_EXT, 0x663a5418, "(evex_Wb ext 159)", xx, xx, xx, xx, xx, mrm, x, 159},/*78*/
+  {EVEX_Wb_EXT, 0x663a5518, "(evex_Wb ext 160)", xx, xx, xx, xx, xx, mrm, x, 160},/*79*/
+  {EVEX_Wb_EXT, 0x663a2618, "(evex_Wb ext 163)", xx, xx, xx, xx, xx, mrm, x, 163},/*80*/
+  {EVEX_Wb_EXT, 0x663a2718, "(evex_Wb ext 164)", xx, xx, xx, xx, xx, mrm, x, 164},/*81*/
+  {EVEX_Wb_EXT, 0x663a5018, "(evex_Wb ext 173)", xx, xx, xx, xx, xx, mrm, x, 173},/*82*/
+  {EVEX_Wb_EXT, 0x663a5118, "(evex_Wb ext 174)", xx, xx, xx, xx, xx, mrm, x, 174},/*83*/
+  {EVEX_Wb_EXT, 0x663a5618, "(evex_Wb ext 175)", xx, xx, xx, xx, xx, mrm, x, 175},/*84*/
+  {EVEX_Wb_EXT, 0x663a5718, "(evex_Wb ext 176)", xx, xx, xx, xx, xx, mrm, x, 176},/*85*/
+  {EVEX_Wb_EXT, 0x663a6618, "(evex_Wb ext 183)", xx, xx, xx, xx, xx, mrm, x, 183},/*86*/
+  {EVEX_Wb_EXT, 0x663a6718, "(evex_Wb ext 184)", xx, xx, xx, xx, xx, mrm, x, 184},/*87*/
+  {EVEX_Wb_EXT, 0x663a2518, "(evex_Wb ext 188)", xx, xx, xx, xx, xx, mrm, x, 188},/*88*/
   /* SHA */
   {OP_sha1rnds4, 0x3acc18, "sha1rnds4", Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},/*89*/
 };
@@ -7119,95 +7108,95 @@ const instr_info_t third_byte_3a[] = {
  */
 const instr_info_t vex_W_extensions[][2] = {
   {    /* vex_W_ext 0 */
-    {OP_vfmadd132ps,0x66389818,"vfmadd132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[62][0]},
-    {OP_vfmadd132pd,0x66389858,"vfmadd132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[62][1]},
+    {OP_vfmadd132ps,0x66389818,"vfmadd132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[62][0]},
+    {OP_vfmadd132pd,0x66389858,"vfmadd132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[62][2]},
   }, { /* vex_W_ext 1 */
-    {OP_vfmadd213ps,0x6638a818,"vfmadd213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[63][0]},
-    {OP_vfmadd213pd,0x6638a858,"vfmadd213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[63][1]},
+    {OP_vfmadd213ps,0x6638a818,"vfmadd213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[63][0]},
+    {OP_vfmadd213pd,0x6638a858,"vfmadd213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[63][2]},
   }, { /* vex_W_ext 2 */
-    {OP_vfmadd231ps,0x6638b818,"vfmadd231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[64][0]},
-    {OP_vfmadd231pd,0x6638b858,"vfmadd231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[64][1]},
+    {OP_vfmadd231ps,0x6638b818,"vfmadd231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[64][0]},
+    {OP_vfmadd231pd,0x6638b858,"vfmadd231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[64][2]},
   }, { /* vex_W_ext 3 */
-    {OP_vfmadd132ss,0x66389918,"vfmadd132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[65][0]},
-    {OP_vfmadd132sd,0x66389958,"vfmadd132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[65][1]},
+    {OP_vfmadd132ss,0x66389918,"vfmadd132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[65][0]},
+    {OP_vfmadd132sd,0x66389958,"vfmadd132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[65][2]},
   }, { /* vex_W_ext 4 */
-    {OP_vfmadd213ss,0x6638a918,"vfmadd213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[66][0]},
-    {OP_vfmadd213sd,0x6638a958,"vfmadd213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[66][1]},
+    {OP_vfmadd213ss,0x6638a918,"vfmadd213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[66][0]},
+    {OP_vfmadd213sd,0x6638a958,"vfmadd213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[66][2]},
   }, { /* vex_W_ext 5 */
-    {OP_vfmadd231ss,0x6638b918,"vfmadd231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[67][0]},
-    {OP_vfmadd231sd,0x6638b958,"vfmadd231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[67][1]},
+    {OP_vfmadd231ss,0x6638b918,"vfmadd231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[67][0]},
+    {OP_vfmadd231sd,0x6638b958,"vfmadd231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[67][2]},
   }, { /* vex_W_ext 6 */
-    {OP_vfmaddsub132ps,0x66389618,"vfmaddsub132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[68][0]},
-    {OP_vfmaddsub132pd,0x66389658,"vfmaddsub132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[68][1]},
+    {OP_vfmaddsub132ps,0x66389618,"vfmaddsub132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[68][0]},
+    {OP_vfmaddsub132pd,0x66389658,"vfmaddsub132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[68][2]},
   }, { /* vex_W_ext 7 */
-    {OP_vfmaddsub213ps,0x6638a618,"vfmaddsub213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[69][0]},
-    {OP_vfmaddsub213pd,0x6638a658,"vfmaddsub213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[69][1]},
+    {OP_vfmaddsub213ps,0x6638a618,"vfmaddsub213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[69][0]},
+    {OP_vfmaddsub213pd,0x6638a658,"vfmaddsub213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[69][2]},
   }, { /* vex_W_ext 8 */
-    {OP_vfmaddsub231ps,0x6638b618,"vfmaddsub231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[70][0]},
-    {OP_vfmaddsub231pd,0x6638b658,"vfmaddsub231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[70][1]},
+    {OP_vfmaddsub231ps,0x6638b618,"vfmaddsub231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[70][0]},
+    {OP_vfmaddsub231pd,0x6638b658,"vfmaddsub231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[70][2]},
   }, { /* vex_W_ext 9 */
-    {OP_vfmsubadd132ps,0x66389718,"vfmsubadd132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[71][0]},
-    {OP_vfmsubadd132pd,0x66389758,"vfmsubadd132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[71][1]},
+    {OP_vfmsubadd132ps,0x66389718,"vfmsubadd132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[71][0]},
+    {OP_vfmsubadd132pd,0x66389758,"vfmsubadd132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[71][2]},
   }, { /* vex_W_ext 10 */
-    {OP_vfmsubadd213ps,0x6638a718,"vfmsubadd213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[72][0]},
-    {OP_vfmsubadd213pd,0x6638a758,"vfmsubadd213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[72][1]},
+    {OP_vfmsubadd213ps,0x6638a718,"vfmsubadd213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[72][0]},
+    {OP_vfmsubadd213pd,0x6638a758,"vfmsubadd213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[72][2]},
   }, { /* vex_W_ext 11 */
-    {OP_vfmsubadd231ps,0x6638b718,"vfmsubadd231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[73][0]},
-    {OP_vfmsubadd231pd,0x6638b758,"vfmsubadd231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[73][1]},
+    {OP_vfmsubadd231ps,0x6638b718,"vfmsubadd231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[73][0]},
+    {OP_vfmsubadd231pd,0x6638b758,"vfmsubadd231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[73][2]},
   }, { /* vex_W_ext 12 */
-    {OP_vfmsub132ps,0x66389a18,"vfmsub132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[74][0]},
-    {OP_vfmsub132pd,0x66389a58,"vfmsub132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[74][1]},
+    {OP_vfmsub132ps,0x66389a18,"vfmsub132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[74][0]},
+    {OP_vfmsub132pd,0x66389a58,"vfmsub132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[74][2]},
   }, { /* vex_W_ext 13 */
-    {OP_vfmsub213ps,0x6638aa18,"vfmsub213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[75][0]},
-    {OP_vfmsub213pd,0x6638aa58,"vfmsub213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[75][1]},
+    {OP_vfmsub213ps,0x6638aa18,"vfmsub213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[75][0]},
+    {OP_vfmsub213pd,0x6638aa58,"vfmsub213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[75][2]},
   }, { /* vex_W_ext 14 */
-    {OP_vfmsub231ps,0x6638ba18,"vfmsub231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[76][0]},
-    {OP_vfmsub231pd,0x6638ba58,"vfmsub231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[76][1]},
+    {OP_vfmsub231ps,0x6638ba18,"vfmsub231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[76][0]},
+    {OP_vfmsub231pd,0x6638ba58,"vfmsub231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[76][2]},
   }, { /* vex_W_ext 15 */
-    {OP_vfmsub132ss,0x66389b18,"vfmsub132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[77][0]},
-    {OP_vfmsub132sd,0x66389b58,"vfmsub132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[77][1]},
+    {OP_vfmsub132ss,0x66389b18,"vfmsub132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[77][0]},
+    {OP_vfmsub132sd,0x66389b58,"vfmsub132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[77][2]},
   }, { /* vex_W_ext 16 */
-    {OP_vfmsub213ss,0x6638ab18,"vfmsub213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[78][0]},
-    {OP_vfmsub213sd,0x6638ab58,"vfmsub213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[78][1]},
+    {OP_vfmsub213ss,0x6638ab18,"vfmsub213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[78][0]},
+    {OP_vfmsub213sd,0x6638ab58,"vfmsub213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[78][2]},
   }, { /* vex_W_ext 17 */
-    {OP_vfmsub231ss,0x6638bb18,"vfmsub231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[79][0]},
-    {OP_vfmsub231sd,0x6638bb58,"vfmsub231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[79][1]},
+    {OP_vfmsub231ss,0x6638bb18,"vfmsub231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[79][0]},
+    {OP_vfmsub231sd,0x6638bb58,"vfmsub231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[79][2]},
   }, { /* vex_W_ext 18 */
-    {OP_vfnmadd132ps,0x66389c18,"vfnmadd132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[80][0]},
-    {OP_vfnmadd132pd,0x66389c58,"vfnmadd132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[80][1]},
+    {OP_vfnmadd132ps,0x66389c18,"vfnmadd132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[80][0]},
+    {OP_vfnmadd132pd,0x66389c58,"vfnmadd132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[80][2]},
   }, { /* vex_W_ext 19 */
-    {OP_vfnmadd213ps,0x6638ac18,"vfnmadd213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[81][0]},
-    {OP_vfnmadd213pd,0x6638ac58,"vfnmadd213pd",Vvd,xx,Hvd,Wvd,Vvs,mrm|vex|reqp,x,tevexw[81][1]},
+    {OP_vfnmadd213ps,0x6638ac18,"vfnmadd213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[81][0]},
+    {OP_vfnmadd213pd,0x6638ac58,"vfnmadd213pd",Vvd,xx,Hvd,Wvd,Vvs,mrm|vex|reqp,x,tevexwb[81][2]},
   }, { /* vex_W_ext 20 */
-    {OP_vfnmadd231ps,0x6638bc18,"vfnmadd231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[82][0]},
-    {OP_vfnmadd231pd,0x6638bc58,"vfnmadd231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[82][1]},
+    {OP_vfnmadd231ps,0x6638bc18,"vfnmadd231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[82][0]},
+    {OP_vfnmadd231pd,0x6638bc58,"vfnmadd231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[82][2]},
   }, { /* vex_W_ext 21 */
-    {OP_vfnmadd132ss,0x66389d18,"vfnmadd132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[83][0]},
-    {OP_vfnmadd132sd,0x66389d58,"vfnmadd132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[83][1]},
+    {OP_vfnmadd132ss,0x66389d18,"vfnmadd132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[83][0]},
+    {OP_vfnmadd132sd,0x66389d58,"vfnmadd132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[83][2]},
   }, { /* vex_W_ext 22 */
-    {OP_vfnmadd213ss,0x6638ad18,"vfnmadd213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[84][0]},
-    {OP_vfnmadd213sd,0x6638ad58,"vfnmadd213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[84][1]},
+    {OP_vfnmadd213ss,0x6638ad18,"vfnmadd213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[84][0]},
+    {OP_vfnmadd213sd,0x6638ad58,"vfnmadd213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[84][2]},
   }, { /* vex_W_ext 23 */
-    {OP_vfnmadd231ss,0x6638bd18,"vfnmadd231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[85][0]},
-    {OP_vfnmadd231sd,0x6638bd58,"vfnmadd231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[85][1]},
+    {OP_vfnmadd231ss,0x6638bd18,"vfnmadd231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[85][0]},
+    {OP_vfnmadd231sd,0x6638bd58,"vfnmadd231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[85][2]},
   }, { /* vex_W_ext 24 */
-    {OP_vfnmsub132ps,0x66389e18,"vfnmsub132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[86][0]},
-    {OP_vfnmsub132pd,0x66389e58,"vfnmsub132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[86][1]},
+    {OP_vfnmsub132ps,0x66389e18,"vfnmsub132ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[86][0]},
+    {OP_vfnmsub132pd,0x66389e58,"vfnmsub132pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[86][2]},
   }, { /* vex_W_ext 25 */
-    {OP_vfnmsub213ps,0x6638ae18,"vfnmsub213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[87][0]},
-    {OP_vfnmsub213pd,0x6638ae58,"vfnmsub213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[87][1]},
+    {OP_vfnmsub213ps,0x6638ae18,"vfnmsub213ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[87][0]},
+    {OP_vfnmsub213pd,0x6638ae58,"vfnmsub213pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[87][2]},
   }, { /* vex_W_ext 26 */
-    {OP_vfnmsub231ps,0x6638be18,"vfnmsub231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexw[88][0]},
-    {OP_vfnmsub231pd,0x6638be58,"vfnmsub231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexw[88][1]},
+    {OP_vfnmsub231ps,0x6638be18,"vfnmsub231ps",Vvs,xx,Hvs,Wvs,Vvs,mrm|vex|reqp,x,tevexwb[88][0]},
+    {OP_vfnmsub231pd,0x6638be58,"vfnmsub231pd",Vvd,xx,Hvd,Wvd,Vvd,mrm|vex|reqp,x,tevexwb[88][2]},
   }, { /* vex_W_ext 27 */
-    {OP_vfnmsub132ss,0x66389f18,"vfnmsub132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[89][0]},
-    {OP_vfnmsub132sd,0x66389f58,"vfnmsub132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[89][1]},
+    {OP_vfnmsub132ss,0x66389f18,"vfnmsub132ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[89][0]},
+    {OP_vfnmsub132sd,0x66389f58,"vfnmsub132sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[89][2]},
   }, { /* vex_W_ext 28 */
-    {OP_vfnmsub213ss,0x6638af18,"vfnmsub213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[90][0]},
-    {OP_vfnmsub213sd,0x6638af58,"vfnmsub213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[90][1]},
+    {OP_vfnmsub213ss,0x6638af18,"vfnmsub213ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[90][0]},
+    {OP_vfnmsub213sd,0x6638af58,"vfnmsub213sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[90][2]},
   }, { /* vex_W_ext 29 */
-    {OP_vfnmsub231ss,0x6638bf18,"vfnmsub231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexw[91][0]},
-    {OP_vfnmsub231sd,0x6638bf58,"vfnmsub231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexw[91][1]},
+    {OP_vfnmsub231ss,0x6638bf18,"vfnmsub231ss",Vss,xx,Hss,Wss,Vss,mrm|vex|reqp,x,tevexwb[91][0]},
+    {OP_vfnmsub231sd,0x6638bf58,"vfnmsub231sd",Vsd,xx,Hsd,Wsd,Vsd,mrm|vex|reqp,x,tevexwb[91][2]},
   }, { /* vex_W_ext 30 */
     {OP_vfmaddsubps,0x663a5c18,"vfmaddsubps",Vvs,xx,Lvs,Wvs,Hvs,mrm|vex|reqp,x,tvexw[30][1]},
     {OP_vfmaddsubps,0x663a5c58,"vfmaddsubps",Vvs,xx,Lvs,Hvs,Wvs,mrm|vex|reqp,x,END_LIST},
@@ -7320,17 +7309,17 @@ const instr_info_t vex_W_extensions[][2] = {
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexw[188][0]},
-    {OP_vpgatherdq,0x66389058,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexw[188][1]},
+    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[189][0]},
+    {OP_vpgatherdq,0x66389058,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[189][2]},
   }, { /* vex_W_ext 67 */
-    {OP_vpgatherqd,0x66389118,"vpgatherqd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexw[189][0]},
-    {OP_vpgatherqq,0x66389158,"vpgatherqq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexw[189][1]},
+    {OP_vpgatherqd,0x66389118,"vpgatherqd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[190][0]},
+    {OP_vpgatherqq,0x66389158,"vpgatherqq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[190][2]},
   }, { /* vex_W_ext 68 */
-    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexw[190][0]},
-    {OP_vgatherdpd,0x66389258,"vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexw[190][1]},
+    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[191][0]},
+    {OP_vgatherdpd,0x66389258,"vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[191][2]},
   }, { /* vex_W_ext 69 */
-    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexw[191][0]},
-    {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexw[191][1]},
+    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tevexwb[192][0]},
+    {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,tevexwb[192][2]},
   }, { /* vex_W_ext 70 */
     {OP_vpmaskmovd,0x66388c18,"vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][0]},
     {OP_vpmaskmovq,0x66388c58,"vpmaskmovq",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][1]},
@@ -7339,11 +7328,11 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vpmaskmovd,0x66388e18,"vpmaskmovd",Mx,xx,Vx,Hx,xx, mrm|vex|reqp|predcx,x,END_LIST},
     {OP_vpmaskmovq,0x66388e58,"vpmaskmovq",Mx,xx,Vx,Hx,xx, mrm|vex|reqp|predcx,x,END_LIST},
   }, { /* vex_W_ext 72 */
-    {OP_vpsrlvd,0x66384518,"vpsrlvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexw[128][0]},
-    {OP_vpsrlvq,0x66384558,"vpsrlvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexw[128][1]},
+    {OP_vpsrlvd,0x66384518,"vpsrlvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexwb[129][0]},
+    {OP_vpsrlvq,0x66384558,"vpsrlvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexwb[129][2]},
   }, { /* vex_W_ext 73 */
-    {OP_vpsllvd,0x66384718,"vpsllvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexw[130][0]},
-    {OP_vpsllvq,0x66384758,"vpsllvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexw[130][1]},
+    {OP_vpsllvd,0x66384718,"vpsllvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexwb[131][0]},
+    {OP_vpsllvq,0x66384758,"vpsllvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,tevexwb[131][2]},
   }, { /* vex_W_ext 74 */
     {OP_kmovw,0x0f9010,"kmovw",KPw,xx,KQw,xx,xx, mrm|vex|reqL0,x,tvexw[76][0]},
     {OP_kmovq,0x0f9050,"kmovq",KPq,xx,KQq,xx,xx, mrm|vex|reqL0,x,tvexw[76][1]},
@@ -7450,632 +7439,1029 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vmovd, 0x660f6e10, "vmovd", Vdq, xx, Ed, xx, xx, mrm|vex, x, tvexw[109][0]},
     {OP_vmovq, 0x660f6e50, "vmovq", Vdq, xx, Ey, xx, xx, mrm|vex, x, tvexw[109][1]},
   }, { /* vex_W_ext 109 */
-    {OP_vmovd, 0x660f7e10, "vmovd", Ed, xx, Vd_dq, xx, xx, mrm|vex, x, tevexw[135][0]},
-    {OP_vmovq, 0x660f7e50, "vmovq", Ey, xx, Vq_dq, xx, xx, mrm|vex, x, tevexw[135][1]},
+    {OP_vmovd, 0x660f7e10, "vmovd", Ed, xx, Vd_dq, xx, xx, mrm|vex, x, tevexwb[136][0]},
+    {OP_vmovq, 0x660f7e50, "vmovq", Ey, xx, Vq_dq, xx, xx, mrm|vex, x, tevexwb[136][2]},
   },
 };
 
 /****************************************************************************
- * Instructions that differ depending on evex.W.
- * Index is evex.W value
+ * Instructions that differ depending on evex.W and evex.b
+ * Index is evex.W value * 2 + evex.b value
  */
-const instr_info_t evex_W_extensions[][2] = {
+const instr_info_t evex_Wb_extensions[][4] = {
   {    /* evex_W_ext 0 */
-    {OP_vmovups, 0x0f1010,"vmovups", Ves,xx,KEd,Wes,xx,mrm|evex|ttfvm,x,tevexw[1][0]},
+    {OP_vmovups, 0x0f1000,"vmovups", Ves,xx,KEd,Wes,xx,mrm|evex|ttfvm,x,tevexwb[1][0]},
+    {INVALID, 0x0f1010,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1040,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1050,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 1 */
-    {OP_vmovups, 0x0f1110,"vmovups", Wes,xx,KEd,Ves,xx,mrm|evex|ttfvm,x,END_LIST},
+    {OP_vmovups, 0x0f1100,"vmovups", Wes,xx,KEd,Ves,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0x0f1110,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1140,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1150,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 2 */
+    {INVALID, 0x660f1000,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1010,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovupd, 0x660f1050,"vmovupd", Ved,xx,KEd,Wed,xx,mrm|evex|ttfvm,x,tevexw[3][1]},
+    {OP_vmovupd, 0x660f1040,"vmovupd", Ved,xx,KEd,Wed,xx,mrm|evex|ttfvm,x,tevexwb[3][2]},
+    {INVALID, 0x660f1050,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 3 */
+    {INVALID, 0x660f1100,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1110,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovupd, 0x660f1150,"vmovupd", Wed,xx,KEd,Ved,xx,mrm|evex|ttfvm,x,END_LIST},
+    {OP_vmovupd, 0x660f1140,"vmovupd", Wed,xx,KEd,Ved,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0x660f1150,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 4 */
-    {OP_vmovaps, 0x0f2810,"vmovaps", Ves,xx,KEd,Wes,xx,mrm|evex|ttfvm,x,tevexw[5][0]},
+    {OP_vmovaps, 0x0f2800,"vmovaps", Ves,xx,KEd,Wes,xx,mrm|evex|ttfvm,x,tevexwb[5][0]},
+    {INVALID, 0x0f2810,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f2840,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f2850,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 5 */
-    {OP_vmovaps, 0x0f2910,"vmovaps", Wes,xx,KEd,Ves,xx,mrm|evex|ttfvm,x,END_LIST},
+    {OP_vmovaps, 0x0f2900,"vmovaps", Wes,xx,KEd,Ves,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0x0f2910,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f2940,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f2950,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 6 */
+    {INVALID, 0x660f2800,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f2810,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovapd, 0x660f2850,"vmovapd", Ved,xx,KEd,Wed,xx,mrm|evex|ttfvm,x,tevexw[7][1]},
+    {OP_vmovapd, 0x660f2840,"vmovapd", Ved,xx,KEd,Wed,xx,mrm|evex|ttfvm,x,tevexwb[7][2]},
+    {INVALID, 0x660f2850,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 7 */
+    {INVALID, 0x660f2900,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f2910,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovapd, 0x660f2950,"vmovapd", Wed,xx,KEd,Ved,xx,mrm|evex|ttfvm,x,END_LIST},
+    {OP_vmovapd, 0x660f2940,"vmovapd", Wed,xx,KEd,Ved,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0x660f2950,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 8 */
-    {OP_vmovdqa32, 0x660f6f10,"vmovdqa32",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexw[9][0]},
-    {OP_vmovdqa64, 0x660f6f50,"vmovdqa64",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexw[9][1]},
+    {OP_vmovdqa32, 0x660f6f00,"vmovdqa32",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexwb[9][0]},
+    {INVALID, 0x660f6f10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovdqa64, 0x660f6f40,"vmovdqa64",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexwb[9][2]},
+    {INVALID, 0x660f6f50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 9 */
-    {OP_vmovdqa32, 0x660f7f10,"vmovdqa32",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
-    {OP_vmovdqa64, 0x660f7f50,"vmovdqa64",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {OP_vmovdqa32, 0x660f7f00,"vmovdqa32",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0x660f7f10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovdqa64, 0x660f7f40,"vmovdqa64",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0x660f7f50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 10 */
-    {OP_vmovdqu8, 0xf20f6f10,"vmovdqu8",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexw[12][0]},
-    {OP_vmovdqu16, 0xf20f6f50,"vmovdqu16",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexw[12][1]},
+    {OP_vmovdqu8, 0xf20f6f00,"vmovdqu8",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexwb[12][0]},
+    {INVALID, 0xf20f6f10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovdqu16, 0xf20f6f40,"vmovdqu16",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexwb[12][2]},
+    {INVALID, 0xf20f6f50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 11 */
-    {OP_vmovdqu32, 0xf30f6f10,"vmovdqu32",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexw[13][0]},
-    {OP_vmovdqu64, 0xf30f6f50,"vmovdqu64",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexw[13][1]},
+    {OP_vmovdqu32, 0xf30f6f00,"vmovdqu32",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexwb[13][0]},
+    {INVALID, 0xf30f6f10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovdqu64, 0xf30f6f40,"vmovdqu64",Ve,xx,KEw,We,xx,mrm|evex|ttfvm,x,tevexwb[13][2]},
+    {INVALID, 0xf30f6f50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 12 */
-    {OP_vmovdqu8, 0xf20f7f10,"vmovdqu8",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
-    {OP_vmovdqu16, 0xf20f7f50,"vmovdqu16",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {OP_vmovdqu8, 0xf20f7f00,"vmovdqu8",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0xf20f7f10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovdqu16, 0xf20f7f40,"vmovdqu16",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0xf20f7f50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 13 */
-    {OP_vmovdqu32, 0xf30f7f10,"vmovdqu32",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
-    {OP_vmovdqu64, 0xf30f7f50,"vmovdqu64",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {OP_vmovdqu32, 0xf30f7f00,"vmovdqu32",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0xf30f7f10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovdqu64, 0xf30f7f40,"vmovdqu64",We,xx,KEw,Ve,xx,mrm|evex|ttfvm,x,END_LIST},
+    {INVALID, 0xf30f7f50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 14 */
-    {OP_vmovlps, 0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0|reqLL0|ttt2, x, tevexw[15][0]}, /*"vmovhlps" if reg-reg */
+    {OP_vmovlps, 0x0f1200, "vmovlps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0|reqLL0|ttt2, x, tevexwb[15][0]}, /*"vmovhlps" if reg-reg */
+    {INVALID, 0x0f1210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1240,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 15 */
-    {OP_vmovlps, 0x0f1310, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|evex|ttt2, x, END_LIST},
+    {OP_vmovlps, 0x0f1300, "vmovlps", Mq, xx, Vq_dq, xx, xx, mrm|evex|ttt2, x, END_LIST},
+    {INVALID, 0x0f1310,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1340,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1350,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 16 */
+    {INVALID, 0x660f1200,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovlpd, 0x660f1250, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|evex|reqL0|reqLL0|ttt1s, x, tevexw[17][1]},
+    {OP_vmovlpd, 0x660f1240, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|evex|reqL0|reqLL0|ttt1s, x, tevexwb[17][2]},
+    {INVALID, 0x660f1250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 17 */
+    {INVALID, 0x660f1300,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1310,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovlpd, 0x660f1350, "vmovlpd", Mq, xx, Vq_dq, xx, xx, mrm|evex|ttt1s, x, END_LIST},
+    {OP_vmovlpd, 0x660f1340, "vmovlpd", Mq, xx, Vq_dq, xx, xx, mrm|evex|ttt1s, x, END_LIST},
+    {INVALID, 0x660f1350,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 18 */
-    {OP_vmovsldup, 0xf30f1210, "vmovsldup", Ves, xx, KEw, Wes, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vmovsldup, 0xf30f1200, "vmovsldup", Ves, xx, KEw, Wes, xx, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0xf30f1210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0xf30f1240,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0xf30f1250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 19 */
+    {INVALID, 0xf20f1200,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0xf20f1210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovddup, 0xf20f1250, "vmovddup", Ved, xx, KEb, Wh_e, xx, mrm|evex|ttdup, x, END_LIST},
+    {OP_vmovddup, 0xf20f1240, "vmovddup", Ved, xx, KEb, Wh_e, xx, mrm|evex|ttdup, x, END_LIST},
+    {INVALID, 0xf20f1250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 20 */
-    {OP_vmovhps, 0x0f1610, "vmovhps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0|reqLL0|ttt2, x, tevexw[21][0]}, /*"vmovlhps" if reg-reg */
+    {OP_vmovhps, 0x0f1600, "vmovhps", Vq_dq, xx, Hq_dq, Wq_dq, xx, mrm|evex|reqL0|reqLL0|ttt2, x, tevexwb[21][0]}, /*"vmovlhps" if reg-reg */
+    {INVALID, 0x0f1610,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1640,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1650,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 21 */
-    {OP_vmovhps, 0x0f1710, "vmovhps", Mq, xx, Vq_dq, xx, xx, mrm|evex|reqL0|reqLL0|ttt2, x, END_LIST},
+    {OP_vmovhps, 0x0f1700, "vmovhps", Mq, xx, Vq_dq, xx, xx, mrm|evex|reqL0|reqLL0|ttt2, x, END_LIST},
+    {INVALID, 0x0f1710,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f1740,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1750,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 22 */
+    {INVALID, 0x660f1600,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1610,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovhpd, 0x660f1650, "vmovhpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|evex|reqL0|reqLL0|ttt1s, x, tevexw[23][1]},
+    {OP_vmovhpd, 0x660f1640, "vmovhpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|evex|reqL0|reqLL0|ttt1s, x, tevexwb[23][2]},
+    {INVALID, 0x660f1650,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 23 */
+    {INVALID, 0x660f1700,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1710,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovhpd, 0x660f1750, "vmovhpd", Mq, xx, Vq_dq, xx, xx, mrm|evex|reqL0|reqLL0|ttt1s, x, END_LIST},
+    {OP_vmovhpd, 0x660f1740, "vmovhpd", Mq, xx, Vq_dq, xx, xx, mrm|evex|reqL0|reqLL0|ttt1s, x, END_LIST},
+    {INVALID, 0x660f1750,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 24 */
-    {OP_vmovshdup, 0xf30f1610, "vmovshdup", Ves, xx, KEw, Wes, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vmovshdup, 0xf30f1600, "vmovshdup", Ves, xx, KEw, Wes, xx, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0xf30f1610,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0xf30f1640,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0xf30f1650,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 25 */
-    {OP_vunpcklps, 0x0f1410, "vunpcklps", Ves, xx, KEw, Hh_e, Wh_e, mrm|evex|ttfv, x, END_LIST},
+    {OP_vunpcklps, 0x0f1400, "vunpcklps", Ves, xx, KEw, Hh_e, Wh_e, mrm|evex|ttfv, x, tevexwb[25][1]},
+    {OP_vunpcklps, 0x0f1410, "vunpcklps", Ves, xx, KEw, Hh_e, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0x0f1440,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1450,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 26 */
+    {INVALID, 0x660f1400,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1410,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vunpcklpd, 0x660f1450, "vunpcklpd", Ved, xx, KEb, Hh_e, Wh_e, mrm|evex|ttfv, x, END_LIST},
+    {OP_vunpcklpd, 0x660f1440, "vunpcklpd", Ved, xx, KEb, Hh_e, Wh_e, mrm|evex|ttfv, x, tevexwb[26][3]},
+    {OP_vunpcklpd, 0x660f1450, "vunpcklpd", Ved, xx, KEb, Hh_e, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 27 */
-    {OP_vunpckhps, 0x0f1510, "vunpckhps", Ves, xx, KEw, Hh_e, Wh_e, mrm|evex|ttfv, x, END_LIST},
+    {OP_vunpckhps, 0x0f1500, "vunpckhps", Ves, xx, KEw, Hh_e, Wh_e, mrm|evex|ttfv, x, tevexwb[27][1]},
+    {OP_vunpckhps, 0x0f1510, "vunpckhps", Ves, xx, KEw, Hh_e, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0x0f1540,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f1550,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 28 */
+    {INVALID, 0x660f1500,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f1510,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vunpckhpd, 0x660f1550, "vunpckhpd", Ved, xx, KEb, Hh_e, Wh_e, mrm|evex|ttfv, x, END_LIST},
+    {OP_vunpckhpd, 0x660f1540, "vunpckhpd", Ved, xx, KEb, Hh_e, Wh_e, mrm|evex|ttfv, x, tevexwb[28][3]},
+    {OP_vunpckhpd, 0x660f1550, "vunpckhpd", Ved, xx, KEb, Hh_e, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 29 */
-    {OP_vcvtss2si, 0xf30f2d10, "vcvtss2si",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexw[29][1]},
-    {OP_vcvtss2si, 0xf30f2d50, "vcvtss2si", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {OP_vcvtss2si, 0xf30f2d00, "vcvtss2si",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexwb[29][2]},
+    {INVALID, 0xf30f2d10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtss2si, 0xf30f2d40, "vcvtss2si", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {INVALID, 0xf30f2d50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 30 */
-    {OP_vcvtsd2si, 0xf20f2d10, "vcvtsd2si",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexw[30][1]},
-    {OP_vcvtsd2si, 0xf20f2d50, "vcvtsd2si", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {OP_vcvtsd2si, 0xf20f2d00, "vcvtsd2si",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexwb[30][2]},
+    {INVALID, 0xf20f2d10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtsd2si, 0xf20f2d40, "vcvtsd2si", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {INVALID, 0xf20f2d50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 31 */
-    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vdq, xx, H12_dq,   Ed, xx, mrm|evex|ttt1s, x, tevexw[31][1]},
-    {OP_vcvtsi2ss, 0xf30f2a50, "vcvtsi2ss", Vdq, xx, H12_dq, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {OP_vcvtsi2ss, 0xf30f2a00, "vcvtsi2ss", Vdq, xx, H12_dq,   Ed, xx, mrm|evex|ttt1s, x, tevexwb[31][2]},
+    {INVALID, 0xf30f2a10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtsi2ss, 0xf30f2a40, "vcvtsi2ss", Vdq, xx, H12_dq, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {INVALID, 0xf30f2a50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 32 */
-    {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vdq, xx, Hsd,   Ed, xx, mrm|evex|ttt1s, x, tevexw[32][1]},
-    {OP_vcvtsi2sd, 0xf20f2a50, "vcvtsi2sd", Vdq, xx, Hsd, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {OP_vcvtsi2sd, 0xf20f2a00, "vcvtsi2sd", Vdq, xx, Hsd,   Ed, xx, mrm|evex|ttt1s, x, tevexwb[32][2]},
+    {INVALID, 0xf20f2a10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtsi2sd, 0xf20f2a40, "vcvtsi2sd", Vdq, xx, Hsd, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {INVALID, 0xf20f2a50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 33 */
-    {OP_vmovntps, 0x0f2b10, "vmovntps", Mes, xx, Ves, xx, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vmovntps, 0x0f2b00, "vmovntps", Mes, xx, Ves, xx, xx, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0x0f2b10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f2b40,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f2b50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 34 */
+    {INVALID, 0x660f2b00,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f2b10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vmovntpd, 0x660f2b50, "vmovntpd", Med, xx, Ved, xx, xx, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vmovntpd, 0x660f2b40, "vmovntpd", Med, xx, Ved, xx, xx, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0x660f2b50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 35 */
-    {OP_vcvttss2si, 0xf30f2c10, "vcvttss2si",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexw[35][1]},
-    {OP_vcvttss2si, 0xf30f2c50, "vcvttss2si", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {OP_vcvttss2si, 0xf30f2c00, "vcvttss2si",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexwb[35][2]},
+    {INVALID, 0xf30f2c10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvttss2si, 0xf30f2c40, "vcvttss2si", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {INVALID, 0xf30f2c50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 36 */
-    {OP_vcvttsd2si, 0xf20f2c10, "vcvttsd2si",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexw[36][1]},
-    {OP_vcvttsd2si, 0xf20f2c50, "vcvttsd2si", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {OP_vcvttsd2si, 0xf20f2c00, "vcvttsd2si",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexwb[36][2]},
+    {INVALID, 0xf20f2c10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvttsd2si, 0xf20f2c40, "vcvttsd2si", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {INVALID, 0xf20f2c50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 37 */
-    {OP_vucomiss, 0x0f2e10, "vucomiss", xx, xx, Vss, Wss, xx, mrm|evex|ttt1s, fW6, END_LIST},
+    {OP_vucomiss, 0x0f2e00, "vucomiss", xx, xx, Vss, Wss, xx, mrm|evex|ttt1s, fW6, END_LIST},
+    {INVALID, 0x0f2e10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f2e40,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f2e50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 38 */
+    {INVALID, 0x660f2e00,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f2e10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vucomisd, 0x660f2e50, "vucomisd", xx, xx, Vsd, Wsd, xx, mrm|evex|ttt1s, fW6, END_LIST},
+    {OP_vucomisd, 0x660f2e40, "vucomisd", xx, xx, Vsd, Wsd, xx, mrm|evex|ttt1s, fW6, END_LIST},
+    {INVALID, 0x660f2e50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 39 */
-    {OP_vcomiss,  0x0f2f10, "vcomiss",  xx, xx, Vss, Wss, xx, mrm|evex|ttt1f|inopsz4, fW6, END_LIST},
+    {OP_vcomiss,  0x0f2f00, "vcomiss",  xx, xx, Vss, Wss, xx, mrm|evex|ttt1f|inopsz4, fW6, END_LIST},
+    {INVALID, 0x0f2f10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x0f2f40,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x0f2f50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 40 */
+    {INVALID, 0x660f2e00,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
     {INVALID, 0x660f2e10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vcomisd,  0x660f2f50, "vcomisd",  xx, xx, Vsd, Wsd, xx, mrm|evex|ttt1f|inopsz8, fW6, END_LIST},
+    {OP_vcomisd,  0x660f2f40, "vcomisd",  xx, xx, Vsd, Wsd, xx, mrm|evex|ttt1f|inopsz8, fW6, END_LIST},
+    {INVALID, 0x660f2e50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 41 */
-    {OP_vpandd, 0x660fdb10, "vpandd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vpandq, 0x660fdb50, "vpandq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpandd, 0x660fdb00, "vpandd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[41][1]},
+    {OP_vpandd, 0x660fdb10, "vpandd", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpandq, 0x660fdb40, "vpandq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[41][3]},
+    {OP_vpandq, 0x660fdb50, "vpandq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 42 */
-    {OP_vpandnd, 0x660fdf10, "vpandnd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vpandnq, 0x660fdf50, "vpandnq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpandnd, 0x660fdf00, "vpandnd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[42][1]},
+    {OP_vpandnd, 0x660fdf10, "vpandnd", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpandnq, 0x660fdf40, "vpandnq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[42][3]},
+    {OP_vpandnq, 0x660fdf50, "vpandnq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 43 */
-    {OP_vpord, 0x660feb10, "vpord", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vporq, 0x660feb50, "vporq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpord, 0x660feb00, "vpord", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[43][1]},
+    {OP_vpord, 0x660feb10, "vpord", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vporq, 0x660feb40, "vporq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[43][3]},
+    {OP_vporq, 0x660feb50, "vporq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 44 */
-    {OP_vpxord, 0x660fef10, "vpxord", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vpxorq, 0x660fef50, "vpxorq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpxord, 0x660fef00, "vpxord", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[44][1]},
+    {OP_vpxord, 0x660fef10, "vpxord", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpxorq, 0x660fef40, "vpxorq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[44][3]},
+    {OP_vpxorq, 0x660fef50, "vpxorq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 45 */
-    {OP_vpmulld,  0x66384018, "vpmulld",   Ve, xx, KEw,He,We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpmullq,  0x66384058, "vpmullq",   Ve, xx, KEb,He,We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpmulld,  0x66384008, "vpmulld",   Ve, xx, KEw,He,We, mrm|evex|reqp|ttfv, x, tevexwb[45][1]},
+    {OP_vpmulld,  0x66384018, "vpmulld",   Ve, xx, KEw,He,Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpmullq,  0x66384048, "vpmullq",   Ve, xx, KEb,He,We, mrm|evex|reqp|ttfv, x, tevexwb[45][3]},
+    {OP_vpmullq,  0x66384058, "vpmullq",   Ve, xx, KEb,He,Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 46 */
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2qq, 0x660f7b10, "vcvtps2qq", Ve, xx, KEb, Wes, xx, mrm|evex|tthv, x, END_LIST},
-    {OP_vcvtpd2qq, 0x660f7b50, "vcvtpd2qq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtps2qq, 0x660f7b00, "vcvtps2qq", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, tevexwb[46][1]},
+    {OP_vcvtps2qq, 0x660f7b10, "vcvtps2qq", Ve, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
+    {OP_vcvtpd2qq, 0x660f7b40, "vcvtpd2qq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[46][3]},
+    {OP_vcvtpd2qq, 0x660f7b50, "vcvtpd2qq", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 47 */
-    {OP_vcvtps2udq, 0x0f7910, "vcvtps2udq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, END_LIST},
-    {OP_vcvtpd2udq, 0x0f7950, "vcvtpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtps2udq, 0x0f7900, "vcvtps2udq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, tevexwb[47][1]},
+    {OP_vcvtps2udq, 0x0f7910, "vcvtps2udq", Ve, xx, KEw, Md, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtpd2udq, 0x0f7940, "vcvtpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[47][3]},
+    {OP_vcvtpd2udq, 0x0f7950, "vcvtpd2udq", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 48 */
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2uqq, 0x660f7910, "vcvtps2uqq", Ve, xx, KEw, Wes, xx, mrm|evex|tthv, x, END_LIST},
-    {OP_vcvtpd2uqq, 0x660f7950, "vcvtpd2uqq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtps2uqq, 0x660f7900, "vcvtps2uqq", Ve, xx, KEw, Wh_e, xx, mrm|evex|tthv, x, tevexwb[48][1]},
+    {OP_vcvtps2uqq, 0x660f7910, "vcvtps2uqq", Ve, xx, KEw, Md, xx, mrm|evex|tthv, x, END_LIST},
+    {OP_vcvtpd2uqq, 0x660f7940, "vcvtpd2uqq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[48][3]},
+    {OP_vcvtpd2uqq, 0x660f7950, "vcvtpd2uqq", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 49 */
-    {OP_vcvttps2udq, 0x0f7810, "vcvttps2udq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvttps2udq, 0x0f7800, "vcvttps2udq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, tevexwb[49][1]},
+    {OP_vcvttps2udq, 0x0f7810, "vcvttps2udq", Ve, xx, KEw, Md, xx, mrm|evex|ttfv, x, END_LIST},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvttpd2udq, 0x0f7850, "vcvttpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvttpd2udq, 0x0f7840, "vcvttpd2udq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[49][3]},
+    {OP_vcvttpd2udq, 0x0f7850, "vcvttpd2udq", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 50 */
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvttps2qq,0x660f7a10, "vcvttps2qq", Ve, xx, KEb, Wes, xx, mrm|evex|tthv, x, END_LIST},
-    {OP_vcvttpd2qq,0x660f7a50, "vcvttpd2qq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvttps2qq,0x660f7a00, "vcvttps2qq", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, tevexwb[50][1]},
+    {OP_vcvttps2qq,0x660f7a10, "vcvttps2qq", Ve, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
+    {OP_vcvttpd2qq,0x660f7a40, "vcvttpd2qq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[50][3]},
+    {OP_vcvttpd2qq,0x660f7a50, "vcvttpd2qq", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 51 */
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvttps2uqq, 0x660f7810, "vcvttps2uqq", Ve, xx, KEb, Wes, xx, mrm|evex|tthv, x, END_LIST},
-    {OP_vcvttpd2uqq, 0x660f7850, "vcvttpd2uqq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvttps2uqq, 0x660f7800, "vcvttps2uqq", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, tevexwb[51][1]},
+    {OP_vcvttps2uqq, 0x660f7810, "vcvttps2uqq", Ve, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
+    {OP_vcvttpd2uqq, 0x660f7840, "vcvttpd2uqq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[51][3]},
+    {OP_vcvttpd2uqq, 0x660f7850, "vcvttpd2uqq", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 52 */
-   {OP_vcvtss2usi, 0xf30f7910, "vcvtss2usi",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexw[52][1]},
-   {OP_vcvtss2usi, 0xf30f7950, "vcvtss2usi", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {OP_vcvtss2usi, 0xf30f7900, "vcvtss2usi",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexwb[52][2]},
+    {INVALID, 0xf30f7910,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtss2usi, 0xf30f7940, "vcvtss2usi", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {INVALID, 0xf30f7950,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 53 */
-   {OP_vcvtsd2usi, 0xf20f7910, "vcvtsd2usi",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexw[53][1]},
-   {OP_vcvtsd2usi, 0xf20f7950, "vcvtsd2usi", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {OP_vcvtsd2usi, 0xf20f7900, "vcvtsd2usi",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexwb[53][2]},
+    {INVALID, 0xf20f7910,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtsd2usi, 0xf20f7940, "vcvtsd2usi", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {INVALID, 0xf20f7950,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 54 */
-   {OP_vcvttss2usi, 0xf30f7810, "vcvttss2usi",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexw[54][1]},
-   {OP_vcvttss2usi, 0xf30f7850, "vcvttss2usi", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {OP_vcvttss2usi, 0xf30f7800, "vcvttss2usi",   Gd, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, tevexwb[54][2]},
+    {INVALID, 0xf30f7810,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvttss2usi, 0xf30f7840, "vcvttss2usi", Gy, xx, Wss, xx, xx, mrm|evex|ttt1f|inopsz4, x, END_LIST},
+    {INVALID, 0xf30f7850,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 55 */
-   {OP_vcvttsd2usi, 0xf20f7810, "vcvttsd2usi",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexw[55][1]},
-   {OP_vcvttsd2usi, 0xf20f7850, "vcvttsd2usi", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {OP_vcvttsd2usi, 0xf20f7800, "vcvttsd2usi",   Gd, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, tevexwb[55][2]},
+    {INVALID, 0xf20f7810,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvttsd2usi, 0xf20f7840, "vcvttsd2usi", Gy, xx, Wsd, xx, xx, mrm|evex|ttt1f|inopsz8, x, END_LIST},
+    {INVALID, 0xf20f7850,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 56 */
-    {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Ves, xx, KEw, We, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtdq2ps, 0x0f5b00, "vcvtdq2ps", Ves, xx, KEw, We, xx, mrm|evex|ttfv, x, tevexwb[56][1]},
+    {OP_vcvtdq2ps, 0x0f5b10, "vcvtdq2ps", Ves, xx, KEw, Md, xx, mrm|evex|ttfv, x, END_LIST},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtqq2ps, 0x0f5b50, "vcvtqq2ps", Ves, xx, KEb, We, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtqq2ps, 0x0f5b40, "vcvtqq2ps", Ves, xx, KEb, We, xx, mrm|evex|ttfv, x, tevexwb[56][3]},
+    {OP_vcvtqq2ps, 0x0f5b50, "vcvtqq2ps", Ves, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 57 */
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Ved, xx, KEb, We, xx, mrm|evex|tthv, x, END_LIST},
-    {OP_vcvtqq2pd, 0xf30fe650, "vcvtqq2pd",  Ved, xx, KEb, We, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtdq2pd, 0xf30fe600, "vcvtdq2pd", Ved, xx, KEb, We, xx, mrm|evex|tthv, x, tevexwb[57][1]},
+    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd", Ved, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
+    {OP_vcvtqq2pd, 0xf30fe640, "vcvtqq2pd",  Ved, xx, KEb, We, xx, mrm|evex|ttfv, x, tevexwb[57][3]},
+    {OP_vcvtqq2pd, 0xf30fe650, "vcvtqq2pd",  Ved, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 58 */
-    {OP_vcvtusi2ss, 0xf30f7b10, "vcvtusi2ss", Vdq, xx, H12_dq,   Ed, xx, mrm|evex|ttt1s, x, tevexw[58][1]},
-    {OP_vcvtusi2ss, 0xf30f7b50, "vcvtusi2ss", Vdq, xx, H12_dq, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {OP_vcvtusi2ss, 0xf30f7b00, "vcvtusi2ss", Vdq, xx, H12_dq,   Ed, xx, mrm|evex|ttt1s, x, tevexwb[58][2]},
+    {INVALID, 0xf30f7b10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtusi2ss, 0xf30f7b40, "vcvtusi2ss", Vdq, xx, H12_dq, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {INVALID, 0xf30f7b50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 59 */
-    {OP_vcvtusi2sd, 0xf20f7b10, "vcvtusi2sd", Vdq, xx, Hsd,   Ed, xx, mrm|evex|ttt1s, x, tevexw[59][1]},
-    {OP_vcvtusi2sd, 0xf20f7b50, "vcvtusi2sd", Vdq, xx, Hsd, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {OP_vcvtusi2sd, 0xf20f7b00, "vcvtusi2sd", Vdq, xx, Hsd,   Ed, xx, mrm|evex|ttt1s, x, tevexwb[59][2]},
+    {INVALID, 0xf20f7b10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcvtusi2sd, 0xf20f7b40, "vcvtusi2sd", Vdq, xx, Hsd, Ey, xx, mrm|evex|ttt1s, x, END_LIST},
+    {INVALID, 0xf20f7b50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 60 */
-    {OP_vcvtudq2ps, 0xf20f7a10, "vcvtudq2ps", Ve, xx, KEw, We, xx, mrm|evex|ttfv, x, END_LIST},
-    {OP_vcvtuqq2ps, 0xf20f7a50, "vcvtuqq2ps", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtudq2ps, 0xf20f7a00, "vcvtudq2ps", Ve, xx, KEw, We, xx, mrm|evex|ttfv, x, tevexwb[60][1]},
+    {OP_vcvtudq2ps, 0xf20f7a10, "vcvtudq2ps", Ve, xx, KEw, Md, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtuqq2ps, 0xf20f7a40, "vcvtuqq2ps", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, tevexwb[60][3]},
+    {OP_vcvtuqq2ps, 0xf20f7a50, "vcvtuqq2ps", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 61 */
-    {OP_vcvtudq2pd, 0xf30f7a10, "vcvtudq2pd", Ve, xx, KEb, We, xx, mrm|evex|tthv, x, END_LIST},
-    {OP_vcvtuqq2pd, 0xf30f7a50, "vcvtuqq2pd", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, END_LIST},
+    {OP_vcvtudq2pd, 0xf30f7a00, "vcvtudq2pd", Ve, xx, KEb, We, xx, mrm|evex|tthv, x, tevexwb[63][1]},
+    {OP_vcvtudq2pd, 0xf30f7a10, "vcvtudq2pd", Ve, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
+    {OP_vcvtuqq2pd, 0xf30f7a40, "vcvtuqq2pd", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, tevexwb[61][3]},
+    {OP_vcvtuqq2pd, 0xf30f7a50, "vcvtuqq2pd", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 62 */
-    {OP_vfmadd132ps,0x66389818,"vfmadd132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[14]},
-    {OP_vfmadd132pd,0x66389858,"vfmadd132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[15]},
+    {OP_vfmadd132ps,0x66389808,"vfmadd132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[14]},
+    {OP_vfmadd132ps,0x66389818,"vfmadd132ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[15]},
+    {OP_vfmadd132pd,0x66389848,"vfmadd132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[16]},
+    {OP_vfmadd132pd,0x66389858,"vfmadd132pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[17]},
   }, { /* evex_W_ext 63 */
-    {OP_vfmadd213ps,0x6638a818,"vfmadd213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[16]},
-    {OP_vfmadd213pd,0x6638a858,"vfmadd213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[17]},
+    {OP_vfmadd213ps,0x6638a808,"vfmadd213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[18]},
+    {OP_vfmadd213ps,0x6638a818,"vfmadd213ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[19]},
+    {OP_vfmadd213pd,0x6638a848,"vfmadd213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[20]},
+    {OP_vfmadd213pd,0x6638a858,"vfmadd213pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[21]},
   }, { /* evex_W_ext 64 */
-    {OP_vfmadd231ps,0x6638b818,"vfmadd231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[18]},
-    {OP_vfmadd231pd,0x6638b858,"vfmadd231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[19]},
+    {OP_vfmadd231ps,0x6638b808,"vfmadd231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[22]},
+    {OP_vfmadd231ps,0x6638b818,"vfmadd231ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[23]},
+    {OP_vfmadd231pd,0x6638b848,"vfmadd231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[24]},
+    {OP_vfmadd231pd,0x6638b858,"vfmadd231pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[25]},
   }, { /* evex_W_ext 65 */
-    {OP_vfmadd132ss,0x66389918,"vfmadd132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[20]},
-    {OP_vfmadd132sd,0x66389958,"vfmadd132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[21]},
+    {OP_vfmadd132ss,0x66389908,"vfmadd132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[26]},
+    {INVALID, 0x66389918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfmadd132sd,0x66389948,"vfmadd132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[27]},
+    {INVALID, 0x66389958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 66 */
-    {OP_vfmadd213ss,0x6638a918,"vfmadd213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[22]},
-    {OP_vfmadd213sd,0x6638a958,"vfmadd213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[23]},
+    {OP_vfmadd213ss,0x6638a908,"vfmadd213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[28]},
+    {INVALID, 0x6638a918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfmadd213sd,0x6638a948,"vfmadd213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[29]},
+    {INVALID, 0x6638a958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 67 */
-    {OP_vfmadd231ss,0x6638b918,"vfmadd231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[24]},
-    {OP_vfmadd231sd,0x6638b958,"vfmadd231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[25]},
+    {OP_vfmadd231ss,0x6638b908,"vfmadd231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[30]},
+    {INVALID, 0x6638b918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfmadd231sd,0x6638b948,"vfmadd231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[31]},
+    {INVALID, 0x6638b958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 68 */
-    {OP_vfmaddsub132ps,0x66389618,"vfmaddsub132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[26]},
-    {OP_vfmaddsub132pd,0x66389658,"vfmaddsub132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[27]},
+    {OP_vfmaddsub132ps,0x66389608,"vfmaddsub132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[32]},
+    {OP_vfmaddsub132ps,0x66389618,"vfmaddsub132ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[33]},
+    {OP_vfmaddsub132pd,0x66389648,"vfmaddsub132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[34]},
+    {OP_vfmaddsub132pd,0x66389658,"vfmaddsub132pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[35]},
   }, { /* evex_W_ext 69 */
-    {OP_vfmaddsub213ps,0x6638a618,"vfmaddsub213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[28]},
-    {OP_vfmaddsub213pd,0x6638a658,"vfmaddsub213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[29]},
+    {OP_vfmaddsub213ps,0x6638a608,"vfmaddsub213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[36]},
+    {OP_vfmaddsub213ps,0x6638a618,"vfmaddsub213ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[37]},
+    {OP_vfmaddsub213pd,0x6638a648,"vfmaddsub213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[38]},
+    {OP_vfmaddsub213pd,0x6638a658,"vfmaddsub213pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[39]},
   }, { /* evex_W_ext 70 */
-    {OP_vfmaddsub231ps,0x6638b618,"vfmaddsub231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[30]},
-    {OP_vfmaddsub231pd,0x6638b658,"vfmaddsub231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[31]},
+    {OP_vfmaddsub231ps,0x6638b608,"vfmaddsub231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[40]},
+    {OP_vfmaddsub231ps,0x6638b618,"vfmaddsub231ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[41]},
+    {OP_vfmaddsub231pd,0x6638b648,"vfmaddsub231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[42]},
+    {OP_vfmaddsub231pd,0x6638b658,"vfmaddsub231pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[43]},
   }, { /* evex_W_ext 71 */
-    {OP_vfmsubadd132ps,0x66389718,"vfmsubadd132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[32]},
-    {OP_vfmsubadd132pd,0x66389758,"vfmsubadd132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[33]},
+    {OP_vfmsubadd132ps,0x66389708,"vfmsubadd132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[44]},
+    {OP_vfmsubadd132ps,0x66389718,"vfmsubadd132ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[45]},
+    {OP_vfmsubadd132pd,0x66389748,"vfmsubadd132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[46]},
+    {OP_vfmsubadd132pd,0x66389758,"vfmsubadd132pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[47]},
   }, { /* evex_W_ext 72 */
-    {OP_vfmsubadd213ps,0x6638a718,"vfmsubadd213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[34]},
-    {OP_vfmsubadd213pd,0x6638a758,"vfmsubadd213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[35]},
+    {OP_vfmsubadd213ps,0x6638a708,"vfmsubadd213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[48]},
+    {OP_vfmsubadd213ps,0x6638a718,"vfmsubadd213ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[49]},
+    {OP_vfmsubadd213pd,0x6638a748,"vfmsubadd213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[50]},
+    {OP_vfmsubadd213pd,0x6638a758,"vfmsubadd213pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[51]},
   }, { /* evex_W_ext 73 */
-    {OP_vfmsubadd231ps,0x6638b718,"vfmsubadd231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[36]},
-    {OP_vfmsubadd231pd,0x6638b758,"vfmsubadd231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[37]},
+    {OP_vfmsubadd231ps,0x6638b708,"vfmsubadd231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[52]},
+    {OP_vfmsubadd231ps,0x6638b718,"vfmsubadd231ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[53]},
+    {OP_vfmsubadd231pd,0x6638b748,"vfmsubadd231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[54]},
+    {OP_vfmsubadd231pd,0x6638b758,"vfmsubadd231pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[55]},
   }, { /* evex_W_ext 74 */
-    {OP_vfmsub132ps,0x66389a18,"vfmsub132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[38]},
-    {OP_vfmsub132pd,0x66389a58,"vfmsub132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[39]},
+    {OP_vfmsub132ps,0x66389a08,"vfmsub132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[56]},
+    {OP_vfmsub132ps,0x66389a18,"vfmsub132ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[57]},
+    {OP_vfmsub132pd,0x66389a48,"vfmsub132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[58]},
+    {OP_vfmsub132pd,0x66389a58,"vfmsub132pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[59]},
   }, { /* evex_W_ext 75 */
-    {OP_vfmsub213ps,0x6638aa18,"vfmsub213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[40]},
-    {OP_vfmsub213pd,0x6638aa58,"vfmsub213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[41]},
+    {OP_vfmsub213ps,0x6638aa08,"vfmsub213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[60]},
+    {OP_vfmsub213ps,0x6638aa18,"vfmsub213ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[61]},
+    {OP_vfmsub213pd,0x6638aa48,"vfmsub213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[62]},
+    {OP_vfmsub213pd,0x6638aa58,"vfmsub213pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[63]},
   }, { /* evex_W_ext 76 */
-    {OP_vfmsub231ps,0x6638ba18,"vfmsub231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[42]},
-    {OP_vfmsub231pd,0x6638ba58,"vfmsub231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[43]},
+    {OP_vfmsub231ps,0x6638ba08,"vfmsub231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[64]},
+    {OP_vfmsub231ps,0x6638ba18,"vfmsub231ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[65]},
+    {OP_vfmsub231pd,0x6638ba48,"vfmsub231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[66]},
+    {OP_vfmsub231pd,0x6638ba58,"vfmsub231pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[67]},
   }, { /* evex_W_ext 77 */
-    {OP_vfmsub132ss,0x66389b18,"vfmsub132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[44]},
-    {OP_vfmsub132sd,0x66389b58,"vfmsub132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[45]},
+    {OP_vfmsub132ss,0x66389b08,"vfmsub132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[68]},
+    {INVALID, 0x66389b18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfmsub132sd,0x66389b48,"vfmsub132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[69]},
+    {INVALID, 0x66389b58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 78 */
-    {OP_vfmsub213ss,0x6638ab18,"vfmsub213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[46]},
-    {OP_vfmsub213sd,0x6638ab58,"vfmsub213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[47]},
+    {OP_vfmsub213ss,0x6638ab08,"vfmsub213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[70]},
+    {INVALID, 0x6638ab18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfmsub213sd,0x6638ab48,"vfmsub213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[71]},
+    {INVALID, 0x6638ab58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 79 */
-    {OP_vfmsub231ss,0x6638bb18,"vfmsub231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[48]},
-    {OP_vfmsub231sd,0x6638bb58,"vfmsub231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[49]},
+    {OP_vfmsub231ss,0x6638bb08,"vfmsub231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[72]},
+    {INVALID, 0x6638bb18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfmsub231sd,0x6638bb48,"vfmsub231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[73]},
+    {INVALID, 0x6638bb58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 80 */
-    {OP_vfnmadd132ps,0x66389c18,"vfnmadd132ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[50]},
-    {OP_vfnmadd132pd,0x66389c58,"vfnmadd132pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[51]},
+    {OP_vfnmadd132ps,0x66389c08,"vfnmadd132ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[74]},
+    {OP_vfnmadd132ps,0x66389c18,"vfnmadd132ps",Ves,xx,KEb,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[75]},
+    {OP_vfnmadd132pd,0x66389c48,"vfnmadd132pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[76]},
+    {OP_vfnmadd132pd,0x66389c58,"vfnmadd132pd",Ved,xx,KEw,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[77]},
   }, { /* evex_W_ext 81 */
-    {OP_vfnmadd213ps,0x6638ac18,"vfnmadd213ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[52]},
-    {OP_vfnmadd213pd,0x6638ac58,"vfnmadd213pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[53]},
+    {OP_vfnmadd213ps,0x6638ac08,"vfnmadd213ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[78]},
+    {OP_vfnmadd213ps,0x6638ac18,"vfnmadd213ps",Ves,xx,KEb,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[79]},
+    {OP_vfnmadd213pd,0x6638ac48,"vfnmadd213pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[80]},
+    {OP_vfnmadd213pd,0x6638ac58,"vfnmadd213pd",Ved,xx,KEw,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[81]},
   }, { /* evex_W_ext 82 */
-    {OP_vfnmadd231ps,0x6638bc18,"vfnmadd231ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[54]},
-    {OP_vfnmadd231pd,0x6638bc58,"vfnmadd231pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[55]},
+    {OP_vfnmadd231ps,0x6638bc08,"vfnmadd231ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[82]},
+    {OP_vfnmadd231ps,0x6638bc18,"vfnmadd231ps",Ves,xx,KEb,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[83]},
+    {OP_vfnmadd231pd,0x6638bc48,"vfnmadd231pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[84]},
+    {OP_vfnmadd231pd,0x6638bc58,"vfnmadd231pd",Ved,xx,KEw,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[85]},
   }, { /* evex_W_ext 83 */
-    {OP_vfnmadd132ss,0x66389d18,"vfnmadd132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[56]},
-    {OP_vfnmadd132sd,0x66389d58,"vfnmadd132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[57]},
+    {OP_vfnmadd132ss,0x66389d08,"vfnmadd132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[86]},
+    {INVALID, 0x66389d18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfnmadd132sd,0x66389d48,"vfnmadd132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[87]},
+    {INVALID, 0x66389d58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 84 */
-    {OP_vfnmadd213ss,0x6638ad18,"vfnmadd213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[58]},
-    {OP_vfnmadd213sd,0x6638ad58,"vfnmadd213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[59]},
+    {OP_vfnmadd213ss,0x6638ad08,"vfnmadd213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[88]},
+    {INVALID, 0x6638ad18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfnmadd213sd,0x6638ad48,"vfnmadd213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[89]},
+    {INVALID, 0x6638ad58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 85 */
-    {OP_vfnmadd231ss,0x6638bd18,"vfnmadd231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[60]},
-    {OP_vfnmadd231sd,0x6638bd58,"vfnmadd231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[61]},
+    {OP_vfnmadd231ss,0x6638bd08,"vfnmadd231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[90]},
+    {INVALID, 0x6638bd18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfnmadd231sd,0x6638bd48,"vfnmadd231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[91]},
+    {INVALID, 0x6638bd58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 86 */
-    {OP_vfnmsub132ps,0x66389e18,"vfnmsub132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[62]},
-    {OP_vfnmsub132pd,0x66389e58,"vfnmsub132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[63]},
+    {OP_vfnmsub132ps,0x66389e08,"vfnmsub132ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[92]},
+    {OP_vfnmsub132ps,0x66389e18,"vfnmsub132ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[93]},
+    {OP_vfnmsub132pd,0x66389e48,"vfnmsub132pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[94]},
+    {OP_vfnmsub132pd,0x66389e58,"vfnmsub132pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[95]},
   }, { /* evex_W_ext 87 */
-    {OP_vfnmsub213ps,0x6638ae18,"vfnmsub213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[64]},
-    {OP_vfnmsub213pd,0x6638ae58,"vfnmsub213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[65]},
+    {OP_vfnmsub213ps,0x6638ae08,"vfnmsub213ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[96]},
+    {OP_vfnmsub213ps,0x6638ae18,"vfnmsub213ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[97]},
+    {OP_vfnmsub213pd,0x6638ae48,"vfnmsub213pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[98]},
+    {OP_vfnmsub213pd,0x6638ae58,"vfnmsub213pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[99]},
   }, { /* evex_W_ext 88 */
-    {OP_vfnmsub231ps,0x6638be18,"vfnmsub231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[66]},
-    {OP_vfnmsub231pd,0x6638be58,"vfnmsub231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[67]},
+    {OP_vfnmsub231ps,0x6638be08,"vfnmsub231ps",Ves,xx,KEw,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[100]},
+    {OP_vfnmsub231ps,0x6638be18,"vfnmsub231ps",Ves,xx,KEw,Hes,Md,xop|mrm|evex|reqp|ttfv,x,exop[101]},
+    {OP_vfnmsub231pd,0x6638be48,"vfnmsub231pd",Ved,xx,KEb,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[102]},
+    {OP_vfnmsub231pd,0x6638be58,"vfnmsub231pd",Ved,xx,KEb,Hed,Mq,xop|mrm|evex|reqp|ttfv,x,exop[103]},
   }, { /* evex_W_ext 89 */
-    {OP_vfnmsub132ss,0x66389f18,"vfnmsub132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[68]},
-    {OP_vfnmsub132sd,0x66389f58,"vfnmsub132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[69]},
+    {OP_vfnmsub132ss,0x66389f08,"vfnmsub132ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[104]},
+    {INVALID, 0x66389f18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfnmsub132sd,0x66389f48,"vfnmsub132sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[105]},
+    {INVALID, 0x66389f58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 90 */
-    {OP_vfnmsub213ss,0x6638af18,"vfnmsub213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[70]},
-    {OP_vfnmsub213sd,0x6638af58,"vfnmsub213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[71]},
+    {OP_vfnmsub213ss,0x6638af08,"vfnmsub213ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[106]},
+    {INVALID, 0x6638af18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfnmsub213sd,0x6638af48,"vfnmsub213sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[107]},
+    {INVALID, 0x6638af58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 91 */
-    {OP_vfnmsub231ss,0x6638bf18,"vfnmsub231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[72]},
-    {OP_vfnmsub231sd,0x6638bf58,"vfnmsub231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[73]},
+    {OP_vfnmsub231ss,0x6638bf08,"vfnmsub231ss",Vss,xx,KE1b,Hss,Wss,xop|mrm|evex|reqp|ttt1s,x,exop[108]},
+    {INVALID, 0x6638bf18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfnmsub231sd,0x6638bf48,"vfnmsub231sd",Vsd,xx,KE1b,Hsd,Wsd,xop|mrm|evex|reqp|ttt1s,x,exop[109]},
+    {INVALID, 0x6638bf58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 92 */
-    {OP_vpermd,0x66383618,"vpermd",Vf,xx,KEb,Hf,Wf,mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vpermq,0x66383658,"vpermq",Vf,xx,KEb,Hf,Wf,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermb,0x66388d08,"vpermb",Ve,xx,KEb,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {INVALID, 0x66388d18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpermw,0x66388d48,"vpermw",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {INVALID, 0x66388d58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 93 */
-    {OP_vpermps,0x66381618,"vpermps",Vf,xx,KEw,Hf,Wf,mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vpermpd,0x66381658,"vpermpd",Vf,xx,KEw,Hf,Wf,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermd,0x66383608,"vpermd",Vf,xx,KEb,Hf,Wf,mrm|evex|reqp|ttfv,x,tevexwb[93][1]},
+    {OP_vpermd,0x66383618,"vpermd",Vf,xx,KEb,Hf,Md,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermq,0x66383648,"vpermq",Vf,xx,KEb,Hf,Wf,mrm|evex|reqp|ttfv,x,tevexwb[93][3]},
+    {OP_vpermq,0x66383658,"vpermq",Vf,xx,KEb,Hf,Mq,mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 94 */
-    {OP_vpermi2ps,0x66387718,"vpermi2ps",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vpermi2pd,0x66387758,"vpermi2pd",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermps,0x66381608,"vpermps",Vf,xx,KEw,Hf,Wf,mrm|evex|reqp|ttfv,x,tevexwb[94][1]},
+    {OP_vpermps,0x66381618,"vpermps",Vf,xx,KEw,Hf,Md,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermpd,0x66381648,"vpermpd",Vf,xx,KEw,Hf,Wf,mrm|evex|reqp|ttfv,x,tevexwb[94][3]},
+    {OP_vpermpd,0x66381658,"vpermpd",Vf,xx,KEw,Hf,Mq,mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 95 */
-    {OP_vpermi2d,0x66387618,"vpermi2d",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vpermi2q,0x66387658,"vpermi2q",Ve,xx,KEb,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermi2ps,0x66387708,"vpermi2ps",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,tevexwb[95][1]},
+    {OP_vpermi2ps,0x66387718,"vpermi2ps",Ve,xx,KEw,He,Md,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermi2pd,0x66387748,"vpermi2pd",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,tevexwb[95][3]},
+    {OP_vpermi2pd,0x66387758,"vpermi2pd",Ve,xx,KEw,He,Mq,mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 96 */
-    {OP_vpermi2b,0x66387518,"vpermi2b",Ve,xx,KEq,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
-    {OP_vpermi2w,0x66387558,"vpermi2w",Ve,xx,KEd,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {OP_vpermi2d,0x66387608,"vpermi2d",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,tevexwb[96][1]},
+    {OP_vpermi2d,0x66387618,"vpermi2d",Ve,xx,KEw,He,Md,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermi2q,0x66387648,"vpermi2q",Ve,xx,KEb,He,We,mrm|evex|reqp|ttfv,x,tevexwb[96][3]},
+    {OP_vpermi2q,0x66387658,"vpermi2q",Ve,xx,KEb,He,Mq,mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 97 */
-    {OP_vpermt2b,0x66387d18,"vpermt2b",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
-    {OP_vpermt2w,0x66387d58,"vpermt2w",Ve,xx,KEb,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {OP_vpermi2b,0x66387508,"vpermi2b",Ve,xx,KEq,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {INVALID, 0x66387518,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpermi2w,0x66387548,"vpermi2w",Ve,xx,KEd,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {INVALID, 0x66387558,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 98 */
-    {OP_vpermt2d,0x66387e18,"vpermt2d",Ve,xx,KEq,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vpermt2q,0x66387e58,"vpermt2q",Ve,xx,KEd,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermt2b,0x66387d08,"vpermt2b",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {INVALID, 0x66387d18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpermt2w,0x66387d48,"vpermt2w",Ve,xx,KEb,He,We,mrm|evex|reqp|ttfvm,x,END_LIST},
+    {INVALID, 0x66387d58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 99 */
-    {OP_vpermt2ps,0x66387f18,"vpermt2ps",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vpermt2pd,0x66387f58,"vpermt2pd",Ve,xx,KEb,He,We,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermt2d,0x66387e08,"vpermt2d",Ve,xx,KEq,He,We,mrm|evex|reqp|ttfv,x,tevexwb[99][1]},
+    {OP_vpermt2d,0x66387e18,"vpermt2d",Ve,xx,KEq,He,Md,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermt2q,0x66387e48,"vpermt2q",Ve,xx,KEd,He,We,mrm|evex|reqp|ttfv,x,tevexwb[99][3]},
+    {OP_vpermt2q,0x66387e58,"vpermt2q",Ve,xx,KEd,He,Mq,mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 100 */
-    {OP_vextractf32x4, 0x663a1918, "vextractf32x4", Wdq, xx, KE4b, Ib, Vdq_f, mrm|evex|reqp|ttt4, x, END_LIST},
-    {OP_vextractf64x2, 0x663a1958, "vextractf64x2", Wdq, xx, KE2b, Ib, Vdq_f, mrm|evex|reqp|ttt2, x, END_LIST},
+    {OP_vpermt2ps,0x66387f08,"vpermt2ps",Ve,xx,KEw,He,We,mrm|evex|reqp|ttfv,x,tevexwb[100][1]},
+    {OP_vpermt2ps,0x66387f18,"vpermt2ps",Ve,xx,KEw,He,Md,mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpermt2pd,0x66387f48,"vpermt2pd",Ve,xx,KEb,He,We,mrm|evex|reqp|ttfv,x,tevexwb[100][3]},
+    {OP_vpermt2pd,0x66387f58,"vpermt2pd",Ve,xx,KEb,He,Mq,mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 101 */
-    {OP_vextractf32x8, 0x663a1b18, "vextractf32x8", Wqq, xx,  KEb, Ib, Vqq_oq, mrm|evex|reqp|ttt8, x, END_LIST},
-    {OP_vextractf64x4, 0x663a1b58, "vextractf64x4", Wqq, xx, KE4b, Ib, Vqq_oq, mrm|evex|reqp|ttt4, x, END_LIST},
+    {OP_vextractf32x4, 0x663a1908, "vextractf32x4", Wdq, xx, KE4b, Ib, Vdq_f, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x663a1918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vextractf64x2, 0x663a1948, "vextractf64x2", Wdq, xx, KE2b, Ib, Vdq_f, mrm|evex|reqp|ttt2, x, END_LIST},
+    {INVALID, 0x663a1958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 102 */
-    {OP_vextracti32x4, 0x663a3918, "vextracti32x4", Wdq, xx, KE4b, Ib, Vdq_f, mrm|evex|reqp|ttt4, x, END_LIST},
-    {OP_vextracti64x2, 0x663a3958, "vextracti64x2", Wdq, xx, KE2b, Ib, Vdq_f, mrm|evex|reqp|ttt2, x, END_LIST},
+    {OP_vextractf32x8, 0x663a1b08, "vextractf32x8", Wqq, xx,  KEb, Ib, Vqq_oq, mrm|evex|reqp|ttt8, x, END_LIST},
+    {INVALID, 0x663a1b18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vextractf64x4, 0x663a1b48, "vextractf64x4", Wqq, xx, KE4b, Ib, Vqq_oq, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x663a1b58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 103 */
-    {OP_vextracti32x8, 0x663a3b18, "vextracti32x8", Wqq, xx,  KEb, Ib, Vqq_oq, mrm|evex|reqp|ttt8, x, END_LIST},
-    {OP_vextracti64x4, 0x663a3b58, "vextracti64x4", Wqq, xx, KE4b, Ib, Vqq_oq, mrm|evex|reqp|ttt4, x, END_LIST},
+    {OP_vextracti32x4, 0x663a3908, "vextracti32x4", Wdq, xx, KE4b, Ib, Vdq_f, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x663a3918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vextracti64x2, 0x663a3948, "vextracti64x2", Wdq, xx, KE2b, Ib, Vdq_f, mrm|evex|reqp|ttt2, x, END_LIST},
+    {INVALID, 0x663a3958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 104 */
-    {OP_vinsertf32x4, 0x663a1818, "vinsertf32x4", Vf, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[74]},
-    {OP_vinsertf64x2, 0x663a1858, "vinsertf64x2", Vf, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt2, x, exop[75]},
+    {OP_vextracti32x8, 0x663a3b08, "vextracti32x8", Wqq, xx,  KEb, Ib, Vqq_oq, mrm|evex|reqp|ttt8, x, END_LIST},
+    {INVALID, 0x663a3b18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vextracti64x4, 0x663a3b48, "vextracti64x4", Wqq, xx, KE4b, Ib, Vqq_oq, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x663a3b58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 105 */
-    {OP_vinsertf32x8, 0x663a1a18, "vinsertf32x8", Voq, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt8, x, exop[76]},
-    {OP_vinsertf64x4, 0x663a1a58, "vinsertf64x4", Voq, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[77]},
+    {OP_vinsertf32x4, 0x663a1808, "vinsertf32x4", Vf, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[110]},
+    {INVALID, 0x663a1818,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vinsertf64x2, 0x663a1848, "vinsertf64x2", Vf, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt2, x, exop[111]},
+    {INVALID, 0x663a1858,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 106 */
-    {OP_vinserti32x4, 0x663a3818, "vinserti32x4", Vf, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[78]},
-    {OP_vinserti64x2, 0x663a3858, "vinserti64x2", Vf, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt2, x, exop[79]},
+    {OP_vinsertf32x8, 0x663a1a08, "vinsertf32x8", Voq, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt8, x, exop[112]},
+    {INVALID, 0x663a1a18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vinsertf64x4, 0x663a1a48, "vinsertf64x4", Voq, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[113]},
+    {INVALID, 0x663a1858,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 107 */
-    {OP_vinserti32x8, 0x663a3a18, "vinserti32x8", Voq, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt8, x, exop[80]},
-    {OP_vinserti64x4, 0x663a3a58, "vinserti64x4", Voq, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[81]},
+    {OP_vinserti32x4, 0x663a3808, "vinserti32x4", Vf, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[114]},
+    {INVALID, 0x663a3818,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vinserti64x2, 0x663a3848, "vinserti64x2", Vf, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt2, x, exop[115]},
+    {INVALID, 0x663a3858,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 108 */
-    {OP_vpcmpub, 0x663a3e18, "vpcmpub", KPq, xx, KEq, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[82]},
-    {OP_vpcmpuw, 0x663a3e58, "vpcmpuw", KPd, xx, KEd, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[84]},
+    {OP_vinserti32x8, 0x663a3a08, "vinserti32x8", Voq, xx, KEw, Ib, Hdq_f, xop|mrm|evex|reqp|ttt8, x, exop[116]},
+    {INVALID, 0x663a3a18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vinserti64x4, 0x663a3a48, "vinserti64x4", Voq, xx, KEb, Ib, Hdq_f, xop|mrm|evex|reqp|ttt4, x, exop[117]},
+    {INVALID, 0x663a3a58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 109 */
-    {OP_vpcmpb, 0x663a3f18, "vpcmpb", KPq, xx, KEq, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[83]},
-    {OP_vpcmpw, 0x663a3f58, "vpcmpw", KPd, xx, KEd, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[85]},
+    {OP_vpcmpub, 0x663a3e08, "vpcmpub", KPq, xx, KEq, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[118]},
+    {INVALID, 0x663a3e18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpcmpuw, 0x663a3e48, "vpcmpuw", KPd, xx, KEd, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[120]},
+    {INVALID, 0x663a3e58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 110 */
-    {OP_vpcmpud, 0x663a1e18, "vpcmpud", KPw, xx, KEw, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[86]},
-    {OP_vpcmpuq, 0x663a1e58, "vpcmpuq", KPb, xx, KEb, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[87]},
+    {OP_vpcmpb, 0x663a3f08, "vpcmpb", KPq, xx, KEq, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[119]},
+    {INVALID, 0x663a3f18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpcmpw, 0x663a3f48, "vpcmpw", KPd, xx, KEd, Ib, He, xop|evex|mrm|reqp|ttfvm, x, exop[121]},
+    {INVALID, 0x663a3f58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 111 */
-    {OP_vpcmpd, 0x663a1f18, "vpcmpd", KPw, xx, KEw, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[88]},
-    {OP_vpcmpq, 0x663a1f58, "vpcmpq", KPb, xx, KEb, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[89]},
+    {OP_vpcmpud, 0x663a1e08, "vpcmpud", KPw, xx, KEw, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[122]},
+    {OP_vpcmpud, 0x663a1e18, "vpcmpud", KPw, xx, KEw, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[123]},
+    {OP_vpcmpuq, 0x663a1e48, "vpcmpuq", KPb, xx, KEb, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[126]},
+    {OP_vpcmpuq, 0x663a1e58, "vpcmpuq", KPb, xx, KEb, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[127]},
   }, { /* evex_W_ext 112 */
-    {OP_vpminsd, 0x66383918, "vpminsd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vpminsq, 0x66383958, "vpminsq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpcmpd, 0x663a1f08, "vpcmpd", KPw, xx, KEw, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[124]},
+    {OP_vpcmpd, 0x663a1f18, "vpcmpd", KPw, xx, KEw, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[125]},
+    {OP_vpcmpq, 0x663a1f48, "vpcmpq", KPb, xx, KEb, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[128]},
+    {OP_vpcmpq, 0x663a1f58, "vpcmpq", KPb, xx, KEb, Ib, He, xop|evex|mrm|reqp|ttfv, x, exop[129]},
   }, { /* evex_W_ext 113 */
-    {OP_vpmaxsd,  0x66383d18, "vpmaxsd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpmaxsq,  0x66383d58, "vpmaxsq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpminsd, 0x66383908, "vpminsd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[113][1]},
+    {OP_vpminsd, 0x66383918, "vpminsd", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpminsq, 0x66383948, "vpminsq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[113][3]},
+    {OP_vpminsq, 0x66383958, "vpminsq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 114 */
-    {OP_vpminud,  0x66383b18, "vpminud", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpminuq,  0x66383b58, "vpminuq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpmaxsd,  0x66383d08, "vpmaxsd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[114][1]},
+    {OP_vpmaxsd,  0x66383d18, "vpmaxsd", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpmaxsq,  0x66383d48, "vpmaxsq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[114][3]},
+    {OP_vpmaxsq,  0x66383d58, "vpmaxsq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 115 */
-    {OP_vpmaxud,  0x66383f18, "vpmaxud", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpmaxuq,  0x66383f58, "vpmaxuq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpminud,  0x66383b08, "vpminud", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[115][1]},
+    {OP_vpminud,  0x66383b18, "vpminud", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpminuq,  0x66383b48, "vpminuq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[115][3]},
+    {OP_vpminuq,  0x66383b58, "vpminuq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 116 */
-    {OP_vprolvd, 0x66381518, "vprolvd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vprolvq, 0x66381558, "vprolvq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpmaxud,  0x66383f08, "vpmaxud", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[116][1]},
+    {OP_vpmaxud,  0x66383f18, "vpmaxud", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpmaxuq,  0x66383f48, "vpmaxuq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[116][3]},
+    {OP_vpmaxuq,  0x66383f58, "vpmaxuq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 117 */
-    {OP_vprold, 0x660f7231, "vprold", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vprolq, 0x660f7271, "vprolq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vprolvd, 0x66381508, "vprolvd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[117][1]},
+    {OP_vprolvd, 0x66381518, "vprolvd", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vprolvq, 0x66381548, "vprolvq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[117][3]},
+    {OP_vprolvq, 0x66381558, "vprolvq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 118 */
-    {OP_vprorvd, 0x66381418, "vprorvd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vprorvq, 0x66381458, "vprorvq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vprold, 0x660f7221, "vprold", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, tevexwb[118][1]},
+    {OP_vprold, 0x660f7231, "vprold", He, xx, KEw, Ib, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vprolq, 0x660f7261, "vprolq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, tevexwb[118][3]},
+    {OP_vprolq, 0x660f7271, "vprolq", He, xx, KEb, Ib, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 119 */
-    {OP_vprord, 0x660f7230, "vprord", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vprorq, 0x660f7270, "vprorq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vprorvd, 0x66381408, "vprorvd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[119][1]},
+    {OP_vprorvd, 0x66381418, "vprorvd", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vprorvq, 0x66381448, "vprorvq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[119][3]},
+    {OP_vprorvq, 0x66381458, "vprorvq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 120 */
-    {OP_vpsrad, 0x660fe210, "vpsrad", Ve, xx, KEw, He, Wdq, mrm|evex|ttm128, x, tevexw[121][0]},
-    {OP_vpsraq, 0x660fe250, "vpsraq", Ve, xx, KEb, He, Wdq, mrm|evex|ttm128, x, tevexw[121][1]},
+    {OP_vprord, 0x660f7220, "vprord", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, tevexwb[120][1]},
+    {OP_vprord, 0x660f7230, "vprord", He, xx, KEw, Ib, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vprorq, 0x660f7260, "vprorq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, tevexwb[120][3]},
+    {OP_vprorq, 0x660f7270, "vprorq", He, xx, KEb, Ib, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 121 */
-    {OP_vpsrad, 0x660f7234, "vpsrad", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vpsraq, 0x660f7274, "vpsraq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpsrad, 0x660fe200, "vpsrad", Ve, xx, KEw, He, Wdq, mrm|evex|ttm128, x, tevexwb[122][0]},
+    {INVALID, 0x660fe210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpsraq, 0x660fe240, "vpsraq", Ve, xx, KEb, He, Wdq, mrm|evex|ttm128, x, tevexwb[122][2]},
+    {INVALID, 0x660fe250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 122 */
-    {OP_vpsrld, 0x660fd210, "vpsrld", Ve, xx, KEw, He, Wdq, mrm|evex|ttm128, x, tevexw[123][0]},
-    {INVALID, 0x660fd250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpsrad, 0x660f7224, "vpsrad", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, tevexwb[122][1]},
+    {OP_vpsrad, 0x660f7234, "vpsrad", He, xx, KEw, Ib, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vpsraq, 0x660f7264, "vpsraq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, tevexwb[122][3]},
+    {OP_vpsraq, 0x660f7274, "vpsraq", He, xx, KEb, Ib, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 123 */
-    {OP_vpsrld, 0x660f7232, "vpsrld", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, END_LIST},
-    {INVALID, 0x660f7272,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpsrld, 0x660fd200, "vpsrld", Ve, xx, KEw, He, Wdq, mrm|evex|ttm128, x, tevexwb[124][0]},
+    {INVALID, 0x660fd210,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x660fd240,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x660fd250,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 124 */
-    {INVALID, 0x660fd310,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpsrlq, 0x660fd350, "vpsrlq", Ve, xx, KEb, He, Wdq, mrm|evex|ttm128, x, tevexw[125][1]},
+    {OP_vpsrld, 0x660f7222, "vpsrld", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, tevexwb[124][1]},
+    {OP_vpsrld, 0x660f7232, "vpsrld", He, xx, KEw, Ib, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0x660f7262,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x660f7272,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 125 */
-    {INVALID, 0x660f7332,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpsrlq, 0x660f7372, "vpsrlq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0x660fd300,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x660fd310,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpsrlq, 0x660fd340, "vpsrlq", Ve, xx, KEb, He, Wdq, mrm|evex|ttm128, x, tevexwb[126][2]},
+    {INVALID, 0x660fd350,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 126 */
-    {INVALID, 0x66381118,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpsravw, 0x66381158, "vpsravw", Ve, xx, KEb, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0x660f7322,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x660f7332,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpsrlq, 0x660f7362, "vpsrlq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, tevexwb[126][3]},
+    {OP_vpsrlq, 0x660f7372, "vpsrlq", He, xx, KEb, Ib, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 127 */
-    {OP_vpsravd, 0x66384618, "vpsravd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpsravq, 0x66384658, "vpsravq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {INVALID, 0x66381108,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x66381118,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpsravw, 0x66381148, "vpsravw", Ve, xx, KEb, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0x66381158,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 128 */
-    {OP_vpsrlvd,0x66384518, "vpsrlvd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpsrlvq,0x66384558, "vpsrlvq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpsravd, 0x66384608, "vpsravd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[128][1]},
+    {OP_vpsravd, 0x66384618, "vpsravd", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpsravq, 0x66384648, "vpsravq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[128][3]},
+    {OP_vpsravq, 0x66384658, "vpsravq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 129 */
-    {INVALID, 0x66381218,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpsllvw, 0x66381258,"vpsllvw", Ve, xx, KEd, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
+    {OP_vpsrlvd,0x66384508, "vpsrlvd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[129][1]},
+    {OP_vpsrlvd,0x66384518, "vpsrlvd", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpsrlvq,0x66384548, "vpsrlvq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[129][3]},
+    {OP_vpsrlvq,0x66384558, "vpsrlvq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 130 */
-    {OP_vpsllvd, 0x66384718, "vpsllvd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vpsllvq, 0x66384758, "vpsllvq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv,x,END_LIST},
+    {INVALID, 0x66381208,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x66381218,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpsllvw, 0x66381248,"vpsllvw", Ve, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0x66381258,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 131 */
-    {OP_vrcp14ps, 0x66384c18, "vrcp14ps", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vrcp14pd, 0x66384c58, "vrcp14pd", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpsllvd, 0x66384708, "vpsllvd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv,x,tevexwb[131][1]},
+    {OP_vpsllvd, 0x66384718, "vpsllvd", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vpsllvq, 0x66384748, "vpsllvq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv,x,tevexwb[131][3]},
+    {OP_vpsllvq, 0x66384758, "vpsllvq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 132 */
-    {OP_vrcp14ss, 0x66384d18, "vrcp14ss", Vdq, xx, KE1b, H12_dq, Wss, mrm|evex|reqp|ttt1s,x,END_LIST},
-    {OP_vrcp14sd, 0x66384d58, "vrcp14sd", Vdq, xx, KE1b, Hsd, Wsd, mrm|evex|reqp|ttt1s,x,END_LIST},
+    {OP_vrcp14ps, 0x66384c08, "vrcp14ps", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv,x,tevexwb[132][1]},
+    {OP_vrcp14ps, 0x66384c18, "vrcp14ps", Ve, xx, KEw, Md, xx, mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vrcp14pd, 0x66384c48, "vrcp14pd", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv,x,tevexwb[132][3]},
+    {OP_vrcp14pd, 0x66384c58, "vrcp14pd", Ve, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 133 */
-    {OP_vrcp28ps, 0x6638ca18, "vrcp28ps", Voq, xx, KEw, Woq, xx, mrm|evex|reqp|ttfv,x,END_LIST},
-    {OP_vrcp28pd, 0x6638ca58, "vrcp28pd", Voq, xx, KEb, Woq, xx, mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vrcp14ss, 0x66384d08, "vrcp14ss", Vdq, xx, KE1b, H12_dq, Wss, mrm|evex|reqp|ttt1s,x,END_LIST},
+    {INVALID, 0x66384d18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vrcp14sd, 0x66384d48, "vrcp14sd", Vdq, xx, KE1b, Hsd, Wsd, mrm|evex|reqp|ttt1s,x,END_LIST},
+    {INVALID, 0x66384d58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 134 */
-    {OP_vrcp28ss, 0x6638cb18, "vrcp28ss", Vdq, xx, KE1b, H12_dq, Wss, mrm|evex|reqp|ttt1s,x,END_LIST},
-    {OP_vrcp28sd, 0x6638cb58, "vrcp28sd", Vdq, xx, KE1b, Hsd, Wsd, mrm|evex|reqp|ttt1s,x,END_LIST},
+    {OP_vrcp28ps, 0x6638ca08, "vrcp28ps", Voq, xx, KEw, Woq, xx, mrm|evex|reqp|ttfv,x,tevexwb[134][1]},
+    {OP_vrcp28ps, 0x6638ca18, "vrcp28ps", Voq, xx, KEw, Md, xx, mrm|evex|reqp|ttfv,x,END_LIST},
+    {OP_vrcp28pd, 0x6638ca48, "vrcp28pd", Voq, xx, KEb, Woq, xx, mrm|evex|reqp|ttfv,x,tevexwb[134][3]},
+    {OP_vrcp28pd, 0x6638ca58, "vrcp28pd", Voq, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv,x,END_LIST},
   }, { /* evex_W_ext 135 */
-    {OP_vmovd, 0x660f6e10, "vmovd", Vdq, xx, Ed, xx, xx, mrm|evex|ttt1s, x, tevexw[136][0]},
-    {OP_vmovq, 0x660f6e50, "vmovq", Vdq, xx, Ey, xx, xx, mrm|evex|ttt1s, x, tevexw[136][1]},
+    {OP_vrcp28ss, 0x6638cb08, "vrcp28ss", Vdq, xx, KE1b, H12_dq, Wss, mrm|evex|reqp|ttt1s,x,END_LIST},
+    {INVALID, 0x6638cb18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vrcp28sd, 0x6638cb48, "vrcp28sd", Vdq, xx, KE1b, Hsd, Wsd, mrm|evex|reqp|ttt1s,x,END_LIST},
+    {INVALID, 0x6638cb58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 136 */
-    {OP_vmovd, 0x660f7e10, "vmovd", Ed, xx, Vd_dq, xx, xx, mrm|evex|ttt1s, x, END_LIST},
-    {OP_vmovq, 0x660f7e50, "vmovq", Ey, xx, Vq_dq, xx, xx, mrm|evex|ttt1s, x, END_LIST},
+    {OP_vmovd, 0x660f6e00, "vmovd", Vdq, xx, Ed, xx, xx, mrm|evex|ttt1s, x, tevexwb[137][0]},
+    {INVALID, 0x660f6e10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovq, 0x660f6e40, "vmovq", Vdq, xx, Ey, xx, xx, mrm|evex|ttt1s, x, tevexwb[137][2]},
+    {INVALID, 0x660f6e50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 137 */
-    {OP_vpmovm2b, 0xf3382818, "vpmovm2b", Ve, xx, KQq, xx, xx, mrm|evex|ttnone, x, END_LIST},
-    {OP_vpmovm2w, 0xf3382858, "vpmovm2w", Ve, xx, KQd, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {OP_vmovd, 0x660f7e00, "vmovd", Ed, xx, Vd_dq, xx, xx, mrm|evex|ttt1s, x, END_LIST},
+    {INVALID, 0x660f7e10,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vmovq, 0x660f7e40, "vmovq", Ey, xx, Vq_dq, xx, xx, mrm|evex|ttt1s, x, END_LIST},
+    {INVALID, 0x660f7e50,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 138 */
-    {OP_vpmovm2d, 0xf3383818, "vpmovm2d", Ve, xx, KQw, xx, xx, mrm|evex|ttnone, x, END_LIST},
-    {OP_vpmovm2q, 0xf3383858, "vpmovm2q", Ve, xx, KQb, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {OP_vpmovm2b, 0xf3382808, "vpmovm2b", Ve, xx, KQq, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3382818,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpmovm2w, 0xf3382848, "vpmovm2w", Ve, xx, KQd, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3382858,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 139 */
-    {OP_vpmovb2m, 0xf3382918, "vpmovb2m", KPq, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
-    {OP_vpmovw2m, 0xf3382958, "vpmovw2m", KPd, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {OP_vpmovm2d, 0xf3383808, "vpmovm2d", Ve, xx, KQw, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3383818,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpmovm2q, 0xf3383848, "vpmovm2q", Ve, xx, KQb, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3383858,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 140 */
-    {OP_vpmovd2m, 0xf3383918, "vpmovd2m", KPw, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
-    {OP_vpmovq2m, 0xf3383958, "vpmovq2m", KPb, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {OP_vpmovb2m, 0xf3382908, "vpmovb2m", KPq, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3382918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpmovw2m, 0xf3382948, "vpmovw2m", KPd, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3382958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 141 */
-    {OP_vshuff32x4, 0x663a2318, "vshuff32x4", Vfs, xx, KEw, Ib, Hfs, xop|mrm|evex|reqp|ttfv, x, exop[96]},
-    {OP_vshuff64x2, 0x663a2358, "vshuff64x2", Vfd, xx, KEb, Ib, Hfd, xop|mrm|evex|reqp|ttfv, x, exop[97]},
+    {OP_vpmovd2m, 0xf3383908, "vpmovd2m", KPw, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3383918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpmovq2m, 0xf3383948, "vpmovq2m", KPb, xx, Ue, xx, xx, mrm|evex|ttnone, x, END_LIST},
+    {INVALID, 0xf3383958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 142 */
-    {OP_vshufi32x4, 0x663a4318, "vshufi32x4", Vfs, xx, KEw, Ib, Hfs, xop|mrm|evex|reqp|ttfv, x, exop[98]},
-    {OP_vshufi64x2, 0x663a4358, "vshufi64x2", Vfd, xx, KEb, Ib, Hfd, xop|mrm|evex|reqp|ttfv, x, exop[99]},
+    {OP_vshuff32x4, 0x663a2308, "vshuff32x4", Vfs, xx, KEw, Ib, Hfs, xop|mrm|evex|reqp|ttfv, x, exop[140]},
+    {OP_vshuff32x4, 0x663a2318, "vshuff32x4", Vfs, xx, KEw, Ib, Hfs, xop|mrm|evex|reqp|ttfv, x, exop[141]},
+    {OP_vshuff64x2, 0x663a2348, "vshuff64x2", Vfd, xx, KEb, Ib, Hfd, xop|mrm|evex|reqp|ttfv, x, exop[142]},
+    {OP_vshuff64x2, 0x663a2358, "vshuff64x2", Vfd, xx, KEb, Ib, Hfd, xop|mrm|evex|reqp|ttfv, x, exop[143]},
   }, { /* evex_W_ext 143 */
-    {OP_vpinsrd, 0x663a2218, "vpinsrd", Vdq, xx, H12_8_dq, Ey, Ib, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vpinsrq, 0x663a2258, "vpinsrq", Vdq, xx, H12_8_dq, Ey, Ib, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vshufi32x4, 0x663a4308, "vshufi32x4", Vfs, xx, KEw, Ib, Hfs, xop|mrm|evex|reqp|ttfv, x, exop[144]},
+    {OP_vshufi32x4, 0x663a4318, "vshufi32x4", Vfs, xx, KEw, Ib, Hfs, xop|mrm|evex|reqp|ttfv, x, exop[145]},
+    {OP_vshufi64x2, 0x663a4348, "vshufi64x2", Vfd, xx, KEb, Ib, Hfd, xop|mrm|evex|reqp|ttfv, x, exop[146]},
+    {OP_vshufi64x2, 0x663a4358, "vshufi64x2", Vfd, xx, KEb, Ib, Hfd, xop|mrm|evex|reqp|ttfv, x, exop[147]},
   }, { /* evex_W_ext 144 */
-    {OP_vpextrd, 0x663a1618, "vpextrd",  Ey, xx, Vd_q_dq, Ib, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vpextrq, 0x663a1658, "vpextrq",  Ey, xx, Vd_q_dq, Ib, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vpinsrd, 0x663a2208, "vpinsrd", Vdq, xx, H12_8_dq, Ey, Ib, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x663a2218,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpinsrq, 0x663a2248, "vpinsrq", Vdq, xx, H12_8_dq, Ey, Ib, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x663a2258,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 145 */
-    {OP_vpabsd, 0x66381e18, "vpabsd",   Ve, xx, KEw, We, xx, mrm|evex|ttfv, x, END_LIST},
-    {INVALID, 0x66381e58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpextrd, 0x663a1608, "vpextrd",  Ey, xx, Vd_q_dq, Ib, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x663a1618,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpextrq, 0x663a1648, "vpextrq",  Ey, xx, Vd_q_dq, Ib, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x663a1658,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 146 */
-    {INVALID, 0x66381f18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
-    {OP_vpabsq, 0x66381f58, "vpabsq",   Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpabsd, 0x66381e08, "vpabsd",   Ve, xx, KEw, We, xx, mrm|evex|ttfv, x, tevexwb[146][1]},
+    {OP_vpabsd, 0x66381e18, "vpabsd",   Ve, xx, KEw, Md, xx, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0x66381e48,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x66381e58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 147 */
-    {OP_vbroadcastf32x2, 0x66381918, "vbroadcastf32x2", Vf, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
-    {OP_vbroadcastsd, 0x66381958, "vbroadcastsd", Vf, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66381f08,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {INVALID, 0x66381f18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpabsq, 0x66381f48, "vpabsq",   Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[147][3]},
+    {OP_vpabsq, 0x66381f58, "vpabsq",   Ve, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 148 */
-    {OP_vbroadcastf32x4, 0x66381a18, "vbroadcastf32x4", Vf, xx, KEw, Mdq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
-    {OP_vbroadcastf64x2, 0x66381a58, "vbroadcastf64x2", Vf, xx, KEb, Mdq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {OP_vbroadcastf32x2, 0x66381908, "vbroadcastf32x2", Vf, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {INVALID, 0x66381918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vbroadcastsd, 0x66381948, "vbroadcastsd", Vf, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66381958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 149 */
-    {OP_vbroadcastf32x8, 0x66381b18, "vbroadcastf32x8", Voq, xx, KEd, Mqq, xx, mrm|evex|reqp|ttt8, x, END_LIST},
-    {OP_vbroadcastf64x4, 0x66381b58, "vbroadcastf64x4", Voq, xx, KEb, Mqq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
+    {OP_vbroadcastf32x4, 0x66381a08, "vbroadcastf32x4", Vf, xx, KEw, Mdq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x66381a18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vbroadcastf64x2, 0x66381a48, "vbroadcastf64x2", Vf, xx, KEb, Mdq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {INVALID, 0x66381a58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 150 */
-    {OP_vpbroadcastd, 0x66387c18, "vpbroadcastd", Ve, xx, KEw, Ed, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vpbroadcastq, 0x66387c58, "vpbroadcastq", Ve, xx, KEb, Eq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vbroadcastf32x8, 0x66381b08, "vbroadcastf32x8", Voq, xx, KEd, Mqq, xx, mrm|evex|reqp|ttt8, x, END_LIST},
+    {INVALID, 0x66381b18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vbroadcastf64x4, 0x66381b48, "vbroadcastf64x4", Voq, xx, KEb, Mqq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x66381b58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 151 */
-    {OP_vbroadcasti32x2, 0x66385918, "vbroadcasti32x2", Ve, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
-    {OP_vpbroadcastq, 0x66385958, "vpbroadcastq", Ve, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt1s, x, tevexw[150][1]},
+    {OP_vpbroadcastd, 0x66387c08, "vpbroadcastd", Ve, xx, KEw, Ed, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66387c18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpbroadcastq, 0x66387c48, "vpbroadcastq", Ve, xx, KEb, Eq, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66387c58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 152 */
-    {OP_vbroadcasti32x4, 0x66385a18, "vbroadcasti32x4", Vf, xx, KEw, Mdq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
-    {OP_vbroadcasti64x2, 0x66385a58, "vbroadcasti64x2", Vf, xx, KEw, Mdq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {OP_vbroadcasti32x2, 0x66385908, "vbroadcasti32x2", Ve, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {INVALID, 0x66385918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpbroadcastq, 0x66385948, "vpbroadcastq", Ve, xx, KEb, Wq_dq, xx, mrm|evex|reqp|ttt1s, x, tevexwb[151][2]},
+    {INVALID, 0x66385958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 153 */
-    {OP_vbroadcasti32x8, 0x66385b18, "vbroadcasti32x8", Vf, xx, KEw, Mqq, xx, mrm|evex|reqp|ttt8, x, END_LIST},
-    {OP_vbroadcasti64x4, 0x66385b58, "vbroadcasti64x4", Vf, xx, KEb, Mqq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
+    {OP_vbroadcasti32x4, 0x66385a08, "vbroadcasti32x4", Vf, xx, KEw, Mdq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x66385a18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vbroadcasti64x2, 0x66385a48, "vbroadcasti64x2", Vf, xx, KEw, Mdq, xx, mrm|evex|reqp|ttt2, x, END_LIST},
+    {INVALID, 0x66385a58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 154 */
-    {OP_valignd, 0x663a0318, "valignd", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[101]},
-    {OP_valignq, 0x663a0358, "valignq", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[102]},
+    {OP_vbroadcasti32x8, 0x66385b08, "vbroadcasti32x8", Vf, xx, KEw, Mqq, xx, mrm|evex|reqp|ttt8, x, END_LIST},
+    {INVALID, 0x66385b18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vbroadcasti64x4, 0x66385b48, "vbroadcasti64x4", Vf, xx, KEb, Mqq, xx, mrm|evex|reqp|ttt4, x, END_LIST},
+    {INVALID, 0x66385b58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 155 */
-    {OP_vblendmps, 0x66386518, "vblendmps", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vblendmpd, 0x66386558, "vblendmpd", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_valignd, 0x663a0308, "valignd", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[148]},
+    {OP_valignd, 0x663a0318, "valignd", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[149]},
+    {OP_valignq, 0x663a0348, "valignq", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[150]},
+    {OP_valignq, 0x663a0358, "valignq", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[151]},
   }, { /* evex_W_ext 156 */
-    {OP_vcompressps, 0x66388a18, "vcompressps", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vcompresspd, 0x66388a58, "vcompresspd", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vblendmps, 0x66386508, "vblendmps", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[156][1]},
+    {OP_vblendmps, 0x66386518, "vblendmps", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vblendmpd, 0x66386548, "vblendmpd", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[156][3]},
+    {OP_vblendmpd, 0x66386558, "vblendmpd", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 157 */
-    {OP_vexpandps, 0x66388818, "vexpandps", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vexpandpd, 0x66388858, "vexpandpd", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vcompressps, 0x66388a08, "vcompressps", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388a18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vcompresspd, 0x66388a48, "vcompresspd", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388a58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 158 */
-    {OP_vfixupimmps, 0x663a5418, "vfixupimmps", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[103]},
-    {OP_vfixupimmpd, 0x663a5458, "vfixupimmpd", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[104]},
+    {OP_vexpandps, 0x66388808, "vexpandps", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388818,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vexpandpd, 0x66388848, "vexpandpd", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388858,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 159 */
-    {OP_vfixupimmss, 0x663a5518, "vfixupimmss", Vdq, xx, KE1b, Ib, Hdq, xop|mrm|evex|reqp|ttt1s, x, exop[105]},
-    {OP_vfixupimmsd, 0x663a5558, "vfixupimmsd", Vdq, xx, KE1b, Ib, Hdq, xop|mrm|evex|reqp|ttt1s, x, exop[106]},
+    {OP_vfixupimmps, 0x663a5408, "vfixupimmps", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[152]},
+    {OP_vfixupimmps, 0x663a5418, "vfixupimmps", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[153]},
+    {OP_vfixupimmpd, 0x663a5448, "vfixupimmpd", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[154]},
+    {OP_vfixupimmpd, 0x663a5458, "vfixupimmpd", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[155]},
   }, { /* evex_W_ext 160 */
-    {OP_vgetexpps, 0x66384218, "vgetexpps", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vgetexppd, 0x66384258, "vgetexppd", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vfixupimmss, 0x663a5508, "vfixupimmss", Vdq, xx, KE1b, Ib, Hdq, xop|mrm|evex|reqp|ttt1s, x, exop[156]},
+    {INVALID, 0x663a5518,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfixupimmsd, 0x663a5548, "vfixupimmsd", Vdq, xx, KE1b, Ib, Hdq, xop|mrm|evex|reqp|ttt1s, x, exop[157]},
+    {INVALID, 0x663a5558,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 161 */
-    {OP_vgetexpss, 0x66384318, "vgetexpss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vgetexpsd, 0x66384358, "vgetexpsd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vgetexpps, 0x66384208, "vgetexpps", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[161][1]},
+    {OP_vgetexpps, 0x66384218, "vgetexpps", Ve, xx, KEw, Md, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vgetexppd, 0x66384248, "vgetexppd", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[161][3]},
+    {OP_vgetexppd, 0x66384258, "vgetexppd", Ve, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 162 */
-    {OP_vgetmantps, 0x663a2618, "vgetmantps", Ve, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vgetmantpd, 0x663a2658, "vgetmantpd", Ve, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vgetexpss, 0x66384308, "vgetexpss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66384318,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgetexpsd, 0x66384348, "vgetexpsd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66384358,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 163 */
-    {OP_vgetmantss, 0x663a2718, "vgetmantss", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[107]},
-    {OP_vgetmantsd, 0x663a2758, "vgetmantsd", Vdq, xx, KE1b, Ib,    Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[108]},
+    {OP_vgetmantps, 0x663a2608, "vgetmantps", Ve, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[163][1]},
+    {OP_vgetmantps, 0x663a2618, "vgetmantps", Ve, xx, KEw, Ib, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vgetmantpd, 0x663a2648, "vgetmantpd", Ve, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[163][3]},
+    {OP_vgetmantpd, 0x663a2658, "vgetmantpd", Ve, xx, KEb, Ib, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 164 */
-    {OP_vpblendmb, 0x66386618, "vpblendmb", Ve, xx, KEq, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
-    {OP_vpblendmw, 0x66386658, "vpblendmw", Ve, xx, KEd, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
+    {OP_vgetmantss, 0x663a2708, "vgetmantss", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[158]},
+    {INVALID, 0x663a2718,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgetmantsd, 0x663a2748, "vgetmantsd", Vdq, xx, KE1b, Ib,    Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[159]},
+    {INVALID, 0x663a2758,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 165 */
-    {OP_vpblendmd, 0x66386418, "vpblendmd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpblendmq, 0x66386458, "vpblendmq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpblendmb, 0x66386608, "vpblendmb", Ve, xx, KEq, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
+    {INVALID, 0x66386618,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpblendmw, 0x66386648, "vpblendmw", Ve, xx, KEd, He, We, mrm|evex|reqp|ttfvm, x, END_LIST},
+    {INVALID, 0x66386658,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 166 */
-    {OP_vpcompressd, 0x66388b18, "vpcompressd", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vpcompressq, 0x66388b58, "vpcompressq", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vpblendmd, 0x66386408, "vpblendmd", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[166][1]},
+    {OP_vpblendmd, 0x66386418, "vpblendmd", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpblendmq, 0x66386448, "vpblendmq", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[166][3]},
+    {OP_vpblendmq, 0x66386458, "vpblendmq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 167 */
-    {OP_vpexpandd, 0x66388918, "vpexpandd", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vpexpandq, 0x66388958, "vpexpandq", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vpcompressd, 0x66388b08, "vpcompressd", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388b18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpcompressq, 0x66388b48, "vpcompressq", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388b58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 168 */
-    {OP_vptestmb, 0x66382618, "vptestmb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
-    {OP_vptestmw, 0x66382658, "vptestmw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vpexpandd, 0x66388908, "vpexpandd", We, xx, KEw, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388918,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpexpandq, 0x66388948, "vpexpandq", We, xx, KEb, Ve, xx, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66388958,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 169 */
-    {OP_vptestmd, 0x66382718, "vptestmd", KPw, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vptestmq, 0x66382758, "vptestmq", KPb, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vptestmb, 0x66382608, "vptestmb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0x66382618,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vptestmw, 0x66382648, "vptestmw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0x66382658,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 170 */
-    {OP_vptestnmb, 0xf3382618, "vptestnmb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
-    {OP_vptestnmw, 0xf3382658, "vptestnmw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {OP_vptestmd, 0x66382708, "vptestmd", KPw, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[170][1]},
+    {OP_vptestmd, 0x66382718, "vptestmd", KPw, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vptestmq, 0x66382748, "vptestmq", KPb, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[170][3]},
+    {OP_vptestmq, 0x66382758, "vptestmq", KPb, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 171 */
-    {OP_vptestnmd, 0xf3382718, "vptestnmd", KPw, xx, KEw, He, We, mrm|evex|ttfv, x, END_LIST},
-    {OP_vptestnmq, 0xf3382758, "vptestnmq", KPb, xx, KEb, He, We, mrm|evex|ttfv, x, END_LIST},
+    {OP_vptestnmb, 0xf3382608, "vptestnmb", KPq, xx, KEq, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0xf3382618,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vptestnmw, 0xf3382648, "vptestnmw", KPd, xx, KEd, He, We, mrm|evex|ttfvm, x, END_LIST},
+    {INVALID, 0xf3382658,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 172 */
-    {OP_vrangeps, 0x663a5018, "vrangeps", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[109]},
-    {OP_vrangepd, 0x663a5058, "vrangepd", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[110]},
+    {OP_vptestnmd, 0xf3382708, "vptestnmd", KPw, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[172][1]},
+    {OP_vptestnmd, 0xf3382718, "vptestnmd", KPw, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vptestnmq, 0xf3382748, "vptestnmq", KPb, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[172][3]},
+    {OP_vptestnmq, 0xf3382758, "vptestnmq", KPb, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 173 */
-    {OP_vrangess, 0x663a5118, "vrangess", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[111]},
-    {OP_vrangesd, 0x663a5158, "vrangesd", Vdq, xx, KE1b, Ib,    Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[112]},
+    {OP_vrangeps, 0x663a5008, "vrangeps", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[160]},
+    {OP_vrangeps, 0x663a5018, "vrangeps", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[161]},
+    {OP_vrangepd, 0x663a5048, "vrangepd", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[162]},
+    {OP_vrangepd, 0x663a5058, "vrangepd", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[163]},
   }, { /* evex_W_ext 174 */
-    {OP_vreduceps, 0x663a5618, "vreduceps", Ve, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vreducepd, 0x663a5658, "vreducepd", Ve, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vrangess, 0x663a5108, "vrangess", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[164]},
+    {INVALID, 0x663a5118,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vrangesd, 0x663a5148, "vrangesd", Vdq, xx, KE1b, Ib,    Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[165]},
+    {INVALID, 0x663a5158,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 175 */
-    {OP_vreducess, 0x663a5718, "vreducess", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[113]},
-    {OP_vreducesd, 0x663a5758, "vreducesd", Vdq, xx, KE1b, Ib,    Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[114]},
+    {OP_vreduceps, 0x663a5608, "vreduceps", Ve, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[175][1]},
+    {OP_vreduceps, 0x663a5618, "vreduceps", Ve, xx, KEw, Ib, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vreducepd, 0x663a5648, "vreducepd", Ve, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[175][3]},
+    {OP_vreducepd, 0x663a5658, "vreducepd", Ve, xx, KEb, Ib, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 176 */
-    {OP_vrsqrt14ps, 0x66384e18, "vrsqrt14ps", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vrsqrt14pd, 0x66384e58, "vrsqrt14pd", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vreducess, 0x663a5708, "vreducess", Vdq, xx, KE1b, Ib, H12_dq, xop|mrm|evex|reqp|ttt1s, x, exop[166]},
+    {INVALID, 0x663a5718,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vreducesd, 0x663a5748, "vreducesd", Vdq, xx, KE1b, Ib,    Hsd, xop|mrm|evex|reqp|ttt1s, x, exop[167]},
+    {INVALID, 0x663a5758,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 177 */
-    {OP_vrsqrt14ss, 0x66384f18, "vrsqrt14ss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vrsqrt14sd, 0x66384f58, "vrsqrt14sd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vrsqrt14ps, 0x66384e08, "vrsqrt14ps", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[177][1]},
+    {OP_vrsqrt14ps, 0x66384e18, "vrsqrt14ps", Ve, xx, KEw, Md, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vrsqrt14pd, 0x66384e48, "vrsqrt14pd", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[177][3]},
+    {OP_vrsqrt14pd, 0x66384e58, "vrsqrt14pd", Ve, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 178 */
-    {OP_vrsqrt28ps, 0x6638cc18, "vrsqrt28ps", Voq, xx, KEw, Woq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vrsqrt28pd, 0x6638cc58, "vrsqrt28pd", Voq, xx, KEb, Woq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vrsqrt14ss, 0x66384f08, "vrsqrt14ss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66384f18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vrsqrt14sd, 0x66384f48, "vrsqrt14sd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66384f58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 179 */
-    {OP_vrsqrt28ss, 0x6638cd18, "vrsqrt28ss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vrsqrt28sd, 0x6638cd58, "vrsqrt28sd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vrsqrt28ps, 0x6638cc08, "vrsqrt28ps", Voq, xx, KEw, Woq, xx, mrm|evex|reqp|ttfv, x, tevexwb[179][1]},
+    {OP_vrsqrt28ps, 0x6638cc18, "vrsqrt28ps", Voq, xx, KEw, Md, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vrsqrt28pd, 0x6638cc48, "vrsqrt28pd", Voq, xx, KEb, Woq, xx, mrm|evex|reqp|ttfv, x, tevexwb[179][3]},
+    {OP_vrsqrt28pd, 0x6638cc58, "vrsqrt28pd", Voq, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 180 */
-    {OP_vscalefps, 0x66382c18, "vscalefps", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vscalefpd, 0x66382c58, "vscalefpd", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vrsqrt28ss, 0x6638cd08, "vrsqrt28ss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x6638cd18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vrsqrt28sd, 0x6638cd48, "vrsqrt28sd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x6638cd58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 181 */
-    {OP_vscalefss, 0x66382d18, "vscalefss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vscalefsd, 0x66382d58, "vscalefsd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vscalefps, 0x66382c08, "vscalefps", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[181][1]},
+    {OP_vscalefps, 0x66382c18, "vscalefps", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vscalefpd, 0x66382c48, "vscalefpd", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[181][3]},
+    {OP_vscalefpd, 0x66382c58, "vscalefpd", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 182 */
-    {OP_vfpclassps, 0x663a6618, "vfpclassps", KPw, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vfpclasspd, 0x663a6658, "vfpclasspd", KPb, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vscalefss, 0x66382d08, "vscalefss", Vdq, xx, KE1b, H12_dq, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66382d18,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vscalefsd, 0x66382d48, "vscalefsd", Vdq, xx, KE1b,    Hsd, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x66382d58,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 183 */
-    {OP_vfpclassss, 0x663a6718, "vfpclassss", KP1b, xx, KE1b, Ib, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
-    {OP_vfpclasssd, 0x663a6758, "vfpclasssd", KP1b, xx, KE1b, Ib, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {OP_vfpclassps, 0x663a6608, "vfpclassps", KPw, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[183][1]},
+    {OP_vfpclassps, 0x663a6618, "vfpclassps", KPw, xx, KEw, Ib, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vfpclasspd, 0x663a6648, "vfpclasspd", KPb, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[183][3]},
+    {OP_vfpclasspd, 0x663a6658, "vfpclasspd", KPb, xx, KEb, Ib, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 184 */
-    {OP_vexp2ps, 0x6638c818, "vexp2ps", Voq, xx, KEw, Woq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vexp2pd, 0x6638c858, "vexp2pd", Voq, xx, KEb, Woq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vfpclassss, 0x663a6708, "vfpclassss", KP1b, xx, KE1b, Ib, Wd_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x663a6718,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vfpclasssd, 0x663a6748, "vfpclasssd", KP1b, xx, KE1b, Ib, Wq_dq, mrm|evex|reqp|ttt1s, x, END_LIST},
+    {INVALID, 0x663a6758,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 185 */
-    {OP_vpconflictd, 0x6638c418, "vpconflictd", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vpconflictq, 0x6638c458, "vpconflictq", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vexp2ps, 0x6638c808, "vexp2ps", Voq, xx, KEw, Woq, xx, mrm|evex|reqp|ttfv, x, tevexwb[185][1]},
+    {OP_vexp2ps, 0x6638c818, "vexp2ps", Voq, xx, KEw, Md, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vexp2pd, 0x6638c848, "vexp2pd", Voq, xx, KEb, Woq, xx, mrm|evex|reqp|ttfv, x, tevexwb[185][3]},
+    {OP_vexp2pd, 0x6638c858, "vexp2pd", Voq, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 186 */
-    {OP_vplzcntd, 0x66384418, "vplzcntd", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
-    {OP_vplzcntq, 0x66384458, "vplzcntq", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpconflictd, 0x6638c408, "vpconflictd", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[186][1]},
+    {OP_vpconflictd, 0x6638c418, "vpconflictd", Ve, xx, KEw, Md, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vpconflictq, 0x6638c448, "vpconflictq", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[186][3]},
+    {OP_vpconflictq, 0x6638c458, "vpconflictq", Ve, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 187 */
-    {OP_vpternlogd, 0x663a2518, "vpternlogd", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[118]},
-    {OP_vpternlogq, 0x663a2558, "vpternlogq", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[119]},
+    {OP_vplzcntd, 0x66384408, "vplzcntd", Ve, xx, KEw, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[187][1]},
+    {OP_vplzcntd, 0x66384418, "vplzcntd", Ve, xx, KEw, Md, xx, mrm|evex|reqp|ttfv, x, END_LIST},
+    {OP_vplzcntq, 0x66384448, "vplzcntq", Ve, xx, KEb, We, xx, mrm|evex|reqp|ttfv, x, tevexwb[187][3]},
+    {OP_vplzcntq, 0x66384458, "vplzcntq", Ve, xx, KEb, Mq, xx, mrm|evex|reqp|ttfv, x, END_LIST},
   }, { /* evex_W_ext 188 */
+    {OP_vpternlogd, 0x663a2508, "vpternlogd", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[172]},
+    {OP_vpternlogd, 0x663a2518, "vpternlogd", Ve, xx, KEw, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[173]},
+    {OP_vpternlogq, 0x663a2548, "vpternlogq", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[174]},
+    {OP_vpternlogq, 0x663a2558, "vpternlogq", Ve, xx, KEb, Ib, He, xop|mrm|evex|reqp|ttfv, x, exop[175]},
+  }, { /* evex_W_ext 189 */
     /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpgatherdd, 0x66389018, "vpgatherdd", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vpgatherdq, 0x66389058, "vpgatherdq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-  }, { /* evex_W_ext 189 */
-    {OP_vpgatherqd, 0x66389118, "vpgatherqd", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vpgatherqq, 0x66389158, "vpgatherqq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpgatherdd, 0x66389008, "vpgatherdd", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389018,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpgatherdq, 0x66389048, "vpgatherdq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389058,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 190 */
-    {OP_vgatherdps, 0x66389218, "vgatherdps", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vgatherdpd, 0x66389258, "vgatherdpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpgatherqd, 0x66389108, "vpgatherqd", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389118,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpgatherqq, 0x66389148, "vpgatherqq", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389158,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 191 */
-    {OP_vgatherqps, 0x66389318, "vgatherqps", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vgatherqpd, 0x66389358, "vgatherqpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vgatherdps, 0x66389208, "vgatherdps", Ve, KEw, KEw, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389218,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgatherdpd, 0x66389248, "vgatherdpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389258,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 192 */
+    {OP_vgatherqps, 0x66389308, "vgatherqps", Ve, KEb, KEb, MVd, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389318,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgatherqpd, 0x66389348, "vgatherqpd", Ve, KEb, KEb, MVq, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x66389358,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  }, { /* evex_W_ext 193 */
     /* XXX: OP_v*scatter* raise #UD if any pair of the index, mask, or destination
      * registers are identical.  We don't bother trying to detect that.
      */
-    {OP_vpscatterdd, 0x6638a018, "vpscatterdd", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vpscatterdq, 0x6638a058, "vpscatterdq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-  }, { /* evex_W_ext 193 */
-    {OP_vpscatterqd, 0x6638a118, "vpscatterqd", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vpscatterqq, 0x6638a158, "vpscatterqq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpscatterdd, 0x6638a008, "vpscatterdd", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a018,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpscatterdq, 0x6638a048, "vpscatterdq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a058,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 194 */
-    {OP_vscatterdps, 0x6638a218, "vscatterdps", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vscatterdpd, 0x6638a258, "vscatterdpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vpscatterqd, 0x6638a108, "vpscatterqd", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a118,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vpscatterqq, 0x6638a148, "vpscatterqq", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a158,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 195 */
-    {OP_vscatterqps, 0x6638a318, "vscatterqps", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
-    {OP_vscatterqpd, 0x6638a358, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {OP_vscatterdps, 0x6638a208, "vscatterdps", MVd, KEw, KEw, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a218,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vscatterdpd, 0x6638a248, "vscatterdpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a258,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 196 */
+    {OP_vscatterqps, 0x6638a308, "vscatterqps", MVd, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a318,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vscatterqpd, 0x6638a348, "vscatterqpd", MVq, KEb, KEb, Ve, xx, mrm|evex|reqp|ttnone|nok0, x, END_LIST},
+    {INVALID, 0x6638a358,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  }, { /* evex_W_ext 197 */
        /* XXX i#1312: The encoding of this and the following gather prefetch instructions
         * is not clear. AVX-512PF seems to be specific to the Knights Landing architecture
         * (Xeon Phi). Our current encoding works with binutils but fails llvm-mc.
@@ -8085,29 +8471,297 @@ const instr_info_t evex_W_extensions[][2] = {
         * an exception using reqLL1 and fix the lengths in decoder/encoder or file a bug
         * on LLVM, this needs to be clarified.
         */
-    {OP_vgatherpf0dps, 0x6638c639, "vgatherpf0dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vgatherpf0dpd, 0x6638c679, "vgatherpf0dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
-  }, { /* evex_W_ext 197 */
-    {OP_vgatherpf0qps, 0x6638c739, "vgatherpf0qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vgatherpf0qpd, 0x6638c779, "vgatherpf0qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {OP_vgatherpf0dps, 0x6638c629, "vgatherpf0dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c639,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgatherpf0dpd, 0x6638c669, "vgatherpf0dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c679,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 198 */
-    {OP_vgatherpf1dps, 0x6638c63a, "vgatherpf1dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vgatherpf1dpd, 0x6638c67a, "vgatherpf1dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
-  }, { /* evex_W_ext 199  */
-    {OP_vgatherpf1qps, 0x6638c73a, "vgatherpf1qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vgatherpf1qpd, 0x6638c77a, "vgatherpf1qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-  }, { /* evex_W_ext 200 */
-    {OP_vscatterpf0dps, 0x6638c63d, "vscatterpf0dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vscatterpf0dpd, 0x6638c67d, "vscatterpf0dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
+    {OP_vgatherpf0qps, 0x6638c729, "vgatherpf0qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c739,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgatherpf0qpd, 0x6638c769, "vgatherpf0qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c779,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  }, { /* evex_W_ext 199 */
+    {OP_vgatherpf1dps, 0x6638c62a, "vgatherpf1dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c6ea,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgatherpf1dpd, 0x6638c66a, "vgatherpf1dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c67a,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  }, { /* evex_W_ext 200  */
+    {OP_vgatherpf1qps, 0x6638c72a, "vgatherpf1qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c731,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vgatherpf1qpd, 0x6638c76a, "vgatherpf1qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c77a,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 201 */
-    {OP_vscatterpf0qps, 0x6638c73d, "vscatterpf0qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vscatterpf0qpd, 0x6638c77d, "vscatterpf0qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {OP_vscatterpf0dps, 0x6638c62d, "vscatterpf0dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c63e,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vscatterpf0dpd, 0x6638c66d, "vscatterpf0dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c67d,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
   }, { /* evex_W_ext 202 */
-    {OP_vscatterpf1dps, 0x6638c63e, "vscatterpf1dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vscatterpf1dpd, 0x6638c67e, "vscatterpf1dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
-  }, { /* evex_W_ext 203  */
-    {OP_vscatterpf1qps, 0x6638c73e, "vscatterpf1qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
-    {OP_vscatterpf1qpd, 0x6638c77e, "vscatterpf1qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {OP_vscatterpf0qps, 0x6638c72d, "vscatterpf0qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c73d,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vscatterpf0qpd, 0x6638c76d, "vscatterpf0qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c77d,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  }, { /* evex_W_ext 203 */
+    {OP_vscatterpf1dps, 0x6638c62e, "vscatterpf1dps", xx, xx, KEw, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c63e,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vscatterpf1dpd, 0x6638c66e, "vscatterpf1dpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsiby|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c67e,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  }, { /* evex_W_ext 204  */
+    {OP_vscatterpf1qps, 0x6638c72e, "vscatterpf1qps", xx, xx, KEb, MVd, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c7e3,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+    {OP_vscatterpf1qpd, 0x6638c76e, "vscatterpf1qpd", xx, xx, KEb, MVq, xx, mrm|evex|reqp|vsibz|ttt1s, x, END_LIST},
+    {INVALID, 0x6638c77e,"(bad)", xx,xx,xx,xx,xx,no,x,NA},
+  }, { /* evex_W_ext 205 */
+    {OP_vandps,  0x0f5400, "vandps",  Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[205][1]},
+    {OP_vandps,  0x0f5410, "vandps",  Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vandpd,  0x660f5440, "vandpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[205][3]},
+    {OP_vandpd,  0x660f5450, "vandpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 206 */
+    {OP_vandnps, 0x0f5500, "vandnps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[206][1]},
+    {OP_vandnps, 0x0f5510, "vandnps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vandnpd, 0x660f5540, "vandnpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[206][3]},
+    {OP_vandnpd, 0x660f5550, "vandnpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 207 */
+    {OP_vorps, 0x0f5600, "vorps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[207][1]},
+    {OP_vorps, 0x0f5610, "vorps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vorpd, 0x660f5640, "vorpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[207][3]},
+    {OP_vorpd, 0x660f5650, "vorpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 208 */
+    {OP_vxorps, 0x0f5700, "vxorps",  Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[208][1]},
+    {OP_vxorps, 0x0f5710, "vxorps",  Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vxorpd, 0x660f5740, "vxorpd",  Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[208][3]},
+    {OP_vxorpd, 0x660f5750, "vxorpd",  Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 209 */
+    {OP_vaddps, 0x0f5800, "vaddps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[209][1]},
+    {OP_vaddps, 0x0f5810, "vaddps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vaddpd, 0x660f5840, "vaddpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[209][3]},
+    {OP_vaddpd, 0x660f5850, "vaddpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 210 */
+    {OP_vmulps, 0x0f5900, "vmulps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[210][1]},
+    {OP_vmulps, 0x0f5910, "vmulps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vmulpd, 0x660f5940, "vmulpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[210][3]},
+    {OP_vmulpd, 0x660f5950, "vmulpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 211 */
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtps2pd, 0x0f5a00, "vcvtps2pd", Ved, xx, KEb, Wes, xx, mrm|evex|tthv, x, tevexwb[211][1]},
+    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Ved, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtpd2ps, 0x660f5a40, "vcvtpd2ps", Ves, xx, KEw, Wed, xx, mrm|evex|ttfv, x, tevexwb[211][3]},
+    {OP_vcvtpd2ps, 0x660f5a50, "vcvtpd2ps", Ves, xx, KEw, Mq, xx, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 212 */
+    {OP_vsubps, 0x0f5c00, "vsubps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[212][1]},
+    {OP_vsubps, 0x0f5c10, "vsubps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vsubpd, 0x660f5c40, "vsubpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[212][3]},
+    {OP_vsubpd, 0x660f5c50, "vsubpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 213 */
+    {OP_vminps, 0x0f5d00, "vminps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[213][1]},
+    {OP_vminps, 0x0f5d10, "vminps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vminpd, 0x660f5d40, "vminpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[213][3]},
+    {OP_vminpd, 0x660f5d50, "vminpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 214 */
+    {OP_vdivps, 0x0f5e00, "vdivps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[214][1]},
+    {OP_vdivps, 0x0f5e10, "vdivps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vdivpd, 0x660f5e40, "vdivpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[214][3]},
+    {OP_vdivpd, 0x660f5e50, "vdivpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 215 */
+    {OP_vmaxps,   0x0f5f00, "vmaxps", Ves, xx, KEw, Hes, Wes, mrm|evex|ttfv, x, tevexwb[215][1]},
+    {OP_vmaxps,   0x0f5f10, "vmaxps", Ves, xx, KEw, Hes, Md, mrm|evex|ttfv, x, END_LIST},
+    {OP_vmaxpd, 0x660f5f40, "vmaxpd", Ved, xx, KEb, Hed, Wed, mrm|evex|ttfv, x, tevexwb[215][3]},
+    {OP_vmaxpd, 0x660f5f50, "vmaxpd", Ved, xx, KEb, Hed, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 216 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpunpcklqdq, 0x660f6c40, "vpunpcklqdq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[216][3]},
+    {OP_vpunpcklqdq, 0x660f6c50, "vpunpcklqdq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 217 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpmuludq, 0x660ff440, "vpmuludq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[217][3]},
+    {OP_vpmuludq, 0x660ff450, "vpmuludq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 218 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vrndscalepd, 0x663a0948, "vrndscalepd",  Ve, xx, KEb, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[218][3]},
+    {OP_vrndscalepd, 0x663a0958, "vrndscalepd",  Ve, xx, KEb, Ib, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 219 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpunpckhqdq, 0x660f6d40, "vpunpckhqdq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[219][3]},
+    {OP_vpunpckhqdq, 0x660f6d50, "vpunpckhqdq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 220 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpmadd52luq, 0x6638b448, "vpmadd52luq", Ve, xx, KEb, He, Wed, mrm|evex|reqp|ttfv, x, tevexwb[220][3]},
+    {OP_vpmadd52luq, 0x6638b458, "vpmadd52luq", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 221 */
+    {OP_vshufps, 0x0fc600, "vshufps", Ves, xx, KEw, Ib, Hes, xop|mrm|evex|ttfv, x, exop[136]},
+    {OP_vshufps, 0x0fc610, "vshufps", Ves, xx, KEw, Ib, Hes, xop|mrm|evex|ttfv, x, exop[137]},
+    {OP_vshufpd, 0x660fc640, "vshufpd", Ved, xx, KEb, Ib, Hed, xop|mrm|evex|ttfv, x, exop[138]},
+    {OP_vshufpd, 0x660fc650, "vshufpd", Ved, xx, KEb, Ib, Hed, xop|mrm|evex|ttfv, x, exop[139]},
+  }, { /* evex_W_ext 222 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvttpd2dq,0x660fe640, "vcvttpd2dq", Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[222][3]},
+    {OP_vcvttpd2dq,0x660fe650, "vcvttpd2dq", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 223 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
+     * This also affects the existing VEX version if it exists.
+     */
+    {OP_vcvtpd2dq, 0xf20fe640, "vcvtpd2dq",  Ve, xx, KEb, Wed, xx, mrm|evex|ttfv, x, tevexwb[223][3]},
+    {OP_vcvtpd2dq, 0xf20fe650, "vcvtpd2dq",  Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 224 */
+    {OP_vcmpps, 0x0fc200, "vcmpps", KPw, xx, KEw, Ib, Hes, xop|mrm|evex|ttfv, x, exop[130]},
+    {OP_vcmpps, 0x0fc210, "vcmpps", KPw, xx, KEw, Ib, Hes, xop|mrm|evex|ttfv, x, exop[131]},
+    {OP_vcmppd, 0x660fc240, "vcmppd", KPb, xx, KEb, Ib, Hed, xop|mrm|evex|ttfv, x, exop[134]},
+    {OP_vcmppd, 0x660fc250, "vcmppd", KPb, xx, KEb, Ib, Hed, xop|mrm|evex|ttfv, x, exop[135]},
+  }, { /* evex_W_ext 225 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpaddq, 0x660fd440, "vpaddq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[225][3]},
+    {OP_vpaddq, 0x660fd450, "vpaddq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 226 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpsubq, 0x660ffb40, "vpsubq", Ve, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[226][3]},
+    {OP_vpsubq, 0x660ffb50, "vpsubq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 227 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpmuldq,  0x66382848, "vpmuldq", Ve, xx, KEb, He, Wed, mrm|evex|ttfv, x, tevexwb[227][3]},
+    {OP_vpmuldq,  0x66382858, "vpmuldq", Ve, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 228 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpsllq, 0x660ff340, "vpsllq", Ve, xx, KEb, He, Wdq, mrm|evex|ttm128, x, tevexwb[229][2]},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 229 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpsllq,  0x660f7366, "vpsllq", He, xx, KEb, Ib, We, mrm|evex|ttfv, x, tevexwb[229][3]},
+    {OP_vpsllq,  0x660f7376, "vpsllq", He, xx, KEb, Ib, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 230 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermilpd, 0x663a0548, "vpermilpd", Ve, xx, KEb, We, Ib, mrm|evex|reqp|ttfv, x, tevexwb[230][3]},
+    {OP_vpermilpd, 0x663a0558, "vpermilpd", Ve, xx, KEb, Mq, Ib, mrm|evex|reqp|ttfv, x, tevexwb[231][2]},
+  }, { /* evex_W_ext 231 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermilpd, 0x66380d48, "vpermilpd", Ve, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[231][3]},
+    {OP_vpermilpd, 0x66380d58, "vpermilpd", Ve, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 232 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpcmpgtq, 0x66383748, "vpcmpgtq",  KPb, xx, KEb, He, We, mrm|evex|reqp|ttfv, x, tevexwb[232][3]},
+    {OP_vpcmpgtq, 0x66383758, "vpcmpgtq",  KPb, xx, KEb, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 233 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpcmpeqq, 0x66382948, "vpcmpeqq", KPb, xx, KEb, He, Wed, mrm|evex|ttfv, x, tevexwb[233][3]},
+    {OP_vpcmpeqq, 0x66382958, "vpcmpeqq", KPb, xx, KEb, He, Mq, mrm|evex|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 234 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpmadd52huq, 0x6638b548, "vpmadd52huq", Ve, xx, KEd, He, Wed, mrm|evex|reqp|ttfv, x, tevexwb[234][3]},
+    {OP_vpmadd52huq, 0x6638b558, "vpmadd52huq", Ve, xx, KEd, He, Mq, mrm|evex|reqp|ttfv, x, END_LIST},
+  }, { /* evex_W_ext 235 */
+    {OP_vpunpckldq, 0x660f6200, "vpunpckldq", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[235][1]},
+    {OP_vpunpckldq, 0x660f6210, "vpunpckldq", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 236 */
+    {OP_vpcmpgtd, 0x660f6600, "vpcmpgtd", KPb, xx, KEb, He, We, mrm|evex|ttfv, x, tevexwb[236][1]},
+    {OP_vpcmpgtd, 0x660f6610, "vpcmpgtd", KPb, xx, KEb, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 237 */
+    {OP_vpunpckhdq, 0x660f6a00, "vpunpckhdq", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[237][1]},
+    {OP_vpunpckhdq, 0x660f6a10, "vpunpckhdq", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 238 */
+    {OP_vpackssdw, 0x660f6b00, "vpackssdw", Ve, xx, KEd, He, We, mrm|evex|ttfv, x, tevexwb[238][1]},
+    {OP_vpackssdw, 0x660f6b10, "vpackssdw", Ve, xx, KEd, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 239 */
+    {OP_vpshufd,  0x660f7000, "vpshufd",  Ve, xx, KEw, Ib, We, mrm|evex|ttfv, x, tevexwb[239][1]},
+    {OP_vpshufd,  0x660f7010, "vpshufd",  Ve, xx, KEw, Ib, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 240 */
+    {OP_vpcmpeqd, 0x660f7600, "vpcmpeqd", KPw, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[240][1]},
+    {OP_vpcmpeqd, 0x660f7610, "vpcmpeqd", KPw, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 241 */
+    {OP_vpsubd, 0x660ffa00, "vpsubd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[241][1]},
+    {OP_vpsubd, 0x660ffa10, "vpsubd", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 242 */
+    {OP_vpaddd, 0x660ffe00, "vpaddd", Ve, xx, KEw, He, We, mrm|evex|ttfv, x, tevexwb[242][1]},
+    {OP_vpaddd, 0x660ffe10, "vpaddd", Ve, xx, KEw, He, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 243 */
+    {OP_vpslld, 0x660ff200, "vpslld", Ve, xx, KEw, He, Wdq, mrm|evex|ttm128, x, tevexwb[244][0]},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 244 */
+    {OP_vpslld,  0x660f7226, "vpslld", He, xx, KEw, Ib, We, mrm|evex|ttfv, x, tevexwb[244][1]},
+    {OP_vpslld,  0x660f7236, "vpslld", He, xx, KEw, Ib, Md, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 245 */
+    {OP_vpackusdw, 0x66382b08, "vpackusdw", Ve, xx, KEd, He, We, mrm|evex|reqp|ttfv, x, tevexwb[245][1]},
+    {OP_vpackusdw, 0x66382b18, "vpackusdw", Ve, xx, KEd, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 246 */
+    {OP_vrndscaleps, 0x663a0808, "vrndscaleps",  Ve, xx, KEw, Ib, We, mrm|evex|reqp|ttfv, x, tevexwb[246][1]},
+    {OP_vrndscaleps, 0x663a0818, "vrndscaleps",  Ve, xx, KEw, Ib, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 247 */
+    {OP_vpermilps, 0x663a0408, "vpermilps", Ve, xx, KEw, We, Ib, mrm|evex|reqp|ttfv, x, tevexwb[247][1]},
+    {OP_vpermilps, 0x663a0418, "vpermilps", Ve, xx, KEw, Md, Ib, mrm|evex|reqp|ttfv, x, tevexwb[248][0]},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 248 */
+    {OP_vpermilps, 0x66380c08, "vpermilps", Ve, xx, KEw, He, We, mrm|evex|reqp|ttfv, x, tevexwb[248][1]},
+    {OP_vpermilps, 0x66380c18, "vpermilps", Ve, xx, KEw, He, Md, mrm|evex|reqp|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 249 */
+    {OP_vcvtps2dq, 0x660f5b00, "vcvtps2dq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, tevexwb[249][1]},
+    {OP_vcvtps2dq, 0x660f5b10, "vcvtps2dq", Ve, xx, KEw, Md, xx, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 250 */
+    {OP_vcvttps2dq, 0xf30f5b00, "vcvttps2dq", Ve, xx, KEw, Wes, xx, mrm|evex|ttfv, x, tevexwb[250][1]},
+    {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Ve, xx, KEw, Md, xx, mrm|evex|ttfv, x, END_LIST},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 251 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermq, 0x663a0048, "vpermq", Vf, xx, KEb, Wf, Ib, mrm|evex|reqp|ttfv, x, tevexwb[251][3]},
+    {OP_vpermq, 0x663a0058, "vpermq", Vf, xx, KEb, Mq, Ib, mrm|evex|reqp|ttfv, x, tevexwb[93][2]},
+  }, { /* evex_W_ext 252 */
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vpermpd, 0x663a0148, "vpermpd", Vf, xx, KEw, Wf, Ib, mrm|evex|reqp, x, tevexwb[252][3]},
+    {OP_vpermpd, 0x663a0158, "vpermpd", Vf, xx, KEw, Mq, Ib, mrm|evex|reqp, x, tevexwb[94][2]},
   },
 };
 
@@ -9073,7 +9727,6 @@ const instr_info_t suffix_extensions[] = {
  * To handle more than 2 dests or 3 sources we chain on extra instructions.
  * All cases where we have extra operands are single-encoding-only instructions,
  * so we use the list field to point to here.
- * N.B.: the size of this table is hardcoded in decode.c.
  * Also, only implicit operands are in these instruction extensions!!!
  */
 const instr_info_t extra_operands[] =
@@ -9099,164 +9752,248 @@ const instr_info_t extra_operands[] =
     {OP_CONTD,0x663a6018, "<vpcmpestri cont'd", xx, xx, eax, edx, xx, mrm|vex|reqp, fW6, END_LIST},
     {OP_CONTD,0x0f3710, "<getsec cont'd", ecx, xx, xx, xx, xx, predcx, x, END_LIST},
     /* 14 */
+    {OP_CONTD,0x66389818, "<vfmadd132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[62][1]},
     {OP_CONTD,0x66389818, "<vfmadd132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x66389858, "<vfmadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
     /* 16 */
-    {OP_CONTD,0x6638a818, "<vfmadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638a858, "<vfmadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x66389858, "<vfmadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[62][3]},
+    {OP_CONTD,0x66389858, "<vfmadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
     /* 18 */
-    {OP_CONTD,0x6638b818, "<vfmadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638b858, "<vfmadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x6638a818, "<vfmadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[63][1]},
+    {OP_CONTD,0x6638a818, "<vfmadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
     /* 20 */
+    {OP_CONTD,0x6638a858, "<vfmadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[63][3]},
+    {OP_CONTD,0x6638a858, "<vfmadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 22 */
+    {OP_CONTD,0x6638b818, "<vfmadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[64][1]},
+    {OP_CONTD,0x6638b818, "<vfmadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 24 */
+    {OP_CONTD,0x6638b858, "<vfmadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[64][3]},
+    {OP_CONTD,0x6638b858, "<vfmadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 26 */
     {OP_CONTD,0x66389918, "<vfmadd132ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x66389958, "<vfmadd132sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 22 */
+    /* 28 */
     {OP_CONTD,0x6638a918, "<vfmadd213ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638a958, "<vfmadd213sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 24 */
+    /* 30 */
     {OP_CONTD,0x6638b918, "<vfmadd231ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638b958, "<vfmadd231sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 26 */
-    {OP_CONTD,0x66389618, "<vfmaddsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x66389658, "<vfmaddsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 28 */
-    {OP_CONTD,0x6638a618, "<vfmaddsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638a658, "<vfmaddsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 30 */
-    {OP_CONTD,0x6638b618, "<vfmaddsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638b658, "<vfmaddsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
     /* 32 */
-    {OP_CONTD,0x66389718, "<vfmsubadd132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x66389758, "<vfmsubadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x66389618, "<vfmaddsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[68][1]},
+    {OP_CONTD,0x66389618, "<vfmaddsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
     /* 34 */
-    {OP_CONTD,0x6638a718, "<vfmsubadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638a758, "<vfmsubadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x66389658, "<vfmaddsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[68][3]},
+    {OP_CONTD,0x66389658, "<vfmaddsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
     /* 36 */
-    {OP_CONTD,0x6638b718, "<vfmsubadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638b758, "<vfmsubadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x6638a618, "<vfmaddsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[69][1]},
+    {OP_CONTD,0x6638a618, "<vfmaddsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
     /* 38 */
-    {OP_CONTD,0x66389a18, "<vfmsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x66389a58, "<vfmsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x6638a658, "<vfmaddsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[69][3]},
+    {OP_CONTD,0x6638a658, "<vfmaddsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
     /* 40 */
-    {OP_CONTD,0x6638aa18, "<vfmsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638aa58, "<vfmsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x6638b618, "<vfmaddsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[70][1]},
+    {OP_CONTD,0x6638b618, "<vfmaddsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
     /* 42 */
-    {OP_CONTD,0x6638ba18, "<vfmsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD,0x6638ba58, "<vfmsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    {OP_CONTD,0x6638b658, "<vfmaddsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[70][3]},
+    {OP_CONTD,0x6638b658, "<vfmaddsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
     /* 44 */
+    {OP_CONTD,0x66389718, "<vfmsubadd132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[71][1]},
+    {OP_CONTD,0x66389718, "<vfmsubadd132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 46 */
+    {OP_CONTD,0x66389758, "<vfmsubadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[71][3]},
+    {OP_CONTD,0x66389758, "<vfmsubadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 48 */
+    {OP_CONTD,0x6638a718, "<vfmsubadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[72][1]},
+    {OP_CONTD,0x6638a718, "<vfmsubadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 50 */
+    {OP_CONTD,0x6638a758, "<vfmsubadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[72][3]},
+    {OP_CONTD,0x6638a758, "<vfmsubadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 52 */
+    {OP_CONTD,0x6638b718, "<vfmsubadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[73][1]},
+    {OP_CONTD,0x6638b718, "<vfmsubadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 54 */
+    {OP_CONTD,0x6638b758, "<vfmsubadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[73][3]},
+    {OP_CONTD,0x6638b758, "<vfmsubadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 56 */
+    {OP_CONTD,0x66389a18, "<vfmsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[74][1]},
+    {OP_CONTD,0x66389a18, "<vfmsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 58 */
+    {OP_CONTD,0x66389a58, "<vfmsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[74][3]},
+    {OP_CONTD,0x66389a58, "<vfmsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 60 */
+    {OP_CONTD,0x6638aa18, "<vfmsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[75][1]},
+    {OP_CONTD,0x6638aa18, "<vfmsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 62 */
+    {OP_CONTD,0x6638aa58, "<vfmsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[75][3]},
+    {OP_CONTD,0x6638aa58, "<vfmsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 64 */
+    {OP_CONTD,0x6638ba18, "<vfmsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[76][1]},
+    {OP_CONTD,0x6638ba18, "<vfmsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 66 */
+    {OP_CONTD,0x6638ba58, "<vfmsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[76][3]},
+    {OP_CONTD,0x6638ba58, "<vfmsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
+    /* 68 */
     {OP_CONTD,0x66389b18, "<vfmsub132ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x66389b58, "<vfmsub132sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 46 */
+    /* 70 */
     {OP_CONTD,0x6638ab18, "<vfmsub213ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638ab58, "<vfmsub213sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 48 */
+    /* 72 */
     {OP_CONTD,0x6638bb18, "<vfmsub231ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638bb58, "<vfmsub231sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 50 */
+    /* 74 */
+    {OP_CONTD,0x66389c18, "<vfnmadd132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[80][1]},
     {OP_CONTD,0x66389c18, "<vfnmadd132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 76 */
+    {OP_CONTD,0x66389c58, "<vfnmadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[80][3]},
     {OP_CONTD,0x66389c58, "<vfnmadd132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 52 */
+    /* 78 */
+    {OP_CONTD,0x6638ac18, "<vfnmadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[81][1]},
     {OP_CONTD,0x6638ac18, "<vfnmadd213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 80 */
+    {OP_CONTD,0x6638ac58, "<vfnmadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[81][3]},
     {OP_CONTD,0x6638ac58, "<vfnmadd213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 54 */
+    /* 82 */
+    {OP_CONTD,0x6638bc18, "<vfnmadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[82][1]},
     {OP_CONTD,0x6638bc18, "<vfnmadd231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 84 */
+    {OP_CONTD,0x6638bc58, "<vfnmadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[82][3]},
     {OP_CONTD,0x6638bc58, "<vfnmadd231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 56 */
+    /* 86 */
     {OP_CONTD,0x66389d18, "<vfnmadd132ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x66389d58, "<vfnmadd132sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 58 */
+    /* 88 */
     {OP_CONTD,0x6638ad18, "<vfnmadd213ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638ad58, "<vfnmadd213sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 60 */
+    /* 90 */
     {OP_CONTD,0x6638bd18, "<vfnmadd231ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638bd58, "<vfnmadd231sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 62 */
+    /* 92 */
+    {OP_CONTD,0x66389e18, "<vfnmsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[86][1]},
     {OP_CONTD,0x66389e18, "<vfnmsub132ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 94 */
+    {OP_CONTD,0x66389e58, "<vfnmsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[86][3]},
     {OP_CONTD,0x66389e58, "<vfnmsub132pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 64 */
+    /* 96 */
+    {OP_CONTD,0x6638ae18, "<vfnmsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[87][1]},
     {OP_CONTD,0x6638ae18, "<vfnmsub213ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 98 */
+    {OP_CONTD,0x6638ae58, "<vfnmsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[87][3]},
     {OP_CONTD,0x6638ae58, "<vfnmsub213pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 66 */
+    /* 100 */
+    {OP_CONTD,0x6638be18, "<vfnmsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, tevexwb[88][1]},
     {OP_CONTD,0x6638be18, "<vfnmsub231ps cont'd", xx, xx, Ves, xx, xx, mrm|evex, x, END_LIST},
+    /* 102 */
+    {OP_CONTD,0x6638be58, "<vfnmsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, tevexwb[88][3]},
     {OP_CONTD,0x6638be58, "<vfnmsub231pd cont'd", xx, xx, Ved, xx, xx, mrm|evex, x, END_LIST},
-    /* 68 */
+    /* 104 */
     {OP_CONTD,0x66389f18, "<vfnmsub132ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x66389f58, "<vfnmsub132sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 70 */
+    /* 106 */
     {OP_CONTD,0x6638af18, "<vfnmsub213ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638af58, "<vfnmsub213sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 72 */
+    /* 108 */
     {OP_CONTD,0x6638bf18, "<vfnmsub231ss cont'd", xx, xx, Vss, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD,0x6638bf58, "<vfnmsub231sd cont'd", xx, xx, Vsd, xx, xx, mrm|evex, x, END_LIST},
-    /* 74 */
+    /* 110 */
     {OP_CONTD, 0x663a1818, "vinsertf32x4 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD, 0x663a1858, "vinsertf64x2 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
-    /* 76 */
+    /* 112 */
     {OP_CONTD, 0x663a1a18, "vinsertf32x8 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD, 0x663a1a58, "vinsertf64x4 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
-    /* 78 */
+    /* 114 */
     {OP_CONTD, 0x663a3818, "vinserti32x4 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD, 0x663a3858, "vinserti64x2 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
-    /* 80 */
+    /* 116 */
     {OP_CONTD, 0x663a3a18, "vinserti32x8 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD, 0x663a3a58, "vinserti64x4 cont'd", xx, xx, Wdq, xx, xx, mrm|evex, x, END_LIST},
-    /* 82 */
+    /* 118 */
     {OP_CONTD, 0x663a3e18, "vpcmpub cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
     {OP_CONTD, 0x663a3f18, "vpcmpb cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
-    /* 84 */
+    /* 120 */
     {OP_CONTD, 0x663a3e18, "vpcmpuw cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
     {OP_CONTD, 0x663a3f18, "vpcmpw cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
-    /* 86 */
-    {OP_CONTD, 0x663a1e18, "vpcmpud cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
-    {OP_CONTD, 0x663a1f18, "vpcmpd cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
-    /* 88 */
-    {OP_CONTD, 0x663a1e18, "vpcmpuq cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
-    {OP_CONTD, 0x663a1f18, "vpcmpq cont'd", xx, xx, We, xx, xx, evex|mrm, x, END_LIST},
-    /* 90 */
-    {OP_CONTD,   0x0fc210, "vcmpps cont'd", xx, xx, Wes, xx, xx, evex|mrm, x, END_LIST},
+    /* 122 */
+    {OP_CONTD, 0x663a1e18, "vpcmpud cont'd", xx, xx, We, xx, xx, evex|mrm, x, tevexwb[111][1]},
+    {OP_CONTD, 0x663a1e18, "vpcmpud cont'd", xx, xx, Md, xx, xx, evex|mrm, x, END_LIST},
+    /* 124 */
+    {OP_CONTD, 0x663a1f18, "vpcmpd cont'd", xx, xx, We, xx, xx, evex|mrm, x, tevexwb[112][1]},
+    {OP_CONTD, 0x663a1f18, "vpcmpd cont'd", xx, xx, Md, xx, xx, evex|mrm, x, END_LIST},
+    /* 126 */
+    {OP_CONTD, 0x663a1e18, "vpcmpuq cont'd", xx, xx, We, xx, xx, evex|mrm, x, tevexwb[111][3]},
+    {OP_CONTD, 0x663a1e18, "vpcmpuq cont'd", xx, xx, Mq, xx, xx, evex|mrm, x, END_LIST},
+    /* 128 */
+    {OP_CONTD, 0x663a1f18, "vpcmpq cont'd", xx, xx, We, xx, xx, evex|mrm, x, tevexwb[112][3]},
+    {OP_CONTD, 0x663a1f18, "vpcmpq cont'd", xx, xx, Mq, xx, xx, evex|mrm, x, END_LIST},
+    /* 130 */
+    {OP_CONTD,   0x0fc210, "vcmpps cont'd", xx, xx, Wes, xx, xx, evex|mrm, x, tevexwb[224][1]},
+    {OP_CONTD,   0x0fc210, "vcmpps cont'd", xx, xx, Md, xx, xx, evex|mrm, x, END_LIST},
+    /* 132 */
     {OP_CONTD, 0xf30fc210, "vcmpss cont'd", xx, xx, Wss, xx, xx, evex|mrm, x, END_LIST},
-    /* 92 */
-    {OP_CONTD, 0x660fc210, "vcmppd cont'd", xx, xx, Wed, xx, xx, evex|mrm, x, END_LIST},
     {OP_CONTD, 0xf20fc210, "vcmpsd cont'd", xx, xx, Wsd, xx, xx, evex|mrm, x, END_LIST},
-    /* 94 */
-    {OP_CONTD,   0x0fc610, "vshufps cont'd", xx, xx, Wes, xx, xx, evex|mrm, x, END_LIST},
-    {OP_CONTD, 0x660fc650, "vshufpd cont'd", xx, xx, Wed, xx, xx, evex|mrm, x, END_LIST},
-    /* 96 */
-    {OP_CONTD, 0x663a2318, "vshuff32x4 cont'd", xx, xx, Wfs, xx, xx, evex|mrm, x, END_LIST},
-    {OP_CONTD, 0x663a2358, "vshuff64x2 cont'd", xx, xx, Wfd, xx, xx, evex|mrm, x, END_LIST},
-    /* 98 */
-    {OP_CONTD, 0x663a4318, "vshufi32x4 cont'd", xx, xx, Wfs, xx, xx, evex|mrm, x, END_LIST},
-    {OP_CONTD, 0x663a4358, "vshufi64x2 cont'd", xx, xx, Wfd, xx, xx, evex|mrm, x, END_LIST},
-    /* 100 */
-    {OP_CONTD, 0x663a0f18, "vpalignr cont'd", xx, xx, We, xx, xx, mrm|evex, x, END_LIST},
-    {OP_CONTD, 0x663a0318, "valignd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 102 */
-    {OP_CONTD, 0x663a0358, "valignq cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
-    {OP_CONTD, 0x663a5418, "vfixupimmps cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 104 */
-    {OP_CONTD, 0x663a5458, "vfixupimmpd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 134 */
+    {OP_CONTD, 0x660fc210, "vcmppd cont'd", xx, xx, Wed, xx, xx, evex|mrm, x, tevexwb[224][3]},
+    {OP_CONTD, 0x660fc210, "vcmppd cont'd", xx, xx, Mq, xx, xx, evex|mrm, x, END_LIST},
+    /* 136 */
+    {OP_CONTD,   0x0fc610, "vshufps cont'd", xx, xx, Wes, xx, xx, evex|mrm, x, tevexwb[221][1]},
+    {OP_CONTD,   0x0fc610, "vshufps cont'd", xx, xx, Md, xx, xx, evex|mrm, x, END_LIST},
+    /* 138 */
+    {OP_CONTD, 0x660fc650, "vshufpd cont'd", xx, xx, Wed, xx, xx, evex|mrm, x, tevexwb[221][3]},
+    {OP_CONTD, 0x660fc650, "vshufpd cont'd", xx, xx, Mq, xx, xx, evex|mrm, x, END_LIST},
+    /* 140 */
+    {OP_CONTD, 0x663a2318, "vshuff32x4 cont'd", xx, xx, Wfs, xx, xx, evex|mrm, x, tevexwb[142][1]},
+    {OP_CONTD, 0x663a2318, "vshuff32x4 cont'd", xx, xx, Md, xx, xx, evex|mrm, x, END_LIST},
+    /* 142 */
+    {OP_CONTD, 0x663a2358, "vshuff64x2 cont'd", xx, xx, Wfd, xx, xx, evex|mrm, x, tevexwb[142][3]},
+    {OP_CONTD, 0x663a2358, "vshuff64x2 cont'd", xx, xx, Mq, xx, xx, evex|mrm, x, END_LIST},
+    /* 144 */
+    {OP_CONTD, 0x663a4318, "vshufi32x4 cont'd", xx, xx, Wfs, xx, xx, evex|mrm, x, tevexwb[143][1]},
+    {OP_CONTD, 0x663a4318, "vshufi32x4 cont'd", xx, xx, Md, xx, xx, evex|mrm, x, END_LIST},
+    /* 146 */
+    {OP_CONTD, 0x663a4358, "vshufi64x2 cont'd", xx, xx, Wfd, xx, xx, evex|mrm, x, tevexwb[143][3]},
+    {OP_CONTD, 0x663a4358, "vshufi64x2 cont'd", xx, xx, Mq, xx, xx, evex|mrm, x, END_LIST},
+    /* 148 */
+    {OP_CONTD, 0x663a0318, "valignd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[155][1]},
+    {OP_CONTD, 0x663a0318, "valignd cont'd", xx, xx, Md, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 150 */
+    {OP_CONTD, 0x663a0358, "valignq cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[155][3]},
+    {OP_CONTD, 0x663a0358, "valignq cont'd", xx, xx, Mq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 152 */
+    {OP_CONTD, 0x663a5418, "vfixupimmps cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[159][1]},
+    {OP_CONTD, 0x663a5418, "vfixupimmps cont'd", xx, xx, Md, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 154 */
+    {OP_CONTD, 0x663a5458, "vfixupimmpd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[159][3]},
+    {OP_CONTD, 0x663a5458, "vfixupimmpd cont'd", xx, xx, Mq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 156 */
     {OP_CONTD, 0x663a5518, "vfixupimmss cont'd", xx, xx, Wd_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 106 */
     {OP_CONTD, 0x663a5558, "vfixupimmsd cont'd", xx, xx, Wq_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 158 */
     {OP_CONTD, 0x663a2718, "vgetmantss cont'd", xx, xx, Wd_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 108 */
     {OP_CONTD, 0x663a2758, "vgetmantsd cont'd", xx, xx, Wq_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
-    {OP_CONTD, 0x663a5018, "vrangeps cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 110 */
-    {OP_CONTD, 0x663a5058, "vrangepd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 160 */
+    {OP_CONTD, 0x663a5018, "vrangeps cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[173][1]},
+    {OP_CONTD, 0x663a5018, "vrangeps cont'd", xx, xx, Md, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 162 */
+    {OP_CONTD, 0x663a5058, "vrangepd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[173][3]},
+    {OP_CONTD, 0x663a5058, "vrangepd cont'd", xx, xx, Mq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 164 */
     {OP_CONTD, 0x663a5118, "vrangess cont'd", xx, xx, Wd_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 112 */
     {OP_CONTD, 0x663a5158, "vrangesd cont'd", xx, xx, Wq_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 166 */
     {OP_CONTD, 0x663a5718, "vreducess cont'd", xx, xx, Wd_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 114 */
     {OP_CONTD, 0x663a5758, "vreducesd cont'd", xx, xx, Wq_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 168 */
     {OP_CONTD, 0x663a0a18, "vrndscaless cont'd", xx, xx, Wd_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 116 */
     {OP_CONTD, 0x663a0b18, "vrndscalesd cont'd", xx, xx, Wq_dq, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 170 */
+    {OP_CONTD, 0x663a0f18, "vpalignr cont'd", xx, xx, We, xx, xx, mrm|evex, x, END_LIST},
     {OP_CONTD, 0x663a4218, "vdbpsadbw cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
-    /* 118 */
-    {OP_CONTD, 0x663a2518, "vpternlogd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
-    {OP_CONTD, 0x663a2558, "vpternlogq cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 172 */
+    {OP_CONTD, 0x663a2518, "vpternlogd cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[188][1]},
+    {OP_CONTD, 0x663a2518, "vpternlogd cont'd", xx, xx, Md, xx, xx, mrm|evex|reqp, x, END_LIST},
+    /* 174 */
+    {OP_CONTD, 0x663a2558, "vpternlogq cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[188][3]},
+    {OP_CONTD, 0x663a2558, "vpternlogq cont'd", xx, xx, Mq, xx, xx, mrm|evex|reqp, x, END_LIST},
 };
 
 /* clang-format on */
