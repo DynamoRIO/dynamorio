@@ -3506,9 +3506,16 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                           opnd_create_reg(reg_base),
                                           opnd_create_reg(scratch), no_match);
 
-        /* Compare size, arranging op_res to show failure on mismatch.
-         * TODO i#1698: Size mismatches do not seem to always fail on all processors:
-         * but we assume they cannot be relied upon to succeed.
+        /* Compare size, arranging op_res to show failure on mismatch.  On some
+         * processors, if the stxr's address range is a subset of the ldxp's range, it
+         * will succeed, even if the size or base address are not identical.  However,
+         * the manual states that this is Constrained Unpredictable behavior: B2.9.5 says
+         * "software can rely on a LoadExcl / StoreExcl pair to eventually succeed only
+         * if the LoadExcl and the StoreExcl have the same transaction size."  Similarly
+         * for the target VA and reg count.  Thus, given the complexity of trying to
+         * match the actual processor behavior and comparing ranges and whatnot, we're ok
+         * with DR enforcing a strict equality, until or unless we see real apps relying
+         * on processor quirks.
          */
         PRE(ilist, instr,
             instr_create_restore_from_tls(dcontext, scratch, TLS_LDSTEX_SIZE_SLOT));
