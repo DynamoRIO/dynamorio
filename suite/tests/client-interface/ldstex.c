@@ -548,7 +548,19 @@ GLOBAL_LABEL(FUNCNAME:)
         stxr     w1, x0, [sp]
         stxr     w1, x0, [sp]
         stxr     w1, x0, [sp]
-        /* Test wrong sizes paired. */
+        /* Test wrong sizes paired.
+         * On some processors, if the stxr's address range is a subset of the ldxp's
+         * range, it will succeed.  However, the manual states that this is CONSTRAINED
+         * UNPREDICTABLE behavior: B2.9.5 says "software can rely on a LoadExcl /
+         * StoreExcl pair to eventually succeed only if the LoadExcl and the StoreExcl
+         * have the same transaction size."  Similarly for the target VA and reg count.
+         * Thus, given the complexity of trying to match the actual processor behavior
+         * and comparing ranges and whatnot, we're ok with DR enforcing a strict
+         * equality, until or unless we see real apps relying on processor quirks.
+         * That means that while this ldxp;stxr might succeed natively on some processors
+         * (symptoms: "Error in ldstex_inc_shapes: 43"), it will fail under DR and
+         * our test will pass.
+         */
         ldxp     x1, x2, [sp]
         stxr     w3, x1, [sp]
         cbnz     w3, 5f
@@ -603,15 +615,15 @@ GLOBAL_LABEL(FUNCNAME:)
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
         strex    r1, r0, [sp]
-#    if 0 /* XXX i#1698: This mismatch succeeds on my A32 processor!  Disabling for now. */
-        /* Test wrong sizes paired. */
-        ldrexd   r1, r2, [sp]
-        strex    r3, r1, [sp]
+        /* Test wrong sizes paired.
+         * See comment above about the unpredictability of behavior here.
+         */
+        ldrexd   r2, r3, [sp]
+        strex    r3, r2, [sp]
         cmp      r3, #0
         bne      5f
         mov      r0, #8 /* Should never come here; this will fail caller. */
         bx       lr
-#    endif
       5:
         add      sp, sp, #16
         ldaex    r1, [r0]
