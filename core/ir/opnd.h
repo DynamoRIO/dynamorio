@@ -995,7 +995,7 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_START_SPILL DR_REG_XAX
 #    define REG_STOP_SPILL DR_REG_XDI
 #elif defined(AARCHXX)
-/* We only normally use r0-r3 but we support more in translation code */
+/* We only normally use r0-r5 but we support more in translation code */
 #    define REG_START_SPILL DR_REG_R0
 #    define REG_STOP_SPILL DR_REG_R10 /* r10 might be used in syscall mangling */
 #endif                                /* X86/ARM */
@@ -2756,9 +2756,21 @@ DR_API
 /**
  * Assumes that both \p old_reg and \p new_reg are DR_REG_ constants.
  * Replaces all occurrences of \p old_reg in \p *opnd with \p new_reg.
+ * Only replaces exact matches (use opnd_replace_reg_resize() to match
+ * size variants).
+ * Returns whether it replaced anything.
  */
 bool
 opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
+
+DR_API
+/**
+ * Replaces all instances of \p old_reg (or any size variant) in \p *opnd
+ * with \p new_reg.  Resizes \p new_reg to match sub-full-size uses of \p old_reg.
+ * Returns whether it replaced anything.
+ */
+bool
+opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
 
 /* Arch-specific */
 bool

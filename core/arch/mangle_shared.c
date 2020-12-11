@@ -125,8 +125,10 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
 bool
 clean_call_needs_simd(clean_call_info_t *cci)
 {
-    return (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers() ||
-            cci->num_opmask_skip != proc_num_opmask_registers());
+    return (cci->preserve_mcontext ||
+            cci->num_simd_skip !=
+                proc_num_simd_registers()
+                    IF_X86(|| cci->num_opmask_skip != proc_num_opmask_registers()));
 }
 
 /* Number of extra slots in addition to register slots. */
@@ -324,8 +326,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 #endif
         ASSERT((dstack_offs % get_ABI_stack_alignment()) == 0);
     }
-    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_opmask_skip != 0 ||
-           cci->num_regs_skip != 0 ||
+    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 ||
+           IF_X86(cci->num_opmask_skip != 0 ||) cci->num_regs_skip != 0 ||
            (int)dstack_offs ==
                (get_clean_call_switch_stack_size() + clean_call_beyond_mcontext()));
     return dstack_offs;
@@ -1623,11 +1625,23 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
                 mangle_writes_thread_register(dcontext, ilist, instr, next_instr);
             continue;
         }
-
+#endif
+#ifdef AARCHXX
+        if (instr_is_app(instr) &&
+            (instr_is_exclusive_load(instr) || instr_is_exclusive_store(instr) ||
+             instr_get_opcode(instr) == OP_clrex)) {
+            instr_t *res =
+                mangle_exclusive_monitor_op(dcontext, ilist, instr, next_instr);
+            if (res != NULL) {
+                next_instr = res;
+                continue;
+            } /* Else, fall through. */
+        }
+#endif
+#ifdef AARCH64
         if (!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen))
             next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
-#endif /* AARCH64 */
-
+#endif
 #ifdef ARM
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.

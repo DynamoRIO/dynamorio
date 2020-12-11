@@ -218,7 +218,7 @@ opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
 #    ifdef X86
-    CLIENT_ASSERT((r >= DR_REG_MM0 && r <= DR_REG_XMM31) ||
+    CLIENT_ASSERT(subsize == 0 || (r >= DR_REG_MM0 && r <= DR_REG_XMM31) ||
                       (r >= DR_REG_YMM0 && r <= DR_REG_ZMM31),
                   "opnd_create_reg_partial: non-multimedia register");
 #    endif

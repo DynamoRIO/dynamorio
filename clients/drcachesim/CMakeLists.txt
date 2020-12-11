@@ -294,7 +294,7 @@ endmacro()
 
 add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
-append_property_string(TARGET drmemtrace_static COMPILE_FLAGS "-DDRMEMTRACE_STATIC")
+append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
 install_client_nonDR_header(drmemtrace tracer/drmemtrace.h)
@@ -326,8 +326,8 @@ macro(restore_nonclient_flags target)
   endif ()
   # However, we need the target os and arch defines (XXX: better way?) for
   # the config, inject, and frontend headers:
-  DynamoRIO_extra_cflags(extra_cflags "" ON)
-  append_property_string(TARGET ${target} COMPILE_FLAGS "${extra_cflags}")
+  DynamoRIO_extra_defines(extra_defs ON)
+  append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${extra_defs}")
   if (implicit_fallthrough_avail)
     append_property_string(TARGET ${target} COMPILE_FLAGS "-Wimplicit-fallthrough")
   endif ()

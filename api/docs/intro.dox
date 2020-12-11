@@ -1702,6 +1702,12 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    system call, forcing applications to fall back to code that does not
    use restartable sequences.  See \ref sec_rseq for more information.
 
+ - \b -no_ldstex2cas: \anchor op_ldstex2cas
+   This option only applies to ARM and AArch64.  It disables the conversion of
+   exclusive monitor regions to compare-and-swap operations.  That conversion can
+   cause behavior changes in applications, but disabling it can result in failure to
+   add instrumentation.  See \ref sec_ldrex for more information.
+
  - \b -multi_thread_exit:
    By default, DynamoRIO synchronizes with all remaining threads
    at process exit time and the process exit event executes with only

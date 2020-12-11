@@ -593,7 +593,12 @@ syscalls_init()
     /* Prime use_ki_syscall_routines() */
     use_ki_syscall_routines();
 
-    if (syscalls == windows_unknown_syscalls) {
+    if (syscalls == windows_unknown_syscalls ||
+        /* There are variations within the versions we have (e.g., i#4587), so our
+         * static arrays are not foolproof.  It is simpler to just get the ground truth
+         * for any moderately recent version.
+         */
+        get_os_version() >= WINDOWS_VERSION_10_1511) {
         /* i#1598: try to work on new, unsupported Windows versions */
         int i;
         app_pc wrapper;
@@ -602,26 +607,31 @@ syscalls_init()
             if (syscalls[i] == SYSCALL_NOT_PRESENT) /* presumably matches known ver */
                 continue;
             wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
-            if (wrapper != NULL && !ALLOW_HOOKER(wrapper))
+            if (wrapper != NULL && !ALLOW_HOOKER(wrapper)) {
                 syscalls[i] = *((int *)((wrapper) + SYSNUM_OFFS));
+            }
             /* We ignore TestAlert complications: we don't call it anyway */
         }
+    } else {
+        /* Quick sanity check that the syscall numbers we care about are what's
+         * in our static array.  We still do our later full-decode sanity checks.
+         * This will always be true if we went through the wrapper loop above.
+         */
+        DOCHECK(1, {
+            int i;
+            ASSERT(ntdllh != NULL);
+            for (i = 0; i < SYS_MAX; i++) {
+                if (syscalls[i] == SYSCALL_NOT_PRESENT)
+                    continue;
+                /* note that this check allows a hooker so we'll need a
+                 * better way of determining syscall numbers
+                 */
+                app_pc wrapper = (app_pc)d_r_get_proc_address(ntdllh, syscall_names[i]);
+                CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]),
+                                i);
+            }
+        });
     }
-    /* quick sanity check that the syscall numbers we care about are what's
-     * in our static array.  we still do our later full-decode sanity checks.
-     */
-    DOCHECK(1, {
-        int i;
-        ASSERT(ntdllh != NULL);
-        for (i = 0; i < SYS_MAX; i++) {
-            if (syscalls[i] == SYSCALL_NOT_PRESENT)
-                continue;
-            /* note that this check allows a hooker so we'll need a
-             * better way of determining syscall numbers
-             */
-            CHECK_SYSNUM_AT((byte *)d_r_get_proc_address(ntdllh, syscall_names[i]), i);
-        }
-    });
     return true;
 }
 

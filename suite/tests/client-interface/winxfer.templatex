@@ -1,44 +1,11 @@
-(kernel_xfer_event: type 2
-kernel_xfer_event: type 7
-)?About to create thread
-kernel_xfer_event: type 2
-kernel_xfer_event: type 7
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-(kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-)?kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-(kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-)?kernel_xfer_event: type 5
-in wnd_callback 0x0*0000024 0
+.*About to create thread
+.*in wnd_callback 0x0*0000024 0
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
 in wnd_callback 0x0*0000081 0
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-(kernel_xfer_event: type 6
-kernel_xfer_event: type 5
-)?in wnd_callback 0x0*0000083 0
+.*in wnd_callback 0x0*0000083 0
 kernel_xfer_event: type 6
 kernel_xfer_event: type 5
 in wnd_callback 0x0*0000001 0

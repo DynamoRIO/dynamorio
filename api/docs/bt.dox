@@ -1261,34 +1261,45 @@ dr_insert_it_instrs() on their own.
   <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
   <tr><td></td></tr></table></td></tr></table></td></tr></table>
 \endhtmlonly
-\section sec_ldrex Exclusive Monitor Instrumentation Constraints
+\section sec_ldrex Exclusive Monitor Instrumentation
 
-On ARM and AArch64, a ldrex..strex (or ldxr..stxr) pair of instructions has some
-constraints that make inserting
-instrumentation in between the pair challenging.  ARM/AArch64 hardware requires
-that an application minimize memory operations in between the ldrex and
-strex and minimize the total number of instructions in between.  Violating
-this can result in failure to acquire the desired exclusive monitor, which
-is always done in a loop and can result in a non-terminating loop when the
-application is run with instrumentation.
+On ARM and AArch64, a load-exclusive store-exclusive pair of
+instructions has some constraints that make inserting instrumentation
+in between the pair challenging.  ARM/AArch64 hardware requires that
+an application minimize memory operations in between the
+load-exclusive and store-exclusive and minimize the total number of
+instructions in between.  Violating this can result in failure to
+acquire the desired exclusive monitor, which is always done in a loop
+and can result in a non-terminating loop when the application is run
+with instrumentation.
 
-Inserting a few memory references in between a ldrex..strex pair works
-on most but not all hardware. Inserting something heavyweight like a clean
-call is likely to result in a non-terminating loop.
+Inserting a few memory references in between the pair works
+on some but not all hardware. Inserting something heavyweight like a clean
+call is very likely to result in a non-terminating loop.
 
-We recommend using inlined instrumentation with at most a few memory
-references in such regions, rather than clean calls.  In general, this is
-the best performing strategy anyway for heavyweight tools that want to
+By default, DynamoRIO converts each such sequence to a compare-and-swap
+sequence which can handle any amount of added instrumentation.
+However, compare-and-swap is not semantically identical: it does not
+detect "ABA" changes and could cause errors in lock-free data
+structures or other application constructs.  This compare-and-swap
+conversion can be disabled with the runtime option \ref op_ldstex2cas
+"no_ldstex2cas".
+
+If compare-and-swap conversion must be disabled, we recommend using
+inlined instrumentation with at most a few memory references in such
+regions, rather than clean calls.  In general, this is the best
+performing strategy anyway for heavyweight tools that want to
 instrument every instruction.  Take a look at the memtrace_simple and
 instrace_simple samples, which check for instr_is_exclusive_store() to
-avoid a clean call in between.
-
-The runtime option "-unsafe_build_ldstex" may be useful on AArch64
-hardware that does not allow any loads or stores between an exclusive
-load and the corresponding exclusive store. With this option DynamoRIO
-tries to turn a sequence of instructions containing an exclusive
-load/store pair into a macro-instruction, which prevents any loads and
-stores from being inserted, but also prevents any of the instructions
+avoid a clean call in between.  However, even this is not enough on
+some hardware, where instrumentation would have to be shifted to before
+and/or after the monitor region.  The runtime option
+"-unsafe_build_ldstex" may be useful on AArch64 hardware that does not
+allow any loads or stores between an exclusive load and the
+corresponding exclusive store. With this option DynamoRIO tries to
+turn a sequence of instructions containing an exclusive load/store
+pair into a macro-instruction, which prevents any loads and stores
+from being inserted, but also prevents any of the instructions
 involved from being instrumented.
 
 ***************************************************************************
