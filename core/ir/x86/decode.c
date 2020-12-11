@@ -1488,8 +1488,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         reg_id_t extend_reg = extend ? reg + 8 : reg;
         extend_reg = avx512_extend ? extend_reg + 16 : extend_reg;
         bool operand_is_zmm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
-            expand_subreg_size(opsize) != OPSZ_16 &&
-            expand_subreg_size(opsize) != OPSZ_32) ||
+                               expand_subreg_size(opsize) != OPSZ_16 &&
+                               expand_subreg_size(opsize) != OPSZ_32) ||
             opsize == OPSZ_64;
         /* Not only do we use this for VEX .LIG and EVEX .LIG (where raw reg is
          * either OPSZ_16 or OPSZ_16_vex32 or OPSZ_32 or OPSZ_vex32_evex64) but
