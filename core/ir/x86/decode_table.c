@@ -8258,7 +8258,7 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vfnmadd132pd,0x66389c48,"vfnmadd132pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[113]},
     {MOD_EXT, 0x66389c58, "(mod ext 67)", xx, xx, xx, xx, xx, mrm|evex, x, 67},
   }, { /* evex_W_ext 81 */
-    {OP_vfnmadd213ps,0x6638ac08,"vfnmadd213ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[116]}, 
+    {OP_vfnmadd213ps,0x6638ac08,"vfnmadd213ps",Ves,xx,KEb,Hes,Wes,xop|mrm|evex|reqp|ttfv,x,exop[116]},
     {MOD_EXT, 0x6638ac18, "(mod ext 68)", xx, xx, xx, xx, xx, mrm|evex, x, 68},
     {OP_vfnmadd213pd,0x6638ac48,"vfnmadd213pd",Ved,xx,KEw,Hed,Wed,xop|mrm|evex|reqp|ttfv,x,exop[119]},
     {MOD_EXT, 0x6638ac58, "(mod ext 69)", xx, xx, xx, xx, xx, mrm|evex, x, 69},
