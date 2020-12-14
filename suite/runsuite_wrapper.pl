@@ -217,6 +217,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.histogram.offline' => 1, # i#4058
                 'code_api|tool.drcacheoff.burst_replace' => 1, # i#4131
                 'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4131
+                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4131
+                'code_api|api.symtest' => 1, # i#4131
+                'code_api|client.drwrap-test-detach' => 1, # i#4058
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972

@@ -50,6 +50,7 @@ defaults:
     shell: cmd
 
 jobs:
+  ###########################################################################
   # 32-bit VS2017 and tests:
   vs2017-32:
     runs-on: windows-2016
@@ -57,6 +58,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
     - name: Fetch Sources
       run: git fetch --no-tags --depth=1 origin master
 
@@ -79,8 +86,9 @@ jobs:
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
-        perl suite/runsuite_wrapper.pl travis use_ninja 32_only
+        perl suite/runsuite_wrapper.pl travis use_ninja 32_only debug_only
 
+  ###########################################################################
   # 64-bit VS2017 and tests:
   vs2017-64:
     runs-on: windows-2016
@@ -88,6 +96,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
     - name: Fetch Sources
       run: git fetch --no-tags --depth=1 origin master
 
@@ -110,4 +124,42 @@ jobs:
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
-        perl suite/runsuite_wrapper.pl travis use_ninja 64_only
+        perl suite/runsuite_wrapper.pl travis use_ninja 64_only debug_only
+
+  ###########################################################################
+  # 32-bit and 64-bit VS2017 release builds plus a vps build:
+  vs2017-builds:
+    runs-on: windows-2016
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - name: Fetch Sources
+      run: git fetch --no-tags --depth=1 origin master
+
+    - name: Download Packages
+      shell: powershell
+      run: |
+        md c:\projects\install
+        (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip", "c:\projects\install\ninja.zip")
+        (New-Object System.Net.WebClient).DownloadFile("http://doxygen.nl/files/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: |
+        echo ------ Setting up paths ------
+        7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
+        set PATH=c:\projects\install\ninja;%PATH%
+        7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
+        set PATH=c:\projects\install\doxygen;%PATH%
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        echo ------ Running suite ------
+        echo PATH is "%PATH%"
+        echo Running in directory "%CD%"
+        perl suite/runsuite_wrapper.pl travis use_ninja 64_only nontest_only
