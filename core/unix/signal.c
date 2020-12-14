@@ -4178,6 +4178,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             "record_pending_signal(%d at pc " PFX "): signal is currently blocked\n", sig,
             pc);
         IF_LINUX(handled = notify_signalfd(dcontext, info, sig, frame));
+    } else if (dcontext->currently_stopped) {
+        /* We have no way to delay for a currently-native thread. */
+        LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
+        execute_native_handler(dcontext, sig, frame);
+        handled = true;
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from cache pc " PFX "\n",
             sig, pc);
@@ -4338,11 +4343,6 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * deliver it now.
          */
         receive_now = true;
-    } else if (dcontext->currently_stopped) {
-        /* We have no way to delay for a currently-native thread. */
-        LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
-        execute_native_handler(dcontext, sig, frame);
-        handled = true;
     } else {
         /* the signal interrupted DR itself => do not run handler now! */
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from DR at pc " PFX "\n",
@@ -5844,8 +5844,10 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     if (!TEST(SA_NOMASK, (info->app_sigaction[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
     sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
-    LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals in frame:\n");
-    dump_sigset(dcontext, &our_frame->uc.uc_sigmask);
+    DOLOG(2, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals in frame:\n");
+        dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
+    });
 
     /* Now edit the resumption point when master_signal_handler returns to go
      * straight to the app handler.
