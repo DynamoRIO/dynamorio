@@ -31,52 +31,27 @@
  */
 
 /*
- * Test of instrumentation in load-store-exclusive-monitor regions.
+ * Test of go-native features.
  */
 
 #include "dr_api.h"
 #include "client_tools.h"
 
-static int counter;
-
-static void
-in_region(void)
-{
-    counter++;
-}
-
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
-    instr_t *instr;
-    instr_t *insert_at = NULL;
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
-        if (instr_is_exclusive_load(instr)) {
-            insert_at = instr_get_next(instr);
-#ifdef ARM
-            /* TODO i#1698: DR does not yet convert 32-bit pairs. */
-            if (instr_get_opcode(instr) == OP_ldaexd ||
-                instr_get_opcode(instr) == OP_ldrexd)
-                insert_at = NULL;
-#endif
-            break;
-        } else if (instr_is_exclusive_store(instr)) {
-            insert_at = instr;
-#ifdef ARM
-            /* TODO i#1698: DR does not yet convert 32-bit pairs. */
-            if (instr_get_opcode(instr) == OP_stlexd ||
-                instr_get_opcode(instr) == OP_strexd)
-                insert_at = NULL;
-#endif
-            break;
+    instr_t *instr, *next_instr, *next_next_instr;
+    /* Look for pattern: nop; nop; nop. */
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (next_instr != NULL)
+            next_next_instr = instr_get_next(next_instr);
+        else
+            next_next_instr = NULL;
+        if (instr_is_nop(instr) && next_instr != NULL && instr_is_nop(next_instr) &&
+            next_next_instr != NULL && instr_is_nop(next_next_instr)) {
+            return DR_EMIT_GO_NATIVE;
         }
-    }
-    if (insert_at != NULL) {
-        /* Insert enough memory refs in exclusive monitor regions to cause
-         * monitor failure every single time.
-         */
-        dr_insert_clean_call(drcontext, bb, insert_at, (void *)in_region,
-                             false /*fpstate */, 0);
     }
     return DR_EMIT_DEFAULT;
 }
@@ -85,10 +60,5 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    if (dr_get_stolen_reg() != IF_ARM_ELSE(DR_REG_R10, DR_REG_X28)) {
-        /* Our test assembly code has these stolen register values hardcoded. */
-        dr_fprintf(STDERR,
-                   "Default stolen register changed: this test needs to be updated!\n");
-    }
     dr_register_bb_event(bb_event);
 }

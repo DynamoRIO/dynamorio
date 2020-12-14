@@ -685,6 +685,8 @@ dispatch_enter_native(dcontext_t *dcontext)
             dcontext->native_exec_postsyscall);
         dcontext->next_tag =
             PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), dcontext->native_exec_postsyscall);
+        if (!dcontext->currently_stopped)
+            dynamo_thread_not_under_dynamo(dcontext);
         dcontext->native_exec_postsyscall = NULL;
         LOG(THREAD, LOG_DISPATCH, 2,
             "Entry into native_exec after intercepted syscall\n");

@@ -1239,7 +1239,9 @@ STATS_DEF("Clean Call analyzed", cleancall_analyzed)
 STATS_DEF("Clean Call inserted", cleancall_inserted)
 STATS_DEF("Clean Call inlined", cleancall_inlined)
 STATS_DEF("Clean Call [xyz]mm skipped", cleancall_simd_skipped)
+#ifdef X86
 STATS_DEF("Clean Call mask skipped", cleancall_opmask_skipped)
+#endif
 STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
 STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
 /* i#107 handle application using same segment register */
