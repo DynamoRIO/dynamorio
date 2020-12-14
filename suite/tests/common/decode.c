@@ -78,7 +78,7 @@ static bool print_access_vio = true;
 
 void (*func_ptr)(void);
 
-#    define VERBOSE 1//NOCHECK
+#    define VERBOSE 0
 
 #    define ITERS 1500000
 
