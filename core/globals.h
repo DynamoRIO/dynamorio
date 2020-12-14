@@ -53,7 +53,8 @@
  * as earlier Windows versions give access denied on unknown flags!
  */
 #    define _WIN32_WINNT _WIN32_WINNT_NT4 /* ==0x0400; NTDDI_VERSION is set from this */
-
+#    undef _WIN32_WINNT
+#    define _WIN32_WINNT _WIN32_WINNT_WINXP
 #    define WIN32_LEAN_AND_MEAN
 /* Exclude rarely-used stuff from Windows headers */
 
@@ -71,7 +72,6 @@
 #    pragma warning(disable : 4324) // structure was padded due to __declspec(align())
 #    pragma warning(disable : 4709) // comma operator within array index expression
 #    pragma warning(disable : 4214) // nonstd extension: bit field types other than int
-
 /**************************************************/
 /* warnings on compiling with VC 8.0, all on VC or PlatformSDK header files */
 

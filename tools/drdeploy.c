@@ -296,10 +296,9 @@ const char *options_list_str =
     "       -early             Requests early injection (the default).\n"
     "       -late              Requests late injection.\n"
 #        endif
-    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
-    "                          for pid to launch and inject into a new process.\n"
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
 #    endif
+    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
@@ -1107,6 +1106,7 @@ _tmain(int argc, TCHAR *targv[])
     bool use_ptrace = false;
     bool kill_group = false;
 #    endif
+    process_id_t attach_pid = 0;
     char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
@@ -1737,7 +1737,11 @@ done_with_options:
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else
-#    endif /* UNIX */
+#    elif defined(WINDOWS)
+    if (attach_pid != 0) {
+        errcode = dr_inject_process_attach(attach_pid, &inject_data);
+    } else
+#    endif /* WINDOWS */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
         info("created child with pid " PIDFMT " for %s",
