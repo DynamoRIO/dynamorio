@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,7 +31,7 @@
  */
 
 /* AVX-512 EVEX instructions with 1 destination, 1 mask and 2 sources.
- * Part A: Split in half to avoid a VS2013 compiler bug i#3992.
+ * Part A: Split up to avoid VS running out of memory (i#3992,i#4610).
  */
 OPCODE(vmovss_xlok0xlo, vmovss, vmovss_NDS_mask, 0, REGARG(XMM0), REGARG(K0),
        REGARG_PARTIAL(XMM1, OPSZ_12), REGARG_PARTIAL(XMM2, OPSZ_4))
