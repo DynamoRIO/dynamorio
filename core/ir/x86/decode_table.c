@@ -7776,7 +7776,7 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vcvtuqq2ps, 0xf20f7a40, "vcvtuqq2ps", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, tevexwb[60][3]},
     {OP_vcvtuqq2ps, 0xf20f7a50, "vcvtuqq2ps", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
   }, { /* evex_W_ext 61 */
-    {OP_vcvtudq2pd, 0xf30f7a00, "vcvtudq2pd", Ve, xx, KEb, We, xx, mrm|evex|tthv, x, tevexwb[63][1]},
+    {OP_vcvtudq2pd, 0xf30f7a00, "vcvtudq2pd", Ve, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, tevexwb[63][1]},
     {OP_vcvtudq2pd, 0xf30f7a10, "vcvtudq2pd", Ve, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
     {OP_vcvtuqq2pd, 0xf30f7a40, "vcvtuqq2pd", Ve, xx, KEb, We, xx, mrm|evex|ttfv, x, tevexwb[61][3]},
     {OP_vcvtuqq2pd, 0xf30f7a50, "vcvtuqq2pd", Ve, xx, KEb, Mq, xx, mrm|evex|ttfv, x, END_LIST},
