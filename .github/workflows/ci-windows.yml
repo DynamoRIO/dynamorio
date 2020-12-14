@@ -87,6 +87,8 @@ jobs:
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
         perl suite/runsuite_wrapper.pl travis use_ninja 32_only debug_only
+      env:
+        CI_TRIGGER: ${{ github.event_name }}
 
   ###########################################################################
   # 64-bit VS2017 and tests:
@@ -125,6 +127,8 @@ jobs:
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
         perl suite/runsuite_wrapper.pl travis use_ninja 64_only debug_only
+      env:
+        CI_TRIGGER: ${{ github.event_name }}
 
   ###########################################################################
   # 32-bit and 64-bit VS2017 release builds plus a vps build:

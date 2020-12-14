@@ -244,6 +244,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|common.nativeexec' => 1, # i#4058
                 'code_api|client.cleancall' => 1, # i#4131
                 'code_api|client.drx-test' => 1, # i#4131
+                'code_api|client.drutil-test' => 1, # i#4131
                 'code_api|client.pcache-use' => 1, # i#4058
                 'code_api|api.startstop' => 1, # i#2093
                 'code_api|api.detach' => 1, # i#2246
