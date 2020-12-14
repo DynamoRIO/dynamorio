@@ -2552,6 +2552,15 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
 
+  if (UNIX) # The test uses signals.
+    tobuild_ci(client.gonative client-interface/gonative.c "" "" "")
+    link_with_pthread(client.gonative)
+    # Configure for dr_app_running_under_dynamorio().
+    configure_app_api_build_flags(client.gonative OFF OFF)
+    add_dependencies(client.gonative api_headers)
+    set_target_properties(client.gonative PROPERTIES SKIP_BUILD_RPATH OFF)
+  endif ()
+
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 

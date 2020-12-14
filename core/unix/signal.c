@@ -261,6 +261,9 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
 
+static void
+execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame);
+
 /* Execute default action from code cache and may terminate the process.
  * If returns, the return value decides if caller should restore
  * the untranslated context.
@@ -2922,11 +2925,13 @@ get_sigcontext_from_pending(thread_sig_info_t *info, int sig)
  * If frame is NULL, assumes signal happened while in DR and has been delayed,
  * and thus we need to provide fpstate regardless of whether the original
  * had it.  If frame is non-NULL, matches frame's amount of fpstate.
+ * dcontext can be NULL if frame is non-NULL.
  */
 static byte *
-get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
+get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                       sigframe_rt_t *frame)
 {
-    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    ASSERT(dcontext != NULL || frame != NULL);
     sigcontext_t *sc = (frame == NULL) ? get_sigcontext_from_pending(info, sig)
                                        : get_sigcontext_from_rt_frame(frame);
     byte *sp;
@@ -4173,6 +4178,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             "record_pending_signal(%d at pc " PFX "): signal is currently blocked\n", sig,
             pc);
         IF_LINUX(handled = notify_signalfd(dcontext, info, sig, frame));
+    } else if (dcontext->currently_stopped) {
+        /* We have no way to delay for a currently-native thread. */
+        LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
+        execute_native_handler(dcontext, sig, frame);
+        handled = true;
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from cache pc " PFX "\n",
             sig, pc);
@@ -5050,6 +5060,9 @@ master_signal_handler_C(byte *xsp)
                                   "(i#26?): tid=%d, sig=%d",
                                   get_sys_thread_id(), sig);
         }
+
+        /* TODO i#1921: call execute_native_handler() here (and remove SYSLOG). */
+
         /* see FIXME comments above.
          * workaround for now: suppressing is better than dying.
          */
@@ -5320,6 +5333,10 @@ master_signal_handler_C(byte *xsp)
             }
         }
         /* pass it to the application (or client) */
+        if (dcontext->currently_stopped) {
+            execute_native_handler(dcontext, sig, frame);
+            break;
+        }
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc " PFX " in thread " TIDFMT "\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, d_r_get_thread_id());
@@ -5414,7 +5431,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
      * This is the translated xsp, so we avoid PR 306410 (cleancall arg fault
      * on dstack => handler run on dstack) that Windows hit.
      */
-    byte *xsp = get_sigstack_frame_ptr(dcontext, sig,
+    byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig,
                                        our_frame/* take xsp from (translated)
                                                  * interruption point */);
 
@@ -5536,7 +5553,7 @@ static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-    byte *xsp = get_sigstack_frame_ptr(dcontext, sig, NULL);
+    byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig, NULL);
     sigframe_rt_t *frame = &(info->sigpending[sig]->rt_frame);
     priv_mcontext_t *mcontext = get_mcontext(dcontext);
     sigcontext_t *sc;
@@ -5761,6 +5778,104 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to " PFX "\n", xsp);
     return true;
+}
+
+/* Sends a signal to a currently-native thread.  dcontext can be NULL. */
+static void
+execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
+{
+    /* If dcontext is NULL, we use a synthetic info struct where we fill in the
+     * info we need: the app's sigaction and sigstack settings.
+     */
+    thread_sig_info_t synthetic = {};
+    kernel_sigaction_t *sigact_array[SIGARRAY_SIZE] = {};
+    kernel_sigaction_t sigact_struct;
+    thread_sig_info_t *info;
+    if (dcontext != NULL) {
+        info = (thread_sig_info_t *)dcontext->signal_field;
+    } else {
+        info = &synthetic;
+        synthetic.we_intercept[sig] = true;
+        synthetic.app_sigaction = sigact_array;
+        sigact_array[sig] = &sigact_struct;
+        DEBUG_DECLARE(int rc =)
+        sigaction_syscall(sig, NULL, &sigact_struct);
+#ifdef HAVE_SIGALTSTACK
+        IF_DEBUG(rc =)
+        sigaltstack_syscall(NULL, &synthetic.app_sigstack);
+        ASSERT(rc == 0);
+#endif
+    }
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
+    kernel_sigset_t blocked;
+    byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig, our_frame);
+
+    /* We do not send the signal to clients as it is not a managed thread and we
+     * cannot really take any action except send it to the native handler.
+     */
+
+    if (info->app_sigaction[sig] == NULL ||
+        info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
+        /* TODO i#1921: We need to pass in an explicit info param with our
+         * synthetic version.
+         * Plus we need to audit this callee: not all its code will work with
+         * a NULL dcontext.
+         * Plus it calls handle_free() which we need to arrange for.
+         */
+        execute_default_from_cache(dcontext, sig, our_frame, sc, false);
+        return;
+    }
+    ASSERT(info->app_sigaction[sig] != NULL &&
+           info->app_sigaction[sig]->handler != (handler_t)SIG_IGN &&
+           info->app_sigaction[sig]->handler != (handler_t)SIG_DFL);
+
+    /* TODO i#1921: Can we have a LOG(THREAD_OR_GLOBAL so it's in the thread file if
+     * we have a dc, but global instead of dropped o/w?
+     */
+    LOG(THREAD, LOG_ASYNCH, 2, "%s for signal %d\n", __FUNCTION__, sig);
+    RSTATS_INC(num_signals);
+    report_app_problem(dcontext, APPFAULT_FAULT, (byte *)sc->SC_XIP, (byte *)sc->SC_FP,
+                       "\nSignal %d delivered to application handler.\n", sig);
+
+    copy_frame_to_stack(dcontext, sig, our_frame, (void *)xsp, false /*!pending*/);
+
+    blocked = info->app_sigaction[sig]->mask;
+    if (!TEST(SA_NOMASK, (info->app_sigaction[sig]->flags)))
+        kernel_sigaddset(&blocked, sig);
+    sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
+    DOLOG(2, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals in frame:\n");
+        dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
+    });
+
+    /* Now edit the resumption point when master_signal_handler returns to go
+     * straight to the app handler.
+     */
+    sc->SC_XSP = (ptr_uint_t)xsp;
+    /* Set up args to handler. */
+#ifdef X86_64
+    sc->SC_XDI = sig;
+    sc->SC_XSI = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+    sc->SC_XDX = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+#elif defined(AARCHXX)
+    sc->SC_R0 = sig;
+    if (IS_RT_FOR_APP(info, sig)) {
+        sc->SC_R1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+        sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    }
+    if (sig_has_restorer(info, sig))
+        sc->SC_LR = (reg_t)info->app_sigaction[sig]->restorer;
+    else
+        sc->SC_LR = (reg_t)dynamorio_sigreturn;
+#endif
+    sc->SC_XIP = (reg_t)SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]);
+
+    if (TEST(SA_ONESHOT, info->app_sigaction[sig]->flags))
+        info->app_sigaction[sig]->handler = (handler_t)SIG_DFL;
+
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: set pc to handler %p with xsp=%p\n", __FUNCTION__,
+        SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]), xsp);
 }
 
 /* The arg to SYS_kill, i.e., the signal number, should be in dcontext->sys_param0 */
@@ -7341,7 +7456,7 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
      * the app stack: we assume the app stack is writable where we need it to be,
      * and that we're not clobbering any app data beyond TOS.
      */
-    xsp = get_sigstack_frame_ptr(dcontext, SUSPEND_SIGNAL, frame);
+    xsp = get_sigstack_frame_ptr(dcontext, info, SUSPEND_SIGNAL, frame);
     copy_frame_to_stack(dcontext, SUSPEND_SIGNAL, frame, xsp, false /*!pending*/);
 
 #ifdef HAVE_SIGALTSTACK
