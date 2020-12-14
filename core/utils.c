@@ -414,7 +414,9 @@ locks_not_closed()
                             cur_lock->rank == LOCK_RANK(report_buf_lock) ||
                     cur_lock->rank == LOCK_RANK(datasec_selfprot_lock) ||
                     cur_lock->rank == LOCK_RANK(logdir_mutex) ||
-                    cur_lock->rank == LOCK_RANK(options_lock))) {
+                    cur_lock->rank == LOCK_RANK(options_lock) ||
+                    /* This lock can be used parallel to detach cleanup. */
+                    cur_lock->rank == LOCK_RANK(detached_sigact_lock))) {
             /* i#1058: curiosities during exit re-acquire these locks. */
             ignored++;
         } else {
@@ -4625,6 +4627,9 @@ stats_get_snapshot(dr_stats_t *drstats)
             GLOBAL_STAT(peak_vmm_blocks_reach_special_heap);
         drstats->peak_vmm_blocks_reach_special_mmap =
             GLOBAL_STAT(peak_vmm_blocks_reach_special_mmap);
+    }
+    if (drstats->size > offsetof(dr_stats_t, num_native_signals)) {
+        drstats->num_native_signals = GLOBAL_STAT(num_native_signals);
     }
     return true;
 }

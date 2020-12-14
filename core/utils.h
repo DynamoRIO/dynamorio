@@ -543,6 +543,9 @@ enum {
 #    ifdef WINDOWS
     LOCK_RANK(alt_tls_lock),
 #    endif
+#    ifdef UNIX
+    LOCK_RANK(detached_sigact_lock),
+#    endif
     /* ADD HERE a lock around section that may allocate memory */
 
     /* N.B.: the order of allunits < global_alloc < heap_unit is relied on
@@ -1223,7 +1226,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #    endif /* INTERNAL */
 #    define THREAD          \
         ((dcontext == NULL) \
-             ? INVALID_FILE \
+             ? main_logfile \
              : ((dcontext == GLOBAL_DCONTEXT) ? main_logfile : dcontext->logfile))
 #    define THREAD_GET get_thread_private_logfile()
 #    define GLOBAL main_logfile

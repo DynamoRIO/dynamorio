@@ -276,7 +276,7 @@ typedef enum {
 #else
 /* FIXME: varargs for windows...for now since we don't care about efficiency we do this:
  */
-static void
+static inline void
 VERBOSE_PRINT(const char *fmt, ...)
 {
 }
@@ -444,13 +444,13 @@ size(Code_Snippet func)
     return ret_val;
 }
 
-static int
+static inline int
 test(void *foo, int val)
 {
     return (*(int (*)(int))foo)(val);
 }
 
-static int
+static inline int
 call(Code_Snippet func, int val)
 {
     switch (func) {
@@ -515,7 +515,7 @@ copy_to_buf_cross_page(char *buf, size_t buf_len, size_t *copied_len, Code_Snipp
     return copy_to_buf_normal(buf, buf_len, copied_len, func);
 }
 
-static char *
+static inline char *
 copy_to_buf(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func,
             Copy_Mode mode)
 {
@@ -659,7 +659,7 @@ protect_mem_check(void *start, size_t len, int prot, int expected);
 void *
 reserve_memory(int size);
 
-static void
+static inline void
 test_print(void *buf, int n)
 {
     print("%d\n", test(buf, n));
