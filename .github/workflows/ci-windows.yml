@@ -162,4 +162,4 @@ jobs:
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
-        perl suite/runsuite_wrapper.pl travis use_ninja 64_only nontest_only
+        perl suite/runsuite_wrapper.pl travis use_ninja nontest_only
