@@ -60,6 +60,7 @@ test_disasm(void)
 static void
 test_mov_instr_addr(void)
 {
+#if !defined(DR_HOST_NOT_TARGET)
     instrlist_t *ilist = instrlist_create(GD);
     instr_t *callee = INSTR_CREATE_label(GD);
     instrlist_append(
@@ -74,11 +75,12 @@ test_mov_instr_addr(void)
                                      NULL, NULL, NULL);
     instrlist_append(ilist, XINST_CREATE_return(GD));
 
+    uint gencode_max_size = 1024;
     byte *generated_code =
-        (byte *)allocate_mem(1024, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
+        (byte *)allocate_mem(gencode_max_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
     assert(generated_code != NULL);
     instrlist_encode(GD, ilist, generated_code, true);
-    protect_mem(generated_code, 1024, ALLOW_EXEC | ALLOW_READ);
+    protect_mem(generated_code, gencode_max_size, ALLOW_EXEC | ALLOW_READ);
 
     ((void (*)(void))generated_code)();
     unsigned long x20;
@@ -86,7 +88,8 @@ test_mov_instr_addr(void)
     ASSERT(x20 == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);
-    free_mem((char *)generated_code, 1024);
+    free_mem(generated_code, gencode_max_size);
+#endif
 }
 
 /* XXX: It would be nice to share some of this code w/ the other
