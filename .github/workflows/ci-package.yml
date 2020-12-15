@@ -102,7 +102,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl automated_ci
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -168,7 +168,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 64_only
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -223,7 +223,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 32_only
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -287,7 +287,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 32_only
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -359,7 +359,7 @@ jobs:
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
-        perl suite/runsuite_wrapper.pl travis use_ninja
+        perl suite/runsuite_wrapper.pl automated_ci use_ninja
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}

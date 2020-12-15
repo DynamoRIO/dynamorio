@@ -161,7 +161,7 @@ if (arg_ssh)
 endif (arg_ssh)
 
 # Make it clear that single-bitwidth packages only contain that bitwidth
-# (and provide unique names for Travis deployment).
+# (and provide unique names for CI deployment).
 if (NOT "${base_cache}" MATCHES "PACKAGE_PLATFORM")
   if (arg_64_only)
     set(base_cache "${base_cache}

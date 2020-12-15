@@ -84,7 +84,7 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 32_only
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
@@ -111,6 +111,6 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis 64_only
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
