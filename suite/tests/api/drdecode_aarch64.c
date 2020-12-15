@@ -37,9 +37,6 @@
 #include "dr_api.h"
 #include "tools.h"
 
-#define MOVZ 0xd2800000
-#define MOVK 0xf2800000
-
 #define GD GLOBAL_DCONTEXT
 
 #define ASSERT(x)                                                                   \

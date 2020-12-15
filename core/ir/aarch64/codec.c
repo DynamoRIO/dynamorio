@@ -1986,13 +1986,13 @@ encode_opnd_instr(int bit_pos, opnd_t opnd, byte *start_pc, instr_t *containing_
 }
 
 static inline bool
-encode_opnd_imm16(uint enc, int opcode, byte *pc, opnd_t opnd, instr_t *containing_instr,
-                  OUT uint *enc_out)
+encode_opnd_imm16(uint enc, int opcode, byte *start_pc, opnd_t opnd,
+                  instr_t *containing_instr, OUT uint *enc_out)
 {
     if (opnd_is_immed_int(opnd))
         return encode_opnd_int(5, 16, false, 0, 0, opnd, enc_out);
     else if (opnd_is_instr(opnd))
-        return encode_opnd_instr(5, opnd, pc, containing_instr, enc_out);
+        return encode_opnd_instr(5, opnd, start_pc, containing_instr, enc_out);
     ASSERT_NOT_REACHED();
     return false;
 }
