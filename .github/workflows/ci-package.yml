@@ -102,7 +102,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./tests/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl travis
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -126,7 +126,7 @@ jobs:
         GH_PAT: ${{ secrets.DOCS_TOKEN }}
 
   ###########################################################################
-  # Linux AArch64 and ARM tarballs:
+  # Linux AArch64 tarball:
   linux-aarch64:
     runs-on: ubuntu-16.04
 
@@ -168,7 +168,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./tests/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl travis 64_only
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -179,6 +179,55 @@ jobs:
       with:
         name: aarch64-tarball
         path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
+
+  ###########################################################################
+  # Linux ARM tarball (package.cmake does not support same job as AArch64):
+  linux-arm:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Fetch Sources
+      run: |
+        git fetch --no-tags --depth=1 origin master
+        # Include Dr. Memory in packages.
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory && git submodule update --init --depth 250 && cd ..
+
+    # Install cross-compilers for cross-compiling Linux build:
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+
+    - name: Get Version
+      id: version
+      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
+      run: |
+        if test -z "${{ github.event.inputs.version }}"; then
+          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+        else
+          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
+            export VERSION_NUMBER=${{ github.event.inputs.version }}
+          else
+            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
+          fi
+          export GIT_TAG="release_${VERSION_NUMBER}"
+        fi
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
+        echo "::set-output name=version_string::${GIT_TAG}"
+
+    - name: Build Package
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl travis 32_only
+      env:
+        CI_TARGET: package
+        VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
 
     - name: Upload ARM
       uses: actions/upload-artifact@v2
@@ -238,7 +287,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./tests/runsuite_wrapper.pl travis 32_only
+      run: ./suite/runsuite_wrapper.pl travis 32_only
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -297,12 +346,15 @@ jobs:
     - name: Build Package
       working-directory: ${{ github.workspace }}
       shell: cmd
+      # We need to set up WiX for Dr. Memory.
       run: |
         echo ------ Setting up paths ------
         7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
         set PATH=c:\projects\install\ninja;%PATH%
         7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
         set PATH=c:\projects\install\doxygen;%PATH%
+        dir "c:\Program Files (x86)\WiX Toolset"*
+        set PATH=C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
         call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
@@ -327,7 +379,7 @@ jobs:
   # single release job via artifacts.
 
   create_release:
-    needs: [linux-x86, linux-aarch64, android-arm, windows]
+    needs: [linux-x86, linux-aarch64, linux-arm, android-arm, windows]
     runs-on: ubuntu-16.04
 
     steps:
