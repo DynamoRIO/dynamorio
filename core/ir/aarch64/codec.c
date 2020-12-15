@@ -1963,10 +1963,35 @@ decode_opnd_imm16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     return decode_opnd_int(5, 16, false, 0, OPSZ_12b, 0, enc, opnd);
 }
 
-static inline bool
-encode_opnd_imm16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+static bool
+encode_opnd_instr(int pos, int len, opnd_t opnd, byte *pc, instr_t *parent_instr,
+                  OUT uint *enc_out)
 {
-    return encode_opnd_int(5, 16, false, 0, 0, opnd, enc_out);
+    if (!opnd_is_instr(opnd)) {
+        return false;
+    }
+    ptr_uint_t val = ((ptr_uint_t)instr_get_note(opnd_get_instr(opnd)) -
+                      (ptr_uint_t)instr_get_note(parent_instr) + (ptr_uint_t)pc) >>
+        opnd_get_shift(opnd);
+
+    uint bits = opnd_size_in_bits(opnd_get_size(opnd));
+    ASSERT(bits <= len);
+    val &= ((1 << bits) - 1);
+
+    *enc_out = (val << pos);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm16(uint enc, int opcode, byte *pc, opnd_t opnd, instr_t *parent_instr,
+                  OUT uint *enc_out)
+{
+    if (opnd_is_immed_int(opnd))
+        return encode_opnd_int(5, 16, false, 0, 0, opnd, enc_out);
+    else if (opnd_is_instr(opnd))
+        return encode_opnd_instr(5, 16, opnd, pc, parent_instr, enc_out);
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 /* memvr: memory operand for SIMD load structure and replicate */
