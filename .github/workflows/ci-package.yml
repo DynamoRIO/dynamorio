@@ -102,7 +102,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./tests/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl travis
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -168,7 +168,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./tests/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl travis
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -238,7 +238,7 @@ jobs:
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
-      run: ./tests/runsuite_wrapper.pl travis 32_only
+      run: ./suite/runsuite_wrapper.pl travis 32_only
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
@@ -297,12 +297,15 @@ jobs:
     - name: Build Package
       working-directory: ${{ github.workspace }}
       shell: cmd
+      # We need to set up WiX for Dr. Memory.
       run: |
         echo ------ Setting up paths ------
         7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
         set PATH=c:\projects\install\ninja;%PATH%
         7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
         set PATH=c:\projects\install\doxygen;%PATH%
+        dir "c:\Program Files (x86)\WiX Toolset"*
+        set PATH=C:\Program Files (x86)\WiX Toolset v3.11\bin;%PATH%
         call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
         echo ------ Running suite ------
         echo PATH is "%PATH%"
