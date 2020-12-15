@@ -89,6 +89,7 @@ test_mov_instr_addr(void)
     ASSERT(x20 == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);
+    free_mem((char *)generated_code, 1024);
 }
 
 /* XXX: It would be nice to share some of this code w/ the other
