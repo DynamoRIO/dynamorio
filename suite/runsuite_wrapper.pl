@@ -245,6 +245,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.startstop' => 1, # i#2246
                 'code_api|api.detach' => 1, # i#2246
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
+                'code_api|tool.histogram.offline' => 1, # i#4621
                 # i#4617: These need build-and-test to build
                 # the 32-bit test app in our separate 64-bit job.
                 'code_api|win32.mixedmode_late' => 1, # i#4617
