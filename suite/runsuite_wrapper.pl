@@ -213,6 +213,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # Some also failed on Appveyor (i#4058).
                 'code_api|common.decode' => 1, # i#4131
                 'code_api|common.decode-stress' => 1, # i#4131
+                'code_api|win32.earlythread' => 1, # i#4131
                 'code_api|client.drx-test' => 1, # i#4131
                 'code_api|client.drwrap-test' => 1, # i#4131
                 'code_api|client.drutil-test' => 1, # i#4131
