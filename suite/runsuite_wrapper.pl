@@ -30,18 +30,17 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Build-and-test driver for Travis CI.
-# Travis uses the exit code to check success, so we need a layer outside of
+# Build-and-test driver for automated CI.
+# The CI host uses the exit code to check success, so we need a layer outside of
 # ctest on runsuite.
 # We stick with runsuite rather than creating a parallel scheme using
-# a Travis matrix of builds.
-# Travis only supports Linux and Mac, so we're ok relying on perl.
+# a CI config matrix of builds.
 
 # XXX: We currently have a patchwork of scripts and methods of passing arguments
 # (some are env vars while others are command-line parameters) and thus have
 # too many control points for the details of test builds and package builds.
 # Maybe we can clean it up and eliminate this layer of script by moving logic
-# in both directions (.{travis,appveyor}.yml and {runsuite,package}.cmake)?
+# in both directions (ci-*.yml and {runsuite,package}.cmake)?
 
 use strict;
 use Config;
@@ -54,13 +53,16 @@ my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 # Forward args to runsuite.cmake:
 my $args = '';
 for (my $i = 0; $i <= $#ARGV; $i++) {
-    $is_CI = 1 if ($ARGV[$i] eq 'travis');
+    my $arg = $ARGV[$i];
+    # Backward compatibility for CI setups passing the old "travis" arg.
+    $arg = 'automated_ci' if ($arg eq 'travis');
+    $is_CI = 1 if ($arg eq 'automated_ci');
     if ($i == 0) {
-        $args .= ",$ARGV[$i]";
+        $args .= ",$arg";
     } else {
         # We don't use a backslash to escape ; b/c we'll quote below, and
         # the backslash is problematically converted to / by Cygwin perl.
-        $args .= ";$ARGV[$i]";
+        $args .= ";$arg";
     }
 }
 
@@ -74,7 +76,7 @@ if ($^O eq 'cygwin') {
 }
 
 # We tee to stdout to provide incremental output and avoid the 10-min
-# no-output timeout on Travis.
+# no-output timeout on some CI (such as Travis).
 # If we're on UNIX or we have a Cygwin perl, we do this via a fork.
 my $res = '';
 my $child = 0;
@@ -88,7 +90,7 @@ if ($^O ne 'MSWin32') {
 }
 if ($child) {
     # Parent
-    # i#4126: We include extra printing to help diagnose hangs on Travis.
+    # i#4126: We include extra printing to help diagnose hangs on the CI.
     if ($^O ne 'cygwin') {
         print "Parent tee-ing child stdout...\n";
         local $SIG{ALRM} = sub {

@@ -44,7 +44,7 @@ include("${CTEST_SCRIPT_DIRECTORY}/runsuite_common_pre.cmake")
 
 # extra args (note that runsuite_common_pre.cmake has already walked
 # the list and did not remove its args so be sure to avoid conflicts).
-set(arg_travis OFF)
+set(arg_automated_ci OFF)
 set(arg_package OFF)
 set(arg_require_format OFF)
 set(cross_aarchxx_linux_only OFF)
@@ -52,8 +52,8 @@ set(cross_android_only OFF)
 set(arg_debug_only OFF) # Only build the main debug builds.
 set(arg_nontest_only OFF) # Only build configs with no tests.
 foreach (arg ${CTEST_SCRIPT_ARG})
-  if (${arg} STREQUAL "travis")
-    set(arg_travis ON)
+  if (${arg} STREQUAL "automated_ci")
+    set(arg_automated_ci ON)
     if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
       set(cross_aarchxx_linux_only ON)
     endif()
@@ -79,17 +79,17 @@ endforeach (arg)
 
 set(build_tests "BUILD_TESTS:BOOL=ON")
 
-if (arg_travis)
+if (arg_automated_ci)
   # XXX i#1801, i#1962: under clang we have several failing tests.  Until those are
-  # fixed, our Travis clang suite only builds and does not run tests.
+  # fixed, our CI clang suite only builds and does not run tests.
   if (UNIX AND NOT APPLE AND "$ENV{CC}" MATCHES "clang")
     set(run_tests OFF)
-    message("Detected a Travis clang suite: disabling running of tests")
+    message("Detected a CI clang suite: disabling running of tests")
   endif ()
   if ("$ENV{CI_TARGET}" STREQUAL "package")
     # We don't want flaky tests to derail package deployment.  We've already run
     # the tests for this same commit via regular master-push triggers: these
-    # package builds are coming from a cron trigger (Travis) or a tag addition
+    # package builds are coming from a cron trigger (CI) or a tag addition
     # (Appveyor), not a code change.
     # XXX: I'd rather set this in the .yml files but I don't see a way to set
     # one env var based on another's value there.
@@ -194,7 +194,7 @@ else ()
           # the diff checks.
           message(STATUS "No remotes set up so cannot diff and must skip content checks.  Assuming this is a buildbot.")
           set(diff_contents "")
-        elseif (WIN32 AND arg_travis)
+        elseif (WIN32 AND arg_automated_ci)
           # This happens with tagged builds, such as cronbuilds, where there
           # is no master in the shallow clone.
         else ()
@@ -434,7 +434,7 @@ if (UNIX AND ARCH_IS_X86)
   # compilers are on the PATH.
   set(prev_optional_cross_compile ${optional_cross_compile})
   if (NOT cross_aarchxx_linux_only)
-    # For Travis cross_aarchxx_linux_only builds, we want to fail on config failures.
+    # For CI cross_aarchxx_linux_only builds, we want to fail on config failures.
     # For user suite runs, we want to just skip if there's no cross setup.
     set(optional_cross_compile ON)
   endif ()
@@ -503,7 +503,7 @@ if (UNIX AND ARCH_IS_X86)
                            ANDROID_TOOLCHAIN:PATH=$ENV{DYNAMORIO_ANDROID_TOOLCHAIN}")
   endif()
 
-  # For Travis cross_android_only builds, we want to fail on config failures.
+  # For CI cross_android_only builds, we want to fail on config failures.
   # For user suite runs, we want to just skip if there's no cross setup.
   if (NOT cross_android_only)
     set(optional_cross_compile ON)
@@ -530,7 +530,7 @@ endif (UNIX AND ARCH_IS_X86)
 
 # TODO i#1684: Fix Windows compiler warnings for AArch64 on x86 and then enable
 # this, but perhaps on master merges only to avoid slowing down PR builds.
-if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_travis))
+if (ARCH_IS_X86 AND UNIX AND (a64_on_x86_only OR NOT arg_automated_ci))
   # Test decoding and analyzing aarch64 traces on x86 machines.
   testbuild_ex("aarch64-on-x86" ON "
     TARGET_ARCH:STRING=aarch64
