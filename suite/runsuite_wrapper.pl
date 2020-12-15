@@ -53,13 +53,16 @@ my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 # Forward args to runsuite.cmake:
 my $args = '';
 for (my $i = 0; $i <= $#ARGV; $i++) {
-    $is_CI = 1 if ($ARGV[$i] eq 'automated_ci');
+    my $arg = $ARGV[$i];
+    # Backward compatibility for CI setups passing the old "travis" arg.
+    $arg = 'automated_ci' if ($arg eq 'travis');
+    $is_CI = 1 if ($arg eq 'automated_ci');
     if ($i == 0) {
-        $args .= ",$ARGV[$i]";
+        $args .= ",$arg";
     } else {
         # We don't use a backslash to escape ; b/c we'll quote below, and
         # the backslash is problematically converted to / by Cygwin perl.
-        $args .= ";$ARGV[$i]";
+        $args .= ";$arg";
     }
 }
 
