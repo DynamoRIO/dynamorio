@@ -107,15 +107,9 @@ if ($child) {
         }
     }
     close(CHILD);
-} elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
-         $ENV{'APPVEYOR_REPO_TAG'} eq 'true') {
+} elsif ($ENV{'CI_TARGET'} eq 'package') {
     # A package build.
     my $build = "0";
-    # We trigger by setting VERSION_NUMBER in Travis.
-    # That sets a tag and we propagate the name into the Appveyor build from the tag:
-    if ($ENV{'APPVEYOR_REPO_TAG_NAME'} =~ /release_(.*)/) {
-        $ENV{'VERSION_NUMBER'} = $1;
-    }
     if ($ENV{'VERSION_NUMBER'} =~ /-(\d+)$/) {
         $build = $1;
     }
