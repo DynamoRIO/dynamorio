@@ -231,7 +231,7 @@ endif (CALLPROF AND TEST_SUITE)
 # This assumes that 32-bit Windows is not as important these days.
 # We remove some of the less differentiated tests.
 # We still run the full set for merges to master.
-if (WIN32 AND NOT X64 AND DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+if (WIN32 AND NOT X64 AND "$ENV{CI_TRIGGER}" STREQUAL "pull_request")
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
 else ()
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)

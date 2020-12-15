@@ -49,6 +49,8 @@ set(arg_package OFF)
 set(arg_require_format OFF)
 set(cross_aarchxx_linux_only OFF)
 set(cross_android_only OFF)
+set(arg_debug_only OFF) # Only build the main debug builds.
+set(arg_nontest_only OFF) # Only build configs with no tests.
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "travis")
     set(arg_travis ON)
@@ -68,6 +70,10 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     set(arg_package ON)
   elseif (${arg} STREQUAL "require_format")
     set(arg_require_format ON)
+  elseif (${arg} STREQUAL "debug_only")
+    set(arg_debug_only ON)
+  elseif (${arg} STREQUAL "nontest_only")
+    set(arg_nontest_only ON)
   endif ()
 endforeach (arg)
 
@@ -115,13 +121,9 @@ else (TEST_LONG)
   set(DO_ALL_BUILDS OFF)
 endif (TEST_LONG)
 
-# i#4059: Speed up Appveyor on PR's by not building 64-bit tests.
-# We're only running tests on Travis.
-if (DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
-  set(build_release_tests "")
-else ()
-  set(build_release_tests ${build_tests})
-endif ()
+# Now that we have a separate parallel job for release builds we always
+# build all tests.
+set(build_release_tests ${build_tests})
 
 if (UNIX)
   # For cross-arch execve tests we need to run from an install dir
@@ -294,24 +296,28 @@ endif ()
 
 if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_only)
   # For cross-arch execve test we need to "make install"
-  testbuild_ex("debug-internal-32" OFF "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    ${build_tests}
-    ${install_path_cache}
-    " OFF ON "${install_build_args}")
+  if (NOT arg_nontest_only)
+    testbuild_ex("debug-internal-32" OFF "
+      DEBUG:BOOL=ON
+      INTERNAL:BOOL=ON
+      ${build_tests}
+      ${install_path_cache}
+      " OFF ON "${install_build_args}")
+  endif ()
   if (last_build_dir MATCHES "-32")
     set(32bit_path "TEST_32BIT_PATH:PATH=${last_build_dir}/suite/tests/bin")
   else ()
     set(32bit_path "")
   endif ()
-  testbuild_ex("debug-internal-64" ON "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    ${build_tests}
-    ${install_path_cache}
-    ${32bit_path}
-    " OFF ON "${install_build_args}")
+  if (NOT arg_nontest_only)
+    testbuild_ex("debug-internal-64" ON "
+      DEBUG:BOOL=ON
+      INTERNAL:BOOL=ON
+      ${build_tests}
+      ${install_path_cache}
+      ${32bit_path}
+      " OFF ON "${install_build_args}")
+  endif ()
   # we don't really support debug-external anymore
   if (DO_ALL_BUILDS_NOT_SUPPORTED)
     testbuild("debug-external-64" ON "
@@ -323,9 +329,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
       INTERNAL:BOOL=OFF
       ")
   endif ()
-  # i#4059: We skip 32-bit release build in Appveyor PR's to speed things up.
-  # The 64-bit release should cover nearly all 32-bit release-only warnings.
-  if (NOT DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+  if (NOT arg_debug_only)
     testbuild_ex("release-external-32" OFF "
       DEBUG:BOOL=OFF
       INTERNAL:BOOL=OFF
@@ -339,13 +343,15 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
   endif ()
   set(orig_extra_ctest_args ${extra_ctest_args})
   set(extra_ctest_args INCLUDE_LABEL RUN_IN_RELEASE)
-  testbuild_ex("release-external-64" ON "
-    DEBUG:BOOL=OFF
-    INTERNAL:BOOL=OFF
-    ${build_release_tests}
-    ${install_path_cache}
-    ${32bit_path}
-    " OFF ${arg_package} "${install_build_args}")
+  if (NOT arg_debug_only)
+    testbuild_ex("release-external-64" ON "
+      DEBUG:BOOL=OFF
+      INTERNAL:BOOL=OFF
+      ${build_release_tests}
+      ${install_path_cache}
+      ${32bit_path}
+      " OFF ${arg_package} "${install_build_args}")
+  endif ()
   set(extra_ctest_args ${orig_extra_ctest_args})
   if (DO_ALL_BUILDS)
     # we rarely use internal release builds but keep them working in long
@@ -394,9 +400,7 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
         ${install_path_cache}
         ")
     endif (DO_ALL_BUILDS)
-    # i#2406: we skip the vps build to speed up PR's, using just the merge to
-    # master to catch breakage in vps.
-    if (NOT DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+    if (NOT arg_debug_only)
       testbuild("vps-debug-internal-32" OFF "
         VMAP:BOOL=OFF
         VPS:BOOL=ON
