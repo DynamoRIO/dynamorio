@@ -37,6 +37,9 @@
 #include "dr_api.h"
 #include <stdio.h>
 
+#define MOVZ 0xd2800000
+#define MOVK 0xf2800000
+
 #define GD GLOBAL_DCONTEXT
 
 #define ASSERT(x)                                                                    \
@@ -55,6 +58,34 @@ test_disasm(void)
 
     while (pc < (byte *)b + sizeof(b))
         pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
+}
+
+static void
+test_mov_instr_addr(void)
+{
+    instrlist_t *ilist = instrlist_create(GD);
+    instr_t *callee = INSTR_CREATE_label(GD);
+    instrlist_insert_mov_instr_addr(GD, callee, (byte *)ilist, opnd_create_reg(DR_REG_X0),
+                                    ilist, NULL, NULL, NULL);
+    instrlist_append(ilist, INSTR_CREATE_blr(GD, opnd_create_reg(DR_REG_X0)));
+    instrlist_append(ilist, callee);
+
+    uint buf[1024];
+    ptr_uint_t end_pc = (ptr_uint_t)instrlist_encode(GD, ilist, (byte *)buf, true);
+
+    // calle is at end_pc
+    // movz $callee[0:16) lsl $0x00
+    // movk $callee[16:32) lsl $0x10
+    // movk $callee[32:48) lsl $0x20
+    // movk $callee[48:64) lsl $0x30
+    uint instr_addr_bits = end_pc & 0xffff;
+    ASSERT(buf[0] == (MOVZ | (instr_addr_bits << 5)));
+    for (uint i = 1; i < 4 && (end_pc >> i * 16) > 0; i++) {
+        uint instr_addr_bits = (end_pc >> i * 16) & 0xffff;
+        uint ls_16mul = i;
+        ASSERT(buf[i] == (MOVK | (ls_16mul << 21) | (instr_addr_bits << 5)));
+    }
+    instrlist_clear_and_destroy(GD, ilist);
 }
 
 /* XXX: It would be nice to share some of this code w/ the other
@@ -96,6 +127,8 @@ main()
     test_disasm();
 
     test_noalloc();
+
+    test_mov_instr_addr();
 
     printf("done\n");
 
