@@ -263,7 +263,8 @@ jobs:
         submodules: true
 
     - name: Fetch Sources
-      run: git fetch --no-tags --depth=1 origin master
+      run: |
+        git fetch --no-tags --depth=1 origin master
         # Include Dr. Memory in packages.
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory && git submodule update --init --depth 250 && cd ..
