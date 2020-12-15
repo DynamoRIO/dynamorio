@@ -205,19 +205,19 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_32 = (
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
-                'code_api|common.decode' => 1, # i#4131
-                'code_api|common.decode-stress' => 1, # i#4131
+                'code_api|common.decode' => 1, # i#4618
+                'code_api|common.decode-stress' => 1, # i#4618
                 'code_api|win32.earlythread' => 1, # i#4131
-                'code_api|client.drx-test' => 1, # i#4131
+                'code_api|client.drx-test' => 1, # i#4619
                 'code_api|client.drwrap-test' => 1, # i#4131
                 'code_api|client.drutil-test' => 1, # i#4131
-                'code_api|tool.histogram.offline' => 1, # i#4058
-                'code_api|tool.drcacheoff.burst_replace' => 1, # i#4131
-                'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4131
-                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4131
+                'code_api|tool.histogram.offline' => 1, # i#4621
+                'code_api|tool.drcacheoff.burst_replace' => 1, # i#4622
+                'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4622
+                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4622
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
                 'code_api|api.symtest' => 1, # i#4131
-                'code_api|client.drwrap-test-detach' => 1, # i#4058
+                'code_api|client.drwrap-test-detach' => 1, # i#4616
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972
@@ -234,22 +234,24 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_64 = (
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
-                'code_api|common.decode' => 1, # i#4058
-                'code_api|common.decode-stress' => 1, # i#4058
+                'code_api|common.decode' => 1, # i#4618
+                'code_api|common.decode-stress' => 1, # i#4618
+                'code_api|client.cleancall' => 1, # i#4618
+                'code_api|win32.callback' => 1, # i#4058
                 'code_api|common.nativeexec' => 1, # i#4058
-                'code_api|client.cleancall' => 1, # i#4131
-                'code_api|client.drx-test' => 1, # i#4131
+                'code_api|client.drx-test' => 1, # i#4619
                 'code_api|client.drutil-test' => 1, # i#4131
                 'code_api|client.pcache-use' => 1, # i#4058
-                'code_api|api.startstop' => 1, # i#2093
+                'code_api|api.startstop' => 1, # i#2246
                 'code_api|api.detach' => 1, # i#2246
-                # i#4131: These need build-and-test to build
+                'code_api|client.drwrap-test-detach' => 1, # i#4616
+                'code_api|tool.histogram.offline' => 1, # i#4621
+                # i#4617: These need build-and-test to build
                 # the 32-bit test app in our separate 64-bit job.
-                'code_api|win32.mixedmode_late' => 1, # i#4058
-                'code_api|win32.mixedmode' => 1, # i#4131
-                'code_api|win32.x86_to_x64' => 1, # i#4131
-                'code_api|win32.x86_to_x64_ibl_opt' => 1, # i#4131
-                'code_api|win32.callback' => 1, # i#4058
+                'code_api|win32.mixedmode_late' => 1, # i#4617
+                'code_api|win32.mixedmode' => 1, # i#4617
+                'code_api|win32.x86_to_x64' => 1, # i#4617
+                'code_api|win32.x86_to_x64_ibl_opt' => 1, # i#4617
                 # These are from earlier runs on Appveyor:
                 'code_api|common.floatpc_xl8all' => 1,
                 'code_api|win32.reload-newaddr' => 1,
