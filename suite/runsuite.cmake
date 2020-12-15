@@ -86,14 +86,15 @@ if (arg_travis)
     set(run_tests OFF)
     message("Detected a Travis clang suite: disabling running of tests")
   endif ()
-  if ("$ENV{TRAVIS_EVENT_TYPE}" STREQUAL "cron" OR
-      "$ENV{APPVEYOR_REPO_TAG}" STREQUAL "true")
+  if ("$ENV{CI_TARGET}" STREQUAL "package")
     # We don't want flaky tests to derail package deployment.  We've already run
     # the tests for this same commit via regular master-push triggers: these
     # package builds are coming from a cron trigger (Travis) or a tag addition
     # (Appveyor), not a code change.
     # XXX: I'd rather set this in the .yml files but I don't see a way to set
     # one env var based on another's value there.
+    # XXX: The wrapper script now invokes package.cmake instead of this file, so
+    # we should be able to remove this if()?
     set(run_tests OFF)
     # In fact we do not want to build the tests at all since they are not part
     # of the cronbuild package.  Plus, having BUILD_TESTS set causes SHOW_RESULTS

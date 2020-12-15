@@ -1,0 +1,437 @@
+# **********************************************************
+# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Github Actions workflow for release packages.
+
+name: ci-package
+on:
+  # Our weekly cronbuild: 9pm on Fridays.
+  # Presumably this is only triggered by this .yml file on the master branch.
+  schedule:
+    - cron: '0 21 * * FRI'
+  # Manual trigger using the Actions page.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version number'
+        required: true
+        # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
+        default: '8.0.99999'
+      build:
+        description: 'Package build number'
+        required: true
+        default: '0'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ###########################################################################
+  # Linux x86 tarball with 64-bit and 32-bit builds:
+  linux-x86:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Fetch Sources
+      run: |
+        git fetch --no-tags --depth=1 origin master
+        # Include Dr. Memory in packages.
+        # We do shallow clones and assume DrM will update its DR at least once
+        # every 250 DR commits.
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory && git submodule update --init --depth 250 && cd ..
+
+    # Install multilib for non-cross-compiling Linux build:
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-multilib
+
+    - name: Get Version
+      id: version
+      # XXX: For now we duplicate this version number here with CMakeLists.txt.
+      # We should find a way to share (xref i#1565).
+      # We support setting the version and build for manual builds.
+      # We only use a non-zero build # when making multiple manual builds in one day.
+      run: |
+        if test -z "${{ github.event.inputs.version }}"; then
+          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+        else
+          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
+            export VERSION_NUMBER=${{ github.event.inputs.version }}
+          else
+            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
+          fi
+          export GIT_TAG="release_${VERSION_NUMBER}"
+        fi
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
+        echo "::set-output name=version_string::${GIT_TAG}"
+
+    - name: Build Package
+      working-directory: ${{ github.workspace }}
+      run: ./tests/runsuite_wrapper.pl travis
+      env:
+        CI_TARGET: package
+        VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        DEPLOY_DOCS: yes
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: linux-tarball
+        path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
+
+    - name: Deploy Docs
+      uses: crazy-max/ghaction-github-pages@v2
+      with:
+        build_dir: html
+        repo: DynamoRIO/dynamorio_docs
+        target_branch: master
+      env:
+        # We need a personal access token for write access to another repo.
+        GH_PAT: ${{ secrets.DOCS_TOKEN }}
+
+  ###########################################################################
+  # Linux AArch64 and ARM tarballs:
+  linux-aarch64:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Fetch Sources
+      run: |
+        git fetch --no-tags --depth=1 origin master
+        # Include Dr. Memory in packages.
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory && git submodule update --init --depth 250 && cd ..
+
+    # Install cross-compilers for cross-compiling Linux build:
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+
+    - name: Get Version
+      id: version
+      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
+      run: |
+        if test -z "${{ github.event.inputs.version }}"; then
+          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+        else
+          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
+            export VERSION_NUMBER=${{ github.event.inputs.version }}
+          else
+            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
+          fi
+          export GIT_TAG="release_${VERSION_NUMBER}"
+        fi
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
+        echo "::set-output name=version_string::${GIT_TAG}"
+
+    - name: Build Package
+      working-directory: ${{ github.workspace }}
+      run: ./tests/runsuite_wrapper.pl travis
+      env:
+        CI_TARGET: package
+        VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+
+    - name: Upload AArch64
+      uses: actions/upload-artifact@v2
+      with:
+        name: aarch64-tarball
+        path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
+
+    - name: Upload ARM
+      uses: actions/upload-artifact@v2
+      with:
+        name: arm-tarball
+        path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
+
+  ###########################################################################
+  # Android ARM tarball:
+  android-arm:
+    runs-on: ubuntu-16.04
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Fetch Sources
+      run: |
+        git fetch --no-tags --depth=1 origin master
+        # Include Dr. Memory in packages.
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory && git submodule update --init --depth 250 && cd ..
+
+    # Fetch and install Android NDK for Andoid cross-compile build.
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        cd /tmp
+        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+        unzip -q android-ndk-r10e-linux-x86_64.zip
+        android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
+          --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
+          --install-dir=/tmp/android-gcc-arm-ndk-10e
+        # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
+        ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
+        ln -sf arm-linux-androideabi-ld.bfd \
+          /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
+
+    - name: Get Version
+      id: version
+      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
+      run: |
+        if test -z "${{ github.event.inputs.version }}"; then
+          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+        else
+          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
+            export VERSION_NUMBER=${{ github.event.inputs.version }}
+          else
+            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
+          fi
+          export GIT_TAG="release_${VERSION_NUMBER}"
+        fi
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
+        echo "::set-output name=version_string::${GIT_TAG}"
+
+    - name: Build Package
+      working-directory: ${{ github.workspace }}
+      run: ./tests/runsuite_wrapper.pl travis 32_only
+      env:
+        CI_TARGET: package
+        VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        DYNAMORIO_CROSS_ANDROID_ONLY: yes
+        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: android-tarball
+        path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
+
+  ###########################################################################
+  # Windows .zip with 32-bit and 64-bit x86 builds:
+  windows:
+    runs-on: windows-2016
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - name: Fetch Sources
+      run: git fetch --no-tags --depth=1 origin master
+        # Include Dr. Memory in packages.
+        git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
+        cd drmemory && git submodule update --init --depth 250 && cd ..
+
+    - name: Download Packages
+      shell: powershell
+      run: |
+        md c:\projects\install
+        (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip", "c:\projects\install\ninja.zip")
+        (New-Object System.Net.WebClient).DownloadFile("http://doxygen.nl/files/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
+
+    - name: Get Version
+      id: version
+      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
+      run: |
+        if test -z "${{ github.event.inputs.version }}"; then
+          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+        else
+          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
+            export VERSION_NUMBER=${{ github.event.inputs.version }}
+          else
+            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
+          fi
+          export GIT_TAG="release_${VERSION_NUMBER}"
+        fi
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
+        echo "::set-output name=version_string::${GIT_TAG}"
+
+    - name: Build Package
+      working-directory: ${{ github.workspace }}
+      shell: cmd
+      run: |
+        echo ------ Setting up paths ------
+        7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
+        set PATH=c:\projects\install\ninja;%PATH%
+        7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
+        set PATH=c:\projects\install\doxygen;%PATH%
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        echo ------ Running suite ------
+        echo PATH is "%PATH%"
+        echo Running in directory "%CD%"
+        perl suite/runsuite_wrapper.pl travis use_ninja
+      env:
+        CI_TARGET: package
+        VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: windows-zip
+        path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
+
+  ###########################################################################
+  # Create release and populate with files.
+  # We can't have each OS job create the release because only the first
+  # succeeds and the others fail: there is no check in the create-release
+  # action to use an existing release if it already exists.
+  # Thus, our strategy is to share files from the build jobs with this
+  # single release job via artifacts.
+
+  create_release:
+    needs: [linux-x86, linux-aarch64, android-arm, windows]
+    runs-on: ubuntu-16.04
+
+    steps:
+    - name: Get Version
+      id: version
+      # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
+      run: |
+        if test -z "${{ github.event.inputs.version }}"; then
+          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+        else
+          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
+            export VERSION_NUMBER=${{ github.event.inputs.version }}
+          else
+            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
+          fi
+          export GIT_TAG="release_${VERSION_NUMBER}"
+        fi
+        echo "::set-output name=version_number::${VERSION_NUMBER}"
+        echo "::set-output name=version_string::${GIT_TAG}"
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version_string }}
+        release_name: ${{ steps.version.outputs.version_string }}
+        body: |
+          Auto-generated periodic build.
+        draft: false
+        prerelease: false
+
+    - name: Download Linux
+      uses: actions/download-artifact@v2
+      with:
+        name: linux-tarball
+    - name: Upload Linux
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        # This action doesn't seem to support a glob so we need the exact name.
+        asset_path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_name: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_content_type: application/x-gzip
+
+    - name: Download AArch64
+      uses: actions/download-artifact@v2
+      with:
+        name: aarch64-tarball
+    - name: Upload AArch64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        # This action doesn't seem to support a glob so we need the exact name.
+        asset_path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_name: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_content_type: application/x-gzip
+
+    - name: Download ARM
+      uses: actions/download-artifact@v2
+      with:
+        name: arm-tarball
+    - name: Upload ARM
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        # This action doesn't seem to support a glob so we need the exact name.
+        asset_path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_name: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_content_type: application/x-gzip
+
+    - name: Download Android
+      uses: actions/download-artifact@v2
+      with:
+        name: android-tarball
+    - name: Upload Android
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        # This action doesn't seem to support a glob so we need the exact name.
+        asset_path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_name: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
+        asset_content_type: application/x-gzip
+
+    - name: Download Windows
+      uses: actions/download-artifact@v2
+      with:
+        name: windows-zip
+    - name: Upload Windows
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        # This action doesn't seem to support a glob so we need the exact name.
+        asset_path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
+        asset_name: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
+        asset_content_type: application/zip
