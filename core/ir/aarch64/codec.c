@@ -1976,8 +1976,9 @@ encode_opnd_instr(int bit_pos, opnd_t opnd, byte *start_pc, instr_t *containing_
         opnd_get_shift(opnd);
 
     uint bits = opnd_size_in_bits(opnd_get_size(opnd));
-    // We expect truncation; the caller splits up the instr's encoded address into
-    // INSTR_kind operands in multiple mov instructions.
+    // We expect truncation; the instr's encoded address is split into INSTR_kind
+    // operands in multiple mov instructions, each representing a 2-byte portion of
+    // the complete address.
     val &= ((1 << bits) - 1);
 
     ASSERT((*enc_out & (val << bit_pos)) == 0);
