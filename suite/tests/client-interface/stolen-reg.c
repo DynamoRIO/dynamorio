@@ -201,18 +201,30 @@ main(int argc, char **argv)
 #else
 #    error Unsupported arch
 #endif
+
     thread_t thread = create_thread(thread_func, NULL);
     while (!thread_finished) {
         /* We need to ensure we're *translated* which won't always happen if we're sitting
          * at a syscall.  So we deliberately spin.
          */
     }
+
     join_thread(thread);
+
     val = get_stolen_reg_val();
     if (val != STOLEN_REG_SENTINEL) {
         print("ERROR: Stolen register %d not preserved past synchall: %d\n",
               STOLEN_REG_SENTINEL, val);
     }
+
+    // Checking for this sequence in stolen-reg.dll.c
+#if defined(AARCH64)
+    __asm__ __volatile__("mov x28, #0xdead" : : : "x28");
+#elif defined(ARM)
+    __asm__ __volatile__("movw r10, #0xdead" : : : "r10");
+#else
+#    error Unsupported arch
+#endif
 
     print("Done\n");
 }
