@@ -65,13 +65,13 @@ test_mov_instr_addr(void)
     instr_t *callee = INSTR_CREATE_label(GD);
     instrlist_append(
         ilist,
-        XINST_CREATE_move(GD, opnd_create_reg(DR_REG_X2), opnd_create_reg(DR_REG_X30)));
+        XINST_CREATE_move(GD, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_LR)));
     instrlist_insert_mov_instr_addr(GD, callee, (byte *)ilist, opnd_create_reg(DR_REG_X0),
                                     ilist, NULL, NULL, NULL);
     instrlist_append(ilist, INSTR_CREATE_blr(GD, opnd_create_reg(DR_REG_X0)));
-    instrlist_append(ilist, INSTR_CREATE_ret(GD, opnd_create_reg(DR_REG_X2)));
+    instrlist_append(ilist, INSTR_CREATE_ret(GD, opnd_create_reg(DR_REG_X1)));
     instrlist_append(ilist, callee);
-    instrlist_insert_mov_immed_ptrsz(GD, 0xdeadbeef, opnd_create_reg(DR_REG_X20), ilist,
+    instrlist_insert_mov_immed_ptrsz(GD, 0xdeadbeef, opnd_create_reg(DR_REG_X0), ilist,
                                      NULL, NULL, NULL);
     instrlist_append(ilist, XINST_CREATE_return(GD));
 
@@ -82,10 +82,8 @@ test_mov_instr_addr(void)
     instrlist_encode(GD, ilist, generated_code, true);
     protect_mem(generated_code, gencode_max_size, ALLOW_EXEC | ALLOW_READ);
 
-    ((void (*)(void))generated_code)();
-    unsigned long x20;
-    asm("mov %0,x20" : "=r"(x20));
-    ASSERT(x20 == 0xdeadbeef);
+    uint written = ((uint(*)(void))generated_code)();
+    ASSERT(written == 0xdeadbeef);
 
     instrlist_clear_and_destroy(GD, ilist);
     free_mem(generated_code, gencode_max_size);
