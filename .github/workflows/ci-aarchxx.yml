@@ -55,6 +55,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install cross-compilers for cross-compiling Linux build:
@@ -65,7 +71,7 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl automated_ci
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
 
@@ -75,6 +81,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
 
     - run: git fetch --no-tags --depth=1 origin master
 
@@ -98,7 +110,7 @@ jobs:
       env:
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
-      run: ./suite/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl automated_ci
 
   # AArch64 drdecode and drmemtrace on x86:
   a64-on-x86:
@@ -106,6 +118,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
 
     - run: git fetch --no-tags --depth=1 origin master
 
@@ -115,6 +133,6 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl automated_ci
       env:
         DYNAMORIO_A64_ON_X86_ONLY: yes

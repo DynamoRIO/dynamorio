@@ -189,7 +189,9 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
         val = (ptr_int_t)encode_estimate;
 
     /* movz x(dst), #(val & 0xffff) */
-    mov = INSTR_CREATE_movz(dcontext, dst, OPND_CREATE_INT16(val & 0xffff),
+    mov = INSTR_CREATE_movz(dcontext, dst,
+                            src_inst == NULL ? OPND_CREATE_INT16(val & 0xffff)
+                                             : opnd_create_instr_ex(src_inst, OPSZ_2, 0),
                             OPND_CREATE_INT8(0));
     PRE(ilist, instr, mov);
     if (first != NULL)
@@ -198,7 +200,9 @@ insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_esti
         if ((val >> (16 * i) & 0xffff) != 0) {
             /* movk x(dst), #(val >> sh & 0xffff), lsl #(sh) */
             mov = INSTR_CREATE_movk(dcontext, dst,
-                                    OPND_CREATE_INT16((val >> 16 * i) & 0xffff),
+                                    src_inst == NULL
+                                        ? OPND_CREATE_INT16((val >> 16 * i) & 0xffff)
+                                        : opnd_create_instr_ex(src_inst, OPSZ_2, 16 * i),
                                     OPND_CREATE_INT8(i * 16));
             PRE(ilist, instr, mov);
         }

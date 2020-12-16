@@ -1431,29 +1431,33 @@ extern mutex_t do_threshold_mutex;
     } while (0)
 
 /* internal versions */
-#define TRY(try_pointer, try_statement, except_or_finally)                     \
-    do {                                                                       \
-        try_except_context_t try__state;                                       \
-        /* must be current thread -> where we'll fault */                      \
-        /* We allow NULL solely to avoid duplicating try_statement in          \
-         * TRY_EXCEPT_ALLOW_NO_DCONTEXT.                                       \
-         */                                                                    \
-        ASSERT((try_pointer) == &global_try_except || (try_pointer) == NULL || \
-               (try_pointer) == &get_thread_private_dcontext()->try_except);   \
-        if ((try_pointer) != NULL) {                                           \
-            try__state.prev_context = (try_pointer)->try_except_state;         \
-            (try_pointer)->try_except_state = &try__state;                     \
-        }                                                                      \
-        if ((try_pointer) == NULL || DR_SETJMP(&try__state.context) == 0) {    \
-            try_statement /* TRY block */ /* make sure there is no return in   \
-                                             try_statement */                  \
-                if ((try_pointer) != NULL)                                     \
-            {                                                                  \
-                POP_TRY_BLOCK(try_pointer, try__state);                        \
-            }                                                                  \
-        }                                                                      \
-        except_or_finally                                                      \
-        /* EXCEPT or FINALLY will POP_TRY_BLOCK on exception */                \
+#define TRY(try_pointer, try_statement, except_or_finally)                             \
+    do {                                                                               \
+        try_except_context_t try__state;                                               \
+        /* must be current thread -> where we'll fault */                              \
+        /* We allow NULL solely to avoid duplicating try_statement in                  \
+         * TRY_EXCEPT_ALLOW_NO_DCONTEXT.                                               \
+         */                                                                            \
+        ASSERT(                                                                        \
+            (try_pointer) == &global_try_except || (try_pointer) == NULL ||            \
+            (try_pointer) == &get_thread_private_dcontext()->try_except ||             \
+            (try_pointer) == /* A currently-native thread: */                          \
+                &thread_lookup(IF_UNIX_ELSE(get_sys_thread_id(), d_r_get_thread_id())) \
+                     ->dcontext->try_except);                                          \
+        if ((try_pointer) != NULL) {                                                   \
+            try__state.prev_context = (try_pointer)->try_except_state;                 \
+            (try_pointer)->try_except_state = &try__state;                             \
+        }                                                                              \
+        if ((try_pointer) == NULL || DR_SETJMP(&try__state.context) == 0) {            \
+            try_statement /* TRY block */ /* make sure there is no return in           \
+                                             try_statement */                          \
+                if ((try_pointer) != NULL)                                             \
+            {                                                                          \
+                POP_TRY_BLOCK(try_pointer, try__state);                                \
+            }                                                                          \
+        }                                                                              \
+        except_or_finally                                                              \
+        /* EXCEPT or FINALLY will POP_TRY_BLOCK on exception */                        \
     } while (0)
 
 /* implementation notes: */

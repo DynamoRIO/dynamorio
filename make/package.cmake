@@ -100,7 +100,7 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
 endforeach (arg)
 
-# These are set by env var instead of arg to match Travis test jobs.
+# These are set by env var instead of arg to match CI test jobs.
 if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
   set(cross_aarchxx_linux_only ON)
   set(ARCH_IS_X86 OFF)
