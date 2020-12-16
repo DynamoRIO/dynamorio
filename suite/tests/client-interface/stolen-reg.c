@@ -221,7 +221,7 @@ main(int argc, char **argv)
 #if defined(AARCH64)
     __asm__ __volatile__("mov x28, #0xdead" : : : "x28");
 #elif defined(ARM)
-    __asm__ __volatile__("mov r10, #0xdead" : : : "r10");
+    __asm__ __volatile__("movw r10, #0xdead" : : : "r10");
 #else
 #    error Unsupported arch
 #endif
