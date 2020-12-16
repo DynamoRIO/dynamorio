@@ -130,9 +130,3 @@ deploy:
   on:
     branch: master
     appveyor_repo_tag: true
-
-environment:
-  APPVEYOR_RDP_PASSWORD: MyPasswordToDiagnoseBug12345
-
-init:
-  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
