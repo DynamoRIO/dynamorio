@@ -466,6 +466,14 @@
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
 #define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
+
+/**
+ * This platform-independent macro creates an instr_t for an indirect call instr.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param t   The opnd_t explicit source operand for the instruction. This should
+ * be a reg_id_t with the address of the subroutine.
+ */
+#define XINST_CREATE_call_ind(dc, r) INSTR_CREATE_call_ind(dc, r)
 /* @} */ /* end doxygen group */
 
 /****************************************************************************
