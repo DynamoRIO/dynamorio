@@ -71,7 +71,7 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl automated_ci
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
 
@@ -110,7 +110,7 @@ jobs:
       env:
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
-      run: ./suite/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl automated_ci
 
   # AArch64 drdecode and drmemtrace on x86:
   a64-on-x86:
@@ -133,6 +133,6 @@ jobs:
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl travis
+      run: ./suite/runsuite_wrapper.pl automated_ci
       env:
         DYNAMORIO_A64_ON_X86_ONLY: yes

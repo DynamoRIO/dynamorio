@@ -541,7 +541,7 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: when updating this, update the git tag in .travis.yml.
+# N.B.: when updating this, update the default version in ci-package.yml.
 # We should find a way to share (xref i#1565).
 set(VERSION_NUMBER_DEFAULT "8.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
