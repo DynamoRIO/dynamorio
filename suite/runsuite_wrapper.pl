@@ -287,7 +287,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,
                                    'code_api|linux.fib-conflict-early' => 1,
-                                   'code_api|tool.drcachesim.delay-simple' => 1, #i#4571
                                    'code_api|linux.mangle_asynch' => 1);
             if ($is_32) {
                 $issue_no = "#2416";
