@@ -35,13 +35,13 @@
 
 #include "configure.h"
 #include "dr_api.h"
-#include <stdio.h>
+#include "tools.h"
 
 #define GD GLOBAL_DCONTEXT
 
-#define ASSERT(x)                                                                    \
-    ((void)((!(x)) ? (printf("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
-                      abort(), 0)                                                    \
+#define ASSERT(x)                                                                   \
+    ((void)((!(x)) ? (print("ASSERT FAILURE: %s:%d: %s\n", __FILE__, __LINE__, #x), \
+                      abort(), 0)                                                   \
                    : 0))
 
 #define BUFFER_SIZE_BYTES(buf) sizeof(buf)
@@ -55,6 +55,39 @@ test_disasm(void)
 
     while (pc < (byte *)b + sizeof(b))
         pc = disassemble_with_info(GD, pc, STDOUT, false /*no pc*/, true);
+}
+
+static void
+test_mov_instr_addr(void)
+{
+#if !defined(DR_HOST_NOT_TARGET)
+    instrlist_t *ilist = instrlist_create(GD);
+    instr_t *callee = INSTR_CREATE_label(GD);
+    instrlist_append(
+        ilist,
+        XINST_CREATE_move(GD, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_LR)));
+    instrlist_insert_mov_instr_addr(GD, callee, (byte *)ilist, opnd_create_reg(DR_REG_X0),
+                                    ilist, NULL, NULL, NULL);
+    instrlist_append(ilist, INSTR_CREATE_blr(GD, opnd_create_reg(DR_REG_X0)));
+    instrlist_append(ilist, INSTR_CREATE_ret(GD, opnd_create_reg(DR_REG_X1)));
+    instrlist_append(ilist, callee);
+    instrlist_insert_mov_immed_ptrsz(GD, 0xdeadbeef, opnd_create_reg(DR_REG_X0), ilist,
+                                     NULL, NULL, NULL);
+    instrlist_append(ilist, XINST_CREATE_return(GD));
+
+    uint gencode_max_size = 1024;
+    byte *generated_code =
+        (byte *)allocate_mem(gencode_max_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
+    assert(generated_code != NULL);
+    instrlist_encode(GD, ilist, generated_code, true);
+    protect_mem(generated_code, gencode_max_size, ALLOW_EXEC | ALLOW_READ);
+
+    uint written = ((uint(*)(void))generated_code)();
+    ASSERT(written == 0xdeadbeef);
+
+    instrlist_clear_and_destroy(GD, ilist);
+    free_mem(generated_code, gencode_max_size);
+#endif
 }
 
 /* XXX: It would be nice to share some of this code w/ the other
@@ -97,7 +130,9 @@ main()
 
     test_noalloc();
 
-    printf("done\n");
+    test_mov_instr_addr();
+
+    print("done\n");
 
     return 0;
 }
