@@ -305,7 +305,7 @@ const char *options_list_str =
     "\n"
     "       <app and args>     Application command line to execute under DR.\n"
 #endif /* !DRCONFIG */
-    ;
+;
 
 static bool
 does_file_exist(const char *path)
@@ -1397,9 +1397,15 @@ _tmain(int argc, TCHAR *targv[])
         }
 #endif
 #if defined(DRRUN) || defined(DRINJECT)
-        else if (strcmp(argv[i], "-pidfile") == 0) {
+        else if (strcmp(argv[i], "-pidfile") == 0)
+        {
             pidfile = argv[++i];
-        } else if (strcmp(argv[i], "-use_dll") == 0) {
+        } 
+        else if (strcmp(argv[i], "-attach") == 0)
+        {
+            attach_pid = atoi(argv[++i]);
+        }
+        else if (strcmp(argv[i], "-use_dll") == 0) {
             DR_dll_not_needed = true;
             /* Support relative path: very useful! */
             get_absolute_path(argv[++i], custom_dll, BUFFER_SIZE_ELEMENTS(custom_dll));
@@ -1533,7 +1539,7 @@ done_with_options:
     /* Support no app if the tool has its own frontend, under the assumption
      * it may have post-processing or other features.
      */
-    if (i < argc || native_tool[0] == '\0') {
+    if (i < argc || native_tool[0] == '\0' && attach_pid == 0) {
 #    endif
         if (i >= argc)
             usage(false, "%s", "no app specified");
@@ -1738,7 +1744,9 @@ done_with_options:
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else
 #    elif defined(WINDOWS)
-    if (attach_pid != 0) {
+    if (attach_pid != 0) 
+    {
+        //to delete
         errcode = dr_inject_process_attach(attach_pid, &inject_data);
     } else
 #    endif /* WINDOWS */
@@ -1841,21 +1849,19 @@ done_with_options:
 #    endif
         goto error;
     }
-
     IF_WINDOWS(start_time = time(NULL);)
 
     if (!dr_inject_process_run(inject_data)) {
         error("unable to run");
         goto error;
     }
-
 #    ifdef WINDOWS
     if (limit == 0 && dr_inject_using_debug_key(inject_data)) {
         info("%s", "Using debugger key injection");
         limit = -1; /* no wait */
     }
 #    endif
-
+    char buffer[10];// to delete
     if (limit >= 0) {
 #    ifdef WINDOWS
         double wallclock;
@@ -1866,6 +1872,7 @@ done_with_options:
 #    ifdef WINDOWS
         end_time = time(NULL);
         wallclock = difftime(end_time, start_time);
+
         if (showstats || showmem)
             dr_inject_print_stats(inject_data, (int)wallclock, showstats, showmem);
 #    endif
@@ -1876,7 +1883,6 @@ done_with_options:
     }
 
     exitcode = dr_inject_process_exit(inject_data, !success /*kill process*/);
-
     if (limit < 0)
         exitcode = 0; /* Return success if we didn't wait. */
 
@@ -1888,8 +1894,9 @@ error:
     /* we created the process suspended so if we later had an error be sure
      * to kill it instead of leaving it hanging
      */
-    if (inject_data != NULL)
+    if (inject_data != NULL) {
         dr_inject_process_exit(inject_data, true /*kill process*/);
+    }
 #    ifdef DRRUN
     if (tofree != NULL)
         free(tofree);
