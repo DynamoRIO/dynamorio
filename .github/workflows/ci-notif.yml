@@ -1,4 +1,4 @@
-name: ci-test-suites
+name: ci-notif
 on:
   # Run on pushes to any repository branch.
   push:
