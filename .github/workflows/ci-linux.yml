@@ -97,6 +97,33 @@ jobs:
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
+    - name: Send failure mail
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        # Literal body:
+        body: |
+          Github Actions CI workflow run FAILED!
+
+          Workflow: ${{github.workflow}}/x86-64
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+
+        to: sharmaabhinav@google.com
+        from: Github Action CI
+
+
   # AArchXX cross-compile with gcc, no tests:
   aarchxx-cross-compile:
     runs-on: ubuntu-16.04
@@ -117,6 +144,33 @@ jobs:
       run: ./suite/runsuite_wrapper.pl travis
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+
+    - name: Send failure mail
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        # Literal body:
+        body: |
+          Github Actions CI workflow run FAILED!
+
+          Workflow: ${{github.workflow}}/aarchxx-cross-compile
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+
+        to: sharmaabhinav@google.com
+        from: Github Action CI
+
 
   # Android ARM cross-compile with gcc, no tests:
   android-arm-cross-compile:
@@ -149,6 +203,33 @@ jobs:
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
       run: ./suite/runsuite_wrapper.pl travis
 
+    - name: Send failure mail
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        # Literal body:
+        body: |
+          Github Actions CI workflow run FAILED!
+
+          Workflow: ${{github.workflow}}/android-arm-cross-compile
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+
+        to: sharmaabhinav@google.com
+        from: Github Action CI
+
+
   # 64-bit Linux build with clang, no tests (runsuite.cmake disables the tests),
   # install and require clang-format.
   # We used to build 32-bit with clang but have decided that is not worth
@@ -176,6 +257,32 @@ jobs:
         CC: clang-9
         CXX: clang++-9
 
+    - name: Send failure mail
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        # Literal body:
+        body: |
+          Github Actions CI workflow run FAILED!
+
+          Workflow: ${{github.workflow}}/clang-format
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+
+        to: sharmaabhinav@google.com
+        from: Github Action CI
+
   # 64-bit OSX build with clang and run tests:
   osx-64bit:
     runs-on: macos-10.15
@@ -201,6 +308,32 @@ jobs:
         #  - run: ls -l /Applications
         DEVELOPER_DIR: /Applications/Xcode_11.3.1.app/Contents/Developer
 
+    - name: Send failure mail
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        # Literal body:
+        body: |
+          Github Actions CI workflow run FAILED!
+
+          Workflow: ${{github.workflow}}/osx-64bit
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+
+        to: sharmaabhinav@google.com
+        from: Github Action CI
+
   # AArch64 drdecode and drmemtrace on x86:
   a64-on-x86:
     runs-on: ubuntu-16.04
@@ -219,3 +352,29 @@ jobs:
       run: ./suite/runsuite_wrapper.pl travis
       env:
         DYNAMORIO_A64_ON_X86_ONLY: yes
+
+    - name: Send failure mail
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        # Literal body:
+        body: |
+          Github Actions CI workflow run FAILED!
+
+          Workflow: ${{github.workflow}}/a64-on-x86
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+
+        to: sharmaabhinav@google.com
+        from: Github Action CI
