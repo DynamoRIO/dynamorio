@@ -33,8 +33,8 @@ jobs:
         subject: Github Actions job result
         # Literal body:
         body: |
-          Build job of ${{github.repository}} Failed! workflow repository- ${GITHUB_REPOSITORY} action ${GITHUB_ACTION} 
-          actor ${GITHUB_ACTOR} ref ${GITHUB_REF} run-id ${GITHUB_RUN_ID} workflow ${GITHUB_WORKFLOW} number ${GITHUB_RUN_NUMBER}
+          Build job of ${{github.repository}} Failed! workflow repository- ${{github.repository}} action ${{github.action}} 
+          actor ${{github.actor}} ref ${{github.base_ref}} run-id ${{github.run_id}} workflow ${{github.workflow}} number ${{github.run_number}}
           
         # Read file contents as body:
         # body: file://README.md
