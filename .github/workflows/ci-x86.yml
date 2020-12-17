@@ -88,6 +88,28 @@ jobs:
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
+    - name: Send failure mail to dynamorio-devs
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/x86-32
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
   # 64-bit Linux build with gcc and run tests:
   x86-64:
     runs-on: ubuntu-16.04
@@ -114,3 +136,25 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure()
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/x86-64
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
