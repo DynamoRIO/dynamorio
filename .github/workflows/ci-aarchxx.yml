@@ -83,7 +83,9 @@ jobs:
         server_port: 465
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
-        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        subject: |
+          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/aarchxx-cross-compile
@@ -142,7 +144,9 @@ jobs:
         server_port: 465
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
-        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        subject: |
+          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/android-arm-cross-compile
@@ -189,7 +193,9 @@ jobs:
         server_port: 465
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
-        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        subject: |
+          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/a64-on-x86

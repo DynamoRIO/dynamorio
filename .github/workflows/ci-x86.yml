@@ -96,7 +96,9 @@ jobs:
         server_port: 465
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
-        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        subject: |
+          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/x86-32
@@ -145,7 +147,9 @@ jobs:
         server_port: 465
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
-        subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
+        subject: |
+          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
           Workflow: ${{github.workflow}}/x86-64
