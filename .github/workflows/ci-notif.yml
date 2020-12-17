@@ -34,9 +34,9 @@ jobs:
         # Literal body:
         body: |
           Build job of ${{github.repository}} Failed! workflow repository- ${{github.repository}} action ${{github.action}} 
-          actor ${{github.actor}} ref ${{github.base_ref}} ${github.head_ref}} ${{github.ref}} run-id ${{github.run_id}} workflow ${{github.workflow}} number ${{github.run_number}}
+          actor ${{github.actor}} base ref ${{github.base_ref}} head ref ${{github.head_ref}} ref ${{github.ref}} run-id ${{github.run_id}} workflow ${{github.workflow}} number ${{github.run_number}}
           
-          Github Actions CI triggered by ${{github.actor}} on repository {{github.repository}}/${{github.base_ref}} (${{github.sha}}) Failed!
+          Github Actions CI triggered by ${{github.actor}} on repository ${{github.repository}}/${{github.base_ref}} (${{github.sha}}) Failed!
           github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
           
         # Read file contents as body:
