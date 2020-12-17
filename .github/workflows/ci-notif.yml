@@ -19,7 +19,11 @@ jobs:
   job_id:
     runs-on: ubuntu-latest
     steps:
+    - name: Failing step
+      run: |
+        exit 1
     - name: Send mail
+      if: failure()
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
