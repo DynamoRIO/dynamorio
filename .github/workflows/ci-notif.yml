@@ -1,0 +1,24 @@
+
+name: ci-notif
+on:
+  # Manual trigger using the Actions page. May remove when integration complete.
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+jobs: 
+ - name: Send mail
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: Github Actions job result
+        # Literal body:
+        body: Build job of ${{github.repository}} Failed!
+        # Read file contents as body:
+        # body: file://README.md
+        to: sharmaabhinav@google.com
+        from: Github action 
