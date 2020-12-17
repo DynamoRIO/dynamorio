@@ -31,7 +31,8 @@ jobs:
         username: ${{secrets.MAIL_USERNAME}}
         password: ${{secrets.MAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] ${{github.workflow}} FAILED on ${{github.event_name}} at ${{github.ref}}
+          [${{github.repository}}] ${{github.workflow}} FAILED on 
+          ${{github.event_name}} at ${{github.ref}}
         # Literal body:
         body: |
           Build job of ${{github.repository}} Failed! workflow repository- ${{github.repository}} action ${{github.action}} 
