@@ -1,14 +1,28 @@
-
-name: ci-notif
+name: ci-test-suites
 on:
+  # Run on pushes to any repository branch.
+  push:
+
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
 
 defaults:
   run:
     shell: bash
-jobs: 
- - name: Send mail
+  # We'd like to add common initial steps for all jobs, but that's not supported.
+  # Composite Run Steps can help, but we don't have that many common steps -- just
+  # checkout and fetch for now.
+  # https://docs.github.com/en/free-pro-team@latest/actions/creating-actions/about-actions#composite-run-steps-actions
+  # https://github.community/t/reusing-sharing-inheriting-steps-between-jobs-declarations
+
+jobs:
+  job_id:
+    runs-on: ubuntu-latest
+    steps:
+    - name: failed step
+      run: |
+          exit 1
+    - name: Send mail
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
