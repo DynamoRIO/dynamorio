@@ -23,7 +23,7 @@ jobs:
       run: |
         exit 1
     - name: Send mail
-      if: failure() && ${{github.base_ref}}=="refs/heads/master"
+      if: failure() && ${{github.ref}}=="refs/heads/master"
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
