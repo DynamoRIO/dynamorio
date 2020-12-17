@@ -19,9 +19,6 @@ jobs:
   job_id:
     runs-on: ubuntu-latest
     steps:
-    - name: failed step
-      run: |
-          exit 1
     - name: Send mail
       uses: dawidd6/action-send-mail@v2
       with:
