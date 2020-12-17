@@ -94,8 +94,8 @@ jobs:
       with:
         server_address: smtp.gmail.com
         server_port: 465
-        username: ${{secrets.MAIL_USERNAME}}
-        password: ${{secrets.MAIL_PASSWORD}}
+        username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
         subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
@@ -143,8 +143,8 @@ jobs:
       with:
         server_address: smtp.gmail.com
         server_port: 465
-        username: ${{secrets.MAIL_USERNAME}}
-        password: ${{secrets.MAIL_PASSWORD}}
+        username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
         subject: Github Actions CI FAILED on ${{github.repository}} ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
