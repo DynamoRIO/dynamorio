@@ -67,6 +67,26 @@
 
 static byte buf[8192];
 
+static void
+test_instr_encoding(void *dc, uint opcode, instr_t *instr)
+{
+    instr_t *decin;
+    byte *pc;
+
+    ASSERT(instr_get_opcode(instr) == opcode);
+    instr_disassemble(dc, instr, STDERR);
+    print("\n");
+
+    ASSERT(instr_is_encoding_possible(instr));
+    pc = instr_encode(dc, instr, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    ASSERT(instr_same(instr, decin));
+
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
 /***************************************************************************
  * XXX i#1686: we need to add the IR consistency checks for ARM that we have on
  * x86, ensuring that these are all consistent with each other:
@@ -160,6 +180,18 @@ test_flags(void *dc)
     instr_free(dc, inst);
 }
 
+static void
+test_xinst(void *dc)
+{
+    instr_t *instr;
+    /* Sanity check of misc XINST_CREATE_ macros. */
+
+    /* XXX i#1686: add tests of remaining XINST_CREATE macros */
+    /* TODO i#1686: add expected patterns to ir_arm.expect */
+    instr = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_R5));
+    test_instr_encoding(dc, OP_blx_ind, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -171,7 +203,8 @@ main(int argc, char *argv[])
 
     /* XXX i#1686: add tests of all opcodes for internal consistency */
 
-    /* XXX i#1686: add tests of XINST_CREATE macros */
+    test_xinst(dcontext);
+    print("test_xinst complete\n");
 
     test_pcrel(dcontext);
 
