@@ -23,6 +23,35 @@ jobs:
       run: |
         exit 1
     - name: Send mail
+      if: failure() && ${{github.base_ref}}=="refs/heads/master"
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.MAIL_USERNAME}}
+        password: ${{secrets.MAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] Github Actions Only Master ${{github.workflow}} FAILED 
+          on ${{github.event_name}} at ${{github.ref}}
+        # Literal body:
+        body: |
+          Build job of ${{github.repository}} Failed! workflow repository- ${{github.repository}} action ${{github.action}} 
+          actor ${{github.actor}} base ref ${{github.base_ref}} head ref ${{github.head_ref}} ref ${{github.ref}} run-id ${{github.run_id}} workflow ${{github.workflow}} number ${{github.run_number}}
+          
+          Github Actions CI triggered by ${{github.actor}} on repository ${{github.repository}}/${{github.base_ref}} (${{github.sha}}) Failed!
+          github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+          
+        # Read file contents as body:
+        # body: file://README.md
+        to: sharmaabhinav@google.com
+        from: Github action 
+  job_id2:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Failing step
+      run: |
+        exit 1
+    - name: Send mail
       if: failure()
       uses: dawidd6/action-send-mail@v2
       with:
@@ -35,6 +64,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         # Literal body:
         body: |
+          all branch
           Build job of ${{github.repository}} Failed! workflow repository- ${{github.repository}} action ${{github.action}} 
           actor ${{github.actor}} base ref ${{github.base_ref}} head ref ${{github.head_ref}} ref ${{github.ref}} run-id ${{github.run_id}} workflow ${{github.workflow}} number ${{github.run_number}}
           
