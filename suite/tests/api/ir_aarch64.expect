@@ -861,6 +861,7 @@ clrex  $0x0000000000000000
 test_exclusive_memops complete
 ldp    (%x2)[8byte] -> %w0 %w1
 stp    %w0 %w1 -> (%x2)[8byte]
+blr    %x5 -> %x30
 test_xinst complete
 test_opnd complete
 test_mov_instr_addr complete
