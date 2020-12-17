@@ -32,7 +32,10 @@ jobs:
         password: ${{secrets.MAIL_PASSWORD}}
         subject: Github Actions job result
         # Literal body:
-        body: Build job of ${{github.repository}} Failed!
+        body: |
+          Build job of ${{github.repository}} Failed! workflow repository- ${GITHUB_REPOSITORY} action ${GITHUB_ACTION} 
+          actor ${GITHUB_ACTOR} ref ${GITHUB_REF} run-id ${GITHUB_RUN_ID} workflow ${GITHUB_WORKFLOW} number ${GITHUB_RUN_NUMBER}
+          
         # Read file contents as body:
         # body: file://README.md
         to: sharmaabhinav@google.com
