@@ -223,14 +223,14 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
 
     /* Two mangle regions can be adjacent: distinguish by translation field */
     if (walk->in_mangle_region &&
-        /* On ARM, we spill registers across an app instr, so go solely on xl8 */
+        /* On AArchXX, we spill registers across an app instr, so go solely on xl8 */
         (IF_X86(!instr_is_our_mangling(inst) ||)
          /* handle adjacent mangle regions */
          IF_X86(translate_walk_exits_mangling_epilogue(tdcontext, inst, walk) ||)
          /* Entering the mangling region's epilogue can have different xl8 */
          (IF_X86(!translate_walk_enters_mangling_epilogue(tdcontext, inst, walk) &&)
               instr_get_translation(inst) != walk->translation))) {
-        LOG(THREAD_GET, LOG_INTERP, 5, "%s: from one mangle region to another\n",
+        LOG(THREAD_GET, LOG_INTERP, 4, "%s: from one mangle region to another\n",
             __FUNCTION__);
         /* We assume our manglings are local and contiguous: once out of a
          * mangling region, we're good to go again.
@@ -240,14 +240,14 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         walk->unsupported_mangle = false;
         walk->xsp_adjust = 0;
         for (r = 0; r < REG_SPILL_NUM; r++) {
-#ifndef ARM
+#ifndef AARCHXX
             /* we should have seen a restore for every spill, unless at
              * fragment-ending jump to ibl, which shouldn't come here
              */
             ASSERT(walk->reg_spill_offs[r] == UINT_MAX);
             walk->reg_spill_offs[r] = UINT_MAX; /* be paranoid */
 #else
-            /* On ARM we do spill registers across app instrs and mangle
+            /* On AArchXX we do spill registers across app instrs and mangle
              * regions, though right now only the following routines do this:
              * - mangle_stolen_reg()
              * - mangle_gpr_list_read()
@@ -276,14 +276,14 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         if (!walk->in_mangle_region) {
             walk->in_mangle_region = true;
             walk->translation = instr_get_translation(inst);
-            LOG(THREAD_GET, LOG_INTERP, 5, "%s: entering mangle region xl8=" PFX "\n",
+            LOG(THREAD_GET, LOG_INTERP, 4, "%s: entering mangle region xl8=" PFX "\n",
                 __FUNCTION__, walk->translation);
         } else if (IF_X86_ELSE(
                        translate_walk_enters_mangling_epilogue(tdcontext, inst, walk),
                        false)) {
             walk->in_mangle_region_epilogue = true;
             walk->translation = instr_get_translation(inst);
-            LOG(THREAD_GET, LOG_INTERP, 5,
+            LOG(THREAD_GET, LOG_INTERP, 4,
                 "%s: entering mangle region epilogue xl8=" PFX "\n", __FUNCTION__,
                 walk->translation);
         } else
@@ -318,9 +318,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * comment above for post-mangling traces), and so for local
          * spills like rip-rel and ind branches this is fine.
          */
-        if (instr_is_cti(inst)
+        if (instr_is_cti(inst) &&
 #ifdef X86
-            &&
             /* Do not reset for a trace-cmp jecxz or jmp (32-bit) or
              * jne (64-bit), since ecx needs to be restored (won't
              * fault, but for thread relocation)
@@ -337,11 +336,21 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
               (!opnd_is_pc(instr_get_target(inst)) ||
                (opnd_get_pc(instr_get_target(inst)) >= walk->start_cache &&
                 opnd_get_pc(instr_get_target(inst)) < walk->end_cache))))
+#else
+            /* Do not reset for cbnz/bne in ldstex mangling, nor for the b after strex. */
+            !(instr_get_opcode(inst) == OP_cbnz ||
+              (instr_get_opcode(inst) == OP_b &&
+               (instr_get_prev(inst) != NULL &&
+                instr_get_opcode(instr_get_prev(inst)) == OP_subs)) ||
+              (instr_get_opcode(inst) == OP_b &&
+               (instr_get_prev(inst) != NULL &&
+                instr_is_exclusive_store(instr_get_prev(inst)))))
 #endif
         ) {
             /* FIXME i#1551: add ARM version of the series of trace cti checks above */
             IF_ARM(ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces)));
             /* reset for non-exit non-trace-jecxz cti (i.e., selfmod cti) */
+            LOG(THREAD_GET, LOG_INTERP, 4, "\treset spills on cti\n");
             for (r = 0; r < REG_SPILL_NUM; r++)
                 walk->reg_spill_offs[r] = UINT_MAX;
         }
@@ -372,15 +381,28 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
                     walk->reg_spill_offs[r] = UINT_MAX;
                 }
                 walk->reg_tls[r] = spill_tls;
-                LOG(THREAD_GET, LOG_INTERP, 5, "\tspill update: %s %s %s\n",
+                LOG(THREAD_GET, LOG_INTERP, 4, "\tspill update: %s %s %s offs=%u\n",
                     spill ? "spill" : "restore", spill_tls ? "tls" : "mcontext",
-                    reg_names[reg]);
+                    reg_names[reg], offs);
             }
         }
-#ifdef ARM
-        else if (instr_is_stolen_reg_move(inst, &spill, &reg)) {
+#ifdef AARCHXX
+        else if (instr_is_stolen_reg_move(inst, &spill, &reg) ||
+                 /* Accessing the stolen reg TLS slot does not satisfy the
+                  * instr_is_DR_reg_spill_or_restore() check above b/c it's not
+                  * a regular spill slot per reg_spill_tls_offs.
+                  * We assume it does not need tracking: restore_stolen_register()
+                  * is all we need as the window where we've swapped regs is just
+                  * one app instr w/ no mangling or instru between.
+                  */
+                 instr_is_tls_restore(inst, dr_reg_stolen, TLS_REG_STOLEN_SLOT) ||
+                 /* The store has the swapped register as the base. */
+                 (instr_get_opcode(inst) == OP_store &&
+                  opnd_get_reg(instr_get_src(inst, 0)) == dr_reg_stolen &&
+                  opnd_get_disp(instr_get_dst(inst, 0)) ==
+                      os_tls_offset(TLS_REG_STOLEN_SLOT))) {
             /* do nothing */
-            LOG(THREAD_GET, LOG_INTERP, 5, "%s: stolen reg move\n", __FUNCTION__);
+            LOG(THREAD_GET, LOG_INTERP, 4, "%s: stolen reg move\n", __FUNCTION__);
         }
 #endif
         /* PR 267260: Track our own mangle-inserted pushes and pops, for
@@ -428,6 +450,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* nothing to do */
         }
 #endif
+#ifdef AARCHXX
+        else if (instr_is_ldstex_mangling(tdcontext, inst)) {
+            /* nothing to do */
+        }
+#endif
         /* Single step mangling adds a nop. */
         else if (instr_is_nop(inst)) {
             /* nothing to do */
@@ -445,8 +472,11 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * all exit jmps.
          */
         else {
-            DOLOG(4, LOG_INTERP,
-                  d_r_loginst(get_thread_private_dcontext(), 4, inst,
+            /* XXX: Maybe this should be a full SYSLOG since it can lead to
+             * translation failure.
+             */
+            DOLOG(2, LOG_INTERP,
+                  d_r_loginst(get_thread_private_dcontext(), 2, inst,
                               "unsupported mangle instr"););
             walk->unsupported_mangle = true;
         }
@@ -976,8 +1006,8 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
         /* we only use translation pointers, never just raw bit pointers */
         if (instr_get_translation(inst) != NULL) {
             prev_ok = inst;
-            DOLOG(5, LOG_INTERP,
-                  d_r_loginst(get_thread_private_dcontext(), 5, prev_ok, "\tok instr"););
+            DOLOG(4, LOG_INTERP,
+                  d_r_loginst(get_thread_private_dcontext(), 4, prev_ok, "\tok instr"););
             prev_bytes = instr_get_translation(inst);
             if (instr_is_app(inst)) {
                 /* we really want the pc after the translation target since we'll
@@ -1059,6 +1089,8 @@ restore_stolen_register(dcontext_t *dcontext, priv_mcontext_t *mcontext)
     /* dr_reg_stolen is holding DR's TLS on receiving a signal,
      * so we need put app's reg value into mcontext instead
      */
+    LOG(THREAD_GET, LOG_INTERP, 2, "\trestoring stolen register to " PFX "\n",
+        dcontext->local_state->spill_space.reg_stolen);
     set_stolen_reg_val(mcontext, dcontext->local_state->spill_space.reg_stolen);
 #endif
 }

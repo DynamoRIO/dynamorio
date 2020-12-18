@@ -5628,12 +5628,14 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #else
         /* all 8, 16 or 32 are scratch */
         cci.num_simd_skip = proc_num_simd_registers();
-        cci.num_opmask_skip = proc_num_opmask_registers();
 #endif
         for (i = 0; i < cci.num_simd_skip; i++)
             cci.simd_skip[i] = true;
+#ifdef X86
+        cci.num_opmask_skip = proc_num_opmask_registers();
         for (i = 0; i < cci.num_opmask_skip; i++)
             cci.opmask_skip[i] = true;
+#endif
             /* now remove those used for param/retval */
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
@@ -6799,8 +6801,8 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     else if (TEST(DR_MC_CONTROL, dmc->flags))
         dmc->xsp = get_mcontext(dcontext)->xsp;
 
-#ifdef ARM
-    if (TEST(DR_MC_INTEGER, dmc->flags)) {
+#ifdef AARCHXX
+    if (mc != NULL || TEST(DR_MC_INTEGER, dmc->flags)) {
         /* get the stolen register's app value */
         if (mc != NULL) {
             set_stolen_reg_val(mc,
@@ -6833,7 +6835,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
     priv_mcontext_t *state;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
-    IF_ARM(reg_t reg_val = 0 /* silence the compiler warning */;)
+    IF_AARCHXX(reg_t reg_val = 0 /* silence the compiler warning */;)
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     CLIENT_ASSERT(context != NULL, "invalid context");
@@ -6864,7 +6866,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      * will override any save_fpstate xmm values, as desired.
      */
     state = get_priv_mcontext_from_dstack(dcontext);
-#    ifdef ARM
+#    ifdef AARCHXX
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* Set the stolen register's app value in TLS, not on stack (we rely
          * on our stolen reg retaining its value on the stack)
@@ -6877,7 +6879,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 #    endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
-#    ifdef ARM
+#    ifdef AARCHXX
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* restore the reg val on the stack clobbered by the copy above */
         set_stolen_reg_val(state, reg_val);

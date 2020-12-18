@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,6 +64,9 @@
 size_t cache_line_size = 32;
 static ptr_uint_t mask; /* bits that should be 0 to be cache-line-aligned */
 cpu_info_t cpu_info = { VENDOR_UNKNOWN,
+#ifdef AARCHXX
+                        0,
+#endif
                         0,
                         0,
                         0,
@@ -108,6 +111,29 @@ proc_init(void)
     LOG(GLOBAL, LOG_TOP, 1, "Processor brand string = %s\n", cpu_info.brand_string);
     LOG(GLOBAL, LOG_TOP, 1, "Type=0x%x, Family=0x%x, Model=0x%x, Stepping=0x%x\n",
         cpu_info.type, cpu_info.family, cpu_info.model, cpu_info.stepping);
+
+#ifdef AARCHXX
+    /* XXX: Should we create an arch/aarchxx/proc.c just for this code? */
+#    define PROC_CPUINFO "/proc/cpuinfo"
+#    define CPU_ARCH_LINE_FORMAT "CPU architecture: %u\n"
+    file_t cpuinfo = os_open(PROC_CPUINFO, OS_OPEN_READ);
+    /* This can happen in a chroot or if /proc is disabled. */
+    if (cpuinfo != INVALID_FILE) {
+        char *buf = global_heap_alloc(PAGE_SIZE HEAPACCT(ACCT_OTHER));
+        ssize_t nread = os_read(cpuinfo, buf, PAGE_SIZE - 1);
+        if (nread > 0) {
+            buf[nread] = '\0';
+            char *arch_line = strstr(buf, "CPU architecture");
+            if (arch_line != NULL &&
+                sscanf(arch_line, CPU_ARCH_LINE_FORMAT, &cpu_info.architecture) == 1) {
+                LOG(GLOBAL, LOG_ALL, 2, "Processor architecture: %u\n",
+                    cpu_info.architecture);
+            }
+        }
+        global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
+        os_close(cpuinfo);
+    }
+#endif
 }
 
 uint
@@ -157,6 +183,14 @@ proc_get_stepping(void)
 {
     return cpu_info.stepping;
 }
+
+#ifdef AARCHXX
+uint
+proc_get_architecture(void)
+{
+    return cpu_info.architecture;
+}
+#endif
 
 features_t *
 proc_get_all_feature_bits(void)

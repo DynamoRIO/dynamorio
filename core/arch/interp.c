@@ -2766,7 +2766,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         /* we leverage the existing native_exec mechanism */
         dcontext->native_exec_postsyscall = bb->start_pc;
         dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
-        dynamo_thread_not_under_dynamo(dcontext);
+        /* dynamo_thread_not_under_dynamo() will be called in dispatch_enter_native(). */
         return false;
     }
 

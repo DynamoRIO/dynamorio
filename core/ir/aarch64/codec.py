@@ -159,14 +159,18 @@ def find_required(fixed, reordered, i, opndtab):
 
 def make_enc(n, reordered, f, opndtab):
     (ds, i, ot) = reordered[n]
-    return ('encode_opnd_%s(%s, opcode, '
-            'pc, instr_get_%s(instr, %d), &%s%d)' %
+    instr_arg_if_required = 'instr, ' if ot == 'imm16' else ''
+    encode_method_format_str = ('encode_opnd_%s(%s, opcode, pc, '
+                                'instr_get_%s(instr, %d), ' +
+                                instr_arg_if_required + '&%s%d)')
+    ret_str = (encode_method_format_str %
             (ot, ("0" if opndtab[ot].used == 0 else
                   'enc & 0x%08x' % opndtab[ot].used
                   if opndtab[ot].used & ~f == 0 else
                   '%s & 0x%08x' % (find_required(f, reordered, n, opndtab),
                                    opndtab[ot].used)),
              ds, i, ds, i))
+    return ret_str
 
 def generate_encoder(patterns, opndsettab, opndtab):
     c = []

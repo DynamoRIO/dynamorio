@@ -50,6 +50,10 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
               const char *dr_root)
 {
     dr_config_status_t status;
+    bool query_debug;
+    dr_operation_mode_t query_mode;
+    char query_root[MAXIMUM_PATH];
+    char query_ops[DR_MAX_OPTIONS_LENGTH];
     /* Unregister first, in case a stale file from an old aborted test is still there. */
     status = dr_unregister_process(name, pid, global, dr_platform);
     check(status == DR_SUCCESS || status == DR_PROC_REG_INVALID,
@@ -65,11 +69,29 @@ test_register(const char *name, process_id_t pid, bool global, dr_platform_t dr_
         "should not be registered\n");
 
     status = dr_register_process(name, pid, global, dr_root, DR_MODE_CODE_MANIPULATION,
+                                 true, dr_platform, "-disable_traces");
+    check(status == DR_SUCCESS, "dr_register_process should succeed");
+    check(dr_process_is_registered(name, pid, global, dr_platform, query_root,
+                                   &query_mode, &query_debug, query_ops),
+          "should be registered\n");
+    check(strcmp(query_root, dr_root) == 0, "root should match");
+    check(query_mode == DR_MODE_CODE_MANIPULATION, "mode should match");
+    check(query_debug, "debug should match");
+    check(strcmp(query_ops, "-disable_traces") == 0, "ops should match");
+
+    /* Test non-debug. */
+    status = dr_unregister_process(name, pid, global, dr_platform);
+    check(status == DR_SUCCESS, "dr_unregister_process should succeed");
+    status = dr_register_process(name, pid, global, dr_root, DR_MODE_CODE_MANIPULATION,
                                  false, dr_platform, "-disable_traces");
     check(status == DR_SUCCESS, "dr_register_process should succeed");
-    check(
-        dr_process_is_registered(name, pid, global, dr_platform, NULL, NULL, NULL, NULL),
-        "should be registered\n");
+    check(dr_process_is_registered(name, pid, global, dr_platform, query_root,
+                                   &query_mode, &query_debug, query_ops),
+          "should be registered\n");
+    check(strcmp(query_root, dr_root) == 0, "root should match");
+    check(query_mode == DR_MODE_CODE_MANIPULATION, "mode should match");
+    check(!query_debug, "debug should match");
+    check(strcmp(query_ops, "-disable_traces") == 0, "ops should match");
 
     status = dr_register_process(name, pid, global, dr_root, DR_MODE_CODE_MANIPULATION,
                                  false, dr_platform, "-disable_traces");

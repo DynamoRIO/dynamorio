@@ -4447,6 +4447,173 @@ test_xinst(void *dc)
     test_instr_encoding(dc, OP_stp, instr);
 }
 
+static void
+test_opnd(void *dc)
+{
+    opnd_t op = opnd_create_reg_ex(DR_REG_X28, OPSZ_4, DR_OPND_EXTENDED);
+    ASSERT(opnd_get_reg(op) == DR_REG_X28);
+    ASSERT(opnd_is_reg_partial(op));
+    ASSERT(opnd_get_size(op) == OPSZ_4);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+
+    /* Ensure extra fields are preserved by opnd_replace_reg(). */
+    bool found = opnd_replace_reg(&op, DR_REG_W28, DR_REG_W0);
+    ASSERT(!found);
+    found = opnd_replace_reg(&op, DR_REG_X28, DR_REG_X0);
+    ASSERT(found);
+    ASSERT(opnd_get_reg(op) == DR_REG_X0);
+    ASSERT(opnd_is_reg_partial(op));
+    ASSERT(opnd_get_size(op) == OPSZ_4);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+
+    op = opnd_create_base_disp_aarch64(DR_REG_X7, DR_REG_NULL, DR_EXTEND_SXTX, true, 42,
+                                       DR_OPND_EXTENDED, OPSZ_8);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    bool scaled;
+    uint amount;
+    dr_extend_type_t extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_SXTX && scaled && amount == 3);
+
+    /* Ensure extra fields are preserved by opnd_replace_reg(). */
+    found = opnd_replace_reg(&op, DR_REG_W7, DR_REG_W1);
+    ASSERT(!found);
+    found = opnd_replace_reg(&op, DR_REG_X7, DR_REG_X1);
+    ASSERT(found);
+    ASSERT(opnd_get_base(op) == DR_REG_X1);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_SXTX && scaled && amount == 3);
+
+    /* Another test but this time replacing an index register. */
+    op = opnd_create_base_disp_aarch64(DR_REG_X7, DR_REG_X4, DR_EXTEND_UXTW, true, 0,
+                                       DR_OPND_EXTENDED, OPSZ_8);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_index(op) == DR_REG_X4);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_UXTW && scaled && amount == 3);
+
+    /* Ensure extra fields are preserved by opnd_replace_reg(). */
+    found = opnd_replace_reg(&op, DR_REG_W4, DR_REG_W1);
+    ASSERT(!found);
+    found = opnd_replace_reg(&op, DR_REG_X4, DR_REG_X1);
+    ASSERT(found);
+    ASSERT(opnd_get_base(op) == DR_REG_X7);
+    ASSERT(opnd_get_index(op) == DR_REG_X1);
+    ASSERT(opnd_get_flags(op) == DR_OPND_EXTENDED);
+    extend = opnd_get_index_extend(op, &scaled, &amount);
+    ASSERT(extend == DR_EXTEND_UXTW && scaled && amount == 3);
+
+    instr_t *instr =
+        INSTR_CREATE_stxp(dc, OPND_CREATE_MEM64(DR_REG_X2, 0), opnd_create_reg(DR_REG_W3),
+                          opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1));
+    found = instr_replace_reg_resize(instr, DR_REG_X3, DR_REG_X28);
+    ASSERT(found);
+    found = instr_replace_reg_resize(instr, DR_REG_W2, DR_REG_W14);
+    ASSERT(found);
+    ASSERT(opnd_get_base(instr_get_dst(instr, 0)) == DR_REG_X14);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 1)) == DR_REG_W28);
+    ASSERT(opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_W0);
+    ASSERT(opnd_get_reg(instr_get_src(instr, 1)) == DR_REG_W1);
+    instr_destroy(dc, instr);
+
+    /* Test reg corner cases. */
+    ASSERT(reg_to_pointer_sized(DR_REG_WZR) == DR_REG_XZR);
+    ASSERT(reg_32_to_64(DR_REG_WZR) == DR_REG_XZR);
+    ASSERT(reg_64_to_32(DR_REG_XZR) == DR_REG_WZR);
+    ASSERT(reg_resize_to_opsz(DR_REG_XZR, OPSZ_4) == DR_REG_WZR);
+    ASSERT(reg_resize_to_opsz(DR_REG_WZR, OPSZ_8) == DR_REG_XZR);
+    ASSERT(!reg_is_gpr(DR_REG_XZR));
+    ASSERT(!reg_is_gpr(DR_REG_WZR));
+
+    /* XXX: test other routines like opnd_defines_use(); test every flag such as
+     * register negate and shift across replace and other operations.
+     */
+}
+
+static uint
+test_mov_instr_addr_encoding(void *dc, instr_t *instr, uint opcode, uint target_off,
+                             uint right_shift_amt, uint mask)
+{
+    ASSERT(opcode == OP_movz || opcode == OP_movk);
+    instr_t *decin;
+    byte *pc;
+
+    ASSERT(instr_get_opcode(instr) == opcode);
+    ASSERT(instr_is_encoding_possible(instr));
+
+    pc = instr_encode(dc, instr, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+
+    ASSERT(instr_get_opcode(decin) == opcode);
+
+    uint src_op = opcode == OP_movz ? 0 : 1;
+    uint expected_imm = ((ptr_int_t)buf + target_off >> right_shift_amt) & mask;
+    ASSERT(opnd_get_immed_int(instr_get_src(decin, src_op)) == expected_imm);
+
+    instr_destroy(dc, instr);
+    instr_destroy(dc, decin);
+}
+
+static void
+test_mov_instr_addr(void *dc)
+{
+    instr_t *label_instr = instr_create_0dst_0src(dc, OP_LABEL);
+    instr_set_note(label_instr, (void *)(ptr_int_t)0x100);
+
+    instr_t *movz_instr_sh0_2b = INSTR_CREATE_movz(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 0),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh0_2b, (void *)(ptr_int_t)0x10);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh0_2b, OP_movz, 0xf0, 0, 0xffff);
+
+    instr_t *movz_instr_sh16_2b = INSTR_CREATE_movk(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 16),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh16_2b, (void *)(ptr_int_t)0x20);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh16_2b, OP_movk, 0xe0, 16, 0xffff);
+
+    instr_t *movz_instr_sh32_2b = INSTR_CREATE_movz(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 32),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh32_2b, (void *)(ptr_int_t)0x30);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh32_2b, OP_movz, 0xd0, 32, 0xffff);
+
+    instr_t *movz_instr_sh48_2b = INSTR_CREATE_movk(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_2, 48),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh48_2b, (void *)(ptr_int_t)0x40);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh48_2b, OP_movk, 0xc0, 48, 0xffff);
+
+    instr_t *movz_instr_sh0_1b = INSTR_CREATE_movk(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 0),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh0_1b, (void *)(ptr_int_t)0x10);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh0_1b, OP_movk, 0xf0, 0, 0xff);
+
+    instr_t *movz_instr_sh16_1b = INSTR_CREATE_movz(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 16),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh16_1b, (void *)(ptr_int_t)0x20);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh16_1b, OP_movz, 0xe0, 16, 0xff);
+
+    instr_t *movz_instr_sh32_1b = INSTR_CREATE_movk(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 32),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh32_1b, (void *)(ptr_int_t)0x30);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh32_1b, OP_movk, 0xd0, 32, 0xff);
+
+    instr_t *movz_instr_sh48_1b = INSTR_CREATE_movz(
+        dc, opnd_create_reg(DR_REG_X0), opnd_create_instr_ex(label_instr, OPSZ_1, 48),
+        OPND_CREATE_INT(0));
+    instr_set_note(movz_instr_sh48_1b, (void *)(ptr_int_t)0x40);
+    test_mov_instr_addr_encoding(dc, movz_instr_sh48_1b, OP_movz, 0xc0, 48, 0xff);
+
+    instr_destroy(dc, label_instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4515,6 +4682,12 @@ main(int argc, char *argv[])
 
     test_xinst(dcontext);
     print("test_xinst complete\n");
+
+    test_opnd(dcontext);
+    print("test_opnd complete\n");
+
+    test_mov_instr_addr(dcontext);
+    print("test_mov_instr_addr complete\n");
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER

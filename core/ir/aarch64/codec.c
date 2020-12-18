@@ -1963,10 +1963,39 @@ decode_opnd_imm16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     return decode_opnd_int(5, 16, false, 0, OPSZ_12b, 0, enc, opnd);
 }
 
-static inline bool
-encode_opnd_imm16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+static bool
+encode_opnd_instr(int bit_pos, opnd_t opnd, byte *start_pc, instr_t *containing_instr,
+                  OUT uint *enc_out)
 {
-    return encode_opnd_int(5, 16, false, 0, 0, opnd, enc_out);
+    if (!opnd_is_instr(opnd)) {
+        return false;
+    }
+    ptr_uint_t val =
+        ((ptr_uint_t)instr_get_note(opnd_get_instr(opnd)) -
+         (ptr_uint_t)instr_get_note(containing_instr) + (ptr_uint_t)start_pc) >>
+        opnd_get_shift(opnd);
+
+    uint bits = opnd_size_in_bits(opnd_get_size(opnd));
+    // We expect truncation; instrlist_insert_mov_instr_addr splits the instr's
+    // encoded address into INSTR_kind operands in multiple mov instructions in the
+    // ilist, each representing a 2-byte portion of the complete address.
+    val &= ((1 << bits) - 1);
+
+    ASSERT((*enc_out & (val << bit_pos)) == 0);
+    *enc_out |= (val << bit_pos);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm16(uint enc, int opcode, byte *start_pc, opnd_t opnd,
+                  instr_t *containing_instr, OUT uint *enc_out)
+{
+    if (opnd_is_immed_int(opnd))
+        return encode_opnd_int(5, 16, false, 0, 0, opnd, enc_out);
+    else if (opnd_is_instr(opnd))
+        return encode_opnd_instr(5, opnd, start_pc, containing_instr, enc_out);
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 /* memvr: memory operand for SIMD load structure and replicate */
