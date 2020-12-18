@@ -172,7 +172,7 @@ jobs:
         from: Github Action CI
 
 
-  # Android ARM cross-compile with gcc, no tests:
+  # Android ARM cross-compile with gcc, no tests
   android-arm-cross-compile:
     runs-on: ubuntu-16.04
 
