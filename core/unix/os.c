@@ -793,8 +793,7 @@ os_get_version(void)
 #endif
 
 static void
-get_uname(void)
-{
+get_uname (void) {
     /* assumption: only called at init, so we don't need any synch
      * or .data unprot
      */
