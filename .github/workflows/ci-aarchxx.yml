@@ -84,7 +84,7 @@ jobs:
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
@@ -145,7 +145,7 @@ jobs:
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
@@ -194,7 +194,7 @@ jobs:
         username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
         password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
-          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
