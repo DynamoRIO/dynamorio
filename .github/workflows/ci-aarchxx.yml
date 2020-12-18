@@ -76,7 +76,7 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -137,7 +137,7 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -186,7 +186,7 @@ jobs:
         DYNAMORIO_A64_ON_X86_ONLY: yes
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com

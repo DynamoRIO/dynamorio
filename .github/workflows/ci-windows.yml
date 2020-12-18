@@ -91,7 +91,7 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -155,7 +155,7 @@ jobs:
         CI_TRIGGER: ${{ github.event_name }}
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -217,7 +217,7 @@ jobs:
         perl suite/runsuite_wrapper.pl automated_ci use_ninja nontest_only
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com

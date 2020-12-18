@@ -126,7 +126,7 @@ jobs:
         GH_PAT: ${{ secrets.DOCS_TOKEN }}
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -205,7 +205,7 @@ jobs:
         path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -284,7 +284,7 @@ jobs:
         path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -374,7 +374,7 @@ jobs:
         path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -467,7 +467,7 @@ jobs:
         path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
@@ -610,7 +610,7 @@ jobs:
         asset_content_type: application/zip
 
     - name: Send failure mail to dynamorio-devs
-      if: failure()
+      if: failure() && github.ref == 'refs/heads/master'
       uses: dawidd6/action-send-mail@v2
       with:
         server_address: smtp.gmail.com
