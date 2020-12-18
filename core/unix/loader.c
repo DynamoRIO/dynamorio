@@ -248,7 +248,8 @@ os_loader_init_prologue(void)
                           get_dynamorio_library_path());
     ASSERT(mod != NULL);
     /* If DR was loaded by system ld.so, then .dynamic *was* relocated (i#1589) */
-    privload_create_os_privmod_data(mod, !DYNAMO_OPTION(early_inject));
+    privload_create_os_privmod_data(
+        mod, !DYNAMO_OPTION(early_inject));
     libdr_opd = (os_privmod_data_t *)mod->os_privmod_data;
     DODEBUG({
         if (DYNAMO_OPTION(early_inject)) {
