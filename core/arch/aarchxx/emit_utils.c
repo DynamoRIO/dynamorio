@@ -50,7 +50,7 @@ insert_load_dr_tls_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
     /* Load TLS base from user-mode thread pointer/ID register:
      * mrs reg_base, tpidr_el0
      */
-    PRE(ilist, whre,
+    PRE(ilist, where,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg_base),
                          opnd_create_reg(DR_REG_TPIDR_EL0)));
 #else // ARM

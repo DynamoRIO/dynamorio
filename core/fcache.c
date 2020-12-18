@@ -2299,7 +2299,8 @@ fifo_append(fcache_t *cache, fragment_t *f)
 
 static void
 fifo_remove(dcontext_t *dcontext, fcache_t *cache, fragment_t *f)
-{ASSERT(USE_FIFO(f));
+{
+    ASSERT(USE_FIFO(f));
     ASSERT(CACHE_PROTECTED(cache));
     ASSERT(cache->fifo != NULL);
     /* start has prev to end, but end does NOT have next to start */
