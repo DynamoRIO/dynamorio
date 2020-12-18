@@ -1,5 +1,5 @@
 #ifdef WINDOWS
-creating child #1
+creating child
 terminating child #1 by NtTerminateProcess
 event_nudge exit code 42
 event_exit
@@ -21,7 +21,7 @@ event_exit
 child #4 exit code = 0
 event_exit
 #else
-creating child
+creating 
 terminating child by sending SIGKILL
 event_nudge exit code 2304
 event_exit
