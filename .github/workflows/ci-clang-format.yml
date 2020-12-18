@@ -101,6 +101,6 @@ jobs:
           Triggering actor: ${{github.actor}}
           Triggering event: ${{github.event_name}}
           Run Id: ${{github.run_id}}
-          See more details on github.com/abhinav92003/dynamorio/actions/runs/${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
