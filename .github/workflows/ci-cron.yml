@@ -1,0 +1,51 @@
+name: ci-cron
+on:
+  schedule:
+    - cron: '* * * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version number'
+        required: true
+        # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
+        default: '8.0.99999'
+      build:
+        description: 'Package build number'
+        required: true
+        default: '0'
+
+defaults:
+  run:
+    shell: bash
+
+  minutely:
+    runs-on: ubuntu-16.04
+
+    steps:
+    
+    - name: failed step
+      run: |
+        exit 1       
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] Github Actions ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/minutely
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
