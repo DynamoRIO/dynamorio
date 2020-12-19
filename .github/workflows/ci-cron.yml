@@ -1,7 +1,7 @@
 name: ci-cron
 on:
-  schedule:
-    - cron: '* * * * *'
+#  schedule:
+#    - cron: '* * * * *'
   workflow_dispatch:
     inputs:
       version:
