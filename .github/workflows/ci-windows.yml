@@ -96,8 +96,8 @@ jobs:
       with:
         server_address: smtp.gmail.com
         server_port: 465
-        username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
           [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
@@ -160,8 +160,8 @@ jobs:
       with:
         server_address: smtp.gmail.com
         server_port: 465
-        username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
           [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
@@ -222,8 +222,8 @@ jobs:
       with:
         server_address: smtp.gmail.com
         server_port: 465
-        username: ${{secrets.NOTIFICATION_EMAIL_USERNAME}}
-        password: ${{secrets.NOTIFICATION_EMAIL_PASSWORD}}
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
         subject: |
           [${{github.repository}}] ${{github.workflow}} FAILED
           on ${{github.event_name}} at ${{github.ref}}
