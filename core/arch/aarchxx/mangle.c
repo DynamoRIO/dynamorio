@@ -899,9 +899,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                            opnd_create_reg(scratch), ilist, where, NULL, NULL);
     /* even if a call and not a jmp, we can skip this if it doesn't return */
     if (!jmp && returns) {
-        PRE(ilist, where,
-            IF_AARCH64_ELSE(INSTR_CREATE_blr,
-                            INSTR_CREATE_blx_ind)(dcontext, opnd_create_reg(scratch)));
+        PRE(ilist, where, XINST_CREATE_call_reg(dcontext, opnd_create_reg(scratch)));
     } else {
         PRE(ilist, where, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(scratch)));
     }

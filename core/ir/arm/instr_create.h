@@ -431,6 +431,15 @@ enum {
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
 #define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
+
+/**
+ * This platform-independent macro creates an instr_t for an indirect call instr
+ * through a register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The opnd_t explicit source operand for the instruction. This should
+ * be a reg_id_t operand with the address of the subroutine.
+ */
+#define XINST_CREATE_call_reg(dc, r) INSTR_CREATE_blx_ind(dc, r)
 /* @} */ /* end doxygen group */
 
 /****************************************************************************

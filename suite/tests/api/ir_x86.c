@@ -2071,6 +2071,16 @@ test_xinst_create(void *dc)
     ASSERT(instr_same(ins1, ins2));
     instr_destroy(dc, ins1);
     instr_destroy(dc, ins2);
+    /* indirect call through a register */
+    ins1 = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_XBX));
+    pc = instr_encode(dc, ins1, buf);
+    ASSERT(pc != NULL);
+    ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(ins1, ins2));
+    ASSERT(instr_get_opcode(ins2) == OP_call_ind);
+    instr_destroy(dc, ins1);
+    instr_destroy(dc, ins2);
 }
 
 static void

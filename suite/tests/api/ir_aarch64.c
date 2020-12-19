@@ -4445,6 +4445,8 @@ test_xinst(void *dc)
         XINST_CREATE_store_pair(dc, OPND_CREATE_MEM64(DR_REG_X2, 0),
                                 opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_W1));
     test_instr_encoding(dc, OP_stp, instr);
+    instr = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_X5));
+    test_instr_encoding(dc, OP_blr, instr);
 }
 
 static void
