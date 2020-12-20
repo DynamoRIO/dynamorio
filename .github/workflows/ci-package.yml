@@ -125,6 +125,30 @@ jobs:
         # We need a personal access token for write access to another repo.
         GH_PAT: ${{ secrets.DOCS_TOKEN }}
 
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/linux-x86
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
+
   ###########################################################################
   # Linux AArch64 tarball:
   linux-aarch64:
@@ -180,6 +204,30 @@ jobs:
         name: aarch64-tarball
         path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
 
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/linux-aarch64
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
+
   ###########################################################################
   # Linux ARM tarball (package.cmake does not support same job as AArch64):
   linux-arm:
@@ -234,6 +282,30 @@ jobs:
       with:
         name: arm-tarball
         path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/linux-arm
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
 
   ###########################################################################
   # Android ARM tarball:
@@ -300,6 +372,30 @@ jobs:
       with:
         name: android-tarball
         path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/android-arm
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
 
   ###########################################################################
   # Windows .zip with 32-bit and 64-bit x86 builds:
@@ -369,6 +465,30 @@ jobs:
       with:
         name: windows-zip
         path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/windows
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
 
   ###########################################################################
   # Create release and populate with files.
@@ -488,3 +608,27 @@ jobs:
         asset_path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
         asset_name: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
         asset_content_type: application/zip
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/create_release
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs

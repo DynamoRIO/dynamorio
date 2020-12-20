@@ -80,3 +80,27 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CC: clang-9
         CXX: clang++-9
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/clang-format
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
