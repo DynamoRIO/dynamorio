@@ -32,18 +32,16 @@
 
 name: ci-package
 on:
-  # Our weekly cronbuild: 9pm on Fridays.
-  # Presumably this is only triggered by this .yml file on the master branch.
+  # Our weekly cronbuild: 9pm EST on Fridays.
   schedule:
-    - cron: '0 21 * * FRI'
+    - cron: '0 2 * * SAT'
   # Manual trigger using the Actions page.
   workflow_dispatch:
     inputs:
       version:
-        description: 'Package version number'
-        required: true
-        # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
-        default: '8.0.99999'
+        description: 'Package version number (blank for cronbuild)'
+        required: false
+        default: ''
       build:
         description: 'Package build number'
         required: true
@@ -61,8 +59,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -87,18 +83,14 @@ jobs:
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -156,8 +148,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -177,18 +167,14 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -235,8 +221,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -256,18 +240,14 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -314,8 +294,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -344,18 +322,14 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -404,8 +378,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -426,18 +398,14 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -503,23 +471,25 @@ jobs:
     runs-on: ubuntu-16.04
 
     steps:
+      # We need a checkout to run git log for the version.
+    - uses: actions/checkout@v2
+
     - name: Get Version
       id: version
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER="8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export PREFIX="cronbuild-"
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+          export PREFIX="release_"
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
+        echo "::set-output name=version_string::${PREFIX}${VERSION_NUMBER}"
 
     - name: Create Release
       id: create_release
