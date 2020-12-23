@@ -325,6 +325,8 @@ typedef struct _dr_stats_t {
     uint64 peak_vmm_blocks_reach_special_heap;
     /** Peak number of memory blocks used for other reachable mappings. */
     uint64 peak_vmm_blocks_reach_special_mmap;
+    /** Signals delivered to native threads. */
+    uint64 num_native_signals;
 } dr_stats_t;
 
 /**
