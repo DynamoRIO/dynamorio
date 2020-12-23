@@ -333,7 +333,7 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
         } while (0)
 #    define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                      \
         do {                                                                  \
-            ASSERT(sizeof(value) == 1);                                       \
+            ASSERT(sizeof(*target) == 1);                                     \
             /* No alignment check necessary, hot_patch parameter provided for \
              * consistency.                                                   \
              */                                                               \
@@ -497,7 +497,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             do {                                                                   \
                 /* allow a constant to be passed in by supplying our own lvalue */ \
                 char _myval = value;                                               \
-                ASSERT(sizeof(value) == 1);                                        \
+                ASSERT(sizeof(*target) == 1);                                      \
                 /* No alignment check necessary, hot_patch parameter provided for  \
                  * consistency.                                                    \
                  */                                                                \
@@ -665,7 +665,7 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
             } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
-                ASSERT(sizeof(value) == 1);                    \
+                ASSERT(sizeof(*target) == 1);                  \
                 /* Not currently used to write code */         \
                 ASSERT_CURIOSITY(!hot_patch);                  \
                 __asm__ __volatile__("stlrb %w0, [%1]"         \
@@ -857,7 +857,7 @@ atomic_dec_becomes_zero(volatile int *var)
             } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
-                ASSERT(sizeof(value) == 1);                    \
+                ASSERT(sizeof(*target) == 1);                  \
                 __asm__ __volatile__("dmb ish; strb %0, [%1]"  \
                                      :                         \
                                      : "r"(value), "r"(target) \
