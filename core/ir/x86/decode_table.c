@@ -2011,7 +2011,7 @@ const instr_info_t * const op_instr[] =
 #define vsibz    REQUIRES_VSIB_ZMM
 #define nok0     REQUIRES_NOT_K0
 #define sae      EVEX_b_IS_SAE
-/* er requires sae */
+/* er requires sae. */
 #define er       (EVEX_b_IS_SAE | EVEX_L_LL_IS_ER)
 
 /* flags used for AVX-512 compressed disp8 */

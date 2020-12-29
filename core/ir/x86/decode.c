@@ -1189,7 +1189,7 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         info = &evex_Wb_extensions[code][idx];
     }
 
-    /* can occur AFTER above checks (EVEX_W_EXT, in particular) */
+    /* This can occur after the above checks (with EVEX_Wb_EXT, in particular). */
     if (info->type == MOD_EXT) {
         info = &mod_extensions[info->code][(di->mod == 3) ? 1 : 0];
     }
@@ -1487,6 +1487,10 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_VSIB: {
         reg_id_t extend_reg = extend ? reg + 8 : reg;
         extend_reg = avx512_extend ? extend_reg + 16 : extend_reg;
+        /* Some instructions (those that support embedded rounding (er) control)
+         * repurpose PREFIX_EVEX_LL for other things and only come in a 64 byte
+         * variant.
+         */
         bool operand_is_zmm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) != OPSZ_16 &&
                                expand_subreg_size(opsize) != OPSZ_32) ||
@@ -1501,6 +1505,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
          * XXX i#1312: improve this code here, it is not very robust. For AVX-512, this
          * relies on the fact that cases where EVEX.LL' == 1 and register is not zmm, the
          * expand_subreg_size is OPSZ_16 or OPSZ_32. The VEX OPSZ_16 case is also fragile.
+         * As above PREFIX_EVEX_LL may be repurposed for embedded rounding control, so
+         * honor opsizes of exactly OPSZ_32.
          */
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
