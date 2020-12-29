@@ -67,6 +67,61 @@ do_flush(app_pc next_pc)
     DR_ASSERT(false);
 }
 
+// Storing the original stolen reg before mconext set.
+static ptr_int_t orig_value = 0;
+
+// Random value to detect after mcontext set.
+static ptr_int_t test_value = 7;
+
+static void
+read_and_restore_stolen_reg_value()
+{
+    dr_fprintf(STDERR, "%s entered\n", __FUNCTION__);
+    void *drcontext = dr_get_current_drcontext();
+
+    dr_fprintf(STDERR, "test value = " IF_ARM_ELSE("%d", "%ld") "\n", test_value);
+
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_ALL;
+
+    dr_fprintf(STDERR, "fetching TLS\n");
+
+    dr_get_mcontext(drcontext, &mc);
+
+    /* The key part of the test: that the modified value shows up here. */
+    DR_ASSERT(mc.IF_ARM_ELSE(r10, r28) == test_value);
+    dr_fprintf(STDERR, "mc->stolen_reg after = " IF_ARM_ELSE("%d", "%ld") "\n",
+               mc.IF_ARM_ELSE(r10, r28));
+
+    mc.IF_ARM_ELSE(r10, r28) = orig_value;
+
+    dr_set_mcontext(drcontext, &mc);
+}
+
+static void
+change_stolen_reg_value()
+{
+    dr_fprintf(STDERR, "%s entered\n", __FUNCTION__);
+
+    void *drcontext = dr_get_current_drcontext();
+
+    dr_fprintf(STDERR, "test value = " IF_ARM_ELSE("%d", "%ld") "\n", test_value);
+
+    dr_fprintf(STDERR, "setting TLS\n");
+
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_ALL;
+    dr_get_mcontext(drcontext, &mc);
+
+    orig_value = mc.IF_ARM_ELSE(r10, r28);
+
+    mc.IF_ARM_ELSE(r10, r28) = test_value;
+
+    dr_set_mcontext(drcontext, &mc);
+}
+
 static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
@@ -125,6 +180,19 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                 OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(next_next_instr)));
             break;
         }
+
+        // Look for mov <stolen-reg>, #0xdead.
+        ptr_int_t imm1 = 0;
+        if (instr_is_mov_constant(instr, &imm1) && opnd_is_reg(instr_get_dst(instr, 0)) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == dr_get_stolen_reg() &&
+            imm1 == 0xdead) {
+            dr_insert_clean_call(drcontext, bb, instr, (void *)change_stolen_reg_value,
+                                 false /*fpstate */, 0);
+
+            dr_insert_clean_call(drcontext, bb, instr,
+                                 (void *)read_and_restore_stolen_reg_value,
+                                 false /*fpstate */, 0);
+        }
     }
     return DR_EMIT_DEFAULT;
 }
@@ -133,6 +201,13 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
+    // Stop test failing silently if we ever change the stolen reg value.
+    if (dr_get_stolen_reg() != IF_ARM_ELSE(DR_REG_R10, DR_REG_R28)) {
+        dr_fprintf(STDERR,
+                   "ERROR: stolen reg value has changed, this test needs to be updated");
+        DR_ASSERT(false);
+    }
+
     dr_register_bb_event(bb_event);
     dr_register_restore_state_event(restore_event);
 }

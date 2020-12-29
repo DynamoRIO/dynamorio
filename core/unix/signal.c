@@ -233,6 +233,21 @@ static bool removed_sig_handler;
 
 os_cxt_ptr_t osc_empty;
 
+/* For delivering signals that arrive in now-native threads while we're still
+ * detaching other threads.  The thread that receives the signal has no dcontext
+ * anymore, so we need a global record of its handler (DR's handler is still registered
+ * with the kernel).
+ * XXX i#1921: To properly handle multiple separate signal handler thread groups
+ * within this single DR process domain, we would need a list of these, along with
+ * lists of threads within each.  Since that is very rare, and requires either
+ * hardcoded maximums or complexities with exit-time heap, we currently do not
+ * support that and die if asked to deliver a native signal in such circumstances.
+ */
+DECLARE_CXTSWPROT_VAR(static read_write_lock_t detached_sigact_lock,
+                      INIT_READWRITE_LOCK(detached_sigact_lock));
+static kernel_sigaction_t detached_sigact[SIGARRAY_SIZE];
+static bool multiple_handlers_present; /* Accessed using atomics, not the lock. */
+
 /**** function prototypes ***********************************************/
 
 /* in x86.asm */
@@ -260,6 +275,9 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 
 static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
+
+static void
+execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame);
 
 /* Execute default action from code cache and may terminate the process.
  * If returns, the return value decides if caller should restore
@@ -507,6 +525,7 @@ d_r_signal_init(void)
 void
 d_r_signal_exit()
 {
+    DELETE_READWRITE_LOCK(detached_sigact_lock);
     IF_LINUX(signalfd_exit());
     if (init_info.app_sigaction != NULL) {
         /* We never took over the app (e.g., standalone mode).  Restore its state. */
@@ -957,6 +976,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         } else {
             /* copy handlers */
             LOG(THREAD, LOG_ASYNCH, 2, "inheriting signal handlers from parent\n");
+            if (!atomic_read_bool(&multiple_handlers_present))
+                ATOMIC_1BYTE_WRITE(&multiple_handlers_present, true, false);
             info->app_sigaction = (kernel_sigaction_t **)handler_alloc(
                 dcontext, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
             memset(info->app_sigaction, 0, SIGARRAY_SIZE * sizeof(kernel_sigaction_t *));
@@ -2922,20 +2943,50 @@ get_sigcontext_from_pending(thread_sig_info_t *info, int sig)
  * If frame is NULL, assumes signal happened while in DR and has been delayed,
  * and thus we need to provide fpstate regardless of whether the original
  * had it.  If frame is non-NULL, matches frame's amount of fpstate.
+ * dcontext can be NULL if frame is non-NULL.
  */
 static byte *
-get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
+get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                       sigframe_rt_t *frame)
 {
-    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+    ASSERT(dcontext != NULL || frame != NULL);
     sigcontext_t *sc = (frame == NULL) ? get_sigcontext_from_pending(info, sig)
                                        : get_sigcontext_from_rt_frame(frame);
     byte *sp;
 
     if (frame != NULL) {
-        /* signal happened while in cache, grab interrupted xsp */
+        /* Signal happened natively or while in the cache: grab interrupted xsp. */
         sp = (byte *)sc->SC_XSP;
-        LOG(THREAD, LOG_ASYNCH, 3, "get_sigstack_frame_ptr: using frame's xsp " PFX "\n",
-            sp);
+        /* Handle DR's frame already being on the app stack.  For native delivery we
+         * could try to re-use this frame, but that doesn't work with plain vs rt.
+         * Instead we move below and live with the downsides of a potential stack
+         * overflow and confusing the app over why it's so low: but this is an app
+         * with no sigaltstack so it should have plenty of room.
+         */
+        size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
+            IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
+                                                 : signal_frame_extra_size(
+                                                       true)) +)) 64 /* align + slop */;
+        if (sp > (byte *)frame && sp < (byte *)frame + frame_sz_max) {
+            sp = (byte *)frame;
+            /* We're probably *on* the stack right where we want to put the frame! */
+            byte *cur_sp;
+            GET_STACK_PTR(cur_sp);
+            /* We have to copy the frame below our own stack usage high watermark
+             * in the rest of the code we'll execute from execute_native_handler().
+             * Kind of a mess.  For now we estimate two pages which should be plenty
+             * and still not be egregious usage for most app stacks.
+             */
+#define EXECUTE_NATIVE_STACK_USAGE (4096 * 2)
+            if (sp > cur_sp && sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE < cur_sp) {
+                sp = cur_sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE;
+            }
+            LOG(THREAD, LOG_ASYNCH, 3,
+                "get_sigstack_frame_ptr: moving beyond same-stack frame to %p\n", sp);
+        } else {
+            LOG(THREAD, LOG_ASYNCH, 3,
+                "get_sigstack_frame_ptr: using frame's xsp " PFX "\n", sp);
+        }
     } else {
         /* signal happened while in DR, use stored xsp */
         sp = (byte *)get_mcontext(dcontext)->xsp;
@@ -3054,16 +3105,15 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
  * the intra-frame absolute pointers to point to the new addresses
  * in f_new.
  * Only updates the pretcode to the stored app restorer if for_app.
+ * dcontext can be NULL (which is why we take in info).
  */
-void
-fixup_rtframe_pointers(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
-                       sigframe_rt_t *f_new, bool for_app, size_t f_new_alloc_size)
+static void
+fixup_rtframe_pointers(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                       sigframe_rt_t *f_old, sigframe_rt_t *f_new, bool for_app,
+                       size_t f_new_alloc_size)
 {
-    if (dcontext == NULL)
-        dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
+    ASSERT(info != NULL);
 #if defined(X86) && defined(LINUX)
-    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     bool has_restorer = sig_has_restorer(info, sig);
 #    ifdef DEBUG
     uint level = 3;
@@ -3199,6 +3249,9 @@ memcpy_rt_frame(sigframe_rt_t *frame, byte *dst, bool from_pending)
         return;
     }
 #endif
+    /* Ensure no overlap. */
+    ASSERT(dst >= (byte *)(frame + 1) + signal_frame_extra_size(true) ||
+           dst + sizeof(sigframe_rt_t) + signal_frame_extra_size(true) <= (byte *)frame);
     memcpy(dst, frame, sizeof(sigframe_rt_t));
 }
 
@@ -3209,12 +3262,12 @@ memcpy_rt_frame(sigframe_rt_t *frame, byte *dst, bool from_pending)
  * If no restorer, touches up pretcode
  * (and if rt_frame, touches up pinfo and puc)
  * Also touches up fpstate pointer
+ * dcontext can be NULL (which is why we take in info).
  */
 static void
-copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *sp,
-                    bool from_pending)
+copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                    sigframe_rt_t *frame, byte *sp, bool from_pending)
 {
-    thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     bool rtframe = IS_RT_FOR_APP(info, sig);
     uint frame_size = get_app_frame_size(info, sig);
 #if defined(LINUX) && defined(X86_32)
@@ -3242,17 +3295,24 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
                                           false /* don't own initexit_lock */,
                                           false /* keep futures */);
     }
-    TRY_EXCEPT(dcontext, /* try */
-               {
-                   if (rtframe) {
-                       ASSERT(frame_size == sizeof(*frame));
-                       memcpy_rt_frame(frame, sp, from_pending);
-                   }
-                   IF_NOT_X64(
-                       IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
-                                                            (sigframe_plain_t *)sp);));
-               },
-               /* except */ { stack_unwritable = true; });
+    ASSERT(!rtframe || frame_size == sizeof(*frame));
+    if (dcontext == NULL) {
+        /* We have no safe-read mechanism so we do the best we can: blindly copy. */
+        if (rtframe)
+            memcpy_rt_frame(frame, sp, from_pending);
+        IF_NOT_X64(IF_LINUX(
+            else convert_frame_to_nonrt(dcontext, sig, frame, (sigframe_plain_t *)sp);));
+    } else {
+        TRY_EXCEPT(dcontext, /* try */
+                   {
+                       if (rtframe)
+                           memcpy_rt_frame(frame, sp, from_pending);
+                       IF_NOT_X64(
+                           IF_LINUX(else convert_frame_to_nonrt(
+                                        dcontext, sig, frame, (sigframe_plain_t *)sp);));
+                   },
+                   /* except */ { stack_unwritable = true; });
+    }
     if (stack_unwritable) {
         /* Override the no-nested check in record_pending_signal(): it's ok b/c
          * receive_pending_signal() calls to here at a consistent point,
@@ -3287,7 +3347,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     /* fix up pretcode, pinfo, puc, fpstate */
     if (rtframe) {
         sigframe_rt_t *f_new = (sigframe_rt_t *)sp;
-        fixup_rtframe_pointers(dcontext, sig, frame, f_new, true /*for app*/, size);
+        fixup_rtframe_pointers(dcontext, info, sig, frame, f_new, true /*for app*/, size);
 #ifdef HAVE_SIGALTSTACK
         /* Make sure the frame's sigstack reflects the app stack, both for transparency
          * of the app examining it and for correctness if we detach mid-handler.
@@ -3391,7 +3451,8 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig,
 
 #ifdef MACOS
     /* We rely on puc to find sc to we have to fix it up */
-    fixup_rtframe_pointers(dcontext, sig, frame, dst, false /*!for app*/, sizeof(*dst));
+    fixup_rtframe_pointers(dcontext, info, sig, frame, dst, false /*!for app*/,
+                           sizeof(*dst));
 #endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_pending from " PFX "\n", frame);
@@ -4173,6 +4234,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             "record_pending_signal(%d at pc " PFX "): signal is currently blocked\n", sig,
             pc);
         IF_LINUX(handled = notify_signalfd(dcontext, info, sig, frame));
+    } else if (dcontext->currently_stopped) {
+        /* We have no way to delay for a currently-native thread. */
+        LOG(THREAD, LOG_ASYNCH, 2, "Going to receive signal natively now\n");
+        execute_native_handler(dcontext, sig, frame);
+        handled = true;
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
         LOG(THREAD, LOG_ASYNCH, 2, "record_pending_signal(%d) from cache pc " PFX "\n",
             sig, pc);
@@ -4919,27 +4985,6 @@ master_signal_handler_C(byte *xsp)
     }
 #endif
 
-    /* We are dropping asynchronous signals during detach. The thread may already have
-     * lost its TLS (xref i#3535). A safe read may result in a crash if DR's SIGSEGV
-     * handler is removed before the safe read's SIGSEGV is delivered.
-     *
-     * Note that besides dropping potentially important signals, there is still a small
-     * race window if the signal gets delivered after the detach has finished, i.e.
-     * doing detach is false. This is an issue in particular if the app has started
-     * re-attaching.
-     *
-     * Signals that are not clearly asynchronous may hit corner case(s) of i#3535.
-     * (xref i#26).
-     */
-    if (doing_detach && can_always_delay[sig]) {
-        DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
-        SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler with unreliable dcontext "
-                              "during detach. Signal will be dropped and we're continuing"
-                              " (i#3535?): tid=%d, sig=%d",
-                              get_sys_thread_id(), sig);
-        return;
-    }
-
     dcontext_t *dcontext = get_thread_private_dcontext();
 
 #ifdef MACOS
@@ -5024,17 +5069,21 @@ master_signal_handler_C(byte *xsp)
         (dcontext != GLOBAL_DCONTEXT &&
          (dcontext->signal_field == NULL ||
           !((thread_sig_info_t *)dcontext->signal_field)->fully_initialized))) {
-        /* FIXME: || !intercept_asynch, or maybe !under_our_control */
-        /* FIXME i#26: this could be a signal arbitrarily sent to this thread.
+        /* XXX i#26: this could be a signal arbitrarily sent to this thread.
          * We could try to route it to another thread, using a global queue
          * of pending signals.  But what if it was targeted to this thread
          * via SYS_{tgkill,tkill}?  Can we tell the difference, even if
          * we watch the kill syscalls: could come from another process?
+         * For now we use our native thread signal delivery mechanism.
          */
         if (sig_is_alarm_signal(sig)) {
-            /* assuming an alarm during thread exit or init (xref PR 596127,
-             * i#359): suppressing is fine
+            /* Assuming an alarm during thread exit or init (xref PR 596127,
+             * i#359).  Delivering it sometimes works, but we could be mid-init
+             * where it's not easy and we could crash b/c of in-between state
+             * (observed for alarm mid-signal_thread_init where info->app_sigaction
+             * is still NULL).
              */
+            return;
         } else if (sig == SUSPEND_SIGNAL && dcontext == NULL) {
             /* We sent SUSPEND_SIGNAL to a thread we don't control (no
              * dcontext), which means we want to take over.
@@ -5044,26 +5093,18 @@ master_signal_handler_C(byte *xsp)
                 return;
             ASSERT_NOT_REACHED(); /* else, shouldn't return */
         } else {
-            /* Using global dcontext because dcontext is NULL here. */
+            LOG(GLOBAL, LOG_ASYNCH, 1,
+                "signal with no siginfo (tid=%d, sig=%d): attempting to deliver to "
+                "native thread\n",
+                get_sys_thread_id(), sig);
             DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
-            SYSLOG_INTERNAL_ERROR("ERROR: master_signal_handler with no siginfo "
-                                  "(i#26?): tid=%d, sig=%d",
-                                  get_sys_thread_id(), sig);
         }
-        /* see FIXME comments above.
-         * workaround for now: suppressing is better than dying.
-         */
-        if (can_always_delay[sig])
-            return;
 
-        char signum_str[8];
-        snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
-        NULL_TERMINATE_BUFFER(signum_str);
-        char tid_str[16];
-        snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
-        NULL_TERMINATE_BUFFER(tid_str);
-        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 4, get_application_name(),
-                                    get_application_pid(), signum_str, tid_str);
+        /* For can_always_delay[sig] we could just return and drop it, but we
+         * try to perturb the app behavior less with a native signal frame:
+         */
+        execute_native_handler(dcontext, sig, frame);
+        return;
     }
 
     /* we may be entering dynamo from code cache! */
@@ -5320,6 +5361,10 @@ master_signal_handler_C(byte *xsp)
             }
         }
         /* pass it to the application (or client) */
+        if (dcontext->currently_stopped) {
+            execute_native_handler(dcontext, sig, frame);
+            break;
+        }
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc " PFX " in thread " TIDFMT "\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, d_r_get_thread_id());
@@ -5414,7 +5459,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
      * This is the translated xsp, so we avoid PR 306410 (cleancall arg fault
      * on dstack => handler run on dstack) that Windows hit.
      */
-    byte *xsp = get_sigstack_frame_ptr(dcontext, sig,
+    byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig,
                                        our_frame/* take xsp from (translated)
                                                  * interruption point */);
 
@@ -5453,7 +5498,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     LOG(THREAD, LOG_ASYNCH, 3, "\txsp is " PFX "\n", xsp);
 
     /* copy frame to appropriate stack and convert to non-rt if necessary */
-    copy_frame_to_stack(dcontext, sig, our_frame, (void *)xsp, false /*!pending*/);
+    copy_frame_to_stack(dcontext, info, sig, our_frame, (void *)xsp, false /*!pending*/);
     LOG(THREAD, LOG_ASYNCH, 3, "\tcopied frame from " PFX " to " PFX "\n", our_frame,
         xsp);
     sigcontext_t *app_sc = get_sigcontext_from_app_frame(info, sig, (void *)xsp);
@@ -5536,7 +5581,7 @@ static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-    byte *xsp = get_sigstack_frame_ptr(dcontext, sig, NULL);
+    byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig, NULL);
     sigframe_rt_t *frame = &(info->sigpending[sig]->rt_frame);
     priv_mcontext_t *mcontext = get_mcontext(dcontext);
     sigcontext_t *sc;
@@ -5684,7 +5729,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      * chance to make changes, copy the frame to the appropriate stack
      * location and convert to non-rt if necessary
      */
-    copy_frame_to_stack(dcontext, sig, frame, xsp, true /*pending*/);
+    copy_frame_to_stack(dcontext, info, sig, frame, xsp, true /*pending*/);
     /* now point at the app's frame */
     sc = get_sigcontext_from_app_frame(info, sig, (void *)xsp);
 
@@ -5761,6 +5806,161 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to " PFX "\n", xsp);
     return true;
+}
+
+/* Does not return. */
+static void
+report_unhandleable_signal_and_exit(int sig)
+{
+    /* TODO i#1921: Add more info such as the PC and disasm of surrounding instrs. */
+    char signum_str[8];
+    snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
+    NULL_TERMINATE_BUFFER(signum_str);
+    char tid_str[16];
+    snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
+    NULL_TERMINATE_BUFFER(tid_str);
+    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 4, get_application_name(),
+                                get_application_pid(), signum_str, tid_str);
+}
+
+/* Sends a signal to a currently-native thread.  dcontext can be NULL. */
+static void
+execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
+{
+    /* If dcontext is NULL, we use a synthetic info struct where we fill in the
+     * info we need: the app's sigaction and sigstack settings.
+     */
+    thread_sig_info_t synthetic = {};
+    kernel_sigaction_t *sigact_array[SIGARRAY_SIZE] = {};
+    bool intercept_array[SIGARRAY_SIZE];
+    kernel_sigaction_t sigact_struct;
+    thread_sig_info_t *info;
+    LOG(THREAD, LOG_ASYNCH, 2, "%s for signal %d in thread " TIDFMT "\n", __FUNCTION__,
+        sig, get_sys_thread_id());
+    if (dcontext != NULL) {
+        info = (thread_sig_info_t *)dcontext->signal_field;
+    } else {
+        if (atomic_read_bool(&multiple_handlers_present)) {
+            /* See i#1921 comment up top: we don't handle this. */
+            report_unhandleable_signal_and_exit(sig);
+            ASSERT_NOT_REACHED();
+        }
+        info = &synthetic;
+        synthetic.we_intercept = intercept_array;
+        synthetic.we_intercept[sig] = true;
+        synthetic.app_sigaction = sigact_array;
+        synthetic.app_sigaction[sig] = &sigact_struct;
+        d_r_read_lock(&detached_sigact_lock);
+        memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
+        d_r_read_unlock(&detached_sigact_lock);
+#ifdef HAVE_SIGALTSTACK
+        IF_DEBUG(int rc =)
+        sigaltstack_syscall(NULL, &synthetic.app_sigstack);
+        ASSERT(rc == 0);
+#endif
+    }
+    kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
+    kernel_sigset_t blocked;
+    byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig, our_frame);
+
+    /* We do not send the signal to clients as it is not a managed thread and we
+     * cannot really take any action except send it to the native handler.
+     */
+
+    if (info->app_sigaction[sig] == NULL ||
+        info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
+        /* TODO i#1921: We want to call:
+         *   execute_default_from_cache(dcontext, sig, our_frame, sc, false)
+         * But we need to pass in our sythentic info.
+         * And not all that callee's code will work with a NULL dcontext yet: it needs
+         * some work.
+         * Plus it calls handle_free() which we need to arrange for.
+         * For now we bail.
+         */
+        if (can_always_delay[sig]) {
+            /* We are dropping asynchronous signals during detach. The thread may
+             * already have lost its TLS (xref i#3535). A safe read may result in a
+             * crash if DR's SIGSEGV handler is removed before the safe read's
+             * SIGSEGV is delivered.
+             *
+             * Note that besides dropping potentially important signals, there is
+             * still a small race window if the signal gets delivered after the
+             * detach has finished, i.e.  doing detach is false. This is an issue in
+             * particular if the app has started re-attaching.
+             *
+             * Signals that are not clearly asynchronous may hit corner case(s) of
+             * i#3535.  (xref i#26).
+             */
+            if (doing_detach) {
+                DOLOG(1, LOG_ASYNCH, { dump_sigcontext(GLOBAL_DCONTEXT, sc); });
+                SYSLOG_INTERNAL_ERROR(
+                    "Signal in native thread during detach with default action is not "
+                    "fully supported: dropping and continuing (tid=%d, sig=%d)",
+                    get_sys_thread_id(), sig);
+            }
+            return; /* Just drop the signal. */
+        }
+        if (default_action[sig] == DEFAULT_IGNORE)
+            return;
+        report_unhandleable_signal_and_exit(sig);
+        ASSERT_NOT_REACHED();
+        return;
+    }
+    ASSERT(info->app_sigaction[sig] != NULL &&
+           info->app_sigaction[sig]->handler != (handler_t)SIG_IGN &&
+           info->app_sigaction[sig]->handler != (handler_t)SIG_DFL);
+
+    RSTATS_INC(num_signals);
+    RSTATS_INC(num_native_signals);
+    report_app_problem(dcontext, APPFAULT_FAULT, (byte *)sc->SC_XIP, (byte *)sc->SC_FP,
+                       "\nSignal %d delivered to application handler.\n", sig);
+
+    copy_frame_to_stack(dcontext, info, sig, our_frame, (void *)xsp, false /*!pending*/);
+
+    blocked = info->app_sigaction[sig]->mask;
+    if (!TEST(SA_NOMASK, (info->app_sigaction[sig]->flags)))
+        kernel_sigaddset(&blocked, sig);
+    sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
+    DOLOG(2, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals in frame:\n");
+        dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
+    });
+
+    /* Now edit the resumption point when master_signal_handler returns to go
+     * straight to the app handler.
+     */
+    sc->SC_XSP = (ptr_uint_t)xsp;
+/* Set up args to handler. */
+#ifdef X86_64
+    sc->SC_XDI = sig;
+    sc->SC_XSI = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+    sc->SC_XDX = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+#elif defined(AARCHXX)
+    sc->SC_R0 = sig;
+    if (IS_RT_FOR_APP(info, sig)) {
+        sc->SC_R1 = (reg_t) & ((sigframe_rt_t *)xsp)->info;
+        sc->SC_R2 = (reg_t) & ((sigframe_rt_t *)xsp)->uc;
+    }
+    if (sig_has_restorer(info, sig))
+        sc->SC_LR = (reg_t)info->app_sigaction[sig]->restorer;
+    else
+        sc->SC_LR = (reg_t)dynamorio_sigreturn;
+#endif
+    sc->SC_XIP = (reg_t)SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]);
+
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: set pc to handler %p with xsp=%p\n", __FUNCTION__,
+        SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]), xsp);
+
+    if (TEST(SA_ONESHOT, detached_sigact[sig].flags)) {
+        /* XXX: When we remove DR's handler from the final thread we'll ignore this
+         * delivery: but we can't safely access that data struct here.  The best we
+         * can do is avoid delivering twice ourselves.
+         */
+        d_r_write_lock(&detached_sigact_lock);
+        memset(&detached_sigact[sig], 0, sizeof(detached_sigact[sig]));
+        d_r_write_unlock(&detached_sigact_lock);
+    }
 }
 
 /* The arg to SYS_kill, i.e., the signal number, should be in dcontext->sys_param0 */
@@ -7331,6 +7531,27 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
 
     LOG(THREAD, LOG_ASYNCH, 1, "%s: detaching\n", __FUNCTION__);
 
+    if (!atomic_read_bool(&multiple_handlers_present)) {
+        /* Save the app's handlers (we only support one handler setups) for
+         * execute_native_handler().
+         */
+        d_r_read_lock(&detached_sigact_lock);
+        for (int i = 0; i < SIGARRAY_SIZE; ++i) {
+            if (info->app_sigaction[i] != NULL &&
+                detached_sigact[i].handler == (handler_t)0) {
+                d_r_read_unlock(&detached_sigact_lock);
+                d_r_write_lock(&detached_sigact_lock);
+                if (detached_sigact[i].handler == (handler_t)0) {
+                    memcpy(&detached_sigact[i], info->app_sigaction[i],
+                           sizeof(detached_sigact[i]));
+                }
+                d_r_write_unlock(&detached_sigact_lock);
+                d_r_read_lock(&detached_sigact_lock);
+            }
+        }
+        d_r_read_unlock(&detached_sigact_lock);
+    }
+
     /* Update the mask of the signal frame so that the later sigreturn will
      * restore the app signal mask.
      */
@@ -7341,8 +7562,8 @@ sig_detach(dcontext_t *dcontext, sigframe_rt_t *frame, KSYNCH_TYPE *detached)
      * the app stack: we assume the app stack is writable where we need it to be,
      * and that we're not clobbering any app data beyond TOS.
      */
-    xsp = get_sigstack_frame_ptr(dcontext, SUSPEND_SIGNAL, frame);
-    copy_frame_to_stack(dcontext, SUSPEND_SIGNAL, frame, xsp, false /*!pending*/);
+    xsp = get_sigstack_frame_ptr(dcontext, info, SUSPEND_SIGNAL, frame);
+    copy_frame_to_stack(dcontext, info, SUSPEND_SIGNAL, frame, xsp, false /*!pending*/);
 
 #ifdef HAVE_SIGALTSTACK
     /* Make sure the frame's sigstack reflects the app stack.

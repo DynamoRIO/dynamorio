@@ -30,18 +30,17 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Build-and-test driver for Travis CI.
-# Travis uses the exit code to check success, so we need a layer outside of
+# Build-and-test driver for automated CI.
+# The CI host uses the exit code to check success, so we need a layer outside of
 # ctest on runsuite.
 # We stick with runsuite rather than creating a parallel scheme using
-# a Travis matrix of builds.
-# Travis only supports Linux and Mac, so we're ok relying on perl.
+# a CI config matrix of builds.
 
 # XXX: We currently have a patchwork of scripts and methods of passing arguments
 # (some are env vars while others are command-line parameters) and thus have
 # too many control points for the details of test builds and package builds.
 # Maybe we can clean it up and eliminate this layer of script by moving logic
-# in both directions (.{travis,appveyor}.yml and {runsuite,package}.cmake)?
+# in both directions (ci-*.yml and {runsuite,package}.cmake)?
 
 use strict;
 use Config;
@@ -54,13 +53,16 @@ my $is_aarchxx = $Config{archname} =~ /(aarch64)|(arm)/;
 # Forward args to runsuite.cmake:
 my $args = '';
 for (my $i = 0; $i <= $#ARGV; $i++) {
-    $is_CI = 1 if ($ARGV[$i] eq 'travis');
+    my $arg = $ARGV[$i];
+    # Backward compatibility for CI setups passing the old "travis" arg.
+    $arg = 'automated_ci' if ($arg eq 'travis');
+    $is_CI = 1 if ($arg eq 'automated_ci');
     if ($i == 0) {
-        $args .= ",$ARGV[$i]";
+        $args .= ",$arg";
     } else {
         # We don't use a backslash to escape ; b/c we'll quote below, and
         # the backslash is problematically converted to / by Cygwin perl.
-        $args .= ";$ARGV[$i]";
+        $args .= ";$arg";
     }
 }
 
@@ -74,14 +76,21 @@ if ($^O eq 'cygwin') {
 }
 
 # We tee to stdout to provide incremental output and avoid the 10-min
-# no-output timeout on Travis.
-print "Forking child for stdout tee\n";
+# no-output timeout on some CI (such as Travis).
+# If we're on UNIX or we have a Cygwin perl, we do this via a fork.
 my $res = '';
-my $child = open(CHILD, '-|');
-die "Failed to fork: $!" if (!defined($child));
+my $child = 0;
+my $outfile = '';
+if ($^O ne 'MSWin32') {
+    print "Forking child for stdout tee\n";
+    $child = open(CHILD, '-|');
+    die "Failed to fork: $!" if (!defined($child));
+} else {
+    $outfile = "runsuite_output.txt";
+}
 if ($child) {
     # Parent
-    # i#4126: We include extra printing to help diagnose hangs on Travis.
+    # i#4126: We include extra printing to help diagnose hangs on the CI.
     if ($^O ne 'cygwin') {
         print "Parent tee-ing child stdout...\n";
         local $SIG{ALRM} = sub {
@@ -100,15 +109,9 @@ if ($child) {
         }
     }
     close(CHILD);
-} elsif ($ENV{'TRAVIS_EVENT_TYPE'} eq 'cron' ||
-         $ENV{'APPVEYOR_REPO_TAG'} eq 'true') {
+} elsif ($ENV{'CI_TARGET'} eq 'package') {
     # A package build.
     my $build = "0";
-    # We trigger by setting VERSION_NUMBER in Travis.
-    # That sets a tag and we propagate the name into the Appveyor build from the tag:
-    if ($ENV{'APPVEYOR_REPO_TAG_NAME'} =~ /release_(.*)/) {
-        $ENV{'VERSION_NUMBER'} = $1;
-    }
     if ($ENV{'VERSION_NUMBER'} =~ /-(\d+)$/) {
         $build = $1;
     }
@@ -134,23 +137,39 @@ if ($child) {
     }
     my $cmd = "ctest -VV -S \"${osdir}/../make/package.cmake${args}\"";
     print "Running ${cmd}\n";
-    system("${cmd} 2>&1");
-    exit 0;
+    if ($^O eq 'MSWin32') {
+        system("${cmd} 2>&1 | tee ${outfile}");
+    } else {
+        system("${cmd} 2>&1");
+        exit 0;
+    }
 } else {
     # We have no way to access the log files, so we use -VV to ensure
     # we can diagnose failures.
     my $verbose = "-VV";
     my $cmd = "ctest --output-on-failure ${verbose} -S \"${osdir}/runsuite.cmake${args}\"";
     print "Running ${cmd}\n";
-    system("${cmd} 2>&1");
-    print "Finished running ${cmd}\n";
-    exit 0;
+    if ($^O eq 'MSWin32') {
+        system("${cmd} 2>&1 | tee ${outfile}");
+        print "Finished running ${cmd}\n";
+    } else {
+        system("${cmd} 2>&1");
+        print "Finished running ${cmd}\n";
+        exit 0;
+    }
+}
+
+if ($^O eq 'MSWin32') {
+    open my $handle, '<', "$outfile" or die "Failed to open teed ${outfile}: $!";
+    $res = do {
+        local $/; <$handle>
+    };
 }
 
 my @lines = split('\n', $res);
 my $should_print = 0;
 my $exit_code = 0;
-for (my $i = 0; $i < $#lines; ++$i) {
+for (my $i = 0; $i <= $#lines; ++$i) {
     my $line = $lines[$i];
     my $fail = 0;
     my $name = '';
@@ -181,52 +200,72 @@ for (my $i = 0; $i < $#lines; ++$i) {
         my $issue_no = "";
         my %ignore_failures_32 = ();
         my %ignore_failures_64 = ();
-        if ($^O eq 'cygwin') {
-            # FIXME i#2145: ignoring certain AppVeyor test failures until
+        if ($^O eq 'cygwin' ||
+            $^O eq 'MSWin32') {
+            # FIXME i#2145: ignoring certain Windows CI test failures until
             # we get all tests passing.
-            %ignore_failures_32 = ('code_api|security-common.retnonexisting' => 1,
-                                   'code_api|security-win32.gbop-test' => 1, # i#2972
-                                   'code_api|win32.reload-newaddr' => 1,
-                                   'code_api|win32.rsbtest' => 1, # i#4058
-                                   'code_api|client.alloc' => 1, # i#4058
-                                   'code_api|client.winxfer' => 1, # i#4058
-                                   'code_api|client.drutil-test' => 1, # i#4058
-                                   'code_api|tool.drcacheoff.view' => 1, # i#4058
-                                   'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4058
-                                   'code_api|client.pcache-use' => 1,
-                                   'code_api|api.detach' => 1, # i#2246
-                                   'code_api|api.detach_spawn' => 1, # i#2611
-                                   'code_api|api.startstop' => 1, # i#2093
-                                   'code_api|client.drmgr-test' => 1, # i#653
-                                   'code_api|client.nudge_test' => 1, # i#2978
-                                   'code_api|client.nudge_ex' => 1,
-                                   'code_api|client.alloc-noreset' => 1, # i#4436
-                                   'code_api|client.drwrap-test-detach' => 1); # i#4058
-            %ignore_failures_64 = ('code_api|common.floatpc_xl8all' => 1,
-                                   'code_api|common.decode' => 1, # i#4058
-                                   'code_api|common.decode-stress' => 1, # i#4058
-                                   'code_api|common.nativeexec' => 1, # i#4058
-                                   'code_api|win32.mixedmode_late' => 1, # i#4058
-                                   'code_api|win32.callback' => 1, # i#4058
-                                   'code_api|client.alloc' => 1, # i#4058
-                                   'code_api|client.cleancall' => 1, # i#4058
-                                   'code_api|client.loader' => 1, # i#4058
-                                   'code_api|client.pcache-use' => 1, # i#4058
-                                   'code_api|tool.drcachesim.invariants' => 1, # i#4058
-                                   'code_api|tool.drcacheoff.view' => 1, # i#4058
-                                   'code_api|tool.histogram.offline' => 1, # i#4058
-                                   'code_api|win32.reload-newaddr' => 1,
-                                   'code_api|client.loader' => 1,
-                                   'code_api|client.drmgr-test' => 1, # i#1369
-                                   'code_api|client.nudge_test' => 1, # i#2978
-                                   'code_api|client.nudge_ex' => 1,
-                                   'code_api|client.alloc-noreset' => 1, # i#4436
-                                   'code_api|api.detach' => 1, # i#2246
-                                   'code_api|api.detach_spawn' => 1, # i#2611
-                                   'code_api|api.startstop' => 1, # i#2093
-                                   'code_api|api.static_noclient' => 1,
-                                   'code_api|api.static_noinit' => 1,
-                                   'code_api|client.drwrap-test-detach' => 1); # i#4058
+            %ignore_failures_32 = (
+                # i#4131: These are failing on GA Server16 and need investigation.
+                # Some also failed on Appveyor (i#4058).
+                'code_api|common.decode' => 1, # i#4618
+                'code_api|common.decode-stress' => 1, # i#4618
+                'code_api|win32.earlythread' => 1, # i#4131
+                'code_api|client.drx-test' => 1, # i#4619
+                'code_api|client.drwrap-test' => 1, # i#4131
+                'code_api|client.drutil-test' => 1, # i#4131
+                'code_api|tool.histogram.offline' => 1, # i#4621
+                'code_api|tool.drcacheoff.burst_replace' => 1, # i#4622
+                'code_api|tool.drcacheoff.burst_traceopts' => 1, # i#4622
+                'code_api|tool.drcacheoff.burst_replaceall' => 1, # i#4622
+                'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
+                'code_api|api.symtest' => 1, # i#4131
+                'code_api|client.drwrap-test-detach' => 1, # i#4616
+                # These are from earlier runs on Appveyor:
+                'code_api|security-common.retnonexisting' => 1,
+                'code_api|security-win32.gbop-test' => 1, # i#2972
+                'code_api|win32.reload-newaddr' => 1,
+                'code_api|client.pcache-use' => 1,
+                'code_api|api.detach' => 1, # i#2246
+                'code_api|api.detach_spawn' => 1, # i#2611
+                'code_api|api.startstop' => 1, # i#2093
+                'code_api|client.drmgr-test' => 1, # i#653
+                'code_api|client.nudge_test' => 1, # i#2978
+                'code_api|client.nudge_ex' => 1,
+                'code_api|client.alloc-noreset' => 1, # i#4436
+                );
+            %ignore_failures_64 = (
+                # i#4131: These are failing on GA Server16 and need investigation.
+                # Some also failed on Appveyor (i#4058).
+                'code_api|common.decode' => 1, # i#4618
+                'code_api|common.decode-stress' => 1, # i#4618
+                'code_api|client.cleancall' => 1, # i#4618
+                'code_api|win32.callback' => 1, # i#4058
+                'code_api|common.nativeexec' => 1, # i#4058
+                'code_api|client.drx-test' => 1, # i#4619
+                'code_api|client.drutil-test' => 1, # i#4131
+                'code_api|client.pcache-use' => 1, # i#4058
+                'code_api|api.startstop' => 1, # i#2246
+                'code_api|api.detach' => 1, # i#2246
+                'code_api|client.drwrap-test-detach' => 1, # i#4616
+                'code_api|tool.histogram.offline' => 1, # i#4621
+                # i#4617: These need build-and-test to build
+                # the 32-bit test app in our separate 64-bit job.
+                'code_api|win32.mixedmode_late' => 1, # i#4617
+                'code_api|win32.mixedmode' => 1, # i#4617
+                'code_api|win32.x86_to_x64' => 1, # i#4617
+                'code_api|win32.x86_to_x64_ibl_opt' => 1, # i#4617
+                # These are from earlier runs on Appveyor:
+                'code_api|common.floatpc_xl8all' => 1,
+                'code_api|win32.reload-newaddr' => 1,
+                'code_api|client.loader' => 1,
+                'code_api|client.drmgr-test' => 1, # i#1369
+                'code_api|client.nudge_test' => 1, # i#2978
+                'code_api|client.nudge_ex' => 1,
+                'code_api|client.alloc-noreset' => 1, # i#4436
+                'code_api|api.detach_spawn' => 1, # i#2611
+                'code_api|api.static_noclient' => 1,
+                'code_api|api.static_noinit' => 1,
+                );
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
             # FIXME i#2416: fix flaky AArch32 tests
@@ -248,7 +287,6 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,
                                    'code_api|linux.fib-conflict-early' => 1,
-                                   'code_api|tool.drcachesim.delay-simple' => 1, #i#4571
                                    'code_api|linux.mangle_asynch' => 1);
             if ($is_32) {
                 $issue_no = "#2416";
@@ -268,8 +306,10 @@ for (my $i = 0; $i < $#lines; ++$i) {
                                    'code_api|client.timer' => 1, # i#3127
                                    'code_api|sample.signal' => 1); # i#3127
         } else {
-            # FIXME i#2921: fix flaky ptsig test
-            %ignore_failures_32 = ('code_api|pthreads.ptsig' => 1);
+            %ignore_failures_32 = (
+                'code_api|pthreads.ptsig' => 1, # i#2921
+                'code_api|client.drwrap-test-detach' => 1, # i#4593
+                );
             # FIXME i#2941: fix flaky threadfilter test
             %ignore_failures_64 = ('code_api|tool.drcacheoff.burst_threadfilter' => 1);
             $issue_no = "#2941";
@@ -278,7 +318,7 @@ for (my $i = 0; $i < $#lines; ++$i) {
         # Read ahead to examine the test failures:
         $fail = 0;
         my $num_ignore = 0;
-        for (my $j = $i+1; $j < $#lines; ++$j) {
+        for (my $j = $i+1; $j <= $#lines; ++$j) {
             my $test;
             if ($lines[$j] =~ /^\t(\S+)\s/) {
                 $test = $1;

@@ -450,7 +450,7 @@ test_all_opcodes_4(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part A: Split in half to avoid a VS2013 compiler bug i#3992.
+/* Part A: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
 static void
@@ -461,7 +461,7 @@ test_all_opcodes_4_avx512_evex_mask_A(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part B: Split in half to avoid a VS2013 compiler bug i#3992.
+/* Part B: Split up to avoid VS running out of memory (i#3992,i#4610).
  * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
  */
 static void
@@ -472,7 +472,18 @@ test_all_opcodes_4_avx512_evex_mask_B(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part A: Split in half to avoid a VS2013 compiler bug i#3992. */
+/* Part C: Split up to avoid VS running out of memory (i#3992,i#4610).
+ * (The _scaled_disp8 versions are what hit the OOM but we split this one too.)
+ */
+static void
+test_all_opcodes_4_avx512_evex_mask_C(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_C.h"
+#    include "ir_x86_all_opc.h"
+#    undef INCLUDE_NAME
+}
+
+/* Part A: Split up to avoid VS running out of memory (i#3992,i#4610). */
 static void
 test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
 {
@@ -483,11 +494,22 @@ test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(void *dc)
 #    undef INCLUDE_NAME
 }
 
-/* Part B: Split in half to avoid a VS2013 compiler bug i#3992. */
+/* Part B: Split up to avoid VS running out of memory (i#3992,i#4610). */
 static void
 test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(void *dc)
 {
 #    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_B.h"
+    memarg_disp = EVEX_SCALABLE_DISP;
+#    include "ir_x86_all_opc.h"
+    memarg_disp = DEFAULT_DISP;
+#    undef INCLUDE_NAME
+}
+
+/* Part C: Split up to avoid VS running out of memory (i#3992,i#4610). */
+static void
+test_all_opcodes_4_avx512_evex_mask_scaled_disp8_C(void *dc)
+{
+#    define INCLUDE_NAME "ir_x86_4args_avx512_evex_mask_C.h"
     memarg_disp = EVEX_SCALABLE_DISP;
 #    include "ir_x86_all_opc.h"
     memarg_disp = DEFAULT_DISP;
@@ -2049,6 +2071,16 @@ test_xinst_create(void *dc)
     ASSERT(instr_same(ins1, ins2));
     instr_destroy(dc, ins1);
     instr_destroy(dc, ins2);
+    /* indirect call through a register */
+    ins1 = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_XBX));
+    pc = instr_encode(dc, ins1, buf);
+    ASSERT(pc != NULL);
+    ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(ins1, ins2));
+    ASSERT(instr_get_opcode(ins2) == OP_call_ind);
+    instr_destroy(dc, ins1);
+    instr_destroy(dc, ins2);
 }
 
 static void
@@ -2436,6 +2468,7 @@ main(int argc, char *argv[])
     test_all_opcodes_5_avx512_evex_mask(dcontext);
     test_all_opcodes_4_avx512_evex_mask_A(dcontext);
     test_all_opcodes_4_avx512_evex_mask_B(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_C(dcontext);
     test_all_opcodes_4_avx512_evex(dcontext);
     test_all_opcodes_3_avx512_evex(dcontext);
     test_all_opcodes_2_avx512_evex(dcontext);
@@ -2448,6 +2481,7 @@ main(int argc, char *argv[])
     test_all_opcodes_5_avx512_evex_mask_scaled_disp8(dcontext);
     test_all_opcodes_4_avx512_evex_mask_scaled_disp8_A(dcontext);
     test_all_opcodes_4_avx512_evex_mask_scaled_disp8_B(dcontext);
+    test_all_opcodes_4_avx512_evex_mask_scaled_disp8_C(dcontext);
     test_all_opcodes_4_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_3_avx512_evex_scaled_disp8(dcontext);
     test_all_opcodes_2_avx512_evex_scaled_disp8(dcontext);

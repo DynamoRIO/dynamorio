@@ -28,9 +28,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# Github Actions workflow for AArchXX Continuous Integration testing.
+# Github Actions workflow for Windows Continuous Integration testing.
 
-name: ci-aarchxx
+# TODO i#2145: point at Qt5 for testing drgui build.
+
+name: ci-windows
 on:
   # Run on pushes to master and on pull request changes, including from a
   # forked repo with no "push" trigger, while avoiding duplicate triggers.
@@ -45,12 +47,13 @@ on:
 
 defaults:
   run:
-    shell: bash
+    shell: cmd
 
 jobs:
-  # AArchXX cross-compile with gcc, no tests:
-  aarchxx-cross-compile:
-    runs-on: ubuntu-16.04
+  ###########################################################################
+  # 32-bit VS2017 and tests:
+  vs2017-32:
+    runs-on: windows-2016
 
     steps:
     - uses: actions/checkout@v2
@@ -61,19 +64,31 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
       if: ${{ github.event_name == 'pull_request' }}
 
-    - run: git fetch --no-tags --depth=1 origin master
+    - name: Fetch Sources
+      run: git fetch --no-tags --depth=1 origin master
 
-    # Install cross-compilers for cross-compiling Linux build:
-    - name: Create Build Environment
+    - name: Download Packages
+      shell: powershell
       run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+        md c:\projects\install
+        (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip", "c:\projects\install\ninja.zip")
+        (New-Object System.Net.WebClient).DownloadFile("http://doxygen.nl/files/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci
+      run: |
+        echo ------ Setting up paths ------
+        7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
+        set PATH=c:\projects\install\ninja;%PATH%
+        7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
+        set PATH=c:\projects\install\doxygen;%PATH%
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        echo ------ Running suite ------
+        echo PATH is "%PATH%"
+        echo Running in directory "%CD%"
+        perl suite/runsuite_wrapper.pl automated_ci use_ninja 32_only debug_only
       env:
-        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
@@ -88,7 +103,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/aarchxx-cross-compile
+          Workflow: ${{github.workflow}}/vs2017-32
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -99,9 +114,10 @@ jobs:
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
 
-  # Android ARM cross-compile with gcc, no tests:
-  android-arm-cross-compile:
-    runs-on: ubuntu-16.04
+  ###########################################################################
+  # 64-bit VS2017 and tests:
+  vs2017-64:
+    runs-on: windows-2016
 
     steps:
     - uses: actions/checkout@v2
@@ -112,29 +128,31 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
       if: ${{ github.event_name == 'pull_request' }}
 
-    - run: git fetch --no-tags --depth=1 origin master
+    - name: Fetch Sources
+      run: git fetch --no-tags --depth=1 origin master
 
-    # Fetch and install Android NDK for Andoid cross-compile build.
-    - name: Create Build Environment
+    - name: Download Packages
+      shell: powershell
       run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
-        cd /tmp
-        wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
-        unzip -q android-ndk-r10e-linux-x86_64.zip
-        android-ndk-r10e/build/tools/make-standalone-toolchain.sh --arch=arm \
-          --toolchain=arm-linux-androideabi-4.9 --platform=android-21 \
-          --install-dir=/tmp/android-gcc-arm-ndk-10e
-        # Manually force using ld.bfd, setting CMAKE_LINKER does not work.
-        ln -sf ld.bfd /tmp/android-gcc-arm-ndk-10e/arm-linux-androideabi/bin/ld
-        ln -sf arm-linux-androideabi-ld.bfd \
-          /tmp/android-gcc-arm-ndk-10e/bin/arm-linux-androideabi-ld
+        md c:\projects\install
+        (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip", "c:\projects\install\ninja.zip")
+        (New-Object System.Net.WebClient).DownloadFile("http://doxygen.nl/files/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
+      run: |
+        echo ------ Setting up paths ------
+        7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
+        set PATH=c:\projects\install\ninja;%PATH%
+        7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
+        set PATH=c:\projects\install\doxygen;%PATH%
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        echo ------ Running suite ------
+        echo PATH is "%PATH%"
+        echo Running in directory "%CD%"
+        perl suite/runsuite_wrapper.pl automated_ci use_ninja 64_only debug_only
       env:
-        DYNAMORIO_CROSS_ANDROID_ONLY: yes
-        DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
-      run: ./suite/runsuite_wrapper.pl automated_ci
+        CI_TRIGGER: ${{ github.event_name }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
@@ -149,7 +167,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/android-arm-cross-compile
+          Workflow: ${{github.workflow}}/vs2017-64
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}
@@ -160,9 +178,10 @@ jobs:
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
 
-  # AArch64 drdecode and drmemtrace on x86:
-  a64-on-x86:
-    runs-on: ubuntu-16.04
+  ###########################################################################
+  # 32-bit and 64-bit VS2017 release builds plus a vps build:
+  vs2017-builds:
+    runs-on: windows-2016
 
     steps:
     - uses: actions/checkout@v2
@@ -173,17 +192,29 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
       if: ${{ github.event_name == 'pull_request' }}
 
-    - run: git fetch --no-tags --depth=1 origin master
+    - name: Fetch Sources
+      run: git fetch --no-tags --depth=1 origin master
 
-    - name: Create Build Environment
+    - name: Download Packages
+      shell: powershell
       run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        md c:\projects\install
+        (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip", "c:\projects\install\ninja.zip")
+        (New-Object System.Net.WebClient).DownloadFile("http://doxygen.nl/files/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci
-      env:
-        DYNAMORIO_A64_ON_X86_ONLY: yes
+      run: |
+        echo ------ Setting up paths ------
+        7z x c:\projects\install\ninja.zip -oc:\projects\install\ninja > nul
+        set PATH=c:\projects\install\ninja;%PATH%
+        7z x c:\projects\install\doxygen.zip -oc:\projects\install\doxygen > nul
+        set PATH=c:\projects\install\doxygen;%PATH%
+        call "C:/Program Files (x86)/Microsoft Visual Studio/2017/Enterprise/VC/Auxiliary/Build/vcvars32.bat"
+        echo ------ Running suite ------
+        echo PATH is "%PATH%"
+        echo Running in directory "%CD%"
+        perl suite/runsuite_wrapper.pl automated_ci use_ninja nontest_only
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
@@ -198,7 +229,7 @@ jobs:
           on ${{github.event_name}} at ${{github.ref}}
         body: |
           Github Actions CI workflow run FAILED!
-          Workflow: ${{github.workflow}}/a64-on-x86
+          Workflow: ${{github.workflow}}/vs2017-builds
           Repository: ${{github.repository}}
           Branch ref: ${{github.ref}}
           SHA: ${{github.sha}}

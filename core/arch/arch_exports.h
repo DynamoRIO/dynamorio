@@ -327,9 +327,13 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 /* note that the microsoft compiler will not enregister variables across asm
  * blocks that touch those registers, so don't need to worry about clobbering
  * eax and ebx */
+#    define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
+        do {                                                    \
+            *(BYTE *)(addr_res) = *(volatile BYTE *)(addr_src); \
+        } while (0)
 #    define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                      \
         do {                                                                  \
-            ASSERT(sizeof(value) == 1);                                       \
+            ASSERT(sizeof(*target) == 1);                                     \
             /* No alignment check necessary, hot_patch parameter provided for \
              * consistency.                                                   \
              */                                                               \
@@ -482,11 +486,18 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
+            do {                                                    \
+                __asm__ __volatile__("movb %1, %%al; movb %%al, %0" \
+                                     : "=m"(*(byte *)(addr_res))    \
+                                     : "m"(*(byte *)(addr_src))     \
+                                     : "al");                       \
+            } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                       \
             do {                                                                   \
                 /* allow a constant to be passed in by supplying our own lvalue */ \
                 char _myval = value;                                               \
-                ASSERT(sizeof(value) == 1);                                        \
+                ASSERT(sizeof(*target) == 1);                                      \
                 /* No alignment check necessary, hot_patch parameter provided for  \
                  * consistency.                                                    \
                  */                                                                \
@@ -644,9 +655,17 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 
 #    elif defined(DR_HOST_AARCH64)
 
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)                \
+            do {                                                     \
+                /* We use "load-acquire" to add a barrier. */        \
+                __asm__ __volatile__("ldarb w0, [%0]; strb w0, [%1]" \
+                                     :                               \
+                                     : "r"(addr_src), "r"(addr_res)  \
+                                     : "w0", "memory");              \
+            } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
-                ASSERT(sizeof(value) == 1);                    \
+                ASSERT(sizeof(*target) == 1);                  \
                 /* Not currently used to write code */         \
                 ASSERT_CURIOSITY(!hot_patch);                  \
                 __asm__ __volatile__("stlrb %w0, [%1]"         \
@@ -829,9 +848,16 @@ atomic_dec_becomes_zero(volatile int *var)
 
 #    elif defined(DR_HOST_ARM)
 
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)                        \
+            do {                                                             \
+                __asm__ __volatile__("ldrb r0, [%0]; dmb ish; strb r0, [%1]" \
+                                     :                                       \
+                                     : "r"(addr_src), "r"(addr_res)          \
+                                     : "r0", "memory");                      \
+            } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
-                ASSERT(sizeof(value) == 1);                    \
+                ASSERT(sizeof(*target) == 1);                  \
                 __asm__ __volatile__("dmb ish; strb %0, [%1]"  \
                                      :                         \
                                      : "r"(value), "r"(target) \
@@ -1113,6 +1139,14 @@ atomic_aligned_read_int(volatile int *var)
 {
     int temp;
     ATOMIC_4BYTE_ALIGNED_READ(var, &temp);
+    return temp;
+}
+
+static inline bool
+atomic_read_bool(volatile bool *var)
+{
+    bool temp;
+    ATOMIC_1BYTE_READ(var, &temp);
     return temp;
 }
 

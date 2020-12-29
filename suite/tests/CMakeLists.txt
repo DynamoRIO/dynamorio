@@ -231,7 +231,7 @@ endif (CALLPROF AND TEST_SUITE)
 # This assumes that 32-bit Windows is not as important these days.
 # We remove some of the less differentiated tests.
 # We still run the full set for merges to master.
-if (WIN32 AND NOT X64 AND DEFINED ENV{APPVEYOR_PULL_REQUEST_NUMBER})
+if (WIN32 AND NOT X64 AND "$ENV{CI_TRIGGER}" STREQUAL "pull_request")
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST ON)
 else ()
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)
@@ -1860,6 +1860,7 @@ if (CLIENT_INTERFACE)
         ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_3args_avx512_vex.h
         ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_A.h
         ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_B.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_4args_avx512_evex_mask_C.h
         ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_${sfx}_5args_avx512_evex_mask.h)
       append_property_string(SOURCE api/ir_${sfx}.c OBJECT_DEPENDS "${api_ir_headers}")
     endif ()
@@ -2552,6 +2553,15 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
 
+  if (UNIX) # The test uses signals.
+    tobuild_ci(client.gonative client-interface/gonative.c "" "" "")
+    link_with_pthread(client.gonative)
+    # Configure for dr_app_running_under_dynamorio().
+    configure_app_api_build_flags(client.gonative OFF OFF)
+    add_dependencies(client.gonative api_headers)
+    set_target_properties(client.gonative PROPERTIES SKIP_BUILD_RPATH OFF)
+  endif ()
+
   tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
   use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
@@ -2837,6 +2847,10 @@ if (CLIENT_INTERFACE)
       append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX}")
       set(api.detach_state_runavx 1)
     endif ()
+  endif ()
+  if (UNIX)
+    tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF)
+    link_with_pthread(api.detach_signal)
   endif ()
   if (NOT WIN32) # XXX i#2611: fix for Windows
     if (X64)
