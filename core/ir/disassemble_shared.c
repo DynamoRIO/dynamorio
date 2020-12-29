@@ -1411,7 +1411,7 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
         if (LINKSTUB_DIRECT(l->flags) && DIRECT_EXIT_STUB_DATA_SZ > 0) {
             ASSERT(DIRECT_EXIT_STUB_DATA_SZ == sizeof(cache_pc) IF_AARCH64(+4));
             if (stub_is_patched(dcontext, f, EXIT_STUB_PC(dcontext, f, l))) {
-                 print_file(outfile, "  <stored target: " PFX ">\n",
+                print_file(outfile, "  <stored target: " PFX ">\n",
                            *(cache_pc *)IF_AARCH64_ELSE(ALIGN_FORWARD(next_stop_pc, 8),
                                                         next_stop_pc));
             }
