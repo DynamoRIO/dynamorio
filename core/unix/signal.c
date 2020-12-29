@@ -5285,6 +5285,14 @@ master_signal_handler_C(byte *xsp)
             if (is_write && !is_couldbelinking(dcontext) && OWN_NO_LOCKS(dcontext) &&
                 check_for_modified_code(dcontext, pc, ucxt, target, true /*native*/))
                 break;
+#    ifdef STATIC_LIBRARY
+            /* i#4640: We cannot distinguish the client from DR or the app.  Though
+             * it's rare, original app instructions can come here for some app
+             * setups for static DR during init.  We send to the app handler.
+             */
+            execute_native_handler(dcontext, sig, frame);
+            return;
+#    endif
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, target, sig, frame,
                            exception_label_client, (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
