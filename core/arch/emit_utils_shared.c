@@ -139,6 +139,8 @@
         (SIZE64_MOV_XBX_TO_TLS + SIZE64_MOV_PTR_IMM_TO_XAX + JMP_LONG_LENGTH)
 #    define STUB_INDIRECT_SIZE(flags) \
         (FRAG_IS_32(flags) ? STUB_INDIRECT_SIZE32 : STUB_INDIRECT_SIZE64)
+#elif defined(AARCH64)
+#    define STUB_INDIRECT_SIZE(flags) (7 * AARCH64_INSTR_SIZE)
 #else
 /* indirect stub is parallel to the direct one minus the data slot */
 #    define STUB_INDIRECT_SIZE(flags) \
@@ -464,7 +466,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
          * this stub-requiring scheme.
          */
         patch_stub(f, (cache_pc)EXIT_STUB_PC(dcontext, f, l),
-                   (cache_pc)FCACHE_ENTRY_PC(targetf), hot_patch);
+                   (cache_pc)FCACHE_PREFIX_ENTRY_PC(targetf), hot_patch);
         STATS_INC(num_far_direct_links);
         /* Exit cti should already be pointing to the top of the exit stub */
         return false; /* still need stub */
@@ -497,7 +499,7 @@ unlink_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
      */
     /* change jmp target to point to top of exit stub */
     patch_branch(FRAG_ISA_MODE(f->flags), EXIT_CTI_PC(f, l), stub_pc, HOT_PATCHABLE);
-    unpatch_stub(f, stub_pc, HOT_PATCHABLE);
+    unpatch_stub(dcontext, f, stub_pc, HOT_PATCHABLE);
 }
 
 /* NOTE : for inlined indirect branches linking is !NOT! atomic with respect
@@ -1895,12 +1897,12 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
 #ifdef AARCH64
-            /* Load next_tag from FCACHE_ENTER_TARGET_SLOT (TLS_REG0_SLOT):
+            /* Load next_tag from FCACHE_ENTER_TARGET_SLOT (TLS_REG2_SLOT):
              * ldr x0, [x28]
              */
             APP(ilist,
                 XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_X0),
-                                  OPND_CREATE_MEMPTR(dr_reg_stolen, 0)));
+                                  OPND_CREATE_MEMPTR(dr_reg_stolen, 16)));
             /* br x0 */
             APP(ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X0)));
 #else
@@ -2148,15 +2150,18 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 #endif
 
 #ifdef AARCH64
-    /* Put app's X0 in TLS_REG1_SLOT: */
-    /* ldr x0, [x5] */
+    /* Put app's X0,X1 in TLS_REG0_SLOT,TLS_REG1_SLOT: */
+    /* ldp x0, x1, [x5] */
     APP(&ilist,
-        XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_X0),
-                          OPND_CREATE_MEMPTR(DR_REG_X5, 0)));
+        XINST_CREATE_load_pair(
+            dcontext, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1),
+            opnd_create_base_disp(DR_REG_X5, DR_REG_NULL, 0, 0, OPSZ_16)));
+
     /* str x0, [x28, #8] */
     APP(&ilist,
-        XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(dr_reg_stolen, 8),
-                           opnd_create_reg(DR_REG_X0)));
+        XINST_CREATE_store_pair(
+            dcontext, opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0, 0, OPSZ_16),
+            opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X1)));
 #endif
 
     /* restore the original register state */
@@ -4791,10 +4796,10 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
 #ifdef AARCH64
     /* We will call this from handle_system_call, so need prefix on AArch64. */
-    APP(&ilist,
-        instr_create_restore_from_tls(dcontext, ENTRY_PC_REG, ENTRY_PC_SPILL_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dcontext, DR_REG_X0, TLS_REG0_SLOT));
+    APP(&ilist, instr_create_restore_from_tls(dcontext, DR_REG_X1, TLS_REG1_SLOT));
     /* XXX: should have a proper patch list entry */
-    *syscall_offs += AARCH64_INSTR_SIZE;
+    *syscall_offs += 2 * AARCH64_INSTR_SIZE;
 #endif
 
 #if defined(ARM)
@@ -4921,7 +4926,7 @@ emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *p
     /* get target PC */
     APP(&ilist,
         XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_R0),
-                          OPND_CREATE_MEMPTR(dr_reg_stolen, 0)));
+                          OPND_CREATE_MEMPTR(dr_reg_stolen, 16)));
     /* store target PC */
     APP(&ilist,
         XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(DR_REG_SP, -2 * XSP_SZ),

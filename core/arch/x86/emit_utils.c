@@ -139,14 +139,14 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
     /* x86 doesn't use this approach to linking */
     return false;
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     /* x86 doesn't use this approach to linking: nothing to do */
 }

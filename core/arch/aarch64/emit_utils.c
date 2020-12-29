@@ -102,6 +102,18 @@ insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
     return pc;
 }
 
+/* Returns addr for the target_pc data slot of the given stub. The slot starts at the
+ * 8-byte aligned region in the 12-byte slot reserved in the stub.
+ */
+cache_pc
+get_target_pc_slot(fragment_t *f, cache_pc stub_pc)
+{
+    return (cache_pc)ALIGN_FORWARD(
+        vmcode_get_writable_addr(stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) -
+                                 DIRECT_EXIT_STUB_DATA_SZ),
+        8);
+}
+
 /* Emit code for the exit stub at stub_pc.  Return the size of the
  * emitted code in bytes.  This routine assumes that the caller will
  * take care of any cache synchronization necessary.
@@ -124,11 +136,28 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
         num_nops_needed = 4 - (pc - write_stub_pc - 1);
-        /* ldr x1, [x(stolen), #(offs)] */
-        *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                 get_fcache_return_tls_offs(dcontext, f->flags) >> 3 << 10);
+        uint target_pc_slot_offs = (uint *)get_target_pc_slot(f, stub_pc) - pc;
+        /* ldr x1, [pc, target_pc_slot_offs * AARCH64_INSTR_SIZE] */
+        *pc++ = (0x58000000 | (DR_REG_X1 - DR_REG_X0) | target_pc_slot_offs << 5);
         /* br x1 */
         *pc++ = BR_X1_INST;
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate in a register. Ideally we would skip adding NOPs, but
+         * lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++)
+            *pc++ = NOP_INST;
+        /* The final slot is a data slot, which will hold the address of either
+         * the fcache-return routine or the linked fragment.
+         */
+        ASSERT(sizeof(app_pc) == 8);
+        pc += DIRECT_EXIT_STUB_DATA_SZ / sizeof(uint);
+        /* We start off with the fcache-return routine address in the slot. */
+        *(uint64 *)get_target_pc_slot(f, stub_pc) =
+            (ptr_uint_t)fcache_return_routine(dcontext);
+        ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
+               DIRECT_EXIT_STUB_SIZE(l_flags));
+
     } else {
         /* Stub starts out unlinked. */
         cache_pc exit_target =
@@ -144,17 +173,14 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
         /* br x1 */
         *pc++ = BR_X1_INST;
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate in a registers. Ideally we would skip adding NOPs, but
+         * lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++)
+            *pc++ = NOP_INST;
     }
 
-    /* Fill up with NOPs, depending on how many instructions we needed to move
-     * the immediate in a registers. Ideally we would skip adding NOPs, but
-     * lots of places expect the stub size to be fixed.
-     */
-    for (uint j = 0; j < num_nops_needed; j++)
-        *pc++ = NOP_INST;
-
-    ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
-           DIRECT_EXIT_STUB_SIZE(l_flags));
     return (int)((byte *)pc - (byte *)write_stub_pc);
 }
 
@@ -181,36 +207,22 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 {
-    /* Compute offset as unsigned, modulo arithmetic. */
-    ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)stub_pc;
-    if (off + 0x8000000 < 0x10000000) {
-        /* We can get there with a B (OP_b, 26-bit signed immediate offset). */
-        *(uint *)vmcode_get_writable_addr(stub_pc) =
-            (0x14000000 | (0x03ffffff & off >> 2));
-        if (hot_patch)
-            machine_cache_sync(stub_pc, stub_pc + 4, true);
-        return;
-    }
-    /* We must use an indirect branch. */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
+    *(uint64 *)target_pc_slot = (ptr_uint_t)target_pc;
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    uint *addr = (uint *)get_target_pc_slot(f, stub_pc);
+    return addr != (uint *)fcache_return_routine(dcontext);
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
-    /* Restore the stp x0, x1, [x28] instruction. */
-    *(uint *)vmcode_get_writable_addr(stub_pc) =
-        (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
-         TLS_REG0_SLOT >> 3 << 15);
-    if (hot_patch)
-        machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
+    byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
+    *(uint64 *)target_pc_slot = (ptr_uint_t)fcache_return_routine(dcontext);
 }
 
 void
@@ -378,9 +390,10 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     byte *write_start = vmcode_get_writable_addr(f->start_pc);
     byte *pc = write_start;
     ASSERT(f->prefix_size == 0);
-    /* ldr x0, [x(stolen), #(off)] */
-    *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
-                   (dr_reg_stolen - DR_REG_X0) << 5 | ENTRY_PC_SPILL_SLOT >> 3 << 10);
+
+    /* ldp x0, x1, [x(stolen), #(off)] */
+    *(uint *)pc = (0xa9400000 | (DR_REG_X0 - DR_REG_X0) | (DR_REG_X1 - DR_REG_X0) << 10 |
+                   (dr_reg_stolen - DR_REG_X0) << 5 | TLS_REG0_SLOT >> 3 << 10);
     pc += 4;
     f->prefix_size = (byte)(((cache_pc)pc) - write_start);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
@@ -744,8 +757,11 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
         INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2),
                          opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
                                                TLS_REG0_SLOT, OPSZ_16)));
-    /* Store x0 in TLS_REG1_SLOT as requied in the fragment prefix. */
-    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG1_SLOT));
+    /* Store x0, x1 in TLS_REG0_SLOT,TLS_REG1_SLOT as required by the fragment
+     * prefix.
+     */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_X0, TLS_REG0_SLOT));
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_X2, TLS_REG1_SLOT));
     /* ldr x0, [x1, #start_pc_fragment_offset] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
