@@ -5933,7 +5933,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     });
     for (int i = 1; i <= MAX_SIGNUM; i++) {
         if (kernel_sigismember(&blocked, i)) {
-            kernel_sigaddset(&our_frame->uc.uc_sigmask, i);
+            kernel_sigaddset((kernel_sigset_t *)&our_frame->uc.uc_sigmask, i);
         }
     }
     DOLOG(2, LOG_ASYNCH, {
