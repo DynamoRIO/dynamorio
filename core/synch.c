@@ -48,6 +48,7 @@ extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
 static bool started_detach = false; /* set before synchall */
 bool doing_detach = false;          /* set after synchall */
+thread_id_t detacher_tid = INVALID_THREAD_ID;
 
 static void
 synch_thread_yield(void);
@@ -2111,6 +2112,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 
     ASSERT(!doing_detach);
     doing_detach = true;
+    detacher_tid = d_r_get_thread_id();
 
 #ifdef HOT_PATCHING_INTERFACE
     /* In hotp_only mode, we must remove patches when detaching; we don't want

@@ -533,6 +533,7 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  * go through the app interface.
  */
 extern bool doing_detach;
+extern thread_id_t detacher_tid;
 
 extern event_t dr_app_started;
 extern event_t dr_attach_finished;
