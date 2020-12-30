@@ -1902,12 +1902,13 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
 #ifdef AARCH64
-            /* Load next_tag from FCACHE_ENTER_TARGET_SLOT (TLS_REG2_SLOT):
-             * ldr x0, [x28, #16]
+            /* Load next_tag from FCACHE_ENTER_TARGET_SLOT, stored by
+             * append_setup_fcache_target.
              */
             APP(ilist,
-                XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_X0),
-                                  OPND_CREATE_MEMPTR(dr_reg_stolen, TLS_REG2_SLOT)));
+                XINST_CREATE_load(
+                    dcontext, opnd_create_reg(DR_REG_X0),
+                    OPND_CREATE_MEMPTR(dr_reg_stolen, FCACHE_ENTER_TARGET_SLOT)));
             /* br x0 */
             APP(ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X0)));
 #else
@@ -4932,12 +4933,12 @@ emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *p
     APP(&ilist,
         XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(DR_REG_SP, -XSP_SZ),
                            opnd_create_reg(DR_REG_R0)));
-    /* get target PC from FCACHE_ENTER_TARGET_SLOT (TLS_REG2_SLOT), stored
+    /* Load target PC from FCACHE_ENTER_TARGET_SLOT, stored by
      * by append_setup_fcache_target.
      */
     APP(&ilist,
         XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_R0),
-                          OPND_CREATE_MEMPTR(dr_reg_stolen, TLS_REG2_SLOT)));
+                          OPND_CREATE_MEMPTR(dr_reg_stolen, FCACHE_ENTER_TARGET_SLOT)));
     /* store target PC */
     APP(&ilist,
         XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(DR_REG_SP, -2 * XSP_SZ),
