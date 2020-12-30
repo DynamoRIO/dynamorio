@@ -3262,7 +3262,8 @@ memcpy_rt_frame(sigframe_rt_t *frame, byte *dst, bool from_pending)
  * If no restorer, touches up pretcode
  * (and if rt_frame, touches up pinfo and puc)
  * Also touches up fpstate pointer
- * dcontext can be NULL (which is why we take in info).
+ * dcontext can be NULL (which is why we take in info) in which case no check
+ * versus executable memory is performed (we assume this is a native frame).
  */
 static void
 copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
@@ -3286,7 +3287,8 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     fixup_siginfo(dcontext, sig, frame);
 
     /* We avoid querying memory as it incurs global contended locks. */
-    flush_pc = is_executable_area_writable_overlap(sp, sp + size);
+    flush_pc =
+        dcontext == NULL ? false : is_executable_area_writable_overlap(sp, sp + size);
     if (flush_pc != NULL) {
         LOG(THREAD, LOG_ASYNCH, 2,
             "\tcopy_frame_to_stack: part of stack is unwritable-by-us @" PFX "\n",
@@ -5048,17 +5050,21 @@ master_signal_handler_C(byte *xsp)
         /* Check for a temporarily-native thread we're synch-ing with. */
         (sig == SUSPEND_SIGNAL
 #ifdef X86
-         || (INTERNAL_OPTION(safe_read_tls_init) &&
-             /* Check for whether this is a thread with its invalid sentinel magic set.
-              * In this case, we assume that it is either a thread that is currently
-              * temporarily-native via API like DR_EMIT_GO_NATIVE, or a thread in the
-              * clone window. We know by inspection of our own code that it is safe to
-              * call thread_lookup for either case thread makes a clone or was just
-              * cloned. i.e. thread_lookup requires a lock that must not be held by the
-              * calling thread (i#2921).
-              * XXX: what is ARM doing, any special case w/ dcontext == NULL?
-              */
-             safe_read_tls_magic() == TLS_MAGIC_INVALID)
+         ||
+         (INTERNAL_OPTION(safe_read_tls_init) &&
+          /* Check for whether this is a thread with its invalid sentinel magic set.
+           * In this case, we assume that it is either a thread that is currently
+           * temporarily-native via API like DR_EMIT_GO_NATIVE, or a thread in the
+           * clone window. We know by inspection of our own code that it is safe to
+           * call thread_lookup for either case thread makes a clone or was just
+           * cloned. i.e. thread_lookup requires a lock that must not be held by the
+           * calling thread (i#2921).
+           * XXX: what is ARM doing, any special case w/ dcontext == NULL?
+           */
+          /* Don't do this if we're detaching as we risk a safe-read fault after
+           * we've removed our handler (i#3535).
+           */
+          detacher_tid == INVALID_THREAD_ID && safe_read_tls_magic() == TLS_MAGIC_INVALID)
 #endif
              )) {
         tr = thread_lookup(get_sys_thread_id());

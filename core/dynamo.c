@@ -627,6 +627,11 @@ dynamorio_app_init(void)
             sideline_init();
 #endif
 
+        /* We can't clear this on detach like other vars b/c we need native threads
+         * to continue to avoid safe_read_tls_magic() in is_thread_tls_initialized().
+         * So we clear it on (re-)init.
+         */
+        detacher_tid = INVALID_THREAD_ID;
         /* thread-specific initialization for the first thread we inject in
          * (in a race with injected threads, sometimes it is not the primary thread)
          */
