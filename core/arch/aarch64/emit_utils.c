@@ -259,7 +259,8 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 {
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
     /* We set hot_patch to false as we are not modifying code. */
-    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, target_pc, /*hot_patch=*/false);
+    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, (ptr_uint_t)target_pc,
+                               /*hot_patch=*/false);
     return;
 }
 
@@ -276,7 +277,8 @@ unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_pat
 {
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
     /* We set hot_patch to false as we are not modifying code. */
-    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, fcache_return_routine(dcontext),
+    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot,
+                               (ptr_uint_t)fcache_return_routine(dcontext),
                                /*hot_patch=*/false);
 }
 
