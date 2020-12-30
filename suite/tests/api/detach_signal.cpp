@@ -65,9 +65,24 @@ static void *sideline_ready[NUM_THREADS];
 static thread_local SIGJMP_BUF mark;
 static std::atomic<int> count;
 
+static sigset_t handler_mask;
+
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
+    /* Ensure the mask within the handler is correct. */
+    sigset_t actual_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    int res = sigprocmask(SIG_BLOCK, NULL, &actual_mask);
+    assert(res == 0);
+    sigset_t expect_mask;
+    memcpy(&expect_mask, &handler_mask, sizeof(expect_mask));
+    sigaddset(&expect_mask, signal);
+    sigaddset(&expect_mask, SIGUSR1);
+    sigaddset(&expect_mask, SIGURG);
+    assert(memcmp(&expect_mask, &actual_mask, sizeof(expect_mask)) == 0);
+
     count++;
     SIGLONGJMP(mark, count);
 }
@@ -88,6 +103,16 @@ sideline_spinner(void *arg)
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
 
+    /* Block some signals to test mask preservation. */
+    sigset_t mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);
+    sigaddset(&mask, SIGURG);
+    int res = sigprocmask(SIG_SETMASK, &mask, NULL);
+    assert(res == 0);
+
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
         /* We generate 4 different signals to test different types. */
@@ -103,9 +128,28 @@ sideline_spinner(void *arg)
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGALRM);
         }
+        sigset_t check_mask = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
+        res = sigprocmask(SIG_BLOCK, NULL, &check_mask);
+        assert(res == 0 && memcmp(&mask, &check_mask, sizeof(mask)) == 0);
     }
 
     return THREAD_FUNC_RETURN_ZERO;
+}
+
+static void
+intercept_signal_with_mask(int sig, handler_3_t handler, bool sigstack, sigset_t *mask)
+{
+    int res;
+    struct sigaction act;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler;
+    memcpy(&act.sa_mask, mask, sizeof(act.sa_mask));
+    act.sa_flags = SA_SIGINFO;
+    if (sigstack)
+        act.sa_flags |= SA_ONSTACK;
+    res = sigaction(sig, &act, NULL);
+    ASSERT_NOERR(res);
 }
 
 int
@@ -114,10 +158,20 @@ main(void)
     int i;
     thread_t thread[NUM_THREADS]; /* On Linux, the tid. */
 
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGBUS, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGURG, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGALRM, (handler_3_t)&handle_signal, false);
+    sigset_t prior_mask;
+    sigemptyset(&handler_mask);
+    sigaddset(&handler_mask, SIGUSR2);
+    int res = sigprocmask(SIG_SETMASK, &handler_mask, &prior_mask);
+    assert(res == 0);
+    res = sigprocmask(SIG_SETMASK, &prior_mask, NULL);
+    assert(res == 0);
+
+    intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, false,
+                               &handler_mask);
+    intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
+    intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, false, &handler_mask);
+    intercept_signal_with_mask(SIGALRM, (handler_3_t)&handle_signal, false,
+                               &handler_mask);
 
     sideline_continue = create_cond_var();
     for (i = 0; i < NUM_THREADS; i++) {

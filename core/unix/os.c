@@ -1622,6 +1622,14 @@ is_thread_tls_initialized(void)
          */
         if (!first_thread_tls_initialized || last_thread_tls_exited)
             return false;
+        /* i#3535: Avoid races between removing DR's SIGSEGV signal handler and
+         * detached threads being passed native signals.  The detaching thread is
+         * the one doing all the real cleanup, so we simply avoid any safe reads
+         * or TLS for detaching threads.  This var is not cleared until re-init,
+         * so we have no race with the end of detach.
+         */
+        if (detacher_tid != INVALID_THREAD_ID && detacher_tid != get_sys_thread_id())
+            return false;
         /* To handle WSL (i#1986) where fs and gs start out equal to ss (0x2b),
          * and when the MSR is used having a zero selector, and other complexities,
          * we just do a blind safe read as the simplest solution once we're past
