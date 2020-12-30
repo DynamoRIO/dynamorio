@@ -66,7 +66,7 @@
  *         br   x1
  *         <fcache-return>
  *
- *     Linked, exit_cti_reaches_target:
+ *     Linked, exit_cti_reaches_target (near fragment):
  *         exit_cti target
  *         ...
  *       stub:
@@ -79,7 +79,20 @@
  *         br   x1
  *         <fcache-return>
  *
- *     Linked:
+ *     Linked, unconditional branch reaches target (intermediate fragment):
+ *         exit_cti stub
+ *         ...
+ *       stub:
+ *         b    target
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <fcache-return>
+ *
+ *     Linked, !unconditional branch reaches target (far fragment):
  *         exit_cti stub
  *         ...
  *       stub:
@@ -257,6 +270,23 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 {
+    /* Compute offset as unsigned, modulo arithmetic. */
+    ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)stub_pc;
+    if (off + 0x8000000 < 0x10000000) {
+        /* target_pc is a near fragment. We can get there with a B
+         * (OP_b, 26-bit signed immediate offset).
+         * i#1911: Patching arbitrary instructions to an unconditional branch
+         * is theoretically not sound. Architectural specifications do not
+         * guarantee safe behaviour or any bound on when the change will be
+         * visible to other process elements.
+         */
+        uint b_enc = 0x14000000 | (0x03ffffff & off >> 2);
+        ATOMIC_4BYTE_ALIGNED_WRITE(vmcode_get_writable_addr(stub_pc), b_enc);
+        if (hot_patch)
+            machine_cache_sync(stub_pc, stub_pc + 4, true);
+        return;
+    }
+    /* target_pc is a far fragment. We must use an indirect branch. */
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
     /* We set hot_patch to false as we are not modifying code. */
     ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, (ptr_uint_t)target_pc,
@@ -267,14 +297,34 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 bool
 stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
+    uint enc;
+    ATOMIC_4BYTE_ALIGNED_READ(vmcode_get_writable_addr(stub_pc), &enc);
+    /* linked to intermediate fragment. */
+    if ((enc & 0x14000000) == 0x14000000)
+        return true;
+
     ptr_uint_t target_pc;
     ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), &target_pc);
+    /* linked to far fragment. */
     return target_pc != (ptr_uint_t)fcache_return_routine(dcontext);
 }
 
 void
 unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
+    /* For near fragment link: Restore the stp x0, x1, [x(stolen), #(offs)]
+     * i#1911: Patching unconditional branch to some arbitrary instruction
+     * is theoretically not sound. Architectural specifications do not
+     * guarantee safe behaviour or any bound on when the change will be
+     * visible to other process elements.
+     */
+    uint stp_enc = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
+                    TLS_REG0_SLOT >> 3 << 15);
+    ATOMIC_4BYTE_ALIGNED_WRITE(vmcode_get_writable_addr(stub_pc), stp_enc, hot_patch);
+    if (hot_patch)
+        machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
+
+    /* For far fragment link: Restore the data slot to fcache return address. */
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
     /* We set hot_patch to false as we are not modifying code. */
     ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot,
