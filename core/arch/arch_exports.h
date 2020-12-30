@@ -1885,7 +1885,9 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
  * We reserve 12 bytes for the 8 byte address, so that we can store it in an 8-byte
  * aligned address. This is required for atomicity of write operations.
  */
-#        define DIRECT_EXIT_STUB_DATA_SZ 12
+#        define DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING 4
+#        define DIRECT_EXIT_STUB_DATA_SZ \
+            (sizeof(app_pc) + DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING)
 #    else
 #        define FRAGMENT_BASE_PREFIX_SIZE(flags) \
             (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)

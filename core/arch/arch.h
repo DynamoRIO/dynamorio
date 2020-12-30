@@ -722,7 +722,10 @@ mangle_writes_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t 
 
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
-    /* ok for this guy to overlap w/ others since he is pre-cache */
+    /* ok for this guy to overlap w/ others since he is pre-cache.
+     * Also, note that we cannot use either TLS_REG0_SLOT or
+     * TLS_REG1_SLOT for this because those are used in fragment prefix.
+     */
     FCACHE_ENTER_TARGET_SLOT = TLS_REG2_SLOT,
     /* FIXME: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
@@ -756,16 +759,7 @@ enum {
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT = TLS_HTABLE_STATS_SLOT,
 #endif
-#ifdef AARCH64
-    /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
-    ENTRY_PC_SPILL_SLOT = TLS_REG1_SLOT,
-#endif
 };
-
-#ifdef AARCH64
-/* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
-#    define ENTRY_PC_REG DR_REG_X0
-#endif
 
 /* A simple linker to give us indirection for patching after relocating structures */
 typedef struct patch_entry_t {

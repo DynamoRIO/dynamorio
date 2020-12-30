@@ -1409,7 +1409,9 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
             pc = (cache_pc)disassemble_with_bytes(dcontext, (byte *)pc, outfile);
         }
         if (LINKSTUB_DIRECT(l->flags) && DIRECT_EXIT_STUB_DATA_SZ > 0) {
-            ASSERT(DIRECT_EXIT_STUB_DATA_SZ == sizeof(cache_pc) IF_AARCH64(+4));
+            ASSERT(DIRECT_EXIT_STUB_DATA_SZ ==
+                   sizeof(cache_pc)
+                       IF_AARCH64(+DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING));
             if (stub_is_patched(dcontext, f, EXIT_STUB_PC(dcontext, f, l))) {
                 print_file(outfile, "  <stored target: " PFX ">\n",
                            *(cache_pc *)IF_AARCH64_ELSE(ALIGN_FORWARD(next_stop_pc, 8),

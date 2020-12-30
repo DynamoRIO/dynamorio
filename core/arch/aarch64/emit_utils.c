@@ -50,6 +50,56 @@
 /*                               EXIT STUB                                 */
 /***************************************************************************/
 
+/* We use multiple approaches to linking based on how far away the target
+ * fragment is:
+ *
+ *     Unlinked:
+ *         exit_cti stub
+ *         ...
+ *       stub:
+ *         stp  x0, x1, [x28]
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <fcache-return>
+ *
+ *     Linked, exit_cti_reaches_target:
+ *         exit_cti target
+ *         ...
+ *       stub:
+ *         stp  x0, x1, [x28]
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <fcache-return>
+ *
+ *     Linked:
+ *         exit_cti stub
+ *         ...
+ *       stub:
+ *         stp  x0, x1, [x28]
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <target>
+ *
+ * To ensure atomicity of <target> patching, the data slot must be 8-byte
+ * aligned. We do this by reserving 12 bytes for the data slot and using the
+ * appropriate offset in ldr for the 8-byte aligned 8 byte region within it.
+ *
+ * For complete design details, see the following wiki
+ * https://github.com/DynamoRIO/dynamorio/wiki/Linking-Far-Fragments-on-AArch64
+ */
+
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
@@ -105,7 +155,7 @@ insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 /* Returns addr for the target_pc data slot of the given stub. The slot starts at the
  * 8-byte aligned region in the 12-byte slot reserved in the stub.
  */
-cache_pc
+static cache_pc
 get_target_pc_slot(fragment_t *f, cache_pc stub_pc)
 {
     return (cache_pc)ALIGN_FORWARD(
@@ -142,7 +192,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         /* br x1 */
         *pc++ = BR_X1_INST;
         /* Fill up with NOPs, depending on how many instructions we needed to move
-         * the immediate in a register. Ideally we would skip adding NOPs, but
+         * the immediate into a register. Ideally we would skip adding NOPs, but
          * lots of places expect the stub size to be fixed.
          */
         for (uint j = 0; j < num_nops_needed; j++)
@@ -174,7 +224,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         /* br x1 */
         *pc++ = BR_X1_INST;
         /* Fill up with NOPs, depending on how many instructions we needed to move
-         * the immediate in a registers. Ideally we would skip adding NOPs, but
+         * the immediate into a register. Ideally we would skip adding NOPs, but
          * lots of places expect the stub size to be fixed.
          */
         for (uint j = 0; j < num_nops_needed; j++)
@@ -208,21 +258,26 @@ void
 patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 {
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
-    *(uint64 *)target_pc_slot = (ptr_uint_t)target_pc;
+    /* We set hot_patch to false as we are not modifying code. */
+    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, target_pc, /*hot_patch=*/false);
+    return;
 }
 
 bool
 stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
-    uint *addr = (uint *)get_target_pc_slot(f, stub_pc);
-    return addr != (uint *)fcache_return_routine(dcontext);
+    ptr_uint_t target_pc;
+    ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), &target_pc);
+    return target_pc != (ptr_uint_t)fcache_return_routine(dcontext);
 }
 
 void
 unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
-    *(uint64 *)target_pc_slot = (ptr_uint_t)fcache_return_routine(dcontext);
+    /* We set hot_patch to false as we are not modifying code. */
+    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, fcache_return_routine(dcontext),
+                               /*hot_patch=*/false);
 }
 
 void
@@ -751,27 +806,19 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist,
         INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next), opnd_create_reg(DR_REG_X0)));
 
-    /* Hit path: load the app's original value of x0 and x1. */
-    /* ldp x0, x2, [x28] */
-    APP(&ilist,
-        INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2),
-                         opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                               TLS_REG0_SLOT, OPSZ_16)));
-    /* Store x0, x1 in TLS_REG0_SLOT,TLS_REG1_SLOT as required by the fragment
-     * prefix.
+    /* Hit path. */
+    /* App's original values of x0 and x1 are already in respective TLS slots, and
+     * will be restored by the fragment prefix.
      */
-    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_X0, TLS_REG0_SLOT));
-    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_X2, TLS_REG1_SLOT));
+
+    /* Recover app's original x2. */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+
     /* ldr x0, [x1, #start_pc_fragment_offset] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_MEMPTR(
                              DR_REG_X1, offsetof(fragment_entry_t, start_pc_fragment))));
-    /* mov x1, x2 */
-    APP(&ilist,
-        XINST_CREATE_move(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
-    /* Recover app's original x2. */
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
     /* br x0
      * (keep in sync with instr_is_ibl_hit_jump())
      */
