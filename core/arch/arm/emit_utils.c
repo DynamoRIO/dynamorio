@@ -288,7 +288,8 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* For far-away targets, we branch to the stub and use an
      * indirect branch from there:

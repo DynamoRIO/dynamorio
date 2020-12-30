@@ -67,7 +67,7 @@
  *         <fcache-return>
  *
  *     Linked, exit_cti_reaches_target (near fragment):
- *         exit_cti target
+ *         exit_cti target_fragment
  *         ...
  *       stub:
  *         stp  x0, x1, [x28]
@@ -83,7 +83,7 @@
  *         exit_cti stub
  *         ...
  *       stub:
- *         b    target
+ *         b    target_fragment
  *         movz x0, #&linkstub[0, 16),  lsl #0x00
  *         movk x0, #&linkstub[16, 32), lsl #0x10
  *         movk x0, #&linkstub[32, 48), lsl #0x20
@@ -103,7 +103,7 @@
  *         movk x0, #&linkstub[48, 64), lsl #0x30
  *         ldr  x1, [#8/#12]
  *         br   x1
- *         <target>
+ *         <target_fragment_prefix>
  *
  * To ensure atomicity of <target> patching, the data slot must be 8-byte
  * aligned. We do this by reserving 12 bytes for the data slot and using the
@@ -268,7 +268,8 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* Compute offset as unsigned, modulo arithmetic. */
     ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)stub_pc;
@@ -280,16 +281,18 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
          * guarantee safe behaviour or any bound on when the change will be
          * visible to other process elements.
          */
-        uint b_enc = 0x14000000 | (0x03ffffff & off >> 2);
-        ATOMIC_4BYTE_ALIGNED_WRITE(vmcode_get_writable_addr(stub_pc), b_enc);
+        *(uint *)vmcode_get_writable_addr(stub_pc) =
+            (0x14000000 | (0x03ffffff & off >> 2));
         if (hot_patch)
             machine_cache_sync(stub_pc, stub_pc + 4, true);
         return;
     }
-    /* target_pc is a far fragment. We must use an indirect branch. */
+    /* target_pc is a far fragment. We must use an indirect branch. Note that the indirect
+     * branch needs to be to the fragment prefix, as we need to restore the clobbered
+     * regs. */
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
     /* We set hot_patch to false as we are not modifying code. */
-    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, (ptr_uint_t)target_pc,
+    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, (ptr_uint_t)target_prefix_pc,
                                /*hot_patch=*/false);
     return;
 }
@@ -318,9 +321,9 @@ unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_pat
      * guarantee safe behaviour or any bound on when the change will be
      * visible to other process elements.
      */
-    uint stp_enc = (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                    TLS_REG0_SLOT >> 3 << 15);
-    ATOMIC_4BYTE_ALIGNED_WRITE(vmcode_get_writable_addr(stub_pc), stp_enc, hot_patch);
+    *(uint *)vmcode_get_writable_addr(stub_pc) =
+        (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
+         TLS_REG0_SLOT >> 3 << 15);
     if (hot_patch)
         machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
 

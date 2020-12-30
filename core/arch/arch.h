@@ -1148,7 +1148,8 @@ bool
 exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                         cache_pc target_pc);
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch);
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch);
 bool
 stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc);
 void

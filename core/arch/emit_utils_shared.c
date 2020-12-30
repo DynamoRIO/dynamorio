@@ -471,6 +471,7 @@ link_direct_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t 
          * this stub-requiring scheme.
          */
         patch_stub(f, (cache_pc)EXIT_STUB_PC(dcontext, f, l),
+                   (cache_pc)FCACHE_ENTRY_PC(targetf),
                    (cache_pc)FCACHE_PREFIX_ENTRY_PC(targetf), hot_patch);
         STATS_INC(num_far_direct_links);
         /* Exit cti should already be pointing to the top of the exit stub */

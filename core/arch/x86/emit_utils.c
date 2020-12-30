@@ -132,7 +132,8 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* x86 doesn't use this approach to linking */
     ASSERT_NOT_REACHED();
