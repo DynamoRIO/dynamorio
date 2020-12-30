@@ -216,6 +216,10 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         ASSERT(sizeof(app_pc) == 8);
         pc += DIRECT_EXIT_STUB_DATA_SZ / sizeof(uint);
         /* We start off with the fcache-return routine address in the slot. */
+        /* AArch64 uses shared fragments, so fcache_return gencode should be
+         * shared too.
+         */
+        ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
         *(uint64 *)get_target_pc_slot(f, stub_pc) =
             (ptr_uint_t)fcache_return_routine(dcontext);
         ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
@@ -315,6 +319,9 @@ stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 void
 unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
+    /* This implementation consists of two operations to unpatch, but at any given time
+     * only one patching strategy would be used. So, one of these two operations would
+     * really be a no-op. */
     /* For near fragment link: Restore the stp x0, x1, [x(stolen), #(offs)]
      * i#1911: Patching unconditional branch to some arbitrary instruction
      * is theoretically not sound. Architectural specifications do not
@@ -329,6 +336,8 @@ unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_pat
 
     /* For far fragment link: Restore the data slot to fcache return address. */
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
+    /* AArch64 uses shared fragments, so fcache_return gencode should be shared too. */
+    ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
     /* We set hot_patch to false as we are not modifying code. */
     ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot,
                                (ptr_uint_t)fcache_return_routine(dcontext),
