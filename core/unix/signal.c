@@ -5927,9 +5927,17 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     blocked = info->app_sigaction[sig]->mask;
     if (!TEST(SA_NOMASK, (info->app_sigaction[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
-    sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
     DOLOG(2, LOG_ASYNCH, {
-        LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals in frame:\n");
+        LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals, stored in our frame:\n");
+        dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
+    });
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (kernel_sigismember(&blocked, i)) {
+            kernel_sigaddset((kernel_sigset_t *)&our_frame->uc.uc_sigmask, i);
+        }
+    }
+    DOLOG(2, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 3, "Blocked signals within app handler will be:\n");
         dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
     });
 
