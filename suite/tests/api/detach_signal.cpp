@@ -58,6 +58,9 @@
 #    define VPRINT(...) /* nothing */
 #endif
 
+/* SIGSTKSZ*2 results in a fatal error from DR on fitting the copied frame. */
+#define ALT_STACK_SIZE (SIGSTKSZ * 4)
+
 static volatile bool sideline_exit = false;
 static void *sideline_continue;
 static void *sideline_ready[NUM_THREADS];
@@ -103,6 +106,13 @@ sideline_spinner(void *arg)
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
 
+    stack_t sigstack;
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = 0;
+    int res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+
     /* Block some signals to test mask preservation. */
     sigset_t mask = {
         0, /* Set padding to 0 so we can use memcmp */
@@ -110,7 +120,7 @@ sideline_spinner(void *arg)
     sigemptyset(&mask);
     sigaddset(&mask, SIGUSR1);
     sigaddset(&mask, SIGURG);
-    int res = sigprocmask(SIG_SETMASK, &mask, NULL);
+    res = sigprocmask(SIG_SETMASK, &mask, NULL);
     assert(res == 0);
 
     /* Now sit in a signal-generating loop. */
@@ -134,6 +144,16 @@ sideline_spinner(void *arg)
         res = sigprocmask(SIG_BLOCK, NULL, &check_mask);
         assert(res == 0 && memcmp(&mask, &check_mask, sizeof(mask)) == 0);
     }
+
+    stack_t check_stack;
+    res = sigaltstack(NULL, &check_stack);
+    assert(res == 0 && check_stack.ss_sp == sigstack.ss_sp &&
+           check_stack.ss_size == sigstack.ss_size &&
+           check_stack.ss_flags == sigstack.ss_flags);
+    sigstack.ss_flags = SS_DISABLE;
+    res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+    free(sigstack.ss_sp);
 
     return THREAD_FUNC_RETURN_ZERO;
 }
@@ -166,10 +186,10 @@ main(void)
     res = sigprocmask(SIG_SETMASK, &prior_mask, NULL);
     assert(res == 0);
 
-    intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, false,
-                               &handler_mask);
+    /* We request an alt stack for some signals but not all to test both types. */
+    intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
-    intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, false, &handler_mask);
+    intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, true, &handler_mask);
     intercept_signal_with_mask(SIGALRM, (handler_3_t)&handle_signal, false,
                                &handler_mask);
 

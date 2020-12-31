@@ -632,7 +632,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_FAILED_TO_HANDLE_SIGNAL
 Language=English
-Application %1!s! (%2!s!). Cannot correctly handle received signal %3!s! in thread %4!s!.
+Application %1!s! (%2!s!). Cannot correctly handle received signal %3!s! in thread %4!s!: %5!s!.
 .
 ;#endif
 
