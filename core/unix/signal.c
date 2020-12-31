@@ -443,6 +443,21 @@ handler_alloc(dcontext_t *dcontext, size_t size)
     return global_heap_alloc(size HEAPACCT(ACCT_OTHER));
 }
 
+/* Does not return. */
+static void
+report_unhandleable_signal_and_exit(int sig, const char *sub_message)
+{
+    /* TODO i#1921: Add more info such as the PC and disasm of surrounding instrs. */
+    char signum_str[8];
+    snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
+    NULL_TERMINATE_BUFFER(signum_str);
+    char tid_str[16];
+    snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
+    NULL_TERMINATE_BUFFER(tid_str);
+    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 5, get_application_name(),
+                                get_application_pid(), signum_str, tid_str, sub_message);
+}
+
 /**** top-level routines ***********************************************/
 
 static bool
@@ -2957,36 +2972,8 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     if (frame != NULL) {
         /* Signal happened natively or while in the cache: grab interrupted xsp. */
         sp = (byte *)sc->SC_XSP;
-        /* Handle DR's frame already being on the app stack.  For native delivery we
-         * could try to re-use this frame, but that doesn't work with plain vs rt.
-         * Instead we move below and live with the downsides of a potential stack
-         * overflow and confusing the app over why it's so low: but this is an app
-         * with no sigaltstack so it should have plenty of room.
-         */
-        size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
-            IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
-                                                 : signal_frame_extra_size(
-                                                       true)) +)) 64 /* align + slop */;
-        if (sp > (byte *)frame && sp < (byte *)frame + frame_sz_max) {
-            sp = (byte *)frame;
-            /* We're probably *on* the stack right where we want to put the frame! */
-            byte *cur_sp;
-            GET_STACK_PTR(cur_sp);
-            /* We have to copy the frame below our own stack usage high watermark
-             * in the rest of the code we'll execute from execute_native_handler().
-             * Kind of a mess.  For now we estimate two pages which should be plenty
-             * and still not be egregious usage for most app stacks.
-             */
-#define EXECUTE_NATIVE_STACK_USAGE (4096 * 2)
-            if (sp > cur_sp && sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE < cur_sp) {
-                sp = cur_sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE;
-            }
-            LOG(THREAD, LOG_ASYNCH, 3,
-                "get_sigstack_frame_ptr: moving beyond same-stack frame to %p\n", sp);
-        } else {
-            LOG(THREAD, LOG_ASYNCH, 3,
-                "get_sigstack_frame_ptr: using frame's xsp " PFX "\n", sp);
-        }
+        LOG(THREAD, LOG_ASYNCH, 3, "get_sigstack_frame_ptr: using frame's xsp " PFX "\n",
+            sp);
     } else {
         /* signal happened while in DR, use stored xsp */
         sp = (byte *)get_mcontext(dcontext)->xsp;
@@ -3012,6 +2999,49 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 "\tnot inside alt stack, so using base xsp " PFX "\n", sp);
         }
     }
+
+    if (frame != NULL) {
+        /* Handle DR's frame already being on the app stack.  For native delivery we
+         * could try to re-use this frame, but that doesn't work with plain vs rt.
+         * Instead we move below and live with the downsides of a potential stack
+         * overflow.
+         */
+        size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
+            IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
+                                                 : signal_frame_extra_size(
+                                                       true)) +)) 64 /* align + slop */;
+        if (sp > (byte *)frame && sp < (byte *)frame + frame_sz_max) {
+            sp = (byte *)frame;
+            /* We're probably *on* the stack right where we want to put the frame! */
+            byte *cur_sp;
+            GET_STACK_PTR(cur_sp);
+            /* We have to copy the frame below our own stack usage high watermark
+             * in the rest of the code we'll execute from execute_native_handler().
+             * Kind of a mess.  For now we estimate two pages which should be plenty
+             * and still not be egregious usage for most app stacks.  For the altstack
+             * we check the size below.
+             */
+#define EXECUTE_NATIVE_STACK_USAGE (4096 * 2)
+            if (sp > cur_sp && sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE < cur_sp) {
+                sp = cur_sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE;
+            }
+            if (USE_APP_SIGSTACK(info, sig)) {
+#define APP_ALTSTACK_USAGE (SIGSTKSZ / 2)
+                if (sp - APP_ALTSTACK_USAGE < (byte *)info->app_sigstack.ss_sp) {
+                    /* There's not enough stack space.  The only solution would be to
+                     * re-use DR's frame and limit our own stack usage here, which
+                     * gets complex.  We bail.
+                     */
+                    report_unhandleable_signal_and_exit(
+                        sig, "sigaltstack too small in native thread");
+                    ASSERT_NOT_REACHED();
+                }
+            }
+            LOG(THREAD, LOG_ASYNCH, 3,
+                "get_sigstack_frame_ptr: moving beyond same-stack frame to %p\n", sp);
+        }
+    }
+
     /* now get frame pointer: need to go down to first field of frame */
     sp -= get_app_frame_size(info, sig);
 #if defined(LINUX) && defined(X86)
@@ -5814,21 +5844,6 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     return true;
 }
 
-/* Does not return. */
-static void
-report_unhandleable_signal_and_exit(int sig)
-{
-    /* TODO i#1921: Add more info such as the PC and disasm of surrounding instrs. */
-    char signum_str[8];
-    snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
-    NULL_TERMINATE_BUFFER(signum_str);
-    char tid_str[16];
-    snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
-    NULL_TERMINATE_BUFFER(tid_str);
-    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 4, get_application_name(),
-                                get_application_pid(), signum_str, tid_str);
-}
-
 /* Sends a signal to a currently-native thread.  dcontext can be NULL. */
 static void
 execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
@@ -5848,7 +5863,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     } else {
         if (atomic_read_bool(&multiple_handlers_present)) {
             /* See i#1921 comment up top: we don't handle this. */
-            report_unhandleable_signal_and_exit(sig);
+            report_unhandleable_signal_and_exit(sig, "multiple native handlers");
             ASSERT_NOT_REACHED();
         }
         info = &synthetic;
@@ -5909,7 +5924,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         }
         if (default_action[sig] == DEFAULT_IGNORE)
             return;
-        report_unhandleable_signal_and_exit(sig);
+        report_unhandleable_signal_and_exit(sig, "default action in native thread");
         ASSERT_NOT_REACHED();
         return;
     }
