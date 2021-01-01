@@ -1722,7 +1722,6 @@ const instr_info_t * const op_instr[] =
 #define Hqq TYPE_H, OPSZ_32
 #define Hx TYPE_H, OPSZ_16_vex32
 #define Hh_x TYPE_H, OPSZ_half_16_vex32
-#define Wvq_dq TYPE_W, OPSZ_8_of_16_vex32
 #define Wh_x TYPE_W, OPSZ_half_16_vex32
 #define Wi_x TYPE_W, OPSZ_quarter_16_vex32
 #define Wj_x TYPE_W, OPSZ_eighth_16_vex32
@@ -3510,7 +3509,7 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[211][0]},
+    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wh_x, xx, xx, mrm|vex, x, tevexwb[211][0]},
     {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, Hsd, Wss, xx, mrm|vex, x, tevexwb[257][0]},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
@@ -4232,7 +4231,7 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_cvttpd2dq,0x660fe610, "cvttpd2dq", Vdq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_cvtpd2dq, 0xf20fe610, "cvtpd2dq",  Vdq, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {INVALID,        0x0fe610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, tevexwb[57][0]},
+    {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd",  Vvd, xx, Wh_e, xx, xx, mrm|vex, x, tevexwb[57][0]},
     {OP_vcvttpd2dq,0x660fe610, "vcvttpd2dq", Vx, xx, Wvd, xx, xx, mrm|vex, x, tevexwb[222][2]},
     {OP_vcvtpd2dq, 0xf20fe610, "vcvtpd2dq",  Vx, xx, Wvd, xx, xx, mrm|vex, x, tevexwb[223][2]},
     {INVALID,   0x0fe610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -8138,7 +8137,7 @@ const instr_info_t evex_Wb_extensions[][4] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtdq2pd, 0xf30fe600, "vcvtdq2pd", Ved, xx, KEb, We, xx, mrm|evex|tthv, x, tevexwb[57][1]},
+    {OP_vcvtdq2pd, 0xf30fe600, "vcvtdq2pd", Ved, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, tevexwb[57][1]},
     {OP_vcvtdq2pd, 0xf30fe610, "vcvtdq2pd", Ved, xx, KEb, Md, xx, mrm|evex|tthv, x, END_LIST},
     {OP_vcvtqq2pd, 0xf30fe640, "vcvtqq2pd", Ved, xx, KEb, We, xx, mrm|evex|ttfv, x, modx[38][0]},
     {MOD_EXT, 0xf30fe650, "(mod ext 38)", xx, xx, xx, xx, xx, mrm|evex, x, 38},
@@ -8926,7 +8925,7 @@ const instr_info_t evex_Wb_extensions[][4] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2pd, 0x0f5a00, "vcvtps2pd", Ved, xx, KEb, Wes, xx, mrm|evex|tthv, x, modx[100][0]},
+    {OP_vcvtps2pd, 0x0f5a00, "vcvtps2pd", Ved, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, modx[100][0]},
     {MOD_EXT, 0x0f5a10, "(mod ext 100)", xx, xx, xx, xx, xx, mrm|evex, x, 100},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
