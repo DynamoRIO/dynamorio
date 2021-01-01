@@ -3510,7 +3510,7 @@ const instr_info_t prefix_extensions[][12] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[211][0]},
+    {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wh_x, xx, xx, mrm|vex, x, tevexwb[211][0]},
     {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vdq, xx, Hsd, Wss, xx, mrm|vex, x, tevexwb[257][0]},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
@@ -8926,7 +8926,7 @@ const instr_info_t evex_Wb_extensions[][4] = {
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
      */
-    {OP_vcvtps2pd, 0x0f5a00, "vcvtps2pd", Ved, xx, KEb, Wes, xx, mrm|evex|tthv, x, modx[100][0]},
+    {OP_vcvtps2pd, 0x0f5a00, "vcvtps2pd", Ved, xx, KEb, Wh_e, xx, mrm|evex|tthv, x, modx[100][0]},
     {MOD_EXT, 0x0f5a10, "(mod ext 100)", xx, xx, xx, xx, xx, mrm|evex, x, 100},
     /* XXX i#3639: tools tend to accept different source/destination register mnemonics.
      * This also affects the existing VEX version if it exists.
