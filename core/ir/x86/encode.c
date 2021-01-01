@@ -967,10 +967,10 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
              optype == TYPE_H || optype == TYPE_L))
             return (reg >= REG_START_XMM && reg <= REG_STOP_XMM);
     }
-    if (opsize == OPSZ_half_16_vex32 ||
-        opsize == OPSZ_quarter_16_vex32 || opsize == OPSZ_eighth_16_vex32 ||
-        opsize == OPSZ_half_16_vex32_evex64 || opsize == OPSZ_quarter_16_vex32_evex64 ||
-        opsize == OPSZ_eighth_16_vex32_evex64 || optype == TYPE_VSIB) {
+    if (opsize == OPSZ_half_16_vex32 || opsize == OPSZ_quarter_16_vex32 ||
+        opsize == OPSZ_eighth_16_vex32 || opsize == OPSZ_half_16_vex32_evex64 ||
+        opsize == OPSZ_quarter_16_vex32_evex64 || opsize == OPSZ_eighth_16_vex32_evex64 ||
+        optype == TYPE_VSIB) {
         if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
             return !TEST(PREFIX_VEX_L, di->prefixes);
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
