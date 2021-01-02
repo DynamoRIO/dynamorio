@@ -3655,7 +3655,6 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
 static void
 restore_orig_sigcontext(sigframe_rt_t *frame, sigcontext_t *sc_orig)
 {
-
     ASSERT(frame != NULL && sc_orig != NULL);
 
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
@@ -4187,7 +4186,6 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
 static void
 copy_sigcontext(sigcontext_t *dst_sc, kernel_fpstate_t *dst_fpstate, sigcontext_t *src_sc)
 {
-
     ASSERT(dst_sc != NULL && dst_fpstate != NULL && src_sc != NULL);
 
     *dst_sc = *src_sc;
