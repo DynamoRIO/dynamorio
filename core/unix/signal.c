@@ -3573,6 +3573,23 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
     });
 }
 
+static void
+restore_orig_sigcontext(sigframe_rt_t *frame, sigcontext_t *sc_orig)
+{
+    ASSERT(frame != NULL && sc_orig != NULL);
+
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+
+    kernel_fpstate_t *fpstate = sc->fpstate;
+    if (fpstate != NULL) {
+        ASSERT(sc_orig->fpstate != NULL);
+        *fpstate = *sc_orig->fpstate;
+    }
+
+    *sc = *sc_orig;
+    sc->fpstate = fpstate;
+}
+
 #ifdef CLIENT_INTERFACE
 static dr_signal_action_t
 send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
@@ -3650,23 +3667,6 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     heap_free(dcontext, si.mcontext, sizeof(*si.mcontext) HEAPACCT(ACCT_OTHER));
     heap_free(dcontext, si.raw_mcontext, sizeof(*si.raw_mcontext) HEAPACCT(ACCT_OTHER));
     return action;
-}
-
-static void
-restore_orig_sigcontext(sigframe_rt_t *frame, sigcontext_t *sc_orig)
-{
-    ASSERT(frame != NULL && sc_orig != NULL);
-
-    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
-
-    kernel_fpstate_t *fpstate = sc->fpstate;
-    if (fpstate != NULL) {
-        ASSERT(sc_orig->fpstate != NULL);
-        *fpstate = *sc_orig->fpstate;
-    }
-
-    *sc = *sc_orig;
-    sc->fpstate = fpstate;
 }
 
 /* Returns false if caller should exit */
