@@ -3582,9 +3582,6 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(frame);
     dr_siginfo_t si;
     dr_signal_action_t action;
-    /* XXX #1615: we need a full ucontext to store pre-xl8 simd values.
-     * Right now we share the same simd values with post-xl8.
-     */
     sig_full_cxt_t raw_sc_full;
     sig_full_initialize(&raw_sc_full, uc);
     raw_sc_full.sc = raw_sc;
@@ -3655,6 +3652,24 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
     return action;
 }
 
+static void
+restore_orig_sigcontext(sigframe_rt_t *frame, sigcontext_t *sc_orig)
+{
+
+    ASSERT(frame != NULL && sc_orig != NULL);
+
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
+
+    kernel_fpstate_t *fpstate = sc->fpstate;
+    if (fpstate != NULL) {
+        ASSERT(sc_orig->fpstate != NULL);
+        *fpstate = *sc_orig->fpstate;
+    }
+
+    *sc = *sc_orig;
+    sc->fpstate = fpstate;
+}
+
 /* Returns false if caller should exit */
 static bool
 handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_t action,
@@ -3686,8 +3701,8 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
         LOG(THREAD, LOG_ASYNCH, 2, "%s: not delivering!\n",
             (action == DR_SIGNAL_SUPPRESS) ? "client suppressing signal"
                                            : "app signal handler is SIG_IGN");
-        /* restore original (untranslated) sc */
-        *get_sigcontext_from_rt_frame(our_frame) = *sc_orig;
+        /* Restore original (untranslated) sc. */
+        restore_orig_sigcontext(our_frame, sc_orig);
         return false;
     } else if (!blocked && /* no BYPASS for blocked */
                (action == DR_SIGNAL_BYPASS ||
@@ -3697,10 +3712,10 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
             (action == DR_SIGNAL_BYPASS) ? "client forcing default"
                                          : "app signal handler is SIG_DFL");
         if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig, false)) {
-            /* if we haven't terminated, restore original (untranslated) sc
+            /* If we haven't terminated, restore original (untranslated) sc
              * on request.
              */
-            *get_sigcontext_from_rt_frame(our_frame) = *sc_orig;
+            restore_orig_sigcontext(our_frame, sc_orig);
             LOG(THREAD, LOG_ASYNCH, 2, "%s: restored xsp=" PFX ", xip=" PFX "\n",
                 __FUNCTION__, get_sigcontext_from_rt_frame(our_frame)->SC_XSP,
                 get_sigcontext_from_rt_frame(our_frame)->SC_XIP);
@@ -4170,13 +4185,28 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
 }
 
 static void
+copy_sigcontext(sigcontext_t *dst_sc, kernel_fpstate_t *dst_fpstate, sigcontext_t *src_sc)
+{
+
+    ASSERT(dst_sc != NULL && dst_fpstate != NULL && src_sc != NULL);
+
+    *dst_sc = *src_sc;
+
+    if (src_sc->fpstate != NULL) {
+        *dst_fpstate = *src_sc->fpstate;
+        dst_sc->fpstate = dst_fpstate;
+    }
+}
+
+static void
 record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                       sigframe_rt_t *frame, bool forged _IF_CLIENT(byte *access_address))
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-    /* XXX #1615: we need a full ucontext to store pre-xl8 simd values */
+    /* We need a fpstate to store original pre-xl8 SIMD values. */
+    kernel_fpstate_t fpstate_orig;
     sigcontext_t sc_orig;
     byte *pc = (byte *)sc->SC_XIP;
     byte *xsp = (byte *)sc->SC_XSP;
@@ -4461,7 +4491,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
         ASSERT(!at_auto_restart_syscall); /* only used for delayed delivery */
 
-        sc_orig = *sc;
+        copy_sigcontext(&sc_orig, &fpstate_orig, sc);
         ASSERT(!forged);
         /* cache the fragment since pclookup is expensive for coarse (i#658) */
         f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
@@ -4514,7 +4544,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             dr_signal_action_t action;
             /* cache the fragment since pclookup is expensive for coarse (i#658) */
             f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
-            sc_orig = *sc;
+            copy_sigcontext(&sc_orig, &fpstate_orig, sc);
             translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, f);
             /* make a copy before send_signal_to_client() tweaks it */
             sigcontext_t sc_interrupted = *sc;
@@ -4528,8 +4558,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 ostd->processing_signal--;
                 return;
             }
-            /* restore original (untranslated) sc */
-            *get_sigcontext_from_rt_frame(frame) = sc_orig;
+            /* Restore original (untranslated) sc. */
+            restore_orig_sigcontext(frame, &sc_orig);
         }
 #endif
 
@@ -4540,7 +4570,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                    default_action[sig] == DEFAULT_TERMINATE_CORE);
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
-            sc_orig = *sc;
+            copy_sigcontext(&sc_orig, &fpstate_orig, sc);
             /* If forged we're likely couldbelinking, and we don't need to xl8. */
             if (forged)
                 ASSERT(is_couldbelinking(dcontext));
@@ -5513,9 +5543,9 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig, false)) {
             /* if we haven't terminated, restore original (untranslated) sc
              * on request.
-             * XXX i#1615: this doesn't restore SIMD regs, if client translated them!
+             * Note, this also restores SIMD regs, if client translated them!
              */
-            *get_sigcontext_from_rt_frame(our_frame) = *sc_orig;
+            restore_orig_sigcontext(our_frame, sc_orig);
         }
         return false;
     }
