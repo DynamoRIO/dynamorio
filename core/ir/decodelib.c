@@ -128,7 +128,7 @@ get_thread_private_dcontext(void)
 void
 external_error(const char *file, int line, const char *msg)
 {
-    fprintf(stderr, "Usage error: %s (%s, line %d)\n", msg, file, line);
+    print_file(STDERR, "Usage error: %s (%s, line %d)\n", msg, file, line);
     abort();
 }
 
