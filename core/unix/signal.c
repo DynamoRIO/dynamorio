@@ -4207,7 +4207,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     /* We need a fpstate to store original pre-xl8 SIMD values. */
-#ifdef X86
+#if defined(X86) && defined(LINUX)
     kernel_fpstate_t fpstate_orig;
 #endif
     sigcontext_t sc_orig;
