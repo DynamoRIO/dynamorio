@@ -3579,7 +3579,7 @@ restore_orig_sigcontext(sigframe_rt_t *frame, sigcontext_t *sc_orig)
     ASSERT(frame != NULL && sc_orig != NULL);
 
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
-#ifdef X86
+#if defined(X86) && defined(LINUX)
     kernel_fpstate_t *fpstate = sc->fpstate;
     if (fpstate != NULL) {
         ASSERT(sc_orig->fpstate != NULL);
@@ -4189,7 +4189,7 @@ copy_sigcontext(sigcontext_t *dst_sc, void *dst_fpstate_opaque, sigcontext_t *sr
     ASSERT(dst_sc != NULL && src_sc != NULL);
     *dst_sc = *src_sc;
 
-#if defined(X86)
+#if defined(X86) && defined(LINUX)
     kernel_fpstate_t *dst_fpstate = (kernel_fpstate_t *)dst_fpstate_opaque;
     ASSERT(dst_fpstate != NULL);
     if (src_sc->fpstate != NULL) {
@@ -4494,7 +4494,8 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
         ASSERT(!at_auto_restart_syscall); /* only used for delayed delivery */
 
-        copy_sigcontext(&sc_orig, IF_X86_ELSE((void *)&fpstate_orig, NULL), sc);
+        copy_sigcontext(
+            &sc_orig, IF_X86_ELSE(IF_LINUX_ELSE((void *)&fpstate_orig, NULL), NULL), sc);
         ASSERT(!forged);
         /* cache the fragment since pclookup is expensive for coarse (i#658) */
         f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
@@ -4547,7 +4548,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             dr_signal_action_t action;
             /* cache the fragment since pclookup is expensive for coarse (i#658) */
             f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
-            copy_sigcontext(&sc_orig, IF_X86_ELSE((void *)&fpstate_orig, NULL), sc);
+            copy_sigcontext(&sc_orig,
+                            IF_X86_ELSE(IF_LINUX_ELSE((void *)&fpstate_orig, NULL), NULL),
+                            sc);
             translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, f);
             /* make a copy before send_signal_to_client() tweaks it */
             sigcontext_t sc_interrupted = *sc;
@@ -4573,7 +4576,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                    default_action[sig] == DEFAULT_TERMINATE_CORE);
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
-            copy_sigcontext(&sc_orig, IF_X86_ELSE((void *)&fpstate_orig, NULL), sc);
+            copy_sigcontext(&sc_orig,
+                            IF_X86_ELSE(IF_LINUX_ELSE((void *)&fpstate_orig, NULL), NULL),
+                            sc);
             /* If forged we're likely couldbelinking, and we don't need to xl8. */
             if (forged)
                 ASSERT(is_couldbelinking(dcontext));
