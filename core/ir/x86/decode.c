@@ -251,7 +251,6 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
     case OPSZ_12_rex8_of_16: return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_8 : OPSZ_12);
     case OPSZ_14_of_16: return OPSZ_14;
     case OPSZ_15_of_16: return OPSZ_15;
-    case OPSZ_8_of_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_8);
     case OPSZ_16_of_32:
     case OPSZ_16_of_32_evex64: return OPSZ_16;
     case OPSZ_32_of_64: return OPSZ_32;
@@ -314,7 +313,6 @@ expand_subreg_size(opnd_size_t sz)
     case OPSZ_4_reg16: return OPSZ_16;
     case OPSZ_16_of_32: return OPSZ_32;
     case OPSZ_32_of_64: return OPSZ_64;
-    case OPSZ_8_of_16_vex32:
     case OPSZ_half_16_vex32: return OPSZ_16_vex32;
     case OPSZ_half_16_vex32_evex64: return OPSZ_16_vex32_evex64;
     case OPSZ_quarter_16_vex32: return OPSZ_half_16_vex32;
@@ -1510,7 +1508,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
          */
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
-            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16) ||
+            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16 &&
+             expand_subreg_size(opsize) != OPSZ_64) ||
             opsize == OPSZ_32;
         if (operand_is_ymm && operand_is_zmm) {
             /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
