@@ -3579,15 +3579,15 @@ restore_orig_sigcontext(sigframe_rt_t *frame, sigcontext_t *sc_orig)
     ASSERT(frame != NULL && sc_orig != NULL);
 
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
-
+#ifdef X86
     kernel_fpstate_t *fpstate = sc->fpstate;
     if (fpstate != NULL) {
         ASSERT(sc_orig->fpstate != NULL);
         *fpstate = *sc_orig->fpstate;
+        sc_orig->fpstate = fpstate;
     }
-
+#endif
     *sc = *sc_orig;
-    sc->fpstate = fpstate;
 }
 
 #ifdef CLIENT_INTERFACE
@@ -4184,16 +4184,19 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
 }
 
 static void
-copy_sigcontext(sigcontext_t *dst_sc, kernel_fpstate_t *dst_fpstate, sigcontext_t *src_sc)
+copy_sigcontext(sigcontext_t *dst_sc, void *dst_fpstate_opaque, sigcontext_t *src_sc)
 {
-    ASSERT(dst_sc != NULL && dst_fpstate != NULL && src_sc != NULL);
-
+    ASSERT(dst_sc != NULL && src_sc != NULL);
     *dst_sc = *src_sc;
 
+#if defined(X86)
+    kernel_fpstate_t *dst_fpstate = (kernel_fpstate_t *)dst_fpstate_opaque;
+    ASSERT(dst_fpstate != NULL);
     if (src_sc->fpstate != NULL) {
         *dst_fpstate = *src_sc->fpstate;
         dst_sc->fpstate = dst_fpstate;
     }
+#endif
 }
 
 static void
@@ -4204,7 +4207,9 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     /* We need a fpstate to store original pre-xl8 SIMD values. */
+#ifdef X86
     kernel_fpstate_t fpstate_orig;
+#endif
     sigcontext_t sc_orig;
     byte *pc = (byte *)sc->SC_XIP;
     byte *xsp = (byte *)sc->SC_XSP;
@@ -4489,7 +4494,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
         ASSERT(!at_auto_restart_syscall); /* only used for delayed delivery */
 
-        copy_sigcontext(&sc_orig, &fpstate_orig, sc);
+        copy_sigcontext(&sc_orig, IF_X86_ELSE((void *)&fpstate_orig, NULL), sc);
         ASSERT(!forged);
         /* cache the fragment since pclookup is expensive for coarse (i#658) */
         f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
@@ -4542,7 +4547,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             dr_signal_action_t action;
             /* cache the fragment since pclookup is expensive for coarse (i#658) */
             f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
-            copy_sigcontext(&sc_orig, &fpstate_orig, sc);
+            copy_sigcontext(&sc_orig, IF_X86_ELSE((void *)&fpstate_orig, NULL), sc);
             translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, f);
             /* make a copy before send_signal_to_client() tweaks it */
             sigcontext_t sc_interrupted = *sc;
@@ -4568,7 +4573,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                    default_action[sig] == DEFAULT_TERMINATE_CORE);
             LOG(THREAD, LOG_ASYNCH, 1,
                 "blocked fatal signal %d cannot be delayed: terminating\n", sig);
-            copy_sigcontext(&sc_orig, &fpstate_orig, sc);
+            copy_sigcontext(&sc_orig, IF_X86_ELSE((void *)&fpstate_orig, NULL), sc);
             /* If forged we're likely couldbelinking, and we don't need to xl8. */
             if (forged)
                 ASSERT(is_couldbelinking(dcontext));
