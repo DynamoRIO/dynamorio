@@ -1508,7 +1508,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
          */
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
-            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16) ||
+            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16 &&
+             expand_subreg_size(opsize) != OPSZ_64) ||
             opsize == OPSZ_32;
         if (operand_is_ymm && operand_is_zmm) {
             /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
