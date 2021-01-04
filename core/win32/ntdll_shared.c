@@ -84,19 +84,19 @@ nt_write_virtual_memory(HANDLE process, void *base, const void *buffer,
 #ifndef X64 /* Around most of the rest of the file. */
 
 #    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-#        define UNPROT_IF_INIT()                                                 \
-            do {                                                                 \
-                /* The first call may not be during init so we have to unprot */ \
-                if (dynamo_initialized) {                                        \
-                    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);                 \
-                }                                                                \
+#        define UNPROT_IF_INIT()                                                  \
+            do {                                                                  \
+                /* The first call may not be during init so we have to unprot. */ \
+                if (dynamo_initialized) {                                         \
+                    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);                  \
+                }                                                                 \
             } while (0)
-#        define PROT_IF_INIT()                                                   \
-            do {                                                                 \
-                /* The first call may not be during init so we have to unprot */ \
-                if (dynamo_initialized) {                                        \
-                    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);                   \
-                }                                                                \
+#        define PROT_IF_INIT()                                                    \
+            do {                                                                  \
+                /* The first call may not be during init so we have to unprot. */ \
+                if (dynamo_initialized) {                                         \
+                    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);                    \
+                }                                                                 \
             } while (0)
 #    else
 #        define PROT_IF_INIT()   /* Nothing. */

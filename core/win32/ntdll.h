@@ -97,7 +97,7 @@
 
 #ifdef X64
 typedef struct _UNICODE_STRING_32 {
-    /* Length field is size in bytes not counting final 0 */
+    /* Length field is size in bytes not counting final 0. */
     USHORT Length;
     USHORT MaximumLength;
     uint Buffer;
@@ -111,7 +111,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS_32 {
 } RTL_USER_PROCESS_PARAMETERS_32, *PRTL_USER_PROCESS_PARAMETERS_32;
 #else
 typedef struct ALIGN_VAR(8) _UNICODE_STRING_64 {
-    /* Length field is size in bytes not counting final 0 */
+    /* Length field is size in bytes not counting final 0. */
     USHORT Length;
     USHORT MaximumLength;
     int padding;
