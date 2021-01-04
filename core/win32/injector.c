@@ -230,6 +230,7 @@ tchar_to_char(const TCHAR *wstr, OUT char *buf, size_t buflen /*# elements*/)
 typedef struct _dr_inject_info_t {
     PROCESS_INFORMATION pi;
     bool using_debugger_injection;
+    bool using_thread_injection;
     TCHAR wimage_name[MAXIMUM_PATH];
     /* We need something to point at for dr_inject_get_image_name so we just
      * keep a utf8 buffer as well.
@@ -817,10 +818,10 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
      * if we have our own version of CreateProcess that doesn't check the
      * debugger key */
     info->using_debugger_injection = using_debugger_key_injection(info->wimage_name);
-
     if (info->using_debugger_injection) {
         unset_debugger_key_injection();
     }
+    info->using_thread_injection = false;
 
     /* Must specify TRUE for bInheritHandles so child inherits stdin! */
     res = CreateProcess(wapp_name, wapp_cmdline, NULL, NULL, TRUE,
@@ -844,9 +845,19 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
 
 DYNAMORIO_EXPORT
 bool
+dr_inject_use_late_injection(void *data)
+{
+    dr_inject_info_t *info = (dr_inject_info_t *)data;
+    info->using_thread_injection = true;
+    return true;
+}
+
+DYNAMORIO_EXPORT
+bool
 dr_inject_process_inject(void *data, bool force_injection, const char *library_path)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
+    CONTEXT cxt;
     bool inject = true;
     char library_path_buf[MAXIMUM_PATH];
 
@@ -920,8 +931,16 @@ dr_inject_process_inject(void *data, bool force_injection, const char *library_p
      * But it's non-trivial to gather the relevant addresses.
      * i#234/PR 204587 is a prereq?
      */
-    if (!inject_into_new_process(info->pi.hProcess, (char *)library_path, true /*map*/,
-                                 INJECT_LOCATION_ImageEntry, NULL)) {
+    bool res = false;
+    /* We provide a way to fall back on thread injection. */
+    if (info->using_thread_injection) {
+        res = inject_into_thread(info->pi.hProcess, &cxt, info->pi.hThread,
+                                (char *)library_path);
+    } else {
+        res = inject_into_new_process(info->pi.hProcess, (char *)library_path,
+                                      true /*map*/, INJECT_LOCATION_ImageEntry, NULL);
+    }
+    if (!res) {
         close_handle(info->pi.hProcess);
         TerminateProcess(info->pi.hProcess, 0);
         return false;
