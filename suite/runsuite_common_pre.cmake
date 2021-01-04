@@ -260,8 +260,8 @@ function (_DR_set_VS_bitwidth_env_vars is64 env_names)
     set(LIB_env_value "${newlib}" PARENT_SCOPE)
     list(APPEND names_list "LIBPATH")
     set(LIBPATH_env_value "${newlibpath}" PARENT_SCOPE)
-    set(${env_names} ${names_list} PARENT_SCOPE)
   endif ()
+  set(${env_names} ${names_list} PARENT_SCOPE)
 endfunction ()
 
 # allow setting the base cache variables via an include file
