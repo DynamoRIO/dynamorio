@@ -1459,6 +1459,7 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
     byte hook_buf[EARLY_INJECT_HOOK_SIZE];
     bool x86_code = false;
     bool late_injection = false;
+    uint64 image_entry = 0;
 
     /* Possible child hook points */
     GET_NTDLL(KiUserApcDispatcher,
@@ -1515,7 +1516,7 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
          * is not many instructions later.  We also need to call this to set
          * x86_code:
          */
-        uint64 image_entry = get_remote_process_entry(phandle, &x86_code);
+        image_entry = get_remote_process_entry(phandle, &x86_code);
         if (thandle != NULL && IF_X64(!) is_32bit_process(phandle)) {
             CONTEXT cxt;
             cxt.ContextFlags = CONTEXT_CONTROL;
@@ -1567,17 +1568,51 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
     if (hook_target == 0)
         goto error;
 
-    /* Place hook */
-    if (REL32_REACHABLE((int64)hook_location + 5, (int64)hook_target)) {
-        hook_buf[0] = JMP_REL32;
-        *(int *)(&hook_buf[1]) = (int)((int64)hook_target - ((int64)hook_location + 5));
-    } else {
-        hook_buf[0] = JMP_ABS_IND64_OPCODE;
-        hook_buf[1] = JMP_ABS_MEM_IND64_MODRM;
-        *(int *)(&hook_buf[2]) = 0; /* rip-rel to following address */
-        *(uint64 *)(&hook_buf[6]) = hook_target;
+    bool skip_hook = false;
+    if (inject_location == INJECT_LOCATION_ThreadStart && hook_location != image_entry &&
+        thandle != NULL) {
+        /* XXX i#803: Having a hook at the thread start seems to cause strange
+         * instability.  We instead set the thread context, like thread injection
+         * does.  We should better understand the problems.
+         * If we successfully set the context, we skip the hook.  The gencode
+         * will still write the original instructions on top (a nop).
+         */
+        if (IF_X64_ELSE(true, is_32bit_process(phandle))) {
+            CONTEXT cxt;
+            cxt.ContextFlags = CONTEXT_CONTROL;
+            if (NT_SUCCESS(nt_get_context(thandle, &cxt))) {
+                cxt.CXT_XIP = (ptr_uint_t)hook_target;
+                if (NT_SUCCESS(nt_set_context(thandle, &cxt)))
+                    skip_hook = true;
+            }
+        }
+#ifndef X64
+        else {
+            CONTEXT_64 cxt64;
+            cxt64.ContextFlags = CONTEXT_CONTROL;
+            if (thread_get_context_64(thandle, &cxt64)) {
+                cxt64.Rip = hook_target;
+                if (thread_set_context_64(thandle, &cxt64)) {
+                    skip_hook = true;
+                }
+            }
+        }
+#endif
     }
-
+    if (!skip_hook) {
+        /* Place hook */
+        if (REL32_REACHABLE((int64)hook_location + 5, (int64)hook_target)) {
+            hook_buf[0] = JMP_REL32;
+            *(int *)(&hook_buf[1]) =
+                (int)((int64)hook_target - ((int64)hook_location + 5));
+        } else {
+            hook_buf[0] = JMP_ABS_IND64_OPCODE;
+            hook_buf[1] = JMP_ABS_MEM_IND64_MODRM;
+            *(int *)(&hook_buf[2]) = 0; /* rip-rel to following address */
+            *(uint64 *)(&hook_buf[6]) = hook_target;
+        }
+    }
+    /* Even if skipping we have to mark writable since gencode writes to it. */
     if (!remote_protect_virtual_memory_maybe64(phandle, hook_location, sizeof(hook_buf),
                                                PAGE_EXECUTE_READWRITE, &old_prot)) {
         goto error;

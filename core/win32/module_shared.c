@@ -60,8 +60,8 @@
  * preinject just defines its own d_r_internal_error!
  */
 #    include "../globals.h"
+#    include "os_private.h"
 #    if !defined(NOT_DYNAMORIO_CORE_PROPER)
-#        include "os_private.h"       /* for is_readable_pe_base() */
 #        include "../module_shared.h" /* for is_in_code_section() */
 #    endif
 #    ifdef CLIENT_INTERFACE
@@ -1200,7 +1200,6 @@ free_library_64(HANDLE lib)
     return (res >= 0);
 }
 
-#        ifndef NOT_DYNAMORIO_CORE_PROPER
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 {
@@ -1233,7 +1232,6 @@ thread_set_context_64(HANDLE thread, CONTEXT_64 *cxt64)
     res = switch_modes_and_call(&args);
     return NT_SUCCESS(res);
 }
-#        endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 bool
 remote_protect_virtual_memory_64(HANDLE process, uint64 base, size_t size, uint prot,
