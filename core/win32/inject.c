@@ -1460,6 +1460,13 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
     bool x86_code = false;
     bool late_injection = false;
     uint64 image_entry = 0;
+    union {
+        /* Ensure we're not using too much stack via a union. */
+        CONTEXT cxt;
+#ifndef X64
+        CONTEXT_64 cxt64;
+#endif
+    } cxt;
 
     /* Possible child hook points */
     GET_NTDLL(KiUserApcDispatcher,
@@ -1509,28 +1516,41 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
         break;
     case INJECT_LOCATION_ThreadStart:
         late_injection = true;
-        /* Try to get the actual thread context if possible.  We do not yet have
-         * support for CONTEXT32 and CONTEXT64, which we'd need for non-same-bitwidth.
+        /* Try to get the actual thread context if possible.
          * We next try looking in the remote ntdll for RtlUserThreadStart.
          * If we can't find the thread start, we fall back to the image entry, which
-         * is not many instructions later.  We also need to call this to set
-         * x86_code:
+         * is not many instructions later.  We also need to call this first to set
+         * "x86_code":
          */
         image_entry = get_remote_process_entry(phandle, &x86_code);
-        if (thandle != NULL && IF_X64(!) is_32bit_process(phandle)) {
-            CONTEXT cxt;
-            cxt.ContextFlags = CONTEXT_CONTROL;
-            if (NT_SUCCESS(nt_get_context(thandle, &cxt))) {
-                hook_location = cxt.CXT_XIP;
+        if (thandle != NULL) {
+            /* We can get the context for same-bitwidth, or (below) for parent32,
+             * child64.  For parent64, child32, a regular query gives us
+             * ntdll64!RtlUserThreadStart, which our gencode can't reach and which
+             * is not actually executed: we'd need a reverse switch_modes_and_call?
+             * For now we rely on the get_remote_proc_address() and assume that's
+             * the thread start for parent64, child32.
+             */
+            if (IF_X64(!) is_32bit_process(phandle)) {
+                cxt.cxt.ContextFlags = CONTEXT_CONTROL;
+                if (NT_SUCCESS(nt_get_context(thandle, &cxt.cxt)))
+                    hook_location = cxt.cxt.CXT_XIP;
             }
-        } else {
+#ifndef X64
+            else {
+                cxt.cxt64.ContextFlags = CONTEXT_CONTROL;
+                if (thread_get_context_64(thandle, &cxt.cxt64))
+                    hook_location = cxt.cxt64.Rip;
+            }
+#endif
+        }
+        if (hook_location == 0) {
             bool target_64 = !x86_code IF_X64(|| DYNAMO_OPTION(inject_x64));
             uint64 ntdll_base = find_remote_ntdll_base(phandle, target_64);
             uint64 thread_start =
                 get_remote_proc_address(phandle, ntdll_base, "RtlUserThreadStart");
-            if (thread_start != 0) {
+            if (thread_start != 0)
                 hook_location = thread_start;
-            }
         }
         if (hook_location == 0) {
             /* Fall back to the image entry which is just a few instructions later. */
@@ -1578,21 +1598,19 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
          * will still write the original instructions on top (a nop).
          */
         if (IF_X64_ELSE(true, is_32bit_process(phandle))) {
-            CONTEXT cxt;
-            cxt.ContextFlags = CONTEXT_CONTROL;
-            if (NT_SUCCESS(nt_get_context(thandle, &cxt))) {
-                cxt.CXT_XIP = (ptr_uint_t)hook_target;
-                if (NT_SUCCESS(nt_set_context(thandle, &cxt)))
+            cxt.cxt.ContextFlags = CONTEXT_CONTROL;
+            if (NT_SUCCESS(nt_get_context(thandle, &cxt.cxt))) {
+                cxt.cxt.CXT_XIP = (ptr_uint_t)hook_target;
+                if (NT_SUCCESS(nt_set_context(thandle, &cxt.cxt)))
                     skip_hook = true;
             }
         }
 #ifndef X64
         else {
-            CONTEXT_64 cxt64;
-            cxt64.ContextFlags = CONTEXT_CONTROL;
-            if (thread_get_context_64(thandle, &cxt64)) {
-                cxt64.Rip = hook_target;
-                if (thread_set_context_64(thandle, &cxt64)) {
+            cxt.cxt64.ContextFlags = CONTEXT_CONTROL;
+            if (thread_get_context_64(thandle, &cxt.cxt64)) {
+                cxt.cxt64.Rip = hook_target;
+                if (thread_set_context_64(thandle, &cxt.cxt64)) {
                     skip_hook = true;
                 }
             }

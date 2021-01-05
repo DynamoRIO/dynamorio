@@ -1728,8 +1728,10 @@ not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
 #ifndef X64
     bool peb_is_32 = is_32bit_process(process_handle);
     if (!peb_is_32) {
-        /* We'd need a CONTEXT64 define for parent32,child64.
-         * We only need this for pre-Vista, so just xp64, so we bail.
+        /* XXX: We need to use CONTEXT_64 and thread_get_context_64 for parent32,child64.
+         * We only need this for pre-Vista, so just xp64, where we are not willing
+         * to put much effort: for now we bail (we never supported cross-arch
+         * injection in the past in any case).
          */
         REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
                                     get_application_pid(),
