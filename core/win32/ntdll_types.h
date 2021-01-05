@@ -33,6 +33,8 @@ typedef LONG NTSTATUS;
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #define STATUS_UNSUCCESSFUL ((NTSTATUS)0xC0000001L)
 
+typedef LONG KPRIORITY;
+
 typedef struct _UNICODE_STRING {
     /* Length field is size in bytes not counting final 0 */
     USHORT Length;
@@ -485,5 +487,13 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS {
 #define FILE_PIPE_COMPLETE_OPERATION 0x00000001
 
 #define FILE_DEVICE_CONSOLE 0x00000050
+
+/***************************************************************************
+ * convenience enums
+ */
+typedef enum {
+    MEMORY_RESERVE_ONLY = MEM_RESERVE,
+    MEMORY_COMMIT = MEM_RESERVE | MEM_COMMIT
+} memory_commit_status_t;
 
 #endif /* _NTDLL_TYPES_H_ */

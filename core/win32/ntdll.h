@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -95,9 +95,23 @@
 #    define ATTACH_PARENT_PROCESS ((DWORD)-1)
 #endif
 
-#ifndef X64
+#ifdef X64
+typedef struct _UNICODE_STRING_32 {
+    /* Length field is size in bytes not counting final 0. */
+    USHORT Length;
+    USHORT MaximumLength;
+    uint Buffer;
+} UNICODE_STRING_32;
+
+typedef struct _RTL_USER_PROCESS_PARAMETERS_32 {
+    uint Reserved[14];
+    UNICODE_STRING_32 ImagePathName;
+    UNICODE_STRING_32 CommandLine;
+    uint Environment;
+} RTL_USER_PROCESS_PARAMETERS_32, *PRTL_USER_PROCESS_PARAMETERS_32;
+#else
 typedef struct ALIGN_VAR(8) _UNICODE_STRING_64 {
-    /* Length field is size in bytes not counting final 0 */
+    /* Length field is size in bytes not counting final 0. */
     USHORT Length;
     USHORT MaximumLength;
     int padding;
@@ -109,6 +123,14 @@ typedef struct ALIGN_VAR(8) _UNICODE_STRING_64 {
         uint64 Buffer64;
     } u;
 } UNICODE_STRING_64;
+
+typedef struct _RTL_USER_PROCESS_PARAMETERS_64 {
+    BYTE Reserved1[16];
+    uint64 Reserved2[10];
+    UNICODE_STRING_64 ImagePathName;
+    UNICODE_STRING_64 CommandLine;
+    uint64 Environment;
+} RTL_USER_PROCESS_PARAMETERS_64, *PRTL_USER_PROCESS_PARAMETERS_64;
 #endif
 
 /* from DDK2003SP1/3790.1830/inc/ddk/wnet/ntddk.h */
@@ -207,28 +229,24 @@ typedef struct _LDR_MODULE { /* offset: 32bit / 64bit */
     LDR_DLL_LOAD_REASON LoadReason;         /* 0x094 / 0x10c */
 } LDR_MODULE, *PLDR_MODULE;
 
-/* This macro is defined so that 32-bit dlls can be handled in 64-bit DR.
+/* This macro is defined so that 32-bit dlls can be handled in 64-bit DR,
+ * and vice versa (for injection from 32-bit into a 64-bit child).
  * Not all IMAGE_OPTIONAL_HEADER fields are affected, only ImageBase,
  * LoaderFlags, NumberOfRvaAndSizes, SizeOf{Stack,Heap}{Commit,Reserve},
  * and DataDirectory, of which we use only ImageBase and DataDirectory.
  * All other fields happen to have the same offsets and sizes in both
  * IMAGE_OPTIONAL_HEADER32 and IMAGE_OPTIONAL_HEADER64.
  */
-#ifdef X64
 /* Don't need to use module_is_32bit() here as that is heavyweight.  Also, as
  * it is used directly in process_image() just when the module processing
  * begins, we don't have to do all the checks here.
  */
-#    define OPT_HDR(nt_hdr_p, field) OPT_HDR_BASE(nt_hdr_p, field, )
-#    define OPT_HDR_P(nt_hdr_p, field) OPT_HDR_BASE(nt_hdr_p, field, (app_pc) &)
-#    define OPT_HDR_BASE(nt_hdr_p, field, amp)                                        \
-        ((nt_hdr_p)->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC            \
-             ? amp(((IMAGE_OPTIONAL_HEADER32 *)&((nt_hdr_p)->OptionalHeader))->field) \
-             : amp(((IMAGE_OPTIONAL_HEADER64 *)&((nt_hdr_p)->OptionalHeader))->field))
-#else
-#    define OPT_HDR(nt_hdr_p, field) ((nt_hdr_p)->OptionalHeader.field)
-#    define OPT_HDR_P(nt_hdr_p, field) (&((nt_hdr_p)->OptionalHeader.field))
-#endif
+#define OPT_HDR(nt_hdr_p, field) OPT_HDR_BASE(nt_hdr_p, field, )
+#define OPT_HDR_P(nt_hdr_p, field) OPT_HDR_BASE(nt_hdr_p, field, (app_pc) &)
+#define OPT_HDR_BASE(nt_hdr_p, field, amp)                                        \
+    ((nt_hdr_p)->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC            \
+         ? amp(((IMAGE_OPTIONAL_HEADER32 *)&((nt_hdr_p)->OptionalHeader))->field) \
+         : amp(((IMAGE_OPTIONAL_HEADER64 *)&((nt_hdr_p)->OptionalHeader))->field))
 
 /* For use by routines that walk the module lists. */
 enum { MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD = 2048 };
@@ -385,7 +403,6 @@ typedef _W64 long LONG_PTR, *PLONG_PTR;
 typedef _W64 unsigned long ULONG_PTR, *PULONG_PTR;
 typedef ULONG KAFFINITY;
 #endif
-typedef LONG KPRIORITY;
 
 typedef struct _KERNEL_USER_TIMES {
     LARGE_INTEGER CreateTime;
@@ -1276,14 +1293,6 @@ typedef struct _KUSER_SHARED_DATA {
 #define KUSER_SHARED_DATA_ADDRESS ((ULONG_PTR)0x7ffe0000)
 
 /***************************************************************************
- * convenience enums
- */
-typedef enum {
-    MEMORY_RESERVE_ONLY = MEM_RESERVE,
-    MEMORY_COMMIT = MEM_RESERVE | MEM_COMMIT
-} memory_commit_status_t;
-
-/***************************************************************************
  * function declarations
  */
 
@@ -1336,6 +1345,15 @@ get_peb(HANDLE h);
 
 PEB *
 get_own_peb(void);
+
+uint64
+get_peb_maybe64(HANDLE h);
+
+#ifdef X64
+/* Returns the 32-bit PEB for a WOW64 process, given process and thread handles. */
+uint64
+get_peb32(HANDLE process, HANDLE thread);
+#endif
 
 TEB *
 get_teb(HANDLE h);
@@ -1506,6 +1524,9 @@ get_process_load(HANDLE h);
 bool
 is_wow64_process(HANDLE h);
 
+bool
+is_32bit_process(HANDLE h);
+
 NTSTATUS
 nt_get_drive_map(HANDLE process, PROCESS_DEVICEMAP_INFORMATION *map OUT);
 
@@ -1630,10 +1651,10 @@ query_full_attributes_file(PCWSTR filename, PFILE_NETWORK_OPEN_INFORMATION info)
 #define FILE_ANY_ACCESS 0
 #define FILE_SPECIAL_ACCESS (FILE_ANY_ACCESS)
 #ifndef FILE_READ_ACCESS
-# define FILE_READ_ACCESS (0x0001)  // file & pipe
+#    define FILE_READ_ACCESS (0x0001) // file & pipe
 #endif
 #ifndef FILE_WRITE_ACCESS
-# define FILE_WRITE_ACCESS (0x0002) // file & pipe
+#    define FILE_WRITE_ACCESS (0x0002) // file & pipe
 #endif
 
 /* share flags, from ntddk.h, rest are in winnt.h */
@@ -2154,7 +2175,14 @@ get_own_context(CONTEXT *cxt);
 enum { /* can't put w/ os_exports.h enum b/c needed for non-core */
        /* for accessing x64 data from WOW64 */
        X64_PEB_TIB_OFFSET = 0x060,
+       X86_PEB_TIB_OFFSET = 0x030,
+       X64_SELF_TIB_OFFSET = 0x030,
+       X86_SELF_TIB_OFFSET = 0x018,
        X64_LDR_PEB_OFFSET = 0x018,
+       X64_IMAGE_BASE_PEB_OFFSET = 0x010,
+       X86_IMAGE_BASE_PEB_OFFSET = 0x008,
+       X64_PROCESS_PARAM_PEB_OFFSET = 0x020,
+       X86_PROCESS_PARAM_PEB_OFFSET = 0x010,
 };
 
 LDR_MODULE *
@@ -2180,7 +2208,27 @@ get_module_handle_64(const wchar_t *name);
 
 uint64
 get_proc_address_64(uint64 lib, const char *name);
+
+bool
+remote_protect_virtual_memory_64(HANDLE process, uint64 base, size_t size, uint prot,
+                                 uint *old_prot);
 #endif /* !X64 */
+
+uint64
+get_remote_proc_address(HANDLE process, uint64 remote_base, const char *name);
+
+bool
+get_remote_dll_short_name(HANDLE process, uint64 remote_base, OUT char *name,
+                          size_t name_len, OUT bool *is_64);
+
+bool
+remote_protect_virtual_memory_maybe64(HANDLE process, uint64 base, size_t size, uint prot,
+                                      uint *old_prot);
+
+NTSTATUS
+remote_query_virtual_memory_maybe64(HANDLE process, uint64 addr,
+                                    MEMORY_BASIC_INFORMATION64 *mbi, size_t mbilen,
+                                    uint64 *got);
 
 IMAGE_EXPORT_DIRECTORY *
 get_module_exports_directory(app_pc base_addr, size_t *exports_size /* OPTIONAL OUT */);

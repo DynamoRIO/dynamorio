@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -700,6 +700,22 @@ Facility = DRCore
 SymbolicName = MSG_PRIVATE_LIBRARY_TLS_LIMIT_CROSSED
 Language=English
 Application %1!s! (%2!s!). Private library static TLS limit crossed: %3!s!
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_INJECTION_LIBRARY_MISSING
+Language=English
+Application %1!s! (%2!s!). The library %3!s! for child process injection is missing.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FOLLOW_CHILD_FAILED
+Language=English
+Application %1!s! (%2!s!). Failed to follow into child process: %3!s!.
 .
 
 ;// ADD NEW MESSAGES HERE

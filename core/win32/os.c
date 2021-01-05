@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3326,8 +3326,8 @@ should_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
 
 /* cxt may be NULL if -inject_at_create_process */
 static int
-inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
-                    inject_setting_mask_t should_inject)
+inject_into_process(dcontext_t *dcontext, HANDLE process_handle, HANDLE thread_handle,
+                    CONTEXT *cxt, inject_setting_mask_t should_inject)
 {
     /* Here in fact we don't want to have the default argument override
        mechanism take place.  If an app specific AUTOINJECT value is
@@ -3339,6 +3339,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
        to have them use the same library.
     */
     char library_path_buf[MAXIMUM_PATH];
+    char alt_arch_path[MAXIMUM_PATH];
     char *library = library_path_buf;
     bool res;
 
@@ -3352,8 +3353,9 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
      * unless the child is in fact explicit in which case we just use the global library.
      */
 
+    bool custom_library = false;
     switch (err) {
-    case GET_PARAMETER_SUCCESS: break;
+    case GET_PARAMETER_SUCCESS: custom_library = true; break;
     case GET_PARAMETER_NOAPPSPECIFIC:
         /* We got the global key's library, use parent's library instead if the only
          * reason we're injecting is -follow_children (i.e. reading RUNUNDER gave us
@@ -3368,8 +3370,38 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
     default: ASSERT_NOT_REACHED();
     }
 
+    if (!custom_library IF_X64(&&!DYNAMO_OPTION(inject_x64))) {
+        if (IF_NOT_X64(!) is_32bit_process(process_handle)) {
+            /* The build system passes us the LIBDIR_X{86,64} defines. */
+#    define DR_LIBDIR_X86 STRINGIFY(LIBDIR_X86)
+#    define DR_LIBDIR_X64 STRINGIFY(LIBDIR_X64)
+            strncpy(alt_arch_path, library, BUFFER_SIZE_ELEMENTS(alt_arch_path));
+            /* Assumption: libdir name is not repeated elsewhere in path */
+            char *libdir =
+                strstr(alt_arch_path, IF_X64_ELSE(DR_LIBDIR_X64, DR_LIBDIR_X86));
+            if (libdir != NULL) {
+                const char *newdir = IF_X64_ELSE(DR_LIBDIR_X86, DR_LIBDIR_X64);
+                /* Do NOT place the NULL. */
+                strncpy(libdir, newdir, strlen(newdir));
+                NULL_TERMINATE_BUFFER(alt_arch_path);
+                library = alt_arch_path;
+                LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1,
+                    "alternate-bitwidth library path: %s", library);
+            } else {
+                REPORT_FATAL_ERROR_AND_EXIT(
+                    INJECTION_LIBRARY_MISSING, 3, get_application_name(),
+                    get_application_pid(),
+                    "<failed to determine alternate bitwidth path>");
+            }
+        }
+    }
+
     LOG(THREAD, LOG_SYSCALLS | LOG_THREADS, 1, "\tinjecting %s into child process\n",
         library);
+    if (!os_file_exists(library, false)) {
+        REPORT_FATAL_ERROR_AND_EXIT(INJECTION_LIBRARY_MISSING, 3, get_application_name(),
+                                    get_application_pid(), library);
+    }
 
     if (DYNAMO_OPTION(aslr_dr) &&
         /* case 8749 - can't aslr dr for thin_clients */
@@ -3392,7 +3424,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
          * but if it does could fall back to late injection (though we can't
          * be sure that would work, i.e. early thread process for ex.) or
          * do a SYSLOG error. */
-        res = inject_into_new_process(process_handle, library,
+        res = inject_into_new_process(process_handle, thread_handle, library,
                                       DYNAMO_OPTION(early_inject_map),
                                       early_inject_location, early_inject_address);
     } else {
@@ -3412,6 +3444,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
     return true;
 }
 
+/* Does not support 32-bit asking about a 64-bit process. */
 bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
 {
@@ -3428,37 +3461,42 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
      * but no easy way to do either here.  FIXME
      */
     process_id_t pid = process_id_from_handle(process_handle);
-    if (pid == 0)
+    if (pid == 0) {
+        LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2, "%s: failed to get pid\n");
         return true;
+    }
     if (!is_pid_me(pid)) {
-        ptr_uint_t peb = (ptr_uint_t)get_peb(process_handle);
-        if (cxt->THREAD_START_ARG == peb)
+        uint64 peb = get_peb_maybe64(process_handle);
+        uint64 start_arg =
+            IF_X64_ELSE(cxt->THREAD_START_ARG64,
+                        is_32bit_process(process_handle) ? cxt->THREAD_START_ARG32
+                                                         : cxt->THREAD_START_ARG64);
+        LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2,
+            "%s: pid=" PIFX " vs me=" PIFX ", arg=" PFX " vs peb=" PFX "\n", __FUNCTION__,
+            pid, get_process_id(), start_arg, peb);
+        if (start_arg == peb)
             return true;
         else if (is_wow64_process(process_handle) &&
                  get_os_version() >= WINDOWS_VERSION_VISTA) {
             /* i#816: for wow64 process PEB query will be x64 while thread addr
              * will be the x86 PEB.  On Vista and Win7 the x86 PEB seems to
              * always be one page below but we don't want to rely on that, and
-             * it doesn't hold on Win8.  Instead we ensure the start addr is
-             * a one-page alloc whose first 3 fields match the x64 PEB:
-             * boolean flags, Mutant, and ImageBaseAddress.
+             * it doesn't hold on Win8.  Instead we ensure the start addr's
+             * first 3 fields match the x64 PEB: boolean flags, Mutant, and
+             * ImageBaseAddress.
+             *
+             * XXX: We now have get_peb32() with a thread handle.  But this is no
+             * longer used for the default injection.
              */
             int64 peb64[3];
             int peb32[3];
             byte *base = NULL;
-            size_t sz = get_allocation_size_ex(process_handle,
-                                               (byte *)cxt->THREAD_START_ARG, &base);
-            LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2,
-                "%s: pid=" PIFX " vs me=" PIFX ", arg=" PFX " vs peb=" PFX "\n",
-                __FUNCTION__, pid, get_process_id(), cxt->THREAD_START_ARG, peb);
-            if (sz != PAGE_SIZE || base != (byte *)cxt->THREAD_START_ARG)
-                return false;
-            if (!nt_read_virtual_memory(process_handle, (const void *)peb, peb64,
-                                        sizeof(peb64), &sz) ||
+            size_t sz;
+            if (!read_remote_memory_maybe64(process_handle, peb, peb64, sizeof(peb64),
+                                            &sz) ||
                 sz != sizeof(peb64) ||
-                !nt_read_virtual_memory(process_handle,
-                                        (const void *)cxt->THREAD_START_ARG, peb32,
-                                        sizeof(peb32), &sz) ||
+                !read_remote_memory_maybe64(process_handle, start_arg, peb32,
+                                            sizeof(peb32), &sz) ||
                 sz != sizeof(peb32))
                 return false;
             LOG(THREAD_GET, LOG_SYSCALLS | LOG_THREADS, 2,
@@ -3475,9 +3513,12 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
 /* Depending on registry and options maybe inject into child process with
  * handle process_handle.  Called by SYS_CreateThread in pre_system_call (in
  * which case cxt is non-NULL) and by CreateProcess[Ex] in post_system_call (in
- * which case cxt is NULL). */
+ * which case cxt is NULL).
+ * Does not support cross-arch injection for cxt!=NULL.
+ */
 bool
-maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt)
+maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
+                          HANDLE thread_handle, CONTEXT *cxt)
 {
     /* if inject_at_create_process becomes dynamic, need to move this check below
      * the synchronize dynamic options */
@@ -3518,9 +3559,11 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *
             } else {
                 injected = true; /* attempted, at least */
                 ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject));
-                /* FIXME : if not -early_inject, we are going to read and write
-                 * to cxt, which may be unsafe */
-                if (inject_into_process(dcontext, process_handle, cxt, should_inject)) {
+                /* XXX: if not -early_inject, we are going to read and write
+                 * to cxt, which may be unsafe.
+                 */
+                if (inject_into_process(dcontext, process_handle, thread_handle, cxt,
+                                        should_inject)) {
                     check_for_run_once(process_handle, rununder_mask);
                 }
             }
@@ -9019,21 +9062,23 @@ earliest_inject_init(byte *arg_ptr)
     earliest_args_t *args = (earliest_args_t *)arg_ptr;
 
     /* Set up imports w/o making any library calls */
-    if (!privload_bootstrap_dynamorio_imports(args->dr_base, args->ntdll_base)) {
+    if (!privload_bootstrap_dynamorio_imports((byte *)(ptr_int_t)args->dr_base,
+                                              (byte *)(ptr_int_t)args->ntdll_base)) {
         /* XXX: how handle failure?  too early to ASSERT.  how bail?
          * should we just silently go native?
          */
     } else {
         /* Restore +rx to hook location before DR init scans it */
         uint old_prot;
-        if (!bootstrap_protect_virtual_memory(args->hook_location, EARLY_INJECT_HOOK_SIZE,
-                                              PAGE_EXECUTE_READ, &old_prot)) {
+        if (!bootstrap_protect_virtual_memory((byte *)(ptr_int_t)args->hook_location,
+                                              EARLY_INJECT_HOOK_SIZE, PAGE_EXECUTE_READ,
+                                              &old_prot)) {
             /* XXX: again, how handle failure? */
         }
     }
 
     /* We can't walk Ldr list to get this so set it from parent args */
-    set_ntdll_base(args->ntdll_base);
+    set_ntdll_base((byte *)(ptr_int_t)args->ntdll_base);
 
     /* We can't get DR path from Ldr list b/c DR won't be in there even once
      * it's initialized so we pass it in from parent.
@@ -9058,7 +9103,7 @@ void
 earliest_inject_cleanup(byte *arg_ptr)
 {
     earliest_args_t *args = (earliest_args_t *)arg_ptr;
-    byte *tofree = args->tofree_base;
+    byte *tofree = (byte *)(ptr_int_t)args->tofree_base;
     NTSTATUS res;
 
     /* Free tofree (which contains args).
