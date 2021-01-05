@@ -1719,7 +1719,7 @@ OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
  * os version.  Our default is late injection to make it easier on clients
  * (as noted in i#980, we don't want to be too early for a private kernel32).
  */
-OPTION_DEFAULT(uint, early_inject_location, 7 /* INJECT_LOCATION_ImageEntry */,
+OPTION_DEFAULT(uint, early_inject_location, 8 /* INJECT_LOCATION_ThreadStart */,
                "where to hook for early_injection.  Use 5 =="
                "INJECT_LOCATION_KiUserApcdefault for earliest injection; use "
                "4 == INJECT_LOCATION_LdrDefault for easier-but-still-early.")

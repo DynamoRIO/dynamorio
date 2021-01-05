@@ -926,7 +926,7 @@ dr_inject_process_inject(void *data, bool force_injection, const char *library_p
     inject_init();
     /* Like the core, we use map injection, which supports cross-arch injection, is
      * in some ways cleaner than thread injection, and supports early injection at
-     * various points.  For now we use the (late) image entry as the takeover point.
+     * various points.  For now we use the (late) thread entry as the takeover point.
      * TODO PR 211367: use earlier injection instead of this late injection!
      * But it's non-trivial to gather the relevant addresses.
      * i#234/PR 204587 is a prereq?
@@ -935,10 +935,11 @@ dr_inject_process_inject(void *data, bool force_injection, const char *library_p
     /* We provide a way to fall back on thread injection. */
     if (info->using_thread_injection) {
         res = inject_into_thread(info->pi.hProcess, &cxt, info->pi.hThread,
-                                (char *)library_path);
+                                 (char *)library_path);
     } else {
-        res = inject_into_new_process(info->pi.hProcess, (char *)library_path,
-                                      true /*map*/, INJECT_LOCATION_ImageEntry, NULL);
+        res = inject_into_new_process(info->pi.hProcess, info->pi.hThread,
+                                      (char *)library_path, true /*map*/,
+                                      INJECT_LOCATION_ThreadStart, NULL);
     }
     if (!res) {
         close_handle(info->pi.hProcess);

@@ -3326,8 +3326,8 @@ should_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
 
 /* cxt may be NULL if -inject_at_create_process */
 static int
-inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
-                    inject_setting_mask_t should_inject)
+inject_into_process(dcontext_t *dcontext, HANDLE process_handle, HANDLE thread_handle,
+                    CONTEXT *cxt, inject_setting_mask_t should_inject)
 {
     /* Here in fact we don't want to have the default argument override
        mechanism take place.  If an app specific AUTOINJECT value is
@@ -3424,7 +3424,7 @@ inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt,
          * but if it does could fall back to late injection (though we can't
          * be sure that would work, i.e. early thread process for ex.) or
          * do a SYSLOG error. */
-        res = inject_into_new_process(process_handle, library,
+        res = inject_into_new_process(process_handle, thread_handle, library,
                                       DYNAMO_OPTION(early_inject_map),
                                       early_inject_location, early_inject_address);
     } else {
@@ -3517,7 +3517,8 @@ is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt)
  * Does not support cross-arch injection for cxt!=NULL.
  */
 bool
-maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt)
+maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
+                          HANDLE thread_handle, CONTEXT *cxt)
 {
     /* if inject_at_create_process becomes dynamic, need to move this check below
      * the synchronize dynamic options */
@@ -3561,7 +3562,8 @@ maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *
                 /* XXX: if not -early_inject, we are going to read and write
                  * to cxt, which may be unsafe.
                  */
-                if (inject_into_process(dcontext, process_handle, cxt, should_inject)) {
+                if (inject_into_process(dcontext, process_handle, thread_handle, cxt,
+                                        should_inject)) {
                     check_for_run_once(process_handle, rununder_mask);
                 }
             }

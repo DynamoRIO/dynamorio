@@ -1401,7 +1401,7 @@ presys_CreateThread(dcontext_t *dcontext, reg_t *param_base)
      * children) FIXME
      * if not injecting at all we won't change cxt.
      */
-    maybe_inject_into_process(dcontext, process_handle, cxt);
+    maybe_inject_into_process(dcontext, process_handle, thread_handle, cxt);
 
     if (is_phandle_me(process_handle))
         pre_second_thread();
@@ -1728,7 +1728,7 @@ not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
 #ifndef X64
     bool peb_is_32 = is_32bit_process(process_handle);
     if (!peb_is_32) {
-        /* We'd need a CONTEXT64 define for parent32,child64..
+        /* We'd need a CONTEXT64 define for parent32,child64.
          * We only need this for pre-Vista, so just xp64, so we bail.
          */
         REPORT_FATAL_ERROR_AND_EXIT(FOLLOW_CHILD_FAILED, 3, get_application_name(),
@@ -3238,7 +3238,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
     ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject)); /* Else, exited above. */
     /* Do the actual injection. */
-    if (!maybe_inject_into_process(dcontext, proc_handle, cxt))
+    if (!maybe_inject_into_process(dcontext, proc_handle, thread_handle, cxt))
         return;
     propagate_options_via_env_vars(dcontext, proc_handle, thread_handle);
     if (cxt != NULL) {
@@ -4391,7 +4391,7 @@ post_system_call(dcontext_t *dcontext)
                 "syscall post: NtCreateProcess section @" PFX "\n", base);
         });
         if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
-            maybe_inject_into_process(dcontext, proc_handle, NULL);
+            maybe_inject_into_process(dcontext, proc_handle, NULL, NULL);
     } else if (sysnum == syscalls[SYS_CreateProcessEx]) {
         HANDLE *process_handle = (HANDLE *)postsys_param(dcontext, param_base, 0);
         uint access_mask = (uint)postsys_param(dcontext, param_base, 1);
@@ -4414,7 +4414,7 @@ post_system_call(dcontext_t *dcontext)
             }
         });
         if (success && d_r_safe_read(process_handle, sizeof(proc_handle), &proc_handle))
-            maybe_inject_into_process(dcontext, proc_handle, NULL);
+            maybe_inject_into_process(dcontext, proc_handle, NULL, NULL);
     } else if (sysnum == syscalls[SYS_CreateUserProcess]) {
         postsys_CreateUserProcess(dcontext, param_base, success);
     } else if (sysnum == syscalls[SYS_UnmapViewOfSection] ||

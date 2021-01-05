@@ -70,6 +70,7 @@ extern dcontext_t *early_inject_load_helper_dcontext;
 
 /* Passed to early injection init by parent.  Sized to work for any bitwidth. */
 typedef struct {
+    uint64 app_xax;
     uint64 dr_base;
     uint64 ntdll_base;
     uint64 tofree_base;
@@ -89,7 +90,8 @@ bool
 is_first_thread_in_new_process(HANDLE process_handle, CONTEXT *cxt);
 
 bool
-maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle, CONTEXT *cxt);
+maybe_inject_into_process(dcontext_t *dcontext, HANDLE process_handle,
+                          HANDLE thread_handle, CONTEXT *cxt);
 
 bool
 translate_context(thread_record_t *trec, CONTEXT *cxt, bool restore_memory);
@@ -670,10 +672,10 @@ inject_init(void); /* must be called prior to inject_into_thread(void) */
 bool
 inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle, char *dynamo_path);
 
-/* inject_location values come form the INJECT_LOCATION_* enum is os_shared.h */
+/* inject_location values come from the INJECT_LOCATION_* enum in os_shared.h. */
 bool
-inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map, uint inject_location,
-                        void *inject_address);
+inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool map,
+                        uint inject_location, void *inject_address);
 
 /* in <arch.s> (x86.asm for us) ************************************/
 

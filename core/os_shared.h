@@ -1314,7 +1314,12 @@ enum {
      * on some app libraries being initialized
      */
     INJECT_LOCATION_ImageEntry = 7,
-    INJECT_LOCATION_MAX = INJECT_LOCATION_ImageEntry,
+    /* Similar in lateness to ImageEntry, but is more robust in that it does not
+     * rely on reaching the image entry, which not all apps do (e.g., .NET).
+     * This is equivalent to RtlUserThreadStart.
+     */
+    INJECT_LOCATION_ThreadStart = 8,
+    INJECT_LOCATION_MAX = INJECT_LOCATION_ThreadStart,
 };
 #endif
 

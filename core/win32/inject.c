@@ -1268,6 +1268,18 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         RAW_INSERT_INT32(cur_local_pos, -8);
     }
 #endif
+    /* Save xax, which we clobber below.  It is live for INJECT_LOCATION_ThreadStart.
+     * We write it into earliest_args_t.app_xax, and in dynamorio_earliest_init_takeover
+     * we use the saved value to update the PUSHGRP pushed xax.
+     */
+    if (target_64)
+        *cur_local_pos++ = REX_W;
+    *cur_local_pos++ = MOV_REG32_2_RM32;
+    *cur_local_pos++ = MOV_IMM_RM_ABS;
+    uint64 cur_remote_pos = remote_code_buf + (cur_local_pos - local_code_buf);
+    RAW_INSERT_INT32(cur_local_pos,
+                     target_64 ? (remote_data - (cur_remote_pos + sizeof(int)))
+                               : remote_data);
     /* Restore hook rather than trying to pass contents to C code
      * (we leave hooked page writable for this and C code restores).
      */
@@ -1330,14 +1342,14 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         /* over-estimate to be sure: we assert below we're < PAGE_SIZE */
         REL32_REACHABLE((int64)pc, (int64)remote_code_buf + PAGE_SIZE)) {
         *cur_local_pos++ = JMP_REL32;
-        uint64 cur_remote_pos = remote_code_buf + (cur_local_pos - local_code_buf);
+        cur_remote_pos = remote_code_buf + (cur_local_pos - local_code_buf);
         RAW_INSERT_INT32(cur_local_pos,
                          (int64)pc - (int64)(cur_remote_pos + sizeof(int)));
     } else {
         /* Indirect through an inlined target. */
         *cur_local_pos++ = JMP_ABS_IND64_OPCODE;
         *cur_local_pos++ = JMP_ABS_MEM_IND64_MODRM;
-        uint64 cur_remote_pos = remote_code_buf + (cur_local_pos - local_code_buf);
+        cur_remote_pos = remote_code_buf + (cur_local_pos - local_code_buf);
         RAW_INSERT_INT32(cur_local_pos, target_64 ? 0 : cur_remote_pos + sizeof(int));
         if (target_64)
             RAW_INSERT_INT64(cur_local_pos, pc);
@@ -1436,8 +1448,8 @@ done:
  * own stack in the child and swap to that for transparency.
  */
 bool
-inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map, uint inject_location,
-                        void *inject_address)
+inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool map,
+                        uint inject_location, void *inject_address)
 {
     /* To handle a 64-bit child of a 32-bit DR we use "uint64" for remote addresses. */
     uint64 hook_target = 0;
@@ -1493,6 +1505,36 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map, uint inject
     case INJECT_LOCATION_ImageEntry:
         hook_location = get_remote_process_entry(phandle, &x86_code);
         late_injection = true;
+        break;
+    case INJECT_LOCATION_ThreadStart:
+        late_injection = true;
+        /* Try to get the actual thread context if possible.  We do not yet have
+         * support for CONTEXT32 and CONTEXT64, which we'd need for non-same-bitwidth.
+         * We next try looking in the remote ntdll for RtlUserThreadStart.
+         * If we can't find the thread start, we fall back to the image entry, which
+         * is not many instructions later.  We also need to call this to set
+         * x86_code:
+         */
+        uint64 image_entry = get_remote_process_entry(phandle, &x86_code);
+        if (thandle != NULL && IF_X64(!) is_32bit_process(phandle)) {
+            CONTEXT cxt;
+            cxt.ContextFlags = CONTEXT_CONTROL;
+            if (NT_SUCCESS(nt_get_context(thandle, &cxt))) {
+                hook_location = cxt.CXT_XIP;
+            }
+        } else {
+            bool target_64 = !x86_code IF_X64(|| DYNAMO_OPTION(inject_x64));
+            uint64 ntdll_base = find_remote_ntdll_base(phandle, target_64);
+            uint64 thread_start =
+                get_remote_proc_address(phandle, ntdll_base, "RtlUserThreadStart");
+            if (thread_start != 0) {
+                hook_location = thread_start;
+            }
+        }
+        if (hook_location == 0) {
+            /* Fall back to the image entry which is just a few instructions later. */
+            hook_location = image_entry;
+        }
         break;
     default: ASSERT_NOT_REACHED(); goto error;
     }
