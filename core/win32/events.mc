@@ -718,4 +718,12 @@ Language=English
 Application %1!s! (%2!s!). Failed to follow into child process: %3!s!.
 .
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_STANDALONE_ALREADY
+Language=English
+Application %1!s! (%2!s!). Standalone mode is in progress: cannot switch to full mode.
+.
+
 ;// ADD NEW MESSAGES HERE

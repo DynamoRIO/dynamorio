@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -391,7 +391,12 @@ dynamorio_app_init(void)
 {
     int size;
 
-    if (!dynamo_initialized /* we do enter if nullcalls is on */) {
+    if (dynamo_initialized) {
+        if (standalone_library) {
+            REPORT_FATAL_ERROR_AND_EXIT(STANDALONE_ALREADY, 2, get_application_name(),
+                                        get_application_pid());
+        }
+    } else /* we do enter if nullcalls is on */ {
 
 #ifdef UNIX
         os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
