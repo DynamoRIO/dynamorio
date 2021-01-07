@@ -5275,7 +5275,8 @@ master_signal_handler_C(byte *xsp)
             SYSLOG_INTERNAL_WARNING_ONCE("(1+x) Handling our fault in a TRY at " PFX, pc);
 #endif
             LOG(THREAD, LOG_ALL, level, "TRY fault at " PFX "\n", pc);
-            ASSERT(global_try_tid == get_sys_thread_id());
+            ASSERT(dynamo_initialized || global_try_except.try_except_state == NULL ||
+                   global_try_tid == get_sys_thread_id());
             if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
                 os_dump_core("try/except fault");
 
