@@ -497,7 +497,8 @@ OPTION_COMMAND(bool, opt_memory, false, "opt_memory",
                "enable memory savings at potential loss in performance", STATIC,
                OP_PCACHE_NOP)
 
-PC_OPTION_INTERNAL(bool, bb_prefixes, "give all bbs a prefix")
+PC_OPTION_DEFAULT_INTERNAL(bool, bb_prefixes, IF_AARCH64_ELSE(true, false),
+                           "give all bbs a prefix")
 /* If a client registers a bb hook, we force a full decode.  This option
  * requests a full decode regardless of whether there is a bb hook.
  * Note that there is no way to make this available for non-CI builds
