@@ -302,49 +302,61 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_
     return;
 }
 
-bool
-stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
+static bool
+stub_is_patched_for_intermediate_fragment_link(dcontext_t *dcontext, cache_pc stub_pc)
 {
     uint enc;
     ATOMIC_4BYTE_ALIGNED_READ(stub_pc, &enc);
-    /* linked to intermediate fragment. */
-    if ((enc & 0x14000000) == 0x14000000)
-        return true;
+    return (enc & 0x14000000) == 0x14000000;
+}
 
+static bool
+stub_is_patched_for_far_fragment_link(dcontext_t *dcontext, fragment_t *f,
+                                      cache_pc stub_pc)
+{
     ptr_uint_t target_pc;
     ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), &target_pc);
-    /* linked to far fragment. */
     return target_pc != (ptr_uint_t)fcache_return_routine(dcontext);
+}
+
+bool
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
+{
+    return stub_is_patched_for_intermediate_fragment_link(dcontext, stub_pc) ||
+        stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc);
 }
 
 void
 unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
-    /* This implementation consists of two operations to unpatch, but at any given time
-     * only one patching strategy would be used. So, one of these two operations would
-     * really be a no-op. */
-    /* For near fragment link: Restore the stp x0, x1, [x(stolen), #(offs)]
-     * i#1911: Patching unconditional branch to some arbitrary instruction
-     * is theoretically not sound. Architectural specifications do not
-     * guarantee safe behaviour or any bound on when the change will be
-     * visible to other process elements.
+    /* At any time, atmost one patching strategy will be in effect: the one for
+     * intermediate fragments or the one for far fragments.
      */
-    *(uint *)vmcode_get_writable_addr(stub_pc) =
-        (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
-         TLS_REG0_SLOT >> 3 << 15);
-    if (hot_patch)
-        machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
-
-    /* For far fragment link: Restore the data slot to fcache return address. */
-    byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
-    /* AArch64 uses shared gencode. So, fcache_return routine address should be
-     * same, no matter which thread creates/unpatches the stub.
-     */
-    ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
-    /* We set hot_patch to false as we are not modifying code. */
-    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot,
-                               (ptr_uint_t)fcache_return_routine(dcontext),
-                               /*hot_patch=*/false);
+    if (stub_is_patched_for_intermediate_fragment_link(dcontext, stub_pc)) {
+        /* Restore the stp x0, x1, [x(stolen), #(offs)]
+         * i#1911: Patching unconditional branch to some arbitrary instruction
+         * is theoretically not sound. Architectural specifications do not
+         * guarantee safe behaviour or any bound on when the change will be
+         * visible to other process elements.
+         */
+        *(uint *)vmcode_get_writable_addr(stub_pc) =
+            (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
+             TLS_REG0_SLOT >> 3 << 15);
+        if (hot_patch)
+            machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
+    }
+    if (stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc)) {
+        /* Restore the data slot to fcache return address. */
+        byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
+        /* AArch64 uses shared gencode. So, fcache_return routine address should be
+         * same, no matter which thread creates/unpatches the stub.
+         */
+        ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
+        /* We set hot_patch to false as we are not modifying code. */
+        ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot,
+                                   (ptr_uint_t)fcache_return_routine(dcontext),
+                                   /*hot_patch=*/false);
+    }
 }
 
 void
