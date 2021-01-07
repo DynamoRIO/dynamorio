@@ -1907,9 +1907,8 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
              * append_setup_fcache_target.
              */
             APP(ilist,
-                XINST_CREATE_load(
-                    dcontext, opnd_create_reg(DR_REG_X0),
-                    OPND_CREATE_MEMPTR(dr_reg_stolen, FCACHE_ENTER_TARGET_SLOT)));
+                instr_create_restore_from_tls(
+                    dcontext, DR_REG_X0, FCACHE_ENTER_TARGET_SLOT));
             /* br x0 */
             APP(ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X0)));
 #else
@@ -4938,8 +4937,7 @@ emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *p
      * by append_setup_fcache_target.
      */
     APP(&ilist,
-        XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_R0),
-                          OPND_CREATE_MEMPTR(dr_reg_stolen, FCACHE_ENTER_TARGET_SLOT)));
+        instr_create_restore_from_tls(dcontext, DR_REG_R0, FCACHE_ENTER_TARGET_SLOT));
     /* store target PC */
     APP(&ilist,
         XINST_CREATE_store(dcontext, OPND_CREATE_MEMPTR(DR_REG_SP, -2 * XSP_SZ),

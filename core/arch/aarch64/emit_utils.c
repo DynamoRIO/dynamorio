@@ -216,8 +216,8 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         ASSERT(sizeof(app_pc) == 8);
         pc += DIRECT_EXIT_STUB_DATA_SZ / sizeof(uint);
         /* We start off with the fcache-return routine address in the slot. */
-        /* AArch64 uses shared fragments, so fcache_return gencode should be
-         * shared too.
+        /* AArch64 uses shared gencode. So, fcache_return routine address should be
+         * same, no matter which thread creates/unpatches the stub.
          */
         ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
         *(uint64 *)get_target_pc_slot(f, stub_pc) =
@@ -293,7 +293,8 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_
     }
     /* target_pc is a far fragment. We must use an indirect branch. Note that the indirect
      * branch needs to be to the fragment prefix, as we need to restore the clobbered
-     * regs. */
+     * regs.
+     */
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
     /* We set hot_patch to false as we are not modifying code. */
     ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, (ptr_uint_t)target_prefix_pc,
@@ -305,7 +306,7 @@ bool
 stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
     uint enc;
-    ATOMIC_4BYTE_ALIGNED_READ(vmcode_get_writable_addr(stub_pc), &enc);
+    ATOMIC_4BYTE_ALIGNED_READ(stub_pc, &enc);
     /* linked to intermediate fragment. */
     if ((enc & 0x14000000) == 0x14000000)
         return true;
@@ -336,7 +337,9 @@ unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_pat
 
     /* For far fragment link: Restore the data slot to fcache return address. */
     byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
-    /* AArch64 uses shared fragments, so fcache_return gencode should be shared too. */
+    /* AArch64 uses shared gencode. So, fcache_return routine address should be
+     * same, no matter which thread creates/unpatches the stub.
+     */
     ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
     /* We set hot_patch to false as we are not modifying code. */
     ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot,
