@@ -1907,8 +1907,8 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
              * append_setup_fcache_target.
              */
             APP(ilist,
-                instr_create_restore_from_tls(
-                    dcontext, DR_REG_X0, FCACHE_ENTER_TARGET_SLOT));
+                instr_create_restore_from_tls(dcontext, DR_REG_X0,
+                                              FCACHE_ENTER_TARGET_SLOT));
             /* br x0 */
             APP(ilist, INSTR_CREATE_br(dcontext, opnd_create_reg(DR_REG_X0)));
 #else
