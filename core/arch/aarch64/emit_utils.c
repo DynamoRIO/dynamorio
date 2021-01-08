@@ -199,7 +199,8 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
         num_nops_needed = 4 - (pc - write_stub_pc - 1);
-        uint target_pc_slot_offs = (uint *)get_target_pc_slot(f, stub_pc) - pc;
+        uint *target_pc_slot = (uint *)get_target_pc_slot(f, stub_pc);
+        uint target_pc_slot_offs = target_pc_slot - pc;
         /* ldr x1, [pc, target_pc_slot_offs * AARCH64_INSTR_SIZE] */
         *pc++ = (0x58000000 | (DR_REG_X1 - DR_REG_X0) | target_pc_slot_offs << 5);
         /* br x1 */
@@ -213,6 +214,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         /* The final slot is a data slot, which will hold the address of either
          * the fcache-return routine or the linked fragment.
          */
+        ASSERT(pc == target_pc_slot || pc + 1 == target_pc_slot);
         ASSERT(sizeof(app_pc) == 8);
         pc += DIRECT_EXIT_STUB_DATA_SZ / sizeof(uint);
         /* We start off with the fcache-return routine address in the slot. */
@@ -220,8 +222,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
          * same, no matter which thread creates/unpatches the stub.
          */
         ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
-        *(uint64 *)get_target_pc_slot(f, stub_pc) =
-            (ptr_uint_t)fcache_return_routine(dcontext);
+        *(uint64 *)target_pc_slot = (ptr_uint_t)fcache_return_routine(dcontext);
         ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
                DIRECT_EXIT_STUB_SIZE(l_flags));
 
