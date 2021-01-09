@@ -2891,8 +2891,14 @@ if (CLIENT_INTERFACE)
       # which makes building 150K bbs very slow.
       set(checklevel "-checklevel 0")
     endif ()
-    tobuild_api(api.ibl-stress api/ibl-stress.c
-      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+    # TODO i#4665: Fix crash without the -shared_ibt_table_bb_init value.
+    if (AARCH64)
+      tobuild_api(api.ibl-stress api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 16 ${checklevel}" "" OFF OFF)
+    else ()
+      tobuild_api(api.ibl-stress api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+    endif ()
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
     link_with_pthread(api.ibl-stress)
     if (WIN32)
