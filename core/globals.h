@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -807,6 +807,9 @@ typedef struct _try_except_t {
 } try_except_t;
 
 extern try_except_t global_try_except;
+#ifdef UNIX
+extern thread_id_t global_try_tid;
+#endif
 
 typedef struct {
     /* WARNING: if you change the offsets of any of these fields,

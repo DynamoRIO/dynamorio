@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -516,8 +516,13 @@ d_r_signal_init(void)
     IF_MACOS(ASSERT(sizeof(kernel_sigset_t) == sizeof(__darwin_sigset_t)));
     os_itimers_thread_shared();
 
+    IF_LINUX(signalfd_init());
+    signal_arch_init();
+
     /* Set up a handler for safe_read (or other fault detection) during
-     * DR init before thread is initialized.
+     * DR init before thread is initialized.  We must do this *after* signal_arch_init()
+     * and other key init in case a native signal arrives right after we install
+     * our handler (i#1921).
      *
      * XXX: could set up a clone_record_t and pass to the initial
      * signal_thread_inherit() but that would require further code changes.
@@ -532,9 +537,6 @@ d_r_signal_init(void)
     kernel_sigaddset(&set, SIGSEGV);
     kernel_sigaddset(&set, SIGBUS);
     sigprocmask_syscall(SIG_UNBLOCK, &set, &init_sigmask, sizeof(set));
-
-    IF_LINUX(signalfd_init());
-    signal_arch_init();
 }
 
 void
@@ -1087,7 +1089,14 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                     info->we_intercept[i] = true;
             }
         } else {
-            /* we intercept the following signals ourselves: */
+            /* We intercept the following signals ourselves.  If this is the first
+             * thread, currently doing DR init, the app handlers for these are in
+             * init_info.  We do not copy those handlers into info at this time as we're
+             * not equipped yet to deliver signals.  We wait for DR to start running the
+             * app (init can be separated from start for dr_app_* interfaces), when
+             * signal_reinstate_handlers() will record the app handlers.  Signals
+             * received in the meantime will go through execute_native_handler().
+             */
             info->we_intercept[SIGSEGV] = true;
             /* PR 313665: look for DR crashes on unaligned memory or mmap bounds */
             info->we_intercept[SIGBUS] = true;
@@ -1494,8 +1503,11 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
     kernel_sigaction_t oldact;
     ASSERT(sig <= MAX_SIGNUM);
 
-    /* arm the signal */
-    rc = sigaction_syscall(sig, act, &oldact);
+    /* Get the app's handler first, to handle a race where a signal arrives in
+     * between.  That trumps a race where the app changes its handler which is much
+     * less likely.
+     */
+    rc = sigaction_syscall(sig, NULL, &oldact);
     ASSERT(rc ==
            0
            /* Workaround for PR 223720, which was fixed in ESX4.0 but
@@ -1536,6 +1548,13 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
                 oldact.handler, oldact.flags, sig);
         }
 #endif
+        /* Record the app handler for delivering native signals during initialization.
+         * XXX: Should we rename this s/detached_/native_/ or something?
+         */
+        d_r_write_lock(&detached_sigact_lock);
+        memcpy(&detached_sigact[sig], info->app_sigaction[sig],
+               sizeof(detached_sigact[sig]));
+        d_r_write_unlock(&detached_sigact_lock);
     } else {
         LOG(THREAD, LOG_ASYNCH, 2,
             "prior handler is " PFX " vs master " PFX " with flags=0x%x for signal %d\n",
@@ -1549,6 +1568,18 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
                 d_r_mutex_unlock(info->shared_lock);
         }
     }
+
+    /* Arm the signal. */
+    rc = sigaction_syscall(sig, act, NULL);
+    ASSERT(rc ==
+           0
+           /* Workaround for PR 223720, which was fixed in ESX4.0 but
+            * is present in ESX3.5 and earlier: vmkernel treats
+            * 63 and 64 as invalid signal numbers.
+            */
+           IF_VMX86(|| (sig >= 63 && rc == -EINVAL)));
+    if (rc != 0) /* be defensive: app will probably still work */
+        return;
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
 }
 
@@ -5036,7 +5067,8 @@ master_signal_handler_C(byte *xsp)
      */
     if (dcontext == NULL && (sig == SIGSEGV || sig == SIGBUS) &&
         (is_safe_read_ucxt(ucxt) ||
-         (!dynamo_initialized && global_try_except.try_except_state != NULL))) {
+         (!dynamo_initialized && global_try_except.try_except_state != NULL &&
+          global_try_tid == get_sys_thread_id()))) {
         dcontext = GLOBAL_DCONTEXT;
     }
 
@@ -5233,7 +5265,8 @@ master_signal_handler_C(byte *xsp)
 #endif
         if (is_safe_read_ucxt(ucxt) ||
             (!dynamo_initialized && global_try_except.try_except_state != NULL) ||
-            dcontext->try_except.try_except_state != NULL) {
+            (dcontext != GLOBAL_DCONTEXT &&
+             dcontext->try_except.try_except_state != NULL)) {
             /* handle our own TRY/EXCEPT */
             try_except_context_t *try_cxt;
 #ifdef HAVE_MEMINFO
@@ -5242,6 +5275,8 @@ master_signal_handler_C(byte *xsp)
             SYSLOG_INTERNAL_WARNING_ONCE("(1+x) Handling our fault in a TRY at " PFX, pc);
 #endif
             LOG(THREAD, LOG_ALL, level, "TRY fault at " PFX "\n", pc);
+            ASSERT(dynamo_initialized || global_try_except.try_except_state == NULL ||
+                   global_try_tid == get_sys_thread_id());
             if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
                 os_dump_core("try/except fault");
 
@@ -5251,8 +5286,9 @@ master_signal_handler_C(byte *xsp)
                  */
                 break;
             }
-            try_cxt = (dcontext != NULL) ? dcontext->try_except.try_except_state
-                                         : global_try_except.try_except_state;
+            try_cxt = (dcontext != NULL && dcontext != GLOBAL_DCONTEXT)
+                ? dcontext->try_except.try_except_state
+                : global_try_except.try_except_state;
             ASSERT(try_cxt != NULL);
 
             /* The exception interception code did an ENTER so we must EXIT here */
@@ -5273,6 +5309,7 @@ master_signal_handler_C(byte *xsp)
             DR_LONGJMP(&try_cxt->context, LONGJMP_EXCEPTION);
             ASSERT_NOT_REACHED();
         }
+        ASSERT(dcontext != GLOBAL_DCONTEXT); /* Had to be try/except. */
 
         target = compute_memory_target(dcontext, pc, ucxt, siginfo, &is_write);
 
@@ -5858,9 +5895,15 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     thread_sig_info_t *info;
     LOG(THREAD, LOG_ASYNCH, 2, "%s for signal %d in thread " TIDFMT "\n", __FUNCTION__,
         sig, get_sys_thread_id());
-    if (dcontext != NULL) {
+    if (dcontext != NULL && is_thread_signal_info_initialized(dcontext) &&
+        /* For the DR init thread, we don't place the app handlers into signal_info
+         * until DR starts running code and is equipped to deliver a managed signal.
+         * So during init, until dynamo_started is set, we deliver natively.
+         */
+        dynamo_started) {
         info = (thread_sig_info_t *)dcontext->signal_field;
     } else {
+        dcontext = NULL; /* Clear for the not-yet-start or not-init cases above. */
         if (atomic_read_bool(&multiple_handlers_present)) {
             /* See i#1921 comment up top: we don't handle this. */
             report_unhandleable_signal_and_exit(sig, "multiple native handlers");

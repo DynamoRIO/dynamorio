@@ -634,9 +634,15 @@ dynamorio_app_init(void)
 
         /* We can't clear this on detach like other vars b/c we need native threads
          * to continue to avoid safe_read_tls_magic() in is_thread_tls_initialized().
-         * So we clear it on (re-)init.
+         * So we clear it on (re-)init in dynamorio_take_over_threads().
+         * From now until then, we avoid races where another thread invokes a
+         * safe_read during native signal delivery but we remove DR's handler before
+         * it reaches there and it is delivered to the app's handler instead, kind
+         * of like i#3535, by re-using the i#3535 mechanism of pointing at the only
+         * thread who could possibly have a dcontext.
+         * XXX: Should we rename this s/detacher_/singleton_/ or something?
          */
-        detacher_tid = INVALID_THREAD_ID;
+        detacher_tid = IF_UNIX_ELSE(get_sys_thread_id(), INVALID_THREAD_ID);
         /* thread-specific initialization for the first thread we inject in
          * (in a race with injected threads, sometimes it is not the primary thread)
          */
@@ -2936,6 +2942,8 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     signal_event(dr_app_started);
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_started = true;
+    /* Similarly, with our signal handler back in place, we remove the TLS limit. */
+    detacher_tid = INVALID_THREAD_ID;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.

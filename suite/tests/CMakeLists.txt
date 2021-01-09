@@ -2850,8 +2850,10 @@ if (CLIENT_INTERFACE)
     endif ()
   endif ()
   if (UNIX)
-    tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF)
-    link_with_pthread(api.detach_signal)
+    if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
+      tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF)
+      link_with_pthread(api.detach_signal)
+    endif ()
   endif ()
   if (NOT WIN32) # XXX i#2611: fix for Windows
     if (X64)

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -79,12 +79,18 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     };
     int res = sigprocmask(SIG_BLOCK, NULL, &actual_mask);
     assert(res == 0);
-    sigset_t expect_mask;
-    memcpy(&expect_mask, &handler_mask, sizeof(expect_mask));
-    sigaddset(&expect_mask, signal);
-    sigaddset(&expect_mask, SIGUSR1);
-    sigaddset(&expect_mask, SIGURG);
-    assert(memcmp(&expect_mask, &actual_mask, sizeof(expect_mask)) == 0);
+    sigset_t expect_mask1;
+    memcpy(&expect_mask1, &handler_mask, sizeof(expect_mask1));
+    sigaddset(&expect_mask1, signal);
+    sigaddset(&expect_mask1, SIGUSR1);
+    sigaddset(&expect_mask1, SIGURG);
+    /* We also have init-time signal tests with a different mask. */
+    sigset_t expect_mask2;
+    memcpy(&expect_mask2, &handler_mask, sizeof(expect_mask2));
+    sigaddset(&expect_mask2, signal);
+    sigaddset(&expect_mask2, SIGUSR2);
+    assert(memcmp(&expect_mask1, &actual_mask, sizeof(expect_mask1)) == 0 ||
+           memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
 
     count++;
     SIGLONGJMP(mark, count);
@@ -96,8 +102,39 @@ sideline_spinner(void *arg)
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     if (dr_app_running_under_dynamorio())
         print("ERROR: thread %d should NOT be under DynamoRIO\n", idx);
+
+    if (idx == 0) {
+        /* Delay attach to help test i#4640 where a signal arrives in a native thread
+         * during DR takeover.
+         */
+        sigset_t delay_attach_mask;
+        sigemptyset(&delay_attach_mask);
+        sigaddset(&delay_attach_mask, SIGUSR2); /* DR's takeover signal. */
+        int res = sigprocmask(SIG_SETMASK, &delay_attach_mask, NULL);
+        assert(res == 0);
+    }
+
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
+
+    if (idx == 0) {
+        /* Spend some time generating signals while SIGUSR2 is blocked to try and
+         * generate some after DR starts takeover and puts its own handler in place,
+         * but before it can take us over.
+         */
+        for (int i = 0; i < 10000; i++) {
+            if (SIGSETJMP(mark) == 0) {
+                *(int *)arg = 42; /* SIGSEGV */
+            }
+            if (SIGSETJMP(mark) == 0) {
+                pthread_kill(pthread_self(), SIGURG);
+            }
+        }
+        sigset_t clear_mask;
+        sigemptyset(&clear_mask);
+        int res = sigprocmask(SIG_SETMASK, &clear_mask, NULL);
+        assert(res == 0);
+    }
 
     VPRINT("%d waiting for continue\n", idx);
     wait_cond_var(sideline_continue);
