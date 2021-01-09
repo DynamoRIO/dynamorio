@@ -2883,7 +2883,7 @@ if (CLIENT_INTERFACE)
       set(decenc.drdecode_decenc_x86_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     endif ()
   endif ()
-  if (X86) # Generated code is x86-specific.
+  if (X86 OR AARCH64) # Generated code is x86- or AArch64-specific.
     set(checklevel "")
     if (DEBUG)
       # This tests indirect branches between blocks.
