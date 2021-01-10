@@ -900,9 +900,9 @@ test_cti_prefixes(void *dc)
     buf[6] = 0x0c;
     buf[7] = 0x0a;
 
-#if VERBOSE
+#    if VERBOSE
     disassemble_with_info(dc, buf, STDOUT, true, true);
-#endif
+#    endif
     instr_t instr;
 
     instr_init(dc, &instr);
