@@ -887,6 +887,7 @@ test_cti_prefixes(void *dc)
 #endif
     ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[6]);
 
+#if defined(DEBUG) && defined(BUILD_TESTS)
     /* PR 4667, a c5 vex encoding where the second byte is c4
      *   c5 c4 54 2d 68 1d 0c 0a vandps 0xa0c1d68(%rip),%ymm7,%ymm5
      */
@@ -909,6 +910,7 @@ test_cti_prefixes(void *dc)
     ASSERT(decode_cti(dc, buf, &instr) == (byte *)&buf[8]);
 
     instr_free(dc, &instr);
+#endif
 }
 
 static void
