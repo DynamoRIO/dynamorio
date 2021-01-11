@@ -40,9 +40,6 @@
 #include <unistd.h>
 #include <signal.h>
 
-/* SIGSTKSZ*2 results in a fatal error from DR on fitting the copied frame. */
-#define ALT_STACK_SIZE (SIGSTKSZ * 4)
-
 static int num_bbs;
 static int num_signals;
 

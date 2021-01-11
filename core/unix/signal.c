@@ -5911,7 +5911,6 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         dynamo_started) {
         info = (thread_sig_info_t *)dcontext->signal_field;
     } else {
-        dcontext = NULL; /* Clear for the not-yet-start or not-init cases above. */
         if (atomic_read_bool(&multiple_handlers_present)) {
             /* See i#1921 comment up top: we don't handle this. */
             report_unhandleable_signal_and_exit(sig, "multiple native handlers");
@@ -5926,10 +5925,20 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
 #ifdef HAVE_SIGALTSTACK
-        IF_DEBUG(int rc =)
-        sigaltstack_syscall(NULL, &synthetic.app_sigstack);
-        ASSERT(rc == 0);
+        if (dcontext != NULL && is_thread_signal_info_initialized(dcontext)) {
+            thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+            memcpy(&synthetic.app_sigstack, &info->app_sigstack,
+                   sizeof(synthetic.app_sigstack));
+        } else {
+            IF_DEBUG(int rc =)
+            sigaltstack_syscall(NULL, &synthetic.app_sigstack);
+            ASSERT(rc == 0);
+            if (synthetic.app_sigstack.ss_sp != NULL &&
+                is_dynamo_address(synthetic.app_sigstack.ss_sp))
+                memset(&synthetic.app_sigstack, 0, sizeof(synthetic.app_sigstack));
+        }
 #endif
+        dcontext = NULL; /* Clear for the not-yet-start or not-init cases above. */
     }
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
