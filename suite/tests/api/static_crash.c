@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,8 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define ALT_STACK_SIZE (SIGSTKSZ * 2)
+/* SIGSTKSZ*2 results in a fatal error from DR on fitting the copied frame. */
+#define ALT_STACK_SIZE (SIGSTKSZ * 4)
 
 static int num_bbs;
 static int num_signals;
