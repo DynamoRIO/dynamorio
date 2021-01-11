@@ -5925,17 +5925,19 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
 #ifdef HAVE_SIGALTSTACK
-        if (dcontext != NULL && is_thread_signal_info_initialized(dcontext)) {
-            thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
-            memcpy(&synthetic.app_sigstack, &info->app_sigstack,
+        thread_sig_info_t *dc_info = NULL;
+        if (dcontext != NULL)
+            dc_info = (thread_sig_info_t *)dcontext->signal_field;
+        /* DR's sigstack is set up before is_thread_signal_info_initialized().
+         * If DR's is in place, the app's is stored (it's a syscall so atomic).
+         */
+        if (dc_info != NULL && dc_info->sigstack.ss_sp != NULL) {
+            memcpy(&synthetic.app_sigstack, &dc_info->app_sigstack,
                    sizeof(synthetic.app_sigstack));
         } else {
             IF_DEBUG(int rc =)
             sigaltstack_syscall(NULL, &synthetic.app_sigstack);
             ASSERT(rc == 0);
-            if (synthetic.app_sigstack.ss_sp != NULL &&
-                is_dynamo_address(synthetic.app_sigstack.ss_sp))
-                memset(&synthetic.app_sigstack, 0, sizeof(synthetic.app_sigstack));
         }
 #endif
         dcontext = NULL; /* Clear for the not-yet-start or not-init cases above. */
