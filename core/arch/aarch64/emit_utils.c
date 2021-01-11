@@ -168,10 +168,10 @@ insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 /* Returns addr for the target_pc data slot of the given stub. The slot starts at the
  * 8-byte aligned region in the 12-byte slot reserved in the stub.
  */
-static cache_pc
+static ptr_uint_t *
 get_target_pc_slot(fragment_t *f, cache_pc stub_pc)
 {
-    return (cache_pc)ALIGN_FORWARD(
+    return (ptr_uint_t *)ALIGN_FORWARD(
         vmcode_get_writable_addr(stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) -
                                  DIRECT_EXIT_STUB_DATA_SZ),
         8);
@@ -199,8 +199,9 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
         num_nops_needed = 4 - (pc - write_stub_pc - 1);
-        uint *target_pc_slot = (uint *)get_target_pc_slot(f, stub_pc);
-        uint target_pc_slot_offs = target_pc_slot - pc;
+        ptr_uint_t *target_pc_slot = get_target_pc_slot(f, stub_pc);
+        ASSERT(pc < (uint *)target_pc_slot);
+        uint target_pc_slot_offs = (uint *)target_pc_slot - pc;
         /* ldr x1, [pc, target_pc_slot_offs * AARCH64_INSTR_SIZE] */
         *pc++ = (0x58000000 | (DR_REG_X1 - DR_REG_X0) | target_pc_slot_offs << 5);
         /* br x1 */
@@ -212,9 +213,10 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         for (uint j = 0; j < num_nops_needed; j++)
             *pc++ = NOP_INST;
         /* The final slot is a data slot, which will hold the address of either
-         * the fcache-return routine or the linked fragment.
+         * the fcache-return routine or the linked fragment. We reserve 12 bytes
+         * and use the 8-byte aligned region of 8 bytes within it.
          */
-        ASSERT(pc == target_pc_slot || pc + 1 == target_pc_slot);
+        ASSERT(pc == (uint *)target_pc_slot || pc + 1 == (uint *)target_pc_slot);
         ASSERT(sizeof(app_pc) == 8);
         pc += DIRECT_EXIT_STUB_DATA_SZ / sizeof(uint);
         /* We start off with the fcache-return routine address in the slot. */
@@ -222,7 +224,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
          * same, no matter which thread creates/unpatches the stub.
          */
         ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
-        *(uint64 *)target_pc_slot = (ptr_uint_t)fcache_return_routine(dcontext);
+        *target_pc_slot = (ptr_uint_t)fcache_return_routine(dcontext);
         ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
                DIRECT_EXIT_STUB_SIZE(l_flags));
 
@@ -284,7 +286,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_
          * i#1911: Patching arbitrary instructions to an unconditional branch
          * is theoretically not sound. Architectural specifications do not
          * guarantee safe behaviour or any bound on when the change will be
-         * visible to other process elements.
+         * visible to other processor elements.
          */
         *(uint *)vmcode_get_writable_addr(stub_pc) =
             (0x14000000 | (0x03ffffff & off >> 2));
@@ -296,9 +298,9 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_
      * branch needs to be to the fragment prefix, as we need to restore the clobbered
      * regs.
      */
-    byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
     /* We set hot_patch to false as we are not modifying code. */
-    ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot, (ptr_uint_t)target_prefix_pc,
+    ATOMIC_8BYTE_ALIGNED_WRITE(get_target_pc_slot(f, stub_pc),
+                               (ptr_uint_t)target_prefix_pc,
                                /*hot_patch=*/false);
     return;
 }
@@ -308,7 +310,7 @@ stub_is_patched_for_intermediate_fragment_link(dcontext_t *dcontext, cache_pc st
 {
     uint enc;
     ATOMIC_4BYTE_ALIGNED_READ(stub_pc, &enc);
-    return (enc & 0x14000000) == 0x14000000;
+    return (enc & 0xfc000000) == 0x14000000; /* B (OP_b)*/
 }
 
 static bool
@@ -330,7 +332,7 @@ stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 void
 unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
-    /* At any time, atmost one patching strategy will be in effect: the one for
+    /* At any time, at most one patching strategy will be in effect: the one for
      * intermediate fragments or the one for far fragments.
      */
     if (stub_is_patched_for_intermediate_fragment_link(dcontext, stub_pc)) {
@@ -338,23 +340,21 @@ unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_pat
          * i#1911: Patching unconditional branch to some arbitrary instruction
          * is theoretically not sound. Architectural specifications do not
          * guarantee safe behaviour or any bound on when the change will be
-         * visible to other process elements.
+         * visible to other processor elements.
          */
         *(uint *)vmcode_get_writable_addr(stub_pc) =
             (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
              TLS_REG0_SLOT >> 3 << 15);
         if (hot_patch)
             machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
-    }
-    if (stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc)) {
+    } else if (stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc)) {
         /* Restore the data slot to fcache return address. */
-        byte *target_pc_slot = get_target_pc_slot(f, stub_pc);
         /* AArch64 uses shared gencode. So, fcache_return routine address should be
          * same, no matter which thread creates/unpatches the stub.
          */
         ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
         /* We set hot_patch to false as we are not modifying code. */
-        ATOMIC_8BYTE_ALIGNED_WRITE(target_pc_slot,
+        ATOMIC_8BYTE_ALIGNED_WRITE(get_target_pc_slot(f, stub_pc),
                                    (ptr_uint_t)fcache_return_routine(dcontext),
                                    /*hot_patch=*/false);
     }
