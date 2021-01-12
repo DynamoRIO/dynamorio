@@ -2900,7 +2900,8 @@ if (CLIENT_INTERFACE)
 
       tobuild_api(api.ibl-stress-aarch64-far-link_LONG api/ibl-stress.c
         "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 20 ${checklevel}" "" OFF OFF)
-      append_property_string(TARGET api.ibl-stress-aarch64-far-link_LONG COMPILE_FLAGS "-DTEST_FAR_LINK_AARCH64")
+      append_property_string(TARGET api.ibl-stress-aarch64-far-link_LONG COMPILE_FLAGS
+        "-DTEST_FAR_LINK_AARCH64")
       set(api.ibl-stress-aarch64-far-link_LONG_timeout 900)
       use_DynamoRIO_extension(api.ibl-stress-aarch64-far-link_LONG drcontainers)
       link_with_pthread(api.ibl-stress-aarch64-far-link_LONG)
