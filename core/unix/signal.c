@@ -5322,6 +5322,14 @@ master_signal_handler_C(byte *xsp)
             if (is_write && !is_couldbelinking(dcontext) && OWN_NO_LOCKS(dcontext) &&
                 check_for_modified_code(dcontext, pc, ucxt, target, true /*native*/))
                 break;
+#    ifdef STATIC_LIBRARY
+            /* i#4640: We cannot distinguish the client from DR or the app.  Though
+             * it's rare, original app instructions can come here for some app
+             * setups for static DR during init.  We send to the app handler.
+             */
+            execute_native_handler(dcontext, sig, frame);
+            return;
+#    endif
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, target, sig, frame,
                            exception_label_client, (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
@@ -5903,7 +5911,6 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         dynamo_started) {
         info = (thread_sig_info_t *)dcontext->signal_field;
     } else {
-        dcontext = NULL; /* Clear for the not-yet-start or not-init cases above. */
         if (atomic_read_bool(&multiple_handlers_present)) {
             /* See i#1921 comment up top: we don't handle this. */
             report_unhandleable_signal_and_exit(sig, "multiple native handlers");
@@ -5918,10 +5925,22 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
 #ifdef HAVE_SIGALTSTACK
-        IF_DEBUG(int rc =)
-        sigaltstack_syscall(NULL, &synthetic.app_sigstack);
-        ASSERT(rc == 0);
+        thread_sig_info_t *dc_info = NULL;
+        if (dcontext != NULL)
+            dc_info = (thread_sig_info_t *)dcontext->signal_field;
+        /* DR's sigstack is set up before is_thread_signal_info_initialized().
+         * If DR's is in place, the app's is stored (it's a syscall so atomic).
+         */
+        if (dc_info != NULL && dc_info->sigstack.ss_sp != NULL) {
+            memcpy(&synthetic.app_sigstack, &dc_info->app_sigstack,
+                   sizeof(synthetic.app_sigstack));
+        } else {
+            IF_DEBUG(int rc =)
+            sigaltstack_syscall(NULL, &synthetic.app_sigstack);
+            ASSERT(rc == 0);
+        }
 #endif
+        dcontext = NULL; /* Clear for the not-yet-start or not-init cases above. */
     }
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
