@@ -1359,6 +1359,9 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
                 /* VEX 2-byte prefix implies 0x0f opcode */
                 byte0 = 0x0f;
                 byte1 = *(pc + prefixes);
+                /* There are no prefixes after vex. */
+                pc = start_pc + prefixes;
+                i = prefixes;
                 break;
             case EVEX_PREFIX_OPCODE:
                 instr_set_prefix_flag(instr, PREFIX_EVEX);
