@@ -1774,11 +1774,11 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
+      # We require for any automated suite on Linux or Windows.
+      if (TEST_SUITE AND NOT APPLE)
         message(FATAL_ERROR "doxygen is required to build the documentation")
       else ()
-        # Non-fatal for a single, un-official build, or on Windows
+        # Non-fatal for a single, un-official build.
         message(WARNING "doxygen not found: documentation will NOT be built")
         set(BUILD_DOCS OFF)
       endif ()

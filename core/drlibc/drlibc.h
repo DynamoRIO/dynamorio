@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -131,6 +131,23 @@ find_script_interpreter(OUT script_interpreter_t *result, IN const char *fname,
  */
 void
 d_r_set_ss_selector();
+
+typedef struct {
+    uint64 func;
+    uint64 arg1;
+    uint64 arg2;
+    uint64 arg3;
+    uint64 arg4;
+    uint64 arg5;
+    uint64 arg6;
+} invoke_func64_t;
+
+/* Switches from 32-bit mode to 64-bit mode and invokes func, passing
+ * arg1, arg2, arg3, arg4, and arg5.  Works fine when func takes fewer
+ * than 5 args as well.
+ */
+int
+switch_modes_and_call(invoke_func64_t *info);
 #endif
 
 #endif /* _DR_LIBC_H_ */

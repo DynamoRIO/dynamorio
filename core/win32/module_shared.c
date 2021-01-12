@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -60,8 +60,8 @@
  * preinject just defines its own d_r_internal_error!
  */
 #    include "../globals.h"
+#    include "os_private.h"
 #    if !defined(NOT_DYNAMORIO_CORE_PROPER)
-#        include "os_private.h"       /* for is_readable_pe_base() */
 #        include "../module_shared.h" /* for is_in_code_section() */
 #    endif
 #    ifdef CLIENT_INTERFACE
@@ -92,6 +92,8 @@ is_readable_without_exception(const byte *pc, size_t size);
 #    undef LOG       /* remove preinject's LOG */
 #    define LOG(...) /* nothing */
 #endif
+
+#define MAX_FUNCNAME_SIZE 128
 
 #if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE) && \
     !defined(NOT_DYNAMORIO_CORE_PROPER)
@@ -157,35 +159,44 @@ is_readable_without_exception(const byte *pc, size_t size)
 
 #if defined(WINDOWS) && !defined(NOT_DYNAMORIO_CORE)
 /* Image entry point is stored at,
- * PEB->DOS_HEADER->NT_HEADER->OptionalHeader.AddressOfEntryPoint
+ * PEB->DOS_HEADER->NT_HEADER->OptionalHeader.AddressOfEntryPoint.
+ * Handles both 32-bit and 64-bit remote processes.
  */
-void *
+uint64
 get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code)
 {
-    PEB peb;
-    LPVOID peb_base;
-    IMAGE_DOS_HEADER *dos_ptr, dos;
-    IMAGE_NT_HEADERS *nt_ptr, nt;
+    uint64 peb_base;
+    /* Handle the two possible widths of peb.ImageBaseAddress: */
+    union {
+        uint64 dos64;
+        uint dos32;
+    } dos_ptr;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS nt;
     bool res;
     size_t nbytes;
-
-    peb_base = get_peb(process_handle);
-    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base, &peb, sizeof(peb),
-                                 &nbytes);
-    if (!res || nbytes != sizeof(peb))
-        return NULL;
-    dos_ptr = (IMAGE_DOS_HEADER *)peb.ImageBaseAddress;
-    res = nt_read_virtual_memory(process_handle, (void *)dos_ptr, &dos, sizeof(dos),
-                                 &nbytes);
-    if (!res || nbytes != sizeof(dos))
-        return NULL;
-    nt_ptr = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos_ptr) + dos.e_lfanew);
+    bool peb_is_32 = IF_X64_ELSE(false, is_32bit_process(process_handle));
+    /* Read peb.ImageBaseAddress. */
+    peb_base = get_peb_maybe64(process_handle);
+    res = read_remote_memory_maybe64(
+        process_handle,
+        peb_base + (peb_is_32 ? X86_IMAGE_BASE_PEB_OFFSET : X64_IMAGE_BASE_PEB_OFFSET),
+        &dos_ptr, sizeof(dos_ptr), &nbytes);
+    if (!res || nbytes != sizeof(dos_ptr))
+        return 0;
+    uint64 dos_base = peb_is_32 ? dos_ptr.dos32 : dos_ptr.dos64;
     res =
-        nt_read_virtual_memory(process_handle, (void *)nt_ptr, &nt, sizeof(nt), &nbytes);
+        read_remote_memory_maybe64(process_handle, dos_base, &dos, sizeof(dos), &nbytes);
+    if (!res || nbytes != sizeof(dos))
+        return 0;
+    res = read_remote_memory_maybe64(process_handle, dos_base + dos.e_lfanew, &nt,
+                                     sizeof(nt), &nbytes);
     if (!res || nbytes != sizeof(nt))
-        return NULL;
+        return 0;
+    /* IMAGE_NT_HEADERS.FileHeader == IMAGE_NT_HEADERS64.FileHeader */
     *x86_code = nt.FileHeader.Machine == IMAGE_FILE_MACHINE_I386;
-    return (void *)((byte *)dos_ptr + (size_t)nt.OptionalHeader.AddressOfEntryPoint);
+    ASSERT(BOOLS_MATCH(is_32bit_process(process_handle), *x86_code));
+    return dos_base + (size_t)OPT_HDR(&nt, AddressOfEntryPoint);
 }
 #endif
 
@@ -840,19 +851,10 @@ typedef struct ALIGN_VAR(8) _LDR_MODULE_64 {
 typedef void (*void_func_t)();
 
 #    define MAX_MODNAME_SIZE 128
-#    define MAX_FUNCNAME_SIZE 128
 
-/* in arch/x86.asm */
+/* in drlibc_x86.asm */
 extern int
 switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *result);
-
-/* in arch/x86.asm */
-/* Switches from 32-bit mode to 64-bit mode and invokes func, passing
- * arg1, arg2, and arg3.  Works fine when func takes fewer than 3 args
- * as well.
- */
-extern int
-switch_modes_and_call(uint64 func, void *arg1, void *arg2, void *arg3);
 
 /* Here and not in ntdll.c b/c libutil targets link to this file but not
  * ntdll.c
@@ -1193,11 +1195,11 @@ free_library_64(HANDLE lib)
     if (ntdll64 > UINT_MAX || ntdll64 == 0)
         return false;
     ntdll64_LdrUnloadDll = get_proc_address_64(ntdll64, "LdrUnloadDll");
-    res = switch_modes_and_call(ntdll64_LdrUnloadDll, (void *)lib, NULL, NULL);
+    invoke_func64_t args = { ntdll64_LdrUnloadDll, (uint64)lib };
+    res = switch_modes_and_call(&args);
     return (res >= 0);
 }
 
-#        ifndef NOT_DYNAMORIO_CORE_PROPER
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 {
@@ -1212,7 +1214,8 @@ thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
     if (ntdll64 == 0)
         return false;
     ntdll64_GetContextThread = get_proc_address_64(ntdll64, "NtGetContextThread");
-    res = switch_modes_and_call(ntdll64_GetContextThread, thread, cxt64, NULL);
+    invoke_func64_t args = { ntdll64_GetContextThread, (uint64)thread, (uint64)cxt64 };
+    res = switch_modes_and_call(&args);
     return NT_SUCCESS(res);
 }
 
@@ -1225,12 +1228,236 @@ thread_set_context_64(HANDLE thread, CONTEXT_64 *cxt64)
     if (ntdll64 == 0)
         return false;
     ntdll64_SetContextThread = get_proc_address_64(ntdll64, "NtSetContextThread");
-    res = switch_modes_and_call(ntdll64_SetContextThread, thread, cxt64, NULL);
+    invoke_func64_t args = { ntdll64_SetContextThread, (uint64)thread, (uint64)cxt64 };
+    res = switch_modes_and_call(&args);
     return NT_SUCCESS(res);
 }
-#        endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
+bool
+remote_protect_virtual_memory_64(HANDLE process, uint64 base, size_t size, uint prot,
+                                 uint *old_prot)
+{
+    uint64 ntdll64_ProtectVirtualMemory;
+    NTSTATUS res;
+    uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == 0)
+        return false;
+    uint64 size64 = size;
+    uint64 *size_ptr = &size64;
+    uint64 mybase = base;
+    uint64 *base_ptr = &mybase;
+    ntdll64_ProtectVirtualMemory = get_proc_address_64(ntdll64, "NtProtectVirtualMemory");
+    invoke_func64_t args = { ntdll64_ProtectVirtualMemory,
+                             (uint64)process,
+                             (uint64)base_ptr,
+                             (uint64)size_ptr,
+                             prot,
+                             (uint64)old_prot };
+    res = switch_modes_and_call(&args);
+    return NT_SUCCESS(res);
+}
+
+NTSTATUS
+remote_query_virtual_memory_64(HANDLE process, uint64 addr,
+                               MEMORY_BASIC_INFORMATION64 *mbi, size_t mbilen,
+                               uint64 *got)
+{
+    uint64 ntdll64_QueryVirtualMemory;
+    NTSTATUS res;
+    uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == 0)
+        return false;
+    ntdll64_QueryVirtualMemory = get_proc_address_64(ntdll64, "NtQueryVirtualMemory");
+    invoke_func64_t args = { ntdll64_QueryVirtualMemory,
+                             (uint64)process,
+                             addr,
+                             MemoryBasicInformation,
+                             (uint64)mbi,
+                             mbilen,
+                             (uint64)got };
+    res = switch_modes_and_call(&args);
+    return NT_SUCCESS(res);
+}
 #    endif /* !NOT_DYNAMORIO_CORE */
+#endif     /* !X64 */
 
-#endif /* !X64 */
+#ifndef NOT_DYNAMORIO_CORE
+bool
+remote_protect_virtual_memory_maybe64(HANDLE process, uint64 base, size_t size, uint prot,
+                                      uint *old_prot)
+{
+#    ifdef X64
+    return nt_remote_protect_virtual_memory(process, (void *)base, size, prot, old_prot);
+#    else
+    return remote_protect_virtual_memory_64(process, base, size, prot, old_prot);
+#    endif
+}
+
+NTSTATUS
+remote_query_virtual_memory_maybe64(HANDLE process, uint64 addr,
+                                    MEMORY_BASIC_INFORMATION64 *mbi, size_t mbilen,
+                                    uint64 *got)
+{
+#    ifdef X64
+    return nt_remote_query_virtual_memory(process, (void *)addr,
+                                          (MEMORY_BASIC_INFORMATION *)mbi, mbilen, got);
+#    else
+    return remote_query_virtual_memory_64(process, addr, mbi, mbilen, got);
+#    endif
+}
+#endif
+
+/* Excluding from libutil b/c it doesn't need it and is_32bit_process() and
+ * read_remote_memory_maybe64() aren't exported to libutil.
+ */
+#ifndef NOT_DYNAMORIO_CORE
+static bool
+read_remote_maybe64(HANDLE process, uint64 addr, size_t bufsz, void *buf)
+{
+    size_t num_read;
+    return read_remote_memory_maybe64(process, addr, buf, bufsz, &num_read) &&
+        num_read == bufsz;
+}
+
+/* Handles 32-bit or 64-bit remote processes.
+ * Ignores forwarders and ordinals.
+ */
+uint64
+get_remote_proc_address(HANDLE process, uint64 remote_base, const char *name)
+{
+    uint64 lib = remote_base;
+    size_t exports_size;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS64 nt64;
+    IMAGE_NT_HEADERS32 nt32;
+    IMAGE_DATA_DIRECTORY *expdir;
+    IMAGE_EXPORT_DIRECTORY exports;
+    uint i;
+    PULONG functions; /* array of RVAs */
+    PUSHORT ordinals;
+    PULONG fnames;       /* array of RVAs */
+    uint ord = UINT_MAX; /* the ordinal to use */
+    uint64 func = 0;
+    char local_buf[MAX_FUNCNAME_SIZE];
+
+    if (!read_remote_maybe64(process, lib, sizeof(dos), &dos))
+        return 0;
+    ASSERT(dos.e_magic == IMAGE_DOS_SIGNATURE);
+    if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt64), &nt64))
+        return 0;
+    ASSERT(nt64.Signature == IMAGE_NT_SIGNATURE);
+    if (nt64.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+        if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt32), &nt32))
+            return 0;
+        ASSERT(nt32.Signature == IMAGE_NT_SIGNATURE);
+        expdir = &nt32.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    } else {
+        expdir = &nt64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+    }
+    exports_size = expdir->Size;
+    if (exports_size <= 0 ||
+        !read_remote_maybe64(process, lib + expdir->VirtualAddress,
+                             MIN(exports_size, sizeof(exports)), &exports))
+        return 0;
+    if (exports.NumberOfNames == 0 || exports.AddressOfNames == 0)
+        return 0;
+
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    functions =
+        (PULONG)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfFunctions * sizeof(ULONG));
+    ordinals =
+        (PUSHORT)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(USHORT));
+    fnames =
+        (PULONG)HeapAlloc(GetProcessHeap(), 0, exports.NumberOfNames * sizeof(ULONG));
+#    else
+    functions = (PULONG)global_heap_alloc(exports.NumberOfFunctions *
+                                          sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+    ordinals = (PUSHORT)global_heap_alloc(exports.NumberOfNames *
+                                          sizeof(USHORT) HEAPACCT(ACCT_OTHER));
+    fnames = (PULONG)global_heap_alloc(exports.NumberOfNames *
+                                       sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+#    endif
+    if (read_remote_maybe64(process, lib + exports.AddressOfFunctions,
+                            exports.NumberOfFunctions * sizeof(ULONG), functions) &&
+        read_remote_maybe64(process, lib + exports.AddressOfNameOrdinals,
+                            exports.NumberOfNames * sizeof(USHORT), ordinals) &&
+        read_remote_maybe64(process, lib + exports.AddressOfNames,
+                            exports.NumberOfNames * sizeof(ULONG), fnames)) {
+        bool match = false;
+        for (i = 0; i < exports.NumberOfNames; i++) {
+            if (!read_remote_maybe64(process, lib + fnames[i],
+                                     BUFFER_SIZE_BYTES(local_buf), local_buf))
+                break;
+            NULL_TERMINATE_BUFFER(local_buf);
+            if (strcasecmp(name, local_buf) == 0) {
+                match = true;
+                ord = ordinals[i];
+                break;
+            }
+        }
+        if (match && ord < exports.NumberOfFunctions && functions[ord] != 0 &&
+            /* We don't support forwarded functions */
+            (functions[ord] < expdir->VirtualAddress ||
+             functions[ord] >= expdir->VirtualAddress + exports_size))
+            func = lib + functions[ord];
+    }
+#    if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    HeapFree(GetProcessHeap(), 0, functions);
+    HeapFree(GetProcessHeap(), 0, ordinals);
+    HeapFree(GetProcessHeap(), 0, fnames);
+#    else
+    global_heap_free(functions,
+                     exports.NumberOfFunctions * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+    global_heap_free(ordinals,
+                     exports.NumberOfNames * sizeof(USHORT) HEAPACCT(ACCT_OTHER));
+    global_heap_free(fnames, exports.NumberOfNames * sizeof(ULONG) HEAPACCT(ACCT_OTHER));
+#    endif
+    return func;
+}
+
+/* Handles 32-bit or 64-bit remote processes. */
+bool
+get_remote_dll_short_name(HANDLE process, uint64 remote_base, OUT char *name,
+                          size_t name_len, OUT bool *is_64)
+{
+    uint64 lib = remote_base;
+    size_t exports_size;
+    IMAGE_DOS_HEADER dos;
+    IMAGE_NT_HEADERS64 nt64;
+    IMAGE_NT_HEADERS32 nt32;
+    IMAGE_DATA_DIRECTORY *expdir;
+    IMAGE_EXPORT_DIRECTORY exports;
+    if (!read_remote_maybe64(process, lib, sizeof(dos), &dos))
+        return false;
+    if (dos.e_magic != IMAGE_DOS_SIGNATURE)
+        return false;
+    if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt64), &nt64))
+        return false;
+    if (nt64.Signature != IMAGE_NT_SIGNATURE)
+        return false;
+    if (nt64.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+        if (!read_remote_maybe64(process, lib + dos.e_lfanew, sizeof(nt32), &nt32))
+            return 0;
+        ASSERT(nt32.Signature == IMAGE_NT_SIGNATURE);
+        expdir = &nt32.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+        if (is_64 != NULL)
+            *is_64 = false;
+    } else {
+        expdir = &nt64.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+        if (is_64 != NULL)
+            *is_64 = true;
+    }
+    exports_size = expdir->Size;
+    if (exports_size <= 0 ||
+        !read_remote_maybe64(process, lib + expdir->VirtualAddress,
+                             MIN(exports_size, sizeof(exports)), &exports))
+        return false;
+    if (exports.Name == 0 ||
+        !read_remote_maybe64(process, lib + exports.Name, name_len, name))
+        return false;
+    name[name_len - 1] = '\0';
+    return true;
+}
+#endif
+
 /****************************************************************************/

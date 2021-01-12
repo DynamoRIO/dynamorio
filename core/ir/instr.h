@@ -1351,17 +1351,22 @@ DR_API
  */
 const char *
 instr_predicate_name(dr_pred_type_t pred);
+#endif
 
+#ifdef AARCHXX
 DR_API
 /**
  * Returns the DR_PRED_ constant that represents the opposite condition
  * from \p pred.  A valid conditional branch predicate must be passed (i.e.,
- * not #DR_PRED_NONE, DR_PRED_AL, or DR_PRED_OP).
- * \note ARM-only.
+ * not #DR_PRED_NONE, #DR_PRED_AL, or #DR_PRED_OP for ARM and not #DR_PRED_NONE,
+ * #DR_PRED_AL, or #DR_PRED_NV for AArch64).
+ * \note ARM and AArch64-only.
  */
 dr_pred_type_t
 instr_invert_predicate(dr_pred_type_t pred);
+#endif
 
+#ifdef ARM
 DR_API
 /**
  * Assumes that \p it_instr's opcode is #OP_it.  Returns the number of instructions
