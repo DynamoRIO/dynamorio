@@ -1702,23 +1702,25 @@ endfunction(run2testname)
 function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
-    if (NOT regex OR "${name}" MATCHES "${regex}")
-      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
-          # See above: for particular builds we skip some of the similar tests from
-          # some of the test groups.
-          (("${name}" MATCHES "tool.drcache" AND
-            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
-          ("${name}" MATCHES "tool.drcpusim" AND
-            NOT "${name}" MATCHES "Pentium3") OR
-          ("${name}" MATCHES "tool.[^d]" AND
-            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
-          # instrcalls is the slowest of the samples.
-          "${name}" MATCHES "sample.instrcalls" OR
-          ("${name}" MATCHES "client.annotation-" AND
-            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
-        set(enabled OFF)
-      else ()
-        set(enabled ON)
+    if (TEST_LONG OR NOT "${name}" MATCHES "_LONG")
+      if (NOT regex OR "${name}" MATCHES "${regex}")
+        if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+            # See above: for particular builds we skip some of the similar tests from
+            # some of the test groups.
+            (("${name}" MATCHES "tool.drcache" AND
+              NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+            ("${name}" MATCHES "tool.drcpusim" AND
+              NOT "${name}" MATCHES "Pentium3") OR
+            ("${name}" MATCHES "tool.[^d]" AND
+              NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+            # instrcalls is the slowest of the samples.
+            "${name}" MATCHES "sample.instrcalls" OR
+            ("${name}" MATCHES "client.annotation-" AND
+              NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+          set(enabled OFF)
+        else ()
+          set(enabled ON)
+        endif ()
       endif ()
     endif ()
   endif ()
@@ -2886,7 +2888,7 @@ if (CLIENT_INTERFACE)
       set(decenc.drdecode_decenc_x86_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     endif ()
   endif ()
-  if (X86) # Generated code is x86-specific.
+  if (X86 OR AARCH64) # Generated code is x86- or AArch64-specific.
     set(checklevel "")
     if (DEBUG)
       # This tests indirect branches between blocks.
@@ -2894,8 +2896,22 @@ if (CLIENT_INTERFACE)
       # which makes building 150K bbs very slow.
       set(checklevel "-checklevel 0")
     endif ()
-    tobuild_api(api.ibl-stress api/ibl-stress.c
-      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+    # TODO i#4665: Fix crash without the -shared_ibt_table_bb_init value.
+    if (AARCH64)
+      tobuild_api(api.ibl-stress api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 16 ${checklevel}" "" OFF OFF)
+
+      tobuild_api(api.ibl-stress-aarch64-far-link_LONG api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 20 ${checklevel}" "" OFF OFF)
+      append_property_string(TARGET api.ibl-stress-aarch64-far-link_LONG COMPILE_FLAGS
+        "-DTEST_FAR_LINK_AARCH64")
+      set(api.ibl-stress-aarch64-far-link_LONG_timeout 900)
+      use_DynamoRIO_extension(api.ibl-stress-aarch64-far-link_LONG drcontainers)
+      link_with_pthread(api.ibl-stress-aarch64-far-link_LONG)
+    else ()
+      tobuild_api(api.ibl-stress api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+    endif ()
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
     link_with_pthread(api.ibl-stress)
     if (WIN32)
