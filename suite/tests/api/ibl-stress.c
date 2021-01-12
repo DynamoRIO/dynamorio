@@ -42,12 +42,7 @@
 #    define NUM_SEQUENCES 20000
 #    define NUM_THREADS 16
 #elif defined(TEST_FAR_LINK_AARCH64)
-/* These values trigger far fragment linking path on AArch64. With this option,
- * the test is too big to enable in CI. The following changes are required to
- * the regular ctest options:
- * - set timeout to 15 mins, instead of the default 90 seconds
- * - TODO i#4665: set -shared_ibt_table_bb_init 20
- */
+/* These values trigger far fragment linking path on AArch64. */
 #    define NUM_SEQUENCES 150000
 #    define NUM_THREADS 8
 #else
