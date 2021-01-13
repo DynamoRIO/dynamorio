@@ -2418,7 +2418,8 @@ if (CLIENT_INTERFACE)
       tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
         "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
-      tobuild_ci(client.timer client-interface/timer.c "" "" "")
+      # We disable traces to get bb prefixes for testing i#4669.
+      tobuild_ci(client.timer client-interface/timer.c "" "-disable_traces" "")
       if (X64)
         tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
           "-vm_base 0x100000000 -no_vm_base_near_app" "")

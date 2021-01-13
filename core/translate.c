@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -904,7 +904,9 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                      * tdcontext is the same as this thread's private dcontext is a weak
                      * indicator of xl8 due to a fault. */
                     ASSERT_CURIOSITY(tdcontext != get_thread_private_dcontext() ||
-                                     INTERNAL_OPTION(stress_recreate_pc));
+                                     INTERNAL_OPTION(stress_recreate_pc)
+                                         IF_CLIENT_INTERFACE(
+                                             || tdcontext->client_data->is_translating));
                 } else {
                     LOG(THREAD_GET, LOG_INTERP, 2,
                         "recreate_app -- WARNING: cache pc " PFX " != " PFX ", "
@@ -982,13 +984,15 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
                     {
                         res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
                         /* should only happen for thread synch, not a fault */
-                        ASSERT(tdcontext != get_thread_private_dcontext() ||
-                               INTERNAL_OPTION(stress_recreate_pc) ||
-                               /* we can currently fail for flushed code (PR 208037)
-                                * (and hotpatch, native_exec, and sysenter: but too
-                                * rare to check) */
-                               TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
-                               TEST(FRAG_WAS_DELETED, flags));
+                        ASSERT(
+                            tdcontext != get_thread_private_dcontext() ||
+                            INTERNAL_OPTION(stress_recreate_pc) ||
+                            IF_CLIENT_INTERFACE(tdcontext->client_data->is_translating ||)
+                            /* we can currently fail for flushed code (PR 208037)
+                             * (and hotpatch, native_exec, and sysenter: but too
+                             * rare to check) */
+                            TEST(FRAG_SELFMOD_SANDBOXED, flags) ||
+                            TEST(FRAG_WAS_DELETED, flags));
                         LOG(THREAD_GET, LOG_INTERP, 2,
                             "recreate_app -- not able to fully recreate "
                             "context, pc is in added instruction from mangling\n");
