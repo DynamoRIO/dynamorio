@@ -528,8 +528,10 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
     }
 #elif defined(AARCHXX)
+#    ifdef ARM_32
     /* FIXME i#1551: implement 64-bit counter support */
-    ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented");
+    ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented for ARM_32");
+#    endif /* ARM_32 */
 
     if (use_drreg) {
         if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) !=
@@ -556,6 +558,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
      * address being near this one, and add to reg1 instead of
      * taking 2 instrs to load it fresh.
      */
+    /* update counter */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr, opnd_create_reg(reg1),
                                      ilist, where, NULL, NULL);
     MINSERT(
