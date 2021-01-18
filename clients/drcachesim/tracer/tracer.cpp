@@ -1478,13 +1478,12 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                                    num_instrs, DRX_COUNTER_64BIT))
         DR_ASSERT(false);
 
-    reg_id_t scratch1, scratch2;
+    reg_id_t scratch1, scratch2, scratch3;
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) != DRREG_SUCCESS)
+        drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, instr, NULL, &scratch3) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve scratch registers");
-
-    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve aflags\n");
+    dr_save_arith_flags_to_reg(drcontext, bb, instr, scratch3);
 
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
                                      opnd_create_reg(scratch1), bb, instr, NULL, NULL);
@@ -1511,10 +1510,10 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
             DR_ASSERT(false);
     }
 #        elif defined(AARCH64)
+    dr_restore_arith_flags_from_reg(drcontext, bb, instr, scratch3);
     if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS)
-        DR_ASSERT(false);
-    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, scratch3) != DRREG_SUCCESS)
         DR_ASSERT(false);
 #        endif
 #    else
