@@ -1975,14 +1975,9 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
     endif ()
   endif (X64 OR WIN32)
 endif (X86)
-# FIXME i#1025: get working on Linux
-if (WIN32)
-  # We build all tests before running so decode will be built before
-  # ctest -j ever ran this.  If we switch to --build-and-test then we'll
-  # make these runonly tests make sure their exe is built.
-  torunonly(common.decode-stress common.decode common/decode.c
-    "-stress_recreate_state" "")
-endif (WIN32)
+if (X86) # TODO i#4680: Port to AArchXX.
+  torunonly(common.decode-stress common.decode common/decode.c "-stress_recreate_state" "")
+endif ()
 
 if (X86)
   set(control_flags "eflags")
