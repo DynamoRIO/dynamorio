@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2906,6 +2906,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_opcode(instr, OP_nop);
         instr_set_num_opnds(dcontext, instr, 0, 0);
         instr_set_translation(instr, xl8);
+        /* With no spills and just a single instr, no reason to set as our_mangling. */
         return;
     }
 
@@ -2939,6 +2940,7 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_opcode(instr, OP_mov_ld);
         if (dst_sz != OPSZ_2)
             instr_set_opcode(instr, OP_movzx);
+        /* With no spills and just a single instr, no reason to set as our_mangling. */
     } else { /* dst is memory, need steal a register. */
         reg_id_t reg;
         instr_t *ti;
@@ -2973,6 +2975,8 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* change mov_seg to mov_st: mov reg => [mem] */
         instr_set_src(instr, 0, opnd_create_reg(reg));
         instr_set_opcode(instr, OP_mov_st);
+        /* To handle xl8 for the spill/restore we need the app instr to be marked. */
+        instr_set_our_mangling(instr, true);
     }
 }
 
