@@ -256,6 +256,9 @@ translate_walk_track_pre_instr(dcontext_t *tdcontext, instr_t *inst,
                 if (walk->reg_spill_offs[r] != UINT_MAX) {
                     instr_t *curr;
                     bool spill_or_restore = false;
+                    reg_id_t reg;
+                    bool spill;
+                    bool spill_tls;
                     for (curr = inst; curr != NULL; curr = instr_get_next(curr)) {
                         spill_or_restore = instr_is_DR_reg_spill_or_restore(
                             tdcontext, curr, &spill_tls, &spill, &reg, NULL);
@@ -557,9 +560,10 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
                 ASSERT(walk->translation < translate_pc);
                 app_pc npc = decode(tdcontext, walk->translation, &instr);
                 ASSERT(npc != NULL && instr_valid(&instr));
-                int opc = instr_get_opcode(&instr);
-                ASSERT_NOT_IMPLEMENTED(walk->xsp_adjust == 0 || opc == OP_push ||
-                                       opc == OP_push_imm || opc == OP_pop);
+                IF_X86(int opc = instr_get_opcode(&instr);)
+                ASSERT_NOT_IMPLEMENTED(
+                    walk->xsp_adjust ==
+                    0 IF_X86(|| opc == OP_push || opc == OP_push_imm || opc == OP_pop));
                 instr_free(tdcontext, &instr);
             });
         });
