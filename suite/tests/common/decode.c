@@ -496,7 +496,7 @@ DECL_EXTERN(_setjmp3)
  * for the longjmp restore path.  We thus need to directly invoke sigsetjmp.
  */
 # ifdef MACOS
-#  define SIGSETJMP_NAME _sigsetjmp
+#  define SIGSETJMP_NAME sigsetjmp
 # else
 #  define SIGSETJMP_NAME __sigsetjmp
 # endif
