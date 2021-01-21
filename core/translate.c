@@ -186,6 +186,32 @@ instr_is_rseq_load(dcontext_t *dcontext, instr_t *inst)
 }
 #endif /* UNIX */
 
+#if defined(X86) && defined(UNIX)
+static bool
+instr_is_segment_mangling(dcontext_t *dcontext, instr_t *instr)
+{
+    if (!instr_is_our_mangling(instr))
+        return false;
+    /* Look for mangle_mov_seg() patterns. */
+    int opc = instr_get_opcode(instr);
+    if (opc == OP_nop) /* Write to seg. */
+        return true;
+    if (opc == OP_mov_ld || opc == OP_movzx) {
+        opnd_t op_fs = opnd_create_sized_tls_slot(
+            os_tls_offset(os_get_app_tls_reg_offset(SEG_FS)), OPSZ_2);
+        opnd_t op_gs = opnd_create_sized_tls_slot(
+            os_tls_offset(os_get_app_tls_reg_offset(SEG_GS)), OPSZ_2);
+        return opnd_same(op_fs, instr_get_src(instr, 0)) ||
+            opnd_same(op_gs, instr_get_src(instr, 0));
+    }
+    /* XXX: For mangle_seg_ref(), it could be any far memory operand, so we would
+     * want to look at the prior instr?  No special translation is needed, but
+     * we want to avoid being labeled as an unsupported mangle instr.
+     */
+    return false;
+}
+#endif
+
 #ifdef ARM
 static bool
 instr_is_mov_PC_immed(dcontext_t *dcontext, instr_t *inst)
@@ -451,6 +477,11 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
         } else if (instr_is_seg_ref_load(tdcontext, inst)) {
             /* nothing to do */
         } else if (instr_is_rseq_load(tdcontext, inst)) {
+            /* nothing to do */
+        }
+#endif
+#if defined(X86) && defined(UNIX)
+        else if (instr_is_segment_mangling(tdcontext, inst)) {
             /* nothing to do */
         }
 #endif
