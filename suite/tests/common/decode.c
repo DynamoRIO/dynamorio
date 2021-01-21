@@ -495,17 +495,22 @@ DECL_EXTERN(_setjmp3)
 /* We can't safely have a local wrapper, since its retaddr is then exposed
  * for the longjmp restore path.  We thus need to directly invoke sigsetjmp.
  */
-DECL_EXTERN(__sigsetjmp)
+# ifdef MACOS
+#  define SIGSETJMP_NAME _sigsetjmp
+# else
+#  define SIGSETJMP_NAME __sigsetjmp
+# endif
+DECL_EXTERN(SIGSETJMP_NAME)
 # ifdef X64
 #  define CALL_SETJMP \
         lea   REG_XAX, SYMREF(mark) @N@ \
         mov   REG_XCX, HEX(1)       @N@ \
-        CALLC2(GLOBAL_REF(__sigsetjmp), REG_XAX, REG_XCX)
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # else
 #  define CALL_SETJMP \
         lea   REG_XAX, mark   @N@\
         mov   REG_XCX, HEX(1) @N@ \
-        CALLC2(GLOBAL_REF(__sigsetjmp), REG_XAX, REG_XCX)
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # endif
 #endif
 
