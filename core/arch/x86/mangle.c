@@ -47,6 +47,7 @@
 #include "instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "decode_private.h"
 #include "disassemble.h"
 #include "../hashtable.h"
 #include "../fcache.h" /* for in_fcache */
@@ -1108,7 +1109,7 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              opnd_create_base_disp(REG_XSP, REG_NULL, 0, -2, OPSZ_lea)));
         PRE(ilist, instr,
             INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM16(REG_XSP, 2),
-                                OPND_CREATE_INT16(val)));
+                                OPND_CREATE_INT16((short)val)));
     } else if (opsize ==
                OPSZ_PTR IF_X64(|| (!X64_CACHE_MODE_DC(dcontext) && opsize == OPSZ_4))) {
         insert_push_immed_ptrsz(dcontext, retaddr, ilist, instr, NULL, NULL);
@@ -1371,8 +1372,11 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * The reg must not be used in the oldop, otherwise, the reg value
  * is corrupted.
  */
+
+static ushort tls_slots[4] = { TLS_XAX_SLOT, TLS_XCX_SLOT, TLS_XDX_SLOT, TLS_XBX_SLOT };
+
 opnd_t
-mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     opnd_t oldop, reg_id_t reg)
 {
     opnd_t newop;
@@ -1395,14 +1399,50 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 
     /* XXX: this mangling is pattern-matched in translation's instr_is_seg_ref_load() */
     /* get app's segment base into reg. */
-    PRE(ilist, where,
+    PRE(ilist, instr,
         instr_create_restore_from_tls(dcontext, reg, os_get_app_tls_base_offset(seg)));
+    if ((opnd_get_base(oldop) != DR_REG_NULL &&
+         reg_get_size(opnd_get_base(oldop)) == OPSZ_2) ||
+        (opnd_get_index(oldop) != DR_REG_NULL &&
+         reg_get_size(opnd_get_index(oldop)) == OPSZ_2)) {
+        /* We can't combine our full-size seg base reg with addr16 regs so we
+         * need another scratch reg to first compute thet 16-bit-reg address.
+         */
+        reg_id_t scratch2;
+        for (scratch2 = REG_XAX; scratch2 <= REG_XBX; scratch2++) {
+            if (!instr_uses_reg(instr, scratch2))
+                break;
+        }
+        ASSERT(scratch2 <= REG_XBX);
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, scratch2, tls_slots[scratch2 - REG_XAX]));
+        instr_set_our_mangling(instr, true);
+        PRE(ilist, instr_get_next(instr),
+            instr_set_translation_mangling_epilogue(
+                dcontext, ilist,
+                instr_create_restore_from_tls(dcontext, scratch2,
+                                              tls_slots[scratch2 - REG_XAX])));
+        /* We add addr16 to the lea, and remove from the instr, to make the disasm
+         * easier to read (does not affect encoding or correctness).
+         */
+        PRE(ilist, instr,
+            instr_set_prefix_flag(
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(scratch2),
+                                 opnd_create_base_disp(opnd_get_base(oldop),
+                                                       opnd_get_index(oldop),
+                                                       opnd_get_scale(oldop),
+                                                       opnd_get_disp(oldop), OPSZ_lea)),
+                PREFIX_ADDR));
+        uint prefixes = instr_get_prefixes(instr);
+        instr_set_prefixes(instr, prefixes & (~PREFIX_ADDR));
+        return opnd_create_base_disp(reg, scratch2, 1, 0, opnd_get_size(oldop));
+    }
     if (opnd_get_index(oldop) != REG_NULL && opnd_get_base(oldop) != REG_NULL) {
         /* if both base and index are used, use
          * lea [base, reg, 1] => reg
          * to get the base + seg_base into reg.
          */
-        PRE(ilist, where,
+        PRE(ilist, instr,
             INSTR_CREATE_lea(
                 dcontext, opnd_create_reg(reg),
                 opnd_create_base_disp(opnd_get_base(oldop), reg, 1, 0, OPSZ_lea)));
@@ -2870,8 +2910,6 @@ instr_get_seg_ref_src_idx(instr_t *instr)
     return -1;
 }
 
-static ushort tls_slots[4] = { TLS_XAX_SLOT, TLS_XCX_SLOT, TLS_XDX_SLOT, TLS_XBX_SLOT };
-
 /* mangle the instruction OP_mov_seg, i.e. the instruction that
  * read/update the segment register.
  */
@@ -3035,7 +3073,9 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * (for 32-bit, top 32 bits are cleared) */
         if (reg_is_gpr(reg) && (reg_is_32bit(reg) || reg_is_64bit(reg)) &&
             /* mov [%fs:%xax] => %xax */
-            !instr_reads_from_reg(instr, reg, DR_QUERY_DEFAULT)) {
+            !instr_reads_from_reg(instr, reg, DR_QUERY_DEFAULT) &&
+            /* xsp cannot be an index reg. */
+            reg != DR_REG_XSP) {
             spill = false;
             scratch_reg = reg;
 #    ifdef X64

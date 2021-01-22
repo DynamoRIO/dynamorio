@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -86,12 +86,6 @@ static int a[ITERS];
 
 #    ifdef UNIX
 #        define ALT_STACK_SIZE (SIGSTKSZ * 3)
-
-int
-my_setjmp(sigjmp_buf env)
-{
-    return SIGSETJMP(env);
-}
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -265,11 +259,9 @@ main(int argc, char *argv[])
     print("Testing far call/jmp\n");
     test_far_cti();
 
-#    ifdef WINDOWS /* FIXME i#105: crashing on Linux so disabling for now */
     /* PR 242815: data16 mbr */
     print("Testing data16 mbr\n");
     test_data16_mbr();
-#    endif
 
     /* i#1024: rip-rel ind branch */
     print("Testing rip-rel ind branch\n");
@@ -500,15 +492,25 @@ DECL_EXTERN(_setjmp3)
         CALLC2(_setjmp3, REG_XAX, 0)
 # endif
 #else
-DECL_EXTERN(my_setjmp)
+/* We can't safely have a local wrapper, since its retaddr is then exposed
+ * for the longjmp restore path.  We thus need to directly invoke sigsetjmp.
+ */
+# ifdef MACOS
+#  define SIGSETJMP_NAME sigsetjmp
+# else
+#  define SIGSETJMP_NAME __sigsetjmp
+# endif
+DECL_EXTERN(SIGSETJMP_NAME)
 # ifdef X64
 #  define CALL_SETJMP \
         lea   REG_XAX, SYMREF(mark) @N@ \
-        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
+        mov   REG_XCX, HEX(1)       @N@ \
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # else
 #  define CALL_SETJMP \
-        lea   REG_XAX, mark @N@\
-        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
+        lea   REG_XAX, mark   @N@\
+        mov   REG_XCX, HEX(1) @N@ \
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # endif
 #endif
 
@@ -548,10 +550,11 @@ DECL_EXTERN(my_setjmp)
 #define FUNCNAME test_far_cti
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ADD_STACK_ALIGNMENT
         END_PROLOG
         /* ljmp to base-disp with flat segment */
         lea   REG_XAX, PTRSZ SYMREF(test_far_cti_end_flat)
-        push  REG_XAX
+        mov   [REG_XSP], REG_XAX
         mov   REG_XCX, REG_XSP
         /* I'm having trouble getting gas to generate this from:
          *   jmp   PTRSZ SEGMEM(es,REG_XCX)
@@ -559,7 +562,6 @@ GLOBAL_LABEL(FUNCNAME:)
          */
         RAW(26) RAW(ff) RAW(21) /* jmp QWORD PTR es:[rcx] */
     ADDRTAKEN_LABEL(test_far_cti_end_flat:)
-        pop   REG_XAX
         CALL_SETJMP
         cmp   REG_XAX, 0
         jne   test_far_cti_1
@@ -598,6 +600,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov   eax, HEX(deadbeef)
         RAW(ff) RAW(18) /* lcall (%eax) */
     test_far_cti_6:
+        RESTORE_STACK_ALIGNMENT
         ret
         END_FUNC(FUNCNAME)
 

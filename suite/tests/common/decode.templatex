@@ -34,30 +34,24 @@ Access violation, instance 6
 #endif
 Access violation, instance 7
 Access violation, instance 8
-#ifdef WINDOWS
 Testing data16 mbr
 Access violation, instance 9
 Access violation, instance 10
 Access violation, instance 11
-# if defined(X64)
+#if defined(X64)
 Bad instruction, instance 12
 Bad instruction, instance 13
-# else
+#else
 Access violation, instance 12
 Access violation, instance 13
-# endif
+#endif
 Access violation, instance 14
 Access violation, instance 15
 Access violation, instance 16
 Access violation, instance 17
 Access violation, instance 18
-#endif
 Testing rip-rel ind branch
 Made it to actual_call_target
-#ifdef WINDOWS
 Bad instruction, instance 19
-#else
-Bad instruction, instance 9
-#endif
 (Testing AVX-512 VEX
 )?All done

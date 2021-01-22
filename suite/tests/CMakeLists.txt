@@ -1965,24 +1965,17 @@ endif ()
 if (NOT ANDROID) # We do not support -no_early_inject on Android (i#1873).
   tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
 endif ()
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86) # TODO i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.decode-bad common/decode-bad.c)
-  # FIXME i#105: get this working for 32-bit linux
-  if (X64 OR WIN32)
-    tobuild(common.decode common/decode.c)
-    if (proc_supports_avx512)
-      set_target_properties(common.decode PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
-    endif ()
-  endif (X64 OR WIN32)
+  tobuild(common.decode common/decode.c)
+  if (proc_supports_avx512)
+    set_target_properties(common.decode PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+  endif ()
 endif (X86)
-# FIXME i#1025: get working on Linux
-if (WIN32)
-  # We build all tests before running so decode will be built before
-  # ctest -j ever ran this.  If we switch to --build-and-test then we'll
-  # make these runonly tests make sure their exe is built.
+if (X86) # TODO i#4680: Port stress code to AArchXX and run on a diff test?
   torunonly(common.decode-stress common.decode common/decode.c
     "-stress_recreate_state" "")
-endif (WIN32)
+endif ()
 
 if (X86)
   set(control_flags "eflags")
