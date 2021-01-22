@@ -259,9 +259,15 @@ main(int argc, char *argv[])
     print("Testing far call/jmp\n");
     test_far_cti();
 
+    /* i#4618: SEH64 has trouble recovering from the unaligned stacks
+     * and other issues in this test.  We have coverage on 64-bit Linux so
+     * we're ok permanently disabling it for Win64.
+     */
+#    if !(defined(WINDOWS) && defined(X64))
     /* PR 242815: data16 mbr */
     print("Testing data16 mbr\n");
     test_data16_mbr();
+#    endif
 
     /* i#1024: rip-rel ind branch */
     print("Testing rip-rel ind branch\n");
@@ -482,9 +488,16 @@ DECL_EXTERN(mark)
 #ifdef WINDOWS
 # ifdef X64
 DECL_EXTERN(setjmp)
+/* The 4-slot stack padding means we can't pass xsp to CALLC2 which
+ * will capture the post-padding value, which is beyond-TOS later,
+ * causing problems on longjmp.
+ * Even now it is a little fragile: probably better to subtract the 4
+ * slots at the top of the frame and do a raw call here.
+ */
 #  define CALL_SETJMP \
-        lea   REG_XAX, mark @N@\
-        CALLC2(setjmp, REG_XAX, REG_XSP)
+        lea   REG_XCX, mark @N@\
+        mov   REG_XDX, REG_XSP @N@\
+        CALLC2(setjmp, REG_XCX, REG_XDX)
 # else
 DECL_EXTERN(_setjmp3)
 #  define CALL_SETJMP \

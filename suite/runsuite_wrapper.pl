@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
-# Copyright () 2016-2020 Google, Inc.  All rights reserved.
+# Copyright () 2016-2021 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -207,8 +207,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_32 = (
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
-                'code_api|common.decode' => 1, # i#4618
-                'code_api|common.decode-stress' => 1, # i#4618
                 'code_api|win32.earlythread' => 1, # i#4131
                 'code_api|client.drx-test' => 1, # i#4619
                 'code_api|client.drwrap-test' => 1, # i#4131
@@ -236,8 +234,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_64 = (
                 # i#4131: These are failing on GA Server16 and need investigation.
                 # Some also failed on Appveyor (i#4058).
-                'code_api|common.decode' => 1, # i#4618
-                'code_api|common.decode-stress' => 1, # i#4618
                 'code_api|client.cleancall' => 1, # i#4618
                 'code_api|win32.callback' => 1, # i#4058
                 'code_api|common.nativeexec' => 1, # i#4058
