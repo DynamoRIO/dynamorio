@@ -410,11 +410,11 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
     uint aflags = (uint)(ptr_uint_t)drvector_get_entry(&pt->aflags.live, pt->live_idx);
     if (!pt->aflags.native &&
         (force_restore ||
-         /* Unrecognised instructions are decoded as instances of a generic instruction,
-          * OP_xx. For these instructions conservatively restore aflags in case they
-          * read/write the aflags.
+         /* On AArch64, unrecognized instructions are decoded as instances of a generic
+          * instruction, OP_xx. For these instructions conservatively restore aflags in
+          * case they read/write the aflags.
           */
-         instr_get_opcode(inst) == OP_xx ||
+         IF_AARCH64(instr_get_opcode(inst) == OP_xx ||)
          TESTANY(EFLAGS_READ_ARITH, instr_get_eflags(inst, DR_QUERY_DEFAULT)) ||
          /* Writing just a subset needs to combine with the original unwritten */
          (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
