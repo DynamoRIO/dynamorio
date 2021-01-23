@@ -1498,6 +1498,18 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
             XINST_CREATE_jump_cond(drcontext, DR_PRED_LT, opnd_create_instr(skip_call)));
 #        endif
 
+    /* hit_instr_count_threshold doesn't return. Unreserve any registers or aflags.*/
+#        ifdef X86_64
+    if (scratch != DR_REG_NULL) {
+        if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
+            DR_ASSERT(false);
+    }
+#        elif defined(AARCH64)
+    if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS ||
+        drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+#        endif
     dr_insert_clean_call(drcontext, bb, instr, (void *)hit_instr_count_threshold,
                          false /*fpstate */, 1,
                          OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
