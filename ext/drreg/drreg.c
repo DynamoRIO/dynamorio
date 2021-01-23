@@ -410,9 +410,11 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
     uint aflags = (uint)(ptr_uint_t)drvector_get_entry(&pt->aflags.live, pt->live_idx);
     if (!pt->aflags.native &&
         (force_restore ||
-         /* On AArch64, unrecognized instructions are decoded as instances of a generic
-          * instruction, OP_xx. For these instructions conservatively restore aflags in
-          * case they read/write the aflags.
+         /* XXX i#2626: The decoder for AArch64 is incomplete and unrecognized
+          * instructions are decoded as instances of a generic instruction, OP_xx.
+          * As a workaround until the decoder covers all the instructions that read/write
+          * flags, conservatively restore aflags for unrecognized instructions in case
+          * they read/write the aflags.
           */
          IF_AARCH64(instr_get_opcode(inst) == OP_xx ||)
              TESTANY(EFLAGS_READ_ARITH, instr_get_eflags(inst, DR_QUERY_DEFAULT)) ||
