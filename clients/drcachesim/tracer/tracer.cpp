@@ -1323,7 +1323,7 @@ static void *schedule_tracing_lock;
 #if defined(X86_64) || defined(AARCH64)
 #    define DELAYED_CHECK_INLINED 1
 #else
-/* XXX we don't have the inlining implemented yet for ARM_32 */
+/* XXX we don't have the inlining implemented yet for 32-bit architectures. */
 #endif
 
 static dr_emit_flags_t
@@ -1478,12 +1478,11 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                                    num_instrs, DRX_COUNTER_64BIT))
         DR_ASSERT(false);
 
-    reg_id_t scratch1, scratch2, scratch3;
+    reg_id_t scratch1, scratch2;
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) != DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) != DRREG_SUCCESS ||
-        drreg_reserve_register(drcontext, bb, instr, NULL, &scratch3) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve scratch registers");
-    dr_save_arith_flags_to_reg(drcontext, bb, instr, scratch3);
+        drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve scratch registers and aflags");
 
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
                                      opnd_create_reg(scratch1), bb, instr, NULL, NULL);
@@ -1510,18 +1509,18 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
             DR_ASSERT(false);
     }
 #        elif defined(AARCH64)
-    dr_restore_arith_flags_from_reg(drcontext, bb, instr, scratch3);
     if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
         drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, scratch3) != DRREG_SUCCESS)
+        drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
         DR_ASSERT(false);
 #        endif
 #    else
 #        error NYI
 #    endif
 #else
-    /* XXX: drx_insert_counter_update doesn't support 64-bit counters for ARM_32
-     * For now we pay the cost of a clean call every time.
+    /* XXX: drx_insert_counter_update doesn't support 64-bit counters for ARM_32, and
+     * inlining of check_instr_count_threshold is not implemented for i386. For now we pay
+     * the cost of a clean call every time for 32-bit architectures.
      */
     dr_insert_clean_call(drcontext, bb, instr, (void *)check_instr_count_threshold,
                          false /*fpstate */, 2, OPND_CREATE_INT32(num_instrs),

@@ -528,10 +528,10 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
     }
 #elif defined(AARCHXX)
-#    ifdef ARM_32
+#    ifdef ARM
     /* FIXME i#1551: implement 64-bit counter support */
     ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented for ARM_32");
-#    endif /* ARM_32 */
+#    endif /* ARM */
 
     if (use_drreg) {
         if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) !=
