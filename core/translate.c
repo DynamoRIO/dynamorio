@@ -598,34 +598,6 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
                 instr_free(tdcontext, &instr);
             });
         });
-    } else if (translate_pc != walk->translation) {
-        /* When we walk we update only each instr we pass.  If we're
-         * now sitting at the instr AFTER the mangle region, we do
-         * NOT want to adjust xsp, since we're not translating to
-         * before that instr.  We should not have any outstanding spills.
-         */
-        LOG(THREAD_GET, LOG_INTERP, 2,
-            "\ttranslation " PFX " is post-walk " PFX " so not fixing xsp\n",
-            translate_pc, walk->translation);
-        DOCHECK(1, {
-            /* Assumes all spills are matched by the same number of restores. This
-             * assumption may not hold for more complex mangling.
-             */
-            for (r = 0; r < REG_SPILL_NUM; r++)
-                ASSERT(walk->reg_spill_offs[r] ==
-                       UINT_MAX
-                           /* Register X0 is used for branches on AArch64.
-                            * See mangle_cbr_stolen_reg.
-                            */
-                           IF_AARCH64(|| r + REG_START_SPILL == DR_REG_X0)
-                       /* The special stolen register mangling from
-                        * mangle_syscall_arch() for a non-restartable syscall ends
-                        * up here due to the nop having a xl8 post-syscall.
-                        * We do need to restore that spill.
-                        */
-                       IF_AARCHXX(|| r + REG_START_SPILL == dr_reg_stolen));
-        });
-        return;
     }
 
     /* PR 263407: restore register values that are currently in spill slots
@@ -650,15 +622,29 @@ translate_walk_restore(dcontext_t *tdcontext, translate_walk_t *walk, instr_t *i
             reg_set_value_priv(reg, walk->mc, value);
         }
     }
-    /* PR 267260: Restore stack-adjust mangling of ctis.
-     * FIXME: we do NOT undo writes to the stack, so we're not completely
-     * transparent.  If we ever do restore memory, we'll want to pass in
-     * the restore_memory param.
-     */
-    if (walk->xsp_adjust != 0) {
-        walk->mc->xsp -= walk->xsp_adjust; /* negate to undo */
-        LOG(THREAD_GET, LOG_INTERP, 2, "\tundoing push/pop by %d: xsp now " PFX "\n",
-            walk->xsp_adjust, walk->mc->xsp);
+
+    if (translate_pc !=
+        walk->translation IF_X86(
+            &&!translate_walk_enters_mangling_epilogue(tdcontext, inst, walk))) {
+        /* When we walk we update only each instr we pass.  If we're
+         * now sitting at the instr AFTER the mangle region, we do
+         * NOT want to adjust xsp, since we're not translating to
+         * before that instr.  We should not have any outstanding spills.
+         */
+        LOG(THREAD_GET, LOG_INTERP, 2,
+            "\ttranslation " PFX " is post-walk " PFX " so not fixing xsp\n",
+            translate_pc, walk->translation);
+    } else {
+        /* PR 267260: Restore stack-adjust mangling of ctis.
+         * FIXME: we do NOT undo writes to the stack, so we're not completely
+         * transparent.  If we ever do restore memory, we'll want to pass in
+         * the restore_memory param.
+         */
+        if (walk->xsp_adjust != 0) {
+            walk->mc->xsp -= walk->xsp_adjust; /* negate to undo */
+            LOG(THREAD_GET, LOG_INTERP, 2, "\tundoing push/pop by %d: xsp now " PFX "\n",
+                walk->xsp_adjust, walk->mc->xsp);
+        }
     }
 }
 
