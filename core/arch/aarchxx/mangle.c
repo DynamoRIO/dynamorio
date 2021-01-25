@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -2781,6 +2781,7 @@ mangle_cbr_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_set_opcode(instr, OP_b);
     instr_set_num_opnds(dcontext, instr, 0, 1);
     instr_set_src(instr, 0, opnd);
+    instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
     PRE(ilist, next_instr, fall);
     PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));

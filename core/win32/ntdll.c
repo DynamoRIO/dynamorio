@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -999,6 +999,66 @@ get_own_peb()
     }
     return own_peb;
 }
+
+/* Returns a 32-bit PEB for a 32-bit child and !X64 parent.
+ * Else returns a 64-bit PEB.
+ */
+uint64
+get_peb_maybe64(HANDLE h)
+{
+#ifdef X64
+    return (uint64)get_peb(h);
+#else
+    /* The WOW64 query below should work regardless of whether the kernel is 32-bit
+     * or the child is 32-bit or 64-bit.  But, it returns the 64-bit PEB, while we
+     * would prefer the 32-bit, so we first try get_peb().
+     */
+    PEB *peb32 = get_peb(h);
+    if (peb32 != NULL)
+        return (uint64)peb32;
+    PROCESS_BASIC_INFORMATION64 info;
+    NTSTATUS res = nt_wow64_query_info_process64(h, &info);
+    if (!NT_SUCCESS(res))
+        return 0;
+    else
+        return info.PebBaseAddress;
+#endif
+}
+
+#ifdef X64
+/* Returns the 32-bit PEB for a WOW64 process, given process and thread handles. */
+uint64
+get_peb32(HANDLE process, HANDLE thread)
+{
+    THREAD_BASIC_INFORMATION info;
+    NTSTATUS res = query_thread_info(thread, &info);
+    if (!NT_SUCCESS(res))
+        return 0;
+        /* Bizarrely, info.TebBaseAddress points 2 pages too low!  We do sanity
+         * checks to confirm we have a TEB by looking at its self pointer.
+         */
+#    define TEB32_QUERY_OFFS 0x2000
+    byte *teb32 = (byte *)info.TebBaseAddress;
+    uint ptr32;
+    size_t sz_read;
+    if (!nt_read_virtual_memory(process, teb32 + X86_SELF_TIB_OFFSET, &ptr32,
+                                sizeof(ptr32), &sz_read) ||
+        sz_read != sizeof(ptr32) || ptr32 != (uint64)teb32) {
+        teb32 += TEB32_QUERY_OFFS;
+        if (!nt_read_virtual_memory(process, teb32 + X86_SELF_TIB_OFFSET, &ptr32,
+                                    sizeof(ptr32), &sz_read) ||
+            sz_read != sizeof(ptr32) || ptr32 != (uint64)teb32) {
+            /* XXX: Also try peb64+0x1000?  That was true for older Windows version. */
+            return 0;
+        }
+    }
+    if (!nt_read_virtual_memory(process, teb32 + X86_PEB_TIB_OFFSET, &ptr32,
+                                sizeof(ptr32), &sz_read) ||
+        sz_read != sizeof(ptr32))
+        return 0;
+    return ptr32;
+}
+#endif
 
 /****************************************************************************/
 #ifndef NOT_DYNAMORIO_CORE
@@ -2023,6 +2083,21 @@ is_wow64_process(HANDLE h)
         return (is_wow64 != 0);
     }
     return self_is_wow64;
+}
+
+bool
+is_32bit_process(HANDLE h)
+{
+#ifdef X64
+    /* Kernel is definitely 64-bit. */
+    return is_wow64_process(h);
+#else
+    /* If kernel is 64-bit, ask about wow64; else, kernel is 32-bit, so true. */
+    if (is_wow64_process(NT_CURRENT_PROCESS))
+        return is_wow64_process(h);
+    else
+        return true;
+#endif
 }
 
 NTSTATUS

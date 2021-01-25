@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,6 +58,9 @@
 #    define VPRINT(...) /* nothing */
 #endif
 
+/* SIGSTKSZ*2 results in a fatal error from DR on fitting the copied frame. */
+#define ALT_STACK_SIZE (SIGSTKSZ * 4)
+
 static volatile bool sideline_exit = false;
 static void *sideline_continue;
 static void *sideline_ready[NUM_THREADS];
@@ -65,9 +68,30 @@ static void *sideline_ready[NUM_THREADS];
 static thread_local SIGJMP_BUF mark;
 static std::atomic<int> count;
 
+static sigset_t handler_mask;
+
 static void
 handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
+    /* Ensure the mask within the handler is correct. */
+    sigset_t actual_mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    int res = sigprocmask(SIG_BLOCK, NULL, &actual_mask);
+    assert(res == 0);
+    sigset_t expect_mask1;
+    memcpy(&expect_mask1, &handler_mask, sizeof(expect_mask1));
+    sigaddset(&expect_mask1, signal);
+    sigaddset(&expect_mask1, SIGUSR1);
+    sigaddset(&expect_mask1, SIGURG);
+    /* We also have init-time signal tests with a different mask. */
+    sigset_t expect_mask2;
+    memcpy(&expect_mask2, &handler_mask, sizeof(expect_mask2));
+    sigaddset(&expect_mask2, signal);
+    sigaddset(&expect_mask2, SIGUSR2);
+    assert(memcmp(&expect_mask1, &actual_mask, sizeof(expect_mask1)) == 0 ||
+           memcmp(&expect_mask2, &actual_mask, sizeof(expect_mask2)) == 0);
+
     count++;
     SIGLONGJMP(mark, count);
 }
@@ -78,8 +102,39 @@ sideline_spinner(void *arg)
     unsigned int idx = (unsigned int)(uintptr_t)arg;
     if (dr_app_running_under_dynamorio())
         print("ERROR: thread %d should NOT be under DynamoRIO\n", idx);
+
+    if (idx == 0) {
+        /* Delay attach to help test i#4640 where a signal arrives in a native thread
+         * during DR takeover.
+         */
+        sigset_t delay_attach_mask;
+        sigemptyset(&delay_attach_mask);
+        sigaddset(&delay_attach_mask, SIGUSR2); /* DR's takeover signal. */
+        int res = sigprocmask(SIG_SETMASK, &delay_attach_mask, NULL);
+        assert(res == 0);
+    }
+
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
+
+    if (idx == 0) {
+        /* Spend some time generating signals while SIGUSR2 is blocked to try and
+         * generate some after DR starts takeover and puts its own handler in place,
+         * but before it can take us over.
+         */
+        for (int i = 0; i < 10000; i++) {
+            if (SIGSETJMP(mark) == 0) {
+                *(int *)arg = 42; /* SIGSEGV */
+            }
+            if (SIGSETJMP(mark) == 0) {
+                pthread_kill(pthread_self(), SIGURG);
+            }
+        }
+        sigset_t clear_mask;
+        sigemptyset(&clear_mask);
+        int res = sigprocmask(SIG_SETMASK, &clear_mask, NULL);
+        assert(res == 0);
+    }
 
     VPRINT("%d waiting for continue\n", idx);
     wait_cond_var(sideline_continue);
@@ -87,6 +142,23 @@ sideline_spinner(void *arg)
         print("ERROR: thread %d should be under DynamoRIO\n", idx);
     VPRINT("%d signaling sideline_ready\n", idx);
     signal_cond_var(sideline_ready[idx]);
+
+    stack_t sigstack;
+    sigstack.ss_sp = (char *)malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = 0;
+    int res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+
+    /* Block some signals to test mask preservation. */
+    sigset_t mask = {
+        0, /* Set padding to 0 so we can use memcmp */
+    };
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);
+    sigaddset(&mask, SIGURG);
+    res = sigprocmask(SIG_SETMASK, &mask, NULL);
+    assert(res == 0);
 
     /* Now sit in a signal-generating loop. */
     while (!sideline_exit) {
@@ -103,9 +175,38 @@ sideline_spinner(void *arg)
         if (SIGSETJMP(mark) == 0) {
             pthread_kill(pthread_self(), SIGALRM);
         }
+        sigset_t check_mask = {
+            0, /* Set padding to 0 so we can use memcmp */
+        };
+        res = sigprocmask(SIG_BLOCK, NULL, &check_mask);
+        assert(res == 0 && memcmp(&mask, &check_mask, sizeof(mask)) == 0);
     }
 
+    stack_t check_stack;
+    res = sigaltstack(NULL, &check_stack);
+    assert(res == 0 && check_stack.ss_sp == sigstack.ss_sp &&
+           check_stack.ss_size == sigstack.ss_size &&
+           check_stack.ss_flags == sigstack.ss_flags);
+    sigstack.ss_flags = SS_DISABLE;
+    res = sigaltstack(&sigstack, NULL);
+    assert(res == 0);
+    free(sigstack.ss_sp);
+
     return THREAD_FUNC_RETURN_ZERO;
+}
+
+static void
+intercept_signal_with_mask(int sig, handler_3_t handler, bool sigstack, sigset_t *mask)
+{
+    int res;
+    struct sigaction act;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))handler;
+    memcpy(&act.sa_mask, mask, sizeof(act.sa_mask));
+    act.sa_flags = SA_SIGINFO;
+    if (sigstack)
+        act.sa_flags |= SA_ONSTACK;
+    res = sigaction(sig, &act, NULL);
+    ASSERT_NOERR(res);
 }
 
 int
@@ -114,10 +215,20 @@ main(void)
     int i;
     thread_t thread[NUM_THREADS]; /* On Linux, the tid. */
 
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGBUS, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGURG, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGALRM, (handler_3_t)&handle_signal, false);
+    sigset_t prior_mask;
+    sigemptyset(&handler_mask);
+    sigaddset(&handler_mask, SIGUSR2);
+    int res = sigprocmask(SIG_SETMASK, &handler_mask, &prior_mask);
+    assert(res == 0);
+    res = sigprocmask(SIG_SETMASK, &prior_mask, NULL);
+    assert(res == 0);
+
+    /* We request an alt stack for some signals but not all to test both types. */
+    intercept_signal_with_mask(SIGSEGV, (handler_3_t)&handle_signal, true, &handler_mask);
+    intercept_signal_with_mask(SIGBUS, (handler_3_t)&handle_signal, false, &handler_mask);
+    intercept_signal_with_mask(SIGURG, (handler_3_t)&handle_signal, true, &handler_mask);
+    intercept_signal_with_mask(SIGALRM, (handler_3_t)&handle_signal, false,
+                               &handler_mask);
 
     sideline_continue = create_cond_var();
     for (i = 0; i < NUM_THREADS; i++) {

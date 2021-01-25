@@ -47,11 +47,15 @@
 /* initialize to all zeros.  disassemble_set_syntax will write to it. */
 options_t dynamo_options;
 
+#    undef STDERR
+
 /* support use of STD* macros so user doesn't have to use "stdout->_fileno" */
 #    ifdef UNIX
 file_t our_stdout = STDOUT_FILENO;
 file_t our_stderr = STDERR_FILENO;
 file_t our_stdin = STDIN_FILENO;
+
+#        define STDERR (our_stderr)
 #    endif
 
 #    ifdef WINDOWS
@@ -72,6 +76,8 @@ dr_get_stdin_file(void)
 {
     return GetStdHandle(STD_INPUT_HANDLE);
 }
+
+#        define STDERR (dr_get_stderr_file())
 #    endif
 
 static uint vendor = VENDOR_INTEL; /* default */
@@ -128,7 +134,7 @@ get_thread_private_dcontext(void)
 void
 external_error(const char *file, int line, const char *msg)
 {
-    fprintf(stderr, "Usage error: %s (%s, line %d)\n", msg, file, line);
+    print_file(STDERR, "Usage error: %s (%s, line %d)\n", msg, file, line);
     abort();
 }
 

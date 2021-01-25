@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -443,6 +443,21 @@ handler_alloc(dcontext_t *dcontext, size_t size)
     return global_heap_alloc(size HEAPACCT(ACCT_OTHER));
 }
 
+/* Does not return. */
+static void
+report_unhandleable_signal_and_exit(int sig, const char *sub_message)
+{
+    /* TODO i#1921: Add more info such as the PC and disasm of surrounding instrs. */
+    char signum_str[8];
+    snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
+    NULL_TERMINATE_BUFFER(signum_str);
+    char tid_str[16];
+    snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
+    NULL_TERMINATE_BUFFER(tid_str);
+    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 5, get_application_name(),
+                                get_application_pid(), signum_str, tid_str, sub_message);
+}
+
 /**** top-level routines ***********************************************/
 
 static bool
@@ -501,8 +516,13 @@ d_r_signal_init(void)
     IF_MACOS(ASSERT(sizeof(kernel_sigset_t) == sizeof(__darwin_sigset_t)));
     os_itimers_thread_shared();
 
+    IF_LINUX(signalfd_init());
+    signal_arch_init();
+
     /* Set up a handler for safe_read (or other fault detection) during
-     * DR init before thread is initialized.
+     * DR init before thread is initialized.  We must do this *after* signal_arch_init()
+     * and other key init in case a native signal arrives right after we install
+     * our handler (i#1921).
      *
      * XXX: could set up a clone_record_t and pass to the initial
      * signal_thread_inherit() but that would require further code changes.
@@ -517,9 +537,6 @@ d_r_signal_init(void)
     kernel_sigaddset(&set, SIGSEGV);
     kernel_sigaddset(&set, SIGBUS);
     sigprocmask_syscall(SIG_UNBLOCK, &set, &init_sigmask, sizeof(set));
-
-    IF_LINUX(signalfd_init());
-    signal_arch_init();
 }
 
 void
@@ -1072,7 +1089,14 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                     info->we_intercept[i] = true;
             }
         } else {
-            /* we intercept the following signals ourselves: */
+            /* We intercept the following signals ourselves.  If this is the first
+             * thread, currently doing DR init, the app handlers for these are in
+             * init_info.  We do not copy those handlers into info at this time as we're
+             * not equipped yet to deliver signals.  We wait for DR to start running the
+             * app (init can be separated from start for dr_app_* interfaces), when
+             * signal_reinstate_handlers() will record the app handlers.  Signals
+             * received in the meantime will go through execute_native_handler().
+             */
             info->we_intercept[SIGSEGV] = true;
             /* PR 313665: look for DR crashes on unaligned memory or mmap bounds */
             info->we_intercept[SIGBUS] = true;
@@ -1479,8 +1503,11 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
     kernel_sigaction_t oldact;
     ASSERT(sig <= MAX_SIGNUM);
 
-    /* arm the signal */
-    rc = sigaction_syscall(sig, act, &oldact);
+    /* Get the app's handler first, to handle a race where a signal arrives in
+     * between.  That trumps a race where the app changes its handler which is much
+     * less likely.
+     */
+    rc = sigaction_syscall(sig, NULL, &oldact);
     ASSERT(rc ==
            0
            /* Workaround for PR 223720, which was fixed in ESX4.0 but
@@ -1521,6 +1548,13 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
                 oldact.handler, oldact.flags, sig);
         }
 #endif
+        /* Record the app handler for delivering native signals during initialization.
+         * XXX: Should we rename this s/detached_/native_/ or something?
+         */
+        d_r_write_lock(&detached_sigact_lock);
+        memcpy(&detached_sigact[sig], info->app_sigaction[sig],
+               sizeof(detached_sigact[sig]));
+        d_r_write_unlock(&detached_sigact_lock);
     } else {
         LOG(THREAD, LOG_ASYNCH, 2,
             "prior handler is " PFX " vs master " PFX " with flags=0x%x for signal %d\n",
@@ -1534,6 +1568,18 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
                 d_r_mutex_unlock(info->shared_lock);
         }
     }
+
+    /* Arm the signal. */
+    rc = sigaction_syscall(sig, act, NULL);
+    ASSERT(rc ==
+           0
+           /* Workaround for PR 223720, which was fixed in ESX4.0 but
+            * is present in ESX3.5 and earlier: vmkernel treats
+            * 63 and 64 as invalid signal numbers.
+            */
+           IF_VMX86(|| (sig >= 63 && rc == -EINVAL)));
+    if (rc != 0) /* be defensive: app will probably still work */
+        return;
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
 }
 
@@ -2957,36 +3003,8 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     if (frame != NULL) {
         /* Signal happened natively or while in the cache: grab interrupted xsp. */
         sp = (byte *)sc->SC_XSP;
-        /* Handle DR's frame already being on the app stack.  For native delivery we
-         * could try to re-use this frame, but that doesn't work with plain vs rt.
-         * Instead we move below and live with the downsides of a potential stack
-         * overflow and confusing the app over why it's so low: but this is an app
-         * with no sigaltstack so it should have plenty of room.
-         */
-        size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
-            IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
-                                                 : signal_frame_extra_size(
-                                                       true)) +)) 64 /* align + slop */;
-        if (sp > (byte *)frame && sp < (byte *)frame + frame_sz_max) {
-            sp = (byte *)frame;
-            /* We're probably *on* the stack right where we want to put the frame! */
-            byte *cur_sp;
-            GET_STACK_PTR(cur_sp);
-            /* We have to copy the frame below our own stack usage high watermark
-             * in the rest of the code we'll execute from execute_native_handler().
-             * Kind of a mess.  For now we estimate two pages which should be plenty
-             * and still not be egregious usage for most app stacks.
-             */
-#define EXECUTE_NATIVE_STACK_USAGE (4096 * 2)
-            if (sp > cur_sp && sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE < cur_sp) {
-                sp = cur_sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE;
-            }
-            LOG(THREAD, LOG_ASYNCH, 3,
-                "get_sigstack_frame_ptr: moving beyond same-stack frame to %p\n", sp);
-        } else {
-            LOG(THREAD, LOG_ASYNCH, 3,
-                "get_sigstack_frame_ptr: using frame's xsp " PFX "\n", sp);
-        }
+        LOG(THREAD, LOG_ASYNCH, 3, "get_sigstack_frame_ptr: using frame's xsp " PFX "\n",
+            sp);
     } else {
         /* signal happened while in DR, use stored xsp */
         sp = (byte *)get_mcontext(dcontext)->xsp;
@@ -3012,6 +3030,49 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 "\tnot inside alt stack, so using base xsp " PFX "\n", sp);
         }
     }
+
+    if (frame != NULL) {
+        /* Handle DR's frame already being on the app stack.  For native delivery we
+         * could try to re-use this frame, but that doesn't work with plain vs rt.
+         * Instead we move below and live with the downsides of a potential stack
+         * overflow.
+         */
+        size_t frame_sz_max = sizeof(sigframe_rt_t) + REDZONE_SIZE +
+            IF_LINUX(IF_X86((sc->fpstate == NULL ? 0
+                                                 : signal_frame_extra_size(
+                                                       true)) +)) 64 /* align + slop */;
+        if (sp > (byte *)frame && sp < (byte *)frame + frame_sz_max) {
+            sp = (byte *)frame;
+            /* We're probably *on* the stack right where we want to put the frame! */
+            byte *cur_sp;
+            GET_STACK_PTR(cur_sp);
+            /* We have to copy the frame below our own stack usage high watermark
+             * in the rest of the code we'll execute from execute_native_handler().
+             * Kind of a mess.  For now we estimate two pages which should be plenty
+             * and still not be egregious usage for most app stacks.  For the altstack
+             * we check the size below.
+             */
+#define EXECUTE_NATIVE_STACK_USAGE (4096 * 2)
+            if (sp > cur_sp && sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE < cur_sp) {
+                sp = cur_sp - frame_sz_max - EXECUTE_NATIVE_STACK_USAGE;
+            }
+            if (USE_APP_SIGSTACK(info, sig)) {
+#define APP_ALTSTACK_USAGE (SIGSTKSZ / 2)
+                if (sp - APP_ALTSTACK_USAGE < (byte *)info->app_sigstack.ss_sp) {
+                    /* There's not enough stack space.  The only solution would be to
+                     * re-use DR's frame and limit our own stack usage here, which
+                     * gets complex.  We bail.
+                     */
+                    report_unhandleable_signal_and_exit(
+                        sig, "sigaltstack too small in native thread");
+                    ASSERT_NOT_REACHED();
+                }
+            }
+            LOG(THREAD, LOG_ASYNCH, 3,
+                "get_sigstack_frame_ptr: moving beyond same-stack frame to %p\n", sp);
+        }
+    }
+
     /* now get frame pointer: need to go down to first field of frame */
     sp -= get_app_frame_size(info, sig);
 #if defined(LINUX) && defined(X86)
@@ -3262,7 +3323,8 @@ memcpy_rt_frame(sigframe_rt_t *frame, byte *dst, bool from_pending)
  * If no restorer, touches up pretcode
  * (and if rt_frame, touches up pinfo and puc)
  * Also touches up fpstate pointer
- * dcontext can be NULL (which is why we take in info).
+ * dcontext can be NULL (which is why we take in info) in which case no check
+ * versus executable memory is performed (we assume this is a native frame).
  */
 static void
 copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
@@ -3286,7 +3348,8 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     fixup_siginfo(dcontext, sig, frame);
 
     /* We avoid querying memory as it incurs global contended locks. */
-    flush_pc = is_executable_area_writable_overlap(sp, sp + size);
+    flush_pc =
+        dcontext == NULL ? false : is_executable_area_writable_overlap(sp, sp + size);
     if (flush_pc != NULL) {
         LOG(THREAD, LOG_ASYNCH, 2,
             "\tcopy_frame_to_stack: part of stack is unwritable-by-us @" PFX "\n",
@@ -5004,7 +5067,8 @@ master_signal_handler_C(byte *xsp)
      */
     if (dcontext == NULL && (sig == SIGSEGV || sig == SIGBUS) &&
         (is_safe_read_ucxt(ucxt) ||
-         (!dynamo_initialized && global_try_except.try_except_state != NULL))) {
+         (!dynamo_initialized && global_try_except.try_except_state != NULL &&
+          global_try_tid == get_sys_thread_id()))) {
         dcontext = GLOBAL_DCONTEXT;
     }
 
@@ -5048,17 +5112,21 @@ master_signal_handler_C(byte *xsp)
         /* Check for a temporarily-native thread we're synch-ing with. */
         (sig == SUSPEND_SIGNAL
 #ifdef X86
-         || (INTERNAL_OPTION(safe_read_tls_init) &&
-             /* Check for whether this is a thread with its invalid sentinel magic set.
-              * In this case, we assume that it is either a thread that is currently
-              * temporarily-native via API like DR_EMIT_GO_NATIVE, or a thread in the
-              * clone window. We know by inspection of our own code that it is safe to
-              * call thread_lookup for either case thread makes a clone or was just
-              * cloned. i.e. thread_lookup requires a lock that must not be held by the
-              * calling thread (i#2921).
-              * XXX: what is ARM doing, any special case w/ dcontext == NULL?
-              */
-             safe_read_tls_magic() == TLS_MAGIC_INVALID)
+         ||
+         (INTERNAL_OPTION(safe_read_tls_init) &&
+          /* Check for whether this is a thread with its invalid sentinel magic set.
+           * In this case, we assume that it is either a thread that is currently
+           * temporarily-native via API like DR_EMIT_GO_NATIVE, or a thread in the
+           * clone window. We know by inspection of our own code that it is safe to
+           * call thread_lookup for either case thread makes a clone or was just
+           * cloned. i.e. thread_lookup requires a lock that must not be held by the
+           * calling thread (i#2921).
+           * XXX: what is ARM doing, any special case w/ dcontext == NULL?
+           */
+          /* Don't do this if we're detaching as we risk a safe-read fault after
+           * we've removed our handler (i#3535).
+           */
+          detacher_tid == INVALID_THREAD_ID && safe_read_tls_magic() == TLS_MAGIC_INVALID)
 #endif
              )) {
         tr = thread_lookup(get_sys_thread_id());
@@ -5197,7 +5265,8 @@ master_signal_handler_C(byte *xsp)
 #endif
         if (is_safe_read_ucxt(ucxt) ||
             (!dynamo_initialized && global_try_except.try_except_state != NULL) ||
-            dcontext->try_except.try_except_state != NULL) {
+            (dcontext != GLOBAL_DCONTEXT &&
+             dcontext->try_except.try_except_state != NULL)) {
             /* handle our own TRY/EXCEPT */
             try_except_context_t *try_cxt;
 #ifdef HAVE_MEMINFO
@@ -5206,6 +5275,8 @@ master_signal_handler_C(byte *xsp)
             SYSLOG_INTERNAL_WARNING_ONCE("(1+x) Handling our fault in a TRY at " PFX, pc);
 #endif
             LOG(THREAD, LOG_ALL, level, "TRY fault at " PFX "\n", pc);
+            ASSERT(dynamo_initialized || global_try_except.try_except_state == NULL ||
+                   global_try_tid == get_sys_thread_id());
             if (TEST(DUMPCORE_TRY_EXCEPT, DYNAMO_OPTION(dumpcore_mask)))
                 os_dump_core("try/except fault");
 
@@ -5215,8 +5286,9 @@ master_signal_handler_C(byte *xsp)
                  */
                 break;
             }
-            try_cxt = (dcontext != NULL) ? dcontext->try_except.try_except_state
-                                         : global_try_except.try_except_state;
+            try_cxt = (dcontext != NULL && dcontext != GLOBAL_DCONTEXT)
+                ? dcontext->try_except.try_except_state
+                : global_try_except.try_except_state;
             ASSERT(try_cxt != NULL);
 
             /* The exception interception code did an ENTER so we must EXIT here */
@@ -5237,6 +5309,7 @@ master_signal_handler_C(byte *xsp)
             DR_LONGJMP(&try_cxt->context, LONGJMP_EXCEPTION);
             ASSERT_NOT_REACHED();
         }
+        ASSERT(dcontext != GLOBAL_DCONTEXT); /* Had to be try/except. */
 
         target = compute_memory_target(dcontext, pc, ucxt, siginfo, &is_write);
 
@@ -5249,6 +5322,14 @@ master_signal_handler_C(byte *xsp)
             if (is_write && !is_couldbelinking(dcontext) && OWN_NO_LOCKS(dcontext) &&
                 check_for_modified_code(dcontext, pc, ucxt, target, true /*native*/))
                 break;
+#    ifdef STATIC_LIBRARY
+            /* i#4640: We cannot distinguish the client from DR or the app.  Though
+             * it's rare, original app instructions can come here for some app
+             * setups for static DR during init.  We send to the app handler.
+             */
+            execute_native_handler(dcontext, sig, frame);
+            return;
+#    endif
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, target, sig, frame,
                            exception_label_client, (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
@@ -5808,21 +5889,6 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     return true;
 }
 
-/* Does not return. */
-static void
-report_unhandleable_signal_and_exit(int sig)
-{
-    /* TODO i#1921: Add more info such as the PC and disasm of surrounding instrs. */
-    char signum_str[8];
-    snprintf(signum_str, BUFFER_SIZE_ELEMENTS(signum_str), "%d", sig);
-    NULL_TERMINATE_BUFFER(signum_str);
-    char tid_str[16];
-    snprintf(tid_str, BUFFER_SIZE_ELEMENTS(tid_str), TIDFMT, get_sys_thread_id());
-    NULL_TERMINATE_BUFFER(tid_str);
-    REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_HANDLE_SIGNAL, 4, get_application_name(),
-                                get_application_pid(), signum_str, tid_str);
-}
-
 /* Sends a signal to a currently-native thread.  dcontext can be NULL. */
 static void
 execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
@@ -5837,12 +5903,17 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     thread_sig_info_t *info;
     LOG(THREAD, LOG_ASYNCH, 2, "%s for signal %d in thread " TIDFMT "\n", __FUNCTION__,
         sig, get_sys_thread_id());
-    if (dcontext != NULL) {
+    if (dcontext != NULL && is_thread_signal_info_initialized(dcontext) &&
+        /* For the DR init thread, we don't place the app handlers into signal_info
+         * until DR starts running code and is equipped to deliver a managed signal.
+         * So during init, until dynamo_started is set, we deliver natively.
+         */
+        dynamo_started) {
         info = (thread_sig_info_t *)dcontext->signal_field;
     } else {
         if (atomic_read_bool(&multiple_handlers_present)) {
             /* See i#1921 comment up top: we don't handle this. */
-            report_unhandleable_signal_and_exit(sig);
+            report_unhandleable_signal_and_exit(sig, "multiple native handlers");
             ASSERT_NOT_REACHED();
         }
         info = &synthetic;
@@ -5854,10 +5925,22 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         memcpy(&sigact_struct, &detached_sigact[sig], sizeof(sigact_struct));
         d_r_read_unlock(&detached_sigact_lock);
 #ifdef HAVE_SIGALTSTACK
-        IF_DEBUG(int rc =)
-        sigaltstack_syscall(NULL, &synthetic.app_sigstack);
-        ASSERT(rc == 0);
+        thread_sig_info_t *dc_info = NULL;
+        if (dcontext != NULL)
+            dc_info = (thread_sig_info_t *)dcontext->signal_field;
+        /* DR's sigstack is set up before is_thread_signal_info_initialized().
+         * If DR's is in place, the app's is stored (it's a syscall so atomic).
+         */
+        if (dc_info != NULL && dc_info->sigstack.ss_sp != NULL) {
+            memcpy(&synthetic.app_sigstack, &dc_info->app_sigstack,
+                   sizeof(synthetic.app_sigstack));
+        } else {
+            IF_DEBUG(int rc =)
+            sigaltstack_syscall(NULL, &synthetic.app_sigstack);
+            ASSERT(rc == 0);
+        }
 #endif
+        dcontext = NULL; /* Clear for the not-yet-start or not-init cases above. */
     }
     kernel_ucontext_t *uc = get_ucontext_from_rt_frame(our_frame);
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
@@ -5903,7 +5986,7 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
         }
         if (default_action[sig] == DEFAULT_IGNORE)
             return;
-        report_unhandleable_signal_and_exit(sig);
+        report_unhandleable_signal_and_exit(sig, "default action in native thread");
         ASSERT_NOT_REACHED();
         return;
     }
@@ -5921,9 +6004,17 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
     blocked = info->app_sigaction[sig]->mask;
     if (!TEST(SA_NOMASK, (info->app_sigaction[sig]->flags)))
         kernel_sigaddset(&blocked, sig);
-    sigprocmask_syscall(SIG_SETMASK, &blocked, NULL, sizeof(blocked));
     DOLOG(2, LOG_ASYNCH, {
-        LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals in frame:\n");
+        LOG(THREAD, LOG_ASYNCH, 3, "Pre-signal blocked signals, stored in our frame:\n");
+        dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
+    });
+    for (int i = 1; i <= MAX_SIGNUM; i++) {
+        if (kernel_sigismember(&blocked, i)) {
+            kernel_sigaddset((kernel_sigset_t *)&our_frame->uc.uc_sigmask, i);
+        }
+    }
+    DOLOG(2, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 3, "Blocked signals within app handler will be:\n");
         dump_sigset(dcontext, (kernel_sigset_t *)&our_frame->uc.uc_sigmask);
     });
 

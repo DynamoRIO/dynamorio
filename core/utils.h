@@ -1408,6 +1408,7 @@ extern mutex_t do_threshold_mutex;
         if ((dc__local == NULL || dc__local == GLOBAL_DCONTEXT) &&              \
             !dynamo_initialized) {                                              \
             try__except = &global_try_except;                                   \
+            IF_UNIX(global_try_tid = get_sys_thread_id());                      \
         } else {                                                                \
             if (dc__local == GLOBAL_DCONTEXT)                                   \
                 dc__local = get_thread_private_dcontext();                      \
@@ -1416,6 +1417,7 @@ extern mutex_t do_threshold_mutex;
         }                                                                       \
         ASSERT(try__except != NULL);                                            \
         TRY(try__except, try_statement, EXCEPT(try__except, except_statement)); \
+        IF_UNIX(global_try_tid = INVALID_THREAD_ID);                            \
     } while (0)
 
 /* these use do..while w/ a local to avoid double-eval of dcontext */

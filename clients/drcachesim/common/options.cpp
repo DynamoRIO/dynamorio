@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -444,7 +444,7 @@ droption_t<bool> op_reuse_verify_skip(
 #define OP_RECORD_FUNC_ITEM_SEP "&"
 // XXX i#3048: replace function return address with function callstack
 droption_t<std::string> op_record_function(
-    DROPTION_SCOPE_ALL, "record_function", DROPTION_FLAG_ACCUMULATE,
+    DROPTION_SCOPE_CLIENT, "record_function", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP, "",
     "Record invocations trace for the specified function(s).",
     "Record invocations trace for the specified function(s) in the option"
@@ -475,14 +475,14 @@ droption_t<std::string> op_record_function(
     " existing heap functions (see -record_heap_value) if -record_heap"
     " option is enabled.");
 droption_t<bool> op_record_heap(
-    DROPTION_SCOPE_ALL, "record_heap", false,
+    DROPTION_SCOPE_CLIENT, "record_heap", false,
     "Enable recording a trace for the defined heap functions.",
     "It is a convenience option to enable recording a trace for the defined heap"
     " functions in -record_heap_value. Specifying this option is equivalent to"
     " -record_function [heap_functions], where [heap_functions] is"
     " the value in -record_heap_value.");
 droption_t<std::string> op_record_heap_value(
-    DROPTION_SCOPE_ALL, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
+    DROPTION_SCOPE_CLIENT, "record_heap_value", DROPTION_FLAG_ACCUMULATE,
     OP_RECORD_FUNC_ITEM_SEP,
     "malloc|1" OP_RECORD_FUNC_ITEM_SEP "free|1|noret" OP_RECORD_FUNC_ITEM_SEP
     "tc_malloc|1" OP_RECORD_FUNC_ITEM_SEP "tc_free|1|noret" OP_RECORD_FUNC_ITEM_SEP
@@ -521,13 +521,13 @@ droption_t<std::string> op_record_heap_value(
     " format required by -record_function. These functions will not"
     " be traced unless -record_heap is specified.");
 droption_t<bool> op_record_dynsym_only(
-    DROPTION_SCOPE_ALL, "record_dynsym_only", false,
+    DROPTION_SCOPE_CLIENT, "record_dynsym_only", false,
     "Only look in .dynsym for -record_function and -record_heap.",
     "Symbol lookup can be expensive for large applications and libraries.  This option "
     " causes the symbol lookup for -record_function and -record_heap to look in the "
     " dynamic symbol table *only*.");
 droption_t<bool> op_record_replace_retaddr(
-    DROPTION_SCOPE_ALL, "record_replace_retaddr", false,
+    DROPTION_SCOPE_CLIENT, "record_replace_retaddr", false,
     "Wrap by replacing retaddr for -record_function and -record_heap.",
     "Function wrapping can be expensive for large concurrent applications.  This option "
     "causes the post-function control point to be located using return address "

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -376,7 +376,7 @@ get_proc_address_resolve_forward(module_base_t lib, const char *name);
 #endif /* WINDOWS */
 
 #ifdef WINDOWS
-void *
+uint64
 get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code);
 #endif
 

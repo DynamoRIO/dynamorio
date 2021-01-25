@@ -1232,6 +1232,13 @@ static bool
 check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
+#    if defined(CLIENT_INTERFACE) && defined(AARCH64)
+    if (!DYNAMO_OPTION(bb_prefixes)) {
+        USAGE_ERROR("bb_prefixes must be true on AArch64");
+        dynamo_options.bb_prefixes = true;
+        changed_options = true;
+    }
+#    endif
 #    ifdef EXPOSE_INTERNAL_OPTIONS
     if (DYNAMO_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
         USAGE_ERROR("vmm_block_size (%d) must be >= %d, setting to min",

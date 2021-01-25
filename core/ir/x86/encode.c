@@ -467,10 +467,6 @@ size_ok_varsz(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             return true;
         }
         return false;
-    case OPSZ_8_of_16_vex32:
-        if (size_template == OPSZ_8 || size_template == OPSZ_32)
-            return true; /* will take prefix or no prefix */
-        return false;
     case OPSZ_4_rex8_of_16:
         if (size_template == OPSZ_4 || size_template == OPSZ_8)
             return true; /* will take prefix or no prefix */
@@ -580,7 +576,7 @@ collapse_subreg_size(opnd_size_t sz)
     case OPSZ_4_of_32_evex64: return OPSZ_4;
     case OPSZ_8_of_32_evex64: return OPSZ_8;
     }
-    /* OPSZ_8_of_16_vex32, OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16,
+    /* OPSZ_4_rex8_of_16, and OPSZ_12_rex8_of_16,
      * OPSZ_half_16_vex32, OPSZ_quarter_16_vex32, OPSZ_eighth_16_vex32,
      * OPSZ_half_16_vex32_evex64, OPSZ_quarter_16_vex32_evex64, and
      * OPSZ_eighth_16_vex32_evex64 are kept.
@@ -716,8 +712,7 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
                 return !TEST(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_8_rex16 || size_template == OPSZ_8_rex16_short4)
                 return !TESTANY(prefix_data_addr | PREFIX_REX_W, di->prefixes);
-            if (size_template == OPSZ_8_of_16_vex32 ||
-                size_template == OPSZ_half_16_vex32)
+            if (size_template == OPSZ_half_16_vex32)
                 return !TEST(PREFIX_VEX_L, di->prefixes);
             if (size_template == OPSZ_half_16_vex32_evex64) {
                 return !TEST(PREFIX_VEX_L, di->prefixes) &&
@@ -793,7 +788,6 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
             if (size_template == OPSZ_32_short16)
                 return !TEST(prefix_data_addr, di->prefixes);
             if (size_template == OPSZ_16_vex32 || size_template == OPSZ_16_vex32_evex64 ||
-                size_template == OPSZ_8_of_16_vex32 ||
                 size_template == OPSZ_vex32_evex64) {
                 if (!TEST(di->prefixes, PREFIX_EVEX_LL))
                     di->prefixes |= PREFIX_VEX_L;
@@ -873,7 +867,6 @@ size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_12_rex8_of_16:
         case OPSZ_14_of_16:
         case OPSZ_15_of_16:
-        case OPSZ_8_of_16_vex32:
         case OPSZ_16_of_32:
         case OPSZ_half_16_vex32:
         case OPSZ_half_16_vex32_evex64:
@@ -974,10 +967,10 @@ reg_size_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, reg_
              optype == TYPE_H || optype == TYPE_L))
             return (reg >= REG_START_XMM && reg <= REG_STOP_XMM);
     }
-    if (opsize == OPSZ_8_of_16_vex32 || opsize == OPSZ_half_16_vex32 ||
-        opsize == OPSZ_quarter_16_vex32 || opsize == OPSZ_eighth_16_vex32 ||
-        opsize == OPSZ_half_16_vex32_evex64 || opsize == OPSZ_quarter_16_vex32_evex64 ||
-        opsize == OPSZ_eighth_16_vex32_evex64 || optype == TYPE_VSIB) {
+    if (opsize == OPSZ_half_16_vex32 || opsize == OPSZ_quarter_16_vex32 ||
+        opsize == OPSZ_eighth_16_vex32 || opsize == OPSZ_half_16_vex32_evex64 ||
+        opsize == OPSZ_quarter_16_vex32_evex64 || opsize == OPSZ_eighth_16_vex32_evex64 ||
+        optype == TYPE_VSIB) {
         if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
             return !TEST(PREFIX_VEX_L, di->prefixes);
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
