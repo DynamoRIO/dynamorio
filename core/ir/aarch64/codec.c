@@ -3488,6 +3488,16 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
          */
         eflags |= EFLAGS_WRITE_NZCV;
     }
+
+    /* XXX i#2626: Until the decoder for AArch64 covers all the instructions that
+     * read/write aflags, as a workaround conservatively assume that all OP_xx
+     * instructions (i.e., unrecognized insructions) may read/write aflags
+     */
+    if (opc == OP_xx) {
+        eflags |= EFLAGS_READ_ARITH;
+        eflags |= EFLAGS_WRITE_ARITH;
+    }
+
     instr->eflags = eflags;
     instr_set_eflags_valid(instr, true);
 
