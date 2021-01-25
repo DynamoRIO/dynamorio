@@ -3491,7 +3491,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 
     /* XXX i#2626: Until the decoder for AArch64 covers all the instructions that
      * read/write aflags, as a workaround conservatively assume that all OP_xx
-     * instructions (i.e., unrecognized insructions) may read/write aflags.
+     * instructions (i.e., unrecognized instructions) may read/write aflags.
      */
     if (opc == OP_xx) {
         eflags |= EFLAGS_READ_ARITH;
