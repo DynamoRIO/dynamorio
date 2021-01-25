@@ -931,6 +931,15 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist, byte *s
 
         LOG(THREAD_GET, LOG_INTERP, 5, "cache pc " PFX " vs " PFX "\n", cpc,
             target_cache);
+        if (cpc + len > target_cache && instr_is_cti_short_rewrite(inst, cpc)) {
+            /* The target is inside the short-cti bundle.  Everything should be fine:
+             * there are no state changes inside.
+             */
+            LOG(THREAD_GET, LOG_INTERP, 3,
+                "recreate_app -- target is inside short-cti bundle %p-%p\n", cpc,
+                cpc + len);
+            cpc = target_cache;
+        }
         if (cpc >= target_cache) {
             if (cpc > target_cache) {
                 if (cpc == start_cache) {

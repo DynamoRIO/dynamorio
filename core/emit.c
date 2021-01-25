@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -99,19 +99,20 @@ stress_test_recreate(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
         "Testing recreating Fragment %d for tag " PFX " at " PFX "\n", f->id, f->tag,
         f->start_pc);
 
-    DOLOG(3, LOG_INTERP, {
-        /* visualize translation info if it were to be recorded for every
-         * fragment, not just deleted ones -- for debugging only
+    DOCHECK(2, {
+        /* Visualize translation info if it were to be recorded for every
+         * fragment, not just deleted ones -- for debugging only.  But we run
+         * the info-creation code at checklevel 2 as a sanity check.
          */
         translation_info_t *info = record_translation_info(dcontext, f, NULL);
-        translation_info_print(info, f->start_pc, THREAD);
+        DOLOG(3, LOG_INTERP, { translation_info_print(info, f->start_pc, THREAD); });
         translation_info_free(dcontext, info);
         /* handy reference of app code and fragment -- only 1st part of trace though */
         DOLOG(3, LOG_INTERP, { disassemble_app_bb(dcontext, f->tag, THREAD); });
         DOLOG(3, LOG_INTERP, { disassemble_fragment(dcontext, f, false); });
     });
 
-    DOLOG(2, LOG_MONITOR, {
+    DOCHECK(2, {
         /* Translate them all.
          * Useful when verifying manually, o/w we just ensure no asserts or crashes.
          */
