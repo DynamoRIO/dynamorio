@@ -288,7 +288,7 @@ translate_walk_track_pre_instr(dcontext_t *tdcontext, instr_t *inst,
                     for (curr = inst; curr != NULL; curr = instr_get_next(curr)) {
                         spill_or_restore = instr_is_DR_reg_spill_or_restore(
                             tdcontext, curr, &spill_tls, &spill, &reg, NULL);
-                        if (spill_or_restore)
+                        if (spill_or_restore && r == reg - REG_START_SPILL)
                             break;
                     }
                     ASSERT(spill_or_restore && r == reg - REG_START_SPILL && !spill &&
