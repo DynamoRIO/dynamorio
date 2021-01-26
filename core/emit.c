@@ -108,6 +108,8 @@ stress_test_recreate(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
         DOLOG(3, LOG_INTERP, { translation_info_print(info, f->start_pc, THREAD); });
         translation_info_free(dcontext, info);
         /* handy reference of app code and fragment -- only 1st part of trace though */
+        LOG(THREAD, LOG_INTERP, 3,
+            "Re-printing app bb and cache disasm for convenience:\n");
         DOLOG(3, LOG_INTERP, { disassemble_app_bb(dcontext, f->tag, THREAD); });
         DOLOG(3, LOG_INTERP, { disassemble_fragment(dcontext, f, false); });
     });

@@ -120,7 +120,7 @@ decode_state_advance(decode_state_t *state, decode_info_t *di)
 }
 
 static bool
-decode_in_it_block(decode_state_t *state, app_pc pc)
+decode_in_it_block(decode_state_t *state, app_pc pc, decode_info_t *di)
 {
     if (state->itb_info.num_instrs != 0) {
         LOG(THREAD_GET, LOG_EMIT, 5, "in IT?: cur=%d/%d, " PFX " vs " PFX "\n",
@@ -140,9 +140,19 @@ decode_in_it_block(decode_state_t *state, app_pc pc)
         /* Handle the caller invoking decode 2x in a row on the same
          * pc on the OP_it instr or a non-final instr in the block.
          */
-        if (pc == state->pc - THUMB_SHORT_INSTR_SIZE ||
-            pc == state->pc - THUMB_LONG_INSTR_SIZE) {
-            if (state->itb_info.cur_instr == 0) {
+        if ((di->T32_16 && pc == state->pc - THUMB_SHORT_INSTR_SIZE) ||
+            (!di->T32_16 && pc == state->pc - THUMB_LONG_INSTR_SIZE)) {
+            if (state->itb_info.cur_instr == 0 ||
+                /* This is still fragile when crossing usage sequences.  The state is
+                 * left in a final-IT-member state after bb building, and
+                 * subsequently decoding the block again can result in incorrect
+                 * advance-undoing which leads to incorrect predicate application.
+                 *
+                 * Our solution here is to do a raw byte check for OP_it, which is
+                 * encoded as 0xbfXY where X is anything and Y is anything with at
+                 * least 1 bit set.
+                 */
+                (di->T32_16 && *(pc + 1) == 0xbf && ((*pc) & 0x0f) != 0)) {
                 ASSERT(pc == state->pc - THUMB_SHORT_INSTR_SIZE);
                 return false; /* still on OP_it */
             } else {
@@ -2280,12 +2290,12 @@ read_instruction(dcontext_t *dcontext, byte *pc, byte *orig_pc,
             /* 16 bits */
             di->T32_16 = true;
             di->instr_word = di->halfwordA;
-            if (decode_in_it_block(&di->decode_state, orig_pc))
+            if (decode_in_it_block(&di->decode_state, orig_pc, di))
                 info = decode_instr_info_T32_it(di);
             else
                 info = decode_instr_info_T32_16(di);
         }
-        if (decode_in_it_block(&di->decode_state, orig_pc)) {
+        if (decode_in_it_block(&di->decode_state, orig_pc, di)) {
             if (info != NULL && info != &invalid_instr) {
                 di->predicate = decode_state_advance(&di->decode_state, di);
                 /* bkpt is always executed */

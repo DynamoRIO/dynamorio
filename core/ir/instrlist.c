@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -95,6 +95,12 @@ instrlist_destroy(dcontext_t *dcontext, instrlist_t *ilist)
 void
 instrlist_clear(dcontext_t *dcontext, instrlist_t *ilist)
 {
+#ifdef ARM
+    /* XXX i#4680: Reset encode state to avoid dangling pointers. */
+    if (instrlist_first(ilist) != NULL &&
+        instr_get_isa_mode(instrlist_first(ilist)) == DR_ISA_ARM_THUMB)
+        encode_reset_it_block(dcontext);
+#endif
     instr_t *instr;
     while (NULL != (instr = instrlist_first(ilist))) {
         instrlist_remove(ilist, instr);
