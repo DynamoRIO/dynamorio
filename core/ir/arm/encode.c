@@ -730,7 +730,6 @@ encode_track_it_block_di(dcontext_t *dcontext, decode_info_t *di, instr_t *instr
         encode_state_init(&di->encode_state, di, instr);
         set_encode_state(dcontext, &di->encode_state);
     } else if (di->encode_state.itb_info.num_instrs != 0) {
-        LOG(THREAD, LOG_EMIT, 4, "%s: num_instrs=%d\n", __FUNCTION__,
         if (encode_in_it_block(&di->encode_state, instr)) {
             LOG(THREAD, LOG_EMIT, ENC_LEVEL, "inside IT block\n");
             /* encode_state is reset if reach the end of IT block */
