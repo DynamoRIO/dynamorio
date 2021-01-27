@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -533,6 +533,7 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  * go through the app interface.
  */
 extern bool doing_detach;
+extern thread_id_t detacher_tid;
 
 extern event_t dr_app_started;
 extern event_t dr_attach_finished;
@@ -806,6 +807,9 @@ typedef struct _try_except_t {
 } try_except_t;
 
 extern try_except_t global_try_except;
+#ifdef UNIX
+extern thread_id_t global_try_tid;
+#endif
 
 typedef struct {
     /* WARNING: if you change the offsets of any of these fields,

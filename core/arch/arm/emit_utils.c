@@ -288,7 +288,8 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* For far-away targets, we branch to the stub and use an
      * indirect branch from there:
@@ -326,7 +327,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
     if (FRAG_IS_THUMB(f->flags)) {
         return ((*stub_pc) & 0xf) == (DR_REG_PC - DR_REG_R0);
@@ -336,7 +337,7 @@ stub_is_patched(fragment_t *f, cache_pc stub_pc)
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     /* XXX: we're called even for a near link, so try to avoid any writes or flushes */
     if (FRAG_IS_THUMB(f->flags)) {

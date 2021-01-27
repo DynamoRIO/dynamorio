@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -636,6 +636,7 @@ typedef struct _dr_mem_info_t {
  * It uses a function call so be careful where performance is critical.
  */
 #define PAGE_START(x) (((ptr_uint_t)(x)) & ~(os_page_size() - 1))
+#define PAGE_START64(x) (((uint64)(x)) & ~((uint64)os_page_size() - 1))
 
 size_t
 os_page_size(void);
@@ -1256,11 +1257,9 @@ enum {
     JMP_REL32_OPCODE = 0xe9,
     JMP_REL32_SIZE = 5, /* size in bytes of 32-bit rel jmp */
     CALL_REL32_OPCODE = 0xe8,
-#    ifdef X64
     JMP_ABS_IND64_OPCODE = 0xff,
     JMP_ABS_IND64_SIZE = 6, /* size in bytes of a 64-bit abs ind jmp */
     JMP_ABS_MEM_IND64_MODRM = 0x25,
-#    endif
 };
 #elif defined(AARCHXX)
 enum {
@@ -1315,7 +1314,12 @@ enum {
      * on some app libraries being initialized
      */
     INJECT_LOCATION_ImageEntry = 7,
-    INJECT_LOCATION_MAX = INJECT_LOCATION_ImageEntry,
+    /* Similar in lateness to ImageEntry, but is more robust in that it does not
+     * rely on reaching the image entry, which not all apps do (e.g., .NET).
+     * This is equivalent to RtlUserThreadStart.
+     */
+    INJECT_LOCATION_ThreadStart = 8,
+    INJECT_LOCATION_MAX = INJECT_LOCATION_ThreadStart,
 };
 #endif
 

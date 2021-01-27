@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,8 +39,6 @@
 #include <math.h>
 #include <unistd.h>
 #include <signal.h>
-
-#define ALT_STACK_SIZE (SIGSTKSZ * 2)
 
 static int num_bbs;
 static int num_signals;

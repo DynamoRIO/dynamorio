@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -2695,11 +2695,15 @@ dynamorio_earliest_init_repeatme:
         cmp      ebx, 0
         jg       dynamorio_earliest_init_repeat_outer
 # endif
-        /* args are pointed at by xax */
+        /* Load earliest_args_t.app_xax, written by our gencode. */
+        mov      REG_XCX, PTRSZ [REG_XAX]
+        /* Store into xax slot on stack. */
+        mov      PTRSZ [PUSHGPR_XAX_OFFS + REG_XSP], REG_XCX
+        /* Args are pointed at by xax. */
         CALLC1(GLOBAL_REF(dynamorio_earliest_init_takeover_C), REG_XAX)
-        /* we will either be under DR control or running natively at this point */
+        /* We will either be under DR control or running natively at this point. */
 
-        /* restore */
+        /* Restore. */
         POPGPR
         ret
         END_FUNC(dynamorio_earliest_init_takeover)

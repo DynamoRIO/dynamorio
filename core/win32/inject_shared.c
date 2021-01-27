@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -394,6 +394,7 @@ is_windows_version_vista_plus(void); /* forward decl */
  * image name and cmdline combined into one call to reduce
  *  read process memory calls (whether this is actually true depends on
  *  usage)
+ * Handles both 32-bit and 64-bit remote processes.
  */
 void
 get_process_imgname_cmdline(HANDLE process_handle, wchar_t *image_name,
@@ -403,30 +404,48 @@ get_process_imgname_cmdline(HANDLE process_handle, wchar_t *image_name,
     size_t nbytes;
     int res;
     int len;
-    PEB peb;
-    LPVOID peb_base = get_peb(process_handle);
-    RTL_USER_PROCESS_PARAMETERS process_parameters;
-    void *param_location;
+    /* For a 64-bit parent querying a 32-bit remote we assume we'll get back the
+     * 64-bit WOW64 PEB.
+     */
+    uint64 peb_base = get_peb_maybe64(process_handle);
+    union {
+        uint64 params_ptr_64;
+        uint params_ptr_32;
+    } params_ptr;
+    bool peb_is_32 = IF_X64_ELSE(false, is_32bit_process(process_handle));
+    uint64 param_location;
     /* It is supposed to be at process_parameters.ImagePathName.Buffer */
+    RTL_USER_PROCESS_PARAMETERS params = { 0 };
+#    ifndef X64
+    RTL_USER_PROCESS_PARAMETERS_64 params64 = { 0 };
+#    endif
+
+    if (image_name != NULL)
+        image_name[0] = L'\0';
+    if (command_line != NULL)
+        command_line[0] = L'\0';
 
     /* Read process PEB */
-    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base, &peb, sizeof(peb),
-                                 &nbytes);
-    /* FIXME: is this always possible?
-       although we assume we can even do WriteProcessMemory for an explicit inject */
-    if (!res) {
+    res = read_remote_memory_maybe64(
+        process_handle,
+        peb_base +
+            (peb_is_32 ? X86_PROCESS_PARAM_PEB_OFFSET : X64_PROCESS_PARAM_PEB_OFFSET),
+        &params_ptr, sizeof(params_ptr), &nbytes);
+    if (!res || nbytes != sizeof(params_ptr)) {
         display_error("Warning: could not read process memory!");
-        if (image_name)
-            image_name[0] = L'\0';
-        if (command_line)
-            command_line[0] = L'\0';
         return;
     }
 
     /* Follow on to process parameters */
-    res =
-        nt_read_virtual_memory(process_handle, (LPVOID)peb.ProcessParameters,
-                               &process_parameters, sizeof(process_parameters), &nbytes);
+    uint64 params_base = peb_is_32 ? params_ptr.params_ptr_32 : params_ptr.params_ptr_64;
+    res = read_remote_memory_maybe64(
+        process_handle, params_base,
+        IF_NOT_X64(!peb_is_32 ? (void *)&params64 :)(void *) & params,
+        IF_NOT_X64(!peb_is_32 ? sizeof(params64) :) sizeof(params), &nbytes);
+    if (!res || nbytes != (IF_NOT_X64(!peb_is_32 ? sizeof(params64) :) sizeof(params))) {
+        display_error("Warning: could not read process memory!");
+        return;
+    }
 
     /* apparently {ImagePathName,CommandLine}.Buffer contains the offset
      * from the beginning of the ProcessParameters structure during
@@ -434,20 +453,21 @@ get_process_imgname_cmdline(HANDLE process_handle, wchar_t *image_name,
 
     if (image_name) {
         if (is_windows_version_vista_plus()) {
-            param_location = process_parameters.ImagePathName.Buffer;
+            param_location = IF_NOT_X64(!peb_is_32 ? params64.ImagePathName.u.Buffer64
+                                                   :)(uint64) params.ImagePathName.Buffer;
         } else {
-            param_location =
-                (void *)((ptr_uint_t)process_parameters.ImagePathName.Buffer +
-                         (ptr_uint_t)peb.ProcessParameters);
+            param_location = IF_NOT_X64(!peb_is_32 ? params64.ImagePathName.u.Buffer64 :)(
+                (uint64)params.ImagePathName.Buffer + params_base);
         }
 
-        len = process_parameters.ImagePathName.Length;
+        len = IF_NOT_X64(!peb_is_32 ? params64.ImagePathName.Length :)
+                  params.ImagePathName.Length;
         if (len > 2 * (max_image_wchars - 1))
             len = 2 * (max_image_wchars - 1);
 
         /* Read the image file name in our memory too */
-        res = nt_read_virtual_memory(process_handle, (LPVOID)param_location, image_name,
-                                     len, &nbytes);
+        res = read_remote_memory_maybe64(process_handle, param_location, image_name, len,
+                                         &nbytes);
         if (!res) {
             len = 0;
             display_warning("Warning: could not read image name from PEB");
@@ -457,19 +477,21 @@ get_process_imgname_cmdline(HANDLE process_handle, wchar_t *image_name,
 
     if (command_line) {
         if (is_windows_version_vista_plus()) {
-            param_location = process_parameters.CommandLine.Buffer;
+            param_location = IF_NOT_X64(!peb_is_32 ? params64.CommandLine.u.Buffer64
+                                                   :)(uint64) params.CommandLine.Buffer;
         } else {
-            param_location = (void *)((ptr_uint_t)process_parameters.CommandLine.Buffer +
-                                      (ptr_uint_t)peb.ProcessParameters);
+            param_location = IF_NOT_X64(!peb_is_32 ? params64.CommandLine.u.Buffer64 :)(
+                uint64)(params.CommandLine.Buffer + params_base);
         }
 
-        len = process_parameters.CommandLine.Length;
+        len = IF_NOT_X64(!peb_is_32 ? params64.CommandLine.Length :)
+                  params.CommandLine.Length;
         if (len > 2 * (max_cmdl_wchars - 1))
             len = 2 * (max_cmdl_wchars - 1);
 
         /* Read the image file name in our memory too */
-        res = nt_read_virtual_memory(process_handle, (LPVOID)param_location, command_line,
-                                     len, &nbytes);
+        res = read_remote_memory_maybe64(process_handle, param_location, command_line,
+                                         len, &nbytes);
         if (!res) {
             len = 0;
             display_warning("Warning: could not read cmdline from PEB");

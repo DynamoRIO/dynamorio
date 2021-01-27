@@ -50,6 +50,69 @@
 /*                               EXIT STUB                                 */
 /***************************************************************************/
 
+/* We use multiple approaches to linking based on how far away the target
+ * fragment is:
+ *
+ *     Unlinked:
+ *         exit_cti stub
+ *         ...
+ *       stub:
+ *         stp  x0, x1, [x28]
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <fcache-return>
+ *
+ *     Linked, exit_cti_reaches_target (near fragment):
+ *         exit_cti target_fragment
+ *         ...
+ *       stub:
+ *         stp  x0, x1, [x28]
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <fcache-return>
+ *
+ *     Linked, unconditional branch reaches target (intermediate fragment):
+ *         exit_cti stub
+ *         ...
+ *       stub:
+ *         b    target_fragment
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <fcache-return>
+ *
+ *     Linked, !unconditional branch reaches target (far fragment):
+ *         exit_cti stub
+ *         ...
+ *       stub:
+ *         stp  x0, x1, [x28]
+ *         movz x0, #&linkstub[0, 16),  lsl #0x00
+ *         movk x0, #&linkstub[16, 32), lsl #0x10
+ *         movk x0, #&linkstub[32, 48), lsl #0x20
+ *         movk x0, #&linkstub[48, 64), lsl #0x30
+ *         ldr  x1, [#8/#12]
+ *         br   x1
+ *         <target_fragment_prefix>
+ *
+ * To ensure atomicity of <target> patching, the data slot must be 8-byte
+ * aligned. We do this by reserving 12 bytes for the data slot and using the
+ * appropriate offset in ldr for the 8-byte aligned 8 byte region within it.
+ *
+ * For complete design details, see the following wiki
+ * https://github.com/DynamoRIO/dynamorio/wiki/Linking-Far-Fragments-on-AArch64
+ */
+
 byte *
 insert_relative_target(byte *pc, cache_pc target, bool hot_patch)
 {
@@ -102,6 +165,18 @@ insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
     return pc;
 }
 
+/* Returns addr for the target_pc data slot of the given stub. The slot starts at the
+ * 8-byte aligned region in the 12-byte slot reserved in the stub.
+ */
+static ptr_uint_t *
+get_target_pc_slot(fragment_t *f, cache_pc stub_pc)
+{
+    return (ptr_uint_t *)ALIGN_FORWARD(
+        vmcode_get_writable_addr(stub_pc + DIRECT_EXIT_STUB_SIZE(f->flags) -
+                                 DIRECT_EXIT_STUB_DATA_SZ),
+        8);
+}
+
 /* Emit code for the exit stub at stub_pc.  Return the size of the
  * emitted code in bytes.  This routine assumes that the caller will
  * take care of any cache synchronization necessary.
@@ -124,11 +199,35 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
         /* mov x0, ... */
         pc = insert_mov_imm(pc, DR_REG_X0, (ptr_int_t)l);
         num_nops_needed = 4 - (pc - write_stub_pc - 1);
-        /* ldr x1, [x(stolen), #(offs)] */
-        *pc++ = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                 get_fcache_return_tls_offs(dcontext, f->flags) >> 3 << 10);
+        ptr_uint_t *target_pc_slot = get_target_pc_slot(f, stub_pc);
+        ASSERT(pc < (uint *)target_pc_slot);
+        uint target_pc_slot_offs = (uint *)target_pc_slot - pc;
+        /* ldr x1, [pc, target_pc_slot_offs * AARCH64_INSTR_SIZE] */
+        *pc++ = (0x58000000 | (DR_REG_X1 - DR_REG_X0) | target_pc_slot_offs << 5);
         /* br x1 */
         *pc++ = BR_X1_INST;
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate into a register. Ideally we would skip adding NOPs, but
+         * lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++)
+            *pc++ = NOP_INST;
+        /* The final slot is a data slot, which will hold the address of either
+         * the fcache-return routine or the linked fragment. We reserve 12 bytes
+         * and use the 8-byte aligned region of 8 bytes within it.
+         */
+        ASSERT(pc == (uint *)target_pc_slot || pc + 1 == (uint *)target_pc_slot);
+        ASSERT(sizeof(app_pc) == 8);
+        pc += DIRECT_EXIT_STUB_DATA_SZ / sizeof(uint);
+        /* We start off with the fcache-return routine address in the slot. */
+        /* AArch64 uses shared gencode. So, fcache_return routine address should be
+         * same, no matter which thread creates/unpatches the stub.
+         */
+        ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
+        *target_pc_slot = (ptr_uint_t)fcache_return_routine(dcontext);
+        ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
+               DIRECT_EXIT_STUB_SIZE(l_flags));
+
     } else {
         /* Stub starts out unlinked. */
         cache_pc exit_target =
@@ -144,17 +243,14 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                  get_ibl_entry_tls_offs(dcontext, exit_target) >> 3 << 10);
         /* br x1 */
         *pc++ = BR_X1_INST;
+        /* Fill up with NOPs, depending on how many instructions we needed to move
+         * the immediate into a register. Ideally we would skip adding NOPs, but
+         * lots of places expect the stub size to be fixed.
+         */
+        for (uint j = 0; j < num_nops_needed; j++)
+            *pc++ = NOP_INST;
     }
 
-    /* Fill up with NOPs, depending on how many instructions we needed to move
-     * the immediate in a registers. Ideally we would skip adding NOPs, but
-     * lots of places expect the stub size to be fixed.
-     */
-    for (uint j = 0; j < num_nops_needed; j++)
-        *pc++ = NOP_INST;
-
-    ASSERT((ptr_int_t)((byte *)pc - (byte *)write_stub_pc) ==
-           DIRECT_EXIT_STUB_SIZE(l_flags));
     return (int)((byte *)pc - (byte *)write_stub_pc);
 }
 
@@ -179,38 +275,89 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* Compute offset as unsigned, modulo arithmetic. */
     ptr_uint_t off = (ptr_uint_t)target_pc - (ptr_uint_t)stub_pc;
     if (off + 0x8000000 < 0x10000000) {
-        /* We can get there with a B (OP_b, 26-bit signed immediate offset). */
+        /* target_pc is a near fragment. We can get there with a B
+         * (OP_b, 26-bit signed immediate offset).
+         * i#1911: Patching arbitrary instructions to an unconditional branch
+         * is theoretically not sound. Architectural specifications do not
+         * guarantee safe behaviour or any bound on when the change will be
+         * visible to other processor elements.
+         */
         *(uint *)vmcode_get_writable_addr(stub_pc) =
             (0x14000000 | (0x03ffffff & off >> 2));
         if (hot_patch)
             machine_cache_sync(stub_pc, stub_pc + 4, true);
         return;
     }
-    /* We must use an indirect branch. */
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
+    /* target_pc is a far fragment. We must use an indirect branch. Note that the indirect
+     * branch needs to be to the fragment prefix, as we need to restore the clobbered
+     * regs.
+     */
+    /* We set hot_patch to false as we are not modifying code. */
+    ATOMIC_8BYTE_ALIGNED_WRITE(get_target_pc_slot(f, stub_pc),
+                               (ptr_uint_t)target_prefix_pc,
+                               /*hot_patch=*/false);
+    return;
+}
+
+static bool
+stub_is_patched_for_intermediate_fragment_link(dcontext_t *dcontext, cache_pc stub_pc)
+{
+    uint enc;
+    ATOMIC_4BYTE_ALIGNED_READ(stub_pc, &enc);
+    return (enc & 0xfc000000) == 0x14000000; /* B (OP_b)*/
+}
+
+static bool
+stub_is_patched_for_far_fragment_link(dcontext_t *dcontext, fragment_t *f,
+                                      cache_pc stub_pc)
+{
+    ptr_uint_t target_pc;
+    ATOMIC_8BYTE_ALIGNED_READ(get_target_pc_slot(f, stub_pc), &target_pc);
+    return target_pc != (ptr_uint_t)fcache_return_routine(dcontext);
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
+    return stub_is_patched_for_intermediate_fragment_link(dcontext, stub_pc) ||
+        stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc);
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
-    /* Restore the stp x0, x1, [x28] instruction. */
-    *(uint *)vmcode_get_writable_addr(stub_pc) =
-        (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
-         TLS_REG0_SLOT >> 3 << 15);
-    if (hot_patch)
-        machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
+    /* At any time, at most one patching strategy will be in effect: the one for
+     * intermediate fragments or the one for far fragments.
+     */
+    if (stub_is_patched_for_intermediate_fragment_link(dcontext, stub_pc)) {
+        /* Restore the stp x0, x1, [x(stolen), #(offs)]
+         * i#1911: Patching unconditional branch to some arbitrary instruction
+         * is theoretically not sound. Architectural specifications do not
+         * guarantee safe behaviour or any bound on when the change will be
+         * visible to other processor elements.
+         */
+        *(uint *)vmcode_get_writable_addr(stub_pc) =
+            (0xa9000000 | 0 | 1 << 10 | (dr_reg_stolen - DR_REG_X0) << 5 |
+             TLS_REG0_SLOT >> 3 << 15);
+        if (hot_patch)
+            machine_cache_sync(stub_pc, stub_pc + AARCH64_INSTR_SIZE, true);
+    } else if (stub_is_patched_for_far_fragment_link(dcontext, f, stub_pc)) {
+        /* Restore the data slot to fcache return address. */
+        /* AArch64 uses shared gencode. So, fcache_return routine address should be
+         * same, no matter which thread creates/unpatches the stub.
+         */
+        ASSERT(fcache_return_routine(dcontext) == fcache_return_routine(GLOBAL_DCONTEXT));
+        /* We set hot_patch to false as we are not modifying code. */
+        ATOMIC_8BYTE_ALIGNED_WRITE(get_target_pc_slot(f, stub_pc),
+                                   (ptr_uint_t)fcache_return_routine(dcontext),
+                                   /*hot_patch=*/false);
+    }
 }
 
 void
@@ -378,9 +525,10 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     byte *write_start = vmcode_get_writable_addr(f->start_pc);
     byte *pc = write_start;
     ASSERT(f->prefix_size == 0);
-    /* ldr x0, [x(stolen), #(off)] */
-    *(uint *)pc = (0xf9400000 | (ENTRY_PC_REG - DR_REG_X0) |
-                   (dr_reg_stolen - DR_REG_X0) << 5 | ENTRY_PC_SPILL_SLOT >> 3 << 10);
+
+    /* ldp x0, x1, [x(stolen), #(off)] */
+    *(uint *)pc = (0xa9400000 | (DR_REG_X0 - DR_REG_X0) | (DR_REG_X1 - DR_REG_X0) << 10 |
+                   (dr_reg_stolen - DR_REG_X0) << 5 | TLS_REG0_SLOT >> 3 << 10);
     pc += 4;
     f->prefix_size = (byte)(((cache_pc)pc) - write_start);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
@@ -738,24 +886,19 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     APP(&ilist,
         INSTR_CREATE_cbnz(dc, opnd_create_instr(try_next), opnd_create_reg(DR_REG_X0)));
 
-    /* Hit path: load the app's original value of x0 and x1. */
-    /* ldp x0, x2, [x28] */
-    APP(&ilist,
-        INSTR_CREATE_ldp(dc, opnd_create_reg(DR_REG_X0), opnd_create_reg(DR_REG_X2),
-                         opnd_create_base_disp(dr_reg_stolen, DR_REG_NULL, 0,
-                                               TLS_REG0_SLOT, OPSZ_16)));
-    /* Store x0 in TLS_REG1_SLOT as requied in the fragment prefix. */
-    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG1_SLOT));
+    /* Hit path. */
+    /* App's original values of x0 and x1 are already in respective TLS slots, and
+     * will be restored by the fragment prefix.
+     */
+
+    /* Recover app's original x2. */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+
     /* ldr x0, [x1, #start_pc_fragment_offset] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_MEMPTR(
                              DR_REG_X1, offsetof(fragment_entry_t, start_pc_fragment))));
-    /* mov x1, x2 */
-    APP(&ilist,
-        XINST_CREATE_move(dc, opnd_create_reg(DR_REG_X1), opnd_create_reg(DR_REG_X2)));
-    /* Recover app's original x2. */
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
     /* br x0
      * (keep in sync with instr_is_ibl_hit_jump())
      */

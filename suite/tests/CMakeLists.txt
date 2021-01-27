@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
 # **********************************************************
@@ -50,6 +50,7 @@
 cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
+include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
 
 option(TEST_LONG "run long set of tests")
 option(SKIP_FLAKY_TESTS "do not run tests named *_FLAKY")
@@ -1701,23 +1702,25 @@ endfunction(run2testname)
 function(is_test_enabled_by_name output name regex)
   set(enabled OFF)
   if (NOT SKIP_FLAKY_TESTS OR NOT "${name}" MATCHES "_FLAKY")
-    if (NOT regex OR "${name}" MATCHES "${regex}")
-      if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
-          # See above: for particular builds we skip some of the similar tests from
-          # some of the test groups.
-          (("${name}" MATCHES "tool.drcache" AND
-            NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
-          ("${name}" MATCHES "tool.drcpusim" AND
-            NOT "${name}" MATCHES "Pentium3") OR
-          ("${name}" MATCHES "tool.[^d]" AND
-            NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
-          # instrcalls is the slowest of the samples.
-          "${name}" MATCHES "sample.instrcalls" OR
-          ("${name}" MATCHES "client.annotation-" AND
-            NOT "${name}" MATCHES "(-opt|tiny-bb)")))
-        set(enabled OFF)
-      else ()
-        set(enabled ON)
+    if (TEST_LONG OR NOT "${name}" MATCHES "_LONG")
+      if (NOT regex OR "${name}" MATCHES "${regex}")
+        if (SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST AND
+            # See above: for particular builds we skip some of the similar tests from
+            # some of the test groups.
+            (("${name}" MATCHES "tool.drcache" AND
+              NOT "${name}" MATCHES "(simple|invariants|burst_malloc|burst_replaceall)") OR
+            ("${name}" MATCHES "tool.drcpusim" AND
+              NOT "${name}" MATCHES "Pentium3") OR
+            ("${name}" MATCHES "tool.[^d]" AND
+              NOT "${name}" MATCHES "(basic_counts|reuse_offline)") OR
+            # instrcalls is the slowest of the samples.
+            "${name}" MATCHES "sample.instrcalls" OR
+            ("${name}" MATCHES "client.annotation-" AND
+              NOT "${name}" MATCHES "(-opt|tiny-bb)")))
+          set(enabled OFF)
+        else ()
+          set(enabled ON)
+        endif ()
       endif ()
     endif ()
   endif ()
@@ -1962,24 +1965,17 @@ endif ()
 if (NOT ANDROID) # We do not support -no_early_inject on Android (i#1873).
   tobuild_ops(common.fib common/fib.c "-no_early_inject" "")
 endif ()
-if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
+if (X86) # TODO i#1551, i#1569: port asm to ARM and AArch64
   tobuild(common.decode-bad common/decode-bad.c)
-  # FIXME i#105: get this working for 32-bit linux
-  if (X64 OR WIN32)
-    tobuild(common.decode common/decode.c)
-    if (proc_supports_avx512)
-      set_target_properties(common.decode PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
-    endif ()
-  endif (X64 OR WIN32)
+  tobuild(common.decode common/decode.c)
+  if (proc_supports_avx512)
+    set_target_properties(common.decode PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
+  endif ()
 endif (X86)
-# FIXME i#1025: get working on Linux
-if (WIN32)
-  # We build all tests before running so decode will be built before
-  # ctest -j ever ran this.  If we switch to --build-and-test then we'll
-  # make these runonly tests make sure their exe is built.
+if (X86) # TODO i#4680: Port stress code to AArchXX and run on a diff test?
   torunonly(common.decode-stress common.decode common/decode.c
     "-stress_recreate_state" "")
-endif (WIN32)
+endif ()
 
 if (X86)
   set(control_flags "eflags")
@@ -2415,7 +2411,8 @@ if (CLIENT_INTERFACE)
       tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
         "" "${trace_arg}" "${events_appdll_path}")
       tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
-      tobuild_ci(client.timer client-interface/timer.c "" "" "")
+      # We disable traces to get bb prefixes for testing i#4669.
+      tobuild_ci(client.timer client-interface/timer.c "" "-disable_traces" "")
       if (X64)
         tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
           "-vm_base 0x100000000 -no_vm_base_near_app" "")
@@ -2849,8 +2846,10 @@ if (CLIENT_INTERFACE)
     endif ()
   endif ()
   if (UNIX)
-    tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF)
-    link_with_pthread(api.detach_signal)
+    if (X64) # TODO i#4664: Fix crash in vsyscall hook under native threads.
+      tobuild_api(api.detach_signal api/detach_signal.cpp "" "" OFF OFF)
+      link_with_pthread(api.detach_signal)
+    endif ()
   endif ()
   if (NOT WIN32) # XXX i#2611: fix for Windows
     if (X64)
@@ -2883,7 +2882,7 @@ if (CLIENT_INTERFACE)
       set(decenc.drdecode_decenc_x86_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake")
     endif ()
   endif ()
-  if (X86) # Generated code is x86-specific.
+  if (X86 OR AARCH64) # Generated code is x86- or AArch64-specific.
     set(checklevel "")
     if (DEBUG)
       # This tests indirect branches between blocks.
@@ -2891,8 +2890,22 @@ if (CLIENT_INTERFACE)
       # which makes building 150K bbs very slow.
       set(checklevel "-checklevel 0")
     endif ()
-    tobuild_api(api.ibl-stress api/ibl-stress.c
-      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+    # TODO i#4665: Fix crash without the -shared_ibt_table_bb_init value.
+    if (AARCH64)
+      tobuild_api(api.ibl-stress api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 16 ${checklevel}" "" OFF OFF)
+
+      tobuild_api(api.ibl-stress-aarch64-far-link_LONG api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 20 ${checklevel}" "" OFF OFF)
+      append_property_string(TARGET api.ibl-stress-aarch64-far-link_LONG COMPILE_FLAGS
+        "-DTEST_FAR_LINK_AARCH64")
+      set(api.ibl-stress-aarch64-far-link_LONG_timeout 900)
+      use_DynamoRIO_extension(api.ibl-stress-aarch64-far-link_LONG drcontainers)
+      link_with_pthread(api.ibl-stress-aarch64-far-link_LONG)
+    else ()
+      tobuild_api(api.ibl-stress api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+    endif ()
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
     link_with_pthread(api.ibl-stress)
     if (WIN32)
@@ -4373,6 +4386,78 @@ else (UNIX)
   #tobuild_runall(runall.processchain runall/processchain.runall "")
 
   tobuild_csharp(win32.dotnet win32/dotnet.cs)
+
+  # Cross-arch injection tests.
+  if (X86)
+    set(xarch_dir ${CMAKE_CURRENT_BINARY_DIR}/xarch)
+    set(test_bindir suite/tests/bin)
+    file(MAKE_DIRECTORY ${xarch_dir})
+    # Unfortunately, while CMake 3.13+ supports create_symlink on Windows, that
+    # only works if the user has the right privileges, so we can't set up
+    # lib dir symlinks like we do for unix cross-arch build-and-test.
+    # We have to make a copy in order to have parallel dirs with the two bitwidths.
+    file(MAKE_DIRECTORY "${xarch_dir}/${INSTALL_LIB}")
+    set(xarch_copy_stamp "${CMAKE_CURRENT_BINARY_DIR}/xarch_copy.stamp")
+    add_custom_command(OUTPUT "${xarch_copy_stamp}"
+      DEPENDS dynamorio
+      COMMAND ${CMAKE_COMMAND} ARGS
+      -E touch "${xarch_copy_stamp}"
+      COMMAND ${CMAKE_COMMAND} ARGS
+      -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
+      "${xarch_dir}/${INSTALL_LIB}/dynamorio.dll"
+      VERBATIM)
+    add_custom_target(xarch_copy DEPENDS "${xarch_copy_stamp}")
+    add_dependencies(drcopy xarch_copy)
+    # We use a client that takes some options and prints something at
+    # init and at exit to test cross-arch injection with clients.
+    get_target_path_for_execution(cur_client_path client.large_options.dll
+      "${location_suffix}")
+    set(xarch_client_path ${xarch_dir}/${test_bindir}/client.large_options.dll.dll)
+    get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+    if (X64)
+      set(client32_path ${xarch_client_path})
+      set(client64_path ${cur_client_path})
+      set(other_is64 OFF)
+    else ()
+      set(client32_path ${cur_client_path})
+      set(client64_path ${xarch_client_path})
+      set(other_is64 ON)
+    endif ()
+    if (DEBUG)
+      set(config_type -DDEBUG=ON)
+    else ()
+      set(config_type "")
+    endif ()
+    # I abandoned --build-generator-platform (3.13+ only; VS gen only) or explicitly
+    # setting the full generator (fails w/ Ninja) and went with the env var scheme we
+    # use in our test suite.
+    _DR_set_VS_bitwidth_env_vars(${other_is64} env_names)
+    foreach (env ${env_names})
+      # Escape internal ; since this goes into a CMake "var=value;..." list.
+      string(REPLACE ";" "\\;" value "${${env}_env_value}")
+      list(APPEND test_env_pairs "${env}=${value}")
+    endforeach ()
+    add_test(win32.xarch ${CMAKE_CTEST_COMMAND} -V
+      --build-and-test ${PROJECT_SOURCE_DIR} ${xarch_dir}
+      --build-generator ${CMAKE_GENERATOR}
+      --build-target dynamorio
+      --build-target common.eflags
+      --build-target client.large_options.dll
+      --build-noclean # Else it tries to clean between each target!
+      --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+      --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
+      -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
+      --test-command ${drrun_path} -dr_home ${xarch_dir} ${dr_test_ops}
+      -c32 ${client32_path} -paramA foo -paramB bar --
+      -c64 ${client64_path} -paramA foo -paramB bar --
+      ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+      ${xarch_dir}/${test_bindir}/common.eflags.exe)
+    file(READ win32/xarch.templatex expect)
+    set_tests_properties(win32.xarch PROPERTIES ENVIRONMENT
+      "${test_env_pairs}"
+      # We start with .* for all the config and build stuff.
+      PASS_REGULAR_EXPRESSION ".*${expect}[ \n]*$")
+  endif (X86)
 
   # Cross-arch mixedmode/x86_to_x64 test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and

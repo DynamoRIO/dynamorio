@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -146,6 +146,123 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     set(arg_build_only ON)
   endif ()
 endforeach (arg)
+
+# Returns a list of environment variable names to set in ${env_names}.
+# For each "name" in the list, sets a variable "name_env_value" in the caller's
+# scope containing the value to be set.
+#
+# We'd like to export this via utils_exposed.cmake but it is difficult to
+# import it here from somewhere else.
+# Our manual INCLUDEFILE expansion would require all users to point to a
+# generated file somewhere, which requires updating all users including
+# Dr. Memory which today points directly at the embedded submodule sources.
+# Some of these uses have no build dir where a generated file could live.
+# Using include() is difficult for a file that is itself included, because
+# cmake won't search our same directory, and CTEST_SCRIPT_DIRECTORY is the
+# includer's directory, so we can't easily have side-by-side files.
+# For now we keep it here, and have the current only other use in
+# tests/CMakeLists.txt include() this file.
+function (_DR_set_VS_bitwidth_env_vars is64 env_names)
+  # Convert env vars to run proper compiler.
+  # Note that this is fragile and won't work with non-standard
+  # directory layouts: we assume standard VS or SDK.
+  # XXX: would be nice to have case-insensitive regex flag!
+  # For now hardcoding VC, Bin, amd64
+  set(must_change_path OFF)
+  if (is64)
+    list(APPEND names_list "ASM")
+    set(ASM_env_value "ml64" PARENT_SCOPE)
+    if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" AND
+        NOT "$ENV{LIB}" MATCHES "[Xx]64")
+      set(must_change_path ON)
+      # Note that we can't set ENV{PATH} as the output var of the replace:
+      # it has to be its own set().
+      #
+      # VS2017 has bin/HostX{86,64}/x{86,64}/
+      string(REGEX REPLACE "((^|;)[^;]*)HostX86([/\\\\])x86" "\\1HostX64\\3x64"
+        newpath "$ENV{PATH}")
+      # i#1421: VS2013 needs base VC/bin on the path (for cross-compiler
+      # used by cmake) so we duplicate and put amd64 first.  Older VS needs
+      # Common7/IDE instead which should already be elsewhere on path.
+      string(REGEX REPLACE "((^|;)[^;]*)VC([/\\\\])([Bb][Ii][Nn])"
+        "\\1VC\\3\\4\\3amd64;\\1VC\\3\\4"
+        newpath "${newpath}")
+      # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
+      string(REGEX REPLACE "([/\\\\]v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])"
+        "\\1\\2\\3\\2x64"
+        newpath "${newpath}")
+      if (arg_verbose)
+        message("Env setup: setting PATH to ${newpath}")
+      endif ()
+      # VS2017 does not append so we replace first.
+      string(REGEX REPLACE "([/\\\\])x86" "\\1x64" newlib "$ENV{lib}")
+      # Now try to support pre-VS2017.
+      string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])([^/\\\\])" "\\1\\2\\1amd64\\3"
+        newlib "${newlib}")
+      # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64": grrr
+      string(REGEX REPLACE
+        "([/\\\\]v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
+        "\\1x64"
+        newlib "${newlib}")
+      # Win8 SDK uses um/x86 and um/x64 after "Lib/win{8,v6.3}/"
+      string(REGEX REPLACE
+        "([Ll][Ii][Bb])[/\\\\]amd64([/\\\\][Ww][Ii][Nn][v0-9.]+[/\\\\]um[/\\\\])x86"
+        "\\1\\2x64" newlib "${newlib}")
+      if (arg_verbose)
+        message("Env setup: setting LIB to ${newlib}")
+      endif ()
+      string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb][/\\\\])[Xx]86" "\\1\\2"
+        newlibpath "$ENV{LIBPATH}")
+      string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
+        newlibpath "${newlibpath}")
+      if (arg_verbose)
+        message("Env setup: setting LIBPATH to ${newlibpath}")
+      endif ()
+    endif ()
+  else (is64)
+    list(APPEND ${env_names} "ASM")
+    set(ASM_env_value "ml" PARENT_SCOPE)
+    if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" OR
+        "$ENV{LIB}" MATCHES "[Xx]64")
+      set(must_change_path ON)
+      # VS2017 has bin/HostX{86,64}/x{86,64}/
+      string(REGEX REPLACE "((^|;)[^;]*)HostX64([/\\\\])x64" "\\1HostX86\\3x86"
+        newpath "$ENV{PATH}")
+      # Remove the duplicate we added (see i#1421 comment above).
+      string(REGEX REPLACE "((^|;)[^;]*)VC[/\\\\][Bb][Ii][Nn][/\\\\][Aa][Mm][Dd]64"
+        "" newpath "${newpath}")
+      if (arg_verbose)
+        message("Env setup: setting PATH to ${newpath}")
+      endif ()
+      string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
+        newlib "$ENV{LIB}")
+      string(REGEX REPLACE "([Ll][Ii][Bb][/\\\\])[Xx]64" "\\1x86"
+        newlib "${newlib}")
+      # Win8 SDK uses um/x86 and um/x64
+      string(REGEX REPLACE "([/\\\\]um[/\\\\])x64" "\\1x86" newlib "${newlib}")
+      string(REGEX REPLACE "([/\\\\]ucrt[/\\\\])x64" "\\1x86" newlib "${newlib}")
+      if (arg_verbose)
+        message("Env setup: setting LIB to ${newlib}")
+      endif ()
+      string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
+        newlibpath "$ENV{LIBPATH}")
+      string(REGEX REPLACE "([Ll][Ii][Bb][/\\\\])[Xx]64" "\\1x86"
+        newlibpath "${newlibpath}")
+      if (arg_verbose)
+        message("Env setup: setting LIBPATH to ${newlibpath}")
+      endif ()
+    endif ()
+  endif (is64)
+  if (must_change_path)
+    list(APPEND names_list "PATH")
+    set(PATH_env_value "${newpath}" PARENT_SCOPE)
+    list(APPEND names_list "LIB")
+    set(LIB_env_value "${newlib}" PARENT_SCOPE)
+    list(APPEND names_list "LIBPATH")
+    set(LIBPATH_env_value "${newlibpath}" PARENT_SCOPE)
+  endif ()
+  set(${env_names} ${names_list} PARENT_SCOPE)
+endfunction ()
 
 # allow setting the base cache variables via an include file
 set(base_cache "")
@@ -367,7 +484,7 @@ else ()
       message(FATAL_ERROR "Cannot determine Visual Studio version")
     endif ()
   endif ()
-  message("Using ${vs_generator} generators")
+  message(STATUS "Using ${vs_generator} generators")
   if (arg_use_msbuild)
     find_program(MSBUILD_PROGRAM msbuild)
     if (MSBUILD_PROGRAM)
@@ -483,91 +600,10 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       set(ENV{CC} "cl")
       set(ENV{CXX} "cl")
       # Convert env vars to run proper compiler.
-      # Note that this is fragile and won't work with non-standard
-      # directory layouts: we assume standard VS or SDK.
-      # XXX: would be nice to have case-insensitive regex flag!
-      # For now hardcoding VC, Bin, amd64
-      if (is64)
-        set(ENV{ASM} "ml64")
-        if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" AND
-            NOT "$ENV{LIB}" MATCHES "[Xx]64")
-          # Note that we can't set ENV{PATH} as the output var of the replace:
-          # it has to be its own set().
-          #
-          # VS2017 has bin/HostX{86,64}/x{86,64}/
-          string(REGEX REPLACE "((^|;)[^;]*)HostX86([/\\\\])x86" "\\1HostX64\\3x64"
-            newpath "$ENV{PATH}")
-          # i#1421: VS2013 needs base VC/bin on the path (for cross-compiler
-          # used by cmake) so we duplicate and put amd64 first.  Older VS needs
-          # Common7/IDE instead which should already be elsewhere on path.
-          string(REGEX REPLACE "((^|;)[^;]*)VC([/\\\\])([Bb][Ii][Nn])"
-            "\\1VC\\3\\4\\3amd64;\\1VC\\3\\4"
-            newpath "${newpath}")
-          # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
-          string(REGEX REPLACE "([/\\\\]v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])"
-            "\\1\\2\\3\\2x64"
-            newpath "${newpath}")
-          if (arg_verbose)
-            message("Env setup: setting PATH to ${newpath}")
-          endif ()
-          set(ENV{PATH} "${newpath}")
-          # VS2017 does not append so we replace first.
-          string(REGEX REPLACE "([/\\\\])x86" "\\1x64" newlib "$ENV{lib}")
-          # Now try to support pre-VS2017.
-          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])([^/\\\\])" "\\1\\2\\1amd64\\3"
-            newlib "${newlib}")
-          # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64": grrr
-          string(REGEX REPLACE
-            "([/\\\\]v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
-            "\\1x64"
-            newlib "${newlib}")
-          # Win8 SDK uses um/x86 and um/x64 after "Lib/win{8,v6.3}/"
-          string(REGEX REPLACE
-            "([Ll][Ii][Bb])[/\\\\]amd64([/\\\\][Ww][Ii][Nn][v0-9.]+[/\\\\]um[/\\\\])x86"
-            "\\1\\2x64" newlib "${newlib}")
-          if (arg_verbose)
-            message("Env setup: setting LIB to ${newlib}")
-          endif ()
-          set(ENV{LIB} "${newlib}")
-          string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
-            newlibpath "$ENV{LIBPATH}")
-          if (arg_verbose)
-            message("Env setup: setting LIBPATH to ${newlibpath}")
-          endif ()
-          set(ENV{LIBPATH} "${newlibpath}")
-        endif ()
-      else (is64)
-        set(ENV{ASM} "ml")
-        if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64" OR
-            "$ENV{LIB}" MATCHES "[Xx]64")
-          # VS2017 has bin/HostX{86,64}/x{86,64}/
-          string(REGEX REPLACE "((^|;)[^;]*)HostX64([/\\\\])x64" "\\1HostX86\\3x86"
-            newpath "$ENV{PATH}")
-          # Remove the duplicate we added (see i#1421 comment above).
-          string(REGEX REPLACE "((^|;)[^;]*)VC[/\\\\][Bb][Ii][Nn][/\\\\][Aa][Mm][Dd]64"
-            "" newpath "{newpath}")
-          if (arg_verbose)
-            message("Env setup: setting PATH to ${newpath}")
-          endif ()
-          set(ENV{PATH} "${newpath}")
-          string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
-            newlib "$ENV{LIB}")
-          string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Xx]64" "\\1"
-            newlib "${newlib}")
-          # Win8 SDK uses um/x86 and um/x64
-          string(REGEX REPLACE "([/\\\\]um[/\\\\])x64" "\\1x86" newlib "${newlib}")
-          if (arg_verbose)
-            message("Env setup: setting LIB to ${newlib}")
-          endif ()
-          set(ENV{LIB} "${newlib}")
-          string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
-            newlibpath "$ENV{LIBPATH}")
-          if (arg_verbose)
-            message("Env setup: setting LIBPATH to ${newlibpath}")
-          endif ()
-          set(ENV{LIBPATH} "${newlibpath}")
-        endif ()
-      endif (is64)
+      _DR_set_VS_bitwidth_env_vars(${is64} env_names)
+      foreach (env ${env_names})
+        set(ENV{${env}} "${${env}_env_value}")
+      endforeach ()
     else (WIN32)
       if (ARCH_IS_X86)
         if (is64)
