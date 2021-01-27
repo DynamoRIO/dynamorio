@@ -816,9 +816,8 @@ GLOBAL_LABEL(FUNCNAME:)
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         ret
         END_FUNC(FUNCNAME)
-END_FILE
-#undef FUNCNAME
 
+#undef FUNCNAME
 #define FUNCNAME test_jecxz
         /* i#4680: test jecxz mangling code */
         DECLARE_FUNC_SEH(FUNCNAME)
@@ -830,6 +829,7 @@ jecxz_zero:
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         ret
         END_FUNC(FUNCNAME)
+
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */
