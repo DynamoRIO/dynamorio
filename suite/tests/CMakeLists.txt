@@ -1972,8 +1972,13 @@ if (X86) # TODO i#1551, i#1569: port asm to ARM and AArch64
     set_target_properties(common.decode PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
   endif ()
 endif (X86)
-if (X86) # TODO i#4680: Port stress code to AArchXX and run on a diff test?
+if (X86)
   torunonly(common.decode-stress common.decode common/decode.c
+    "-stress_recreate_state" "")
+elseif (AARCHXX)
+  # The common.decode test is very x86-centric and may never be ported.
+  # For now we simply run a simple app which still exercises quite a bit.
+  torunonly(common.broadfun-stress common.broadfun common/broadfun.c
     "-stress_recreate_state" "")
 endif ()
 
