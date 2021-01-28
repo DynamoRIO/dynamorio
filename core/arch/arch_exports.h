@@ -2738,6 +2738,11 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 /* reset the encode state stored in dcontext used by A32 Thumb mode */
 void
 encode_reset_it_block(dcontext_t *dcontext);
+/* Reset the encode state stored in dcontext used by A32 Thumb mode if the
+ * being-freed instr is involved.
+ */
+void
+encode_instr_freed_event(dcontext_t *dcontext, instr_t *instr);
 #endif
 
 #ifdef LINUX
