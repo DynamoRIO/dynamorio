@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -791,7 +791,9 @@ ASSUME fs:_DATA @N@\
 # define REG_SCRATCH0 REG_XAX
 # define REG_SCRATCH1 REG_XCX
 # define REG_SCRATCH2 REG_XDX
+# define REG_SP REG_XSP
 # define JUMP     jmp
+# define JUMP_NOT_EQUAL     jne
 # define RETURN   ret
 # define INC(reg) inc reg
 # define DEC(reg) dec reg
@@ -799,7 +801,9 @@ ASSUME fs:_DATA @N@\
 # define REG_SCRATCH0 REG_R0
 # define REG_SCRATCH1 REG_R1
 # define REG_SCRATCH2 REG_R2
+# define REG_SP sp
 # define JUMP     b
+# define JUMP_NOT_EQUAL     b.ne
 # ifdef X64
 #  define RETURN  ret
 # else
