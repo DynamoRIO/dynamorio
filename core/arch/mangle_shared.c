@@ -1859,7 +1859,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 #endif
 
     if (prev == NULL) {
-#ifdef X64
+#if defined(WINDOWS) && defined(X64)
         if (get_os_version() >= WINDOWS_VERSION_10_1511) {
             /* Handle the branch added in 1511 that isolates OP_syscall:
              *   7ff9`13185630 4c8bd1          mov     r10,rcx
