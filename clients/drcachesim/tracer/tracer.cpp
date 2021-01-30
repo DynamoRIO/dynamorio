@@ -1475,7 +1475,7 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     if (!drx_insert_counter_update(drcontext, bb, instr,
                                    (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
                                    (dr_spill_slot_t)(SPILL_SLOT_MAX + 1), &instr_count,
-                                   num_instrs, DRX_COUNTER_64BIT))
+                                   num_instrs, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
         DR_ASSERT(false);
 
     reg_id_t scratch1, scratch2;
