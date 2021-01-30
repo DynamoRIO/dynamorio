@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1690,6 +1690,7 @@ enum {
     RAW_OPCODE_push_imm32 = 0x68,
     RAW_OPCODE_pop_eax = 0x58,
     RAW_OPCODE_jcc_short_start = 0x70,
+    RAW_OPCODE_jne_short = 0x75,
     RAW_OPCODE_jcc_short_end = 0x7f,
     RAW_OPCODE_jcc_byte1 = 0x0f,
     RAW_OPCODE_jcc_byte2_start = 0x80,
