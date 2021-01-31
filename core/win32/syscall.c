@@ -2171,6 +2171,64 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
     return execute_syscall;
 }
 
+/* NtSetInformationProcess */
+static bool
+presys_SetInformationProcess(dcontext_t *dcontext, reg_t *param_base)
+{
+    HANDLE process_handle = (HANDLE)sys_param(dcontext, param_base, 0);
+    PROCESSINFOCLASS class = (PROCESSINFOCLASS)sys_param(dcontext, param_base, 1);
+    void *info = (void *)sys_param(dcontext, param_base, 2);
+    ULONG info_len = (ULONG)sys_param(dcontext, param_base, 3);
+    LOG(THREAD, LOG_SYSCALLS, 2, "NtSetInformationProcess %p %d %p %d\n", process_handle,
+        class, info, info_len);
+    if (IF_CLIENT_INTERFACE_ELSE(!should_swap_teb_static_tls(), true))
+        return true;
+    if (class != ProcessTlsInformation)
+        return true;
+    if (!is_phandle_me(process_handle)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("ProcessTlsInformation on another process");
+        return true;
+    }
+    LOG(THREAD, LOG_SYSCALLS, 2, "ProcessTlsInformation: pausing all other threads\n");
+    thread_record_t **threads;
+    int num_threads, i;
+    if (!synch_with_all_threads(THREAD_SYNCH_SUSPENDED_VALID_MCONTEXT_OR_NO_XFER,
+                                &threads, &num_threads, THREAD_SYNCH_NO_LOCKS_NO_XFER,
+                                /* Ignore failures to suspend: best-effort. */
+                                THREAD_SYNCH_SUSPEND_FAILURE_IGNORE)) {
+        SYSLOG_INTERNAL_WARNING_ONCE("Failed to suspend for ProcessTlsInformation");
+        return true;
+    }
+    /* Ensure each thread has the app TEB.ThreadLocalStoragePointer value. */
+    bool *swapped =
+        (bool *)global_heap_alloc(num_threads * sizeof(bool) HEAPACCT(ACCT_THREAD_MGT));
+    for (i = 0; i < num_threads; i++) {
+        if (!os_using_app_state(threads[i]->dcontext)) {
+            swapped[i] = true;
+            os_swap_context(threads[i]->dcontext, true /*to app*/, DR_STATE_TEB_MISC);
+        } else
+            swapped[i] = false;
+    }
+    /* We're holding the initexit lock so we can't safely enter the fcache for
+     * a regular app syscall.  We instead emulate the syscall ourselves.
+     * We assume it's not alertable and no callback will come in.
+     */
+    NTSTATUS return_val =
+        nt_set_information_process_for_app(process_handle, class, info, info_len);
+    SET_RETURN_VAL(dcontext, return_val);
+    LOG(THREAD, LOG_SYSCALLS, 2,
+        "\tNtSetInformationProcess(%p, %d, %p, %d) => %d on behalf of app\n",
+        process_handle, class, info, info_len, return_val);
+    /* Swap the TEB fields back to DR. */
+    for (i = 0; i < num_threads; i++) {
+        if (swapped[i])
+            os_swap_context(threads[i]->dcontext, false /*to priv*/, DR_STATE_TEB_MISC);
+    }
+    global_heap_free(swapped, num_threads * sizeof(bool) HEAPACCT(ACCT_THREAD_MGT));
+    end_synch_with_all_threads(threads, num_threads, true /*resume*/);
+    return false;
+}
+
 /* Assumes mc is app state prior to system call.
  * Returns true iff system call is a callback return that does transfer control
  * (xref case 10579).
@@ -3032,6 +3090,8 @@ pre_system_call(dcontext_t *dcontext)
         execute_syscall = presys_TerminateProcess(dcontext, param_base);
     } else if (sysnum == syscalls[SYS_TerminateThread]) {
         presys_TerminateThread(dcontext, param_base);
+    } else if (sysnum == syscalls[SYS_SetInformationProcess]) {
+        execute_syscall = presys_SetInformationProcess(dcontext, param_base);
     } else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
                /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
                sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
