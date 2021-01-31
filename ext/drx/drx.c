@@ -578,11 +578,11 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where,
                 XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
                                   OPND_CREATE_MEMPTR(reg1, 0)));
-        MINSERT(ilist, where, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISH)));
+        MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
         MINSERT(
             ilist, where,
             XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
-        MINSERT(ilist, where, INSTR_CREATE_dmb(dc, OPND_CREATE_INT(DR_DMB_ISH)));
+        MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
         MINSERT(ilist, where,
                 XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
                                    opnd_create_reg(reg2)));
