@@ -603,8 +603,8 @@ NtTerminateProcess(IN HANDLE ProcessHandle OPTIONAL, IN NTSTATUS ExitStatus)
 }
 
 NTEXPORT NTSTATUS NTAPI
-NtSetInformationProcess(IN HANDLE hprocess, IN PROCESSINFOCLASS class,
-                        IN OUT void *info, IN ULONG info_len)
+NtSetInformationProcess(IN HANDLE hprocess, IN PROCESSINFOCLASS class, IN OUT void *info,
+                        IN ULONG info_len)
 {
     return STATUS_SUCCESS;
 }
