@@ -472,12 +472,6 @@ extern uint context_xstate;
 
 #define XSTATE_HEADER_SIZE 0x40 /* 512 bits */
 #define YMMH_AREA(ymmh_area, i) (((dr_xmm_t *)ymmh_area)[i])
-#define MAX_CONTEXT_64_SIZE 0xd2f /* as observed on win10-x64 */
-#ifdef X64
-#    define MAX_CONTEXT_SIZE MAX_CONTEXT_64_SIZE
-#else
-#    define MAX_CONTEXT_SIZE 0xb23 /* as observed on win10-x64 */
-#endif
 #define CONTEXT_DYNAMICALLY_LAID_OUT(flags) (TESTALL(CONTEXT_XSTATE, flags))
 
 enum {
@@ -647,6 +641,9 @@ typedef struct DECLSPEC_ALIGN(16) _CONTEXT_64 {
 
 /* in module_shared.c */
 #ifndef X64
+size_t
+nt_get_context64_size(void);
+
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64);
 
@@ -935,8 +932,14 @@ bool
 convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
                        IN size_t buf_len /*# elements*/);
 
+size_t
+nt_get_context_size(DWORD flags);
+
+size_t
+nt_get_max_context_size(void);
+
 CONTEXT *
-nt_initialize_context(char *buf, DWORD flags);
+nt_initialize_context(char *buf, size_t buf_len, DWORD flags);
 
 byte *
 context_ymmh_saved_area(CONTEXT *cxt);

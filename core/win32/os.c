@@ -1175,6 +1175,9 @@ d_r_os_init(void)
         os_user_directory_supports_ownership();
     is_wow64_process(NT_CURRENT_PROCESS);
     is_in_ntdll(get_ntdll_base());
+#    ifndef X64
+    nt_get_context64_size();
+#    endif
 
     os_take_over_init();
 
@@ -1882,7 +1885,7 @@ takeover_table_entry_free(dcontext_t *dcontext, void *e)
         close_handle(data->thread_handle);
     if (data->cxt64_alloc != NULL) {
         global_heap_free(data->cxt64_alloc,
-                         MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+                         nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
     }
 #    endif
     global_heap_free(data, sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
@@ -2092,7 +2095,9 @@ os_take_over_exit(void)
      * waiting for these threads prior to detach is not guaranteed, so instead we
      * just revert the attach.
      */
-    char buf[MAX_CONTEXT_SIZE];
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
     TABLE_RWLOCK(takeover_table, write, lock);
     int iter = 0;
     takeover_data_t *data;
@@ -2102,7 +2107,7 @@ os_take_over_exit(void)
                                          (void **)&data);
         if (iter < 0)
             break;
-        CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+        CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
         HANDLE handle = thread_handle_from_id(data->tid);
         LOG(GLOBAL, LOG_THREADS, 1,
             "Reverting attached-but-never-scheduled thread " TIDFMT "\n", data->tid);
@@ -2124,6 +2129,7 @@ os_take_over_exit(void)
     TABLE_RWLOCK(takeover_table, write, unlock);
     generic_hash_destroy(GLOBAL_DCONTEXT, takeover_table);
     takeover_table = NULL;
+    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 #    ifndef X64
@@ -2430,14 +2436,14 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
     /* WOW64 context setting is fragile: we need the raw x64 context as well.
      * We can't easily use nt_initialize_context so we manually set the flags.
      */
-    buf = (byte *)global_heap_alloc(MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+    buf = (byte *)global_heap_alloc(nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
     cxt64 = (CONTEXT_64 *)ALIGN_FORWARD(buf, 0x10);
     cxt64->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
     if (!thread_get_context_64(hthread, cxt64)) {
         LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to get x64 cxt for thread " TIDFMT "\n",
             tid);
         ASSERT_NOT_REACHED();
-        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        global_heap_free(buf, nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
         return;
     }
     LOG(GLOBAL, LOG_THREADS, 2,
@@ -2453,7 +2459,7 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
         /* In x86 mode, so not inside the wow64 layer.  Context setting should
          * work fine.
          */
-        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        global_heap_free(buf, nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
         return;
     }
     /* Could be in ntdll or user32 or anywhere a syscall is made, so we don't
@@ -2485,7 +2491,7 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
         data->cxt64 = cxt64;
         data->cxt64_alloc = buf;
     } else {
-        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        global_heap_free(buf, nt_get_context64_size() HEAPACCT(ACCT_THREAD_MGT));
     }
 }
 #    endif
@@ -2495,8 +2501,10 @@ static bool
 os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool suspended)
 {
     bool success = true;
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     ASSERT(tid == thread_id_from_handle(hthread));
     if ((suspended || nt_thread_suspend(hthread, NULL)) &&
         NT_SUCCESS(nt_get_context(hthread, cxt))) {
@@ -2523,6 +2531,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         if (is_in_dynamo_dll((app_pc)cxt->CXT_XIP) ||
             new_thread_is_waiting_for_dr_init(tid, (app_pc)cxt->CXT_XIP)) {
             LOG(GLOBAL, LOG_THREADS, 1, "\tthread " TIDFMT " is already waiting\n", tid);
+            global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
             return true; /* it's waiting for us to take it over */
         }
         /* Avoid double-takeover.
@@ -2558,8 +2567,10 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                  * know if it does.
                  */
                 ASSERT_CURIOSITY(false && "thread takeover context reverted!");
-            } else
+            } else {
+                global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                 return true;
+            }
         } else {
             thread_record_t *tr = thread_lookup(tid);
             data = (takeover_data_t *)global_heap_alloc(sizeof(*data)
@@ -2603,6 +2614,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to suspend/query thread " TIDFMT "\n", tid);
         success = false;
     }
+    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return success;
 }
 
@@ -5145,26 +5157,34 @@ os_thread_terminate(thread_record_t *tr)
 bool
 thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
+    bool res = false;
     if (thread_get_context(tr, cxt)) {
         context_to_mcontext(mc, cxt);
-        return true;
+        res = true;
     }
-    return false;
+    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    return res;
 }
 
 bool
 thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* i#1033: get the context from the dst thread to make sure
      * segments are correctly set.
      */
     thread_get_context(tr, cxt);
     mcontext_to_context(cxt, mc, false /* !set_cur_seg */);
-    return thread_set_context(tr, cxt);
+    bool res = thread_set_context(tr, cxt);
+    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    return res;
 }
 
 bool
@@ -5192,8 +5212,24 @@ thread_set_self_context(void *cxt)
 void
 thread_set_self_mcontext(priv_mcontext_t *mc)
 {
-    char buf[MAX_CONTEXT_SIZE];
-    CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
+    /* We can't use heap for our CONTEXT as we have no opportunity to free it.
+     * We assume call paths can handle a large stack buffer as size something
+     * larger than the largest Win10 x64 CONTEXT at this time, which is 3375 bytes.
+     */
+    char buf[4096];
+    DWORD cxt_flags = CONTEXT_DR_STATE;
+    size_t bufsz = nt_get_context_size(cxt_flags);
+    CONTEXT *cxt;
+    if (bufsz > sizeof(buf)) {
+        /* Fallback: leak memory rather than failing.
+         * We could conceivably store it in the dcontext for freeing later.
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE("CONTEXT stack buffer too small in %s",
+                                     __FUNCTION__);
+        char *lost = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+        cxt = nt_initialize_context(lost, bufsz, cxt_flags);
+    } else
+        cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* need ss and cs for setting my own context */
     mcontext_to_context(cxt, mc, true /* set_cur_seg */);
     thread_set_self_context(cxt);

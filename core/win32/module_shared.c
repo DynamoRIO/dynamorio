@@ -1200,6 +1200,28 @@ free_library_64(HANDLE lib)
     return (res >= 0);
 }
 
+size_t
+nt_get_context64_size(void)
+{
+    static size_t context64_size;
+    if (context64_size == 0) {
+        uint64 ntdll64_RtlGetExtendedContextLength;
+        int len = 0;
+        uint64 len_param = (uint64)&len;
+        uint64 ntdll64 = get_module_handle_64(L"ntdll.dll");
+        ASSERT(ntdll64 != 0);
+        ntdll64_RtlGetExtendedContextLength =
+            get_proc_address_64(ntdll64, "RtlGetExtendedContextLength");
+        invoke_func64_t args = { ntdll64_RtlGetExtendedContextLength, CONTEXT_XSTATE,
+                                 len_param };
+        NTSTATUS res = switch_modes_and_call(&args);
+        ASSERT(NT_SUCCESS(res));
+        /* Add 16 so we can align it forward to 16. */
+        context64_size = len + 16;
+    }
+    return context64_size;
+}
+
 bool
 thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
 {
