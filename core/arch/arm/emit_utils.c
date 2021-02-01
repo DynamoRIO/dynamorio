@@ -980,6 +980,17 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
                      (ptr_uint_t *)&ibl_code->target_delete_entry);
+
+    /* i#4665: We speculatively add a restore for next fragment tag to r2. This can be
+     * tested on ibl-stress test. But that hasn't been ported to ARM yet, and we do not
+     * have an ARM machine available.
+     */
+    ASSERT_NOT_TESTED();
+    APP(&ilist,
+        INSTR_CREATE_ldr(
+            dc, opnd_create_reg(DR_REG_R2),
+            OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
+
     /* We just executed the hit path, so the app's r1 and r2 values are still in
      * their TLS slots, and &linkstub is still in the r3 slot.
      */
