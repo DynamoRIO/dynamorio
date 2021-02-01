@@ -891,23 +891,14 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      * will be restored by the fragment prefix.
      */
 
+    /* Recover app's original x2. */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
+
     /* ldr x0, [x1, #start_pc_fragment_offset] */
     APP(&ilist,
         INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_X0),
                          OPND_CREATE_MEMPTR(
                              DR_REG_X1, offsetof(fragment_entry_t, start_pc_fragment))));
-
-    /* Save next_tag value from r2 to r1. We may need to store it into dcontext in the
-     * target_delete_entry case. We use r1 because it is restored in the fragment prefix,
-     * therefore can be used as scratch that survives till the invocation of the
-     * target_delete_entry gencode.
-     */
-    APP(&ilist,
-        XINST_CREATE_move(dc, opnd_create_reg(DR_REG_R1), opnd_create_reg(DR_REG_R2)));
-
-    /* Recover app's original x2. */
-    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG2_SLOT));
-
     /* br x0
      * (keep in sync with instr_is_ibl_hit_jump())
      */
@@ -962,11 +953,11 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                      0 /* beginning of instruction */,
                      (ptr_uint_t *)&ibl_code->target_delete_entry);
 
-    /* Get back next_tag's value previously saved in r1 by lookup code. This will be
-     * stored in dcontext below.
-     */
+    /* Load next_tag from table entry. */
     APP(&ilist,
-        XINST_CREATE_move(dc, opnd_create_reg(DR_REG_R2), opnd_create_reg(DR_REG_R1)));
+        INSTR_CREATE_ldr(
+            dc, opnd_create_reg(DR_REG_R2),
+            OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
 
     APP(&ilist, miss);
 
