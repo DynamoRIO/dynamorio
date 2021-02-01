@@ -190,6 +190,8 @@ Further non-compatibility-affecting changes include:
  - Added instr_is_exclusive_load().
  - Added XINST_CREATE_store_pair() and XINST_CREATE_load_pair().
  - Added instr_replace_reg_resize() and opnd_replace_reg_resize().
+ - Added #DRX_COUNTER_REL_ACQ flag to optionally enable release-acquire semantics for
+   drx_insert_counter_update() on AArchXX.
 
 **************************************************
 <hr>

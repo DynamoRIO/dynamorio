@@ -660,6 +660,10 @@ enum {
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
 #define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
 /* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INST_CREATE_stlr(dc, mem, rt)                                   \
+    instr_create_1dst_3src(dc, OP_stlr, mem, rt, OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
 #define INSTR_CREATE_stxr(dc, mem, rs, rt) \
     instr_create_2dst_2src(dc, OP_stxr, mem, rs, rt, OPND_CREATE_INT(0x1f))
 /* TODO i#4532: Remove these superfluous 0x1f non-operands. */
