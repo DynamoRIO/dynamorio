@@ -959,6 +959,14 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
             dc, opnd_create_reg(DR_REG_R2),
             OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
 
+    /* Store &linkstub_ibl_deleted in r0, instead of last exit linkstub by skipped code
+     * below.
+     */
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
+                                     opnd_create_reg(DR_REG_R0), &ilist, NULL, NULL,
+                                     NULL);
+    APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(unlinked)));
+
     APP(&ilist, miss);
 
     /* Recover the dcontext->last_exit to x0 */

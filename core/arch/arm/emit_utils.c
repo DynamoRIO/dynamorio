@@ -981,7 +981,12 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
                      0 /* beginning of instruction */,
                      (ptr_uint_t *)&ibl_code->target_delete_entry);
 
-    /* i#4665: We speculatively add a restore for next fragment tag to r2. This can be
+    /* We just executed the hit path, so the app's r1 and r2 values are still in
+     * their TLS slots, and &linkstub is still in the r3 slot.
+     */
+
+    /* i#4665: We speculatively store next fragment tag in r2 (stored in dcontext later)
+     * and &linkstub_ibl_deleted in r1 (passed to fcache_return via r0 later). This can be
      * tested on ibl-stress test. But that hasn't been ported to ARM yet, and we do not
      * have an ARM machine available.
      */
@@ -990,10 +995,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
         INSTR_CREATE_ldr(
             dc, opnd_create_reg(DR_REG_R2),
             OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
-
-    /* We just executed the hit path, so the app's r1 and r2 values are still in
-     * their TLS slots, and &linkstub is still in the r3 slot.
-     */
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
+                                     opnd_create_reg(DR_REG_R1), &ilist, NULL, NULL,
+                                     NULL);
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R0, TLS_REG0_SLOT));
 
     /* Unlink path: entry from stub */
     APP(&ilist, unlinked);
