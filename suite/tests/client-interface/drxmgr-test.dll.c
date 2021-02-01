@@ -49,6 +49,10 @@ static uint counterA;
 static uint counterB;
 #if defined(AARCH64)
 static uint64 counterC;
+static uint64 counterD;
+#endif
+#if defined(AARCHXX)
+static uint counterE;
 #endif
 
 static void
@@ -60,6 +64,10 @@ event_exit(void)
     CHECK(counterB == 3 * counterA, "counter inc messed up");
 #if defined(AARCH64)
     CHECK(counterC == 3 * counterA, "64-bit counter inc messed up");
+    CHECK(counterD == 3 * counterA, "64-bit counter inc with acq_rel messed up");
+#endif
+#if defined(AARCHXX)
+    CHECK(counterE == 3 * counterA, "32-bit counter inc with acq_rel messed up");
 #endif
     dr_fprintf(STDERR, "event_exit\n");
 }
@@ -78,6 +86,12 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #if defined(AARCH64)
     drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX + 1, SPILL_SLOT_MAX + 1,
                               &counterC, 3, DRX_COUNTER_64BIT);
+    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX + 1, SPILL_SLOT_MAX + 1,
+                              &counterD, 3, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ);
+#endif
+#if defined(AARCHXX)
+    drx_insert_counter_update(drcontext, bb, inst, SPILL_SLOT_MAX + 1, SPILL_SLOT_MAX + 1,
+                              &counterE, 3, DRX_COUNTER_REL_ACQ);
 #endif
     return DR_EMIT_DEFAULT;
 }

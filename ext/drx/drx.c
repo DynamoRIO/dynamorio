@@ -558,11 +558,12 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
      * address being near this one, and add to reg1 instead of
      * taking 2 instrs to load it fresh.
      */
-    /* update counter */
+    /* Update the counter either with release-acquire semantics (when the
+     * DRX_COUNTER_REL_ACQ flag is on) or without any barriers.
+     */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr, opnd_create_reg(reg1),
                                      ilist, where, NULL, NULL);
     if (TEST(DRX_COUNTER_REL_ACQ, flags)) {
-        /* Release-acquire semantics for counter update. */
 #    ifdef AARCH64
         MINSERT(ilist, where,
                 INSTR_CREATE_ldar(drcontext, opnd_create_reg(reg2),
