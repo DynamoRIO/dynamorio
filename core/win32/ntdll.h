@@ -1458,6 +1458,10 @@ nt_terminate_process(HANDLE hprocess, NTSTATUS exit_code);
 NTSTATUS
 nt_terminate_process_for_app(HANDLE hprocess, NTSTATUS exit_code);
 
+NTSTATUS
+nt_set_information_process_for_app(HANDLE hprocess, PROCESSINFOCLASS class, void *info,
+                                   ULONG info_len);
+
 bool
 am_I_sole_thread(HANDLE hthread, int *amI /*OUT*/);
 

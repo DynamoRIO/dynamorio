@@ -71,6 +71,8 @@ void
 test_SSE2(void);
 void
 test_mangle_seg(void);
+void
+test_jecxz(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
@@ -283,6 +285,9 @@ main(int argc, char *argv[])
 
     /* i#1493: segment register mangling */
     test_mangle_seg();
+
+    /* i#4680: Test jecxz mangling. */
+    test_jecxz();
 
 #    ifdef UNIX
     free(sigstack.ss_sp);
@@ -811,6 +816,20 @@ GLOBAL_LABEL(FUNCNAME:)
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         ret
         END_FUNC(FUNCNAME)
+
+#undef FUNCNAME
+#define FUNCNAME test_jecxz
+        /* i#4680: test jecxz mangling code */
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        END_PROLOG
+        jecxz    jecxz_zero
+        nop
+jecxz_zero:
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        ret
+        END_FUNC(FUNCNAME)
+
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */

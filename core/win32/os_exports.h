@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -623,8 +623,11 @@ get_private_peb(void);
 /* these 2 do not cover SWAP_TEB_STACK{LIMIT,BASE}() which are separate */
 bool
 should_swap_peb_pointer(void);
+/* Does not cover TEB.ThreadLocalStoragePointer (use should_swap_teb_static_tls()). */
 bool
 should_swap_teb_nonstack_fields(void);
+bool
+should_swap_teb_static_tls(void);
 void
 loader_pre_client_thread_exit(dcontext_t *dcontext);
 #endif
