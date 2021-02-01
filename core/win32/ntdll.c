@@ -5299,12 +5299,29 @@ initialize_known_SID(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority, ULONG SubAut
     pSid->SubAuthority[0] = SubAuthority0;
 }
 
+/* Use nt_get_context64_size() from 32-bit for the 64-bit max size. */
+size_t
+nt_get_context_size(DWORD flags)
+{
+    /* Moved out of nt_initialize_context():
+     *   8d450c          lea     eax,[ebp+0Ch]
+     *   50              push    eax
+     *   57              push    edi
+     *   ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
+     */
+    int len;
+    int res = ntdll_RtlGetExtendedContextLength(flags, &len);
+    ASSERT(res >= 0);
+    /* Add 16 so we can align it forward to 16. */
+    return len + 16;
+}
+
 /* Initialize the buffer as CONTEXT with extension and return the pointer
  * pointing to the start of CONTEXT.
- * Assume buffer size is MAX_CONTEXT_SIZE;
+ * Normally buf_len would come from nt_get_context_size(flags).
  */
 CONTEXT *
-nt_initialize_context(char *buf, DWORD flags)
+nt_initialize_context(char *buf, size_t buf_len, DWORD flags)
 {
     /* Ideally, kernel32!InitializeContext is used to setup context.
      * However, DR should NEVER use kernel32. DR never uses anything in
@@ -5313,15 +5330,8 @@ nt_initialize_context(char *buf, DWORD flags)
     CONTEXT *cxt;
     if (TESTALL(CONTEXT_XSTATE, flags)) {
         context_ex_t *cxt_ex;
-        int len, res;
+        int res;
         ASSERT(proc_avx_enabled());
-        /* 8d450c          lea     eax,[ebp+0Ch]
-         * 50              push    eax
-         * 57              push    edi
-         * ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
-         */
-        res = ntdll_RtlGetExtendedContextLength(flags, &len);
-        ASSERT(res >= 0 && len <= MAX_CONTEXT_SIZE);
         /* 8d45fc          lea     eax,[ebp-4]
          * 50              push    eax
          * 57              push    edi
@@ -5337,7 +5347,7 @@ nt_initialize_context(char *buf, DWORD flags)
         cxt = (CONTEXT *)ntdll_RtlLocateLegacyContext(cxt_ex, 0);
         ASSERT(context_check_extended_sizes(cxt_ex, flags));
         ASSERT(cxt != NULL && (char *)cxt >= buf &&
-               (char *)cxt + cxt_ex->all.length < buf + MAX_CONTEXT_SIZE);
+               (char *)cxt + cxt_ex->all.length < buf + buf_len);
     } else {
         /* make it 16-byte aligned */
         cxt = (CONTEXT *)(ALIGN_FORWARD(buf, 0x10));
