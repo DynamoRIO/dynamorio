@@ -929,6 +929,20 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Hit path */
     /* XXX: add stats via sharing code with x86 */
+
+    /* Save next fragment tag to TLS_REG4_SLOT in case it is needed for the
+     * target_delete_entry path.
+     * XXX: Instead of using a TLS slot, it will be more performant for the hit path to
+     * let the table pointer be passed to the target_delete_entry code using r0, which
+     * can then be used to load the next fragment tag there. For this, we'll need to
+     * use r0 for the table pointer here, and use load-into-PC for the jump below.
+     */
+    APP(&ilist,
+        INSTR_CREATE_ldr(
+            dc, OPREG(DR_REG_R0),
+            OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R0, TLS_REG4_SLOT));
+
     APP(&ilist,
         INSTR_CREATE_ldr(dc, OPREG(DR_REG_R0),
                          OPND_CREATE_MEMPTR(
@@ -984,17 +998,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* We just executed the hit path, so the app's r1 and r2 values are still in
      * their TLS slots, and &linkstub is still in the r3 slot.
      */
-
-    /* i#4665: We speculatively store next fragment tag in r2 (stored in dcontext later)
-     * and &linkstub_ibl_deleted in r1 (passed to fcache_return via r0 later). This can be
-     * tested on ibl-stress test. But that hasn't been ported to ARM yet, and we do not
-     * have an ARM machine available.
-     */
-    ASSERT_NOT_TESTED();
-    APP(&ilist,
-        INSTR_CREATE_ldr(
-            dc, opnd_create_reg(DR_REG_R2),
-            OPND_CREATE_MEMPTR(DR_REG_R1, offsetof(fragment_entry_t, tag_fragment))));
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
     instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
                                      opnd_create_reg(DR_REG_R1), &ilist, NULL, NULL,
                                      NULL);
