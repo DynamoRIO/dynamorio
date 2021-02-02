@@ -132,8 +132,9 @@ drx_aflags_are_dead(instr_t *where);
 
 /** Flags for \p drx_insert_counter_update */
 enum {
-    DRX_COUNTER_64BIT = 0x01, /**< 64-bit counter is used for update. */
-    DRX_COUNTER_LOCK = 0x10,  /**< Counter update is atomic. */
+    DRX_COUNTER_64BIT = 0x01,   /**< 64-bit counter is used for update. */
+    DRX_COUNTER_REL_ACQ = 0x02, /**< Release-acquire semantics for counter update. */
+    DRX_COUNTER_LOCK = 0x10,    /**< Counter update is atomic. */
 };
 
 DR_EXPORT
@@ -159,8 +160,10 @@ DR_EXPORT
  * \note The counter update is racy (i.e., not synchronized among threads)
  * unless #DRX_COUNTER_LOCK is specified in \p flags. When #DRX_COUNTER_LOCK
  * is set, the instrumentation may fail if a 64-bit counter is updated in
- * a 32-bit application or the counter crosses cache lines. Currently,
- * #DRX_COUNTER_LOCK is not yet supported on ARM.
+ * a 32-bit application or the counter crosses cache lines. Currently, #DRX_COUNTER_LOCK
+ * is not yet supported on AArchXX. For AArchXX, if #DRX_COUNTER_REL_ACQ is specified in
+ * \p flags, release-acquire semantics are enforced for the counter update. The
+ * #DRX_COUNTER_REL_ACQ flag can be used in conjunction with #DRX_COUNTER_64BIT.
  *
  * \note To update multiple counters at the same place, multiple
  * drx_insert_counter_update() invocations should be made in a row with the

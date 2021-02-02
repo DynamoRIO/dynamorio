@@ -1320,10 +1320,10 @@ static bool tracing_enabled;
 static volatile bool tracing_scheduled;
 static void *schedule_tracing_lock;
 
-#ifdef X86_64
+#if defined(X86_64) || defined(AARCH64)
 #    define DELAYED_CHECK_INLINED 1
 #else
-// XXX i#4487: we don't have the inlining implemented yet.
+/* XXX we don't have the inlining implemented yet for 32-bit architectures. */
 #endif
 
 static dr_emit_flags_t
@@ -1448,12 +1448,16 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     num_instrs = (uint)(ptr_uint_t)user_data;
     drmgr_disable_auto_predication(drcontext, bb);
 #ifdef DELAYED_CHECK_INLINED
-#    ifdef X86_64
+#    if defined(X86_64) || defined(AARCH64)
+    instr_t *skip_call = INSTR_CREATE_label(drcontext);
+#        ifdef X86_64
     if (!drx_insert_counter_update(drcontext, bb, instr,
                                    (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
                                    &instr_count, num_instrs, DRX_COUNTER_64BIT))
         DR_ASSERT(false);
-    instr_t *skip_call = INSTR_CREATE_label(drcontext);
+
+    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve aflags");
     reg_id_t scratch = DR_REG_NULL;
     if (op_trace_after_instrs.get_value() < INT_MAX) {
         MINSERT(bb, instr,
@@ -1469,20 +1473,77 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                                  opnd_create_reg(scratch)));
     }
     MINSERT(bb, instr, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
+#        elif defined(AARCH64)
+    if (!drx_insert_counter_update(drcontext, bb, instr,
+                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
+                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1), &instr_count,
+                                   num_instrs, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
+        DR_ASSERT(false);
+
+    reg_id_t scratch1, scratch2;
+    if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) != DRREG_SUCCESS ||
+        drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve scratch registers and aflags");
+
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
+                                     opnd_create_reg(scratch1), bb, instr, NULL, NULL);
+    MINSERT(bb, instr,
+            XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
+                              OPND_CREATE_MEMPTR(scratch1, 0)));
+    instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
+                                     opnd_create_reg(scratch1), bb, instr, NULL, NULL);
+    MINSERT(bb, instr,
+            XINST_CREATE_cmp(drcontext, opnd_create_reg(scratch2),
+                             opnd_create_reg(scratch1)));
+    MINSERT(bb, instr,
+            XINST_CREATE_jump_cond(drcontext, DR_PRED_LT, opnd_create_instr(skip_call)));
+#        endif
+
+    /* hit_instr_count_threshold does not always return. Restore scratch registers and
+     * aflags.
+     */
+#        ifdef X86_64
+    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
+                                        NULL);
+    if (scratch != DR_REG_NULL) {
+        drreg_statelessly_restore_app_value(drcontext, bb, scratch, instr, instr, NULL,
+                                            NULL);
+    }
+#        elif defined(AARCH64)
+    drreg_statelessly_restore_app_value(drcontext, bb, scratch1, instr, instr, NULL,
+                                        NULL);
+    drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
+                                        NULL);
+    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
+                                        NULL);
+#        endif
     dr_insert_clean_call(drcontext, bb, instr, (void *)hit_instr_count_threshold,
                          false /*fpstate */, 1,
                          OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
     MINSERT(bb, instr, skip_call);
+
+#        ifdef X86_64
+    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        DR_ASSERT(false);
     if (scratch != DR_REG_NULL) {
         if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
             DR_ASSERT(false);
     }
+#        elif defined(AARCH64)
+    if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS ||
+        drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+#        endif
 #    else
 #        error NYI
 #    endif
 #else
-    // XXX: drx_insert_counter_update doesn't support 64-bit, and there's no
-    // XINST_CREATE_load_8bytes.  For now we pay the cost of a clean call every time.
+    /* XXX: drx_insert_counter_update doesn't support 64-bit counters for ARM_32, and
+     * inlining of check_instr_count_threshold is not implemented for i386. For now we pay
+     * the cost of a clean call every time for 32-bit architectures.
+     */
     dr_insert_clean_call(drcontext, bb, instr, (void *)check_instr_count_threshold,
                          false /*fpstate */, 2, OPND_CREATE_INT32(num_instrs),
                          OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));

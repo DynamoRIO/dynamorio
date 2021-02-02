@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1773,6 +1773,8 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL, 0,
                                                          NLS_CACHE_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
+    }
+    if (should_swap_teb_static_tls()) {
         /* We also have to swap TEB->ThreadLocalStoragePointer.  Unlike the other
          * fields, we control this private one so we never set it from the TEB field.
          */

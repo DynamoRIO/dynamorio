@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -239,7 +239,6 @@ os_loader_init_prologue(void)
             pre_fls_data = d_r_get_tls(FLS_DATA_TIB_OFFSET);
             pre_nt_rpc = d_r_get_tls(NT_RPC_TIB_OFFSET);
             pre_nls_cache = d_r_get_tls(NLS_CACHE_TIB_OFFSET);
-            pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
             /* Clear state to separate priv from app.
              * XXX: if we attach or something it seems possible that ntdll or user32
              * or some other shared resource might set these and we want to share
@@ -250,13 +249,16 @@ os_loader_init_prologue(void)
             d_r_set_tls(FLS_DATA_TIB_OFFSET, NULL);
             d_r_set_tls(NT_RPC_TIB_OFFSET, NULL);
             d_r_set_tls(NLS_CACHE_TIB_OFFSET, NULL);
-            d_r_set_tls(STATIC_TLS_TIB_OFFSET, NULL);
             LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->FlsData=" PFX "\n",
                 pre_fls_data);
             LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->ReservedForNtRpc=" PFX "\n",
                 pre_nt_rpc);
             LOG(GLOBAL, LOG_LOADER, 2, "initial thread TEB->NlsCache=" PFX "\n",
                 pre_nls_cache);
+        }
+        if (should_swap_teb_static_tls()) {
+            pre_static_tls = d_r_get_tls(STATIC_TLS_TIB_OFFSET);
+            d_r_set_tls(STATIC_TLS_TIB_OFFSET, NULL);
             LOG(GLOBAL, LOG_LOADER, 2,
                 "initial thread TEB->ThreadLocalStoragePointer=" PFX "\n",
                 pre_static_tls);
@@ -404,10 +406,12 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
                 dcontext->app_fls_data = pre_fls_data;
                 dcontext->app_nt_rpc = pre_nt_rpc;
                 dcontext->app_nls_cache = pre_nls_cache;
-                dcontext->app_static_tls = pre_static_tls;
                 d_r_set_tls(FLS_DATA_TIB_OFFSET, dcontext->app_fls_data);
                 d_r_set_tls(NT_RPC_TIB_OFFSET, dcontext->app_nt_rpc);
                 d_r_set_tls(NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
+            }
+            if (should_swap_teb_static_tls()) {
+                dcontext->app_static_tls = pre_static_tls;
                 d_r_set_tls(STATIC_TLS_TIB_OFFSET, dcontext->app_static_tls);
             }
         } else {
@@ -418,11 +422,13 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
                 dcontext->app_fls_data = NULL;
                 dcontext->app_nt_rpc = NULL;
                 dcontext->app_nls_cache = NULL;
-                dcontext->app_static_tls = NULL;
                 /* We assume clearing out any non-NULL value for priv is safe */
                 dcontext->priv_fls_data = NULL;
                 dcontext->priv_nt_rpc = NULL;
                 dcontext->priv_nls_cache = NULL;
+            }
+            if (should_swap_teb_static_tls()) {
+                dcontext->app_static_tls = NULL;
             }
         }
         LOG(THREAD, LOG_LOADER, 2, "app stack limit=" PFX "\n",
@@ -435,6 +441,8 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
                 dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
             LOG(THREAD, LOG_LOADER, 2, "app nls_cache=" PFX ", priv nls_cache=" PFX "\n",
                 dcontext->app_nls_cache, dcontext->priv_nls_cache);
+        }
+        if (should_swap_teb_static_tls()) {
             LOG(THREAD, LOG_LOADER, 2,
                 "app static_tls=" PFX ", priv static_tls=" PFX "\n",
                 dcontext->app_static_tls, dcontext->priv_static_tls);
@@ -524,6 +532,16 @@ bool
 should_swap_teb_nonstack_fields(void)
 {
     return should_swap_peb_pointer();
+}
+
+bool
+should_swap_teb_static_tls(void)
+{
+    /* XXX: Since today we do not support late-loaded priv libs w/ static TLS, we can
+     * make the decision on whether to swap the TEB.ThreadLocalStoragePointer at
+     * init time and avoid a dynamic check in our gencode in preinsert_swap_peb().
+     */
+    return tls_next_idx > 0 && should_swap_teb_nonstack_fields();
 }
 #endif /* CLIENT_INTERFACE */
 
@@ -671,6 +689,8 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
             cur_fls = get_teb_field(dcontext, FLS_DATA_TIB_OFFSET);
             cur_rpc = get_teb_field(dcontext, NT_RPC_TIB_OFFSET);
             cur_nls_cache = get_teb_field(dcontext, NLS_CACHE_TIB_OFFSET);
+        }
+        if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
             cur_static_tls = get_teb_field(dcontext, STATIC_TLS_TIB_OFFSET);
         }
 #endif
@@ -716,6 +736,8 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
                                   dcontext->priv_nls_cache);
                 }
+            }
+            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
                 if (dcontext->priv_static_tls !=
                     cur_static_tls) { /* handle two in a row */
                     dcontext->app_static_tls = cur_static_tls;
@@ -761,6 +783,8 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
                     set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET,
                                   dcontext->app_nls_cache);
                 }
+            }
+            if (TEST(DR_STATE_TEB_MISC, flags) && should_swap_teb_static_tls()) {
                 if (dcontext->app_static_tls !=
                     cur_static_tls) { /* handle two in a row */
                     /* Unlike the other fields, we control this private one so we
@@ -781,6 +805,8 @@ swap_peb_pointer_ex(dcontext_t *dcontext, bool to_priv, dr_state_flags_t flags)
             ASSERT(!is_dynamo_address(dcontext->app_fls_data));
             ASSERT(!is_dynamo_address(dcontext->app_nt_rpc));
             ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
+        }
+        if (should_swap_teb_static_tls()) {
             ASSERT(!is_dynamo_address(dcontext->app_static_tls));
         }
 #endif
@@ -832,6 +858,8 @@ restore_peb_pointer_for_thread(dcontext_t *dcontext)
         set_teb_field(dcontext, NLS_CACHE_TIB_OFFSET, dcontext->app_nls_cache);
         LOG(THREAD, LOG_LOADER, 3, "restored app nls_cache to " PFX "\n",
             dcontext->app_nls_cache);
+    }
+    if (should_swap_teb_static_tls()) {
         set_teb_field(dcontext, STATIC_TLS_TIB_OFFSET, dcontext->app_static_tls);
         LOG(THREAD, LOG_LOADER, 3, "restored app static_tls to " PFX "\n",
             dcontext->app_static_tls);
@@ -2472,7 +2500,10 @@ privload_os_finalize(privmod_t *mod)
     opd->tls_idx = tls_next_idx++;
     if (opd->tls_idx >= TLS_ARRAY_MAX_SIZE ||
         (tls_array_count > 0 && opd->tls_idx >= tls_array_count)) {
-        /* XXX: It is not easy to resize for all threads.  We do not support for now. */
+        /* XXX: It is not easy to resize for all threads.  We do not support for now.
+         * If we do add support, we'll have to turn should_swap_teb_static_tls() into
+         * a dynamic check in our generated code.
+         */
         REPORT_FATAL_ERROR_AND_EXIT(
             PRIVATE_LIBRARY_TLS_LIMIT_CROSSED, 3, get_application_name(),
             get_application_pid(),
