@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -929,6 +929,15 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Hit path */
     /* XXX: add stats via sharing code with x86 */
+
+    /* Save next tag to TLS_REG4_SLOT in case it is needed for the
+     * target_delete_entry path.
+     * XXX: Instead of using a TLS slot, it will be more performant for the hit path to
+     * let the relevant data be passed to the target_delete_entry code using r0 and use
+     * load-into-PC for the jump below.
+     */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
+
     APP(&ilist,
         INSTR_CREATE_ldr(dc, OPREG(DR_REG_R0),
                          OPND_CREATE_MEMPTR(
@@ -975,14 +984,27 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
         APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(load_tag)));
     }
 
-    /* Target delete entry */
+    /* Target delete entry.
+     * We just executed the hit path, so the app's r1 and r2 values are still in
+     * their TLS slots, and &linkstub is still in the r3 slot.
+     */
     APP(&ilist, target_delete_entry);
     add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
                      (ptr_uint_t *)&ibl_code->target_delete_entry);
-    /* We just executed the hit path, so the app's r1 and r2 values are still in
-     * their TLS slots, and &linkstub is still in the r3 slot.
+
+    /* Get the next fragment tag from TLS_REG4_SLOT. Note that this already has
+     * the LSB cleared, so we jump over the following sequence to avoid redoing.
      */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
+
+    /* Save &linkstub_ibl_deleted to TLS_REG3_SLOT; it will be restored to r0 below. */
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
+                                     opnd_create_reg(DR_REG_R1), &ilist, NULL, NULL,
+                                     NULL);
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
+
+    APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(miss)));
 
     /* Unlink path: entry from stub */
     APP(&ilist, unlinked);

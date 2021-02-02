@@ -2895,24 +2895,12 @@ if (CLIENT_INTERFACE)
       # which makes building 150K bbs very slow.
       set(checklevel "-checklevel 0")
     endif ()
-    # TODO i#4665: Fix crash without the -shared_ibt_table_bb_init value.
-    if (AARCH64)
-      tobuild_api(api.ibl-stress api/ibl-stress.c
-        "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 16 ${checklevel}" "" OFF OFF)
 
-      tobuild_api(api.ibl-stress-aarch64-far-link_LONG api/ibl-stress.c
-        "-disable_traces -shared_bb_ibt_tables -shared_ibt_table_bb_init 20 ${checklevel}" "" OFF OFF)
-      append_property_string(TARGET api.ibl-stress-aarch64-far-link_LONG COMPILE_FLAGS
-        "-DTEST_FAR_LINK_AARCH64")
-      set(api.ibl-stress-aarch64-far-link_LONG_timeout 900)
-      use_DynamoRIO_extension(api.ibl-stress-aarch64-far-link_LONG drcontainers)
-      link_with_pthread(api.ibl-stress-aarch64-far-link_LONG)
-    else ()
-      tobuild_api(api.ibl-stress api/ibl-stress.c
-        "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
-    endif ()
+    tobuild_api(api.ibl-stress api/ibl-stress.c
+      "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
     use_DynamoRIO_extension(api.ibl-stress drcontainers)
     link_with_pthread(api.ibl-stress)
+
     if (WIN32)
       # On Windows, somehow linking with drcontainers inserts it and drlibc
       # in front of dynamorio.lib, despite being added to the link list later,
@@ -2923,6 +2911,16 @@ if (CLIENT_INTERFACE)
       get_filename_component(drdir ${drpath} DIRECTORY)
       get_filename_component(drname ${drpath} NAME_WE)
       append_link_flags(api.ibl-stress "${drdir}/${drname}.lib")
+    endif ()
+
+    if (AARCH64)
+      tobuild_api(api.ibl-stress-aarch64-far-link_LONG api/ibl-stress.c
+        "-disable_traces -shared_bb_ibt_tables ${checklevel}" "" OFF OFF)
+      append_property_string(TARGET api.ibl-stress-aarch64-far-link_LONG COMPILE_FLAGS
+        "-DTEST_FAR_LINK_AARCH64")
+      set(api.ibl-stress-aarch64-far-link_LONG_timeout 900)
+      use_DynamoRIO_extension(api.ibl-stress-aarch64-far-link_LONG drcontainers)
+      link_with_pthread(api.ibl-stress-aarch64-far-link_LONG)
     endif ()
   endif ()
 
