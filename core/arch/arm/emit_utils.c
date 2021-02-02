@@ -998,7 +998,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      */
     APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
 
-    /* Save &linkstub_ibl_deleted to TLS_REG3_SLOT; it will be restored to r1 below. */
+    /* Save &linkstub_ibl_deleted to TLS_REG3_SLOT; it will be restored to r0 below. */
     instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
                                      opnd_create_reg(DR_REG_R1), &ilist, NULL, NULL,
                                      NULL);
