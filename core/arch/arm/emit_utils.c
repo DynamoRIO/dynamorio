@@ -930,7 +930,7 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
     /* Hit path */
     /* XXX: add stats via sharing code with x86 */
 
-    /* Save next fragment tag to TLS_REG4_SLOT in case it is needed for the
+    /* Save table pointer to TLS_REG4_SLOT in case it is needed for the
      * target_delete_entry path.
      * XXX: Instead of using a TLS slot, it will be more performant for the hit path to
      * let the table pointer be passed to the target_delete_entry code using r0. For
