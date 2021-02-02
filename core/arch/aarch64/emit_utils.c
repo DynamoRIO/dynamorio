@@ -820,10 +820,16 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      *     TLS_REG1_SLOT: app's x1
      *     TLS_REG2_SLOT: app's x2
      *     TLS_REG3_SLOT: scratch space
-     * There are three entries with the same context:
+     * There are following entries with the same context:
      *     indirect_branch_lookup
-     *     target_delete_entry
      *     unlink_stub_entry
+     * target_delete_entry:
+     *     x0: scratch
+     *     x1: table entry pointer from ibl lookup hit path
+     *     x2: app's x2
+     *     TLS_REG0_SLOT: app's x0
+     *     TLS_REG1_SLOT: app's x1
+     *     TLS_REG2_SLOT: app's x2
      * On miss exit we output:
      *     x0: the dcontext->last_exit
      *     x1: br x1
@@ -832,9 +838,10 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
      *     TLS_REG1_SLOT: app's x1 (recovered by fcache_return)
      * On hit exit we output:
      *     x0: fragment_start_pc (points to the fragment prefix)
-     *     x1: app's x1
+     *     x1: scratch reg
      *     x2: app's x2
-     *     TLS_REG1_SLOT: app's x0 (recovered by fragment_prefix)
+     *     TLS_REG0_SLOT: app's x0 (recovered by fragment_prefix)
+     *     TLS_REG1_SLOT: app's x1 (recovered by fragment_prefix)
      */
 
     /* Spill x0. */
