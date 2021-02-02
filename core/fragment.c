@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -796,7 +796,8 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
      */
     if (dcontext != GLOBAL_DCONTEXT && hashlookup_null_target == NULL) {
         ASSERT(!dynamo_initialized);
-        hashlookup_null_target = get_target_delete_entry_pc(dcontext, table);
+        hashlookup_null_target =
+            PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, table));
 #if !defined(X64) && defined(LINUX)
         /* see comments in x86.asm: we patch to avoid text relocations */
         byte *pc = (byte *)hashlookup_null_handler;
@@ -808,7 +809,6 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
         insert_relative_target(pc + 1, hashlookup_null_target, NOT_HOT_PATCHABLE);
 #    elif defined(ARM)
         /* We use a pc-rel load w/ the data right after the load */
-        /* FIXME i#1551: is our gencode going to switch to Thumb?!? */
         *(byte **)(pc + ARM_INSTR_SIZE) = hashlookup_null_target;
 #    endif
         make_unwritable(page_start, page_end - page_start);
@@ -909,7 +909,8 @@ safely_nullify_tables(dcontext_t *dcontext, ibl_table_t *new_table,
                       fragment_entry_t *table, uint capacity)
 {
     uint i;
-    cache_pc target_delete = get_target_delete_entry_pc(dcontext, new_table);
+    cache_pc target_delete =
+        PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, new_table));
 
     ASSERT(target_delete != NULL);
     ASSERT_TABLE_SYNCHRONIZED(new_table, WRITE);
@@ -3572,7 +3573,8 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
          */
 
         /* FIXME: [perf] we could memoize this value in the table itself */
-        cache_pc pending_delete_pc = get_target_delete_entry_pc(dcontext, ftable);
+        cache_pc pending_delete_pc =
+            PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
 
         ASSERT(IBL_ENTRIES_ARE_EQUAL(*pg, fe));
         ASSERT(pending_delete_pc != NULL);
@@ -4005,7 +4007,8 @@ static void
 dump_lookup_table(dcontext_t *dcontext, ibl_table_t *ftable)
 {
     uint i;
-    cache_pc target_delete = get_target_delete_entry_pc(dcontext, ftable);
+    cache_pc target_delete =
+        PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
 
     ASSERT(target_delete != NULL);
     ASSERT(ftable->table != NULL);
