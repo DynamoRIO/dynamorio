@@ -1103,5 +1103,7 @@ ADDRTAKEN_LABEL(check_xsp_immed_plus_four:)
 #endif /* X86 */
 
 END_FILE
-/* clang-format on */
+/* Not turning clang format back on b/c of a clang-format-diff wart:
+ * https://github.com/DynamoRIO/dynamorio/pull/4708#issuecomment-772854835
+ */
 #endif
