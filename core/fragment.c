@@ -4053,6 +4053,18 @@ is_fragment_index_wraparound(dcontext_t *dcontext, ibl_table_t *ftable, fragment
 }
 #endif /* DEBUG */
 
+void
+fragment_update_ibl_tables(dcontext_t *dcontext)
+{
+    per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
+    DEBUG_DECLARE(bool tables_updated =)
+    update_all_private_ibt_table_ptrs(dcontext, pt);
+    DODEBUG({
+        if (tables_updated)
+            STATS_INC(num_shared_tables_updated_delete);
+    });
+}
+
 static void
 fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
                                ibl_table_t *ibl_table)

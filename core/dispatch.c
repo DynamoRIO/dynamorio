@@ -1133,6 +1133,12 @@ dispatch_exit_fcache(dcontext_t *dcontext)
          */
         SELF_PROTECT_LOCAL(dcontext, READONLY);
     } /* LINKSTUB_INDIRECT */
+    else if (dcontext->last_exit == get_ibl_deleted_linkstub()) {
+        /* We don't know which table it was, so we update all of them.  Otherwise
+         * we'll keep coming back here on hits in the outdated table.
+         */
+        fragment_update_ibl_tables(dcontext);
+    }
 
     /* ref bug 2323, we need monitor to restore last fragment now,
      * before we break out of the loop to build a new fragment

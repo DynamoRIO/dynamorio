@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -514,6 +514,8 @@ STATS_DEF("Dead shared IBT tables freed: at exit",
 STATS_DEF("Shared IBT tables freed: immediately", num_shared_ibt_tables_freed_immediately)
 STATS_DEF("Pvt ptrs to shared tables updated at-sys walks",
           num_shared_tables_updated_atsyscall)
+STATS_DEF("Pvt ptrs to shared tables updated at delete exits",
+          num_shared_tables_updated_delete)
 STATS_DEF("IBT unlinked entries NOT moved on resize", num_ibt_unlinked_entries_not_moved)
 STATS_DEF("BB fragments in 3 IBL tables", num_bbs_in_3_ibl_tables)
 STATS_DEF("BB fragments in 2 IBL tables", num_bbs_in_2_ibl_tables)
