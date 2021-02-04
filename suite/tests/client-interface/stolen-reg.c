@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
 
 #include "tools.h"
 #include "thread.h"
+#include <stdatomic.h>
 #include <stdio.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -48,7 +49,8 @@
 static SIGJMP_BUF mark;
 static int sigsegv_count;
 
-static volatile int thread_finished;
+static atomic_bool thread_finished;
+static atomic_bool ready_for_thread;
 
 static uintptr_t
 get_stolen_reg_val(void)
@@ -131,6 +133,12 @@ cause_sigsegv(void)
 THREAD_FUNC_RETURN_TYPE
 thread_func(void *arg)
 {
+    while (!atomic_load_explicit(&ready_for_thread, memory_order_acquire)) {
+        /* We can't use cond var helpers b/c the main thread can't make calls.
+         * Thus we just spin for simplicity, but we use release-acquire ordering
+         * to ensure no load-store reordering.
+         */
+    }
     /* The stolen-reg.dll.c client looks for this exact sequence of instructions. */
 #if defined(AARCH64)
     __asm__ __volatile__("mov x28, #" STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
@@ -149,7 +157,7 @@ thread_func(void *arg)
 #else
 #    error Unsupported arch
 #endif
-    thread_finished = 1;
+    atomic_store_explicit(&thread_finished, true, memory_order_release);
     return THREAD_FUNC_RETURN_ZERO;
 }
 
@@ -182,8 +190,9 @@ main(int argc, char **argv)
 
     /* Now test synchall from another thread (the initiating thread does not
      * hit the i#4495 issue).
-     * The stolen-reg.dll.c client looks for this exact sequence of instructions.
      */
+    thread_t thread = create_thread(thread_func, NULL);
+    /* The stolen-reg.dll.c client looks for this exact sequence of instructions. */
 #if defined(AARCH64)
     __asm__ __volatile__("mov x28, #" STRINGIFY(STOLEN_REG_SENTINEL) "\n\t"
                                                                      "mov x0, #0\n\t"
@@ -201,9 +210,12 @@ main(int argc, char **argv)
 #else
 #    error Unsupported arch
 #endif
-
-    thread_t thread = create_thread(thread_func, NULL);
-    while (!thread_finished) {
+    /* Avoid making calls or anything that might save+restore the stolen reg between
+     * the asm and this loop; else we risk test failure (i#4671). Thus we
+     * use atomics for inlined release-acquire to ensure no load-store reordering.
+     */
+    atomic_store_explicit(&ready_for_thread, true, memory_order_release);
+    while (!atomic_load_explicit(&thread_finished, memory_order_acquire)) {
         /* We need to ensure we're *translated* which won't always happen if we're sitting
          * at a syscall.  So we deliberately spin.
          */
