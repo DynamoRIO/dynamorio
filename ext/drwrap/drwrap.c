@@ -1931,8 +1931,19 @@ drwrap_in_callee(void *arg1, reg_t xsp _IF_NOT_X86(reg_t lr))
                 break; /* we do need a post-call hook */
             }
         }
-        if (intercept_post && wrapcxt.retaddr != NULL)
+        if (intercept_post && wrapcxt.retaddr != NULL) {
+            if (!TEST(DRWRAP_REPLACE_RETADDR, wrap->flags))
+                /* i#4607: drwrap_ensure_postcall may not return. Thus, we
+                 * should decrement wrap_level, so, it won't be incremented
+                 * again in drwrap_in_callee. We reproduce the behavior prior to
+                 * 9bb0354 commit.
+                 */
+                --pt->wrap_level;
             drwrap_ensure_postcall(drcontext, pt, wrap, &wrapcxt, decorated_pc);
+            if (!TEST(DRWRAP_REPLACE_RETADDR, wrap->flags))
+                /* i#4607: Restore wrap_level. */
+                ++pt->wrap_level;
+        }
     }
 
     pt->last_wrap_func[pt->wrap_level] = decorated_pc;
