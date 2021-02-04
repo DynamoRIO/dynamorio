@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -83,7 +83,7 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[]);
  *
  * \return the opened file id.
  */
-typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flag);
+typedef file_t (*drmemtrace_open_file_func_t)(const char *fname, uint mode_flags);
 
 /**
  * Function for file read.
