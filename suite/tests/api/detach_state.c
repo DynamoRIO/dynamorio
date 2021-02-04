@@ -658,16 +658,16 @@ START_FILE
         stp      x4, x5, [sp, #-16]! @N@\
         stp      x2, x3, [sp, #-16]! @N@\
         stp      x0, x1, [sp, #-16]!
-#        define PUSHALL                         \
+#    define PUSHALL \
         PUSH_GPRS
         /* TODO i#4698: Push and check SIMD regs. */
-#        define PUSH_CALLEE_SAVED \
-        stp      x28, x29, [sp, #-16]! @N@\
-        stp      x26, x27, [sp, #-16]! @N@\
-        stp      x24, x25, [sp, #-16]! @N@\
-        stp      x22, x23, [sp, #-16]! @N@\
-        stp      x20, x21, [sp, #-16]! @N@\
-        stp      x19, x30, [sp, #-16]!
+#    define PUSH_CALLEE_SAVED \
+        stp      x29, x30, [sp, #-16]! @N@\
+        stp      x27, x28, [sp, #-16]! @N@\
+        stp      x25, x26, [sp, #-16]! @N@\
+        stp      x23, x24, [sp, #-16]! @N@\
+        stp      x21, x22, [sp, #-16]! @N@\
+        stp      x19, x20, [sp, #-16]!
 #    define POP_GPRS \
         ldp      x0, x1, [sp], #16 @N@\
         ldp      x2, x3, [sp], #16 @N@\
@@ -685,16 +685,16 @@ START_FILE
         ldp      x26, x27, [sp], #16 @N@\
         ldp      x28, x29, [sp], #16 @N@\
         ldp      x30, x0, [sp], #16
-#        define POPALL                 \
+#    define POPALL \
         POP_GPRS
         /* TODO i#4698: Pop SIMD regs. */
-#        define POP_CALLEE_SAVED \
-        ldp      x19, x30, [sp], #16 @N@\
-        ldp      x20, x21, [sp], #16 @N@\
-        ldp      x22, x23, [sp], #16 @N@\
-        ldp      x24, x25, [sp], #16 @N@\
-        ldp      x26, x27, [sp], #16 @N@\
-        ldp      x28, x29, [sp], #16
+#    define POP_CALLEE_SAVED \
+        ldp      x19, x20, [sp], #16 @N@\
+        ldp      x21, x22, [sp], #16 @N@\
+        ldp      x23, x24, [sp], #16 @N@\
+        ldp      x25, x26, [sp], #16 @N@\
+        ldp      x27, x28, [sp], #16 @N@\
+        ldp      x29, x30, [sp], #16
 #endif
 
 DECL_EXTERN(sideline_exit)
