@@ -250,8 +250,10 @@ d_r_dispatch(dcontext_t *dcontext)
 bool
 is_stopping_point(dcontext_t *dcontext, app_pc arg_pc)
 {
+#ifdef DR_APP_EXPORTS
     /* TODO i#4720: Find and update other comparisons to function pointers. */
     app_pc pc = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), arg_pc);
+#endif
     if ((arg_pc /*undecorated*/ == BACK_TO_NATIVE_AFTER_SYSCALL &&
          /* case 6253: app may xfer to this "address" in which case pass
           * exception to app
