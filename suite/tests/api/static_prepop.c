@@ -237,5 +237,5 @@ ADDRTAKEN_LABEL(asm_label3:)
 
 
 END_FILE
-/* clang-format on */
+/* Not turning clang format back on b/c of a clang-format-diff wart. */
 #endif
