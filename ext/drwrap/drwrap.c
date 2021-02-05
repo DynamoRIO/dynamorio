@@ -1705,9 +1705,10 @@ set_retaddr_on_stack(reg_t xsp, app_pc value)
     return res;
 }
 
-/* may not return */
+/* May not return. If it doesn't return, it decrements wrap_level and assumes
+ * it's re-starting in-callee. */
 static void
-drwrap_mark_retaddr_for_instru(void *drcontext, app_pc decorated_pc,
+drwrap_mark_retaddr_for_instru(void *drcontext, per_thread_t *pt, app_pc decorated_pc,
                                drwrap_context_t *wrapcxt, bool enabled)
 {
     post_call_entry_t *e;
@@ -1769,6 +1770,10 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc decorated_pc,
             /* ensure we have DR_MC_ALL */
             drwrap_get_mcontext_internal((void *)wrapcxt, DR_MC_ALL);
             wrapcxt->mc->pc = decorated_pc;
+            /* i#4607: We should decrement wrap_level, so, it won't be
+             * incremented again in drwrap_in_callee.
+             */
+            --pt->wrap_level;
             dr_redirect_execution(wrapcxt->mc);
             ASSERT(false, "dr_redirect_execution should not return");
         }
@@ -1851,7 +1856,7 @@ drwrap_ensure_postcall(void *drcontext, per_thread_t *pt, wrap_entry_t *wrap,
         dr_rwlock_write_unlock(post_call_rwlock);
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_unlock(wrap_lock);
-        drwrap_mark_retaddr_for_instru(drcontext, decorated_pc, wrapcxt, enabled);
+        drwrap_mark_retaddr_for_instru(drcontext, pt, decorated_pc, wrapcxt, enabled);
         /* if we come back, re-lookup */
         if (!TEST(DRWRAP_NO_FRILLS, global_flags))
             dr_recurlock_lock(wrap_lock);
