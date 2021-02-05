@@ -2830,10 +2830,8 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (ARM)
 
-  if (NOT AARCHXX) # TODO i#1578: Crashing on AArch64.
-    tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
-    link_with_pthread(api.startstop)
-  endif ()
+  tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
+  link_with_pthread(api.startstop)
   tobuild_api(api.detach api/detach.c "" "" OFF OFF)
   link_with_pthread(api.detach)
   if (LINUX AND X64) # Will take extra work to port to 32-bit.
