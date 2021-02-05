@@ -2830,18 +2830,17 @@ if (CLIENT_INTERFACE)
     endif ()
   endif (ARM)
 
-  if (NOT AARCHXX) # TODO i#1578: Crashing on AArch64.
-    tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
-    link_with_pthread(api.startstop)
-  endif ()
+  tobuild_api(api.startstop api/startstop.c "" "" OFF OFF)
+  link_with_pthread(api.startstop)
   tobuild_api(api.detach api/detach.c "" "" OFF OFF)
   link_with_pthread(api.detach)
-  # TODO: port detach_state to aarchxx
-  if (X86 AND LINUX AND X64) # Will take extra work to port to 32-bit.
+  if (LINUX AND X64) # Will take extra work to port to 32-bit.
     tobuild_api(api.detach_state api/detach_state.c "" "" OFF OFF)
     target_include_directories(api.detach_state PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/api)
     link_with_pthread(api.detach_state)
+    set_source_files_properties(detach_state.c_asm.asm APPEND_LIST PROPERTIES
+      OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/api/detach_state_shared.h")
     if (proc_supports_avx512)
       append_property_string(TARGET api.detach_state COMPILE_FLAGS "${CFLAGS_AVX512}")
       set(api.detach_state_runavx512 1)

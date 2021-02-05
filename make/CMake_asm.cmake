@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -28,11 +29,16 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# we can't put in newlines with cpp so we do it ourselves
+# We can't put in newlines with cpp so we do it ourselves.
 file(READ ${file} string)
 string(REGEX REPLACE
   "\@N\@"
   "\n"
+  string "${string}")
+# Ditto with '#'.
+string(REGEX REPLACE
+  "\@P\@"
+  "#"
   string "${string}")
 # MacOS "cpp -E" on macros with token pasting leaves ## in place!
 # And while "gcc -E" does not, it has the linker warning, so we just
