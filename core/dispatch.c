@@ -248,9 +248,13 @@ d_r_dispatch(dcontext_t *dcontext)
 
 /* returns true if pc is a point at which DynamoRIO should stop interpreting */
 bool
-is_stopping_point(dcontext_t *dcontext, app_pc pc)
+is_stopping_point(dcontext_t *dcontext, app_pc arg_pc)
 {
-    if ((pc == BACK_TO_NATIVE_AFTER_SYSCALL &&
+#ifdef DR_APP_EXPORTS
+    /* TODO i#4720: Find and update other comparisons to function pointers. */
+    app_pc pc = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), arg_pc);
+#endif
+    if ((arg_pc /*undecorated*/ == BACK_TO_NATIVE_AFTER_SYSCALL &&
          /* case 6253: app may xfer to this "address" in which case pass
           * exception to app
           */
@@ -699,6 +703,7 @@ dispatch_enter_native(dcontext_t *dcontext)
         enter_nolinking(dcontext, NULL, true);
     } else {
 #if defined(DR_APP_EXPORTS) || defined(UNIX)
+        dcontext->next_tag = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), dcontext->next_tag);
         dispatch_at_stopping_point(dcontext);
         enter_nolinking(dcontext, NULL, false);
 #else
@@ -1482,9 +1487,10 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             STATS_INC(num_bb_exits);
     });
 
-    LOG(THREAD, LOG_DISPATCH, 2, "%s%s",
-        IF_X64_ELSE(FRAG_IS_32(last_f->flags) ? " (32-bit)" : "", ""),
-        TEST(FRAG_SHARED, last_f->flags) ? " (shared)" : "");
+    LOG(THREAD, LOG_DISPATCH, 2, " %s%s",
+        IF_X86_ELSE(IF_X64_ELSE(FRAG_IS_32(last_f->flags) ? "(32-bit)" : "", ""),
+                    IF_ARM_ELSE(FRAG_IS_THUMB(last_f->flags) ? "(T32)" : "(A32)", "")),
+        TEST(FRAG_SHARED, last_f->flags) ? "(shared)" : "");
     DOLOG(2, LOG_SYMBOLS, {
         char symbuf[MAXIMUM_SYMBOL_LENGTH];
         print_symbolic_address(last_f->tag, symbuf, sizeof(symbuf), true);

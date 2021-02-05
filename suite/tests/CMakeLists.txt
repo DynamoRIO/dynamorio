@@ -2950,10 +2950,8 @@ if (CLIENT_INTERFACE)
     target_link_libraries(api.static_noinit ${libmath})
     tobuild_api(api.static_detach api/static_detach.c "" "" OFF ON)
     target_link_libraries(api.static_detach ${libmath})
-    if (NOT AARCHXX) # TODO i#1578: Crashing on AArch64.
-      tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON)
-      target_link_libraries(api.static_prepop ${libmath})
-    endif ()
+    tobuild_api(api.static_prepop api/static_prepop.c "" "" OFF ON)
+    target_link_libraries(api.static_prepop ${libmath})
 
     if (NOT WIN32)
       tobuild_api(api.static_signal api/static_signal.c "" "" OFF ON)
