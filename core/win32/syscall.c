@@ -1722,7 +1722,8 @@ add_dr_env_failure:
  * first thread).  Retrieves context from thread handle.
  */
 static bool
-not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
+not_first_thread_in_new_process(dcontext_t *dcontext, HANDLE process_handle,
+                                HANDLE thread_handle)
 {
 #ifndef X64
     bool peb_is_32 = is_32bit_process(process_handle);
@@ -1739,12 +1740,12 @@ not_first_thread_in_new_process(HANDLE process_handle, HANDLE thread_handle)
 #endif
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
     CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     bool res = false;
     if (NT_SUCCESS(nt_get_context(thread_handle, cxt)))
         res = !is_first_thread_in_new_process(process_handle, cxt);
-    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return res;
 }
 
@@ -1853,7 +1854,7 @@ presys_ResumeThread(dcontext_t *dcontext, reg_t *param_base)
                 "Not injecting so not setting DR env vars in pid=" PIFX "\n", pid);
             return;
         }
-        if (not_first_thread_in_new_process(process_handle, thread_handle)) {
+        if (not_first_thread_in_new_process(dcontext, process_handle, thread_handle)) {
             LOG(THREAD, LOG_SYSCALLS, 1,
                 "Not first thread so not setting DR env vars in pid=" PIFX "\n", pid);
             return;
@@ -2091,7 +2092,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
              */
             DWORD cxt_flags = CONTEXT_DR_STATE;
             size_t bufsz = nt_get_context_size(cxt_flags);
-            char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+            char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
             CONTEXT *alt_cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             STATS_INC(num_app_setcontext_no_control);
             if (thread_get_context(tr, alt_cxt) &&
@@ -2119,7 +2120,7 @@ presys_SetContextThread(dcontext_t *dcontext, reg_t *param_base)
                 intercept = false;
                 ASSERT_NOT_REACHED();
             }
-            global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
         }
         if (intercept) {
             /* modify the being-set cxt so that we retain control */
@@ -3269,7 +3270,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
     CONTEXT *context;
     CONTEXT *cxt = NULL;
     int res;
@@ -3310,10 +3311,9 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
     ASSERT(cxt != NULL || DYNAMO_OPTION(early_inject)); /* Else, exited above. */
     /* Do the actual injection. */
     if (!maybe_inject_into_process(dcontext, proc_handle, thread_handle, cxt)) {
-        global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+        heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
         return;
     }
-    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     propagate_options_via_env_vars(dcontext, proc_handle, thread_handle);
     if (cxt != NULL) {
         /* injection routine is assuming doesn't have to install cxt */
@@ -3328,6 +3328,7 @@ postsys_CreateUserProcess(dcontext_t *dcontext, reg_t *param_base, bool success)
                                         "Failed to set context of child thread");
         }
     }
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 /* NtGetContextThread */
@@ -3350,7 +3351,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
 
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
 
     /* FIXME : we are going to read/write the context argument which is
      * potentially unsafe, since success it must have been readable when
@@ -3413,7 +3414,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                  * we don't translate other than the pc anyway.
                  */
                 d_r_mutex_unlock(&thread_initexit_lock);
-                global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+                heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                 return;
             }
             xlate_cxt = alt_cxt;
@@ -3483,7 +3484,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         SELF_PROTECT_LOCAL(trec->dcontext, READONLY);
     }
     d_r_mutex_unlock(&thread_initexit_lock);
-    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
 }
 
 /* NtSuspendThread */
@@ -3523,7 +3524,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
         if (!mutex_testlock(&all_threads_lock)) {
             DWORD cxt_flags = CONTEXT_DR_STATE;
             size_t bufsz = nt_get_context_size(cxt_flags);
-            char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+            char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
             CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
             thread_record_t *tr;
             /* know thread isn't holding any of the locks we will need */
@@ -3547,12 +3548,12 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                     LOG(THREAD, LOG_SYNCH, 2,
                         "SuspendThread suspended thread " TIDFMT " at good place\n", tid);
                     SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
-                    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+                    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                     return;
                 }
                 SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
             }
-            global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
         } else {
             LOG(THREAD, LOG_SYNCH, 2,
                 "SuspendThread couldn't get all_threads_lock to test if thread " TIDFMT
