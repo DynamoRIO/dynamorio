@@ -2503,7 +2503,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
     bool success = true;
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
     CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     ASSERT(tid == thread_id_from_handle(hthread));
     if ((suspended || nt_thread_suspend(hthread, NULL)) &&
@@ -2531,7 +2531,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         if (is_in_dynamo_dll((app_pc)cxt->CXT_XIP) ||
             new_thread_is_waiting_for_dr_init(tid, (app_pc)cxt->CXT_XIP)) {
             LOG(GLOBAL, LOG_THREADS, 1, "\tthread " TIDFMT " is already waiting\n", tid);
-            global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+            heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
             return true; /* it's waiting for us to take it over */
         }
         /* Avoid double-takeover.
@@ -2568,7 +2568,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                  */
                 ASSERT_CURIOSITY(false && "thread takeover context reverted!");
             } else {
-                global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+                heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
                 return true;
             }
         } else {
@@ -2614,7 +2614,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to suspend/query thread " TIDFMT "\n", tid);
         success = false;
     }
-    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    heap_free(dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return success;
 }
 
@@ -5159,14 +5159,14 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    char *buf = (char *)heap_alloc(tr->dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
     CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     bool res = false;
     if (thread_get_context(tr, cxt)) {
         context_to_mcontext(mc, cxt);
         res = true;
     }
-    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    heap_free(tr->dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return res;
 }
 
@@ -5175,7 +5175,7 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 {
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
-    char *buf = (char *)global_heap_alloc(bufsz HEAPACCT(ACCT_THREAD_MGT));
+    char *buf = (char *)heap_alloc(tr->dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
     CONTEXT *cxt = nt_initialize_context(buf, bufsz, cxt_flags);
     /* i#1033: get the context from the dst thread to make sure
      * segments are correctly set.
@@ -5183,7 +5183,7 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
     thread_get_context(tr, cxt);
     mcontext_to_context(cxt, mc, false /* !set_cur_seg */);
     bool res = thread_set_context(tr, cxt);
-    global_heap_free(buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
+    heap_free(tr->dcontext, buf, bufsz HEAPACCT(ACCT_THREAD_MGT));
     return res;
 }
 
