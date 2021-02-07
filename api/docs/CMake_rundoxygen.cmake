@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -177,6 +177,11 @@ else ()
   file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/navtree.js string)
   string(REGEX REPLACE
     "\\}\n*$"
+    "${add_logo}\n}"
+    string "${string}")
+  # Doxygen 1.9.1 has this license-end line.
+  string(REGEX REPLACE
+    "\\}\n/\\* @license-end \\*/\n$"
     "${add_logo}\n}"
     string "${string}")
   # While we're here we replace Files and Data Structures, if requested

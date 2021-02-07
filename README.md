@@ -1,6 +1,6 @@
 # DynamoRIO
 
-![DynamoRIO logo](http://www.burningcutlery.com/images/dynamorio/drlogo.png)
+![DynamoRIO logo](http://www.burningcutlery.com/images/dynamorio/drlogo.png?)
 
 ## About DynamoRIO
 
