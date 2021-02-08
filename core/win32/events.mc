@@ -644,6 +644,14 @@ Language=English
 Application %1!s! (%2!s!). Failed to take over all threads after multiple attempts.
 .
 
+MessageId =
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_THREAD_TAKEOVER_TIMED_OUT
+Language=English
+Application %1!s! (%2!s!). Timed out attempting to take over one or more threads. %3!s!
+.
+
 ;#ifdef UNIX
 MessageId =
 Severity = Error
