@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -5025,12 +5025,23 @@ ignorable_system_call_normalized(int num)
     /* Used as a lazy trigger. */
     case SYS_rseq:
 #endif
+#ifdef DEBUG
+#    ifdef MACOS
+    case SYS_open_nocancel:
+#    endif
+#    ifdef SYS_open
+    case SYS_open:
+#    endif
+#endif
         return false;
 #ifdef LINUX
 #    ifdef SYS_readlink
     case SYS_readlink:
 #    endif
     case SYS_readlinkat: return !DYNAMO_OPTION(early_inject);
+#endif
+#ifdef SYS_openat
+    case SYS_openat: return IS_STRING_OPTION_EMPTY(xarch_root);
 #endif
     default:
 #ifdef VMX86_SERVER
@@ -7707,6 +7718,33 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    endif
 #endif
+#ifdef SYS_openat
+    case SYS_openat: {
+        /* XXX: For completeness we might want to replace paths for SYS_open and
+         * possibly others, but SYS_openat is all we need on modern systems so we
+         * limit syscall overhead to this single point for now.
+         */
+        dcontext->sys_param0 = 0;
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        const char *path = (const char *)dcontext->sys_param1;
+        if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(path, false)) {
+            char *buf = heap_alloc(dcontext, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+            string_option_read_lock();
+            snprintf(buf, MAXIMUM_PATH, "%s/%s", INTERNAL_OPTION(xarch_root), path);
+            buf[MAXIMUM_PATH - 1] = '\0';
+            string_option_read_unlock();
+            if (os_file_exists(buf, false)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "SYS_openat: replacing |%s| with |%s|\n",
+                    path, buf);
+                set_syscall_param(dcontext, 1, (reg_t)buf);
+                /* Save for freeing in post. */
+                dcontext->sys_param0 = (reg_t)buf;
+            } else
+                heap_free(dcontext, buf, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+        }
+        break;
+    }
+#endif
 
 #ifdef LINUX
     case SYS_rseq:
@@ -8745,6 +8783,15 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
+
+#    ifdef SYS_openat
+    case SYS_openat:
+        if (dcontext->sys_param0 != 0) {
+            heap_free(dcontext, (void *)dcontext->sys_param0,
+                      MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+        }
+        break;
+#    endif
 
     case SYS_rseq:
         /* Lazy rseq handling. */

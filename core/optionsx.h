@@ -396,6 +396,19 @@ OPTION_DEFAULT_INTERNAL(bool, private_loader,
                                                IF_MACOS_ELSE(false, true)),
                         "use private loader for clients and dependents")
 #        ifdef UNIX
+OPTION_COMMAND_INTERNAL(pathstring_t, xarch_root, EMPTY_STRING, "xarch_root",
+                        {
+                            /* Running under QEMU requires ignoring failure to take
+                             * over QEMU threads at initialization so we bundle it
+                             * here for convenience.
+                             */
+                            if (options->xarch_root[0] != '\0') {
+                                options->ignore_takeover_timeout = true;
+                            }
+                        },
+                        "prefix to add to opened files for emulation; also sets "
+                        "-ignore_takeover_timeout",
+                        STATIC, OP_PCACHE_NOP)
 /* We cannot know the total tls size when allocating tls in os_tls_init,
  * so use the runtime option to control the tls size.
  */
