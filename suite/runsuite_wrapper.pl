@@ -259,7 +259,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.nudge_ex' => 1,
                 'code_api|client.alloc-noreset' => 1, # i#4436
                 'code_api|api.detach_spawn' => 1, # i#2611
-                'code_api|api.static_noclient' => 1,
                 'code_api|api.static_noinit' => 1,
                 );
             $issue_no = "#2145";
