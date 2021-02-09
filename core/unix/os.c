@@ -10056,7 +10056,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     uint i;
     uint num_threads;
     thread_id_t *tids;
-    uint threads_to_signal = 0;
+    uint threads_to_signal = 0, threads_timed_out = 0;
 
     /* We do not want to re-takeover a thread that's in between notifying us on
      * the last call to this routine and getting onto the all_threads list as
@@ -10155,6 +10155,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                        get_application_pid());
             }
             static const int wait_ms = 25;
+            static const int max_attempts = 16;
+            int attempts = 0;
             while (!wait_for_event(records[i].event, wait_ms)) {
                 /* The thread may have exited (i#2601).  We assume no tid re-use. */
                 char task[64];
@@ -10162,6 +10164,22 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 NULL_TERMINATE_BUFFER(task);
                 if (!os_file_exists(task, false /*!is dir*/)) {
                     SYSLOG_INTERNAL_WARNING_ONCE("thread exited while attaching");
+                    break;
+                }
+                if (++attempts > max_attempts) {
+                    if (DYNAMO_OPTION(ignore_takeover_timeout)) {
+                        SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                               get_application_name(), get_application_pid(),
+                               "Continuing since -ignore_takeover_timeout is set.");
+                        ++threads_timed_out;
+                    } else {
+                        SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                               get_application_name(), get_application_pid(),
+                               "Aborting. Use -ignore_takeover_timeout to ignore.");
+                        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
+                                                    get_application_name(),
+                                                    get_application_pid());
+                    }
                     break;
                 }
                 /* Else try again. */
@@ -10187,7 +10205,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     d_r_mutex_unlock(&thread_initexit_lock);
     HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT, PROTECTED);
 
-    return threads_to_signal > 0;
+    ASSERT(threads_to_signal >= threads_timed_out);
+    return (threads_to_signal - threads_timed_out) > 0;
 }
 
 bool
