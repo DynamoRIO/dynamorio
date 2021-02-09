@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,9 @@ defaults:
     shell: bash
 
 jobs:
-  # AArchXX cross-compile with gcc, no tests:
+  # AArchXX cross-compile with gcc, with some tests run under QEMU.
+  # XXX i#4719: As we add more tests, if this job takes too much time we
+  # should split it up.
   aarchxx-cross-compile:
     runs-on: ubuntu-16.04
 
@@ -67,7 +69,7 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu qemu-user
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -432,6 +432,10 @@ endif (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x8
 if (UNIX AND ARCH_IS_X86)
   # Optional cross-compilation for ARM/Linux and ARM/Android if the cross
   # compilers are on the PATH.
+  set(orig_extra_ctest_args ${extra_ctest_args})
+  if (cross_aarchxx_linux_only)
+    set(extra_ctest_args ${extra_ctest_args} INCLUDE_LABEL RUNS_ON_QEMU)
+  endif ()
   set(prev_optional_cross_compile ${optional_cross_compile})
   if (NOT cross_aarchxx_linux_only)
     # For CI cross_aarchxx_linux_only builds, we want to fail on config failures.
@@ -442,7 +446,12 @@ if (UNIX AND ARCH_IS_X86)
   set(ENV{CFLAGS} "") # environment vars do not obey the normal scope rules--must reset
   set(ENV{CXXFLAGS} "")
   set(prev_run_tests ${run_tests})
-  set(run_tests OFF) # build tests but don't run them
+  if (optional_cross_compile)
+    find_program(QEMU_ARM_BINARY qemu-arm "QEMU emulation tool")
+    if (NOT QEMU_ARM_BINARY)
+      set(run_tests OFF) # build tests but don't run them
+    endif ()
+  endif ()
   testbuild_ex("arm-debug-internal-32" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
@@ -454,6 +463,12 @@ if (UNIX AND ARCH_IS_X86)
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF ${arg_package} "")
+  if (optional_cross_compile)
+    find_program(QEMU_AARCH64_BINARY qemu-aarch64 "QEMU emulation tool")
+    if (NOT QEMU_AARCH64_BINARY)
+      set(run_tests OFF) # build tests but don't run them
+    endif ()
+  endif ()
   testbuild_ex("arm-debug-internal-64" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
@@ -467,6 +482,7 @@ if (UNIX AND ARCH_IS_X86)
     " OFF ${arg_package} "")
 
   set(run_tests ${prev_run_tests})
+  set(extra_ctest_args ${orig_extra_ctest_args})
   set(optional_cross_compile ${prev_optional_cross_compile})
 
   # Android cross-compilation and running of tests using "adb shell"

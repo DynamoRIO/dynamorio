@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -292,6 +292,16 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   if (ARM)
     # TODO i#1684: We don't have full support for targeting arm in i386 yet.
     message(FATAL_ERROR "Targeting ARM on i386 is not yet supported: i#1684.")
+  endif ()
+endif ()
+
+# Support for running cross-compiled tests under emulation.
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+  find_program(QEMU_BINARY qemu-${CMAKE_SYSTEM_PROCESSOR} DOC "QEMU emulation tool")
+  if (NOT QEMU_BINARY)
+    message(STATUS "Did not find qemu-${CMAKE_SYSTEM_PROCESSOR}: tests will not run")
+  else ()
+    message(STATUS "Found qemu-${CMAKE_SYSTEM_PROCESSOR} for tests under emulation")
   endif ()
 endif ()
 
