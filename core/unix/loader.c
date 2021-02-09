@@ -1965,7 +1965,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    /* ensure there's space for the brk */
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
                                    privload_check_new_map_bounds,
-                                   privload_map_flags(0 /*!reachable*/));
+                                   privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
@@ -2029,7 +2029,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(
             &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
-            privload_check_new_map_bounds, privload_map_flags(0 /*!reachable*/));
+            privload_check_new_map_bounds,
+            privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself

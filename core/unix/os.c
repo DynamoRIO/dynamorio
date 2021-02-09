@@ -4255,7 +4255,8 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
      * in particular): for low 4GB, easiest to just pass MAP_32BIT (which is
      * low 2GB, but good enough).
      */
-    if (DYNAMO_OPTION(heap_in_lower_4GB) && !TEST(MAP_FILE_FIXED, map_flags))
+    if (DYNAMO_OPTION(heap_in_lower_4GB) &&
+        !TESTANY(MAP_FILE_FIXED | MAP_FILE_APP, map_flags))
         flags |= MAP_32BIT;
 #endif
     /* Allows memory request instead of mapping a file,
