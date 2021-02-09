@@ -3200,8 +3200,13 @@ OPTION(bool, multi_thread_exit,
        "do not guarantee that process exit event callback is invoked single-threaded")
 OPTION(bool, skip_thread_exit_at_exit, "skip thread exit events at process exit")
 #endif
-OPTION(bool, ignore_takeover_timeout,
-       "ignore timeouts trying to take over one or more threads when initializing")
+OPTION(bool, unsafe_ignore_takeover_timeout,
+       "ignore timeouts trying to take over one or more threads when initializing, "
+       "leaving those threads native, which is potentially unsafe")
+OPTION_DEFAULT(uint, takeover_timeout_ms, 30000,
+               "timeout in milliseconds for each thread when taking over at "
+               "initialization/attach.  Reaching a timeout is fatal, unless "
+               "-unsafe_ignore_takeover_timeout is set.")
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 OPTION_NAME(bool, optimize, " synthethic", "set if ANY opts are on")
