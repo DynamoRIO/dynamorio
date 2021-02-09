@@ -892,7 +892,7 @@ privload_locate(const char *name, privmod_t *dep,
         /* First try -xarch_root for emulation. */
         if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
             string_option_read_lock();
-            snprintf(filename, MAXIMUM_PATH, "%s/%s/%s", INTERNAL_OPTION(xarch_root),
+            snprintf(filename, MAXIMUM_PATH, "%s/%s/%s", DYNAMO_OPTION(xarch_root),
                      system_lib_paths[i], name);
             filename[MAXIMUM_PATH - 1] = '\0';
             string_option_read_unlock();
@@ -2012,7 +2012,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(interp, false)) {
             buf = global_heap_alloc(MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
             string_option_read_lock();
-            snprintf(buf, MAXIMUM_PATH, "%s/%s", INTERNAL_OPTION(xarch_root), interp);
+            snprintf(buf, MAXIMUM_PATH, "%s/%s", DYNAMO_OPTION(xarch_root), interp);
             buf[MAXIMUM_PATH - 1] = '\0';
             string_option_read_unlock();
             if (os_file_exists(buf, false)) {

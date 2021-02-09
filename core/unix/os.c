@@ -7730,7 +7730,7 @@ pre_system_call(dcontext_t *dcontext)
         if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(path, false)) {
             char *buf = heap_alloc(dcontext, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
             string_option_read_lock();
-            snprintf(buf, MAXIMUM_PATH, "%s/%s", INTERNAL_OPTION(xarch_root), path);
+            snprintf(buf, MAXIMUM_PATH, "%s/%s", DYNAMO_OPTION(xarch_root), path);
             buf[MAXIMUM_PATH - 1] = '\0';
             string_option_read_unlock();
             if (os_file_exists(buf, false)) {
