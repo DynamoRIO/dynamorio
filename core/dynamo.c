@@ -389,9 +389,14 @@ get_dr_stats(void)
 DYNAMORIO_EXPORT int
 dynamorio_app_init(void)
 {
-    int size;
+    dynamorio_app_init_part_one_options_and_heap();
+    return dynamorio_app_init_part_two_finalize();
+}
 
-    if (dynamo_initialized) {
+void
+dynamorio_app_init_part_one_options_and_heap(void)
+{
+    if (dynamo_initialized || dynamo_heap_initialized) {
         if (standalone_library) {
             REPORT_FATAL_ERROR_AND_EXIT(STANDALONE_ALREADY, 2, get_application_name(),
                                         get_application_pid());
@@ -479,9 +484,7 @@ dynamorio_app_init(void)
 
         /* now exit if nullcalls, now that perfctrs are set up */
         if (INTERNAL_OPTION(nullcalls)) {
-            print_file(main_logfile,
-                       "** nullcalls is set, NOT taking over execution **\n\n");
-            return SUCCESS;
+            return;
         }
 
         LOG(GLOBAL, LOG_TOP, 1, PRODUCT_NAME "'s stack size: %d Kb\n",
@@ -510,7 +513,25 @@ dynamorio_app_init(void)
 #endif
         d_r_heap_init();
         dynamo_heap_initialized = true;
+    }
+}
 
+int
+dynamorio_app_init_part_two_finalize(void)
+{
+    if (!dynamo_heap_initialized) {
+        /* Part one was never called. */
+        return FAILURE;
+    } else if (dynamo_initialized) {
+        if (standalone_library) {
+            REPORT_FATAL_ERROR_AND_EXIT(STANDALONE_ALREADY, 2, get_application_name(),
+                                        get_application_pid());
+        }
+        /* Nop. */
+    } else if (INTERNAL_OPTION(nullcalls)) {
+        print_file(main_logfile, "** nullcalls is set, NOT taking over execution **\n\n");
+        return SUCCESS;
+    } else {
         /* The process start event should be done after d_r_os_init() but before
          * process_control_int() because the former initializes event logging
          * and the latter can kill the process if a violation occurs.
@@ -618,7 +639,7 @@ dynamorio_app_init(void)
          * For now, leave it in there unless thin_client footprint becomes an
          * issue.
          */
-        size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t *);
+        int size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t *);
         all_threads =
             (thread_record_t **)global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
@@ -992,6 +1013,7 @@ standalone_exit(void)
     doing_detach = false;
     standalone_library = false;
     dynamo_initialized = false;
+    dynamo_heap_initialized = false;
 }
 #endif
 

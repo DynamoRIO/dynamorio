@@ -544,6 +544,10 @@ typedef enum {
     MODLOAD_SEPARATE_BSS = 0x0008,
     /* Indicates that the module is being loaded in another process. */
     MODLOAD_SEPARATE_PROCESS = 0x0010,
+    /* For use with elf_loader_map_phdrs().  Avoids MAP_32BIT and other DR-mem-only
+     * distortions for app mappings (e.g., early inject mapping the interpreter).
+     */
+    MODLOAD_IS_APP = 0x0020,
 } modload_flags_t;
 
 /* This function is used for loading non-private libs as well as private. */

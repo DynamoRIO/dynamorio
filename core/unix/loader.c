@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -887,8 +887,19 @@ privload_locate(const char *name, privmod_t *dep,
     if (dep != NULL && privload_search_rpath(dep, true /*runpath*/, name, filename))
         return true;
 
-    /* 5) FIXME: i#460, we use our system paths instead of /etc/ld.so.cache. */
+    /* 5) XXX i#460: We use our system paths instead of /etc/ld.so.cache. */
     for (i = 0; i < NUM_SYSTEM_LIB_PATHS; i++) {
+        /* First try -xarch_root for emulation. */
+        if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
+            string_option_read_lock();
+            snprintf(filename, MAXIMUM_PATH, "%s/%s/%s", DYNAMO_OPTION(xarch_root),
+                     system_lib_paths[i], name);
+            filename[MAXIMUM_PATH - 1] = '\0';
+            string_option_read_unlock();
+            if (os_file_exists(filename, false /*!is_dir*/) &&
+                module_file_has_module_header(filename))
+                return true;
+        }
         snprintf(filename, MAXIMUM_PATH, "%s/%s", system_lib_paths[i], name);
         /* NULL_TERMINATE_BUFFER(filename) */
         filename[MAXIMUM_PATH - 1] = 0;
@@ -1954,7 +1965,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    /* ensure there's space for the brk */
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
                                    privload_check_new_map_bounds,
-                                   privload_map_flags(0 /*!reachable*/));
+                                   privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
     apicheck(exe_map != NULL,
              "Failed to load application.  "
              "Check path and architecture.");
@@ -1992,15 +2003,34 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     reserve_brk(exe_map + exe_ld.image_size +
                 (INTERNAL_OPTION(separate_private_bss) ? PAGE_SIZE : 0));
 
+    /* Initialize DR's options and heap for the -xarch_root option. */
+    dynamorio_app_init_part_one_options_and_heap();
+
     interp = elf_loader_find_pt_interp(&exe_ld);
     if (interp != NULL) {
+        char *buf = NULL;
+        if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(interp, false)) {
+            buf = global_heap_alloc(MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+            string_option_read_lock();
+            snprintf(buf, MAXIMUM_PATH, "%s/%s", DYNAMO_OPTION(xarch_root), interp);
+            buf[MAXIMUM_PATH - 1] = '\0';
+            string_option_read_unlock();
+            if (os_file_exists(buf, false)) {
+                LOG(GLOBAL, LOG_SYSCALLS, 2, "replacing interpreter |%s| with |%s|\n",
+                    interp, buf);
+                interp = buf;
+            }
+        }
         /* Load the ELF pointed at by PT_INTERP, usually ld.so. */
         elf_loader_t interp_ld;
         success = elf_loader_read_headers(&interp_ld, interp);
+        if (buf != NULL)
+            global_heap_free(buf, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(
             &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
-            privload_check_new_map_bounds, privload_map_flags(0 /*!reachable*/));
+            privload_check_new_map_bounds,
+            privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");
         /* On Android, the system loader /system/bin/linker sets itself
@@ -2021,13 +2051,15 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 
     elf_loader_destroy(&exe_ld);
 
-    /* Initialize DR *after* we map the app image.  This is consistent with our
-     * old behavior, and allows the client to do things like call
+    /* Initialize the rest of DR *after* we map the app and interp images.  This is
+     * consistent with our old behavior, and allows the client to do things like call
      * dr_get_proc_address() on the app from dr_client_main().  We let
      * find_executable_vm_areas re-discover the mappings we made for the app and
-     * interp images.
+     * interp images.  We do not do the full init before mapping the interp image
+     * as it complicates recording the mappings for the interp.
      */
-    dynamorio_app_init();
+    if (dynamorio_app_init_part_two_finalize() != SUCCESS)
+        apicheck(false, "Failed to initialize part two.");
 
     LOG(GLOBAL, LOG_TOP, 1, "early injected into app with this cmdline:\n");
     DOLOG(1, LOG_TOP, {
