@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -10154,8 +10154,11 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 SYSLOG(SYSLOG_VERBOSE, INFO_ATTACHED, 3, buf, get_application_name(),
                        get_application_pid());
             }
+            /* We split the wait up so that we'll break early on an exited thread. */
             static const int wait_ms = 25;
-            static const int max_attempts = 16;
+            int max_attempts =
+                /* Integer division rounding down is fine since we always wait 25ms. */
+                DYNAMO_OPTION(takeover_timeout_ms) / wait_ms;
             int attempts = 0;
             while (!wait_for_event(records[i].event, wait_ms)) {
                 /* The thread may have exited (i#2601).  We assume no tid re-use. */
@@ -10167,15 +10170,17 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     break;
                 }
                 if (++attempts > max_attempts) {
-                    if (DYNAMO_OPTION(ignore_takeover_timeout)) {
-                        SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                               get_application_name(), get_application_pid(),
-                               "Continuing since -ignore_takeover_timeout is set.");
+                    if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
+                        SYSLOG(
+                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                            get_application_name(), get_application_pid(),
+                            "Continuing since -unsafe_ignore_takeover_timeout is set.");
                         ++threads_timed_out;
                     } else {
-                        SYSLOG(SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
-                               get_application_name(), get_application_pid(),
-                               "Aborting. Use -ignore_takeover_timeout to ignore.");
+                        SYSLOG(
+                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                            get_application_name(), get_application_pid(),
+                            "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
                         REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
                                                     get_application_name(),
                                                     get_application_pid());
