@@ -1456,8 +1456,6 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                                    &instr_count, num_instrs, DRX_COUNTER_64BIT))
         DR_ASSERT(false);
 
-    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve aflags");
     reg_id_t scratch = DR_REG_NULL;
     if (op_trace_after_instrs.get_value() < INT_MAX) {
         MINSERT(bb, instr,
@@ -1500,19 +1498,11 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                              opnd_create_reg(scratch1)));
     MINSERT(bb, instr,
             XINST_CREATE_jump_cond(drcontext, DR_PRED_LT, opnd_create_instr(skip_call)));
-#        endif
 
     /* hit_instr_count_threshold does not always return. Restore scratch registers and
      * aflags.
      */
-#        ifdef X86_64
-    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
-                                        NULL);
-    if (scratch != DR_REG_NULL) {
-        drreg_statelessly_restore_app_value(drcontext, bb, scratch, instr, instr, NULL,
-                                            NULL);
-    }
-#        elif defined(AARCH64)
+
     drreg_statelessly_restore_app_value(drcontext, bb, scratch1, instr, instr, NULL,
                                         NULL);
     drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
@@ -1526,8 +1516,6 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     MINSERT(bb, instr, skip_call);
 
 #        ifdef X86_64
-    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-        DR_ASSERT(false);
     if (scratch != DR_REG_NULL) {
         if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
             DR_ASSERT(false);
