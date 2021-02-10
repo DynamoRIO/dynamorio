@@ -337,16 +337,18 @@ OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically genera
 #ifdef UNIX
 OPTION_COMMAND(pathstring_t, xarch_root, EMPTY_STRING, "xarch_root",
                {
-                   /* Running under QEMU requires ignoring failure to take
-                    * over QEMU threads at initialization so we bundle it
-                    * here for convenience.
+                   /* Running under QEMU requires timing out and then leaving
+                    * the failed-takeover QEMU thread native, so we bundle that
+                    * here for convenience.  We target the common use case of a
+                    * small app, for which we want a small timeout.
                     */
                    if (options->xarch_root[0] != '\0') {
-                       options->ignore_takeover_timeout = true;
+                       options->unsafe_ignore_takeover_timeout = true;
+                       options->takeover_timeout_ms = 400;
                    }
                },
                "QEMU support: prefix to add to opened files for emulation; also sets "
-               "-ignore_takeover_timeout",
+               "-unsafe_ignore_takeover_timeout and -takeover_timeout_ms 400",
                STATIC, OP_PCACHE_NOP)
 #endif
 
