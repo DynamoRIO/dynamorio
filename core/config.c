@@ -624,21 +624,6 @@ d_r_config_init(void)
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
     config_initialized = true;
-
-#    ifndef NOT_DYNAMORIO_CORE_PROPER
-    /* i#1271: to avoid leaving a stale 1config file behind if this process
-     * crashes w/o a clean exit, we give up on re-reading the file and delete
-     * it now.  It's an anonymous file anyway and not meant for manual updates.
-     * The user could override the dynamic_options by re-specifying in
-     * the option string, if desired, and re-create the 1config manually.
-     */
-    if (config.has_1config) {
-        INFO(2, "deleting config file %s", config.fname_app);
-        os_delete_file(config.fname_app);
-        dynamo_options.dynamic_options = false;
-    }
-    /* we ignore otherarch having 1config */
-#    endif
 }
 
 #    ifndef NOT_DYNAMORIO_CORE_PROPER
@@ -652,6 +637,21 @@ config_heap_init(void)
                                                                 HEAPACCT(ACCT_OTHER));
     config_reread_vals = (config_vals_t *)global_heap_alloc(sizeof(*config_reread_vals)
                                                                 HEAPACCT(ACCT_OTHER));
+
+    /* i#1271: to avoid leaving a stale 1config file behind if this process
+     * crashes w/o a clean exit, we give up on re-reading the file and delete
+     * it now.  It's an anonymous file anyway and not meant for manual updates.
+     * The user could override the dynamic_options by re-specifying in
+     * the option string, if desired, and re-create the 1config manually.
+     * We do this here and not in d_r_config_init() so we can re-read it
+     * after reload_dynamorio() in privload_early_inject().
+     */
+    if (config.has_1config) {
+        INFO(2, "deleting config file %s", config.fname_app);
+        os_delete_file(config.fname_app);
+        dynamo_options.dynamic_options = false;
+    }
+    /* we ignore otherarch having 1config */
 }
 
 void
