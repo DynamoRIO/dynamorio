@@ -4683,11 +4683,9 @@ if (APPLE)
   endif ()
 endif ()
 
-if (X86)
-  if (X64)
-     set_tests_properties(
-       code_api|tool.drcachesim.delay-global
-       code_api|tool.drcacheoff.max-global
-     PROPERTIES LABELS TESTBUG4711)
-  endif ()
+if (X86 AND X64 AND LINUX)
+  set_tests_properties(
+    code_api|tool.drcachesim.delay-global
+    code_api|tool.drcacheoff.max-global
+  PROPERTIES LABELS TESTBUG4711)
 endif ()
