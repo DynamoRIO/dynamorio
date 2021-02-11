@@ -1502,7 +1502,6 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     /* hit_instr_count_threshold does not always return. Restore scratch registers and
      * aflags.
      */
-
     drreg_statelessly_restore_app_value(drcontext, bb, scratch1, instr, instr, NULL,
                                         NULL);
     drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
