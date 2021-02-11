@@ -4682,3 +4682,8 @@ if (APPLE)
       PROPERTIES LABELS OSX)
   endif ()
 endif ()
+
+set_tests_properties(
+  code_api|tool.drcachesim.delay-global
+  code_api|tool.drcacheoff.max-global
+PROPERTIES LABELS TESTBUG4711)
