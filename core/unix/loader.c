@@ -1935,6 +1935,11 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
              "Failed to read app ELF headers.  Check path and "
              "architecture.");
 
+    /* Initialize DR's options to avoid syslogs in get_dynamo_library_bounds() and
+     * for the -xarch_root option below.
+     */
+    dynamorio_app_init_part_one_options();
+
     /* Find range of app */
     exe_map = module_vaddr_from_prog_header((app_pc)exe_ld.phdrs, exe_ld.ehdr->e_phnum,
                                             NULL, &exe_end);
@@ -2003,17 +2008,14 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
     reserve_brk(exe_map + exe_ld.image_size +
                 (INTERNAL_OPTION(separate_private_bss) ? PAGE_SIZE : 0));
 
-    /* Initialize DR's options and heap for the -xarch_root option. */
-    dynamorio_app_init_part_one_options_and_heap();
-
     interp = elf_loader_find_pt_interp(&exe_ld);
     if (interp != NULL) {
-        char *buf = NULL;
         if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(interp, false)) {
-            buf = global_heap_alloc(MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+            char buf[MAXIMUM_PATH];
             string_option_read_lock();
-            snprintf(buf, MAXIMUM_PATH, "%s/%s", DYNAMO_OPTION(xarch_root), interp);
-            buf[MAXIMUM_PATH - 1] = '\0';
+            snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/%s", DYNAMO_OPTION(xarch_root),
+                     interp);
+            NULL_TERMINATE_BUFFER(buf);
             string_option_read_unlock();
             if (os_file_exists(buf, false)) {
                 LOG(GLOBAL, LOG_SYSCALLS, 2, "replacing interpreter |%s| with |%s|\n",
@@ -2024,8 +2026,6 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         /* Load the ELF pointed at by PT_INTERP, usually ld.so. */
         elf_loader_t interp_ld;
         success = elf_loader_read_headers(&interp_ld, interp);
-        if (buf != NULL)
-            global_heap_free(buf, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(
             &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
