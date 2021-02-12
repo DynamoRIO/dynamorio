@@ -399,7 +399,6 @@ module_mapper_t::read_and_map_modules()
                 base_pc =
                     dr_map_executable_file(info.path, DR_MAPEXE_SKIP_WRITABLE, &map_size);
             }
-            DR_ASSERT(map_size >= info.size);
             if (base_pc == NULL) {
                 // We expect to fail to map dynamorio.dll for x64 Windows as it
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
