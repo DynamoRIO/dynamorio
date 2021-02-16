@@ -96,6 +96,7 @@ portable and to avoid frequency scaling."
 
 /* global thread-shared variables */
 bool dynamo_initialized = false;
+static bool dynamo_options_initialized = false;
 bool dynamo_heap_initialized = false;
 bool dynamo_started = false;
 bool automatic_startup = false;
@@ -389,9 +390,14 @@ get_dr_stats(void)
 DYNAMORIO_EXPORT int
 dynamorio_app_init(void)
 {
-    int size;
+    dynamorio_app_init_part_one_options();
+    return dynamorio_app_init_part_two_finalize();
+}
 
-    if (dynamo_initialized) {
+void
+dynamorio_app_init_part_one_options(void)
+{
+    if (dynamo_initialized || dynamo_options_initialized) {
         if (standalone_library) {
             REPORT_FATAL_ERROR_AND_EXIT(STANDALONE_ALREADY, 2, get_application_name(),
                                         get_application_pid());
@@ -479,9 +485,7 @@ dynamorio_app_init(void)
 
         /* now exit if nullcalls, now that perfctrs are set up */
         if (INTERNAL_OPTION(nullcalls)) {
-            print_file(main_logfile,
-                       "** nullcalls is set, NOT taking over execution **\n\n");
-            return SUCCESS;
+            return;
         }
 
         LOG(GLOBAL, LOG_TOP, 1, PRODUCT_NAME "'s stack size: %d Kb\n",
@@ -494,6 +498,26 @@ dynamorio_app_init(void)
 #endif
         statistics_init();
 
+        dynamo_options_initialized = true;
+    }
+}
+
+int
+dynamorio_app_init_part_two_finalize(void)
+{
+    if (!dynamo_options_initialized) {
+        /* Part one was never called. */
+        return FAILURE;
+    } else if (dynamo_initialized) {
+        if (standalone_library) {
+            REPORT_FATAL_ERROR_AND_EXIT(STANDALONE_ALREADY, 2, get_application_name(),
+                                        get_application_pid());
+        }
+        /* Nop. */
+    } else if (INTERNAL_OPTION(nullcalls)) {
+        print_file(main_logfile, "** nullcalls is set, NOT taking over execution **\n\n");
+        return SUCCESS;
+    } else {
 #ifdef VMX86_SERVER
         /* Must be before {vmm,d_r}_heap_init() */
         vmk_init_lib();
@@ -618,7 +642,7 @@ dynamorio_app_init(void)
          * For now, leave it in there unless thin_client footprint becomes an
          * issue.
          */
-        size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t *);
+        int size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t *);
         all_threads =
             (thread_record_t **)global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
@@ -992,6 +1016,8 @@ standalone_exit(void)
     doing_detach = false;
     standalone_library = false;
     dynamo_initialized = false;
+    dynamo_options_initialized = false;
+    dynamo_heap_initialized = false;
 }
 #endif
 
@@ -1624,6 +1650,7 @@ dynamo_exit_post_detach(void)
     do_once_generation++; /* Increment the generation in case we re-attach */
 
     dynamo_initialized = false;
+    dynamo_options_initialized = false;
     dynamo_heap_initialized = false;
     automatic_startup = false;
     control_all_threads = false;

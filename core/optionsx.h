@@ -334,6 +334,24 @@ OPTION_NAME(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
 /* XXX i#1114: enable by default when the implementation is complete */
 OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically generated code")
 
+#ifdef UNIX
+OPTION_COMMAND(pathstring_t, xarch_root, EMPTY_STRING, "xarch_root",
+               {
+                   /* Running under QEMU requires timing out and then leaving
+                    * the failed-takeover QEMU thread native, so we bundle that
+                    * here for convenience.  We target the common use case of a
+                    * small app, for which we want a small timeout.
+                    */
+                   if (options->xarch_root[0] != '\0') {
+                       options->unsafe_ignore_takeover_timeout = true;
+                       options->takeover_timeout_ms = 400;
+                   }
+               },
+               "QEMU support: prefix to add to opened files for emulation; also sets "
+               "-unsafe_ignore_takeover_timeout and -takeover_timeout_ms 400",
+               STATIC, OP_PCACHE_NOP)
+#endif
+
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    ifdef PROFILE_RDTSC
 OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring time")

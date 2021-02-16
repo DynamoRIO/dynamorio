@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -407,7 +407,8 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                                 * base, in which case the map can be anywhere
                                 */
                                ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
-                               (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
+                               (TEST(MODLOAD_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0) |
+                               (TEST(MODLOAD_IS_APP, flags) ? MAP_FILE_APP : 0));
     if (lib_base == NULL)
         return NULL;
     LOG(GLOBAL, LOG_LOADER, 3,
