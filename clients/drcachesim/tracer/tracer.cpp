@@ -1500,10 +1500,26 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                              opnd_create_reg(scratch1)));
     MINSERT(bb, instr,
             XINST_CREATE_jump_cond(drcontext, DR_PRED_LT, opnd_create_instr(skip_call)));
+#        endif
 
     /* hit_instr_count_threshold does not always return. Restore scratch registers and
      * aflags.
      */
+#        ifdef X86_64
+    /* FIXME i#4711: Need to restore for x86 the arithmetic flags and (if used) the
+     * scratch register before the call to hit_instr_count_threshold. However, this fix
+     * seems to cause instability. So, we're leaving x86 as technically broken
+     * to keep our tests green until the source of instability is found.
+     */
+    /*
+    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
+                                        NULL);
+    if (scratch != DR_REG_NULL) {
+        drreg_statelessly_restore_app_value(drcontext, bb, scratch, instr, instr, NULL,
+                                            NULL);
+    }
+    */
+#        elif defined(AARCH64)
     drreg_statelessly_restore_app_value(drcontext, bb, scratch1, instr, instr, NULL,
                                         NULL);
     drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
