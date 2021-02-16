@@ -177,9 +177,7 @@ static std::string
 gather_trace()
 {
     if (!my_setenv("DYNAMORIO_OPTIONS",
-                   // XXX i#4425: Fix debug-build stack overflow issue and
-                   // remove custom signal_stack_size below.
-                   "-stderr_mask 0xc -signal_stack_size 64K "
+                   "-stderr_mask 0xc "
                    "-client_lib ';;-offline'"))
         std::cerr << "failed to set env var!\n";
 
@@ -215,7 +213,10 @@ int
 main(int argc, const char *argv[])
 {
     // App setup.
-    signal(SIGILL, sigill_handler);
+    struct sigaction act;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *))sigill_handler;
+    act.sa_flags = SA_SIGINFO || SA_ONSTACK;
+    sigaction(SIGILL, &act, NULL);
 
     // Gather app trace.
     std::string trace_dir = gather_trace();
