@@ -1326,6 +1326,11 @@ static void *schedule_tracing_lock;
 /* XXX we don't have the inlining implemented yet for 32-bit architectures. */
 #endif
 
+#if defined(X86_64)
+/* FIXME i#4711: Do not restore aflags and register to prevent instability. */
+#    define DISABLED_FOR_BUG_4711 1
+#endif
+
 static dr_emit_flags_t
 event_delay_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         bool translating, void **user_data);
@@ -1506,12 +1511,19 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
      * aflags.
      */
 #        ifdef X86_64
+    /* FIXME i#4711: Need to restore for x86 the arithmetic flags and (if used) the
+     * scratch register before the call to hit_instr_count_threshold. However, this fix
+     * seems to cause instability. So, we're leaving x86 as technically broken
+     * to keep our tests green until the source of instability is found.
+     */
+#            ifndef DISABLED_FOR_BUG_4711
     drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
                                         NULL);
     if (scratch != DR_REG_NULL) {
         drreg_statelessly_restore_app_value(drcontext, bb, scratch, instr, instr, NULL,
                                             NULL);
     }
+#            endif
 #        elif defined(AARCH64)
     drreg_statelessly_restore_app_value(drcontext, bb, scratch1, instr, instr, NULL,
                                         NULL);
