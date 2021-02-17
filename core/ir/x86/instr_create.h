@@ -2644,6 +2644,11 @@
     instr_create_1dst_2src((dc), OP_vplzcntd, (d), (k), (s))
 #define INSTR_CREATE_vplzcntq_mask(dc, d, k, s) \
     instr_create_1dst_2src((dc), OP_vplzcntq, (d), (k), (s))
+#define INSTR_CREATE_vsqrtps_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vsqrtps, (d), (k), (s))
+#define INSTR_CREATE_vsqrtpd_mask(dc, d, k, s) \
+    instr_create_1dst_2src((dc), OP_vsqrtpd, (d), (k), (s))
+
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -3740,6 +3745,10 @@
     instr_create_1dst_3src((dc), OP_vpmadd52huq, (d), (k), (s1), (s2))
 #define INSTR_CREATE_vpmadd52luq_mask(dc, d, k, s1, s2) \
     instr_create_1dst_3src((dc), OP_vpmadd52luq, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsqrtss_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsqrtss, (d), (k), (s1), (s2))
+#define INSTR_CREATE_vsqrtsd_mask(dc, d, k, s1, s2) \
+    instr_create_1dst_3src((dc), OP_vsqrtsd, (d), (k), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
