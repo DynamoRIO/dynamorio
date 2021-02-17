@@ -188,6 +188,12 @@ module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
                                         i * sizeof(ELF_PROGRAM_HEADER_TYPE));
         if (prog_hdr->p_type == PT_LOAD) {
             /* ELF requires p_vaddr to already be aligned to p_align */
+            /* XXX i#4737: Our PAGE_SIZE may not match the size on a cross-arch file
+             * that was loaded on another machine.  We're also ignoring
+             * prog_hdr->p_align here as it is actually complex to use: some loaders
+             * (notably some kernels) seem to ignore it.  These corner cases are left
+             * as unsolved for now.
+             */
             min_vaddr =
                 MIN(min_vaddr, (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE));
             if (min_vaddr == (app_pc)prog_hdr->p_vaddr)
@@ -442,9 +448,18 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             (ELF_PROGRAM_HEADER_TYPE *)((byte *)elf->phdrs + i * elf_hdr->e_phentsize);
         if (prog_hdr->p_type == PT_LOAD) {
             bool do_mmap = true;
+            /* XXX i#4737: Our PAGE_SIZE may not match the size on a cross-arch file
+             * that was loaded on another machine.  We're also ignoring
+             * prog_hdr->p_align here as it is actually complex to use: some loaders
+             * (notably some kernels) seem to ignore it.  These corner cases are left
+             * as unsolved for now.
+             */
             seg_base = (app_pc)ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE) + delta;
             seg_end =
                 (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_filesz, PAGE_SIZE) +
+                delta;
+            app_pc mem_end =
+                (app_pc)ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_memsz, PAGE_SIZE) +
                 delta;
             seg_size = seg_end - seg_base;
             if (seg_base != last_end) {
@@ -455,7 +470,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
             seg_prot = module_segment_prot_to_osprot(prog_hdr);
             pg_offs = ALIGN_BACKWARD(prog_hdr->p_offset, PAGE_SIZE);
             if (TEST(MODLOAD_SKIP_WRITABLE, flags) && TEST(MEMPROT_WRITE, seg_prot) &&
-                seg_end == lib_end) {
+                mem_end == lib_end) {
                 /* We only actually skip if it's the final segment, to allow
                  * unmapping with a single mmap and not worrying about sthg
                  * else having been unmapped at the end in the meantime.
