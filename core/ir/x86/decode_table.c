@@ -3380,14 +3380,14 @@ const instr_info_t prefix_extensions[][12] = {
     {OP_sqrtss, 0xf30f5110, "sqrtss", Vss, xx, Wss, xx, xx, mrm, x, END_LIST},
     {OP_sqrtpd, 0x660f5110, "sqrtpd", Vpd, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_sqrtsd, 0xf20f5110, "sqrtsd", Vsd, xx, Wsd, xx, xx, mrm, x, END_LIST},
-    {OP_vsqrtps, 0x0f5110, "vsqrtps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, H12_dq, Wss, xx, mrm|vex, x, END_LIST},
-    {OP_vsqrtpd, 0x660f5110, "vsqrtpd", Vvd, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vsqrtsd, 0xf20f5110, "vsqrtsd", Vdq, xx, Hsd, Wsd, xx, mrm|vex, x, END_LIST},
-    {INVALID,   0x0f5110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf30f5110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0x660f5110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xf20f5110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vsqrtps, 0x0f5110, "vsqrtps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, tevexwb[265][0]},
+    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, H12_dq, Wss, xx, mrm|vex, x, tevexwb[266][0]},
+    {OP_vsqrtpd, 0x660f5110, "vsqrtpd", Vvd, xx, Wvd, xx, xx, mrm|vex, x, tevexwb[265][2]},
+    {OP_vsqrtsd, 0xf20f5110, "vsqrtsd", Vdq, xx, Hsd, Wsd, xx, mrm|vex, x, tevexwb[266][2]},
+    {EVEX_Wb_EXT, 0x0f5110, "(evex_Wb ext 265)", xx, xx, xx, xx, xx, mrm|evex, x, 265},
+    {EVEX_Wb_EXT, 0xf30f5110, "(evex_Wb ext 266)", xx, xx, xx, xx, xx, mrm|evex, x, 266},
+    {EVEX_Wb_EXT, 0x660f5110, "(evex_Wb ext 265)", xx, xx, xx, xx, xx, mrm|evex, x, 265},
+    {EVEX_Wb_EXT, 0xf20f5110, "(evex_Wb ext 266)", xx, xx, xx, xx, xx, mrm|evex, x, 266},
   }, /* prefix extension 18 */
   {
     {OP_rsqrtps, 0x0f5210, "rsqrtps", Vps, xx, Wps, xx, xx, mrm, x, END_LIST},
@@ -6905,6 +6905,14 @@ const instr_info_t mod_extensions[][2] = {
     {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Ve, xx, KEw, Md, xx, mrm|evex|ttfv, x, modx[117][1]},
     {OP_vcvttps2dq, 0xf30f5b10, "vcvttps2dq", Voq, xx, KEw, Uoq, xx, mrm|evex|sae|ttfv, x, END_LIST},
   },
+  { /* mod extension 118 */
+    {OP_vsqrtps,0x0f5110, "vsqrtps", Ves, xx, KEw, Md, xx, mrm|evex|ttfv, x, modx[118][1]},
+    {OP_vsqrtps,0x660f5110, "vsqrtps", Voq, xx, KEw, Uoq, xx, mrm|evex|er|ttfv, x, END_LIST},
+  },
+  { /* mod extension 119 */
+    {OP_vsqrtpd,0x660f5150, "vsqrtpd", Ved, xx, KEb, Mq, xx, mrm|evex|ttfv, x, modx[119][1]},
+    {OP_vsqrtpd,0x660f5150, "vsqrtpd", Voq, xx, KEb, Uoq, xx, mrm|evex|er|ttfv, x, END_LIST},
+  },
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
@@ -9206,6 +9214,16 @@ const instr_info_t evex_Wb_extensions[][4] = {
     {OP_vcvtps2ph, 0x663a1d18, "vcvtps2ph", Uqq, xx, KEw, Voq, Ib, mrm|evex|sae|reqp|tthvm, x, END_LIST},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  }, { /* evex_W_ext 265 */
+    {OP_vsqrtps, 0x0f5100, "vsqrtps", Ves, xx, KEw, Wes, xx, mrm|evex|ttfv, x, modx[118][0]},
+    {MOD_EXT, 0x0f5110, "(mod ext 118)", xx, xx, xx, xx, xx, mrm|evex, x, 118},
+    {OP_vsqrtpd, 0x660f5140, "vsqrtpd", Ved, xx, KEb, Wed, xx, mrm|evex|ttfv, x, modx[119][0]},
+    {MOD_EXT, 0x660f5150, "(mod ext 119)", xx, xx, xx, xx, xx, mrm|evex, x, 119},
+  }, { /* evex_W_ext 266 */
+    {OP_vsqrtss, 0xf30f5100, "vsqrtss", Vdq, xx, KE1b, Hdq, Wss, mrm|evex|ttt1s, x, tevexwb[266][1]},
+    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, KE1b, Hdq, Uss, mrm|evex|er|ttt1s, x, END_LIST},
+    {OP_vsqrtsd, 0xf20f5140, "vsqrtsd", Vdq, xx, KE1b, Hdq, Wsd, mrm|evex|ttt1s, x, tevexwb[266][3]},
+    {OP_vsqrtsd, 0xf20f5150, "vsqrtsd", Vdq, xx, KE1b, Hdq, Usd, mrm|evex|er|ttt1s, x, END_LIST},
   },
 };
 
