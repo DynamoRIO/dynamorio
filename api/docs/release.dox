@@ -141,6 +141,10 @@ changes:
    member fields of classes are now following a consistent style with
    an underscore suffix.  References to renamed fields will need to be
    updated.
+ - A change in the load callbacks used with drmodtrack_add_custom_data()
+   and drmemtrace_custom_module_data(): they each take an additional parameter, the
+   segment index.  The custom data field is now per-segment and not per-module,
+   and all callbacks are invoked separately for each segment.
 
 The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:

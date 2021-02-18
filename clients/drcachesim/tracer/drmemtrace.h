@@ -249,17 +249,19 @@ drmemtrace_get_funclist_path(OUT const char **path);
 DR_EXPORT
 /**
  * Adds custom data stored with each module in the module list produced for
- * offline trace post-processing.  The \p load_cb is called for each new module,
+ * offline trace post-processing.  The \p load_cb is called for each segment
+ * of each new module (with \p seg_idx indicating the segment number, starting at 0),
  * and its return value is the data that is stored.  That data is later printed
  * to a string with \p print_cb, which should return the number of characters
- * printed or -1 on error.  The data is freed with \p free_cb.
+ * printed or -1 on error.  The data is freed with \p free_cb.  Each is called
+ * separately for each segment of each module.
  *
  * On the post-processing side, the user should create a custom post-processor
  * by linking with raw2trace and calling raw2trace_t::handle_custom_data() to provide
  * parsing and processing routines for the custom data.
  */
 drmemtrace_status_t
-drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module),
+drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data));
 

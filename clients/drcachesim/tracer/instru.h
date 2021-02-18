@@ -399,7 +399,7 @@ public:
                 bool repstr_expanded) override;
 
     static bool
-    custom_module_data(void *(*load_cb)(module_data_t *module),
+    custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                        int (*print_cb)(void *data, char *dst, size_t max_len),
                        void (*free_cb)(void *data));
 
@@ -460,11 +460,11 @@ private:
 
     // Custom module fields are global (since drmodtrack's support is global, we don't
     // try to pass void* user data params through).
-    static void *(*user_load_)(module_data_t *module);
+    static void *(*user_load_)(module_data_t *module, int seg_idx);
     static int (*user_print_)(void *data, char *dst, size_t max_len);
     static void (*user_free_)(void *data);
     static void *
-    load_custom_module_data(module_data_t *module);
+    load_custom_module_data(module_data_t *module, int seg_idx);
     static int
     print_custom_module_data(void *data, char *dst, size_t max_len);
     static void
