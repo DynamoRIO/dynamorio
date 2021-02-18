@@ -129,10 +129,15 @@ offline_instru_t::load_custom_module_data(module_data_t *module, int seg_idx)
           strstr(name, "linux-vdso.so") == name)) ||
         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
         void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
+#ifdef WINDOWS
+        byte *start = module->start;
+        byte *end = module->end;
+#else
         byte *start =
             (module->num_segments > 0) ? module->segments[seg_idx].start : module->start;
         byte *end =
             (module->num_segments > 0) ? module->segments[seg_idx].end : module->end;
+#endif
         return new (alloc)
             custom_module_data_t((const char *)start, end - start, user_data);
     } else if (user_data != nullptr) {

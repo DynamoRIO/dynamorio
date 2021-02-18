@@ -141,8 +141,10 @@ local_create_dir(const char *dir)
 static void *
 load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
     if (seg_idx > 0)
         return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
