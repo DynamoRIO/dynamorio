@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,7 +47,7 @@
 
 static const ptr_uint_t MAX_INSTR_COUNT = 64 * 1024;
 
-void *(*offline_instru_t::user_load_)(module_data_t *module);
+void *(*offline_instru_t::user_load_)(module_data_t *module, int seg_idx);
 int (*offline_instru_t::user_print_)(void *data, char *dst, size_t max_len);
 void (*offline_instru_t::user_free_)(void *data);
 
@@ -115,11 +115,11 @@ offline_instru_t::~offline_instru_t()
 }
 
 void *
-offline_instru_t::load_custom_module_data(module_data_t *module)
+offline_instru_t::load_custom_module_data(module_data_t *module, int seg_idx)
 {
     void *user_data = nullptr;
     if (user_load_ != nullptr)
-        user_data = (*user_load_)(module);
+        user_data = (*user_load_)(module, seg_idx);
     const char *name = dr_module_preferred_name(module);
     // For vdso we include the entire contents so we can decode it during
     // post-processing.
@@ -129,8 +129,17 @@ offline_instru_t::load_custom_module_data(module_data_t *module)
           strstr(name, "linux-vdso.so") == name)) ||
         (module->names.file_name != NULL && strcmp(name, "[vdso]") == 0)) {
         void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
-        return new (alloc) custom_module_data_t((const char *)module->start,
-                                                module->end - module->start, user_data);
+#ifdef WINDOWS
+        byte *start = module->start;
+        byte *end = module->end;
+#else
+        byte *start =
+            (module->num_segments > 0) ? module->segments[seg_idx].start : module->start;
+        byte *end =
+            (module->num_segments > 0) ? module->segments[seg_idx].end : module->end;
+#endif
+        return new (alloc)
+            custom_module_data_t((const char *)start, end - start, user_data);
     } else if (user_data != nullptr) {
         void *alloc = dr_global_alloc(sizeof(custom_module_data_t));
         return new (alloc) custom_module_data_t(nullptr, 0, user_data);
@@ -190,7 +199,7 @@ offline_instru_t::free_custom_module_data(void *data)
 }
 
 bool
-offline_instru_t::custom_module_data(void *(*load_cb)(module_data_t *module),
+offline_instru_t::custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                                      int (*print_cb)(void *data, char *dst,
                                                      size_t max_len),
                                      void (*free_cb)(void *data))
