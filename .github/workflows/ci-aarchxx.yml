@@ -52,7 +52,7 @@ jobs:
   # XXX i#4719: As we add more tests, if this job takes too much time we
   # should split it up.
   aarchxx-cross-compile:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
