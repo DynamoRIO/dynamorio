@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -2068,7 +2068,7 @@ require initialization.
 Neither the context returned by dr_standalone_init() nor \p
 GLOBAL_DCONTEXT can be used as the drcontext for a thread running under
 DynamoRIO control!  It is only for standalone programs that wish to use
-DynamoRIO as a library of routines for IA-32 instruction manipulation or
+DynamoRIO as a library of routines for instruction manipulation or
 other purposes.
 
 In standalone mode, the dr_set_isa_mode() routine operates globally rather
