@@ -4690,15 +4690,14 @@ if (APPLE)
   endif ()
 endif ()
 
-# XXX i#4719: Support for running aarchxx tests under QEMU.
+# XXX i#4719: Support for running aarchxx Linux tests under QEMU.
 # Currently about 1/3 of the tests pass.  The rest either are too slow under QEMU
 # and hit the (expanded) timeout, or do not yet have full command line insertion
 # support (drcachesim and other tools), or hit bugs in QEMU or in DR.
-if (AARCHXX)
+if (NOT ANDROID AND AARCHXX)
   set_tests_properties(
     code_api|common.broadfun
     code_api|common.getretaddr
-    code_api|common.logstderr
     code_api|common.nzcv
     code_api|linux.app_tls
     code_api|linux.execve-null
@@ -4748,54 +4747,59 @@ if (AARCHXX)
     code_api|sample.syscall
     code_api|sample.wrap
     PROPERTIES LABELS RUNS_ON_QEMU)
-endif ()
-if (AARCH64)
-  set_tests_properties(
-    code_api|common.allasm_aarch64_cache
-    code_api|common.allasm_aarch64_isa
-    code_api|linux.mmap
-    code_api,satisfy_w_xor_x|linux.fork
-    code_api|security-common.retnonexisting
-    code_api|security-linux.trampoline
-    code_api|client.app_inscount
-    code_api|client.cleancall-opt-1
-    code_api|client.cleancallparams
-    code_api|client.drreg-cross
-    code_api|client.drreg-end-restore
-    code_api|client.drreg-flow
-    code_api|client.drreg-test
-    code_api|client.emulation_api_simple
-    code_api|client.execfault
-    code_api|client.inline
-    code_api|client.syscall-mod
-    code_api|client.truncate
-    code_api|client.unregister
-    code_api|sample.inscount
-    code_api|sample.inscount.cleancall
-    code_api|sample.inscount.prof-pcs.cleancall
-    code_api|sample.instrace_simple
-    code_api|sample.memtrace_simple
-    code_api|sample.memval_simple
-    code_api|sample.opcodes
-    PROPERTIES LABELS RUNS_ON_QEMU)
-endif ()
-if (ARM)
-  set_tests_properties(
-    code_api|common.allasm_arm
-    code_api|common.allasm_thumb
-    code_api|common.broadfun-stress
-    code_api|linux.bad-signal-stack
-    code_api|linux.alarm
-    code_api|linux.fork-sleep
-    code_api|linux.signal_race
-    code_api|linux.sigplain000
-    code_api|linux.sigplain001
-    code_api|linux.sigplain010
-    code_api|linux.sigplain011
-    code_api|linux.sigplain100
-    code_api|linux.sigplain101
-    code_api|linux.sigplain110
-    code_api|linux.sigplain111
-    code_api|security-common.TestAllocWE
-    PROPERTIES LABELS RUNS_ON_QEMU)
-endif ()
+  if (DEBUG)
+    set_tests_properties(
+      code_api|common.logstderr
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+  if (AARCH64)
+    set_tests_properties(
+      code_api|common.allasm_aarch64_cache
+      code_api|common.allasm_aarch64_isa
+      code_api|linux.mmap
+      code_api,satisfy_w_xor_x|linux.fork
+      code_api|security-common.retnonexisting
+      code_api|security-linux.trampoline
+      code_api|client.app_inscount
+      code_api|client.cleancall-opt-1
+      code_api|client.cleancallparams
+      code_api|client.drreg-cross
+      code_api|client.drreg-end-restore
+      code_api|client.drreg-flow
+      code_api|client.drreg-test
+      code_api|client.emulation_api_simple
+      code_api|client.execfault
+      code_api|client.inline
+      code_api|client.syscall-mod
+      code_api|client.truncate
+      code_api|client.unregister
+      code_api|sample.inscount
+      code_api|sample.inscount.cleancall
+      code_api|sample.inscount.prof-pcs.cleancall
+      code_api|sample.instrace_simple
+      code_api|sample.memtrace_simple
+      code_api|sample.memval_simple
+      code_api|sample.opcodes
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+  if (ARM)
+    set_tests_properties(
+      code_api|common.allasm_arm
+      code_api|common.allasm_thumb
+      code_api|common.broadfun-stress
+      code_api|linux.bad-signal-stack
+      code_api|linux.alarm
+      code_api|linux.fork-sleep
+      code_api|linux.signal_race
+      code_api|linux.sigplain000
+      code_api|linux.sigplain001
+      code_api|linux.sigplain010
+      code_api|linux.sigplain011
+      code_api|linux.sigplain100
+      code_api|linux.sigplain101
+      code_api|linux.sigplain110
+      code_api|linux.sigplain111
+      code_api|security-common.TestAllocWE
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+endif (NOT ANDROID AND AARCHXX)
