@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -76,7 +76,7 @@ following sections:
 \section sec_IR Instruction Representation
 
 The primary data structures involved in instruction manipulation are
-the \c instr_t, which represents a single IA-32 instruction, and the \c
+the \c instr_t, which represents a single instruction, and the \c
 instrlist_t, which is a linked list of instructions.  The header files
 dr_ir_instrlist.h and dr_ir_instr.h list a number of functions that
 operate on these data structures, including:
@@ -663,7 +663,7 @@ functionality.
 \subsection sec_Decoding Decoding
 
 DynamoRIO provides several routines for decoding and disassembling
-IA-32 instructions.  The most common method for decoding is the
+instructions.  The most common method for decoding is the
 decode() routine, which populates an \c instr_t data structure with all
 information about the instruction (e.g., opcode and operand
 information).
@@ -721,7 +721,7 @@ determine the order.
 \subsection sec_Encoding Encoding
 
 DynamoRIO's encoding routines take an instruction or list of
-instructions and encode them into the corresponding IA-32 bit pattern:
+instructions and encode them into the corresponding bit pattern:
 
 \code instr_encode(), instrlist_encode() \endcode
 
