@@ -2010,8 +2010,8 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
 
     interp = elf_loader_find_pt_interp(&exe_ld);
     if (interp != NULL) {
+        char buf[MAXIMUM_PATH];
         if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(interp, false)) {
-            char buf[MAXIMUM_PATH];
             string_option_read_lock();
             snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/%s", DYNAMO_OPTION(xarch_root),
                      interp);
