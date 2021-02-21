@@ -202,10 +202,12 @@ DR_install(DIRECTORY
   DESTINATION ${INSTALL_DOCS}
   )
 
-DR_install(DIRECTORY
-  ${CMAKE_CURRENT_BINARY_DIR}/embed/html
-  DESTINATION ${INSTALL_DOCS_EMBED}
-  )
+if (UNIX)
+  DR_install(DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}/embed/html
+    DESTINATION ${INSTALL_DOCS_EMBED}
+    )
+endif ()
 
 # IE for some reason won't initially load an .ico in a web page from a server,
 # though will show it via file: or after pointing straight at image from server.
