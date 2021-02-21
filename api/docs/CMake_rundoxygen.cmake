@@ -184,12 +184,12 @@ if (embeddable)
     get_filename_component(fname ${html} NAME_WE)
     # The ;'s mess up the MATCHALL results so we remove them.
     string(REPLACE ";" "_" nosemis "${string}")
-    string(REGEX MATCHALL "<h2 class=\"memtitle[^\n]*</h2>" types "${nosemis}")
+    string(REGEX MATCHALL "<tr class=\"memitem[^\n]*</tr>" types "${nosemis}")
     foreach (type ${types})
-      string(REGEX MATCH "<a href=\"#[a-zA-Z0-9]+\"" anchor "${type}")
-      string(REGEX REPLACE "<a href=\"(#[a-zA-Z0-9]+)\"" "\\1" anchor "${anchor}")
-      string(REGEX MATCH "/span>[_a-zA-Z0-9]+" name "${type}")
-      string(REGEX REPLACE "/span>([_a-zA-Z0-9]+)" "\\1" name "${name}")
+      string(REGEX MATCH "href=\"[^\"]+\"" url "${type}")
+      string(REGEX REPLACE "href=\"([^\"]+)\"" "\\1" url "${url}")
+      string(REGEX MATCH "\">[_a-zA-Z0-9]+</a>" name "${type}")
+      string(REGEX REPLACE "\">([_a-zA-Z0-9]+)</a>" "\\1" name "${name}")
       if (name STREQUAL "")
         continue ()
       endif ()
@@ -207,7 +207,7 @@ if (embeddable)
       set(keywords "window.data[\"${fname}-${name}\"]={\
 \"name\":\"${fname}-${name}\",\
 \"title\":\"${name} in ${fname} header\",\
-\"url\":\"docs/${fname}.html${anchor}\",\
+\"url\":\"docs/${url}\",\
 \"content\":\"${name} ${extra}\"};\n")
       file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
     endforeach ()
