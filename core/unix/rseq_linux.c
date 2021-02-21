@@ -269,6 +269,7 @@ rseq_shared_fragment_flushtime_update(dcontext_t *dcontext)
     rseq_clear_tls_ptr(dcontext);
 }
 
+#ifdef HAVE_RSEQ
 bool
 rseq_is_registered_for_current_thread(void)
 {
@@ -296,6 +297,13 @@ rseq_is_registered_for_current_thread(void)
     }
     return false;
 }
+#else
+bool
+rseq_is_registered_for_current_thread(void)
+{
+    return false;
+}
+#endif
 
 static void
 rseq_analyze_instructions(rseq_region_t *info)
