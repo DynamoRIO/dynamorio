@@ -120,9 +120,9 @@ jobs:
     - name: Check Out Web
       uses: actions/checkout@v2
       with:
-        - repository: DynamoRIO/dynamorio.github.io
-        - token: ${{ secrets.DOCS_TOKEN }}
-        - path: dynamorio.github.io
+        repository: DynamoRIO/dynamorio.github.io
+        token: ${{ secrets.DOCS_TOKEN }}
+        path: dynamorio.github.io
 
     - name: Deploy Embedded Docs
       run: |
