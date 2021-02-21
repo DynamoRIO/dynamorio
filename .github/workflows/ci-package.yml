@@ -126,7 +126,7 @@ jobs:
 
     - name: Deploy Embedded Docs
       run: |
-        rsync -av --delete embed_html/ dynamorio.github.io/docs/
+        rsync -av --delete html_embed/ dynamorio.github.io/docs/
         cd dynamorio.github.io
         git config --local user.name "cronbuild"
         git config --local user.email "dynamorio-devs@googlegroups.com"
