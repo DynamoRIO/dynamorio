@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -234,7 +234,7 @@ endif (EXISTS "${results}")
 if (arg_copy_docs)
   # Prepare for copying the documentation to our Github Pages site by placing it
   # in a single fixed-name location with a .nojekyll file.
-  message("Copying documentation into ${arg_outdir}/html")
+  message("Copying standalone documentation into ${arg_outdir}/html")
   message("Looking for ${last_package_build_dir}/_CPack_Packages/*/*/DynamoRIO-*/docs/html")
   file(GLOB allhtml "${last_package_build_dir}/_CPack_Packages/*/*/DynamoRIO-*/docs/html")
   # If there's a source package we'll have multiple.  Just take the first one.
@@ -246,6 +246,21 @@ if (arg_copy_docs)
     # Create a .nojekyll file so Github Pages will display this as raw html.
     execute_process(COMMAND ${CMAKE_COMMAND} -E touch "${arg_outdir}/html/.nojekyll")
     message("Successully copied docs")
+  else ()
+    message(FATAL_ERROR "failed to find html docs")
+  endif ()
+
+  message("Copying embedded documentation into ${arg_outdir}/html_embed")
+  message("Looking for ${last_package_build_dir}/_CPack_Packages/*/*/DynamoRIO-*/docs_embed/html")
+  file(GLOB allembed
+    "${last_package_build_dir}/_CPack_Packages/*/*/DynamoRIO-*/docs_embed/html")
+  # If there's a source package we'll have multiple.  Just take the first one.
+  list(GET allembed 0 embed)
+  if (EXISTS "${embed}")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory "${arg_outdir}/html_embed")
+    execute_process(COMMAND
+      ${CMAKE_COMMAND} -E copy_directory ${embed} "${arg_outdir}/html_embed")
+    message("Successully copied embedded docs")
   else ()
     message(FATAL_ERROR "failed to find html docs")
   endif ()

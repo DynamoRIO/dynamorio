@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -91,78 +91,106 @@ foreach (extra ${dox_extras})
   set(doxy_extra_args ${doxy_extra_args} -Ddox_extra${extra_cnt}=${extra})
 endforeach ()
 
-set(doxyfile ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
-add_custom_command(
-  OUTPUT ${doxyfile}
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/API.doxy
-          ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
-          ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-  COMMAND ${CMAKE_COMMAND}
-  # script does not inherit any vars so we must pass them all in
-  # to work around i#84 be sure to put a space after -D for 1st arg at least
-  ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${doxyfile}
-       -Dproj_srcdir=${PROJECT_SOURCE_DIR} -Dversion_number=${VERSION_NUMBER}
-       -Dproj_bindir=${PROJECT_BINARY_DIR}
-       -Dheader_dir=${BUILD_INCLUDE} -Dgendox_dir=${CMAKE_CURRENT_BINARY_DIR}
-       -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
-       -Ddoxygen_ver=${doxygen_ver}
-       ${doxy_extra_args}
-       -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
-  VERBATIM # recommended: p260
-  )
+macro (generate_html name dest_dir embeddable)
+  set(doxyfile ${dest_dir}/Doxyfile)
+  add_custom_command(
+    OUTPUT ${doxyfile}
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/API.doxy
+            ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
+            ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+    COMMAND ${CMAKE_COMMAND}
+    # script does not inherit any vars so we must pass them all in
+    # to work around i#84 be sure to put a space after -D for 1st arg at least
+    ARGS -D srcdir=${CMAKE_CURRENT_SOURCE_DIR} -Doutfile=${doxyfile}
+         -Dproj_srcdir=${PROJECT_SOURCE_DIR} -Dversion_number=${VERSION_NUMBER}
+         -Dproj_bindir=${PROJECT_BINARY_DIR} -Dembeddable=${embeddable}
+         -Dheader_dir=${BUILD_INCLUDE} -Dgendox_dir=${CMAKE_CURRENT_BINARY_DIR}
+         -Ddest_dir=${dest_dir}
+         -DDOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
+         -Ddoxygen_ver=${doxygen_ver}
+         ${doxy_extra_args}
+         -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_doxyfile.cmake
+    WORKING_DIRECTORY ${dest_dir}
+    VERBATIM # recommended: p260
+    )
 
-set(docsgen ${CMAKE_CURRENT_BINARY_DIR}/html/index.html)
-get_property(dox_tgts GLOBAL PROPERTY DynamoRIO_dox_targets)
+  set(docsgen ${dest_dir}/html/index.html)
+  get_property(dox_tgts GLOBAL PROPERTY DynamoRIO_dox_targets)
 
-# we depend on the samples even though we don't copy them,
-# to have them as dependencies for the install rules
-file(GLOB samples_files ../samples/*.c ../samples/Makefile)
-file(GLOB header_files  ${BUILD_INCLUDE}/*.h)
-add_custom_command(
-  OUTPUT ${docsgen} # among other files
-  DEPENDS ${dox_files}
-          ${dox_tgts}
-          ${dox_extras}
-          ${header_files}
-          ${doxyfile}
-          ${figures_eps}
-          ${figures_png}
-          ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
-          ${samples_files}
-  # We want doxygen to fail if it has warnings like "can't find header
-  # files" so we run it through a script
-  COMMAND ${CMAKE_COMMAND}
-  # Have to quote dox_files to keep ;-separated
-  # to work around i#84 be sure to put a space after -D for 1st arg at least
-  ARGS -D DOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
-       -Ddoxygen_ver=${doxygen_ver}
-       -Dversion_number=${VERSION_NUMBER}
-       -Dmodule_string_long="DynamoRIO Extension Details"
-       -Dmodule_string_short="Extension"
-       -Dhome_url="http://www.dynamorio.org"
-       -Dhome_title="DynamoRIO Home Page"
-       -Dlogo_imgfile="drlogo.png"
-       -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  VERBATIM # recommended: p260
-  )
-set_directory_properties(PROPERTIES
-  ADDITIONAL_MAKE_CLEAN_FILES "html;latex;rtf")
+  # we depend on the samples even though we don't copy them,
+  # to have them as dependencies for the install rules
+  file(GLOB samples_files ../samples/*.c ../samples/Makefile)
+  file(GLOB header_files  ${BUILD_INCLUDE}/*.h)
+  add_custom_command(
+    OUTPUT ${docsgen} # among other files
+    DEPENDS ${dox_files}
+            ${dox_tgts}
+            ${dox_extras}
+            ${header_files}
+            ${doxyfile}
+            ${figures_eps}
+            ${figures_png}
+            ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
+            ${samples_files}
+    # We want doxygen to fail if it has warnings like "can't find header
+    # files" so we run it through a script
+    COMMAND ${CMAKE_COMMAND}
+    # Have to quote dox_files to keep ;-separated
+    # to work around i#84 be sure to put a space after -D for 1st arg at least
+    ARGS -D DOXYGEN_EXECUTABLE=${DOXYGEN_EXECUTABLE}
+         -Ddoxygen_ver=${doxygen_ver}
+         -Dversion_number=${VERSION_NUMBER}
+         -Dmodule_string_long="DynamoRIO Extension Details"
+         -Dmodule_string_short="Extension"
+         -Dhome_url="http://www.dynamorio.org"
+         -Dhome_title="DynamoRIO Home Page"
+         -Dlogo_imgfile="drlogo.png"
+         -Dembeddable=${embeddable}
+         -Dproj_srcdir=${PROJECT_SOURCE_DIR}
+         -Dproj_bindir=${PROJECT_BINARY_DIR}
+         -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_rundoxygen.cmake
+    WORKING_DIRECTORY ${dest_dir}
+    VERBATIM # recommended: p260
+    )
+  set_directory_properties(PROPERTIES
+    ADDITIONAL_MAKE_CLEAN_FILES "html;latex;rtf")
 
-add_custom_target(htmldocs ALL
-  DEPENDS ${doxyfile}
-          ${figures_eps}
-          ${figures_png}
-          ${docsgen}
-  )
-# add_custom_target DEPENDS cannot take targets!
-add_dependencies(htmldocs api_headers)
+  add_custom_target(${name} ALL
+    DEPENDS ${doxyfile}
+            ${figures_eps}
+            ${figures_png}
+            ${docsgen}
+    )
+  # add_custom_target DEPENDS cannot take targets!
+  add_dependencies(${name} api_headers)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/images/favicon.png
-  ${CMAKE_CURRENT_BINARY_DIR}/html/favicon.png
-  COPYONLY)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/images/favicon.png
+    ${dest_dir}/html/favicon.png
+    COPYONLY)
+endmacro ()
 
-# FIXME i#59: if epstopdf and latex are available, add optional pdf
+generate_html(htmldocs ${CMAKE_CURRENT_BINARY_DIR} OFF)
+
+# We create two output versions of the docs:
+# 1) A standalone html version for local viewing.
+# 2) A stripped-down version suitable for embedding inside dynamorio.org.
+# Since we only need the stripped-down version built on one platform,
+# we limit it to UNIX so we can use symlinks.
+if (UNIX)
+  set(embed_outdir ${CMAKE_CURRENT_BINARY_DIR}/embed)
+  file(MAKE_DIRECTORY ${embed_outdir})
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+    ${genimg_dirname} ${embed_outdir}/genimages
+    RESULT_VARIABLE ln_result ERROR_VARIABLE ln_err)
+  if (ln_result OR ln_err)
+    message(FATAL_ERROR "*** genimages symlink failed: ***\n${ln_err}")
+  endif ()
+  generate_html(embed_docs ${embed_outdir} ON)
+  # We must build the treeview version first, as we use its menu files.
+  add_dependencies(embed_docs htmldocs)
+endif ()
+
+# TODO i#59: if epstopdf and latex are available, add optional pdf
 # target that invokes fix-latex.pl and install rule.
 # Need to copy drlogo-16x16.png to latex/drlogo.png after i#80 changes.
 
@@ -173,6 +201,13 @@ DR_install(DIRECTORY
   ${CMAKE_CURRENT_BINARY_DIR}/html
   DESTINATION ${INSTALL_DOCS}
   )
+
+if (UNIX)
+  DR_install(DIRECTORY
+    ${CMAKE_CURRENT_BINARY_DIR}/embed/html
+    DESTINATION ${INSTALL_DOCS_EMBED}
+    )
+endif ()
 
 # IE for some reason won't initially load an .ico in a web page from a server,
 # though will show it via file: or after pointing straight at image from server.
