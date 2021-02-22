@@ -45,6 +45,9 @@
 # + home_url            : home page URL
 # + home_title          : home page title
 # + logo_imgfile        : image file with logo
+# + embeddable          : whether to edit content for jekyll embedding
+# + proj_srcdir         : project base source dir, for editing titles
+# + proj_bindir         : project base binary dir, for editing titles
 #
 ###########################################################################
 
@@ -84,6 +87,14 @@ string(REGEX REPLACE
 if (doxygen_ver VERSION_LESS "1.7.0")
   # For some reason older doxygen doesn't replace its own vars w/ custom header
   string(REGEX REPLACE "\\$relpath\\$" "" string "${string}")
+endif ()
+if (embeddable)
+  # Add jekyll header.
+  set(string "---
+title: \"$title\"
+layout: default
+---
+${string}")
 endif ()
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/header.html "${string}")
 
@@ -151,48 +162,133 @@ string(REGEX REPLACE
   string "${string}")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/index.html "${string}")
 
-if (doxygen_ver VERSION_LESS "1.7.3")
-  # Add link to home page to treeview pane
-  file(APPEND
-    ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html
-    "<p>&nbsp;<a target=\"main\" href=\"${home_url}/\">${home_title}</a></p>")
+if (embeddable)
+  # We need to make some edits for insertion into our jekyll site.
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "---\nlayout: null\n---\n")
+  file(GLOB all_html ${CMAKE_CURRENT_BINARY_DIR}/html/*.html)
+  foreach (html ${all_html})
+    file(READ ${html} string)
+    # Remove headers and body tag.
+    string(REGEX REPLACE "<!-- HTML header.*<body>\n" "" string "${string}")
+    # Remove body and html close tags.
+    string(REGEX REPLACE "</body>.*</html>\n" "" string "${string}")
+    # Remove full paths.
+    string(REGEX REPLACE "\ntitle: \"${proj_bindir}" "\ntitle: \"" string "${string}")
+    string(REGEX REPLACE "\ntitle: \"${proj_srcdir}" "\ntitle: \"" string "${string}")
 
-  # Add our logo to treeview pane (yes there is no closing </body></html>)
-  file(APPEND
-    ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html
-    "<p>&nbsp;<br><img src=\"${logo_imgfile}\"></p>")
-else ()
-  # This is a fragile insertion into the javascript used for the navbar.
-  # We insert at the end of the final function (initNavTree).
-  # This works in doxygen 1.7.4-1.8.1.
-  set(add_logo "
-        var imgdiv = document.createElement(\"div\");
-        document.getElementById(\"nav-tree-contents\").appendChild(imgdiv);
-        var img = document.createElement(\"img\");
-        imgdiv.appendChild(img);
-        img.src = \"${logo_imgfile}\";
-        img.style.marginLeft = \"80px\";
-        img.style.marginTop = \"30px\";
-    ")
-  file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/navtree.js string)
-  string(REGEX REPLACE
-    "\\}\n*$"
-    "${add_logo}\n}"
-    string "${string}")
-  # Doxygen 1.9.1 has this license-end line.
-  string(REGEX REPLACE
-    "\\}\n/\\* @license-end \\*/\n$"
-    "${add_logo}\n}"
-    string "${string}")
-  # While we're here we replace Files and Data Structures, if requested
-  if (DEFINED files_string)
-    string(REGEX REPLACE "\"Files\"" "\"${files_string}\"" string "${string}")
-  endif ()
-  if (DEFINED structs_string)
-    string(REGEX REPLACE "\"Data Structures\"" "\"${structs_string}\""
+    # Collect type info for keyword searches with direct anchor links (else the
+    # search finds the page but the user then has to manually search within the long
+    # page -- and there are no doygen options to split each onto its own page).
+    # The format here is the javascript object used by search.js to set up lunr.
+    # XXX: This is fragile and highly dependent on the precise doxygen output.
+    get_filename_component(fname ${html} NAME_WE)
+    # The ;'s mess up the MATCHALL results so we remove them.
+    string(REPLACE ";" "_" nosemis "${string}")
+    string(REGEX MATCHALL "<tr class=\"memitem[^\n]*</tr>" types "${nosemis}")
+    foreach (type ${types})
+      string(REGEX MATCH "href=\"[^\"]+\"" url "${type}")
+      string(REGEX REPLACE "href=\"([^\"]+)\"" "\\1" url "${url}")
+      string(REGEX MATCH "\">[_a-zA-Z0-9]+</a>" name "${type}")
+      string(REGEX REPLACE "\">([_a-zA-Z0-9]+)</a>" "\\1" name "${name}")
+      if (name STREQUAL "")
+        continue ()
+      endif ()
+      # Support searching by partial names.
+      set(extra "")
+      string(REPLACE "_" " " separate "${name}")
+      if (NOT separate STREQUAL name)
+        set(extra "${extra} ${separate}")
+      endif ()
+      set(prefix "${name}")
+      while (prefix MATCHES "[^_]_[^_]")
+        string(REGEX REPLACE "_[^_]*$" "" prefix "${prefix}")
+        set(extra "${extra} ${prefix}")
+      endwhile ()
+      set(keywords "window.data[\"${fname}-${name}\"]={\
+\"name\":\"${fname}-${name}\",\
+\"title\":\"${name} in ${fname} header\",\
+\"url\":\"docs/${url}\",\
+\"content\":\"${name} ${extra}\"};\n")
+      file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
+    endforeach ()
+
+    file(WRITE ${html} "${string}")
+  endforeach ()
+
+  # We leverage the javascript menu from the non-embedded version.
+  file(GLOB all_js ${CMAKE_CURRENT_BINARY_DIR}/../html/*.js)
+  foreach (js ${all_js})
+    if (js MATCHES "navtree.js" OR
+        js MATCHES "resize.js" OR
+        js MATCHES "navtreeindex")
+      continue ()
+    endif ()
+    file(READ ${js} string)
+    # Remove the index array and subsequent vars from navtreedata.js.
+    string(REGEX REPLACE "var NAVTREEINDEX =.*$" "" string "${string}")
+    # Remove one layer from navtreedata.js.
+    string(REGEX REPLACE "\n *\\[ \"DynamoRIO API\", \"index.html\", \\[" ""
       string "${string}")
+    # Remove the home page and the end of the extra layer.
+    string(REGEX REPLACE "\n[^\n]*DynamoRIO Home Page[^\n]*\n[^\n]*" ""
+      string "${string}")
+    # Remove name so we can inline.
+    string(REGEX REPLACE "var [^\n]* =\n" "" string "${string}")
+    # Ask jekyll to inline, instead of just naming for JS.
+    string(REGEX REPLACE ", \"([^\"]+)\" \\]" ", {% include_relative docs/\\1.js %} ]"
+      string "${string}")
+    # End in a comma for inlining.
+    string(REGEX REPLACE "\\];" "]," string "${string}")
+    # Put the modified contents into our dir.
+    get_filename_component(fname ${js} NAME)
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/${fname} "${string}")
+  endforeach ()
+
+else ()
+  # Edit navbar.
+  if (doxygen_ver VERSION_LESS "1.7.3")
+    # Add link to home page to treeview pane
+    file(APPEND
+      ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html
+      "<p>&nbsp;<a target=\"main\" href=\"${home_url}/\">${home_title}</a></p>")
+
+    # Add our logo to treeview pane (yes there is no closing </body></html>)
+    file(APPEND
+      ${CMAKE_CURRENT_BINARY_DIR}/html/tree.html
+      "<p>&nbsp;<br><img src=\"${logo_imgfile}\"></p>")
+  else ()
+    # This is a fragile insertion into the javascript used for the navbar.
+    # We insert at the end of the final function (initNavTree).
+    # This works in doxygen 1.7.4-1.8.1.
+    set(add_logo "
+          var imgdiv = document.createElement(\"div\");
+          document.getElementById(\"nav-tree-contents\").appendChild(imgdiv);
+          var img = document.createElement(\"img\");
+          imgdiv.appendChild(img);
+          img.src = \"${logo_imgfile}\";
+          img.style.marginLeft = \"80px\";
+          img.style.marginTop = \"30px\";
+      ")
+    file(READ ${CMAKE_CURRENT_BINARY_DIR}/html/navtree.js string)
+    string(REGEX REPLACE
+      "\\}\n*$"
+      "${add_logo}\n}"
+      string "${string}")
+    # Doxygen 1.9.1 has this license-end line.
+    string(REGEX REPLACE
+      "\\}\n/\\* @license-end \\*/\n$"
+      "${add_logo}\n}"
+      string "${string}")
+    # While we're here we replace Files and Data Structures, if requested
+    if (DEFINED files_string)
+      string(REGEX REPLACE "\"Files\"" "\"${files_string}\"" string "${string}")
+    endif ()
+    if (DEFINED structs_string)
+      string(REGEX REPLACE "\"Data Structures\"" "\"${structs_string}\""
+        string "${string}")
+    endif ()
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/navtree.js "${string}")
   endif ()
-  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/navtree.js "${string}")
 endif ()
 
 # For modules/extensions (i#277/PR 540817) we use doxygen groups which show up under

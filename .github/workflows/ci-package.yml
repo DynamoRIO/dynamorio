@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -107,7 +107,9 @@ jobs:
         name: linux-tarball
         path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
 
-    - name: Deploy Docs
+    # XXX i#4111: Delete this step and the dynamorio_docs repository once
+    # we're happy with the embedded version.
+    - name: Deploy Standalone Docs
       uses: crazy-max/ghaction-github-pages@v2
       with:
         build_dir: html
@@ -116,6 +118,26 @@ jobs:
       env:
         # We need a personal access token for write access to another repo.
         GH_PAT: ${{ secrets.DOCS_TOKEN }}
+
+    - name: Check Out Web
+      uses: actions/checkout@v2
+      with:
+        repository: DynamoRIO/dynamorio.github.io
+        token: ${{ secrets.DOCS_TOKEN }}
+        path: dynamorio.github.io
+
+    - name: Deploy Embedded Docs
+      run: |
+        rsync -av --delete html_embed/ dynamorio.github.io/docs/
+        cd dynamorio.github.io
+        git config --local user.name "cronbuild"
+        git config --local user.email "dynamorio-devs@googlegroups.com"
+        git add -A
+        git commit -m "Snapshot for cronbuild-${{ steps.version.outputs.version_number }}"
+        git push
+      env:
+        # We need a personal access token for write access to another repo.
+        GITHUB_TOKEN: ${{ secrets.DOCS_TOKEN }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

@@ -1220,6 +1220,7 @@ else (DEBUG)
 endif (DEBUG)
 set(INSTALL_INCLUDE include)
 set(INSTALL_DOCS docs)
+set(INSTALL_DOCS_EMBED docs_embed)
 # samples are installed via api/samples/ separate CMake project
 set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE}")

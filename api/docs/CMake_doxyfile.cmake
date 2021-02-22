@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -37,9 +37,11 @@
 # * version_number
 # * header_dir
 # * gendox_dir
+# * dest_dir
 # * DOXYGEN_EXECUTABLE
 # * doxygen_ver
 # * dox_extraN where N=1,2,3,... (to get around cmake problems passing spaces)
+# * embeddable
 
 set(outdir "${CMAKE_CURRENT_BINARY_DIR}")
 set(srcdir_orig "${srcdir}")
@@ -106,10 +108,10 @@ string(REGEX REPLACE
   "\\1\"${srcdir}/images\"" string "${string}")
 string(REGEX REPLACE
   "(header.html)"
-  "\"${gendox_dir}/\\1\"" string "${string}")
+  "\"${dest_dir}/\\1\"" string "${string}")
 string(REGEX REPLACE
   "(footer.html)"
-  "\"${gendox_dir}/\\1\"" string "${string}")
+  "\"${dest_dir}/\\1\"" string "${string}")
 
 if (doxygen_ver STRGREATER "1.7.2")
   # For 1.7.3+ we use xml file to tweak treeview contents
@@ -135,6 +137,13 @@ string(REGEX REPLACE
 string(REGEX REPLACE
   "(ENABLED_SECTIONS[ \t]*=)"
   "\\1 linux" string "${string}")
+
+if (embeddable)
+  # Turn off the frames.
+  string(REGEX REPLACE "(GENERATE_TREEVIEW[ \t]*= )YES" "\\1 NO" string "${string}")
+  # Turn off the confusing search box.
+  string(REGEX REPLACE "(SEARCHENGINE[ \t]*= )YES" "\\1 NO" string "${string}")
+endif ()
 
 # We no longer support VMSAFE.
 # Here's what we used to do:
