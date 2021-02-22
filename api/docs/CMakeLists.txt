@@ -53,9 +53,9 @@ set(genimg_dirname ${CMAKE_CURRENT_BINARY_DIR}/genimages)
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/genimages DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 function (gendox_to_dox gendox_in gendox_out path master_list)
-  file(GLOB dox_files "${path}/*.dox" "${path}/*.dox.in")
+  file(GLOB dox_glob "${path}/*.dox" "${path}/*.dox.in")
   set(${master_list} ${${master_list}};${dox_files} PARENT_SCOPE)
-  foreach (dox_file ${dox_files})
+  foreach (dox_file ${dox_glob})
     file(READ "${dox_file}" dox_string)
     string(REGEX MATCHALL "\n\\\\page [^ ]+" page "${dox_string}")
     set(dox_pages ${dox_pages} ${page})
@@ -157,6 +157,7 @@ macro (generate_html name dest_dir embeddable)
 
   add_custom_target(${name} ALL
     DEPENDS ${doxyfile}
+            ${dox_files}
             ${figures_eps}
             ${figures_png}
             ${docsgen}

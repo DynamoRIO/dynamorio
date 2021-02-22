@@ -1,0 +1,170 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_help Obtaining Help and Reporting Bugs
+
+When using a complex system like DynamoRIO, problems can be challenging to
+diagnose.  This section contains some debugging tips and shows how to get
+help.
+
+***************************************************************************
+\section sec_emaillist Discussion Forum
+
+For questions and discussion, join the <a
+href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users
+group</a>.
+
+***************************************************************************
+\section sec_reporting Reporting Problems
+
+DynamoRIO is a tool platform, with end-user tools built on top of it.  If
+you encounter a crash in a tool provided by a third party, please locate
+the issue tracker for the tool you are using and report the crash there.
+
+To report a bug in DynamoRIO itself or in a tool that ships with the
+DynamoRIO release, use [our Issue
+Tracker](https://github.com/DynamoRIO/dynamorio/issues).
+
+For general questions, or if you are not sure whether the problem you
+hit is a bug in your own code or a bug in DynamoRIO, use the [users
+list](https://groups.google.com/forum/#!forum/DynamoRIO-Users) rather
+than opening an issue in the tracker.  The users list will reach a
+wider audience of people who might have an answer, and it will reach
+other users who may find the information beneficial. The issue tracker
+is for specific detailed bugs.
+
+***************************************************************************
+\section sec_diagnosing Troubleshooting
+
+ - DynamoRIO disables itself when Windows is booted in safe mode (without
+networking).  Thus, if a crash occurs in a Windows service under
+DynamoRIO, rebooting in safe mode will allow recovery.
+
+ - If the client library doesn't seem to function for a given process, it is
+   likely that the client library wasn't loaded due to errors.
+
+   \par
+   One of the common situations where this happens is when the target
+   application runs as a different user than the user who created the client
+   library.  This results in the application process not having the right
+   permissions to access the client library.
+
+   \par
+   Try running the process under the debug mode of DynamoRIO (see
+   dr_register_process()), where diagnostic messages are raised on errors like
+   client library permissions.  To see all messages, set the notification
+   options like -msgbox_mask and -stderr_mask options to 0xf (see \ref
+   sec_options).  This will alert you to the problem.
+
+ - DynamoRIO asserts of the form "<file>:1234" can be suppressed with
+   the \ref op_ignore_assert "-ignore_assert_list '*'" option. * may
+   be replaced by a ; separated lists of individual asserts to
+   suppress as so "-ignore_assert_list 'foo.c:333;bar.c:12'".
+
+ - The DynamoRIO header files have typedefs that may conflict with other
+   header files wrapped in ifndef DR_DO_NOT_DEFINE_<type> to make it
+   easier to work around such conflicts. Alternatively, use
+   DR_DEFINE_FOR_<type>, in which case you may need to also specify
+   "<type>_FORMAT", for printf formatting.
+
+***************************************************************************
+\ifnot vmsafe
+\section sec_debugging Using Debuggers
+
+A process under control of DynamoRIO can be executed within a debugger.
+For debugging on Windows we recommend using windbg version 6.3.0017 (\b not
+the newer versions, as they have problems displaying callstacks involving
+DynamoRIO code).
+
+Normally, the debugger will not be aware of the DynamoRIO library or the
+client library.  We provide a windbg script that locates the DynamoRIO
+library, the client library, and any privately-loaded dependent libraries.
+The script is in \c bin32/load_syms.txt and \c bin64/load_syms64.txt.  To
+load it from windbg, execute the following command:
+
+\code
+  $><c:\path\to\DR\bin32\load_syms.txt
+\endcode
+When debugging often, modify the shortcut that launches windbg
+to include this command as a -c argument.  E.g.:
+
+\code
+"C:\Program Files (x86)\Debugging Tools for Windows\windbg.exe" -pt 1 -c "$><c:\tools\DynamoRIO\bin32\load_syms.txt"
+\endcode
+
+On Windows, the \ref op_no_hide "-no_hide" option can alternatively be
+used so the debugger can see the DynamoRIO library, but the debugger
+will still not be able to see the client library or any of its
+dependent libraries.  We recommend using our script.
+
+To attach to a process on Windows, use the \ref op_msgbox_mask
+"-msgbox_mask" option and attach the debugger while the dialog box has
+paused the application.  On Linux, the same option can be used and
+the debugger attached while the application waits for enter to be
+pressed.  Since this may not work for applications that themselves
+read from standard input, we also provide the \b -pause_via_loop runtime
+option which sits in an infinite loop rather than waiting for a keypress.
+
+To run an application on Linux under a debugger from process start you
+can launch drrun under gdb as you would normally:
+
+\code
+gdb --args path/to/drrun <options> -- path/to/app
+\endcode
+
+Because the executable changes from drrun to the app, the app cannot be
+re-run from gdb's prompt.
+
+On Linux, the main drawback of debugging from application start rather
+than attaching is that breakpoint instructions (\c int3) inserted by
+the debugger get copied into the code cache.  This includes internal
+debugger breakpoints automatically placed in the loader, as well as
+user-defined breakpoints.  For example, gdb puts a breakpoint on
+__nptl_create_event, which is called by pthread_create and related
+calls.  See https://github.com/DynamoRIO/dynamorio/issues/490.
+The debugger will handle these traps, but the user must tell it to
+continue, which is an annoyance.  For user breakpoints, consider using
+read watchpoints on the code in question instead.
+
+On Windows, if an application invokes OutputDebugString() while under a
+debugger, DynamoRIO can end up losing control of the application.
+
+For additional tips, check the DynamoRIO wiki page on debugging:
+https://github.com/DynamoRIO/dynamorio/wiki/Debugging
+
+\endif
+
+
+ ****************************************************************************
+ */
