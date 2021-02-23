@@ -1571,13 +1571,25 @@ set_handler_and_record_app(dcontext_t *dcontext, thread_sig_info_t *info, int si
 
     /* Arm the signal. */
     rc = sigaction_syscall(sig, act, NULL);
-    ASSERT(rc ==
-           0
-           /* Workaround for PR 223720, which was fixed in ESX4.0 but
-            * is present in ESX3.5 and earlier: vmkernel treats
-            * 63 and 64 as invalid signal numbers.
-            */
-           IF_VMX86(|| (sig >= 63 && rc == -EINVAL)));
+    DODEBUG({
+        /* i#4627: QEMU before 5.0 has a signal mapping bug where 33 and 64
+         * fail.  Better to continue and hope 33 doesn't mess up pthreads.
+         */
+        if (rc == -EINVAL && !IS_STRING_OPTION_EMPTY(xarch_root) &&
+            (sig == 33 || sig == 64)) {
+            SYSLOG_INTERNAL_WARNING("Failed to register signal handler for %d: assuming "
+                                    "under QEMU<5.0 and continuing",
+                                    sig);
+        } else {
+            ASSERT(rc ==
+                   0
+                   /* Workaround for PR 223720, which was fixed in ESX4.0 but
+                    * is present in ESX3.5 and earlier: vmkernel treats
+                    * 63 and 64 as invalid signal numbers.
+                    */
+                   IF_VMX86(|| (sig >= 63 && rc == -EINVAL)));
+        }
+    });
     if (rc != 0) /* be defensive: app will probably still work */
         return;
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
