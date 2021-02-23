@@ -100,9 +100,9 @@ jobs:
         to: dynamorio-devs@googlegroups.com
         from: Github Action CI
 
-  # AArch32 cross-compile with gcc, with some tests run under QEMU.
+  # ARM cross-compile with gcc, with some tests run under QEMU.
   # We use a more recent Ubuntu for a more recent QEMU.
-  aarch32-cross-compile:
+  arm-cross-compile:
     runs-on: ubuntu-20.04
 
     steps:
