@@ -107,7 +107,7 @@ if ($ENV{DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY} MATCHES "yes")
   if (arg_no32)
     set(arg_cacheappend "${arg_cacheappend}
       PACKAGE_PLATFORM:STRING=AArch64-
-      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake")
+      CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-aarch64.cmake")
   elseif (arg_no64)
     set(arg_cacheappend "${arg_cacheappend}
       PACKAGE_PLATFORM:STRING=ARM-

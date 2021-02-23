@@ -452,13 +452,13 @@ if (UNIX AND ARCH_IS_X86)
       set(run_tests OFF) # build tests but don't run them
     endif ()
   endif ()
-  testbuild_ex("arm-debug-internal-32" OFF "
+  testbuild_ex("arm-debug-internal" OFF "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     ${build_tests}
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
     " OFF ${arg_package} "")
-  testbuild_ex("arm-release-external-32" OFF "
+  testbuild_ex("arm-release-external" OFF "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
     CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm32.cmake
@@ -469,16 +469,16 @@ if (UNIX AND ARCH_IS_X86)
       set(run_tests OFF) # build tests but don't run them
     endif ()
   endif ()
-  testbuild_ex("arm-debug-internal-64" ON "
+  testbuild_ex("aarch64-debug-internal" ON "
     DEBUG:BOOL=ON
     INTERNAL:BOOL=ON
     ${build_tests}
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-aarch64.cmake
     " OFF ${arg_package} "")
-  testbuild_ex("arm-release-external-64" ON "
+  testbuild_ex("aarch64-release-external" ON "
     DEBUG:BOOL=OFF
     INTERNAL:BOOL=OFF
-    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-arm64.cmake
+    CMAKE_TOOLCHAIN_FILE:PATH=${CTEST_SOURCE_DIRECTORY}/make/toolchain-aarch64.cmake
     " OFF ${arg_package} "")
 
   set(run_tests ${prev_run_tests})
