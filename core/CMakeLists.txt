@@ -1055,7 +1055,9 @@ endif ()
 # We can't run core unit tests when the target is not the host, just like we can't
 # run DR itself managing an app: DR is a same-arch system for code cache operation
 # and only supports target!=host for decoding and drmemtrace analysis (i#1684).
-if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
+if (BUILD_TESTS AND
+    ((CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH) OR
+      (NOT DR_HOST_NOT_TARGET)))
   add_executable(unit_tests unit_tests.c
     # These unit tests have been moved from the x86_code module into a new x86_code
     # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
@@ -1128,6 +1130,9 @@ if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
   add_test(unit_tests ${unit_relpath})
   if (APPLE)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
+  endif ()
+  if (AARCHXX)
+    set_tests_properties(unit_tests PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   copy_target_to_device(unit_tests "${location_suffix}")
 endif ()

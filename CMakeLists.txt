@@ -295,6 +295,16 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   endif ()
 endif ()
 
+# Support for running cross-compiled tests under emulation.
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+  find_program(QEMU_BINARY qemu-${CMAKE_SYSTEM_PROCESSOR} DOC "QEMU emulation tool")
+  if (NOT QEMU_BINARY)
+    message(STATUS "Did not find qemu-${CMAKE_SYSTEM_PROCESSOR}: tests will not run")
+  else ()
+    message(STATUS "Found qemu-${CMAKE_SYSTEM_PROCESSOR} for tests under emulation")
+  endif ()
+endif ()
+
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
 # high-level configurations

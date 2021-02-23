@@ -1184,6 +1184,9 @@ else ()
   set(dr_os_ops -msgbox_mask 0 -dumpcore_mask 0x7d -staged)
 endif ()
 set(dr_test_ops -stderr_mask 0xC ${dr_os_ops})
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+  set(dr_test_ops -xarch_root ${CMAKE_FIND_ROOT_PATH} ${dr_test_ops})
+endif ()
 
 function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
@@ -1204,6 +1207,10 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
   set(timeout ${TEST_SECONDS})
   if (DEFINED ${key}_timeout)
     set(timeout ${${key}_timeout})
+  endif ()
+  if (CMAKE_CROSSCOMPILING)
+    # Everything is slower under emulation.
+    math(EXPR timeout "${timeout}*4")
   endif ()
 
   if (WIN32 OR NOT native)
@@ -4682,3 +4689,115 @@ if (APPLE)
       PROPERTIES LABELS OSX)
   endif ()
 endif ()
+
+# XXX i#4719: Support for running aarchxx Linux tests under QEMU.
+# Currently about 1/3 of the tests pass.  The rest either are too slow under QEMU
+# and hit the (expanded) timeout, or do not yet have full command line insertion
+# support (drcachesim and other tools), or hit bugs in QEMU or in DR.
+if (NOT ANDROID AND AARCHXX)
+  set_tests_properties(
+    code_api|common.broadfun
+    code_api|common.getretaddr
+    code_api|common.nzcv
+    code_api|linux.app_tls
+    code_api|linux.execve-null
+    code_api|linux.exit
+    code_api|linux.fib-conflict
+    code_api|linux.fib-conflict-early
+    code_api|linux.fib-pie
+    code_api|linux.fib-static
+    code_api|linux.fork
+    code_api|linux.infinite
+    code_api|linux.longjmp
+    code_api|linux.readlink
+    code_api|linux.sigaction
+    code_api|linux.signalfd
+    code_api|linux.signal_racesys
+    code_api|security-common.codemod
+    code_api|security-common.ret_noncall_trace
+    code_api|security-common.TestMemProtChg_FLAKY
+    code_api|client.app_args
+    code_api|client.blackbox
+    code_api|client.call-retarget
+    code_api|client.crashmsg
+    code_api|client.destructor
+    code_api|client.drcontainers-test
+    code_api|client.drmodtrack-test
+    code_api|client.drsyms-test
+    code_api|client.drwrap-test-callconv
+    code_api|client.drxmgr-test
+    code_api|client.exception
+    code_api|client.int64_overrides
+    code_api|client.low_on_memory
+    code_api|client.modules
+    code_api|client.null_instrument
+    code_api|client.option_parse
+    code_api|client.partial_module_map
+    code_api|client.stack-overflow
+    code_api|client.thread_exit_xl8
+    code_api|sample.bbbuf
+    code_api|sample.bbcount
+    code_api|sample.bbsize
+    code_api|sample.div
+    code_api|sample.empty
+    code_api|sample.inline
+    code_api|sample.opcode_count
+    code_api|sample.signal
+    code_api|sample.stl_test
+    code_api|sample.syscall
+    code_api|sample.wrap
+    PROPERTIES LABELS RUNS_ON_QEMU)
+  if (DEBUG)
+    set_tests_properties(
+      code_api|common.logstderr
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+  if (AARCH64)
+    set_tests_properties(
+      code_api|common.allasm_aarch64_cache
+      code_api|common.allasm_aarch64_isa
+      code_api|linux.mmap
+      code_api,satisfy_w_xor_x|linux.fork
+      code_api|security-common.retnonexisting
+      code_api|security-linux.trampoline
+      code_api|client.app_inscount
+      code_api|client.cleancall-opt-1
+      code_api|client.cleancallparams
+      code_api|client.drreg-cross
+      code_api|client.drreg-end-restore
+      code_api|client.drreg-flow
+      code_api|client.emulation_api_simple
+      code_api|client.execfault
+      code_api|client.inline
+      code_api|client.syscall-mod
+      code_api|client.truncate
+      code_api|client.unregister
+      code_api|sample.inscount
+      code_api|sample.inscount.cleancall
+      code_api|sample.inscount.prof-pcs.cleancall
+      code_api|sample.instrace_simple
+      code_api|sample.memtrace_simple
+      code_api|sample.opcodes
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+  if (ARM)
+    set_tests_properties(
+      code_api|common.allasm_arm
+      code_api|common.allasm_thumb
+      code_api|common.broadfun-stress
+      code_api|linux.bad-signal-stack
+      code_api|linux.alarm
+      code_api|linux.fork-sleep
+      code_api|linux.signal_race
+      code_api|linux.sigplain000
+      code_api|linux.sigplain001
+      code_api|linux.sigplain010
+      code_api|linux.sigplain011
+      code_api|linux.sigplain100
+      code_api|linux.sigplain101
+      code_api|linux.sigplain110
+      code_api|linux.sigplain111
+      code_api|security-common.TestAllocWE
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+endif (NOT ANDROID AND AARCHXX)

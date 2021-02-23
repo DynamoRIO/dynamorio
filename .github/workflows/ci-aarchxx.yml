@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -48,9 +48,10 @@ defaults:
     shell: bash
 
 jobs:
-  # AArchXX cross-compile with gcc, no tests:
-  aarchxx-cross-compile:
-    runs-on: ubuntu-16.04
+  # AArch64 cross-compile with gcc, with some tests run under QEMU.
+  # We use a more recent Ubuntu for a more recent QEMU.
+  aarch64-cross-compile:
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -63,15 +64,67 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
-    # Install cross-compilers for cross-compiling Linux build:
+    # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
       run: |
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+          g++-aarch64-linux-gnu qemu-user
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
-      run: ./suite/runsuite_wrapper.pl automated_ci
+      run: ./suite/runsuite_wrapper.pl automated_ci 64_only
+      env:
+        DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/aarchxx-cross-compile
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action CI
+
+  # ARM cross-compile with gcc, with some tests run under QEMU.
+  # We use a more recent Ubuntu for a more recent QEMU.
+  arm-cross-compile:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - run: git fetch --no-tags --depth=1 origin master
+
+    # Install cross-compiler for cross-compiling Linux build:
+    - name: Create Build Environment
+      run: |
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          g++-arm-linux-gnueabihf qemu-user
+
+    - name: Run Suite
+      working-directory: ${{ github.workspace }}
+      run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
 
