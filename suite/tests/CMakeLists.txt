@@ -4766,7 +4766,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.drreg-cross
       code_api|client.drreg-end-restore
       code_api|client.drreg-flow
-      code_api|client.drreg-test
       code_api|client.emulation_api_simple
       code_api|client.execfault
       code_api|client.inline
@@ -4778,7 +4777,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.inscount.prof-pcs.cleancall
       code_api|sample.instrace_simple
       code_api|sample.memtrace_simple
-      code_api|sample.memval_simple
       code_api|sample.opcodes
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
