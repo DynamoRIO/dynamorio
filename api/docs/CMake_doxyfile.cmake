@@ -96,12 +96,24 @@ file(READ "${outfile}" string)
 
 # FIXME i#59: if epstopdf and latex are available, set "GENERATE_LATEX" to "YES"
 
+# To control the ordering of the top-level pages (where we don't have \subpage
+# to control ordering) we specify them explicitly in the order we want before
+# the directory glob (doxygen seems ok with the glob duplicating).
+# (Using a separate first-alphabetically (CMake globas are alphabetical) file
+# that has duplicate \page refs in order works with doxygen 1.9.1 and 1.8.11,
+# but not 1.8.17 or 1.8.19 on Windows.)
+set(top_order "\"${srcdir}/download.dox\"")
+set(top_order "${top_order} \"${gendox_dir}/tool_gendox.dox\"")
+set(top_order "${top_order} \"${srcdir}/intro.dox\"")
+set(top_order "${top_order} \"${srcdir}/help.dox\"")
+set(top_order "${top_order} \"${srcdir}/developers.dox\"")
+
 # Executed inside build dir, so we leave genimages alone
 # and have to fix up refs to source dir and subdirs
 string(REGEX REPLACE
   "(INPUT[ \t]*=) *\\."
   # We no longer need ${proj_srcdir}/libutil on here, right?
-  "\\1 \"${srcdir}\" \"${header_dir}\" \"${gendox_dir}\" ${ext_input_dirs} ${tool_input_dirs} ${extra_input_dirs}"
+  "\\1 ${top_order} \"${srcdir}\" \"${header_dir}\" \"${gendox_dir}\" ${ext_input_dirs} ${tool_input_dirs} ${extra_input_dirs}"
   string "${string}")
 string(REGEX REPLACE
   "([^a-z])images"
