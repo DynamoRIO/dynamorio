@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_tool DynamoRIO-Based Tools
+\page page_tool Available Tools
 
 A collection of powerful DynamoRIO-based tools are provided for direct use.
 A tool can be invoked using the option \p -t with the tool name.

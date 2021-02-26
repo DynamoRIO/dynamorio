@@ -224,21 +224,41 @@ if (embeddable)
       continue ()
     endif ()
     file(READ ${js} string)
-    # Remove the index array and subsequent vars from navtreedata.js.
-    string(REGEX REPLACE "var NAVTREEINDEX =.*$" "" string "${string}")
-    # Remove one layer from navtreedata.js.
-    string(REGEX REPLACE "\n *\\[ \"DynamoRIO API\", \"index.html\", \\[" ""
-      string "${string}")
-    # Remove the home page and the end of the extra layer.
-    string(REGEX REPLACE "\n[^\n]*DynamoRIO Home Page[^\n]*\n[^\n]*" ""
-      string "${string}")
-    # Remove name so we can inline.
-    string(REGEX REPLACE "var [^\n]* =\n" "" string "${string}")
     # Ask jekyll to inline, instead of just naming for JS.
-    string(REGEX REPLACE ", \"([^\"]+)\" \\]" ", {% include_relative docs/\\1.js %} ]"
+    string(REGEX REPLACE ", \"([^\"]+)\" \\]" ", {% include_relative \\1.js %} ]"
       string "${string}")
-    # End in a comma for inlining.
-    string(REGEX REPLACE "\\];" "]," string "${string}")
+    if (js MATCHES "navtreedata.js")
+      # Add a jekyll header.
+      set(string "---\n---\n${string}")
+      # Remove the index array from navtreedata.js.
+      string(REGEX REPLACE "var NAVTREEINDEX =[^;]*;" "" string "${string}")
+      # Remove one layer from navtreedata.js.
+      string(REGEX REPLACE "\n *\\[ \"DynamoRIO\", \"index.html\", \\[" ""
+        string "${string}")
+      # Remove the home page at the end.
+      string(REGEX REPLACE "\n[^\n]*DynamoRIO Home Page[^\n]*\n" "" string "${string}")
+      # Insert a layer in navtreedata.js, using the end of the top layer we removed.
+      string(REGEX REPLACE "\n( *\\[ \"Deprecated List)"
+        "\n[ \"API Reference\", \"files.html\", [\n\\1"
+        string "${string}")
+      string(REGEX MATCH "\n[^\n]+\"DynamoRIO Extensions\"[^\n]+\n" ext_entry "${string}")
+      string(REPLACE "${ext_entry}" "\n" string "${string}")
+    else ()
+      # Remove name so we can inline.
+      string(REGEX REPLACE "var [^\n]* =\n" "" string "${string}")
+      # End in a comma for inlining.
+      string(REGEX REPLACE "\\];" "]," string "${string}")
+    endif ()
+    if (js MATCHES "page_user_docs.js")
+      # CMake 3.6+ guarantees the glob is sorted lexicographically, so we've already
+      # seen navtreedata.js.
+      if (ext_entry)
+        string(REGEX REPLACE "\n([^\n]+\"Release Notes)" "${ext_entry}\\1"
+          string "${string}")
+      else ()
+        message(FATAL_ERROR "Failed to find the two menu entries to move")
+      endif ()
+    endif ()
     # Put the modified contents into our dir.
     get_filename_component(fname ${js} NAME)
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/${fname} "${string}")
