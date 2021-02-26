@@ -175,6 +175,10 @@ if (embeddable)
     # Remove full paths.
     string(REGEX REPLACE "\ntitle: \"${proj_bindir}" "\ntitle: \"" string "${string}")
     string(REGEX REPLACE "\ntitle: \"${proj_srcdir}" "\ntitle: \"" string "${string}")
+    # Add permalink to front matter so the web site hides the docs/ subdir.
+    get_filename_component(linkname ${html} NAME)
+    string(REGEX REPLACE "(\nlayout: default\n)" "\\1permalink: /${linkname}\n"
+      string "${string}")
 
     # Collect type info for keyword searches with direct anchor links (else the
     # search finds the page but the user then has to manually search within the long
@@ -207,7 +211,7 @@ if (embeddable)
       set(keywords "window.data[\"${fname}-${name}\"]={\
 \"name\":\"${fname}-${name}\",\
 \"title\":\"${name} in ${fname} header\",\
-\"url\":\"docs/${url}\",\
+\"url\":\"${url}\",\
 \"content\":\"${name} ${extra}\"};\n")
       file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
     endforeach ()
@@ -229,7 +233,7 @@ if (embeddable)
       string "${string}")
     if (js MATCHES "navtreedata.js")
       # Add a jekyll header.
-      set(string "---\n---\n${string}")
+      set(string "---\npermalink: /navtreedata.js\n---\n${string}")
       # Remove the index array from navtreedata.js.
       string(REGEX REPLACE "var NAVTREEINDEX =[^;]*;" "" string "${string}")
       # Remove one layer from navtreedata.js.
