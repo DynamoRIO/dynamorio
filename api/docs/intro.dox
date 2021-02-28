@@ -1854,7 +1854,7 @@ Options aiding in debugging:
     hiding.  However, the client library and any libraries it imports from
     will still be hidden.  We provide a windbg script that can locate
     DynamoRIO, the client library, and all of its dependences, so this
-    option should no longer be necessary (see \ref sec_debugging).
+    option should no longer be necessary (see \ref page_debugging).
     This option is for Windows only.
 \endif
 

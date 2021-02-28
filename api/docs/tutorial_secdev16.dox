@@ -37,13 +37,13 @@
 3:30pm-5:00pm
 on Friday November 4, 2016 at [IEEE SecDev](http://secdev.ieee.org/).
 
-## Audience
+# Audience
 
 Researchers and professionals interested in using advanced fuzz testing
 tools or memory error identification tools or in building custom dynamic
 program analysis tools.
 
-## Abstract
+# Abstract
 
 This tutorial will present two tools that can be integrated into a secure software development approach, as well as describing how custom tools can be built utilizing the same underlying tool platform.
 
@@ -56,7 +56,7 @@ Both Dr. Fuzz and Dr. Memory are built on the DynamoRIO [[2](#ref2)] dynamic ins
 Dr. Fuzz, Dr. Memory, and DynamoRIO are all open-source and publicly available [[4](#ref4)].  They operate on Linux, Windows, and Android on IA-32, AMD64, and ARM platforms.
 
 
-## What You Will Learn
+# What You Will Learn
 
 In this tutorial you will learn:
 
@@ -70,7 +70,7 @@ In this tutorial you will learn:
 
 
 
-## Download Virtual Machine
+# Download Virtual Machine
 
 
 We are providing instructions and material to follow along with
@@ -89,13 +89,13 @@ instructions](
 https://drive.google.com/open?id=0B5KF1WTPY_itcXNjSW91bkxUTDg).
 
 
-## Slides
+# Slides
 
 
 The slides from the presentation are [now available](https://docs.google.com/presentation/d/1cpOvQ16AZZ674E5EPz0H_PHFeFII1z22xof2yCKZhjI/edit?usp=sharing).
 
 
-## Organizers
+# Organizers
 
 
 - Derek Bruening** is the primary author of the DynamoRIO tool platform.
@@ -110,14 +110,14 @@ large tools and frameworks with DynamoRIO, including the debugging
 framework EDDI and parallel memory profiler and analyzer PiPA.
 
 
-## Questions
+# Questions
 
 Questions about the tutorial can be sent to the
 [DynamoRIO-Users](http://groups.google.com/group/DynamoRIO-Users)
 mailing list.
 
 
-## References
+# References
 
 -# <a name="ref1"></a>Derek Bruening and Qin Zhao.  ["Practical Memory Checking with Dr. Memory"](http://www.burningcutlery.com/derek/docs/drmem-CGO11.pdf). International Symposium on Code Generation and Optimization (CGO-11), April 2011.
 

@@ -38,12 +38,12 @@
 on Sunday March 13, 2016](http://cgo.org/cgo2016/event/building-dynamic-tools-with-dynamorio-on-x86-and-arm-dynamorio/?instance_id=14) at the [2016
 International Symposium on Code Generation and Optimization](http://cgo.org/cgo2016/).
 
-## Audience
+# Audience
 
 Researchers and professionals interested in building dynamic program
 analysis tools.
 
-## Abstract
+# Abstract
 
 This tutorial will present the DynamoRIO tool platform and describe how
 to use its API to build custom tools that utilize dynamic code
@@ -54,7 +54,7 @@ researchers to develop systems ranging from taint tracking to prefetch
 optimization.  DynamoRIO is publicly available in open source form and
 targets Windows, Linux, Mac, and Android on IA-32, AMD64, and ARM.
 
-## Topics
+# Topics
 
 The tutorial will cover the following topics:
 
@@ -72,14 +72,14 @@ The tutorial will cover the following topics:
 -  Sample tool starting points for building new tools
 -  Advanced topics when building sophisticated tools
 
-## Slides
+# Slides
 
 The slides are now available
 in [PDF](https://github.com/DynamoRIO/dynamorio/releases/download/release_6_1_0/DynamoRIO-tutorial-mar2016.pdf)
 and [PPSX](https://github.com/DynamoRIO/dynamorio/releases/download/release_6_1_0/DynamoRIO-tutorial-mar2016.ppsx)
 formats.
 
-## Organizers
+# Organizers
 
 - Derek Bruening is the primary author of the DynamoRIO tool platform.
   Derek is currently a Software Engineer at Google.
@@ -95,13 +95,13 @@ framework EDDI and parallel memory profiler and analyzer PiPA.
 The organizers both work on the Dr. Memory memory debugging tool,
 which is a powerful tool built on top of DynamoRIO.
 
-## Questions
+# Questions
 
 Questions about the tutorial can be sent to the
 [DynamoRIO-Users](http://groups.google.com/group/DynamoRIO-Users)
 mailing list.
 
-## References
+# References
 
 - [DynamoRIO home and API documentation](http://dynamorio.org/)
 - [DynamoRIO code repository](https://github.com/DynamoRIO/dynamorio)
