@@ -29,11 +29,12 @@
 # DAMAGE.
 
 # Github Actions workflow for building doxygen docs for the web site.
-# This is also done as part of ci-package; this is provided as a manual
-# method to update the docs without doing a full package release.
 
 name: ci-docs
 on:
+  # Built daily at 2am EST.
+  schedule:
+    - cron: '0 7 * * *'
   # Manual trigger using the Actions page.
   workflow_dispatch:
     inputs:
@@ -54,7 +55,8 @@ jobs:
   ###########################################################################
   # Docs deployment, building on Linux.
   docs:
-    runs-on: ubuntu-16.04
+    # We use a more recent Ubuntu for better markdown support.
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2

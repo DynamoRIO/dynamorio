@@ -98,7 +98,10 @@ jobs:
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
-        DEPLOY_DOCS: yes
+        # We do not update the web documentation here because a newer
+        # Doxygen is needed but we have not yet tested our tests and
+        # packages built on newer Ubuntu on GA CI.
+        DEPLOY_DOCS: no
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
     - name: Upload Artifacts
@@ -106,38 +109,6 @@ jobs:
       with:
         name: linux-tarball
         path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
-
-    # XXX i#4111: Delete this step and the dynamorio_docs repository once
-    # we're happy with the embedded version.
-    - name: Deploy Standalone Docs
-      uses: crazy-max/ghaction-github-pages@v2
-      with:
-        build_dir: html
-        repo: DynamoRIO/dynamorio_docs
-        target_branch: master
-      env:
-        # We need a personal access token for write access to another repo.
-        GH_PAT: ${{ secrets.DOCS_TOKEN }}
-
-    - name: Check Out Web
-      uses: actions/checkout@v2
-      with:
-        repository: DynamoRIO/dynamorio.github.io
-        token: ${{ secrets.DOCS_TOKEN }}
-        path: dynamorio.github.io
-
-    - name: Deploy Embedded Docs
-      run: |
-        rsync -av --delete html_embed/ dynamorio.github.io/docs/
-        cd dynamorio.github.io
-        git config --local user.name "cronbuild"
-        git config --local user.email "dynamorio-devs@googlegroups.com"
-        git add -A
-        git commit -m "Snapshot for cronbuild-${{ steps.version.outputs.version_number }}"
-        git push
-      env:
-        # We need a personal access token for write access to another repo.
-        GITHUB_TOKEN: ${{ secrets.DOCS_TOKEN }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
