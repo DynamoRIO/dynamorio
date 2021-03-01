@@ -55,7 +55,7 @@ jobs:
   # Docs deployment, building on Linux.
   docs:
     # We use a more recent Ubuntu for better markdown support.
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
