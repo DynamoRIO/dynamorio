@@ -438,7 +438,7 @@ Cygwin's as there are conflicts: both have `mc.exe` and `link.exe`.
 
 ----------------
 
-# Details of Building with CMake
+\section sec_cmake Details of Building with CMake
 
 ## Components
 

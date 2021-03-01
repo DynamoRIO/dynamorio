@@ -92,7 +92,7 @@ The string "Fixes: #NNNNN" in a Pull Request description will also close that
 issue, even if the final commit message does not contain that string, so be sure to
 edit the PR description if it's decided that the issue should stay open.
 
-If a commit does not fully fix an issue, include a reference to the issue with a line of the form `Issue: #NNNNN`.  Use this to add links to related issues as well, in a format that makes it easier for tools to locate within messages.
+If a commit does not fully fix an issue, include a reference to the issue with a line of the form "Issue: #NNNNN".  Use this to add links to related issues as well, in a format that makes it easier for tools to locate within messages.
 
 An example of a single commit fixing an issue:
 

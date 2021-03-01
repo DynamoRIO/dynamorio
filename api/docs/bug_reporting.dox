@@ -123,7 +123,7 @@ parentheses include additional information.  Here are some example titles:
 
 ## Cross-references
 
-The text `#N` will be auto-linked to Issue N.
+The text \c \#N will be auto-linked to Issue N.
 
 ## Including code in issues
 

@@ -328,8 +328,8 @@ single line.  Some examples (ignore leading dots -- only there to work around Gi
 -# <strong>NEVER</strong> check in commented-out code.  This is
 unacceptable.  If you feel strongly that you need to leave code in that is
 disabled, use conditional compilation (e.g.,
-`#if DISABLED_UNTIL_BUG_812_IS_FIXED`), and explain why the code is
-disabled.
+<tt>\#if DISABLED_UNTIL_BUG_812_IS_FIXED</tt>), and perhaps additionally
+explain in a comment why the code is disabled.
 
 -# Sloppy comments full of misspelled words, etc. are an indication of
 carelessness.  We do not want carelessly written code, and we do not

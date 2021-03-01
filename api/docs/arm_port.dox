@@ -505,7 +505,7 @@ sub-reg name.
   - Downside: tool analyzing original app code has to map to r10
   - Upside: easily catch direct uses w/o going through API to get stolen value.  But maybe we can still catch some such uses w/o renaming if we can distinguish from a TLS access.
 - Is this really different from Proposal 2?
-- TLS can be `#define`/enum but equals DR_REG_R10.  Could call it DR_S/REG_TLS (==DR_REG_R10 for arm, on x86 ==DR_SEG_FS or GS) for source compatibility with x86 tool code.  Also need API routine since needs to either be base or far seg: or have opnd_create_far_base_disp auto-move seg to base when passed-in base==NULL, for fewer changes to tool.
+- TLS can be \c \#define or enum but equals DR_REG_R10.  Could call it DR_S/REG_TLS (==DR_REG_R10 for arm, on x86 ==DR_SEG_FS or GS) for source compatibility with x86 tool code.  Also need API routine since needs to either be base or far seg: or have opnd_create_far_base_disp auto-move seg to base when passed-in base==NULL, for fewer changes to tool.
 
 ## Proposal 4: mangle app stolen reg before showing to tool
 - Breaks tools wanting to see original code
