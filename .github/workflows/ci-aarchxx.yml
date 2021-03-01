@@ -66,9 +66,13 @@ jobs:
 
     # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
+      # We need the apt-get update to avoid stale version 404 errors.
+      # (We assume this is limited to ubuntu-20.04 and save 30s on other
+      # jobs by not running update there.)
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-aarch64-linux-gnu qemu-user
+          g++-aarch64-linux-gnu qemu-user qemu-user-binfmt
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -118,9 +122,13 @@ jobs:
 
     # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
+      # We need the apt-get update to avoid stale version 404 errors.
+      # (We assume this is limited to ubuntu-20.04 and save 30s on other
+      # jobs by not running update there.)
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf qemu-user
+          g++-arm-linux-gnueabihf qemu-user qemu-user-binfmt
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
