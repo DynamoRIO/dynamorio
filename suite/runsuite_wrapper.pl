@@ -244,6 +244,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.detach' => 1, # i#2246
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|tool.histogram.offline' => 1, # i#4621
+                'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
+                'code_api|tool.drcacheoff.burst_replace' => 1, # i#4486
                 # i#4617: These need build-and-test to build
                 # the 32-bit test app in our separate 64-bit job.
                 'code_api|win32.mixedmode_late' => 1, # i#4617
@@ -305,6 +307,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             %ignore_failures_32 = (
                 'code_api|pthreads.ptsig' => 1, # i#2921
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
+                'code_api|linux.thread-reset' => 1, # i#4604
                 );
             # FIXME i#2941: fix flaky threadfilter test
             %ignore_failures_64 = ('code_api|tool.drcacheoff.burst_threadfilter' => 1);
