@@ -67,8 +67,9 @@ jobs:
     # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-aarch64-linux-gnu qemu-user
+          g++-aarch64-linux-gnu qemu-user qemu-user-binfmt
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
