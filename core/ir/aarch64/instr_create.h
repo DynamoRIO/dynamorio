@@ -133,7 +133,7 @@ enum {
  * Platform-independent INSTR_CREATE_* macros
  */
 /** @name Platform-independent macros */
-/* @{ */ /* doxygen start group */
+/** @{ */ /* doxygen start group */
 
 /**
  * This platform-independent macro creates an instr_t for a debug trap
@@ -485,7 +485,7 @@ enum {
  */
 #define XINST_CREATE_call_reg(dc, r) INSTR_CREATE_blr(dc, r)
 
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /****************************************************************************
  * Manually-added ARM-specific INSTR_CREATE_* macros

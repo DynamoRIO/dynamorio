@@ -49,7 +49,7 @@ extern "C" {
 /**
  * \addtogroup drmgr Multi-Instrumentation Manager
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 #ifndef STATIC_DRMGR_ONLY
 /* A client can use a static function like drmgr_decode_sysnum_from_wrapper
@@ -1520,7 +1520,7 @@ DR_EXPORT
 bool
 drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

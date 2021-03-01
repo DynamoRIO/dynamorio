@@ -49,7 +49,7 @@ extern "C" {
 /**
  * \addtogroup drcovlib Code Coverage Library
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each drcovlib operation */
 typedef enum {
@@ -392,7 +392,7 @@ drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                            const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data));
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }
