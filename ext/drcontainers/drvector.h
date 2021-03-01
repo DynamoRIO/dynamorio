@@ -51,7 +51,7 @@ extern "C" {
 /**
  * \addtogroup drcontainers Container Data Structures
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** The storage for a vector. */
 typedef struct _drvector_t {
@@ -120,7 +120,7 @@ drvector_lock(drvector_t *vec);
 void
 drvector_unlock(drvector_t *vec);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

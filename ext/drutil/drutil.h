@@ -37,7 +37,7 @@ extern "C" {
 /**
  * \addtogroup drutil Instrumentation Utilities
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /***************************************************************************
  * INIT
@@ -185,7 +185,7 @@ bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
                             OUT instr_t **stringop);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

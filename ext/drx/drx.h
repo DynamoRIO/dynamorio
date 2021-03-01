@@ -47,7 +47,7 @@ extern "C" {
 /**
  * \addtogroup drx DynamoRIO eXtension utilities
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /* i#1531: drx uses drmgr internally, so a client using drx cannot use
  * DR's TLS field routines directly.
@@ -534,7 +534,7 @@ DR_EXPORT
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

@@ -53,7 +53,7 @@ extern "C" {
 /**
  * \addtogroup drreg Register Usage Coordinator
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each drreg operation */
 typedef enum {
@@ -610,7 +610,7 @@ drreg_status_t
 drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT,
                                 bool *restore OUT, reg_id_t *reg_spilled OUT);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

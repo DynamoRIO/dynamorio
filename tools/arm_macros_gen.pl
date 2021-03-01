@@ -642,7 +642,7 @@ foreach my $args (@order) {
     $sigline =~ s/\(, /(/;
     print $sigline;
     print ' */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -679,7 +679,7 @@ foreach my $args (@order) {
     foreach my $mac (sort @{$macro{$args}}) {
         print $mac;
     }
-    print '/* @} */ /* end doxygen group */
+    print '/** @} */ /* end doxygen group */
 ';
 }
 
