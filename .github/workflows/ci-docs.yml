@@ -32,9 +32,9 @@
 
 name: ci-docs
 on:
-  # Built daily at 9pm EST.
+  # Built daily at 2am EST.
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 7 * * *'
   # Manual trigger using the Actions page.
   workflow_dispatch:
     inputs:
