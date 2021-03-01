@@ -128,7 +128,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf qemu-user
+          g++-arm-linux-gnueabihf qemu-user qemu-user-binfmt
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
