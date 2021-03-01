@@ -1,0 +1,289 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_rseq Restartable Sequences
+
+\tableofcontents
+
+# Background
+
+Restartable Sequences (aka RSEQ) are a low-level synchronization primitive for doing per-CPU work in user-space on Linux-based systems. The primitive introduces a way for a thread to detect whether it was interrupted (preempted, migrated to another CPU, etc) in the middle of executing some sequence of code with low overhead; combined with access to CPU-local data, this enables algorithms which scale well for many threads on many CPUs. The RSEQ API revolves around user-space indicating that some block of code (based on instruction address) should be treated specially during interruptions.
+
+Internally used inside Google for a few years [0] as well as EfficiOS [1], the concept was [accepted by upstream Linux](https://github.com/torvalds/linux/commit/d82991a8688ad128b46db1b42d5d84396487a508) in June 2018. This document covers the difficulties of correctly handling Restartable Sequences in DynamoRIO as well as inside an arbitrary DR client.
+
+[0] Presentation from 2013 of Google's RSEQ: https://blog.linuxplumbersconf.org/2013/ocw/system/presentations/1695/original/LPC%20-%20PerCpu%20Atomics.pdf
+
+[1] Presentation from 2016 of EfficiOS's RSEQ: https://blog.linuxplumbersconf.org/2016/ocw/system/presentations/3873/original/presentation-rseq-lpc2016.pdf
+
+## Why must DynamoRIO handle Restartable Sequences specially?
+
+During execution, DynamoRIO rewrites the target application block by basic block, copying these fragments into a new memory space along with any instrumentation that clients add. Since the kernel identifies restartable sequences based on their instruction address, the direct application of the standard execution model of DR would be incorrect due to this changing of actual instruction addresses. In addition, the preemption detection is implemented by the kernel redirecting execution to some arbitrary application address, according to configuration from the application. Similar to signal handling, DR must handle this transparently in order to retain control of the application and execute it correctly.
+
+Since Restartable Sequences are registered using a (relatively new) syscall, we could simply blacklist the syscall and claim that the kernel does not support the feature since most libraries will be written to be backwards-compatible for slightly older kernels. Barring that, DynamoRIO will have to support Restartable Sequences explicitly.
+
+## RSEQ API/ABI
+
+The [documentation in the kernel](https://github.com/torvalds/linux/blob/master/kernel/rseq.c) does a good job explaining the feature. Here are some excerpts for quick reference in this document.
+
+A summary of API structures, adapted from the source. See [source](https://github.com/torvalds/linux/blob/d82991a8688ad128b46db1b42d5d84396487a508/include/uapi/linux/rseq.h) for full documentation.
+
+\verbatim
+    struct rseq_cs {
+       __u32 version;
+       enum rseq_cs_flags flags;
+       void *start_ip;
+       /* Offset from start_ip. */
+       intptr_t post_commit_offset;
+       void *abort_ip;
+    }
+
+    struct rseq {
+       __u32 cpu_id_start;
+       __u32 cpu_id;
+       struct rseq_cs *rseq_cs;
+       /* Flags to disable aborts in specific cases */
+       __u32 flags;
+    }
+\endverbatim
+
+[A description of the perceived usecase for an rseq code section](https://github.com/torvalds/linux/blob/d82991a8688ad128b46db1b42d5d84396487a508/kernel/rseq.c#L36-L48):
+
+\verbatim
+                      init(rseq_cs)
+                      cpu = TLS->rseq::cpu_id_start
+    [1]               TLS->rseq::rseq_cs = rseq_cs
+    [start_ip]        ----------------------------
+    [2]               if (cpu != TLS->rseq::cpu_id)
+                              goto abort_ip;
+    [3]               <last_instruction_in_cs>
+    [post_commit_ip]  ----------------------------
+
+    The address of jump target abort_ip must be outside the critical
+    region, i.e.:
+
+      [abort_ip] < [start_ip]  || [abort_ip] >= [post_commit_ip]
+\endverbatim
+
+- The `last_instruction_in_cs` is a single instruction which is the “committing store”. After this instruction is executed, the restartable sequence is considered complete and will not be sent to the abort handler on interruption.
+
+- In addition to aborting manually if the application actively detects that the CPU has changed as listed above on line [2], the kernel guarantees that a thread’s execution will be redirected to the `abort_ip` if the thread is interrupted while it is between the `start_ip` and `post_commit_ip` (subject to values in `rseq.flags`).
+
+# Challenges for Handling RSEQ in DR
+
+There are two main challenges in handling Restartable Sequences in DynamoRIO: identifying the sequences (so that they can be handled specially) and actually running the sequences with the correct semantics.
+
+## Identifying Restartable Sequences
+
+For the upstream API, to initialize the use of restartable sequences on a specific thread, that thread allocates thread-local memory to contain its `struct rseq` and calls a specialized `rseq` syscall to register the TLS memory; each thread does this initialization at most once. Upon entry to some restartable sequence a thread simply updates its `TLS->rseq::rseq_cs` to point to metadata about the sequence; there is no action the application must take to exit the sequence since the kernel can tell whether the thread left the region by comparing the thread's PC to the `start_ip` and `post_commit_ip` fields.
+
+Unfortunately, this sort of passive API poses a problem for identifying restartable sequences in an arbitrary application: a sufficiently optimized application may store the address of that field in a register and use it indirectly in subsequent basic blocks. Tracking this correctly in general requires something along the lines of instrumenting memory stores, directly or via something like page protection.
+
+Further, the `rseq_cs` field points to some `struct rseq_cs` which is itself not necessarily constant. One toolchain may implement restartable sequence support by reusing a single `struct rseq_cs`, whereas another might generate a static list of all rseq regions at compile time and implement rseq entry as storing an immediate from some hard-coded offset from a segment register. A JIT-compiling system may generate these sequences dynamically.
+
+Officially there is a [user-space convention](https://github.com/compudj/librseq/issues/1) to include an `__rseq_table` section in the binary. It contains static information about the restartable sequences in that binary. It is intended to be useful for debuggers to correctly and efficiently run programs which support rseq. This will be helpful for utilizing DynamoRIO on conforming applications, but it is not useful for an "adversarial" program which is written to sidestep dynamic instrumentation, debugging, etc.
+
+## Running Restartable Sequences under DynamoRIO
+
+The semantics of a restartable sequence is that it is a piece of code that is run atomically with respect to anything else running on that CPU, with the assumption that it may be aborted at any arbitrary time; otherwise it is a collection of arbitrary basic blocks that happen to be adjacent in the text layout. Since DynamoRIO needs to write its modified version of each application basic block to some other piece of memory, we would need to come up with our own emulation of a restartable sequence or somehow delegate to the kernel.
+
+Emulating restartable sequences - that is, modifying the application code to execute with the same guarantees as a restartable sequence - has been attempted in the past and abandoned as too tricky or too slow to do correctly in the execution model of DynamoRIO (see Rejected Alternatives).
+
+Delegating to the kernel to execute the sequence correctly is complicated by the arbitrary number of separate basic blocks that compose the sequence.  It is further complicated by instrumentation added by DR clients.  Writing instrumentation which is restartable (from any arbitrary address) is not at all easy.  This is perhaps the biggest challenge: emulating restartable semantics for application code with interspersed instrumentation added.
+
+# The "Run Twice" Solution
+
+The best solution we have come up with is to ''run the restartable sequence twice'': once with instrumentation but without completion, and again without instrumentation and with completion.  We take advantage of the sequence being designed to handle being restarted.  By separating instrumentation from restartable semantics we simplify the problem.  This solution is not perfect and has some limitations, but it is better than any other solution we have found.
+
+## Running Twice
+
+The approach works as follows:
+
+-# First, run the restartable sequence once with client instrumentation in place, but remove any application instructions which write to memory (''after'' they have been instrumented).
+ -# The sequence is broken into separate basic blocks, with each block instrumented separately, as with normal application code.
+ -# We require that none of the removed stores are read later in the sequence.
+-# After instrumenting the final committing store (but not executing the store), transfer control to the starting point of a copy of the sequence and execute it without any instrumentation and with kernel registration as a restartable sequence.
+ -# Arrange for all mid-point and end-point sequence exits to retain control under DR.
+ -# Point at a new abort handler which executes the application's handler under DR's control.
+
+## Rejected Alternatives
+
+Before we came up with the run twice approach we considered other solutions:
+
+### Emulate Restartable Sequences using CPU Affinity
+
+Not investigated much: probably much too slow to set/unset affinities all the time.
+
+### Emulate Restartable Sequences using a Per-Sequence Mutex
+
+The idea is to serialize the sequence, which avoids races, and should work for sequences which do not read the cpu id twice.
+
+Long story short: we tried it, but ran into myriad edge cases which made our various implementations unstable in the face of a large number of threads and unix signals.
+
+### Have DR Generate Restartable Sequence Fragment Groups
+
+Upon detection of a restartable sequence, DynamoRIO could conceivably write its generated fragments to a new location and arrange for all relevant basic blocks to be part of the same contiguous restartable sequence. If we change the model of basic block discovery to be a little more proactive this might be a viable solution, but it would require us to make the DR core and extension instrumentation arbitrarily abortable; then, all clients would need to emit abortable instrumentation in those cases (or explicitly do nothing). This would be a fairly large and difficult endeavor.  Separating the instrumentation from the restart and running twice is much easier.
+
+# "Run Twice" Implementation Details
+
+The following sections discuss design decisions for each aspect of implementing the run twice solution.  There are many complexities in each area, and we had to limit support to subsets of possible behavior to make it work.  This goes against our general philosophy: we would prefer to handle all possible application behavior.  However, this is just not possible with rseq.  We will only successfully execute a conforming application; a non-conforming or "adversarial" program will likely only work by disabling rseq (see the next section).
+
+The implementation progress is tracked by [i#2350](https://github.com/DynamoRIO/dynamorio/issues/2350).
+
+## Fallback: Disable Rseq
+
+Given the limitations we are placing on the application, we added a fallback option `-disable_rseq` to try and support running applications that violate our requirements.  This option returns -ENOSYS to any rseq system call.  Applications should have alternate code paths, since not all kernels support rseq.  Running with the alternate code path is better than not running at all.
+
+This approach will not work when attaching to an already running application, of course.
+
+## Identifying Rseq Sequences
+
+We rely on the [application convention](https://github.com/compudj/librseq/issues/1) of including an `__rseq_cs` or `__rseq_table` section in the binary to allow us to locate each rseq sequence. It contains static information about the restartable sequences in that binary.  We require that all sequences are present in this section.
+
+Unfortunately, this section is typically not in a loaded segment.  That means that DR needs to go to disk in order to read the section, which is expensive.  We avoid this for non-rseq-using applications by lazily initializing rseq support: we wait until we see an rseq system call, also checking for rseq on attach.
+
+Perhaps the first alternative method of detecting rseq regions that comes to mind is write-protecting each thread’s `TLS->rseq` struct.  While the perceived downside of too much overhead is probably accurate, in fact this actually does not work at all, because the kernel updates the structure after a restart (it clears the pointer to an `rseq_cs` struct) and it sends a SIGSEGV if it cannot write to that field.  This write could happen at any time, in events not detectible from user mode such as thread preempts.
+
+## First (Instrumented) Execution
+
+The instrumented execution is treated as regular DR control over application code, but with memory stores removed during mangling (i.e., post-instrumentation).  Thus, a client will not have to take any special actions to handle rseq.
+
+To simplify and reduce overhead in identifying the rseq region, DR forces the start of a sequence to be the start of a new block.  We do not support the application entering the sequence from the middle, or executing the sequence as non-restartable code at any point: it must be a dedicated restartable sequence.
+
+Eliding stores is complex for instructions with side effects, which we want to keep.  Our initial implementation does not support stores with side effects and we simply remove the entire instruction.
+
+## Second (Restartable) Execution
+
+Once the instrumented execution reaches the final block in the sequence, we want to execute the sequence again, for the second time.  We need to execute it all in one shot, as one contiguous region, since we need to set it up for restartable semantics with the kernel.  We thus make a local copy of the sequence, described further below.
+
+An early version, operating on applications which only used rseq sequences as function bodies, had a simpler method of invoking the second execution: call the native sequence and assume it will simply return back.  This has a number of drawbacks and assumptions and has been abandoned as we have moved to support more general rseq code.  Support is still in the code base under a temporary option `-rseq_assume_call`, as a failsafe in case there are stability problems discovered with the new native execution implementation.  Once we are happy with the new scheme we will remove the option.
+
+### Application State Barrier
+
+We need clients to restore the application state back into the machine state prior to the second execution.  We accomplish this by ending the block after the committing store of the sequence, which is sufficient for today's drreg.  [i#3798](https://github.com/DynamoRIO/dynamorio/issues/2350) covers adding an interface for a more-guaranteed barrier.
+
+### Target the Start, Not the Abort Handler
+
+We considered targeting the abort handler for the second execution, since there may be state to restore for the restart.  However, while many abort handlers do restart the sequence, not all do: some simply abort.  Furthermore, the abort handler could be arbitrarily complex, making it difficult to make a copy of it (and we cannot easily run the application's copy and regain control afterward).  Thus, we target the start of the sequence.
+
+Targeting the start may mean that application state changed by the first execution is incorrect and would normally be reset by the abort handler.  We have elided all memory stores in the first execution, so this state is limited to register state.  We checkpoint all general-purpose registers which are written anywhere in the sequence, storing them into special slots on entry and restoring them right before the second execution.
+
+It is possible that the abort handler performs some other setup that is required for a restart.  We do not support such corner cases.
+
+### Local Copy
+
+We make a local copy of the rseq sequence right inside the sequence-ending block fragment, reached via fall-through from the committing store at the end of the first execution.  The sequence is inserted as additional instructions and is then mangled normally (mangling changes are assumed to be restartable), but it is not passed to clients.  The mangling is necessary for unreachable rip-relative references, stolen registers on AArchXX, segment references, etc.
+
+The sequence copy can contain branches.  Any exits are regular block exits, resulting in a block fragment with potentially many exits.  This is already well-supported by DR.  Intra-sequence branches are marked as meta to avoid mangling.  We do not currently support indirect branches which target addresses inside the same sequence as that is non-trivial to handle.
+
+### Marking Restartable
+
+To make the local copy an rseq region, we need to locate the application's rseq TLS.  Unfortunately, the system call was poorly designed and will neither let us query the location nor replace it.  Our solution is to assume that the loader's static TLS is used, so every thread has a consistent segment + offset address with the same offset.  The offset is identified by watching the rseq system calls.  For attach, it is identified by searching the possible static TLS offsets: there are not very many which have the required `struct rseq` alignment.  We identify the correct offset by comparing error codes from the rseq system call.  The assumption of a constant offset is documented and verified on subsequent system calls.
+
+### Where to Locate the rseq_cs?
+
+A new `rseq_cs` structure is allocated for each sequence-ending fragment.  It is stored in a hashtable in the rseq module, to avoid the complexities and overhead of adding an additional `fragment_t` or "subclass" field.  A new flag is set to trigger calling into the rseq module on fragment deletion.
+
+Alternatives that we considered here include:
+
+- Using a single writable `rseq_cs` per thread and updating it when entering our sequence copy.  This requires making the rseq-final fragment thread-private, since we need a single absolute address for the `rseq_cs`.
+- Using a `struct rseq` per rseq sequence and swapping to it upon entering our sequence copy.  That requires 3 system calls, though: unregister the application's; register ours; re-register the application's.  We could avoid the 3rd if we took over registration and only restored the application's on detach, but 2 system calls is still too expensive.
+- Storing our `rseq_cs` as data embedded in the code cache as part of the fragment.  It needs to be 64-byte-aligned, so it would take up a lot of space.  DR does not have ready-made support for this.  This won't work with execute-only memory ([i#3796](https://github.com/DynamoRIO/dynamorio/issues/2350)).  It also complicates decoding the fragment from the cache: we would probably have to store it at the bottom of the fragment, like we do with selfmod copies.
+- Storing our `rseq_cs` in thread-private heap pointed at with a field added to `fragment_t`.  This simplifies the lifetime issues, making it easy to free the `rseq_cs` when the fragment is freed.  It wastes space, though, with a pointer field for every fragment.  We could "subclass" `fragment_t` to make a special type, but that adds complexity with many accesses needing to check a flag.
+- Having a global set of `rseq_cs` structures handed out, stored in the `rseq_areas` list.  This requires hooks into fragment deletion.  We decided it was simpler to just have a global hashtable once we have those hooks.
+
+### Clearing the Rseq Bounds
+
+To avoid crashing due to invalid rseq bounds after freeing the `rseq_cs` structure, the rseq pointer is cleared explicitly on completion, and on midpoint exit by the fragment deletion hook along with a hook on the shared fragment flushtime update, to ensure all threads are covered.  A shared fragment will not be deleted until all threads have gone through the flushtime hook.
+
+### Abort Handler
+
+The `rseq_cs`'s abort handler is a new exit added with the application's signature (obtained by decoding from a known abort handler) as data just before it, hidden in the operands of a nop instruction to avoid problems with decoding the fragment.  A local jump skips over the data and exit.
+
+### Obtaining Cache Addresses for rseq_cs
+
+We need three cache addresses to store in our `rseq_cs` fields: the start, offset of the committing store's endpoint, and the abort handler.  With the offset being used instead of the end address, extra arithmetic is needed, so we cannot easily rely on instr_t operands alone.
+
+We considered several options for how to get cache addresses of the copied region:
+
+- If using a single writable `rseq_cs` (see above) this problem goes away, but we rejected that solution.
+- Add some kind of interface to pass patching information to emit_fragment.
+ - Add `patch_list_t` support to emit_fragment?  This would take some work, changing how we emit instructions for a fragment.  (Today these patch lists are only supported on separately generated code such as context switch code.)
+ - Use label instruction notes requesting patching?  We do have a few reserved notes: see DR_NOTE_FIRST_RESERVED.  (As part of investigation this I noticed that dr_clobber_retaddr_after_read() could probably be changed to use a reserved note: I filed [i#3836](https://github.com/DynamoRIO/dynamorio/issues/3836).)
+- Decode the fragment after it was emitted.  Seems the most hacky and fragile, looking for code patterns.
+- Generate a pattern ahead of time and store offsets, like we do for selfmod: see set_selfmod_sandbox_offsets() and finalize_selfmod_sandbox().  Though here the offsets vary because they're not from the very top, and the sequence length varies.
+- After we emit to the cache but before we throw out the instrlist, call a new control point for post-emit mangling, passing the list and the emitted start cache address (post-prefixes).  Then we can walk the instrlist, adding lengths, and know the address of any instr, and use instr_t flags or label-area-data to locate instrs of interest in our own code.  Unfortunately notes are clobbered (even for labels: because the note field is used for jump targets) so we would need to add an instr_t flag as well.  (I filed [i#3835](https://github.com/DynamoRIO/dynamorio/issues/3835) on improving the situation.)
+
+We went with the final option: the `rseq_cs` fields are filled in via a new post-emit control point, using information stored in labels during mangling.  The pointer to the `rseq_cs` is inserted with a dummy value and patched in this new control point using a new utility routine patch_mov_immed_ptrsz().
+
+The patching has its own complexities.  It's easiest to use insert_mov_immed_ptrsz() to point at the`rseq_cs`.  But with it being heap-allocated, that means we have to allocate it during mangling.  That complicates uses of mangle that do not emit a real fragment (translation via recreation, e.g.) or block building aborts, leading to:
+- Leaked memory.  We could add a free_bb_ilist() which calls mangle_cleanup() and call it in all places that destroy `bb->ilist`, ensuring we free `rseq_cs` on all non-emit-fragment paths.
+- Potential non-determinism on translation if a new heap allocation is used which has different reachability (1 vs 2 instrs for insert_mov_immed_ptrsz()).  On translation we could go look up the address used for the fragment; but what about a deleted fragment?
+
+Would it be simpler to emit a placeholder immediate and do the allocate + patch in the emit fragment hook?  We'd have to insert a 2-instr immediate just in case we need it, and patch an n-byte nop over the 2nd instr?  There's no support today to patch a ptrsz immed: we would have to add it.  Xref the patch_list_t also mentioned above.  Here we have the emitted instrlist_t, so we have instr boundaries.
+
+The decision was to go with the patching strategy (adding patch_mov_immed_ptrsz()).  But we still have a problem: for translation the ilist will be mangled but not patched and so we'll have an ilist with a 2nd mov-immed vs code cache with nops.  Proposal: since we're putting the immed into a reg, for x86 it should always be a single instr, and for AArchXX instrs are the same size so nops shouldn't change anything (we use the right thumb or arm nops for 32-bit).  (An alternative would be, instead of nop-ing, to just make it a mov-immed of zero to the upper bits.)
+
+### Testing
+
+To test that our copied rseq sequence is properly registered, we need to execute a restart.  That means forcing either a preempt, a migration, or a signal during the sequence.  System calls are supposedly disallowed inside the sequence (there is an ifdef-ed check for them in the kernel), which makes it hard to force preemption or migration.  The simplest solution is a synchronous signal triggered by an instruction in the sequence, something like `ud2a` causing a SIGILL.
+
+We want to test both running to completion and a restart, so I have our tests use a parameter specifying whether to raise the SIGILL.  In the test, the code runs each rseq sequence twice, once with and once without the parameter set, to test both completion and restart.
+
+# Future Work
+
+Adding AArchxx support is future work: the patch_mov_immed_ptrsz(), the writes to the rseq struct in TLS, and the rseq tests are currently x86-only.
+
+We do not yet perfectly handle a midpoint exit during the instrumentation execution: we need to invoke the native version as well, for sequences where state changes prior to the exit are examined post-exit.  We may want to leverage the `__rseq_exit_point_array` section for this.
+
+We do not yet handle indirect branch exits out of a sequence.
+
+We are currently ignoring the flags which indicate which triggers (out of preempt, signal, and migrate) should cause the abort handler to be called.  We blindly run a second time even the preempt and migrate bits are not set, which the application may not expect without a signal arriving or may expect to only happen in a fatal error condition.
+
+# Limitations
+
+There are numerous limitations in our current “run rseq twice” solution.  As mentioned above, this goes against our general philosophy: we would prefer to handle all possible application behavior.  However, this is just not possible with rseq.  We will only successfully execute a conforming application; a non-conforming or "adversarial" program will likely only work by disabling rseq.
+
+The biggest limitation is that we only support applications using toolchain support to allow us to statically identify all restartable sequences, and using static thread-local storage with consistent slots across threads.
+
+We have a detailed list of other limitations in our documentation, whose [source code is here](https://github.com/DynamoRIO/dynamorio/blob/master/api/docs/bt.dox#L1307).
+
+# Citations
+
+Parts of this page (such as some background and some implementation details) are based on other documents and research by Derek Bruening. Xref [i#2350](https://github.com/DynamoRIO/dynamorio/issues/2350).
+
+The discussion of challenges and proposed solutions are based on work and discussions with Derek Bruening, Hendrik Greving, and Kevin Chowski.
+
+Other citations are included inline.
+ ****************************************************************************
+ */

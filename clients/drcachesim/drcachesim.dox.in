@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -708,6 +708,9 @@ $ bin64/drrun -t drcachesim -infile drmemtrace.app.pid.xxxx.dir/drmemtrace.trace
 
 The same analysis tools used online are available for offline: the trace
 format is identical.
+
+For details on the offline trace format and how to diagnose problems
+with offline traces, see \ref page_debug_memtrace.
 
 ****************************************************************************
 \section sec_drcachesim_partial Tracing a Subset of Execution

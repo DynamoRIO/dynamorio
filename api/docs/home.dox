@@ -56,7 +56,7 @@ unmodified applications running on stock operating systems (Windows, Linux,
 or Android, with experimental Mac support) and commodity IA-32, AMD64, ARM,
 and AArch64 hardware.
 
-## Existing DynamoRIO-based tools
+# Existing DynamoRIO-based tools
 
 Tools built on DynamoRIO and available in the release package include:
 
@@ -75,7 +75,7 @@ Tools built on DynamoRIO and available in the release package include:
 - The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
 - The dynamic fuzz testing tool [Dr. Fuzz](http://drmemory.org/docs/page_drfuzz.html)
 
-## Building Your Own Custom Tools
+# Building Your Own Custom Tools
 
 DynamoRIO's powerful API abstracts away the details of the underlying
 infrastructure and allows the tool builder to concentrate on analyzing or
@@ -85,14 +85,14 @@ included [in the release package](@ref page_user_docs) and can also be
 [Slides from our past tutorials](@ref page_slides) are also
 available.
 
-## Downloading DynamoRIO
+# Downloading DynamoRIO
 
 DynamoRIO is available free of charge as a
 [binary package for both  Windows and Linux](@ref page_download).
 DynamoRIO's [source code is available](@ref page_source_code)
 under a BSD license.
 
-## Obtaining Help
+# Obtaining Help
 
 Use the [discussion list](http://groups.google.com/group/DynamoRIO-Users)
 to ask questions.
@@ -100,12 +100,12 @@ to ask questions.
 To report a bug, use the [issue
 tracker](https://github.com/DynamoRIO/dynamorio/issues).
 
-## Contributing
+# Contributing
 
 For information on how to contribute to the DynamoRIO project, see
-FIXMEref page_contributing.
+\ref page_contributing.
 
-## Origins
+# Origins
 
 You can read about where the name DynamoRIO came from in the \ref page_history.
 
@@ -120,7 +120,7 @@ collaboration with the Runtime Introspection and Optimization
 (_RIO_) group at MIT.  The name originated from
 combining _Dynamo_ with _RIO_.
 
-## MIT Releases
+# MIT Releases
 
 Four versions were released to the public
 and [hosted at MIT](http://cag.csail.mit.edu/dynamorio/):
@@ -130,14 +130,14 @@ and [hosted at MIT](http://cag.csail.mit.edu/dynamorio/):
 - 0.9.3: March 2003 (CGO tutorial)
 - 0.9.4: February 2005
 
-## Determina
+# Determina
 
 The DynamoRIO developers at MIT started a security company called Determina
 using the DynamoRIO software.  Determina built its award-winning security
 products, the Memory Firewall and Vulnerability Protection Suite, on top of
 the DynamoRIO platform.
 
-## VMware Releases
+# VMware Releases
 
 VMware acquired DynamoRIO in 2007.  Five versions were released from VMware
 on [GoVirtual.org](http://govirtual.org):
@@ -147,16 +147,16 @@ on [GoVirtual.org](http://govirtual.org):
 - 1.2: October 2008
 - 1.3: February 2009
 
-## Open-Source Releases on Google Code
+# Open-Source Releases on Google Code
 
 DynamoRIO was open-sourced and its code uploaded to Google Code in
 February 2009.  Versions from 1.4 through 5.0.0 were hosted there.
 
-## Open-Source Releases on Github
+# Open-Source Releases on Github
 
 DynamoRIO was moved to Github in December 2014.
 
-## Logo
+# Logo
 
 Our logo was created by [Natalee Ryan](https://natalee.info/).
 

@@ -1,0 +1,553 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_aarch64_far Linking Far Fragments on AArch64
+
+\tableofcontents
+
+# Background
+
+When an application runs under DynamoRIO, basic blocks are initially unlinked. This means that when a basic block completes execution, control goes back to DR. To reduce such context switches, basic block fragments are linked together when:
+- there’s a direct branch from one to the other
+- building traces of frequently executed sequences of basic blocks
+
+Exit stubs are snippets of code after each basic block. They transfer control to DR when a basic block execution completes, by branching to `fcache_return` and passing information like whether the last branch was taken or not taken. When two basic blocks are linked, control no longer transfers to DR at this point; instead, it transfers to the next basic block directly. Depending on the reachability challenges on the target platform, DR uses different approaches to linking.
+
+## Existing Implementation
+
+### ARM32
+`r10` is the stolen reg on ARM, which contains the TLS pointer. `exit_cti` can be a conditional or unconditional direct branch at the end of a basic block (with  [21-26 bits for reachability](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/arm/emit_utils.c#L262)).
+
+When the target fragment can be reached by the exit cti, we simply modify its target to point to the target fragment pc. If not, we let control flow to the exit stub; we store the target fragment pc in a data slot at the end of the exit stub and modify the first instruction of the stub to a load-into-pc from the data slot. This allows reaching fragments arbitrarily far away.  Such a modified stub is called a ''patched'' stub.
+
+<table>
+<tr>
+  <th>Unlinked</th>
+  <th>Linked, [exit_cti_reaches_target](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/arm/emit_utils.c#L262)</th>
+  <th>Linked, [!exit_cti_reaches_target](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/arm/emit_utils.c#L262)</th>
+</tr>
+<tr>
+  <td>
+```
+ exit_cti stub
+ ...
+stub:
+ str  r0, [r10, #r0-slot]
+ movw r0, #bottom-half-&linkstub
+ movt r0, #top-half-&linkstub
+ ldr  pc, [r10, #fcache-ret-offs]
+ <unused-ptr-sized slot>
+```
+  </td><td>
+```
+ b    target
+ ...
+stub:
+ str  r0, [r10, #r0-slot]
+ movw r0, #bottom-half-&linkstub
+ movt r0, #top-half-&linkstub
+ ldr  pc, [r10, #fcache-ret-offs]
+ <unused-ptr-sized slot>
+```
+  </td><td>
+```
+ exit_cti stub
+ ...
+stub:
+ ldr  pc, [pc + 12]
+ movw r0, #bottom-half-&linkstub
+ movt r0, #top-half-&linkstub
+ ldr  pc, [r10, #fcache-ret-offs]
+ <target>
+```
+  </td>
+</tr>
+</table>
+
+### AArch64
+`x28` is the stolen reg on AArch64, which contains the TLS pointer. `exit_cti` can be a conditional or unconditional direct branch at the end of a basic block (with [14-26 bits for reachability](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/aarch64/emit_utils.c#L162)).
+
+When the target fragment can be reached by the exit cti, we simply modify its target to point to the target fragment pc. If not, we let control flow to the exit stub; we modify the first instruction of the exit stub to an unconditional direct branch. Such a modified stub is called a ''patched'' stub.
+
+Note that we still cannot link fragments arbitrarily far away, but only fragments that can be reached using the 26-bit offset of the unconditional direct branch instruction.
+
+<table>
+<tr>
+  <th>Unlinked</th>
+  <th>Linked, [exit_cti_reaches_target](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/aarch64/emit_utils.c#L162)</th>
+  <th>Linked, [!exit_cti_reaches_target](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/aarch64/emit_utils.c#L162)</th>
+</tr>
+<tr>
+  <td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+```
+  </td><td>
+```
+ exit_cti target
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+```
+  </td><td>
+```
+ exit_cti  stub
+...
+stub:
+ b    target
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+```
+  </td>
+</tr>
+</table>
+
+Exit stub size: 7 instrs (28B)
+
+### x86
+x86’s reachability model assumes that the cache is always self-reachable. So, [`exit_cti_reaches_target`](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/x86/emit_utils.c#L127) is always true.
+
+# Problem Statement
+We need a way to link arbitrarily far away fragments in AArch64. This will be implemented in the AArch64 [`patch_stub`](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/aarch64/emit_utils.c#L182), which patches the exit stub to branch to the far-away fragment (instead of the `fcache_return` routine). The Importance of this work is higher for larger applications.
+
+Some constraints on the design are as follows:
+
+<b>Size</b>
+
+Exit stub size should not increase by too much. This directly affects the memory overhead of DR.
+
+<b>Consistency</b>
+
+Fragments are thread-shared by default. Any changes to the exit stub should not leave the stub in an inconsistent intermediate state.
+
+The following requirements should be met to ensure stub consistency. See [1] for complete architecture specifications for concurrent modification and execution of instructions.
+- To ensure the sequence of modified instructions is visible to other threads, the thread patching the stub must issue a sequence to clean its dcache and invalidate its icache (see point 2 at [1]). Today, this is done by DR in [`clear_icache`](https://github.com/DynamoRIO/dynamorio/blob/57784023fc35b5aad7108c444ab79fc820276543/core/drlibc/drlibc.c#L106).
+- Other threads must execute an Instruction Synchronization Barrier (`ISB`). This is not done today by DR
+- No other thread must execute the instructions until the above is completed. This is not guaranteed today by DR.
+Without the above, the architecture cannot guarantee that the instruction executed will be either the old or new one. However, if the old and new instructions are one of the special opcodes given at [1] (which notably includes `B` and `NOP`), it is guaranteed that the instruction executed will be either one of them; though note that this still doesn’t guarantee that the old instruction won’t be executed by any thread.
+
+Today, DR guarantees only one of the three requirements for concurrent modification and execution of instructions. Even though we haven’t seen any issues due to this yet, but they may come up in future architectures or come up infrequently.
+
+There are existing instances of potentially concurrent modification and execution of instructions, which will be addressed in [i#1911](http://github.com/DynamoRIO/dynamorio/issues/1911).
+
+[1]: Section B2.2.5 of the [ARM manual](https://developer.arm.com/documentation/ddi0487/latest)
+
+<b>Overhead of indirect branches</b>
+
+Existing implementations use a direct branch when possible, to avoid the extra overhead of loading the target address from memory. We should continue doing that for linking near fragments.
+
+# Proposed Solutions
+Options 1 and 2 implement something similar to ARM-32, where we store the target fragment pc in a data slot at the exit stub’s end, and then patch the exit stub to branch to that address. Note that for near fragments that can be reached using a direct branch, we continue to replace the first exit stub instruction with a direct branch as described before. The drawback is that they do not strictly meet the consistency requirements of the architecture.
+
+Option 3 uses Landing Pads.
+
+Option 4 is slightly different from Options 1 and 2, in that it doesn’t perform any instruction modification.
+
+<b>Other Architecture challenges</b>
+
+AArch64 does not expose PC as a general purpose register, therefore doesn’t support load into PC. Therefore, to transfer control to a far fragment, we’d use an indirect branch instruction, which would need us to spill a register and restore it later. Fortunately, DR on AArch64 already supports [fragment prefixes](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/aarch64/emit_utils.c#L375) that restore `x0` from `TLS_REG1_SLOT`.
+
+AArch64 also doesn’t allow indirect branches from memory: we need to load the address from memory into a register first.
+
+## Option 1: Append load-and-branch-to-target instrs to existing exit stub
+
+<table>
+<tr>
+  <th>Unpatched stub: Transfers to `fcache_return`</th>
+  <th>Patched stub: Transfers to far-away linked fragment</th>
+</tr>
+<tr>
+ <td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+label:
+ str  x0, [x28, #TLS_REG1_SLOT]
+ ldr  x0, [+#8]
+ br   x0
+ <unused-ptr-sized-slot>
+
+```
+  </td><td>
+```
+ exit_cti stub
+...
+stub:
+ b    label # encoded as pc offset
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+label:
+ str  x0, [x28, #TLS_REG1_SLOT]
+ ldr  x0, [+#8]
+ br   x0
+ <target>
+
+```
+  </td>
+</tr>
+</table>
+
+Exit stub size: 10 instrs + 1 data slot of 8 bytes (48B)
+
+This option almost doubles the exit stub size: 28B -> 48B.
+
+## Option 2: Reuse code between fcache_return/linked stub
+The two methods below differ in the extra modifications required.
+
+Option 2a:
+<table>
+<tr>
+  <th>Unpatched stub: Transfers to `fcache_return`</th>
+  <th>Patched stub: Transfers to far-away linked fragment</th>
+</tr>
+<tr>
+  <td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+ <unused-ptr-sized-slot>
+
+```
+  </td><td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [+#8]
+ br   x1
+ <target>
+
+```
+  </td>
+</tr>
+</table>
+
+Exit stub size: 7 instrs + 1 data slot of 8 bytes (36B)
+
+We would also need to:
+- For all control transfers to fragment prefix, spill both `x0` and `x1` always, and in the prefix restore both.
+
+Option 2b:
+<table>
+<tr>
+  <th>Unpatched stub: Transfers to `fcache_return`</th>
+  <th>Patched stub: Transfers to far-away linked fragment</th>
+</tr>
+<tr>
+  <td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x1, x0, [x28]
+ movz x1, #&linkstub[0, 16),  lsl #0x00
+ movk x1, #&linkstub[16, 32), lsl #0x10
+ movk x1, #&linkstub[32, 48), lsl #0x20
+ movk x1, #&linkstub[48, 64), lsl #0x30
+ ldr  x0, [+#12]
+ ldr  x0, [x28, #fcache-return-offs]
+ br   x0
+ <unused-ptr-sized-slot>
+
+```
+  </td><td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x1, x0, [x28]
+ movz x1, #&linkstub[0, 16),  lsl #0x00
+ movk x1, #&linkstub[16, 32), lsl #0x10
+ movk x1, #&linkstub[32, 48), lsl #0x20
+ movk x1, #&linkstub[48, 64), lsl #0x30
+ ldr  x0, [+#12]
+ ldr  x1, [x28] # restore x1
+ br   x0
+ <target>
+
+```
+  </td>
+</tr>
+</table>
+
+Exit stub size: 8 instrs + 1 data slot of 8 bytes (40B).
+
+Here, `x0` is stored in `TLS_REG1_SLOT [x28, #8]`, and will be restored by the fragment prefix.
+
+We’ll also need to modify fcache-return so that:
+- It accepts linkstub address in `x1`, instead of `x0`
+- It restores `x0` and `x1` from different TLS slots (note the swapped order in `stp`). Alternatively, we can keep the `stp` order as before, but modify the AArch64 fragment prefix (and corresponding other spill code too) [to restore `x0` from `TLS_REG0_SLOT` instead of `TLS_REG1_SLOT`](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/arch/aarch64/emit_utils.c#L375), which would make the code clearer too.
+
+## Option 3: Landing Pads
+[Landing pads](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/heap.c#L5684) are gadgets used to jump to an arbitrarily far location: on x64, they use an indirect jump to the address stored in memory. They are allocated in a manner such that they are directly reachable from a pc given during allocation, which is the pc that would jump to the landing pad.
+
+
+Landing pads also support storing some code for execution and branching back to some code location. They are useful for cases where we want to add a call to some intercept function at a location that is originally unwritable. e.g. [intercept_call](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/win32/callback.c#L1617). In our case, the former capability of Landing Pads of branching one-way to any location is useful.
+
+The existing Landing Pad for x86_64 in intercept_call looks something like the following:
+```
+ <app code>             // <- start here
+ jmp landing_pad_start
+ <some app code displaced to landing pad>
+after_hook_pc:
+ <app code>
+...
+landing_pad:
+ far_target_pc
+landing_pad_start:
+ jmp [far_target_pc]
+landing_pad_displaced_code:
+ <displaced app code>
+ jmp after_hook_pc
+...
+[far_target_pc]:
+<some instrumentation>
+jmp landing_pad_displaced_code
+```
+
+Our usage of Landing Pad will look something like:
+
+<table>
+<tr>
+  <th>Unpatched stub: Transfers to `fcache_return`</th>
+  <th>Patched stub: Transfers to far-away linked fragment</th>
+</tr>
+<tr>
+ <td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+
+
+```
+  <td></td>
+```
+ exit_cti stub
+...
+stub:
+ b landing_pad_start
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+
+landing_pad:
+ <far_fragment_pc>
+landing_pad_start:
+ adr x0, #-<ptr-size>
+ ldr x0, [x0]
+ br  x0
+// no displaced code or after_hook_pc
+
+```
+  </td>
+</tr>
+</table>
+
+Some extra work will be required to make Landing Pads work for linking far-away fragments on AArch64. Currently, Landing pads:
+- are released only on process exit: [release_landing_pad_mem](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/heap.c#L6001). However, fragments undergo unlinking and eviction, which should ideally release the landing pad too. Otherwise, we may run out of memory for landing pads.
+-* We can handle pathological cases of running out of memory with a synchall flush
+- are implemented only for [Windows] and [https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/win32/callback.c#L744 x86](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/heap.c#L5683).
+- ensure only [32-bit reachability](https://github.com/DynamoRIO/dynamorio/blob/228405d5dcd0ccbe2c3d36e6f16f33145415ee01/core/heap.c#L5778) from the given pc.
+-* We need to support ensuring arbitrary reachability, or for now the 26-bit case at least.
+
+Option 2 increases memory consumption by 12B for every stub. With landing pads, it’ll probably be more than that per stub, as the landing pad itself contains instructions/data of at least that size. However, in AArch64, we do not free exit stubs if they’re not being used (`-separate_shared_stubs` is enabled only on x86). As Landing Pads will be allocated lazily,  overall memory overhead of Option 3 will be probably an order of magnitude less than Option 2.
+
+## Option 4: Reuse data slot between fcache_return/linked stub
+
+All of the above options involve changing instructions of the stub. As discussed before, there are architectural constraints that make arbitrary modifications of instructions more complex. One way to avoid any instruction modifications is as follows. Here, we only modify the address stored in the data slot.
+
+Option 4a:
+<table>
+<tr>
+  <th>Unpatched stub: Transfers to `fcache_return`</th>
+  <th>Patched stub: Transfers to far-away linked fragment</th>
+</tr>
+<tr>
+ <td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ ldr  x0, [#32/#36]
+ br   x0
+label:
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+ <label-address>
+```
+  </td><td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ ldr  x0, [#32/#36]
+ br   x0
+label:
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [x28, #fcache-return-offs]
+ br   x1
+ <target-address>
+```
+  </td>
+</tr>
+</table>
+
+Exit stub size: 9 instrs + 1 data slot of 8 bytes + (possibly) data-slot alignment (44B/48B)
+
+Option 4b:
+<table>
+<tr>
+  <th>Unpatched stub: Transfers to `fcache_return`</th>
+  <th>Patched stub: Transfers to far-away linked fragment</th>
+</tr>
+<tr>
+ <td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [#8/#12]
+ br   x1
+ <fcache-return>
+```
+  </td><td>
+```
+ exit_cti stub
+...
+stub:
+ stp  x0, x1, [x28]
+ movz x0, #&linkstub[0, 16),  lsl #0x00
+ movk x0, #&linkstub[16, 32), lsl #0x10
+ movk x0, #&linkstub[32, 48), lsl #0x20
+ movk x0, #&linkstub[48, 64), lsl #0x30
+ ldr  x1, [#8/#12]
+ br   x1
+ <target>
+
+```
+  </td>
+</tr>
+</table>
+
+Exit stub size: 7 instrs + 1 data slot of 8 bytes + (possibly) data-slot alignment = 36B/40B
+
+In both Option 4a and 4b, we would also need to:
+- Change fragment prefix to restore both `x0` and `x1`.
+
+Compared to Option 4a, Option 4b avoids an extra jump for the linked fragment case and has lesser stub size. But, Option 4b doesn’t work if threads don’t share the fcache-return address. It might also make run-time modifications to fache-return routine address difficult, but that doesn’t seem like a likely scenario.
+
+<br />
+In both of these options, as we change only the data slot’s contents, we do not need any expensive icache synchronisation.
+
+To ensure atomicity, we also need to make sure that the data-slot is 8-byte aligned.
+
+The consistency constraints make avoiding indirect branches difficult. For optimising the near-fragment case, we can probably add a `NOP <-> B` as the first stub instruction, which can be patched in addition to the above. However, consistency of unpatching is still not guaranteed without expensive synchronisation.
+
+
+# Conclusion
+Option 4 seems the only option that meets architectural specifications completely. Option 4b seems more optimised for stub size and indirect branches.
+
+
+
+ ****************************************************************************
+ */

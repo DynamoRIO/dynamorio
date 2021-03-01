@@ -38,12 +38,12 @@ Sunday morning, February 5, 2017 at
 the [2017 International Symposium on Code
 Generation and Optimization](http://cgo.org/cgo2017/).
 
-## Audience
+# Audience
 
 Researchers and professionals interested in building dynamic program
 analysis tools.
 
-## Abstract
+# Abstract
 
 This tutorial will present the DynamoRIO tool platform and describe how
 to use its API to build custom tools that utilize dynamic code
@@ -55,7 +55,7 @@ form and targets Windows, Linux, Mac, and Android on IA-32, AMD64, ARM,
 and AArch64 platforms.
 
 
-## Topics
+# Topics
 
 The tutorial will cover the following topics:
 
@@ -74,7 +74,7 @@ The tutorial will cover the following topics:
 -  Sample tool starting points for building new tools.
 -  Advanced topics when building sophisticated tools.
 
-## Slides
+# Slides
 
 The slides are now available
 in [PDF](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017.pdf), [PPSX](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017.ppsx),
@@ -83,20 +83,20 @@ with embedded fonts](https://github.com/DynamoRIO/dynamorio/releases/download/re
 artifacts from conversion from Powerpoint that are not present in the
 non-embedded file).
 
-## Organizers
+# Organizers
 
 - Derek Bruening (Google)
 - Chris Adeniyi-Jones (ARM)
 - Edmund Grimley-Evans (ARM)
 - Kevin Zhou (U. of Cambridge)
 
-## Questions
+# Questions
 
 Questions about the tutorial can be sent to the
 [DynamoRIO-Users](http://groups.google.com/group/DynamoRIO-Users)
 mailing list.
 
-## References
+# References
 
 - [DynamoRIO home and API documentation](http://dynamorio.org/)
 - [DynamoRIO code repository](https://github.com/DynamoRIO/dynamorio)
