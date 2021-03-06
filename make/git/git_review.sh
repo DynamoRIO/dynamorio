@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # **********************************************************
-# Copyright (c) 2014-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2021 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@ if [ "${prefix}" == "${branch}" ] ||
       # Check whether a number.
       [ "${prefix:1}" -eq "${prefix:1}" ] 2>/dev/null); then
     echo "ERROR: please use the branch naming conventions documented at "
-    echo "https://github.com/DynamoRIO/dynamorio/wiki/Workflow#branch-naming-conventions"
+    echo "https://dynamorio.org/page_workflow.html#sec_branch_naming"
     exit 1
 fi
 

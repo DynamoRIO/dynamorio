@@ -275,7 +275,7 @@ suite (if run with -V):
 
 ```
 CMake Error: Some required settings in the configuration file were missing:
-CTEST_SOURCE_DIRECTORY = E:/derek/opensource/withwiki/trunk/suite/..
+CTEST_SOURCE_DIRECTORY = E:/derek/dr/suite/..
 CTEST_BINARY_DIRECTORY = (Null)
 CTEST_COMMAND = c:/PROGRA~2/CMAKE2~1.6/bin/ctest.exe
 ```
