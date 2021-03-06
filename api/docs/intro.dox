@@ -215,43 +215,9 @@ The canonical reference for DynamoRIO is:
   Efficient, Transparent, and Comprehensive Runtime Code Manipulation</a>.<br>
   Ph.D. Thesis, MIT, September 2004.
 
-Other publications describing DynamoRIO include:
-
-- Derek Bruening and Vladimir Kiriansky.<br>
-  <a href="http://www.burningcutlery.com/derek/docs/procshared-VEE08.pdf">
-  Process-Shared and Persistent Code Caches</a>.<br>
-  International Conference on Virtual Execution Environments (VEE-08), March 2008.<br>
-
-- Derek Bruening, Vladimir Kiriansky, Timothy Garnett, and Sanjeev Banerji.<br>
-  <a href="http://www.burningcutlery.com/derek/docs/threadshared-CGO06.pdf">
-  Thread-Shared Software Code Caches</a>.<br>
-  International Symposium on Code Generation and Optimization (CGO-06), March 2006.<br>
-
-- Derek Bruening and Saman Amarasinghe. <br>
-  <a href="http://www.burningcutlery.com/derek/docs/cacheconscap-CGO05.pdf">
-  Maintaining Consistency and Bounding Capacity of Software Code Caches</a>.<br>
-  International Symposium on Code Generation and Optimization (CGO-05), March 2005. <br>
-
-- Gregory Sullivan, Derek Bruening, Iris Baron, Timothy Garnett, and
-  Saman Amarasinghe. <br>
-  <a href="http://www.burningcutlery.com/derek/docs/IVME03.pdf">
-  Dynamic Native Optimization of Interpreters</a>. <br>
-  ACM Workshop on Interpreters, Virtual Machines and Emulators (IVME-03), June 2003.<br>
-
-- Derek Bruening, Timothy Garnett, and Saman Amarasinghe. <br>
-  <a href="http://www.burningcutlery.com/derek/docs/adaptive-CGO03.pdf">
-  An Infrastructure for Adaptive Dynamic Optimization</a>. <br>
-  International Symposium on Code Generation and Optimization (CGO-03), March 2003. <br>
-
-- Derek Bruening, Evelyn Duesterwald, and Saman Amarasinghe.<br>
-  <a href="http://www.burningcutlery.com/derek/docs/win32-FDDO.pdf">
-  Design and Implementation of a Dynamic Optimization Framework for Windows</a>.<br>
-  4th ACM Workshop on Feedback-Directed and Dynamic
-  Optimization (FDDO-4), December 2001.<br>
+See \ref page_publications for other publications involving DynamoRIO.
 
 \endif
-
-\image html favicon.ico
 
 \page page_deploy Deployment
 \if vmsafe
