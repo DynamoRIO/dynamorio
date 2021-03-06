@@ -77,7 +77,7 @@ Tools built on DynamoRIO and available in the [release package](@ref page_downlo
   [drcpusim](@ref page_drcpusim)
 - The "strace for Windows" tool [drstrace](http://drmemory.org/strace_for_windows.html)
 - The code coverage tool [drcov](@ref page_drcov)
-- The library tracing tool [drltrace](http://dynamorio.org/docs/page_drltrace.html)
+- The library tracing tool [drltrace](http://dynamorio.org/page_drltrace.html)
 - The memory address tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace_x86.c) ([drmemtrace](@ref page_drcachesim)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized memory address tracing)
 - The memory value tracing tool [memval](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memval_simple.c)
 - The instruction tracing tool [instrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/instrace_x86.c) ([drmemtrace](@ref page_drcachesim)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized instruction tracing)

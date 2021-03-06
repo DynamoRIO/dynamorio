@@ -218,7 +218,7 @@ Disadvantages:
 
 # Proposed Solution D: Run Twice
 
-One idea is to treat these sequences in a similar manner to restartable sequences (“rseq”), which have relatively similar restrictions on execution.  We handle those by running them twice, once with instrumentation and once “for real” natively with no instrumentation: https://github.com/DynamoRIO/dynamorio/wiki/Restartable-Sequences.
+One idea is to treat these sequences in a similar manner to restartable sequences (“rseq”), which have relatively similar restrictions on execution.  We handle those by running them twice, once with instrumentation and once “for real” natively with no instrumentation: \ref page_rseq.
 
 We’d execute the whole sequence in a normal manner, with regular instrumentation.  We’d remember the prior load-exclusive.  When we see a store-exclusive, we then insert a native copy of the whole sequence since the load-exclusive, which is executed if the store-exclusive fails.  If the native store-exclusive also fails, it would loop back to the start of the instrumented load-exclusive and repeat the whole process.
 

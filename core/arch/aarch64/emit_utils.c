@@ -110,7 +110,7 @@
  * appropriate offset in ldr for the 8-byte aligned 8 byte region within it.
  *
  * For complete design details, see the following wiki
- * https://github.com/DynamoRIO/dynamorio/wiki/Linking-Far-Fragments-on-AArch64
+ * https://dynamorio.org/page_aarch64_far.html
  */
 
 byte *

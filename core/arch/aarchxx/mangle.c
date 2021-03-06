@@ -2955,9 +2955,8 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 /***************************************************************************
  * Exclusive load/store mangling.
- * See the design doc at
- * https://github.com/DynamoRIO/dynamorio/wiki/Exclusive-Monitors for background
- * information.
+ * See the design doc at https://dynamorio.org/page_ldstex.html
+ * for background information.
  */
 
 static instr_t *
@@ -3611,8 +3610,7 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
     /* For -ldstex2cas we convert exclusive monitor regions into compare-and-swap
      * operations in order to allow regular instrumentation, with the downside of
      * weaker synchronization semantics.
-     * See https://github.com/DynamoRIO/dynamorio/wiki/Exclusive-Monitors for
-     * background and further details.
+     * See https://dynamorio.org/page_ldstex.html for background and further details.
      * The summary is:
      * + On an exclusive load, save the address, value, opcode, and size,
      *   and convert to a non-exclusive load.

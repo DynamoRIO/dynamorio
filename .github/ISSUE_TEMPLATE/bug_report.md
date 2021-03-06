@@ -1,8 +1,7 @@
 ---
 name: Bug report
 about: Create a report about a specific problem to help us improve
-title: Please follow the guidelines in our wiki at https://github.com/DynamoRIO/dynamorio/wiki/Bug-Reporting
-  and use one of the CRASH, APP CRASH, HANG, or ASSERT keywords.
+title: Edit me following https:///dynamorio.org/issues with one of the CRASH, APP CRASH, HANG, or ASSERT keywords.
 labels: ''
 assignees: ''
 
@@ -38,8 +37,7 @@ paste output here
 
 **Versions**
  - What version of DynamoRIO are you using?
- - Does the latest build from
-https://github.com/DynamoRIO/dynamorio/wiki/Latest-Build solve the problem?
+ - Does the latest build from https://github.com/DynamoRIO/dynamorio/releases solve the problem?
 - What operating system version are you running on? ("Windows 10" is *not* sufficient: give the release number.)
 - Is your application 32-bit or 64-bit?
 
