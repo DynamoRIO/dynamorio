@@ -30,12 +30,17 @@
  * DAMAGE.
  */
 
+/* We've upgraded these sections to pages, but kept the "sec_" names to
+ * keep them off the Available Tools top-level menu.
+ */
+
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_drcachesim Cache Simulator
+\page page_drcachesim Tracing and Analysis Framework
 
-\p drcachesim is a DynamoRIO client that collects memory access traces and
+\p drcachesim is a DynamoRIO client that collects memory access traces
+using its \p drmemtrace component and
 feeds them to either an online or offline tool for analysis.  The default
 analysis tool is a CPU cache simulator, while other provided tools compute
 metrics such as reuse distance.  The trace collector and simulator support
@@ -43,28 +48,28 @@ multiple processes each with multiple threads.  The analysis tool framework
 is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
- - \ref sec_drcachesim
- - \ref sec_drcachesim_run
- - \ref sec_drcachesim_tools
- - \ref sec_drcachesim_config_file
- - \ref sec_drcachesim_offline
- - \ref sec_drcachesim_partial
- - \ref sec_drcachesim_sim
- - \ref sec_drcachesim_analyzer
- - \ref sec_drcachesim_phys
- - \ref sec_drcachesim_core
- - \ref sec_drcachesim_extend
- - \ref sec_drcachesim_tracer
- - \ref sec_drcachesim_funcs
- - \ref sec_drcachesim_newtool
- - \ref sec_drcachesim_ops
- - \ref sec_drcachesim_limit
- - \ref sec_drcachesim_cmp
+ - \subpage sec_drcachesim
+ - \subpage sec_drcachesim_run
+ - \subpage sec_drcachesim_tools
+ - \subpage sec_drcachesim_config_file
+ - \subpage sec_drcachesim_offline
+ - \subpage sec_drcachesim_partial
+ - \subpage sec_drcachesim_sim
+ - \subpage sec_drcachesim_analyzer
+ - \subpage sec_drcachesim_phys
+ - \subpage sec_drcachesim_core
+ - \subpage sec_drcachesim_extend
+ - \subpage sec_drcachesim_tracer
+ - \subpage sec_drcachesim_funcs
+ - \subpage sec_drcachesim_newtool
+ - \subpage sec_drcachesim_ops
+ - \subpage sec_drcachesim_limit
+ - \subpage sec_drcachesim_cmp
 
 ****************************************************************************
-\section sec_drcachesim Overview
+\page sec_drcachesim Overview
 
-\p drcachesim consists of two components: a tracer and an analyzer.
+\p drcachesim consists of two components: a tracer \p drmemtrace and an analyzer.
 The tracer collects a memory access trace from each thread within each
 application process.
 The analyzer consumes the traces (online or offline) and performs
@@ -77,7 +82,7 @@ The default analyzer simulates the architectural behavior of caching
 devices for a target application (or multiple applications).
 
 ****************************************************************************
-\section sec_drcachesim_run Running the Simulator
+\page sec_drcachesim_run Running the Simulator
 
 To launch \p drcachesim, use the \p -t flag to \p drrun:
 
@@ -144,11 +149,75 @@ LL stats:
 \endcode
 
 ****************************************************************************
-\section sec_drcachesim_tools Analysis Tool Suite
+\page sec_drcachesim_tools Analysis Tool Suite
 
-In addition to a CPU cache simulator, other analysis tools are available
-that operate on memory address traces.  Which tool is used can be selected
-with the \p -simulator_type parameter.
+In addition to a CPU cache simulator, other analysis tools are
+available that operate on memory address traces.  Which tool is used
+can be selected with the \p -simulator_type parameter.  New, custom
+tools can also be created, as described in \ref sec_drcachesim_newtool.
+
+- \ref sec_tool_cache_sim
+- \ref sec_tool_TLB_sim
+- \ref sec_tool_reuse_distance
+- \ref sec_tool_reuse_time
+- \ref sec_tool_basic_counts
+- \ref sec_tool_opcode_mix
+- \ref sec_tool_view
+- \ref sec_tool_func_view
+
+\section sec_tool_cache_sim Cache Simulator
+
+This is the default tool.  Here is an exmample of running it on an offline trace:
+\code
+$ bin64/drrun -t drcachesim -offline -- ~/test/pi_estimator
+Estimation of pi is 3.142425985001098
+$ bin64/drrun -t drcachesim -indir drmemtrace.*.dir
+Cache simulation results:
+Core #0 (1 thread(s))
+  L1I stats:
+    Hits:                          258,433
+    Misses:                          1,148
+    Miss rate:                        0.44%
+  L1D stats:
+    Hits:                           93,654
+    Misses:                          2,624
+    Prefetch hits:                     458
+    Prefetch misses:                 2,166
+    Miss rate:                        2.73%
+Core #1 (1 thread(s))
+  L1I stats:
+    Hits:                            8,895
+    Misses:                             99
+    Miss rate:                        1.10%
+  L1D stats:
+    Hits:                            3,448
+    Misses:                            156
+    Prefetch hits:                      26
+    Prefetch misses:                   130
+    Miss rate:                        4.33%
+Core #2 (1 thread(s))
+  L1I stats:
+    Hits:                            4,150
+    Misses:                            101
+    Miss rate:                        2.38%
+  L1D stats:
+    Hits:                            1,578
+    Misses:                            130
+    Prefetch hits:                      25
+    Prefetch misses:                   105
+    Miss rate:                        7.61%
+Core #3 (0 thread(s))
+LL stats:
+    Hits:                            1,414
+    Misses:                          2,844
+    Prefetch hits:                     824
+    Prefetch misses:                 1,577
+    Local miss rate:                 66.79%
+    Child hits:                    370,667
+    Total miss rate:                  0.76%
+\endcode
+
+\section sec_tool_TLB_sim TLB Simulator
 
 To simulate TLB devices instead of caches, pass \p TLB to \p -simulator_type:
 
@@ -204,6 +273,8 @@ Core #2 (1 thread(s))
     Total miss rate:                  2.24%
 Core #3 (0 thread(s))
 \endcode
+
+\section sec_tool_reuse_distance Reuse Distance
 
 To compute reuse distance metrics:
 
@@ -295,6 +366,8 @@ Distance       Count  Percent  Cumulative
 ...
 \endcode
 
+\section sec_tool_reuse_time Reuse Time
+
 A reuse time tool is also provided, which counts the total number of memory
 accesses (without considering uniqueness) between accesses to the same
 address:
@@ -335,6 +408,8 @@ Distance       Count  Percent  Cumulative
        2         363   11.30%      42.86%
        3         308    9.59%      52.44%
 \endcode
+
+\section sec_tool_basic_counts Event Counts
 
 To simply see the counts of instructions and memory references broken down
 by thread use the basic counts tool:
@@ -388,12 +463,14 @@ subsequent iterations do not incur a fetch.  They are included in the trace
 as a different type of trace entry to support core simulators in addition
 to cache simulators.
 
+\section sec_tool_opcode_mix Opcode Mix
+
 The opcode_mix tool uses the non-fetched instruction information along with
 the preserved libraries and binaries from the traced execution to gather
 more information on each executed instruction than was stored in the trace.
 It only supports offline traces, and the \p modules.log file created during
 post-processing of the trace must be preserved.  The results are broken
-down by the opcodes used in DR's IR, where \p mov is split into a separate
+down by the opcodes used in DR's IR, where for x86 \p mov is split into a separate
 opcode for load and store but both have the same public string "mov":
 
 \code
@@ -429,6 +506,8 @@ Opcode mix tool results:
            1472 :    movdqa
 ...
 \endcode
+
+\section sec_tool_view View Disassembly
 
 The view tool prints out disassembled instructions in att, intel, arm or DR
 format for offline traces. The -skip_refs and -sim_refs flags can be used to
@@ -510,6 +589,8 @@ Here is an example of a signal handler interrupting the regular flow:
                       00 00
 \endcode
 
+\section sec_tool_func_view View Function Calls
+
 The func_view tool records function argument and return values for
 function names specified at tracing time. See \ref sec_drcachesim_funcs for
 more information.
@@ -580,7 +661,7 @@ dcache top 10
 \endcode
 
 ****************************************************************************
-\section sec_drcachesim_config_file Configuration File
+\page sec_drcachesim_config_file Configuration File
 
 \p drcachesim supports reconfigurable cache hierarchies defined in
 a configuration file. The configuration file is a text file with the following
@@ -667,7 +748,7 @@ LLC {                          // LLC
 \endcode
 
 ****************************************************************************
-\section sec_drcachesim_offline Offline Traces and Analysis
+\page sec_drcachesim_offline Offline Traces and Analysis
 
 To dump a trace for future offline analysis, use the \p offline parameter:
 \code
@@ -713,7 +794,7 @@ For details on the offline trace format and how to diagnose problems
 with offline traces, see \ref page_debug_memtrace.
 
 ****************************************************************************
-\section sec_drcachesim_partial Tracing a Subset of Execution
+\page sec_drcachesim_partial Tracing a Subset of Execution
 
 While the cache simulator supports skipping references, for large
 applications the overhead of the tracing itself is too high to conveniently
@@ -746,7 +827,7 @@ href="https://github.com/DynamoRIO/dynamorio/blob/master/clients/drcachesim/test
 burst_static test application</a>.
 
 ****************************************************************************
-\section sec_drcachesim_sim Simulator Details
+\page sec_drcachesim_sim Simulator Details
 
 Generally, the simulator is able to be extended to model a variety of
 caching devices.  Currently, CPU caches and TLBs are implemented.  The type of
@@ -870,7 +951,7 @@ misses from hardware prefetches are not.
 
 
 ****************************************************************************
-\section sec_drcachesim_analyzer Cache Miss Analyzer
+\page sec_drcachesim_analyzer Cache Miss Analyzer
 
 The cache simulator can be used to analyze the stream of last-level cache (LLC)
 miss addresses. This can be useful when looking for patterns that can be utilized
@@ -889,7 +970,7 @@ $ bin64/drrun -t drcachesim -simulator_type miss_analyzer -LL_miss_file rec.csv 
 
 
 ****************************************************************************
-\section sec_drcachesim_phys Physical Addresses
+\page sec_drcachesim_phys Physical Addresses
 
 The memory access tracing client gathers virtual addresses.  On Linux, if
 the kernel allows user-mode applications access to the \p
@@ -901,7 +982,7 @@ working from user mode on future kernels due to recent security changes
 http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ab676b7d6fbf4b294bf198fb27ade5b0e865c7ce).
 
 ****************************************************************************
-\section sec_drcachesim_core Core Simulation Support
+\page sec_drcachesim_core Core Simulation Support
 
 The \p drcachesim trace format includes information intended for use by
 core simulators as well as pure cache simulators.  For traces that are not
@@ -936,7 +1017,7 @@ bytes for each instruction in order to obtain the opcode and full operand
 information.
 
 ****************************************************************************
-\section sec_drcachesim_extend Extending the Simulator
+\page sec_drcachesim_extend Extending the Simulator
 
 The \p drcachesim tool was designed to be extensible, allowing users to
 easily model different caching devices, implement different models, and
@@ -955,7 +1036,7 @@ and override the \p access(), \p child_access(), \p flush(), and/or
 \p print_stats() methods.
 
 ****************************************************************************
-\section sec_drcachesim_tracer Customizing the Tracer
+\page sec_drcachesim_tracer Customizing the Tracer
 
 The tracer supports customization for special-purpose i/o via
 drmemtrace_replace_file_ops(), allowing traces to be written to locations
@@ -977,7 +1058,7 @@ creating a custom offline trace post-processor and using the #module_mapper_t
 class.
 
 ****************************************************************************
-\section sec_drcachesim_funcs Tracing Function Calls
+\page sec_drcachesim_funcs Tracing Function Calls
 
 The tracer supports recording argument and return values for specified
 functions.  This feature is currently limited to offline mode only
@@ -1002,7 +1083,7 @@ of functions related to heap allocation.  The -record_heap_value
 paramter controls the contents of this set.
 
 ****************************************************************************
-\section sec_drcachesim_newtool Creating New Analysis Tools
+\page sec_drcachesim_newtool Creating New Analysis Tools
 
 \p drcachesim provides a \p drmemtrace analysis tool framework to make it
 easy to create new trace analysis tools.  A new tool should subclass
@@ -1074,7 +1155,7 @@ view_tool_create(), cache_simulator_create(), tlb_simulator_create(), and
 func_view_create() functions.
 
 ****************************************************************************
-\section sec_drcachesim_ops Simulator Parameters
+\page sec_drcachesim_ops Simulator Parameters
 
 \p drcachesim's behavior can be controlled through options passed after the
 \p -c \p drcachesim but prior to the "--" delimiter on the command line:
@@ -1091,7 +1172,7 @@ REPLACEME_WITH_OPTION_LIST
 
 
 ****************************************************************************
-\section sec_drcachesim_limit Current Limitations
+\page sec_drcachesim_limit Current Limitations
 
 The \p drcachesim tool is a work in progress.  We welcome contributions in
 these areas of missing functionality:
@@ -1113,7 +1194,7 @@ these areas of missing functionality:
   (https://github.com/DynamoRIO/dynamorio/issues/2478).
 
 ****************************************************************************
-\section sec_drcachesim_cmp Comparison to Other Simulators
+\page sec_drcachesim_cmp Comparison to Other Simulators
 
 \p drcachesim is one of the few simulators to support multiple processes.
 This feature requires an out-of-process simulator and inter-process

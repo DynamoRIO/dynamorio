@@ -133,7 +133,7 @@ Once you've installed locally, you can now point at the installation just like y
 
 ----------------
 
-# Details for Building on Linux
+\section sec_build_linux Details for Building on Linux
 
 In order to build you'll need the following packages:
 
@@ -256,7 +256,7 @@ If you have an Android device set up for access through the `adb shell` utility,
 
 ----------------
 
-## Building AArchXX Tooling to Execute on x86
+\subsection sec_aarch_on_x86 Building AArchXX Tooling to Execute on x86
 
 DR has support for executing on x86/amd64 while decoding and encoding for AArch64 or ARM.  This is mostly used for standalone decoding and for analyzing on an x86 machine drcachesim memory address traces gathered on an AArch64 machine.
 
