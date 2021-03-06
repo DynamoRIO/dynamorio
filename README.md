@@ -18,20 +18,34 @@ IA-32, AMD64, ARM, and AArch64 hardware.  Mac OSX support is in progress.
 
 ## Existing DynamoRIO-based tools
 
-Tools built on DynamoRIO and provided in our release package include:
+DynamoRIO is the basis for some well-known external tools:
+- The [Arm Instruction Emulator (ArmIE)](https://developer.arm.com/tools-and-software/server-and-hpc/arm-architecture-tools/arm-instruction-emulator)
+- [WinAFL](https://github.com/googleprojectzero/winafl), the Windows fuzzing tool, as an instrumentation and code coverage engine
+- The fine-grained profiler for ARM [DrCCTProf](https://xl10.github.io/blog/drcctprof.html)
+
+Tools built on DynamoRIO and available in the [release package](https://dynamorio.org/page_download) include:
 
 - The memory debugging tool [Dr. Memory](http://drmemory.org)
-- The multi-process cache simulator and memory address trace collection and
-  analysis platform [drcachesim](http://dynamorio.org/docs/page_drcachesim.html)
+- The tracing and analysis framework [drmemtrace](https://dynamorio.org/page_drcachesim.html) with multiple tools that operate on both online (with multi-process support) and offline instruction and memory address traces:
+  - The cache simulator [drcachesim](https://dynamorio.org/sec_drcachesim_tools.html#sec_tool_cache_sim)
+  - [TLB simulation](https://dynamorio.org/sec_drcachesim_tools.html#sec_tool_TLB_sim)
+  - [Reuse distance](https://dynamorio.org/sec_drcachesim_tools.html#sec_tool_reuse_distance)
+  - [Reuse time](https://dynamorio.org/sec_drcachesim_tools.html#sec_tool_reuse_time)
+  - [Opcode mix](https://dynamorio.org/sec_drcachesim_tools.html#sec_tool_opcode_mix)
+  - [Function call tracing](https://dynamorio.org/sec_drcachesim_tools.html#sec_tool_func_view)
 - The legacy processor emulator
-  [drcpusim](http://dynamorio.org/docs/page_drcpusim.html)
+  [drcpusim](https://dynamorio.org/page_drcpusim.html)
 - The "strace for Windows" tool [drstrace](http://drmemory.org/strace_for_windows.html)
-- The code coverage tool [drcov](http://dynamorio.org/docs/page_drcov.html)
-- The library tracing tool [drltrace](https://github.com/DynamoRIO/drmemory/tree/master/drltrace)
-- The disassembly tool [drdisas](https://github.com/DynamoRIO/dynamorio/blob/master/clients/drdisas/drdisas.cpp)
-- The memory tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace_simple.c)
+- The code coverage tool [drcov](https://dynamorio.org/page_drcov.html)
+- The library tracing tool [drltrace](http://dynamorio.org/docs/page_drltrace.html)
+- The memory address tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace_x86.c) ([drmemtrace](https://dynamorio.org/page_drcachesim.html)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized memory address tracing)
+- The memory value tracing tool [memval](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memval_simple.c)
+- The instruction tracing tool [instrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/instrace_x86.c) ([drmemtrace](https://dynamorio.org/page_drcachesim.html)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized instruction tracing)
 - The basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
-- The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.cpp)
+- The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
+- The dynamic fuzz testing tool [Dr. Fuzz](http://drmemory.org/docs/page_drfuzz.html)
+- The disassembly tool [drdisas](https://dynamorio.org/page_drdisas.html)
+- And more, including opcode counts, branch instrumentation, etc.: see \ref API_samples.
 
 ## Building your own custom tools
 
@@ -39,16 +53,16 @@ DynamoRIO's powerful API abstracts away the details of the underlying
 infrastructure and allows the tool builder to concentrate on analyzing or
 modifying the application's runtime code stream.  API documentation is
 included in the release package and can also be [browsed
-online](http://dynamorio.org/docs/).  [Slides from our past tutorials are
+online](http://dynamorio.org/page_user_docs.html/).  [Slides from our past tutorials are
 also available](https://github.com/DynamoRIO/dynamorio/wiki/Downloads).
 
 ## Downloading DynamoRIO
 
 DynamoRIO is available free of charge as a [binary package for both Windows
-and Linux](https://github.com/DynamoRIO/dynamorio/wiki/Downloads).
+and Linux](https://dynamorio.org/page_download.html).
 DynamoRIO's [source code is
-available](https://github.com/DynamoRIO/dynamorio) under a [BSD
-license](https://github.com/DynamoRIO/dynamorio/blob/master/License.txt).
+available](https://github.com/DynamoRIO/dynamorio) primarily under a [BSD
+license](https://dynamorio.org/page_license.html).
 
 ## Obtaining Help
 

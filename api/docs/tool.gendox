@@ -46,10 +46,22 @@ Those interested in how the -t option works should see
 the section \ref tool_frontend.
 
 REPLACE_WITH_GENDOX_SUBPAGES
+- \subpage page_drdisas
 - \subpage page_drmemory
 - \subpage page_drstrace
 - \subpage page_drltrace
 - \subpage page_symquery
+- \subpage page_additional_tools
+
+
+\page page_additional_tools Additional Sample Tools
+
+DynamoRIO provides a number of additional tools that do not each contain a
+separate front-end or extensive documentation.  These samples are meant as
+starting points for building customized tools, but can also be used
+directly with the \p -c option to \p drrun.  They are listed and described
+at \ref API_samples.
+
 */
 
 /**

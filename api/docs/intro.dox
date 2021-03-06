@@ -66,9 +66,6 @@ VMsafe solution are shown in blue and the VMsafe components in gray.
 \page page_user_docs Build Your Own Tool
 \endif
 
-\image html drlogo.png
-\image rtf drlogo.png
-
 DynamoRIO is a <em>runtime code manipulation system</em> that supports
 code transformations on any part of a program, <em>while it executes</em>.
 DynamoRIO gives complete control over the runtime code stream and does not
@@ -113,18 +110,15 @@ sections:
 - \subpage API_BT
   <br>DynamoRIO's full runtime code manipulation interface.
 
+- \ref page_ext
+  <br>DynamoRIO's API is augmented by a collection of extension libraries.
+
 \ifnot vmsafe
 - \subpage page_standalone
   <br>DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM/AArch64
   disassembly, decoding, encoding, and general instruction manipulation.
   A separate static library is provided for this purpose.
 \endif
-
-- \ref page_tool
-  <br>A collection of powerful DynamoRIO-based tools are provided for
-  direct use, including our \ref page_drcachesim and memory access trace
-  collection and analysis platform, the \ref page_drmemory, our \ref
-  page_drcov, and more.
 
 - \subpage overview
   <br>A description of the implementation of the DynamoRIO system.
