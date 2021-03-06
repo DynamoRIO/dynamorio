@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,10 +31,12 @@
  * DAMAGE.
  */
 
+/* The text name for page_ext is hardcoded in CMake_rundoxygen.cmake. */
+
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_ext DynamoRIO Extensions
+\page page_ext Extension API
 
 DynamoRIO provides additional optional capabilities via DynamoRIO
 Extensions, separate libraries that a client can link to.  The Extensions

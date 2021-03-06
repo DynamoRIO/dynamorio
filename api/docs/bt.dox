@@ -55,7 +55,6 @@ following sections:
  - \ref sec_rseq
  - \ref sec_pcache
  - \ref bt_examples
- - \ref sec_startstop
 \else
  - \ref sec_IR
  - \ref sec_events_bt
@@ -1431,34 +1430,6 @@ instrumentation, it must do that on its own in the event callbacks.  The
 TLS check ensures that TLS scratch slots are identical.  DynamoRIO also
 ensures that any runtime options that affect persistent code (such as
 whether traces are enabled) are identical.
-
-***************************************************************************
-\htmlonly
-<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
-  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
-  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
-  <tr><td></td></tr></table></td></tr></table></td></tr></table>
-\endhtmlonly
-\section sec_startstop Running a Subset of an Application
-
-An alternative to running an entire application under DynamoRIO control is to
-use the Application Interface to specify a portion of the application to
-run.  This interface consists of the following routines:
-
-\code
-dr_app_setup()
-dr_app_start()
-dr_app_stop()
-dr_app_cleanup()
-dr_app_take_over()
-\endcode
-
-When building an executable that uses DynamoRIO's Application Interface,
-follow the steps for \ref sec_build to include the header files and link
-with the DynamoRIO library, but omit the linker flags requesting no
-standard libraries or startup files.  DynamoRIO's CMake support does this
-automatically, as the linker flags for shared libraries are separate from
-those for executables.
 
 \endif
 

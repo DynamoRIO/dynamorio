@@ -223,6 +223,7 @@ if (embeddable)
 
   # We leverage the javascript menu from the non-embedded version.
   file(GLOB all_js ${CMAKE_CURRENT_BINARY_DIR}/../html/*.js)
+  set(found_user_docs OFF)
   foreach (js ${all_js})
     if (js MATCHES "navtree.js" OR
         js MATCHES "resize.js" OR
@@ -247,7 +248,10 @@ if (embeddable)
       string(REGEX REPLACE "\n( *\\[ \"Deprecated List)"
         "\n[ \"API Reference\", \"files.html\", [\n\\1"
         string "${string}")
-      string(REGEX MATCH "\n[^\n]+\"DynamoRIO Extensions\"[^\n]+\n" ext_entry "${string}")
+      if (NOT string MATCHES "Extension API")
+        message(FATAL_ERROR "Cannot find menu entry for page \"Extension API\"")
+      endif ()
+      string(REGEX MATCH "\n[^\n]+\"Extension API\"[^\n]+\n" ext_entry "${string}")
       string(REPLACE "${ext_entry}" "\n" string "${string}")
     else ()
       # Remove name so we can inline.
@@ -258,17 +262,24 @@ if (embeddable)
     if (js MATCHES "page_user_docs.js")
       # CMake 3.6+ guarantees the glob is sorted lexicographically, so we've already
       # seen navtreedata.js.
+      set(found_user_docs ON)
       if (ext_entry)
-        string(REGEX REPLACE "\n([^\n]+\"Release Notes)" "${ext_entry}\\1"
+        if (NOT string MATCHES "Disassembly Library")
+          message(FATAL_ERROR "Cannot find menu entry for page \"Disassembly Library\"")
+        endif ()
+        string(REGEX REPLACE "\n([^\n]+\"Disassembly Library)" "${ext_entry}\\1"
           string "${string}")
       else ()
-        message(FATAL_ERROR "Failed to find the two menu entries to move")
+        message(FATAL_ERROR "Failed to find the menu entries to move")
       endif ()
     endif ()
     # Put the modified contents into our dir.
     get_filename_component(fname ${js} NAME)
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/${fname} "${string}")
   endforeach ()
+  if (NOT found_user_docs)
+    message(FATAL_ERROR "Cannot find \"page_user_docs\" menu file")
+  endif ()
 
 else ()
   # Edit navbar.
