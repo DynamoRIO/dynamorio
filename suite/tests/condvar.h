@@ -40,7 +40,7 @@
 #include <stdlib.h>
 
 /***************************************************************************
- * Condition variables
+ * Condition variables.
  */
 
 #ifdef WINDOWS
