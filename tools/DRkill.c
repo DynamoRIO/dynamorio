@@ -33,7 +33,7 @@
 /*
  * DRkill.c
  *
- * 'kill' that works on win32
+ * 'kill' that works on win32.
  *
  * to build:
  *  cl DRkill.c registry.c advapi32.lib /o DRkill.exe
