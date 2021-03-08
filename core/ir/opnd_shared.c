@@ -1712,7 +1712,6 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_6_irex10_short4: /* default size */
     case OPSZ_6: return 6;
     case OPSZ_8_of_16:
-    case OPSZ_8_of_16_vex32:
     case OPSZ_half_16_vex32:
     case OPSZ_8_short2:
     case OPSZ_8_short4:

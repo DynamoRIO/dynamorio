@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1891,7 +1891,7 @@ get_module_preferred_base(app_pc pc)
     /* we return NULL on error above, make sure no one actually sets their
      * preferred base address to NULL */
     ASSERT_CURIOSITY(OPT_HDR(nt, ImageBase) != 0);
-    return (app_pc)OPT_HDR(nt, ImageBase);
+    return (app_pc)(ptr_int_t)OPT_HDR(nt, ImageBase);
 }
 
 /* we simply test if allocation bases of a region are the same */

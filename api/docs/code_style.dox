@@ -1,0 +1,591 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_code_style Coding Style Conventions
+
+The overall goal is to <strong>make the source code as readable and
+as self-documenting as possible</strong>.  Everyone following the same
+style guidelines is an important part of keeping the code consistent and
+maintainable.
+
+# Automated Formatting
+
+We employ automated code formatting via [`clang-format` version 6.0](https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormat.html). The [`.clang-format` top-level file](https://github.com/DynamoRIO/dynamorio/blob/master/.clang-format) specifies the style rules for all `.h`, `.c`, and `.cpp` source code files.  Developers are expected to set up their editors to use `clang-format` when saving each file (see [the `clang-format` documentation](https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormat.html) for pointers to vim, emacs, and Visual Studio setup instructions).  Our test suite includes a format check and will fail any code whose formatting does not match the `clang-format` output.
+
+# Legacy Code
+
+Some of the style conventions have changed over time, but we have not
+wanted to incur the cost in time and history confusion of changing all
+old code.  Thus, you may observe old code that does not comply with
+some of these conventions.  These convention overrule surrounding
+code!  Please change the style of old code when you are making other
+change to the same lines.
+
+# Naming Conventions
+
+-# Variable and function names use only lowercase letters.  Multi-word
+function and variable names are all lowercase with underscores delimiting
+words.  Do not use CamelCase for names, unless mirroring Windows-defined
+data structures.
+
+  \b GOOD: `instr_get_target()`
+
+  \e BAD:  `instrGetTarget()`
+
+-# Type names are all lowercase, with underscores dividing words, and
+ending in `_t`:
+ ```
+  instr_t
+  build_bb_t
+ ```
+This is true for C++ class names as well.
+
+-# The name of a struct in a C typedef should be the type name with an
+underscore prefixed:
+ ```
+  typedef struct _build_bb_t {
+      ...
+  } build_bb_t;
+ ```
+
+-# Constants should be in all capital letters, with underscores dividing
+words.  Enum members should use a common descriptive prefix.
+ ```
+  static const int MAX_SIZE = 256;
+  enum {
+      DUMPCORE_DEADLOCK           = 0x0004,
+      DUMPCORE_ASSERTION          = 0x0008,
+  };
+ ```
+
+-# For C++ code, class member fields are named like other variables except they contain an underscore suffix.  Structs that contain methods other than constructors also have this suffix (but usually that should be a class); simple structs with no method other than a constructor do not have this suffix, nor do constants if they follow the constant naming conventions.
+ ```
+  class apple_t {
+      ...
+      int num_seeds_;
+  };
+  struct truck_t {
+      int num_wheels;
+  };
+ ```
+
+-# Preprocessor defines and macros should be in all capital letters, with
+underscores dividing words.
+ ```
+  #ifdef WINDOWS
+  #    define IF_WINDOWS(x) x
+  #else
+  #    define IF_WINDOWS(x)
+  #endif
+ ```
+
+-# Preprocessor defines that include a leading or trailing comma should
+have a corresponding leading or trailing underscore:
+ ```
+  #define _IF_WINDOWS(x) , x
+  #define IF_WINDOWS_(x) x,
+ ```
+
+-# Functions that operate on a data structure should contain that
+structure as a prefix.  For example, all of the routines that operate on
+the `instr_t` struct begin with `instr_`.
+
+-# Use `static` when possible for every function or variable
+that is not needed outside of its own file.
+
+-# Do not shadow global variables (or variables in containing scopes) by using
+local variables of the same name: choose a distinct name for the local variable.
+
+
+# Types
+
+
+-# See above for naming conventions for types.
+
+-# When declaring a function with no arguments, always explicitly use
+the `void` keyword.  Otherwise the compiler will not be able to
+check whether you are incorrectly passing arguments to that function.
+
+  \b GOOD: `int foo(void);`
+
+  \e BAD:  `int foo();`
+
+-# Use the `IN`, `OUT`, and `INOUT` labels to
+describe function parameters.  This is a recent addition to DynamoRIO so
+you will see many older functions without these labels, but use them on all
+new functions.
+
+  \b GOOD: `int foo(IN int length, OUT char *buf);`
+
+  \e BAD:  `int foo(int length, char **buf);`
+
+-# Only use boolean types as conditionals.  This means using explicit NULL
+comparisons and result comparisons.  In particular with functions like
+strcmp() and memcmp(), the use of ! is counter-intuitive.
+
+  \b GOOD: `if (p == NULL) ...`
+
+  \e BAD:  `if (p)`
+
+  \b GOOD: `if (p != NULL) ...`
+
+  \e BAD:  `if (!p)`
+
+  \b GOOD: `if (strncmp(...) == 0) ...`
+
+  \e BAD:  `if (!strncmp(...))`
+
+-# Use constants of the appropriate type.  Assign or compare a character to '\0' not to `0`.
+
+-# It's much easier to read `if (i == 0)` than `if (0 == i)`.
+The compiler, with all warnings turned on (which we have), will
+warn you if you use assignment rather than equality.
+
+  \b GOOD: `if (i == 0) ...`
+
+  \e BAD:  `if (0 == i)`
+
+-# Use the `TEST` and related macros for testing bits.
+
+  \b GOOD: `if (TEST(BITMASK, x))`
+
+  \e BAD:  `if ((x & BITMASK) != 0)`
+
+-# Write code that is 32-bit and 64-bit aware:
+
+  - Use int and uint for 32-bit integers.  Do not use long as its size is 64-bit for Linux but 32-bit for Windows.  We assume that int is a 32-bit type.
+  - Use int64 and uint64 for 64-bit integers.  Use `INT64_FORMAT` and related macros for printing 64-bit integers.
+  - Use ptr_uint_t and ptr_int_t for pointer-sized integers.
+  - Use size_t for sizes of memory regions.
+  - Use reg_t for register-sized values whose type is not known.
+  - Use `ASSERT_TRUNCATE` macros when casting to a smaller type.
+  - Use `PFX` (rather than %p, which is inconsistent across compilers) and other printf macros for printing pointer-sized variables in code using general printing libraries.  For code that exclusively uses DR's own printing facilities, %p is allowed: its improved code readability and simplicity outweigh the risk of such code being copied into non-DR locations and resulting in inconsistent output.
+  - When generating code or writing assembler code, be aware of stack alignment restrictions.
+
+
+-# Invalid addresses, either pointers to our data structures or
+application addresses that we're manipulating, have the value NULL, not 0.
+0 is only for arithmetic types.
+
+-# `const` makes code easier to read and lets the compiler complain
+about errors and generate better code.  It is also required for the most
+efficient self-protection.  Use whenever possible.  However, do not mark
+simple scalar type function parameters as `const`.
+
+-# Place `*` (or `&` for C++ references) prefixing variable names (C style), not suffixing type names
+(Java style):
+
+  \b GOOD: `char *foo;`
+
+  \e BAD:  `char* foo;`
+
+-# In a struct, union, or class, list each field on its own line with its own type declaration, even when sharing the type of the prior field.  Similarly, declare global variables separately.  Local variables of the same type can optionally be combined on a line.
+
+  \b GOOD:
+  ```
+  struct foo {
+      int field1;
+      int field2;
+  };
+  ```
+
+  \e BAD:
+  ```
+  struct foo {
+      int field1, field2;
+  };
+  ```
+
+
+
+# Commenting Conventions
+
+
+-# For C code, `/&lowast; &lowast;/` comments are preferable to `//`.
+Put stars on each line of a multi-line comment, like this:
+ \verbatim
+ /* multi-line comment
+  * with stars
+  */
+ \endverbatim
+The trailing `&lowast;/` can be either on its own line or the end of the preceding line, but on its own line is preferred.
+
+For C++ code, `//` comments are allowed.
+
+-# Make liberal use of comments.  However, too many comments can impair
+readability.  Choose self-descriptive function and variable names to reduce
+the number of comments needed.
+
+-# Do not use large, clunky function headers that simply duplicate
+information in the code itself.  Such headers tend to contain stale,
+incorrect information, for two reasons: the code is often updated without
+maintaining the header, and since the headers are a pain to type they are
+often copied from other functions and not completely modified for their new
+home.  They also make it harder to see the code or to group related
+functions, as they take up so much screen space.  It is better to have
+leaner, more maintainable, and more readable implementation files by using
+self-descriptive function and parameter names and placing comments for
+function parameters next to the parameters themselves.
+
+ \b GOOD:
+ \verbatim
+ /* Retrieves the name of the logfile for a particular thread.
+  * Returns false if no such thread exists.
+  */
+ bool get_logfile(IN thread_id_t thread,
+                  OUT char **fname,
+                  IN size_t fname_len)
+ \endverbatim
+ \e BAD:
+ \verbatim
+ /*------------------------------------------------------
+  * Name: get_logfile
+  *
+  * Purpose:
+  * Retrieves the name of the logfile for a particular thread.
+  *
+  * Parameters:
+  * [IN] thread    = which thread
+  * [OUT](IN] fname     = where to store the logfile name
+  * [IN]  fname_len = the size of the fname buffer
+  *
+  * Returns:
+  * True if successful.
+  * False if no such thread exists.
+  *
+  * Side effects:
+  * None.
+  * ------------------------------------------------------
+  */
+ bool get_logfile(thread_id_t thread, char *fname, size_t fname_len)
+ \endverbatim
+
+
+-# Use doxygen comments on all function and type declarations that are
+exported as part of the API.  For comments starting with `/&lowast;&lowast;`,
+leave the rest of the first line empty, unless the entire comment is a
+single line.  Some examples (ignore leading dots -- only there to work around GitHub markdown problems with leading spaces in literal blocks in list entries):
+ \verbatim
+ DR_API
+ /**
+  * Returns the entry point of the function with the given name in the module
+  * with the given base. Returns NULL on failure.
+  * \note Currently Windows only.
+  */
+ generic_func_t
+ dr_get_proc_address(IN module_handle_t lib, IN const char *name);
+
+ /**
+  * Data structure passed with a signal event.  Contains the machine
+  * context at the signal interruption point and other signal
+  * information.
+  */
+ typedef struct _dr_siginfo_t {
+     int sig;                /**< The signal number. */
+     void *drcontext;        /**< The context of the thread receiving the signal. */
+     dr_mcontext_t mcontext; /**< The machine state at the signal interruption point. */
+     siginfo_t siginfo;      /**< The signal information provided by the kernel. **/
+ } dr_siginfo_t;
+ \endverbatim
+
+  Within doxygen comments, create links using parentheses for
+  functions `foo()` and a leading `#` for other items such as types
+  `#dr_siginfo_t` or defines `#DR_REG_START_GPR`.  See the doxygen
+  documentation for more information:
+  http://www.doxygen.nl/manual/autolink.html
+
+-# <strong>NEVER</strong> check in commented-out code.  This is
+unacceptable.  If you feel strongly that you need to leave code in that is
+disabled, use conditional compilation (e.g.,
+<tt>\#if DISABLED_UNTIL_BUG_812_IS_FIXED</tt>), and perhaps additionally
+explain in a comment why the code is disabled.
+
+-# Sloppy comments full of misspelled words, etc. are an indication of
+carelessness.  We do not want carelessly written code, and we do not
+want carelessly written comments.
+
+-# Comments that contain more than one sentence should be properly
+capitalized and punctuated and should use complete sentences.  Single-sentence
+comments should also prefer capitalization, punctuation, and to use a
+complete sentence when occupying an entire line.  For comments that are
+inside a line of code or at the end of a line of code, sentence fragments or
+phrases are fine.
+
+-# Use `XXX` in comments to indicate code that
+could be optimized or something that may warrant re-examination later.
+Include the issue number using the syntax `i#<number>`.  For example (ignore leading dots -- only there to work around GitHub markdown problems with leading spaces in literal blocks in list entries):
+ \verbatim
+ /* XXX i#391: this could be done more efficiently via ...
+  */
+ \endverbatim
+
+-# Use `FIXME` or `TODO` in comments to indicate missing features that are required and not just optimizations or optional improvements (use `XXX` for those).
+Include the issue number using the syntax `i#<number>`.  For example (ignore leading dots -- only there to work around GitHub markdown problems with leading spaces in literal blocks in list entries):
+ \verbatim
+ /* FIXME i#999: we do not yet handle a corner case where ...
+  */
+ \endverbatim
+
+-# Mark any temporary or unfinished code unsuitable for committing with a
+`NOCHECKIN` comment.  The `make/codereview.cmake` script will remind you to clean
+up the code.
+ \verbatim
+ x = 4; /* NOCHECKIN: temporary debugging change */
+ \endverbatim
+
+-# For banner comments that separate out groups of related functions, use the following style (ignore leading dots -- only there to work around GitHub markdown problems with leading spaces in literal blocks in list entries):
+ \verbatim
+ /****************************************************************************
+  * Name for this group of functions
+  */
+
+ \endverbatim
+If a closing marker is needed use this style:
+ \verbatim
+ /*
+  ****************************************************************************/
+ \endverbatim
+
+
+# Warnings Are Errors
+
+
+-#  Uninitialized variables warning (W4701 for cl): Don't initialize
+variables when you don't need to, so that we can still have good warnings
+about uninitialized variables in the future.  Only if the compiler can't
+analyze code properly is it better to err on the side of a deterministic
+bug and set to 0 or `{0}`.
+
+ Use `do {} while ()` loops to help the compiler figure out that variables
+ will get initialized.  The generated code on those constructs is faster and
+ better predicted (although optimizations should be able to transform simple
+ loops).
+
+-#  For suggested use of static analysis tools: PreFAST or /analyze for
+new code, refer to case 3966.
+
+
+
+# Program Structure
+
+
+-# Keep the line length to 90 characters or less.
+
+-# Use an indentation level of 4 spaces (no tabs, always expand them to
+spaces when saving the file).  (Exception: in CMakeLists.txt and other CMake scripts, use an indentation level of 2 spaces.)
+
+ <strong>WARNING</strong>: Emacs defaults are not always correct here.  Make
+ sure your .emacs contains the following:
+ ```
+ ; always expand tabs to spaces
+ (setq-default indent-tabs-mode 'nil)
+
+ ; want "gnu" style but indent of 4:
+ (setq c-basic-offset 4)
+ (add-hook 'c-mode-hook '(lambda ()
+                           (setq c-basic-offset 4)))
+ ```
+
+ For CMake, use cmake-mode which does default to 2 spaces.
+
+-# K&R-style braces: opening braces at the end of the line preceding
+the new code block, closing braces on their own line at the same
+indentation as the line preceding the code block.  Functions are an
+exception -- see below.
+
+-# Functions should have their type on a separate line from their name.
+Place the function's opening brace on a line by itself at zero
+indentation.
+ ```
+  int
+  foo(int x, int y)
+  {
+      return 42;
+  }
+ ```
+
+ Function declarations should also have the type on a separate line, although this rule can be relaxed  for short (single-line) signatures with a one-line comment or no comment beforehand.
+
+-# Put spaces after commas in parameter and argument lists
+
+  \b GOOD: `foo(x, y, z);`
+
+  \e BAD:  `foo(x,y,z);`
+
+-# Do not put spaces between a function name and the
+following parenthesis.  Do put a space between a `for`, `if`, `while`,
+`do`, or `switch` and the following parenthesis.  Do not put spaces after
+an opening parenthesis or before a closing parenthesis, unless the interior
+expression is complex and contains multiple layers of parentheses.
+
+  \b GOOD: `foo(x, y, z);`
+
+  \e BAD:  `foo (x, y, z);`
+
+  \e BAD:  `foo( x, y, z);`
+
+  \e BAD:  `foo(x, y, z );`
+
+  \b GOOD: `if (x == 6)`
+
+  \e BAD:  `if( x==6 )`
+
+-# Always put the body of an if or loop on a separate line from the
+line containing the keyword.
+
+  \b GOOD:
+ ```
+  if (x == 6)
+      y = 5;
+ ```
+  \e BAD:
+ ```
+  if (x==6) y = 5;
+ ```
+
+-# A multi-line (not just multi-statement) body (of an if, loop, etc.)
+should always be surrounded with braces (to avoid errors in later
+statements arising from indentation mistakes).
+
+-# Statements should always begin on a new line (do not put multiple
+statements on the same line).
+
+-# The case statements of a switch statement should not be indented: they should line up with the switch itself.
+  \b GOOD:
+ ```
+  switch (opc) {
+  case OP_add: ...
+  case OP_sub: ...
+  default: ...
+  }
+ ```
+  \e BAD:
+ ```
+  switch (opc) {
+      case OP_add: ...
+      case OP_sub: ...
+      default: ...
+  }
+ ```
+
+-# Indent nested preprocessor statements.  The `#` character must be in
+the first column, but the rest of the statement can be indented.
+ ```
+  #ifdef OUTERDEF
+  #    ifdef INNERDEF
+  #        define INSIDE
+  #    endif
+  #else
+  #    define OUTSIDE
+  #endif
+ ```
+
+-# Macros, globals, and typedefs should be declared either at the top of the file or at the top of a related group of functions that are delineated by a banner comment.  Do not place global declarations or defines at random places in the middle of a file.
+
+-# To make the code easier to read, use the `DODEBUG`,
+`DOSTATS`, or `DOLOG` macros, or the `IF_WINDOWS` and
+related macros, rather than ifdefs, for common defines.
+
+-#  Do not use `DO_ONCE(SYSLOG_INTERNAL`.  Instead use two new macros:
+`DODEBUG_ONCE` and `SYSLOG_INTERNAL_*_ONCE`.
+
+-# Use `make/codereview.cmake`'s style checks to examine the code for
+known poor coding patterns.  In the future we may add checks using `astyle`
+([issue 83](https://github.com/DynamoRIO/dynamorio/issues#issue/83)).
+
+-# In .asm files, place opcodes on column 8 and start operands on column 17.
+
+-# Multi-statement macros should always be inside "do { ... } while (0)" to avoid mistaken sequences with use as the body of an if() or other construct.
+
+-# When using DEBUG_DECLARE or other conditional macros at the start of a line, move any code not within the macro to the subsequent line, to aid readability and avoid the reader skipping over it under the assumption that it's debug-only.  E.g.:
+
+  \b GOOD:
+ ```
+  DEBUG_DECLARE(bool res =)
+      foo(bar);
+ ```
+  \e BAD:
+ ```
+  DEBUG_DECLARE(bool res =) foo(bar);
+ ```
+
+-# Avoid embedding assignments inside expressions.  We consider a separate assignment statement to be more readable.  E.g.:
+
+  \b GOOD:
+ ```
+  x = foo();
+  if (x == 0) { ...
+ ```
+  \e BAD:
+ ```
+  if ((x = foo()) == 0) { ...
+ ```
+
+-# Avoid embedding non-const expressions inside macros.  We consider a separate expression statement to be more readable, as well as avoiding hidden errors when macros such as ASSERT are disabled in non-debug build.  Example:
+
+  \b GOOD:
+ ```
+  bool success = set_some_value();
+  ASSERT(success);
+ ```
+  \e BAD:
+ ```
+  ASSERT(set_some_value());
+ ```
+
+-# Use named constants rather than "magic values" embedded in the code.  Recognizing and naming constants up front and centralizing them makes assumptions clearer, code more readable, and modifying and maintaining the code easier.
+
+  \b GOOD: `char buf[MAXIMUM_LINE_LENGTH];`
+
+  \e BAD:  `char buf[128];`
+
+
+
+# File Organization
+
+
+-# Write OS-independent code as much as possible and keep it in the
+base `core/` directory.  If code must diverge for Windows versus
+Linux, provide an OS-independent interface documented
+in `core/os_shared.h` and implemented separately
+in `core/unix/` and `core/windows/`.
+
+# C++
+
+
+-# While the core DynamoRIO library and API are C, we do support C++ clients and have some C++ tests and clients ourselves.  For broad compiler support we limit our code to C++11.
+
+
+ ****************************************************************************
+ */

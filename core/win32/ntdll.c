@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -999,6 +999,66 @@ get_own_peb()
     }
     return own_peb;
 }
+
+/* Returns a 32-bit PEB for a 32-bit child and !X64 parent.
+ * Else returns a 64-bit PEB.
+ */
+uint64
+get_peb_maybe64(HANDLE h)
+{
+#ifdef X64
+    return (uint64)get_peb(h);
+#else
+    /* The WOW64 query below should work regardless of whether the kernel is 32-bit
+     * or the child is 32-bit or 64-bit.  But, it returns the 64-bit PEB, while we
+     * would prefer the 32-bit, so we first try get_peb().
+     */
+    PEB *peb32 = get_peb(h);
+    if (peb32 != NULL)
+        return (uint64)peb32;
+    PROCESS_BASIC_INFORMATION64 info;
+    NTSTATUS res = nt_wow64_query_info_process64(h, &info);
+    if (!NT_SUCCESS(res))
+        return 0;
+    else
+        return info.PebBaseAddress;
+#endif
+}
+
+#ifdef X64
+/* Returns the 32-bit PEB for a WOW64 process, given process and thread handles. */
+uint64
+get_peb32(HANDLE process, HANDLE thread)
+{
+    THREAD_BASIC_INFORMATION info;
+    NTSTATUS res = query_thread_info(thread, &info);
+    if (!NT_SUCCESS(res))
+        return 0;
+        /* Bizarrely, info.TebBaseAddress points 2 pages too low!  We do sanity
+         * checks to confirm we have a TEB by looking at its self pointer.
+         */
+#    define TEB32_QUERY_OFFS 0x2000
+    byte *teb32 = (byte *)info.TebBaseAddress;
+    uint ptr32;
+    size_t sz_read;
+    if (!nt_read_virtual_memory(process, teb32 + X86_SELF_TIB_OFFSET, &ptr32,
+                                sizeof(ptr32), &sz_read) ||
+        sz_read != sizeof(ptr32) || ptr32 != (uint64)teb32) {
+        teb32 += TEB32_QUERY_OFFS;
+        if (!nt_read_virtual_memory(process, teb32 + X86_SELF_TIB_OFFSET, &ptr32,
+                                    sizeof(ptr32), &sz_read) ||
+            sz_read != sizeof(ptr32) || ptr32 != (uint64)teb32) {
+            /* XXX: Also try peb64+0x1000?  That was true for older Windows version. */
+            return 0;
+        }
+    }
+    if (!nt_read_virtual_memory(process, teb32 + X86_PEB_TIB_OFFSET, &ptr32,
+                                sizeof(ptr32), &sz_read) ||
+        sz_read != sizeof(ptr32))
+        return 0;
+    return ptr32;
+}
+#endif
 
 /****************************************************************************/
 #ifndef NOT_DYNAMORIO_CORE
@@ -2025,6 +2085,21 @@ is_wow64_process(HANDLE h)
     return self_is_wow64;
 }
 
+bool
+is_32bit_process(HANDLE h)
+{
+#ifdef X64
+    /* Kernel is definitely 64-bit. */
+    return is_wow64_process(h);
+#else
+    /* If kernel is 64-bit, ask about wow64; else, kernel is 32-bit, so true. */
+    if (is_wow64_process(NT_CURRENT_PROCESS))
+        return is_wow64_process(h);
+    else
+        return true;
+#endif
+}
+
 NTSTATUS
 nt_get_drive_map(HANDLE process, PROCESS_DEVICEMAP_INFORMATION *map OUT)
 {
@@ -2385,6 +2460,16 @@ nt_terminate_process_for_app(HANDLE hprocess, NTSTATUS exit_code)
                     IN NTSTATUS ExitStatus);
     /* we allow any argument or result values */
     return NT_SYSCALL(TerminateProcess, hprocess, exit_code);
+}
+
+NTSTATUS
+nt_set_information_process_for_app(HANDLE hprocess, PROCESSINFOCLASS class, void *info,
+                                   ULONG info_len)
+{
+    GET_RAW_SYSCALL(SetInformationProcess, IN HANDLE hprocess, IN PROCESSINFOCLASS class,
+                    INOUT void *info, IN ULONG info_len);
+    /* We allow any argument or result value. */
+    return NT_SYSCALL(SetInformationProcess, hprocess, class, info, info_len);
 }
 
 bool
@@ -5214,12 +5299,29 @@ initialize_known_SID(PSID_IDENTIFIER_AUTHORITY IdentifierAuthority, ULONG SubAut
     pSid->SubAuthority[0] = SubAuthority0;
 }
 
+/* Use nt_get_context64_size() from 32-bit for the 64-bit max size. */
+size_t
+nt_get_context_size(DWORD flags)
+{
+    /* Moved out of nt_initialize_context():
+     *   8d450c          lea     eax,[ebp+0Ch]
+     *   50              push    eax
+     *   57              push    edi
+     *   ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
+     */
+    int len;
+    int res = ntdll_RtlGetExtendedContextLength(flags, &len);
+    ASSERT(res >= 0);
+    /* Add 16 so we can align it forward to 16. */
+    return len + 16;
+}
+
 /* Initialize the buffer as CONTEXT with extension and return the pointer
  * pointing to the start of CONTEXT.
- * Assume buffer size is MAX_CONTEXT_SIZE;
+ * Normally buf_len would come from nt_get_context_size(flags).
  */
 CONTEXT *
-nt_initialize_context(char *buf, DWORD flags)
+nt_initialize_context(char *buf, size_t buf_len, DWORD flags)
 {
     /* Ideally, kernel32!InitializeContext is used to setup context.
      * However, DR should NEVER use kernel32. DR never uses anything in
@@ -5228,15 +5330,8 @@ nt_initialize_context(char *buf, DWORD flags)
     CONTEXT *cxt;
     if (TESTALL(CONTEXT_XSTATE, flags)) {
         context_ex_t *cxt_ex;
-        int len, res;
+        int res;
         ASSERT(proc_avx_enabled());
-        /* 8d450c          lea     eax,[ebp+0Ch]
-         * 50              push    eax
-         * 57              push    edi
-         * ff15b0007a76    call    dword ptr [_imp__RtlGetExtendedContextLength]
-         */
-        res = ntdll_RtlGetExtendedContextLength(flags, &len);
-        ASSERT(res >= 0 && len <= MAX_CONTEXT_SIZE);
         /* 8d45fc          lea     eax,[ebp-4]
          * 50              push    eax
          * 57              push    edi
@@ -5252,7 +5347,7 @@ nt_initialize_context(char *buf, DWORD flags)
         cxt = (CONTEXT *)ntdll_RtlLocateLegacyContext(cxt_ex, 0);
         ASSERT(context_check_extended_sizes(cxt_ex, flags));
         ASSERT(cxt != NULL && (char *)cxt >= buf &&
-               (char *)cxt + cxt_ex->all.length < buf + MAX_CONTEXT_SIZE);
+               (char *)cxt + cxt_ex->all.length < buf + buf_len);
     } else {
         /* make it 16-byte aligned */
         cxt = (CONTEXT *)(ALIGN_FORWARD(buf, 0x10));

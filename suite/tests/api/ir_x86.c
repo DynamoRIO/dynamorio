@@ -886,6 +886,31 @@ test_cti_prefixes(void *dc)
     disassemble_with_info(dc, buf, STDOUT, true, true);
 #endif
     ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[6]);
+
+#if defined(DEBUG) && defined(BUILD_TESTS)
+    /* Issue 4652, a c5 vex encoding where the second byte is c4
+     *   c5 c4 54 2d 68 1d 0c 0a vandps 0xa0c1d68(%rip),%ymm7,%ymm5
+     */
+    buf[0] = 0xc5;
+    buf[1] = 0xc4;
+    buf[2] = 0x54;
+    buf[3] = 0x2d;
+    buf[4] = 0x68;
+    buf[5] = 0x1d;
+    buf[6] = 0x0c;
+    buf[7] = 0x0a;
+
+#    if VERBOSE
+    disassemble_with_info(dc, buf, STDOUT, true, true);
+#    endif
+    instr_t instr;
+
+    instr_init(dc, &instr);
+
+    ASSERT(decode_cti(dc, buf, &instr) == (byte *)&buf[8]);
+
+    instr_free(dc, &instr);
+#endif
 }
 
 static void

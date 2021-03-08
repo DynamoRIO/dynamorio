@@ -536,3 +536,25 @@ instr_is_gather(instr_t *instr)
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
 }
+
+dr_pred_type_t
+instr_invert_predicate(dr_pred_type_t pred)
+{
+    switch (pred) {
+    case DR_PRED_EQ: return DR_PRED_NE;
+    case DR_PRED_NE: return DR_PRED_EQ;
+    case DR_PRED_CS: return DR_PRED_CC;
+    case DR_PRED_CC: return DR_PRED_CS;
+    case DR_PRED_MI: return DR_PRED_PL;
+    case DR_PRED_PL: return DR_PRED_MI;
+    case DR_PRED_VS: return DR_PRED_VC;
+    case DR_PRED_VC: return DR_PRED_VS;
+    case DR_PRED_HI: return DR_PRED_LS;
+    case DR_PRED_LS: return DR_PRED_HI;
+    case DR_PRED_GE: return DR_PRED_LT;
+    case DR_PRED_LT: return DR_PRED_GE;
+    case DR_PRED_GT: return DR_PRED_LE;
+    case DR_PRED_LE: return DR_PRED_GT;
+    default: CLIENT_ASSERT(false, "Incorrect predicate value"); return DR_PRED_NONE;
+    }
+}

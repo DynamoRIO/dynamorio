@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -325,6 +325,8 @@ typedef struct _dr_stats_t {
     uint64 peak_vmm_blocks_reach_special_heap;
     /** Peak number of memory blocks used for other reachable mappings. */
     uint64 peak_vmm_blocks_reach_special_mmap;
+    /** Signals delivered to native threads. */
+    uint64 num_native_signals;
 } dr_stats_t;
 
 /**
@@ -531,6 +533,7 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  * go through the app interface.
  */
 extern bool doing_detach;
+extern thread_id_t detacher_tid;
 
 extern event_t dr_app_started;
 extern event_t dr_attach_finished;
@@ -609,6 +612,11 @@ extern thread_record_t **all_threads;
 extern mutex_t all_threads_lock;
 DYNAMORIO_EXPORT int
 dynamorio_app_init(void);
+/* dynamorio_app_init() can be called in two parts: */
+void
+dynamorio_app_init_part_one_options();
+int
+dynamorio_app_init_part_two_finalize();
 int
 dynamorio_app_exit(void);
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
@@ -804,6 +812,9 @@ typedef struct _try_except_t {
 } try_except_t;
 
 extern try_except_t global_try_except;
+#ifdef UNIX
+extern thread_id_t global_try_tid;
+#endif
 
 typedef struct {
     /* WARNING: if you change the offsets of any of these fields,

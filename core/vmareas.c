@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -6523,9 +6523,10 @@ app_memory_protection_change_internal(dcontext_t *dcontext, bool update_areas,
             os_terminate(dcontext, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         } else {
-            SYSLOG_INTERNAL_WARNING_ONCE("Application changing protections of "
-                                         "%s memory at least once (" PFX "-" PFX ")",
-                                         target_area_name, base, base + size);
+            /* On Win10 this happens in every run so we do not syslog. */
+            LOG(THREAD, LOG_VMAREAS, 1,
+                "Application changing protections of %s memory (" PFX "-" PFX ")",
+                target_area_name, base, base + size);
             if (how_handle == DR_MODIFY_NOP) {
                 /* we use a separate list, rather than a flag on DR areas, as the
                  * affected region could include non-DR memory

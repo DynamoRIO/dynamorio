@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1620,6 +1620,14 @@ is_thread_tls_initialized(void)
          * so we'll return false here and use our check in get_thread_private_dcontext().
          */
         if (!first_thread_tls_initialized || last_thread_tls_exited)
+            return false;
+        /* i#3535: Avoid races between removing DR's SIGSEGV signal handler and
+         * detached threads being passed native signals.  The detaching thread is
+         * the one doing all the real cleanup, so we simply avoid any safe reads
+         * or TLS for detaching threads.  This var is not cleared until re-init,
+         * so we have no race with the end of detach.
+         */
+        if (detacher_tid != INVALID_THREAD_ID && detacher_tid != get_sys_thread_id())
             return false;
         /* To handle WSL (i#1986) where fs and gs start out equal to ss (0x2b),
          * and when the MSR is used having a zero selector, and other complexities,
@@ -4246,7 +4254,8 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
      * in particular): for low 4GB, easiest to just pass MAP_32BIT (which is
      * low 2GB, but good enough).
      */
-    if (DYNAMO_OPTION(heap_in_lower_4GB) && !TEST(MAP_FILE_FIXED, map_flags))
+    if (DYNAMO_OPTION(heap_in_lower_4GB) &&
+        !TESTANY(MAP_FILE_FIXED | MAP_FILE_APP, map_flags))
         flags |= MAP_32BIT;
 #endif
     /* Allows memory request instead of mapping a file,
@@ -5016,12 +5025,23 @@ ignorable_system_call_normalized(int num)
     /* Used as a lazy trigger. */
     case SYS_rseq:
 #endif
+#ifdef DEBUG
+#    ifdef MACOS
+    case SYS_open_nocancel:
+#    endif
+#    ifdef SYS_open
+    case SYS_open:
+#    endif
+#endif
         return false;
 #ifdef LINUX
 #    ifdef SYS_readlink
     case SYS_readlink:
 #    endif
     case SYS_readlinkat: return !DYNAMO_OPTION(early_inject);
+#endif
+#ifdef SYS_openat
+    case SYS_openat: return IS_STRING_OPTION_EMPTY(xarch_root);
 #endif
     default:
 #ifdef VMX86_SERVER
@@ -7698,6 +7718,33 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    endif
 #endif
+#ifdef SYS_openat
+    case SYS_openat: {
+        /* XXX: For completeness we might want to replace paths for SYS_open and
+         * possibly others, but SYS_openat is all we need on modern systems so we
+         * limit syscall overhead to this single point for now.
+         */
+        dcontext->sys_param0 = 0;
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        const char *path = (const char *)dcontext->sys_param1;
+        if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(path, false)) {
+            char *buf = heap_alloc(dcontext, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+            string_option_read_lock();
+            snprintf(buf, MAXIMUM_PATH, "%s/%s", DYNAMO_OPTION(xarch_root), path);
+            buf[MAXIMUM_PATH - 1] = '\0';
+            string_option_read_unlock();
+            if (os_file_exists(buf, false)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "SYS_openat: replacing |%s| with |%s|\n",
+                    path, buf);
+                set_syscall_param(dcontext, 1, (reg_t)buf);
+                /* Save for freeing in post. */
+                dcontext->sys_param0 = (reg_t)buf;
+            } else
+                heap_free(dcontext, buf, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+        }
+        break;
+    }
+#endif
 
 #ifdef LINUX
     case SYS_rseq:
@@ -8736,6 +8783,15 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
+
+#    ifdef SYS_openat
+    case SYS_openat:
+        if (dcontext->sys_param0 != 0) {
+            heap_free(dcontext, (void *)dcontext->sys_param0,
+                      MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+        }
+        break;
+#    endif
 
     case SYS_rseq:
         /* Lazy rseq handling. */
@@ -10047,7 +10103,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     uint i;
     uint num_threads;
     thread_id_t *tids;
-    uint threads_to_signal = 0;
+    uint threads_to_signal = 0, threads_timed_out = 0;
 
     /* We do not want to re-takeover a thread that's in between notifying us on
      * the last call to this routine and getting onto the all_threads list as
@@ -10145,7 +10201,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 SYSLOG(SYSLOG_VERBOSE, INFO_ATTACHED, 3, buf, get_application_name(),
                        get_application_pid());
             }
+            /* We split the wait up so that we'll break early on an exited thread. */
             static const int wait_ms = 25;
+            int max_attempts =
+                /* Integer division rounding down is fine since we always wait 25ms. */
+                DYNAMO_OPTION(takeover_timeout_ms) / wait_ms;
+            int attempts = 0;
             while (!wait_for_event(records[i].event, wait_ms)) {
                 /* The thread may have exited (i#2601).  We assume no tid re-use. */
                 char task[64];
@@ -10153,6 +10214,24 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 NULL_TERMINATE_BUFFER(task);
                 if (!os_file_exists(task, false /*!is dir*/)) {
                     SYSLOG_INTERNAL_WARNING_ONCE("thread exited while attaching");
+                    break;
+                }
+                if (++attempts > max_attempts) {
+                    if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
+                        SYSLOG(
+                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                            get_application_name(), get_application_pid(),
+                            "Continuing since -unsafe_ignore_takeover_timeout is set.");
+                        ++threads_timed_out;
+                    } else {
+                        SYSLOG(
+                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                            get_application_name(), get_application_pid(),
+                            "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
+                        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
+                                                    get_application_name(),
+                                                    get_application_pid());
+                    }
                     break;
                 }
                 /* Else try again. */
@@ -10178,7 +10257,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     d_r_mutex_unlock(&thread_initexit_lock);
     HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT, PROTECTED);
 
-    return threads_to_signal > 0;
+    ASSERT(threads_to_signal >= threads_timed_out);
+    return (threads_to_signal - threads_timed_out) > 0;
 }
 
 bool

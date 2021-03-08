@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5451,6 +5451,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
                         "\n",
                         target);
                     instr_set_target(last, opnd_create_pc(target));
+                    instr_set_our_mangling(last, true); /* undone by target set */
                 }
                 if (DYNAMO_OPTION(pad_jmps) && !INTERNAL_OPTION(pad_jmps_shift_bb)) {
                     /* FIXME - hack, but pad_jmps_shift_bb will be on by

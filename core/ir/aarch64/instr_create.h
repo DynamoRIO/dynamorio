@@ -133,7 +133,7 @@ enum {
  * Platform-independent INSTR_CREATE_* macros
  */
 /** @name Platform-independent macros */
-/* @{ */ /* doxygen start group */
+/** @{ */ /* doxygen start group */
 
 /**
  * This platform-independent macro creates an instr_t for a debug trap
@@ -485,7 +485,7 @@ enum {
  */
 #define XINST_CREATE_call_reg(dc, r) INSTR_CREATE_blr(dc, r)
 
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /****************************************************************************
  * Manually-added ARM-specific INSTR_CREATE_* macros
@@ -659,6 +659,10 @@ enum {
 #define INSTR_CREATE_strh(dc, mem, rt) instr_create_1dst_1src(dc, OP_strh, mem, rt)
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
 #define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INST_CREATE_stlr(dc, mem, rt)                                   \
+    instr_create_1dst_3src(dc, OP_stlr, mem, rt, OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
 /* TODO i#4532: Remove these superfluous 0x1f non-operands. */
 #define INSTR_CREATE_stxr(dc, mem, rs, rt) \
     instr_create_2dst_2src(dc, OP_stxr, mem, rs, rt, OPND_CREATE_INT(0x1f))

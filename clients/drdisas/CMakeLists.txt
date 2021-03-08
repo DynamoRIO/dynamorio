@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2020-2021 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -47,3 +47,7 @@ else ()
   set(dst "${INSTALL_BIN}")
 endif ()
 DR_target_install(TARGETS drdisas DESTINATION ${dst})
+
+get_property(dox_extras GLOBAL PROPERTY DynamoRIO_dox_extras)
+set_property(GLOBAL PROPERTY DynamoRIO_dox_extras
+  ${dox_extras} ${CMAKE_CURRENT_SOURCE_DIR}/drdisas.dox)

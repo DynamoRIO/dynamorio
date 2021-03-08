@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -334,6 +334,24 @@ OPTION_NAME(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
 /* XXX i#1114: enable by default when the implementation is complete */
 OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically generated code")
 
+#ifdef UNIX
+OPTION_COMMAND(pathstring_t, xarch_root, EMPTY_STRING, "xarch_root",
+               {
+                   /* Running under QEMU requires timing out and then leaving
+                    * the failed-takeover QEMU thread native, so we bundle that
+                    * here for convenience.  We target the common use case of a
+                    * small app, for which we want a small timeout.
+                    */
+                   if (options->xarch_root[0] != '\0') {
+                       options->unsafe_ignore_takeover_timeout = true;
+                       options->takeover_timeout_ms = 400;
+                   }
+               },
+               "QEMU support: prefix to add to opened files for emulation; also sets "
+               "-unsafe_ignore_takeover_timeout and -takeover_timeout_ms 400",
+               STATIC, OP_PCACHE_NOP)
+#endif
+
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    ifdef PROFILE_RDTSC
 OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring time")
@@ -497,7 +515,8 @@ OPTION_COMMAND(bool, opt_memory, false, "opt_memory",
                "enable memory savings at potential loss in performance", STATIC,
                OP_PCACHE_NOP)
 
-PC_OPTION_INTERNAL(bool, bb_prefixes, "give all bbs a prefix")
+PC_OPTION_DEFAULT_INTERNAL(bool, bb_prefixes, IF_AARCH64_ELSE(true, false),
+                           "give all bbs a prefix")
 /* If a client registers a bb hook, we force a full decode.  This option
  * requests a full decode regardless of whether there is a bb hook.
  * Note that there is no way to make this available for non-CI builds
@@ -566,6 +585,11 @@ OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
                         "mangle application's segment usage.")
 #endif /* X86 */
 #ifdef X64
+#    ifdef WINDOWS
+/* TODO i#49: This option is still experimental and is not fully tested/supported yet. */
+OPTION_DEFAULT(bool, inject_x64, false,
+               "Inject 64-bit DynamoRIO into 32-bit child processes.")
+#    endif
 OPTION_COMMAND(bool, x86_to_x64, false, "x86_to_x64",
                {
                    /* i#1494: to avoid decode_fragment messing up the 32-bit/64-bit mode,
@@ -1694,10 +1718,12 @@ DYNAMIC_OPTION_DEFAULT(
  * even _init is run needs to have a non-early default.
  * Thus we turn this on in privload_early_inject.
  */
-OPTION_COMMAND(bool, early_inject,
-               IF_WINDOWS_ELSE
-               /* i#980: too early for kernel32 so we disable */
-               (IF_CLIENT_INTERFACE_ELSE(false, true), false),
+/* On Windows this does *not* imply early injection anymore: it just enables control
+ * over where to inject via a hook and alternate injection methods, rather than using
+ * the old thread injection.
+ * XXX: Clean up by removing this option and thread injection completely?
+ */
+OPTION_COMMAND(bool, early_inject, IF_UNIX_ELSE(false /*see above*/, true),
                "early_inject",
                {
                    if (options->early_inject) {
@@ -1706,20 +1732,16 @@ OPTION_COMMAND(bool, early_inject,
                    }
                },
                "inject early", STATIC, OP_PCACHE_GLOBAL)
-#if 0 /* FIXME i#234 NYI: not ready to enable just yet */
-    OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
-    /* see enum definition is os_shared.h for notes on what works with which
-     * os version */
-    OPTION_DEFAULT(uint, early_inject_location, 5 /* INJECT_LOCATION_KiUserApc */,
-        "where to hook for early_injection.  default is earliest injection: anything else will be later.")
-#else
-OPTION_DEFAULT(bool, early_inject_map, false, "inject earliest via map")
-/* see enum definition is os_shared.h for notes on what works with which
- * os version */
-OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
-               "where to hook for early_injection.  default is earliest injection: "
-               "anything else will be later.")
-#endif
+/* To support cross-arch follow-children injection we need to use the map option. */
+OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
+/* See enum definition is os_shared.h for notes on what works with which
+ * os version.  Our default is late injection to make it easier on clients
+ * (as noted in i#980, we don't want to be too early for a private kernel32).
+ */
+OPTION_DEFAULT(uint, early_inject_location, 8 /* INJECT_LOCATION_ThreadStart */,
+               "where to hook for early_injection.  Use 5 =="
+               "INJECT_LOCATION_KiUserApcdefault for earliest injection; use "
+               "4 == INJECT_LOCATION_LdrDefault for easier-but-still-early.")
 OPTION_DEFAULT(uint_addr, early_inject_address, 0,
                "specify the address to hook at for INJECT_LOCATION_LdrCustom")
 #ifdef WINDOWS /* probably the surrounding options should also be under this ifdef */
@@ -3196,6 +3218,13 @@ OPTION(bool, multi_thread_exit,
        "do not guarantee that process exit event callback is invoked single-threaded")
 OPTION(bool, skip_thread_exit_at_exit, "skip thread exit events at process exit")
 #endif
+OPTION(bool, unsafe_ignore_takeover_timeout,
+       "ignore timeouts trying to take over one or more threads when initializing, "
+       "leaving those threads native, which is potentially unsafe")
+OPTION_DEFAULT(uint, takeover_timeout_ms, 30000,
+               "timeout in milliseconds for each thread when taking over at "
+               "initialization/attach.  Reaching a timeout is fatal, unless "
+               "-unsafe_ignore_takeover_timeout is set.")
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 OPTION_NAME(bool, optimize, " synthethic", "set if ANY opts are on")

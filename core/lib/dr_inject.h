@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -179,6 +179,20 @@ bool
 dr_inject_prepare_new_process_group(void *data);
 
 #endif /* UNIX */
+
+#ifdef WINDOWS
+DR_EXPORT
+/**
+ * Specifies that late injection should be used for the process created by
+ * dr_inject_process_create().
+ *
+ * \param[in]   data           The pointer returned by dr_inject_process_create()
+ *
+ * \return  Whether successful.
+ */
+bool
+dr_inject_use_late_injection(void *data);
+#endif
 
 DR_EXPORT
 /**

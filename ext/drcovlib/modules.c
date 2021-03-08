@@ -80,7 +80,7 @@ static int tls_idx = -1;
 static module_table_t module_table;
 
 /* Custom per-module field support. */
-static void *(*module_load_cb)(module_data_t *module);
+static void *(*module_load_cb)(module_data_t *module, int seg_idx);
 static int (*module_print_cb)(void *data, char *dst, size_t max_len);
 static const char *(*module_parse_cb)(const char *src, OUT void **data);
 static void (*module_free_cb)(void *data);
@@ -117,11 +117,10 @@ static void
 module_table_entry_free(void *tofree)
 {
     module_entry_t *entry = (module_entry_t *)tofree;
-    if (entry->id == entry->containing_id) {
-        if (module_free_cb != NULL)
-            module_free_cb(((module_entry_t *)entry)->custom);
+    if (module_free_cb != NULL)
+        module_free_cb(((module_entry_t *)entry)->custom);
+    if (entry->id == entry->containing_id) /* Else a sub-entry which shares data. */
         dr_free_module_data(((module_entry_t *)entry)->data);
-    } /* else a sub-entry which shares custom and data */
     dr_global_free(entry, sizeof(module_entry_t));
 }
 
@@ -190,7 +189,7 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         entry->unload = false;
         entry->data = dr_copy_module_data(data);
         if (module_load_cb != NULL)
-            entry->custom = module_load_cb(entry->data);
+            entry->custom = module_load_cb(entry->data, 0);
         drvector_append(&module_table.vector, entry);
 #ifndef WINDOWS
         entry->offset = data->segments[0].offset;
@@ -208,9 +207,9 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             sub_entry->start = data->segments[j].start;
             sub_entry->end = data->segments[j].end;
             sub_entry->unload = false;
-            /* These fields are shared. */
-            sub_entry->data = entry->data;
-            sub_entry->custom = entry->custom;
+            sub_entry->data = entry->data; /* Shared among all segments. */
+            if (module_load_cb != NULL)
+                sub_entry->custom = module_load_cb(sub_entry->data, j);
             sub_entry->offset = data->segments[j].offset;
             drvector_append(&module_table.vector, sub_entry);
             global_module_cache_add(module_table.cache, sub_entry);
@@ -792,7 +791,7 @@ drmodtrack_offline_exit(void *handle)
 }
 
 drcovlib_status_t
-drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module),
+drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
                            const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data))

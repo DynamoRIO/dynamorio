@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2020 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2021 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -227,6 +227,15 @@ function (DynamoRIO_prefix_cmd_if_necessary cmd_out use_ats cmd_in)
       set(${cmd_out} "adb@shell@${cmd_in}${ARGN}" PARENT_SCOPE)
     else ()
       set(${cmd_out} adb shell ${cmd_in} ${ARGN} PARENT_SCOPE)
+    endif ()
+  elseif (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH AND QEMU_BINARY)
+    if (use_ats)
+      set(${cmd_out}
+        "${QEMU_BINARY}@-L@${CMAKE_FIND_ROOT_PATH}@${cmd_in}${ARGN}"
+        PARENT_SCOPE)
+    else ()
+      set(${cmd_out} ${QEMU_BINARY} -L ${CMAKE_FIND_ROOT_PATH}
+        ${cmd_in} ${ARGN} PARENT_SCOPE)
     endif ()
   else ()
     set(${cmd_out} ${cmd_in} ${ARGN} PARENT_SCOPE)

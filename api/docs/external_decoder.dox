@@ -1,0 +1,103 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_external_decoder Using an External Decoder
+
+# Motivation
+
+The main benefit of switching from an internal decoder is maintenance: as new ISA extensions are added we lack the developer numbers to spend time adding decode/encode support to our own code.
+
+Another desired benefit is ease of adding new architecture support: if we pick an external decoder that supports many architectures, we can get decode/encode support for free when porting.
+
+Further benefits could include:
++ First-class disassembly syntax support.  Our internal decoders do not bother to support some disassembly syntaxes very well (such as Intel syntax) as it’s not needed for our primary operations.
++ ISA extension information: which instructions are supported on which processors.  This is of benefit to tools like drcpusim.
++ Assembly support: it would be a nice feature to allow construction of instruction lists from assembler syntax: i.e., pass in a string of assembler code and have it auto-converted into an instrlist_t of level 4 instructions.
++ Performance: it’s quite possible other decoders/encoders out-perform ours: they likely have spent more time on performance.  Most of the performance work on DR has focused on steady-state performance where decoding and encoding do not matter at all.
+
+# Implementation
+
+We would almost certainly keep DR’s IR which is intertwined in its client API.  We would have to convert to and from an external IR which would add overhead.  We would have to figure out:
++ How convert each piece of DR IR to and from the external decoder's IR
++ How construct DR's opcode `OP_*` enumeration, especially when it may differ from the external decoder's opcodes: e.g., DR has `OP_jnb_short`, `OP_mov_st`, etc.
++ How construct all of the `INSTR_CREATE_*` macros: we would have to write a script or even do it manually.
+
+# Requirements
+
+We would need these features from the external decoder:
++ Lightweight for use at runtime: low memory and time overheads
++ Small binary size for the decoder library
++ No library dependencies at all, or so few we could either easily redirect them to DR’s routines or link them in statically (but see the size concern above).  Since this is used by core DR we cannot use our private loader like we do to support client libraries.
++ Implicit operands
++ Sources versus destinations
++ Fast decoder: length (level 1)
++ Fast decoder: length + opcode + eflags (level 2)
++ Operand sizes
++ Eflags effects
++ Full encoding (many decoders out there do not have an encoder)
++ Encoding control over which template and which operand/immediate size to use when multiple are available
++ Abstract instruction generation (INSTR_CREATE_*)
+
+# Potential Decoders
+
+## XED
+
+XED could be considered on Intel, but if it takes significant effort, that effort may be better spent adding the features we need to a cross-architecture decoder.
+
++ Library size - XED’s library size is reasonable and also completely self contained with no external library dependencies.
++ Decoding times - XED is overall ~40% faster for encode and about ~14X faster than DynamoRIO’s decoder.
++ IR comparison - IR’s have been evaluated and a mapping between DynamoRIO’s IR and XED’s IR seems possible, though some translations are needed that would add cycles.
++ Provides support for implicit operands.
++ Provides support for hidden opcodes such as int1, salc, and ffreep
++ Provides a fast length decoder, but lacks support for analyzing eflags at the same time like DynamoRIO does.  We'd either have to add this in some form or the other, or we keep / enhance the current DR one.
++ Supports AMD opcodes
++ Supports all IR features of DynamoRIO, but some would need a translation stage or tables. For example, XED provides opcode, opcode class, size, etc., while DynamoRIO encodes all of this into a specific opcode.
+
+While XED does seem to provide good support for x86 and all extensions, in particular AVX-512 including future extensions, it does not provide any other architectural support.
+
+## LLVM
+
+The LLVM decoder would give us the platform support we want, along with a way to implement assembly support, but it was not designed to be as lightweight as we’d like nor to be used separately from the compiler.
+
+The LLVM decoder/encoder is tied to LLVM’s backend and MCInst. Every backend has its own implementation, with no generic abstraction: i.e., each backend has its own IR.  There is thus no support to take advantage of multi-architecture support through IR abstractions.  It might require a large project with community engagement to add this kind of support to LLVM.
+
+# Concerns
+
+One concern is missing opcodes: e.g., a decoder from Intel may not include every AMD opcode.  Hidden non-public opcodes (such as int1, salc, and ffreep) may not be included.  These may be deliberate omissions and adding them to the external decoder may not be accepted by the owners, forcing us to maintain our own extension.  (Update: XED does include AMD opcodes and all the hidden opcodes we're aware of.)
+
+Another concern is that the overhead, complexity, and especially time taken to connect an external decoder will never be amortized by enough future ISA extensions.  Ignoring the addition of a new supported architecture and just considering x86, which is relevant to picking XED: sticking with DR’s existing decoder, we may only need to augment it once every 4 years or so.  This augmentation typically takes just a few weeks.  Hooking up one of these external decoders would be a large project likely taking months, while only saving those few weeks every N years.  At that rate, it might take a decade or more recoup the investment.  (Update: Adding AVX-512 was a much larger project than prior ISA extensions such as AVX-2 and was more on the order of months than weeks, which might change the calculus here.)
+
+
+ ****************************************************************************
+ */

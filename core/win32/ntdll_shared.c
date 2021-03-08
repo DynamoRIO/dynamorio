@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,7 +72,52 @@
 
 #include "ntdll_shared.h"
 
-#ifndef X64
+/* In ntdll.c which is linked everywhere ntdll_shared.c is these days. */
+bool
+nt_read_virtual_memory(HANDLE process, const void *base, void *buffer,
+                       size_t buffer_length, size_t *bytes_read);
+
+bool
+nt_write_virtual_memory(HANDLE process, void *base, const void *buffer,
+                        size_t buffer_length, size_t *bytes_written);
+
+#ifndef X64 /* Around most of the rest of the file. */
+
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#        define UNPROT_IF_INIT()                                                  \
+            do {                                                                  \
+                /* The first call may not be during init so we have to unprot. */ \
+                if (dynamo_initialized) {                                         \
+                    SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);                  \
+                }                                                                 \
+            } while (0)
+#        define PROT_IF_INIT()                                                    \
+            do {                                                                  \
+                /* The first call may not be during init so we have to unprot. */ \
+                if (dynamo_initialized) {                                         \
+                    SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);                    \
+                }                                                                 \
+            } while (0)
+#    else
+#        define PROT_IF_INIT()   /* Nothing. */
+#        define UNPROT_IF_INIT() /* Nothing. */
+#    endif
+
+#    ifdef NOT_DYNAMORIO_CORE
+#        define GET_PROC_ADDR(name) GetProcAddress(GetModuleHandle("ntdll.dll"), name)
+#    else
+#        define GET_PROC_ADDR(name) d_r_get_proc_address(get_ntdll_base(), name)
+#    endif
+
+#    define INIT_NTWOW64_FUNCPTR(var, name)           \
+        do {                                          \
+            if (ntcall == NULL) {                     \
+                UNPROT_IF_INIT();                     \
+                var = (name##_t)GET_PROC_ADDR(#name); \
+                PROT_IF_INIT();                       \
+            }                                         \
+        } while (0)
+
 NTSTATUS
 nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
                                size_t buffer_length, size_t *bytes_read)
@@ -83,23 +128,7 @@ nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
         IN ULONGLONG BufferSize, OUT PULONGLONG NumberOfBytesRead);
     static NtWow64ReadVirtualMemory64_t ntcall;
     NTSTATUS res;
-    if (ntcall == NULL) {
-#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-        /* The first call may not be during init so we have to unprot */
-        if (dynamo_initialized)
-            SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-#    endif
-        ntcall = (NtWow64ReadVirtualMemory64_t)
-#    ifdef NOT_DYNAMORIO_CORE
-            GetProcAddress(GetModuleHandle("ntdll.dll"), "NtWow64ReadVirtualMemory64");
-#    else
-            d_r_get_proc_address(get_ntdll_base(), "NtWow64ReadVirtualMemory64");
-#    endif
-#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-        if (dynamo_initialized)
-            SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-#    endif
-    }
+    INIT_NTWOW64_FUNCPTR(ntcall, NtWow64ReadVirtualMemory64);
     if (ntcall == NULL) {
         /* We do not need to fall back to NtReadVirtualMemory, b/c
          * NtWow64ReadVirtualMemory64 was added in xp64==2003 and so should
@@ -115,5 +144,78 @@ nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
             *bytes_read = (size_t)len;
     }
     return res;
+}
+
+NTSTATUS
+nt_wow64_write_virtual_memory64(HANDLE process, uint64 base, void *buffer,
+                                size_t buffer_length, size_t *bytes_written)
+{
+    /* Just like nt_wow64_read_virtual_memory64, we dynamically acquire. */
+    typedef NTSTATUS(NTAPI * NtWow64WriteVirtualMemory64_t)(
+        HANDLE ProcessHandle, IN PVOID64 BaseAddress, IN PVOID Buffer,
+        IN ULONGLONG BufferSize, OUT PULONGLONG NumberOfBytesWritten);
+    static NtWow64WriteVirtualMemory64_t ntcall;
+    NTSTATUS res;
+    INIT_NTWOW64_FUNCPTR(ntcall, NtWow64WriteVirtualMemory64);
+    if (ntcall == NULL) {
+        ASSERT_NOT_REACHED();
+        res = STATUS_NOT_IMPLEMENTED;
+    } else {
+        uint64 len;
+        res = ntcall(process, (PVOID64)base, buffer, (ULONGLONG)buffer_length, &len);
+        if (bytes_written != NULL)
+            *bytes_written = (size_t)len;
+    }
+    return res;
+}
+
+NTSTATUS
+nt_wow64_query_info_process64(HANDLE process, PROCESS_BASIC_INFORMATION64 *info)
+{
+    /* Just like nt_wow64_read_virtual_memory64, we dynamically acquire. */
+    typedef NTSTATUS(NTAPI * NtWow64QueryInformationProcess64_t)(
+        HANDLE ProcessHandle, IN PROCESSINFOCLASS InfoClass, OUT PVOID Buffer,
+        IN ULONG BufferSize, OUT PULONG NumberOfBytesRead);
+    static NtWow64QueryInformationProcess64_t ntcall;
+    NTSTATUS res;
+    INIT_NTWOW64_FUNCPTR(ntcall, NtWow64QueryInformationProcess64);
+    if (ntcall == NULL) {
+        ASSERT_NOT_REACHED();
+        res = STATUS_NOT_IMPLEMENTED;
+    } else {
+        ULONG got;
+        res = ntcall(process, ProcessBasicInformation, info, sizeof(*info), &got);
+        ASSERT(!NT_SUCCESS(res) || got == sizeof(PROCESS_BASIC_INFORMATION64));
+    }
+    return res;
+}
+
+#endif /* !X64 */
+
+#ifndef NOT_DYNAMORIO_CORE
+bool
+read_remote_memory_maybe64(HANDLE process, uint64 base, void *buffer,
+                           size_t buffer_length, size_t *bytes_read)
+{
+#    ifdef X64
+    return nt_read_virtual_memory(process, (LPVOID)base, buffer, buffer_length,
+                                  bytes_read);
+#    else
+    return NT_SUCCESS(
+        nt_wow64_read_virtual_memory64(process, base, buffer, buffer_length, bytes_read));
+#    endif
+}
+
+bool
+write_remote_memory_maybe64(HANDLE process, uint64 base, void *buffer,
+                            size_t buffer_length, size_t *bytes_read)
+{
+#    ifdef X64
+    return nt_write_virtual_memory(process, (LPVOID)base, buffer, buffer_length,
+                                   bytes_read);
+#    else
+    return NT_SUCCESS(nt_wow64_write_virtual_memory64(process, base, buffer,
+                                                      buffer_length, bytes_read));
+#    endif
 }
 #endif

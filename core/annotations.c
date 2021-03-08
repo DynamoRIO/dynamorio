@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -839,7 +839,7 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request)
  *              (note there is a special case for Windows x64, which is not inline asm)
  *     (step 7) if it matches, point `**name` to the character beyond the separator ':'
  *
- * See https://github.com/DynamoRIO/dynamorio/wiki/Annotations for complete examples.
+ * See https://dynamorio.org/page_annotations.html for complete examples.
  */
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
@@ -947,7 +947,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         /* If the target app contains an annotation whose argument is a function call
          * that gets inlined, and that function contains the same annotation, the
          * compiler will fuse the headers. See
-         * https://github.com/DynamoRIO/dynamorio/wiki/Annotations for a sample of
+         * https://dynamorio.org/page_annotations.html for a sample of
          * fused headers. This loop identifies and skips any fused headers.
          */
         while (true) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -83,6 +83,10 @@ static int syscall_method = SYSCALL_METHOD_UNINITIALIZED;
 byte *app_sysenter_instr_addr = NULL;
 #ifdef LINUX
 static bool sysenter_hook_failed = false;
+#endif
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+bool gencode_swaps_teb_tls;
 #endif
 
 #ifdef X86
@@ -557,6 +561,11 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
 
     shared_gencode_emit(gencode _IF_X86_64(x86_mode));
     release_final_page(gencode);
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* Ensure the swapping is known at init time and never changes. */
+    gencode_swaps_teb_tls = should_swap_teb_static_tls();
+#endif
 
     DOLOG(3, LOG_EMIT, {
         dump_emitted_routines(
@@ -1179,6 +1188,11 @@ arch_thread_init(dcontext_t *dcontext)
 
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state())
                          IF_WINDOWS(|| DYNAMO_OPTION(tls_align != 0)));
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* Ensure the swapping is known at init time and never changes. */
+    ASSERT(gencode_swaps_teb_tls == should_swap_teb_static_tls());
+#endif
 
 #if defined(X86) && defined(X64)
     /* PR 244737: thread-private uses only shared gencode on x64 */

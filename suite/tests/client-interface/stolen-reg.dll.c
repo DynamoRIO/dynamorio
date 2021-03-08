@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,10 @@ static void
 restore_event(void *drcontext, void *tag, dr_mcontext_t *mcontext, bool restore_memory,
               bool app_code_consistent)
 {
+    /* A real client would need to check that this restore is at a point where we
+     * have actually changed the value, but for this test we blindly restore on every
+     * restore event for simplicity.
+     */
     dr_log(drcontext, DR_LOG_ALL, 2, "Changing the stolen reg value from %ld to %ld\n",
            mcontext->IF_ARM_ELSE(r10, r28), app_stolen_reg_val);
     mcontext->IF_ARM_ELSE(r10, r28) = app_stolen_reg_val;
