@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2014-2017 Google, Inc.    All rights reserved.
+# Copyright (c) 2014-2021 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,11 +28,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# For cross-compiling on arm64 Linux using gcc-aarch64-linux-gnu package:
+# For cross-compiling on aarch64 Linux using gcc-aarch64-linux-gnu package:
 # - install AArch64 tool chain:
 #   $ sudo apt-get install g++-aarch64-linux-gnu
 # - cross-compiling config
-#   $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm64.cmake ../dynamorio
+#   $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-aarch64.cmake ../dynamorio
 # You may have to set CMAKE_FIND_ROOT_PATH to point to the target enviroment, e.g.
 # by passing -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu on Debian-like systems.
 set(CMAKE_SYSTEM_NAME Linux)

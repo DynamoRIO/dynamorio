@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -141,6 +141,10 @@ changes:
    member fields of classes are now following a consistent style with
    an underscore suffix.  References to renamed fields will need to be
    updated.
+ - A change in the load callbacks used with drmodtrack_add_custom_data()
+   and drmemtrace_custom_module_data(): they each take an additional parameter, the
+   segment index.  The custom data field is now per-segment and not per-module,
+   and all callbacks are invoked separately for each segment.
 
 The changes between version \DR_VERSION and 8.0.0 include the following minor
 compatibility changes:
@@ -159,6 +163,10 @@ compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - On x86 Windows, different-bitwidth child processes are now followed into.
+   The default injection method has also changed to a new method relying on
+   an image entry hook in some cases.  The old behavior can be requested by
+   passing "-late" to drrun or calling dr_inject_use_late_injection().
  - Added drmgr_register_opcode_instrumentation_event() and
    drmgr_unregister_opcode_instrumentation_event() so that drmgr supports
    opcode event instrumentation.
@@ -186,6 +194,8 @@ Further non-compatibility-affecting changes include:
  - Added instr_is_exclusive_load().
  - Added XINST_CREATE_store_pair() and XINST_CREATE_load_pair().
  - Added instr_replace_reg_resize() and opnd_replace_reg_resize().
+ - Added #DRX_COUNTER_REL_ACQ flag to optionally enable release-acquire semantics for
+   drx_insert_counter_update() on AArchXX.
 
 **************************************************
 <hr>

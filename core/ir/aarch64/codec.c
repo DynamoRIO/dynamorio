@@ -3473,7 +3473,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         opc == OP_bcond || opc == OP_adc || opc == OP_adcs || opc == OP_sbc ||
         opc == OP_sbcs || opc == OP_csel || opc == OP_csinc || opc == OP_csinv ||
         opc == OP_csneg || opc == OP_ccmn || opc == OP_ccmp) {
-        /* FIXME i#1569: When handled by decoder, add:
+        /* FIXME i#2626: When handled by decoder, add:
          * opc == OP_fcsel
          */
         eflags |= EFLAGS_READ_NZCV;
@@ -3483,11 +3483,21 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
          opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_NZCV) ||
         opc == OP_adcs || opc == OP_adds || opc == OP_sbcs || opc == OP_subs ||
         opc == OP_ands || opc == OP_bics || opc == OP_ccmn || opc == OP_ccmp) {
-        /* FIXME i#1569: When handled by decoder, add:
+        /* FIXME i#2626: When handled by decoder, add:
          * opc == OP_fccmp || opc == OP_fccmpe || opc == OP_fcmp || opc == OP_fcmpe
          */
         eflags |= EFLAGS_WRITE_NZCV;
     }
+
+    /* XXX i#2626: Until the decoder for AArch64 covers all the instructions that
+     * read/write aflags, as a workaround conservatively assume that all OP_xx
+     * instructions (i.e., unrecognized instructions) may read/write aflags.
+     */
+    if (opc == OP_xx) {
+        eflags |= EFLAGS_READ_ARITH;
+        eflags |= EFLAGS_WRITE_ARITH;
+    }
+
     instr->eflags = eflags;
     instr_set_eflags_valid(instr, true);
 

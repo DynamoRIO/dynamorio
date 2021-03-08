@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
 # Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
 # **********************************************************/
 
@@ -34,7 +34,7 @@
 #---------------------------------------------------------------------------
 # Project related configuration options
 #---------------------------------------------------------------------------
-PROJECT_NAME           = "DynamoRIO API"
+PROJECT_NAME           = DynamoRIO
 PROJECT_NUMBER         =
 OUTPUT_DIRECTORY       =
 CREATE_SUBDIRS         = NO
@@ -132,7 +132,6 @@ VERBATIM_HEADERS       = NO
 # configuration options related to the alphabetical class index
 #---------------------------------------------------------------------------
 ALPHABETICAL_INDEX     = NO
-COLS_IN_ALPHA_INDEX    = 5
 IGNORE_PREFIX          =
 #---------------------------------------------------------------------------
 # configuration options related to the HTML output

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -55,8 +55,12 @@
 static client_id_t client_id;
 
 static void *
-load_cb(module_data_t *module)
+load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
+    if (seg_idx > 0)
+        return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
@@ -189,8 +193,7 @@ event_exit(void)
         };
         res = drmodtrack_offline_lookup(modhandle, i, &info);
         CHECK(res == DRCOVLIB_SUCCESS, "lookup failed");
-        CHECK(((app_pc)info.custom) == info.start || info.containing_index != i,
-              "custom field doesn't match");
+        CHECK(((app_pc)info.custom) == info.start, "custom field doesn't match");
         CHECK(info.index == i, "index field doesn't match");
 #ifndef WINDOWS
         if (info.struct_size > offsetof(drmodtrack_info_t, offset)) {

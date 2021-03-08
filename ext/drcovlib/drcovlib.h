@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,7 +49,7 @@ extern "C" {
 /**
  * \addtogroup drcovlib Code Coverage Library
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each drcovlib operation */
 typedef enum {
@@ -378,20 +378,21 @@ DR_EXPORT
  * and writes the parsed data to its output parameter, which can subsequently be
  * retrieved from drmodtrack_offline_lookup()'s \p custom output parameter.
  *
- * If a module contains non-contiguous segments, \p load_cb is called
- * only once, and the resulting custom field is shared among all
- * separate entries returned by drmodtrack_offline_lookup().
+ * If a module contains multiple segments, \p load_cb is called
+ * multiple times, once for each segment, with \p seg_idx indicating the segment.
+ * Each segment stores its own custom field, and each callback is invoked separately
+ * for each segment.
  *
  * Only one value for each callback is supported.  Calling this routine again
  * with a different value will replace the existing callbacks.
  */
 drcovlib_status_t
-drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module),
+drmodtrack_add_custom_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                            int (*print_cb)(void *data, char *dst, size_t max_len),
                            const char *(*parse_cb)(const char *src, OUT void **data),
                            void (*free_cb)(void *data));
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

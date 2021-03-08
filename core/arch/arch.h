@@ -722,8 +722,11 @@ mangle_writes_thread_register(dcontext_t *dcontext, instrlist_t *ilist, instr_t 
 
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
-    /* ok for this guy to overlap w/ others since he is pre-cache */
-    FCACHE_ENTER_TARGET_SLOT = TLS_REG0_SLOT,
+    /* ok for this guy to overlap w/ others since he is pre-cache.
+     * Also, note that we cannot use either TLS_REG0_SLOT or
+     * TLS_REG1_SLOT for this because those are used in fragment prefix.
+     */
+    FCACHE_ENTER_TARGET_SLOT = TLS_REG2_SLOT,
     /* FIXME: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
@@ -756,16 +759,7 @@ enum {
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT = TLS_HTABLE_STATS_SLOT,
 #endif
-#ifdef AARCH64
-    /* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
-    ENTRY_PC_SPILL_SLOT = TLS_REG1_SLOT,
-#endif
 };
-
-#ifdef AARCH64
-/* Every fragment has the prefix ldr x0, [x(stolen), #8]. */
-#    define ENTRY_PC_REG DR_REG_X0
-#endif
 
 /* A simple linker to give us indirection for patching after relocating structures */
 typedef struct patch_entry_t {
@@ -1154,11 +1148,12 @@ bool
 exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                         cache_pc target_pc);
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch);
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch);
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc);
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc);
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch);
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch);
 
 byte *
 emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,

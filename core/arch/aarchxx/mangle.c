@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -2781,6 +2781,7 @@ mangle_cbr_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_set_opcode(instr, OP_b);
     instr_set_num_opnds(dcontext, instr, 0, 1);
     instr_set_src(instr, 0, opnd);
+    instr_set_translation(instr, instrlist_get_translation_target(ilist));
 
     PRE(ilist, next_instr, fall);
     PRE(ilist, next_instr, instr_create_restore_from_tls(dcontext, reg, slot));
@@ -2954,9 +2955,8 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
 /***************************************************************************
  * Exclusive load/store mangling.
- * See the design doc at
- * https://github.com/DynamoRIO/dynamorio/wiki/Exclusive-Monitors for background
- * information.
+ * See the design doc at https://dynamorio.org/page_ldstex.html
+ * for background information.
  */
 
 static instr_t *
@@ -3610,8 +3610,7 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
     /* For -ldstex2cas we convert exclusive monitor regions into compare-and-swap
      * operations in order to allow regular instrumentation, with the downside of
      * weaker synchronization semantics.
-     * See https://github.com/DynamoRIO/dynamorio/wiki/Exclusive-Monitors for
-     * background and further details.
+     * See https://dynamorio.org/page_ldstex.html for background and further details.
      * The summary is:
      * + On an exclusive load, save the address, value, opcode, and size,
      *   and convert to a non-exclusive load.

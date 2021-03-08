@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -34,7 +34,7 @@
 #define _DYNAMORIO_ANNOTATIONS_ASM_H_ 1
 
 /* This header defines the annotation functions and code sequences. For a high-level
- * overview, see the wiki page https://github.com/DynamoRIO/dynamorio/wiki/Annotations.
+ * overview, see https://dynamorio.org/page_annotations.html.
  */
 
 /* To simplify project configuration, this pragma excludes the file from GCC warnings. */

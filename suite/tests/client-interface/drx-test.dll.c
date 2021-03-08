@@ -53,6 +53,13 @@ static uint counterB;
 static uint counterC;
 static uint counterD;
 #endif
+#if defined(AARCH64)
+static uint64 counterE;
+static uint64 counterF;
+#endif
+#if defined(AARCHXX)
+static uint counterG;
+#endif
 
 static void
 event_exit(void)
@@ -61,6 +68,13 @@ event_exit(void)
     CHECK(counterB == 2 * counterA, "counter inc messed up");
 #if defined(ARM)
     CHECK(counterD == 2 * counterA, "counter inc messed up");
+#endif
+#if defined(AARCH64)
+    CHECK(counterE == 2 * counterA, "64-bit counter inc messed up");
+    CHECK(counterF == 2 * counterA, "64-bit counter inc with acq_rel messed up");
+#endif
+#if defined(AARCHXX)
+    CHECK(counterG == 2 * counterA, "32-bit counter inc with acq_rel messed up");
 #endif
     dr_fprintf(STDERR, "event_exit\n");
 }
@@ -114,6 +128,16 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
                               IF_NOT_X86_(SPILL_SLOT_2) & counterD, 2,
                               IF_X86_ELSE(DRX_COUNTER_LOCK, 0));
+#endif
+#if defined(AARCH64)
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, SPILL_SLOT_2, &counterE,
+                              2, DRX_COUNTER_64BIT);
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, SPILL_SLOT_2, &counterF,
+                              2, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ);
+#endif
+#if defined(AARCHXX)
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1, SPILL_SLOT_2, &counterG,
+                              2, DRX_COUNTER_REL_ACQ);
 #endif
     /* Exercise drx's basic block termination with a zero-cost label */
     drx_tail_pad_block(drcontext, bb);

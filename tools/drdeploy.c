@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -291,10 +291,12 @@ const char *options_list_str =
     "       -static            Do not inject under the assumption that the application\n"
     "                          is statically linked with DynamoRIO.  Instead, trigger\n"
     "                          automated takeover.\n"
+#    ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
+    "       -late              Requests late injection.\n"
+#    endif
 #    ifdef UNIX       /* FIXME i#725: Windows attach NYI */
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
-    "       -late              Requests late injection.\n"
 #        endif
     "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
     "                          for pid to launch and inject into a new process.\n"
@@ -1083,6 +1085,7 @@ _tmain(int argc, TCHAR *targv[])
 #ifdef WINDOWS
     /* FIXME i#840: Implement nudges on Linux. */
     bool nudge_all = false;
+    bool use_late_injection = false;
     process_id_t nudge_pid = 0;
     client_id_t nudge_id = 0;
     uint64 nudge_arg = 0;
@@ -1243,6 +1246,19 @@ _tmain(int argc, TCHAR *targv[])
             limit = -1;
             continue;
         }
+#    ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
+        else if (strcmp(argv[i], "-late") == 0) {
+            /* Appending -no_early_inject to extra_ops communicates our intentions
+             * to drinjectlib on UNIX, as well as the core for all platforms.
+             */
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-no_early_inject");
+#        ifdef WINDOWS
+            use_late_injection = true;
+#        endif
+            continue;
+        }
+#    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {
             /* Undocumented option for using ptrace on a fresh process. */
@@ -1262,13 +1278,6 @@ _tmain(int argc, TCHAR *targv[])
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
         else if (strcmp(argv[i], "-early") == 0) {
             /* Now the default: left here just for back-compat */
-            continue;
-        } else if (strcmp(argv[i], "-late") == 0) {
-            /* Appending -no_early_inject to extra_ops communicates our intentions
-             * to drinjectlib.
-             */
-            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
-                             "-no_early_inject");
             continue;
         }
 #        endif
@@ -1743,6 +1752,10 @@ done_with_options:
         info("created child with pid " PIDFMT " for %s",
              dr_inject_get_process_id(inject_data), app_name);
     }
+#    ifdef WINDOWS
+    if (use_late_injection)
+        dr_inject_use_late_injection(inject_data);
+#    endif
 #    ifdef UNIX
     if (limit != 0 && kill_group) {
         /* Move the child to its own process group. */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -96,6 +96,7 @@ portable and to avoid frequency scaling."
 
 /* global thread-shared variables */
 bool dynamo_initialized = false;
+static bool dynamo_options_initialized = false;
 bool dynamo_heap_initialized = false;
 bool dynamo_started = false;
 bool automatic_startup = false;
@@ -389,9 +390,19 @@ get_dr_stats(void)
 DYNAMORIO_EXPORT int
 dynamorio_app_init(void)
 {
-    int size;
+    dynamorio_app_init_part_one_options();
+    return dynamorio_app_init_part_two_finalize();
+}
 
-    if (!dynamo_initialized /* we do enter if nullcalls is on */) {
+void
+dynamorio_app_init_part_one_options(void)
+{
+    if (dynamo_initialized || dynamo_options_initialized) {
+        if (standalone_library) {
+            REPORT_FATAL_ERROR_AND_EXIT(STANDALONE_ALREADY, 2, get_application_name(),
+                                        get_application_pid());
+        }
+    } else /* we do enter if nullcalls is on */ {
 
 #ifdef UNIX
         os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
@@ -474,9 +485,7 @@ dynamorio_app_init(void)
 
         /* now exit if nullcalls, now that perfctrs are set up */
         if (INTERNAL_OPTION(nullcalls)) {
-            print_file(main_logfile,
-                       "** nullcalls is set, NOT taking over execution **\n\n");
-            return SUCCESS;
+            return;
         }
 
         LOG(GLOBAL, LOG_TOP, 1, PRODUCT_NAME "'s stack size: %d Kb\n",
@@ -489,6 +498,26 @@ dynamorio_app_init(void)
 #endif
         statistics_init();
 
+        dynamo_options_initialized = true;
+    }
+}
+
+int
+dynamorio_app_init_part_two_finalize(void)
+{
+    if (!dynamo_options_initialized) {
+        /* Part one was never called. */
+        return FAILURE;
+    } else if (dynamo_initialized) {
+        if (standalone_library) {
+            REPORT_FATAL_ERROR_AND_EXIT(STANDALONE_ALREADY, 2, get_application_name(),
+                                        get_application_pid());
+        }
+        /* Nop. */
+    } else if (INTERNAL_OPTION(nullcalls)) {
+        print_file(main_logfile, "** nullcalls is set, NOT taking over execution **\n\n");
+        return SUCCESS;
+    } else {
 #ifdef VMX86_SERVER
         /* Must be before {vmm,d_r}_heap_init() */
         vmk_init_lib();
@@ -613,7 +642,7 @@ dynamorio_app_init(void)
          * For now, leave it in there unless thin_client footprint becomes an
          * issue.
          */
-        size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t *);
+        int size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t *);
         all_threads =
             (thread_record_t **)global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
@@ -627,6 +656,17 @@ dynamorio_app_init(void)
             sideline_init();
 #endif
 
+        /* We can't clear this on detach like other vars b/c we need native threads
+         * to continue to avoid safe_read_tls_magic() in is_thread_tls_initialized().
+         * So we clear it on (re-)init in dynamorio_take_over_threads().
+         * From now until then, we avoid races where another thread invokes a
+         * safe_read during native signal delivery but we remove DR's handler before
+         * it reaches there and it is delivered to the app's handler instead, kind
+         * of like i#3535, by re-using the i#3535 mechanism of pointing at the only
+         * thread who could possibly have a dcontext.
+         * XXX: Should we rename this s/detacher_/singleton_/ or something?
+         */
+        detacher_tid = IF_UNIX_ELSE(get_sys_thread_id(), INVALID_THREAD_ID);
         /* thread-specific initialization for the first thread we inject in
          * (in a race with injected threads, sometimes it is not the primary thread)
          */
@@ -976,6 +1016,8 @@ standalone_exit(void)
     doing_detach = false;
     standalone_library = false;
     dynamo_initialized = false;
+    dynamo_options_initialized = false;
+    dynamo_heap_initialized = false;
 }
 #endif
 
@@ -1608,6 +1650,7 @@ dynamo_exit_post_detach(void)
     do_once_generation++; /* Increment the generation in case we re-attach */
 
     dynamo_initialized = false;
+    dynamo_options_initialized = false;
     dynamo_heap_initialized = false;
     automatic_startup = false;
     control_all_threads = false;
@@ -2926,6 +2969,8 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     signal_event(dr_app_started);
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     dynamo_started = true;
+    /* Similarly, with our signal handler back in place, we remove the TLS limit. */
+    detacher_tid = INVALID_THREAD_ID;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     /* XXX i#1305: we should suspend all the other threads for DR init to
      * satisfy the parts of the init process that assume there are no races.

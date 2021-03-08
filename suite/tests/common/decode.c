@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,6 +71,8 @@ void
 test_SSE2(void);
 void
 test_mangle_seg(void);
+void
+test_jecxz(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
@@ -86,12 +88,6 @@ static int a[ITERS];
 
 #    ifdef UNIX
 #        define ALT_STACK_SIZE (SIGSTKSZ * 3)
-
-int
-my_setjmp(sigjmp_buf env)
-{
-    return SIGSETJMP(env);
-}
 
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -265,7 +261,11 @@ main(int argc, char *argv[])
     print("Testing far call/jmp\n");
     test_far_cti();
 
-#    ifdef WINDOWS /* FIXME i#105: crashing on Linux so disabling for now */
+    /* i#4618: SEH64 has trouble recovering from the unaligned stacks
+     * and other issues in this test.  We have coverage on 64-bit Linux so
+     * we're ok permanently disabling it for Win64.
+     */
+#    if !(defined(WINDOWS) && defined(X64))
     /* PR 242815: data16 mbr */
     print("Testing data16 mbr\n");
     test_data16_mbr();
@@ -285,6 +285,9 @@ main(int argc, char *argv[])
 
     /* i#1493: segment register mangling */
     test_mangle_seg();
+
+    /* i#4680: Test jecxz mangling. */
+    test_jecxz();
 
 #    ifdef UNIX
     free(sigstack.ss_sp);
@@ -490,9 +493,16 @@ DECL_EXTERN(mark)
 #ifdef WINDOWS
 # ifdef X64
 DECL_EXTERN(setjmp)
+/* The 4-slot stack padding means we can't pass xsp to CALLC2 which
+ * will capture the post-padding value, which is beyond-TOS later,
+ * causing problems on longjmp.
+ * Even now it is a little fragile: probably better to subtract the 4
+ * slots at the top of the frame and do a raw call here.
+ */
 #  define CALL_SETJMP \
-        lea   REG_XAX, mark @N@\
-        CALLC2(setjmp, REG_XAX, REG_XSP)
+        lea   REG_XCX, mark @N@\
+        mov   REG_XDX, REG_XSP @N@\
+        CALLC2(setjmp, REG_XCX, REG_XDX)
 # else
 DECL_EXTERN(_setjmp3)
 #  define CALL_SETJMP \
@@ -500,15 +510,25 @@ DECL_EXTERN(_setjmp3)
         CALLC2(_setjmp3, REG_XAX, 0)
 # endif
 #else
-DECL_EXTERN(my_setjmp)
+/* We can't safely have a local wrapper, since its retaddr is then exposed
+ * for the longjmp restore path.  We thus need to directly invoke sigsetjmp.
+ */
+# ifdef MACOS
+#  define SIGSETJMP_NAME sigsetjmp
+# else
+#  define SIGSETJMP_NAME __sigsetjmp
+# endif
+DECL_EXTERN(SIGSETJMP_NAME)
 # ifdef X64
 #  define CALL_SETJMP \
         lea   REG_XAX, SYMREF(mark) @N@ \
-        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
+        mov   REG_XCX, HEX(1)       @N@ \
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # else
 #  define CALL_SETJMP \
-        lea   REG_XAX, mark @N@\
-        CALLC1(GLOBAL_REF(my_setjmp), REG_XAX)
+        lea   REG_XAX, mark   @N@\
+        mov   REG_XCX, HEX(1) @N@ \
+        CALLC2(GLOBAL_REF(SIGSETJMP_NAME), REG_XAX, REG_XCX)
 # endif
 #endif
 
@@ -548,10 +568,11 @@ DECL_EXTERN(my_setjmp)
 #define FUNCNAME test_far_cti
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        ADD_STACK_ALIGNMENT
         END_PROLOG
         /* ljmp to base-disp with flat segment */
         lea   REG_XAX, PTRSZ SYMREF(test_far_cti_end_flat)
-        push  REG_XAX
+        mov   [REG_XSP], REG_XAX
         mov   REG_XCX, REG_XSP
         /* I'm having trouble getting gas to generate this from:
          *   jmp   PTRSZ SEGMEM(es,REG_XCX)
@@ -559,7 +580,6 @@ GLOBAL_LABEL(FUNCNAME:)
          */
         RAW(26) RAW(ff) RAW(21) /* jmp QWORD PTR es:[rcx] */
     ADDRTAKEN_LABEL(test_far_cti_end_flat:)
-        pop   REG_XAX
         CALL_SETJMP
         cmp   REG_XAX, 0
         jne   test_far_cti_1
@@ -598,6 +618,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov   eax, HEX(deadbeef)
         RAW(ff) RAW(18) /* lcall (%eax) */
     test_far_cti_6:
+        RESTORE_STACK_ALIGNMENT
         ret
         END_FUNC(FUNCNAME)
 
@@ -795,6 +816,20 @@ GLOBAL_LABEL(FUNCNAME:)
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         ret
         END_FUNC(FUNCNAME)
+
+#undef FUNCNAME
+#define FUNCNAME test_jecxz
+        /* i#4680: test jecxz mangling code */
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        END_PROLOG
+        jecxz    jecxz_zero
+        nop
+jecxz_zero:
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        ret
+        END_FUNC(FUNCNAME)
+
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */

@@ -1,0 +1,729 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_debugging Debugging
+
+# General Tips
+
+- Use debug builds (pass "-debug" to drrun) with notifications turned on to diagnose errors.  In general, it is much easier to debug with the debug build of DynamoRIO.  A release build crash may show up as an earlier, easier-to-diagnose assert in debug build.
+- Try running without any client to isolate where the error is
+- Asserts can be suppressed with the `-ignore_assert_list *` option or with `-checklevel 0`.
+- Logging can be enabled with `-loglevel N`.  Logs are written to DR-install/logs/.  See [our logging documentation](@ref page_logging) for information on what is contained in the logs.
+- Use the load_syms or load_syms64 script to locate client and private libraries on Windows (`-no_hide` is no longer necessary (it never helped with the client library anyway)).  Pre-install these are in tools/windbg-scripts/load_syms and tools/windbg-scripts/load_syms64. I simply change my windbg shortcuts to point at these via -c (please note: these are meant for *attaching* to a running process that is under DynamoRIO control):
+  ```
+  "C:\Program Files (x86)\Debugging Tools for Windows\windbg.exe" -pt 1 -c "$><E:\derek\dr\git\src\tools\windbg-scripts\load_syms"
+
+  "C:\Program Files\Debugging Tools for Windows (x64)\windbg.exe" -pt 1 -c "$><E:\derek\dr\git\src\tools\windbg-scripts\load_syms64"
+  ```
+  For debugging a 32-bit process with the 64-bit windbg, use the load_symsWOW64 variant.  However, this is less well-tested than using a 32-bit windbg on a 32-bit process.
+
+- To locate client and private libraries on Linux, use the add-symbol-file commands printed out at start time (see below for more information).
+
+- Use read watchpoints instead of breakpoints in application code, as the trap instruction inserted by the debugger into the application code can end up copied into DynamoRIO's code cache, resulting in an unhandled trap.
+- On Windows, if an application invokes OutputDebugString() while under a debugger, DynamoRIO can end up losing control of the application.
+- A SIGSEGV or Access Violation observed in a debugger does not necessarily indicate a problem.  DynamoRIO uses "safe read" operations to access untrusted application addresses and can incur faults which are handled and continued past.
+- DynamoRIO disables itself when Windows is booted in safe mode (without networking).  Thus, if a crash occurs in a Windows service under DynamoRIO, rebooting in safe mode will allow recovery.
+- If a client library doesn't seem to function for a given process, it is possible that the client library wasn't loaded due to permissions errors.
+
+ One of the common situations where this happens is when the target
+ application runs as a different user than the user who created the client
+ library.  This results in the application process not having the right
+ permissions to access the client library.
+
+ Try running the process under the debug mode of DynamoRIO (see
+ dr_register_process()), where diagnostic messages are raised on errors like
+ client library permissions.  To see all messages, set the notification
+ options like -msgbox_mask and -stderr_mask options to 0xf (see \ref
+ sec_options).  This will alert you to the problem.
+
+---------------------------------------------------------------------------
+
+# Debugging On Linux
+
+On Linux we use gdb for debugging.  Note that we now use debug information
+files that are separate from their corresponding shared libraries: e.g.,
+`libdynamorio.so` and `libdynamorio.so.debug`.  There is a section inside
+the shared library that identifies the debug file.
+
+## Expected Signals
+
+On Linux, DR sends itself a SIGILL signal during initialization, in order to measure the size of the signal frame used by the kernel.  If you are under gdb, simply continue past this signal.
+
+Additionally, DR uses various "safe read" strategies where it may raise a SIGSEGV or SIGBUS while examining application memory.  Load symbols and look for `safe_read` variants on the call stack (such as `safe_read_tls_magic`, `safe_read_asm_pre`, `safe_read_fast`) to identify these.  Just like with the init-time SIGILL, simply continue past these.
+
+One final signal used by DR is SIGUSR2, which is sent to other threads to suspend or terminate them.
+
+## Attaching
+
+Use the DynamoRIO runtime option `-msgbox_mask` with a desired mask, optionally
+along with `-pause_via_loop` if the application uses stdin, to cause a target
+application to wait and let you attach
+gdb.  To attach early on, use a debug internal build and set the mask for
+informational messages. See the option descriptions in the API
+documentation.
+
+## Launching From GDB
+
+For fast iterative debugging of small applications, it's nice to be able to launch the app under DR under gdb with one command:
+
+```
+$ gdb --args bin64/drrun -ops... -- ./path/to/myapp
+```
+
+However, be sure to run this command within gdb prior to running the app to ensure success:
+
+```
+set disable-randomization off
+```
+
+One drawback over attaching is that gdb's breakpoints in the loader can interfere with the dlopen() execution, and you will have to continue through them.  DR's safe_read faults may also show up.  It's best to ignore them via:
+
+```
+handle SIGSEGV nostop pass
+handle SIGBUS nostop pass
+```
+
+If you have control of the target application you can build it with the
+start/stop interface so that it invokes DynamoRIO and then run it under gdb
+just like a native application.
+
+## Loading Client Symbols
+
+To isolate clients and their libraries from the application, DR uses its own private loader to load clients.  By default, gdb can only see libraries loaded by the glibc loader (ld-linux.so).  To work around this problem, DR prints the gdb commands necessary to load symbols in a debug build.  It looks like this:
+
+```
+<Starting application /usr/local/google/home/rnk/dynamorio/build/suite/tests/bin/client.events (10801)>
+<Paste into GDB to debug DynamoRIO clients:
+set confirm off
+add-symbol-file '/home/user/dr/suite/tests/bin/libclient.events.dll.so' 0x00007f14e46143e0
+add-symbol-file '/home/user/dr/lib64/debug/libdynamorio.so' 0x00007f152865c000
+add-symbol-file '/lib/x86_64-linux-gnu/libc.so.6' 0x00007f1528280320
+add-symbol-file '/lib64/ld-linux-x86-64.so.2' 0x00007f15285b6090
+>
+```
+
+In a release build, that message is not printed.  However, the same string of commands is available in the global variable `gdb_priv_cmds`, which can be displayed within gdb with something like this:
+
+```
+x/3s gdb_priv_cmds
+```
+
+You can also use the `-no_private_loader` option to use the system loader to load the client, although this will break many clients and apps and is no longer officially supported.
+
+To manually generate the symbol file loading commands, you want to tell gdb where the `.text` segment is.
+```
+echo add-symbol-file '/home/user/dr/lib64/debug/libdynamorio.so'  0x$(objdump -h /home/user/dr/lib64/debug/libdynamorio.so | grep text | awk '{print $4}')
+```
+
+You will need to adjust that address based on where the library was actually loaded: simply add the current base address from the maps file or DR's diagnostic printout and subtract the preferred base.
+
+## Loading DynamoRIO Symbols
+
+The `add-symbol-file` commands shown in the prior section include symbols for the DynamoRIO library.  If you need symbols for the DR library itself before DR sets up those commands, in some cases the debugger loads them properly for you and you do not need to do anything special.
+ However, some versions of gdb load DR's symbols at the wrong address when you launch a process from within the debugger and you may need to clear the symbols first, before executing any `add-symbol-file ...` commands, by running:
+```
+symbol-file
+```
+
+The debugger also gets DR's symbols wrong when DR reloads itself to avoid gaps between its segments.  The repository contains [a gdb python script to load the libdynamorio.so symbols]( https://github.com/DynamoRIO/dynamorio/blob/master/tools/gdb-scripts/gdb-drsymload.py) which is the simplest way to automagically get the correct symbols.
+
+## Memory Querying
+
+Another useful script provided in the repository is a [memory query script to print the line in the maps file matching a given address]( https://github.com/DynamoRIO/dynamorio/blob/master/tools/gdb-scripts/gdb-memquery.py).
+
+```
+(gdb) memquery $rsp
+7ffffffde000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+```
+
+## Call Stacks
+
+gdb has trouble with generating call stacks at various points during DR execution, such as when at a system call in generated code.  Manually setting the stack and frame pointers can solve this:
+
+  ```
+  # optional args: $arg0=frame count, $arg1=start frame ptr
+  define setbt
+    if $argc < 1
+      set var $max=5
+    else
+      set var $max=$arg0
+    end
+    if $argc < 2
+      set var $myfp=$ebp
+    else
+      set var $myfp=$arg1
+    end
+    set var $count=0
+    while $count < $max && $myfp != 0
+      if $count == 1
+        set var $esp = $myfp
+      end
+      if $count == 2
+        set var $ebp = $myfp
+      end
+      printf "\nframe %d\n", $count
+      x/4dx $myfp
+      info line * *((long*)($myfp+sizeof(long)))
+      x/2i *((long*)($myfp+sizeof(long)))
+      set var $myfp=*((long *)$myfp)
+      set var $count=$count+1
+    end
+    bt
+  end
+
+  # optional args: $arg0=frame count, $arg1=start frame ptr
+  define setbt64
+    if $argc < 1
+      set var $max=5
+    else
+      set var $max=$arg0
+    end
+    if $argc < 2
+      set var $myfp=$rbp
+    else
+      set var $myfp=$arg1
+    end
+    set var $count=0
+    while $count < $max && $myfp != 0
+      if $count == 1
+        set var $rsp = $myfp
+      end
+      if $count == 2
+        set var $rbp = $myfp
+      end
+      printf "\nframe %d\n", $count
+      x/4gx $myfp
+      info line * *((long*)($myfp+sizeof(long)))
+      x/2i *((long*)($myfp+sizeof(long)))
+      set var $myfp=*((long *)$myfp)
+      set var $count=$count+1
+    end
+    bt
+  end
+  ```
+
+For examining the stack, I find this function useful:
+  ```
+  # Equivalent to windbg's dps command.
+  # Pass it the stack pointer range: [start, end)
+  define dps
+    set var $start = (char *) $arg0
+    set var $end = (char *) $arg1
+    set var $ptr = $start
+    while $ptr < $end
+      set var $retaddr = *((unsigned long *)$ptr)
+      # I don't like how %p prints "(nil)" so:
+      if sizeof(void*) == 8
+        printf "0x%016lx  0x%016lx  ", $ptr, $retaddr
+      else
+        printf "0x%08x  0x%08x  ", $ptr, $retaddr
+      end
+      # We have to cast to void* to avoid gdb failing to properly evaluate
+      # $retaddr (ends up using value from 1st iter on each iter).
+      #
+      # XXX: can we get the result of this into a var and not print it
+      # if it says "No symbol matches..."?
+      info symbol (void *)$retaddr
+      set var $ptr = $ptr + sizeof(void*)
+    end
+  end
+  ```
+
+## Switching Stacks
+
+The `frame` command has never worked for me: it always prints
+`#0  0x00000000 in ?? ()`.  Instead I set `$ebp`, and
+sometimes have to also set `$esp` and `$eip` (which can only be set from
+frame 0).  Or you can manually walk frame pointers:
+
+```
+(gdb) info symbol **(sc->ebp+4)
+get_memory_info + 647 in section .text
+(gdb) info symbol **(**(sc->ebp)+4)
+check_thread_vm_area + 7012 in section .text
+(gdb) info symbol **(**(**(sc->ebp))+4)
+check_new_page_start + 79 in section .text
+(gdb) info symbol **(**(**(**(sc->ebp)))+4)
+build_bb_ilist + 514 in section .text
+```
+
+To get line numbers use `info line` instead:
+
+```
+info line **(**(sc->ebp+4))
+```
+
+## Viewing Segment Bases
+
+There is no way to view segment bases directly within gdb, but you can create a core file and mine it to find the bases.  Here is how to do it for %gs for 64-bit stored in its MSR (rather than the GDT):
+
+```
+$ sudo apt-get install elfutils
+...
+(gdb) thread 3
+[Switching to thread 3 (Thread 0x7ffdf2af5700 (LWP 1166202))]
+(gdb) generate-core-file mycore
+Saved corefile mycore
+(gdb) shell eu-readelf --notes mycore | grep -A 12 'pid: 1166202' | grep gs\.base
+    fs.base:   0x00007ffdf2af5700  gs.base:   0x00007ffdf2af1000
+```
+
+---------------------------------------------------------------------------
+
+# Debugging On Windows
+
+## Debugging Tools
+
+The Visual Studio debugger is completely inadequate for debugging
+applications running under DynamoRIO.  It frequently fails due to our
+manipulation of its injected thread, it has no command-line interface,
+etc.  We use WinDbg (and its counterparts ntsd and cdb) exclusively.
+WinDbg is a low-level debugger that provides symbolic debugging too.
+
+Install the Debugging Tools for Windows to get the full WinDbg.  For debugging 32-bit applications, we
+recommend using WinDbg version 6.3.0017, *not* the newer versions 6.4
+through 6.11, as they have problems displaying callstacks involving
+DynamoRIO code.  However, if you cannot obtain 6.3.0017 (it is no longer
+supported), get the latest version.  You'll have to go to extra effort to
+get a callstack when attaching at a DynamoRIO messagebox midway through
+execution for a 32-bit process (see below).  For 64-bit, use the most recent version of WinDbg.
+
+Most of the information about how to use this WinDbg is available from its
+excellent help file.  Some key commands include:
+
+ - Display callstacks of all threads: `~**kb`
+ - Select thread number N: `~Ns`
+ - Display callstack of current thread with numbered frames: `kn`
+ - Select frame number N: `.frame N`
+ - Display local variables (only useful in debug builds): `dv`
+ - Display local variable x: `dt x`
+ - Display all symbols in module M starting with XYZ: `x M!XYZ**`
+ - Display stack with symbolic references: `dds esp`
+ - Switch context (e.g., to an exception context): `.cxr <CONTEXT address>`
+ - Display loaded modules: `lm`
+ - Open a log file: `.logopen <filename>`
+ - Set a breakpoint: `bp <address>`
+ - Continue execution: `g`
+
+See the `tools/windbg-scripts` scripts and the WindDbg Tips section below
+for further examples.
+
+You also need access to the symbol files both for DynamoRIO and for the
+operating system libraries.  You can use the `.symfix` command to
+automatically download symbols from the Microsoft symbol server.  You
+should specify a local cache directory so that WinDbg doesn't query the
+server every time: `.symfix c:\my\symbol\dir`.  The symbol path and cache
+directory are stored in a global environment variable `_NT_SYMBOL_PATH`.
+Here is an example path:
+
+```
+c:\build12012\release;srv*c:\symbols*http://msdl.microsoft.com/download/symbols
+```
+
+Note that you may want to remove any network paths once you have the
+symbols of interest locally to speed up debugging.
+
+## Attaching
+
+To attach to a process on Windows, use the `-msgbox_mask` option and attach
+the debugger while the dialog box has paused the application.  Use
+`-msgbox_mask 15` to attach a program startup, or `-msgbox_mask 12` to
+attach at a later error.
+
+In order to attach press `F6`; this will show a list of all processes
+available and you can choose your application.  You can also view the
+attach list through the File->Attach menu item.  After you have attached
+click 'ok' on the pop up window.
+
+## Launching Within WinDbg
+
+To get control of DynamoRIO when it starts initializing, invoke WinDbg from the cygwin
+command line as follows.  Make sure WinDbg is in your path.
+
+```
+% windbg bin32/drrun.exe -- c:\\path\\to\\targetapp.exe
+```
+
+Once the debugger command line comes up, type the following commands, substituting your path to the directory where dynamorio.dll is located:
+
+```
+> .childdbg 1
+> bp drinjectlib!inject_gencode_mapped_helper
+> g
+> gu
+> r $t0=poi(map)
+> g
+> .sympath c:\mybuild\lib32\debug
+> .reload dynamorio.dll=@$t0
+> bp dynamorio!dynamorio_earliest_init_takeover
+> g
+```
+
+## Automatically loading symbols
+
+The dynamorio.dll library is not loaded by the system loader, and so WinDbg does not automatically find it. Once DynamoRIO has initialized enough, a script that we provide will automatically load the symbols for DynamoRIO and all client libraries in use.  See the top of this file for how to load these scripts at WinDbg startup.  From within WinDbg, for 32-bit:
+
+```
+$><c:\path\to\dynamorio\sources\tools\windbg-scripts\load_syms
+```
+
+For 64-bit:
+
+```
+$><c:\path\to\dynamorio\sources\tools\windbg-scripts\load_syms64
+```
+
+For a 32-bit application but a 64-bit windbg:
+
+```
+$><c:\path\to\dynamorio\sources\tools\windbg-scripts\load_symsWOW64
+```
+
+These scripts will fail if the process is not running under DynamoRIO or if it has not finished DynamoRIO initialization: thus, they will not work at the early attach point described under Launching Within WinDbg above.
+
+To manually point WinDbg at the library, you will need its directory and its base address.  Then use these two commands:
+
+```
+> .sympath c:\path\to\lib32\debug
+> .reload dynamorio.dll=15000000
+```
+
+## Private Libraries
+
+Libraries loaded for a client are not on the system library list.
+To identify these modules use the following command:
+
+```
+!list -t dynamorio!privmod_t.next -x "dt" -a "dynamorio!privmod_t" @@(dynamorio!modlist)
+```
+
+Symbols for private libraries can be automatically loaded using the load_syms script.  For 32-bit:
+
+```
+$><c:\path\to\dynamorio\sources\tools\windbg-scripts\load_syms
+```
+
+For 64-bit:
+
+```
+$><c:\path\to\dynamorio\sources\tools\windbg-scripts\load_syms64
+```
+
+For a 32-bit application but a 64-bit windbg:
+
+```
+$><c:\path\to\dynamorio\sources\tools\windbg-scripts\load_symsWOW64
+```
+
+## 32-bit DynamoRIO Callstacks with WinDbg 6.4+
+
+Windbg versions from 6.4 onward refuse to show a callstack if it's not part of the main stack for that thread, for 32-bit processes.  You'll see just the top frame, often `ntdll!NtRaiseHardError` if you attached at a message box.  Something like this should show the right callstack although it won't let you examine frames:
+
+```
+kn =esp esp eip
+```
+
+Another trick is to clobber the TEB stack fields:
+
+```
+$><c:\path\to\dynamorio\sources\tools\windbg-scripts\load_syms
+!teb
+r $t0=poi(dynamorio!tls_dcontext_offs)
+r $t0=poi(fs:@$t0)
+ed @$teb+4 @@(((dynamorio!dcontext_t*)@$t0)->dstack)
+ed @$teb+8 @@(((dynamorio!dcontext_t*)@$t0)->dstack - dynamorio!dynamo_options.stack_size)
+kn
+```
+
+Which will then result in the k commands working nicely (I've done this in 6.11.001.402; should work in all other versions).  Though of course only do this when not planning to continue app execution, or restore the TEB fields, just in case (that's what the `!teb` is for, to print out the original values for restoring).
+
+## Crash Callstacks
+
+When DynamoRIO catches an unhandled exception, the callstack should have a `dynamorio!intercept_exception` frame.  Navigate to that frame, where we have a `CONTEXT*` local var named `cxt`.  Then change the thread's context and ask for a stack trace.  So if you see in the initial callstack:
+
+```
+ 1. Child-SP          RetAddr           Call Site
+00 00000000`bfc9df68 00000000`153f05f6 ntdll!NtRaiseHardError+0xa
+01 00000000`bfc9df70 00000000`153a93ed dynamorio!nt_messagebox+0x176 [@ 3486](...\dr\git\src\core\win32\ntdll.c)
+02 00000000`bfc9e010 00000000`15177168 dynamorio!debugbox+0x5d [@ 4570](...\dr\git\src\core\win32\os.c)
+03 00000000`bfc9e040 00000000`153e132d dynamorio!notify+0x298 [@ 1956](...\dr\git\src\core\utils.c)
+04 00000000`bfc9e8b0 00000000`15548cfc dynamorio!intercept_exception+0x27dd [@ 5521](...\dr\git\src\core\win32\callback.c)
+05 00000000`bfc9ee60 00000000`bfc9ee80 dynamorio!interception_code_array+0xcfc
+```
+
+Execute these commands:
+
+```
+.frame 4
+.cxr @@(cxt)
+kn
+```
+
+And now you should see the callstack as of the exception itself.
+
+## Creating Core Dumps
+
+You can create a core dump from windbg that allows others, or you at a
+later date, to re-analyze the bug:
+
+```
+.dump /ma c:\path\to\new\dump\file.dmp
+```
+
+It is good practice to always create a dump file when attaching windbg,
+just in case the bug is not reproducible.
+
+## Debugging .ldmp Files
+
+.ldmp files are generated automatically by the core in certain failure situations.
+The failure situations on which a .ldmp file is created are specified by the
+`-dumpcore_mask` option (see the enum in core/os_shared.h), which
+defaults to 0x1ff in debug builds and to 0x0 in release builds.  An additional
+parameter `-dumpcore_violation_threshold` controls the maximum number of violation
+.ldmp files to generate.
+
+Once you have a .ldmp file you can use it to recreate the process for
+debugging purposes.  To do so use the ldmp.exe utility in the tools
+module. The syntax is:
+
+```
+% ./ldmp.exe <ldmp_file> <dummy_executable>
+```
+
+where `ldmp_file` is the ldmp you wish to view and `dummy_executable` is a fully
+qualified absolute windows style path to `dummy.exe` (also located in the tools
+module).
+
+A cygwin example:
+```
+% ./ldmp.exe ../foo.ldmp c:\\foo\\bar\\tools\\dummy.exe
+```
+
+A cmd shell example:
+```
+% ldmp ../foo.ldmp c:\foo\bar\tools\dummy.exe
+```
+
+Ldmp will print out a process id and a bunch of mapping information.  Use
+WinDbg to attach to the process id specified, making sure to attach
+**NON-INVASIVELY** (you will crash WinDbg with an invasive attach).  You
+should now be ready to debug.
+
+Note that process ids and thread ids will differ from the original process
+as well as peb and teb addresses (though not contents, so you can still use
+!teb and !peb).  Ldmp.exe provides mapping information from original thread
+ids and teb addrs to new thread ids and teb addrs as well as mappings for
+any other memory regions that were moved.  Note that ldmp.exe can only
+recreate threads that were in our all_threads list at the time the ldmp was
+created, though ldmp.exe will try to detect teb regions associated with the
+missing threads.  Handle information will not be available.  MEM_TYPE
+information is also lost, but it is available in the human readable parts
+of the ldmp file.  It is expected that ldmp.exe will be unable to copy over
+the shared_user_data/vsyscall page (so note that if debugging across os
+versions).
+
+Once you are finished you will need to use task manager or DRkill.exe to
+kill the recreated process (will show up as dummy.exe unlike in WinDbg).
+Ldmp files are also somewhat human readable.
+
+## Kernel debugging
+
+Some debugging scenarios include services that start very early in the
+system initialization before we are able to start any programs -
+including debuggers.  Also, sometimes even at a later stage a machine
+becomes completely unresponsive.  Our only resort to getting control
+over such a machine is with a kernel debugger.  Later we'll add notes here on
+how to use a kernel debugger.
+
+## System Dumps
+
+If a Windows machine is hung without a chance of attaching a user mode
+debugger we can still get a full system dump with a keyboard command.
+
+This dump file requires a pagefile on your boot drive that is at least as
+large as your main system memory.  Also verify that you have free space on
+your drive for the dump file itself.  This means you need at least 2xRAM to
+be able to do this.
+
+How to set it up:
+
+ - Go to Control Panel | System | Advanced | Startup and Recovery Settings
+ - Choose a Complete Memory Dump and note the location: it should be `%SystemRoot%\MEMORY.DMP`
+ - Keep the overwrite setting checked, but remember after getting a dump to rename it with a meaningful name if you want to keep it
+ - Go to Performance Settings | Advanced | Virtual Memory and make sure you have a large enough pagefile
+
+To set up the key combination, set this registry key:
+
+```
+["CrashOnCtrlScroll"=dword:00000001
+```
+
+The magic key combination is `[[Right|Ctrl]]+[[Scroll|Lock]] [[Scroll|Lock]]`
+
+See http://support.microsoft.com/kb/244139/ for details on changing which
+keys are used, in case you're using a KVM that messes it up.
+
+## Remote Debugging
+
+There is also an easy way to debug remotely with WinDbg when you can
+actually start it on the target machine.  This saves you the trouble of
+VNCing or to the target and we should give it a try.  Of course, in this
+mode it is not secure at all - read up on docs for better ways of doing
+this if you like it.
+
+```
+% windbg -server tcp:port=1099 -p PID
+% windbg -remote tcp:server=SERVER-NAME,port=1099
+
+% "C:\Progra~1\Debugg~1\ntsd.exe" -server tcp:port=1227 -g -x "C:\WINNT\System32\notepad.exe"
+```
+
+You can also set this in
+```
+HKLM\Software\Microsoft\Windows NT\Current version\Image File Options
+```
+However, be careful not to try this on services like `winlogon.exe` on
+which it doesn't work.  You will need a recovery CD if you mess it up.
+
+Note that if you have already started a debug session you can easily
+convert it into a remote server with
+```
+> .server tcp:port=1099
+```
+and such debugging is much faster than over RDP or VNC, and helpful
+for sharing a debug session with someone else.
+
+## WinDbg Tips
+
+These apply only to debug builds:
+
+ - Dump stats: `dt stats`
+
+ - See info on all locks - most importantly contention stats: `dt innermost_lock -l next_process_lock`
+
+These work in both release and debug:
+
+ - Always save to a logfile via the .logopen command.  After debugging, copy the logfile to the bug directory to keep a record of your analysis.  This is particularly important for a bug you gave up on or didn't have time to complete analysis of.
+
+ - Dump all callstacks:
+   - In user mode debugger: `~*kp`
+   - In kernel mode debugger on XP+: `!process 0 1f [lsass.exe](HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\i8042prt\Parameters])`
+
+ - Check which build you're using in the target: `lm vm dynamorio`
+
+ - Dump heap units:
+
+   You need to obtain the heap.units address and then dump the first two
+   fields in the !list command:
+
+     ```
+     > dt dynamorio!heap units .
+     +0x000 units            : 0x1a151000
+        +0x000 start_pc         : 0x1a15101c  "1X@"
+        +0x004 end_pc           : 0x1a160fff  ""
+     ```
+
+   Alternatively:
+
+     ```
+     > ?? heap.units
+     struct theHeapUnit * 0x1a151000
+
+     > !list -t theHeapUnit.next_global -x "dd" -a "L2" 0x1a151000
+     dd 1a151000 L2
+     1a151000  1a15101c 1a160fff
+
+     dd 1a131000 L2
+     1a131000  1a13101c 1a140fff
+     ```
+
+ - See current memory state with initial allocation information: `!vadump -v`
+
+ - Use the scripts in the `tools/windbg-scripts` module to simplify analyses of DynamoRIO data structures.
+
+   Invoke by setting up parameters in the pseudo-registers and then using
+   the `$><` command:
+
+   ```
+   > r $t0=18345270
+   > $><c:\path\to\tools\windbg-scripts\fragment_flags
+   ```
+
+## Addr2Line
+
+The address_query.pl script in the tools module can be used for a
+command-line address-to-line utility. It requires that you have already
+built DRload.exe in the tools module. It will use cdb if you've installed
+the Debugging Tools for Windows in the standard location; otherwise it uses
+the ntsd present on every machine and goes through a temporary log file.
+
+It can take as input stdin, a file, or command-line arguments listing the
+addresses to be queried. Here's the usage:
+
+```
+Usage: /i/dr/tools/address_query.pl [[-f <addrfile>](-raw]) [<debuggerpath>](-d) <DRdllpath> [... <addrN>](<addr1>)
+```
+
+Here's an example using a command-line argument:
+```
+% address_query.pl /i/dr/builds/11105/exports/x86_win32_rel/dynamorio.dll 0x7000ddb9
+
+0x7000ddb9:
+vmareas.c(2420)+0x1
+(7000dc40)   dynamorio!check_thread_vm_area+0x179   |  (7000e1b0)   dynamorio!prepend_fraglist
+```
+
+As another example, if you have a callstack in the file "cstack" with two columns (frame pointers followed by addresses), you could do something like this:
+
+```
+% awk '{print $2}' < cstack | address_query.pl /c/derek/dr/builds/11087/exports/x86_win32_rel/dynamorio.dll
+
+77f830e7:
+(77f82f56)   ntdll!RtlMultiByteToUnicodeN+0x190   |  (77f8e415)   ntdll!RtlpExecuteHandlerForException
+
+77f8d96b:
+(77f8d86d)   ntdll!LdrpResolveDllName+0x11c   |  (77f912cf)   ntdll!RtlpInitDeferedCriticalSection
+
+77f8da9e:
+(77f8da40)   ntdll!LdrpCreateDllSection+0x60   |  (77f912cf)   ntdll!RtlpInitDeferedCriticalSection
+
+77f88a29:
+(77f8b3cf)   ntdll!RtlAllocateHeapSlowly+0x84f   |  (77f85a4e)   ntdll!RtlFreeHandle
+```
+
+See the comments at the top of the script for more information.
+
+
+ ****************************************************************************
+ */

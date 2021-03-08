@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -892,6 +892,10 @@ bool
 privload_print_modules(bool path, bool lock, char *buf, size_t bufsz, size_t *sofar)
 {
     privmod_t *mod;
+    if (!print_to_buffer(buf, bufsz, sofar, "%s=" PFX "\n",
+                         path ? get_dynamorio_library_path() : PRODUCT_NAME,
+                         get_dynamorio_dll_start()))
+        return false;
     if (lock)
         acquire_recursive_lock(&privload_lock);
     for (mod = modlist; mod != NULL; mod = mod->next) {

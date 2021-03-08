@@ -1,0 +1,327 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_new_release Releasing a New Version of DynamoRIO
+
+# Versioning
+
+We use a 3-field version number, major.minor.patchlevel.  The major is incremented on an interface change that breaks backward compatibility, or on a significant interface addition.  The minor is incremented on an interface addition (i.e., new features) that does not break compatibility, although for minor compatibility breaks in extension libraries we may increment only the minor version.  The patchlevel is 0 for an official release or the subversion revision number for a developer build.  If we put out a bugfix release, the patchlevel will be a small integer smaller than any revision number.
+
+After releasing an official release, we leave the major.minor unchanged.  Even if we add new features during development before the next release, we leave the major.minor the same.  However, if we break backward compatibility during development, we expect to increment the major number on the next release and we immediately change the minor number to 90.  A subsequent break before the next release would increment that to 91, and so forth.  This allows users to perform dependence checking on the existing major.minor and not have interfaces change.
+
+Users must perform dependence checks only versus either an official release or the very latest development version.  This allows us to release a bugfix version X.Y.1 and not have users who depend on that bugfix be confused by a development version X.Y.NNNN that does not have the fix yet has a higher version number.
+
+When incrementing the major and minor versions, changes may need to be made to the version checks in make/DynamoRIOConfigVersion.cmake.in, the OLDEST_COMPATIBLE_VERSION variable in the top-level CMakeLists.txt, the default values in ci-package.yml, and the version checks when loading client libraries.
+
+# Steps for Publishing a New Release
+
+## Sanity Testing
+
+It is a good idea to perform some sanity tests on all platforms beyond what our CI tests to catch issues before a new release.  See the Per-Platform Testing section below for a suggested list of tests.
+
+## Commit the Version and Changelist Changes
+
+Update the following in the code and commit the change:
+
++ Update `VERSION_NUMBER_DEFAULT`.
++ Update the default git tag version in `ci-package.yml`.
++ Update `OLDEST_COMPATIBLE_VERSION_DEFAULT` if necessary.
+
+Don't add a new changelist section for the next release after this one: that is best done after finishing this release.
+
+## Trigger a Package Build
+
+To create a new build:
+
+1. Go to the Actions tab for the DynamoRIO/dynamorio repository.
+2. Click on "ci-package" on the list of workflows on the left.
+3. Click on "Run workflow" on the right.
+4. Select the branch.
+5. Fill in the version number.  For a test build or periodic build (i.e., not an official new-version-number release), use the current version major.minor and the date-based patchlevel.  The patchlevel can be found from CMake's configuration output by running `cmake .`:
+```
+-- Version number: 8.0.18611
+```
+For the build number, start at 0 for any given version number and add 1 for each attempt to produce a successful build.  If the build number is 0 it is not appended to the version number.
+
+Wait for the workflow to finish.  It should create a new tag, a new Release, upload 4 binary packages to the Release, and update the online documentation.
+
+## Update the Release Description
+
+Once the build is finished and posted to https://github.com/DynamoRIO/dynamorio/releases, edit the description to list the highlights of the new release.  You can use markdown to make a bulleted list.
+
+Also point at the changelog, as was done in this past release:
+
+https://github.com/DynamoRIO/dynamorio/releases/tag/release_7.1.0
+
+We generally edit the title to simplify it: e.g., from `release_8.0.0-1` to just `8.0.0`.
+
+## Update api/docs/download.dox
+
+Make a new list of direct links for the new version at \ref page_releases.
+
+## Verify Package and Documentation Uploads
+
+Double-check that all binary package files were uploaded to the new release on Github, and double-check that the documentation was pushed to http://dynamorio.org.
+
+## Announce the Release
+
+Unless it's a minor patchlevel release or something, email the users list to announce the new release.
+
+## Add a New Changelist Section
+
+Update the changelist in release.dox: create a new entry for the next release.
+
+# Per-Platform Testing
+
+Perform at least the "README test" on all platforms: paste the commands from the README into your shell and make sure they behave as expected.
+
+Since the samples with their SHOW_RESULTS interactive setting aren't in our test suite I often test them (with release and debug), along with our built-in tools.  Also test building the samples, which is difficult for our test suite to test.
+
+For Linux:
+\verbatim
+for ops in "" -debug; do bin32/drrun $ops -c samples/bin32/libbbsize.so -- /work/dr/test/hello; done
+for ops in "" -debug; do bin64/drrun $ops -c samples/bin64/libbbsize.so -- ls; done
+for i in samples/bin64/*.so; do echo -e "\n===============\n$i"; bin64/drrun -c $i -- ls; bin64/drrun -debug -c $i -- ls; done 2>&1 | tee /tmp/OUT64 ; ls -lt samples/bin64/*.log
+grep -i error /tmp/OUT64
+grep -c Starting /tmp/OUT64
+grep -c Stopping /tmp/OUT64
+for i in samples/bin32/*.so; do echo -e "\n===============\n$i"; bin32/drrun -c $i -- /work/dr/test/hello; bin32/drrun -debug -c $i -- /work/dr/test/hello; done 2>&1 | tee /tmp/OUT32 ; ls -lt samples/bin32/*.log
+grep -i error /tmp/OUT32
+grep -c Starting /tmp/OUT32
+grep -c Stopping /tmp/OUT32
+for i in drmemory/drmf/samples/bin64/*.so; do echo -e "\n===============\n$i"; bin64/drrun -c $i -- ls; bin64/drrun -debug -c $i -- ls; done 2>&1 | tee /tmp/OUT64B
+for i in drmemory/drmf/samples/bin32/*.so; do echo -e "\n===============\n$i"; bin32/drrun -c $i -- /work/dr/test/hello; bin32/drrun -debug -c $i -- /work/dr/test/hello; done 2>&1 | tee /tmp/OUT32B
+grep -i error /tmp/OUT*B
+bin64/drconfig -reg ls -c samples/bin64/libbbcount.so
+bin64/drinject -- ls
+bin64/drconfig -unreg ls
+bin32/drconfig -reg hello -c samples/bin32/libbbcount.so
+bin32/drinject -- /work/dr/test/hello
+bin32/drconfig -unreg hello
+bin32/drrun -t drcov -- /work/dr/test/hello
+head drcov*.log
+tools/bin32/drcov2lcov --dir . --output drcov.out
+grep -A 10 hello drcov.out
+rm drcov*.log
+bin64/drrun -t drcov -- /work/dr/test/hello64
+head drcov*.log
+tools/bin64/drcov2lcov --dir . --output drcov.out
+grep -A 10 hello drcov.out
+rm drcov*.log
+bin32/drrun -t drltrace -- /work/dr/test/hello
+bin64/drrun -t drltrace -- /work/dr/test/hello64
+bin32/drrun -t drmemory -- /work/dr/test/hello
+bin32/drrun -t drmemory_light -- /work/dr/test/hello
+bin64/drrun -t drmemory -- /work/dr/test/hello64
+bin32/drrun -t drcachesim -- /work/dr/test/hello
+bin64/drrun -t drcachesim -- /work/dr/test/hello64
+bin32/drrun -t drcpusim -cpu PentiumPro -- /work/dr/test/hello
+bin64/drrun -t drcpusim -cpu Banias -- /work/dr/test/hello64
+
+mkdir build_samples
+cd build_samples
+cmake -DDynamoRIO_DIR=$PWD/../cmake/ ../samples
+make -j8
+../bin64/drrun -c bin/libbbcount.so -- ls
+
+mkdir ../build_drmf
+cd ../build_drmf
+cmake -DDynamoRIO_DIR=$PWD/../cmake/ -DDrMemoryFramework_DIR=$PWD/../drmemory/drmf/ ../drmemory/drmf/samples
+make
+../bin64/drrun -c bin/libstrace.so -- ls
+\endverbatim
+
+For Android, remember to untar on the device, as adb push does not support the symlink in the Dr. Memory subpackage:
+
+\verbatim
+adb push DynamoRIO-ARM-Android-EABI-6.1.0-2.tar.gz /data/local/tmp
+
+<in adb shell>
+cd /data/local/tmp
+busybox tar xzf DynamoRIO-ARM-Android-EABI-6.1.0-2.tar.gz
+cd DynamoRIO-ARM-Android-EABI-6.1.0-2
+for ops in "" -debug; do bin32/drrun $ops -c samples/bin32/libbbsize.so -- ../hello.android; done
+for i in samples/bin32/*.so; do echo -e "\n===============\n$i"; bin32/drrun -c $i -- ../hello.android; bin32/drrun -debug -c $i -- ../hello.android; done 2>&1 | tee ../OUT32; ls -l samples/bin32/*.log
+grep -i error ../OUT32
+grep -c Starting ../OUT32
+grep -c Stopping ../OUT32
+bin32/drrun -t drcov -- ../hello.android
+
+adb pull /data/local/tmp/DynamoRIO-ARM-Android-EABI-6.0.0-3/drcov.hello.android.28748.0000.proc.log
+head drcov*.log
+DynamoRIO-Linux-6.0.0-3/tools/bin32/drcov2lcov -dir . -pathmap /data/local/tmp/hello.android /extsw/android/test/hello-android -output drcov.out
+grep -A 10 hello drcov.out
+rm drcov*.log
+\endverbatim
+
+For testing 32-bit on a 64-bit kernel I usually have a 32-bit hello, world app sitting around.
+
+For Windows (substitute notepad for calc on win10, and adjust for non-cygwin):
+\verbatim
+for ops in "" -debug; do for arch in 32 64; do bin${arch}/drrun.exe $ops -c samples/bin${arch}/bbsize.dll -- calc; done; done
+<on pre-vista, open calc help for each and test all features: popup, link, etc.>
+bin32/drrun.exe -debug -stderr_mask 15 -c samples/bin32/bbsize.dll -- c:/derek/hello.exe
+bin64/drrun.exe -debug -stderr_mask 15 -c samples/bin64/bbsize.dll -- c:/derek/hello64.exe
+for i in samples/bin64/*.dll; do echo -e "\n===============\n$i"; bin64/drrun -c $i -- c:/derek/hello64.exe; bin64/drrun -debug -c $i -- c:/derek/hello64.exe; done 2>&1 | tee /tmp/OUT64; ls -lt samples/bin64/*.log
+<ignore dynamorio.dll>
+grep -i error /tmp/OUT64
+grep -c Starting /tmp/OUT64
+grep -c Stopping /tmp/OUT64
+head samples/bin64/*.log
+for i in samples/bin32/*.dll; do echo -e "\n===============\n$i"; bin32/drrun -c $i -- c:/derek/hello.exe; bin32/drrun -debug -c $i -- c:/derek/hello.exe; done 2>&1 | tee /tmp/OUT32 ; ls -lt samples/bin32/*.log
+<ignore dynamorio.dll>
+grep -i error /tmp/OUT32
+grep -c Starting /tmp/OUT32
+grep -c Stopping /tmp/OUT32
+head samples/bin32/*.log
+for i in drmemory/drmf/samples/bin64/*.dll; do echo -e "\n===============\n$i"; bin64/drrun -c $i -- c:/derek/hello64.exe; bin64/drrun -debug -c $i -- c:/derek/hello64.exe; done 2>&1 | tee /tmp/OUT64B
+for i in drmemory/drmf/samples/bin32/*.dll; do echo -e "\n===============\n$i"; bin32/drrun -c $i -- c:/derek/hello.exe; bin32/drrun -debug -c $i -- c:/derek/hello.exe; done 2>&1 | tee /tmp/OUT32B
+grep -i error /tmp/OUT*B
+bin64/drconfig.exe -ops "-stderr_mask 15" -client samples/bin64/bbcount.dll "" 0 -reg calc.exe
+bin64/drinject.exe -- calc
+bin64/drconfig.exe -unreg calc.exe
+bin32/drconfig.exe -ops "-stderr_mask 15" -client samples/bin32/bbcount.dll "" 0 -reg calc.exe
+bin32/drinject.exe -- calc
+bin32/drconfig.exe -unreg calc.exe
+bin32/drrun.exe -t drcov -- c:/derek/hello.exe
+bin64/drrun.exe -t drcov -- c:/derek/hello64.exe
+head drcov*.log
+tools/bin32/drcov2lcov.exe --dir . --output drcov.out
+grep -A 10 hello drcov.out
+rm drcov*.log
+bin32/drrun.exe -t drltrace -- c:/derek/hello.exe
+bin64/drrun.exe -t drltrace -- c:/derek/hello64.exe
+bin32/drrun.exe -t drstrace -- c:/derek/hello.exe
+bin64/drrun.exe -t drstrace -- c:/derek/hello64.exe
+bin32/drrun.exe -t drmemory -- c:/derek/hello.exe
+bin32/drrun.exe -t drmemory_light -- notepad
+bin32/drrun.exe -t handle_leaks -- c:/derek/hello.exe
+bin32/drrun.exe -t drcpusim -cpu Pentium -- c:/derek/hello.exe
+bin64/drrun.exe -t drcpusim -cpu Banias -- c:/derek/hello64.exe
+
+mkdir build_samples
+cd build_samples
+cmake -GNinja -DDynamoRIO_DIR=`cygpath -wa ../cmake/` ../samples
+ninja
+../bin32/drrun -c bin/bbcount.dll -- notepad
+
+mkdir ../build_drmf
+cd ../build_drmf
+cmake -GNinja -DDynamoRIO_DIR=`cygpath -wa ../cmake/` -DDrMemoryFramework_DIR=`cygpath -wa ../drmemory/drmf/` ../drmemory/drmf/samples
+ninja
+../bin32/drrun -c bin/strace.dll -- notepad
+\endverbatim
+
+On Windows, test the statistics GUI with a moderately large app, like calc,
+running with the stats client.
+
+\verbatim
+bin64/drrun.exe -stderr_mask 15 -c samples/bin64/stats.dll -- calc &
+bin64/DRstats.exe
+bin32/drrun.exe -stderr_mask 15 -c samples/bin32/stats.dll -- calc &
+bin32/DRstats.exe
+\endverbatim
+
+On Windows, test AppInit injection as administrator:
+
+\verbatim
+bin32/drconfig.exe -reg calc.exe -syswide_on -c samples/bin32/bbsize.dll
+cmd /c start calc
+bin32/drconfig.exe -debug -reg calc.exe -syswide_on -c samples/bin32/bbsize.dll
+cmd /c start calc
+bin32/drconfig.exe -unreg calc.exe
+bin32/drconfig.exe -syswide_off
+bin64/drconfig.exe -reg calc.exe -syswide_on -c samples/bin64/bbsize.dll
+<start calc from start menu>
+bin64/drconfig.exe -debug -reg calc.exe -syswide_on -c samples/bin64/bbsize.dll
+<start calc from start menu>
+bin64/drconfig.exe -unreg calc.exe
+bin64/drconfig.exe -syswide_off
+\endverbatim
+
+It's best to sanity-check on all platforms we support: XP32, 2003, XP64, and {Vista, Win7, Win8, Win8.1, Win10} X {32-bit kernel, 64-bit kernel} for Windows.  For Linux, check at least one Ubuntu and one Fedora platform.
+
+# Old Instructions for Locally Building Packages
+
+Be sure to use doxygen >= 1.8.1 for high-quality documentation.  On Windows, use a non-Cygwin build (I use ftp://ftp.stack.nl/pub/users/dimitri/doxygen-1.8.1.1.windows.bin.zip, with doxygen.exe placed in /usr/local/bin: see [issue 815](https://code.google.com/p/dynamorio/issues/detail?id=815)).
+
+We do not build Linux release packages with clang due to the lack of equivalent for `-mpreferred-stack-boundary=2`. More details can be found at [issue 1800](https://github.com/DynamoRIO/dynamorio/issues/1800).
+
+We now bundle Dr. Memory into our DynamoRIO builds.
+
+Due to the exposed source paths in Dr. Memory malloc replacement, we use professional-looking source paths with top-level names set up like so:
+
+Linux:
+\verbatim
+ln -s /work/dr/git/src /dynamorio_package
+ln -s /work/drmemory/git/src /drmemory_package
+\endverbatim
+
+Windows:
+\verbatim
+cd /d
+cmd /c mklink /J dynamorio_package 'd:\derek\dr\git\src'
+cmd /c mklink /J drmemory_package 'd:\derek\drmemory\git\src'
+\endverbatim
+
+Build using package.cmake as follows, replacing the build=, tool_build=, and package name as appropriate.  First update to the latest source version in the dynamorio_package and drmemory_package directories.
+
+Windows:
+\verbatim
+compilerVS2010_32
+cd ~/dr/build_package/
+ctest -V -S d:/dynamorio_package/make/package.cmake,build=2\;version=6.2.0\;cacheappend=OLDEST_COMPATIBLE_VERSION:STRING=600\;cpackappend=set\(CPACK_PACKAGE_FILE_NAME\ DynamoRIO-Windows-6.2.0-2\)\;invoke=d:/drmemory_package/package.cmake\;drmem_only\;tool_build=2\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.11.0\;cacheappend=DRMF_VERSION:STRING=1.0.0\;use_ninja
+\endverbatim
+
+Linux:
+\verbatim
+cd /work/dr/build_package/
+ctest -V -S /dynamorio_package/make/package.cmake,build=2\;version=6.2.0\;cacheappend=OLDEST_COMPATIBLE_VERSION:STRING=600\;cpackappend=set\(CPACK_PACKAGE_FILE_NAME\ DynamoRIO-Linux-6.2.0-2\)\;invoke=/drmemory_package/package.cmake\;drmem_only\;tool_build=2\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.11.0\;cacheappend=DRMF_VERSION:STRING=1.0.0
+\endverbatim
+
+ARM eabihf:
+\verbatim
+cd /work/dr/build_package/
+ctest -D CMAKE_SYSTEM_PROCESSOR=arm -V -S /dynamorio_package/make/package.cmake,build=2\;version=6.2.0\;no64\;cacheappend=OLDEST_COMPATIBLE_VERSION:STRING=600\;cacheappend=TARGET_ABI=linux-gnueabihf\;cacheappend=CMAKE_TOOLCHAIN_FILE=/work/dr/git/src/make/toolchain-arm32.cmake\;cpackappend=set\(CPACK_PACKAGE_FILE_NAME\ DynamoRIO-ARM-Linux-EABIHF-6.2.0-2\)\;invoke=/drmemory_package/package.cmake\;drmem_only\;tool_build=2\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.11.0\;cacheappend=DRMF_VERSION:STRING=1.0.0
+\endverbatim
+
+Android:
+\verbatim
+cd /work/dr/build_package/
+/extsw/pkgs/cmake/exports-3.2.0/bin/ctest -D CMAKE_SYSTEM_PROCESSOR=arm -V -S /dynamorio_package/make/package.cmake,build=7\;version=6.2.0\;no64\;cacheappend=OLDEST_COMPATIBLE_VERSION:STRING=600\;cacheappend=CMAKE_TOOLCHAIN_FILE=/work/dr/git/src/make/toolchain-android.cmake\;cacheappend=ANDROID_TOOLCHAIN=/work/toolchain/android-ndk-21\;cpackappend=set\(CPACK_PACKAGE_FILE_NAME\ DynamoRIO-ARM-Android-EABI-6.2.0-2\)\;invoke=/drmemory_package/package.cmake\;drmem_only\;tool_build=2\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.11.0\;cacheappend=DRMF_VERSION:STRING=1.0.0
+\endverbatim
+
+
+ ****************************************************************************
+ */

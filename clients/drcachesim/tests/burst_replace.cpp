@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -139,8 +139,12 @@ local_create_dir(const char *dir)
 }
 
 static void *
-load_cb(module_data_t *module)
+load_cb(module_data_t *module, int seg_idx)
 {
+#ifndef WINDOWS
+    if (seg_idx > 0)
+        return (void *)module->segments[seg_idx].start;
+#endif
     return (void *)module->start;
 }
 
@@ -163,7 +167,7 @@ parse_cb(const char *src, OUT void **data)
 static std::string
 process_cb(drmodtrack_info_t *info, void *data, void *user_data)
 {
-    assert((app_pc)data == info->start || info->containing_index != info->index);
+    assert((app_pc)data == info->start);
     assert(user_data == MAGIC_VALUE);
     return "";
 }

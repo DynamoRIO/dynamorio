@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -100,6 +100,13 @@ instr_create(dcontext_t *dcontext)
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
+#ifdef ARM
+    /* i#4680: Reset encode state to avoid dangling pointers.  This doesn't cover
+     * auto-scope instr_t vars so the whole IT tracking is still fragile.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB)
+        encode_instr_freed_event(dcontext, instr);
+#endif
     instr_free(dcontext, instr);
 
     /* CAUTION: assumes that instr is not part of any instrlist */

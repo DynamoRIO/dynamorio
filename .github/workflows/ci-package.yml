@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -32,18 +32,16 @@
 
 name: ci-package
 on:
-  # Our weekly cronbuild: 9pm on Fridays.
-  # Presumably this is only triggered by this .yml file on the master branch.
+  # Our weekly cronbuild: 9pm EST on Fridays.
   schedule:
-    - cron: '0 21 * * FRI'
+    - cron: '0 2 * * SAT'
   # Manual trigger using the Actions page.
   workflow_dispatch:
     inputs:
       version:
-        description: 'Package version number'
-        required: true
-        # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
-        default: '8.0.99999'
+        description: 'Package version number (blank for cronbuild)'
+        required: false
+        default: ''
       build:
         description: 'Package build number'
         required: true
@@ -61,8 +59,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -87,18 +83,14 @@ jobs:
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -106,7 +98,10 @@ jobs:
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
-        DEPLOY_DOCS: yes
+        # We do not update the web documentation here because a newer
+        # Doxygen is needed but we have not yet tested our tests and
+        # packages built on newer Ubuntu on GA CI.
+        DEPLOY_DOCS: no
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
     - name: Upload Artifacts
@@ -115,15 +110,29 @@ jobs:
         name: linux-tarball
         path: DynamoRIO-Linux-${{ steps.version.outputs.version_number }}.tar.gz
 
-    - name: Deploy Docs
-      uses: crazy-max/ghaction-github-pages@v2
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
       with:
-        build_dir: html
-        repo: DynamoRIO/dynamorio_docs
-        target_branch: master
-      env:
-        # We need a personal access token for write access to another repo.
-        GH_PAT: ${{ secrets.DOCS_TOKEN }}
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/linux-x86
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
 
   ###########################################################################
   # Linux AArch64 tarball:
@@ -132,8 +141,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -153,18 +160,14 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -180,6 +183,30 @@ jobs:
         name: aarch64-tarball
         path: DynamoRIO-AArch64-Linux-${{ steps.version.outputs.version_number }}.tar.gz
 
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/linux-aarch64
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
+
   ###########################################################################
   # Linux ARM tarball (package.cmake does not support same job as AArch64):
   linux-arm:
@@ -187,8 +214,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -208,18 +233,14 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -235,6 +256,30 @@ jobs:
         name: arm-tarball
         path: DynamoRIO-ARM-Linux-EABIHF-${{ steps.version.outputs.version_number }}.tar.gz
 
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/linux-arm
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
+
   ###########################################################################
   # Android ARM tarball:
   android-arm:
@@ -242,8 +287,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -272,18 +315,14 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -301,6 +340,30 @@ jobs:
         name: android-tarball
         path: DynamoRIO-ARM-Android-EABI-${{ steps.version.outputs.version_number }}.tar.gz
 
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/android-arm
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
+
   ###########################################################################
   # Windows .zip with 32-bit and 64-bit x86 builds:
   windows:
@@ -308,8 +371,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: true
 
     - name: Fetch Sources
       run: |
@@ -323,25 +384,21 @@ jobs:
       run: |
         md c:\projects\install
         (New-Object System.Net.WebClient).DownloadFile("https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip", "c:\projects\install\ninja.zip")
-        (New-Object System.Net.WebClient).DownloadFile("http://doxygen.nl/files/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
+        (New-Object System.Net.WebClient).DownloadFile("https://sourceforge.net/projects/doxygen/files/rel-1.8.19/doxygen-1.8.19.windows.x64.bin.zip", "c:\projects\install\doxygen.zip")
 
     - name: Get Version
       id: version
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
 
     - name: Build Package
       working-directory: ${{ github.workspace }}
@@ -370,6 +427,30 @@ jobs:
         name: windows-zip
         path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
 
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/windows
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs
+
   ###########################################################################
   # Create release and populate with files.
   # We can't have each OS job create the release because only the first
@@ -383,23 +464,25 @@ jobs:
     runs-on: ubuntu-16.04
 
     steps:
+      # We need a checkout to run git log for the version.
+    - uses: actions/checkout@v2
+
     - name: Get Version
       id: version
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=$((`git log -n 1 --format=%ct` / (60*60*24)))
-          export GIT_TAG="cronbuild-8.0.${VERSION_NUMBER}"
+          export VERSION_NUMBER="8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export PREFIX="cronbuild-"
         else
-          if [ "${{ github.event.inputs.build }}" -eq 0 ]; then
-            export VERSION_NUMBER=${{ github.event.inputs.version }}
-          else
-            export VERSION_NUMBER=${{ github.event.inputs.version }}-${{ github.event.inputs.build }}
-          fi
-          export GIT_TAG="release_${VERSION_NUMBER}"
+          export VERSION_NUMBER=${{ github.event.inputs.version }}
+          export PREFIX="release_"
+        fi
+        if [ "${{ github.event.inputs.build }}" -ne 0 ]; then
+          export VERSION_NUMBER="${VERSION_NUMBER}-${{ github.event.inputs.build }}"
         fi
         echo "::set-output name=version_number::${VERSION_NUMBER}"
-        echo "::set-output name=version_string::${GIT_TAG}"
+        echo "::set-output name=version_string::${PREFIX}${VERSION_NUMBER}"
 
     - name: Create Release
       id: create_release
@@ -488,3 +571,27 @@ jobs:
         asset_path: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
         asset_name: DynamoRIO-Windows-${{ steps.version.outputs.version_number }}.zip
         asset_content_type: application/zip
+
+    - name: Send failure mail to dynamorio-devs
+      if: failure() && github.ref == 'refs/heads/master'
+      uses: dawidd6/action-send-mail@v2
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_USERNAME}}
+        password: ${{secrets.DYNAMORIO_NOTIFICATION_EMAIL_PASSWORD}}
+        subject: |
+          [${{github.repository}}] ${{github.workflow}} FAILED
+          on ${{github.event_name}} at ${{github.ref}}
+        body: |
+          Github Actions CI workflow run FAILED!
+          Workflow: ${{github.workflow}}/create_release
+          Repository: ${{github.repository}}
+          Branch ref: ${{github.ref}}
+          SHA: ${{github.sha}}
+          Triggering actor: ${{github.actor}}
+          Triggering event: ${{github.event_name}}
+          Run Id: ${{github.run_id}}
+          See more details on github.com/DynamoRIO/dynamorio/actions/runs/${{github.run_id}}
+        to: dynamorio-devs@googlegroups.com
+        from: Github Action package jobs

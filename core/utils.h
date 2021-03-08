@@ -543,6 +543,9 @@ enum {
 #    ifdef WINDOWS
     LOCK_RANK(alt_tls_lock),
 #    endif
+#    ifdef UNIX
+    LOCK_RANK(detached_sigact_lock),
+#    endif
     /* ADD HERE a lock around section that may allocate memory */
 
     /* N.B.: the order of allunits < global_alloc < heap_unit is relied on
@@ -1223,7 +1226,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #    endif /* INTERNAL */
 #    define THREAD          \
         ((dcontext == NULL) \
-             ? INVALID_FILE \
+             ? main_logfile \
              : ((dcontext == GLOBAL_DCONTEXT) ? main_logfile : dcontext->logfile))
 #    define THREAD_GET get_thread_private_logfile()
 #    define GLOBAL main_logfile
@@ -1405,6 +1408,7 @@ extern mutex_t do_threshold_mutex;
         if ((dc__local == NULL || dc__local == GLOBAL_DCONTEXT) &&              \
             !dynamo_initialized) {                                              \
             try__except = &global_try_except;                                   \
+            IF_UNIX(global_try_tid = get_sys_thread_id());                      \
         } else {                                                                \
             if (dc__local == GLOBAL_DCONTEXT)                                   \
                 dc__local = get_thread_private_dcontext();                      \
@@ -1413,6 +1417,7 @@ extern mutex_t do_threshold_mutex;
         }                                                                       \
         ASSERT(try__except != NULL);                                            \
         TRY(try__except, try_statement, EXCEPT(try__except, except_statement)); \
+        IF_UNIX(global_try_tid = INVALID_THREAD_ID);                            \
     } while (0)
 
 /* these use do..while w/ a local to avoid double-eval of dcontext */

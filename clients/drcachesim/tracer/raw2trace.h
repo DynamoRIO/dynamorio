@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -79,18 +79,28 @@ typedef enum {
 } raw2trace_statistic_t;
 
 struct module_t {
-    module_t(const char *path, app_pc orig, byte *map, size_t size, bool external = false)
+    module_t(const char *path, app_pc orig, byte *map, size_t offs, size_t size,
+             size_t total_size, bool external = false)
         : path(path)
-        , orig_base(orig)
-        , map_base(map)
-        , map_size(size)
+        , orig_seg_base(orig)
+        , map_seg_base(map)
+        , seg_offs(offs)
+        , seg_size(size)
+        , total_map_size(total_size)
         , is_external(external)
     {
     }
     const char *path;
-    app_pc orig_base;
-    byte *map_base;
-    size_t map_size;
+    // We have to handle segments within a module separately, as there can be
+    // gaps between them that contain other objects (xref i#4731).
+    app_pc orig_seg_base;
+    byte *map_seg_base;
+    size_t seg_offs;
+    size_t seg_size;
+    // Despite tracking segments separately, we have a single mapping.
+    // The first segment stores that mapping size here; subsequent segments
+    // have 0 for this field.
+    size_t total_map_size;
     bool is_external; // If true, the data is embedded in drmodtrack custom fields.
 };
 
@@ -864,8 +874,8 @@ private:
             pc = instr_get_app_pc(meminst);
             int index_in_bb =
                 static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(meminst)));
-            app_pc orig_pc =
-                pc - modvec_()[modidx_typed].map_base + modvec_()[modidx_typed].orig_base;
+            app_pc orig_pc = pc - modvec_()[modidx_typed].map_seg_base +
+                modvec_()[modidx_typed].orig_seg_base;
             impl()->log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n",
                         start_pc, pc, write ? "write" : "read", memop_index);
             if (!impl()->set_instr_summary_flags(
@@ -927,8 +937,8 @@ private:
                 if (remember_index == -1)
                     continue;
                 app_pc pc_prev = instr_get_app_pc(prev);
-                app_pc orig_pc_prev = pc_prev - modvec_()[modidx_typed].map_base +
-                    modvec_()[modidx_typed].orig_base;
+                app_pc orig_pc_prev = pc_prev - modvec_()[modidx_typed].map_seg_base +
+                    modvec_()[modidx_typed].orig_seg_base;
                 int index_prev =
                     static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(prev)));
                 if (!impl()->set_instr_summary_flags(
@@ -954,10 +964,11 @@ private:
         std::string error = "";
         uint instr_count = in_entry->pc.instr_count;
         const instr_summary_t *instr = nullptr;
-        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
+        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_seg_base +
+            (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
         app_pc pc, decode_pc = start_pc;
         if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
-            modvec_()[in_entry->pc.modidx].map_base == NULL) {
+            modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
             // Once that support is in we can remove the bool return value and handle
             // the memrefs up here.
@@ -1003,8 +1014,8 @@ private:
         for (uint i = 0; i < instr_count; ++i) {
             trace_entry_t *buf_start = impl()->get_write_buffer(tls);
             trace_entry_t *buf = buf_start;
-            app_pc orig_pc = decode_pc - modvec_()[in_entry->pc.modidx].map_base +
-                modvec_()[in_entry->pc.modidx].orig_base;
+            app_pc orig_pc = decode_pc - modvec_()[in_entry->pc.modidx].map_seg_base +
+                modvec_()[in_entry->pc.modidx].orig_seg_base;
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;

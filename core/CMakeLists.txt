@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -399,8 +399,8 @@ else (UNIX)
     win32/syscall.c
     win32/callback.c
     win32/drmarker.c
-    win32/ntdll.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/inject.c
     win32/inject_shared.c
     win32/module.c
@@ -424,8 +424,8 @@ else (UNIX)
    )
   set(PRELOAD_SRCS
     win32/pre_inject.c
-    win32/ntdll.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/inject_shared.c
     win32/drmarker.c
     ${preinject_asm_src}
@@ -439,10 +439,10 @@ else (UNIX)
   set(INJECTOR_SRCS
     win32/injector.c
     win32/inject.c
-    win32/ntdll.c
     win32/inject_shared.c
     win32/module_shared.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/resources.rc
     config.c
     win32/os.c
@@ -1055,7 +1055,9 @@ endif ()
 # We can't run core unit tests when the target is not the host, just like we can't
 # run DR itself managing an app: DR is a same-arch system for code cache operation
 # and only supports target!=host for decoding and drmemtrace analysis (i#1684).
-if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
+if (BUILD_TESTS AND
+    ((CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH) OR
+      (NOT DR_HOST_NOT_TARGET)))
   add_executable(unit_tests unit_tests.c
     # These unit tests have been moved from the x86_code module into a new x86_code
     # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
@@ -1128,6 +1130,9 @@ if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
   add_test(unit_tests ${unit_relpath})
   if (APPLE)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
+  endif ()
+  if (AARCHXX)
+    set_tests_properties(unit_tests PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   copy_target_to_device(unit_tests "${location_suffix}")
 endif ()

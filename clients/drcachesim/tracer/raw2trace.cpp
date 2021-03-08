@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -167,8 +167,8 @@ module_mapper_t::~module_mapper_t()
     user_free_ = nullptr;
     for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
-        if (!mvi->is_external && mvi->map_base != NULL && mvi->map_size != 0) {
-            bool ok = dr_unmap_executable_file(mvi->map_base, mvi->map_size);
+        if (!mvi->is_external && mvi->map_seg_base != NULL && mvi->total_map_size != 0) {
+            bool ok = dr_unmap_executable_file(mvi->map_seg_base, mvi->total_map_size);
             if (!ok)
                 WARN("Failed to unmap module %s", mvi->path);
         }
@@ -343,26 +343,38 @@ module_mapper_t::read_and_map_modules()
                    (int)modvec_.size(), info.path, custom_data->contents_size,
                    custom_data->contents);
             modvec_.push_back(
-                module_t(info.path, info.start, (byte *)custom_data->contents,
-                         custom_data->contents_size, true /*external data*/));
+                module_t(info.path, info.start, (byte *)custom_data->contents, 0,
+                         custom_data->contents_size, custom_data->contents_size,
+                         true /*external data*/));
         } else if (strcmp(info.path, "<unknown>") == 0 ||
                    // This should only happen with legacy trace data that's missing
                    // the vdso contents.
                    (!has_custom_data_ && strcmp(info.path, "[vdso]") == 0)) {
             // We won't be able to decode.
-            modvec_.push_back(module_t(info.path, info.start, NULL, 0));
+            modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
         } else if (info.containing_index != info.index) {
-            // For split segments, drmodtrack_lookup() gave the lowest base addr,
-            // so our PC offsets are from that.  We assume that the single mmap of
-            // the first segment thus includes the other segments and that we don't
-            // need another mmap.
-            VPRINT(1, "Separate segment assumed covered: module %d seg " PFX " = %s\n",
-                   (int)modvec_.size(), info.start, info.path);
-            modvec_.push_back(module_t(info.path,
-                                       // We want the low base not segment base.
-                                       modvec_[info.containing_index].orig_base,
-                                       // 0 size indicates this is a secondary segment.
-                                       modvec_[info.containing_index].map_base, 0));
+            // For split segments, we assume our mapped layout matches the original.
+            byte *seg_map_base = modvec_[info.containing_index].map_seg_base +
+                (info.start - modvec_[info.containing_index].orig_seg_base);
+            VPRINT(1, "Secondary segment: module %d seg %p-%p = %s\n",
+                   (int)modvec_.size(), seg_map_base, seg_map_base + info.size,
+                   info.path);
+            // We did not map writable segments.  We can't easily detect an internal
+            // unmapped writable segment, but for those off the end of our mapping we
+            // can avoid pretending there's anything there.
+            bool off_end =
+                (size_t)(info.start - modvec_[info.containing_index].orig_seg_base) >=
+                modvec_[info.containing_index].total_map_size;
+            DR_ASSERT(off_end ||
+                      info.start - modvec_[info.containing_index].orig_seg_base +
+                              info.size <=
+                          modvec_[info.containing_index].total_map_size);
+            modvec_.push_back(module_t(
+                info.path, info.start, off_end ? NULL : seg_map_base,
+                off_end ? 0 : info.start - modvec_[info.containing_index].orig_seg_base,
+                off_end ? 0 : info.size,
+                // 0 total size indicates this is a secondary segment.
+                0));
         } else {
             size_t map_size = 0;
             byte *base_pc = NULL;
@@ -392,15 +404,19 @@ module_mapper_t::read_and_map_modules()
                 // is built /fixed.  (We could try to have the map succeed w/o relocs,
                 // but we expect to not care enough about code in DR).
                 if (strstr(info.path, "dynamorio") != NULL)
-                    modvec_.push_back(module_t(info.path, info.start, NULL, 0));
+                    modvec_.push_back(module_t(info.path, info.start, NULL, 0, 0, 0));
                 else {
                     last_error_ = "Failed to map module " + std::string(info.path);
                     return;
                 }
             } else {
-                VPRINT(1, "Mapped module %d @" PFX " = %s\n", (int)modvec_.size(),
-                       base_pc, info.path);
-                modvec_.push_back(module_t(info.path, info.start, base_pc, map_size));
+                VPRINT(1, "Mapped module %d @%p-%p (-%p segment) = %s\n",
+                       (int)modvec_.size(), base_pc, base_pc + map_size,
+                       base_pc + info.size, info.path);
+                // Be sure to only use the initial segment size to avoid covering
+                // another mapping in a segment gap (i#4731).
+                modvec_.push_back(
+                    module_t(info.path, info.start, base_pc, 0, info.size, map_size));
             }
         }
     }
@@ -423,6 +439,7 @@ raw2trace_t::find_mapped_trace_address(app_pc trace_address, OUT app_pc *mapped_
     return module_mapper_->get_last_error();
 }
 
+// The output range is really a segment and not the whole module.
 app_pc
 module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
                                           OUT size_t *module_size)
@@ -443,12 +460,13 @@ module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *modu
     }
     for (std::vector<module_t>::iterator mvi = modvec_.begin(); mvi != modvec_.end();
          ++mvi) {
-        if (trace_address >= mvi->orig_base &&
-            trace_address < mvi->orig_base + mvi->map_size) {
-            app_pc mapped_address = trace_address - mvi->orig_base + mvi->map_base;
-            last_orig_base_ = mvi->orig_base;
-            last_map_size_ = mvi->map_size;
-            last_map_base_ = mvi->map_base;
+        if (trace_address >= mvi->orig_seg_base &&
+            trace_address < mvi->orig_seg_base + mvi->seg_size) {
+            app_pc mapped_address =
+                trace_address - mvi->orig_seg_base + mvi->map_seg_base;
+            last_orig_base_ = mvi->orig_seg_base;
+            last_map_size_ = mvi->seg_size;
+            last_map_base_ = mvi->map_seg_base;
             if (module_start != nullptr)
                 *module_start = last_map_base_;
             if (module_size != nullptr)

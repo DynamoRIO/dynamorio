@@ -528,8 +528,10 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
     }
 #elif defined(AARCHXX)
+#    ifdef ARM
     /* FIXME i#1551: implement 64-bit counter support */
-    ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented");
+    ASSERT(!is_64, "DRX_COUNTER_64BIT is not implemented for ARM_32");
+#    endif /* ARM */
 
     if (use_drreg) {
         if (drreg_reserve_register(drcontext, ilist, where, NULL, &reg1) !=
@@ -556,16 +558,47 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
      * address being near this one, and add to reg1 instead of
      * taking 2 instrs to load it fresh.
      */
+    /* Update the counter either with release-acquire semantics (when the
+     * DRX_COUNTER_REL_ACQ flag is on) or without any barriers.
+     */
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)addr, opnd_create_reg(reg1),
                                      ilist, where, NULL, NULL);
-    MINSERT(
-        ilist, where,
-        XINST_CREATE_load(drcontext, opnd_create_reg(reg2), OPND_CREATE_MEMPTR(reg1, 0)));
-    MINSERT(ilist, where,
+    if (TEST(DRX_COUNTER_REL_ACQ, flags)) {
+#    ifdef AARCH64
+        MINSERT(ilist, where,
+                INSTR_CREATE_ldar(drcontext, opnd_create_reg(reg2),
+                                  OPND_CREATE_MEMPTR(reg1, 0)));
+        MINSERT(
+            ilist, where,
             XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
-    MINSERT(ilist, where,
-            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
-                               opnd_create_reg(reg2)));
+        MINSERT(ilist, where,
+                INST_CREATE_stlr(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
+                                 opnd_create_reg(reg2)));
+#    else /* ARM */
+        /* TODO: This counter update has not been tested on a ARM_32 machine. */
+        MINSERT(ilist, where,
+                XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
+                                  OPND_CREATE_MEMPTR(reg1, 0)));
+        MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
+        MINSERT(
+            ilist, where,
+            XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
+        MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
+                                   opnd_create_reg(reg2)));
+#    endif
+    } else {
+        MINSERT(ilist, where,
+                XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
+                                  OPND_CREATE_MEMPTR(reg1, 0)));
+        MINSERT(
+            ilist, where,
+            XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
+        MINSERT(ilist, where,
+                XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
+                                   opnd_create_reg(reg2)));
+    }
     if (use_drreg) {
         if (drreg_unreserve_register(drcontext, ilist, where, reg1) != DRREG_SUCCESS ||
             drreg_unreserve_register(drcontext, ilist, where, reg2) != DRREG_SUCCESS)

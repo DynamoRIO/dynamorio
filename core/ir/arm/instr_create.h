@@ -111,7 +111,7 @@ enum {
  * Platform-independent XINST_CREATE_* macros
  */
 /** @name Platform-independent macros */
-/* @{ */ /* doxygen start group */
+/** @{ */ /* doxygen start group */
 
 /**
  * This platform-independent macro creates an instr_t for a debug trap
@@ -440,7 +440,7 @@ enum {
  * be a reg_id_t operand with the address of the subroutine.
  */
 #define XINST_CREATE_call_reg(dc, r) INSTR_CREATE_blx_ind(dc, r)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /****************************************************************************
  * Manually-added ARM-specific INSTR_CREATE_* macros
@@ -514,7 +514,7 @@ enum {
  */
 
 /** @name Signature: () */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -537,10 +537,10 @@ enum {
 #define INSTR_CREATE_wfe(dc) instr_create_0dst_0src((dc), OP_wfe)
 #define INSTR_CREATE_wfi(dc) instr_create_0dst_0src((dc), OP_wfi)
 #define INSTR_CREATE_yield(dc) instr_create_0dst_0src((dc), OP_yield)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -552,10 +552,10 @@ enum {
  */
 #define INSTR_CREATE_vmrs(dc, Rd) \
     instr_create_1dst_1src((dc), OP_vmrs, (Rd), opnd_create_reg(DR_REG_FPSCR))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -569,10 +569,10 @@ enum {
     instr_create_1dst_1src((dc), OP_blx_ind, opnd_create_reg(DR_REG_LR), (Rm))
 #define INSTR_CREATE_bx(dc, Rm) instr_create_0dst_1src((dc), OP_bx, (Rm))
 #define INSTR_CREATE_bxj(dc, Rm) instr_create_0dst_1src((dc), OP_bxj, (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rt) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -584,10 +584,10 @@ enum {
  */
 #define INSTR_CREATE_vmsr(dc, Rt) \
     instr_create_1dst_1src((dc), OP_vmsr, opnd_create_reg(DR_REG_FPSCR), (Rt))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (pc) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -603,10 +603,10 @@ enum {
     instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_LR), (pc))
 #define INSTR_CREATE_blx(dc, pc) \
     instr_create_1dst_1src((dc), OP_blx, opnd_create_reg(DR_REG_LR), (pc))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -624,10 +624,10 @@ enum {
 #define INSTR_CREATE_revsh(dc, Rd, Rm) instr_create_1dst_1src((dc), OP_revsh, (Rd), (Rm))
 #define INSTR_CREATE_rrx(dc, Rd, Rm) instr_create_1dst_1src((dc), OP_rrx, (Rd), (Rm))
 #define INSTR_CREATE_rrxs(dc, Rd, Rm) instr_create_1dst_1src((dc), OP_rrxs, (Rd), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -642,10 +642,10 @@ enum {
 #define INSTR_CREATE_sxth(dc, Rd, Rn) instr_create_1dst_1src((dc), OP_sxth, (Rd), (Rn))
 #define INSTR_CREATE_uxtb(dc, Rd, Rn) instr_create_1dst_1src((dc), OP_uxtb, (Rd), (Rn))
 #define INSTR_CREATE_uxth(dc, Rd, Rn) instr_create_1dst_1src((dc), OP_uxth, (Rd), (Rn))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (pc, Rn) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -658,10 +658,10 @@ enum {
  */
 #define INSTR_CREATE_cbnz(dc, pc, Rn) instr_create_0dst_2src((dc), OP_cbnz, (pc), (Rn))
 #define INSTR_CREATE_cbz(dc, pc, Rn) instr_create_0dst_2src((dc), OP_cbz, (pc), (Rn))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, statreg) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -674,10 +674,10 @@ enum {
  */
 #define INSTR_CREATE_mrs(dc, Rd, statreg) \
     instr_create_1dst_1src((dc), OP_mrs, (Rd), (statreg))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm, Rn) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -691,10 +691,10 @@ enum {
  */
 #define INSTR_CREATE_qsub(dc, Rd, Rm, Rn) \
     instr_create_1dst_2src((dc), OP_qsub, (Rd), (Rm), (Rn))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -832,10 +832,10 @@ enum {
     instr_create_1dst_2src((dc), OP_usub16, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_usub8(dc, Rd, Rn, Rm) \
     instr_create_1dst_2src((dc), OP_usub8, (Rd), (Rn), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm, Ra) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -884,10 +884,10 @@ enum {
     instr_create_1dst_3src((dc), OP_smmlsr, (Rd), (Rn), (Rm), (Ra))
 #define INSTR_CREATE_usada8(dc, Rd, Rn, Rm, Ra) \
     instr_create_1dst_3src((dc), OP_usada8, (Rd), (Rn), (Rm), (Ra))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, Rn, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -934,10 +934,10 @@ enum {
     instr_create_2dst_2src((dc), OP_umull, (Rd), (Rd2), (Rn), (Rm))
 #define INSTR_CREATE_umulls(dc, Rd, Rd2, Rn, Rm) \
     instr_create_2dst_2src((dc), OP_umulls, (Rd), (Rd2), (Rn), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -963,10 +963,10 @@ enum {
 #define INSTR_CREATE_smc(dc, imm) instr_create_0dst_1src((dc), OP_smc, (imm))
 #define INSTR_CREATE_svc(dc, imm) instr_create_0dst_1src((dc), OP_svc, (imm))
 #define INSTR_CREATE_udf(dc, imm) instr_create_0dst_1src((dc), OP_udf, (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -983,10 +983,10 @@ enum {
     instr_create_1dst_1src((dc), OP_mrs_priv, (Rd), (imm))
 #define INSTR_CREATE_vmrs_imm(dc, Rd, imm) \
     instr_create_1dst_1src((dc), OP_vmrs, (Rd), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rt, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -999,10 +999,10 @@ enum {
  */
 #define INSTR_CREATE_vmsr_imm(dc, Rt, imm) \
     instr_create_0dst_2src((dc), OP_vmsr, (Rt), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (imm, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1015,10 +1015,10 @@ enum {
  */
 #define INSTR_CREATE_msr_priv(dc, imm, Rm) \
     instr_create_0dst_2src((dc), OP_msr_priv, (imm), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1034,10 +1034,10 @@ enum {
 #define INSTR_CREATE_cpsie_noflags(dc, imm, imm2) \
     instr_create_0dst_2src((dc), OP_cpsie, (imm), (imm2))
 #define INSTR_CREATE_it(dc, imm, imm2) instr_create_0dst_2src((dc), OP_it, (imm), (imm2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1062,10 +1062,10 @@ enum {
          ? INSTR_CREATE_mvns_shimm((dc), (Rd), (Rm_or_imm),                              \
                                    OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) \
          : instr_create_1dst_1src((dc), OP_mvns, (Rd), (Rm_or_imm)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rn, Rm_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1096,10 +1096,10 @@ enum {
          ? INSTR_CREATE_tst_shimm((dc), (Rn), (Rm_or_imm),                              \
                                   OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) \
          : instr_create_0dst_2src((dc), OP_tst, (Rn), (Rm_or_imm)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1123,10 +1123,10 @@ enum {
     instr_create_1dst_2src((dc), OP_uxtb, (Rd), (Rm), (imm))
 #define INSTR_CREATE_uxth_imm(dc, Rd, Rm, imm) \
     instr_create_1dst_2src((dc), OP_uxth, (Rd), (Rm), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1142,10 +1142,10 @@ enum {
     instr_create_1dst_2src((dc), OP_addw, (Rd), (Rn), (imm))
 #define INSTR_CREATE_subw(dc, Rd, Rn, imm) \
     instr_create_1dst_2src((dc), OP_subw, (Rd), (Rn), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, imm, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1161,10 +1161,10 @@ enum {
     instr_create_1dst_2src((dc), OP_ssat16, (Rd), (imm), (Rm))
 #define INSTR_CREATE_usat16(dc, Rd, imm, Rm) \
     instr_create_1dst_2src((dc), OP_usat16, (Rd), (imm), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1178,10 +1178,10 @@ enum {
  */
 #define INSTR_CREATE_bfc(dc, Rd, imm, imm2) \
     instr_create_1dst_3src((dc), OP_bfc, (Rd), (imm), (imm2), (Rd))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1319,10 +1319,10 @@ enum {
          ? INSTR_CREATE_subs_shimm((dc), (Rd), (Rn), (Rm_or_imm),                        \
                                    OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) \
          : instr_create_1dst_2src((dc), OP_subs, (Rd), (Rn), (Rm_or_imm)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, statreg, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1336,10 +1336,10 @@ enum {
  */
 #define INSTR_CREATE_mrs_priv_spsr(dc, Rd, statreg, imm) \
     instr_create_1dst_2src((dc), OP_mrs_priv, (Rd), (statreg), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (statreg, imm, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1353,10 +1353,10 @@ enum {
  */
 #define INSTR_CREATE_msr_priv_spsr(dc, statreg, imm, Rm) \
     instr_create_1dst_2src((dc), OP_msr_priv, (statreg), (imm), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (statreg, imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1370,10 +1370,10 @@ enum {
  */
 #define INSTR_CREATE_msr_imm(dc, statreg, imm, imm2) \
     instr_create_1dst_2src((dc), OP_msr, (statreg), (imm), (imm2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (statreg, imm_msr, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1387,10 +1387,10 @@ enum {
  */
 #define INSTR_CREATE_msr(dc, statreg, imm_msr, Rm) \
     instr_create_1dst_2src((dc), OP_msr, (statreg), (imm_msr), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1415,10 +1415,10 @@ enum {
     instr_create_1dst_3src((dc), OP_uxtab16, (Rd), (Rn), (Rm), (imm))
 #define INSTR_CREATE_uxtah(dc, Rd, Rn, Rm, imm) \
     instr_create_1dst_3src((dc), OP_uxtah, (Rd), (Rn), (Rm), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm, imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1437,10 +1437,10 @@ enum {
     instr_create_1dst_3src((dc), OP_sbfx, (Rd), (Rm), (imm), (imm2))
 #define INSTR_CREATE_ubfx(dc, Rd, Rm, imm, imm2) \
     instr_create_1dst_3src((dc), OP_ubfx, (Rd), (Rm), (imm), (imm2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm, shift, Rs) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1461,10 +1461,10 @@ enum {
     instr_create_1dst_3src((dc), OP_mvns, (Rd),                                      \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (Rs))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rn, Rm, shift, Rs) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1493,10 +1493,10 @@ enum {
     instr_create_0dst_4src((dc), OP_tst, (Rn),                                       \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (Rs))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm, shift, Rs) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1590,10 +1590,10 @@ enum {
     instr_create_1dst_4src((dc), OP_subs, (Rd), (Rn),                                \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (Rs))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rm, shift, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1614,10 +1614,10 @@ enum {
     instr_create_1dst_3src((dc), OP_mvns, (Rd),                                      \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rn, Rm, shift, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1646,10 +1646,10 @@ enum {
     instr_create_0dst_4src((dc), OP_tst, (Rn),                                       \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm, shift, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1757,10 +1757,10 @@ enum {
     instr_create_1dst_4src((dc), OP_subs, (Rd), (Rn),                                \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, imm, Rm, shift, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1782,10 +1782,10 @@ enum {
     instr_create_1dst_4src((dc), OP_usat, (Rd), (imm),                               \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1800,10 +1800,10 @@ enum {
 #define INSTR_CREATE_pli(dc, mem) instr_create_0dst_1src((dc), OP_pli, (mem))
 #define INSTR_CREATE_tbb(dc, mem) instr_create_0dst_1src((dc), OP_tbb, (mem))
 #define INSTR_CREATE_tbh(dc, mem) instr_create_0dst_1src((dc), OP_tbh, (mem))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1845,10 +1845,10 @@ enum {
 #define INSTR_CREATE_ldrsht(dc, Rd, mem) \
     instr_create_1dst_1src((dc), OP_ldrsht, (Rd), (mem))
 #define INSTR_CREATE_ldrt(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldrt, (Rd), (mem))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1862,10 +1862,10 @@ enum {
 #define INSTR_CREATE_stl(dc, mem, Rm) instr_create_1dst_1src((dc), OP_stl, (mem), (Rm))
 #define INSTR_CREATE_stlb(dc, mem, Rm) instr_create_1dst_1src((dc), OP_stlb, (mem), (Rm))
 #define INSTR_CREATE_stlh(dc, mem, Rm) instr_create_1dst_1src((dc), OP_stlh, (mem), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1884,10 +1884,10 @@ enum {
 #define INSTR_CREATE_strht(dc, mem, Rt) \
     instr_create_1dst_1src((dc), OP_strht, (mem), (Rt))
 #define INSTR_CREATE_strt(dc, mem, Rt) instr_create_1dst_1src((dc), OP_strt, (mem), (Rt))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (statreg, mem) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1918,10 +1918,10 @@ enum {
 #define INSTR_CREATE_rfeib_wb(dc, statreg, mem)                                 \
     instr_create_2dst_2src((dc), OP_rfeib, opnd_create_reg(opnd_get_base(mem)), \
                            (statreg), (mem), opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, mem) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1939,10 +1939,10 @@ enum {
     instr_create_2dst_1src((dc), OP_ldrd, (Rd), (Rd2), (mem))
 #define INSTR_CREATE_ldrexd(dc, Rd, Rd2, mem) \
     instr_create_2dst_1src((dc), OP_ldrexd, (Rd), (Rd2), (mem))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -1988,10 +1988,10 @@ enum {
     instr_create_2dst_2src((dc), OP_swp, (mem), (Rd), (mem), (Rm))
 #define INSTR_CREATE_swpb(dc, Rd, mem, Rm) \
     instr_create_2dst_2src((dc), OP_swpb, (mem), (Rd), (mem), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rd, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2015,10 +2015,10 @@ enum {
     instr_create_2dst_1src((dc), OP_strexb, (mem), (Rd), (Rm))
 #define INSTR_CREATE_strexh(dc, mem, Rd, Rm) \
     instr_create_2dst_1src((dc), OP_strexh, (mem), (Rd), (Rm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2040,10 +2040,10 @@ enum {
                            (Rt),                                                       \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),   \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rt2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2057,10 +2057,10 @@ enum {
  */
 #define INSTR_CREATE_strd(dc, mem, Rt, Rt2) \
     instr_create_1dst_2src((dc), OP_strd, (mem), (Rt), (Rt2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, mem, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2078,10 +2078,10 @@ enum {
                            opnd_create_reg(opnd_get_base(mem)), (mem),               \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rd, Rt, Rt2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2098,10 +2098,10 @@ enum {
     instr_create_2dst_2src((dc), OP_stlexd, (mem), (Rd), (Rt), (Rt2))
 #define INSTR_CREATE_strexd(dc, mem, Rd, Rt, Rt2) \
     instr_create_2dst_2src((dc), OP_strexd, (mem), (Rd), (Rt), (Rt2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rt2, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2119,10 +2119,10 @@ enum {
                            (Rt), (Rt2),                                               \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),  \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2164,10 +2164,10 @@ enum {
 #define INSTR_CREATE_ldrt_wbimm(dc, Rd, mem, imm)                                    \
     instr_create_2dst_3src((dc), OP_ldrt, (Rd), opnd_create_reg(opnd_get_base(mem)), \
                            (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2197,10 +2197,10 @@ enum {
 #define INSTR_CREATE_strt_wbimm(dc, mem, Rt, imm)                                     \
     instr_create_2dst_3src((dc), OP_strt, (mem), opnd_create_reg(opnd_get_base(mem)), \
                            (Rt), (imm), opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, statreg) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2240,10 +2240,10 @@ enum {
     instr_create_2dst_4src((dc), OP_srsib, (mem), opnd_create_reg(opnd_get_base(mem)), \
                            (imm), opnd_create_reg(opnd_get_base(mem)),                 \
                            opnd_create_reg(DR_REG_LR), (statreg))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, mem, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2260,10 +2260,10 @@ enum {
     instr_create_3dst_3src((dc), OP_ldrd, (Rd), (Rd2),                        \
                            opnd_create_reg(opnd_get_base(mem)), (mem), (imm), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rt2, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2279,10 +2279,10 @@ enum {
 #define INSTR_CREATE_strd_wbimm(dc, mem, Rt, Rt2, imm)                                \
     instr_create_2dst_4src((dc), OP_strd, (mem), opnd_create_reg(opnd_get_base(mem)), \
                            (Rt), (Rt2), (imm), opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem, Rm, shift, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2320,10 +2320,10 @@ enum {
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm),         \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rm, shift, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2361,10 +2361,10 @@ enum {
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),  \
                            opnd_add_flags((shift), DR_OPND_IS_SHIFT), (imm),          \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2509,10 +2509,10 @@ enum {
     instr_create_Ndst_Msrc_varsrc((dc), OP_vstmdb, 2, 1, list_len, 0, (mem), \
                                   opnd_create_reg(opnd_get_base(mem)),       \
                                   opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rm, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2546,10 +2546,10 @@ enum {
         (dc), OP_vld4_dup_8, 1, 3, list_len, 0, opnd_create_reg(opnd_get_base(mem)), \
         (mem), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),             \
         opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -2843,10 +2843,10 @@ enum {
     instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 2, 2, list_len, 0, (mem),  \
                                   opnd_create_reg(opnd_get_base(mem)), (imm), \
                                   opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, Rm, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3064,10 +3064,10 @@ enum {
         (dc), OP_vst4_8, 2, 3, list_len, 0, (mem), opnd_create_reg(opnd_get_base(mem)), \
         (imm), opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),                \
         opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, imm2, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3166,10 +3166,10 @@ enum {
     instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_8, 2, 3, list_len, 0, (mem),     \
                                   opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), \
                                   opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, imm2, Rm, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3251,10 +3251,10 @@ enum {
         opnd_create_reg(opnd_get_base(mem)), (imm), (imm2),                   \
         opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),             \
         opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Ra, Rd, imm, imm2, cpreg) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3272,10 +3272,10 @@ enum {
     instr_create_2dst_3src((dc), OP_mrrc, (Ra), (Rd), (imm), (imm2), (cpreg))
 #define INSTR_CREATE_mrrc2(dc, Ra, Rd, imm, imm2, cpreg) \
     instr_create_2dst_3src((dc), OP_mrrc2, (Ra), (Rd), (imm), (imm2), (cpreg))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, Rn, Rt, imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3293,10 +3293,10 @@ enum {
     instr_create_1dst_4src((dc), OP_mcrr, (cpreg), (Rn), (Rt), (imm), (imm2))
 #define INSTR_CREATE_mcrr2(dc, cpreg, Rn, Rt, imm, imm2) \
     instr_create_1dst_4src((dc), OP_mcrr2, (cpreg), (Rn), (Rt), (imm), (imm2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, cpreg2, imm, imm2, Rt) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3312,10 +3312,10 @@ enum {
  */
 #define INSTR_CREATE_mcr2(dc, cpreg, cpreg2, imm, imm2, Rt) \
     instr_create_2dst_3src((dc), OP_mcr2, (cpreg), (cpreg2), (imm), (imm2), (Rt))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, imm, imm2, cpreg2, cpreg3) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3331,10 +3331,10 @@ enum {
  */
 #define INSTR_CREATE_cdp2(dc, cpreg, imm, imm2, cpreg2, cpreg3) \
     instr_create_1dst_4src((dc), OP_cdp2, (cpreg), (imm), (imm2), (cpreg2), (cpreg3))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, imm, imm2, cpreg, cpreg2, imm3) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3353,10 +3353,10 @@ enum {
     instr_create_1dst_5src((dc), OP_mrc, (Rd), (imm), (imm2), (cpreg), (cpreg2), (imm3))
 #define INSTR_CREATE_mrc2(dc, Rd, imm, imm2, cpreg, cpreg2, imm3) \
     instr_create_1dst_5src((dc), OP_mrc2, (Rd), (imm), (imm2), (cpreg), (cpreg2), (imm3))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, cpreg2, imm, imm2, Rt, imm3) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3373,10 +3373,10 @@ enum {
  */
 #define INSTR_CREATE_mcr(dc, cpreg, cpreg2, imm, imm2, Rt, imm3) \
     instr_create_2dst_4src((dc), OP_mcr, (cpreg), (cpreg2), (imm), (imm2), (Rt), (imm3))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, imm, imm2, cpreg2, cpreg3, imm3) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3394,10 +3394,10 @@ enum {
 #define INSTR_CREATE_cdp(dc, cpreg, imm, imm2, cpreg2, cpreg3, imm3)                 \
     instr_create_1dst_5src((dc), OP_cdp, (cpreg), (imm), (imm2), (cpreg2), (cpreg3), \
                            (imm3))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, mem, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3413,10 +3413,10 @@ enum {
     instr_create_1dst_2src((dc), OP_ldc, (cpreg), (mem), (imm))
 #define INSTR_CREATE_ldcl(dc, cpreg, mem, imm) \
     instr_create_1dst_2src((dc), OP_ldcl, (cpreg), (mem), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, imm, cpreg, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3449,10 +3449,10 @@ enum {
 #define INSTR_CREATE_stcl_wbimm(dc, mem, imm, cpreg, imm2)                            \
     instr_create_2dst_4src((dc), OP_stcl, (mem), opnd_create_reg(opnd_get_base(mem)), \
                            (imm), (cpreg), (imm2), opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, mem, imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3485,10 +3485,10 @@ enum {
 #define INSTR_CREATE_ldcl_wbimm(dc, cpreg, mem, imm, imm2)                              \
     instr_create_2dst_4src((dc), OP_ldcl, (cpreg), opnd_create_reg(opnd_get_base(mem)), \
                            (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Vn) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3501,10 +3501,10 @@ enum {
  */
 #define INSTR_CREATE_vmov_s2g(dc, Rd, Vn) \
     instr_create_1dst_1src((dc), OP_vmov, (Rd), (Vn))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3795,10 +3795,10 @@ enum {
     instr_create_1dst_1src((dc), OP_vzip_32, (Vd), (Vm))
 #define INSTR_CREATE_vzip_8(dc, Vd, Vm) \
     instr_create_1dst_1src((dc), OP_vzip_8, (Vd), (Vm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Rt) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3817,10 +3817,10 @@ enum {
     instr_create_1dst_1src((dc), OP_vdup_8, (Vd), (Rt))
 #define INSTR_CREATE_vmov_g2s(dc, Vd, Rt) \
     instr_create_1dst_1src((dc), OP_vmov, (Vd), (Rt))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Ra, Rd, Vm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -3834,10 +3834,10 @@ enum {
  */
 #define INSTR_CREATE_vmov_s2gg(dc, Ra, Rd, Vm) \
     instr_create_2dst_1src((dc), OP_vmov, (Ra), (Rd), (Vm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vn, Vm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4363,10 +4363,10 @@ enum {
     instr_create_1dst_2src((dc), OP_vtst_32, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vtst_8(dc, Vd, Vn, Vm) \
     instr_create_1dst_2src((dc), OP_vtst_8, (Vd), (Vn), (Vm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Rt, Rt2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4380,10 +4380,10 @@ enum {
  */
 #define INSTR_CREATE_vmov_gg2s(dc, Vd, Rt, Rt2) \
     instr_create_1dst_2src((dc), OP_vmov, (Vd), (Rt), (Rt2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, Vt, Vt2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4398,10 +4398,10 @@ enum {
  */
 #define INSTR_CREATE_vmov_ss2gg(dc, Rd, Rd2, Vt, Vt2) \
     instr_create_2dst_2src((dc), OP_vmov, (Rd), (Rd2), (Vt), (Vt2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vd2, Rt, Rt2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4416,10 +4416,10 @@ enum {
  */
 #define INSTR_CREATE_vmov_gg2ss(dc, Vd, Vd2, Rt, Rt2) \
     instr_create_2dst_2src((dc), OP_vmov, (Vd), (Vd2), (Rt), (Rt2))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4450,10 +4450,10 @@ enum {
     instr_create_1dst_1src((dc), OP_vorr_i16, (Vd), (imm))
 #define INSTR_CREATE_vorr_i32(dc, Vd, imm) \
     instr_create_1dst_1src((dc), OP_vorr_i32, (Vd), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vm_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4468,10 +4468,10 @@ enum {
     instr_create_1dst_1src((dc), OP_vmov_f32, (Vd), (Vm_or_imm))
 #define INSTR_CREATE_vmov_f64(dc, Vd, Vm_or_imm) \
     instr_create_1dst_1src((dc), OP_vmov_f64, (Vd), (Vm_or_imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vt, Vm_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4494,10 +4494,10 @@ enum {
 #define INSTR_CREATE_vcmpe_f64(dc, Vt, Vm_or_imm)                                   \
     instr_create_1dst_2src((dc), OP_vcmpe_f64, opnd_create_reg(DR_REG_FPSCR), (Vt), \
                            (Vm_or_imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Vn, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4519,10 +4519,10 @@ enum {
     instr_create_1dst_2src((dc), OP_vmov_u16, (Rd), (Vn), (imm))
 #define INSTR_CREATE_vmov_u8(dc, Rd, Vn, imm) \
     instr_create_1dst_2src((dc), OP_vmov_u8, (Rd), (Vn), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vm, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4750,10 +4750,10 @@ enum {
     instr_create_1dst_2src((dc), OP_vsri_64, (Vd), (Vm), (imm))
 #define INSTR_CREATE_vsri_8(dc, Vd, Vm, imm) \
     instr_create_1dst_2src((dc), OP_vsri_8, (Vd), (Vm), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Rt, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4771,10 +4771,10 @@ enum {
     instr_create_1dst_2src((dc), OP_vmov_32, (Vd), (Rt), (imm))
 #define INSTR_CREATE_vmov_8(dc, Vd, Rt, imm) \
     instr_create_1dst_2src((dc), OP_vmov_8, (Vd), (Rt), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vn, Vm_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4826,10 +4826,10 @@ enum {
     instr_create_1dst_2src((dc), OP_vqshl_u64, (Vd), (Vn), (Vm_or_imm))
 #define INSTR_CREATE_vqshl_u8(dc, Vd, Vn, Vm_or_imm) \
     instr_create_1dst_2src((dc), OP_vqshl_u8, (Vd), (Vn), (Vm_or_imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vn, Vm, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4906,10 +4906,10 @@ enum {
     instr_create_1dst_3src((dc), OP_vqrdmulh_s16, (Vd), (Vn), (Vm), (imm))
 #define INSTR_CREATE_vqrdmulh_s32_imm(dc, Vd, Vn, Vm, imm) \
     instr_create_1dst_3src((dc), OP_vqrdmulh_s32, (Vd), (Vn), (Vm), (imm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, imm, Vn, Vm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4938,10 +4938,10 @@ enum {
     instr_create_1dst_3src((dc), OP_vsel_vs_f32, (Vd), (imm), (Vn), (Vm))
 #define INSTR_CREATE_vsel_vs_f64(dc, Vd, imm, Vn, Vm) \
     instr_create_1dst_3src((dc), OP_vsel_vs_f64, (Vd), (imm), (Vn), (Vm))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4953,10 +4953,10 @@ enum {
  * \param mem The memory opnd_t operand.
  */
 #define INSTR_CREATE_vldr(dc, Vd, mem) instr_create_1dst_1src((dc), OP_vldr, (Vd), (mem))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4968,10 +4968,10 @@ enum {
  * \param Vt The source SIMD register opnd_t operand.
  */
 #define INSTR_CREATE_vstr(dc, mem, Vt) instr_create_1dst_1src((dc), OP_vstr, (mem), (Vt))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -4989,10 +4989,10 @@ enum {
     instr_create_2dst_3src((dc), OP_vld1_lane_8, (Vd),                        \
                            opnd_create_reg(opnd_get_base(mem)), (mem), (imm), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5010,10 +5010,10 @@ enum {
     instr_create_2dst_3src((dc), OP_vst1_lane_8, (mem),                      \
                            opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem, imm, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5031,10 +5031,10 @@ enum {
                            opnd_create_reg(opnd_get_base(mem)), (mem), (imm),        \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem, imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5059,10 +5059,10 @@ enum {
     instr_create_2dst_4src((dc), OP_vld1_lane_32, (Vd),                               \
                            opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5080,10 +5080,10 @@ enum {
                            opnd_create_reg(opnd_get_base(mem)), (Vt), (imm),         \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm, imm2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5108,10 +5108,10 @@ enum {
     instr_create_2dst_4src((dc), OP_vst1_lane_32, (mem),                             \
                            opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), (imm2), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem, imm, imm2, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5135,10 +5135,10 @@ enum {
                            opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED),  \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm, imm2, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5162,10 +5162,10 @@ enum {
                            opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), (imm2), \
                            opnd_create_reg_ex(opnd_get_reg(Rm), 0, DR_OPND_SHIFTED), \
                            opnd_create_reg(opnd_get_base(mem)))
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, Vm, list_len, ...) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/** @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -5185,7 +5185,7 @@ enum {
 #define INSTR_CREATE_vtbx_8(dc, Vd, Vm, list_len, ...)                            \
     instr_create_Ndst_Msrc_varsrc((dc), OP_vtbx_8, 1, 1, list_len, 0, (Vd), (Vm), \
                                   __VA_ARGS__)
-/* @} */ /* end doxygen group */
+/** @} */ /* end doxygen group */
 
 /* DR_API EXPORT END */
 

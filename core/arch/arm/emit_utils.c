@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -288,7 +288,8 @@ exit_cti_reaches_target(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 }
 
 void
-patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
+patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, cache_pc target_prefix_pc,
+           bool hot_patch)
 {
     /* For far-away targets, we branch to the stub and use an
      * indirect branch from there:
@@ -326,7 +327,7 @@ patch_stub(fragment_t *f, cache_pc stub_pc, cache_pc target_pc, bool hot_patch)
 }
 
 bool
-stub_is_patched(fragment_t *f, cache_pc stub_pc)
+stub_is_patched(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc)
 {
     if (FRAG_IS_THUMB(f->flags)) {
         return ((*stub_pc) & 0xf) == (DR_REG_PC - DR_REG_R0);
@@ -336,7 +337,7 @@ stub_is_patched(fragment_t *f, cache_pc stub_pc)
 }
 
 void
-unpatch_stub(fragment_t *f, cache_pc stub_pc, bool hot_patch)
+unpatch_stub(dcontext_t *dcontext, fragment_t *f, cache_pc stub_pc, bool hot_patch)
 {
     /* XXX: we're called even for a near link, so try to avoid any writes or flushes */
     if (FRAG_IS_THUMB(f->flags)) {
@@ -928,6 +929,15 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
 
     /* Hit path */
     /* XXX: add stats via sharing code with x86 */
+
+    /* Save next tag to TLS_REG4_SLOT in case it is needed for the
+     * target_delete_entry path.
+     * XXX: Instead of using a TLS slot, it will be more performant for the hit path to
+     * let the relevant data be passed to the target_delete_entry code using r0 and use
+     * load-into-PC for the jump below.
+     */
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
+
     APP(&ilist,
         INSTR_CREATE_ldr(dc, OPREG(DR_REG_R0),
                          OPND_CREATE_MEMPTR(
@@ -974,14 +984,27 @@ emit_indirect_branch_lookup(dcontext_t *dc, generated_code_t *code, byte *pc,
         APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(load_tag)));
     }
 
-    /* Target delete entry */
+    /* Target delete entry.
+     * We just executed the hit path, so the app's r1 and r2 values are still in
+     * their TLS slots, and &linkstub is still in the r3 slot.
+     */
     APP(&ilist, target_delete_entry);
     add_patch_marker(patch, target_delete_entry, PATCH_ASSEMBLE_ABSOLUTE,
                      0 /* beginning of instruction */,
                      (ptr_uint_t *)&ibl_code->target_delete_entry);
-    /* We just executed the hit path, so the app's r1 and r2 values are still in
-     * their TLS slots, and &linkstub is still in the r3 slot.
+
+    /* Get the next fragment tag from TLS_REG4_SLOT. Note that this already has
+     * the LSB cleared, so we jump over the following sequence to avoid redoing.
      */
+    APP(&ilist, instr_create_restore_from_tls(dc, DR_REG_R2, TLS_REG4_SLOT));
+
+    /* Save &linkstub_ibl_deleted to TLS_REG3_SLOT; it will be restored to r0 below. */
+    instrlist_insert_mov_immed_ptrsz(dc, (ptr_uint_t)get_ibl_deleted_linkstub(),
+                                     opnd_create_reg(DR_REG_R1), &ilist, NULL, NULL,
+                                     NULL);
+    APP(&ilist, instr_create_save_to_tls(dc, DR_REG_R1, TLS_REG3_SLOT));
+
+    APP(&ilist, INSTR_CREATE_b(dc, opnd_create_instr(miss)));
 
     /* Unlink path: entry from stub */
     APP(&ilist, unlinked);
