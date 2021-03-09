@@ -47,6 +47,8 @@ mechanism.
 
 If you are not (yet) a member of the Committers group for DynamoRIO and thus do not have write access to the repository, you can contribute an individual source code change by having an existing developer commit it.  Rather than using a feature branch on a clone of [DynamoRIO/dynamorio](https://github.com/DynamoRIO/dynamorio) and using `git review` as described below, you'd fork [DynamoRIO/dynamorio](https://github.com/DynamoRIO/dynamorio) into your personal github account and submit a pull request from there to the master branch of [DynamoRIO/dynamorio](https://github.com/DynamoRIO/dynamorio).  You are expected to follow our [Code Style](@ref page_code_style) and, just like with project feature branches, *do not force push* to your personal branch: it is shared history once in a pull request.
 
+In order for the DynamoRIO automated tests to run on your pull request, be sure that you have enabled `Allow all actions` under `Actions` in the `Settings` of your forked repository.
+
 We recommend submitting a few small patches in this manner to demonstrate your work before asking to be added as a project member.
 
 Once you become a DynamoRIO project member, please switch to our workflow of using branches within the DynamoRIO/dynamorio repository rather than using personal cloned repository branches.  This makes it easier for others to contribute toward or take over and finish off pull requests while still giving you credit upon merge.  (It is not uncommon for an open source PR author to be busy and unable to quickly finish off small requested changes, and we'd like to be able to step in and easily finalize it within the same PR.)
