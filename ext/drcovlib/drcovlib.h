@@ -257,7 +257,7 @@ typedef struct _drmodtrack_info_t {
     /**
      * The offset of this segment from the beginning of this backing file.
      * If this field is not present in an older-version offline file, it will be
-     * filled in with -1.
+     * filled in with -1.  On Windows this field is always 0.
      */
     uint64 offset;
     /**
