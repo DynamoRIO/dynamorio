@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -55,10 +55,8 @@ typedef struct _module_entry_t {
      */
     module_data_t *data;
     void *custom;
-#ifndef WINDOWS
     /* The file offset of the segment */
     uint64 offset;
-#endif
 } module_entry_t;
 
 typedef struct _module_table_t {
@@ -191,7 +189,9 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         if (module_load_cb != NULL)
             entry->custom = module_load_cb(entry->data, 0);
         drvector_append(&module_table.vector, entry);
-#ifndef WINDOWS
+#ifdef WINDOWS
+        entry->offset = 0;
+#else
         entry->offset = data->segments[0].offset;
         uint j;
         module_entry_t *sub_entry;
@@ -459,10 +459,10 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
 #endif
     read_entry.path = full_path;
     read_entry.custom = entry->custom;
-#ifndef WINDOWS
-    // For unices we record the physical offset from the backing file.
+    /* For unices we record the physical offset from the backing file
+     *(always 0 on Windows).
+     */
     read_entry.offset = entry->offset;
-#endif
     return module_read_entry_print(&read_entry, entry->id, buf, size);
 }
 

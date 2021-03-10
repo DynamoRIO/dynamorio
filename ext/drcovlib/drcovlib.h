@@ -256,6 +256,7 @@ typedef struct _drmodtrack_info_t {
     uint index;
     /**
      * The offset of this segment from the beginning of this backing file.
+     * On Windows this field is always 0.
      */
     uint64 offset;
 } drmodtrack_info_t;
