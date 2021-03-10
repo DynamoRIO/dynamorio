@@ -196,6 +196,8 @@ Further non-compatibility-affecting changes include:
  - Added instr_replace_reg_resize() and opnd_replace_reg_resize().
  - Added #DRX_COUNTER_REL_ACQ flag to optionally enable release-acquire semantics for
    drx_insert_counter_update() on AArchXX.
+ - Added a preferred base field to the #_module_data_t struct and to the
+   #_drmodtrack_info_t struct.
 
 **************************************************
 <hr>
