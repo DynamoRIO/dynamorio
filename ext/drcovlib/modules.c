@@ -459,8 +459,9 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
 #endif
     read_entry.path = full_path;
     read_entry.custom = entry->custom;
-    // For unices we record the physical offset from the backing file
-    // (always 0 on Windows).
+    /* For unices we record the physical offset from the backing file
+     *(always 0 on Windows).
+     */
     read_entry.offset = entry->offset;
     return module_read_entry_print(&read_entry, entry->id, buf, size);
 }
