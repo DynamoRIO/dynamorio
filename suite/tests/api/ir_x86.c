@@ -1278,6 +1278,38 @@ test_x64_inc(void *dc)
     instr = INSTR_CREATE_inc(dc, opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 2);
 }
+
+static void
+test_x64_vmovq(void *dc)
+{
+    /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte] */
+    buf[0] = 0x62;
+    buf[1] = 0x61;
+    buf[2] = 0xfd;
+    buf[3] = 0x08;
+    buf[4] = 0xd6;
+    buf[5] = 0x0c;
+    buf[6] = 0x0a;
+
+#    if VERBOSE
+    disassemble_with_info(dc, buf, STDOUT, true, true);
+#    endif
+    ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[7]);
+
+    /* 62 61 fe 08 7e 0c 0a vmovq  (%rdx,%rcx)[8byte] -> %xmm25 */
+    buf[0] = 0x62;
+    buf[1] = 0x61;
+    buf[2] = 0xfe;
+    buf[3] = 0x08;
+    buf[4] = 0x7e;
+    buf[5] = 0x0c;
+    buf[6] = 0x0a;
+
+#    if VERBOSE
+    disassemble_with_info(dc, buf, STDOUT, true, true);
+#    endif
+    ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[7]);
+}
 #endif
 
 static void
@@ -2456,6 +2488,8 @@ main(int argc, char *argv[])
     test_x64_abs_addr(dcontext);
 
     test_x64_inc(dcontext);
+
+    test_x64_vmovq(dcontext);
 #endif
 
     test_regs(dcontext);
