@@ -1282,33 +1282,26 @@ test_x64_inc(void *dc)
 static void
 test_x64_vmovq(void *dc)
 {
-    /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte] */
-    buf[0] = 0x62;
-    buf[1] = 0x61;
-    buf[2] = 0xfd;
-    buf[3] = 0x08;
-    buf[4] = 0xd6;
-    buf[5] = 0x0c;
-    buf[6] = 0x0a;
+    /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]
+     * 62 61 fe 08 7e 0c 0a vmovq  (%rdx,%rcx)[8byte] -> %xmm25
+     */
+    byte *pc;
+    const byte b1[] = { 0x62, 0x61, 0xfd, 0x08, 0xd6, 0x0c, 0x0a, 0x00 };
+    const byte b2[] = { 0x62, 0x61, 0xfe, 0x08, 0x7e, 0x0c, 0x0a, 0x00 };
+    char dbuf[512];
+    int len;
 
-#    if VERBOSE
-    disassemble_with_info(dc, buf, STDOUT, true, true);
-#    endif
-    ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[7]);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b1[7]);
+    ASSERT(strcmp(dbuf, "vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]\n") == 0);
 
-    /* 62 61 fe 08 7e 0c 0a vmovq  (%rdx,%rcx)[8byte] -> %xmm25 */
-    buf[0] = 0x62;
-    buf[1] = 0x61;
-    buf[2] = 0xfe;
-    buf[3] = 0x08;
-    buf[4] = 0x7e;
-    buf[5] = 0x0c;
-    buf[6] = 0x0a;
-
-#    if VERBOSE
-    disassemble_with_info(dc, buf, STDOUT, true, true);
-#    endif
-    ASSERT(decode_next_pc(dc, buf) == (byte *)&buf[7]);
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b2[7]);
+    ASSERT(strcmp(dbuf, "vmovq  (%rdx,%rcx)[8byte] -> %xmm25\n") == 0);
 }
 #endif
 
