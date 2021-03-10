@@ -38,7 +38,7 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#define MODULE_FILE_VERSION 4
+#define MODULE_FILE_VERSION 5
 
 #define NUM_GLOBAL_MODULE_CACHE 8
 #define NUM_THREAD_MODULE_CACHE 4
@@ -57,6 +57,7 @@ typedef struct _module_entry_t {
     void *custom;
     /* The file offset of the segment */
     uint64 offset;
+    app_pc preferred_base;
 } module_entry_t;
 
 typedef struct _module_table_t {
@@ -189,6 +190,7 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
         if (module_load_cb != NULL)
             entry->custom = module_load_cb(entry->data, 0);
         drvector_append(&module_table.vector, entry);
+        entry->preferred_base = data->preferred_base;
 #ifdef WINDOWS
         entry->offset = 0;
 #else
@@ -211,6 +213,8 @@ event_module_load(void *drcontext, const module_data_t *data, bool loaded)
             if (module_load_cb != NULL)
                 sub_entry->custom = module_load_cb(sub_entry->data, j);
             sub_entry->offset = data->segments[j].offset;
+            sub_entry->preferred_base =
+                (sub_entry->start - entry->start) + entry->preferred_base;
             drvector_append(&module_table.vector, sub_entry);
             global_module_cache_add(module_table.cache, sub_entry);
         }
@@ -392,6 +396,7 @@ typedef struct _module_read_entry_t {
     char path_buf[MAXIMUM_PATH];
     void *custom;
     uint64 offset;
+    app_pc preferred_base;
 } module_read_entry_t;
 
 typedef struct _module_read_info_t {
@@ -407,9 +412,10 @@ module_read_entry_print(module_read_entry_t *entry, uint idx, char *buf, size_t 
 {
     int len, total_len = 0;
     len = dr_snprintf(buf, size,
-                      "%3u, %3u, " PFX ", " PFX ", " PFX ", " ZHEX64_FORMAT_STRING ", ",
+                      "%3u, %3u, " PFX ", " PFX ", " PFX ", " ZHEX64_FORMAT_STRING
+                      ", " PFX ", ",
                       idx, entry->containing_id, entry->base, entry->base + entry->size,
-                      entry->entry, entry->offset);
+                      entry->entry, entry->offset, entry->preferred_base);
     if (len == -1)
         return -1;
     buf += len;
@@ -463,6 +469,7 @@ module_table_entry_print(module_entry_t *entry, char *buf, size_t size)
      *(always 0 on Windows).
      */
     read_entry.offset = entry->offset;
+    read_entry.preferred_base = entry->preferred_base;
     return module_read_entry_print(&read_entry, entry->id, buf, size);
 }
 
@@ -481,7 +488,9 @@ drmodtrack_dump_buf_headers(char *buf_in, size_t size, uint count, OUT int *len_
     buf += len;
     size -= len;
 
-    len = dr_snprintf(buf, size, "Columns: id, containing_id, start, end, entry, offset");
+    len = dr_snprintf(
+        buf, size,
+        "Columns: id, containing_id, start, end, entry, offset, preferred_base");
     if (len == -1)
         return DRCOVLIB_ERROR_BUF_TOO_SMALL;
     buf += len;
@@ -652,7 +661,7 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                 mod_id != i)
                 goto read_error;
         } else {
-            app_pc end;
+            app_pc end = NULL;
             if (version == 2) {
                 if (dr_sscanf(buf, "%u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
                               &info->mod[i].base, &end, &info->mod[i].entry) != 4 ||
@@ -660,25 +669,35 @@ drmodtrack_offline_read(file_t file, const char *map, OUT const char **next_line
                     goto read_error;
                 info->mod[i].containing_id = mod_id;
                 buf = skip_commas_and_spaces(buf, 4);
-            } else if (version == 3) {
+                if (buf == NULL)
+                    goto read_error;
+            } else if (version >= 3) {
+                info->mod[i].offset = (uint64)-1;
+                info->mod[i].preferred_base = (app_pc)-1L;
                 if (dr_sscanf(buf, "%u, %u, " PIFX ", " PIFX ", " PIFX ", ", &mod_id,
                               &info->mod[i].containing_id, &info->mod[i].base, &end,
                               &info->mod[i].entry) != 5 ||
                     mod_id != i)
                     goto read_error;
                 buf = skip_commas_and_spaces(buf, 5);
-            } else { // version == 4
-                if (dr_sscanf(buf,
-                              "%u, %u, " PIFX ", " PIFX ", " PIFX ", " HEX64_FORMAT_STRING
-                              ", ",
-                              &mod_id, &info->mod[i].containing_id, &info->mod[i].base,
-                              &end, &info->mod[i].entry, &info->mod[i].offset) != 6 ||
-                    mod_id != i)
+                if (buf == NULL)
                     goto read_error;
-                buf = skip_commas_and_spaces(buf, 6);
+                if (version >= 4) {
+                    if (dr_sscanf(buf, HEX64_FORMAT_STRING ", ", &info->mod[i].offset) !=
+                        1)
+                        goto read_error;
+                    buf = skip_commas_and_spaces(buf, 1);
+                    if (buf == NULL)
+                        goto read_error;
+                }
+                if (version >= 5) {
+                    if (dr_sscanf(buf, PIFX ", ", &info->mod[i].preferred_base) != 1)
+                        goto read_error;
+                    buf = skip_commas_and_spaces(buf, 1);
+                    if (buf == NULL)
+                        goto read_error;
+                }
             }
-            if (buf == NULL)
-                goto read_error;
             info->mod[i].size = end - info->mod[i].base;
 #ifdef WINDOWS
             if (dr_sscanf(buf, "0x%x, 0x%x, ", &info->mod[i].checksum,
@@ -740,6 +759,8 @@ drmodtrack_offline_lookup(void *handle, uint index, OUT drmodtrack_info_t *out)
         out->index = index;
     if (out->struct_size > offsetof(drmodtrack_info_t, offset))
         out->offset = info->mod[index].offset;
+    if (out->struct_size > offsetof(drmodtrack_info_t, preferred_base))
+        out->preferred_base = info->mod[index].preferred_base;
     return DRCOVLIB_SUCCESS;
 }
 

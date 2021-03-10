@@ -256,9 +256,16 @@ typedef struct _drmodtrack_info_t {
     uint index;
     /**
      * The offset of this segment from the beginning of this backing file.
-     * On Windows this field is always 0.
+     * If this field is not present in an older-version offline file, it will be
+     * filled in with -1.  On Windows this field is always 0.
      */
     uint64 offset;
+    /**
+     * The preferred base address of this segment of the module.
+     * If this field is not present in an older-version offline file, it will be
+     * filled in with -1.
+     */
+    app_pc preferred_base;
 } drmodtrack_info_t;
 
 DR_EXPORT

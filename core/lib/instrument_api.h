@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3182,8 +3182,8 @@ struct _module_data_t {
     byte uuid[16];                /**< UUID from Mach-O headers. */
 #        endif
 #    endif
+    app_pc preferred_base; /**< The preferred base address of the module. */
 #    ifdef AVOID_API_EXPORT
-    /* FIXME: PR 215890: ELF64 size? Anything else? */
     /* We can add additional fields to the end without breaking compatibility */
 #    endif
 };
