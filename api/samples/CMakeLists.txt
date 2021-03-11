@@ -120,6 +120,10 @@ if (DEBUG)
   set(OPT_CFLAGS "${OPT_CFLAGS} -DDEBUG")
 endif (DEBUG)
 
+if (DR_NDEBUG OR NOT DEBUG)
+  set(OPT_CFLAGS "${OPT_CFLAGS} -DDR_NDEBUG")
+endif (DR_NDEBUG OR NOT DEBUG)
+
 # For C clients that only rely on the DR API and not on any 3rd party
 # library routines, we could shrink the size of the client binary
 # by disabling libc via "set(DynamoRIO_USE_LIBC OFF)".
