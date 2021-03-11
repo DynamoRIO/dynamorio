@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1884,24 +1884,21 @@ instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag)
 static module_data_t *
 create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
                                   uint flags, const module_names_t *names,
-                                  const char *full_path
+                                  const char *full_path,
 #    ifdef WINDOWS
-                                  ,
                                   version_number_t file_version,
                                   version_number_t product_version, uint checksum,
-                                  uint timestamp, size_t mod_size
+                                  uint timestamp, size_t mod_size,
 #    else
-                                  ,
                                   bool contiguous, uint num_segments,
                                   module_segment_t *os_segments,
-                                  module_segment_data_t *segments, uint timestamp
+                                  module_segment_data_t *segments, uint timestamp,
 #        ifdef MACOS
-                                  ,
                                   uint current_version, uint compatibility_version,
-                                  const byte uuid[16]
+                                  const byte uuid[16],
 #        endif
 #    endif
-)
+                                  app_pc preferred_base)
 {
 #    ifndef WINDOWS
     uint i;
@@ -1959,6 +1956,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
     memcpy(copy->uuid, uuid, sizeof(copy->uuid));
 #        endif
 #    endif
+    copy->preferred_base = preferred_base;
     return copy;
 }
 
@@ -1969,22 +1967,19 @@ copy_module_area_to_module_data(const module_area_t *area)
         return NULL;
 
     return create_and_initialize_module_data(
-        area->start, area->end, area->entry_point, 0, &area->names, area->full_path
+        area->start, area->end, area->entry_point, 0, &area->names, area->full_path,
 #    ifdef WINDOWS
-        ,
         area->os_data.file_version, area->os_data.product_version, area->os_data.checksum,
-        area->os_data.timestamp, area->os_data.module_internal_size
+        area->os_data.timestamp, area->os_data.module_internal_size,
 #    else
-        ,
         area->os_data.contiguous, area->os_data.num_segments, area->os_data.segments,
-        NULL, area->os_data.timestamp
+        NULL, area->os_data.timestamp,
 #        ifdef MACOS
-        ,
         area->os_data.current_version, area->os_data.compatibility_version,
-        area->os_data.uuid
+        area->os_data.uuid,
 #        endif
 #    endif
-    );
+        IF_WINDOWS_ELSE(area->os_data.preferred_base, area->os_data.base_address));
 }
 
 DR_API
@@ -1998,20 +1993,17 @@ dr_copy_module_data(const module_data_t *data)
         return NULL;
 
     return create_and_initialize_module_data(
-        data->start, data->end, data->entry_point, 0, &data->names, data->full_path
+        data->start, data->end, data->entry_point, 0, &data->names, data->full_path,
 #    ifdef WINDOWS
-        ,
         data->file_version, data->product_version, data->checksum, data->timestamp,
-        data->module_internal_size
+        data->module_internal_size,
 #    else
-        ,
-        data->contiguous, data->num_segments, NULL, data->segments, data->timestamp
+        data->contiguous, data->num_segments, NULL, data->segments, data->timestamp,
 #        ifdef MACOS
-        ,
-        data->current_version, data->compatibility_version, data->uuid
+        data->current_version, data->compatibility_version, data->uuid,
 #        endif
 #    endif
-    );
+        data->preferred_base);
 }
 
 DR_API
