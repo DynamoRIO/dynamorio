@@ -72,7 +72,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-multilib
+          gcc-multilib  g++-multilib
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
