@@ -55,7 +55,7 @@ jobs:
   ###########################################################################
   # Linux x86 tarball with 64-bit and 32-bit builds:
   linux-x86:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
@@ -138,7 +138,7 @@ jobs:
   ###########################################################################
   # Linux AArch64 tarball:
   linux-aarch64:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
@@ -212,7 +212,7 @@ jobs:
   ###########################################################################
   # Linux ARM tarball (package.cmake does not support same job as AArch64):
   linux-arm:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
@@ -286,7 +286,7 @@ jobs:
   ###########################################################################
   # Android ARM tarball:
   android-arm:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
 
     steps:
     - uses: actions/checkout@v2
@@ -465,7 +465,7 @@ jobs:
 
   create_release:
     needs: [linux-x86, linux-aarch64, linux-arm, android-arm, windows]
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-18.04
 
     steps:
       # We need a checkout to run git log for the version.
