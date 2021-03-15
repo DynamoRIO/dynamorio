@@ -73,6 +73,7 @@ jobs:
     # Install needed packages.
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Get Version
