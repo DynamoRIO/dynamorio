@@ -79,8 +79,9 @@ jobs:
     # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
-        sudo apt-get update --fix-missing
-        sudo apt-get install g++-multilib
+        sudo apt-get update
+        sudo apt install aptitude
+        sudo aptitude -y install gcc-multilib
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Run Suite
@@ -131,9 +132,10 @@ jobs:
     # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
-        sudo apt-get update --fix-missing
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-multilib
+        sudo apt-get update
+        sudo apt install aptitude
+        sudo aptitude -y install gcc-multilib
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
