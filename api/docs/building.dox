@@ -72,7 +72,9 @@ To build DynamoRIO on Windows, first install the following software.
   - Perl.  We recommend either [Strawberry Perl](http://strawberryperl.com/) or Cygwin perl.
   - (optional) [Cygwin](http://cygwin.com).  Only needed for building documentation.  Select the doxygen package if you do install it.  (You can also select Cygwin's perl and git as alternatives to the links above.)
 
-Once these programs are installed, you need to generate your project and solution files for Visual Studio using CMake.  The easiest way to do this is to launch a cmd prompt with the right environment from the Visual Studio folder in the Start menu.  You should find it under a path similar to "Visual Studio 2017 > x86 Native Tools Command Prompt".  If you need a 64-bit build, choose "x64 Native Tools Command Prompt" and pass -G"Visual Studio 15 Win64" to cmake.  An alternative to the command prompt is to execute the appropriate vcvars.bat command for your compiler in your shell of choice.  Use the following commands as a guide to build 32-bit DynamoRIO in release mode.
+Once these dependencies are installed, you need to generate your project and solution files for Visual Studio using CMake.  The easiest way to do this is to launch a cmd prompt with the right environment from the Visual Studio folder in the Start menu.
+
+To build 32-bit DynamoRIO in release mode, launch the `Visual Studio 2017 > x86 Native Tools Command Prompt for VS 2017` and run the following commands:
 
   ```
   # Get sources.
@@ -89,6 +91,10 @@ Once these programs are installed, you need to generate your project and solutio
   # Run notepad under DR to see whether it worked.
   $ bin32\drrun.exe notepad.exe
   ```
+
+If you need a 64-bit build, choose `x64 Native Tools Command Prompt` and pass `-G"Visual Studio 15 Win64"` to cmake.
+
+An alternative to the command prompt is to execute the appropriate vcvars.bat command for your compiler in your shell of choice.
 
 For developers who plan to modify the DynamoRIO sources and build on a
 regular basis, we recommend using [Ninja](@ref sec_ninja).
