@@ -71,8 +71,8 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          gcc-5-multilib g++-5-multilib
+        sudo apt-get -oDebug::pkgAcquire::Worker=1 -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          gcc-6-multilib g++-6-multilib
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
