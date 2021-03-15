@@ -81,7 +81,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt install aptitude
-        sudo aptitude -y install gcc-multilib
+        sudo aptitude -y install g++-multilib
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Run Suite
@@ -134,7 +134,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt install aptitude
-        sudo aptitude -y install gcc-multilib
+        sudo aptitude -y install g++-multilib
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Run Suite
