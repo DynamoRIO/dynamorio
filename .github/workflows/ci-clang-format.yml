@@ -70,7 +70,12 @@ jobs:
     # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
-        sudo apt-get update
+        # Work around Github Actions apt problems installing multilib
+        # (see https://github.com/actions/virtual-environments/issues/2917).
+        sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test -y
+        sudo apt update
+        sudo env ACCEPT_EULA=Y apt upgrade
+        sudo apt-get purge gcc-5 gcc-5-base gcc-6-base
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-multilib
 
