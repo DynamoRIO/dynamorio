@@ -72,6 +72,12 @@ jobs:
     # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
+        # Work around Github Actions apt problems installing multilib
+        # (see https://github.com/actions/virtual-environments/issues/2917).
+        sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test -y
+        sudo apt update
+        sudo env ACCEPT_EULA=Y apt upgrade
+        sudo apt-get purge gcc-5 gcc-5-base gcc-6-base
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-multilib
 
@@ -152,6 +158,7 @@ jobs:
     # Install cross-compilers for cross-compiling Linux build:
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
 
@@ -225,6 +232,7 @@ jobs:
     # Install cross-compilers for cross-compiling Linux build:
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
 
@@ -298,6 +306,7 @@ jobs:
     # Fetch and install Android NDK for Andoid cross-compile build.
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip

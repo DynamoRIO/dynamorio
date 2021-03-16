@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -67,11 +67,9 @@ jobs:
 
     - run: git fetch --no-tags --depth=1 origin master
 
-    # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-multilib
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
