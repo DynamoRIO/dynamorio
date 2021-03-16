@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Create a report about a specific problem to help us improve
-title: Edit me following https:///dynamorio.org/issues with one of the CRASH, APP CRASH, HANG, or ASSERT keywords.
+title: <EDIT ME> (following https:///dynamorio.org/issues with one of the CRASH, APP CRASH, HANG, or ASSERT keywords)
 labels: ''
 assignees: ''
 
