@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -40,41 +40,39 @@
 #include "../clean_call_opt.h"
 #include "disassemble.h"
 
-#ifdef CLIENT_INTERFACE /* around whole file */
-
 /* Shorten code generation lines. */
-#    define PRE instrlist_meta_preinsert
-#    define OPREG opnd_create_reg
+#define PRE instrlist_meta_preinsert
+#define OPREG opnd_create_reg
 
 /* For fast recognition we do not check the instructions operand by operand.
  * Instead we test the encoding directly.
  */
 
 /* remove variable bits in the encoding */
-#    define STP_LDP_ENC_MASK 0x7fc07fff
-#    define STR_LDR_ENC_MASK 0xbfc003ff
-#    define MOV_STK_ENC_MASK 0x7f0003ff
-#    define STP_LDP_REG_MASK 0xffff83e0
-#    define STR_LDR_REG_MASK 0xffffffe0
+#define STP_LDP_ENC_MASK 0x7fc07fff
+#define STR_LDR_ENC_MASK 0xbfc003ff
+#define MOV_STK_ENC_MASK 0x7f0003ff
+#define STP_LDP_REG_MASK 0xffff83e0
+#define STR_LDR_REG_MASK 0xffffffe0
 
 /* stp x29, x30, [sp, #frame_size]! */
-#    define PUSH_FP_LR_ENC 0x29807bfd
+#define PUSH_FP_LR_ENC 0x29807bfd
 /* ldp x29, x30, [sp], #frame_size */
-#    define POP_FP_LR_ENC 0x28c07bfd
+#define POP_FP_LR_ENC 0x28c07bfd
 /* add sp, sp, #frame_size */
-#    define ADD_SP_ENC 0x110003ff
+#define ADD_SP_ENC 0x110003ff
 /* sub sp, sp, #frame_size */
-#    define SUB_SP_ENC 0x510003ff
+#define SUB_SP_ENC 0x510003ff
 /* mov x29, sp */
-#    define MOV_X29_SP_ENC 0x910003fd
+#define MOV_X29_SP_ENC 0x910003fd
 /* stp xx, xx, [sp, #offset] */
-#    define STP_SP_ENC 0x290003e0
+#define STP_SP_ENC 0x290003e0
 /* ldp xx, xx, [sp, #offset] */
-#    define LDP_SP_ENC 0x294003e0
+#define LDP_SP_ENC 0x294003e0
 /* str xx, [sp, #offset] */
-#    define STR_SP_ENC 0xb90003e0
+#define STR_SP_ENC 0xb90003e0
 /* ldr xx, [sp, #offset] */
-#    define LDR_SP_ENC 0xb94003e0
+#define LDR_SP_ENC 0xb94003e0
 
 static inline bool
 instr_is_push_fp_and_lr(instr_t *instr)
@@ -563,5 +561,3 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
         ASSERT_NOT_IMPLEMENTED(false);
     }
 }
-
-#endif /* CLIENT_INTERFACE */

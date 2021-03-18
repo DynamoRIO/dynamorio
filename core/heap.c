@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,9 +52,7 @@
 #ifdef DEBUG
 #    include "hotpatch.h" /* To handle leak for case 9593. */
 #endif
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef HEAP_ACCOUNTING
 #    ifndef DEBUG
@@ -260,8 +258,7 @@ typedef struct _thread_units_t {
  * should require couldbelinking status, which makes them safe wrt unlink flushing.
  * Xref DrMi#1791.
  */
-#define SEPARATE_NONPERSISTENT_HEAP() \
-    (DYNAMO_OPTION(enable_reset) IF_CLIENT_INTERFACE(|| true))
+#define SEPARATE_NONPERSISTENT_HEAP() (DYNAMO_OPTION(enable_reset) || true)
 
 #define REACHABLE_HEAP() (IF_X64_ELSE(DYNAMO_OPTION(reachable_heap), true))
 
@@ -319,14 +316,12 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t global_alloc_lock,
                       INIT_RECURSIVE_LOCK(global_alloc_lock));
 
-#ifdef CLIENT_INTERFACE
 /* Used to sync low on memory event */
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t low_on_memory_pending_lock,
                       INIT_RECURSIVE_LOCK(low_on_memory_pending_lock));
 
 /* Denotes whether or not low on memory event requires triggering. */
 DECLARE_FREQPROT_VAR(bool low_on_memory_pending, false);
-#endif
 
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING) && defined(HOT_PATCHING_INTERFACE)
 static int
@@ -383,9 +378,7 @@ const char *whichheap_name[] = {
     "Memory Mgt",
     "Stats",
     "SpecialHeap",
-#    ifdef CLIENT_INTERFACE
     "Client",
-#    endif
     "Lib Dup",
     "Clean Call",
     /* NOTE: Add your heap name here */
@@ -1519,7 +1512,6 @@ reached_beyond_vmm(void)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 void
 vmm_heap_handle_pending_low_on_memory_event_trigger()
 {
@@ -1536,15 +1528,12 @@ vmm_heap_handle_pending_low_on_memory_event_trigger()
     if (trigger)
         instrument_low_on_memory();
 }
-#endif
 
 static void
 schedule_low_on_memory_event_trigger()
 {
-#ifdef CLIENT_INTERFACE
     bool value = true;
     ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
-#endif
 }
 
 /* Reserve virtual address space without committing swap space for it */
@@ -1933,7 +1922,7 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
                        DYNAMO_OPTION(vmm_block_size)) /
                    DYNAMO_OPTION(vmm_block_size));
         uint unfreed_blocks;
-        if (!contains_stacks IF_CLIENT_INTERFACE(|| standalone_library))
+        if (!contains_stacks || standalone_library)
             unfreed_blocks = 0;
         else {
             unfreed_blocks = perstack * 1 /* d_r_initstack */ +
@@ -2416,9 +2405,7 @@ d_r_heap_exit()
 
     DELETE_RECURSIVE_LOCK(heap_unit_lock);
     DELETE_RECURSIVE_LOCK(global_alloc_lock);
-#ifdef CLIENT_INTERFACE
     DELETE_RECURSIVE_LOCK(low_on_memory_pending_lock);
-#endif
 
 #ifdef X64
     DELETE_LOCK(request_region_be_heap_reachable_lock);
@@ -2843,7 +2830,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
     if (try_vmm)
         p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
     if (!try_vmm || p < (vm_addr_t)min_addr) {
         if (p != NULL)
             vmm_heap_free(p, reserve_size, &error_code, which);
@@ -3539,7 +3526,6 @@ void *
 global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-#ifdef CLIENT_INTERFACE
     /* We pay the cost of this branch to support using DR's decode routines from the
      * regular DR library and not just drdecode, to support libraries that would use
      * drdecode but that also have to work with full DR (i#2499).
@@ -3550,7 +3536,6 @@ global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
         /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
-#endif
     p = common_global_heap_alloc(&heapmgt->global_units, size HEAPACCT(which));
     ASSERT(p != NULL);
     LOG(GLOBAL, LOG_HEAP, 6, "\nglobal alloc: " PFX " (%d bytes)\n", p, size);
@@ -3710,7 +3695,7 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
                           /* don't assert when client does premature exit as it's
                            * hard for Extension libs, etc. to clean up in such situations
                            */
-                          IF_CLIENT_INTERFACE(|| client_requested_exit),
+                          || client_requested_exit,
                       "memory leak detected");
     });
 #endif
@@ -4006,8 +3991,7 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
                 /* Don't assert when client does premature exit as it's
                  * hard for Extension libs, etc. to clean up in such situations:
                  */
-                CLIENT_ASSERT(IF_CLIENT_INTERFACE(client_requested_exit ||) false,
-                              "memory leak detected");
+                CLIENT_ASSERT(client_requested_exit || false, "memory leak detected");
             }
         }
     }
@@ -4822,7 +4806,6 @@ void *
 heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-#ifdef CLIENT_INTERFACE
     /* We pay the cost of this branch to support using DR's decode routines from the
      * regular DR library and not just drdecode, to support libraries that would use
      * drdecode but that also have to work with full DR (i#2499).
@@ -4835,7 +4818,6 @@ heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t whi
         /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
-#endif
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         if (dcontext == GLOBAL_DCONTEXT) {
             p = common_global_heap_alloc(&heapmgt->global_reachable_units,

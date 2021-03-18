@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,12 +49,10 @@
 #    include "moduledb.h" /* for process_control() */
 #endif
 
-#include "fragment.h"  /* needed for perscache.h */
-#include "perscache.h" /* for coarse_units_freeze_all() */
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h" /* for instrement_nudge() */
-#endif
-#include "fcache.h" /* for reset routines */
+#include "fragment.h"   /* needed for perscache.h */
+#include "perscache.h"  /* for coarse_units_freeze_all() */
+#include "instrument.h" /* for instrement_nudge() */
+#include "fcache.h"     /* for reset routines */
 
 #ifdef WINDOWS
 static void
@@ -101,7 +99,7 @@ generic_nudge_target(nudge_arg_t *arg)
 bool
 nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
 {
-    /* Note - for supporting detach with CLIENT_INTERFACE and nudge threads we need that
+    /* Note - for supporting detach with  clients and nudge threads we need that
      * no lock grabbing or other actions that would interfere with the detaching process
      * occur in the cleanup path here. */
 
@@ -378,12 +376,10 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
         nudge_action_mask &= ~NUDGE_GENERIC(persist);
         coarse_units_freeze_all(false /*!in-place==persist*/);
     }
-#ifdef CLIENT_INTERFACE
     if (TEST(NUDGE_GENERIC(client), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(client);
         instrument_nudge(dcontext, arg->client_id, arg->client_arg);
     }
-#endif
 #ifdef PROCESS_CONTROL
     if (TEST(NUDGE_GENERIC(process_control), nudge_action_mask)) { /* Case 8594 */
         nudge_action_mask &= ~NUDGE_GENERIC(process_control);

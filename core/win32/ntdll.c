@@ -551,13 +551,11 @@ syscalls_init()
         }
         if (*((ushort *)(vsys + 2)) == 0x340f) {
             sysenter_ret_address = (app_pc)int_target + 3; /* save addr of ret */
-#    ifdef CLIENT_INTERFACE
             /* i#537: we do not support XPSP{0,1} wrt showing the skipped ret,
              * which requires looking at the vsyscall code.
              */
             KiFastSystemCallRet_address =
                 (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
-#    endif
             set_syscall_method(SYSCALL_METHOD_SYSENTER);
             dr_which_syscall_t = DR_SYSCALL_SYSENTER;
         } else {
@@ -573,10 +571,8 @@ syscalls_init()
         sysenter_ret_address =
             (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
         ASSERT(sysenter_ret_address != NULL);
-#    ifdef CLIENT_INTERFACE
         KiFastSystemCallRet_address =
             (app_pc)d_r_get_proc_address(ntdllh, "KiFastSystemCallRet");
-#    endif
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
     } else {

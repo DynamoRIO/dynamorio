@@ -88,9 +88,7 @@
 #    include <sys/syscall.h>
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef VMX86_SERVER
 #    include <errno.h>
@@ -270,8 +268,7 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
 
 static bool
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
-                           sigcontext_t *sc_orig,
-                           fragment_t *f _IF_CLIENT(byte *access_address));
+                           sigcontext_t *sc_orig, fragment_t *f, byte *access_address);
 
 static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig);
@@ -895,9 +892,8 @@ signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
     act.handler = (handler_t)SIG_DFL;
     kernel_sigemptyset(&act.mask); /* does mask matter for SIG_DFL? */
     for (i = 1; i <= MAX_SIGNUM; i++) {
-        if (sig_is_alarm_signal(i) && doing_detach &&
-            IF_CLIENT_INTERFACE(!standalone_library &&)
-                alarm_signal_has_DR_only_itimer(dcontext, i)) {
+        if (sig_is_alarm_signal(i) && doing_detach && !standalone_library &&
+            alarm_signal_has_DR_only_itimer(dcontext, i)) {
             /* We ignore alarms *during* detach in signal_remove_alarm_handlers(),
              * but to avoid crashing on an alarm arriving post-detach we set to
              * SIG_IGN if we have an itimer and the app does not (a slight
@@ -1112,9 +1108,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             if (INTERNAL_OPTION(profile_pcs)) {
                 info->we_intercept[SIGVTALRM] = true;
             }
-#ifdef CLIENT_INTERFACE
             info->we_intercept[SIGALRM] = true;
-#endif
 #ifdef SIDELINE
             info->we_intercept[SIGCHLD] = true;
 #endif
@@ -1171,7 +1165,7 @@ init_thread_with_shared_siginfo(priv_mcontext_t *mc, dcontext_t *takeover_dc)
     crec.info = *parent_siginfo;
     crec.pcprofile_info = takeover_dc->pcprofile_field;
     IF_DEBUG(int r =)
-    dynamo_thread_init(NULL, mc, &crec _IF_CLIENT_INTERFACE(false));
+    dynamo_thread_init(NULL, mc, &crec, false);
     ASSERT(r == SUCCESS);
     return get_thread_private_dcontext();
 }
@@ -2398,9 +2392,8 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set)
 static bool
 safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 {
-    if (dcontext->whereami != DR_WHERE_FCACHE ||
-        IF_CLIENT_INTERFACE(is_in_client_lib(pc) ||) is_in_dynamo_dll(pc) ||
-        is_on_initstack(xsp))
+    if (dcontext->whereami != DR_WHERE_FCACHE || is_in_client_lib(pc) ||
+        is_in_dynamo_dll(pc) || is_on_initstack(xsp))
         return false;
     /* Reasonably certain not in DR code, so no locks should be held */
     return in_fcache(pc);
@@ -2409,9 +2402,8 @@ safe_is_in_fcache(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 static bool
 safe_is_in_coarse_stubs(dcontext_t *dcontext, app_pc pc, app_pc xsp)
 {
-    if (dcontext->whereami != DR_WHERE_FCACHE ||
-        IF_CLIENT_INTERFACE(is_in_client_lib(pc) ||) is_in_dynamo_dll(pc) ||
-        is_on_initstack(xsp))
+    if (dcontext->whereami != DR_WHERE_FCACHE || is_in_client_lib(pc) ||
+        is_in_dynamo_dll(pc) || is_on_initstack(xsp))
         return false;
     /* Reasonably certain not in DR code, so no locks should be held */
     return in_coarse_stubs(pc);
@@ -3493,8 +3485,8 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
  * in rt form.
  */
 static void
-copy_frame_to_pending(dcontext_t *dcontext, int sig,
-                      sigframe_rt_t *frame _IF_CLIENT(byte *access_address))
+copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
+                      byte *access_address)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     sigframe_rt_t *dst = &(info->sigpending[sig]->rt_frame);
@@ -3519,9 +3511,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig,
     dst->uc.uc_mcontext.fpstate = (kernel_fpstate_t *)&info->sigpending[sig]->xstate;
 #endif /* LINUX && X86 */
 
-#ifdef CLIENT_INTERFACE
     info->sigpending[sig]->access_address = access_address;
-#endif
     info->sigpending[sig]->use_sigcontext = false;
 
 #ifdef MACOS
@@ -3547,7 +3537,6 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
                                            bool is_kernel_xfer)
 {
     sigcontext_t *sc = SIGCXT_FROM_UCXT(uc);
-#ifdef CLIENT_INTERFACE
     if (is_kernel_xfer) {
         sig_full_cxt_t sc_interrupted_full = { sc_interrupted, NULL /*not provided*/ };
         sig_full_cxt_t sc_full;
@@ -3562,7 +3551,6 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
             next_pc = (app_pc)sc->SC_XIP;
         sc_interrupted->SC_XIP = official_xl8;
     }
-#endif
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
     IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
 
@@ -3616,7 +3604,6 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
     });
 }
 
-#ifdef CLIENT_INTERFACE
 static dr_signal_action_t
 send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                       sigcontext_t *raw_sc, byte *access_address, bool blocked,
@@ -3753,7 +3740,6 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
     CLIENT_ASSERT(action == DR_SIGNAL_DELIVER, "invalid signal event return value");
     return true;
 }
-#endif
 
 static void
 abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target, int sig,
@@ -4214,7 +4200,7 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
 
 static void
 record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
-                      sigframe_rt_t *frame, bool forged _IF_CLIENT(byte *access_address))
+                      sigframe_rt_t *frame, bool forged, byte *access_address)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
@@ -4293,12 +4279,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         syslen = syscall_instr_length(dr_get_isa_mode(dcontext));
 
     if (info->app_sigaction[sig] != NULL &&
-        info->app_sigaction[sig]->handler ==
-            (handler_t)SIG_IGN
-                /* If a client registered a handler, put this in the queue.
-                 * Races between registering, queueing, and delivering are fine.
-                 */
-                IF_CLIENT_INTERFACE(&&!dr_signal_hook_exists())) {
+        info->app_sigaction[sig]->handler == (handler_t)SIG_IGN
+        /* If a client registered a handler, put this in the queue.
+         * Races between registering, queueing, and delivering are fine.
+         */
+        && !dr_signal_hook_exists()) {
         LOG(THREAD, LOG_ASYNCH, 3,
             "record_pending_signal (%d at pc " PFX "): action is SIG_IGN!\n", sig, pc);
         ostd->processing_signal--;
@@ -4541,12 +4526,10 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * we'll copy the context to the app stack and then adjust the
          * original on our stack so we take over.
          */
-        execute_handler_from_cache(dcontext, sig, frame, &sc_orig,
-                                   f _IF_CLIENT(access_address));
+        execute_handler_from_cache(dcontext, sig, frame, &sc_orig, f, access_address);
 
     } else if (!handled) {
 
-#ifdef CLIENT_INTERFACE
         /* i#182/PR 449996: must let client act on blocked non-delayable signals to
          * handle instrumentation faults.  Make sure we're at a safe spot: i.e.,
          * only raise for in-cache faults.  Checking forged and no-delay
@@ -4574,7 +4557,6 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             /* restore original (untranslated) sc */
             *get_sigcontext_from_rt_frame(frame) = sc_orig;
         }
-#endif
 
         /* i#196/PR 453847: avoid infinite loop of signals if try to re-execute */
         if (blocked && !can_always_delay[sig] &&
@@ -4655,7 +4637,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              *  happen while in cache?  but for asynch, we would have to
              *  construct our own frame...kind of a pain.
              */
-            copy_frame_to_pending(dcontext, sig, frame _IF_CLIENT(access_address));
+            copy_frame_to_pending(dcontext, sig, frame, access_address);
 
             /* i#1145: check whether we should auto-restart an interrupted syscall */
             if (at_auto_restart_syscall) {
@@ -5325,7 +5307,6 @@ master_signal_handler_C(byte *xsp)
 
         target = compute_memory_target(dcontext, pc, ucxt, siginfo, &is_write);
 
-#ifdef CLIENT_INTERFACE
         if (CLIENTS_EXIST() && is_in_client_lib(pc)) {
             /* i#1354: client might write to a page we made read-only.
              * If so, handle the fault and re-execute it, if it's safe to do so
@@ -5334,20 +5315,19 @@ master_signal_handler_C(byte *xsp)
             if (is_write && !is_couldbelinking(dcontext) && OWN_NO_LOCKS(dcontext) &&
                 check_for_modified_code(dcontext, pc, ucxt, target, true /*native*/))
                 break;
-#    ifdef STATIC_LIBRARY
+#ifdef STATIC_LIBRARY
             /* i#4640: We cannot distinguish the client from DR or the app.  Though
              * it's rare, original app instructions can come here for some app
              * setups for static DR during init.  We send to the app handler.
              */
             execute_native_handler(dcontext, sig, frame);
             return;
-#    endif
+#endif
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, target, sig, frame,
                            exception_label_client, (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
             ASSERT_NOT_REACHED();
         }
-#endif
 
         /* For !HAVE_MEMINFO, we cannot compute the target until
          * after the try/except check b/c compute_memory_target()
@@ -5362,7 +5342,7 @@ master_signal_handler_C(byte *xsp)
         if ((is_on_dstack(dcontext, (byte *)sc->SC_XSP)
              /* PR 302951: clean call arg processing => pass to app/client.
               * Rather than call the risky in_fcache we check whereami. */
-             IF_CLIENT_INTERFACE(&&(dcontext->whereami != DR_WHERE_FCACHE))) ||
+             && (dcontext->whereami != DR_WHERE_FCACHE)) ||
             is_on_alt_stack(dcontext, (byte *)sc->SC_XSP) ||
             is_on_initstack((byte *)sc->SC_XSP)) {
             /* Checks here need to cover everything that record_pending_signal()
@@ -5374,7 +5354,6 @@ master_signal_handler_C(byte *xsp)
                    (in_generated_routine(dcontext, pc) ||
                     is_at_do_syscall(dcontext, pc, (byte *)sc->SC_XSP) ||
                     is_dynamo_address(pc))) {
-#ifdef CLIENT_INTERFACE
             if (!in_generated_routine(dcontext, pc) &&
                 !is_at_do_syscall(dcontext, pc, (byte *)sc->SC_XSP)) {
                 /* PR 451074: client needs a chance to handle exceptions in its
@@ -5392,7 +5371,6 @@ master_signal_handler_C(byte *xsp)
                     break;
                 }
             }
-#endif
             is_DR_exception = true;
         }
         if (is_DR_exception) {
@@ -5466,7 +5444,7 @@ master_signal_handler_C(byte *xsp)
          * translate from a temp private bb (i#376): but all paths
          * that deliver the signal or redirect will call it
          */
-        record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(target));
+        record_pending_signal(dcontext, sig, ucxt, frame, false, target);
         break;
     }
 
@@ -5475,7 +5453,7 @@ master_signal_handler_C(byte *xsp)
         if (handle_suspend_signal(dcontext, ucxt, frame)) {
             /* i#1921: see comment above */
             ASSERT(tr == NULL || tr->under_dynamo_control || IS_CLIENT_THREAD(dcontext));
-            record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
+            record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
         }
         /* else, don't deliver to app */
         break;
@@ -5483,7 +5461,7 @@ master_signal_handler_C(byte *xsp)
     /* i#61/PR 211530: the signal we use for nudges */
     case NUDGESIG_SIGNUM:
         if (handle_nudge_signal(dcontext, siginfo, ucxt))
-            record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
+            record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
         /* else, don't deliver to app */
         break;
 
@@ -5491,7 +5469,7 @@ master_signal_handler_C(byte *xsp)
     case SIGVTALRM:
     case SIGPROF:
         if (handle_alarm(dcontext, sig, ucxt))
-            record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
+            record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
         /* else, don't deliver to app */
         break;
 
@@ -5514,7 +5492,7 @@ master_signal_handler_C(byte *xsp)
 #endif
 
     default: {
-        record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
+        record_pending_signal(dcontext, sig, ucxt, frame, false, NULL);
         break;
     }
     } /* end switch */
@@ -5540,8 +5518,7 @@ master_signal_handler_C(byte *xsp)
 
 static bool
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
-                           sigcontext_t *sc_orig,
-                           fragment_t *f _IF_CLIENT(byte *access_address))
+                           sigcontext_t *sc_orig, fragment_t *f, byte *access_address)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     /* we want to modify the sc in DR's frame */
@@ -5556,30 +5533,12 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
                                        our_frame/* take xsp from (translated)
                                                  * interruption point */);
 
-#ifdef CLIENT_INTERFACE
     sigcontext_t sc_interrupted = *sc;
     dr_signal_action_t action = send_signal_to_client(
         dcontext, sig, our_frame, sc_orig, access_address, false /*not blocked*/, f);
     if (!handle_client_action_from_cache(dcontext, sig, action, our_frame, sc_orig,
                                          &sc_interrupted, false /*!blocked*/))
         return false;
-#else
-    if (info->app_sigaction[sig] == NULL ||
-        info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
-        LOG(THREAD, LOG_ASYNCH, 3, "\taction is SIG_DFL\n");
-        if (execute_default_from_cache(dcontext, sig, our_frame, sc_orig, false)) {
-            /* if we haven't terminated, restore original (untranslated) sc
-             * on request.
-             * XXX i#1615: this doesn't restore SIMD regs, if client translated them!
-             */
-            *get_sigcontext_from_rt_frame(our_frame) = *sc_orig;
-        }
-        return false;
-    }
-    ASSERT(info->app_sigaction[sig] != NULL &&
-           info->app_sigaction[sig]->handler != (handler_t)SIG_IGN &&
-           info->app_sigaction[sig]->handler != (handler_t)SIG_DFL);
-#endif
 
     LOG(THREAD, LOG_ASYNCH, 2, "execute_handler_from_cache for signal %d\n", sig);
     RSTATS_INC(num_signals);
@@ -5681,19 +5640,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     kernel_ucontext_t *uc;
     kernel_sigset_t blocked;
 
-#ifdef CLIENT_INTERFACE
     dr_signal_action_t action;
-#else
-    if (info->app_sigaction[sig] == NULL ||
-        info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
-        LOG(THREAD, LOG_ASYNCH, 3, "\taction is SIG_DFL\n");
-        execute_default_from_dispatch(dcontext, sig, frame);
-        return true;
-    }
-    ASSERT(info->app_sigaction[sig] != NULL &&
-           info->app_sigaction[sig]->handler != (handler_t)SIG_IGN &&
-           info->app_sigaction[sig]->handler != (handler_t)SIG_DFL);
-#endif
 
     LOG(THREAD, LOG_ASYNCH, 2, "execute_handler_from_dispatch for signal %d\n", sig);
     RSTATS_INC(num_signals);
@@ -5768,7 +5715,6 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         LOG(THREAD, LOG_ASYNCH, 3, "\tset frame's eip to " PFX "\n", sc->SC_XIP);
     }
 
-#ifdef CLIENT_INTERFACE
     sigcontext_t sc_interrupted = *sc;
     action = send_signal_to_client(dcontext, sig, frame, NULL,
                                    info->sigpending[sig]->access_address,
@@ -5816,7 +5762,6 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         return true;
     }
     CLIENT_ASSERT(action == DR_SIGNAL_DELIVER, "invalid signal event return value");
-#endif
 
     /* now that we've made all our changes and given the client a
      * chance to make changes, copy the frame to the appropriate stack
@@ -5885,7 +5830,6 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
          */
         info->app_sigaction[sig]->handler = (handler_t)SIG_DFL;
     }
-#ifdef CLIENT_INTERFACE
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
     /* i#4041: Provide the actually-interrupted mid-rseq PC to this event. */
     ptr_uint_t official_xl8 = sc->SC_XIP;
@@ -5895,7 +5839,6 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
                            mcontext->pc, mcontext->xsp, osc_empty, mcontext, sig);
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     sc->SC_XIP = official_xl8;
-#endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset xsp to " PFX "\n", xsp);
     return true;
@@ -6632,13 +6575,11 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
 
     ASSERT(!safe_is_in_fcache(dcontext, (app_pc)sc->SC_XIP, (byte *)sc->SC_XSP));
 
-#ifdef CLIENT_INTERFACE
     sig_full_cxt_t sc_full = { sc, NULL /*not provided*/ };
     get_mcontext(dcontext)->pc = dcontext->next_tag;
     instrument_kernel_xfer(dcontext, DR_XFER_SIGNAL_RETURN, osc_empty, NULL,
                            get_mcontext(dcontext), (app_pc)sc->SC_XIP, sc->SC_XSP,
                            sc_full, NULL, sig);
-#endif
 
 #ifdef DEBUG
     if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_ASYNCH) != 0) {
@@ -6849,9 +6790,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * If we did, we'd move this below enter_nolinking() (and update
      * record_pending_signal() to do the translation).
      */
-    record_pending_signal(dcontext, sig, &frame->uc, frame,
-                          true /*forged*/
-                          _IF_CLIENT(NULL));
+    record_pending_signal(dcontext, sig, &frame->uc, frame, true /*forged*/, NULL);
 
     /* For most callers this is not necessary and we only do it to match
      * the Windows usage model: but for forging from our own handler,
@@ -6904,8 +6843,8 @@ os_dump_core(const char *msg)
     if (TEST(DUMPCORE_WAIT_FOR_DEBUGGER, dynamo_options.dumpcore_mask)) {
         SYSLOG_INTERNAL_ERROR("looping so you can use gdb to attach to pid %s",
                               get_application_pid());
-        IF_CLIENT_INTERFACE(SYSLOG(SYSLOG_CRITICAL, WAITING_FOR_DEBUGGER, 2,
-                                   get_application_name(), get_application_pid()));
+        SYSLOG(SYSLOG_CRITICAL, WAITING_FOR_DEBUGGER, 2, get_application_name(),
+               get_application_pid());
         /* getchar() can hit our own vsyscall hook (from PR 212570); typically we
          * want to attach and not continue anyway, so doing an infinite loop:
          */
@@ -7867,7 +7806,7 @@ handle_nudge_signal(dcontext_t *dcontext, kernel_siginfo_t *siginfo,
             IF_NOT_VMX86(|| siginfo->si_code != SI_QUEUE || siginfo->si_errno == 0)) {
         return true; /* pass to app */
     }
-#if defined(CLIENT_INTERFACE) && !defined(VMX86_SERVER)
+#ifndef VMX86_SERVER
     DODEBUG({
         if (TEST(NUDGE_GENERIC(client), arg->nudge_action_mask) &&
             !is_valid_client_id(arg->client_id)) {

@@ -64,9 +64,7 @@
 #    if !defined(NOT_DYNAMORIO_CORE_PROPER)
 #        include "../module_shared.h" /* for is_in_code_section() */
 #    endif
-#    ifdef CLIENT_INTERFACE
-#        include "instrument.h" /* dr_lookup_module_by_name */
-#    endif
+#    include "instrument.h" /* dr_lookup_module_by_name */
 #endif
 
 #include "ntdll.h"
@@ -95,8 +93,7 @@ is_readable_without_exception(const byte *pc, size_t size);
 
 #define MAX_FUNCNAME_SIZE 128
 
-#if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE) && \
-    !defined(NOT_DYNAMORIO_CORE_PROPER)
+#if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 #    include "instrument.h"
 typedef struct _pe_symbol_export_iterator_t {
     dr_symbol_export_t info;
@@ -520,17 +517,6 @@ get_proc_address_common(module_base_t lib, const char *name,
     }
     /* avoid non-core issues: we don't have is_in_code_section */
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
-#    ifndef CLIENT_INTERFACE
-    /* CLIENT_INTERFACE uses a data export for versioning (PR 250952) */
-    /* FIXME - this check is also somewhat costly. */
-    if (!is_in_code_section(module_base, func, NULL, NULL)) {
-        /* FIXME - export isn't in a code section. Prob. a data
-         * export?  For now we return NULL as all current users are
-         * going to call or hook the returned value. */
-        ASSERT_CURIOSITY(false && "get_proc_addr export not in code section");
-        return NULL;
-    }
-#    endif
 #endif
     /* get around warnings converting app_pc to generic_func_t */
     return convert_data_to_function(func);
@@ -574,8 +560,7 @@ get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwar
     return get_proc_address_common(lib, NULL, ordinal _IF_NOT_X64(false), forwarder);
 }
 
-#    if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE) && \
-        !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    if !defined(NOT_DYNAMORIO_CORE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
 
 generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name)
@@ -718,7 +703,7 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
 
-#    endif /* CLIENT_INTERFACE */
+#    endif /* core proper */
 
 /* returns NULL if no loader module is found
  * N.B.: walking loader data structures at random times is dangerous! See

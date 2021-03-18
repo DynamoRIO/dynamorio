@@ -283,7 +283,7 @@ DllMainThreadAttach()
          */
         LOG(GLOBAL, LOG_TOP | LOG_THREADS, 1,
             "DllMain: initializing new thread " TIDFMT "\n", d_r_get_thread_id());
-        dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
+        dynamo_thread_init(NULL, NULL, NULL, false);
     }
 }
 #    endif
@@ -597,12 +597,10 @@ windows_version_init(int num_GetContextThread, int num_AllocateVirtualMemory)
                                 BUFFER_SIZE_ELEMENTS(os_edition));
     read_version_registry_value(L"ReleaseId", os_release_id,
                                 BUFFER_SIZE_ELEMENTS(os_release_id));
-#    ifdef CLIENT_INTERFACE
     ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
            sizeof(((dr_os_version_info_t *)0)->release_id));
     ASSERT(REGISTRY_VERSION_STRING_MAX_LEN >=
            sizeof(((dr_os_version_info_t *)0)->edition));
-#    endif
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
@@ -1230,7 +1228,7 @@ os_fast_exit(void)
     ASSERT_CURIOSITY(reached_image_entry_yet() || standalone_library ||
                      RUNNING_WITHOUT_CODE_CACHE() IF_APP_EXPORTS(|| dr_api_entry)
                      /* Clients can go native.  XXX: add var for whether client did? */
-                     IF_CLIENT_INTERFACE(|| CLIENTS_EXIST()));
+                     || CLIENTS_EXIST());
 
     DOLOG(1, LOG_TOP, { print_mem_quota(); });
     DOLOG(1, LOG_TOP, { print_mem_stats(); });
@@ -1643,7 +1641,6 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
      * the freed TEB tls slots */
 }
 
-#    ifdef CLIENT_INTERFACE
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
 os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
@@ -1659,7 +1656,6 @@ os_tls_cfree(uint offset, uint num_slots)
 {
     return (bool)tls_cfree(true, offset, num_slots);
 }
-#    endif
 
 /* os_data is unused */
 void
@@ -2643,7 +2639,7 @@ dcontext_t *
 os_thread_take_over_secondary(priv_mcontext_t *mc)
 {
     IF_DEBUG(int r =)
-    dynamo_thread_init(NULL, mc, NULL _IF_CLIENT_INTERFACE(false));
+    dynamo_thread_init(NULL, mc, NULL, false);
     ASSERT(r == SUCCESS);
     return get_thread_private_dcontext();
 }
@@ -2714,8 +2710,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                       * XXX i#95: we need a synchall-style loop for known threads as
                       * they can be in DR for syscall hook handling.
                       */
-                     (is_thread_currently_native(tr)
-                          IF_CLIENT_INTERFACE(&&!IS_CLIENT_THREAD(tr->dcontext)))) &&
+                     (is_thread_currently_native(tr) &&
+                      !IS_CLIENT_THREAD(tr->dcontext))) &&
                     threads[i].tid != my_id) {
                     LOG(GLOBAL, LOG_THREADS, 1,
                         "TAKEOVER: taking over thread " TIDFMT "\n", threads[i].tid);
@@ -2799,7 +2795,7 @@ thread_attach_setup(priv_mcontext_t *mc)
      * already initialized.
      */
     if (!is_thread_initialized()) {
-        int rc = dynamo_thread_init(NULL, mc, NULL _IF_CLIENT_INTERFACE(false));
+        int rc = dynamo_thread_init(NULL, mc, NULL, false);
         ASSERT(rc == SUCCESS);
     }
     dcontext = get_thread_private_dcontext();
@@ -3215,9 +3211,7 @@ num_app_args()
 {
     /* XXX i#2662: Add support for Windows. */
     ASSERT_NOT_IMPLEMENTED(false);
-#    ifdef CLIENT_INTERFACE
     set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
-#    endif
 
     return -1;
 }
@@ -3228,9 +3222,7 @@ get_app_args(OUT dr_app_arg_t *args_buf, int buf_size)
 {
     /* XXX i#2662: Add support for Windows. */
     ASSERT_NOT_IMPLEMENTED(false);
-#    ifdef CLIENT_INTERFACE
     set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
-#    endif
 
     return -1;
 }
@@ -4477,7 +4469,7 @@ find_executable_vm_areas()
         bool skip = dynamo_vm_area_overlap(pb, pb + mbi.RegionSize) &&
             !is_in_dynamo_dll(pb) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
-            IF_CLIENT_INTERFACE(&&!is_in_client_lib(pb));
+            && !is_in_client_lib(pb);
         bool full_image = true;
         ASSERT(pb == mbi.BaseAddress);
         DOLOG(2, LOG_VMAREAS, {
@@ -4678,7 +4670,7 @@ get_thread_private_dcontext(void)
 {
     /* This routine cannot be used before processwide os_init sets up the TLS index. */
     if (tls_dcontext_offs == TLS_UNINITIALIZED)
-        return (IF_CLIENT_INTERFACE(standalone_library ? GLOBAL_DCONTEXT :) NULL);
+        return standalone_library ? GLOBAL_DCONTEXT : NULL;
     /*
      * We don't need to check whether this thread has been initialized under us -
      * Windows sets the value to 0 for us, so we'll just return NULL.
@@ -5513,19 +5505,18 @@ os_countdown_messagebox(char *message, int time_in_milliseconds)
 }
 #    endif /* FANCY_COUNTDOWN */
 
-#    if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t
 load_shared_library(const char *name, bool client)
 {
-#        ifdef STATIC_LIBRARY
+#    ifdef STATIC_LIBRARY
     if (strcmp(name, get_application_name()) == 0) {
         wchar_t wname[MAX_PATH];
         snwprintf(wname, BUFFER_SIZE_ELEMENTS(wname), L"%hs", name);
         NULL_TERMINATE_BUFFER(wname);
         return get_module_handle(wname);
     }
-#        endif
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+#    endif
+    if (INTERNAL_OPTION(private_loader)) {
         /* We call locate_and_load_private_library() to support searching for
          * a pathless name.
          */
@@ -5537,9 +5528,7 @@ load_shared_library(const char *name, bool client)
         return load_library(buf);
     }
 }
-#    endif
 
-#    if defined(CLIENT_INTERFACE)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name)
 {
@@ -5549,7 +5538,7 @@ lookup_library_routine(shlib_handle_t lib, const char *name)
 void
 unload_shared_library(shlib_handle_t lib)
 {
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         unload_private_library((app_pc)lib);
     } else {
         free_library(lib);
@@ -5579,7 +5568,6 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
     ASSERT(addr == NULL || (addr >= *start && addr < *end));
     return true;
 }
-#    endif /* defined(CLIENT_INTERFACE) */
 
 /* Returns base of the "allocation region" containing pc for allocated memory,
  * Note the current protection settings may not be uniform in the whole region.
@@ -5956,7 +5944,7 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
                   * We would test dcontext->nudge_thread but that's not set yet. */
                  is_wow64_process(NT_CURRENT_PROCESS)))
                /* client threads use dstack as sole stack */
-               IF_CLIENT_INTERFACE(|| is_dynamo_address(stack_base)));
+               || is_dynamo_address(stack_base));
         if (dcontext == NULL) {
             if (base != NULL)
                 *base = stack_base;
@@ -7096,7 +7084,7 @@ os_open(const char *fname, int os_open_flags)
 
     /* clients are allowed to open the file however they want, xref PR 227737 */
     ASSERT_CURIOSITY_ONCE((TEST(OS_OPEN_REQUIRE_NEW, os_open_flags) ||
-                           standalone_library IF_CLIENT_INTERFACE(|| CLIENTS_EXIST())) &&
+                           standalone_library || CLIENTS_EXIST()) &&
                           "symlink risk PR 213492");
 
     return os_internal_create_file(
@@ -8543,42 +8531,34 @@ mutex_free_contended_event(mutex_t *lock)
  * requires a non-NULL dcontext to be passed.
  */
 static bool
-os_wait_event(event_t e,
-              int timeout_ms _IF_CLIENT_INTERFACE(bool set_safe_for_synch)
-                  _IF_CLIENT_INTERFACE(dcontext_t *dcontext)
-                      _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+os_wait_event(event_t e, int timeout_ms, bool set_safe_for_synch, dcontext_t *dcontext,
+              priv_mcontext_t *mc)
 {
     wait_status_t res;
     bool reported_timeout = false;
     LARGE_INTEGER timeout;
 
-#    ifdef CLIENT_INTERFACE
     if (mc != NULL) {
         ASSERT(dcontext != NULL);
         *get_mcontext(dcontext) = *mc;
     }
-#    endif
 
     KSTART(wait_event);
     /* we allow using this in release builds as well */
     if (timeout_ms == 0 && DYNAMO_OPTION(deadlock_timeout) > 0) {
         timeout.QuadPart =
             -((int)DYNAMO_OPTION(deadlock_timeout)) * TIMER_UNITS_PER_MILLISECOND;
-#    ifdef CLIENT_INTERFACE
         /* if set_safe_for_synch dcontext must be non-NULL */
         ASSERT(!set_safe_for_synch || dcontext != NULL);
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = true;
         if (mc != NULL)
             set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
-#    endif
         res = nt_wait_event_with_timeout(e, &timeout /* debug timeout */);
-#    ifdef CLIENT_INTERFACE
         if (set_safe_for_synch)
             dcontext->client_data->client_thread_safe_for_synch = false;
         if (mc != NULL)
             set_synch_state(dcontext, THREAD_SYNCH_NONE);
-#    endif
         if (res == WAIT_SIGNALED) {
             KSTOP(wait_event);
             return true; /* all went well */
@@ -8617,21 +8597,17 @@ os_wait_event(event_t e,
         });
     }
     /* fallback to waiting forever */
-#    ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = true;
     if (mc != NULL)
         set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
-#    endif
     if (timeout_ms > 0)
         timeout.QuadPart = -timeout_ms * TIMER_UNITS_PER_MILLISECOND;
     res = nt_wait_event_with_timeout(e, timeout_ms > 0 ? &timeout : INFINITE_WAIT);
-#    ifdef CLIENT_INTERFACE
     if (set_safe_for_synch)
         dcontext->client_data->client_thread_safe_for_synch = false;
     if (mc != NULL)
         set_synch_state(dcontext, THREAD_SYNCH_NONE);
-#    endif
     if (reported_timeout) {
         /* Our wait eventually succeeded so not truly a deadlock.  Syslog a
          * warning to that effect. */
@@ -8664,11 +8640,10 @@ os_wait_handle(HANDLE h, uint64 timeout_ms)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 void
-mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
 {
     contention_event_t event =
         mutex_get_contended_event(&lock->contended_event, SynchronizationEvent);
-#    ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool set_safe_for_sync =
         (dcontext != NULL && IS_CLIENT_THREAD(dcontext) &&
@@ -8679,10 +8654,7 @@ mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc
        client_thread_safe_for_sync flag.
     */
     ASSERT(!(set_safe_for_sync && mc != NULL));
-#    endif
-    os_wait_event(event,
-                  0 _IF_CLIENT_INTERFACE(set_safe_for_sync) _IF_CLIENT_INTERFACE(dcontext)
-                      _IF_CLIENT_INTERFACE(mc));
+    os_wait_event(event, 0, set_safe_for_sync, dcontext, mc);
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8701,9 +8673,7 @@ rwlock_wait_contended_writer(read_write_lock_t *rwlock)
 {
     contention_event_t event =
         mutex_get_contended_event(&rwlock->writer_waiting_readers, SynchronizationEvent);
-    os_wait_event(event,
-                  0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
-                      _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(event, 0, false, NULL, NULL);
     /* the event was signaled, and this thread was released,
        the auto-reset event is again nonsignaled for all other threads to wait on
     */
@@ -8726,9 +8696,7 @@ rwlock_wait_contended_reader(read_write_lock_t *rwlock)
 {
     contention_event_t notify_readers =
         mutex_get_contended_event(&rwlock->readers_waiting_writer, SynchronizationEvent);
-    os_wait_event(notify_readers,
-                  0 _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
-                      _IF_CLIENT_INTERFACE(NULL));
+    os_wait_event(notify_readers, 0, false, NULL, NULL);
     /* the event was signaled, and only a single threads waiting on
      * this event are released, if this was indeed the last reader
      */
@@ -8779,9 +8747,7 @@ reset_event(event_t e)
 bool
 wait_for_event(event_t e, int timeout_ms)
 {
-    return os_wait_event(e,
-                         timeout_ms _IF_CLIENT_INTERFACE(false) _IF_CLIENT_INTERFACE(NULL)
-                             _IF_CLIENT_INTERFACE(NULL));
+    return os_wait_event(e, timeout_ms, false, NULL, NULL);
 }
 
 timestamp_t

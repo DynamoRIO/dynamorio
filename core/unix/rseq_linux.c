@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2019-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -46,9 +46,7 @@
 #include "rseq_linux.h"
 #include "../fragment.h"
 #include "decode.h"
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 #include <stddef.h>
 #ifdef HAVE_RSEQ
 #    include <linux/rseq.h>
@@ -730,7 +728,6 @@ rseq_module_init(module_area_t *ma, bool at_map)
 void
 rseq_process_native_abort(dcontext_t *dcontext)
 {
-#ifdef CLIENT_INTERFACE
     /* Raise a transfer event. */
     LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 2, "Abort triggered in rseq native code\n");
     get_mcontext(dcontext)->pc = dcontext->next_tag;
@@ -743,5 +740,4 @@ rseq_process_native_abort(dcontext_t *dcontext)
                                get_mcontext(dcontext), 0)) {
         dcontext->next_tag = canonicalize_pc_target(dcontext, get_mcontext(dcontext)->pc);
     }
-#endif
 }

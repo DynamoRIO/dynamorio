@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -177,18 +177,15 @@ mixed_mode_enabled(void)
 #define PRIVATE_CODE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, private_code))
 
 #ifdef WINDOWS
-#    ifdef CLIENT_INTERFACE
-#        define APP_ERRNO_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_errno))
-#        define APP_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_fls_data))
-#        define PRIV_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_fls_data))
-#        define APP_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nt_rpc))
-#        define PRIV_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nt_rpc))
-#        define APP_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nls_cache))
-#        define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nls_cache))
-#        define APP_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_static_tls))
-#        define PRIV_STATIC_TLS_OFFSET \
-            ((PROT_OFFS) + offsetof(dcontext_t, priv_static_tls))
-#    endif
+#    define APP_ERRNO_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_errno))
+#    define APP_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_fls_data))
+#    define PRIV_FLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_fls_data))
+#    define APP_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nt_rpc))
+#    define PRIV_RPC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nt_rpc))
+#    define APP_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_nls_cache))
+#    define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_nls_cache))
+#    define APP_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_static_tls))
+#    define PRIV_STATIC_TLS_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, priv_static_tls))
 #    define APP_STACK_LIMIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_limit))
 #    define APP_STACK_BASE_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, app_stack_base))
 #    define NONSWAPPED_SCRATCH_OFFSET \
@@ -206,9 +203,7 @@ mixed_mode_enabled(void)
 #    define IGNORE_ENTEREXIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, ignore_enterexit))
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    define CLIENT_DATA_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, client_data))
-#endif
+#define CLIENT_DATA_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, client_data))
 
 #define COARSE_IB_SRC_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, coarse_exit.src_tag))
 #define COARSE_DIR_EXIT_OFFSET ((PROT_OFFS) + offsetof(dcontext_t, coarse_exit.dir_exit))
@@ -1068,9 +1063,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
 {
 #if defined(X86) && defined(X64)
     ASSERT(mode != GENCODE_FROM_DCONTEXT ||
-           dcontext !=
-               GLOBAL_DCONTEXT IF_INTERNAL(IF_CLIENT_INTERFACE(|| dynamo_exited)));
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+           dcontext != GLOBAL_DCONTEXT IF_INTERNAL(|| dynamo_exited));
     /* PR 302344: this is here only for tracedump_origins */
     if (dynamo_exited && mode == GENCODE_FROM_DCONTEXT && dcontext == GLOBAL_DCONTEXT) {
         if (get_x86_mode(dcontext))
@@ -1078,7 +1071,6 @@ get_shared_gencode(dcontext_t *dcontext _IF_X86_64(gencode_mode_t mode))
         else
             return shared_code;
     }
-#    endif
     if (mode == GENCODE_X86)
         return shared_code_x86;
     else if (mode == GENCODE_X86_TO_X64)
@@ -1258,10 +1250,8 @@ byte *
 emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc);
 #endif
 
-#ifdef CLIENT_INTERFACE
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
-#endif
 
 #ifdef UNIX
 byte *
@@ -1271,7 +1261,6 @@ byte *
 emit_native_ret_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #endif
 
-/* clean calls are used by core DR: native_exec, so not in CLIENT_INTERFACE */
 byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
@@ -1478,12 +1467,10 @@ extern callee_info_t default_callee_info;
 extern clean_call_info_t default_clean_call_info;
 
 /* in clean_call_opt_shared.c */
-#ifdef CLIENT_INTERFACE
 void
 clean_call_opt_init(void);
 void
 clean_call_opt_exit(void);
-#endif /* CLIENT_INTERFACE */
 bool
 analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
                    void *callee, bool save_fpstate, bool always_out_of_line,

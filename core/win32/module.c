@@ -74,7 +74,6 @@ module_area_free_IAT(module_area_t *ma);
 static bool
 get_module_resource_version_info(app_pc mod_base, version_info_t *info_out);
 
-#ifdef CLIENT_INTERFACE
 typedef struct _pe_module_import_iterator_t {
     dr_module_import_t module_import; /* module import returned by next() */
 
@@ -100,7 +99,6 @@ typedef struct _pe_symbol_import_iterator_t {
     IMAGE_THUNK_DATA *cur_thunk;
     bool hasnext; /* set to false on error or end */
 } pe_symbol_import_iterator_t;
-#endif /* CLIENT_INTERFACE */
 
 /****************************************************************************
  * Section-to-file table for i#138 and PR 213463 (case 9028)
@@ -2047,21 +2045,18 @@ get_all_module_short_names_uncached(dcontext_t *dcontext, app_pc pc, bool at_map
                 get_module_name(base, buf, BUFFER_SIZE_ELEMENTS(buf));
                 if (buf[0] == '\0' && is_in_dynamo_dll(base))
                     path = get_dynamorio_library_path();
-                IF_CLIENT_INTERFACE({
-                    if (path[0] == '\0' && is_in_client_lib(base))
-                        path = get_client_path_from_addr(base);
-                    if (path[0] == '\0' && INTERNAL_OPTION(private_loader)) {
-                        privmod_t *privmod;
-                        acquire_recursive_lock(&privload_lock);
-                        privmod = privload_lookup_by_base(base);
-                        if (privmod != NULL) {
-                            dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s",
-                                        privmod->path);
-                            path = buf;
-                        }
-                        release_recursive_lock(&privload_lock);
+                if (path[0] == '\0' && is_in_client_lib(base))
+                    path = get_client_path_from_addr(base);
+                if (path[0] == '\0' && INTERNAL_OPTION(private_loader)) {
+                    privmod_t *privmod;
+                    acquire_recursive_lock(&privload_lock);
+                    privmod = privload_lookup_by_base(base);
+                    if (privmod != NULL) {
+                        dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s", privmod->path);
+                        path = buf;
                     }
-                });
+                    release_recursive_lock(&privload_lock);
+                }
                 if (path[0] != '\0')
                     name = get_short_name(path);
                 /* Set the path too.  We could avoid a strdup by sharing the
@@ -6394,8 +6389,6 @@ module_get_tls_info(app_pc module_base, OUT void ***callbacks, OUT int **index,
     return true;
 }
 
-#ifdef CLIENT_INTERFACE
-
 /* Returns true if the next module import was read and is valid.
  */
 static bool
@@ -6621,5 +6614,3 @@ dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
         dr_module_import_iterator_stop(iter->mod_iter);
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
-
-#endif /* CLIENT_INTERFACE */

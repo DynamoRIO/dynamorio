@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1109,7 +1109,6 @@ update_dynamic_options(options_t *options, options_t *new_options)
     return updated;
 }
 
-#ifdef CLIENT_INTERFACE
 void
 options_enable_code_api_dependences(options_t *options)
 {
@@ -1129,13 +1128,13 @@ options_enable_code_api_dependences(options_t *options)
      * tail end of a multi-64K-region stack.
      */
     options->stack_size = MAX(options->stack_size, 56 * 1024);
-#    ifdef UNIX
+#ifdef UNIX
     /* We assume that clients avoid private library code, within reason, and
      * don't need as much space when handling signals.  We still raise the
      * limit a little while saving some per-thread space.
      */
     options->signal_stack_size = MAX(options->signal_stack_size, 32 * 1024);
-#    endif
+#endif
 
     /* For CI builds we'll disable elision by default since we
      * expect most CI users will prefer a view of the
@@ -1175,7 +1174,6 @@ options_enable_code_api_dependences(options_t *options)
     /* Don't randomize dynamorio.dll */
     IF_WINDOWS(options->aslr_dr = false;)
 }
-#endif
 
 /****************************************************************************/
 #ifndef NOT_DYNAMORIO_CORE
@@ -1232,7 +1230,7 @@ static bool
 check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
-#    if defined(CLIENT_INTERFACE) && defined(AARCH64)
+#    ifdef AARCH64
     if (!DYNAMO_OPTION(bb_prefixes)) {
         USAGE_ERROR("bb_prefixes must be true on AArch64");
         dynamo_options.bb_prefixes = true;
@@ -1364,21 +1362,19 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 #    endif
-#    ifdef CLIENT_INTERFACE
     /* case 9714: The client interface is compatible with the current default
      * protect_mask of 0x101, but is incompatible with the following:
      */
     if (TESTANY(SELFPROT_DATA_CXTSW | SELFPROT_GLOBAL | SELFPROT_DCONTEXT |
                     SELFPROT_LOCAL | SELFPROT_CACHE | SELFPROT_STACK,
                 dynamo_options.protect_mask)) {
-        USAGE_ERROR("CLIENT_INTERFACE incompatible with protect_mask %x at this time",
+        USAGE_ERROR("client support incompatible with protect_mask %x at this time",
                     dynamo_options.protect_mask);
         dynamo_options.protect_mask &=
             ~(SELFPROT_DATA_CXTSW | SELFPROT_GLOBAL | SELFPROT_DCONTEXT | SELFPROT_LOCAL |
               SELFPROT_CACHE | SELFPROT_STACK);
         changed_options = true;
     }
-#    endif
 #    ifdef CUSTOM_TRACES
     if (PRIVATE_TRACES_ENABLED() && DYNAMO_OPTION(shared_bbs)) {
         /* Due to complications with shadowing, we do not support
@@ -1912,14 +1908,12 @@ check_option_compatibility_helper(int recurse_count)
         SET_DEFAULT_VALUE(native_exec_hook_conflict);
         changed_options = true;
     }
-#        ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && !INTERNAL_OPTION(private_loader)) {
         /* The private peb is set up in loader.c */
         USAGE_ERROR("-private_peb requires -private_loader");
         dynamo_options.private_peb = false;
         changed_options = true;
     }
-#        endif
 #    endif
 
 #    ifdef WINDOWS
@@ -1996,7 +1990,6 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
 #        endif /* KSTATS */
-#        ifdef CLIENT_INTERFACE
     /* Probe API needs hot_patching.  Also, for the time being at least,
      * liveshields shouldn't be on when probe api is on.
      */
@@ -2012,24 +2005,21 @@ check_option_compatibility_helper(int recurse_count)
             changed_options = true;
         }
     }
-#        endif /* CLIENT_INTERFACE */
-#    endif     /* HOT_PATCHING_INTERFACE */
-#    ifdef CLIENT_INTERFACE
+#    endif /* HOT_PATCHING_INTERFACE */
     /* i#660/PR 226578 - Probe API doesn't flush pcaches conflicting with hotpatches. */
     if (DYNAMO_OPTION(probe_api) && DYNAMO_OPTION(use_persisted)) {
         USAGE_ERROR("-probe_api and -use_persisted aren't compatible");
         dynamo_options.use_persisted = false;
         changed_options = true;
     }
-#        ifdef UNIX
+#    ifdef UNIX
     /* PR 304708: we intercept all signals for a better client interface */
     if (DYNAMO_OPTION(code_api) && !DYNAMO_OPTION(intercept_all_signals)) {
         USAGE_ERROR("-code_api requires -intercept_all_signals");
         dynamo_options.intercept_all_signals = true;
         changed_options = true;
     }
-#        endif
-#    endif /* CLIENT_INTERFACE */
+#    endif
 #    ifdef UNIX
     if (DYNAMO_OPTION(max_pending_signals) < 1) {
         USAGE_ERROR("-max_pending_signals must be at least 1");
@@ -2059,13 +2049,13 @@ check_option_compatibility_helper(int recurse_count)
     }
 #    endif
 
-#    if defined(UNIX) && defined(CLIENT_INTERFACE)
+#    ifdef UNIX
     if (DYNAMO_OPTION(early_inject) && !DYNAMO_OPTION(private_loader)) {
         USAGE_ERROR("-early_inject requires -private_loader, turning on -private_loader");
         dynamo_options.private_loader = true;
         changed_options = true;
     }
-#    endif /* UNIX && CLIENT_INTERFACE */
+#    endif
 
 #    ifdef WINDOWS
     if (DYNAMO_OPTION(inject_at_create_process) && !DYNAMO_OPTION(early_inject)) {
@@ -2216,16 +2206,13 @@ check_option_compatibility_helper(int recurse_count)
 #        endif /* !NOT_DYNAMORIO_CORE */
 #    endif     /* WINDOWS */
 
-#    ifdef CLIENT_INTERFACE
     if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
         !(INTERNAL_OPTION(code_api) ||
           INTERNAL_OPTION(probe_api) IF_PROG_SHEP(|| DYNAMO_OPTION(security_api)))) {
         USAGE_ERROR("-client_lib requires at least one API flag");
     }
-#    endif
 
     if (DYNAMO_OPTION(coarse_units)) {
-#    ifdef CLIENT_INTERFACE
         if (DYNAMO_OPTION(bb_prefixes)) {
             /* coarse_units doesn't support prefixes in general.
              * the variation by addr prefix according to processor type
@@ -2235,7 +2222,6 @@ check_option_compatibility_helper(int recurse_count)
             dynamo_options.coarse_units = false;
             changed_options = true;
         }
-#    endif
         if (!DYNAMO_OPTION(shared_bbs)) {
             USAGE_ERROR("-coarse_units requires -shared_bbs, enabling");
             dynamo_options.shared_bbs = true;
@@ -2319,7 +2305,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 #    endif
 
-#    if defined(UNIX) && defined(CLIENT_INTERFACE)
+#    ifdef UNIX
 #        if (defined(ARM) || defined(LINUX)) && !defined(STATIC_LIBRARY)
     if (!INTERNAL_OPTION(private_loader)) {
         /* On ARM, to make DR work in gdb, we must use private loader to make
@@ -2422,9 +2408,7 @@ check_option_compatibility_helper(int recurse_count)
     changed_options = heap_check_option_compatibility() || changed_options;
 
     changed_options = os_check_option_compatibility() || changed_options;
-#        if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     disassemble_options_init();
-#        endif
 #    endif
 
     if (changed_options) {
@@ -2473,7 +2457,7 @@ options_init()
                                sizeof(d_r_option_string));
     if (IS_GET_PARAMETER_SUCCESS(retval))
         ret = set_dynamo_options(&dynamo_options, d_r_option_string);
-#    if defined(STATIC_LIBRARY) && defined(CLIENT_INTERFACE)
+#    ifdef STATIC_LIBRARY
     /* For dynamorio_static, we always enable code_api as it's a pain to set
      * DR runtime options -- unless otherwise requested.
      */
@@ -2644,8 +2628,6 @@ get_process_options(HANDLE process_handle)
 }
 #    endif /* WINDOWS */
 
-#    ifdef CLIENT_INTERFACE
-
 /* Function for identifying string type. */
 static bool
 is_string_type(enum option_type_t type)
@@ -2696,7 +2678,6 @@ dr_get_integer_option(const char *option_name, uint64 *val OUT)
     }
     return false;
 }
-#    endif /* CLIENT_INTERFACE */
 
 #endif /* NOT_DYNAMORIO_CORE */
 

@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -48,8 +48,6 @@
  * @brief Annotation handler registration routines.
  */
 
-#    ifdef CLIENT_INTERFACE
-
 /**
  * Facilitates returning a value from an annotation invocation in the target app. This
  * function should be used within the annotation clean call, and the specified value will
@@ -70,8 +68,6 @@ dr_annotation_set_return_value(reg_t value)
     mcontext.xax = value;
     dr_set_mcontext(dcontext, &mcontext);
 }
-
-#    endif /* CLIENT_INTERFACE */
 
 /**
  * Synonyms for the Valgrind client request IDs (sequential from 0 for convenience).

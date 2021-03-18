@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -574,7 +574,6 @@ module_get_nth_segment(app_pc module_base, uint n, app_pc *start /*OPTIONAL OUT*
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
-#ifdef CLIENT_INTERFACE
 /* XXX: We could implement import iteration of PE files in Wine, so we provide
  * these stubs.
  */
@@ -603,7 +602,6 @@ void
 dr_module_import_iterator_stop(dr_module_import_iterator_t *iter)
 {
 }
-#endif
 
 bool
 at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret_imm)

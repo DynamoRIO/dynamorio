@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -606,23 +606,6 @@ typedef struct _instr_t instr_t;
 #    define IF_HOTP(x)
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    define IF_CLIENT_INTERFACE(x) x
-#    define IF_NOT_CLIENT_INTERFACE(x)
-#    define IF_CLIENT_INTERFACE_ELSE(x, y) x
-#    define _IF_CLIENT_INTERFACE(x) , x
-#    define _IF_NOT_CLIENT_INTERFACE(x)
-/* _IF_CLIENT_INTERFACE is too long */
-#    define _IF_CLIENT(x) , x
-#else
-#    define IF_CLIENT_INTERFACE(x)
-#    define IF_NOT_CLIENT_INTERFACE(x) x
-#    define IF_CLIENT_INTERFACE_ELSE(x, y) y
-#    define _IF_CLIENT_INTERFACE(x)
-#    define _IF_NOT_CLIENT_INTERFACE(x) , x
-#    define _IF_CLIENT(x)
-#endif
-
 #ifdef CUSTOM_TRACES
 #    define IF_CUSTOM_TRACES(x) x
 #else
@@ -826,9 +809,7 @@ typedef enum {
  * so it can be used in files that require all asserts to be client asserts. */
 #define DYNAMO_OPTION_NOT_STRING(opt) (dynamo_options.opt)
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
-#    define EXPOSE_INTERNAL_OPTIONS
-#endif
+#define EXPOSE_INTERNAL_OPTIONS
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 /* Use only for experimental non-release options */
@@ -1010,13 +991,13 @@ typedef int stats_int_t;
 /* Maximum length of any registry parameter. Note that some are further
  * restricted to MAXIMUM_PATH from their usage. */
 #define MAX_REGISTRY_PARAMETER 512
-#if defined(PARAMS_IN_REGISTRY) || !defined(CLIENT_INTERFACE)
+#ifdef PARAMS_IN_REGISTRY
 /* Maximum length of option string in the registry */
 #    define MAX_OPTIONS_STRING 512
 #    define MAX_CONFIG_VALUE MAX_REGISTRY_PARAMETER
 #else
 /* Maximum length of option string from config file.
- * For CLIENT_INTERFACE we need more than 512 bytes to fit multiple options
+ * For clients we need more than 512 bytes to fit multiple options
  * w/ paths.  However, we have stack buffers in config.c and options.c
  * (look for MAX_OPTION_LENGTH there), so we can't make this too big
  * unless we increase the default -stack_size even further.

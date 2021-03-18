@@ -85,7 +85,7 @@ byte *app_sysenter_instr_addr = NULL;
 static bool sysenter_hook_failed = false;
 #endif
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
 bool gencode_swaps_teb_tls;
 #endif
 
@@ -206,10 +206,8 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file, const char *code_descri
                 print_file(file, "fcache_return_coarse:\n");
             else if (last_pc == code->trace_head_return_coarse)
                 print_file(file, "trace_head_return_coarse:\n");
-#    ifdef CLIENT_INTERFACE
             else if (last_pc == code->special_ibl_xfer[CLIENT_IBL_IDX])
                 print_file(file, "client_ibl_xfer:\n");
-#    endif
 #    ifdef UNIX
             else if (last_pc == code->special_ibl_xfer[NATIVE_PLT_IBL_IDX])
                 print_file(file, "native_plt_ibl_xfer:\n");
@@ -458,10 +456,8 @@ shared_gencode_emit(generated_code_t *gencode _IF_X86_64(bool x86_mode))
 #endif
 
     if (!special_ibl_xfer_is_thread_private()) {
-#ifdef CLIENT_INTERFACE
         gencode->special_ibl_xfer[CLIENT_IBL_IDX] = pc;
         pc = emit_client_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
-#endif
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
@@ -562,7 +558,7 @@ static void shared_gencode_init(IF_X86_64_ELSE(gencode_mode_t gencode_mode, void
     shared_gencode_emit(gencode _IF_X86_64(x86_mode));
     release_final_page(gencode);
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
     /* Ensure the swapping is known at init time and never changes. */
     gencode_swaps_teb_tls = should_swap_teb_static_tls();
 #endif
@@ -737,7 +733,7 @@ d_r_arch_init(void)
     /* Try to catch errors in x86.asm offsets for dcontext_t */
     ASSERT(sizeof(unprotected_context_t) ==
            sizeof(priv_mcontext_t) + IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8) +
-               IF_CLIENT_INTERFACE_ELSE(5 * sizeof(reg_t), 0));
+               5 * sizeof(reg_t));
 
     interp_init();
 
@@ -1189,7 +1185,7 @@ arch_thread_init(dcontext_t *dcontext)
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state())
                          IF_WINDOWS(|| DYNAMO_OPTION(tls_align != 0)));
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
     /* Ensure the swapping is known at init time and never changes. */
     ASSERT(gencode_swaps_teb_tls == should_swap_teb_static_tls());
 #endif
@@ -1367,10 +1363,8 @@ arch_thread_init(dcontext_t *dcontext)
         (linkstub_t *)get_reset_linkstub(), pc, LINK_DIRECT);
 
     if (special_ibl_xfer_is_thread_private()) {
-#ifdef CLIENT_INTERFACE
         code->special_ibl_xfer[CLIENT_IBL_IDX] = pc;
         pc = emit_client_ibl_xfer(dcontext, pc, code);
-#endif
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
@@ -2042,13 +2036,11 @@ get_special_ibl_xfer_entry(dcontext_t *dcontext, int index)
     return code->special_ibl_xfer[index];
 }
 
-#ifdef CLIENT_INTERFACE
 cache_pc
 get_client_ibl_xfer_entry(dcontext_t *dcontext)
 {
     return get_special_ibl_xfer_entry(dcontext, CLIENT_IBL_IDX);
 }
-#endif
 
 #ifdef UNIX
 cache_pc
