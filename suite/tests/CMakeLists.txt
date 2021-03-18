@@ -96,7 +96,7 @@ endif (UNIX)
 
 # FIXME i#1807: below, we convert all long suite test subsets to ^common
 
-set(vmap_run_list
+set(main_run_list
   # our main configuration
   "SHORT::-code_api"
   # sanity check: run single app to make sure these options aren't totally broken
@@ -151,81 +151,19 @@ set(vmap_run_list
   "ONLY::^(runall|${osname})::-finite_shared_trace_cache -cache_shared_trace_regen 80"
   )
 
-# This is no longer an actively supported config so we have few tests.
-set(vmsafe_run_list
-  # keep lightweight modes alive
-  # i#24: -thin_client not working: once it works, re-enable
-  #"WIN::ONLY::^runall::-thin_client"
-  "WIN::ONLY::^runall::-probe_api -hotp_only"
-  # We no longer actively support this build so we run only a few tests.
-  "ONLY::^security::-code_api -probe_api"
-  "ONLY::^security ^runall runinterface::-security_api"
-  "ONLY::^security::-security_api -code_api -probe_api"
-  )
-
-# Xref the very long set of runs we used to test in
-# suite/old-runregression-runs-2-6-08.
-# This is no longer an actively supported config so we have few tests.
-set(vps_run_list
-  "ONLY::^(common|${osname}|security|runall)::-security"
-  "WIN::ONLY::^runall::-security -client"
-  "WIN::ONLY::^runall::-security -low" # not a default config
-  # Test with -use_moduledb relaxations, (is on by default, but tests Makefile
-  # adds -staged which turns it off, we re-enable by turning the option back on).
-  # The tests Makefile adds different version resource information to different
-  # tests in runall/ and security-{common,win32}/ to fully exercise this.
-  "WIN::ONLY::^runall::-security -use_moduledb"
-  )
-# if building dedicated vps, want short suite of all tests
-set(vps_short_list
-  "SHORT::-security"
-  )
-
 if (CALLPROF AND TEST_SUITE)
   set(run_list "ONLY::^common::")
-elseif (VMAP)
+else ()
   if (TEST_SUITE)
     # We don't redo all tests for internal vs external, but we do for debug vs release
     if (DEBUG OR NOT INTERNAL)
-      set(run_list ${vmap_run_list})
+      set(run_list ${main_run_list})
     else ()
       set(run_list "ONLY::^client::-code_api")
     endif ()
   else (TEST_SUITE)
-    set(run_list ${vmap_run_list})
+    set(run_list ${main_run_list})
   endif (TEST_SUITE)
-elseif (VMSAFE)
-  if (TEST_SUITE)
-    if (DEBUG AND INTERNAL)
-      set(run_list ${vmsafe_run_list})
-    else (DEBUG AND INTERNAL)
-      set(run_list
-        "ONLY::^client::-code_api -probe_api"
-        "ONLY::^(client|security)::-security_api"
-        "ONLY::^runall::-probe_api -hotp_only"
-        )
-    endif (DEBUG AND INTERNAL)
-  else (TEST_SUITE)
-    set(run_list ${vmsafe_run_list})
-  endif (TEST_SUITE)
-elseif (VPS)
-  if (TEST_SUITE)
-    if (DEBUG AND INTERNAL)
-      set(run_list ${vps_run_list})
-    else (DEBUG AND INTERNAL)
-      set(run_list
-        "ONLY::^common::"
-        "ONLY::^security::-security -detect_mode -report_max 0 -no_diagnostics"
-        "WIN::ONLY::^(common|${osname}|security|runall)::-security -liveshields"
-        "WIN::ONLY::^(runall|security)::-security -client"
-        )
-    endif (DEBUG AND INTERNAL)
-  else (TEST_SUITE)
-    set(run_list ${vps_short_list})
-  endif (TEST_SUITE)
-else (CALLPROF AND TEST_SUITE)
-  # no tests
-  set(run_list "")
 endif (CALLPROF AND TEST_SUITE)
 
 # i#4059: Reduce Appveyor time by reducing the # of tests run for 32-bit.
@@ -1224,9 +1162,6 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
     string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
     set(cmd "${drrun_path}" -s ${timeout} -quiet)
     prefix_cmd_if_necessary(cmd OFF ${cmd})
-    if (VMSAFE)
-      set(cmd ${cmd} -mode code)
-    endif ()
     if (DEBUG)
       set(cmd ${cmd} -debug)
     endif ()
@@ -1244,9 +1179,6 @@ function(runtest_cmd outcmd outops key native standalone_dr dr_ops_aux separate_
       # we pass -exit0 to avoid ctest from considering our segfault and other tests
       # to have failed (also xref PR 548997).
       set(cmd ${cmd} -exit0)
-      if (VPS AND VMAP OR VMSAFE)
-        set(cmd ${cmd} -mode code)
-      endif (VPS AND VMAP OR VMSAFE)
       if (native)
         set(cmd ${cmd} -noinject)
       endif ()
@@ -2004,12 +1936,10 @@ tobuild(common.getretaddr common/getretaddr.c)
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   # nativeexec tests are under CLIENT_INTERFACE b/c they link w/ DR and need api_headers.
-  # We do not run for VMSAFE as they fail there and we just don't support that
-  # combination now (i#1793).
   # XXX i#1287: implement for MacOS
   # We do not support -no_early_inject on Android (i#1873).
   # FIXME i#1799: clang does not support "asm goto".
-  if (CLIENT_INTERFACE AND NOT VMSAFE AND NOT APPLE AND NOT ANDROID
+  if (CLIENT_INTERFACE AND NOT APPLE AND NOT ANDROID
       AND ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     # XXX i#1651: we don't support -native_exec combined with -early_inject so
     # for now we pass -no_early_inject to all of these tests.
@@ -4216,11 +4146,11 @@ if (UNIX)
   endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
-  if (VPS)
-    # too flaky across platforms so we limit to VPS only: not too useful
+  if (PROGRAM_SHEPHERDING)
+    # too flaky across platforms so we limit to security mode only: not too useful
     # for other than testing our ASLR anyway
     tobuild(win32.aslr-dll win32/aslr-dll.c)
-  endif (VPS)
+  endif ()
   tobuild(win32.callback win32/callback.c)
   tobuild(win32.crtprcs win32/crtprcs.c)
   if (X64)
@@ -4534,10 +4464,10 @@ if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
   mark_execstack(${decode_bad_stack_name})
   tobuild(security-common.retexisting security-common/retexisting.c)
 endif (X86)
-if (VPS) # relies on being aborted on .B violation
+if (PROGRAM_SHEPHERDING) # relies on being aborted on .B violation
   tobuild(security-common.jmp_from_trace security-common/jmp_from_trace.c)
   tochcon(security-common.jmp_from_trace textrel_shlib_t)
-endif (VPS)
+endif ()
 tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   # FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on

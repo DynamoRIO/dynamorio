@@ -155,43 +155,6 @@ to compile the client with optimizations, \p -O2 for gcc or \p /O2 for cl.
 
 ***************************************************************************
 \page page_deploy How to Run
-\if vmsafe
-A DynamoRIO application consists of a guest agent and one or more clients.  Each of
-these must be linked against the necessary DynamoRIO dynamic libraries, which
-are provided as part of the SDK.  These DynamoRIO dynamic libraries must be
-installed when the DynamoRIO application is installed on a guest OS.
-
-Any DynamoRIO application wanting to get control of a process must
-first register a client (which is a self-contained executable
-library) for that process.  Otherwise DynamoRIO will not be
-initialized for that process.  This is done by the guest agent, which
-can either be a service or a standalone executable.  The guest agent
-should use dr_register_process() and dr_register_client() to register
-a process name for which control is desired, which clients to use for
-each process, and which mode to run the clients in (more on this
-below).  DynamoRIO will be initialized in the specified mode for
-registered processes started subsequently.  DynamoRIO will then load
-the corresponding clients into such processes and call each client's
-initialization routine, dr_client_main().  There are three modes of operation
-for DynamoRIO which map to the three API's provided by DynamoRIO
-(see below).  Depending upon the mode chosen the usage model will
-change.
-
-In addition to registering the processes for which control is desired, the
-guest agent can also unregister them as needed using dr_unregister_process().
-The guest agent can also send update messages to processes currently
-initialized with DynamoRIO and a client using dr_nudge_process().
-For example, this can be used by the guest agent when it has obtained new
-information (data, libraries, etc.), from a management server or over the
-internet from a security vendor, to let clients know about them.
-
-Process registration, unregistration, and nudging require administrative
-privileges.  On Windows Vista or higher, if UAC is enabled, process registration must be
-performed by an elevated (runas admin) process. When using the -syswide_on
-parameter, be sure that the cmd shell being used was started with elevated
-permissions.
-
-\else
 
 Once the DynamoRIO distribution contents are unpacked (see \ref
 sec_package), configuration and execution of applications under DynamoRIO
@@ -203,11 +166,9 @@ drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
 drinject, and the libraries are \c libdrconfiglib.a and \c
 libdrinjectlib.a.
 
-\ifnot vmsafe
 When using DynamoRIO as a third-party disassembly library (see \ref
 page_standalone), no deployment is needed, as DynamoRIO does not control a
 target application when used as a regular library.
-\endif
 
 \section win_deploy Windows Deployment
 
@@ -249,28 +210,16 @@ only.
 As an example, assume you have unpacked the DynamoRIO distribution and
 your current directory is its base directory.  Run \c notepad.exe with the
 bbsize sample client using the following configure-and-run command:
-\if vmsafe
-\code
-bin32/drrun.exe -mode code -c samples/bin32/bbsize.dll -- notepad
-\endcode
-\else
 \code
 bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 \endcode
-\endif
 
 To use system-wide injection, allowing for an application to be run
 under DynamoRIO regardless of how it is invoked, configure the application
 first (-syswide_on requires administrative privileges):
-\if vmsafe
-\code
-bin32/drconfig.exe -reg notepad.exe -syswide_on -mode code -c samples/bin32/bbsize.dll
-\endcode
-\else
 \code
 bin32/drconfig.exe -reg notepad.exe -syswide_on -c samples/bin32/bbsize.dll
 \endcode
-\endif
 
 The next time \c notepad.exe is started by the current user, it will run under
 DynamoRIO with the bbsize client.
@@ -462,8 +411,6 @@ SELinux denials (look in the logs for such denials), it may be simplest to
 disable SELinux via <tt>setenforce 0</tt>.  We have attempted to get
 everything to work without this step, but we are not able to test on all
 versions or configurations of Android.
-
-\endif
 
 \section client_ops Passing Options to Clients
 
@@ -743,8 +690,7 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    however, larger stack sizes use significantly more memory when targeting
    applications with hundreds of threads.  The parameter can take a 'K'
    suffix, and must be a multiple of the page size (4K, 16K, or 64K depending on
-   the system).  This stack is used \if vmsafe for probe callbacks and by
-   the Code Manipulation API \else by the \endif routines dr_insert_clean_call(),
+   the system).  This stack is used by the routines dr_insert_clean_call(),
    dr_swap_to_clean_stack(), dr_prepare_for_call(),
    dr_insert_call_instrumentation(), dr_insert_mbr_instrumentation(),
    dr_insert_cbr_instrumentation(), and dr_insert_ubr_instrumentation().
@@ -759,10 +705,6 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    be used to change the size.  The parameter can take a 'K' suffix, and
    must be a multiple of the page size (4K, 16K, or 64K depending on the
    system).
-\if vmsafe
-Options available only in Code Manipulation mode and Memory Firewall mode
-(see \ref dr_modes):
-\endif
  - \b -thread_private: \anchor op_thread_priv
    By default, DynamoRIO's code caches are shared across threads.  This
    option requests code caches that are private to each thread.  For
@@ -909,7 +851,6 @@ they want to shrink memory usage
     -syntax_att, and -syntax_arm.  The style can also be set using
     disassemble_set_syntax().
 
-\ifnot vmsafe
  - \b -tracedump_text and \b -tracedump_binary:
     These options cause DynamoRIO to output all traces that were created
     to the log file \e traces-shared.0.TID.html, where \e
@@ -930,7 +871,6 @@ they want to shrink memory usage
    tags of each trace to the trace log file.  When combined with either of
    -tracedump_text or -tracedump_binary, adds a full disassembly of the
    constituent basic blocks to the selected dump.
-\endif
 
 \if profiling
 FIXME PR 225255: profiling options
@@ -946,7 +886,7 @@ Options controlling notifications from DynamoRIO:
    - WARNING     = 0x2
    - ERROR       = 0x4
    - CRITICAL    = 0x8
-   .
+
    dr_messagebox() is not affected by -msgbox_mask. For the
    provided Windows debug build -msgbox_mask defaults to 0xC.
    On Linux the default is 0, as this feature reads from standard input and
@@ -979,7 +919,6 @@ Options controlling notifications from DynamoRIO:
    debug builds, -stderr_mask defaults to 0xF; for the Linux release
    builds, its default is 0xE.  The default on Windows is 0.
 
-\ifnot vmsafe
 Options aiding in debugging:
 
  - \b -no_hide: \anchor op_no_hide
@@ -991,7 +930,6 @@ Options aiding in debugging:
     DynamoRIO, the client library, and all of its dependences, so this
     option should no longer be necessary (see \ref page_debugging).
     This option is for Windows only.
-\endif
 
 Options available only in the debug build of DynamoRIO:
 

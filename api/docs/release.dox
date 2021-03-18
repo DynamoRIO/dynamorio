@@ -42,13 +42,9 @@
 This section is divided into the following subsections:
 
  - \ref sec_package
-\ifnot vmsafe
  - \ref sec_changes
-\endif
  - \ref sec_limits
-\ifnot vmsafe
  - \ref sec_future
-\endif
 
 ***************************************************************************
 \htmlonly
@@ -89,18 +85,14 @@ The following are part of the DynamoRIO release distribution:
  - Header files for the DynamoRIO APIs.
  - This documentation.
  - \ref API_samples "Sample clients".
-\ifnot vmsafe
  - A graphical statistics viewer \c DRstats.exe that displays internal
    DynamoRIO statistics as well as custom statistics defined
    by a client (see \ref sec_drstats) (Windows package only).
    DynamoRIO exports a large number of statistics in its debug build, and
    a handful in release builds.
-\endif
-\ifnot vmsafe
  - A binary tracedump reader, which also functions as a sample
    client using DynamoRIO as a standalone library (see \ref
    sec_standalone).
-\endif
  - A number of end-user tools including a code coverage tool (see \ref
    page_drcov), a multi-process cache simulator (see \ref page_drcachesim),
    a last-level cache miss analyzer (see \ref page_drcachesim),
@@ -118,7 +110,6 @@ files in the resulting directory tree:
 find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx {} \;
 \endcode
 
-\ifnot vmsafe
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1360,7 +1351,7 @@ The changes between version 2.0.0 and 1.5.0 are:
    - configuration does NOT enable systemwide injection by default:
      use the -syswide_on parameter to drconfig or drrun for that
      (it requires administrative privileges)
-   .
+
    \b IMPORTANT: On Linux, if you're using custom injection via
    raw environment variables rather than using the \p drdeploy script,
    you must also set DYNAMORIO_RUNUNDER to 1 for injection to work with
@@ -1662,8 +1653,6 @@ The major changes between the 0.9.5 and 0.9.4 releases are:
  - The full API is now documented in html and pdf for easy browsing.
  - Numerous type and routine name changes.
 
-\endif
-
 
 ***************************************************************************
 \htmlonly
@@ -1687,34 +1676,6 @@ using system-interacting library routines.
 See \ref sec_extlibs for further details.
   - Currently, the communication API provided by DynamoRIO is limited to file
 I/O and nudges.
-\if vmsafe
-  - The security agent on the security monitor VM has no direct
-    relationship with DynamoRIO.  However, the VMsafe solution provider
-    can architect their own communication channel between the security
-    agent on the security monitor VM and the client by using an agent on
-    the client's VM as an intermediary.
- \anchor limits_winlogon
-  - There is a known false positive in the anti-piracy DRM code in the
-    Windows Genuine Advantage component of winlogon.exe.  This code
-    performs deliberate obfuscation and violations of standard coding
-    behavior.
-\endif
-\if vmsafe
-  - The client can run in only one mode at a time, which cannot be changed during the
-execution of the process.  Mode change can be done only on a subsequent
-application restart.
-  - The client should call only the API corresponding to the mode it was started
-in.  Mixing API from different modes can lead to unspecified results and is
-not supported.
-  - Probe API allows only one registration of probes, which must occur in
-    dr_init().
-  - Probes can be specified only with library names and offsets from the base
-    of the library in memory (\ref DR_PROBE_ADDR_LIB_OFFS).
-  - When a probe callback finishes execution it can't request DynamoRIO to
-    perform any actions like logging, control flow changes, etc.
-  - Probe locations can't include system call wrappers in ntdll.dll, i.e.,
-    ntdll!Nt* routines can't be probe locations.
-\endif
 
 \subsection sec_limit_platforms Platform Limitations
   - This version of DynamoRIO supports Windows 8, 8.1, and 10.
@@ -1800,23 +1761,18 @@ not supported.
     to enable prioritizing memory usage and the \ref op_speed "-opt_speed option"
     to prioritize performance at the cost of more complex basic blocks that
     cross control transfers.
-  - The performance \if vmsafe of Code Manipulation Mode and Memory
-    Firewall Mode \endif when starting up large desktop applications
+  - The performance when starting up large desktop applications
     may be noticeably worse than native.  Upcoming releases will
-    address this issue. \if vmsafe Note that Probe Mode incurs
-    significantly less overhead than the other modes. \endif
-  - The performance \if vmsafe of Code Manipulation Mode \endif when
+    address this issue.
+  - The performance when
     running  Java, .Net, Flash or similar managed execution
     applications can be noticeably worse then native.  This can
     include applications that load these components as in-process
     plugins (such as Internet Explorer). Upcoming releases will
-    address this issue.  \if vmsafe Probe Mode and Memory Firewall
-    Mode are not affected. \endif
-  - When using \if vmsafe Code Manipulation Mode or Memory Firewall
-    Mode \else DynamoRIO \endif on all or many processes on a system
+    address this issue.
+  - When using DynamoRIO on all or many processes on a system
     simultaneously, memory usage may become a factor.  Upcoming
-    releases will address this issue.  \if vmsafe Note that Probe Mode
-    incurs significantly less overhead than the other modes. \endif
+    releases will address this issue.
 
 \subsection sec_limit_deploy Deployment Limitations
 
@@ -1843,8 +1799,7 @@ not supported.
     user32.dll will not be run under control of DynamoRIO using
     system-wide injection unless its
     parent process (typically cmd.exe or explorer.exe, for manually
-    launched applications) is already under DynamoRIO control
-    \if vmsafe (the parent can be in any mode)\endif. Only some small
+    launched applications) is already under DynamoRIO control.  Only some small
     non-graphical applications do not link with user32.dll.
   - When invoking an application in any way that is not from a parent
     process under DynamoRIO control, DynamoRIO takes control a little
@@ -1866,7 +1821,7 @@ not supported.
     client will be able to display a messagebox when running in said
     services (they have no associated visible window station). See
     dr_messagebox().
-  - On Windows Vista \if vmsafe in Code Manipulation Mode \endif the code from
+  - On Windows Vista the code from
     certain dlls (found mostly in services) and the code subsequently
     called from those dlls is run natively and is not visible to the
     instrumentation APIs.  This only applies to dlls that have a .pexe
@@ -1896,7 +1851,6 @@ not supported.
   - On Linux, the private loader will fail to load libpthread.so.  Therefore
     clients and the libraries they use cannot link against libpthread.so.
 
-\ifnot vmsafe
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1921,7 +1875,5 @@ We hope to include the following major features in future releases:
 To discuss current and future features, join the <a
 href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users
 group</a>.
-
-\endif
 
 */

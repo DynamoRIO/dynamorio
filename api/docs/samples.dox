@@ -156,46 +156,6 @@ the drwrap extension (see \ref page_drwrap).
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/ssljack.c">ssljack.c</a> demonstrates how to
 hook OpenSSL and GnuTLS functions, using the drwrap extension.
 
-\if vmsafe
-\section probe_samples Probe API Examples
-
-Not available yet.
-\endif
-
-\if vmsafe
-\anchor sec_mf_samples
-\section mf_samples Memory Firewall Examples
-
-An example Memory Firewall client implementation is provided at <a
-href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/MF_moduledb.c">samples/MF_moduledb.c</a> (see that file
-for additional documentation). The MF_moduledb sample client reads in
-a list of module names and options from a config file and exempts security
-violations associated with those modules based on the type of
-violation and the options in the file. In this manner violations from
-dlls known to have certain types of false positives can be avoided.
-It also supports dynamically changing its exemptions with a nudge
-handler that triggers re-reading the config file.
-
-The MF_moduledb sample client is provided with a configuration file <a
-href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/MF_moduledb-sample.config">MF_moduledb-sample.config</a>
-and a violation generating executable <a
-href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/VIPA_test.exe">VIPA_test.exe.c</a> for easy
-testing. To use :
-
-Use drdeploy.exe to configure VIPA_test.exe to run under security_api mode with
-the appropriate options.
-drdeploy.exe -reg VIPA_test.exe -root \<root path\> -mode security_api -client \<path
-to MF_moduledb.dll\> -ops "-client_ops \<path to MF_moduledb-sample.config\>"
-
-Then run VIPA_test.exe. Clicking on the heap attack button should produce messages
-that a potential security violation is being allowed.  Clicking on the stack attack
-button should produce a message that a potential security violation is being blocked
-by killing the process.
-
-Use 'drdeploy.exe -nudge VIPA_text.exe' to nudge the process to re-read the
-configuration file.
-
-\endif
 
 \section bt_examples Discussion of Selected Samples
 
@@ -597,7 +557,6 @@ for this example is in the file <a
 href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/bbsize.c">bbsize.c</a>.
 
 
-\ifnot vmsafe
 ********************
 \subsection sec_drstats Use of Custom Client Statistics with the Windows GUI
 
@@ -613,15 +572,10 @@ properly.  They can be modified to use a "Global" prefix instead of "Local"
 for cross-session sharing, though this requires running with administrative
 privileges.
 
-\endif
-
-\ifnot vmsafe
 ********************
 \subsection sec_ex8 Use of Standalone API
 
 The binary tracedump reader also functions as an example of
 \ref page_standalone : <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/tracedump.c">tracedump.c</a>.
-
-\endif
 
  */

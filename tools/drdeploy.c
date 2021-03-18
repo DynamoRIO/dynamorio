@@ -31,8 +31,6 @@
  * DAMAGE.
  */
 
-/* compile with make VMAP=1 for a vmap version (makefile defaults to VMSAFE version) */
-
 #include "configure.h"
 
 #ifdef WINDOWS

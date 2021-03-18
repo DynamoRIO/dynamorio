@@ -1720,10 +1720,6 @@ cleanup:
                                   false /* no flush */);
     DELETE_LOCK(client_flush_request_lock);
 #endif
-    /* avoid compile error "error: label at end of compound statement"
-     * from vps-release-external build
-     */
-    return;
 }
 
 void

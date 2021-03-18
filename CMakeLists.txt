@@ -307,31 +307,18 @@ endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
-# high-level configurations
-option(VMAP "client support" ON)
-option(VPS "security support but no client support")
-option(VMSAFE "client support including security API")
-if (VMAP)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-endif (VMAP)
-if (VMSAFE)
-  set(PROGRAM_SHEPHERDING 1)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-  set(HOT_PATCHING_INTERFACE 1)
-endif (VMSAFE)
-if (VPS)
-  set(PROGRAM_SHEPHERDING 1)
-  set(HOT_PATCHING_INTERFACE 1)
-  set(PROCESS_CONTROL 1)
-  if (WIN32)
-    set(GBOP 1)
-  endif (WIN32)
-endif (VPS)
+# We no longer support building without a client interface: it is always enabled.
+# TODO i#2971: Remove the CLIENT_INTERFACE option and define.
+set(CLIENT_INTERFACE 1)
+set(APP_EXPORTS 1)
 
-# temporary: once build+support issues fixed, remove and add HOT_PATCHING_INTERFACE
-# to VMAP by default
+# TODO: Consider removing these no-longer-maintained options:
+# - VMKERNEL
+# - PROGRAM_SHEPHERDING
+# - PROCESS_CONTROL
+# - GBOP
+
+# TODO: Revive HOT_PATCHING_INTERFACE and combine with PROBE.
 option(PROBE "enable not-yet-supported Probe API")
 mark_as_advanced(PROBE)
 if (PROBE)
@@ -420,10 +407,10 @@ endif (VMKERNEL)
 
 # we do not support most users choosing these
 mark_as_advanced(
+  PROGRAM_SHEPHERDING
+  PROCESS_CONTROL
+  GBOP
   VMKERNEL
-  VMAP
-  VMSAFE
-  VPS
   KSTATS
   CALLPROF
   PROFILE
@@ -1532,14 +1519,6 @@ if (ANDROID)
 else ()
   option(BUILD_DOCS "build documentation" ON)
 endif ()
-
-if (VMSAFE)
-  # I did not preserve VMSAFE docs building: to reactivate it, need to
-  # add the missing transformations mentioned in api/docs/CMakeLists.txt
-  # and fix genapi.pl on lib/dr_config.h to handle the outer ifdef WINDOWS
-  # (ends up keeping 1st endif in 1st enum).
-  set(BUILD_DOCS OFF)
-endif (VMSAFE)
 
 if (NOT CLIENT_INTERFACE)
   set(BUILD_SAMPLES OFF)
