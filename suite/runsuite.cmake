@@ -384,40 +384,6 @@ if (NOT cross_aarchxx_linux_only AND NOT cross_android_only AND NOT a64_on_x86_o
   if (ARCH_IS_X86 AND NOT APPLE)
     # we do not bother to support these on ARM
     if (DO_ALL_BUILDS)
-      testbuild("vmsafe-debug-internal-32" OFF "
-        VMAP:BOOL=OFF
-        VMSAFE:BOOL=ON
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        ${install_path_cache}
-        ")
-    endif ()
-    if (DO_ALL_BUILDS)
-      testbuild("vmsafe-release-external-32" OFF "
-        VMAP:BOOL=OFF
-        VMSAFE:BOOL=ON
-        DEBUG:BOOL=OFF
-        INTERNAL:BOOL=OFF
-        ${install_path_cache}
-        ")
-    endif (DO_ALL_BUILDS)
-    if (NOT arg_debug_only)
-      testbuild("vps-debug-internal-32" OFF "
-        VMAP:BOOL=OFF
-        VPS:BOOL=ON
-        DEBUG:BOOL=ON
-        INTERNAL:BOOL=ON
-        ${install_path_cache}
-        ")
-    endif ()
-    if (DO_ALL_BUILDS)
-      testbuild("vps-release-external-32" OFF "
-        VMAP:BOOL=OFF
-        VPS:BOOL=ON
-        DEBUG:BOOL=OFF
-        INTERNAL:BOOL=OFF
-        ${install_path_cache}
-        ")
       # Builds we'll keep from breaking but not worth running many tests
       testbuild("callprof-32" OFF "
         CALLPROF:BOOL=ON

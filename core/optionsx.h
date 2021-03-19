@@ -1910,7 +1910,7 @@ OPTION_COMMAND_INTERNAL(bool, security_api, false, "security_api",
                         "enable Security API", STATIC, OP_PCACHE_NOP)
 
 /* PR 200418: program shepherding is now runtime-option-controlled. Note - not
- * option_command_internal so that we can use for VPS release builds. */
+ * option_command_internal so that we can use for release builds. */
 OPTION_COMMAND(bool, security, false, "security",
                {
                    if (options->security) {
@@ -1922,9 +1922,9 @@ OPTION_COMMAND(bool, security, false, "security",
                        options->syslog_init = true;
                        IF_INTERNAL(options->syslog_internal_mask = SYSLOG_ALL;)
 
-                       /* VPS had -use_moduledb by default (and then disabled with
-                        * -staged) */
-
+                       /* We used to have -use_moduledb by default (disabled with
+                        * -staged).
+                        */
                        ENABLE_SECURITY(options);
 
                        /* memory wins over gcc/gap perf issues (PR 326815)
@@ -3339,7 +3339,7 @@ DYNAMIC_OPTION_DEFAULT(uint, pc_num_hashes, 100,
 
 /* detect_mode for process_control; see case 10610.  Only reason to have it
  * separate is that it is distinctly different than other core features,
- * and is exposed in UI as orthogonal to other VPS features.
+ * and is exposed as orthogonal to other security features.
  *
  * FIXME: having a separate detect_mode option for each
  * security mechanism won't scale even if each used the OPTION_* flags

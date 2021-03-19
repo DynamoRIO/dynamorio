@@ -646,9 +646,7 @@ if (UNIX)
       if (NOT APPLE)
         # i#46, i#1541, i#1459: we have zero dependencies now by default, except
         # for MacOS where privlib is NYI (i#1285) and static lib.
-        if (NOT VMSAFE AND NOT VPS) # XXX: these unsupported builds have deps
-          set(check_deps ON)
-        endif ()
+        set(check_deps ON)
       endif ()
       # i#2632: 32-bit recent clang release builds are inserting text relocs.
       # XXX: We don't support clang for official package builds until this is fixed.
