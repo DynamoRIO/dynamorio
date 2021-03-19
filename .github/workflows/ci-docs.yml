@@ -32,9 +32,12 @@
 
 name: ci-docs
 on:
-  # Built daily at 2am EST.
+  # Built weekly: 10pm EST Fridays.  A re-build even with no content
+  # changes updates timestamps on every page, increasing the repo size.
+  # We thus use manual builds for rare docs changes we want to deploy to
+  # the website and have automated builds match our weekly package builds.
   schedule:
-    - cron: '0 7 * * *'
+    - cron: '0 3 * * FRI'
   # Manual trigger using the Actions page.
   workflow_dispatch:
     inputs:
