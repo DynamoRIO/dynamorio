@@ -284,8 +284,7 @@ string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   # Get more context
   string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
-#TEMPORARY disable b/c removed code had trailing spaces
-#  message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
+  message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
 endif ()
 
 ##################################################
