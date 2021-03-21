@@ -5563,13 +5563,17 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     APP(&ilist,
         XINST_CREATE_jump_cond(dcontext, DR_PRED_LE,
                                opnd_create_instr(skip_unlinked_tgt_jump)));
+    /* i#4670: The unlinking case is observed to hit very infrequently on x86. The issue
+     *  or the fix have not been observed on AArchXX yet.
+     */
+    ASSERT_NOT_TESTED();
 #        if defined(AARCH64)
     APP(&ilist,
         INSTR_CREATE_ldr(
             dcontext, opnd_create_reg(SCRATCH_REG1),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
     APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
-#        elif defined(ARM)
+#        else  /* ARM */
     /* i#1906: loads to PC must use word-aligned addresses */
     ASSERT(
         ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt), PC_LOAD_ADDR_ALIGN));
