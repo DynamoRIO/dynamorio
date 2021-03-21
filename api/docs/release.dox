@@ -189,6 +189,9 @@ Further non-compatibility-affecting changes include:
    drx_insert_counter_update() on AArchXX.
  - Added a preferred base field to the #_module_data_t struct and to the
    #_drmodtrack_info_t struct.
+ - Added support for running under QEMU via the \ref op_xarch_root "-xarch_root"
+   runtime option which locates guest system libraries and enables workarounds for
+   problems with QEMU's threads.
 
 **************************************************
 <hr>
