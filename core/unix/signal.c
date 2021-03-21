@@ -3900,6 +3900,8 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
         if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
             unlink_fragment_outgoing(dcontext, f);
             changed = true;
+            // i#4670: Fragments that use the special ibl xfer trampoline are unlinked
+            // automatically if pending signals count is greater than zero.
         }
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
     } else {

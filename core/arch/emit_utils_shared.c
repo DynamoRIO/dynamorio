@@ -5494,10 +5494,12 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     reg_id_t stub_reg = IF_AARCH64_ELSE(SCRATCH_REG0, SCRATCH_REG1);
     ushort stub_slot = IF_AARCH64_ELSE(TLS_REG0_SLOT, TLS_REG1_SLOT);
     IF_X86(size_t len;)
-    byte *ibl_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
+    byte *ibl_linked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
+    byte *ibl_unlinked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_UNLINKED, ibl_type);
     bool absolute = !code->thread_shared;
 
-    ASSERT(ibl_tgt != NULL);
+    ASSERT(ibl_linked_tgt != NULL);
+    ASSERT(ibl_unlinked_tgt != NULL);
     instrlist_init(&ilist);
     init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_FS);
 
@@ -5534,6 +5536,49 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
         in = instrlist_first(custom_ilist);
     }
 
+    /* i#4670: Jump to the unlinked IBL target if there are pending signals. This is
+     * required to bound delivery time for signals received while executing fragments
+     * that use the special ibl xfer trampoline, which uses a different (un)linking
+     * mechanism.
+     */
+    insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
+#ifdef X86
+    APP(&ilist,
+        XINST_CREATE_cmp(dcontext,
+                         OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET),
+                         OPND_CREATE_INT8(0)));
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+    APP(&ilist,
+        XINST_CREATE_jump_cond(dcontext, DR_PRED_GT, opnd_create_pc(ibl_unlinked_tgt)));
+#elif defined(AARCHXX)
+    instr_t *skip_unlinked_tgt_jump = INSTR_CREATE_label(dcontext);
+    /* Reusing SCRATCH_REG5 which contains dcontext currently. */
+    APP(&ilist,
+        INSTR_CREATE_ldrsb(dcontext, opnd_create_reg(SCRATCH_REG5),
+                           OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+    APP(&ilist,
+        XINST_CREATE_cmp(dcontext, opnd_create_reg(SCRATCH_REG5), OPND_CREATE_INT8(0)));
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+    APP(&ilist,
+        XINST_CREATE_jump_cond(dcontext, DR_PRED_LE,
+                               opnd_create_instr(skip_unlinked_tgt_jump)));
+#    if defined(AARCH64)
+    APP(&ilist,
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(SCRATCH_REG1),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
+    APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
+#    elif defined(ARM)
+    /* i#1906: loads to PC must use word-aligned addresses */
+    ASSERT(
+        ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt), PC_LOAD_ADDR_ALIGN));
+    APP(&ilist,
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(DR_REG_PC),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
+#    endif
+    APP(&ilist, skip_unlinked_tgt_jump);
+#endif
 #ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode))
         instrlist_convert_to_x86(&ilist);
@@ -5562,18 +5607,20 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
          */
         APP(&ilist, nop_inst);
     }
-    APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_tgt)));
+    APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_linked_tgt)));
 #elif defined(AARCH64)
     APP(&ilist,
-        INSTR_CREATE_ldr(dcontext, opnd_create_reg(SCRATCH_REG1),
-                         OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_tgt))));
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(SCRATCH_REG1),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
     APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
 #elif defined(ARM)
     /* i#1906: loads to PC must use word-aligned addresses */
-    ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_tgt), PC_LOAD_ADDR_ALIGN));
+    ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt), PC_LOAD_ADDR_ALIGN));
     APP(&ilist,
-        INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_PC),
-                         OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_tgt))));
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(DR_REG_PC),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
 #endif
     add_patch_marker(&patch, instrlist_last(&ilist), PATCH_UINT_SIZED /* pc relative */,
                      0 /* point at opcode */,
@@ -5582,7 +5629,6 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     /* now encode the instructions */
     pc += encode_with_patch_list(dcontext, &patch, &ilist, pc);
     ASSERT(pc != NULL);
-
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
 
