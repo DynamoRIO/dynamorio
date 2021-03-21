@@ -5536,13 +5536,14 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
         in = instrlist_first(custom_ilist);
     }
 
+#ifdef UNIX
     /* i#4670: Jump to the unlinked IBL target if there are pending signals. This is
      * required to bound delivery time for signals received while executing fragments
      * that use the special ibl xfer trampoline, which uses a different (un)linking
      * mechanism.
      */
     insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
-#ifdef X86
+#    ifdef X86
     APP(&ilist,
         XINST_CREATE_cmp(dcontext,
                          OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET),
@@ -5550,7 +5551,7 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     APP(&ilist,
         XINST_CREATE_jump_cond(dcontext, DR_PRED_GT, opnd_create_pc(ibl_unlinked_tgt)));
-#elif defined(AARCHXX)
+#    elif defined(AARCHXX)
     instr_t *skip_unlinked_tgt_jump = INSTR_CREATE_label(dcontext);
     /* Reusing SCRATCH_REG5 which contains dcontext currently. */
     APP(&ilist,
@@ -5562,13 +5563,13 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     APP(&ilist,
         XINST_CREATE_jump_cond(dcontext, DR_PRED_LE,
                                opnd_create_instr(skip_unlinked_tgt_jump)));
-#    if defined(AARCH64)
+#        if defined(AARCH64)
     APP(&ilist,
         INSTR_CREATE_ldr(
             dcontext, opnd_create_reg(SCRATCH_REG1),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
     APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
-#    elif defined(ARM)
+#        elif defined(ARM)
     /* i#1906: loads to PC must use word-aligned addresses */
     ASSERT(
         ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt), PC_LOAD_ADDR_ALIGN));
@@ -5576,9 +5577,11 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
         INSTR_CREATE_ldr(
             dcontext, opnd_create_reg(DR_REG_PC),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
-#    endif
+#        endif /* AARCH64/ARM */
     APP(&ilist, skip_unlinked_tgt_jump);
-#endif
+#    endif     /* X86/AARCHXX */
+#endif         /* UNIX */
+
 #ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode))
         instrlist_convert_to_x86(&ilist);
