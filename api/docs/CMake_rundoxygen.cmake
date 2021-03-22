@@ -258,6 +258,29 @@ if (embeddable)
       string(REGEX REPLACE "var [^\n]* =\n" "" string "${string}")
       # End in a comma for inlining.
       string(REGEX REPLACE "\\];" "]," string "${string}")
+      # Update directory index names which are hashes that differ between the
+      # treeview and embed generations.
+      string(REGEX MATCHALL "\"[a-zA-Z_0-9]+\", \"dir_[a-f0-9]+\\.html\""
+        dir_hashes "${string}")
+      foreach (dir_hash ${dir_hashes})
+        string(REGEX REPLACE "\"([a-zA-Z_0-9]+)\".*" "\\1" key "${dir_hash}")
+        # We go search the dir_*.html embed files looking for key.
+        file(GLOB dir_html ${CMAKE_CURRENT_BINARY_DIR}/html/dir_*.html)
+        set(found_hash OFF)
+        foreach (html ${dir_html})
+          file(READ ${html} html_string)
+          if (html_string MATCHES "${key} Directory Reference")
+            get_filename_component(fname ${html} NAME)
+            string(REGEX REPLACE "\"${key}\", \"dir_[a-f0-9]+\\.html\""
+              "\"${key}\", \"${fname}\"" string "${string}")
+            set(found_hash ON)
+            break ()
+          endif ()
+        endforeach ()
+        if (NOT found_hash)
+          message(FATAL_ERROR "Cannot find corresonding page for ${key}")
+        endif ()
+      endforeach ()
     endif ()
     if (js MATCHES "page_user_docs.js")
       # CMake 3.6+ guarantees the glob is sorted lexicographically, so we've already
