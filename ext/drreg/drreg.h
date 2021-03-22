@@ -76,6 +76,20 @@ typedef enum {
  */
 
 /**
+ * Register classes used to denote which types of registers
+ * to spill or restore.
+ */
+typedef enum {
+    DRREG_INVALID_SPILL_CLASS,  /**< Denotes an invalid spill class. */
+    DRREG_GPR_SPILL_CLASS,      /**< Denotes the GPR register spill class. */
+    DRREG_SIMD_XMM_SPILL_CLASS, /**< Denotes the XMM register spill class. */
+    DRREG_SIMD_YMM_SPILL_CLASS, /**< Denotes the YMM register spill class and is not yet
+                                     supported. */
+    DRREG_SIMD_ZMM_SPILL_CLASS, /**< Denotes the ZMM register spill class and is not yet
+                                     supported. */
+} drreg_spill_class_t;
+
+/**
  * Priorities of drmgr instrumentation passes used by drreg.  Users
  * of drreg can use the name DRMGR_PRIORITY_NAME_DRREG in the
  * drmgr_priority_t.before field or can use these numeric priorities
@@ -167,6 +181,15 @@ typedef struct _drreg_options_t {
      * needed.
      */
     bool do_not_sum_slots;
+    /**
+     * The number of spill slots to use for SIMD vector registers.
+     *
+     * Similar to \p num_spill_slots, an additional slot must be
+     * requested for every register held across application instructions.
+     *
+     * The number of slots are added unless \p do_not_sum_slots is specified.
+     */
+    uint num_spill_simd_slots;
 } drreg_options_t;
 
 DR_EXPORT
@@ -346,11 +369,37 @@ DR_EXPORT
  * drreg_init_and_fill_vector() routine can be used to set up \p
  * reg_allowed.
  *
+ * drreg_reserve_register() is a special case of drreg_reserve_register_ex()
+ * with \p spill_class #DRREG_GPR_SPILL_CLASS.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                        drvector_t *reg_allowed, OUT reg_id_t *reg);
+
+DR_EXPORT
+/**
+ * Identical to drreg_reserve_register(), but for a particular spill class
+ * \p spill_class.
+ *
+ * If \p reg_allowed is non-NULL, then it must be a vector with one entry for
+ * each register of its \p spill_class:
+ *
+ * [#DR_REG_START_GPR..#DR_REG_STOP_GPR] entries if #DRREG_GPR_SPILL_CLASS.
+ * [#DR_REG_START_XMM..#DR_REG_STOP_XMM] entries if #DRREG_SIMD_XMM_SPILL_CLASS.
+ * [#DR_REG_START_YMM..#DR_REG_STOP_YMM] entries if #DRREG_SIMD_YMM_SPILL_CLASS.
+ * [#DR_REG_START_YMM..#DR_REG_STOP_ZMM] entries if #DRREG_SIMD_ZMM_SPILL_CLASS.
+ *
+ * The vector \p reg_allowed is interpreted as explained in drreg_reserve_register().
+ * The drreg_init_and_fill_vector_ex() routine can be used to set up \p reg_allowed.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_reserve_register_ex(void *drcontext, drreg_spill_class_t spill_class,
+                          instrlist_t *ilist, instr_t *where, drvector_t *reg_allowed,
+                          OUT reg_id_t *reg_out);
 
 DR_EXPORT
 /**
@@ -365,6 +414,17 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 DR_EXPORT
 /**
+ * Identical to drreg_reserve_dead_register(), but for a particular \p spill_class.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_reserve_dead_register_ex(void *drcontext, drreg_spill_class_t spill_class,
+                               instrlist_t *ilist, instr_t *where,
+                               drvector_t *reg_allowed, OUT reg_id_t *reg_out);
+
+DR_EXPORT
+/**
  * Initializes \p vec to hold #DR_NUM_GPR_REGS entries, each either
  * set to NULL if \p allowed is false or a non-NULL value if \p
  * allowed is true.  This is intendend as a convenience routine for
@@ -375,6 +435,17 @@ DR_EXPORT
  */
 drreg_status_t
 drreg_init_and_fill_vector(drvector_t *vec, bool allowed);
+
+DR_EXPORT
+/**
+ * Identical to drreg_init_and_fill_vector(), but for a specific register
+ * class based on \p spill_class.
+ *
+ * @return whether successful or an error code on failure.
+ */
+drreg_status_t
+drreg_init_and_fill_vector_ex(drvector_t *vec, drreg_spill_class_t spill_class,
+                              bool allowed);
 
 DR_EXPORT
 /**

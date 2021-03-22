@@ -65,7 +65,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_3_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal)\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
@@ -79,7 +79,7 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_7_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal2)\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -90,7 +90,7 @@ handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->SC_XAX != DRREG_TEST_9_C) {
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal3)\n");
             exit(1);
         }
     }
@@ -104,7 +104,7 @@ handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->SC_XAX != DRREG_TEST_11_C) {
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_signal4)\n");
             exit(1);
         }
     }
@@ -118,10 +118,10 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception)\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
-            print("ERROR: spilled flags value was not preserved!\n");
+            print("ERROR: spilled flags value was not preserved! (handle_exception)\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -130,7 +130,7 @@ handle_exception2(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_7_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception2)\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -140,7 +140,7 @@ handle_exception3(struct _EXCEPTION_POINTERS *ep)
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_9_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception3)\n");
     }
 #        endif
     SIGLONGJMP(mark, 1);
@@ -151,7 +151,7 @@ handle_exception4(struct _EXCEPTION_POINTERS *ep)
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_11_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved! (handle_exception4)\n");
     }
 #        endif
     SIGLONGJMP(mark, 1);
@@ -309,7 +309,186 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
         jmp      test12_done
      test12_done:
-        jmp     epilog
+        jmp     test13
+     test13:
+        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+        pxor     xmm0, xmm0
+        jmp      test14
+     test14:
+        mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        pxor     xmm0, xmm0
+        jmp      test15
+     test15:
+        mov      TEST_REG_ASM, DRREG_TEST_15_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_15_ASM
+        pxor     xmm0, xmm0
+        movdqa   xmm2, xmm0
+        movd     xmm2, eax
+        movdqa   xmm2, xmm0
+        jmp      test16
+     test16:
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
+        pxor     xmm0, xmm0
+        ptest    xmm0, xmm0
+        jz       test16_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test16_done
+     test16_done:
+        jmp      test17
+     test17:
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        pcmpeqd  xmm0, xmm0
+        ptest    xmm0, xmm0
+        jnz      test17_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test17_done
+     test17_done:
+        jmp      test18
+     test18:
+#ifdef __AVX__
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        vpcmpeqd ymm0, ymm0, ymm0
+        vptest   ymm0, ymm0
+        jnz      test18_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test18_done
+#endif
+     test18_done:
+        jmp      test19
+     test19:
+#ifdef __AVX__
+        mov      TEST_REG_ASM, DRREG_TEST_19_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_19_ASM
+        vpxor    ymm0, ymm0, ymm0
+        vptest   ymm0, ymm0
+        jz       test19_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test19_done
+#endif
+     test19_done:
+        jmp      test20
+     test20:
+#ifdef __AVX__
+        mov      TEST_REG_ASM, DRREG_TEST_20_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_20_ASM
+        vpxor    ymm0, ymm0, ymm0
+        vptest   ymm0, ymm0
+        pcmpeqd  xmm0, xmm0
+        vptest   ymm0, ymm0
+        jnz      test20_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test20_done
+#endif
+     test20_done:
+        jmp      test21
+     test21:
+#ifdef __AVX__
+        mov      TEST_REG_ASM, DRREG_TEST_21_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_21_ASM
+        pcmpeqd  xmm0, xmm0
+        vptest   ymm0, ymm0
+        vpxor    ymm0, ymm0, ymm0
+        vptest   ymm0, ymm0
+        jz      test21_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test21_done
+#endif
+     test21_done:
+        jmp      test22
+     test22:
+        mov      TEST_REG_ASM, DRREG_TEST_22_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_22_ASM
+        pcmpeqd  xmm0, xmm0
+        pcmpeqd  xmm1, xmm1
+        pcmpeqd  xmm2, xmm2
+        pcmpeqd  xmm3, xmm3
+        pcmpeqd  xmm4, xmm4
+        pcmpeqd  xmm5, xmm5
+        pcmpeqd  xmm6, xmm6
+        movdqa   xmm7, xmm0
+        jmp      test23
+     test23:
+        mov      TEST_REG_ASM, DRREG_TEST_23_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_23_ASM
+        pxor     xmm0, xmm0
+        pxor     xmm1, xmm1
+        pxor     xmm2, xmm2
+        pxor     xmm3, xmm3
+        pxor     xmm4, xmm4
+        pxor     xmm5, xmm5
+        pxor     xmm6, xmm6
+        pxor     xmm7, xmm7
+        jmp      test24
+     test24:
+        mov      TEST_REG_ASM, DRREG_TEST_24_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_24_ASM
+        pcmpeqd  xmm0, xmm0
+        mov      TEST_REG_ASM, REG_XSP
+        movhps   xmm0, QWORD [TEST_REG_ASM - 16]
+        ptest    xmm0, xmm0
+        jnz      test24_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp      test24_done
+     test24_done:
+        jmp      test27
+     test25:
+#ifdef __AVX512F__
+        mov          TEST_REG_ASM, DRREG_TEST_25_ASM
+        mov          TEST_REG_ASM, DRREG_TEST_25_ASM
+        vmovdqa32    zmm1 {k1}{z}, zmm2
+        pxor         xmm1, xmm1
+        vmovdqa32    xmm0 {k1}{z}, xmm1
+        pxor         xmm0, xmm0
+        ptest        xmm0, xmm0
+        jz           test25_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp          test25_done
+#endif
+     test25_done:
+        jmp          test26
+     test26:
+#ifdef __AVX512F__
+        mov          TEST_REG_ASM, DRREG_TEST_26_ASM
+        mov          TEST_REG_ASM, DRREG_TEST_26_ASM
+        pxor         xmm0, xmm0
+        pxor         xmm1, xmm1
+        pcmpeqd      xmm2, xmm2
+        vmovdqa32    zmm1 {k1}{z}, zmm2
+        vmovdqa32    xmm0 {k1}{z}, xmm1
+        ptest        xmm0, xmm0
+        jnz          test26_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp          test26_done
+#endif
+     test26_done:
+        jmp          test27
+     test27:
+        mov          TEST_REG_ASM, DRREG_TEST_27_ASM
+        mov          TEST_REG_ASM, DRREG_TEST_27_ASM
+        pxor         xmm0, xmm0
+        mov          TEST_REG_ASM, REG_XSP
+        movhps       QWORD [TEST_REG_ASM - 16], xmm0
+        cmp          DWORD [TEST_REG_ASM - 16], 0
+        jz          test27_done
+        /* Fault if we have incorrect eflags */
+        ud2
+        jmp          test27_done
+     test27_done:
+        jmp          epilog
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */

@@ -49,6 +49,7 @@
  * allowing us to use a global var here.
  */
 static reg_id_t reg = DR_REG_NULL;
+static reg_id_t simd_reg = DR_REG_NULL;
 
 static dr_emit_flags_t
 event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
@@ -62,6 +63,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (drreg_unreserve_register(drcontext, bb, instr, reg) != DRREG_SUCCESS)
             CHECK(false, "failed to unreserve");
         reg = DR_REG_NULL;
+    }
+    if (simd_reg != DR_REG_NULL) {
+        if (drreg_unreserve_register(drcontext, bb, instr, simd_reg) != DRREG_SUCCESS)
+            CHECK(false, "failed to unreserve");
+        simd_reg = DR_REG_NULL;
     }
 
     if (!instr_is_app(instr))
@@ -77,6 +83,16 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (drreg_reserve_register(drcontext, bb, instr, &allowed, &reg) != DRREG_SUCCESS)
             DR_ASSERT(false);
         drvector_delete(&allowed);
+#ifdef X86
+        /* Now reserve SIMD register */
+        drreg_init_and_fill_vector_ex(&allowed, DRREG_SIMD_XMM_SPILL_CLASS, true);
+        drreg_set_vector_entry(&allowed, DR_REG_XMM0, false);
+        drreg_set_vector_entry(&allowed, DR_REG_XMM1, false);
+        if (drreg_reserve_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS, bb, instr,
+                                      &allowed, &simd_reg) != DRREG_SUCCESS)
+            DR_ASSERT(false);
+        drvector_delete(&allowed);
+#endif
     }
     return DR_EMIT_DEFAULT;
 }
@@ -93,7 +109,9 @@ event_exit(void)
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
-    drreg_options_t ops = { sizeof(ops), 1 /*max slots needed*/, false };
+    drreg_options_t ops = { sizeof(ops), 1 /*max slots needed*/,
+                            false,       NULL,
+                            false,       2 /* max SIMD slots needed */ };
     if (!drmgr_init())
         CHECK(false, "drmgr init failed");
     if (drreg_init(&ops) != DRREG_SUCCESS)
