@@ -8265,4 +8265,14 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
     return remove_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
 }
 
+DR_API
+bool
+dr_doing_detach(void)
+{
+    if (doing_detach) {
+        return true;
+    }
+    return false;
+}
+
 #endif /* CLIENT_INTERFACE */

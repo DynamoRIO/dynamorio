@@ -6903,4 +6903,11 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                byte *bb_start, size_t bb_size,
                                                void *user_data));
 
+DR_API
+/**
+ * Query whether detach is in progress.
+ */
+bool
+dr_doing_detach(void);
+
 #endif /* _INSTRUMENT_API_H_ */

@@ -1,0 +1,12 @@
+pre-DR init
+Warning: duplicated function name .*
+.*
+pre-DR start
+pre-DR detach
+.*
+all done
+.*
+.* 20. function id markers.*
+.* 10. function return address markers.*
+.* 10. function argument markers.*
+.* 10. function return value markers.*

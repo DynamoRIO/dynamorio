@@ -171,13 +171,17 @@ drx_exit()
     if (count != 0)
         return;
 
-    if (soft_kills_enabled)
+    if (soft_kills_enabled) {
         soft_kills_exit();
+        soft_kills_enabled = false;
+    }
 
     drx_buf_exit_library();
     drreg_exit();
-    if (expand_scatter_gather_drreg_initialized)
+    if (expand_scatter_gather_drreg_initialized) {
         drreg_exit();
+        expand_scatter_gather_drreg_initialized = false;
+    }
     drmgr_exit();
 }
 

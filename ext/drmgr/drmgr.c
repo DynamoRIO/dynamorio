@@ -569,6 +569,15 @@ drmgr_exit(void)
     dr_rwlock_destroy(bb_cb_lock);
 
     dr_mutex_destroy(note_lock);
+
+    /* Reset tls and cls arrays to handle reattaches with statically linked
+     * DR (no natural reset of global state), but only in case of detaching
+     * to avoid the memset overhead when there is no chance of reattaching.
+     */
+    if (dr_doing_detach()) {
+      memset(tls_taken, 0, sizeof(tls_taken));
+      memset(cls_taken, 0, sizeof(cls_taken));
+    }
 }
 
 /***************************************************************************

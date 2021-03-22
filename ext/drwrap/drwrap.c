@@ -1008,6 +1008,12 @@ drwrap_exit(void)
         postcall_cache[i] = NULL;
     }
     postcall_cache_idx = 0;
+#ifdef WINDOWS
+    sysnum_NtContinue = -1;
+#endif
+    disabled_count = 0;
+    if (dr_doing_detach())
+        memset(&drwrap_stats, 0, sizeof(drwrap_stats_t));
 
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);
