@@ -575,8 +575,8 @@ drmgr_exit(void)
      * to avoid the memset overhead when there is no chance of reattaching.
      */
     if (dr_doing_detach()) {
-      memset(tls_taken, 0, sizeof(tls_taken));
-      memset(cls_taken, 0, sizeof(cls_taken));
+        memset(tls_taken, 0, sizeof(tls_taken));
+        memset(cls_taken, 0, sizeof(cls_taken));
     }
 }
 
