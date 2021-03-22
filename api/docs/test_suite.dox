@@ -180,26 +180,7 @@ We also have support for running tests under QEMU emulation.  This is automatica
 $ sudo apt-get install qemu-user qemu-user-binfmt
 ```
 
-To manually run under QEMU, use the `-xarch_root` option:
-
-```
-$ qemu-arm -L /usr/arm-linux-gnueabihf bin32/drrun -xarch_root /usr/arm-linux-gnueabihf -- suite/tests/bin/simple_app
-```
-
-If using a custom build of QEMU, be sure to update the binfmt rule to ensure the proper build is used across execve: QEMU does *not* ensure that the same build is preserved and instead relies on the global binfmt rule.  On an Ubuntu system, edit `/usr/share/binfmts/qemu-arm` and replace the `interpreter` path.  Then run:
-```
-$ sudo update-binfmts --import /usr/share/binfmts/qemu-arm
-```
-
-Confirm the change took effect:
-```
-$ update-binfmts --find bin32/drrun
-```
-
-On Fedora, edit `/usr/lib/binfmt.d/qemu-arm-dynamic.conf` and then run:
-```
-$ sudo systemctl restart systemd-binfmt.service
-```
+For instructions on how to manually run under QEMU, see \ref qemu_deploy.
 
 ## Test Output
 
