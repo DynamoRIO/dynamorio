@@ -1,0 +1,11 @@
+Hit delay threshold: enabling tracing.
+Hit -max_global_trace_refs: disabling tracing.
+.*
+     Total Number Of iterations   :  3
+    ...................................................................
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+.*
+           1 total threads
+.*

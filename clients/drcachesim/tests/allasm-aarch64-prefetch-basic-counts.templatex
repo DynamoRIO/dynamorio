@@ -8,6 +8,8 @@ Total counts:
           81 total prefetches
      .* total data loads
      .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
            1 total threads
      .* total scheduling markers
      .* total transfer markers
@@ -23,6 +25,8 @@ Thread .* counts:
           81 prefetches
      .* data loads
      .* data stores
+     .* icache flushes
+     .* dcache flushes
      .* scheduling markers
      .* transfer markers
      .* function id markers

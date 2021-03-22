@@ -38,6 +38,7 @@
  * functions next to each other.
  */
 
+#include <stdint.h>
 #include "../globals.h"
 #include "arch.h"
 #include "decode.h"
@@ -1060,6 +1061,30 @@ encode_opnd_x0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_wxn(true, false, 0, opnd, enc_out);
 }
 
+/* memx0: memory operand with no offset used as memref for SYS */
+
+static inline bool
+decode_opnd_memx0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_base_disp(decode_reg(extract_uint(enc, 0, 5), true, false),
+                                  DR_REG_NULL, 0, 0, OPSZ_sys);
+    return true;
+}
+
+static inline bool
+encode_opnd_memx0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint xn;
+    bool is_x;
+    /* Only a base address in X reg is valid */
+    if (!opnd_is_base_disp(opnd) || !encode_reg(&xn, &is_x, opnd_get_base(opnd), false) ||
+        !is_x || opnd_get_size(opnd) != OPSZ_sys || opnd_get_scale(opnd) != 0 ||
+        opnd_get_disp(opnd) != 0 || opnd_get_index(opnd) != DR_REG_NULL)
+        return false;
+    *enc_out = xn;
+    return true;
+}
+
 /* x0p0: even-numbered X register or XZR at bit position 0 */
 
 static inline bool
@@ -1532,7 +1557,147 @@ encode_opnd_cond(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
 }
 
-/* sysops: immediate operand for SYS instruction */
+/* fpimm8: immediate operand for SIMD fmov */
+
+static inline bool
+decode_opnd_fpimm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    /* See Arm Architecture Reference Manual
+     *
+     * Immediate is encoded as 8 bits. Bits 5->9 and 16->18. LSB is bit 5:
+     * imm8 = a:b:c:d:e:f:g:h (LSB)
+     *
+     * Half-precision (v8.2)
+     * --------------
+     *
+     * imm16 = imm8<7>:NOT(imm8<6>):Replicate(imm8<6>,2):imm8<5:0>:Zeros(6);
+     *         a:~b:bb:cdefgh:000000
+     *
+     * datasize = if Q == '1' then 128 else 64;
+     * imm = Replicate(imm16, datasize DIV 16);
+     *     = imm16:imm16:imm16:imm16                         (Q=0 -> 64)
+     *     = imm16:imm16:imm16:imm16:imm16:imm16:imm16:imm16 (Q=1 -> 128)
+     *
+     * Single-precision (TODO)
+     * ----------------
+     * Assume cmode = 1111 and op = 0
+     *
+     * imm32 = imm8<7>:NOT(imm8<6>):Replicate(imm8<6>,5):imm8<5:0>:Zeros(19);
+     *         a:~b:bbbbb:cdefgh:0000000000000000000
+     *
+     * imm64 = Replicate(imm32, 2);
+     *       = a:~b:bbbbb:cdefgh:0000000000000000000 a:~b:bbbbb:cdefgh:0000000000000000000
+     *
+     * datasize = if Q == '1' then 128 else 64;
+     * imm = Replicate(imm64, datasize DIV 64);
+     *     = imm64       (Q=0)
+     *     = imm64:imm64 (Q=1)
+     */
+    union {
+#ifdef HAVE_HALF_FLOAT
+        __fp16 f;
+        uint16_t i;
+#else
+        /* For platforms on which 16 bit (half-precision) FP is not yet available. */
+        float f;
+        uint32_t i;
+#endif
+    } fpv;
+
+    int abc = extract_uint(enc, 16, 3);
+    int defgh = extract_uint(enc, 5, 5);
+
+    uint a = (abc & 0x4);
+    uint b = (abc & 0x2);
+    uint not_b = b == 0 ? 1 : 0;
+
+#ifdef HAVE_HALF_FLOAT
+    uint bb = ((b == 0) ? 0 : 0x3);
+#else
+    uint bbbbb = ((b == 0) ? 0 : 0x1f);
+#endif
+
+    uint cdefgh = ((abc & 0x1) << 5) | (defgh & 0x1f);
+
+#ifdef HAVE_HALF_FLOAT
+    uint16_t imm16 = (a << 13) | (not_b << 14) | (bb << 12) | (cdefgh << 6);
+    fpv.i = imm16;
+#else
+    uint32_t imm32 = (a << 29) | (not_b << 30) | (bbbbb << 25) | (cdefgh << 19);
+    fpv.i = imm32;
+#endif
+    *opnd = opnd_create_immed_float(fpv.f);
+
+    return true;
+}
+
+static inline bool
+encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    /* Based on the IEEE 754-2008 standard but with Arm-specific details that
+     * are left open by the standard. See Arm Architecture Reference Manual.
+     *
+     * Half-precision example
+     *   __   ________
+     * S/exp\/fraction\
+     *  _
+     * abbbcdefgh000000
+     * 0011110000000000 = 1.0
+     *    _
+     *   abbb cdef gh00 0000
+     * 0x8    0    0    0     a
+     * 0x1    0    0    0     b
+     * 0x0    8    0    0     c
+     * 0x0    7    c    0     defgh
+     */
+    union {
+#ifdef HAVE_HALF_FLOAT
+        __fp16 f;
+        uint16_t i;
+#else
+        /* For platforms on which 16 bit (half-precision) FP is not yet available. */
+        float f;
+        uint32_t i;
+#endif
+    } fpv;
+
+    if (!opnd_is_immed_float(opnd))
+        return false;
+
+    fpv.f = opnd_get_immed_float(opnd);
+#ifdef HAVE_HALF_FLOAT
+    uint16_t imm = fpv.i;
+    uint a = (imm & 0x8000);
+    uint b = (imm & 0x1000);
+    uint c = (imm & 0x800);
+    uint defgh = (imm & 0x7c0);
+
+    /* 3332 2222 2222 1111 1111 11
+     * 1098 7654 3210 9876 5432 1098 7654 3210
+     * ---- ---- ---- -abc ---- --de fgh- ----   immediate encoding
+     *          0x8000 |<-3|  | ||
+     *          0x1000  |<-5--| ||
+     *           0x800   |<--5--||
+     *           0x7c0           |>
+     */
+    *enc_out = (a << 3) | (b << 5) | (c << 5) | (defgh >> 1);
+#else
+    /* 3332 2222 2222 1111 1111 11
+     * 1098 7654 3210 9876 5432 1098 7654 3210
+     *  _
+     * abbb bbbc defg h000 0000 0000 0000 0000
+     */
+    uint32_t imm = fpv.i;
+    uint a = (imm & 0x80000000);
+    uint b = (imm & 0x10000000);
+    uint c = (imm & 0x1000000);
+    uint defgh = (imm & 0xf80000);
+    *enc_out = (a >> 13) | (b >> 11) | (c >> 8) | (defgh >> 14);
+#endif
+    return true;
+}
+
+/* sysops: immediate operand for SYS instruction which specifies SYS operations */
 
 static inline bool
 decode_opnd_sysops(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -1798,10 +1963,39 @@ decode_opnd_imm16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     return decode_opnd_int(5, 16, false, 0, OPSZ_12b, 0, enc, opnd);
 }
 
-static inline bool
-encode_opnd_imm16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+static bool
+encode_opnd_instr(int bit_pos, opnd_t opnd, byte *start_pc, instr_t *containing_instr,
+                  OUT uint *enc_out)
 {
-    return encode_opnd_int(5, 16, false, 0, 0, opnd, enc_out);
+    if (!opnd_is_instr(opnd)) {
+        return false;
+    }
+    ptr_uint_t val =
+        ((ptr_uint_t)instr_get_note(opnd_get_instr(opnd)) -
+         (ptr_uint_t)instr_get_note(containing_instr) + (ptr_uint_t)start_pc) >>
+        opnd_get_shift(opnd);
+
+    uint bits = opnd_size_in_bits(opnd_get_size(opnd));
+    // We expect truncation; instrlist_insert_mov_instr_addr splits the instr's
+    // encoded address into INSTR_kind operands in multiple mov instructions in the
+    // ilist, each representing a 2-byte portion of the complete address.
+    val &= ((1 << bits) - 1);
+
+    ASSERT((*enc_out & (val << bit_pos)) == 0);
+    *enc_out |= (val << bit_pos);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm16(uint enc, int opcode, byte *start_pc, opnd_t opnd,
+                  instr_t *containing_instr, OUT uint *enc_out)
+{
+    if (opnd_is_immed_int(opnd))
+        return encode_opnd_int(5, 16, false, 0, 0, opnd, enc_out);
+    else if (opnd_is_instr(opnd))
+        return encode_opnd_instr(5, opnd, start_pc, containing_instr, enc_out);
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 /* memvr: memory operand for SIMD load structure and replicate */
@@ -2069,6 +2263,143 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
         return true;
     }
     return false;
+}
+
+/* fpimm13: floating-point immediate for scalar fmov */
+
+static inline bool
+decode_opnd_fpimm13(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    /*
+     * From the Architecture Reference Manual, 8 bit immediate abcdefgh maps to
+     * floats:
+     *
+     * 3332 2222 2222 1111 1111 11
+     * 1098 7654 3210 9876 5432 1098 7654 3210
+     *  _                            abcd efgh <- 8 bit immediate mapped to
+     * abbb bbbc defg h000 0000 0000 0000 0000 <- 32 bit float
+     *
+     *   abcd efgh  Masks
+     * 0x1    0     a
+     * 0x4    0     b
+     * 0x2    0     c
+     * 0x1    F     defgh
+     */
+    if (extract_uint(enc, 22, 1) == 0) { /* 32 bits */
+        union {
+            float f;
+            uint32_t i;
+        } fpv;
+
+        uint32_t imm = extract_uint(enc, 13, 8);
+
+        uint32_t a = imm & 0x80;
+        uint32_t b = imm & 0x40;
+        uint32_t not_b = ((b == 0) ? 1 : 0);
+        uint32_t bbbbb = ((b == 0) ? 0 : 0x1f);
+        uint32_t c = imm & 0x20;
+        uint32_t defgh = imm & 0x1f;
+
+        uint32_t imm32 =
+            (a << 24) | (not_b << 30) | (bbbbb << 25) | (c << 19) | (defgh << 19);
+
+        fpv.i = imm32;
+        *opnd = opnd_create_immed_float(fpv.f);
+    } else { /* 64 bits */
+        /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
+         * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
+         *  _                                                               abcdefgh
+         * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
+         */
+        union {
+            double d;
+            uint64_t i;
+        } fpv;
+
+        uint64_t imm = extract_uint(enc, 13, 8);
+
+        uint64_t a = imm & 0x80;
+        uint64_t b = imm & 0x40;
+        uint64_t not_b = ((b == 0) ? 1 : 0);
+        uint64_t bbbbbbbb = ((b == 0) ? 0 : 0xff);
+        uint64_t c = imm & 0x20;
+        uint64_t defgh = imm & 0x1f;
+
+        uint64_t imm64 =
+            (a << 56) | (not_b << 62) | (bbbbbbbb << 54) | (c << 48) | (defgh << 48);
+
+        fpv.i = imm64;
+        *opnd = opnd_create_immed_double(fpv.d);
+    }
+    return true;
+}
+
+static inline bool
+encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    /*
+     * From the Architecture Reference Manual, 8 bit immediate abcdefgh maps to
+     * floats:
+     *
+     *   3332 2222 2222 1111 1111 11
+     *   1098 7654 3210 9876 5432 1098 7654 3210
+     *    _
+     *   abbb bbbc defg h000 0000 0000 0000 0000
+     * 0x8    0    0    0    0    0    0    0    a
+     * 0x1    0    0    0    0    0    0    0    b
+     * 0x0    1    0    0    0    0    0    0    c
+     * 0x0    0    f    8    0    0    0    0    defgh
+     */
+    if (opnd_is_immed_float(opnd)) {
+        ASSERT(extract_uint(enc, 22, 1) == 0); /* 32 bit floating point */
+        union {
+            float f;
+            uint32_t i;
+        } fpv;
+        fpv.f = opnd_get_immed_float(opnd);
+        uint32_t imm = fpv.i;
+
+        uint a = (imm & 0x80000000);
+        uint b = (imm & 0x10000000);
+        uint c = (imm & 0x01000000);
+        uint defgh = (imm & 0x00f80000);
+
+        /* 3332 2222 2222 1111 1111 11
+         * 1098 7654 3210 9876 5432 1098 7654 3210
+         * ---- ---- ---a bcde fgh- ---- ---- ----   immediate encoding
+         * |-----11---->|           0x80000000 a
+         *    |-----9---->|         0x10000000 b
+         *         |---6-->|        0x01000000 c
+         *           |--6-->|       0x00f80000 defgh
+         */
+        *enc_out = (a >> 11) | (b >> 9) | (c >> 6) | (defgh >> 6);
+    } else if (opnd_is_immed_double(opnd)) {
+        ASSERT(extract_uint(enc, 22, 1) == 1); /* 64 bit floating point */
+        /* 6666 5555 5555 5544 44444444 33333333 33322222 22221111 111111
+         * 3210 9876 5432 1098 76543210 98765432 10987654 32109876 54321098 76543210
+         *  _
+         * abbb bbbb bbcd efgh 00000000 00000000 00000000 00000000 00000000 00000000
+         *
+         * ---- ---- ---a bcde fgh----- -------- immediate encoding
+         */
+        union {
+            double d;
+            uint64_t i;
+        } fpv;
+        fpv.d = opnd_get_immed_double(opnd);
+        uint64_t imm = fpv.i;
+
+        uint64_t a = (imm & 0x8000000000000000);
+        uint64_t b = (imm & 0x1000000000000000);
+        uint64_t c = (imm & 0x0020000000000000);
+        uint64_t defgh = (imm & 0x001f000000000000);
+
+        *enc_out =
+            (((a >> 11) | (b >> 9) | (c >> 3) | (defgh >> 3)) & 0xffffffff00000000) >> 32;
+    } else
+        return false;
+
+    return true;
 }
 
 /* b_sz: Vector element width for SIMD instructions. */
@@ -3142,7 +3473,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         opc == OP_bcond || opc == OP_adc || opc == OP_adcs || opc == OP_sbc ||
         opc == OP_sbcs || opc == OP_csel || opc == OP_csinc || opc == OP_csinv ||
         opc == OP_csneg || opc == OP_ccmn || opc == OP_ccmp) {
-        /* FIXME i#1569: When handled by decoder, add:
+        /* FIXME i#2626: When handled by decoder, add:
          * opc == OP_fcsel
          */
         eflags |= EFLAGS_READ_NZCV;
@@ -3152,11 +3483,21 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
          opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_NZCV) ||
         opc == OP_adcs || opc == OP_adds || opc == OP_sbcs || opc == OP_subs ||
         opc == OP_ands || opc == OP_bics || opc == OP_ccmn || opc == OP_ccmp) {
-        /* FIXME i#1569: When handled by decoder, add:
+        /* FIXME i#2626: When handled by decoder, add:
          * opc == OP_fccmp || opc == OP_fccmpe || opc == OP_fcmp || opc == OP_fcmpe
          */
         eflags |= EFLAGS_WRITE_NZCV;
     }
+
+    /* XXX i#2626: Until the decoder for AArch64 covers all the instructions that
+     * read/write aflags, as a workaround conservatively assume that all OP_xx
+     * instructions (i.e., unrecognized instructions) may read/write aflags.
+     */
+    if (opc == OP_xx) {
+        eflags |= EFLAGS_READ_ARITH;
+        eflags |= EFLAGS_WRITE_ARITH;
+    }
+
     instr->eflags = eflags;
     instr_set_eflags_valid(instr, true);
 

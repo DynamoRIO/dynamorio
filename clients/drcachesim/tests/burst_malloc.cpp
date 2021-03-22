@@ -64,6 +64,24 @@ return_big_value(int arg)
     return (((ptr_uint_t)1 << (8 * sizeof(ptr_uint_t) - 1)) - 1) | arg;
 }
 
+#ifdef UNIX
+// Test i#4451 same-PC functions with differing arg counts.
+// UNIX-only to simplify the aliasing setup.
+// We build with -Wno-attribute-alias to avoid warnings here.
+extern "C" {
+int
+has_aliases(int arg1, int arg2)
+{
+    return arg1;
+}
+
+int
+alias_1arg(int arg1) __attribute__((alias("has_aliases")));
+int
+alias_3args(int arg1, int arg2, int arg3) __attribute__((alias("has_aliases")));
+}
+#endif
+
 static int
 do_some_work(int arg)
 {
@@ -76,6 +94,9 @@ do_some_work(int arg)
         vals[i] = (double *)malloc(sizeof(double));
         *vals[i] = sin(*val);
         *val += *vals[i] + (double)return_big_value(i);
+#ifdef UNIX
+        *val += has_aliases(i, i);
+#endif
     }
     for (int i = 0; i < iters; i++) {
         *val += *vals[i];
@@ -100,15 +121,27 @@ exit_cb(void *)
     std::string line;
     bool found_malloc = false;
     bool found_return_big_value = false;
+    int found_alias_count = 0;
     while (std::getline(stream, line)) {
         assert(line.find('!') != std::string::npos);
         if (line.find("!return_big_value") != std::string::npos)
             found_return_big_value = true;
         if (line.find("!malloc") != std::string::npos)
             found_malloc = true;
+#ifdef UNIX
+        if (line.find("alias") != std::string::npos) {
+            ++found_alias_count;
+            // The min arg count should be present.
+            assert(line.find(",1,") != std::string::npos);
+        }
+#endif
     }
     assert(found_malloc);
     assert(found_return_big_value);
+#ifdef UNIX
+    // All 3 should be in the file, even though 2 had duplicate PC's.
+    assert(found_alias_count == 3);
+#endif
 }
 
 int
@@ -120,6 +153,10 @@ main(int argc, const char *argv[])
                    " -client_lib ';;-offline -record_heap"
                    // Test the low-overhead-wrapping option.
                    " -record_replace_retaddr"
+#ifdef UNIX
+                   // Test aliases with differing arg counts.
+                   " -record_function \"has_aliases|2&alias_1arg|1&alias_3args|3\""
+#endif
                    // Test large values that require two entries.
                    " -record_function \"malloc|1&return_big_value|1\"'"))
         std::cerr << "failed to set env var!\n";

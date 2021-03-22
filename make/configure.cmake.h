@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,7 +71,7 @@
 #cmakedefine DR_HOST_X64
 #cmakedefine DR_HOST_NOT_TARGET
 
-/* set by high-level VMAP/VMSAFE/VPS configurations */
+/* high-level configuration */
 #cmakedefine PROGRAM_SHEPHERDING
 #cmakedefine CLIENT_INTERFACE
 #cmakedefine APP_EXPORTS
@@ -109,6 +109,7 @@
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
 #cmakedefine HAVE_RSEQ
+#cmakedefine HAVE_HALF_FLOAT
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool

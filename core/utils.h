@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -542,6 +542,9 @@ enum {
 #    endif
 #    ifdef WINDOWS
     LOCK_RANK(alt_tls_lock),
+#    endif
+#    ifdef UNIX
+    LOCK_RANK(detached_sigact_lock),
 #    endif
     /* ADD HERE a lock around section that may allocate memory */
 
@@ -1223,7 +1226,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #    endif /* INTERNAL */
 #    define THREAD          \
         ((dcontext == NULL) \
-             ? INVALID_FILE \
+             ? main_logfile \
              : ((dcontext == GLOBAL_DCONTEXT) ? main_logfile : dcontext->logfile))
 #    define THREAD_GET get_thread_private_logfile()
 #    define GLOBAL main_logfile
@@ -1405,6 +1408,7 @@ extern mutex_t do_threshold_mutex;
         if ((dc__local == NULL || dc__local == GLOBAL_DCONTEXT) &&              \
             !dynamo_initialized) {                                              \
             try__except = &global_try_except;                                   \
+            IF_UNIX(global_try_tid = get_sys_thread_id());                      \
         } else {                                                                \
             if (dc__local == GLOBAL_DCONTEXT)                                   \
                 dc__local = get_thread_private_dcontext();                      \
@@ -1413,6 +1417,7 @@ extern mutex_t do_threshold_mutex;
         }                                                                       \
         ASSERT(try__except != NULL);                                            \
         TRY(try__except, try_statement, EXCEPT(try__except, except_statement)); \
+        IF_UNIX(global_try_tid = INVALID_THREAD_ID);                            \
     } while (0)
 
 /* these use do..while w/ a local to avoid double-eval of dcontext */
@@ -1431,29 +1436,33 @@ extern mutex_t do_threshold_mutex;
     } while (0)
 
 /* internal versions */
-#define TRY(try_pointer, try_statement, except_or_finally)                     \
-    do {                                                                       \
-        try_except_context_t try__state;                                       \
-        /* must be current thread -> where we'll fault */                      \
-        /* We allow NULL solely to avoid duplicating try_statement in          \
-         * TRY_EXCEPT_ALLOW_NO_DCONTEXT.                                       \
-         */                                                                    \
-        ASSERT((try_pointer) == &global_try_except || (try_pointer) == NULL || \
-               (try_pointer) == &get_thread_private_dcontext()->try_except);   \
-        if ((try_pointer) != NULL) {                                           \
-            try__state.prev_context = (try_pointer)->try_except_state;         \
-            (try_pointer)->try_except_state = &try__state;                     \
-        }                                                                      \
-        if ((try_pointer) == NULL || DR_SETJMP(&try__state.context) == 0) {    \
-            try_statement /* TRY block */ /* make sure there is no return in   \
-                                             try_statement */                  \
-                if ((try_pointer) != NULL)                                     \
-            {                                                                  \
-                POP_TRY_BLOCK(try_pointer, try__state);                        \
-            }                                                                  \
-        }                                                                      \
-        except_or_finally                                                      \
-        /* EXCEPT or FINALLY will POP_TRY_BLOCK on exception */                \
+#define TRY(try_pointer, try_statement, except_or_finally)                             \
+    do {                                                                               \
+        try_except_context_t try__state;                                               \
+        /* must be current thread -> where we'll fault */                              \
+        /* We allow NULL solely to avoid duplicating try_statement in                  \
+         * TRY_EXCEPT_ALLOW_NO_DCONTEXT.                                               \
+         */                                                                            \
+        ASSERT(                                                                        \
+            (try_pointer) == &global_try_except || (try_pointer) == NULL ||            \
+            (try_pointer) == &get_thread_private_dcontext()->try_except ||             \
+            (try_pointer) == /* A currently-native thread: */                          \
+                &thread_lookup(IF_UNIX_ELSE(get_sys_thread_id(), d_r_get_thread_id())) \
+                     ->dcontext->try_except);                                          \
+        if ((try_pointer) != NULL) {                                                   \
+            try__state.prev_context = (try_pointer)->try_except_state;                 \
+            (try_pointer)->try_except_state = &try__state;                             \
+        }                                                                              \
+        if ((try_pointer) == NULL || DR_SETJMP(&try__state.context) == 0) {            \
+            try_statement /* TRY block */ /* make sure there is no return in           \
+                                             try_statement */                          \
+                if ((try_pointer) != NULL)                                             \
+            {                                                                          \
+                POP_TRY_BLOCK(try_pointer, try__state);                                \
+            }                                                                          \
+        }                                                                              \
+        except_or_finally                                                              \
+        /* EXCEPT or FINALLY will POP_TRY_BLOCK on exception */                        \
     } while (0)
 
 /* implementation notes: */
@@ -2356,6 +2365,12 @@ profile_callers_exit(void);
 /* an ASSERT replacement for use in unit tests */
 #    define FAIL() EXPECT(true, false)
 #    define EXPECT(expr, expected)                                     \
+        do {                                                           \
+            ptr_uint_t value_once = (ptr_uint_t)(expr);                \
+            EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected); \
+        } while (0)
+
+#    define EXPECT_EQ(expr, expected)                                  \
         do {                                                           \
             ptr_uint_t value_once = (ptr_uint_t)(expr);                \
             EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected); \

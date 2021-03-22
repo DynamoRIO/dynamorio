@@ -578,7 +578,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         }
     } break;
     case IMMED_FLOAT_kind: {
-        /* need to save floating state around float printing */
+        /* Save floating state for float printing. */
         PRESERVE_FLOATING_POINT_STATE({
             uint top;
             uint bottom;
@@ -589,6 +589,23 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         });
         break;
     }
+#    ifndef WINDOWS
+        /* XXX i#4488: x87 floating point immediates should be double precision.
+         * Type double currently not included for Windows because sizeof(opnd_t) does
+         * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+         */
+    case IMMED_DOUBLE_kind: {
+        PRESERVE_FLOATING_POINT_STATE({
+            uint top;
+            uint bottom;
+            const char *sign;
+            double_print(opnd_get_immed_double(opnd), 6, &top, &bottom, &sign);
+            print_to_buffer(buf, bufsz, sofar, "%s%s%u.%.6u", immed_prefix(), sign, top,
+                            bottom);
+        });
+        break;
+    }
+#    endif
     case PC_kind: {
         app_pc target = opnd_get_pc(opnd);
         if (!print_known_pc_target(buf, bufsz, sofar, dcontext, target)) {
@@ -640,6 +657,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         case NULL_kind:
         case IMMED_INTEGER_kind:
         case IMMED_FLOAT_kind:
+        case IMMED_DOUBLE_kind:
         case PC_kind:
         case FAR_PC_kind: break;
         case REG_kind:
@@ -948,15 +966,16 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
         }
     }
     if (is_evex_mask_pending) {
-        opnd = instr_get_src(instr, 0);
+        int mask_index = 0;
+        opnd = instr_get_src(instr, mask_index);
         CLIENT_ASSERT(IF_X86_ELSE(true, false), "evex mask can only exist for x86.");
-        optype = instr_info_opnd_type(info, !dsts_first(), i);
+        optype = instr_info_opnd_type(info, !dsts_first(), mask_index);
         CLIENT_ASSERT(!instr_is_opmask(instr) && opnd_is_reg(opnd) &&
                           reg_is_opmask(opnd_get_reg(opnd)) && opmask_with_dsts(),
                       "evex mask must always be the first source.");
         print_to_buffer(buf, bufsz, sofar, " {");
         opnd_disassemble_noimplicit(buf, bufsz, sofar, dcontext, instr, optype, opnd,
-                                    false, multiple_encodings, dsts_first(), &i);
+                                    false, multiple_encodings, dsts_first(), &mask_index);
         print_to_buffer(buf, bufsz, sofar, "}");
     }
 }
@@ -1390,10 +1409,13 @@ common_disassemble_fragment(dcontext_t *dcontext, fragment_t *f_in, file_t outfi
             pc = (cache_pc)disassemble_with_bytes(dcontext, (byte *)pc, outfile);
         }
         if (LINKSTUB_DIRECT(l->flags) && DIRECT_EXIT_STUB_DATA_SZ > 0) {
-            ASSERT(DIRECT_EXIT_STUB_DATA_SZ == sizeof(cache_pc));
-            if (stub_is_patched(f, EXIT_STUB_PC(dcontext, f, l))) {
+            ASSERT(DIRECT_EXIT_STUB_DATA_SZ ==
+                   sizeof(cache_pc)
+                       IF_AARCH64(+DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING));
+            if (stub_is_patched(dcontext, f, EXIT_STUB_PC(dcontext, f, l))) {
                 print_file(outfile, "  <stored target: " PFX ">\n",
-                           *(cache_pc *)next_stop_pc);
+                           *(cache_pc *)IF_AARCH64_ELSE(ALIGN_FORWARD(next_stop_pc, 8),
+                                                        next_stop_pc));
             }
             pc += DIRECT_EXIT_STUB_DATA_SZ;
         }

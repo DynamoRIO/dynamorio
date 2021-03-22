@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -269,8 +269,11 @@ typedef struct _module_data_t module_data_t;
  */
 #    define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
 #endif
-#define DR_NOTE_ANNOTATION (DR_NOTE_FIRST_RESERVED + 1)
-#define DR_NOTE_RSEQ (DR_NOTE_FIRST_RESERVED + 2)
+enum {
+    DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1,
+    DR_NOTE_RSEQ,
+    DR_NOTE_LDEX,
+};
 
 /**
  * Structure written by dr_get_time() to specify the current time.
@@ -306,16 +309,24 @@ typedef struct _dr_stats_t {
      * an un-translatable spot.
      */
     uint64 synchs_not_at_safe_spot;
-    /** Peak number of memory blocks used for heaps. */
-    uint64 peak_vmm_blocks_heap;
-    /** Peak number of memory blocks used for thread stacks. */
-    uint64 peak_vmm_blocks_stack;
-    /** Peak number of memory blocks used for code caches. */
-    uint64 peak_vmm_blocks_cache;
-    /** Peak number of memory blocks used for specialized heaps. */
-    uint64 peak_vmm_blocks_special_heap;
-    /** Peak number of memory blocks used for mappings not in other categories. */
-    uint64 peak_vmm_blocks_special_mmap;
+    /** Peak number of memory blocks used for unreachable heaps. */
+    uint64 peak_vmm_blocks_unreach_heap;
+    /** Peak number of memory blocks used for (unreachable) thread stacks. */
+    uint64 peak_vmm_blocks_unreach_stack;
+    /** Peak number of memory blocks used for unreachable specialized heaps. */
+    uint64 peak_vmm_blocks_unreach_special_heap;
+    /** Peak number of memory blocks used for other unreachable mappings. */
+    uint64 peak_vmm_blocks_unreach_special_mmap;
+    /** Peak number of memory blocks used for reachable heaps. */
+    uint64 peak_vmm_blocks_reach_heap;
+    /** Peak number of memory blocks used for (reachable) code caches. */
+    uint64 peak_vmm_blocks_reach_cache;
+    /** Peak number of memory blocks used for reachable specialized heaps. */
+    uint64 peak_vmm_blocks_reach_special_heap;
+    /** Peak number of memory blocks used for other reachable mappings. */
+    uint64 peak_vmm_blocks_reach_special_mmap;
+    /** Signals delivered to native threads. */
+    uint64 num_native_signals;
 } dr_stats_t;
 
 /**
@@ -522,6 +533,7 @@ extern bool dynamo_all_threads_synched; /* are all other threads suspended safel
  * go through the app interface.
  */
 extern bool doing_detach;
+extern thread_id_t detacher_tid;
 
 extern event_t dr_app_started;
 extern event_t dr_attach_finished;
@@ -600,6 +612,11 @@ extern thread_record_t **all_threads;
 extern mutex_t all_threads_lock;
 DYNAMORIO_EXPORT int
 dynamorio_app_init(void);
+/* dynamorio_app_init() can be called in two parts: */
+void
+dynamorio_app_init_part_one_options();
+int
+dynamorio_app_init_part_two_finalize();
 int
 dynamorio_app_exit(void);
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
@@ -795,6 +812,9 @@ typedef struct _try_except_t {
 } try_except_t;
 
 extern try_except_t global_try_except;
+#ifdef UNIX
+extern thread_id_t global_try_tid;
+#endif
 
 typedef struct {
     /* WARNING: if you change the offsets of any of these fields,
@@ -906,7 +926,12 @@ struct _dcontext_t {
 
     dr_where_am_i_t whereami; /* where control is at the moment */
 #ifdef UNIX
-    char signals_pending; /* != 0: pending; < 0: currently handling one */
+    /* On ARM based machines, char is unsigned by default.
+     * https://www.arm.linux.org.uk/docs/faqs/signedchar.php
+     * But we need _signed_ char, so we use sbyte which explicitly qualifies
+     * as that.
+     */
+    sbyte signals_pending; /* != 0: pending; < 0: currently handling one */
 #endif
 
     /************* end of offset-crucial fields *********************/

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -739,6 +739,9 @@ void
 fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shift,
                                cache_pc start, cache_pc end, size_t old_size);
 
+void
+fragment_update_ibl_tables(dcontext_t *dcontext);
+
 fragment_t *
 fragment_add_ibl_target(dcontext_t *dcontext, app_pc tag, ibl_branch_type_t branch_type);
 
@@ -1141,7 +1144,9 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall);
+                            bool force_synchall,
+                            void (*flush_completion_callback)(void *user_data),
+                            void *user_data);
 
 void
 flush_fragments_custom_list(dcontext_t *dcontext, fragment_t *list,

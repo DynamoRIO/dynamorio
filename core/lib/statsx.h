@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -98,6 +98,7 @@ STATS_DEF("SetContextThread w/o CONTEXT_CONTROL", num_app_setcontext_no_control)
 STATS_DEF("Re-takeovers after native", num_retakeover_after_native)
 #else
 RSTATS_DEF("Total signals delivered", num_signals)
+RSTATS_DEF("Total signals delivered to native threads", num_native_signals)
 RSTATS_DEF("Signals dropped", num_signals_dropped)
 RSTATS_DEF("Signals in coarse units delayed", num_signals_coarse_delayed)
 #endif
@@ -513,6 +514,8 @@ STATS_DEF("Dead shared IBT tables freed: at exit",
 STATS_DEF("Shared IBT tables freed: immediately", num_shared_ibt_tables_freed_immediately)
 STATS_DEF("Pvt ptrs to shared tables updated at-sys walks",
           num_shared_tables_updated_atsyscall)
+STATS_DEF("Pvt ptrs to shared tables updated at delete exits",
+          num_shared_tables_updated_delete)
 STATS_DEF("IBT unlinked entries NOT moved on resize", num_ibt_unlinked_entries_not_moved)
 STATS_DEF("BB fragments in 3 IBL tables", num_bbs_in_3_ibl_tables)
 STATS_DEF("BB fragments in 2 IBL tables", num_bbs_in_2_ibl_tables)
@@ -974,16 +977,28 @@ STATS_DEF("Peak total unallocatable free space", peak_total_wasted_vsize)
 STATS_DEF("Number of unaligned allocations (TEB's etc.)", unaligned_allocations)
 STATS_DEF("Peak unaligned allocations", peak_unaligned_allocations)
 #endif
-RSTATS_DEF("Current vmm blocks for heap", vmm_blocks_heap)
-RSTATS_DEF("Peak vmm blocks for heap", peak_vmm_blocks_heap)
-RSTATS_DEF("Current vmm blocks for cache", vmm_blocks_cache)
-RSTATS_DEF("Peak vmm blocks for cache", peak_vmm_blocks_cache)
-RSTATS_DEF("Current vmm blocks for stack", vmm_blocks_stack)
-RSTATS_DEF("Peak vmm blocks for stack", peak_vmm_blocks_stack)
-RSTATS_DEF("Current vmm blocks for special heap", vmm_blocks_special_heap)
-RSTATS_DEF("Peak vmm blocks for special heap", peak_vmm_blocks_special_heap)
-RSTATS_DEF("Current vmm blocks for special mmap", vmm_blocks_special_mmap)
-RSTATS_DEF("Peak vmm blocks for special mmap", peak_vmm_blocks_special_mmap)
+RSTATS_DEF("Current vmm blocks for unreachable heap", vmm_blocks_unreach_heap)
+RSTATS_DEF("Peak vmm blocks for unreachable heap", peak_vmm_blocks_unreach_heap)
+RSTATS_DEF("Current vmm blocks for stack", vmm_blocks_unreach_stack)
+RSTATS_DEF("Peak vmm blocks for stack", peak_vmm_blocks_unreach_stack)
+RSTATS_DEF("Current vmm blocks for unreachable special heap",
+           vmm_blocks_unreach_special_heap)
+RSTATS_DEF("Peak vmm blocks for unreachable special heap",
+           peak_vmm_blocks_unreach_special_heap)
+RSTATS_DEF("Current vmm blocks for unreachable special mmap",
+           vmm_blocks_unreach_special_mmap)
+RSTATS_DEF("Peak vmm blocks for unreachable special mmap",
+           peak_vmm_blocks_unreach_special_mmap)
+RSTATS_DEF("Current vmm blocks for reachable heap", vmm_blocks_reach_heap)
+RSTATS_DEF("Peak vmm blocks for reachable heap", peak_vmm_blocks_reach_heap)
+RSTATS_DEF("Current vmm blocks for cache", vmm_blocks_reach_cache)
+RSTATS_DEF("Peak vmm blocks for cache", peak_vmm_blocks_reach_cache)
+RSTATS_DEF("Current vmm blocks for reachable special heap", vmm_blocks_reach_special_heap)
+RSTATS_DEF("Peak vmm blocks for reachable special heap",
+           peak_vmm_blocks_reach_special_heap)
+RSTATS_DEF("Current vmm blocks for reachable special mmap", vmm_blocks_reach_special_mmap)
+RSTATS_DEF("Peak vmm blocks for reachable special mmap",
+           peak_vmm_blocks_reach_special_mmap)
 STATS_DEF("Our virtual memory blocks in use", vmm_vsize_blocks_used)
 STATS_DEF("Peak our virtual memory blocks in use", peak_vmm_vsize_blocks_used)
 STATS_DEF("Wasted vmm space due to alignment", vmm_vsize_wasted)
@@ -1227,7 +1242,9 @@ STATS_DEF("Clean Call analyzed", cleancall_analyzed)
 STATS_DEF("Clean Call inserted", cleancall_inserted)
 STATS_DEF("Clean Call inlined", cleancall_inlined)
 STATS_DEF("Clean Call [xyz]mm skipped", cleancall_simd_skipped)
+#ifdef X86
 STATS_DEF("Clean Call mask skipped", cleancall_opmask_skipped)
+#endif
 STATS_DEF("Clean Call aflags save skipped", cleancall_aflags_save_skipped)
 STATS_DEF("Clean Call aflags clear skipped", cleancall_aflags_clear_skipped)
 /* i#107 handle application using same segment register */
@@ -1241,4 +1258,8 @@ STATS_DEF("Reg respill for non-mbr mangling avoided", non_mbr_respill_avoided)
 RSTATS_DEF("Rseq regions identified", num_rseq_regions)
 RSTATS_DEF("Rseq instrumented stores elided", num_rseq_stores_elided)
 RSTATS_DEF("Rseq native calls inserted", num_rseq_native_calls_inserted)
+#endif
+#ifdef AARCHXX
+RSTATS_DEF("Load-exclusive instrs converted to CAS", num_ldex2cas)
+RSTATS_DEF("Store-exclusive instrs converted to CAS", num_stex2cas)
 #endif

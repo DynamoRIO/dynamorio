@@ -1,0 +1,256 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_code_content Code Content Guidelines
+
+See also \ref page_workflow and \ref page_code_style.
+
+# Adding New Features
+
+
+-# A new feature should be added under its own preprocessor define as well
+as under its own off-by-default runtime option, to facilitate incremental
+development and testing.  Once it is working properly, the ifdefs can be
+removed.  Once it is proven to be worthwhile and robust, the option can be
+turned on by default.
+
+-# For new client frameworks, or utility routines that are not present in
+DynamoRIO itself, consider adding the feature(s) as a DynamoRIO Extension.
+A DynamoRIO Extension is a shared or static library that is packaged with
+DynamoRIO for easy use by clients.  Its sources live in the DynamoRIO
+repository in the ext/ directory, and its documentation is included as a
+section in the DynamoRIO documentation.
+-# Code reviews are required for any commit, regardless of how trivial.
+
+-# Add a new regression test, or augment an existing test, to test
+your new feature.
+
+-# If your feature involves new runtime options, consider adding new
+regression suite runs for the option.
+
+-# If your feature involves new API routines, consider adding a new
+sample client that uses the feature.
+
+-# If your feature is user-visible, add it to api/docs/release.dox in
+the list of new features added to the next release.
+
+-# Use assertions whenever an assumption is made.  We have several types
+of ASSERT macros: use the appropriate one.  For any API-visible function,
+use CLIENT_ASSERT to provide an understandable string to the user.
+
+-# Add a new statistic to `core/lib/statsx.h` for anything we might
+want to keep track of.
+
+-# Be careful with locks.  Make sure to follow our deadlock-avoidance
+scheme when adding a new lock: add it to the list in `core/utils.h`.
+
+
+
+# Backward Compatibility
+
+-# Remember that the DynamoRIO API is an interface used by many people.
+Do not take changes to the interface lightly.  In general strive to
+avoid breaking either source compatibility or binary compatibility,
+though for us source is more important.
+-# If we decided that changing an interface is required, please
+update the changelog in api/docs/release.dox with a description of
+the change and a note that it breaks either binary or source
+compatibility.
+
+# Security
+
+
+-# Be security aware. Carefully watch your buffers and input validation to
+avoid introducing vulnerabilities.
+
+-# Do not use unsafe string routines.  Never use `strcpy` or `sprintf`: use `strncpy` and `snprintf` instead.  Use BUFFER_SIZE_ELEMENTS() for the size of statically-sized buffers.  Always null-terminate buffers after calling `strncpy` or `snprintf`: for statically-sized buffers, use  NULL_TERMINATE_BUFFER().
+
+-# Variable placement: <strong>.data is read-only!</strong>
+
+  For self-protection from inadvertent or malicious application activity,
+  DynamoRIO uses a non-standard data section layout with five separate
+  sections:
+
+  - <strong>.rdata</strong> = read-only data
+
+    Mark all non-written variables as `const` to get them into this
+    section.
+
+  - <strong>.data</strong> = rarely-written data
+
+    Variables that are written only during initialization, cleanup, or a
+    handful of times during execution. This section is write-protected by
+    default and only unprotected for small, infrequent windows of time.
+    This is the default location for a variable (even if in .bss, if on
+    Windows, though not on Linux currently due to PR 213296), so if you
+    write to your new default-location variable after initialization
+    <strong>DynamoRIO will crash</strong>!  In debug builds a special
+    self-protection message will alert you to crashes coming from attempts
+    to write to .data.
+
+    If you must write to a variable after initialization,
+    you can either unprotect it with this pair of macros (however, see the
+    next item):
+
+    `SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);`
+
+    `SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);`
+
+    Or you can move it to another section, probably .fspdata, like this:
+
+    `DECLARE_FREQPROT_VAR(static vartype myvar, initial-value);`
+
+    Only unprotect if you write <strong>very infrequently</strong>, as in
+    zero times on any critical path.  Keep an eye on the stats for
+    unprotection calls and make sure you're not affecting performance and
+    not opening up too many windows where the entire .data section is
+    unprotected.
+
+    Do not keep pointers in a data section other than .data.  If they must
+    be writable, use indirection and keep them on the heap.
+
+    Think about whether non-pointers (booleans, counters) can be exploited
+    before throwing them into unprotected sections.  Can an overwrite of
+    the variable in question cause us to stop protecting the application,
+    or to lose control of the application?
+
+    Place all locks in .cspdata.
+
+    Be aware that `DO_ONCE` introduces a window where .data is unprotected
+    (see PR 212510).
+
+  - <strong>.fspdata</strong> = frequently-written self-protected data
+
+    Variables that are written enough that we do not want to unprotect .data
+    every time. We place them in a separate section called .fspdata (for
+    "frequently self-protected data", referring to the number of times we
+    need to change the page protections, which is proportional to the number
+    of post-init writes) both for security and performance reasons. We moved
+    any pointers in this category into structures on the heap, enabling us
+    to move their base pointers into .data. Currently the heap is better
+    protected than our data sections due to its better randomization and its
+    guard pages.  Try not to put new variables here as we hope to eventually
+    eliminate this section.  Note that this is not yet protected at all: PR
+    212508.
+
+  - <strong>.cspdata</strong> = context-switch-written self-protected data
+
+    This is our section for locks, which are written so frequently that
+    unprotecting them is best done at each context switch.  Note that this
+    is not yet protected at all: PR 212508.
+
+  - <strong>.nspdata</strong> = not self-protected data
+
+    Debug-build-only variables, statistics, or data that is not persistent
+    across code cache execution fall into this category of variables that we
+    never protect.  This section is always writable.
+
+DynamoRIO has several other features for self-protection:
+
+
+-# The base of its heap is randomized.  This is why we consider
+writable pointers in the heap to be safer than writable pointers in a
+data section.
+
+-# Guard pages protect both ends of every stack and heap unit to
+protect against sequential overwrites.
+
+-# No state is kept on the DynamoRIO stack across code cache
+execution: execution starts from a clean slate at the base of the stack
+on every exit from the code cache.
+
+-# Generated code is made read-only after initialization.
+
+-# The options are made read-only after initialization.
+Now that we have .data read-only, this is simply part of that feature.
+
+-# The base of the dynamorio.dll library is randomized.
+
+
+
+
+
+# Transparency
+
+
+The DynamoRIO core must be absolutely transparent.  It cannot interfere
+with the application's semantics.  This means that extra care must be taken
+when using <strong>any</strong> operating system or shared library
+resources that might interact with the application's use of those
+resources.  See the API documentation for more details.  The following
+guidelines list some common mistakes to avoid.
+
+
+
+-# Do not introduce new user library dependencies.  On Windows we only
+use ntdll.dll, and there we only call routines that we are sure are
+re-entrant.  On Linux, we have no library dependencies at all when using the default build and runtime options.  Avoid adding any new library calls.
+
+-#  Never call any potentially non-reentrant library routines.  These
+include malloc, calloc, fprintf, etc., and everything that calls these
+routines, such as strdup.  Usually you'll be violating the prior point if
+you use these, but keep in mind that many ntdll.dll routines are
+non-reentrant because they acquire locks or allocate memory.  Use raw
+system calls instead of library routines (yes we have hit many bugs due to
+using library routines).
+
+-# Do not make any alertable system calls on Windows.
+This includes any `Wait*` API routine.  Use the system calls instead, which
+let you specify whether it should be alertable or not.
+
+-#  For memory allocation, use either the local heap (via
+`heap_alloc`) or the global heap (via
+`global_heap_alloc`). (In certain circumstances, such as inside
+signal handlers, other heaps should be used.)  Always de-allocate
+memory.  We cannot assume we will last as long as the application, since
+we may be detached before the application exits.
+
+-#  For I/O, use the interfaces exported by the OS subdirectories.  Do not
+use `stderr` or `stdout` -- due to `FILE` problems on windows we use
+`HANDLE` on windows and hide the distinction behind the
+`file_t` type.  Use the `STDERR` and `STDOUT` macros.
+
+-# DO NOT USE FLOATING-POINT OPERATIONS!
+DynamoRIO does not save or restore floating-point state on context
+switches.  You can use the routines `save_fpstate` and
+`restore_fpstate` (includes mmx & sse state) around your code if
+you really need floating point operations.
+
+-# DO NOT HOLD LOCKS ACROSS CODE CACHE EXECUTION!
+Doing so violates the assumptions of our synchronization algorithms.
+
+
+
+ ****************************************************************************
+ */

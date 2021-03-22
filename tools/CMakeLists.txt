@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -145,7 +145,8 @@ else (UNIX)
 
     set_target_properties(${tgt} PROPERTIES
       # Set define parameters for resources.rc
-      COMPILE_FLAGS "${tool_cflags} ${unicode_cflags} -DRC_IS_${tgt}")
+      COMPILE_FLAGS "${tool_cflags} ${unicode_cflags}"
+      COMPILE_DEFINITIONS "RC_IS_${tgt}")
   endforeach (tgt)
 
   # drdeploy.exe links to libutil/drconfiglib.dll.  When we build drdeploy,
@@ -160,16 +161,22 @@ else (UNIX)
 
 endif (UNIX)
 
-# we generate 3 different tools from drdeploy.c
+# We generate 3 different tools from drdeploy.c.
+if (CMAKE_COMPILER_IS_GNUCC AND NOT CMAKE_COMPILER_IS_CLANG)
+  # Work around a false positive snprintf warning from gcc: i#4363.
+  # XXX i#4363: A better solution would be nice to avoid missing
+  # warnings on real snprintf issues.
+  set_source_files_properties(drdeploy.c PROPERTIES COMPILE_FLAGS "-Wno-restrict")
+endif ()
 add_executable(drconfig drdeploy.c ${RESOURCES})
 set_target_properties(drconfig PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drconfig -DDRCONFIG")
+  COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drconfig;DRCONFIG")
 add_executable(drrun drdeploy.c ${RESOURCES})
 set_target_properties(drrun PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drrun -DDRRUN")
+  COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drrun;DRRUN")
 add_executable(drinject drdeploy.c ${RESOURCES})
 set_target_properties(drinject PROPERTIES
-  COMPILE_FLAGS "${tool_cflags} -DRC_IS_drinject -DDRINJECT")
+  COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drinject;DRINJECT")
 set(tgts ${tgts} drconfig drrun drinject)
 
 foreach (deploytgt drconfig drrun drinject)

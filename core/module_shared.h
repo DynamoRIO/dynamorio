@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -376,7 +376,7 @@ get_proc_address_resolve_forward(module_base_t lib, const char *name);
 #endif /* WINDOWS */
 
 #ifdef WINDOWS
-void *
+uint64
 get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code);
 #endif
 
@@ -464,7 +464,7 @@ typedef struct {
 void
 module_calculate_digest(/*OUT*/ module_digest_t *digest, app_pc module_base,
                         size_t module_size, bool full_digest, bool short_digest,
-                        uint short_digest_size, uint sec_char_include,
+                        size_t short_digest_size, uint sec_char_include,
                         uint sec_char_exclude);
 
 /* actually in utils.c since os-independent */
@@ -544,6 +544,10 @@ typedef enum {
     MODLOAD_SEPARATE_BSS = 0x0008,
     /* Indicates that the module is being loaded in another process. */
     MODLOAD_SEPARATE_PROCESS = 0x0010,
+    /* For use with elf_loader_map_phdrs().  Avoids MAP_32BIT and other DR-mem-only
+     * distortions for app mappings (e.g., early inject mapping the interpreter).
+     */
+    MODLOAD_IS_APP = 0x0020,
 } modload_flags_t;
 
 /* This function is used for loading non-private libs as well as private. */

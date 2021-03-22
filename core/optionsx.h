@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -323,8 +323,7 @@ OPTION_DEFAULT_INTERNAL(bool, heap_accounting_assert, true,
 
 #if defined(UNIX)
 OPTION_NAME_INTERNAL(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
-/* for default size 0, special_heap_init() will use initial_heap_unit_size instead */
-OPTION_DEFAULT_INTERNAL(uint_size, prof_pcs_heap_size, 0,
+OPTION_DEFAULT_INTERNAL(uint_size, prof_pcs_heap_size, 24 * 1024,
                         "special heap size for pc-sampling profiling")
 #else
 #    ifdef WINDOWS_PC_SAMPLE
@@ -334,6 +333,24 @@ OPTION_NAME(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
 
 /* XXX i#1114: enable by default when the implementation is complete */
 OPTION_DEFAULT(bool, opt_jit, false, "optimize translation of dynamically generated code")
+
+#ifdef UNIX
+OPTION_COMMAND(pathstring_t, xarch_root, EMPTY_STRING, "xarch_root",
+               {
+                   /* Running under QEMU requires timing out and then leaving
+                    * the failed-takeover QEMU thread native, so we bundle that
+                    * here for convenience.  We target the common use case of a
+                    * small app, for which we want a small timeout.
+                    */
+                   if (options->xarch_root[0] != '\0') {
+                       options->unsafe_ignore_takeover_timeout = true;
+                       options->takeover_timeout_ms = 400;
+                   }
+               },
+               "QEMU support: prefix to add to opened files for emulation; also sets "
+               "-unsafe_ignore_takeover_timeout and -takeover_timeout_ms 400",
+               STATIC, OP_PCACHE_NOP)
+#endif
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    ifdef PROFILE_RDTSC
@@ -498,7 +515,8 @@ OPTION_COMMAND(bool, opt_memory, false, "opt_memory",
                "enable memory savings at potential loss in performance", STATIC,
                OP_PCACHE_NOP)
 
-PC_OPTION_INTERNAL(bool, bb_prefixes, "give all bbs a prefix")
+PC_OPTION_DEFAULT_INTERNAL(bool, bb_prefixes, IF_AARCH64_ELSE(true, false),
+                           "give all bbs a prefix")
 /* If a client registers a bb hook, we force a full decode.  This option
  * requests a full decode regardless of whether there is a bb hook.
  * Note that there is no way to make this available for non-CI builds
@@ -567,6 +585,11 @@ OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
                         "mangle application's segment usage.")
 #endif /* X86 */
 #ifdef X64
+#    ifdef WINDOWS
+/* TODO i#49: This option is still experimental and is not fully tested/supported yet. */
+OPTION_DEFAULT(bool, inject_x64, false,
+               "Inject 64-bit DynamoRIO into 32-bit child processes.")
+#    endif
 OPTION_COMMAND(bool, x86_to_x64, false, "x86_to_x64",
                {
                    /* i#1494: to avoid decode_fragment messing up the 32-bit/64-bit mode,
@@ -603,6 +626,16 @@ OPTION_DEFAULT_INTERNAL(uint, opt_mangle, 1,
 OPTION_DEFAULT_INTERNAL(bool, unsafe_build_ldstex, false,
                         "replace blocks using exclusive load/store with a "
                         "macro-instruction (unsafe)")
+#endif
+#ifdef AARCHXX
+/* TODO i#1698: ARM is still missing the abilty to convert the following:
+ * + ldrexd..strexd.
+ * + Predicated exclusive loads or stores.
+ * It will continue with a debug build warning if it sees those.
+ */
+OPTION_DEFAULT_INTERNAL(bool, ldstex2cas, true,
+                        "replace exclusive load/store with compare-and-swap to "
+                        "allow instrumentation, at the risk of ABA errors")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -1263,33 +1296,29 @@ OPTION_INTERNAL(bool, simulate_contention,
                 "simulate lock contention for testing purposes only")
 
 /* Virtual memory manager.
- * Our current default allocation unit matches the allocation granularity on
- * Windows, to avoid worrying about external fragmentation.
- * Since most of our allocations fall within this range this makes the
- * common operation be finding a single empty block.
- *
- * On Linux we save a lot of wasted alignment space by using a smaller
- * granularity (PR 415959, i#2575).
- *
- * XXX: for Windows, if we reserve the whole region up front and
- * just commit pieces, why do we need to match the Windows kernel
- * alloc granularity while within the region?
+ * We assume that our reservations cover 99% of the usage, and that we do not
+ * need to tune our sizes for standalone allocations where we would want 64K
+ * units for Windows.  If we exceed the reservations we'll end up with less
+ * efficient sizing, but that is worth the simpler and cleaner common case
+ * sizing.  We save a lot of wasted alignment space by using a smaller
+ * granularity (PR 415959, i#2575) and we avoid the complexity of adding guard
+ * pages while maintaining larger-than-page sizing (i#2607).
  *
  * vmm_block_size may be adjusted by adjust_defaults_for_page_size().
  */
-OPTION_DEFAULT(uint_size, vmm_block_size, (IF_WINDOWS_ELSE(64, 4) * 1024),
+OPTION_DEFAULT(uint_size, vmm_block_size, 4 * 1024,
                "allocation unit for virtual memory manager")
 /* initial_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_heap_unit_size, 32 * 1024,
+OPTION_DEFAULT(uint_size, initial_heap_unit_size, 24 * 1024,
                "initial private heap unit size")
 /* We avoid wasted space for every thread on UNIX for the
- * non-persistent heap which often stays under 12K (i#2575) (+8K for guards).
+ * non-persistent heap which often stays under 12K (i#2575).
  */
 /* initial_heap_nonpers_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(32, 20) * 1024,
+OPTION_DEFAULT(uint_size, initial_heap_nonpers_size, IF_WINDOWS_ELSE(24, 12) * 1024,
                "initial private non-persistent heap unit size")
 /* initial_global_heap_unit_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 32 * 1024,
+OPTION_DEFAULT(uint_size, initial_global_heap_unit_size, 24 * 1024,
                "initial global heap unit size")
 /* if this is too small then once past the vm reservation we have too many
  * DR areas and subsequent problems with DR areas and allmem synch (i#369)
@@ -1315,84 +1344,87 @@ OPTION_DEFAULT(uint_size, cache_commit_increment, 4 * 1024, "cache commit increm
  * private-configuration caches larger.  We could even get rid of the
  * fcache shifting.
  */
-/* Note that with guard pages any size of 64KB or bigger will get 8KB less than specified
- * to make sure we don't waste virtual memory in the address space
- */
 OPTION(uint_size, cache_bb_max, "max size of bb cache, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 /* for default configuration of all-shared we want a tiny bb cache for
  * our temp private bbs
  */
-/* x64 does not support resizing individual cache units so start at 64 */
-OPTION_DEFAULT(uint_size, cache_bb_unit_init, (IF_X64_ELSE(64, 4) * 1024),
+/* The 56K values below are to hit 64K with two 4K guard pages.
+ * We no longer need to hit 64K since VMM blocks are now 4K, but we keep the
+ * sizes to match historical values and to avoid i#4433.
+ */
+/* x64 does not support resizing individual cache units so start at the max. */
+OPTION_DEFAULT(uint_size, cache_bb_unit_init, (IF_X64_ELSE(56, 4) * 1024),
                "initial bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_max, (56 * 1024),
                "maximum bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 /* w/ init at 4, we quadruple to 16 and then to 64 */
-OPTION_DEFAULT(uint_size, cache_bb_unit_quadruple, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_quadruple, (56 * 1024),
                "bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_trace_max, "max size of trace cache, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-/* x64 does not support resizing individual cache units so start at 64 */
-OPTION_DEFAULT(uint_size, cache_trace_unit_init, (IF_X64_ELSE(64, 8) * 1024),
+/* x64 does not support resizing individual cache units so start at the max. */
+OPTION_DEFAULT(uint_size, cache_trace_unit_init, (IF_X64_ELSE(56, 8) * 1024),
                "initial trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_max, (56 * 1024),
                "maximum trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_quadruple, (IF_X64_ELSE(64, 32) * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_quadruple, (IF_X64_ELSE(56, 32) * 1024),
                "trace cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_shared_bb_max, "max size of shared bb cache, in KB or MB")
 /* override the default shared bb fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_max, (64 * 1024),
+/* May be adjusted by adjust_defaults_for_page_size(). */
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_max, (56 * 1024),
                "maximum shared bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_shared_bb_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "shared bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_shared_trace_max, "max size of shared trace cache, in KB or MB")
 /* override the default shared trace fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_max, (64 * 1024),
+/* May be adjusted by adjust_defaults_for_page_size(). */
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_max, (56 * 1024),
                "maximum shared trace cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_shared_trace_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "shared trace cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
 OPTION(uint_size, cache_coarse_bb_max, "max size of coarse bb cache, in KB or MB")
 /* override the default coarse bb fragment cache size */
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_init, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_init, (56 * 1024),
                /* FIXME: cannot handle resizing of cache setting to unit_max, FIXME:
                   should be 32*1024 */
                "initial coarse bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_max, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_max, (56 * 1024),
                "maximum coarse bb cache unit size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_quadruple,
-               (64 * 1024), /* FIXME: should be 32*1024 */
+               (56 * 1024), /* FIXME: should be 32*1024 */
                "coarse bb cache units are grown by 4X until this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
@@ -1406,19 +1438,19 @@ OPTION_DEFAULT(bool, finite_shared_trace_cache, false,
                "adaptive working set shared trace cache management")
 OPTION_DEFAULT(bool, finite_coarse_bb_cache, false,
                "adaptive working set shared bb cache management")
-OPTION_DEFAULT(uint_size, cache_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_bb_unit_upgrade, (56 * 1024),
                "bb cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_trace_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_trace_unit_upgrade, (56 * 1024),
                "trace cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_bb_unit_upgrade, (56 * 1024),
                "shared bb cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_shared_trace_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_shared_trace_unit_upgrade, (56 * 1024),
                "shared trace cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
-OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_upgrade, (64 * 1024),
+OPTION_DEFAULT(uint_size, cache_coarse_bb_unit_upgrade, (56 * 1024),
                "shared coarse cache units are always upgraded to this size, in KB or MB")
 /* default size is in Kilobytes, Examples: 4, 4k, 4m, or 0 for unlimited */
 
@@ -1568,12 +1600,11 @@ OPTION_DEFAULT(uint_size, vm_size,
                IF_X64_ELSE(IF_WINDOWS_ELSE(512, 1024UL), 128) * 1024 * 1024,
                "capacity of virtual memory region reserved (maximum supported is "
                "512MB for 32-bit and 2GB for 64-bit) for code and reachable heap")
-OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(2048UL, 128) * 1024 * 1024,
-               /* XXX: default value is currently not good enough for sqlserver,
+OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(8192ULL, 128) * 1024 * 1024,
+               /* XXX: default value is currently not good enough for 32-bit sqlserver,
                 * for which we need more than 256MB.
                 */
-               "capacity of virtual memory region reserved (maximum supported is "
-               "512MB for 32-bit and 2GB for 64-bit) for unreachable heap")
+               "capacity of virtual memory region reserved for unreachable heap")
 
 /* We hardcode an address in the mmap_text region here, but verify via
  * in vmk_init().
@@ -1687,10 +1718,12 @@ DYNAMIC_OPTION_DEFAULT(
  * even _init is run needs to have a non-early default.
  * Thus we turn this on in privload_early_inject.
  */
-OPTION_COMMAND(bool, early_inject,
-               IF_WINDOWS_ELSE
-               /* i#980: too early for kernel32 so we disable */
-               (IF_CLIENT_INTERFACE_ELSE(false, true), false),
+/* On Windows this does *not* imply early injection anymore: it just enables control
+ * over where to inject via a hook and alternate injection methods, rather than using
+ * the old thread injection.
+ * XXX: Clean up by removing this option and thread injection completely?
+ */
+OPTION_COMMAND(bool, early_inject, IF_UNIX_ELSE(false /*see above*/, true),
                "early_inject",
                {
                    if (options->early_inject) {
@@ -1699,20 +1732,16 @@ OPTION_COMMAND(bool, early_inject,
                    }
                },
                "inject early", STATIC, OP_PCACHE_GLOBAL)
-#if 0 /* FIXME i#234 NYI: not ready to enable just yet */
-    OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
-    /* see enum definition is os_shared.h for notes on what works with which
-     * os version */
-    OPTION_DEFAULT(uint, early_inject_location, 5 /* INJECT_LOCATION_KiUserApc */,
-        "where to hook for early_injection.  default is earliest injection: anything else will be later.")
-#else
-OPTION_DEFAULT(bool, early_inject_map, false, "inject earliest via map")
-/* see enum definition is os_shared.h for notes on what works with which
- * os version */
-OPTION_DEFAULT(uint, early_inject_location, 4 /* INJECT_LOCATION_LdrDefault */,
-               "where to hook for early_injection.  default is earliest injection: "
-               "anything else will be later.")
-#endif
+/* To support cross-arch follow-children injection we need to use the map option. */
+OPTION_DEFAULT(bool, early_inject_map, true, "inject earliest via map")
+/* See enum definition is os_shared.h for notes on what works with which
+ * os version.  Our default is late injection to make it easier on clients
+ * (as noted in i#980, we don't want to be too early for a private kernel32).
+ */
+OPTION_DEFAULT(uint, early_inject_location, 8 /* INJECT_LOCATION_ThreadStart */,
+               "where to hook for early_injection.  Use 5 =="
+               "INJECT_LOCATION_KiUserApcdefault for earliest injection; use "
+               "4 == INJECT_LOCATION_LdrDefault for easier-but-still-early.")
 OPTION_DEFAULT(uint_addr, early_inject_address, 0,
                "specify the address to hook at for INJECT_LOCATION_LdrCustom")
 #ifdef WINDOWS /* probably the surrounding options should also be under this ifdef */
@@ -1854,7 +1883,12 @@ PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
 OPTION_DEFAULT_INTERNAL(bool, safe_read_tls_init, IF_LINUX_ELSE(true, false),
                         "use a safe read to identify uninit TLS")
 
-OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
+OPTION_DEFAULT(bool, guard_pages, true,
+               "add guard pages to all thread-shared vmm allocations; if disabled, also "
+               "disables -per_thread_guard_pages")
+OPTION_DEFAULT(
+    bool, per_thread_guard_pages, true,
+    "add guard pages to all thread-private vmm allocations, if -guard_pages is also on")
 /* Today we support just one stack guard page.  We may want to turn this
  * option into a number in the future to catch larger strides beyond TOS.
  * There are problems on Windows where the PAGE_GUARD pages must be used, yet
@@ -1876,7 +1910,7 @@ OPTION_COMMAND_INTERNAL(bool, security_api, false, "security_api",
                         "enable Security API", STATIC, OP_PCACHE_NOP)
 
 /* PR 200418: program shepherding is now runtime-option-controlled. Note - not
- * option_command_internal so that we can use for VPS release builds. */
+ * option_command_internal so that we can use for release builds. */
 OPTION_COMMAND(bool, security, false, "security",
                {
                    if (options->security) {
@@ -1888,9 +1922,9 @@ OPTION_COMMAND(bool, security, false, "security",
                        options->syslog_init = true;
                        IF_INTERNAL(options->syslog_internal_mask = SYSLOG_ALL;)
 
-                       /* VPS had -use_moduledb by default (and then disabled with
-                        * -staged) */
-
+                       /* We used to have -use_moduledb by default (disabled with
+                        * -staged).
+                        */
                        ENABLE_SECURITY(options);
 
                        /* memory wins over gcc/gap perf issues (PR 326815)
@@ -3184,6 +3218,13 @@ OPTION(bool, multi_thread_exit,
        "do not guarantee that process exit event callback is invoked single-threaded")
 OPTION(bool, skip_thread_exit_at_exit, "skip thread exit events at process exit")
 #endif
+OPTION(bool, unsafe_ignore_takeover_timeout,
+       "ignore timeouts trying to take over one or more threads when initializing, "
+       "leaving those threads native, which is potentially unsafe")
+OPTION_DEFAULT(uint, takeover_timeout_ms, 30000,
+               "timeout in milliseconds for each thread when taking over at "
+               "initialization/attach.  Reaching a timeout is fatal, unless "
+               "-unsafe_ignore_takeover_timeout is set.")
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 OPTION_NAME(bool, optimize, " synthethic", "set if ANY opts are on")
@@ -3298,7 +3339,7 @@ DYNAMIC_OPTION_DEFAULT(uint, pc_num_hashes, 100,
 
 /* detect_mode for process_control; see case 10610.  Only reason to have it
  * separate is that it is distinctly different than other core features,
- * and is exposed in UI as orthogonal to other VPS features.
+ * and is exposed as orthogonal to other security features.
  *
  * FIXME: having a separate detect_mode option for each
  * security mechanism won't scale even if each used the OPTION_* flags

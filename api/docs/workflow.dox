@@ -1,0 +1,213 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_workflow Development Workflow
+
+We use a centralized rebase workflow for our "master" branch combined with
+feature branches.  Each commit destined for master is first
+pushed to a feature branch and then fast-forward-merged from there to
+master.  Larger features are developed incrementally, split into small pieces
+with individual feature branches being fast-forward-merged into master.
+
+No local changes should be made to the local "master" branch: all changes
+should occur on a feature branch.  For simplicity, pulls and pushes are
+done directly on the feature branch, so normally the local "master" branch is
+rarely used.
+
+[Code reviews use pull requests](@ref page_code_reviews).
+
+# Getting the Code
+
+Clone the repository, either via ssh if you've set up ssh keys in your
+Github profile:
+
+~~~{.unparsed}
+git clone git@github.com:DynamoRIO/dynamorio.git
+~~~
+
+Or via https:
+
+~~~{.unparsed}
+git clone https://github.com/DynamoRIO/dynamorio.git
+~~~
+
+# Configuring Author Information and Aliases
+
+Before doing anything on a fresh clone, run the development setup script (commands for updating and for code reviews depend on it):
+
+~~~{.unparsed}
+make/git/devsetup.sh
+~~~
+
+Additionally, make sure that your full name is listed in the `Name` field at https://github.com/settings/profile and that a legitimate email address that represents you is set as your primary Github address at https://github.com/settings/emails.  Those two fields will be used for the author line for pull requests when they are squash-and-merged into master.  You must also uncheck `Keep my email address private` in the email settings page.
+
+# Working on a Small Feature or Bug Fix
+
+Small features or bug fixes, i.e., those that will become a single commit
+in the master branch, use "feature branches".
+
+Ensure origin is up to date:
+
+~~~{.unparsed}
+git fetch origin
+~~~
+
+Then create a new branch for the feature or bug fix, called a "feature"
+branch.  Replace "NNNN" with the issue number and "myfeature" with a name of your choice following the naming conventions below:
+
+~~~{.unparsed}
+git newbranch iNNNN-myfeature
+~~~
+
+Now perform your work in the feature branch, committing locally.
+
+\section sec_branch_naming Branch Naming Conventions
+
+For a small feature or bug fix, the name should start with the issue number prefixed by `i`, followed by a dash, followed by a short description.  For example, `i2172-maps-parsing` or `i2157-reattach`.  If there is no filed issue, use the `iX-` prefix.  For example, `iX-fix-readme-typo`. If there will be multiple changes for an issue, create a different branch for each subsequent change, prefixing them with the same naming convention (i.e. `i` followed by issue number). For example: `i2172-refactoring-raw2trace`, `i2172-adding-wrappers`, etc. Note also the [change naming conventions](@ref sec_commit_messages) in such a case.
+
+Although often a feature branch is short-lived, sometimes experimental work is not able to be finished immediately and there is value in sharing the code so that others can pick up on it.  This is the logic behind using descriptive names for feature branches.
+
+For an experimental branch (see below), the name should start with `experimental-`.  For example, `experimental-jitopt`.
+
+# Merging upstream changes
+
+The `git pullall` alias runs a script that does the right type of update depending on whether you're in a feature branch that has not yet been pushed to the Github repository (where we want a rebase) or in a branch that has already been pushed (where we want to rebase from the remote feature branch and merge from the upstream master).
+
+Thus, to update your current feature branch with the latest content in both the upstream master and in the remote feature branch, if it exists, simply execute:
+
+~~~{.unparsed}
+git pullall
+~~~
+
+After you've shared the branch for review, it is fine to not bother to update to master prior to the final merge, relying on Github's Update Branch button at the time of the merge.  If you do need to update from master for some local testing, it's best to use a merge rather
+than a rebase to avoid losing history in the pull request, and `git pullall` will make sure that a merge is used.  Don't worry about merge commits in feature branches: they'll be removed in the final squash-and-fast-forward-merge step onto master.
+
+If you've pressed the Github button to update the feature branch with changes from master, and you now want to add a commit to your local branch (or have already added one), you want to pull the Github-added commit from the feature branch rather than master as a rebase.  As mentioned, `git pullall` does that for you (along with updating from master).
+
+# Requesting a Code Review and Merging to Master
+
+Code reviews are requested by pushing the feature branch to Github and then
+creating a pull request onto master.  See
+[code review details here](@ref page_code_reviews).
+Merges to master occur only via pull request.
+
+# Deleting a Feature Branch
+
+Once your changes have been merged into master, you can delete your feature
+branch with these commands (substituting your branch's name for "feature"):
+
+~~~{.unparsed}
+git checkout master
+git pullall
+git branch -d feature
+~~~
+
+# Checking Out an Existing Feature Branch
+
+You can check out an existing feature branch `iNNNN-name` via:
+
+~~~{.unparsed}
+git fetch origin
+git checkout iNNNN-name
+~~~
+
+This is equivalent to:
+
+~~~{.unparsed}
+git fetch origin
+git checkout -b iNNNN-name remotes/origin/iNNNN-name
+~~~
+
+# Splitting Up a Feature Branch
+
+If you want to split off the first commit or two from a feature branch and
+you issue a command like this:
+
+~~~{.unparsed}
+git checkout -b tocheckin 35d4e9c87de22ec9b3a8a110cae2d83821c88ee0
+~~~
+
+The `tocheckin` branch will not be a tracking branch.  You'll need to issue
+this command:
+
+~~~{.unparsed}
+git branch --set-upstream-to=origin/master tocheckin
+~~~
+
+If you've run the development setup script, you can run both commands at
+once with:
+
+~~~{.unparsed}
+git split tocheckin 35d4e9c87de22ec9b3a8a110cae2d83821c88ee0
+~~~
+
+# Large Features or Projects
+
+For larger features or projects which will end up containing many commits,
+the workflow is unchanged.  Work proceeds incrementally, with each small
+piece being committed to master using a feature branch and pull request.
+
+# Experimental Branches
+
+For experimental, quick-and-dirty work, especially where the work was already finished privately or where for time constraints and other reasons the regular development process is not suitable, we support experimental branches.  The idea is to promote sharing of academic prototypes and other projects, with the goal of sharing the ideas immediately and making it more likely that the ideas will be eventually integrated into master, by separating the initial sharing from the later clean up and incremental code review.  As described above, experimental branch names start with `experimental-`.
+
+Please note that like other contributions, code contributed to an experimental branch is
+[offered under the terms of our license](@ref page_contributing).
+
+# Useful Aliases
+
+Some potentially useful aliases that are not in the development setup
+script include the common tasks of looking at the log of changes versus the
+remote master:
+
+~~~{.unparsed}
+git config alias.dlog "log --stat origin/master.."
+~~~
+
+And looking at the full diff versus the remote master:
+
+~~~{.unparsed}
+git config alias.ddiff "diff origin/master.."
+~~~
+
+# No Merge Commits on Master
+
+Our workflow uses fast-forward-merge and rebase when merging into the
+master branch.  We do not want any merge commits on the master
+branch: we want a nice clean line of history.  Merge commits on feature
+branches are fine as they will disappear upon merging into master.
+
+
+ ****************************************************************************
+ */

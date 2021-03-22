@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -106,6 +106,8 @@ set(DRLIBC_SRCS
   ${drlibc_arch_asm_src}
   drlibc/drlibc.c
   drlibc/drlibc_notdr_dcxt.c
+  drlibc/drlibc_notdr_error.c
+  drlibc/drlibc_notdr_ignoreassert.c
   drlibc/drlibc_notdr_logfile.c
   drlibc/drlibc_notdr_printlog.c
   drlibc/drlibc_notdr_report.c
@@ -264,6 +266,7 @@ set(ARCH_SRCS
   arch/arch.c
   arch/emit_utils_shared.c
   arch/${ARCH_NAME}/emit_utils.c
+  arch/${ARCH_NAME_SHARED}/emit_utils.c
   # TODO i#1684: Link with drdecode rather than compiling all the same files.
   ${DECODER_SRCS}
   arch/interp.c
@@ -396,8 +399,8 @@ else (UNIX)
     win32/syscall.c
     win32/callback.c
     win32/drmarker.c
-    win32/ntdll.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/inject.c
     win32/inject_shared.c
     win32/module.c
@@ -421,8 +424,8 @@ else (UNIX)
    )
   set(PRELOAD_SRCS
     win32/pre_inject.c
-    win32/ntdll.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/inject_shared.c
     win32/drmarker.c
     ${preinject_asm_src}
@@ -436,10 +439,10 @@ else (UNIX)
   set(INJECTOR_SRCS
     win32/injector.c
     win32/inject.c
-    win32/ntdll.c
     win32/inject_shared.c
     win32/module_shared.c
     win32/ntdll_shared.c
+    win32/ntdll.c
     win32/resources.rc
     config.c
     win32/os.c
@@ -451,7 +454,7 @@ else (UNIX)
     win32/resources.rc
     )
   set_target_properties(drearlyhelp1 PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_EARLY1")
+    COMPILE_DEFINITIONS "RC_IS_EARLY1")
   # base = (release base - 64k)
   set_target_properties(drearlyhelp1 PROPERTIES
     # not bothering with map files
@@ -463,7 +466,7 @@ else (UNIX)
     win32/resources.rc
     )
   set_target_properties(drearlyhelp2 PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_EARLY2")
+    COMPILE_DEFINITIONS "RC_IS_EARLY2")
   # base = (helper1 base - 64k)
   set_target_properties(drearlyhelp2 PROPERTIES
     # not bothering with map files
@@ -643,9 +646,7 @@ if (UNIX)
       if (NOT APPLE)
         # i#46, i#1541, i#1459: we have zero dependencies now by default, except
         # for MacOS where privlib is NYI (i#1285) and static lib.
-        if (NOT VMSAFE AND NOT VPS) # XXX: these unsupported builds have deps
-          set(check_deps ON)
-        endif ()
+        set(check_deps ON)
       endif ()
       # i#2632: 32-bit recent clang release builds are inserting text relocs.
       # XXX: We don't support clang for official package builds until this is fixed.
@@ -915,7 +916,7 @@ copy_target_to_device(${PRELOAD_NAME} "${location_suffix}")
 # drpreinject.dll doesn't link in instr_shared.c so we can't include our inline
 # functions.
 set_target_properties(${PRELOAD_NAME} PROPERTIES
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD -DDR_NO_FAST_IR")
+  COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;RC_IS_PRELOAD;DR_NO_FAST_IR")
 
 if (UNIX)
   # FIXME case 69/1891: -z initfirst = initialize first at runtime (before libc)
@@ -968,7 +969,7 @@ add_library(drdecode
   io.c
   )
 set_target_properties(drdecode PROPERTIES
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
+  COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;STANDALONE_DECODER")
 if (UNIX)
   append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
 endif (UNIX)
@@ -1003,9 +1004,8 @@ if (UNIX)
   target_link_libraries(drinjectlib drmemfuncs)
 endif ()
 set_target_properties(drinjectlib PROPERTIES
-  # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECTLIB")
+  COMPILE_DEFINITIONS "NOT_DYNAMORIO_CORE_PROPER;RC_IS_DRINJECTLIB")
 if (WIN32)
   set(drinjectlib_link_flags
     # not bothering with map files
@@ -1053,7 +1053,9 @@ endif ()
 # We can't run core unit tests when the target is not the host, just like we can't
 # run DR itself managing an app: DR is a same-arch system for code cache operation
 # and only supports target!=host for decoding and drmemtrace analysis (i#1684).
-if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
+if (BUILD_TESTS AND
+    ((CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH) OR
+      (NOT DR_HOST_NOT_TARGET)))
   add_executable(unit_tests unit_tests.c
     # These unit tests have been moved from the x86_code module into a new x86_code
     # test module that gets its own clang/gcc options for testing (-mno-vzeroupper).
@@ -1100,7 +1102,8 @@ if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
     endif ()
   endif ()
   set_target_properties(unit_tests PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST ${unit_tests_extra_flags}"
+    COMPILE_DEFINITIONS "RC_IS_TEST;STANDALONE_UNIT_TEST"
+    COMPILE_FLAGS "${unit_tests_extra_flags}"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
     if (NOT APPLE)
@@ -1125,6 +1128,9 @@ if (BUILD_TESTS AND NOT DR_HOST_NOT_TARGET)
   add_test(unit_tests ${unit_relpath})
   if (APPLE)
     set_tests_properties(unit_tests PROPERTIES LABELS OSX)
+  endif ()
+  if (AARCHXX)
+    set_tests_properties(unit_tests PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   copy_target_to_device(unit_tests "${location_suffix}")
 endif ()

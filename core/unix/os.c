@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -130,14 +130,10 @@ typedef struct rlimit64 rlimit64_t;
  */
 #define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
 #if defined(DR_HOST_AARCH64)
-#    define ASM_R2 "x2"
-#    define ASM_R3 "x3"
 #    define READ_TP_TO_R3_DISP_IN_R2    \
         "mrs " ASM_R3 ", tpidr_el0\n\t" \
         "ldr " ASM_R3 ", [" ASM_R3 ", " ASM_R2 "] \n\t"
 #elif defined(DR_HOST_ARM)
-#    define ASM_R2 "r2"
-#    define ASM_R3 "r3"
 #    define READ_TP_TO_R3_DISP_IN_R2                                           \
         "mrc p15, 0, " ASM_R3                                                  \
         ", c13, c0, " STRINGIFY(USR_TLS_REG_OPCODE) " \n\t"                    \
@@ -1626,6 +1622,14 @@ is_thread_tls_initialized(void)
          */
         if (!first_thread_tls_initialized || last_thread_tls_exited)
             return false;
+        /* i#3535: Avoid races between removing DR's SIGSEGV signal handler and
+         * detached threads being passed native signals.  The detaching thread is
+         * the one doing all the real cleanup, so we simply avoid any safe reads
+         * or TLS for detaching threads.  This var is not cleared until re-init,
+         * so we have no race with the end of detach.
+         */
+        if (detacher_tid != INVALID_THREAD_ID && detacher_tid != get_sys_thread_id())
+            return false;
         /* To handle WSL (i#1986) where fs and gs start out equal to ss (0x2b),
          * and when the MSR is used having a zero selector, and other complexities,
          * we just do a blind safe read as the simplest solution once we're past
@@ -2114,7 +2118,8 @@ os_tls_init(void)
      */
     byte *segment = tls_get_dr_addr();
 #    else
-    byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE, VMM_SPECIAL_MMAP);
+    byte *segment = heap_mmap(PAGE_SIZE, MEMPROT_READ | MEMPROT_WRITE,
+                              VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 #    endif
     os_local_state_t *os_tls = (os_local_state_t *)segment;
 
@@ -2253,7 +2258,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
     os_local_state_t *os_tls =
         (os_local_state_t *)(((byte *)local_state) - offsetof(os_local_state_t, state));
-    heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP);
+    heap_munmap(os_tls->self, PAGE_SIZE, VMM_SPECIAL_MMAP | VMM_PER_THREAD);
 #    endif
 #else
     global_heap_free(tls_table, MAX_THREADS * sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
@@ -2640,6 +2645,13 @@ os_swap_dr_tls(dcontext_t *dcontext, bool to_app)
             os_set_dr_tls_base(dcontext, real_tls, (byte *)real_tls);
         }
     }
+#elif defined(AARCHXX)
+    /* For aarchxx we don't have a separate thread register for DR, and we
+     * always leave the DR pointer in the slot inside the app's or privlib's TLS.
+     * That means we have nothing to do here.
+     * For SYS_clone, we are ok with the parent's TLS being inherited until
+     * new_thread_setup() calls set_thread_register_from_clone_record().
+     */
 #endif
 }
 
@@ -2701,12 +2713,7 @@ os_should_swap_state(void)
     return (INTERNAL_OPTION(mangle_app_seg) &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
 #elif defined(AARCHXX)
-    /* FIXME i#1582: this should return true, but there is a lot of complexity
-     * getting os_switch_seg_to_context() to do the right then when called
-     * at main thread init, secondary thread init, early and late injection,
-     * and thread exit, since it is fragile with its writes to app TLS.
-     */
-    return false;
+    return IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false);
 #endif
 }
 
@@ -2739,20 +2746,6 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
         os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
     if (TEST(DR_STATE_DR_TLS, flags))
         os_swap_dr_tls(dcontext, to_app);
-}
-
-void
-os_swap_context_go_native(dcontext_t *dcontext, dr_state_flags_t flags)
-{
-#ifdef AARCHXX
-    /* FIXME i#1582: remove this routine once os_should_swap_state()
-     * is not disabled and we can actually call
-     * os_swap_context_go_native() safely from multiple places.
-     */
-    os_switch_seg_to_context(dcontext, LIB_SEG_TLS, true /*to app*/);
-#else
-    os_swap_context(dcontext, true /*to app*/, flags);
-#endif
 }
 
 void
@@ -3732,6 +3725,8 @@ thread_get_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
     sigcontext_to_mcontext(mc, ostd->suspended_sigcxt, DR_MC_ALL);
+    IF_ARM(dr_set_isa_mode(tr->dcontext, get_sigcontext_isa_mode(ostd->suspended_sigcxt),
+                           NULL));
     return true;
 }
 
@@ -3748,6 +3743,8 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
         return false;
     ASSERT(ostd->suspended_sigcxt != NULL);
     mcontext_to_sigcontext(ostd->suspended_sigcxt, mc, DR_MC_ALL);
+    IF_ARM(
+        set_sigcontext_isa_mode(ostd->suspended_sigcxt, dr_get_isa_mode(tr->dcontext)));
     return true;
 }
 
@@ -3874,9 +3871,21 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * to the app's.
      */
     os_clone_pre(dcontext);
+#        ifdef AARCHXX
+    /* We need to invalidate DR's TLS to avoid get_thread_private_dcontext() finding one
+     * and hitting asserts in dynamo_thread_init lock calls -- yet we don't want to for
+     * app threads, so we're doing this here and not in os_clone_pre().
+     * XXX: Find a way to put this in os_clone_* to simplify the code?
+     */
+    void *tls = (void *)read_thread_register(LIB_SEG_TLS);
+    write_thread_register(NULL);
+#        endif
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
+#        ifdef AARCHXX
+    write_thread_register(tls);
+#        endif
     /* i#501 the app's tls was switched in os_clone_pre. */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, false /*to dr*/);
@@ -4246,7 +4255,8 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
      * in particular): for low 4GB, easiest to just pass MAP_32BIT (which is
      * low 2GB, but good enough).
      */
-    if (DYNAMO_OPTION(heap_in_lower_4GB) && !TEST(MAP_FILE_FIXED, map_flags))
+    if (DYNAMO_OPTION(heap_in_lower_4GB) &&
+        !TESTANY(MAP_FILE_FIXED | MAP_FILE_APP, map_flags))
         flags |= MAP_32BIT;
 #endif
     /* Allows memory request instead of mapping a file,
@@ -5016,12 +5026,23 @@ ignorable_system_call_normalized(int num)
     /* Used as a lazy trigger. */
     case SYS_rseq:
 #endif
+#ifdef DEBUG
+#    ifdef MACOS
+    case SYS_open_nocancel:
+#    endif
+#    ifdef SYS_open
+    case SYS_open:
+#    endif
+#endif
         return false;
 #ifdef LINUX
 #    ifdef SYS_readlink
     case SYS_readlink:
 #    endif
     case SYS_readlinkat: return !DYNAMO_OPTION(early_inject);
+#endif
+#ifdef SYS_openat
+    case SYS_openat: return IS_STRING_OPTION_EMPTY(xarch_root);
 #endif
     default:
 #ifdef VMX86_SERVER
@@ -6456,6 +6477,38 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     ASSERT(INTERNAL_OPTION(private_loader));
     if (to_app) {
+        /* We need to handle being called when we're already in the requested state. */
+        ptr_uint_t cur_seg = read_thread_register(LIB_SEG_TLS);
+        if ((void *)cur_seg == os_tls->app_lib_tls_base)
+            return true;
+        bool app_mem_valid = true;
+        if (os_tls->app_lib_tls_base == NULL)
+            app_mem_valid = false;
+        else {
+            uint prot;
+            bool rc = get_memory_info(os_tls->app_lib_tls_base, NULL, NULL, &prot);
+            /* Rule out a garbage value, which happens in our own test
+             * common.allasm_aarch_isa.
+             * Also rule out an unwritable region, which seems to happen on arm
+             * where at process init the thread reg points at rodata in libc
+             * until properly set to a writable mmap later.
+             */
+            if (!rc || !TESTALL(MEMPROT_READ | MEMPROT_WRITE, prot))
+                app_mem_valid = false;
+        }
+        if (!app_mem_valid) {
+            /* XXX i#1578: For pure-asm apps that do not use libc, the app may have no
+             * thread register value.  For detach we would like to write a 0 back into
+             * the thread register, but it complicates our exit code, which wants access
+             * to DR's TLS between dynamo_thread_exit_common()'s call to
+             * dynamo_thread_not_under_dynamo() and its call to
+             * set_thread_private_dcontext(NULL).  For now we just leave our privlib
+             * segment in there.  It seems rather unlikely to cause a problem: app code
+             * is unlikely to read the thread register; it's going to assume it owns it
+             * and will just blindly write to it.
+             */
+            return true;
+        }
         /* On switching to app's TLS, we need put DR's TLS base into app's TLS
          * at the same offset so it can be loaded on entering code cache.
          * Otherwise, the context switch code on entering fcache will fault on
@@ -6479,6 +6532,10 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
             __FUNCTION__, (to_app ? "app" : "dr"), os_tls->app_lib_tls_base);
         res = write_thread_register(os_tls->app_lib_tls_base);
     } else {
+        /* We need to handle being called when we're already in the requested state. */
+        ptr_uint_t cur_seg = read_thread_register(LIB_SEG_TLS);
+        if ((void *)cur_seg == ostd->priv_lib_tls_base)
+            return true;
         /* Restore the app's TLS slot that we used for storing DR's TLS base,
          * and put DR's TLS base back to privlib's TLS slot.
          */
@@ -6501,11 +6558,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     LOG(THREAD, LOG_LOADER, 2, "%s %s: set_tls swap success=%d for thread " TIDFMT "\n",
         __FUNCTION__, to_app ? "to app" : "to DR", res, d_r_get_thread_id());
     return res;
-#elif defined(AARCH64)
-    (void)os_tls;
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return false;
-#endif /* X86/ARM/AARCH64 */
+#endif /* X86/AARCHXX */
 }
 
 /* System call interception: put any special handling here
@@ -7645,7 +7698,9 @@ pre_system_call(dcontext_t *dcontext)
                                      * use synch to ensure other threads see the
                                      * new code.
                                      */
-                                    false /*don't force synchall*/);
+                                    false /*don't force synchall*/,
+                                    NULL /*flush_completion_callback*/,
+                                    NULL /*user_data*/);
         break;
     }
 #    endif /* ARM */
@@ -7663,6 +7718,33 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #    endif
+#endif
+#ifdef SYS_openat
+    case SYS_openat: {
+        /* XXX: For completeness we might want to replace paths for SYS_open and
+         * possibly others, but SYS_openat is all we need on modern systems so we
+         * limit syscall overhead to this single point for now.
+         */
+        dcontext->sys_param0 = 0;
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        const char *path = (const char *)dcontext->sys_param1;
+        if (!IS_STRING_OPTION_EMPTY(xarch_root) && !os_file_exists(path, false)) {
+            char *buf = heap_alloc(dcontext, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+            string_option_read_lock();
+            snprintf(buf, MAXIMUM_PATH, "%s/%s", DYNAMO_OPTION(xarch_root), path);
+            buf[MAXIMUM_PATH - 1] = '\0';
+            string_option_read_unlock();
+            if (os_file_exists(buf, false)) {
+                LOG(THREAD, LOG_SYSCALLS, 2, "SYS_openat: replacing |%s| with |%s|\n",
+                    path, buf);
+                set_syscall_param(dcontext, 1, (reg_t)buf);
+                /* Save for freeing in post. */
+                dcontext->sys_param0 = (reg_t)buf;
+            } else
+                heap_free(dcontext, buf, MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+        }
+        break;
+    }
 #endif
 
 #ifdef LINUX
@@ -8702,6 +8784,15 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
+
+#    ifdef SYS_openat
+    case SYS_openat:
+        if (dcontext->sys_param0 != 0) {
+            heap_free(dcontext, (void *)dcontext->sys_param0,
+                      MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
+        }
+        break;
+#    endif
 
     case SYS_rseq:
         /* Lazy rseq handling. */
@@ -10013,7 +10104,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     uint i;
     uint num_threads;
     thread_id_t *tids;
-    uint threads_to_signal = 0;
+    uint threads_to_signal = 0, threads_timed_out = 0;
 
     /* We do not want to re-takeover a thread that's in between notifying us on
      * the last call to this routine and getting onto the all_threads list as
@@ -10111,7 +10202,12 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 SYSLOG(SYSLOG_VERBOSE, INFO_ATTACHED, 3, buf, get_application_name(),
                        get_application_pid());
             }
+            /* We split the wait up so that we'll break early on an exited thread. */
             static const int wait_ms = 25;
+            int max_attempts =
+                /* Integer division rounding down is fine since we always wait 25ms. */
+                DYNAMO_OPTION(takeover_timeout_ms) / wait_ms;
+            int attempts = 0;
             while (!wait_for_event(records[i].event, wait_ms)) {
                 /* The thread may have exited (i#2601).  We assume no tid re-use. */
                 char task[64];
@@ -10119,6 +10215,24 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 NULL_TERMINATE_BUFFER(task);
                 if (!os_file_exists(task, false /*!is dir*/)) {
                     SYSLOG_INTERNAL_WARNING_ONCE("thread exited while attaching");
+                    break;
+                }
+                if (++attempts > max_attempts) {
+                    if (DYNAMO_OPTION(unsafe_ignore_takeover_timeout)) {
+                        SYSLOG(
+                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                            get_application_name(), get_application_pid(),
+                            "Continuing since -unsafe_ignore_takeover_timeout is set.");
+                        ++threads_timed_out;
+                    } else {
+                        SYSLOG(
+                            SYSLOG_VERBOSE, THREAD_TAKEOVER_TIMED_OUT, 3,
+                            get_application_name(), get_application_pid(),
+                            "Aborting. Use -unsafe_ignore_takeover_timeout to ignore.");
+                        REPORT_FATAL_ERROR_AND_EXIT(FAILED_TO_TAKE_OVER_THREADS, 2,
+                                                    get_application_name(),
+                                                    get_application_pid());
+                    }
                     break;
                 }
                 /* Else try again. */
@@ -10144,7 +10258,8 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     d_r_mutex_unlock(&thread_initexit_lock);
     HEAP_ARRAY_FREE(dcontext, tids, thread_id_t, num_threads, ACCT_THREAD_MGT, PROTECTED);
 
-    return threads_to_signal > 0;
+    ASSERT(threads_to_signal >= threads_timed_out);
+    return (threads_to_signal - threads_timed_out) > 0;
 }
 
 bool

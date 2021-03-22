@@ -1,0 +1,344 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_code_reviews Code Reviews
+
+First, please read the [Workflow](@ref page_workflow),
+[Code Content](@ref page_code_content),
+and [Code Style](@ref page_code_style) guidelines.
+
+A code review is required for any merge to the master branch.  We use
+shared feature branches stored in Github, and use pull requests from a
+feature branch to master using squash-and-fast-forward-merge as our review
+mechanism.
+
+\section sec_code_review_non_member Submitting a Change as a Non-Project Member
+
+If you are not (yet) a member of the Committers group for DynamoRIO and thus do not have write access to the repository, you can contribute an individual source code change by having an existing developer commit it.  Rather than using a feature branch on a clone of [DynamoRIO/dynamorio](https://github.com/DynamoRIO/dynamorio) and using `git review` as described below, you'd fork [DynamoRIO/dynamorio](https://github.com/DynamoRIO/dynamorio) into your personal github account and submit a pull request from there to the master branch of [DynamoRIO/dynamorio](https://github.com/DynamoRIO/dynamorio).  You are expected to follow our [Code Style](@ref page_code_style) and, just like with project feature branches, *do not force push* to your personal branch: it is shared history once in a pull request.
+
+In order for the DynamoRIO automated tests to run on your pull request, be sure that you have enabled `Allow all actions` under `Actions` in the `Settings` of your forked repository.
+
+We recommend submitting a few small patches in this manner to demonstrate your work before asking to be added as a project member.
+
+Once you become a DynamoRIO project member, please switch to our workflow of using branches within the DynamoRIO/dynamorio repository rather than using personal cloned repository branches.  This makes it easier for others to contribute toward or take over and finish off pull requests while still giving you credit upon merge.  (It is not uncommon for an open source PR author to be busy and unable to quickly finish off small requested changes, and we'd like to be able to step in and easily finalize it within the same PR.)
+
+# Requesting a Review as a Project Member
+
+You should have already cloned the repository and run the `devsetup.sh` script as described on our [Workflow](@ref page_workflow) page.
+
+For a typical single-commit review, first develop and test your feature or
+bug fix locally.  Be sure to give your branch a name following the
+conventions described in [Workflow](@ref page_workflow).  When the code is ready to
+be reviewed and has been cleaned up and squashed into one commit (see below
+for multi-commit larger features), push your local branch to Github via:
+
+```
+git review
+```
+
+That command will only work if you've run the devsetup script (which you should have done!).
+
+Now use Github's web interface to create a pull request.  We do not
+currently have command line support set up for this.  Immediately after
+pushing your branch, there is a convenience "Compare & pull request" under
+"Your recently pushed branches" on the Code main page.  In general, you can
+click on "New pull request" and select your branch on the right side
+"compare: <branchname>".  Finalize by clicking "Create pull request".  You
+can select a particular reviewer if desired.
+
+\section sec_commit_messages Commit Messages
+
+Commit messages should include an initial title line separated from the body of the message by a blank line.  The title line should be a concise summary and should start with the issue number followed by a colon which is followed by the description of the issue fix.  If the issue is fixed by more than one commit, the title should instead start with the issue number followed by a space and a short issue description, then a colon, and then a description of this particular fix, with a reference to the issue at the bottom for automatic linking in Github.  In either case, the body of the message should elaborate on the contents of the commit using complete sentences.
+
+For a commit that fixes an Issue, be sure to resolve the Issue with a
+message indicating the commit revision number.  If you use the exact string
+"Fixes: #NNNNN" (where NNNNN is replaced by an Issue number) with nothing
+else on that line in the commit message, the git push will auto-update the
+Issue to say "Fixed", avoiding any need to manually close the issue.  You
+can also auto-close a Dr. Memory issue with "Fixes: DynamoRIO/drmemory#NNN".
+You can see other options in the [GitHub
+documentation](https://help.github.com/articles/closing-issues-via-commit-messages/).
+
+The string "Fixes: #NNNNN" in a Pull Request description will also close that
+issue, even if the final commit message does not contain that string, so be sure to
+edit the PR description if it's decided that the issue should stay open.
+
+If a commit does not fully fix an issue, include a reference to the issue with a line of the form "Issue: #NNNNN".  Use this to add links to related issues as well, in a format that makes it easier for tools to locate within messages.
+
+An example of a single commit fixing an issue:
+
+\verbatim
+i#3192: move delayed branches after markers (#3193)
+
+Fixes the problem of delayed branches being inserted between the
+timestamp and cpuid marker in drcachesim's offline traces by delaying
+the delayed branch until after all markers.
+
+Fixes: #3192
+\endverbatim
+
+And an example of a commit contributing to a larger issue:
+
+\verbatim
+i#1729 offline traces: fix thread entry order issue
+
+Fixes a raw2trace problem where the first bb for a thread switch can be
+incorrectly attributed to the prior thread.
+
+Issue: #1729
+\endverbatim
+
+For multi-commit solutions to an Issue, adding a "part N" type of label can make it easier to see that each one is incremental:
+
+\verbatim
+i#837 AVX2 ISA update, part 4: add VSIB support
+
+Adds support for the new addressing mode, the Vector SIB or VSIB.  This
+references multiple addresses based on indices in an xmm or ymm register.
+
+Issue: #837
+\endverbatim
+
+Note that there is no "i" before the "#" for issue references when
+communicating with Github, but that our convention is to prefix the "i" for
+our own references to make it clearer that it's an issue and not a pull
+request or some other hashtag.
+
+# Review Sizes
+
+Reviews should be kept to a moderate size for more focused responses and
+more isolated commits.  Large projects should be split into separate
+logical pieces for review.  Review diffs larger than about 1500 lines
+should be avoided.
+
+## Staging Large Commits
+
+We do not want enormous diffs that are impractical to review because an
+entire polished feature was developed in isolation.  Larger features should
+be split into pieces and either committed incrementally onto a project
+branch or merge into master in incremental steps.  For sharing work and
+providing visibility into ongoing projects, we prefer using project
+branches.  For incremental experimental work, the typical approach is to
+introduce the new code in a disabled state, either via runtime option or
+ifdef or both, until stable.  Unfinished parts that are committed should be
+clearly labeled as such.
+
+## New Committers
+
+For new committers, code review and commit sizes should be small: less than
+100 lines for the first few commits.  We may reject reviews that are
+larger.
+
+# Continuous Integration Checks
+
+Pull requests are integrated into our
+[continuous integration system](@ref page_test_suite),
+providing pre-commit testing of all commits.  Both
+Travis and AppVeyor are immediately run when a pull request is created
+and after each subsequent push to the pull request branch.
+The request can't be merged until the tests complete and pass.
+
+Please note that our test suite is **NOT THE SAME AS RUNNING "make
+test"**.  The pre-commit test suite builds multiple builds and enables
+more tests than "make test".  Running tests in just one build is not
+sufficient.  See \ref page_test_suite for information on
+setting up and running the test suite locally via the
+`suite/runsuite.cmake` script.
+
+In addition to Travis and Appveyor, we have several machines running test
+suites at scheduled times and reporting results to our CDash dashboard.  Be
+sure to look at any emails about build or test breakages in the day or so
+after your commit and either help to fix it or consider reverting if
+something is broken that the continuous integration tests did not catch
+(e.g., currently they only build for 32-bit Linux-ARM and Android-ARM and are
+not able to actually run tests there).
+
+Unfortunately we do have some flaky tests that are not yet fixed.
+If a flaky test fails on a pull request, on CDash, or on a merge to master, the
+committer is expected to look up the failure and send an email (or add a pull
+request comment) explaining which tests failed and which issues in the tracker
+cover those flaky failures.
+
+# Responding to Review Comments and Submitting Code Updates
+
+Upon receiving the email requesting a review, the reviewer will visit the
+pull request page and add comments to the code as part of a Github review,
+including comments on individual lines.  An email will be sent with these
+comments.  You should view the comments, address them in your code, and
+reply to each comment on the review site (typically by saying "Done" if you
+agree with the request and have made the change in your code).  Please read
+and reply to every comment.
+
+Reply to comments individually at the point in the code view where they
+appear.  Do not simply reply at the top level, as such comments are more
+difficult to follow as a conversation thread with context.
+
+After making changes in response to review comments, commit those changes
+locally as a new commit on top of your original commit.  If the reviewer
+requested changes to the commit message, use a new proposed final commit
+message as the message for this change commit so that the reviewer can
+review the new message.
+
+Project members should then push the new commit to the pull request via:
+
+```
+git review
+```
+
+Do not use a force push to change the history of the shared branch!  Use a new, separate commit.
+
+When the requested changes have been pushed, you can ask for a re-review from the reviewers.
+This can be done by clicking the re-review button next to the reviewers' name on the right sidebar on the pull request page.
+
+The final squash-and-merge step will squash these additional commits with the original to make a single commit that will be fast-forward-merged into master (see below for more details).
+
+# Limited Continuous Integration Resources
+
+Our Appveyor testing is globally serialized, with no parallelism, and with no
+logic to cancel a run if two pushes are made to a pull request in rapid
+succession.  This can cause Appveyor jobs to queue up and block other
+developers if many pushes are made to a pull request in a short period
+of time.  We thus recommend limiting pushes.  If each reviewer comment
+is addressed with a separate commit, wait until they are all locally
+committed before pushing them all at once with a single push and thus
+triggering a single Appveyor job.  If two or more jobs are triggered
+in a short period of time, log in to Appveyor using Github credentials
+and cancel all but one of the jobs, to avoid blocking other developers.
+
+Travis has logic to auto-cancel a job if a new push arrives quickly,
+but the above workflow still generally applies to avoid over-using
+Travis resources.
+
+# Updating from Master
+
+During local development before requesting review, i.e., before your
+feature branch is on the server, rebasing to pull in new changes from
+master is the preferred workflow.  But once you've pushed your branch and
+it's shared, **do not rebase**, as it will destroy history in the pull
+request.  Instead, merge changes from master if an update is needed (but
+see below: normally you should only do this at the very end after approval).  These
+merge commits will disappear when the feature branch is fast-forward-merged
+to master.
+
+Generally, it's better to not update at all once a review has started.  Do
+not click on the "Update Branch" until the review is approved and you are
+ready to merge into master.  Clicking on it earlier when you may still need
+to make changes to your code just wastes resources.  Furthermore, in some
+code review systems it corrupts the reviewer's view of the code, so it is a
+bad habit to get into.
+
+# Merging into Master and Cleaning Up the Final Commit Message
+
+Only once the reviewer marks the proposed code changes as accepted and all
+of the continuous integration tests pass can the change be merged into
+master.  If you have merge privileges, when performing the
+squash-and-merge, **be sure to edit the final commit message** (after pressing
+the squash-and-merge button, Github presents the final message in an edit
+box) to create a clean description of the commit without the messy
+incremental steps from the multiple commits fixing small issues during the
+review process.  (You can resize the edit box by dragging the control in the
+bottom right.)  **Especially be sure to remove *all* commit message titles**
+**from the body of the final squash-and-merge message**, as the commit title is
+in a separate edit box (and defaults to the title of the first commit, so
+update it as well if the title changed during review).  Also be sure to avoid
+truncation of the commit title, as Github likes to replace the end with "...".
+
+To clarify further, here is an example of what Github will present in the
+squash-and-merge step for the message body:
+
+\verbatim
+* i#3192: move delayed branches after markers
+
+Fixes the problem of delayed branches being inserted between the
+timestamp and cpuid marker in drcachesim's offline traces by delaying
+the delayed branch until after all markers.
+
+Fixes: #3192
+
+* Fix clang warning
+
+* Address reviewer comment suggestions
+\endverbatim
+
+All the lines starting with a `*` are commit message titles from commits in the pull request branch.  They should **all** be removed, **including the first one**.  A separate single-line edit box contains the title line for the commit message, which will be added to the front of the description by Github.  Thus, the final description edit box should contain no title at all:
+
+\verbatim
+Fixes the problem of delayed branches being inserted between the
+timestamp and cpuid marker in drcachesim's offline traces by delaying
+the delayed branch until after all markers.
+
+Fixes: #3192
+\endverbatim
+
+When editing the title edit box, leave in place the pointer to the pull request, which Github automatically
+adds to the end of the commit message title, in parentheses, for its suggested final squash-and-merge title:
+
+```
+i#3192: move delayed branches after markers (#3193)
+```
+
+Re-iterating as there is a tendency to just click through the squash-and-merge: _**please edit and**_
+_**clean up the final commit message**_!
+
+# Deleting the Branch
+
+Generally, the feature branch should be deleted from the repository using the button that Github provides immediately after merging.
+
+# Review Delays
+
+With an open-source project like this where each contributor has a day job
+with other priorities, code reviews should be expected to take a day or
+two, and longer if the change is lengthy.  However, if the reviewer expects
+to not have time to complete the review within 2 days he or she should
+notify the author up front to give a chance to switch to a different
+reviewer.
+
+For reviews performed by developers all working on the same active
+project as part of a day job, reviews should be much more timely:
+within a few hours, to avoid disrupting productivity.
+
+# Project Branches
+
+For larger, more experimental features that do not easily fit into the
+one-commit-per-merge model, project branches are used.  The review process
+is identical to above but substituting the project branch for master: i.e.,
+single-commit feature branches are still used and reviewed, but they are
+squash-and-fast-forward-merged into the project branch.
+
+Clean, reviewed commits then accumulate in the project branch until they
+are all ready to be merged into master.  Here, a rebase is used rather than
+a squash-and-merge.
+
+ ****************************************************************************
+ */

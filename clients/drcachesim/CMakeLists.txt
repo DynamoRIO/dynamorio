@@ -294,7 +294,7 @@ endmacro()
 
 add_drmemtrace(drmemtrace SHARED)
 add_drmemtrace(drmemtrace_static STATIC)
-append_property_string(TARGET drmemtrace_static COMPILE_FLAGS "-DDRMEMTRACE_STATIC")
+append_property_list(TARGET drmemtrace_static COMPILE_DEFINITIONS "DRMEMTRACE_STATIC")
 # We export drmemtrace.h to the same place as the analysis tool headers
 # for simplicity, rather than sticking it into ext/include or sthg.
 install_client_nonDR_header(drmemtrace tracer/drmemtrace.h)
@@ -326,8 +326,8 @@ macro(restore_nonclient_flags target)
   endif ()
   # However, we need the target os and arch defines (XXX: better way?) for
   # the config, inject, and frontend headers:
-  DynamoRIO_extra_cflags(extra_cflags "" ON)
-  append_property_string(TARGET ${target} COMPILE_FLAGS "${extra_cflags}")
+  DynamoRIO_extra_defines(extra_defs ON)
+  append_property_list(TARGET ${target} COMPILE_DEFINITIONS "${extra_defs}")
   if (implicit_fallthrough_avail)
     append_property_string(TARGET ${target} COMPILE_FLAGS "-Wimplicit-fallthrough")
   endif ()
@@ -357,7 +357,7 @@ macro(add_win32_flags target)
     if (DEBUG)
       get_property(cur TARGET ${target} PROPERTY COMPILE_FLAGS)
       string(REPLACE "/MT " "" cur "${cur}") # Avoid override warning.
-      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd")
+      set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur} /EHsc /MTd /Zi")
       append_property_string(TARGET ${target} LINK_FLAGS "/nodefaultlib:libcmt")
     else ()
       append_property_string(TARGET ${target} COMPILE_FLAGS "/EHsc /MT")
@@ -515,6 +515,16 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests)
 
+  if (DR_HOST_AARCH64)
+    add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_aarch64_sys drmemtrace_static)
+    target_link_libraries(tool.drcacheoff.burst_aarch64_sys drmemtrace_raw2trace
+      drmemtrace_analyzer)
+    use_DynamoRIO_drmemtrace_tracer(tool.drcacheoff.burst_aarch64_sys)
+    add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
+  endif ()
+
   # FIXME i#2007: fails to link on A64
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   # FIXME i#2949: gcc 7.3 fails to link certain configs
@@ -561,6 +571,11 @@ if (BUILD_TESTS)
     configure_DynamoRIO_static(tool.drcacheoff.burst_malloc)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_malloc drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_malloc)
+    if (UNIX)
+      append_property_string(SOURCE tests/burst_malloc.cpp
+        # Allow our different-arg-count aliases.
+        COMPILE_FLAGS "-Wno-attribute-alias")
+    endif ()
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)
@@ -621,7 +636,9 @@ if (BUILD_TESTS)
     add_split_asm_target("${source_abs}" asm_source gen_asm_tgt
       "_asm" "" "${asm_deps}")
     add_executable(tool.drcacheoff.burst_traceopts ${source_abs}
-      ${asm_source})
+      ${asm_source}
+      # This test includes related unit tests for classes used for trace opts.
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/reg_id_set_unit_tests.cpp")
     configure_DynamoRIO_static(tool.drcacheoff.burst_traceopts)
     if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       add_dependencies(tool.drcacheoff.burst_traceopts ${gen_asm_tgt})

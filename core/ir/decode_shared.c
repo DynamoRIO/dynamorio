@@ -150,6 +150,7 @@ const char *const size_names[] = {
     "OPSZ_32_of_64",
     "OPSZ_4_of_32_evex64",
     "OPSZ_8_of_32_evex64",
+    "OPSZ_8x16",
     "OPSZ_1_of_4",
     "OPSZ_2_of_4",
     "OPSZ_1_of_8",
@@ -164,7 +165,6 @@ const char *const size_names[] = {
     "OPSZ_12_rex8_of_16",
     "OPSZ_14_of_16",
     "OPSZ_15_of_16",
-    "OPSZ_8_of_16_vex32",
     "OPSZ_16_of_32",
     "OPSZ_half_16_vex32",
     "OPSZ_half_16_vex32_evex64",
@@ -172,7 +172,6 @@ const char *const size_names[] = {
     "OPSZ_quarter_16_vex32_evex64",
     "OPSZ_eighth_16_vex32",
     "OPSZ_eighth_16_vex32_evex64",
-    "OPSZ_8x16",
 };
 
 /* point at this when you need a canonical invalid instr

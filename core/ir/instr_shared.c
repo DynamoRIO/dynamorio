@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -100,6 +100,13 @@ instr_create(dcontext_t *dcontext)
 void
 instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
+#ifdef ARM
+    /* i#4680: Reset encode state to avoid dangling pointers.  This doesn't cover
+     * auto-scope instr_t vars so the whole IT tracking is still fragile.
+     */
+    if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB)
+        encode_instr_freed_event(dcontext, instr);
+#endif
     instr_free(dcontext, instr);
 
     /* CAUTION: assumes that instr is not part of any instrlist */
@@ -1895,6 +1902,30 @@ instr_replace_src_opnd(instr_t *instr, opnd_t old_opnd, opnd_t new_opnd)
 }
 
 bool
+instr_replace_reg_resize(instr_t *instr, reg_id_t old_reg, reg_id_t new_reg)
+{
+    int i;
+    bool found = false;
+    for (i = 0; i < instr_num_srcs(instr); i++) {
+        opnd_t opnd = instr_get_src(instr, i);
+        if (opnd_uses_reg(opnd, old_reg)) {
+            found = true;
+            opnd_replace_reg_resize(&opnd, old_reg, new_reg);
+            instr_set_src(instr, i, opnd);
+        }
+    }
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd_t opnd = instr_get_dst(instr, i);
+        if (opnd_uses_reg(opnd, old_reg)) {
+            found = true;
+            opnd_replace_reg_resize(&opnd, old_reg, new_reg);
+            instr_set_dst(instr, i, opnd);
+        }
+    }
+    return found;
+}
+
+bool
 instr_same(instr_t *inst1, instr_t *inst2)
 {
     int dsts, srcs, a;
@@ -3461,7 +3492,12 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
              (check_disp == os_tls_offset((ushort)TLS_REG0_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG1_SLOT) ||
               check_disp == os_tls_offset((ushort)TLS_REG2_SLOT) ||
-              check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)))) {
+              check_disp == os_tls_offset((ushort)TLS_REG3_SLOT)
+#    ifdef AARCHXX
+              || check_disp == os_tls_offset((ushort)TLS_REG4_SLOT) ||
+              check_disp == os_tls_offset((ushort)TLS_REG5_SLOT)
+#    endif
+                  ))) {
             if (tls != NULL)
                 *tls = true;
             if (offs_out != NULL)

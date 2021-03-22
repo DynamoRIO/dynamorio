@@ -3,6 +3,8 @@ adc    %w1 %w2 -> %w0
 adc    %x1 %x2 -> %x0
 adcs   %w1 %w2 -> %w0
 adcs   %x1 %x2 -> %x0
+add    %sp %x1 uxtx $0x0000000000000000 -> %x0
+sub    %sp %x1 uxtx $0x0000000000000000 -> %x0
 adds   %w1 %w2 lsl $0x00 -> %w0
 adds   %w1 %w2 lsl $0x1f -> %w0
 adds   %w1 %w2 lsr $0x00 -> %w0
@@ -41,6 +43,27 @@ ldar   (%x1)[8byte] -> %x0
 ldarb  (%x1)[1byte] -> %w0
 ldarh  (%x1)[2byte] -> %w0
 test_ldar complete
+ldur   (%x0)[1byte] -> %b0
+ldur   +0xff(%x1)[1byte] -> %b1
+ldur   (%x2)[2byte] -> %h2
+ldur   -0x0100(%x3)[2byte] -> %h3
+ldur   (%x4)[4byte] -> %s4
+ldur   -0x0100(%x5)[4byte] -> %s5
+ldur   (%x6)[8byte] -> %d6
+ldur   -0x0100(%x7)[8byte] -> %d7
+ldur   (%x8)[16byte] -> %q8
+ldur   -0x0100(%x9)[16byte] -> %q9
+stur   %b10 -> (%x10)[1byte]
+stur   %b11 -> +0xff(%x11)[1byte]
+stur   %h12 -> (%x12)[2byte]
+stur   %h13 -> +0xff(%x13)[2byte]
+stur   %s14 -> (%x14)[4byte]
+stur   %s15 -> +0xff(%x15)[4byte]
+stur   %d16 -> (%x16)[8byte]
+stur   %d17 -> +0xff(%x17)[8byte]
+stur   %q18 -> (%x18)[16byte]
+stur   %q19 -> +0xff(%x19)[16byte]
+test_ldur_stur complete
 and    %x9 $0x000000000000ffff -> %x10
 and    %w5 $0x00000000000000ff -> %w5
 ands   %x19 $0x0000000000ffffff -> %x23
@@ -52,6 +75,46 @@ fmov   %x8 -> %h23
 fmov   %x24 -> %d6
 fmov   %x10 -> %q9
 test_fmov_general complete
+fmov   $1.000000 $0x01 -> %q1
+fmov   $2.000000 $0x01 -> %q1
+fmov   $-1.000000 $0x01 -> %q2
+fmov   $-2.000000 $0x01 -> %q3
+fmov   $3.500000 $0x01 -> %q4
+fmov   $4.250000 $0x01 -> %q5
+fmov   $1.125000 $0x01 -> %q6
+fmov   $-0.250000 $0x01 -> %q7
+fmov   $7.000000 $0x01 -> %q8
+fmov   $1.937500 $0x01 -> %q9
+fmov   $0.210937 $0x01 -> %q10
+fmov   $31.000000 $0x01 -> %q31
+test_fmov_vector complete
+fmov   $1.000000 -> %s0
+fmov   $-1.000000 -> %s0
+fmov   $2.000000 -> %s0
+fmov   $-2.000000 -> %s0
+fmov   $3.500000 -> %s0
+fmov   $4.250000 -> %s0
+fmov   $1.125000 -> %s0
+fmov   $-1.125000 -> %s0
+fmov   $0.250000 -> %s0
+fmov   $-0.250000 -> %s0
+fmov   $1.937500 -> %s0
+fmov   $0.210937 -> %s0
+fmov   $31.000000 -> %s0
+fmov   $1.000000 -> %d0
+fmov   $-1.000000 -> %d0
+fmov   $2.000000 -> %d0
+fmov   $-2.000000 -> %d0
+fmov   $3.500000 -> %d0
+fmov   $4.250000 -> %d0
+fmov   $1.125000 -> %d0
+fmov   $-1.125000 -> %d0
+fmov   $0.250000 -> %d0
+fmov   $-0.250000 -> %d0
+fmov   $1.937500 -> %d0
+fmov   $0.210937 -> %d0
+fmov   $31.000000 -> %d0
+test_fmov_scalar complete
 fmaxnm %d27 %d30 $0x01 -> %d2
 fmaxnm %q27 %q30 $0x01 -> %q2
 fmla   %d0 %d29 %d31 $0x01 -> %d0
@@ -770,4 +833,36 @@ umull2 %q6 %q3 $0x00 -> %q6
 umull2 %q6 %q3 $0x01 -> %q6
 umull2 %q6 %q3 $0x02 -> %q6
 test_asimddiff complete
+sys    $0x1ba1 (%x0)[1byte]
+sys    $0x1bd1 (%x1)[1byte]
+sys    $0x1bd9 (%x29)[1byte]
+sys    $0x1bf1 (%x30)[1byte]
+sys    $0x1ba9 (%x1)[1byte]
+test_sys complete
+ldxr   (%x1)[8byte] $0x000000000000001f $0x000000000000001f -> %x0
+ldxrb  (%x1)[1byte] $0x000000000000001f $0x000000000000001f -> %w0
+ldxrh  (%x1)[2byte] $0x000000000000001f $0x000000000000001f -> %w0
+ldxp   (%x2)[8byte] $0x000000000000001f -> %w0 %w1
+ldxp   (%x2)[16byte] $0x000000000000001f -> %x0 %x1
+ldaxr  (%x1)[8byte] $0x000000000000001f $0x000000000000001f -> %x0
+ldaxrb (%x1)[1byte] $0x000000000000001f $0x000000000000001f -> %w0
+ldaxrh (%x1)[2byte] $0x000000000000001f $0x000000000000001f -> %w0
+ldaxp  (%x2)[8byte] $0x000000000000001f -> %w0 %w1
+stxr   %x0 $0x000000000000001f -> (%x1)[8byte] %w2
+stxrb  %w0 $0x000000000000001f -> (%x1)[1byte] %w2
+stxrh  %w0 $0x000000000000001f -> (%x1)[2byte] %w2
+stxp   %w0 %w1 -> (%x2)[8byte] %w3
+stxp   %x0 %x1 -> (%x2)[16byte] %w3
+stlxr  %x0 $0x000000000000001f -> (%x1)[8byte] %w2
+stlxrb %w0 $0x000000000000001f -> (%x1)[1byte] %w2
+stlxrh %w0 $0x000000000000001f -> (%x1)[2byte] %w2
+stlxp  %w0 %w1 -> (%x2)[8byte] %w3
+clrex  $0x0000000000000000
+test_exclusive_memops complete
+ldp    (%x2)[8byte] -> %w0 %w1
+stp    %w0 %w1 -> (%x2)[8byte]
+blr    %x5 -> %x30
+test_xinst complete
+test_opnd complete
+test_mov_instr_addr complete
 All tests complete

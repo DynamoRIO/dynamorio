@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,11 +46,38 @@
 #include <windows.h>
 #include "ntdll_types.h"
 
+bool
+read_remote_memory_maybe64(HANDLE process, uint64 base, void *buffer,
+                           size_t buffer_length, size_t *bytes_read);
+
+bool
+write_remote_memory_maybe64(HANDLE process, uint64 base, void *buffer,
+                            size_t buffer_length, size_t *bytes_written);
+
 #ifndef X64
-/* returns raw NTSTATUS */
+typedef struct _PROCESS_BASIC_INFORMATION64 {
+    NTSTATUS ExitStatus;
+    uint64 PebBaseAddress;
+    uint64 AffinityMask;
+    KPRIORITY BasePriority;
+    uint64 UniqueProcessId;
+    uint64 InheritedFromUniqueProcessId;
+} PROCESS_BASIC_INFORMATION64;
+
+/* Returns raw NTSTATUS. */
 NTSTATUS
 nt_wow64_read_virtual_memory64(HANDLE process, uint64 base, void *buffer,
                                size_t buffer_length, size_t *bytes_read);
+
+/* Returns raw NTSTATUS. */
+NTSTATUS
+nt_wow64_write_virtual_memory64(HANDLE process, uint64 base, void *buffer,
+                                size_t buffer_length, size_t *bytes_read);
+
+/* Returns raw NTSTATUS. */
+NTSTATUS
+nt_wow64_query_info_process64(HANDLE process, PROCESS_BASIC_INFORMATION64 *info);
+
 #endif
 
 #endif /* _NTDLL_SHARED_H_ */

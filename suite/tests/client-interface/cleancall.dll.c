@@ -59,10 +59,9 @@ set_gpr()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XAX, &mcontext, orig_reg_val_buf);
     reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
@@ -80,10 +79,9 @@ check_gpr()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XAX, &mcontext, new_reg_val_buf);
     print_error_on_fail(new_reg_val_buf[0] == 0x75);
@@ -99,10 +97,9 @@ set_xmm()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XMM0, &mcontext, orig_reg_val_buf);
     reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
@@ -120,10 +117,9 @@ check_xmm()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_XMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(new_reg_val_buf[0] == 0x77);
@@ -139,10 +135,9 @@ set_ymm()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_YMM0, &mcontext, orig_reg_val_buf);
     reg_get_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
@@ -162,10 +157,9 @@ check_ymm()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_YMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(new_reg_val_buf[0] == 0x77);
@@ -184,10 +178,9 @@ set_zmm()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_ZMM0, &mcontext, orig_reg_val_buf);
     reg_get_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
@@ -210,10 +203,9 @@ check_zmm()
 {
     check_stack_alignment();
     void *drcontext = dr_get_current_drcontext();
-    dr_mcontext_t mcontext = {
-        sizeof(mcontext),
-        DR_MC_ALL,
-    };
+    dr_mcontext_t mcontext;
+    mcontext.size = sizeof(mcontext);
+    mcontext.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mcontext);
     reg_get_value_ex(DR_REG_ZMM0, &mcontext, new_reg_val_buf);
     print_error_on_fail(new_reg_val_buf[0] == 0x77);

@@ -1,0 +1,106 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\page page_tutorial_cgo17 CGO 2017 Tutorial: Building Dynamic Tools with DynamoRIO on x86 and ARMv8
+
+Sunday morning, February 5, 2017 at
+the [2017 International Symposium on Code
+Generation and Optimization](http://cgo.org/cgo2017/).
+
+# Audience
+
+Researchers and professionals interested in building dynamic program
+analysis tools.
+
+# Abstract
+
+This tutorial will present the DynamoRIO tool platform and describe how
+to use its API to build custom tools that utilize dynamic code
+manipulation for instrumentation, profiling, analysis, optimization,
+introspection, security, and more.  The DynamoRIO tool platform has been
+used by many researchers to develop systems ranging from taint tracking
+to prefetch optimization.  DynamoRIO is publicly available in open source
+form and targets Windows, Linux, Mac, and Android on IA-32, AMD64, ARM,
+and AArch64 platforms.
+
+
+# Topics
+
+The tutorial will cover the following topics:
+
+-  DynamoRIO API: an overview of the full range of DynamoRIO's powerful
+    API, which abstracts away the details of the underlying infrastructure
+    and allows the tool builder to concentrate on analyzing or modifying
+    the application's runtime code stream.  It includes both high-level
+    features for quick prototyping and low-level features for full control
+    over instrumentation performance.
+-  DynamoRIO system overview: a brief description of how DynamoRIO works
+    under the covers.
+-  Description of tools provided with the DynamoRIO package, including
+    the Dr. Memory memory debugging tool, the Dr. CacheSim memory tracing
+    and cache simulation tool, the DrCov code coverage tool, the Dr. CPUSim
+    legacy CPU tool, and the DrStrace Windows system call tracing tool.
+-  Sample tool starting points for building new tools.
+-  Advanced topics when building sophisticated tools.
+
+# Slides
+
+The slides are now available
+in [PDF](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017.pdf), [PPSX](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017.ppsx),
+and [PDF
+with embedded fonts](https://github.com/DynamoRIO/dynamorio/releases/download/release_7_0_0_rc1/DynamoRIO-tutorial-feb2017-embedded-fonts.pdf) formats (the embedded font version contains some
+artifacts from conversion from Powerpoint that are not present in the
+non-embedded file).
+
+# Organizers
+
+- Derek Bruening (Google)
+- Chris Adeniyi-Jones (ARM)
+- Edmund Grimley-Evans (ARM)
+- Kevin Zhou (U. of Cambridge)
+
+# Questions
+
+Questions about the tutorial can be sent to the
+[DynamoRIO-Users](http://groups.google.com/group/DynamoRIO-Users)
+mailing list.
+
+# References
+
+- [DynamoRIO home and API documentation](http://dynamorio.org/)
+- [DynamoRIO code repository](https://github.com/DynamoRIO/dynamorio)
+
+
+ ****************************************************************************
+ */

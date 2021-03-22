@@ -26,6 +26,8 @@ Total counts:
      .* total prefetches
      .* total data loads
      .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
            1 total threads
      .* total scheduling markers
 #if defined(WINDOWS) && !defined(X64)
@@ -37,7 +39,7 @@ Total counts:
      .* total function return address markers
      .* total function argument markers
      .* total function return value markers
-           0 total other markers
+     .* total other markers
 Thread .* counts:
      .* \(fetched\) instructions
      .* unique \(fetched\) instructions
@@ -45,6 +47,8 @@ Thread .* counts:
      .* prefetches
      .* data loads
      .* data stores
+     .* icache flushes
+     .* dcache flushes
      .* scheduling markers
 #if defined(WINDOWS) && !defined(X64)
           26 transfer markers
@@ -55,4 +59,4 @@ Thread .* counts:
      .* function return address markers
      .* function argument markers
      .* function return value markers
-           0 other markers
+     .* other markers

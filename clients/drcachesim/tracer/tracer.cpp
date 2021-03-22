@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -96,6 +96,7 @@ static char logsubdir[MAXIMUM_PATH];
 static char subdir_prefix[MAXIMUM_PATH]; /* Holds op_subdir_prefix. */
 static file_t module_file;
 static file_t funclist_file = INVALID_FILE;
+static int notify_beyond_global_max_once;
 
 /* Max number of entries a buffer can have. It should be big enough
  * to hold all entries between clean calls.
@@ -113,7 +114,7 @@ static size_t max_buf_size;
 
 static drvector_t scratch_reserve_vec;
 
-/* thread private buffer and counter */
+/* Thread private data.  This is all set to 0 at thread init. */
 typedef struct {
     byte *seg_base;
     byte *buf_base;
@@ -281,7 +282,7 @@ drmemtrace_get_funclist_path(OUT const char **path)
 }
 
 drmemtrace_status_t
-drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module),
+drmemtrace_custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
                               int (*print_cb)(void *data, char *dst, size_t max_len),
                               void (*free_cb)(void *data))
 {
@@ -298,10 +299,6 @@ drmemtrace_status_t
 drmemtrace_filter_threads(bool (*should_trace_thread)(thread_id_t tid, void *user_data),
                           void *user_value)
 {
-#ifndef X86
-    /* XXX i#2820: only x86 supports thread filtering for now. */
-    return DRMEMTRACE_ERROR_NOT_IMPLEMENTED;
-#endif
     if (should_trace_thread == NULL)
         return DRMEMTRACE_ERROR_INVALID_PARAMETER;
     /* We document that this should be called once at init time: i.e., we do not
@@ -394,6 +391,20 @@ is_ok_to_split_before(trace_type_t type)
         type == TRACE_TYPE_MARKER || type == TRACE_TYPE_THREAD_EXIT;
 }
 
+static inline bool
+is_num_refs_beyond_global_max(void)
+{
+    return op_max_global_trace_refs.get_value() > 0 &&
+        num_refs_racy > op_max_global_trace_refs.get_value();
+}
+
+static inline bool
+is_bytes_written_beyond_trace_max(per_thread_t *data)
+{
+    return op_max_trace_size.get_value() > 0 &&
+        data->bytes_written > op_max_trace_size.get_value();
+}
+
 static void
 memtrace(void *drcontext, bool skip_size_cap)
 {
@@ -417,13 +428,24 @@ memtrace(void *drcontext, bool skip_size_cap)
                                               dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
-    if (!skip_size_cap && op_max_trace_size.get_value() > 0 &&
-        data->bytes_written > op_max_trace_size.get_value()) {
+    if (!skip_size_cap &&
+        (is_bytes_written_beyond_trace_max(data) || is_num_refs_beyond_global_max())) {
         /* We don't guarantee to match the limit exactly so we allow one buffer
          * beyond.  We also don't put much effort into reducing overhead once
          * beyond the limit: we still instrument and come here.
          */
         do_write = false;
+        if (is_num_refs_beyond_global_max()) {
+            /* std::atomic *should* be safe (we can assert std::atomic_is_lock_free())
+             * but to avoid any risk we use DR's atomics.
+             */
+            if (dr_atomic_load32(&notify_beyond_global_max_once) == 0) {
+                int count = dr_atomic_add32_return_sum(&notify_beyond_global_max_once, 1);
+                if (count == 1) {
+                    NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+                }
+            }
+        }
     } else
         data->bytes_written += buf_ptr - pipe_start;
 
@@ -700,7 +722,11 @@ insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *whe
 {
     if (reg_barrier != DR_REG_NULL) {
         for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
-            if (reg != reg_barrier) {
+            /* We're not allowed to restore the stolen register this way, but drreg
+             * won't hand it out as a scratch register in any case, so we don't need
+             * a barrier for it.
+             */
+            if (reg != reg_barrier && reg != dr_get_stolen_reg()) {
                 drreg_status_t res =
                     drreg_get_app_value(drcontext, ilist, where, reg, reg);
                 if (res != DRREG_ERROR_NO_APP_VALUE && res != DRREG_SUCCESS)
@@ -1290,13 +1316,19 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
  */
 
 static uint64 instr_count;
-static volatile bool tracing_enabled;
-static void *enable_tracing_lock;
+static bool tracing_enabled;
+static volatile bool tracing_scheduled;
+static void *schedule_tracing_lock;
 
-#ifdef X86_64
+#if defined(X86_64) || defined(AARCH64)
 #    define DELAYED_CHECK_INLINED 1
 #else
-// XXX: we don't have the inlining implemented yet.
+/* XXX we don't have the inlining implemented yet for 32-bit architectures. */
+#endif
+
+#if defined(X86_64)
+/* FIXME i#4711: Do not restore aflags and register to prevent instability. */
+#    define DISABLED_FOR_BUG_4711 1
 #endif
 
 static dr_emit_flags_t
@@ -1319,7 +1351,7 @@ enable_delay_instrumentation()
     if (!drmgr_register_bb_instrumentation_event(
             event_delay_bb_analysis, event_delay_app_instruction, &memtrace_pri))
         DR_ASSERT(false);
-    enable_tracing_lock = dr_mutex_create();
+    schedule_tracing_lock = dr_mutex_create();
 }
 
 static void
@@ -1332,8 +1364,8 @@ disable_delay_instrumentation()
 static void
 exit_delay_instrumentation()
 {
-    if (enable_tracing_lock != NULL)
-        dr_mutex_destroy(enable_tracing_lock);
+    if (schedule_tracing_lock != NULL)
+        dr_mutex_destroy(schedule_tracing_lock);
 #ifdef DELAYED_CHECK_INLINED
     drx_exit();
 #endif
@@ -1353,28 +1385,47 @@ enable_tracing_instrumentation()
 }
 
 static void
-hit_instr_count_threshold()
+change_instrumentation_callback(void *unused_user_data)
+{
+    NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
+    disable_delay_instrumentation();
+    enable_tracing_instrumentation();
+}
+
+static void
+hit_instr_count_threshold(app_pc next_pc)
 {
     bool do_flush = false;
-    dr_mutex_lock(enable_tracing_lock);
-    if (!tracing_enabled) { // Already came here?
-        NOTIFY(0, "Hit delay threshold: enabling tracing.\n");
-        disable_delay_instrumentation();
-        enable_tracing_instrumentation();
+    dr_mutex_lock(schedule_tracing_lock);
+    if (!tracing_scheduled) {
         do_flush = true;
+        tracing_scheduled = true;
     }
-    dr_mutex_unlock(enable_tracing_lock);
-    if (do_flush && !dr_unlink_flush_region(NULL, ~0UL))
+    dr_mutex_unlock(schedule_tracing_lock);
+
+    if (do_flush) {
+        if (!dr_flush_region_ex(NULL, ~0UL, change_instrumentation_callback,
+                                NULL /*user_data*/))
+            DR_ASSERT(false);
+
+        void *drcontext = dr_get_current_drcontext();
+        dr_mcontext_t mcontext;
+        mcontext.size = sizeof(mcontext);
+        mcontext.flags = DR_MC_ALL;
+        dr_get_mcontext(drcontext, &mcontext);
+        mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
+        dr_redirect_execution(&mcontext);
         DR_ASSERT(false);
+    }
 }
 
 #ifndef DELAYED_CHECK_INLINED
 static void
-check_instr_count_threshold(uint incby)
+check_instr_count_threshold(uint incby, app_pc next_pc)
 {
     instr_count += incby;
     if (instr_count > op_trace_after_instrs.get_value())
-        hit_instr_count_threshold();
+        hit_instr_count_threshold(next_pc);
 }
 #endif
 
@@ -1402,12 +1453,16 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     num_instrs = (uint)(ptr_uint_t)user_data;
     drmgr_disable_auto_predication(drcontext, bb);
 #ifdef DELAYED_CHECK_INLINED
-#    ifdef X86_64
+#    if defined(X86_64) || defined(AARCH64)
+    instr_t *skip_call = INSTR_CREATE_label(drcontext);
+#        ifdef X86_64
     if (!drx_insert_counter_update(drcontext, bb, instr,
                                    (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
                                    &instr_count, num_instrs, DRX_COUNTER_64BIT))
         DR_ASSERT(false);
-    instr_t *skip_call = INSTR_CREATE_label(drcontext);
+
+    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve aflags");
     reg_id_t scratch = DR_REG_NULL;
     if (op_trace_after_instrs.get_value() < INT_MAX) {
         MINSERT(bb, instr,
@@ -1423,21 +1478,89 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                                  opnd_create_reg(scratch)));
     }
     MINSERT(bb, instr, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
+#        elif defined(AARCH64)
+    if (!drx_insert_counter_update(drcontext, bb, instr,
+                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
+                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1), &instr_count,
+                                   num_instrs, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
+        DR_ASSERT(false);
+
+    reg_id_t scratch1, scratch2;
+    if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve scratch register");
+    if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve scratch register");
+    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        FATAL("Fatal error: failed to reserve aflags");
+
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
+                                     opnd_create_reg(scratch1), bb, instr, NULL, NULL);
+    MINSERT(bb, instr,
+            XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
+                              OPND_CREATE_MEMPTR(scratch1, 0)));
+    instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
+                                     opnd_create_reg(scratch1), bb, instr, NULL, NULL);
+    MINSERT(bb, instr,
+            XINST_CREATE_cmp(drcontext, opnd_create_reg(scratch2),
+                             opnd_create_reg(scratch1)));
+    MINSERT(bb, instr,
+            XINST_CREATE_jump_cond(drcontext, DR_PRED_LT, opnd_create_instr(skip_call)));
+#        endif
+
+    /* hit_instr_count_threshold does not always return. Restore scratch registers and
+     * aflags.
+     */
+#        ifdef X86_64
+    /* FIXME i#4711: Need to restore for x86 the arithmetic flags and (if used) the
+     * scratch register before the call to hit_instr_count_threshold. However, this fix
+     * seems to cause instability. So, we're leaving x86 as technically broken
+     * to keep our tests green until the source of instability is found.
+     */
+#            ifndef DISABLED_FOR_BUG_4711
+    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
+                                        NULL);
+    if (scratch != DR_REG_NULL) {
+        drreg_statelessly_restore_app_value(drcontext, bb, scratch, instr, instr, NULL,
+                                            NULL);
+    }
+#            endif
+#        elif defined(AARCH64)
+    drreg_statelessly_restore_app_value(drcontext, bb, scratch1, instr, instr, NULL,
+                                        NULL);
+    drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
+                                        NULL);
+    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
+                                        NULL);
+#        endif
     dr_insert_clean_call(drcontext, bb, instr, (void *)hit_instr_count_threshold,
-                         false /*fpstate */, 0);
+                         false /*fpstate */, 1,
+                         OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
     MINSERT(bb, instr, skip_call);
+
+#        ifdef X86_64
+    if (drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        DR_ASSERT(false);
     if (scratch != DR_REG_NULL) {
         if (drreg_unreserve_register(drcontext, bb, instr, scratch) != DRREG_SUCCESS)
             DR_ASSERT(false);
     }
+#        elif defined(AARCH64)
+    if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS ||
+        drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+#        endif
 #    else
 #        error NYI
 #    endif
 #else
-    // XXX: drx_insert_counter_update doesn't support 64-bit, and there's no
-    // XINST_CREATE_load_8bytes.  For now we pay the cost of a clean call every time.
+    /* XXX: drx_insert_counter_update doesn't support 64-bit counters for ARM_32, and
+     * inlining of check_instr_count_threshold is not implemented for i386. For now we pay
+     * the cost of a clean call every time for 32-bit architectures.
+     */
     dr_insert_clean_call(drcontext, bb, instr, (void *)check_instr_count_threshold,
-                         false /*fpstate */, 1, OPND_CREATE_INT32(num_instrs));
+                         false /*fpstate */, 2, OPND_CREATE_INT32(num_instrs),
+                         OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
 #endif
     return DR_EMIT_DEFAULT;
 }
@@ -1555,9 +1678,10 @@ event_thread_init(void *drcontext)
     data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
-    if (should_trace_thread_cb != NULL &&
-        !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
-                                   trace_thread_cb_user_data))
+    if ((should_trace_thread_cb != NULL &&
+         !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
+                                    trace_thread_cb_user_data)) ||
+        is_num_refs_beyond_global_max())
         BUF_PTR(data->seg_base) = NULL;
     else {
         create_buffer(data);
@@ -1574,15 +1698,18 @@ event_thread_exit(void *drcontext)
         /* This thread was *not* filtered out. */
 
         /* let the simulator know this thread has exited */
-        if (op_max_trace_size.get_value() > 0 &&
-            data->bytes_written > op_max_trace_size.get_value()) {
+        if (is_bytes_written_beyond_trace_max(data)) {
             // If over the limit, we still want to write the footer, but nothing else.
             BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
         }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
-        memtrace(drcontext, true);
+        memtrace(drcontext,
+                 /* If this thread already wrote some data, include its exit even
+                  * if we're over a size limit.
+                  */
+                 data->bytes_written > 0);
 
         if (op_offline.get_value())
             file_ops_func.close_file(data->file);
@@ -1656,13 +1783,16 @@ event_exit(void)
         DR_ASSERT(false);
     dr_unregister_exit_event(event_exit);
 
-    /* Clear callbacks to support reset. */
+    /* Clear callbacks and globals to support re-attach when linked statically. */
     file_ops_func = file_ops_func_t();
     if (!offline_instru_t::custom_module_data(nullptr, nullptr, nullptr))
         DR_ASSERT(false && "failed to clear custom module callbacks");
     should_trace_thread_cb = nullptr;
     trace_thread_cb_user_data = nullptr;
     thread_filtering_enabled = false;
+    num_refs = 0;
+    num_refs_racy = 0;
+    notify_beyond_global_max_once = 0;
 
     dr_mutex_destroy(mutex);
     drutil_exit();
@@ -1920,6 +2050,11 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
 #ifdef DRMEMTRACE_STATIC
         NOTIFY(0, "-use_physical is unsafe with statically linked clients\n");
 #endif
+    }
+
+    if (op_max_global_trace_refs.get_value() > 0) {
+        /* We need the same is-buffer-zero checks in the instrumentation. */
+        thread_filtering_enabled = true;
     }
 }
 

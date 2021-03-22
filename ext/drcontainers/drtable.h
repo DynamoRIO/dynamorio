@@ -51,7 +51,7 @@ extern "C" {
 /**
  * \addtogroup drcontainers Container Data Structures
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /**
  * Flags used for drtable_create
@@ -155,7 +155,7 @@ drtable_num_entries(void *tab);
 ptr_uint_t
 drtable_dump_entries(void *tab, file_t log);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -332,7 +332,8 @@ instr_predicate_is_cond(dr_pred_type_t pred)
 bool
 reg_is_gpr(reg_id_t reg)
 {
-    return (DR_REG_X0 <= reg && reg <= DR_REG_WSP);
+    return (reg >= DR_REG_START_64 && reg <= DR_REG_STOP_64) ||
+        (reg >= DR_REG_START_32 && reg <= DR_REG_STOP_32);
 }
 
 bool
@@ -447,6 +448,60 @@ instr_writes_thread_register(instr_t *instr)
             opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_TPIDR_EL0);
 }
 
+/* Identify one of the reg-reg moves inserted as part of stolen reg mangling:
+ *   +0    m4  f9000380   str    %x0 -> (%x28)[8byte]
+ * Move stolen reg to x0:
+ *   +4    m4  aa1c03e0   orr    %xzr %x28 lsl $0x0000000000000000 -> %x0
+ *   +8    m4  f9401b9c   ldr    +0x30(%x28)[8byte] -> %x28
+ *   +12   L3  f81e0ffc   str    %x28 %sp $0xffffffffffffffe0 -> -0x20(%sp)[8byte] %sp
+ * Move x0 back to stolenr eg:
+ *   +16   m4  aa0003fc   orr    %xzr %x0 lsl $0x0000000000000000 -> %x28
+ *   +20   m4  f9400380   ldr    (%x28)[8byte] -> %x0
+ */
+bool
+instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg)
+{
+    CLIENT_ASSERT(instr != NULL, "internal error: NULL argument");
+    if (instr_is_app(instr) || instr_get_opcode(instr) != OP_orr)
+        return false;
+    ASSERT(instr_num_srcs(instr) == 4 && instr_num_dsts(instr) == 1 &&
+           opnd_is_reg(instr_get_src(instr, 1)) && opnd_is_reg(instr_get_dst(instr, 0)));
+    if (opnd_get_reg(instr_get_src(instr, 1)) == dr_reg_stolen) {
+        if (save != NULL)
+            *save = true;
+        if (reg != NULL) {
+            *reg = opnd_get_reg(instr_get_dst(instr, 0));
+            ASSERT(*reg != dr_reg_stolen);
+        }
+        return true;
+    }
+    if (opnd_get_reg(instr_get_dst(instr, 0)) == dr_reg_stolen) {
+        if (save != NULL)
+            *save = false;
+        if (reg != NULL)
+            *reg = opnd_get_reg(instr_get_src(instr, 0));
+        return true;
+    }
+    return false;
+}
+
+DR_API
+bool
+instr_is_exclusive_load(instr_t *instr)
+{
+    switch (instr_get_opcode(instr)) {
+    case OP_ldaxp:
+    case OP_ldaxr:
+    case OP_ldaxrb:
+    case OP_ldaxrh:
+    case OP_ldxp:
+    case OP_ldxr:
+    case OP_ldxrb:
+    case OP_ldxrh: return true;
+    }
+    return false;
+}
+
 DR_API
 bool
 instr_is_exclusive_store(instr_t *instr)
@@ -480,4 +535,26 @@ instr_is_gather(instr_t *instr)
     /* FIXME i#3837: add support. */
     ASSERT_NOT_IMPLEMENTED(false);
     return false;
+}
+
+dr_pred_type_t
+instr_invert_predicate(dr_pred_type_t pred)
+{
+    switch (pred) {
+    case DR_PRED_EQ: return DR_PRED_NE;
+    case DR_PRED_NE: return DR_PRED_EQ;
+    case DR_PRED_CS: return DR_PRED_CC;
+    case DR_PRED_CC: return DR_PRED_CS;
+    case DR_PRED_MI: return DR_PRED_PL;
+    case DR_PRED_PL: return DR_PRED_MI;
+    case DR_PRED_VS: return DR_PRED_VC;
+    case DR_PRED_VC: return DR_PRED_VS;
+    case DR_PRED_HI: return DR_PRED_LS;
+    case DR_PRED_LS: return DR_PRED_HI;
+    case DR_PRED_GE: return DR_PRED_LT;
+    case DR_PRED_LT: return DR_PRED_GE;
+    case DR_PRED_GT: return DR_PRED_LE;
+    case DR_PRED_LE: return DR_PRED_GT;
+    default: CLIENT_ASSERT(false, "Incorrect predicate value"); return DR_PRED_NONE;
+    }
 }

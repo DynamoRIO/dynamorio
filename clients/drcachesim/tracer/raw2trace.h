@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -72,23 +72,35 @@
 #    define TRACE_SUFFIX "trace"
 #endif
 
+#define ALIGN_BACKWARD(x, alignment) (((ptr_uint_t)x) & (~((alignment)-1)))
+
 typedef enum {
     RAW2TRACE_STAT_COUNT_ELIDED,
 } raw2trace_statistic_t;
 
 struct module_t {
-    module_t(const char *path, app_pc orig, byte *map, size_t size, bool external = false)
+    module_t(const char *path, app_pc orig, byte *map, size_t offs, size_t size,
+             size_t total_size, bool external = false)
         : path(path)
-        , orig_base(orig)
-        , map_base(map)
-        , map_size(size)
+        , orig_seg_base(orig)
+        , map_seg_base(map)
+        , seg_offs(offs)
+        , seg_size(size)
+        , total_map_size(total_size)
         , is_external(external)
     {
     }
     const char *path;
-    app_pc orig_base;
-    byte *map_base;
-    size_t map_size;
+    // We have to handle segments within a module separately, as there can be
+    // gaps between them that contain other objects (xref i#4731).
+    app_pc orig_seg_base;
+    byte *map_seg_base;
+    size_t seg_offs;
+    size_t seg_size;
+    // Despite tracking segments separately, we have a single mapping.
+    // The first segment stores that mapping size here; subsequent segments
+    // have 0 for this field.
+    size_t total_map_size;
     bool is_external; // If true, the data is embedded in drmodtrack custom fields.
 };
 
@@ -194,6 +206,11 @@ private:
     {
         return prefetch_type_;
     }
+    uint16_t
+    flush_type() const
+    {
+        return flush_type_;
+    }
 
     bool
     reads_memory() const
@@ -215,6 +232,13 @@ private:
     {
         return TESTANY(kIsFlushMask, packed_);
     }
+#ifdef AARCH64
+    bool
+    is_aarch64_dc_zva() const
+    {
+        return TESTANY(kIsAarch64DcZvaMask, packed_);
+    }
+#endif
     bool
     is_cti() const
     {
@@ -248,6 +272,11 @@ private:
     static const int kIsFlushMask = 0x0008;
     static const int kIsCtiMask = 0x0010;
 
+    // kIsAarch64DcZvaMask is available during processing of non-AArch64 traces too, but
+    // it's intended for use only for AArch64 traces. This declaration reserves the
+    // assigned mask and makes it unavailable for future masks.
+    static const int kIsAarch64DcZvaMask = 0x0020;
+
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
     operator=(const instr_summary_t &) = delete;
@@ -258,6 +287,7 @@ private:
     app_pc pc_ = 0;
     uint16_t type_ = 0;
     uint16_t prefetch_type_ = 0;
+    uint16_t flush_type_ = 0;
     byte length_ = 0;
     app_pc next_pc_ = 0;
 
@@ -470,6 +500,7 @@ struct trace_header_t {
     process_id_t pid;
     thread_id_t tid;
     uint64 timestamp;
+    size_t cache_line_size;
 };
 
 // XXX: DR should export this
@@ -734,11 +765,27 @@ protected:
         }
         DR_ASSERT(in_entry->tid.type == OFFLINE_TYPE_THREAD);
         header->tid = in_entry->tid.tid;
+
         in_entry = impl()->get_next_entry(tls);
         if (in_entry == nullptr)
             return "Failed to read header from input file";
         DR_ASSERT(in_entry->pid.type == OFFLINE_TYPE_PID);
         header->pid = in_entry->pid.pid;
+
+        in_entry = impl()->get_next_entry(tls);
+        if (in_entry == nullptr)
+            return "Failed to read header from input file";
+        if (in_entry->extended.type == OFFLINE_TYPE_EXTENDED &&
+            in_entry->extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+            in_entry->extended.valueB == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
+            header->cache_line_size = in_entry->extended.valueA;
+        } else {
+            impl()->log(2,
+                        "Cache line size not found in raw trace header. Adding "
+                        "current processor's cache line size to final trace instead.\n");
+            header->cache_line_size = proc_get_cache_line_size();
+            impl()->unread_last_entry(tls);
+        }
         return "";
     }
 
@@ -827,8 +874,8 @@ private:
             pc = instr_get_app_pc(meminst);
             int index_in_bb =
                 static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(meminst)));
-            app_pc orig_pc =
-                pc - modvec_()[modidx_typed].map_base + modvec_()[modidx_typed].orig_base;
+            app_pc orig_pc = pc - modvec_()[modidx_typed].map_seg_base +
+                modvec_()[modidx_typed].orig_seg_base;
             impl()->log(5, "Marking < " PFX ", " PFX "> %s #%d to use remembered base\n",
                         start_pc, pc, write ? "write" : "read", memop_index);
             if (!impl()->set_instr_summary_flags(
@@ -890,8 +937,8 @@ private:
                 if (remember_index == -1)
                     continue;
                 app_pc pc_prev = instr_get_app_pc(prev);
-                app_pc orig_pc_prev = pc_prev - modvec_()[modidx_typed].map_base +
-                    modvec_()[modidx_typed].orig_base;
+                app_pc orig_pc_prev = pc_prev - modvec_()[modidx_typed].map_seg_base +
+                    modvec_()[modidx_typed].orig_seg_base;
                 int index_prev =
                     static_cast<int>(reinterpret_cast<ptr_int_t>(instr_get_note(prev)));
                 if (!impl()->set_instr_summary_flags(
@@ -917,10 +964,11 @@ private:
         std::string error = "";
         uint instr_count = in_entry->pc.instr_count;
         const instr_summary_t *instr = nullptr;
-        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_base + in_entry->pc.modoffs;
+        app_pc start_pc = modvec_()[in_entry->pc.modidx].map_seg_base +
+            (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
         app_pc pc, decode_pc = start_pc;
         if ((in_entry->pc.modidx == 0 && in_entry->pc.modoffs == 0) ||
-            modvec_()[in_entry->pc.modidx].map_base == NULL) {
+            modvec_()[in_entry->pc.modidx].map_seg_base == NULL) {
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
             // Once that support is in we can remove the bool return value and handle
             // the memrefs up here.
@@ -937,7 +985,8 @@ private:
         bool skip_icache = false;
         // This indicates that each memref has its own PC entry and that each
         // icache entry does not need to be considered a memref PC entry as well.
-        bool instrs_are_separate = false;
+        bool instrs_are_separate =
+            TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
         uint64_t cur_modoffs = in_entry->pc.modoffs;
@@ -946,8 +995,9 @@ private:
             // L0 filtering adds a PC entry with a count of 0 prior to each memref.
             skip_icache = true;
             instr_count = 1;
-            // We set a flag to avoid peeking forward on instr entries.
-            instrs_are_separate = true;
+            // We should have set a flag to avoid peeking forward on instr entries
+            // based on OFFLINE_FILE_TYPE_FILTERED.
+            DR_ASSERT(instrs_are_separate);
         } else {
             if (!impl()->instr_summary_exists(tls, in_entry->pc.modidx,
                                               in_entry->pc.modoffs, start_pc, 0,
@@ -964,8 +1014,8 @@ private:
         for (uint i = 0; i < instr_count; ++i) {
             trace_entry_t *buf_start = impl()->get_write_buffer(tls);
             trace_entry_t *buf = buf_start;
-            app_pc orig_pc = decode_pc - modvec_()[in_entry->pc.modidx].map_base +
-                modvec_()[in_entry->pc.modidx].orig_base;
+            app_pc orig_pc = decode_pc - modvec_()[in_entry->pc.modidx].map_seg_base +
+                modvec_()[in_entry->pc.modidx].orig_seg_base;
             // To avoid repeatedly decoding the same instruction on every one of its
             // dynamic executions, we cache the decoding in a hashtable.
             pc = decode_pc;
@@ -1268,8 +1318,10 @@ private:
                 buf->type = instr->prefetch_type();
                 buf->size = 1;
             } else if (instr->is_flush()) {
-                buf->type = TRACE_TYPE_DATA_FLUSH;
-                buf->size = (ushort)opnd_size_in_bytes(opnd_get_size(memref.opnd));
+                buf->type = instr->flush_type();
+                // TODO i#4398: Handle flush sizes larger than ushort.
+                // TODO i#4406: Handle flush instrs with sizes other than cache line.
+                buf->size = (ushort)impl()->get_cache_line_size(tls);
             } else {
                 if (write)
                     buf->type = TRACE_TYPE_WRITE;
@@ -1296,6 +1348,20 @@ private:
         }
         impl()->log(4, "Appended memref type %d size %d to " PFX "\n", buf->type,
                     buf->size, (ptr_uint_t)buf->addr);
+
+#ifdef AARCH64
+        // TODO i#4400: Following is a workaround to correctly represent DC ZVA in
+        // offline traces. Note that this doesn't help with online traces.
+        // TODO i#3339: This workaround causes us to lose the address that was present
+        // in the original instruction. For re-encoding fidelity, we may want the
+        // original address in the IR.
+        if (instr->is_aarch64_dc_zva()) {
+            buf->addr = ALIGN_BACKWARD(buf->addr, impl()->get_cache_line_size(tls));
+            buf->size = impl()->get_cache_line_size(tls);
+            buf->type = TRACE_TYPE_WRITE;
+        }
+#endif
+
         *buf_in = ++buf;
         return "";
     }
@@ -1452,6 +1518,7 @@ protected:
         std::string error;
         int version;
         offline_file_type_t file_type;
+        size_t cache_line_size;
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
@@ -1531,6 +1598,8 @@ private:
     get_version(void *tls);
     offline_file_type_t
     get_file_type(void *tls);
+    size_t
+    get_cache_line_size(void *tls);
     void
     add_to_statistic(void *tls, raw2trace_statistic_t stat, int value);
     void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -113,7 +113,7 @@ kick_off_child_signal(int count, pthread_t main_thread, bool immediately)
 
 void
 execute_subtest(pthread_t main_thread, sigset_t *test_set,
-                std::function<int(bool nullsigmask)> psyscall, bool nullsigmask)
+                const std::function<int(bool nullsigmask)> &psyscall, bool nullsigmask)
 {
     int count;
     for (int i = 0; i < 2; ++i) {

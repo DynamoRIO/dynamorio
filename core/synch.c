@@ -48,6 +48,7 @@ extern vm_area_vector_t *fcache_unit_areas; /* from fcache.c */
 
 static bool started_detach = false; /* set before synchall */
 bool doing_detach = false;          /* set after synchall */
+thread_id_t detacher_tid = INVALID_THREAD_ID;
 
 static void
 synch_thread_yield(void);
@@ -1014,9 +1015,9 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                  * how to handle threads with low privilege handles */
                 /* For dr_api_exit, we may have missed a thread exit. */
                 ASSERT_CURIOSITY_ONCE(
-                    IF_APP_EXPORTS(dr_api_exit ||)(false &&
-                                                   "Thead synch unable to suspend target"
-                                                   " thread, case 2096?"));
+                    (trec->dcontext->currently_stopped IF_APP_EXPORTS(|| dr_api_exit)) &&
+                    "Thead synch unable to suspend target"
+                    " thread, case 2096?");
                 res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags)
                            ? THREAD_SYNCH_RESULT_SUCCESS
                            : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
@@ -1714,7 +1715,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
             free_cxt = false;
         }
 #endif
-        IF_ARM({
+        IF_AARCHXX({
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* We don't want to translate, just update the stolen reg values */
                 arch_mcontext_reset_stolen_reg(dcontext, mc);
@@ -1741,7 +1742,7 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         }
         LOG(GLOBAL, LOG_CACHE, 2, "\ttranslation pc = " PFX "\n", mc->pc);
         ASSERT(!is_dynamo_address((app_pc)mc->pc) && !in_fcache((app_pc)mc->pc));
-        IF_ARM({
+        IF_AARCHXX({
             if (INTERNAL_OPTION(steal_reg_at_reset) != 0) {
                 /* XXX: do we need this?  Will signal.c will fix it up prior
                  * to sigreturn from suspend handler?
@@ -1814,7 +1815,19 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
          * at a syscall, avoiding problems there (case 5074).
          */
         mc->pc = (app_pc)get_reset_exit_stub(dcontext);
+        /* We need to set ARM mode to match the reset exit stub. */
+        IF_ARM(dr_isa_mode_t prior_mode);
+        IF_ARM(dr_set_isa_mode(dcontext, DR_ISA_ARM_A32, &prior_mode));
         LOG(GLOBAL, LOG_CACHE, 2, "\tsent to reset exit stub " PFX "\n", mc->pc);
+        /* The reset exit stub expects the stolen reg to contain the TLS base address.
+         * But the stolen reg was restored to the application value during
+         * translate_mcontext.
+         */
+        IF_AARCHXX({
+            /* Preserve the translated value from mc before we clobber it. */
+            dcontext->local_state->spill_space.reg_stolen = get_stolen_reg_val(mc);
+            set_stolen_reg_val(mc, (reg_t)os_get_dr_tls_base(dcontext));
+        });
 #ifdef WINDOWS
         /* i#25: we could have interrupted thread in DR, where has priv fls data
          * in TEB, and fcache_return blindly copies into app fls: so swap to app
@@ -1829,6 +1842,10 @@ translate_from_synchall_to_dispatch(thread_record_t *tr, thread_synch_state_t sy
         ASSERT(res);
         /* cxt is freed by set_synched_thread_context() or target thread */
         free_cxt = false;
+        /* Now that set_synched_thread_context() recorded the mode for the reset
+         * exit stub, restore for the post-exit-stub execution.
+         */
+        IF_ARM(dr_set_isa_mode(dcontext, prior_mode, NULL));
     }
 translate_from_synchall_to_dispatch_exit:
     if (free_cxt) {
@@ -2095,6 +2112,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
 
     ASSERT(!doing_detach);
     doing_detach = true;
+    detacher_tid = d_r_get_thread_id();
 
 #ifdef HOT_PATCHING_INTERFACE
     /* In hotp_only mode, we must remove patches when detaching; we don't want

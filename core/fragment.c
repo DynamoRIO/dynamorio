@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -796,7 +796,8 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
      */
     if (dcontext != GLOBAL_DCONTEXT && hashlookup_null_target == NULL) {
         ASSERT(!dynamo_initialized);
-        hashlookup_null_target = get_target_delete_entry_pc(dcontext, table);
+        hashlookup_null_target =
+            PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, table));
 #if !defined(X64) && defined(LINUX)
         /* see comments in x86.asm: we patch to avoid text relocations */
         byte *pc = (byte *)hashlookup_null_handler;
@@ -808,7 +809,6 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
         insert_relative_target(pc + 1, hashlookup_null_target, NOT_HOT_PATCHABLE);
 #    elif defined(ARM)
         /* We use a pc-rel load w/ the data right after the load */
-        /* FIXME i#1551: is our gencode going to switch to Thumb?!? */
         *(byte **)(pc + ARM_INSTR_SIZE) = hashlookup_null_target;
 #    endif
         make_unwritable(page_start, page_end - page_start);
@@ -909,7 +909,8 @@ safely_nullify_tables(dcontext_t *dcontext, ibl_table_t *new_table,
                       fragment_entry_t *table, uint capacity)
 {
     uint i;
-    cache_pc target_delete = get_target_delete_entry_pc(dcontext, new_table);
+    cache_pc target_delete =
+        PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, new_table));
 
     ASSERT(target_delete != NULL);
     ASSERT_TABLE_SYNCHRONIZED(new_table, WRITE);
@@ -1719,10 +1720,6 @@ cleanup:
                                   false /* no flush */);
     DELETE_LOCK(client_flush_request_lock);
 #endif
-    /* avoid compile error "error: label at end of compound statement"
-     * from vps-release-external build
-     */
-    return;
 }
 
 void
@@ -2403,17 +2400,13 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size, int direct_exit
         if (!fragment_lookup_deleted(dcontext, tag) && !TEST(FRAG_COARSE_GRAIN, flags))
             STATS_INC(num_unique_fragments);
     });
-    /* FIXME: make fragment count a release-build stat so we can do this in
-     * release builds
-     */
-    DOSTATS({
-        if (d_r_stats != NULL &&
-            (uint)GLOBAL_STAT(num_fragments) ==
-                INTERNAL_OPTION(reset_at_fragment_count)) {
-            ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
-            schedule_reset(RESET_ALL);
-        }
-    });
+    if (d_r_stats != NULL &&
+        /* num_fragments is debug-only so we use the two release-build stats. */
+        (uint)GLOBAL_STAT(num_bbs) + GLOBAL_STAT(num_traces) ==
+            INTERNAL_OPTION(reset_at_fragment_count)) {
+        ASSERT(INTERNAL_OPTION(reset_at_fragment_count) != 0);
+        schedule_reset(RESET_ALL);
+    }
     DODEBUG({
         if ((uint)GLOBAL_STAT(num_fragments) == INTERNAL_OPTION(log_at_fragment_count)) {
             /* we started at loglevel 1 and now we raise to the requested level */
@@ -3576,7 +3569,8 @@ fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
          */
 
         /* FIXME: [perf] we could memoize this value in the table itself */
-        cache_pc pending_delete_pc = get_target_delete_entry_pc(dcontext, ftable);
+        cache_pc pending_delete_pc =
+            PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
 
         ASSERT(IBL_ENTRIES_ARE_EQUAL(*pg, fe));
         ASSERT(pending_delete_pc != NULL);
@@ -4009,7 +4003,8 @@ static void
 dump_lookup_table(dcontext_t *dcontext, ibl_table_t *ftable)
 {
     uint i;
-    cache_pc target_delete = get_target_delete_entry_pc(dcontext, ftable);
+    cache_pc target_delete =
+        PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_target_delete_entry_pc(dcontext, ftable));
 
     ASSERT(target_delete != NULL);
     ASSERT(ftable->table != NULL);
@@ -4053,6 +4048,18 @@ is_fragment_index_wraparound(dcontext_t *dcontext, ibl_table_t *ftable, fragment
     return (found_at_hindex < hindex); /* wraparound */
 }
 #endif /* DEBUG */
+
+void
+fragment_update_ibl_tables(dcontext_t *dcontext)
+{
+    per_thread_t *pt = (per_thread_t *)dcontext->fragment_field;
+    DEBUG_DECLARE(bool tables_updated =)
+    update_all_private_ibt_table_ptrs(dcontext, pt);
+    DODEBUG({
+        if (tables_updated)
+            STATS_INC(num_shared_tables_updated_delete);
+    });
+}
 
 static void
 fragment_add_ibl_target_helper(dcontext_t *dcontext, fragment_t *f,
@@ -5658,13 +5665,15 @@ process_client_flush_requests(dcontext_t *dcontext, dcontext_t *alloc_dcontext,
                 /* FIXME - for implementation simplicity we do a synch-all flush so
                  * that we can inform the client right away, it might be nice to use
                  * the more performant regular flush when possible. */
-                flush_fragments_from_region(dcontext, iter->start, iter->size,
-                                            true /*force synchall*/);
+                flush_fragments_from_region(
+                    dcontext, iter->start, iter->size, true /*force synchall*/,
+                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
                 (*iter->flush_callback)(iter->flush_id);
             } else {
                 /* do a regular flush */
-                flush_fragments_from_region(dcontext, iter->start, iter->size,
-                                            false /*don't force synchall*/);
+                flush_fragments_from_region(
+                    dcontext, iter->start, iter->size, false /*don't force synchall*/,
+                    NULL /*flush_completion_callback*/, NULL /*user_data*/);
             }
         }
         HEAP_TYPE_FREE(alloc_dcontext, iter, client_flush_req_t, ACCT_CLIENT,
@@ -6881,10 +6890,13 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
 
 /* Flushes fragments from the region without any changes to the exec list.
  * Does not free futures and caller can't be holding the initexit lock.
+ * Invokes the given callback after flushing and before resuming threads.
  * FIXME - add argument parameters (free futures etc.) as needed. */
 void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
-                            bool force_synchall)
+                            bool force_synchall,
+                            void (*flush_completion_callback)(void *user_data),
+                            void *user_data)
 {
     /* we pass false to flush_fragments_in_region_start() below for owning the initexit
      * lock */
@@ -6895,6 +6907,10 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
     flush_fragments_in_region_start(dcontext, base, size, false /*don't own initexit*/,
                                     false /*don't free futures*/, false /*exec valid*/,
                                     force_synchall _IF_DGCDIAG(NULL));
+    if (flush_completion_callback != NULL) {
+        (*flush_completion_callback)(user_data);
+    }
+
     flush_fragments_in_region_finish(dcontext, false);
 }
 

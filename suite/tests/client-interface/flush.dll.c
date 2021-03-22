@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -178,6 +178,13 @@ flush_event(int flush_id)
 }
 
 static void
+synch_flush_completion_callback(void *user_data)
+{
+    dr_fprintf(STDERR, "in synch_flush_completion_callback, user_data=%d\n",
+               *(int *)user_data);
+}
+
+static void
 callback(void *tag, app_pc next_pc)
 {
     callback_count++;
@@ -188,15 +195,14 @@ callback(void *tag, app_pc next_pc)
     if (callback_count % 100 == 0) {
         if (callback_count % 200 == 0) {
             /* For windows test dr_flush_region() half the time */
-            dr_mcontext_t mcontext = {
-                sizeof(mcontext),
-                DR_MC_ALL,
-            };
-
+            dr_mcontext_t mcontext;
+            mcontext.size = sizeof(mcontext);
+            mcontext.flags = DR_MC_ALL;
             dr_delay_flush_region((app_pc)tag - 20, 30, callback_count, flush_event);
-            dr_get_mcontext(dr_get_current_drcontext(), &mcontext);
-            mcontext.pc = next_pc;
-            dr_flush_region(tag, 1);
+            void *drcontext = dr_get_current_drcontext();
+            dr_get_mcontext(drcontext, &mcontext);
+            mcontext.pc = dr_app_pc_as_jump_target(dr_get_isa_mode(drcontext), next_pc);
+            dr_flush_region_ex(tag, 1, synch_flush_completion_callback, &callback_count);
             dr_redirect_execution(&mcontext);
             *(volatile uint *)NULL = 0; /* ASSERT_NOT_REACHED() */
         } else if (use_unlink) {
@@ -285,7 +291,8 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     /* Test kernel xfer on dr_redirect_execution */
     dr_fprintf(STDERR, "%s: type %d\n", __FUNCTION__, info->type);
     ASSERT(info->source_mcontext != NULL);
-    dr_mcontext_t mc = { sizeof(mc) };
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
     mc.flags = DR_MC_CONTROL;
     bool ok = dr_get_mcontext(drcontext, &mc);
     ASSERT(ok);

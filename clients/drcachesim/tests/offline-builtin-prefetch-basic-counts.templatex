@@ -11,6 +11,8 @@ Total counts:
 #endif
      .* total data loads
      .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
            1 total threads
      .* total scheduling markers
      .* total transfer markers
@@ -30,6 +32,8 @@ Thread .* counts:
 #endif
      .* data loads
      .* data stores
+     .* icache flushes
+     .* dcache flushes
      .* scheduling markers
      .* transfer markers
      .* function id markers

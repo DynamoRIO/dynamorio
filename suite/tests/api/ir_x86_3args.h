@@ -307,7 +307,7 @@ OPCODE(vmovss_NDS, vmovss, vmovss_NDS, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPS
        REGARG_PARTIAL(XMM2, OPSZ_4))
 OPCODE(vmovsd_NDS, vmovsd, vmovsd_NDS, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
        REGARG_PARTIAL(XMM2, OPSZ_8))
-OPCODE(vcvtps2ph, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_16), REGARG(XMM0), IMMARG(OPSZ_1))
+OPCODE(vcvtps2ph, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_8), REGARG(XMM0), IMMARG(OPSZ_1))
 OPCODE(vmaskmovps_ld, vmaskmovps, vmaskmovps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16))
 OPCODE(vmaskmovps_st, vmaskmovps, vmaskmovps, 0, MEMARG(OPSZ_16), REGARG(XMM0),

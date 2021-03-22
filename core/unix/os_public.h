@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -134,12 +134,15 @@ typedef kernel_sigcontext_t sigcontext_t;
 #    define SC_SYSNUM_REG SC_XAX
 #    define SC_RETURN_REG SC_XAX
 #elif defined(AARCH64)
-/* FIXME i#1569: NYI */
 #    define SC_XIP SC_FIELD(pc)
 #    define SC_FP SC_FIELD(regs[29])
 #    define SC_R0 SC_FIELD(regs[0])
 #    define SC_R1 SC_FIELD(regs[1])
 #    define SC_R2 SC_FIELD(regs[2])
+#    define SC_R3 SC_FIELD(regs[3])
+#    define SC_R4 SC_FIELD(regs[4])
+#    define SC_R5 SC_FIELD(regs[5])
+#    define SC_R28 SC_FIELD(regs[28])
 #    define SC_LR SC_FIELD(regs[30])
 #    define SC_XSP SC_FIELD(sp)
 #    define SC_XFLAGS SC_FIELD(pstate)

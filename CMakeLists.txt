@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
 # **********************************************************
@@ -295,33 +295,30 @@ if (NOT "${TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")
   endif ()
 endif ()
 
+# Support for running cross-compiled tests under emulation.
+if (CMAKE_CROSSCOMPILING AND DEFINED CMAKE_FIND_ROOT_PATH)
+  find_program(QEMU_BINARY qemu-${CMAKE_SYSTEM_PROCESSOR} DOC "QEMU emulation tool")
+  if (NOT QEMU_BINARY)
+    message(STATUS "Did not find qemu-${CMAKE_SYSTEM_PROCESSOR}: tests will not run")
+  else ()
+    message(STATUS "Found qemu-${CMAKE_SYSTEM_PROCESSOR} for tests under emulation")
+  endif ()
+endif ()
+
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
-# high-level configurations
-option(VMAP "client support" ON)
-option(VPS "security support but no client support")
-option(VMSAFE "client support including security API")
-if (VMAP)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-endif (VMAP)
-if (VMSAFE)
-  set(PROGRAM_SHEPHERDING 1)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-  set(HOT_PATCHING_INTERFACE 1)
-endif (VMSAFE)
-if (VPS)
-  set(PROGRAM_SHEPHERDING 1)
-  set(HOT_PATCHING_INTERFACE 1)
-  set(PROCESS_CONTROL 1)
-  if (WIN32)
-    set(GBOP 1)
-  endif (WIN32)
-endif (VPS)
+# We no longer support building without a client interface: it is always enabled.
+# TODO i#2971: Remove the CLIENT_INTERFACE option and define.
+set(CLIENT_INTERFACE 1)
+set(APP_EXPORTS 1)
 
-# temporary: once build+support issues fixed, remove and add HOT_PATCHING_INTERFACE
-# to VMAP by default
+# TODO: Consider removing these no-longer-maintained options:
+# - VMKERNEL
+# - PROGRAM_SHEPHERDING
+# - PROCESS_CONTROL
+# - GBOP
+
+# TODO: Revive HOT_PATCHING_INTERFACE and combine with PROBE.
 option(PROBE "enable not-yet-supported Probe API")
 mark_as_advanced(PROBE)
 if (PROBE)
@@ -365,6 +362,7 @@ endif ()
 if (X86)
   set(ANNOTATIONS_DEFAULT ON)
 else ()
+  # TODO i#1672: Add annotation support to AArchXX.
   set(ANNOTATIONS_DEFAULT OFF)
 endif ()
 option(ANNOTATIONS "annotations" ${ANNOTATIONS_DEFAULT})
@@ -409,10 +407,10 @@ endif (VMKERNEL)
 
 # we do not support most users choosing these
 mark_as_advanced(
+  PROGRAM_SHEPHERDING
+  PROCESS_CONTROL
+  GBOP
   VMKERNEL
-  VMAP
-  VMSAFE
-  VPS
   KSTATS
   CALLPROF
   PROFILE
@@ -540,7 +538,7 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
-# N.B.: when updating this, update the git tag in .travis.yml.
+# N.B.: when updating this, update the default version in ci-package.yml.
 # We should find a way to share (xref i#1565).
 set(VERSION_NUMBER_DEFAULT "8.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
@@ -580,6 +578,20 @@ set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
 ###########################################################################
 # toolchain
+
+# Figure out avx flags before asm setup, which requires it.
+set(proc_supports_avx OFF)
+set(proc_supports_avx2 OFF)
+set(proc_supports_avx512 OFF)
+if (UNIX)
+  set(CFLAGS_AVX "-mavx")
+  # BMI2 instructions are typically also supported on AVX2 processors.
+  set(CFLAGS_AVX2 "-mavx2 -mbmi2")
+  set(CFLAGS_AVX512 "-mavx512f")
+  check_avx_processor_and_compiler_support(proc_supports_avx)
+  check_avx2_processor_and_compiler_support(proc_supports_avx2)
+  check_avx512_processor_and_compiler_support(proc_supports_avx512)
+endif ()
 
 # Set up assembly support and CMAKE_CPP.
 # Note that in cmake < 2.6.4, I had to fix a bug in
@@ -1167,6 +1179,13 @@ else ()
   set(HAVE_RSEQ OFF)
 endif ()
 
+# Currently only AArch64 targets supported for half-precision FP.
+if (DR_HOST_AARCH64)
+  set(HAVE_HALF_FLOAT ON)
+else ()
+  set(HAVE_HALF_FLOAT OFF)
+endif ()
+
 ###########################################################################
 
 # Issue 20: cross-arch execve depends on these being distinct and not
@@ -1188,6 +1207,7 @@ else (DEBUG)
 endif (DEBUG)
 set(INSTALL_INCLUDE include)
 set(INSTALL_DOCS docs)
+set(INSTALL_DOCS_EMBED docs_embed)
 # samples are installed via api/samples/ separate CMake project
 set(INSTALL_CMAKE cmake)
 set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE}")
@@ -1500,14 +1520,6 @@ else ()
   option(BUILD_DOCS "build documentation" ON)
 endif ()
 
-if (VMSAFE)
-  # I did not preserve VMSAFE docs building: to reactivate it, need to
-  # add the missing transformations mentioned in api/docs/CMakeLists.txt
-  # and fix genapi.pl on lib/dr_config.h to handle the outer ifdef WINDOWS
-  # (ends up keeping 1st endif in 1st enum).
-  set(BUILD_DOCS OFF)
-endif (VMSAFE)
-
 if (NOT CLIENT_INTERFACE)
   set(BUILD_SAMPLES OFF)
   set(BUILD_EXT OFF)
@@ -1524,18 +1536,6 @@ if (BUILD_TESTS)
   # Tests require tools
   set(BUILD_TOOLS ON)
   enable_testing()
-  set(proc_supports_avx OFF)
-  set(proc_supports_avx2 OFF)
-  set(proc_supports_avx512 OFF)
-  if (UNIX)
-    set(CFLAGS_AVX "-mavx")
-    # BMI2 instructions are typically also supported on AVX2 processors.
-    set(CFLAGS_AVX2 "-mavx2 -mbmi2")
-    set(CFLAGS_AVX512 "-mavx512f")
-    check_avx_processor_and_compiler_support(proc_supports_avx)
-    check_avx2_processor_and_compiler_support(proc_supports_avx2)
-    check_avx512_processor_and_compiler_support(proc_supports_avx512)
-  endif ()
   # add Dashboard support
   include(CTest)
 endif (BUILD_TESTS)
@@ -1764,11 +1764,11 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   if (BUILD_DOCS)
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
-      # We require on Linux pre-commit where it's trivial to install
-      if (TEST_SUITE AND UNIX AND NOT APPLE)
+      # We require for any automated suite on Linux or Windows.
+      if (TEST_SUITE AND NOT APPLE)
         message(FATAL_ERROR "doxygen is required to build the documentation")
       else ()
-        # Non-fatal for a single, un-official build, or on Windows
+        # Non-fatal for a single, un-official build.
         message(WARNING "doxygen not found: documentation will NOT be built")
         set(BUILD_DOCS OFF)
       endif ()

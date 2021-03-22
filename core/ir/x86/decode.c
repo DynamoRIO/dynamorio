@@ -251,7 +251,6 @@ resolve_variable_size(decode_info_t *di /*IN: x86_mode, prefixes*/, opnd_size_t 
     case OPSZ_12_rex8_of_16: return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_8 : OPSZ_12);
     case OPSZ_14_of_16: return OPSZ_14;
     case OPSZ_15_of_16: return OPSZ_15;
-    case OPSZ_8_of_16_vex32: return (TEST(PREFIX_VEX_L, di->prefixes) ? OPSZ_32 : OPSZ_8);
     case OPSZ_16_of_32:
     case OPSZ_16_of_32_evex64: return OPSZ_16;
     case OPSZ_32_of_64: return OPSZ_32;
@@ -314,7 +313,6 @@ expand_subreg_size(opnd_size_t sz)
     case OPSZ_4_reg16: return OPSZ_16;
     case OPSZ_16_of_32: return OPSZ_32;
     case OPSZ_32_of_64: return OPSZ_64;
-    case OPSZ_8_of_16_vex32:
     case OPSZ_half_16_vex32: return OPSZ_16_vex32;
     case OPSZ_half_16_vex32_evex64: return OPSZ_16_vex32_evex64;
     case OPSZ_quarter_16_vex32: return OPSZ_half_16_vex32;
@@ -1118,11 +1116,12 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         int code = (int)info->code;
         int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
         info = &vex_W_extensions[code][idx];
-    } else if (info->type == EVEX_W_EXT) {
+    } else if (info->type == EVEX_Wb_EXT) {
         /* discard old info, get new one */
         int code = (int)info->code;
-        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
-        info = &evex_W_extensions[code][idx];
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 2 : 0) +
+            (TEST(PREFIX_EVEX_b, di->prefixes) ? 1 : 0);
+        info = &evex_Wb_extensions[code][idx];
     }
 
     /* can occur AFTER above checks (EXTENSION, in particular) */
@@ -1180,11 +1179,17 @@ read_instruction(byte *pc, byte *orig_pc, const instr_info_t **ret_info,
         int code = (int)info->code;
         int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
         info = &vex_W_extensions[code][idx];
-    } else if (info->type == EVEX_W_EXT) {
+    } else if (info->type == EVEX_Wb_EXT) {
         /* discard old info, get new one */
         int code = (int)info->code;
-        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
-        info = &evex_W_extensions[code][idx];
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 2 : 0) +
+            (TEST(PREFIX_EVEX_b, di->prefixes) ? 1 : 0);
+        info = &evex_Wb_extensions[code][idx];
+    }
+
+    /* This can occur after the above checks (with EVEX_Wb_EXT, in particular). */
+    if (info->type == MOD_EXT) {
+        info = &mod_extensions[info->code][(di->mod == 3) ? 1 : 0];
     }
 
     if (TEST(REQUIRES_PREFIX, info->flags)) {
@@ -1473,15 +1478,21 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_P:
     case TYPE_Q:
     case TYPE_P_MODRM: return (REG_START_MMX + reg); /* no x64 extensions */
+    case TYPE_H:
     case TYPE_V:
     case TYPE_W:
     case TYPE_V_MODRM:
     case TYPE_VSIB: {
         reg_id_t extend_reg = extend ? reg + 8 : reg;
         extend_reg = avx512_extend ? extend_reg + 16 : extend_reg;
-        bool operand_is_zmm = TEST(PREFIX_EVEX_LL, di->prefixes) &&
-            expand_subreg_size(opsize) != OPSZ_16 &&
-            expand_subreg_size(opsize) != OPSZ_32;
+        /* Some instructions (those that support embedded rounding (er) control)
+         * repurpose PREFIX_EVEX_LL for other things and only come in a 64 byte
+         * variant.
+         */
+        bool operand_is_zmm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
+                               expand_subreg_size(opsize) != OPSZ_16 &&
+                               expand_subreg_size(opsize) != OPSZ_32) ||
+            opsize == OPSZ_64;
         /* Not only do we use this for VEX .LIG and EVEX .LIG (where raw reg is
          * either OPSZ_16 or OPSZ_16_vex32 or OPSZ_32 or OPSZ_vex32_evex64) but
          * also for VSIB which currently does not get up to OPSZ_16 so we can
@@ -1492,10 +1503,14 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
          * XXX i#1312: improve this code here, it is not very robust. For AVX-512, this
          * relies on the fact that cases where EVEX.LL' == 1 and register is not zmm, the
          * expand_subreg_size is OPSZ_16 or OPSZ_32. The VEX OPSZ_16 case is also fragile.
+         * As above PREFIX_EVEX_LL may be repurposed for embedded rounding control, so
+         * honor opsizes of exactly OPSZ_32.
          */
         bool operand_is_ymm = (TEST(PREFIX_EVEX_LL, di->prefixes) &&
                                expand_subreg_size(opsize) == OPSZ_32) ||
-            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16);
+            (TEST(PREFIX_VEX_L, di->prefixes) && expand_subreg_size(opsize) != OPSZ_16 &&
+             expand_subreg_size(opsize) != OPSZ_64) ||
+            opsize == OPSZ_32;
         if (operand_is_ymm && operand_is_zmm) {
             /* i#3713/i#1312: Raise an error for investigation, but don't assert b/c
              * we need to support decoding non-code for drdecode, etc.
@@ -2108,23 +2123,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         /* As part of AVX and AVX-512, vex.vvvv selects xmm/ymm/zmm register. Note that
          * vex.vvvv and evex.vvvv are a union.
          */
-        reg_id_t reg = (~di->vex_vvvv) & 0xf; /* bit-inverted */
-        if (TEST(PREFIX_EVEX_VV, di->prefixes)) {
-            /* This assumes that the register ranges of DR_REG_XMM, DR_REG_YMM, and
-             * DR_REG_ZMM are contiguous.
-             */
-            reg += 16;
-        }
-        if (TEST(PREFIX_EVEX_LL, di->prefixes)) {
-            reg += DR_REG_START_ZMM;
-        } else if (TEST(PREFIX_VEX_L, di->prefixes) &&
-                   /* see .LIG notes above */
-                   expand_subreg_size(opsize) != OPSZ_16) {
-            reg += DR_REG_START_YMM;
-        } else {
-            reg += DR_REG_START_XMM;
-        }
-        *opnd = opnd_create_reg(reg);
+        if (di->evex_encoded)
+            *opnd = opnd_create_reg(decode_reg(DECODE_REG_EVEX, di, optype, opsize));
+        else
+            *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
         opnd_set_size(opnd, resolve_variable_size(di, opsize, true /*is reg*/));
         return true;
     }

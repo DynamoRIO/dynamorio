@@ -150,13 +150,11 @@ typedef struct _spill_state_t {
     reg_t xax, xbx, xcx, xdx; /* general-purpose registers */
 #elif defined(AARCHXX)
     reg_t r0, r1, r2, r3;
-#    ifdef X64
-    /* These are needed for icache_op_ic_ivau_asm. */
+    /* These are needed for ldex/stex mangling and A64 icache_op_ic_ivau_asm. */
     reg_t r4, r5;
-#    endif
     reg_t reg_stolen; /* slot for the stolen register */
 #endif
-    /* FIXME: move this below the tables to fit more on cache line */
+    /* XXX: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
 #ifdef AARCHXX
     /* We store addresses here so we can load pointer-sized addresses into
@@ -166,7 +164,16 @@ typedef struct _spill_state_t {
     byte *fcache_return;
     ibl_entry_pc_t trace_ibl[IBL_BRANCH_TYPE_END];
     ibl_entry_pc_t bb_ibl[IBL_BRANCH_TYPE_END];
-    /* FIXME i#1575: coarse-grain NYI on ARM */
+    /* State for converting exclusive monitors into compare-and-swap (-ldstex2cas). */
+    ptr_uint_t ldstex_addr;
+    ptr_uint_t ldstex_value;
+    ptr_uint_t ldstex_value2; /* For 2nd value of a pair. */
+    ptr_uint_t ldstex_size;
+#    ifdef ARM
+    /* In A32 mode we have no OP_cbnz so we have to save the flags. */
+    reg_t ldstex_flags;
+#    endif
+    /* TODO i#1575: coarse-grain NYI on ARM */
 #endif
 } spill_state_t;
 
@@ -201,26 +208,29 @@ typedef struct _local_state_extended_t {
 #    define TLS_REG1_SLOT ((ushort)offsetof(spill_state_t, r1))
 #    define TLS_REG2_SLOT ((ushort)offsetof(spill_state_t, r2))
 #    define TLS_REG3_SLOT ((ushort)offsetof(spill_state_t, r3))
-#    ifdef AARCH64
-#        define TLS_REG4_SLOT ((ushort)offsetof(spill_state_t, r4))
-#        define TLS_REG5_SLOT ((ushort)offsetof(spill_state_t, r5))
-#    endif
+#    define TLS_REG4_SLOT ((ushort)offsetof(spill_state_t, r4))
+#    define TLS_REG5_SLOT ((ushort)offsetof(spill_state_t, r5))
 #    define TLS_REG_STOLEN_SLOT ((ushort)offsetof(spill_state_t, reg_stolen))
 #    define SCRATCH_REG0 DR_REG_R0
 #    define SCRATCH_REG1 DR_REG_R1
 #    define SCRATCH_REG2 DR_REG_R2
 #    define SCRATCH_REG3 DR_REG_R3
-#    ifdef AARCH64
-#        define SCRATCH_REG4 DR_REG_R4
-#        define SCRATCH_REG5 DR_REG_R5
-#    endif
-#    define SCRATCH_REG_LAST IF_X64_ELSE(SCRATCH_REG5, SCRATCH_REG3)
+#    define SCRATCH_REG4 DR_REG_R4
+#    define SCRATCH_REG5 DR_REG_R5
+#    define SCRATCH_REG_LAST SCRATCH_REG5
 #endif /* X86/ARM */
 #define IBL_TARGET_REG SCRATCH_REG2
 #define IBL_TARGET_SLOT TLS_REG2_SLOT
 #define TLS_DCONTEXT_SLOT ((ushort)offsetof(spill_state_t, dcontext))
 #ifdef AARCHXX
 #    define TLS_FCACHE_RETURN_SLOT ((ushort)offsetof(spill_state_t, fcache_return))
+#    define TLS_LDSTEX_ADDR_SLOT ((ushort)offsetof(spill_state_t, ldstex_addr))
+#    define TLS_LDSTEX_VALUE_SLOT ((ushort)offsetof(spill_state_t, ldstex_value))
+#    define TLS_LDSTEX_VALUE2_SLOT ((ushort)offsetof(spill_state_t, ldstex_value2))
+#    define TLS_LDSTEX_SIZE_SLOT ((ushort)offsetof(spill_state_t, ldstex_size))
+#    ifdef ARM
+#        define TLS_LDSTEX_FLAGS_SLOT ((ushort)offsetof(spill_state_t, ldstex_flags))
+#    endif
 #endif
 
 #define TABLE_OFFSET (offsetof(local_state_extended_t, table_space))
@@ -317,9 +327,13 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
 /* note that the microsoft compiler will not enregister variables across asm
  * blocks that touch those registers, so don't need to worry about clobbering
  * eax and ebx */
+#    define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
+        do {                                                    \
+            *(BYTE *)(addr_res) = *(volatile BYTE *)(addr_src); \
+        } while (0)
 #    define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                      \
         do {                                                                  \
-            ASSERT(sizeof(value) == 1);                                       \
+            ASSERT(sizeof(*target) == 1);                                     \
             /* No alignment check necessary, hot_patch parameter provided for \
              * consistency.                                                   \
              */                                                               \
@@ -472,11 +486,18 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 /* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
  * if target is within cache line.
  */
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)               \
+            do {                                                    \
+                __asm__ __volatile__("movb %1, %%al; movb %%al, %0" \
+                                     : "=m"(*(byte *)(addr_res))    \
+                                     : "m"(*(byte *)(addr_src))     \
+                                     : "al");                       \
+            } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)                       \
             do {                                                                   \
                 /* allow a constant to be passed in by supplying our own lvalue */ \
                 char _myval = value;                                               \
-                ASSERT(sizeof(value) == 1);                                        \
+                ASSERT(sizeof(*target) == 1);                                      \
                 /* No alignment check necessary, hot_patch parameter provided for  \
                  * consistency.                                                    \
                  */                                                                \
@@ -634,9 +655,17 @@ atomic_add_exchange_int64(volatile int64 *var, int64 value)
 
 #    elif defined(DR_HOST_AARCH64)
 
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)                \
+            do {                                                     \
+                /* We use "load-acquire" to add a barrier. */        \
+                __asm__ __volatile__("ldarb w0, [%0]; strb w0, [%1]" \
+                                     :                               \
+                                     : "r"(addr_src), "r"(addr_res)  \
+                                     : "w0", "memory");              \
+            } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
-                ASSERT(sizeof(value) == 1);                    \
+                ASSERT(sizeof(*target) == 1);                  \
                 /* Not currently used to write code */         \
                 ASSERT_CURIOSITY(!hot_patch);                  \
                 __asm__ __volatile__("stlrb %w0, [%1]"         \
@@ -819,9 +848,16 @@ atomic_dec_becomes_zero(volatile int *var)
 
 #    elif defined(DR_HOST_ARM)
 
+#        define ATOMIC_1BYTE_READ(addr_src, addr_res)                        \
+            do {                                                             \
+                __asm__ __volatile__("ldrb r0, [%0]; dmb ish; strb r0, [%1]" \
+                                     :                                       \
+                                     : "r"(addr_src), "r"(addr_res)          \
+                                     : "r0", "memory");                      \
+            } while (0)
 #        define ATOMIC_1BYTE_WRITE(target, value, hot_patch)   \
             do {                                               \
-                ASSERT(sizeof(value) == 1);                    \
+                ASSERT(sizeof(*target) == 1);                  \
                 __asm__ __volatile__("dmb ish; strb %0, [%1]"  \
                                      :                         \
                                      : "r"(value), "r"(target) \
@@ -1103,6 +1139,14 @@ atomic_aligned_read_int(volatile int *var)
 {
     int temp;
     ATOMIC_4BYTE_ALIGNED_READ(var, &temp);
+    return temp;
+}
+
+static inline bool
+atomic_read_bool(volatile bool *var)
+{
+    bool temp;
+    ATOMIC_1BYTE_READ(var, &temp);
     return temp;
 }
 
@@ -1836,8 +1880,14 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size);
 #        define AARCH64_INSTR_SIZE 4
 #        define FRAGMENT_BASE_PREFIX_SIZE(flags) AARCH64_INSTR_SIZE
 #        define DIRECT_EXIT_STUB_SIZE(flags) \
-            (7 * AARCH64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
-#        define DIRECT_EXIT_STUB_DATA_SZ 0
+            (10 * AARCH64_INSTR_SIZE) /* see insert_exit_stub_other_flags */
+/* Size of data slot used to store address of linked fragment or fcache return routine.
+ * We reserve 12 bytes for the 8 byte address, so that we can store it in an 8-byte
+ * aligned address. This is required for atomicity of write operations.
+ */
+#        define DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING 4
+#        define DIRECT_EXIT_STUB_DATA_SZ \
+            (sizeof(app_pc) + DIRECT_EXIT_STUB_DATA_SLOT_ALIGNMENT_PADDING)
 #    else
 #        define FRAGMENT_BASE_PREFIX_SIZE(flags) \
             (FRAG_IS_THUMB(flags) ? THUMB_LONG_INSTR_SIZE : ARM_INSTR_SIZE)
@@ -2688,6 +2738,11 @@ get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
 /* reset the encode state stored in dcontext used by A32 Thumb mode */
 void
 encode_reset_it_block(dcontext_t *dcontext);
+/* Reset the encode state stored in dcontext used by A32 Thumb mode if the
+ * being-freed instr is involved.
+ */
+void
+encode_instr_freed_event(dcontext_t *dcontext, instr_t *instr);
 #endif
 
 #ifdef LINUX

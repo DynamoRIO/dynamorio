@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -34,7 +34,7 @@
 #define _DYNAMORIO_ANNOTATIONS_ASM_H_ 1
 
 /* This header defines the annotation functions and code sequences. For a high-level
- * overview, see the wiki page https://github.com/DynamoRIO/dynamorio/wiki/Annotations.
+ * overview, see https://dynamorio.org/page_annotations.html.
  */
 
 /* To simplify project configuration, this pragma excludes the file from GCC warnings. */
@@ -47,6 +47,12 @@
 #    include <intrin.h>
 #    pragma warning(disable : 4100) /* disable "unreferenced formal parameter" warning \
                                      */
+#endif
+
+#ifndef DYNAMORIO_ANNOTATIONS_X86
+#    if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+#        define DYNAMORIO_ANNOTATIONS_X86 1
+#    endif
 #endif
 
 #ifndef DYNAMORIO_ANNOTATIONS_X64
@@ -75,7 +81,22 @@
 #    endif
 #endif
 
-#ifdef _MSC_VER /* Microsoft Visual Studio */
+#if !defined(DYNAMORIO_ANNOTATIONS_X86) || defined(__clang__)
+/* TODO i#1672: Add annotation support to AArchXX.
+ * For now, we provide a fallback so we can build the annotation-concurrency
+ * app for use with drcachesim tests.
+ * We do the same for clang, which has no "asm goto".
+ */
+#    define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) /* Nothing. */
+#    define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
+        return_type annotation parameters
+#    define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
+        return_type annotation parameters                                   \
+        {                                                                   \
+            body;                                                           \
+        }
+
+#elif defined(_MSC_VER) /* Microsoft Visual Studio */
 #    define PASTE1(x, y) x##y
 #    define PASTE(x, y) PASTE1(x, y)
 

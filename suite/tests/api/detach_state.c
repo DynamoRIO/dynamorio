@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -52,10 +52,6 @@
 #        include <signal.h>
 #        include <ucontext.h>
 #        define ALT_STACK_SIZE (SIGSTKSZ * 2)
-#    endif
-
-#    ifndef X86
-#        error Only X86 is supported for this test.
 #    endif
 
 #    define VERBOSE 0
@@ -216,6 +212,18 @@ sideline_func(void *arg)
 }
 
 static void
+check_gpr_value_with_alt(const char *name, ptr_uint_t value, ptr_uint_t expect1,
+                         ptr_uint_t expect2)
+{
+    VPRINT("Value of %s is 0x%lx; expect 0x%lx or 0x%lx\n", name, value, expect1,
+           expect2);
+    if (value != expect1 && value != expect2) {
+        print("ERROR: detach changed %s from 0x%lx or 0x%lx to 0x%lx\n", name, expect1,
+              expect2, value);
+    }
+}
+
+static void
 check_gpr_value(const char *name, ptr_uint_t value, ptr_uint_t expect)
 {
     VPRINT("Value of %s is 0x%lx; expect 0x%lx\n", name, value, expect);
@@ -240,7 +248,10 @@ void
 check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
 {
     int i;
-#    ifdef X64
+#    ifdef X86_64
+/**************************************************
+ * X86_64
+ */
 #        define NUM_GPRS 16
 #        define SIMD_SZ_IN_PTRS (SIMD_REG_SIZE / sizeof(ptr_uint_t))
 #        ifdef __AVX512F__
@@ -296,9 +307,6 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
     check_gpr_value("r10", *(xsp + 10), MAKE_HEX_C(R10_BASE()));
     check_gpr_value("r9", *(xsp + 9), MAKE_HEX_C(R9_BASE()));
     check_gpr_value("r8", *(xsp + 8), MAKE_HEX_C(R8_BASE()));
-#    else
-#        error NYI /* TODO i#3160: Add 32-bit support. */
-#    endif
     if (!selfmod)
         check_gpr_value("xax", *(xsp + 7), MAKE_HEX_C(XAX_BASE()));
     check_gpr_value("xcx", *(xsp + 6), MAKE_HEX_C(XCX_BASE()));
@@ -308,8 +316,51 @@ check_gpr_vals(ptr_uint_t *xsp, bool selfmod)
     check_gpr_value("xbp", *(xsp + 2), MAKE_HEX_C(XBP_BASE()));
     check_gpr_value("xsi", *(xsp + 1), MAKE_HEX_C(XSI_BASE()));
     check_gpr_value("xdi", *(xsp + 0), MAKE_HEX_C(XDI_BASE()));
+#    elif defined(AARCH64)
+    /**************************************************
+     * AARCH64
+     */
+    /* Unfortunately, since it's RISC, we have to use x0 in the asm loop.
+     * Its value could be either 0x1 or &sideline_exit.
+     */
+    check_gpr_value_with_alt("x0", *(xsp + 0), 0x1, (ptr_uint_t)&sideline_exit);
+    check_gpr_value("x1", *(xsp + 1), MAKE_HEX_C(X1_BASE()));
+    check_gpr_value("x2", *(xsp + 2), MAKE_HEX_C(X2_BASE()));
+    check_gpr_value("x3", *(xsp + 3), MAKE_HEX_C(X3_BASE()));
+    check_gpr_value("x4", *(xsp + 4), MAKE_HEX_C(X4_BASE()));
+    check_gpr_value("x5", *(xsp + 5), MAKE_HEX_C(X5_BASE()));
+    check_gpr_value("x6", *(xsp + 6), MAKE_HEX_C(X6_BASE()));
+    check_gpr_value("x7", *(xsp + 7), MAKE_HEX_C(X7_BASE()));
+    check_gpr_value("x8", *(xsp + 8), MAKE_HEX_C(X8_BASE()));
+    check_gpr_value("x9", *(xsp + 9), MAKE_HEX_C(X9_BASE()));
+    check_gpr_value("x10", *(xsp + 10), MAKE_HEX_C(X10_BASE()));
+    check_gpr_value("x11", *(xsp + 11), MAKE_HEX_C(X11_BASE()));
+    check_gpr_value("x12", *(xsp + 12), MAKE_HEX_C(X12_BASE()));
+    check_gpr_value("x13", *(xsp + 13), MAKE_HEX_C(X13_BASE()));
+    check_gpr_value("x14", *(xsp + 14), MAKE_HEX_C(X14_BASE()));
+    check_gpr_value("x15", *(xsp + 15), MAKE_HEX_C(X15_BASE()));
+    check_gpr_value("x16", *(xsp + 16), MAKE_HEX_C(X16_BASE()));
+    check_gpr_value("x17", *(xsp + 17), MAKE_HEX_C(X17_BASE()));
+    check_gpr_value("x18", *(xsp + 18), MAKE_HEX_C(X18_BASE()));
+    check_gpr_value("x19", *(xsp + 19), MAKE_HEX_C(X19_BASE()));
+    check_gpr_value("x20", *(xsp + 20), MAKE_HEX_C(X20_BASE()));
+    check_gpr_value("x21", *(xsp + 21), MAKE_HEX_C(X21_BASE()));
+    check_gpr_value("x22", *(xsp + 22), MAKE_HEX_C(X22_BASE()));
+    check_gpr_value("x23", *(xsp + 23), MAKE_HEX_C(X23_BASE()));
+    check_gpr_value("x24", *(xsp + 24), MAKE_HEX_C(X24_BASE()));
+    check_gpr_value("x25", *(xsp + 25), MAKE_HEX_C(X25_BASE()));
+    check_gpr_value("x26", *(xsp + 26), MAKE_HEX_C(X26_BASE()));
+    check_gpr_value("x27", *(xsp + 27), MAKE_HEX_C(X27_BASE()));
+    check_gpr_value("x28", *(xsp + 28), MAKE_HEX_C(X28_BASE()));
+    check_gpr_value("x29", *(xsp + 29), MAKE_HEX_C(X29_BASE()));
+    check_gpr_value("x30", *(xsp + 30), MAKE_HEX_C(X30_BASE()));
+    /* TODO i#4698: Check SIMD values on AArch64. */
+#    else
+#        error NYI /* TODO i#3160: Add 32-bit support. */
+#    endif
 }
 
+#    ifdef X86
 void
 check_eflags(ptr_uint_t *xsp)
 {
@@ -320,12 +371,15 @@ void
 check_xsp(ptr_uint_t *xsp)
 {
     check_gpr_value("xsp", *xsp, (ptr_uint_t)safe_stack);
-#    ifdef X64
+#        ifdef X64
     /* Ensure redzone unchanged. */
     check_gpr_value("*(xsp-1)", *(-1 + (ptr_uint_t *)(*xsp)), MAKE_HEX_C(XAX_BASE()));
     check_gpr_value("*(xsp-2)", *(-2 + (ptr_uint_t *)(*xsp)), MAKE_HEX_C(XDX_BASE()));
-#    endif
+#        endif
 }
+#    else
+/* TODO i#4698: Port to AArch64. */
+#    endif
 
 void
 make_writable(ptr_uint_t pc)
@@ -363,6 +417,7 @@ main(void)
     sideline_ready_for_attach = create_cond_var();
 
     test_thread_func(thread_check_gprs_from_cache);
+#    ifdef X86 /* TODO i#1698: Port to AArch64. */
     test_thread_func(thread_check_gprs_from_DR);
     test_thread_func(thread_check_eflags_from_cache);
     test_thread_func(thread_check_eflags_from_DR);
@@ -375,6 +430,7 @@ main(void)
     test_thread_func(thread_check_xsp_from_cache);
     test_thread_func(thread_check_xsp_from_DR);
     free_mem(safe_stack - stack_size, stack_size);
+#    endif
 
     test_thread_func(thread_check_sigstate);
     test_thread_func(thread_check_sigstate_from_handler);
@@ -391,7 +447,10 @@ main(void)
 /* clang-format off */
 START_FILE
 
-#ifdef X64
+#if defined(X86) && defined(X64)
+/**************************************************
+ * X86_64
+ */
 #    define PUSH_GPRS \
         push     r15 @N@\
         push     r14 @N@\
@@ -568,12 +627,74 @@ START_FILE
         pop      r12 @N@ \
         pop      REG_XBX @N@ \
         pop      REG_XBP @N@
-#else /* X64 */
+#elif defined(X86) && !defined(X64)
+/**************************************************
+ * X86_32
+ */
 #    define PUSHALL \
         pusha
 #    define POPALL  \
         popa
 #    error NYI /* TODO i#3160: Add 32-bit support. */
+#elif defined(AARCH64)
+/**************************************************
+ * AARCH64
+ */
+#    define PUSH_GPRS                           \
+        /* SP is checked separately so value here doesn't matter. */ \
+        stp      x30, x0, [sp, #-16]! @N@\
+        stp      x28, x29, [sp, #-16]! @N@\
+        stp      x26, x27, [sp, #-16]! @N@\
+        stp      x24, x25, [sp, #-16]! @N@\
+        stp      x22, x23, [sp, #-16]! @N@\
+        stp      x20, x21, [sp, #-16]! @N@\
+        stp      x18, x19, [sp, #-16]! @N@\
+        stp      x16, x17, [sp, #-16]! @N@\
+        stp      x14, x15, [sp, #-16]! @N@\
+        stp      x12, x13, [sp, #-16]! @N@\
+        stp      x10, x11, [sp, #-16]! @N@\
+        stp      x8, x9, [sp, #-16]! @N@\
+        stp      x6, x7, [sp, #-16]! @N@\
+        stp      x4, x5, [sp, #-16]! @N@\
+        stp      x2, x3, [sp, #-16]! @N@\
+        stp      x0, x1, [sp, #-16]!
+#    define PUSHALL \
+        PUSH_GPRS
+        /* TODO i#4698: Push and check SIMD regs. */
+#    define PUSH_CALLEE_SAVED \
+        stp      x29, x30, [sp, #-16]! @N@\
+        stp      x27, x28, [sp, #-16]! @N@\
+        stp      x25, x26, [sp, #-16]! @N@\
+        stp      x23, x24, [sp, #-16]! @N@\
+        stp      x21, x22, [sp, #-16]! @N@\
+        stp      x19, x20, [sp, #-16]!
+#    define POP_GPRS \
+        ldp      x0, x1, [sp], #16 @N@\
+        ldp      x2, x3, [sp], #16 @N@\
+        ldp      x4, x5, [sp], #16 @N@\
+        ldp      x6, x7, [sp], #16 @N@\
+        ldp      x8, x9, [sp], #16 @N@\
+        ldp      x10, x11, [sp], #16 @N@\
+        ldp      x12, x13, [sp], #16 @N@\
+        ldp      x14, x15, [sp], #16 @N@\
+        ldp      x16, x17, [sp], #16 @N@\
+        ldp      x18, x19, [sp], #16 @N@\
+        ldp      x20, x21, [sp], #16 @N@\
+        ldp      x22, x23, [sp], #16 @N@\
+        ldp      x24, x25, [sp], #16 @N@\
+        ldp      x26, x27, [sp], #16 @N@\
+        ldp      x28, x29, [sp], #16 @N@\
+        ldp      x30, x0, [sp], #16
+#    define POPALL \
+        POP_GPRS
+        /* TODO i#4698: Pop SIMD regs. */
+#    define POP_CALLEE_SAVED \
+        ldp      x19, x20, [sp], #16 @N@\
+        ldp      x21, x22, [sp], #16 @N@\
+        ldp      x23, x24, [sp], #16 @N@\
+        ldp      x25, x26, [sp], #16 @N@\
+        ldp      x27, x28, [sp], #16 @N@\
+        ldp      x29, x30, [sp], #16
 #endif
 
 DECL_EXTERN(sideline_exit)
@@ -582,18 +703,22 @@ DECL_EXTERN(make_writable)
 DECL_EXTERN(check_gpr_vals)
 DECL_EXTERN(safe_stack)
 
+#ifdef X86
+/**************************************************
+ * X86_64
+ */
 #define FUNCNAME unique_values_to_registers
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-#ifdef __AVX512F__
-#    define Z0 XMM0_LOW_BASE()
-#    define Z1 XMM0_HIGH_BASE()
-#    define Z2 YMMH0_LOW_BASE()
-#    define Z3 YMMH0_HIGH_BASE()
-#    define Z4 ZMMH0_0_BASE()
-#    define Z5 ZMMH0_1_BASE()
-#    define Z6 ZMMH0_2_BASE()
-#    define Z7 ZMMH0_3_BASE()
+#    ifdef __AVX512F__
+#        define Z0 XMM0_LOW_BASE()
+#        define Z1 XMM0_HIGH_BASE()
+#        define Z2 YMMH0_LOW_BASE()
+#        define Z3 YMMH0_HIGH_BASE()
+#        define Z4 ZMMH0_0_BASE()
+#        define Z5 ZMMH0_1_BASE()
+#        define Z6 ZMMH0_2_BASE()
+#        define Z7 ZMMH0_3_BASE()
         SET_ZMM_IMMED(0, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(1, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(2, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
@@ -602,7 +727,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_ZMM_IMMED(5, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(6, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(7, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
-#    ifdef X64
+#        ifdef X64
         SET_ZMM_IMMED(8, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(9, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(10, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
@@ -627,15 +752,15 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_ZMM_IMMED(29, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(30, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
         SET_ZMM_IMMED(31, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7)
-#    endif
-#    undef Z0
-#    undef Z1
-#    undef Z2
-#    undef Z3
-#    undef Z4
-#    undef Z5
-#    undef Z6
-#    undef Z7
+#        endif
+#        undef Z0
+#        undef Z1
+#        undef Z2
+#        undef Z3
+#        undef Z4
+#        undef Z5
+#        undef Z6
+#        undef Z7
         SET_OPMASK_IMMED(0, OPMASK0_BASE())
         SET_OPMASK_IMMED(1, OPMASK0_BASE())
         SET_OPMASK_IMMED(2, OPMASK0_BASE())
@@ -644,11 +769,11 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_OPMASK_IMMED(5, OPMASK0_BASE())
         SET_OPMASK_IMMED(6, OPMASK0_BASE())
         SET_OPMASK_IMMED(7, OPMASK0_BASE())
-#elif defined (__AVX__)
-#    define Y0 XMM0_LOW_BASE()
-#    define Y1 XMM0_HIGH_BASE()
-#    define Y2 YMMH0_LOW_BASE()
-#    define Y3 YMMH0_HIGH_BASE()
+#    elif defined (__AVX__)
+#        define Y0 XMM0_LOW_BASE()
+#        define Y1 XMM0_HIGH_BASE()
+#        define Y2 YMMH0_LOW_BASE()
+#        define Y3 YMMH0_HIGH_BASE()
         SET_YMM_IMMED(0, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(1, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(2, Y0, Y1, Y2, Y3)
@@ -657,7 +782,7 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_YMM_IMMED(5, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(6, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(7, Y0, Y1, Y2, Y3)
-#    ifdef X64
+#        ifdef X64
         SET_YMM_IMMED(8, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(9, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(10, Y0, Y1, Y2, Y3)
@@ -666,12 +791,12 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_YMM_IMMED(13, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(14, Y0, Y1, Y2, Y3)
         SET_YMM_IMMED(15, Y0, Y1, Y2, Y3)
-#    endif
-#    undef Y0
-#    undef Y1
-#    undef Y2
-#    undef Y3
-#else
+#        endif
+#        undef Y0
+#        undef Y1
+#        undef Y2
+#        undef Y3
+#    else
         SET_XMM_IMMED(0, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
         SET_XMM_IMMED(1, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
         SET_XMM_IMMED(2, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
@@ -688,8 +813,8 @@ GLOBAL_LABEL(FUNCNAME:)
         SET_XMM_IMMED(13, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
         SET_XMM_IMMED(14, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
         SET_XMM_IMMED(15, XMM0_LOW_BASE(), XMM0_HIGH_BASE())
-#endif
-#ifdef X64
+#    endif
+#    ifdef X64
         mov      r15, MAKE_HEX_ASM(R15_BASE())
         mov      r14, MAKE_HEX_ASM(R14_BASE())
         mov      r13, MAKE_HEX_ASM(R13_BASE())
@@ -698,7 +823,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      r10, MAKE_HEX_ASM(R10_BASE())
         mov      r9,  MAKE_HEX_ASM(R9_BASE())
         mov      r8,  MAKE_HEX_ASM(R8_BASE())
-#endif
+#    endif
         mov      REG_XAX, MAKE_HEX_ASM(XAX_BASE())
         mov      REG_XCX, MAKE_HEX_ASM(XCX_BASE())
         mov      REG_XDX, MAKE_HEX_ASM(XDX_BASE())
@@ -708,7 +833,74 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XDI, MAKE_HEX_ASM(XDI_BASE())
         ret
         END_FUNC(FUNCNAME)
-#undef FUNCNAME
+#    undef FUNCNAME
+#    define SET_UNIQUE_REGISTER_VALS \
+        CALLC0(unique_values_to_registers)
+#elif defined(AARCH64)
+/**************************************************
+ * AARCH64
+ */
+# define SET_GPR_IMMED(reg, val) \
+        movz reg, @P@((val) & 0xffff) @N@\
+        movk reg, @P@((val) >> 16 & 0xffff), lsl @P@16 @N@\
+        movk reg, @P@((val) >> 32 & 0xffff), lsl @P@32 @N@\
+        movk reg, @P@((val) >> 48 & 0xffff), lsl @P@48
+
+    /* We can't set LR in a callee so we inline: */
+#    define SET_UNIQUE_REGISTER_VALS \
+        SET_GPR_IMMED(x0, MAKE_HEX_C(X0_BASE())) @N@\
+        SET_GPR_IMMED(x1, MAKE_HEX_C(X1_BASE())) @N@\
+        SET_GPR_IMMED(x2, MAKE_HEX_C(X2_BASE())) @N@\
+        SET_GPR_IMMED(x3, MAKE_HEX_C(X3_BASE())) @N@\
+        SET_GPR_IMMED(x4, MAKE_HEX_C(X4_BASE())) @N@\
+        SET_GPR_IMMED(x5, MAKE_HEX_C(X5_BASE())) @N@\
+        SET_GPR_IMMED(x6, MAKE_HEX_C(X6_BASE())) @N@\
+        SET_GPR_IMMED(x7, MAKE_HEX_C(X7_BASE())) @N@\
+        SET_GPR_IMMED(x8, MAKE_HEX_C(X8_BASE())) @N@\
+        SET_GPR_IMMED(x9, MAKE_HEX_C(X9_BASE())) @N@\
+        SET_GPR_IMMED(x10, MAKE_HEX_C(X10_BASE())) @N@\
+        SET_GPR_IMMED(x11, MAKE_HEX_C(X11_BASE())) @N@\
+        SET_GPR_IMMED(x12, MAKE_HEX_C(X12_BASE())) @N@\
+        SET_GPR_IMMED(x13, MAKE_HEX_C(X13_BASE())) @N@\
+        SET_GPR_IMMED(x14, MAKE_HEX_C(X14_BASE())) @N@\
+        SET_GPR_IMMED(x15, MAKE_HEX_C(X15_BASE())) @N@\
+        SET_GPR_IMMED(x16, MAKE_HEX_C(X16_BASE())) @N@\
+        SET_GPR_IMMED(x17, MAKE_HEX_C(X17_BASE())) @N@\
+        SET_GPR_IMMED(x18, MAKE_HEX_C(X18_BASE())) @N@\
+        SET_GPR_IMMED(x19, MAKE_HEX_C(X19_BASE())) @N@\
+        SET_GPR_IMMED(x20, MAKE_HEX_C(X20_BASE())) @N@\
+        SET_GPR_IMMED(x21, MAKE_HEX_C(X21_BASE())) @N@\
+        SET_GPR_IMMED(x22, MAKE_HEX_C(X22_BASE())) @N@\
+        SET_GPR_IMMED(x23, MAKE_HEX_C(X23_BASE())) @N@\
+        SET_GPR_IMMED(x24, MAKE_HEX_C(X24_BASE())) @N@\
+        SET_GPR_IMMED(x25, MAKE_HEX_C(X25_BASE())) @N@\
+        SET_GPR_IMMED(x26, MAKE_HEX_C(X26_BASE())) @N@\
+        SET_GPR_IMMED(x27, MAKE_HEX_C(X27_BASE())) @N@\
+        SET_GPR_IMMED(x28, MAKE_HEX_C(X28_BASE())) @N@\
+        SET_GPR_IMMED(x29, MAKE_HEX_C(X29_BASE())) @N@\
+        SET_GPR_IMMED(x30, MAKE_HEX_C(X30_BASE()))
+#endif
+
+#ifdef X86
+#   define SET_SIDELINE_READY \
+        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+#elif defined(AARCH64)
+/* We use the x2 immed, which ends in 0x01, to mean "true". */
+#   define SET_SIDELINE_READY \
+        SET_GPR_IMMED(x2, MAKE_HEX_C(X2_BASE())) @N@ \
+        adr      x0, sideline_ready_for_detach @N@\
+        strb     w2, [x0]
+#endif
+
+#ifdef X86
+#   define CHECK_SIDELINE_EXIT \
+        cmp      BYTE SYMREF(sideline_exit), HEX(1)
+#elif defined(AARCH64)
+#   define CHECK_SIDELINE_EXIT \
+        adr      x0, sideline_exit @N@\
+        ldrb     w0, [x0] @N@\
+        cmp      x0, #1
+#endif
 
 #define FUNCNAME thread_check_gprs_from_cache
         DECLARE_FUNC(FUNCNAME)
@@ -716,23 +908,24 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Preserve callee-saved state. */
         PUSH_CALLEE_SAVED
         /* Put in unique values. */
-        CALLC0(unique_values_to_registers)
+        SET_UNIQUE_REGISTER_VALS
         /* Signal that we are ready for a detach. */
-        mov      BYTE SYMREF(sideline_ready_for_detach), HEX(1)
+        SET_SIDELINE_READY
         /* Now spin so we'll detach from the code cache. */
 check_gprs_from_cache_spin:
-        cmp      BYTE SYMREF(sideline_exit), HEX(1)
-        jne      check_gprs_from_cache_spin
+        CHECK_SIDELINE_EXIT
+        JUMP_NOT_EQUAL check_gprs_from_cache_spin
         PUSHALL
-        mov      REG_XAX, REG_XSP
-        mov      REG_XCX, 0 /* no regs changed */
-        CALLC2(GLOBAL_REF(check_gpr_vals), REG_XAX, REG_XCX)
+        mov      REG_SCRATCH0, REG_SP
+        mov      REG_SCRATCH1, 0 /* no regs changed */
+        CALLC2(GLOBAL_REF(check_gpr_vals), REG_SCRATCH0, REG_SCRATCH1)
         POPALL
         POP_CALLEE_SAVED
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+#ifdef X86 /* TODO i#4698: Port to AArch64. */
 #define FUNCNAME thread_check_gprs_from_DR
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -907,7 +1100,10 @@ ADDRTAKEN_LABEL(check_xsp_immed_plus_four:)
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+#endif /* X86 */
 
 END_FILE
-/* clang-format on */
+/* Not turning clang format back on b/c of a clang-format-diff wart:
+ * https://github.com/DynamoRIO/dynamorio/pull/4708#issuecomment-772854835
+ */
 #endif

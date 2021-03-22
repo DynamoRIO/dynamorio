@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
@@ -76,6 +76,9 @@
 #include <stddef.h> /* for offsetof */
 
 try_except_t global_try_except;
+#ifdef UNIX
+thread_id_t global_try_tid = INVALID_THREAD_ID;
+#endif
 
 int do_once_generation = 1;
 
@@ -414,7 +417,10 @@ locks_not_closed()
                             cur_lock->rank == LOCK_RANK(report_buf_lock) ||
                     cur_lock->rank == LOCK_RANK(datasec_selfprot_lock) ||
                     cur_lock->rank == LOCK_RANK(logdir_mutex) ||
-                    cur_lock->rank == LOCK_RANK(options_lock))) {
+                    cur_lock->rank ==
+                        LOCK_RANK(options_lock)
+                        /* This lock can be used parallel to detach cleanup. */
+                        IF_UNIX(|| cur_lock->rank == LOCK_RANK(detached_sigact_lock)))) {
             /* i#1058: curiosities during exit re-acquire these locks. */
             ignored++;
         } else {
@@ -4610,13 +4616,28 @@ stats_get_snapshot(dr_stats_t *drstats)
     if (drstats->size > offsetof(dr_stats_t, synchs_not_at_safe_spot)) {
         drstats->synchs_not_at_safe_spot = GLOBAL_STAT(synchs_not_at_safe_spot);
     }
-    if (drstats->size > offsetof(dr_stats_t, peak_vmm_blocks_heap)) {
+    if (drstats->size > offsetof(dr_stats_t, peak_vmm_blocks_unreach_heap)) {
         /* These fields were added all at once. */
-        drstats->peak_vmm_blocks_heap = GLOBAL_STAT(peak_vmm_blocks_heap);
-        drstats->peak_vmm_blocks_stack = GLOBAL_STAT(peak_vmm_blocks_stack);
-        drstats->peak_vmm_blocks_cache = GLOBAL_STAT(peak_vmm_blocks_cache);
-        drstats->peak_vmm_blocks_special_heap = GLOBAL_STAT(peak_vmm_blocks_special_heap);
-        drstats->peak_vmm_blocks_special_mmap = GLOBAL_STAT(peak_vmm_blocks_special_mmap);
+        drstats->peak_vmm_blocks_unreach_heap = GLOBAL_STAT(peak_vmm_blocks_unreach_heap);
+        drstats->peak_vmm_blocks_unreach_stack =
+            GLOBAL_STAT(peak_vmm_blocks_unreach_stack);
+        drstats->peak_vmm_blocks_unreach_special_heap =
+            GLOBAL_STAT(peak_vmm_blocks_unreach_special_heap);
+        drstats->peak_vmm_blocks_unreach_special_mmap =
+            GLOBAL_STAT(peak_vmm_blocks_unreach_special_mmap);
+        drstats->peak_vmm_blocks_reach_heap = GLOBAL_STAT(peak_vmm_blocks_reach_heap);
+        drstats->peak_vmm_blocks_reach_cache = GLOBAL_STAT(peak_vmm_blocks_reach_cache);
+        drstats->peak_vmm_blocks_reach_special_heap =
+            GLOBAL_STAT(peak_vmm_blocks_reach_special_heap);
+        drstats->peak_vmm_blocks_reach_special_mmap =
+            GLOBAL_STAT(peak_vmm_blocks_reach_special_mmap);
+    }
+    if (drstats->size > offsetof(dr_stats_t, num_native_signals)) {
+#ifdef UNIX
+        drstats->num_native_signals = GLOBAL_STAT(num_native_signals);
+#else
+        drstats->num_native_signals = 0;
+#endif
     }
     return true;
 }

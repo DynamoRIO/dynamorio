@@ -1,0 +1,176 @@
+/* ******************************************************************************
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * ******************************************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+\mainpage Home
+
+\copydoc page_home
+
+<div style="display:none;">
+\subpage page_home
+\subpage page_history
+</div>
+
+\page page_home Overview
+
+DynamoRIO is a runtime code manipulation system that supports code
+transformations on any part of a program, while it executes. DynamoRIO
+exports an interface for building dynamic tools for a wide variety of uses:
+program analysis and understanding, profiling, instrumentation,
+optimization, translation, etc. Unlike many dynamic tool systems, DynamoRIO
+is not limited to insertion of callouts/trampolines and allows arbitrary
+modifications to application instructions via a powerful
+IA-32/AMD64/ARM/AArch64 instruction manipulation library. DynamoRIO
+provides efficient, transparent, and comprehensive manipulation of
+unmodified applications running on stock operating systems (Windows, Linux,
+or Android, with experimental Mac support) and commodity IA-32, AMD64, ARM,
+and AArch64 hardware.
+
+# Existing DynamoRIO-based tools
+
+DynamoRIO is the basis for some well-known external tools:
+- The [Arm Instruction Emulator (ArmIE)](https://developer.arm.com/tools-and-software/server-and-hpc/arm-architecture-tools/arm-instruction-emulator)
+- [WinAFL](https://github.com/googleprojectzero/winafl), the Windows fuzzing tool, as an instrumentation and code coverage engine
+- The fine-grained profiler for ARM [DrCCTProf](https://xl10.github.io/blog/drcctprof.html)
+
+Tools built on DynamoRIO and available in the [release package](@ref page_download) include:
+
+- The memory debugging tool [Dr. Memory](http://drmemory.org)
+- The tracing and analysis framework [drmemtrace](@ref page_drcachesim) with multiple tools that operate on both online (with multi-process support) and offline instruction and memory address traces:
+  - The cache simulator [drcachesim](@ref sec_tool_cache_sim)
+  - [TLB simulation](@ref sec_tool_TLB_sim)
+  - [Reuse distance](@ref sec_tool_reuse_distance)
+  - [Reuse time](@ref sec_tool_reuse_time)
+  - [Opcode mix](@ref sec_tool_opcode_mix)
+  - [Function call tracing](@ref sec_tool_func_view)
+- The legacy processor emulator
+  [drcpusim](@ref page_drcpusim)
+- The "strace for Windows" tool [drstrace](http://drmemory.org/strace_for_windows.html)
+- The code coverage tool [drcov](@ref page_drcov)
+- The library tracing tool [drltrace](http://dynamorio.org/page_drltrace.html)
+- The memory address tracing tool [memtrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memtrace_x86.c) ([drmemtrace](@ref page_drcachesim)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized memory address tracing)
+- The memory value tracing tool [memval](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/memval_simple.c)
+- The instruction tracing tool [instrace](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/instrace_x86.c) ([drmemtrace](@ref page_drcachesim)'s offline traces are faster with more surrounding infrastructure, but this is a simpler starting point for customized instruction tracing)
+- The basic block tracing tool [bbbuf](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/bbbuf.c)
+- The instruction counting tool [inscount](https://github.com/DynamoRIO/dynamorio/blob/master/api/samples/inscount.c)
+- The dynamic fuzz testing tool [Dr. Fuzz](http://drmemory.org/docs/page_drfuzz.html)
+- The disassembly tool [drdisas](@ref page_drdisas)
+- And more, including opcode counts, branch instrumentation, etc.: see \ref API_samples.
+
+# Building Your Own Custom Tools
+
+DynamoRIO's powerful API abstracts away the details of the underlying
+infrastructure and allows the tool builder to concentrate on analyzing or
+modifying the application's runtime code stream.  API documentation is
+included [in the release package](@ref page_user_docs) and can also be
+[browsed online](https://dynamorio.org/page_user_docs.html).
+[Slides from our past tutorials](@ref page_slides) are also
+available.
+
+# Downloading DynamoRIO
+
+DynamoRIO is available free of charge as a
+[binary package for both  Windows and Linux](@ref page_download).
+DynamoRIO's [source code is available](@ref page_source_code)
+under a BSD license.
+
+# Obtaining Help
+
+Use the [discussion list](http://groups.google.com/group/DynamoRIO-Users)
+to ask questions.
+
+To report a bug, use the [issue
+tracker](https://github.com/DynamoRIO/dynamorio/issues).
+
+# Contributing
+
+For information on how to contribute to the DynamoRIO project, see
+\ref page_contributing.
+
+# Origins
+
+You can read about where the name DynamoRIO came from in the \ref page_history.
+
+
+\page page_history History of DynamoRIO
+
+DynamoRIO originated from a collaboration between MIT and Hewlett-Packard
+in 2001.  HP Labs created the
+[Dynamo](http://en.scientificcommons.org/42436731) system for
+PA-RISC in the 1990's.  A port to IA-32 was begun in 2000 and continued in
+collaboration with the Runtime Introspection and Optimization
+(_RIO_) group at MIT.  The name originated from
+combining _Dynamo_ with _RIO_.
+
+# MIT Releases
+
+Four versions were released to the public
+and [hosted at MIT](http://cag.csail.mit.edu/dynamorio/):
+
+- 0.9.1: June 2002 (release coincided with a PLDI tutorial)
+- 0.9.2: October 2002 (ASPLOS tutorial)
+- 0.9.3: March 2003 (CGO tutorial)
+- 0.9.4: February 2005
+
+# Determina
+
+The DynamoRIO developers at MIT started a security company called Determina
+using the DynamoRIO software.  Determina built its award-winning security
+products, the Memory Firewall and Vulnerability Protection Suite, on top of
+the DynamoRIO platform.
+
+# VMware Releases
+
+VMware acquired DynamoRIO in 2007.  Five versions were released from VMware
+on [GoVirtual.org](http://govirtual.org):
+- 0.9.5: April 2008 (only released to a CGO tutorial audience)
+- 1.0 (a.k.a 0.9.6): August 2008 (GoVirtual.org launch)
+- 1.1: September 2008
+- 1.2: October 2008
+- 1.3: February 2009
+
+# Open-Source Releases on Google Code
+
+DynamoRIO was open-sourced and its code uploaded to Google Code in
+February 2009.  Versions from 1.4 through 5.0.0 were hosted there.
+
+# Open-Source Releases on Github
+
+DynamoRIO was moved to Github in December 2014.
+
+# Logo
+
+Our logo was created by [Natalee Ryan](https://natalee.info/).
+
+ ****************************************************************************
+ */

@@ -60,7 +60,15 @@ cache_simulator_create(const cache_simulator_knobs_t &knobs)
 analysis_tool_t *
 cache_simulator_create(const std::string &config_file)
 {
-    return new cache_simulator_t(config_file);
+    std::ifstream fin;
+    fin.open(config_file);
+    if (!fin.is_open()) {
+        ERRMSG("Failed to open the config file '%s'\n", config_file.c_str());
+        return nullptr;
+    }
+    analysis_tool_t *sim = new cache_simulator_t(&fin);
+    fin.close();
+    return sim;
 }
 
 cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
@@ -164,7 +172,7 @@ cache_simulator_t::cache_simulator_t(const cache_simulator_knobs_t &knobs)
     }
 }
 
-cache_simulator_t::cache_simulator_t(const std::string &config_file)
+cache_simulator_t::cache_simulator_t(std::istream *config_file)
     : simulator_t()
     , l1_icaches_(NULL)
     , l1_dcaches_(NULL)
@@ -175,8 +183,7 @@ cache_simulator_t::cache_simulator_t(const std::string &config_file)
     std::map<std::string, cache_params_t> cache_params;
     config_reader_t config_reader;
     if (!config_reader.configure(config_file, knobs_, cache_params)) {
-        error_string_ =
-            "Usage error: Failed to read/parse configuration file " + config_file;
+        error_string_ = "Usage error: Failed to read/parse configuration file";
         success_ = false;
         return;
     }

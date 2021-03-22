@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -883,11 +883,22 @@ instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg)
 
 DR_API
 bool
+instr_is_exclusive_load(instr_t *instr)
+{
+    int opcode = instr_get_opcode(instr);
+    return (opcode == OP_ldrex || opcode == OP_ldrexb || opcode == OP_ldrexd ||
+            opcode == OP_ldrexh || opcode == OP_ldaex || opcode == OP_ldaexb ||
+            opcode == OP_ldaexd || opcode == OP_ldaexh);
+}
+
+DR_API
+bool
 instr_is_exclusive_store(instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);
     return (opcode == OP_strex || opcode == OP_strexb || opcode == OP_strexd ||
-            opcode == OP_strexh);
+            opcode == OP_strexh || opcode == OP_stlex || opcode == OP_stlexb ||
+            opcode == OP_stlexd || opcode == OP_stlexh);
 }
 
 DR_API

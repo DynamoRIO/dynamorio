@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -598,6 +598,13 @@ NtCreateProcess(OUT PHANDLE ProcessHandle, IN ACCESS_MASK DesiredAccess,
 
 NTEXPORT NTSTATUS NTAPI
 NtTerminateProcess(IN HANDLE ProcessHandle OPTIONAL, IN NTSTATUS ExitStatus)
+{
+    return STATUS_SUCCESS;
+}
+
+NTEXPORT NTSTATUS NTAPI
+NtSetInformationProcess(IN HANDLE hprocess, IN PROCESSINFOCLASS class, IN OUT void *info,
+                        IN ULONG info_len)
 {
     return STATUS_SUCCESS;
 }

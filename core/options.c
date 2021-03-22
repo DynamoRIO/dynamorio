@@ -122,7 +122,7 @@ typedef enum option_modifier_t {
     OPTION_MOD_DYNAMIC
 } option_modifier_t;
 
-typedef uint uint_size;
+typedef ptr_uint_t uint_size;
 typedef uint uint_time;
 typedef ptr_uint_t uint_addr;
 
@@ -152,6 +152,36 @@ const internal_options_t default_internal_options = {
 #    undef OPTION_COMMAND_INTERNAL
 #    undef OPTION_COMMAND
 #endif
+
+/* Definitions for our default values.  See options.h for why we can't
+ * have them in an enum in the header.
+ */
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* We don't have strings in the default values. */
+#define OPTION_STRING(x) 0
+#define EMPTY_STRING 0
+#define liststring_t int
+#define pathstring_t int
+#define OPTION_COMMAND(type, name, default_value, command_line_option, statement, \
+                       description, flag, pcache)                                 \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
+                                statement, description, flag, pcache)           \
+    const type OPTION_DEFAULT_VALUE_##name = default_value;
+#include "optionsx.h"
+#undef liststring_t
+#undef pathstring_t
+#undef OPTION_COMMAND
+#undef OPTION_COMMAND_INTERNAL
+#undef OPTION_STRING
+#undef EMPTY_STRING
+/* Restore. */
+#define OPTION_STRING(x) x
+#define EMPTY_STRING \
+    {                \
+        0            \
+    }
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #    define OPTION_COMMAND_INTERNAL OPTION_COMMAND
@@ -262,23 +292,72 @@ adjust_defaults_for_page_size(options_t *options)
      * future be many more options that depend on the page size.
      */
 
-    /* Some of these are a small multiple of the page size because they include
-     * one or two guard pages.
+    /* To save space, we trade off some stability/security/debugging value of guard
+     * pages by only having them for thread-shared allocations (i#4424).
+     * Since 99% of our allocs are in the vmm, there should still be enough guards
+     * sprinkled to be quite helpful, and we have separate stack guard pages.
      */
+    options->per_thread_guard_pages = false;
+
     options->vmm_block_size = ALIGN_FORWARD(options->vmm_block_size, page_size);
     options->stack_size = MAX(ALIGN_FORWARD(options->stack_size, page_size), page_size);
 #    ifdef UNIX
     options->signal_stack_size =
         MAX(ALIGN_FORWARD(options->signal_stack_size, page_size), page_size);
 #    endif
+    /* These per-thread sizes do *not* have guard pages (i#4424) and
+     * we keep them as small as we can to avoid wasting space.
+     * We'd need sub-page allocs (i#4415) to go any smaller.
+     */
     options->initial_heap_unit_size =
-        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size), 3 * page_size);
+        MAX(ALIGN_FORWARD(options->initial_heap_unit_size, page_size), page_size);
     options->initial_heap_nonpers_size =
-        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size), 3 * page_size);
+        MAX(ALIGN_FORWARD(options->initial_heap_nonpers_size, page_size), page_size);
+    /* We increase the global units to have a higher content-to-guard-page ratio. */
     options->initial_global_heap_unit_size = MAX(
-        ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size), 3 * page_size);
+        ALIGN_FORWARD(options->initial_global_heap_unit_size, page_size), 8 * page_size);
+    options->max_heap_unit_size =
+        MAX(ALIGN_FORWARD(options->max_heap_unit_size, page_size), 64 * page_size);
     options->heap_commit_increment =
         ALIGN_FORWARD(options->heap_commit_increment, page_size);
+    /* The cache options must all match for x64.  We go ahead and make them the
+     * same for 32-bit as well: the shared cache these days should have large units.
+     */
+    options->cache_shared_bb_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_shared_bb_unit_max, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_shared_bb_unit_init, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_upgrade = MAX(
+        ALIGN_FORWARD(options->cache_shared_bb_unit_upgrade, page_size), 8 * page_size);
+    options->cache_shared_bb_unit_quadruple = MAX(
+        ALIGN_FORWARD(options->cache_shared_bb_unit_quadruple, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_max = MAX(
+        ALIGN_FORWARD(options->cache_shared_trace_unit_max, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_init = MAX(
+        ALIGN_FORWARD(options->cache_shared_trace_unit_init, page_size), 8 * page_size);
+    options->cache_shared_trace_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_shared_trace_unit_upgrade, page_size),
+            8 * page_size);
+    options->cache_shared_trace_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_shared_trace_unit_quadruple, page_size),
+            8 * page_size);
+    /* Private units just need to be page sized for possible selfprot. */
+    options->cache_bb_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_max, page_size), page_size);
+    options->cache_bb_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_init, page_size), page_size);
+    options->cache_bb_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_upgrade, page_size), page_size);
+    options->cache_bb_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_bb_unit_quadruple, page_size), page_size);
+    options->cache_trace_unit_max =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_max, page_size), page_size);
+    options->cache_trace_unit_init =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_init, page_size), page_size);
+    options->cache_trace_unit_upgrade =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_upgrade, page_size), page_size);
+    options->cache_trace_unit_quadruple =
+        MAX(ALIGN_FORWARD(options->cache_trace_unit_quadruple, page_size), page_size);
     options->cache_commit_increment =
         ALIGN_FORWARD(options->cache_commit_increment, page_size);
 #endif /* !NOT_DYNAMORIO_CORE */
@@ -416,13 +495,13 @@ parse_uint(uint *var, void *value)
 }
 
 static void
-parse_uint_size(uint *var, void *value)
+parse_uint_size(ptr_uint_t *var, void *value)
 {
     char unit;
-    int num;
-    int factor = 0;
+    ptr_int_t num;
+    ptr_int_t factor = 0;
 
-    if (sscanf((char *)value, "%d%c", &num, &unit) == 1) {
+    if (sscanf((char *)value, SZFMT "%c", &num, &unit) == 1) {
         /* no unit specifier, default unit is Kilo for compatibility */
         factor = 1024;
     } else {
@@ -434,7 +513,7 @@ parse_uint_size(uint *var, void *value)
         case 'M': // Mega (bytes)
         case 'm': factor = 1024 * 1024; break;
         case 'G': // Giga (bytes)
-        case 'g': factor = 1024 * 1024 * 1024; break;
+        case 'g': factor = 1024ULL * 1024 * 1024; break;
         default:
             /* var should be pre-initialized to default */
             OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4,
@@ -674,20 +753,21 @@ set_dynamo_options_other_process(options_t *options, const char *optstr)
  * option value
  */
 bool
-check_param_bounds(uint *val, uint min, uint max, const char *name)
+check_param_bounds(ptr_uint_t *val, ptr_uint_t min, ptr_uint_t max, const char *name)
 {
     bool ret = false;
-    uint new_val;
+    ptr_uint_t new_val;
     if ((max == 0 && *val != 0 && *val < min) ||
         (max > 0 && (*val < min || *val > max))) {
         if (max == 0) {
             new_val = min;
-            USAGE_ERROR("%s must be >= %u, resetting from %u to %u", name, min, *val,
-                        new_val);
+            USAGE_ERROR("%s must be >= " SZFMT ", resetting from " SZFMT " to " SZFMT,
+                        name, min, *val, new_val);
         } else {
             new_val = max;
-            USAGE_ERROR("%s must be >= %u and <= %u, resetting from %u to %u", name, min,
-                        max, *val, new_val);
+            USAGE_ERROR("%s must be >= " SZFMT " and <= " SZFMT ", resetting from " SZFMT
+                        " to " SZFMT,
+                        name, min, max, *val, new_val);
         }
         *val = new_val;
         ret = true;
@@ -696,7 +776,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
         if (*val == 0) {
             LOG(GLOBAL, LOG_CACHE, 1, "%s: <unlimited>\n", name);
         } else {
-            LOG(GLOBAL, LOG_CACHE, 1, "%s: %u KB\n", name, *val / 1024);
+            LOG(GLOBAL, LOG_CACHE, 1, "%s: " SZFMT " KB\n", name, *val / 1024);
         }
     });
     return ret;
@@ -728,9 +808,19 @@ PRINT_STRING_uint(char *optionbuff, const void *val_ptr, const char *option)
 static void
 PRINT_STRING_uint_size(char *optionbuff, const void *val_ptr, const char *option)
 {
-    uint value = *(const uint *)val_ptr;
-    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s %d%s ", option,
-             (value % 1024 == 0 ? value / 1024 : value), (value % 1024 == 0 ? "K" : "B"));
+    ptr_uint_t value = *(const ptr_uint_t *)val_ptr;
+    char code = 'B';
+    if (value >= 1024ULL * 1024 * 1024 && value % 1024ULL * 1024 * 1024 == 0) {
+        value = value / (1024ULL * 1024 * 1024);
+        code = 'G';
+    } else if (value >= 1024 * 1024 && value % 1024 * 1024 == 0) {
+        value = value / (1024 * 1024);
+        code = 'M';
+    } else if (value >= 1024 && value % 1024 == 0) {
+        value = value / 1024;
+        code = 'K';
+    }
+    snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s " SZFMT "%c ", option, value, code);
 }
 static void
 PRINT_STRING_uint_time(char *optionbuff, const void *val_ptr, const char *option)
@@ -799,7 +889,9 @@ DIFF_uint(const void *ptr1, const void *ptr2)
 static int
 DIFF_uint_size(const void *ptr1, const void *ptr2)
 {
-    return DIFF_uint(ptr1, ptr2);
+    ptr_uint_t val1 = *(const ptr_uint_t *)(ptr1);
+    ptr_uint_t val2 = *(const ptr_uint_t *)(ptr2);
+    return val1 != val2;
 }
 static int
 DIFF_uint_time(const void *ptr1, const void *ptr2)
@@ -809,7 +901,7 @@ DIFF_uint_time(const void *ptr1, const void *ptr2)
 static int
 DIFF_uint_addr(const void *ptr1, const void *ptr2)
 {
-    return DIFF_uint(ptr1, ptr2);
+    return DIFF_uint_size(ptr1, ptr2);
 }
 static int
 DIFF_pathstring_t(const void *ptr1, const void *ptr2)
@@ -854,7 +946,7 @@ COPY_uint(void *ptr1, const void *ptr2)
 static void
 COPY_uint_size(void *ptr1, const void *ptr2)
 {
-    COPY_uint(ptr1, ptr2);
+    *(ptr_uint_t *)(ptr1) = *(const ptr_uint_t *)(ptr2);
 }
 static void
 COPY_uint_time(void *ptr1, const void *ptr2)
@@ -864,7 +956,7 @@ COPY_uint_time(void *ptr1, const void *ptr2)
 static void
 COPY_uint_addr(void *ptr1, const void *ptr2)
 {
-    *(ptr_uint_t *)(ptr1) = *(const ptr_uint_t *)(ptr2);
+    COPY_uint_size(ptr1, ptr2);
 }
 static void
 COPY_pathstring_t(void *ptr1, const void *ptr2)
@@ -1140,6 +1232,13 @@ static bool
 check_option_compatibility_helper(int recurse_count)
 {
     bool changed_options = false;
+#    if defined(CLIENT_INTERFACE) && defined(AARCH64)
+    if (!DYNAMO_OPTION(bb_prefixes)) {
+        USAGE_ERROR("bb_prefixes must be true on AArch64");
+        dynamo_options.bb_prefixes = true;
+        changed_options = true;
+    }
+#    endif
 #    ifdef EXPOSE_INTERNAL_OPTIONS
     if (DYNAMO_OPTION(vmm_block_size) < MIN_VMM_BLOCK_SIZE) {
         USAGE_ERROR("vmm_block_size (%d) must be >= %d, setting to min",
@@ -2679,6 +2778,19 @@ unit_test_options(void)
     set_dynamo_options_defaults(&dynamo_options);
     get_dynamo_options_string(&dynamo_options, buf, MAXIMUM_PATH, 1);
     print_file(STDERR, "default ops string: %s\n", buf);
+
+#    ifdef X64
+    /* Sanity-check pointer-sized integer values handling >int sizes. */
+    set_dynamo_options(&dynamo_options, "-vmheap_size 16384M -persist_short_digest 8K");
+    EXPECT_EQ(dynamo_options.vmheap_size, 16 * 1024 * 1024 * 1024ULL);
+    char opstring[MAX_OPTIONS_STRING];
+    /* Ensure we print it back out with the shortest value+suffix.
+     * We include a smaller option to ensure we avoid printing out "0G".
+     */
+    get_dynamo_options_string(&dynamo_options, opstring, sizeof(opstring), true);
+    EXPECT_EQ(0, strcmp(opstring, "-vmheap_size 16G -persist_short_digest 8K "));
+#    endif
+
     SELF_PROTECT_OPTIONS();
     d_r_write_unlock(&options_lock);
 }

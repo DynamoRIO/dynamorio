@@ -55,7 +55,7 @@ extern "C" {
 /**
  * \addtogroup drbbdup Basic Block Duplicator
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each drbbdup operation. */
 typedef enum {
@@ -432,7 +432,7 @@ DR_EXPORT
 drbbdup_status_t
 drbbdup_get_stats(OUT drbbdup_stats_t *stats);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

@@ -382,6 +382,9 @@ enum {
 #define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
 #define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
 #define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
+#ifdef AARCH64
+#    define OPSZ_sys OPSZ_1 /**< Operand size for sys instruction memory reference. */
+#endif
 /* DR_API EXPORT END */
 
 enum {
@@ -402,9 +405,6 @@ enum {
     OPSZ_12_rex8_of_16,      /* 96 bits, or 64 with rex.w: 3/4 of XMM */
     OPSZ_14_of_16,           /* 112 bits; all but one word of XMM */
     OPSZ_15_of_16,           /* 120 bits: all but one byte of XMM */
-    OPSZ_8_of_16_vex32,      /* 64 bits, but can be half of XMM register;
-                              * if vex.L then is 256 bits (YMM or memory).
-                              */
     OPSZ_16_of_32,           /* 128 bits: half of YMM */
     OPSZ_half_16_vex32,      /* half of 128 bits (XMM or memory);
                               * if vex.L then is half of 256 bits (YMM or memory).

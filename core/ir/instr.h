@@ -1351,17 +1351,22 @@ DR_API
  */
 const char *
 instr_predicate_name(dr_pred_type_t pred);
+#endif
 
+#ifdef AARCHXX
 DR_API
 /**
  * Returns the DR_PRED_ constant that represents the opposite condition
  * from \p pred.  A valid conditional branch predicate must be passed (i.e.,
- * not #DR_PRED_NONE, DR_PRED_AL, or DR_PRED_OP).
- * \note ARM-only.
+ * not #DR_PRED_NONE, #DR_PRED_AL, or #DR_PRED_OP for ARM and not #DR_PRED_NONE,
+ * #DR_PRED_AL, or #DR_PRED_NV for AArch64).
+ * \note ARM and AArch64-only.
  */
 dr_pred_type_t
 instr_invert_predicate(dr_pred_type_t pred);
+#endif
 
+#ifdef ARM
 DR_API
 /**
  * Assumes that \p it_instr's opcode is #OP_it.  Returns the number of instructions
@@ -1409,8 +1414,16 @@ instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t
 
 DR_API
 /**
+ * Returns true iff \p instr is an exclusive load instruction,
+ * e.g., #OP_ldrex on ARM.
+ */
+bool
+instr_is_exclusive_load(instr_t *instr);
+
+DR_API
+/**
  * Returns true iff \p instr is an exclusive store instruction,
- * e.g., OP_strex on ARM.
+ * e.g., #OP_strex on ARM.
  */
 bool
 instr_is_exclusive_store(instr_t *instr);
@@ -1805,9 +1818,19 @@ DR_API
 /**
  * Replaces all instances of \p old_opnd in \p instr's source operands with
  * \p new_opnd (uses opnd_same() to detect sameness).
+ * Returns whether it replaced anything.
  */
 bool
 instr_replace_src_opnd(instr_t *instr, opnd_t old_opnd, opnd_t new_opnd);
+
+DR_API
+/**
+ * Replaces all instances of \p old_reg (or any size variant) in \p instr's operands
+ * with \p new_reg.  Resizes \p new_reg to match sub-full-size uses of \p old_reg.
+ * Returns whether it replaced anything.
+ */
+bool
+instr_replace_reg_resize(instr_t *instr, reg_id_t old_reg, reg_id_t new_reg);
 
 DR_API
 /**
@@ -2986,7 +3009,7 @@ bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
                                  bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
 
-#ifdef ARM
+#ifdef AARCHXX
 bool
 instr_reads_thread_register(instr_t *instr);
 bool
@@ -2994,8 +3017,6 @@ instr_is_stolen_reg_move(instr_t *instr, bool *save, reg_id_t *reg);
 #endif
 
 #ifdef AARCH64
-bool
-instr_reads_thread_register(instr_t *instr);
 bool
 instr_writes_thread_register(instr_t *instr);
 #endif

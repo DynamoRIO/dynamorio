@@ -143,6 +143,9 @@ online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
     byte *new_buf = buf_ptr;
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
+
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
+                             proc_get_cache_line_size());
     return (int)(new_buf - buf_ptr);
 }
 
@@ -289,9 +292,7 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
         // Prefetch instruction may have zero sized mem reference.
         size = 1;
     } else if (instru_t::instr_is_flush(app)) {
-        // XXX: OP_clflush invalidates all levels of the processor cache
-        // hierarchy (data and instruction)
-        type = TRACE_TYPE_DATA_FLUSH;
+        type = instru_t::instr_to_flush_type(app);
     }
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
                               adjust);

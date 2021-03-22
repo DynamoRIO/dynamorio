@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -39,7 +39,7 @@ extern "C" {
 /**
  * \addtogroup drwrap Function Wrapping and Replacing
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /* Users of drwrap need to use the drmgr versions of these events to ensure
  * that drwrap's actions occur at the right time.
@@ -797,7 +797,7 @@ DR_EXPORT
 bool
 drwrap_get_stats(INOUT drwrap_stats_t *stats);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }

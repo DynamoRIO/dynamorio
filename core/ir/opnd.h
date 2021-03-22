@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -995,7 +995,7 @@ extern const reg_id_t dr_reg_fixer[];
 #    define REG_START_SPILL DR_REG_XAX
 #    define REG_STOP_SPILL DR_REG_XDI
 #elif defined(AARCHXX)
-/* We only normally use r0-r3 but we support more in translation code */
+/* We only normally use r0-r5 but we support more in translation code */
 #    define REG_START_SPILL DR_REG_R0
 #    define REG_STOP_SPILL DR_REG_R10 /* r10 might be used in syscall mangling */
 #endif                                /* X86/ARM */
@@ -1361,6 +1361,20 @@ struct _opnd_t {
             int high; /* IMMED_INTEGER_kind with DR_OPND_MULTI_PART */
         } immed_int_multi_part;
         float immed_float; /* IMMED_FLOAT_kind */
+#    ifndef WINDOWS
+        /* XXX i#4488: x87 floating point immediates should be double precision.
+         * Currently not included for Windows because sizeof(opnd_t) does not
+         * equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+         */
+        /* For 32-bit ARM we keep alignment at 4 to avoid changing the opnd_t shape.
+         * Marking this field as packed seems to do it and avoids other changes
+         * that might occur if packing the whole struct.
+         * XXX i#4488: Do any double-loading instructions require 8-byte alignment?
+         * Perhaps we should just break compatibility and align this to 8 for
+         * x86 and ARM 32-bit.
+         */
+        double immed_double IF_ARM(__attribute__((__packed__))); /* IMMED_DOUBLE_kind */
+#    endif
         /* PR 225937: today we provide no way of specifying a 16-bit immediate
          * (encoded as a data16 prefix, which also implies a 16-bit EIP,
          * making it only useful for far pcs)
@@ -1456,6 +1470,7 @@ enum {
     ABS_ADDR_kind, /* 64-bit absolute address: x64 only */
 #    endif
     MEM_INSTR_kind,
+    IMMED_DOUBLE_kind,
     LAST_kind, /* sentinal; not a valid opnd kind */
 };
 #endif /* DR_FAST_IR */
@@ -1534,6 +1549,21 @@ DR_API
  */
 opnd_t
 opnd_create_immed_float(float f);
+
+#ifndef WINDOWS
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
+ * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+ */
+DR_API
+/**
+ * Returns an immediate double operand with value \p d.
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
+opnd_t
+opnd_create_immed_double(double d);
+#endif
 
 /* not exported */
 opnd_t
@@ -2170,6 +2200,21 @@ DR_API
 float
 opnd_get_immed_float(opnd_t opnd);
 
+#ifndef WINDOWS
+/* XXX i#4488: x87 floating point immediates should be double precision.
+ * Type double currently not included for Windows because sizeof(opnd_t) does
+ * not equal EXPECTED_SIZEOF_OPND, triggering the ASSERT in d_r_arch_init().
+ */
+DR_API
+/**
+ * Assumes \p opnd is an immediate double and returns its value.
+ * The caller's code should use proc_save_fpstate() or be inside a
+ * clean call that has requested to preserve the floating-point state.
+ */
+double
+opnd_get_immed_double(opnd_t opnd);
+#endif
+
 DR_API
 /** Assumes \p opnd is a (near or far) program address and returns its value. */
 app_pc
@@ -2711,9 +2756,21 @@ DR_API
 /**
  * Assumes that both \p old_reg and \p new_reg are DR_REG_ constants.
  * Replaces all occurrences of \p old_reg in \p *opnd with \p new_reg.
+ * Only replaces exact matches (use opnd_replace_reg_resize() to match
+ * size variants).
+ * Returns whether it replaced anything.
  */
 bool
 opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
+
+DR_API
+/**
+ * Replaces all instances of \p old_reg (or any size variant) in \p *opnd
+ * with \p new_reg.  Resizes \p new_reg to match sub-full-size uses of \p old_reg.
+ * Returns whether it replaced anything.
+ */
+bool
+opnd_replace_reg_resize(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
 
 /* Arch-specific */
 bool
@@ -2942,7 +2999,7 @@ opnd_create_sized_tls_slot(int offs, opnd_size_t size);
 #endif /* !STANDALONE_DECODER */
 
 /* stack slot width */
-#define XSP_SZ (sizeof(reg_t))
+#define XSP_SZ ((ssize_t)sizeof(reg_t))
 
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {

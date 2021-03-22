@@ -197,7 +197,12 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     std::istream *file = dir->in_files_[0];
     // Seek back to the beginning to undo raw2trace_directory_t's validation
     file->seekg(0);
-    offline_entry_t buffer[4];
+
+    // XXX: Some parts of this test are brittle wrt trace header changes, like the
+    // size of this buffer, and the first read for timestamp2 below that checks the
+    // exact position of the timestamp entry. Consider removing some checks or making
+    // them flexible in some way.
+    offline_entry_t buffer[5];
     file->read((char *)buffer, BUFFER_SIZE_BYTES(buffer));
 
     std::string error;
@@ -213,7 +218,7 @@ test_trace_timestamp_reader(const raw2trace_directory_t *dir)
     REPORT("Read timestamp from thread header");
 
     uint64 timestamp2 = 0;
-    if (drmemtrace_get_timestamp_from_offline_trace(buffer + 3, sizeof(offline_entry_t),
+    if (drmemtrace_get_timestamp_from_offline_trace(buffer + 4, sizeof(offline_entry_t),
                                                     &timestamp2) != DRMEMTRACE_SUCCESS)
         return false;
     if (timestamp != timestamp2)

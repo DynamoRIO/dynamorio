@@ -78,6 +78,7 @@
 #    define OPND_IS_NULL(op) ((op).kind == NULL_kind)
 #    define OPND_IS_IMMED_INT(op) ((op).kind == IMMED_INTEGER_kind)
 #    define OPND_IS_IMMED_FLOAT(op) ((op).kind == IMMED_FLOAT_kind)
+#    define OPND_IS_IMMED_DOUBLE(op) ((op).kind == IMMED_DOUBLE_kind)
 #    define OPND_IS_NEAR_PC(op) ((op).kind == PC_kind)
 #    define OPND_IS_NEAR_INSTR(op) ((op).kind == INSTR_kind)
 #    define OPND_IS_REG(op) ((op).kind == REG_kind)
@@ -90,6 +91,7 @@
 #    define opnd_is_null OPND_IS_NULL
 #    define opnd_is_immed_int OPND_IS_IMMED_INT
 #    define opnd_is_immed_float OPND_IS_IMMED_FLOAT
+#    define opnd_is_immed_double OPND_IS_IMMED_DOUBLE
 #    define opnd_is_near_pc OPND_IS_NEAR_PC
 #    define opnd_is_near_instr OPND_IS_NEAR_INSTR
 #    define opnd_is_reg OPND_IS_REG
@@ -104,7 +106,8 @@ INSTR_INLINE
 bool
 opnd_is_immed(opnd_t op)
 {
-    return op.kind == IMMED_INTEGER_kind || op.kind == IMMED_FLOAT_kind;
+    return op.kind == IMMED_INTEGER_kind || op.kind == IMMED_FLOAT_kind ||
+        op.kind == IMMED_DOUBLE_kind;
 }
 
 INSTR_INLINE
@@ -215,7 +218,7 @@ opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
 {
     opnd_t opnd DR_IF_DEBUG(= { 0 }); /* FIXME: Needed until i#417 is fixed. */
 #    ifdef X86
-    CLIENT_ASSERT((r >= DR_REG_MM0 && r <= DR_REG_XMM31) ||
+    CLIENT_ASSERT(subsize == 0 || (r >= DR_REG_MM0 && r <= DR_REG_XMM31) ||
                       (r >= DR_REG_YMM0 && r <= DR_REG_ZMM31),
                   "opnd_create_reg_partial: non-multimedia register");
 #    endif

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -248,9 +248,13 @@ d_r_dispatch(dcontext_t *dcontext)
 
 /* returns true if pc is a point at which DynamoRIO should stop interpreting */
 bool
-is_stopping_point(dcontext_t *dcontext, app_pc pc)
+is_stopping_point(dcontext_t *dcontext, app_pc arg_pc)
 {
-    if ((pc == BACK_TO_NATIVE_AFTER_SYSCALL &&
+#ifdef DR_APP_EXPORTS
+    /* TODO i#4720: Find and update other comparisons to function pointers. */
+    app_pc pc = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), arg_pc);
+#endif
+    if ((arg_pc /*undecorated*/ == BACK_TO_NATIVE_AFTER_SYSCALL &&
          /* case 6253: app may xfer to this "address" in which case pass
           * exception to app
           */
@@ -503,7 +507,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
 #endif
     );
 #ifdef UNIX
-    if (dcontext->signals_pending) {
+    if (dcontext->signals_pending > 0) {
         /* i#2019: the fcache_enter generated code starts with a check for pending
          * signals, allowing the signal handling code to simply queue signals that
          * arrive in DR code and only attempt to unlink for interruption points known
@@ -685,6 +689,8 @@ dispatch_enter_native(dcontext_t *dcontext)
             dcontext->native_exec_postsyscall);
         dcontext->next_tag =
             PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), dcontext->native_exec_postsyscall);
+        if (!dcontext->currently_stopped)
+            dynamo_thread_not_under_dynamo(dcontext);
         dcontext->native_exec_postsyscall = NULL;
         LOG(THREAD, LOG_DISPATCH, 2,
             "Entry into native_exec after intercepted syscall\n");
@@ -697,6 +703,7 @@ dispatch_enter_native(dcontext_t *dcontext)
         enter_nolinking(dcontext, NULL, true);
     } else {
 #if defined(DR_APP_EXPORTS) || defined(UNIX)
+        dcontext->next_tag = PC_AS_JMP_TGT(dr_get_isa_mode(dcontext), dcontext->next_tag);
         dispatch_at_stopping_point(dcontext);
         enter_nolinking(dcontext, NULL, false);
 #else
@@ -752,9 +759,11 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
            wherewasi == DR_WHERE_APP ||
            /* If the thread was waiting at check_wait_at_safe_point when getting
             * suspended, we were in dispatch (ref i#3427). We will be here after the
-            * thread's context is being reset before sending it native.
+            * thread's context is being reset proactively (due to some -reset_at_*
+            * option) or before sending it native.
             */
-           (dcontext->go_native && wherewasi == DR_WHERE_DISPATCH));
+           ((dcontext->go_native || dcontext->last_exit == get_reset_linkstub()) &&
+            wherewasi == DR_WHERE_DISPATCH));
     dcontext->whereami = DR_WHERE_DISPATCH;
     ASSERT_LOCAL_HEAP_UNPROTECTED(dcontext);
     ASSERT(check_should_be_protected(DATASEC_RARELY_PROT));
@@ -902,7 +911,9 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
             app_pc begin = (app_pc)dcontext->local_state->spill_space.r2;
             app_pc end = (app_pc)dcontext->local_state->spill_space.r3;
             dcontext->next_tag = (app_pc)dcontext->local_state->spill_space.r4;
-            flush_fragments_from_region(dcontext, begin, end - begin, true);
+            flush_fragments_from_region(dcontext, begin, end - begin, true,
+                                        NULL /*flush_completion_callback*/,
+                                        NULL /*user_data*/);
         }
 #endif
 
@@ -1025,7 +1036,6 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         ASSERT(dcontext->app_nt_rpc == NULL ||
                dcontext->app_nt_rpc != dcontext->priv_nt_rpc);
         ASSERT(!is_dynamo_address(dcontext->app_nls_cache));
-        ASSERT(!is_dynamo_address(dcontext->app_static_tls));
         ASSERT(!is_dynamo_address(dcontext->app_stack_limit) ||
                IS_CLIENT_THREAD(dcontext));
         ASSERT(!is_dynamo_address((byte *)dcontext->app_stack_base - 1) ||
@@ -1049,6 +1059,9 @@ dispatch_exit_fcache(dcontext_t *dcontext)
              get_mcontext(dcontext)->xsp >= (reg_t)d_r_get_tls(BASE_STACK_TIB_OFFSET)));
         ASSERT(dcontext->app_nls_cache == NULL ||
                dcontext->app_nls_cache != dcontext->priv_nls_cache);
+    }
+    if (should_swap_teb_static_tls()) {
+        ASSERT(!is_dynamo_address(dcontext->app_static_tls));
         ASSERT(dcontext->app_static_tls == NULL ||
                dcontext->app_static_tls != dcontext->priv_static_tls);
     }
@@ -1125,6 +1138,12 @@ dispatch_exit_fcache(dcontext_t *dcontext)
          */
         SELF_PROTECT_LOCAL(dcontext, READONLY);
     } /* LINKSTUB_INDIRECT */
+    else if (dcontext->last_exit == get_ibl_deleted_linkstub()) {
+        /* We don't know which table it was, so we update all of them.  Otherwise
+         * we'll keep coming back here on hits in the outdated table.
+         */
+        fragment_update_ibl_tables(dcontext);
+    }
 
     /* ref bug 2323, we need monitor to restore last fragment now,
      * before we break out of the loop to build a new fragment
@@ -1468,9 +1487,10 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             STATS_INC(num_bb_exits);
     });
 
-    LOG(THREAD, LOG_DISPATCH, 2, "%s%s",
-        IF_X64_ELSE(FRAG_IS_32(last_f->flags) ? " (32-bit)" : "", ""),
-        TEST(FRAG_SHARED, last_f->flags) ? " (shared)" : "");
+    LOG(THREAD, LOG_DISPATCH, 2, " %s%s",
+        IF_X86_ELSE(IF_X64_ELSE(FRAG_IS_32(last_f->flags) ? "(32-bit)" : "", ""),
+                    IF_ARM_ELSE(FRAG_IS_THUMB(last_f->flags) ? "(T32)" : "(A32)", "")),
+        TEST(FRAG_SHARED, last_f->flags) ? "(shared)" : "");
     DOLOG(2, LOG_SYMBOLS, {
         char symbuf[MAXIMUM_SYMBOL_LENGTH];
         print_symbolic_address(last_f->tag, symbuf, sizeof(symbuf), true);

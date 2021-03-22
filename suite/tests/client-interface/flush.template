@@ -10,8 +10,10 @@ kernel_xfer_event: type 9
 Flush completion id=400
 #else
 options =@&
+in synch_flush_completion_callback, user_data=200
 kernel_xfer_event: type 9
 Flush completion id=200
+in synch_flush_completion_callback, user_data=400
 kernel_xfer_event: type 9
 Flush completion id=400
 #endif

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -125,8 +125,10 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wher
 bool
 clean_call_needs_simd(clean_call_info_t *cci)
 {
-    return (cci->preserve_mcontext || cci->num_simd_skip != proc_num_simd_registers() ||
-            cci->num_opmask_skip != proc_num_opmask_registers());
+    return (cci->preserve_mcontext ||
+            cci->num_simd_skip !=
+                proc_num_simd_registers()
+                    IF_X86(|| cci->num_opmask_skip != proc_num_opmask_registers()));
 }
 
 /* Number of extra slots in addition to register slots. */
@@ -324,8 +326,8 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_t
 #endif
         ASSERT((dstack_offs % get_ABI_stack_alignment()) == 0);
     }
-    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 || cci->num_opmask_skip != 0 ||
-           cci->num_regs_skip != 0 ||
+    ASSERT(cci->skip_save_flags || cci->num_simd_skip != 0 ||
+           IF_X86(cci->num_opmask_skip != 0 ||) cci->num_regs_skip != 0 ||
            (int)dstack_offs ==
                (get_clean_call_switch_stack_size() + clean_call_beyond_mcontext()));
     return dstack_offs;
@@ -736,15 +738,21 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         prev_pc = pc;
         pc = decode(dcontext, pc, &instr);
         ASSERT(pc != NULL); /* our own code! */
-        if (instr_get_opcode(&instr) ==
-            OP_jmp_short
-                /* For A32 it's not OP_b_short */
-                IF_ARM(||
-                       (instr_get_opcode(&instr) == OP_jmp &&
-                        opnd_get_pc(instr_get_target(&instr)) == pc + ARM_INSTR_SIZE)))
-            skip_pc = prev_pc;
-        else if (instr_get_opcode(&instr) == OP_jmp)
+        if (instr_get_opcode(&instr) == OP_jmp_short) {
+#    ifdef AARCH64
+            /* For A64, both skip_pc and cti_pc are an OP_jmp_short instr. */
+            skip_pc = cti_pc;
             cti_pc = prev_pc;
+#    else
+            skip_pc = prev_pc;
+#    endif
+        } else if (instr_get_opcode(&instr) == OP_jmp) {
+#    ifdef ARM
+            /* For A32, both skip_pc and cti_pc are an OP_jmp instr. */
+            skip_pc = cti_pc;
+#    endif
+            cti_pc = prev_pc;
+        }
         if (pc >= stop_pc) {
             LOG(THREAD, LOG_SYSCALLS, 3, "\tno syscalls found\n");
             instr_free(dcontext, &instr);
@@ -1603,23 +1611,37 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 #endif /* X64 || ARM */
 
 #ifdef AARCHXX
-        if (!instr_is_meta(instr) && instr_reads_thread_register(instr)) {
+        if (!instr_is_meta(instr) && instr_reads_thread_register(instr) &&
+            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             next_instr = mangle_reads_thread_register(dcontext, ilist, instr, next_instr);
             continue;
         }
 #endif /* ARM || AARCH64 */
 
 #ifdef AARCH64
-        if (!instr_is_meta(instr) && instr_writes_thread_register(instr)) {
+        if (!instr_is_meta(instr) && instr_writes_thread_register(instr) &&
+            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             next_instr =
                 mangle_writes_thread_register(dcontext, ilist, instr, next_instr);
             continue;
         }
-
+#endif
+#ifdef AARCHXX
+        if (instr_is_app(instr) &&
+            (instr_is_exclusive_load(instr) || instr_is_exclusive_store(instr) ||
+             instr_get_opcode(instr) == OP_clrex)) {
+            instr_t *res =
+                mangle_exclusive_monitor_op(dcontext, ilist, instr, next_instr);
+            if (res != NULL) {
+                next_instr = res;
+                continue;
+            } /* Else, fall through. */
+        }
+#endif
+#ifdef AARCH64
         if (!instr_is_meta(instr) && instr_uses_reg(instr, dr_reg_stolen))
             next_instr = mangle_special_registers(dcontext, ilist, instr, next_instr);
-#endif /* AARCH64 */
-
+#endif
 #ifdef ARM
         /* Our stolen reg model is to expose to the client.  We assume that any
          * meta instrs using it are using it as TLS.  Ditto w/ use of PC.
@@ -1836,8 +1858,34 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t *walk, *tgt;
 #endif
 
-    if (prev == NULL)
+    if (prev == NULL) {
+#if defined(WINDOWS) && defined(X64)
+        if (get_os_version() >= WINDOWS_VERSION_10_1511) {
+            /* Handle the branch added in 1511 that isolates OP_syscall:
+             *   7ff9`13185630 4c8bd1          mov     r10,rcx
+             *   7ff9`13185633 b843000000      mov     eax,43h
+             *   7ff9`13185638 f604250803fe7f01 test byte ptr [SharedUserData+0x308],1
+             *   7ff9`13185640 7503            jne     00007ff9`13185645
+             *   7ff9`13185642 0f05            syscall
+             */
+#    define MOV_IMMED_OFFS_FROM_SYS -15
+#    define RAW_SYS_TEST1 0xf6
+#    define RAW_SYS_TEST2 0x04
+#    define RAW_SYS_TEST3 0x25
+#    define RAW_SYS_TEST_FINAL 0x01
+            app_pc syscall_pc = get_app_instr_xl8(instr);
+            byte buf[-MOV_IMMED_OFFS_FROM_SYS];
+            if (d_r_safe_read(syscall_pc + MOV_IMMED_OFFS_FROM_SYS, sizeof(buf), buf) &&
+                buf[0] == MOV_IMM2XAX_OPCODE && buf[5] == RAW_SYS_TEST1 &&
+                buf[6] == RAW_SYS_TEST2 && buf[7] == RAW_SYS_TEST3 &&
+                buf[12] == RAW_SYS_TEST_FINAL && buf[13] == RAW_OPCODE_jne_short) {
+                syscall = *(int *)&buf[1];
+                return syscall;
+            }
+        }
+#endif
         return -1;
+    }
     prev = instr_get_prev_expanded(dcontext, ilist, instr);
     /* walk backwards looking for "mov imm->xax"
      * may be other instrs placing operands into registers

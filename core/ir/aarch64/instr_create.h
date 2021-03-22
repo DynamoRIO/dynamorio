@@ -114,11 +114,26 @@
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
+/** INSTR_CREATE_sys() operations are specified by the following immediates. */
+enum {
+    DR_DC_ZVA = 0x1ba1,    /**< Zero dcache by address. */
+    DR_DC_IVAC = 0x3b1,    /**< Invalidate dcache to Point of Coherency. */
+    DR_DC_ISW = 0x3b2,     /**< Invalidate dcache by set/way. */
+    DR_DC_CVAC = 0x1bd1,   /**< Clean dcache to point of coherency. */
+    DR_DC_CSW = 0x3d2,     /**< Clean dcache by set/way. */
+    DR_DC_CVAU = 0x1bd9,   /**< Clean dcache to point of unification. */
+    DR_DC_CIVAC = 0x1bf1,  /**< Clean and invalidate dcache to point of coherency. */
+    DR_DC_CISW = 0x3f2,    /**< Clean and invalidate dcache by set/way. */
+    DR_IC_IALLUIS = 0x388, /**< Invalidate icaches in ISD to point of unification. */
+    DR_IC_IALLU = 0x3a8,   /**< Invalidate icaches to point of unification. */
+    DR_IC_IVAU = 0x1ba9 /**< Invalidate icache by address to point of unification. */,
+};
+
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros
  */
 /** @name Platform-independent macros */
-/* @{ */ /* doxygen start group */
+/** @{ */ /* doxygen start group */
 
 /**
  * This platform-independent macro creates an instr_t for a debug trap
@@ -134,7 +149,18 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load(dc, r, m) INSTR_CREATE_ldr((dc), (r), (m))
+#define XINST_CREATE_load(dc, r, m)                                                    \
+    ((opnd_is_base_disp(m) &&                                                          \
+      (opnd_get_disp(m) < 0 ||                                                         \
+       opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0))                  \
+         ? INSTR_CREATE_ldur(                                                          \
+               dc,                                                                     \
+               opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m))), \
+               m)                                                                      \
+         : INSTR_CREATE_ldr(                                                           \
+               dc,                                                                     \
+               opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m))), \
+               m))
 
 /**
  * This platform-independent macro creates an instr_t which loads 1 byte
@@ -172,8 +198,9 @@
  * \param r   The source register opnd.
  */
 #define XINST_CREATE_store(dc, m, r)                                                   \
-    (opnd_is_base_disp(m) &&                                                           \
-             opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0              \
+    ((opnd_is_base_disp(m) &&                                                          \
+      (opnd_get_disp(m) < 0 ||                                                         \
+       opnd_get_disp(m) % opnd_size_in_bytes(opnd_get_size(m)) != 0))                  \
          ? INSTR_CREATE_stur(                                                          \
                dc, m,                                                                  \
                opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), opnd_get_size(m)))) \
@@ -200,6 +227,26 @@
  */
 #define XINST_CREATE_store_2bytes(dc, m, r) \
     INSTR_CREATE_strh(dc, m, opnd_create_reg(reg_resize_to_opsz(opnd_get_reg(r), OPSZ_4)))
+
+/**
+ * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r1  The first register opnd.
+ * \param r2  The second register opnd.
+ */
+#define XINST_CREATE_store_pair(dc, m, r1, r2) INSTR_CREATE_stp(dc, m, r1, r2)
+
+/**
+ * This AArchXX-platform-independent macro creates an instr_t for a 2-register
+ * memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r1  The first register opnd.
+ * \param r2  The second register opnd.
+ * \param m   The source memory opnd.
+ */
+#define XINST_CREATE_load_pair(dc, r1, r2, m) INSTR_CREATE_ldp(dc, r1, r2, m)
 
 /**
  * This platform-independent macro creates an instr_t for a register
@@ -429,7 +476,16 @@
  */
 #define XINST_CREATE_nop(dc) INSTR_CREATE_nop(dc)
 
-/* @} */ /* end doxygen group */
+/**
+ * This platform-independent macro creates an instr_t for an indirect call instr
+ * through a register.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The opnd_t explicit source operand for the instruction. This should
+ * be a reg_id_t operand with the address of the subroutine.
+ */
+#define XINST_CREATE_call_reg(dc, r) INSTR_CREATE_blr(dc, r)
+
+/** @} */ /* end doxygen group */
 
 /****************************************************************************
  * Manually-added ARM-specific INSTR_CREATE_* macros
@@ -439,8 +495,13 @@
  */
 
 /** \cond disabled_until_i4106_is_fixed */
-#define INSTR_CREATE_add(dc, rd, rn, rm_or_imm) \
-    INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+#define INSTR_CREATE_add(dc, rd, rn, rm_or_imm)                                         \
+    opnd_is_reg(rm_or_imm)                                                              \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        INSTR_CREATE_add_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
+                                OPND_CREATE_INT(0))                                     \
+        : INSTR_CREATE_add_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
+                                 OPND_CREATE_INT(0))
 #define INSTR_CREATE_add_extend(dc, rd, rn, rm, ext, exa)                             \
     instr_create_1dst_4src(dc, OP_add, rd, rn,                                        \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
@@ -540,12 +601,45 @@
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
 #define INSTR_CREATE_ldrb(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrb, Rd, mem)
+#define INSTR_CREATE_ldrsb(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldrsb, (Rd), (mem))
 #define INSTR_CREATE_ldrh(dc, Rd, mem) instr_create_1dst_1src(dc, OP_ldrh, Rd, mem)
+#define INSTR_CREATE_ldur(dc, rt, mem) instr_create_1dst_1src(dc, OP_ldur, rt, mem)
 #define INSTR_CREATE_ldar(dc, Rt, mem) instr_create_1dst_1src((dc), OP_ldar, (Rt), (mem))
 #define INSTR_CREATE_ldarb(dc, Rt, mem) \
     instr_create_1dst_1src((dc), OP_ldarb, (Rt), (mem))
 #define INSTR_CREATE_ldarh(dc, Rt, mem) \
     instr_create_1dst_1src((dc), OP_ldarh, (Rt), (mem))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldxr(dc, Rd, mem)                                        \
+    instr_create_1dst_3src((dc), OP_ldxr, (Rd), (mem), OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldxrb(dc, Rd, mem)                                        \
+    instr_create_1dst_3src((dc), OP_ldxrb, (Rd), (mem), OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldxrh(dc, Rd, mem)                                        \
+    instr_create_1dst_3src((dc), OP_ldxrh, (Rd), (mem), OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldxp(dc, rt1, rt2, mem) \
+    instr_create_2dst_2src((dc), OP_ldxp, rt1, rt2, (mem), OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldaxr(dc, Rd, mem)                                        \
+    instr_create_1dst_3src((dc), OP_ldaxr, (Rd), (mem), OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldaxrb(dc, Rd, mem)                                        \
+    instr_create_1dst_3src((dc), OP_ldaxrb, (Rd), (mem), OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldaxrh(dc, Rd, mem)                                        \
+    instr_create_1dst_3src((dc), OP_ldaxrh, (Rd), (mem), OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldaxp(dc, rt1, rt2, mem) \
+    instr_create_2dst_2src((dc), OP_ldaxp, rt1, rt2, (mem), OPND_CREATE_INT(0x1f))
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
     instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movn(dc, rt, imm16, lsl) \
@@ -565,8 +659,41 @@
 #define INSTR_CREATE_strh(dc, mem, rt) instr_create_1dst_1src(dc, OP_strh, mem, rt)
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
 #define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
-#define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm) \
-    INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(), OPND_CREATE_INT(0))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INST_CREATE_stlr(dc, mem, rt)                                   \
+    instr_create_1dst_3src(dc, OP_stlr, mem, rt, OPND_CREATE_INT(0x1f), \
+                           OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stxr(dc, mem, rs, rt) \
+    instr_create_2dst_2src(dc, OP_stxr, mem, rs, rt, OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stxrb(dc, mem, rs, rt) \
+    instr_create_2dst_2src(dc, OP_stxrb, mem, rs, rt, OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stxrh(dc, mem, rs, rt) \
+    instr_create_2dst_2src(dc, OP_stxrh, mem, rs, rt, OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stxp(dc, mem, rs, rt1, rt2) \
+    instr_create_2dst_2src(dc, OP_stxp, mem, rs, rt1, rt2)
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stlxr(dc, mem, rs, rt) \
+    instr_create_2dst_2src(dc, OP_stlxr, mem, rs, rt, OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stlxrb(dc, mem, rs, rt) \
+    instr_create_2dst_2src(dc, OP_stlxrb, mem, rs, rt, OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stlxrh(dc, mem, rs, rt) \
+    instr_create_2dst_2src(dc, OP_stlxrh, mem, rs, rt, OPND_CREATE_INT(0x1f))
+/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_stlxp(dc, mem, rs, rt1, rt2) \
+    instr_create_2dst_2src(dc, OP_stlxp, mem, rs, rt1, rt2)
+#define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm)                                         \
+    opnd_is_reg(rm_or_imm)                                                              \
+        ? /* _extend supports sp in rn, so prefer it, but it does not support imm. */   \
+        INSTR_CREATE_sub_extend(dc, rd, rn, rm_or_imm, OPND_CREATE_INT(DR_EXTEND_UXTX), \
+                                OPND_CREATE_INT(0))                                     \
+        : INSTR_CREATE_sub_shift(dc, rd, rn, rm_or_imm, OPND_CREATE_LSL(),              \
+                                 OPND_CREATE_INT(0))
 #define INSTR_CREATE_sub_extend(dc, rd, rn, rm, ext, exa)                             \
     instr_create_1dst_4src(dc, OP_sub, rd, rn,                                        \
                            opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_EXTENDED), \
@@ -594,6 +721,15 @@
 #define INSTR_CREATE_svc(dc, imm) instr_create_0dst_1src((dc), OP_svc, (imm))
 #define INSTR_CREATE_adr(dc, rt, imm) instr_create_1dst_1src(dc, OP_adr, rt, imm)
 #define INSTR_CREATE_adrp(dc, rt, imm) instr_create_1dst_1src(dc, OP_adrp, rt, imm)
+
+#define INSTR_CREATE_sys(dc, op, Rn) instr_create_0dst_2src(dc, OP_sys, op, Rn)
+
+/**
+ * Creates a CLREX instruction.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ */
+/* TODO i#4532: Remove this superfluous operand. */
+#define INSTR_CREATE_clrex(dc) instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(0))
 
 /* FIXME i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
@@ -1566,7 +1702,7 @@
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
- * Creates a FMOV floating point instruction.
+ * Creates an FMOV floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
@@ -2513,6 +2649,25 @@
  */
 #define INSTR_CREATE_umull2_vector(dc, Rd, Rm, Rn, width) \
     instr_create_1dst_3src(dc, OP_umull2, Rd, Rm, Rn, width)
+
+/**
+ * Creates an FMOV immediate to vector floating point move instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output vector register.
+ * \param f       The source immediate floating point opnd.
+ * \param width   The output vector element width. Use either OPND_CREATE_HALF()
+ *                or OPND_CREATE_SINGLE().
+ */
+#define INSTR_CREATE_fmov_vector_imm(dc, Rd, f, width) \
+    instr_create_1dst_2src(dc, OP_fmov, Rd, f, width)
+
+/**
+ * Creates an FMOV immediate to scalar floating point move instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output scalar register.
+ * \param f       The source immediate floating point opnd.
+ */
+#define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
 /* DR_API EXPORT END */
 #endif /* INSTR_CREATE_H */
