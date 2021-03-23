@@ -5542,27 +5542,32 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
      * that use the special ibl xfer trampoline, which uses a different (un)linking
      * mechanism.
      */
+    instr_t *skip_unlinked_tgt_jump = INSTR_CREATE_label(dcontext);
     insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
 #    ifdef X86
+    /* Reuse DR_REG_XDI which contains dcontext currently. */
     APP(&ilist,
-        XINST_CREATE_cmp(dcontext,
-                         OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET),
-                         OPND_CREATE_INT8(0)));
+        XINST_CREATE_load_1byte_zext4(
+            dcontext, opnd_create_reg(DR_REG_EDI),
+            OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+    APP(&ilist,
+        INSTR_CREATE_xchg(dcontext, opnd_create_reg(DR_REG_XDI),
+                          opnd_create_reg(DR_REG_XCX)));
+    APP(&ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_unlinked_tgt_jump)));
+    APP(&ilist,
+        INSTR_CREATE_xchg(dcontext, opnd_create_reg(DR_REG_XDI),
+                          opnd_create_reg(DR_REG_XCX)));
     insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
-    APP(&ilist,
-        XINST_CREATE_jump_cond(dcontext, DR_PRED_GT, opnd_create_pc(ibl_unlinked_tgt)));
+    APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_unlinked_tgt)));
 #    elif defined(AARCHXX)
-    instr_t *skip_unlinked_tgt_jump = INSTR_CREATE_label(dcontext);
-    /* Reusing SCRATCH_REG5 which contains dcontext currently. */
+    /* Reuse SCRATCH_REG5 which contains dcontext currently. */
     APP(&ilist,
         INSTR_CREATE_ldrsb(dcontext, opnd_create_reg(SCRATCH_REG5),
                            OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
     APP(&ilist,
-        XINST_CREATE_cmp(dcontext, opnd_create_reg(SCRATCH_REG5), OPND_CREATE_INT8(0)));
+        INSTR_CREATE_cbz(dcontext, opnd_create_instr(skip_unlinked_tgt_jump),
+                         opnd_create_reg(SCRATCH_REG5)));
     insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
-    APP(&ilist,
-        XINST_CREATE_jump_cond(dcontext, DR_PRED_LE,
-                               opnd_create_instr(skip_unlinked_tgt_jump)));
     /* i#4670: The unlinking case is observed to hit very infrequently on x86. The issue
      *  or the fix have not been observed on AArchXX yet.
      */
@@ -5582,9 +5587,15 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
             dcontext, opnd_create_reg(DR_REG_PC),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
 #        endif /* AARCH64/ARM */
-    APP(&ilist, skip_unlinked_tgt_jump);
 #    endif     /* X86/AARCHXX */
-#endif         /* UNIX */
+    APP(&ilist, skip_unlinked_tgt_jump);
+#    ifdef X86
+    APP(&ilist,
+        INSTR_CREATE_xchg(dcontext, opnd_create_reg(DR_REG_XDI),
+                          opnd_create_reg(DR_REG_XCX)));
+#    endif /* X86 */
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+#endif /* UNIX */
 
 #ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode))
