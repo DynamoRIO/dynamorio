@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -77,6 +77,9 @@ endmacro()
 disable_compiler_warnings()
 # Clients don't include configure.h so they don't get DR defines
 add_dr_defines()
+
+# Avoid a race on competing copies of dynamorio.dll to the bin dir (i#4668).
+set(dr_dll_being_copied_to_client_bin_dir OFF)
 
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
