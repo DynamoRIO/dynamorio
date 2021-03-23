@@ -95,6 +95,8 @@ main(int argc, const char *argv[])
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc"
                    " -client_lib '#;;-offline"
+                   // Minimize symbol lookup overheads.
+                   " -record_dynsym_only"
                    // Test the low-overhead-wrapping option.
                    " -record_replace_retaddr"
                    " -record_function \"malloc|1\"'"))
