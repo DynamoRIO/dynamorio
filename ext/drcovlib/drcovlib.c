@@ -499,8 +499,9 @@ drcovlib_exit(void)
     if (!drcov_per_thread) {
         dump_drcov_data(NULL, global_data);
         global_data_destroy(global_data);
-        drcov_per_thread = false;
     }
+    drcov_per_thread = false;
+
     /* destroy module table */
     drmodtrack_exit();
 

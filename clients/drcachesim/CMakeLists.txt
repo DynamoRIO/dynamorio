@@ -581,7 +581,6 @@ if (BUILD_TESTS)
     configure_DynamoRIO_static(tool.drcacheoff.burst_reattach)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_static)
     add_win32_flags(tool.drcacheoff.burst_reattach)
-    link_with_pthread(tool.drcacheoff.burst_reattach)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)

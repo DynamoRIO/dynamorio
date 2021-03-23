@@ -8267,12 +8267,9 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
 
 DR_API
 bool
-dr_doing_detach(void)
+dr_is_detaching(void)
 {
-    if (doing_detach) {
-        return true;
-    }
-    return false;
+    return doing_detach;
 }
 
 #endif /* CLIENT_INTERFACE */

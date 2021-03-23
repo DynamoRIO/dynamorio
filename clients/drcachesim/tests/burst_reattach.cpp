@@ -31,13 +31,12 @@
  */
 
 /* This application links in drmemtrace_static and acquires a trace during
- * a "burst" of execution and memory allocations (malloc() and free())
- * in the middle of the application. It then detaches. Later it re-attaches
- * and detaches again for several times.
+ * a "burst" of execution. It then detaches, and it later re-attaches and
+ * detaches multiple times. Its purpose is to detect issues of using
+ * statically linked DR with a very high number of re-attaches.
  */
 
 /* Like burst_static we deliberately do not include configure.h here */
-
 #include "dr_api.h"
 #include "drmemtrace/drmemtrace.h"
 #include <assert.h>
@@ -57,13 +56,6 @@ my_setenv(const char *var, const char *value)
 #endif
 }
 
-// Test recording large values that require two entries.
-ptr_uint_t
-return_big_value(int arg)
-{
-    return (((ptr_uint_t)1 << (8 * sizeof(ptr_uint_t) - 1)) - 1) | arg;
-}
-
 static int
 do_some_work(int arg)
 {
@@ -71,7 +63,7 @@ do_some_work(int arg)
     double *val = new double; // libc malloc is called inside new
     *val = arg;
     for (int i = 0; i < iters; ++i) {
-        *val += *val + (double)return_big_value(i);
+        *val += sin(*val);
     }
     double temp = *val;
     delete val; // libc free is called inside delete
@@ -91,13 +83,10 @@ exit_cb(void *)
     bool found_return_big_value = false;
     while (std::getline(stream, line)) {
         assert(line.find('!') != std::string::npos);
-        if (line.find("!return_big_value") != std::string::npos)
-            found_return_big_value = true;
         if (line.find("!malloc") != std::string::npos)
             found_malloc = true;
     }
     assert(found_malloc);
-    assert(found_return_big_value);
 }
 
 int
@@ -105,11 +94,10 @@ main(int argc, const char *argv[])
 {
     if (!my_setenv("DYNAMORIO_OPTIONS",
                    "-stderr_mask 0xc"
-                   " -client_lib '#;;-offline -record_heap"
+                   " -client_lib '#;;-offline"
                    // Test the low-overhead-wrapping option.
                    " -record_replace_retaddr"
-                   // Test large values that require two entries.
-                   " -record_function \"malloc|1&return_big_value|1\"'"))
+                   " -record_function \"malloc|1\"'"))
         std::cerr << "failed to set env var!\n";
 
     for (int i = 0; i < 100; i++) {

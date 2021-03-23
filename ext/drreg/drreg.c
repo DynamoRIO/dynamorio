@@ -2010,7 +2010,7 @@ drreg_exit(void)
     }
 
     /* Support re-attach. */
-    if (dr_doing_detach()) {
+    if (dr_is_detaching()) {
         memset(&ops, 0, sizeof(ops));
 #ifdef DEBUG
         stats_max_slot = 0;
