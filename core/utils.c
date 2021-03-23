@@ -177,11 +177,7 @@ d_r_internal_error(const char *file, int line, const char *expr)
         do_once_internal_error = true;
 
     report_dynamorio_problem(NULL, DUMPCORE_ASSERTION, NULL, NULL,
-#    ifdef CLIENT_INTERFACE
                              PRODUCT_NAME " debug check failure: %s:%d %s"
-#    else
-                             "Internal " PRODUCT_NAME " Error: %s:%d %s"
-#    endif
 #    if defined(DEBUG) && defined(INTERNAL)
                                           "\n(Error occurred @%d frags)"
 #    endif
@@ -457,14 +453,10 @@ locks_thread_exit(dcontext_t *dcontext)
         thread_locks_t *old_thread_locks = dcontext->thread_owned_locks;
         /* when exiting, another thread may be holding the lock instead of the current,
            CHECK: is this true for detaching */
-        ASSERT(
-            dcontext->thread_owned_locks->last_lock == &thread_initexit_lock ||
-            dcontext->thread_owned_locks->last_lock ==
-                &outermost_lock
-                    /* PR 546016: sideline client thread might hold client lock */
-                    IF_CLIENT_INTERFACE(||
-                                        dcontext->thread_owned_locks->last_lock->rank ==
-                                            dr_client_mutex_rank));
+        ASSERT(dcontext->thread_owned_locks->last_lock == &thread_initexit_lock ||
+               dcontext->thread_owned_locks->last_lock == &outermost_lock
+               /* PR 546016: sideline client thread might hold client lock */
+               || dcontext->thread_owned_locks->last_lock->rank == dr_client_mutex_rank);
         /* disable thread lock checks before freeing memory */
         dcontext->thread_owned_locks = NULL;
         UNPROTECTED_GLOBAL_FREE(old_thread_locks,
@@ -598,7 +590,6 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
             get_thread_private_dcontext() != GLOBAL_DCONTEXT) {
             dcontext_t *dcontext = get_thread_private_dcontext();
             if (dcontext->thread_owned_locks != NULL) {
-#    ifdef CLIENT_INTERFACE
                 /* PR 198871: same label used for all client locks so allow same rank.
                  * For now we ignore rank order when client lock is 1st, as well,
                  * to support decode_trace() for 0.9.6 release PR 198871 covers safer
@@ -607,11 +598,8 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                 bool first_client = (dcontext->thread_owned_locks->last_lock->rank ==
                                      dr_client_mutex_rank);
                 bool both_client = (first_client && lock->rank == dr_client_mutex_rank);
-#    endif
-                if (dcontext->thread_owned_locks->last_lock->rank >=
-                    lock->rank IF_CLIENT_INTERFACE(
-                        &&!first_client /*FIXME PR 198871: remove */
-                        && !both_client)) {
+                if (dcontext->thread_owned_locks->last_lock->rank >= lock->rank &&
+                    !first_client /*FIXME PR 198871: remove */ && !both_client) {
                     /* like syslog don't synchronize options for dumpcore_mask */
                     if (TEST(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
                         os_dump_core("rank order violation");
@@ -623,10 +611,9 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                         d_r_get_thread_id());
                     dump_owned_locks(dcontext);
                 }
-                ASSERT((dcontext->thread_owned_locks->last_lock->rank <
-                        lock->rank IF_CLIENT_INTERFACE(
-                            || first_client /*FIXME PR 198871: remove */
-                            || both_client)) &&
+                ASSERT((dcontext->thread_owned_locks->last_lock->rank < lock->rank ||
+                        first_client /*FIXME PR 198871: remove */
+                        || both_client) &&
                        "rank order violation");
                 if (ownable) {
                     lock->prev_owned_lock = dcontext->thread_owned_locks->last_lock;
@@ -836,19 +823,17 @@ static bool
 mutex_ownable(mutex_t *lock)
 {
     bool ownable = LOCK_OWNABLE;
-#    ifdef CLIENT_INTERFACE
     /* i#779: support DR locks used as app locks */
     if (lock->app_lock) {
         ASSERT(lock->rank == dr_client_mutex_rank);
         ownable = LOCK_NOT_OWNABLE;
     }
-#    endif
     return ownable;
 }
 #endif
 
 void
-d_r_mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+d_r_mutex_lock_app(mutex_t *lock, priv_mcontext_t *mc)
 {
     bool acquired;
 #ifdef DEADLOCK_AVOIDANCE
@@ -895,7 +880,7 @@ d_r_mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
     DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable);
 
     if (!acquired) {
-        mutex_wait_contended_lock(lock _IF_CLIENT_INTERFACE(mc));
+        mutex_wait_contended_lock(lock, mc);
 #ifdef DEADLOCK_AVOIDANCE
         DEADLOCK_AVOIDANCE_LOCK(lock, true, ownable); /* now we got it  */
         /* this and previous owner are not included in lock_requests */
@@ -908,7 +893,7 @@ d_r_mutex_lock_app(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
 void
 d_r_mutex_lock(mutex_t *lock)
 {
-    d_r_mutex_lock_app(lock _IF_CLIENT_INTERFACE(NULL));
+    d_r_mutex_lock_app(lock, NULL);
 }
 
 /* try once to grab the lock, return whether or not successful */
@@ -972,9 +957,9 @@ d_r_mutex_delete(mutex_t *lock)
          * as they're deleted) and then walk it from dynamo_exit_post_detach().
          */
         lock->count_times_acquired = 0;
-#    if defined(CLIENT_INTERFACE) && defined(DEBUG)
+#    ifdef DEBUG
         skip_lock_request_assert = lock->app_lock;
-#    endif /* CLIENT_INTERFACE && DEBUG */
+#    endif
     }
 #else
 #    ifdef DEBUG
@@ -991,15 +976,13 @@ d_r_mutex_delete(mutex_t *lock)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 void
 d_r_mutex_mark_as_app(mutex_t *lock)
 {
-#    ifdef DEADLOCK_AVOIDANCE
+#ifdef DEADLOCK_AVOIDANCE
     lock->app_lock = true;
-#    endif
-}
 #endif
+}
 
 static inline void
 own_recursive_lock(recursive_lock_t *lock)
@@ -1012,8 +995,7 @@ own_recursive_lock(recursive_lock_t *lock)
 }
 
 void
-acquire_recursive_app_lock(
-    recursive_lock_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+acquire_recursive_app_lock(recursive_lock_t *lock, priv_mcontext_t *mc)
 {
     /* we no longer use the pattern of implementing acquire_lock as a
        busy try_lock
@@ -1023,7 +1005,7 @@ acquire_recursive_app_lock(
     if (lock->owner == d_r_get_thread_id()) {
         lock->count++;
     } else {
-        d_r_mutex_lock_app(&lock->lock _IF_CLIENT_INTERFACE(mc));
+        d_r_mutex_lock_app(&lock->lock, mc);
         own_recursive_lock(lock);
     }
 }
@@ -1032,7 +1014,7 @@ acquire_recursive_app_lock(
 void
 acquire_recursive_lock(recursive_lock_t *lock)
 {
-    acquire_recursive_app_lock(lock _IF_CLIENT_INTERFACE(NULL));
+    acquire_recursive_app_lock(lock, NULL);
 }
 
 bool
@@ -1729,9 +1711,6 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint 
                      (precision_multiple * *top));
 }
 
-#if (defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE) || \
-     defined(STANDALONE_UNIT_TEST))
-
 /* When building with /QIfist casting rounds instead of truncating (i#763)
  * so we use these routines from io.c.
  */
@@ -1765,7 +1744,6 @@ double_print(double val, uint precision, uint *top, uint *bottom, const char **s
     *top = double2int_trunc(val);
     *bottom = double2int_trunc((val - *top) * precision_multiple);
 }
-#endif /* DEBUG || INTERNAL || CLIENT_INTERFACE || STANDALONE_UNIT_TEST */
 
 #ifdef WINDOWS
 /* for pre_inject, injector, and core shared files, is just wrapper for syslog
@@ -1995,7 +1973,7 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
 #else
 #    define REPORT_MSG_MAX (271)
 #endif
-#define REPORT_LEN_VERSION IF_CLIENT_INTERFACE_ELSE(96, 37)
+#define REPORT_LEN_VERSION 96
 /* example: "\ninternal version, build 94201\n"
  * For custom builds, the build # is generated as follows
  * (cut-and-paste from Makefile):
@@ -2004,13 +1982,13 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
  * # YY defaults to 1st 2 letters of CUR_TREE, unless CASENUM is defined,
  * # in which case it is the last 2 letters of CASENUM (all % 10 of course)
  */
-#define REPORT_LEN_OPTIONS IF_CLIENT_INTERFACE_ELSE(324, 192)
+#define REPORT_LEN_OPTIONS 324
 /* still not long enough for ALL non-default options but I'll wager money we'll never
  * see this option string truncated, at least for non-internal builds
  * (famous last words?) => yes!  For clients this can get quite long.
  * List options from staging mode could be problematic though.
  */
-#define REPORT_NUM_STACK IF_CLIENT_INTERFACE_ELSE(15, 10)
+#define REPORT_NUM_STACK 15
 #ifdef X64
 #    define REPORT_LEN_STACK_EACH (22 + 2 * 8)
 #else
@@ -2018,17 +1996,15 @@ d_r_notify(syslog_event_type_t priority, bool internal, bool synch,
 #endif
 /* just frame ptr, ret addr: "0x0342fc7c 0x77f8c6dd\n" == 22 chars per line */
 #define REPORT_LEN_STACK (REPORT_LEN_STACK_EACH) * (REPORT_NUM_STACK)
-#ifdef CLIENT_INTERFACE
 /* We have to stay under MAX_LOG_LENGTH so we limit to ~10 basenames */
-#    define REPORT_LEN_PRIVLIBS (45 * 10)
-#endif
+#define REPORT_LEN_PRIVLIBS (45 * 10)
 /* Not persistent across code cache execution, so not protected */
-DECLARE_NEVERPROT_VAR(static char reportbuf[REPORT_MSG_MAX + REPORT_LEN_VERSION +
-                                            REPORT_LEN_OPTIONS + REPORT_LEN_STACK +
-                                            IF_CLIENT_INTERFACE(REPORT_LEN_PRIVLIBS +) 1],
-                      {
-                          0,
-                      });
+DECLARE_NEVERPROT_VAR(
+    static char reportbuf[REPORT_MSG_MAX + REPORT_LEN_VERSION + REPORT_LEN_OPTIONS +
+                          REPORT_LEN_STACK + REPORT_LEN_PRIVLIBS + 1],
+    {
+        0,
+    });
 DECLARE_CXTSWPROT_VAR(static mutex_t report_buf_lock, INIT_LOCK_FREE(report_buf_lock));
 /* Avoid deadlock w/ nested reports */
 DECLARE_CXTSWPROT_VAR(static thread_id_t report_buf_lock_owner, 0);
@@ -2057,9 +2033,7 @@ under_internal_exception()
 /* Defaults, overridable by the client (i#1470) */
 const char *exception_label_core = PRODUCT_NAME;
 static const char *exception_report_url = BUG_REPORT_URL;
-#ifdef CLIENT_INTERFACE
 const char *exception_label_client = "Client";
-#endif
 
 /* We allow clients to display their version instead of DR's */
 static char display_version[REPORT_LEN_VERSION];
@@ -2075,7 +2049,6 @@ report_exception_skip_prefix(void)
     return strlen(exception_prefix);
 }
 
-#ifdef CLIENT_INTERFACE
 static char client_exception_prefix[MAXIMUM_PATH];
 
 static inline size_t
@@ -2083,7 +2056,6 @@ report_client_exception_skip_prefix(void)
 {
     return strlen(client_exception_prefix);
 }
-#endif
 
 void
 set_exception_strings(const char *override_label, const char *override_url)
@@ -2098,13 +2070,11 @@ set_exception_strings(const char *override_label, const char *override_url)
     snprintf(exception_prefix, BUFFER_SIZE_ELEMENTS(exception_prefix), "%s %s at PC " PFX,
              exception_label_core, CRASH_NAME, 0);
     NULL_TERMINATE_BUFFER(exception_prefix);
-#ifdef CLIENT_INTERFACE
     if (override_label != NULL)
         exception_label_client = override_label;
     snprintf(client_exception_prefix, BUFFER_SIZE_ELEMENTS(client_exception_prefix),
              "%s %s at PC " PFX, exception_label_client, CRASH_NAME, 0);
     NULL_TERMINATE_BUFFER(client_exception_prefix);
-#endif
 #ifdef WINDOWS
     debugbox_setup_title();
 #endif
@@ -2200,7 +2170,6 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
         len = snprintf(curbuf, REPORT_LEN_STACK_EACH, PFX " " PFX "\n", pc, *(pc + 1));
         curbuf += (len == -1 ? REPORT_LEN_STACK_EACH : (len < 0 ? 0 : len));
     }
-#ifdef CLIENT_INTERFACE
     /* Only walk the module list if we think the data structs are safe */
     if (!TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)) {
         size_t sofar = 0;
@@ -2212,7 +2181,6 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
                                REPORT_LEN_PRIVLIBS, &sofar);
         curbuf += sofar;
     }
-#endif
 
     /* SYSLOG_INTERNAL and diagnostics expect no trailing newline */
     if (*(curbuf - 1) == '\n') /* won't be if we truncated something */
@@ -2228,8 +2196,8 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
 
     /* we already synchronized the options at the top of this function and we
      * might be stack critical so use _NO_OPTION_SYNCH */
-    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag)
-            IF_CLIENT_INTERFACE(|| TEST(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag))) {
+    if (TEST(DUMPCORE_INTERNAL_EXCEPTION, dumpcore_flag) ||
+        TEST(DUMPCORE_CLIENT_EXCEPTION, dumpcore_flag)) {
         char saddr[IF_X64_ELSE(19, 11)];
         snprintf(saddr, BUFFER_SIZE_ELEMENTS(saddr), PFX, exception_addr);
         NULL_TERMINATE_BUFFER(saddr);
@@ -2243,9 +2211,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
                 /* skip the prefix since the event log string
                  * already has it */
                 reportbuf + report_exception_skip_prefix());
-        }
-#ifdef CLIENT_INTERFACE
-        else {
+        } else {
             SYSLOG_NO_OPTION_SYNCH(
                 SYSLOG_CRITICAL, CLIENT_EXCEPTION, 7 /*#args*/, get_application_name(),
                 get_application_pid(), exception_label_client,
@@ -2254,7 +2220,6 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag, app_pc except
                 saddr, exception_report_url,
                 reportbuf + report_client_exception_skip_prefix());
         }
-#endif
     } else if (TEST(DUMPCORE_ASSERTION, dumpcore_flag)) {
         /* We need to report ASSERTS in DEBUG=1 INTERNAL=0 builds since we're still
          * going to kill the process. Xref PR 232783. d_r_internal_error() already

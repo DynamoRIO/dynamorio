@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,9 +52,7 @@
 #ifdef DEBUG
 #    include "hotpatch.h" /* To handle leak for case 9593. */
 #endif
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef HEAP_ACCOUNTING
 #    ifndef DEBUG
@@ -253,21 +251,18 @@ typedef struct _thread_units_t {
 #endif
 } thread_units_t;
 
-/* We separate out heap memory used for fragments, linking, and vmarea multi-entries
- * both to enable resetting memory and for safety for unlink flushing in the presence
- * of clean calls out of the cache that might allocate IR memory (which does not
- * use nonpersistent heap).  Any client actions that involve fragments or linking
- * should require couldbelinking status, which makes them safe wrt unlink flushing.
- * Xref DrMi#1791.
- */
-#define SEPARATE_NONPERSISTENT_HEAP() \
-    (DYNAMO_OPTION(enable_reset) IF_CLIENT_INTERFACE(|| true))
-
 #define REACHABLE_HEAP() (IF_X64_ELSE(DYNAMO_OPTION(reachable_heap), true))
 
 /* per-thread structure: */
 typedef struct _thread_heap_t {
     thread_units_t *local_heap;
+    /* We separate out heap memory used for fragments, linking, and vmarea multi-entries
+     * both to enable resetting memory and for safety for unlink flushing in the presence
+     * of clean calls out of the cache that might allocate IR memory (which does not
+     * use nonpersistent heap).  Any client actions that involve fragments or linking
+     * should require couldbelinking status, which makes them safe wrt unlink flushing.
+     * Xref DrMi#1791.
+     */
     thread_units_t *nonpersistent_heap;
     thread_units_t *reachable_heap; /* Only used if !REACHABLE_HEAP() */
 #ifdef UNIX
@@ -319,14 +314,12 @@ DECLARE_CXTSWPROT_VAR(static recursive_lock_t heap_unit_lock,
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t global_alloc_lock,
                       INIT_RECURSIVE_LOCK(global_alloc_lock));
 
-#ifdef CLIENT_INTERFACE
 /* Used to sync low on memory event */
 DECLARE_CXTSWPROT_VAR(static recursive_lock_t low_on_memory_pending_lock,
                       INIT_RECURSIVE_LOCK(low_on_memory_pending_lock));
 
 /* Denotes whether or not low on memory event requires triggering. */
 DECLARE_FREQPROT_VAR(bool low_on_memory_pending, false);
-#endif
 
 #if defined(DEBUG) && defined(HEAP_ACCOUNTING) && defined(HOT_PATCHING_INTERFACE)
 static int
@@ -383,9 +376,7 @@ const char *whichheap_name[] = {
     "Memory Mgt",
     "Stats",
     "SpecialHeap",
-#    ifdef CLIENT_INTERFACE
     "Client",
-#    endif
     "Lib Dup",
     "Clean Call",
     /* NOTE: Add your heap name here */
@@ -670,6 +661,7 @@ typedef struct _heap_management_t {
     heap_t heap;
     /* thread-shared heaps: */
     thread_units_t global_units;
+    /* Separate non-persistent heap.  See thread_heap_t.nonpersisent_heap comment. */
     thread_units_t global_nonpersistent_units;
     bool global_heap_writable;
     thread_units_t global_unprotected_units;
@@ -1519,7 +1511,6 @@ reached_beyond_vmm(void)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 void
 vmm_heap_handle_pending_low_on_memory_event_trigger()
 {
@@ -1536,15 +1527,12 @@ vmm_heap_handle_pending_low_on_memory_event_trigger()
     if (trigger)
         instrument_low_on_memory();
 }
-#endif
 
 static void
 schedule_low_on_memory_event_trigger()
 {
-#ifdef CLIENT_INTERFACE
     bool value = true;
     ATOMIC_1BYTE_WRITE(&low_on_memory_pending, value, false);
-#endif
 }
 
 /* Reserve virtual address space without committing swap space for it */
@@ -1933,7 +1921,7 @@ vmh_exit(vm_heap_t *vmh, bool contains_stacks)
                        DYNAMO_OPTION(vmm_block_size)) /
                    DYNAMO_OPTION(vmm_block_size));
         uint unfreed_blocks;
-        if (!contains_stacks IF_CLIENT_INTERFACE(|| standalone_library))
+        if (!contains_stacks || standalone_library)
             unfreed_blocks = 0;
         else {
             unfreed_blocks = perstack * 1 /* d_r_initstack */ +
@@ -2217,10 +2205,8 @@ heap_check_option_compatibility()
 void
 heap_reset_init()
 {
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_nonpersistent_units,
-                         GLOBAL_UNIT_MIN_SIZE, false);
-    }
+    threadunits_init(GLOBAL_DCONTEXT, &heapmgt->global_nonpersistent_units,
+                     GLOBAL_UNIT_MIN_SIZE, false);
 }
 
 /* initialization */
@@ -2362,10 +2348,8 @@ d_r_heap_exit()
 
     LOG(GLOBAL, LOG_HEAP, 1, "Global unprotected heap unit stats:\n");
     threadunits_exit(&heapmgt->global_unprotected_units, GLOBAL_DCONTEXT);
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        LOG(GLOBAL, LOG_HEAP, 1, "Global nonpersistent heap unit stats:\n");
-        threadunits_exit(&heapmgt->global_nonpersistent_units, GLOBAL_DCONTEXT);
-    }
+    LOG(GLOBAL, LOG_HEAP, 1, "Global nonpersistent heap unit stats:\n");
+    threadunits_exit(&heapmgt->global_nonpersistent_units, GLOBAL_DCONTEXT);
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         LOG(GLOBAL, LOG_HEAP, 1, "Global reachable heap unit stats:\n");
         threadunits_exit(&heapmgt->global_reachable_units, GLOBAL_DCONTEXT);
@@ -2416,9 +2400,7 @@ d_r_heap_exit()
 
     DELETE_RECURSIVE_LOCK(heap_unit_lock);
     DELETE_RECURSIVE_LOCK(global_alloc_lock);
-#ifdef CLIENT_INTERFACE
     DELETE_RECURSIVE_LOCK(low_on_memory_pending_lock);
-#endif
 
 #ifdef X64
     DELETE_LOCK(request_region_be_heap_reachable_lock);
@@ -2843,7 +2825,7 @@ get_guarded_real_memory(size_t reserve_size, size_t commit_size, uint prot, bool
     if (try_vmm)
         p = vmm_heap_reserve(reserve_size, &error_code, TEST(MEMPROT_EXEC, prot), which);
 
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#ifdef WINDOWS
     if (!try_vmm || p < (vm_addr_t)min_addr) {
         if (p != NULL)
             vmm_heap_free(p, reserve_size, &error_code, which);
@@ -3539,7 +3521,6 @@ void *
 global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-#ifdef CLIENT_INTERFACE
     /* We pay the cost of this branch to support using DR's decode routines from the
      * regular DR library and not just drdecode, to support libraries that would use
      * drdecode but that also have to work with full DR (i#2499).
@@ -3550,7 +3531,6 @@ global_heap_alloc(size_t size HEAPACCT(which_heap_t which))
         /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
-#endif
     p = common_global_heap_alloc(&heapmgt->global_units, size HEAPACCT(which));
     ASSERT(p != NULL);
     LOG(GLOBAL, LOG_HEAP, 6, "\nglobal alloc: " PFX " (%d bytes)\n", p, size);
@@ -3710,7 +3690,7 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
                           /* don't assert when client does premature exit as it's
                            * hard for Extension libs, etc. to clean up in such situations
                            */
-                          IF_CLIENT_INTERFACE(|| client_requested_exit),
+                          || client_requested_exit,
                       "memory leak detected");
     });
 #endif
@@ -3874,21 +3854,17 @@ print_heap_statistics()
         thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
         if (th != NULL) { /* may not be initialized yet */
             print_tu_heap_statistics(th->local_heap, THREAD, "Thread");
-            if (SEPARATE_NONPERSISTENT_HEAP()) {
-                ASSERT(th->nonpersistent_heap != NULL);
-                print_tu_heap_statistics(th->nonpersistent_heap, THREAD,
-                                         "Thread non-persistent");
-            }
+            ASSERT(th->nonpersistent_heap != NULL);
+            print_tu_heap_statistics(th->nonpersistent_heap, THREAD,
+                                     "Thread non-persistent");
             if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
                 ASSERT(th->reachable_heap != NULL);
                 print_tu_heap_statistics(th->reachable_heap, THREAD, "Thread reachable");
             }
         }
     }
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        print_tu_heap_statistics(&heapmgt->global_nonpersistent_units, GLOBAL,
-                                 "Non-persistent global units");
-    }
+    print_tu_heap_statistics(&heapmgt->global_nonpersistent_units, GLOBAL,
+                             "Non-persistent global units");
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         print_tu_heap_statistics(&heapmgt->global_reachable_units, GLOBAL,
                                  "Reachable global units");
@@ -4006,8 +3982,7 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
                 /* Don't assert when client does premature exit as it's
                  * hard for Extension libs, etc. to clean up in such situations:
                  */
-                CLIENT_ASSERT(IF_CLIENT_INTERFACE(client_requested_exit ||) false,
-                              "memory leak detected");
+                CLIENT_ASSERT(client_requested_exit || false, "memory leak detected");
             }
         }
     }
@@ -4025,11 +4000,9 @@ void
 heap_thread_reset_init(dcontext_t *dcontext)
 {
     thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        ASSERT(th->nonpersistent_heap != NULL);
-        threadunits_init(dcontext, th->nonpersistent_heap,
-                         DYNAMO_OPTION(initial_heap_nonpers_size), false);
-    }
+    ASSERT(th->nonpersistent_heap != NULL);
+    threadunits_init(dcontext, th->nonpersistent_heap,
+                     DYNAMO_OPTION(initial_heap_nonpers_size), false);
 }
 
 void
@@ -4041,11 +4014,8 @@ heap_thread_init(dcontext_t *dcontext)
     th->local_heap = (thread_units_t *)global_heap_alloc(sizeof(thread_units_t)
                                                              HEAPACCT(ACCT_MEM_MGT));
     threadunits_init(dcontext, th->local_heap, HEAP_UNIT_MIN_SIZE, false);
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        th->nonpersistent_heap = (thread_units_t *)global_heap_alloc(
-            sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
-    } else
-        th->nonpersistent_heap = NULL;
+    th->nonpersistent_heap = (thread_units_t *)global_heap_alloc(
+        sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         th->reachable_heap = (thread_units_t *)global_heap_alloc(
             sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
@@ -4063,15 +4033,13 @@ void
 heap_thread_reset_free(dcontext_t *dcontext)
 {
     thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        ASSERT(th->nonpersistent_heap != NULL);
-        /* FIXME: free directly rather than sending to dead list for
-         * heap_reset_free() to free!
-         * FIXME: for reset, don't free last unit so don't have to
-         * recreate in reset_init()
-         */
-        threadunits_exit(th->nonpersistent_heap, dcontext);
-    }
+    ASSERT(th->nonpersistent_heap != NULL);
+    /* FIXME: free directly rather than sending to dead list for
+     * heap_reset_free() to free!
+     * FIXME: for reset, don't free last unit so don't have to
+     * recreate in reset_init()
+     */
+    threadunits_exit(th->nonpersistent_heap, dcontext);
 }
 
 void
@@ -4081,11 +4049,9 @@ heap_thread_exit(dcontext_t *dcontext)
     threadunits_exit(th->local_heap, dcontext);
     heap_thread_reset_free(dcontext);
     global_heap_free(th->local_heap, sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        ASSERT(th->nonpersistent_heap != NULL);
-        global_heap_free(th->nonpersistent_heap,
-                         sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
-    }
+    ASSERT(th->nonpersistent_heap != NULL);
+    global_heap_free(th->nonpersistent_heap,
+                     sizeof(thread_units_t) HEAPACCT(ACCT_MEM_MGT));
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         ASSERT(th->reachable_heap != NULL);
         threadunits_exit(th->reachable_heap, dcontext);
@@ -4706,8 +4672,7 @@ protect_local_heap(dcontext_t *dcontext, bool writable)
 {
     thread_heap_t *th = (thread_heap_t *)dcontext->heap_field;
     protect_threadunits(th->local_heap, writable);
-    if (SEPARATE_NONPERSISTENT_HEAP())
-        protect_threadunits(th->nonpersistent_heap, writable);
+    protect_threadunits(th->nonpersistent_heap, writable);
     if (!REACHABLE_HEAP()) /* If off, all heap is reachable. */
         protect_threadunits(th->reachable_heap, writable);
 }
@@ -4742,10 +4707,7 @@ protect_global_heap(bool writable)
     }
 
     protect_local_units_helper(heapmgt->global_units.top_unit, writable);
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        protect_local_units_helper(heapmgt->global_nonpersistent_units.top_unit,
-                                   writable);
-    }
+    protect_local_units_helper(heapmgt->global_nonpersistent_units.top_unit, writable);
 
     if (writable) {
         ASSERT(!heapmgt->global_heap_writable);
@@ -4779,19 +4741,14 @@ void *
 nonpersistent_heap_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        if (dcontext == GLOBAL_DCONTEXT) {
-            p = common_global_heap_alloc(&heapmgt->global_nonpersistent_units,
-                                         size HEAPACCT(which));
-            LOG(GLOBAL, LOG_HEAP, 6, "\nglobal nonpersistent alloc: " PFX " (%d bytes)\n",
-                p, size);
-        } else {
-            thread_units_t *nph =
-                ((thread_heap_t *)dcontext->heap_field)->nonpersistent_heap;
-            p = common_heap_alloc(nph, size HEAPACCT(which));
-        }
+    if (dcontext == GLOBAL_DCONTEXT) {
+        p = common_global_heap_alloc(&heapmgt->global_nonpersistent_units,
+                                     size HEAPACCT(which));
+        LOG(GLOBAL, LOG_HEAP, 6, "\nglobal nonpersistent alloc: " PFX " (%d bytes)\n", p,
+            size);
     } else {
-        p = heap_alloc(dcontext, size HEAPACCT(which));
+        thread_units_t *nph = ((thread_heap_t *)dcontext->heap_field)->nonpersistent_heap;
+        p = common_heap_alloc(nph, size HEAPACCT(which));
     }
     ASSERT(p != NULL);
     return p;
@@ -4801,20 +4758,15 @@ void
 nonpersistent_heap_free(dcontext_t *dcontext, void *p,
                         size_t size HEAPACCT(which_heap_t which))
 {
-    if (SEPARATE_NONPERSISTENT_HEAP()) {
-        if (dcontext == GLOBAL_DCONTEXT) {
-            common_global_heap_free(&heapmgt->global_nonpersistent_units, p,
-                                    size HEAPACCT(which));
-            LOG(GLOBAL, LOG_HEAP, 6, "\nglobal nonpersistent free: " PFX " (%d bytes)\n",
-                p, size);
-        } else {
-            thread_units_t *nph =
-                ((thread_heap_t *)dcontext->heap_field)->nonpersistent_heap;
-            DEBUG_DECLARE(bool ok =) common_heap_free(nph, p, size HEAPACCT(which));
-            ASSERT(ok);
-        }
+    if (dcontext == GLOBAL_DCONTEXT) {
+        common_global_heap_free(&heapmgt->global_nonpersistent_units, p,
+                                size HEAPACCT(which));
+        LOG(GLOBAL, LOG_HEAP, 6, "\nglobal nonpersistent free: " PFX " (%d bytes)\n", p,
+            size);
     } else {
-        heap_free(dcontext, p, size HEAPACCT(which));
+        thread_units_t *nph = ((thread_heap_t *)dcontext->heap_field)->nonpersistent_heap;
+        DEBUG_DECLARE(bool ok =) common_heap_free(nph, p, size HEAPACCT(which));
+        ASSERT(ok);
     }
 }
 
@@ -4822,7 +4774,6 @@ void *
 heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t which))
 {
     void *p;
-#ifdef CLIENT_INTERFACE
     /* We pay the cost of this branch to support using DR's decode routines from the
      * regular DR library and not just drdecode, to support libraries that would use
      * drdecode but that also have to work with full DR (i#2499).
@@ -4835,7 +4786,6 @@ heap_reachable_alloc(dcontext_t *dcontext, size_t size HEAPACCT(which_heap_t whi
         /* XXX: We have no control point to call standalone_exit(). */
         standalone_init();
     }
-#endif
     if (!REACHABLE_HEAP()) { /* If off, all heap is reachable. */
         if (dcontext == GLOBAL_DCONTEXT) {
             p = common_global_heap_alloc(&heapmgt->global_reachable_units,

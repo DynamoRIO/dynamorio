@@ -64,35 +64,34 @@
 #    include "../unix/module.h" /* redirect_* functions */
 #endif
 
-#ifdef CLIENT_INTERFACE
 /* in utils.c, not exported to everyone */
 extern ssize_t
 do_file_write(file_t f, const char *fmt, va_list ap);
 
-#    ifdef DEBUG
+#ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-#        undef ASSERT_TRUNCATE
-#        undef ASSERT_BITFIELD_TRUNCATE
-#        undef ASSERT_NOT_REACHED
-#        define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#        define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#        define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#    endif
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#endif
 
 /* PR 200065: User passes us the shared library, we look up "dr_init"
  * or "dr_client_main" and call it.  From there, the client can register which events
  * it wishes to receive.
  */
-#    define INSTRUMENT_INIT_NAME_LEGACY "dr_init"
-#    define INSTRUMENT_INIT_NAME "dr_client_main"
+#define INSTRUMENT_INIT_NAME_LEGACY "dr_init"
+#define INSTRUMENT_INIT_NAME "dr_client_main"
 
 /* PR 250952: version check
  * If changing this, don't forget to update:
  * - lib/dr_defines.h _USES_DR_VERSION_
  * - api/docs/footer.html
  */
-#    define USES_DR_VERSION_NAME "_USES_DR_VERSION_"
+#define USES_DR_VERSION_NAME "_USES_DR_VERSION_"
 /* Should we expose this for use in samples/tracedump.c?
  * Also, if we change this, need to change the symlink generation
  * in core/CMakeLists.txt: at that point should share single define.
@@ -103,7 +102,7 @@ do_file_write(file_t f, const char *fmt, va_list ap);
  *   major*100 + minor
  * Which gives us room for 100 minor versions per major.
  */
-#    define NEWEST_COMPATIBLE_VERSION CURRENT_API_VERSION
+#define NEWEST_COMPATIBLE_VERSION CURRENT_API_VERSION
 
 /* Store the unique not-part-of-version build number (the version
  * BUILD_NUMBER is limited to 64K and is not guaranteed to be unique)
@@ -113,7 +112,7 @@ do_file_write(file_t f, const char *fmt, va_list ap);
 DR_API const char *unique_build_number = STRINGIFY(UNIQUE_BUILD_NUMBER);
 
 /* The flag d_r_client_avx512_code_in_use is described in arch.h. */
-#    define DR_CLIENT_AVX512_CODE_IN_USE_NAME "_DR_CLIENT_AVX512_CODE_IN_USE_"
+#define DR_CLIENT_AVX512_CODE_IN_USE_NAME "_DR_CLIENT_AVX512_CODE_IN_USE_"
 
 /* Acquire when registering or unregistering event callbacks
  * Also held when invoking events, which happens much more often
@@ -148,47 +147,47 @@ typedef struct _callback_list_t {
  */
 /*
  */
-#    define FAST_COPY_SIZE 5
-#    define call_all_ret(ret, retop, postop, vec, type, ...)                         \
-        do {                                                                         \
-            size_t idx, num;                                                         \
-            /* we will be called even if no callbacks (i.e., (vec).num == 0) */      \
-            /* we guarantee we're in DR state at all callbacks and clean calls */    \
-            /* XXX: add CLIENT_ASSERT here */                                        \
-            d_r_read_lock(&callback_registration_lock);                              \
-            num = (vec).num;                                                         \
-            if (num == 0) {                                                          \
-                d_r_read_unlock(&callback_registration_lock);                        \
-            } else if (num <= FAST_COPY_SIZE) {                                      \
-                callback_t tmp[FAST_COPY_SIZE];                                      \
-                memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));              \
-                d_r_read_unlock(&callback_registration_lock);                        \
-                for (idx = 0; idx < num; idx++) {                                    \
-                    ret retop(((type)tmp[num - idx - 1])(__VA_ARGS__)) postop;       \
-                }                                                                    \
-            } else {                                                                 \
-                callback_t *tmp = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, callback_t, num, \
-                                                   ACCT_OTHER, UNPROTECTED);         \
-                memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));              \
-                d_r_read_unlock(&callback_registration_lock);                        \
-                for (idx = 0; idx < num; idx++) {                                    \
-                    ret retop(((type)tmp[num - idx - 1])(__VA_ARGS__)) postop;       \
-                }                                                                    \
-                HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, tmp, callback_t, num, ACCT_OTHER,   \
-                                UNPROTECTED);                                        \
-            }                                                                        \
-        } while (0)
+#define FAST_COPY_SIZE 5
+#define call_all_ret(ret, retop, postop, vec, type, ...)                         \
+    do {                                                                         \
+        size_t idx, num;                                                         \
+        /* we will be called even if no callbacks (i.e., (vec).num == 0) */      \
+        /* we guarantee we're in DR state at all callbacks and clean calls */    \
+        /* XXX: add CLIENT_ASSERT here */                                        \
+        d_r_read_lock(&callback_registration_lock);                              \
+        num = (vec).num;                                                         \
+        if (num == 0) {                                                          \
+            d_r_read_unlock(&callback_registration_lock);                        \
+        } else if (num <= FAST_COPY_SIZE) {                                      \
+            callback_t tmp[FAST_COPY_SIZE];                                      \
+            memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));              \
+            d_r_read_unlock(&callback_registration_lock);                        \
+            for (idx = 0; idx < num; idx++) {                                    \
+                ret retop(((type)tmp[num - idx - 1])(__VA_ARGS__)) postop;       \
+            }                                                                    \
+        } else {                                                                 \
+            callback_t *tmp = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, callback_t, num, \
+                                               ACCT_OTHER, UNPROTECTED);         \
+            memcpy(tmp, (vec).callbacks, num * sizeof(callback_t));              \
+            d_r_read_unlock(&callback_registration_lock);                        \
+            for (idx = 0; idx < num; idx++) {                                    \
+                ret retop(((type)tmp[num - idx - 1])(__VA_ARGS__)) postop;       \
+            }                                                                    \
+            HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, tmp, callback_t, num, ACCT_OTHER,   \
+                            UNPROTECTED);                                        \
+        }                                                                        \
+    } while (0)
 
 /* It's less error-prone if we just have one call_all macro.  We'll
  * reuse call_all_ret above for callbacks that don't have a return
  * value by assigning to a dummy var.  Note that this means we'll
  * have to pass an int-returning type to call_all()
  */
-#    define call_all(vec, type, ...)                          \
-        do {                                                  \
-            int dummy;                                        \
-            call_all_ret(dummy, =, , vec, type, __VA_ARGS__); \
-        } while (0)
+#define call_all(vec, type, ...)                          \
+    do {                                                  \
+        int dummy;                                        \
+        call_all_ret(dummy, =, , vec, type, __VA_ARGS__); \
+    } while (0)
 
 /* Lists of callbacks for each event type.  Note that init and nudge
  * callback lists are kept in the client_lib_t data structure below.
@@ -205,11 +204,11 @@ static callback_list_t thread_init_callbacks = {
 static callback_list_t thread_exit_callbacks = {
     0,
 };
-#    ifdef UNIX
+#ifdef UNIX
 static callback_list_t fork_init_callbacks = {
     0,
 };
-#    endif
+#endif
 static callback_list_t low_on_memory_callbacks = {
     0,
 };
@@ -219,11 +218,11 @@ static callback_list_t bb_callbacks = {
 static callback_list_t trace_callbacks = {
     0,
 };
-#    ifdef CUSTOM_TRACES
+#ifdef CUSTOM_TRACES
 static callback_list_t end_trace_callbacks = {
     0,
 };
-#    endif
+#endif
 static callback_list_t fragdel_callbacks = {
     0,
 };
@@ -251,20 +250,20 @@ static callback_list_t post_syscall_callbacks = {
 static callback_list_t kernel_xfer_callbacks = {
     0,
 };
-#    ifdef WINDOWS
+#ifdef WINDOWS
 static callback_list_t exception_callbacks = {
     0,
 };
-#    else
+#else
 static callback_list_t signal_callbacks = {
     0,
 };
-#    endif
-#    ifdef PROGRAM_SHEPHERDING
+#endif
+#ifdef PROGRAM_SHEPHERDING
 static callback_list_t security_violation_callbacks = {
     0,
 };
-#    endif
+#endif
 static callback_list_t persist_ro_size_callbacks = {
     0,
 };
@@ -331,7 +330,7 @@ static size_t num_client_libs = 0;
 
 static void *persist_user_data[MAX_CLIENT_LIBS];
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 /* private kernel32 lib, used to print to console */
 static bool print_to_console;
 static shlib_handle_t priv_kernel32;
@@ -340,33 +339,33 @@ static kernel32_WriteFile_t kernel32_WriteFile;
 
 static ssize_t
 dr_write_to_console_varg(bool to_stdout, const char *fmt, ...);
-#    endif
+#endif
 
 bool client_requested_exit;
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 /* used for nudge support */
 static bool block_client_nudge_threads = false;
 DECLARE_CXTSWPROT_VAR(static int num_client_nudge_threads, 0);
-#    endif
-#    ifdef CLIENT_SIDELINE
+#endif
+#ifdef CLIENT_SIDELINE
 /* # of sideline threads */
 DECLARE_CXTSWPROT_VAR(static int num_client_sideline_threads, 0);
-#    endif
-#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+#endif
+#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
 /* protects block_client_nudge_threads and incrementing num_client_nudge_threads */
 DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
                       INIT_LOCK_FREE(client_thread_count_lock));
-#    endif
+#endif
 
 static vm_area_vector_t *client_aux_libs;
 
 static bool track_where_am_i;
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 DECLARE_CXTSWPROT_VAR(static mutex_t client_aux_lib64_lock,
                       INIT_LOCK_FREE(client_aux_lib64_lock));
-#    endif
+#endif
 
 /****************************************************************************/
 /* INTERNAL ROUTINES */
@@ -532,12 +531,12 @@ add_client_lib(const char *path, const char *id_str, const char *options)
     /* if ID not specified, we'll default to 0 */
     id = (id_str == NULL) ? 0 : strtoul(id_str, NULL, 16);
 
-#    ifdef DEBUG
+#ifdef DEBUG
     /* Check for conflicting IDs */
     for (i = 0; i < num_client_libs; i++) {
         CLIENT_ASSERT(client_libs[i].id != id, "Clients have the same ID");
     }
-#    endif
+#endif
 
     if (num_client_libs == MAX_CLIENT_LIBS) {
         CLIENT_ASSERT(false, "Max number of clients reached");
@@ -586,7 +585,7 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             client_libs[idx].id = id;
             client_libs[idx].lib = client_lib;
             app_pc client_start, client_end;
-#    if defined(STATIC_LIBRARY) && defined(LINUX)
+#if defined(STATIC_LIBRARY) && defined(LINUX)
             // For DR under static+linux we know that the client and DR core
             // code are built into the app itself. To avoid various edge cases
             // in finding the "library" bounds, delegate this boundary discovery
@@ -595,18 +594,18 @@ add_client_lib(const char *path, const char *id_str, const char *options)
             client_end = get_dynamorio_dll_end();
             ASSERT(client_start <= (app_pc)uses_dr_version &&
                    (app_pc)uses_dr_version < client_end);
-#    else
+#else
             DEBUG_DECLARE(bool ok =)
             shared_library_bounds(client_lib, (byte *)uses_dr_version, NULL,
                                   &client_start, &client_end);
             ASSERT(ok);
-#    endif
+#endif
             client_libs[idx].start = client_start;
             client_libs[idx].end = client_end;
 
             LOG(GLOBAL, LOG_INTERP, 1, "loaded %s at " PFX "-" PFX "\n", path,
                 client_libs[idx].start, client_libs[idx].end);
-#    ifdef X64
+#ifdef X64
             /* Now that we map the client within the constraints, this request
              * should always succeed.
              */
@@ -615,7 +614,7 @@ add_client_lib(const char *path, const char *id_str, const char *options)
                                                  client_libs[idx].end -
                                                      client_libs[idx].start);
             }
-#    endif
+#endif
             strncpy(client_libs[idx].path, path,
                     BUFFER_SIZE_ELEMENTS(client_libs[idx].path));
             NULL_TERMINATE_BUFFER(client_libs[idx].path);
@@ -625,14 +624,14 @@ add_client_lib(const char *path, const char *id_str, const char *options)
                         BUFFER_SIZE_ELEMENTS(client_libs[idx].options));
                 NULL_TERMINATE_BUFFER(client_libs[idx].options);
             }
-#    ifdef X86
+#ifdef X86
             bool *client_avx512_code_in_use = (bool *)lookup_library_routine(
                 client_lib, DR_CLIENT_AVX512_CODE_IN_USE_NAME);
             if (client_avx512_code_in_use != NULL) {
                 if (*client_avx512_code_in_use)
                     d_r_set_client_avx512_code_in_use();
             }
-#    endif
+#endif
 
             /* We'll look up dr_client_main and call it in instrument_init */
         }
@@ -676,7 +675,7 @@ instrument_load_client_libs(void)
                 }
             }
 
-#    ifdef STATIC_LIBRARY
+#ifdef STATIC_LIBRARY
             /* We ignore client library paths and allow client code anywhere in the app.
              * We have a check in load_shared_library() to avoid loading
              * a 2nd copy of the app.
@@ -685,7 +684,7 @@ instrument_load_client_libs(void)
             add_client_lib(get_application_name(), id == NULL ? "0" : id,
                            options == NULL ? "" : options);
             break;
-#    endif
+#endif
             add_client_lib(path, id, options);
             path = next_path;
         } while (path != NULL);
@@ -708,7 +707,7 @@ instrument_init(void)
 
     init_client_aux_libs();
 
-#    ifdef X86
+#ifdef X86
     if (IF_WINDOWS_ELSE(!dr_earliest_injected, !DYNAMO_OPTION(early_inject))) {
         /* A client that had been compiled with AVX-512 may clobber an application's
          * state. AVX-512 context switching will not be lazy in this case.
@@ -716,7 +715,7 @@ instrument_init(void)
         if (d_r_is_client_avx512_code_in_use())
             d_r_set_avx512_code_in_use(true, NULL);
     }
-#    endif
+#endif
 
     if (num_client_libs > 0) {
         /* We no longer distinguish in-DR vs in-client crashes, as many crashes in
@@ -753,19 +752,19 @@ instrument_init(void)
         parse_option_array(client_libs[i].id, client_libs[i].options,
                            &client_libs[i].argc, &client_libs[i].argv, MAX_OPTION_LENGTH);
 
-#    ifdef STATIC_LIBRARY
+#ifdef STATIC_LIBRARY
         /* We support the app having client code anywhere, so there does not
          * have to be an init routine that we call.  This means the app
          * may have to iterate modules on its own.
          */
-#    else
+#else
         /* Since the user has to register all other events, it
          * doesn't make sense to provide the -client_lib
          * option for a module that doesn't export an init routine.
          */
         CLIENT_ASSERT(init != NULL || legacy != NULL,
                       "client does not export a dr_client_main or dr_init routine");
-#    endif
+#endif
         if (init != NULL)
             (*init)(client_libs[i].id, client_libs[i].argc, client_libs[i].argv);
         else if (legacy != NULL)
@@ -822,15 +821,15 @@ free_all_callback_lists()
     free_callback_list(&exit_callbacks);
     free_callback_list(&thread_init_callbacks);
     free_callback_list(&thread_exit_callbacks);
-#    ifdef UNIX
+#ifdef UNIX
     free_callback_list(&fork_init_callbacks);
-#    endif
+#endif
     free_callback_list(&low_on_memory_callbacks);
     free_callback_list(&bb_callbacks);
     free_callback_list(&trace_callbacks);
-#    ifdef CUSTOM_TRACES
+#ifdef CUSTOM_TRACES
     free_callback_list(&end_trace_callbacks);
-#    endif
+#endif
     free_callback_list(&fragdel_callbacks);
     free_callback_list(&restore_state_callbacks);
     free_callback_list(&restore_state_ex_callbacks);
@@ -840,14 +839,14 @@ free_all_callback_lists()
     free_callback_list(&pre_syscall_callbacks);
     free_callback_list(&post_syscall_callbacks);
     free_callback_list(&kernel_xfer_callbacks);
-#    ifdef WINDOWS
+#ifdef WINDOWS
     free_callback_list(&exception_callbacks);
-#    else
+#else
     free_callback_list(&signal_callbacks);
-#    endif
-#    ifdef PROGRAM_SHEPHERDING
+#endif
+#ifdef PROGRAM_SHEPHERDING
     free_callback_list(&security_violation_callbacks);
-#    endif
+#endif
     free_callback_list(&persist_ro_size_callbacks);
     free_callback_list(&persist_ro_callbacks);
     free_callback_list(&resurrect_ro_callbacks);
@@ -894,12 +893,12 @@ instrument_exit(void)
     vmvector_delete_vector(GLOBAL_DCONTEXT, client_aux_libs);
     client_aux_libs = NULL;
     num_client_libs = 0;
-#    ifdef WINDOWS
+#ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
-#    endif
-#    if defined(WINDOWS) || defined(CLIENT_SIDELINE)
+#endif
+#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
     DELETE_LOCK(client_thread_count_lock);
-#    endif
+#endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }
 
@@ -1008,7 +1007,7 @@ bool dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *ta
     return remove_callback(&trace_callbacks, (void (*)(void))func, true);
 }
 
-#    ifdef CUSTOM_TRACES
+#ifdef CUSTOM_TRACES
 void dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
                                                                   void *tag,
                                                                   void *next_tag))
@@ -1027,7 +1026,7 @@ bool dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcont
 {
     return remove_callback(&end_trace_callbacks, (void (*)(void))func, true);
 }
-#    endif
+#endif
 
 void
 dr_register_delete_event(void (*func)(void *drcontext, void *tag))
@@ -1111,7 +1110,7 @@ dr_unregister_thread_exit_event(void (*func)(void *drcontext))
     return remove_callback(&thread_exit_callbacks, (void (*)(void))func, true);
 }
 
-#    ifdef UNIX
+#ifdef UNIX
 void
 dr_register_fork_init_event(void (*func)(void *drcontext))
 {
@@ -1123,7 +1122,7 @@ dr_unregister_fork_init_event(void (*func)(void *drcontext))
 {
     return remove_callback(&fork_init_callbacks, (void (*)(void))func, true);
 }
-#    endif
+#endif
 
 void
 dr_register_low_on_memory_event(void (*func)())
@@ -1164,7 +1163,7 @@ dr_unregister_module_unload_event(void (*func)(void *drcontext,
     return remove_callback(&module_unload_callbacks, (void (*)(void))func, true);
 }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 void
 dr_register_exception_event(bool (*func)(void *drcontext, dr_exception_t *excpt))
 {
@@ -1176,7 +1175,7 @@ dr_unregister_exception_event(bool (*func)(void *drcontext, dr_exception_t *excp
 {
     return remove_callback(&exception_callbacks, (bool (*)(void))func, true);
 }
-#    else
+#else
 void dr_register_signal_event(dr_signal_action_t (*func)(void *drcontext,
                                                          dr_siginfo_t *siginfo))
 {
@@ -1188,7 +1187,7 @@ bool dr_unregister_signal_event(dr_signal_action_t (*func)(void *drcontext,
 {
     return remove_callback(&signal_callbacks, (void (*)(void))func, true);
 }
-#    endif /* WINDOWS */
+#endif /* WINDOWS */
 
 void
 dr_register_filter_syscall_event(bool (*func)(void *drcontext, int sysnum))
@@ -1240,7 +1239,7 @@ dr_unregister_kernel_xfer_event(void (*func)(void *drcontext,
     return remove_callback(&kernel_xfer_callbacks, (void (*)(void))func, true);
 }
 
-#    ifdef PROGRAM_SHEPHERDING
+#ifdef PROGRAM_SHEPHERDING
 void
 dr_register_security_event(void (*func)(void *drcontext, void *source_tag,
                                         app_pc source_pc, app_pc target_pc,
@@ -1260,7 +1259,7 @@ dr_unregister_security_event(void (*func)(void *drcontext, void *source_tag,
 {
     return remove_callback(&security_violation_callbacks, (void (*)(void))func, true);
 }
-#    endif
+#endif
 
 void
 dr_register_nudge_event(void (*func)(void *drcontext, uint64 argument), client_id_t id)
@@ -1304,9 +1303,9 @@ dr_nudge_client_ex(process_id_t process_id, client_id_t client_id, uint64 argume
 {
     if (process_id == get_process_id()) {
         size_t i;
-#    ifdef WINDOWS
+#ifdef WINDOWS
         pre_second_thread();
-#    endif
+#endif
         for (i = 0; i < num_client_libs; i++) {
             if (client_libs[i].id == client_id) {
                 if (client_libs[i].nudge_callbacks.num == 0) {
@@ -1330,7 +1329,7 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
     return dr_nudge_client_ex(get_process_id(), client_id, argument, 0) == DR_SUCCESS;
 }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 DR_API
 bool
 dr_is_nudge_thread(void *drcontext)
@@ -1339,7 +1338,7 @@ dr_is_nudge_thread(void *drcontext)
     CLIENT_ASSERT(drcontext != NULL, "invalid parameter to dr_is_nudge_thread");
     return dcontext->nudge_target != NULL;
 }
-#    endif
+#endif
 
 void
 instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
@@ -1352,15 +1351,15 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
             HEAP_TYPE_ALLOC(dcontext, client_data_t, ACCT_OTHER, PROTECTED);
         memset(dcontext->client_data, 0x0, sizeof(client_data_t));
 
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
         ASSIGN_INIT_LOCK_FREE(dcontext->client_data->sideline_mutex, sideline_mutex);
-#    endif
+#endif
         CLIENT_ASSERT(dynamo_initialized || thread_init_callbacks.num == 0 ||
                           client_thread,
                       "1st call to instrument_thread_init should have no cbs");
     }
 
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     if (client_thread) {
         ATOMIC_INC(int, num_client_sideline_threads);
         /* We don't call dynamo_thread_not_under_dynamo() b/c we want itimers. */
@@ -1368,7 +1367,7 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
         dcontext->client_data->is_client_thread = true;
         dcontext->client_data->suspendable = true;
     }
-#    endif /* CLIENT_SIDELINE */
+#endif /* CLIENT_SIDELINE */
 }
 
 void
@@ -1381,16 +1380,16 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
      * routines are called prior to instrument_init()), and once after
      * instrument_init() to call the client event.
      */
-#    if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+#ifdef WINDOWS
     bool swap_peb = false;
-#    endif
+#endif
 
     if (client_thread) {
         /* no init event */
         return;
     }
 
-#    if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+#ifdef WINDOWS
     /* i#996: we might be in app's state.
      * It is simpler to check and swap here than earlier on thread init paths.
      */
@@ -1398,7 +1397,7 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
         swap_peb_pointer(dcontext, true /*to priv*/);
         swap_peb = true;
     }
-#    endif
+#endif
 
     /* i#117/PR 395156: support dr_get_mcontext() from the thread init event */
     if (valid_mc)
@@ -1406,19 +1405,19 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
     call_all(thread_init_callbacks, int (*)(void *), (void *)dcontext);
     if (valid_mc)
         dcontext->client_data->mcontext_in_dcontext = false;
-#    if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+#ifdef WINDOWS
     if (swap_peb)
         swap_peb_pointer(dcontext, false /*to app*/);
-#    endif
+#endif
 }
 
-#    ifdef UNIX
+#ifdef UNIX
 void
 instrument_fork_init(dcontext_t *dcontext)
 {
     call_all(fork_init_callbacks, int (*)(void *), (void *)dcontext);
 }
-#    endif
+#endif
 
 void
 instrument_low_on_memory()
@@ -1432,7 +1431,7 @@ instrument_low_on_memory()
 void
 instrument_thread_exit_event(dcontext_t *dcontext)
 {
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     if (IS_CLIENT_THREAD(dcontext)
         /* if nudge thread calls dr_exit_process() it will be marked as a client
          * thread: rule it out here so we properly clean it up
@@ -1442,7 +1441,7 @@ instrument_thread_exit_event(dcontext_t *dcontext)
         /* no exit event */
         return;
     }
-#    endif
+#endif
 
     /* i#1394: best-effort to try to avoid crashing thread exit events
      * where thread init was never called.
@@ -1459,17 +1458,17 @@ instrument_thread_exit_event(dcontext_t *dcontext)
 void
 instrument_thread_exit(dcontext_t *dcontext)
 {
-#    ifdef DEBUG
+#ifdef DEBUG
     client_todo_list_t *todo;
     client_flush_req_t *flush;
-#    endif
+#endif
 
-#    ifdef DEBUG
+#ifdef DEBUG
     /* i#271: avoid racy crashes by not freeing in release build. */
 
-#        ifdef CLIENT_SIDELINE
+#    ifdef CLIENT_SIDELINE
     DELETE_LOCK(dcontext->client_data->sideline_mutex);
-#        endif
+#    endif
 
     /* could be heap space allocated for the todo list */
     todo = dcontext->client_data->to_do;
@@ -1494,7 +1493,7 @@ instrument_thread_exit(dcontext_t *dcontext)
     dcontext->client_data = NULL;              /* for mutex_wait_contended_lock() */
     dcontext->is_client_thread_exiting = true; /* for is_using_app_peb() */
 
-#    endif /* DEBUG */
+#endif /* DEBUG */
 }
 
 bool
@@ -1539,8 +1538,6 @@ dr_xl8_hook_exists(void)
     return (restore_state_callbacks.num > 0 || restore_state_ex_callbacks.num > 0);
 }
 
-#endif /* CLIENT_INTERFACE */
-/* needed outside of CLIENT_INTERFACE for simpler USE_BB_BUILDING_LOCK_STEADY_STATE() */
 bool
 dr_modload_hook_exists(void)
 {
@@ -1548,14 +1545,13 @@ dr_modload_hook_exists(void)
      * the client changing this during bb building, as that will mess
      * up USE_BB_BUILDING_LOCK_STEADY_STATE().
      */
-    return IF_CLIENT_INTERFACE_ELSE(module_load_callbacks.num > 0, false);
+    return module_load_callbacks.num > 0;
 }
-#ifdef CLIENT_INTERFACE
 
 bool
 hide_tag_from_client(app_pc tag)
 {
-#    ifdef WINDOWS
+#ifdef WINDOWS
     /* Case 10009: Basic blocks that consist of a single jump into the
      * interception buffer should be obscured from clients.  Clients
      * will see the displaced code, so we'll provide the address of this
@@ -1588,11 +1584,11 @@ hide_tag_from_client(app_pc tag)
          */
         is_syscall_trampoline(tag, NULL))
         return true;
-#    endif
+#endif
     return false;
 }
 
-#    ifdef DEBUG
+#ifdef DEBUG
 /* PR 214962: client must set translation fields */
 static void
 check_ilist_translations(instrlist_t *ilist)
@@ -1636,7 +1632,7 @@ check_ilist_translations(instrlist_t *ilist)
         }
     }
 }
-#    endif
+#endif
 
 /* Returns true if the bb hook is called */
 bool
@@ -1658,12 +1654,12 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
      * whether and how to do that
      */
 
-#    ifdef DEBUG
+#ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_basic_block ******************\n");
     LOG(THREAD, LOG_INTERP, 3, "\nbefore instrumentation:\n");
     if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, bb, THREAD);
-#    endif
+#endif
 
     /* i#117/PR 395156: allow dr_[gs]et_mcontext where accurate */
     if (!translating && !for_trace)
@@ -1689,11 +1685,11 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
                       " cannot be used on traces");
     }
 
-#    ifdef DEBUG
+#ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
     if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, bb, THREAD);
-#    endif
+#endif
 
     return true;
 }
@@ -1705,9 +1701,9 @@ dr_emit_flags_t
 instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool translating)
 {
     dr_emit_flags_t ret = DR_EMIT_DEFAULT;
-#    ifdef UNSUPPORTED_API
+#ifdef UNSUPPORTED_API
     instr_t *instr;
-#    endif
+#endif
     if (trace_callbacks.num == 0)
         return DR_EMIT_DEFAULT;
 
@@ -1715,17 +1711,17 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
          * whether and how to do that
          */
 
-#    ifdef DEBUG
+#ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\ninstrument_trace ******************\n");
     LOG(THREAD, LOG_INTERP, 3, "\nbefore instrumentation:\n");
     if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#    endif
+#endif
 
         /* We always pass Level 3 instrs to the client, since we no longer
          * expose the expansion routines.
          */
-#    ifdef UNSUPPORTED_API
+#ifdef UNSUPPORTED_API
     for (instr = instrlist_first_expanded(dcontext, trace); instr != NULL;
          instr = instr_get_next_expanded(dcontext, trace, instr)) {
         instr_decode(dcontext, instr);
@@ -1734,7 +1730,7 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
      * to do a separate pass to fix up intra-list targets like
      * instrlist_decode_cti() does
      */
-#    endif
+#endif
 
     /* i#117/PR 395156: allow dr_[gs]et_mcontext where accurate */
     if (!translating)
@@ -1753,11 +1749,11 @@ instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool tran
 
     dcontext->client_data->mcontext_in_dcontext = false;
 
-#    ifdef DEBUG
+#ifdef DEBUG
     LOG(THREAD, LOG_INTERP, 3, "\nafter instrumentation:\n");
     if (d_r_stats->loglevel >= 3 && (d_r_stats->logmask & LOG_INTERP) != 0)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
-#    endif
+#endif
 
     return ret;
 }
@@ -1772,14 +1768,14 @@ instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags)
     if (fragdel_callbacks.num == 0)
         return;
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
     /* Case 10009: We don't call the basic block hook for blocks that
      * are jumps to the interception buffer, so we'll hide them here
      * as well.
      */
     if (!TEST(FRAG_IS_TRACE, flags) && hide_tag_from_client(tag))
         return;
-#    endif
+#endif
 
     /* PR 243008: we don't expose GLOBAL_DCONTEXT, so change to NULL.
      * Our comments warn the user about this.
@@ -1856,7 +1852,7 @@ instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
                                                        &client_mcontext);
 }
 
-#    ifdef CUSTOM_TRACES
+#ifdef CUSTOM_TRACES
 /* Ask whether to end trace prior to adding next_tag fragment.
  * Return values:
  *   CUSTOM_TRACE_DR_DECIDES = use standard termination criteria
@@ -1879,30 +1875,30 @@ instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag)
 
     return ret;
 }
-#    endif
+#endif
 
 static module_data_t *
 create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
                                   uint flags, const module_names_t *names,
                                   const char *full_path,
-#    ifdef WINDOWS
+#ifdef WINDOWS
                                   version_number_t file_version,
                                   version_number_t product_version, uint checksum,
                                   uint timestamp, size_t mod_size,
-#    else
+#else
                                   bool contiguous, uint num_segments,
                                   module_segment_t *os_segments,
                                   module_segment_data_t *segments, uint timestamp,
-#        ifdef MACOS
+#    ifdef MACOS
                                   uint current_version, uint compatibility_version,
                                   const byte uuid[16],
-#        endif
 #    endif
+#endif
                                   app_pc preferred_base)
 {
-#    ifndef WINDOWS
+#ifndef WINDOWS
     uint i;
-#    endif
+#endif
     module_data_t *copy = (module_data_t *)HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_data_t,
                                                            ACCT_CLIENT, UNPROTECTED);
     memset(copy, 0, sizeof(module_data_t));
@@ -1918,7 +1914,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
         copy->names.module_name = dr_strdup(names->module_name HEAPACCT(ACCT_CLIENT));
     if (names->file_name != NULL)
         copy->names.file_name = dr_strdup(names->file_name HEAPACCT(ACCT_CLIENT));
-#    ifdef WINDOWS
+#ifdef WINDOWS
     if (names->exe_name != NULL)
         copy->names.exe_name = dr_strdup(names->exe_name HEAPACCT(ACCT_CLIENT));
     if (names->rsrc_name != NULL)
@@ -1929,7 +1925,7 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
     copy->checksum = checksum;
     copy->timestamp = timestamp;
     copy->module_internal_size = mod_size;
-#    else
+#else
     copy->contiguous = contiguous;
     copy->num_segments = num_segments;
     copy->segments = (module_segment_data_t *)HEAP_ARRAY_ALLOC(
@@ -1950,12 +1946,12 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
         }
     }
     copy->timestamp = timestamp;
-#        ifdef MACOS
+#    ifdef MACOS
     copy->current_version = current_version;
     copy->compatibility_version = compatibility_version;
     memcpy(copy->uuid, uuid, sizeof(copy->uuid));
-#        endif
 #    endif
+#endif
     copy->preferred_base = preferred_base;
     return copy;
 }
@@ -1968,17 +1964,17 @@ copy_module_area_to_module_data(const module_area_t *area)
 
     return create_and_initialize_module_data(
         area->start, area->end, area->entry_point, 0, &area->names, area->full_path,
-#    ifdef WINDOWS
+#ifdef WINDOWS
         area->os_data.file_version, area->os_data.product_version, area->os_data.checksum,
         area->os_data.timestamp, area->os_data.module_internal_size,
-#    else
+#else
         area->os_data.contiguous, area->os_data.num_segments, area->os_data.segments,
         NULL, area->os_data.timestamp,
-#        ifdef MACOS
+#    ifdef MACOS
         area->os_data.current_version, area->os_data.compatibility_version,
         area->os_data.uuid,
-#        endif
 #    endif
+#endif
         IF_WINDOWS_ELSE(area->os_data.preferred_base, area->os_data.base_address));
 }
 
@@ -1994,15 +1990,15 @@ dr_copy_module_data(const module_data_t *data)
 
     return create_and_initialize_module_data(
         data->start, data->end, data->entry_point, 0, &data->names, data->full_path,
-#    ifdef WINDOWS
+#ifdef WINDOWS
         data->file_version, data->product_version, data->checksum, data->timestamp,
         data->module_internal_size,
-#    else
+#else
         data->contiguous, data->num_segments, NULL, data->segments, data->timestamp,
-#        ifdef MACOS
+#    ifdef MACOS
         data->current_version, data->compatibility_version, data->uuid,
-#        endif
 #    endif
+#endif
         data->preferred_base);
 }
 
@@ -2023,10 +2019,10 @@ dr_free_module_data(module_data_t *data)
         return;
     }
 
-#    ifdef UNIX
+#ifdef UNIX
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, data->segments, module_segment_data_t,
                     data->num_segments, ACCT_VMAREAS, PROTECTED);
-#    endif
+#endif
     if (data->full_path != NULL)
         dr_strfree(data->full_path HEAPACCT(ACCT_CLIENT));
     free_module_names(&data->names HEAPACCT(ACCT_CLIENT));
@@ -2041,9 +2037,9 @@ dr_module_contains_addr(const module_data_t *data, app_pc addr)
     /* XXX: this duplicates module_contains_addr(), but we have two different
      * data structures (module_area_t and module_data_t) so it's hard to share.
      */
-#    ifdef WINDOWS
+#ifdef WINDOWS
     return (addr >= data->start && addr < data->end);
-#    else
+#else
     if (data->contiguous)
         return (addr >= data->start && addr < data->end);
     else {
@@ -2054,7 +2050,7 @@ dr_module_contains_addr(const module_data_t *data, app_pc addr)
         }
     }
     return false;
-#    endif
+#endif
 }
 
 /* Looks up module containing pc (assumed to be fully loaded).
@@ -2239,7 +2235,7 @@ instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
     return true;
 }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 /* Notify user of exceptions.  Note: not called for RaiseException */
 bool
 instrument_exception(dcontext_t *dcontext, dr_exception_t *exception)
@@ -2261,7 +2257,7 @@ instrument_exception(dcontext_t *dcontext, dr_exception_t *exception)
     dcontext->client_data->cur_mc = NULL;
     return res;
 }
-#    else
+#else
 dr_signal_action_t
 instrument_signal(dcontext_t *dcontext, dr_siginfo_t *siginfo)
 {
@@ -2282,9 +2278,9 @@ dr_signal_hook_exists(void)
 {
     return (signal_callbacks.num > 0);
 }
-#    endif /* WINDOWS */
+#endif /* WINDOWS */
 
-#    ifdef PROGRAM_SHEPHERDING
+#ifdef PROGRAM_SHEPHERDING
 /* Notify user when a security violation is detected */
 void
 instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
@@ -2386,7 +2382,7 @@ instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
         }
     }
 }
-#    endif
+#endif
 
 /* Notify the client of a nudge. */
 void
@@ -2413,7 +2409,7 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
     if (i == num_client_libs || client_libs[i].nudge_callbacks.num == 0)
         return;
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
     /* count the number of nudge events so we can make sure they're
      * all finished before exiting
      */
@@ -2440,7 +2436,7 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
      */
     dcontext->client_data->is_client_thread = true;
     dcontext->thread_record->under_dynamo_control = false;
-#    else
+#else
     /* support calling dr_get_mcontext() on this thread.  the app
      * context should be intact in the current mcontext except
      * pc which we set from next_tag.
@@ -2450,32 +2446,32 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
     dcontext->client_data->mcontext_in_dcontext = true;
     /* officially get_mcontext() doesn't always set pc: we do anyway */
     get_mcontext(dcontext)->pc = dcontext->next_tag;
-#    endif
+#endif
 
     call_all(client_libs[i].nudge_callbacks, int (*)(void *, uint64), (void *)dcontext,
              arg);
 
-#    ifdef UNIX
+#ifdef UNIX
     dcontext->client_data->mcontext_in_dcontext = false;
-#    else
+#else
     dcontext->thread_record->under_dynamo_control = true;
     dcontext->client_data->is_client_thread = false;
 
     ATOMIC_DEC(int, num_client_nudge_threads);
-#    endif
+#endif
 }
 
 int
 get_num_client_threads(void)
 {
     int num = IF_WINDOWS_ELSE(num_client_nudge_threads, 0);
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     num += num_client_sideline_threads;
-#    endif
+#endif
     return num;
 }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 /* wait for all nudges to finish */
 void
 wait_for_outstanding_nudges()
@@ -2513,7 +2509,7 @@ wait_for_outstanding_nudges()
     }
     d_r_mutex_unlock(&client_thread_count_lock);
 }
-#    endif /* WINDOWS */
+#endif /* WINDOWS */
 
 /****************************************************************************/
 /* EXPORTED ROUTINES */
@@ -2570,7 +2566,7 @@ dr_exit_process(int exit_code)
      */
     client_requested_exit = true;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
-#    ifdef WINDOWS
+#ifdef WINDOWS
     if (dcontext != NULL && dcontext->nudge_target != NULL) {
         /* we need to free the nudge thread stack which may involved
          * switching stacks so we have the nudge thread invoke
@@ -2579,7 +2575,7 @@ dr_exit_process(int exit_code)
         nudge_thread_cleanup(dcontext, true /*kill process*/, exit_code);
         CLIENT_ASSERT(false, "shouldn't get here");
     }
-#    endif
+#endif
     if (!is_currently_on_dstack(dcontext)
             IF_UNIX(&&!is_currently_on_sigaltstack(dcontext))) {
         /* if on app stack or sigaltstack, avoid incorrect leak assert at exit */
@@ -2598,10 +2594,10 @@ dr_create_memory_dump(dr_memory_dump_spec_t *spec)
 {
     if (spec->size != sizeof(dr_memory_dump_spec_t))
         return false;
-#    ifdef WINDOWS
+#ifdef WINDOWS
     if (TEST(DR_MEMORY_DUMP_LDMP, spec->flags))
         return os_dump_core_live(spec->label, spec->ldmp_path, spec->ldmp_path_size);
-#    endif
+#endif
     return false;
 }
 
@@ -2771,11 +2767,11 @@ dr_set_client_version_string(const char *version)
 DR_API const char *
 dr_get_application_name(void)
 {
-#    ifdef UNIX
+#ifdef UNIX
     return get_application_short_name();
-#    else
+#else
     return get_application_short_unqualified_name();
-#    endif
+#endif
 }
 
 void
@@ -2848,23 +2844,23 @@ dr_get_process_id_from_drcontext(void *drcontext)
                   "dr_get_process_id_from_drcontext: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_get_process_id_from_drcontext: drcontext is invalid");
-#    ifdef UNIX
+#ifdef UNIX
     return dcontext->owning_process;
-#    else
+#else
     return dr_get_process_id();
-#    endif
+#endif
 }
 
-#    ifdef UNIX
+#ifdef UNIX
 DR_API
 process_id_t
 dr_get_parent_id(void)
 {
     return get_parent_id();
 }
-#    endif
+#endif
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 DR_API
 process_id_t
 dr_convert_handle_to_pid(HANDLE process_handle)
@@ -2946,7 +2942,7 @@ dr_get_app_PEB(void)
 {
     return get_own_peb();
 }
-#    endif
+#endif
 
 DR_API
 /* Retrieves the current time */
@@ -3074,7 +3070,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
     }
     addr = (void *)ALIGN_BACKWARD(addr, PAGE_SIZE);
     size = ALIGN_FORWARD(size, PAGE_SIZE);
-#    ifdef WINDOWS
+#ifdef WINDOWS
     if (TEST(DR_ALLOC_LOW_2GB, flags)) {
         CLIENT_ASSERT(!TEST(DR_ALLOC_COMMIT_ONLY, flags),
                       "cannot combine commit-only and low-2GB");
@@ -3087,18 +3083,18 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
             }
         }
     } else
-#    endif
+#endif
     {
         /* We specify that DR_ALLOC_LOW_2GB only applies to x64, so it's
          * ok that the Linux kernel will ignore MAP_32BIT for 32-bit.
          */
-#    ifdef UNIX
+#ifdef UNIX
         uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
-#    else
+#else
         uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags)
             ? RAW_ALLOC_RESERVE_ONLY
             : (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
-#    endif
+#endif
         if (IF_WINDOWS(TEST(DR_ALLOC_COMMIT_ONLY, flags) &&) addr != NULL &&
             !app_memory_pre_alloc(get_thread_private_dcontext(), addr, size, prot, false,
                                   true /*update*/, false /*!image*/)) {
@@ -3131,13 +3127,13 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     bool res;
     heap_error_code_t error_code;
     byte *p = addr;
-#    ifdef UNIX
+#ifdef UNIX
     uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
-#    else
+#else
     uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags)
         ? RAW_ALLOC_RESERVE_ONLY
         : (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
-#    endif
+#endif
     size = ALIGN_FORWARD(size, PAGE_SIZE);
     if (TEST(DR_ALLOC_NON_DR, flags)) {
         /* use lock to avoid racy update on parallel memory allocation,
@@ -3189,14 +3185,14 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                   "dr_custom_alloc: cannot combine non-DR and cache-reachable");
     CLIENT_ASSERT(!alloc || TEST(DR_ALLOC_FIXED_LOCATION, flags) || addr == NULL,
                   "dr_custom_alloc: address only honored for fixed location");
-#    ifdef WINDOWS
+#ifdef WINDOWS
     CLIENT_ASSERT(!TESTANY(DR_ALLOC_RESERVE_ONLY | DR_ALLOC_COMMIT_ONLY, flags) ||
                       TESTALL(DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR, flags),
                   "dr_custom_alloc: reserve/commit-only are only for non-DR non-heap");
     CLIENT_ASSERT(!TEST(DR_ALLOC_RESERVE_ONLY, flags) ||
                       !TEST(DR_ALLOC_COMMIT_ONLY, flags),
                   "dr_custom_alloc: cannot combine reserve-only + commit-only");
-#    endif
+#endif
     CLIENT_ASSERT(!TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
                       !DYNAMO_OPTION(satisfy_w_xor_x),
                   "dr_custom_alloc: DR_ALLOC_CACHE_REACHABLE memory is not "
@@ -3208,15 +3204,15 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                       "dr_custom_alloc: non-heap cannot be thread-private");
         CLIENT_ASSERT(!TESTALL(DR_ALLOC_CACHE_REACHABLE | DR_ALLOC_LOW_2GB, flags),
                       "dr_custom_alloc: cannot combine low-2GB and cache-reachable");
-#    ifdef WINDOWS
+#ifdef WINDOWS
         CLIENT_ASSERT(addr != NULL || !TEST(DR_ALLOC_COMMIT_ONLY, flags),
                       "dr_custom_alloc: commit-only requires non-NULL addr");
-#    endif
+#endif
         if (TEST(DR_ALLOC_LOW_2GB, flags)) {
-#    ifdef WINDOWS
+#ifdef WINDOWS
             CLIENT_ASSERT(!TEST(DR_ALLOC_COMMIT_ONLY, flags),
                           "dr_custom_alloc: cannot combine commit-only and low-2GB");
-#    endif
+#endif
             CLIENT_ASSERT(!alloc || addr == NULL,
                           "dr_custom_alloc: cannot pass an addr with low-2GB");
             /* Even if not non-DR, easier to allocate via raw */
@@ -3421,7 +3417,7 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
 {
     uint real_prot;
     bool res;
-#    if defined(UNIX) && defined(HAVE_MEMINFO)
+#if defined(UNIX) && defined(HAVE_MEMINFO)
     /* xref PR 246897 - the cached all memory list can have problems when
      * out-of-process entities change the mapings. For now we use the from
      * os version instead (even though it's slower, and only if we have
@@ -3430,9 +3426,9 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
      * option.
      */
     res = get_memory_info_from_os(pc, base_pc, size, &real_prot);
-#    else
+#else
     res = get_memory_info(pc, base_pc, size, &real_prot);
-#    endif
+#endif
     if (prot != NULL) {
         if (is_pretend_or_executable_writable((app_pc)pc)) {
             /* We can't assert there's no DR_MEMPROT_WRITE b/c we mark selfmod
@@ -3450,12 +3446,12 @@ bool
 dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 {
     bool res;
-#    if defined(UNIX) && defined(HAVE_MEMINFO)
+#if defined(UNIX) && defined(HAVE_MEMINFO)
     /* PR 246897: all_memory_areas not ready for prime time */
     res = query_memory_ex_from_os(pc, info);
-#    else
+#else
     res = query_memory_ex(pc, info);
-#    endif
+#endif
     if (is_pretend_or_executable_writable((app_pc)pc)) {
         /* We can't assert there's no DR_MEMPROT_WRITE b/c we mark selfmod
          * as executable-but-writable and we'll come here.
@@ -3636,7 +3632,7 @@ dr_unload_aux_library(dr_auxlib_handle_t lib)
     }
 }
 
-#    if defined(WINDOWS) && !defined(X64)
+#if defined(WINDOWS) && !defined(X64)
 /* XXX i#1633: these routines all have 64-bit handle and routine types for
  * handling win8's high ntdll64 in the future.  For now the implementation
  * treats them as 32-bit types and we do not support win8+.
@@ -3686,7 +3682,7 @@ dr_unload_aux_x64_library(dr_auxlib64_handle_t lib)
     d_r_mutex_unlock(&client_aux_lib64_lock);
     return res;
 }
-#    endif
+#endif
 
 /***************************************************************************
  * LOCKS
@@ -3999,14 +3995,14 @@ dr_atomic_add32_return_sum(volatile int *dest, int val)
     return atomic_add_exchange_int(dest, val);
 }
 
-#    ifdef X64
+#ifdef X64
 DR_API
 int64
 dr_atomic_add64_return_sum(volatile int64 *dest, int64 val)
 {
     return atomic_add_exchange_int64(dest, val);
 }
-#    endif
+#endif
 
 DR_API
 int
@@ -4022,7 +4018,7 @@ dr_atomic_store32(volatile int *dest, int val)
     ATOMIC_4BYTE_ALIGNED_WRITE(dest, val, false);
 }
 
-#    ifdef X64
+#ifdef X64
 DR_API
 int64
 dr_atomic_load64(volatile int64 *src)
@@ -4036,7 +4032,7 @@ dr_atomic_store64(volatile int64 *dest, int64 val)
 {
     ATOMIC_8BYTE_ALIGNED_WRITE(dest, val, false);
 }
-#    endif
+#endif
 
 /***************************************************************************
  * MODULES
@@ -4193,7 +4189,7 @@ dr_module_preferred_name(const module_data_t *data)
     return GET_MODULE_NAME(&data->names);
 }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 
 DR_API
 /* If pc is within a section of module lib returns true and (optionally) a copy of
@@ -4205,7 +4201,7 @@ dr_lookup_module_section(module_handle_t lib, byte *pc, IMAGE_SECTION_HEADER *se
     CLIENT_ASSERT((lib != NULL), "dr_lookup_module_section: null module_handle_t");
     return module_pc_section_lookup((app_pc)lib, pc, section_out);
 }
-#    endif
+#endif
 
 /* i#805: Instead of exposing multiple instruction levels, we expose a way for
  * clients to turn off instrumentation.  Then DR can avoid a full decode and we
@@ -4268,11 +4264,11 @@ DR_API
 generic_func_t
 dr_get_proc_address(module_handle_t lib, const char *name)
 {
-#    ifdef WINDOWS
+#ifdef WINDOWS
     return get_proc_address_resolve_forward(lib, name);
-#    else
+#else
     return d_r_get_proc_address(lib, name);
-#    endif
+#endif
 }
 
 DR_API
@@ -4283,12 +4279,12 @@ dr_get_proc_address_ex(module_handle_t lib, const char *name, dr_export_info_t *
     /* If we add new fields we'll check various values of info_len */
     if (info == NULL || info_len < sizeof(*info))
         return false;
-#    ifdef WINDOWS
+#ifdef WINDOWS
     info->address = get_proc_address_resolve_forward(lib, name);
     info->is_indirect_code = false;
-#    else
+#else
     info->address = get_proc_address_ex(lib, name, &info->is_indirect_code);
-#    endif
+#endif
     return (info->address != NULL);
 }
 
@@ -4296,17 +4292,17 @@ byte *
 dr_map_executable_file(const char *filename, dr_map_executable_flags_t flags,
                        size_t *size OUT)
 {
-#    ifdef MACOS
+#ifdef MACOS
     /* XXX i#1285: implement private loader on Mac */
     return NULL;
-#    else
+#else
     modload_flags_t mflags = MODLOAD_NOT_PRIVLIB;
     if (TEST(DR_MAPEXE_SKIP_WRITABLE, flags))
         mflags |= MODLOAD_SKIP_WRITABLE;
     if (filename == NULL)
         return NULL;
     return privload_map_and_relocate(filename, size, mflags);
-#    endif
+#endif
 }
 
 bool
@@ -4441,11 +4437,11 @@ DR_API
 ssize_t
 dr_write_file(file_t f, const void *buf, size_t count)
 {
-#    ifdef WINDOWS
+#ifdef WINDOWS
     if ((f == STDOUT || f == STDERR) && print_to_console)
         return dr_write_to_console_varg(f == STDOUT, "%.*s", count, buf);
     else
-#    endif
+#endif
         return os_write(f, buf, count);
 }
 
@@ -4482,10 +4478,10 @@ DR_API
 file_t
 dr_dup_file_handle(file_t f)
 {
-#    ifdef UNIX
+#ifdef UNIX
     /* returns -1 on failure == INVALID_FILE */
     return dup_syscall(f);
-#    else
+#else
     HANDLE ht = INVALID_HANDLE_VALUE;
     NTSTATUS res =
         duplicate_handle(NT_CURRENT_PROCESS, f, NT_CURRENT_PROCESS, &ht, SYNCHRONIZE, 0,
@@ -4494,7 +4490,7 @@ dr_dup_file_handle(file_t f)
         return INVALID_FILE;
     else
         return ht;
-#    endif
+#endif
 }
 
 DR_API
@@ -4527,7 +4523,7 @@ dr_unmap_file(void *map, size_t size)
         CLIENT_ASSERT(false, "dr_unmap_file: incorrect file map");
         return false;
     }
-#    ifdef WINDOWS
+#ifdef WINDOWS
     /* On Windows, the whole file will be unmapped instead, so we adjust
      * the bound to make sure vm_areas are updated correctly.
      */
@@ -4536,7 +4532,7 @@ dr_unmap_file(void *map, size_t size)
         size = get_allocation_size(map, NULL);
     } else
         size = info.size;
-#    endif
+#endif
     return d_r_unmap_file((byte *)map, size);
 }
 
@@ -4544,7 +4540,7 @@ DR_API
 void
 dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...)
 {
-#    ifdef DEBUG
+#ifdef DEBUG
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     va_list ap;
     if (d_r_stats != NULL &&
@@ -4556,9 +4552,9 @@ dr_log(void *drcontext, uint mask, uint level, const char *fmt, ...)
     else
         do_file_write(main_logfile, fmt, ap);
     va_end(ap);
-#    else
+#else
     return; /* no logging if not debug */
-#    endif
+#endif
 }
 
 DR_API
@@ -4568,15 +4564,15 @@ DR_API
 file_t
 dr_get_logfile(void *drcontext)
 {
-#    ifdef DEBUG
+#ifdef DEBUG
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (dcontext != NULL)
         return dcontext->logfile;
     else
         return main_logfile;
-#    else
+#else
     return INVALID_FILE;
-#    endif
+#endif
 }
 
 DR_API
@@ -4589,7 +4585,7 @@ dr_is_notify_on(void)
     return (dynamo_options.stderr_mask != 0);
 }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 DR_API file_t
 dr_get_stdout_file(void)
 {
@@ -4607,9 +4603,9 @@ dr_get_stdin_file(void)
 {
     return get_stdin_handle();
 }
-#    endif
+#endif
 
-#    ifdef PROGRAM_SHEPHERDING
+#ifdef PROGRAM_SHEPHERDING
 
 DR_API void
 dr_write_forensics_report(void *dcontext, file_t file,
@@ -4654,9 +4650,9 @@ dr_write_forensics_report(void *dcontext, file_t file,
     append_diagnostics(file, action_message[sec_action], violation_name, sec_violation);
 }
 
-#    endif /* PROGRAM_SHEPHERDING */
+#endif /* PROGRAM_SHEPHERDING */
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 DR_API void
 dr_messagebox(const char *fmt, ...)
 {
@@ -4804,18 +4800,18 @@ dr_enable_console_printing(void)
     }
     return print_to_console;
 }
-#    endif /* WINDOWS */
+#endif /* WINDOWS */
 
 DR_API void
 dr_printf(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-#    ifdef WINDOWS
+#ifdef WINDOWS
     if (print_to_console)
         dr_write_to_console(true /*stdout*/, fmt, ap);
     else
-#    endif
+#endif
         do_file_write(STDOUT, fmt, ap);
     va_end(ap);
 }
@@ -4824,13 +4820,13 @@ DR_API ssize_t
 dr_vfprintf(file_t f, const char *fmt, va_list ap)
 {
     ssize_t written;
-#    ifdef WINDOWS
+#ifdef WINDOWS
     if ((f == STDOUT || f == STDERR) && print_to_console) {
         written = dr_write_to_console(f == STDOUT, fmt, ap);
         if (written <= 0)
             written = -1;
     } else
-#    endif
+#endif
         written = do_file_write(f, fmt, ap);
     return written;
 }
@@ -4958,7 +4954,7 @@ dr_get_thread_id(void *drcontext)
     return dcontext->owning_thread;
 }
 
-#    ifdef WINDOWS
+#ifdef WINDOWS
 /* Added for DrMem i#1254 */
 DR_API HANDLE
 dr_get_dr_thread_handle(void *drcontext)
@@ -4968,7 +4964,7 @@ dr_get_dr_thread_handle(void *drcontext)
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_get_thread_id: drcontext is invalid");
     return dcontext->thread_record->handle;
 }
-#    endif
+#endif
 
 DR_API void *
 dr_get_tls_field(void *drcontext)
@@ -4991,14 +4987,14 @@ dr_set_tls_field(void *drcontext, void *value)
 DR_API void *
 dr_get_dr_segment_base(IN reg_id_t seg)
 {
-#    ifdef AARCHXX
+#ifdef AARCHXX
     if (seg == dr_reg_stolen)
         return os_get_dr_tls_base(get_thread_private_dcontext());
     else
         return NULL;
-#    else
+#else
     return get_segment_base(seg);
-#    endif
+#endif
 }
 
 DR_API
@@ -5125,7 +5121,7 @@ dr_sleep(int time_ms)
         dcontext->client_data->at_safe_to_terminate_syscall = false;
 }
 
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
 DR_API
 bool
 dr_client_thread_set_suspendable(bool suspendable)
@@ -5138,7 +5134,7 @@ dr_client_thread_set_suspendable(bool suspendable)
     dcontext->client_data->suspendable = suspendable;
     return true;
 }
-#    endif
+#endif
 
 DR_API
 bool
@@ -5295,7 +5291,7 @@ dr_retakeover_suspended_native_thread(void *drcontext)
     return res;
 }
 
-#    ifdef UNIX
+#ifdef UNIX
 DR_API
 bool
 dr_set_itimer(int which, uint millisec,
@@ -5317,7 +5313,7 @@ dr_get_itimer(int which)
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     return get_itimer_frequency(dcontext, which);
 }
-#    endif /* UNIX */
+#endif /* UNIX */
 
 DR_API
 void
@@ -5358,7 +5354,6 @@ dr_where_am_i(void *drcontext, app_pc pc, OUT void **tag_out)
         *tag_out = tag;
     return whereami;
 }
-#endif /* CLIENT_INTERFACE */
 
 DR_API
 void
@@ -5585,7 +5580,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
                            TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags), num_args,
                            args) &&
         !TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
-#ifdef CLIENT_INTERFACE
         /* we can perform the inline optimization and return. */
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee " PFX "\n", callee);
@@ -5593,9 +5587,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         MINSERT(ilist, where, label);
         instrlist_set_auto_predicate(ilist, auto_pred);
         return;
-#else  /* CLIENT_INTERFACE */
-        ASSERT_NOT_REACHED();
-#endif /* CLIENT_INTERFACE */
     }
     /* honor requests from caller */
     if (TEST(DR_CLEANCALL_NOSAVE_FLAGS, save_flags)) {
@@ -5764,7 +5755,6 @@ dr_cleanup_after_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                           vmcode_get_start());
 }
 
-#ifdef CLIENT_INTERFACE
 DR_API void
 dr_swap_to_clean_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
@@ -5820,9 +5810,9 @@ dr_restore_app_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
     }
 }
 
-#    define SPILL_SLOT_TLS_MAX 2
-#    define NUM_TLS_SPILL_SLOTS (SPILL_SLOT_TLS_MAX + 1)
-#    define NUM_SPILL_SLOTS (SPILL_SLOT_MAX + 1)
+#define SPILL_SLOT_TLS_MAX 2
+#define NUM_TLS_SPILL_SLOTS (SPILL_SLOT_TLS_MAX + 1)
+#define NUM_SPILL_SLOTS (SPILL_SLOT_MAX + 1)
 /* The three tls slots we make available to clients.  We reserve TLS_REG0_SLOT for our
  * own use in dr convenience routines. Note the +1 is because the max is an array index
  * (so zero based) while array size is number of slots.  We don't need to +1 in
@@ -5831,17 +5821,17 @@ static const ushort SPILL_SLOT_TLS_OFFS[NUM_TLS_SPILL_SLOTS] = { TLS_REG3_SLOT,
                                                                  TLS_REG2_SLOT,
                                                                  TLS_REG1_SLOT };
 static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] = {
-#    ifdef X86
+#ifdef X86
 /* The dcontext reg slots we make available to clients.  We reserve XAX and XSP
  * for our own use in dr convenience routines. */
-#        ifdef X64
+#    ifdef X64
     REG_R15, REG_R14, REG_R13, REG_R12, REG_R11, REG_R10, REG_R9, REG_R8,
-#        endif
+#    endif
     REG_XDI, REG_XSI, REG_XBP, REG_XDX, REG_XCX, REG_XBX
-#    elif defined(AARCHXX)
+#elif defined(AARCHXX)
     /* DR_REG_R0 is not used here. See prepare_for_clean_call. */
     DR_REG_R6, DR_REG_R5, DR_REG_R4, DR_REG_R3, DR_REG_R2, DR_REG_R1
-#    endif /* X86/ARM */
+#endif /* X86/ARM */
 };
 
 DR_API void
@@ -5855,9 +5845,9 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
 
     CLIENT_ASSERT(reg_is_pointer_sized(reg), "dr_save_reg requires pointer-sized gpr");
 
-#    ifdef AARCH64
+#ifdef AARCH64
     CLIENT_ASSERT(reg != DR_REG_XSP, "dr_save_reg: store from XSP is not supported");
-#    endif
+#endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
@@ -5901,9 +5891,9 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "dr_restore_reg requires a pointer-sized gpr");
 
-#    ifdef AARCH64
+#ifdef AARCH64
     CLIENT_ASSERT(reg != DR_REG_XSP, "dr_restore_reg: load into XSP is not supported");
-#    endif
+#endif
 
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
@@ -6150,7 +6140,7 @@ dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
                   "dr_save_arith_flags_to_reg: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_save_arith_flags_to_reg: drcontext is invalid");
-#    ifdef X86
+#ifdef X86
     CLIENT_ASSERT(reg == DR_REG_XAX,
                   "only xax should be used for save arith flags in X86");
     /* flag saving code:
@@ -6159,17 +6149,17 @@ dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
      */
     MINSERT(ilist, where, INSTR_CREATE_lahf(dcontext));
     MINSERT(ilist, where, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
-#    elif defined(ARM)
+#elif defined(ARM)
     /* flag saving code: mrs reg, cpsr */
     MINSERT(
         ilist, where,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg), opnd_create_reg(DR_REG_CPSR)));
-#    elif defined(AARCH64)
+#elif defined(AARCH64)
     /* flag saving code: mrs reg, nzcv */
     MINSERT(
         ilist, where,
         INSTR_CREATE_mrs(dcontext, opnd_create_reg(reg), opnd_create_reg(DR_REG_NZCV)));
-#    endif /* X86/ARM/AARCH64 */
+#endif /* X86/ARM/AARCH64 */
 }
 
 DR_API void
@@ -6181,7 +6171,7 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
                   "dr_restore_arith_flags_from_reg: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_restore_arith_flags_from_reg: drcontext is invalid");
-#    ifdef X86
+#ifdef X86
     CLIENT_ASSERT(reg == DR_REG_XAX,
                   "only xax should be used for save arith flags in X86");
     /* flag restoring code:
@@ -6194,32 +6184,32 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
     MINSERT(ilist, where,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
     MINSERT(ilist, where, INSTR_CREATE_sahf(dcontext));
-#    elif defined(ARM)
+#elif defined(ARM)
     /* flag restoring code: mrs reg, apsr_nzcvqg */
     MINSERT(ilist, where,
             INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_CPSR),
                              OPND_CREATE_INT_MSR_NZCVQG(), opnd_create_reg(reg)));
-#    elif defined(AARCH64)
+#elif defined(AARCH64)
     /* flag restoring code: mrs reg, nzcv */
     MINSERT(
         ilist, where,
         INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_NZCV), opnd_create_reg(reg)));
-#    endif /* X86/ARM/AARCH64 */
+#endif /* X86/ARM/AARCH64 */
 }
 
 DR_API reg_t
 dr_merge_arith_flags(reg_t cur_xflags, reg_t saved_xflag)
 {
-#    ifdef AARCHXX
+#ifdef AARCHXX
     cur_xflags &= ~(EFLAGS_ARITH);
     cur_xflags |= saved_xflag;
-#    elif defined(X86)
+#elif defined(X86)
     uint sahf = (saved_xflag & 0xff00) >> 8;
     cur_xflags &= ~(EFLAGS_ARITH);
     cur_xflags |= sahf;
     if (TEST(1, saved_xflag)) /* seto */
         cur_xflags |= EFLAGS_OF;
-#    endif
+#endif
 
     return cur_xflags;
 }
@@ -6282,7 +6272,7 @@ DR_API void
 dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
                               void *callee, dr_spill_slot_t scratch_slot)
 {
-#    ifdef X86
+#ifdef X86
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     ptr_uint_t address = (ptr_uint_t)instr_get_translation(instr);
     opnd_t tls_opnd;
@@ -6356,15 +6346,15 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
                 sz = OPSZ_8;
             } else if (sz == OPSZ_6) {
                 sz = OPSZ_4;
-#        ifdef X64
+#    ifdef X64
                 reg_target = reg_64_to_32(reg_target);
-#        endif
+#    endif
             } else /* target has OPSZ_4 */ {
                 sz = OPSZ_2;
             }
             opnd_set_size(&src, sz);
         }
-#        ifdef UNIX
+#    ifdef UNIX
         /* xref i#1834 the problem with fs and gs segment is a general problem
          * on linux, this fix is specific for mbr_instrumentation, but a general
          * solution is needed.
@@ -6372,7 +6362,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
         if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(src)) {
             src = mangle_seg_ref_opnd(dcontext, ilist, instr, src, reg_target);
         }
-#        endif
+#    endif
 
         newinst = instr_create_1dst_1src(dcontext, sz == OPSZ_2 ? OP_movzx : OP_mov_ld,
                                          opnd_create_reg(reg_target), src);
@@ -6391,12 +6381,12 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
                          OPND_CREATE_INTPTR(address),
                          /* indirect target (in tls, xchg-d from ecx) is 2nd param */
                          tls_opnd);
-#    elif defined(ARM)
+#elif defined(ARM)
     /* i#1551: NYI on ARM.
      * Also, we may want to split these out into arch/{x86,arm}/ files
      */
     ASSERT_NOT_IMPLEMENTED(false);
-#    endif /* X86/ARM */
+#endif /* X86/ARM */
 }
 
 /* NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
@@ -6410,7 +6400,7 @@ static void
 dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                    void *callee, bool has_fallthrough, opnd_t user_data)
 {
-#    ifdef X86
+#ifdef X86
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     ptr_uint_t address, target;
     int opc;
@@ -6616,10 +6606,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
                 INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX), opnd_taken));
     }
     /* now branch dir is in ebx and will be passed to clean call */
-#    elif defined(ARM)
+#elif defined(ARM)
     /* i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-#    endif /* X86/ARM */
+#endif /* X86/ARM */
 }
 
 DR_API void
@@ -6686,14 +6676,13 @@ dr_mcontext_xmm_fields_valid(void)
 DR_API bool
 dr_mcontext_zmm_fields_valid(void)
 {
-#    ifdef X86
+#ifdef X86
     return d_r_is_avx512_code_in_use();
-#    else
+#else
     return false;
-#    endif
+#endif
 }
 
-#endif /* CLIENT_INTERFACE */
 /* dr_get_mcontext() needed for translating clean call arg errors */
 
 /* Fills in whichever of dmc or mc is non-NULL */
@@ -6710,7 +6699,6 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
     } else
         CLIENT_ASSERT(dmc == NULL, "invalid internal params");
 
-#ifdef CLIENT_INTERFACE
     /* i#117/PR 395156: support getting mcontext from events where mcontext is
      * stable.  It would be nice to support it from init and 1st thread init,
      * but the mcontext is not available at those points.
@@ -6773,7 +6761,6 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
             return false;
         return true;
     }
-#endif
 
     /* dr_prepare_for_call() puts the machine context on the dstack
      * with pusha and pushf, but only fills in xmm values for
@@ -6821,7 +6808,6 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *dmc)
     return dr_get_mcontext_priv(dcontext, dmc, NULL);
 }
 
-#ifdef CLIENT_INTERFACE
 DR_API bool
 dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
@@ -6858,7 +6844,7 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      * will override any save_fpstate xmm values, as desired.
      */
     state = get_priv_mcontext_from_dstack(dcontext);
-#    ifdef AARCHXX
+#ifdef AARCHXX
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* Set the stolen register's app value in TLS, not on stack (we rely
          * on our stolen reg retaining its value on the stack)
@@ -6868,15 +6854,15 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
         /* save the reg val on the stack to be clobbered by the the copy below */
         reg_val = get_stolen_reg_val(state);
     }
-#    endif
+#endif
     if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
-#    ifdef AARCHXX
+#ifdef AARCHXX
     if (TEST(DR_MC_INTEGER, context->flags)) {
         /* restore the reg val on the stack clobbered by the copy above */
         set_stolen_reg_val(state, reg_val);
     }
-#    endif
+#endif
 
     if (TEST(DR_MC_CONTROL, context->flags)) {
         /* esp will be restored from a field in the dcontext */
@@ -6911,7 +6897,6 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
     dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     dcontext->whereami = DR_WHERE_FCACHE;
     set_last_exit(dcontext, (linkstub_t *)get_client_linkstub());
-#    ifdef CLIENT_INTERFACE
     if (kernel_xfer_callbacks.num > 0) {
         /* This can only be called from a clean call or an exception event.
          * For both of those we can get the current mcontext via dr_get_mcontext()
@@ -6926,7 +6911,6 @@ dr_redirect_execution(dr_mcontext_t *mcontext)
                                    dr_mcontext_as_priv_mcontext(mcontext), 0))
             dcontext->next_tag = canonicalize_pc_target(dcontext, mcontext->pc);
     }
-#    endif
     transfer_to_dispatch(dcontext, dr_mcontext_as_priv_mcontext(mcontext),
                          true /*full_DR_state*/);
     /* on success we won't get here */
@@ -6937,18 +6921,18 @@ DR_API
 byte *
 dr_redirect_native_target(void *drcontext)
 {
-#    ifdef PROGRAM_SHEPHERDING
+#ifdef PROGRAM_SHEPHERDING
     /* This feature is unavail for prog shep b/c of the cross-ib-type pollution,
      * as well as the lack of source tag info when exiting the ibl (i#1150).
      */
     return NULL;
-#    else
+#else
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_redirect_native_target(): drcontext cannot be NULL");
     /* The client has no way to know the mode of our gencode so we set LSB here */
     return PC_AS_JMP_TGT(DEFAULT_ISA_MODE, get_client_ibl_xfer_entry(dcontext));
-#    endif
+#endif
 }
 
 /***************************************************************************
@@ -6993,13 +6977,13 @@ dr_delete_fragment(void *drcontext, void *tag)
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
-#    else
+#else
     CLIENT_ASSERT(drcontext == get_thread_private_dcontext(),
                   "dr_delete_fragment(): drcontext does not belong to current thread");
-#    endif
+#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
         /* We avoid "local unprotected" as it is global, complicating thread exit. */
@@ -7026,10 +7010,10 @@ dr_delete_fragment(void *drcontext, void *tag)
             unlink_fragment_incoming(dcontext, f);
         fragment_remove_from_ibt_tables(dcontext, f, false);
     }
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
     d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
-#    endif
+#endif
     if (!waslinking)
         enter_nolinking(dcontext, NULL, false);
     return deletable;
@@ -7068,13 +7052,13 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
-#    else
+#else
     CLIENT_ASSERT(drcontext == get_thread_private_dcontext(),
                   "dr_replace_fragment(): drcontext does not belong to current thread");
-#    endif
+#endif
     f = fragment_lookup(dcontext, tag);
     frag_found = (f != NULL);
     if (frag_found) {
@@ -7099,16 +7083,16 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
             unlink_fragment_incoming(dcontext, f);
         fragment_remove_from_ibt_tables(dcontext, f, false);
     }
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
     d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
-#    endif
+#endif
     if (!waslinking)
         enter_nolinking(dcontext, NULL, false);
     return frag_found;
 }
 
-#    ifdef UNSUPPORTED_API
+#ifdef UNSUPPORTED_API
 /* FIXME - doesn't work with shared fragments.  Consider removing since dr_flush_region
  * and dr_delay_flush_region give us most of this functionality. */
 DR_API
@@ -7159,7 +7143,7 @@ dr_flush_fragments(void *drcontext, void *curr_tag, void *flush_tag)
         iter->next = flush;
     }
 }
-#    endif /* UNSUPPORTED_API */
+#endif /* UNSUPPORTED_API */
 
 DR_API
 /* Flush all fragments that contain code from the region [start, start+size).
@@ -7332,13 +7316,13 @@ dr_fragment_exists_at(void *drcontext, void *tag)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     f = fragment_lookup(dcontext, tag);
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     return f != NULL;
 }
 
@@ -7368,20 +7352,20 @@ dr_fragment_size(void *drcontext, void *tag)
     int size = 0;
     CLIENT_ASSERT(drcontext != NULL, "dr_fragment_size: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_fragment_size: drcontext is invalid");
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     /* used to check to see if owning thread, if so don't need lock */
     /* but the check for owning thread more expensive then just getting lock */
     /* to check if owner d_r_get_thread_id() == dcontext->owning_thread */
     fragment_get_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     f = fragment_lookup(dcontext, tag);
     if (f == NULL)
         size = 0;
     else
         size = f->size;
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     return size;
 }
 
@@ -7390,7 +7374,7 @@ DR_API
 app_pc
 dr_fragment_app_pc(void *tag)
 {
-#    ifdef WINDOWS
+#ifdef WINDOWS
     tag = get_app_pc_from_intercept_pc_if_necessary((app_pc)tag);
     CLIENT_ASSERT(tag != NULL, "dr_fragment_app_pc shouldn't be NULL");
 
@@ -7405,11 +7389,11 @@ dr_fragment_app_pc(void *tag)
             SYSLOG_INTERNAL_WARNING_ONCE("dr_fragment_app_pc is a DR/client pc");
         }
     });
-#    elif defined(LINUX) && defined(X86_32)
+#elif defined(LINUX) && defined(X86_32)
     /* Point back at our hook, undoing the bb shift for SA_RESTART (i#2659). */
     if ((app_pc)tag == vsyscall_sysenter_displaced_pc)
         tag = vsyscall_sysenter_return_pc;
-#    endif
+#endif
     return tag;
 }
 
@@ -7418,11 +7402,11 @@ DR_API
 app_pc
 dr_app_pc_for_decoding(app_pc pc)
 {
-#    ifdef WINDOWS
+#ifdef WINDOWS
     app_pc displaced;
     if (is_intercepted_app_pc(pc, &displaced))
         return displaced;
-#    endif
+#endif
     return pc;
 }
 
@@ -7537,12 +7521,12 @@ dr_mark_trace_head(void *drcontext, void *tag)
      * require it.
      */
     SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, acquire, change_linking_lock);
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     /* used to check to see if owning thread, if so don't need lock */
     /* but the check for owning thread more expensive then just getting lock */
     /* to check if owner d_r_get_thread_id() == dcontext->owning_thread */
     fragment_get_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     f = fragment_lookup_fine_and_coarse(dcontext, tag, &coarse_f, NULL);
     if (f == NULL) {
         future_fragment_t *fut;
@@ -7554,50 +7538,50 @@ dr_mark_trace_head(void *drcontext, void *tag)
             /* don't call mark_trace_head, it will try to do some linking */
             fut->flags |= FRAG_IS_TRACE_HEAD;
         }
-#    ifndef CLIENT_SIDELINE
+#ifndef CLIENT_SIDELINE
         LOG(THREAD, LOG_MONITOR, 2,
             "Client mark trace head : will mark fragment as trace head when built "
             ": address " PFX "\n",
             tag);
-#    endif
+#endif
     } else {
         /* check precluding conditions */
         if (TEST(FRAG_IS_TRACE, f->flags)) {
-#    ifndef CLIENT_SIDELINE
+#ifndef CLIENT_SIDELINE
             LOG(THREAD, LOG_MONITOR, 2,
                 "Client mark trace head : not marking as trace head, is already "
                 "a trace : address " PFX "\n",
                 tag);
-#    endif
+#endif
             success = false;
         } else if (TEST(FRAG_CANNOT_BE_TRACE, f->flags)) {
-#    ifndef CLIENT_SIDELINE
+#ifndef CLIENT_SIDELINE
             LOG(THREAD, LOG_MONITOR, 2,
                 "Client mark trace head : not marking as trace head, particular "
                 "fragment cannot be trace head : address " PFX "\n",
                 tag);
-#    endif
+#endif
             success = false;
         } else if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
-#    ifndef CLIENT_SIDELINE
+#ifndef CLIENT_SIDELINE
             LOG(THREAD, LOG_MONITOR, 2,
                 "Client mark trace head : fragment already marked as trace head : "
                 "address " PFX "\n",
                 tag);
-#    endif
+#endif
             success = true;
         } else {
             mark_trace_head(dcontext, f, NULL, NULL);
-#    ifndef CLIENT_SIDELINE
+#ifndef CLIENT_SIDELINE
             LOG(THREAD, LOG_MONITOR, 3,
                 "Client mark trace head : just marked as trace head : address " PFX "\n",
                 tag);
-#    endif
+#endif
         }
     }
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, release, change_linking_lock);
     return success;
 }
@@ -7612,9 +7596,9 @@ dr_trace_head_at(void *drcontext, void *tag)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
     bool trace_head;
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL)
         trace_head = (f->flags & FRAG_IS_TRACE_HEAD) != 0;
@@ -7625,9 +7609,9 @@ dr_trace_head_at(void *drcontext, void *tag)
         else
             trace_head = false;
     }
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     return trace_head;
 }
 
@@ -7640,17 +7624,17 @@ dr_trace_exists_at(void *drcontext, void *tag)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
     bool trace;
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL)
         trace = (f->flags & FRAG_IS_TRACE) != 0;
     else
         trace = false;
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#    endif
+#endif
     return trace;
 }
 
@@ -7665,11 +7649,11 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
 {
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "dr_insert_get_seg_base: reg has wrong size\n");
-#    ifdef X86
+#ifdef X86
     CLIENT_ASSERT(reg_is_segment(seg),
                   "dr_insert_get_seg_base: seg is not a segment register");
-#        ifdef UNIX
-#            ifndef MACOS64
+#    ifdef UNIX
+#        ifndef MACOS64
     CLIENT_ASSERT(INTERNAL_OPTION(mangle_app_seg),
                   "dr_insert_get_seg_base is supported with -mangle_app_seg only");
     /* FIXME: we should remove the constraint below by always mangling SEG_TLS,
@@ -7683,7 +7667,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
     if (!INTERNAL_OPTION(mangle_app_seg) ||
         !(INTERNAL_OPTION(private_loader) || seg != SEG_TLS))
         return false;
-#            endif
+#        endif
     if (seg == SEG_FS || seg == SEG_GS) {
         instrlist_meta_preinsert(ilist, instr,
                                  instr_create_restore_from_tls(
@@ -7693,7 +7677,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
             ilist, instr,
             INSTR_CREATE_mov_imm(drcontext, opnd_create_reg(reg), OPND_CREATE_INTPTR(0)));
     }
-#        else  /* Windows */
+#    else  /* Windows */
     if (seg == SEG_TLS) {
         instrlist_meta_preinsert(
             ilist, instr,
@@ -7707,11 +7691,11 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr, reg_
             INSTR_CREATE_mov_imm(drcontext, opnd_create_reg(reg), OPND_CREATE_INTPTR(0)));
     } else
         return false;
-#        endif /* UNIX/Windows */
-#    elif defined(ARM)
+#    endif /* UNIX/Windows */
+#elif defined(ARM)
     /* i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(false);
-#    endif /* X86/ARM */
+#endif /* X86/ARM */
     return true;
 }
 
@@ -7732,10 +7716,10 @@ dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_get_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_get_stolen_reg: reg is used by DynamoRIO\n");
-#    ifdef AARCHXX
+#ifdef AARCHXX
     instrlist_meta_preinsert(
         ilist, instr, instr_create_restore_from_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
-#    endif
+#endif
     return true;
 }
 
@@ -7749,10 +7733,10 @@ dr_insert_set_stolen_reg_value(void *drcontext, instrlist_t *ilist, instr_t *ins
                   "dr_insert_set_stolen_reg: reg has wrong size\n");
     CLIENT_ASSERT(!reg_is_stolen(reg),
                   "dr_insert_set_stolen_reg: reg is used by DynamoRIO\n");
-#    ifdef AARCHXX
+#ifdef AARCHXX
     instrlist_meta_preinsert(
         ilist, instr, instr_create_save_to_tls(drcontext, reg, TLS_REG_STOLEN_SLOT));
-#    endif
+#endif
     return true;
 }
 
@@ -7760,9 +7744,9 @@ DR_API
 int
 dr_remove_it_instrs(void *drcontext, instrlist_t *ilist)
 {
-#    if !defined(ARM)
+#if !defined(ARM)
     return 0;
-#    else
+#else
     int res = 0;
     instr_t *inst, *next;
     for (inst = instrlist_first(ilist); inst != NULL; inst = next) {
@@ -7774,22 +7758,22 @@ dr_remove_it_instrs(void *drcontext, instrlist_t *ilist)
         }
     }
     return res;
-#    endif
+#endif
 }
 
 DR_API
 int
 dr_insert_it_instrs(void *drcontext, instrlist_t *ilist)
 {
-#    if !defined(ARM)
+#if !defined(ARM)
     return 0;
-#    else
+#else
     instr_t *first = instrlist_first(ilist);
     if (first == NULL || instr_get_isa_mode(first) != DR_ISA_ARM_THUMB)
         return 0;
     return reinstate_it_blocks((dcontext_t *)drcontext, ilist, instrlist_first(ilist),
                                NULL);
-#    endif
+#endif
 }
 
 DR_API
@@ -7811,38 +7795,36 @@ dr_prepopulate_cache(app_pc *tags, size_t tags_count)
         return false;
     SHARED_BB_LOCK();
     SYSLOG_INTERNAL_INFO("pre-building code cache from %d tags", tags_count);
-#    ifdef UNIX
+#ifdef UNIX
     os_swap_context(dcontext, false /*to dr*/, DR_STATE_GO_NATIVE);
-#    endif
+#endif
     for (i = 0; i < tags_count; i++) {
         /* There could be duplicates if sthg was deleted and re-added during profiling */
         fragment_t coarse_f;
         fragment_t *f;
-#    ifdef UNIX
+#ifdef UNIX
         /* We silently skip DR-segment-reading addresses to help out a caller
          * who sampled and couldn't avoid self-sampling for decoding.
          */
         if (is_DR_segment_reader_entry(tags[i]))
             continue;
-#    endif
+#endif
         f = fragment_lookup_fine_and_coarse(dcontext, tags[i], &coarse_f, NULL);
         if (f == NULL) {
             /* For coarse-grain we won't link as that's done during execution,
              * but for fine-grained this should produce a fully warmed cache.
              */
             f = build_basic_block_fragment(dcontext, tags[i], 0, true /*link*/,
-                                           true /*visible*/
-                                           _IF_CLIENT(false /*!for_trace*/)
-                                               _IF_CLIENT(NULL));
+                                           true /*visible*/, false /*!for_trace*/, NULL);
         }
         ASSERT(f != NULL);
         /* We're ok making a thread-private fragment: might be a waste if this
          * thread never runs it, but simpler than trying to skip them or sthg.
          */
     }
-#    ifdef UNIX
+#ifdef UNIX
     os_swap_context(dcontext, true /*to app*/, DR_STATE_GO_NATIVE);
-#    endif
+#endif
     SHARED_BB_UNLOCK();
     return true;
 }
@@ -7872,15 +7854,15 @@ dr_prepopulate_indirect_targets(dr_indirect_branch_type_t branch_type, app_pc *t
     }
     SYSLOG_INTERNAL_INFO("pre-populating ibt[%d] table for %d tags", ibl_type,
                          tags_count);
-#    ifdef UNIX
+#ifdef UNIX
     os_swap_context(dcontext, false /*to dr*/, DR_STATE_GO_NATIVE);
-#    endif
+#endif
     for (i = 0; i < tags_count; i++) {
         fragment_add_ibl_target(dcontext, tags[i], ibl_type);
     }
-#    ifdef UNIX
+#ifdef UNIX
     os_swap_context(dcontext, true /*to app*/, DR_STATE_GO_NATIVE);
-#    endif
+#endif
     return true;
 }
 
@@ -8264,5 +8246,3 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
 {
     return remove_callback(&persist_patch_callbacks, (void (*)(void))func_patch, true);
 }
-
-#endif /* CLIENT_INTERFACE */

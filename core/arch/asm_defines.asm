@@ -818,8 +818,6 @@ ASSUME fs:_DATA @N@\
 # define DEC(reg) sub reg, reg, POUND 1
 #endif /* X86/ARM */
 
-#ifdef CLIENT_INTERFACE
 # define TRY_CXT_SETJMP_OFFS 0 /* offsetof(try_except_context_t, context) */
-#endif /* CLIENT_INTERFACE */
 
 #endif /* _ASM_DEFINES_ASM_ */

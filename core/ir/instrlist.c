@@ -43,7 +43,7 @@
 #include "decode.h"
 #include "arch.h"
 
-#if defined(DEBUG) && defined(CLIENT_INTERFACE)
+#ifdef DEBUG
 /* case 10450: give messages to clients */
 #    undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
 #    undef ASSERT_TRUNCATE
@@ -74,11 +74,9 @@ instrlist_init(instrlist_t *ilist)
     ilist->first = ilist->last = NULL;
     ilist->flags = 0; /* no flags set */
     ilist->translation_target = NULL;
-#ifdef CLIENT_INTERFACE
     ilist->fall_through_bb = NULL;
-#    ifdef ARM
+#ifdef ARM
     ilist->auto_pred = DR_PRED_NONE;
-#    endif
 #endif
 }
 
@@ -116,7 +114,6 @@ instrlist_clear_and_destroy(dcontext_t *dcontext, instrlist_t *ilist)
     instrlist_destroy(dcontext, ilist);
 }
 
-#ifdef CLIENT_INTERFACE
 /* Specifies the fall-through target of a basic block if its last
  * instruction is a conditional branch instruction.
  * It can only be called in basic block building event callbacks
@@ -152,7 +149,6 @@ instrlist_get_return_target(instrlist_t *bb)
 {
     return bb->fall_through_bb;
 }
-#endif /* CLIENT_INTERFACE */
 
 /* All future Instrs inserted into ilist that do not have raw bits
  * will have instr_set_translation called with pc as the target
@@ -181,7 +177,7 @@ instrlist_set_our_mangling(instrlist_t *ilist, bool ours)
 void
 instrlist_set_auto_predicate(instrlist_t *ilist, dr_pred_type_t pred)
 {
-#if defined(CLIENT_INTERFACE) && defined(ARM)
+#ifdef ARM
     ilist->auto_pred = pred;
 #endif
 }
@@ -189,7 +185,7 @@ instrlist_set_auto_predicate(instrlist_t *ilist, dr_pred_type_t pred)
 dr_pred_type_t
 instrlist_get_auto_predicate(instrlist_t *ilist)
 {
-#if defined(CLIENT_INTERFACE) && defined(ARM)
+#ifdef ARM
     return ilist->auto_pred;
 #else
     return DR_PRED_NONE;
@@ -269,7 +265,7 @@ check_translation(instrlist_t *ilist, instr_t *inst)
     }
     if (instrlist_get_our_mangling(ilist))
         instr_set_our_mangling(inst, true);
-#if defined(CLIENT_INTERFACE) && defined(ARM)
+#ifdef ARM
     if (instr_is_meta(inst)) {
         dr_pred_type_t auto_pred = ilist->auto_pred;
         if (instr_predicate_is_cond(auto_pred)) {
@@ -488,9 +484,7 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
         /* restore note field */
         instr_set_note(inst, instr_get_note(copy));
     }
-#ifdef CLIENT_INTERFACE
     newlist->fall_through_bb = old->fall_through_bb;
-#endif
     return newlist;
 }
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -60,7 +60,6 @@ typedef uint32_t Elf_Symndx;
 #    define STN_UNDEF 0
 #endif
 
-#ifdef CLIENT_INTERFACE
 typedef struct _elf_symbol_iterator_t {
     dr_symbol_import_t symbol_import; /* symbol import returned by next() */
     dr_symbol_export_t symbol_export; /* symbol export returned by next() */
@@ -88,7 +87,6 @@ typedef struct _elf_symbol_iterator_t {
     Elf_Symndx hidx;
     Elf_Symndx chain_idx;
 } elf_symbol_iterator_t;
-#endif /* CLIENT_INTERFACE */
 
 /* In case want to build w/o gnu headers and use that to run recent gnu elf */
 #ifndef DT_GNU_HASH
@@ -1155,8 +1153,6 @@ module_undef_symbols()
     FATAL_USAGE_ERROR(UNDEFINED_SYMBOL_REFERENCE, 0, "");
 }
 
-#ifdef CLIENT_INTERFACE
-
 static ELF_SYM_TYPE *
 symbol_iterator_cur_symbol(elf_symbol_iterator_t *iter)
 {
@@ -1397,8 +1393,6 @@ dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
     symbol_iterator_stop((elf_symbol_iterator_t *)dr_iter);
 }
 
-#endif /* CLIENT_INTERFACE */
-
 #ifndef ANDROID
 
 #    if defined(AARCH64) && !defined(DR_HOST_NOT_TARGET)
@@ -1465,10 +1459,8 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
     sym = &((ELF_SYM_TYPE *)pd->os_data.dynsym)[r_sym];
     name = (char *)pd->os_data.dynstr + sym->st_name;
 
-#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_loader) && privload_redirect_sym(r_addr, name))
         return;
-#endif
 
     resolved = true;
     /* handle syms that do not need symbol lookup */

@@ -190,9 +190,7 @@ char **our_environ;
 #    include "memcache.h"
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef LINUX
 #    include "rseq_linux.h"
@@ -237,13 +235,11 @@ static tls_slot_t *tls_table;
 DECLARE_CXTSWPROT_VAR(mutex_t tls_lock, INIT_LOCK_FREE(tls_lock));
 #endif
 
-#ifdef CLIENT_INTERFACE
 /* Should we place this in a client header?  Currently mentioned in
  * dr_raw_tls_calloc() docs.
  */
 static bool client_tls_allocated[MAX_NUM_CLIENT_TLS];
 DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_lock));
-#endif
 
 #include <stddef.h> /* for offsetof */
 
@@ -427,7 +423,7 @@ __errno_location(void)
 }
 #endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 
-#if defined(HAVE_TLS) && defined(CLIENT_INTERFACE)
+#ifdef HAVE_TLS
 /* i#598
  * (gdb) x/20i (*(errno_loc_t)0xf721e413)
  * 0xf721e413 <__errno_location>:       push   %ebp
@@ -505,7 +501,6 @@ get_libc_errno_location(bool do_init)
                 ASSERT(libc_errno_loc != NULL);
                 LOG(GLOBAL, LOG_THREADS, 2, "libc errno loc func: " PFX "\n",
                     libc_errno_loc);
-#ifdef CLIENT_INTERFACE
                 /* Currently, the DR is loaded by system loader and hooked up
                  * to app's libc.  So right now, we still need this routine.
                  * we can remove this after libc independency and/or
@@ -517,13 +512,12 @@ get_libc_errno_location(bool do_init)
                         found = false;
                     release_recursive_lock(&privload_lock);
                 }
-#endif
                 if (found)
                     break;
             }
         }
         module_iterator_stop(mi);
-#if defined(HAVE_TLS) && defined(CLIENT_INTERFACE)
+#ifdef HAVE_TLS
         /* i#598: init the libc errno's offset.  If we didn't find libc above,
          * then we don't need to do this.
          */
@@ -1117,9 +1111,7 @@ int
 num_app_args()
 {
     if (!DYNAMO_OPTION(early_inject)) {
-#ifdef CLIENT_INTERFACE
         set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
-#endif
         return -1;
     }
 
@@ -1131,16 +1123,12 @@ int
 get_app_args(OUT dr_app_arg_t *args_array, int args_count)
 {
     if (args_array == NULL || args_count < 0) {
-#ifdef CLIENT_INTERFACE
         set_client_error_code(NULL, DR_ERROR_INVALID_PARAMETER);
-#endif
         return -1;
     }
 
     if (!DYNAMO_OPTION(early_inject)) {
-#ifdef CLIENT_INTERFACE
         set_client_error_code(NULL, DR_ERROR_NOT_IMPLEMENTED);
-#endif
         return -1;
     }
 
@@ -1343,9 +1331,7 @@ os_slow_exit(void)
     }
 
     DELETE_LOCK(set_thread_area_lock);
-#ifdef CLIENT_INTERFACE
     DELETE_LOCK(client_tls_lock);
-#endif
     IF_NO_MEMQUERY(memcache_exit());
 }
 
@@ -1936,8 +1922,8 @@ get_app_segment_base(uint seg)
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
 #endif /* X86 */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false) &&
-        first_thread_tls_initialized && !last_thread_tls_exited) {
+    if (INTERNAL_OPTION(private_loader) && first_thread_tls_initialized &&
+        !last_thread_tls_exited) {
         return d_r_get_tls(os_get_app_tls_base_offset(seg));
     }
     return get_segment_base(seg);
@@ -2080,7 +2066,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     os_tls->os_seg_info.priv_alt_tls_base = IF_X86_ELSE(segment, NULL);
 
     /* now allocate the tls segment for client libraries */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         os_tls->os_seg_info.priv_lib_tls_base = IF_UNIT_TEST_ELSE(
             os_tls->app_lib_tls_base, privload_tls_init(os_tls->app_lib_tls_base));
     }
@@ -2300,7 +2286,6 @@ os_tls_pre_init(int gdt_index)
 #endif /* X86/ARM */
 }
 
-#ifdef CLIENT_INTERFACE
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
 os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment)
@@ -2351,7 +2336,6 @@ os_tls_cfree(uint offset, uint num_slots)
     d_r_mutex_unlock(&client_tls_lock);
     return ok;
 }
-#endif
 
 /* os_data is a clone_record_t for signal_thread_inherit */
 void
@@ -2464,10 +2448,8 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
     }
 #endif
 
-#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_loader))
         privload_tls_exit(IF_UNIT_TEST_ELSE(NULL, ostd->priv_lib_tls_base));
-#endif
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
         if (MACHINE_TLS_IS_DR_TLS) {
@@ -2678,7 +2660,7 @@ os_clone_pre(dcontext_t *dcontext)
     /* We switch the lib tls segment back to app's segment.
      * Please refer to comment on os_switch_lib_tls.
      */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         os_switch_lib_tls(dcontext, true /*to app*/);
     }
     os_swap_dr_tls(dcontext, true /*to app*/);
@@ -2710,10 +2692,9 @@ os_should_swap_state(void)
 {
 #ifdef X86
     /* -private_loader currently implies -mangle_app_seg, but let's be safe. */
-    return (INTERNAL_OPTION(mangle_app_seg) &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false));
+    return (INTERNAL_OPTION(mangle_app_seg) && INTERNAL_OPTION(private_loader));
 #elif defined(AARCHXX)
-    return IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false);
+    return INTERNAL_OPTION(private_loader);
 #endif
 }
 
@@ -2888,7 +2869,7 @@ get_thread_private_dcontext(void)
      * thread's initialization (see comments below on that).
      */
     if (!is_thread_tls_initialized())
-        return (IF_CLIENT_INTERFACE(standalone_library ? GLOBAL_DCONTEXT :) NULL);
+        return standalone_library ? GLOBAL_DCONTEXT : NULL;
     /* We used to check tid and return NULL to distinguish parent from child, but
      * that was affecting performance (xref PR 207366: but I'm leaving the assert in
      * for now so debug build will still incur it).  So we fixed the cases that
@@ -3162,7 +3143,7 @@ emulate_app_brk(dcontext_t *dcontext, byte *new_val)
 }
 #endif /* LINUX */
 
-#if defined(CLIENT_INTERFACE) && defined(LINUX)
+#ifdef LINUX
 DR_API
 /* XXX: could add dr_raw_mem_realloc() instead of dr_raw_mremap() -- though there
  * is no realloc for Windows: supposed to reserve yourself and then commit in
@@ -3215,7 +3196,7 @@ dr_raw_brk(void *new_address)
         }
     }
 }
-#endif /* CLIENT_INTERFACE && LINUX */
+#endif /* LINUX */
 
 /* caller is required to handle thread synchronization and to update dynamo vm areas */
 void
@@ -3887,7 +3868,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     write_thread_register(tls);
 #        endif
     /* i#501 the app's tls was switched in os_clone_pre. */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+    if (INTERNAL_OPTION(private_loader))
         os_switch_lib_tls(dcontext, false /*to dr*/);
     if (newpid < 0) {
         LOG(THREAD, LOG_ALL, 1, "client thread creation failed: %d\n", newpid);
@@ -3943,67 +3924,64 @@ get_num_processors(void)
  * with -no_private_loader, so this should never happen.
  */
 
-#if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 shlib_handle_t
 load_shared_library(const char *name, bool reachable)
 {
-#    ifdef STATIC_LIBRARY
+#ifdef STATIC_LIBRARY
     if (os_files_same(name, get_application_name())) {
         /* The private loader falls back to dlsym() and friends for modules it
          * doesn't recognize, so this works without disabling the private loader.
          */
         return dlopen(NULL, RTLD_LAZY); /* Gets a handle to the exe. */
     }
-#    endif
+#endif
     /* We call locate_and_load_private_library() to support searching for
      * a pathless name.
      */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+    if (INTERNAL_OPTION(private_loader))
         return (shlib_handle_t)locate_and_load_private_library(name, reachable);
-#    if defined(STATIC_LIBRARY) || defined(MACOS)
+#if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlopen(name, RTLD_LAZY);
-#    else
+#else
     /* -no_private_loader is no longer supported in our default builds.
      * If we want it for hybrid mode we should add a new build param and include
      * the libdl calls here under that param.
      */
     ASSERT_NOT_REACHED();
     return NULL;
-#    endif
-}
 #endif
+}
 
-#if defined(CLIENT_INTERFACE)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name)
 {
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         return (shlib_routine_ptr_t)get_private_library_address((app_pc)lib, name);
     }
-#    if defined(STATIC_LIBRARY) || defined(MACOS)
+#if defined(STATIC_LIBRARY) || defined(MACOS)
     ASSERT(!DYNAMO_OPTION(early_inject));
     return dlsym(lib, name);
-#    else
+#else
     ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported: see above */
     return NULL;
-#    endif
+#endif
 }
 
 void
 unload_shared_library(shlib_handle_t lib)
 {
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         unload_private_library(lib);
     } else {
-#    if defined(STATIC_LIBRARY) || defined(MACOS)
+#if defined(STATIC_LIBRARY) || defined(MACOS)
         ASSERT(!DYNAMO_OPTION(early_inject));
         if (!DYNAMO_OPTION(avoid_dlclose)) {
             dlclose(lib);
         }
-#    else
+#else
         ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported: see above  */
-#    endif
+#endif
     }
 }
 
@@ -4011,19 +3989,19 @@ void
 shared_library_error(char *buf, int maxlen)
 {
     const char *err;
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         err = "error in private loader";
     } else {
-#    if defined(STATIC_LIBRARY) || defined(MACOS)
+#if defined(STATIC_LIBRARY) || defined(MACOS)
         ASSERT(!DYNAMO_OPTION(early_inject));
         err = dlerror();
         if (err == NULL) {
             err = "dlerror returned NULL";
         }
-#    else
+#else
         ASSERT_NOT_REACHED(); /* -no_private_loader is no longer supported */
         err = "unknown error";
-#    endif
+#endif
     }
     strncpy(buf, err, maxlen - 1);
     buf[maxlen - 1] = '\0'; /* strncpy won't put on trailing null if maxes out */
@@ -4042,7 +4020,7 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
      */
     ASSERT(addr != NULL || name != NULL);
     *start = addr;
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         privmod_t *mod;
         /* look for private library first */
         acquire_recursive_lock(&privload_lock);
@@ -4060,7 +4038,6 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
     }
     return (memquery_library_bounds(name, start, end, NULL, 0, NULL, 0) > 0);
 }
-#endif /* defined(CLIENT_INTERFACE) */
 
 static int
 fcntl_syscall(int fd, int cmd, long arg)
@@ -5196,7 +5173,6 @@ set_failure_return_val(dcontext_t *dcontext, uint errno_val)
 #endif
 }
 
-#ifdef CLIENT_INTERFACE
 DR_API
 reg_t
 dr_syscall_get_param(void *drcontext, int param_num)
@@ -5330,16 +5306,15 @@ dr_syscall_invoke_another(void *drcontext)
                   "event");
     LOG(THREAD, LOG_SYSCALLS, 2, "invoking additional syscall on client request\n");
     dcontext->client_data->invoke_another_syscall = true;
-#    ifdef X86
+#ifdef X86
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
         priv_mcontext_t *mc = get_mcontext(dcontext);
         /* restore xbp to xsp */
         mc->xbp = mc->xsp;
     }
-#    endif /* X86 */
+#endif /* X86 */
     /* for x64 we don't need to copy xcx into r10 b/c we use r10 as our param */
 }
-#endif /* CLIENT_INTERFACE */
 
 static inline bool
 is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
@@ -6096,8 +6071,7 @@ handle_close_pre(dcontext_t *dcontext)
             "WARNING: app is closing stdout=%d - duplicating descriptor for "
             "DynamoRIO usage got %d.\n",
             fd, our_stdout);
-        if (privmod_stdout != NULL &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (privmod_stdout != NULL && INTERNAL_OPTION(private_loader)) {
             /* update the privately loaded libc's stdout _fileno. */
             set_stdfile_fileno(privmod_stdout, our_stdout);
         }
@@ -6113,8 +6087,7 @@ handle_close_pre(dcontext_t *dcontext)
             "WARNING: app is closing stderr=%d - duplicating descriptor for "
             "DynamoRIO usage got %d.\n",
             fd, our_stderr);
-        if (privmod_stderr != NULL &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (privmod_stderr != NULL && INTERNAL_OPTION(private_loader)) {
             /* update the privately loaded libc's stderr _fileno. */
             set_stdfile_fileno(privmod_stderr, our_stderr);
         }
@@ -6130,8 +6103,7 @@ handle_close_pre(dcontext_t *dcontext)
             "WARNING: app is closing stdin=%d - duplicating descriptor for "
             "DynamoRIO usage got %d.\n",
             fd, our_stdin);
-        if (privmod_stdin != NULL &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (privmod_stdin != NULL && INTERNAL_OPTION(private_loader)) {
             /* update the privately loaded libc's stdout _fileno. */
             set_stdfile_fileno(privmod_stdin, our_stdin);
         }
@@ -6241,8 +6213,7 @@ handle_exit(dcontext_t *dcontext)
                                 sys_param(dcontext, 2), sys_param(dcontext, 3));
 }
 
-#if defined(LINUX) && defined(X86) /* XXX i#58: just until we have Mac support \
-                                    */
+#if defined(LINUX) && defined(X86) /* XXX i#58: until we have Mac support */
 static bool
 os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
 {
@@ -6295,7 +6266,7 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
         memcpy(&desc[i], user_desc, sizeof(*user_desc));
     }
     /* if not conflict with dr's tls, perform the syscall */
-    if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true) &&
+    if (!INTERNAL_OPTION(private_loader) &&
         GDT_SELECTOR(user_desc->entry_number) != read_thread_register(SEG_TLS) &&
         GDT_SELECTOR(user_desc->entry_number) != read_thread_register(LIB_SEG_TLS))
         return false;
@@ -8509,7 +8480,7 @@ post_system_call(dcontext_t *dcontext)
          * The child thread's tls setup is done in os_tls_app_seg_init.
          */
         if (was_thread_create_syscall(dcontext)) {
-            if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
+            if (INTERNAL_OPTION(private_loader))
                 os_switch_lib_tls(dcontext, false /*to dr*/);
             /* i#2089: we already restored the DR tls in os_clone_post() */
         }
@@ -8549,7 +8520,7 @@ post_system_call(dcontext_t *dcontext)
              * It is only called in parent thread.
              * The child thread's tls setup is done in os_tls_app_seg_init.
              */
-            if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+            if (INTERNAL_OPTION(private_loader)) {
                 os_switch_lib_tls(dcontext, false /*to dr*/);
             }
             /* i#2089: we already restored the DR tls in os_clone_post() */
@@ -8833,7 +8804,6 @@ post_system_call(dcontext_t *dcontext)
 
 exit_post_system_call:
 
-#ifdef CLIENT_INTERFACE
     /* The instrument_post_syscall should be called after DR finishes all
      * its operations, since DR needs to know the real syscall results,
      * and any changes made by the client are simply to fool the app.
@@ -8842,7 +8812,6 @@ exit_post_system_call:
      */
     /* after restore of xbp so client sees it as though was sysenter */
     instrument_post_syscall(dcontext, sysnum);
-#endif
 
     dcontext->whereami = old_whereami;
 }
@@ -9250,7 +9219,7 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules)
         bool skip = dynamo_vm_area_overlap(iter->vm_start, iter->vm_end) &&
             !is_in_dynamo_dll(iter->vm_start) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
-            IF_CLIENT_INTERFACE(&&!is_in_client_lib(iter->vm_start));
+            && !is_in_client_lib(iter->vm_start);
         DEBUG_DECLARE(const char *map_type = "Private");
         /* we can't really tell what's a stack and what's not, but we rely on
          * our passing NULL preventing rwx regions from being added to executable
@@ -9660,9 +9629,8 @@ extern void
 deadlock_avoidance_unlock(mutex_t *lock, bool ownable);
 
 void
-mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc))
+mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc)
 {
-#ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = get_thread_private_dcontext();
     bool set_client_safe_for_synch =
         ((dcontext != NULL) && IS_CLIENT_THREAD(dcontext) &&
@@ -9676,7 +9644,6 @@ mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc
         ASSERT(!set_client_safe_for_synch);
         *get_mcontext(dcontext) = *mc;
     }
-#endif
 
     /* i#96/PR 295561: use futex(2) if available */
     if (ksynch_kernel_support()) {
@@ -9691,12 +9658,10 @@ mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc
 #endif
         while (atomic_exchange_int(&lock->lock_requests, LOCK_CONTENDED_STATE) !=
                LOCK_FREE_STATE) {
-#ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
             if (mc != NULL)
                 set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
-#endif
 
                 /* Unfortunately the synch semantics are different for Linux vs Mac.
                  * We have to use lock_requests as the futex to avoid waiting if
@@ -9715,12 +9680,10 @@ mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc
 #endif
             if (res != 0 && res != -EWOULDBLOCK)
                 os_thread_yield();
-#ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
             if (mc != NULL)
                 set_synch_state(dcontext, THREAD_SYNCH_NONE);
-#endif
 
             /* we don't care whether properly woken (res==0), var mismatch
              * (res==-EWOULDBLOCK), or error: regardless, someone else
@@ -9732,20 +9695,16 @@ mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc
         atomic_dec_and_test(&lock->lock_requests);
 
         while (!d_r_mutex_trylock(lock)) {
-#ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
             if (mc != NULL)
                 set_synch_state(dcontext, THREAD_SYNCH_VALID_MCONTEXT);
-#endif
 
             os_thread_yield();
-#ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
             if (mc != NULL)
                 set_synch_state(dcontext, THREAD_SYNCH_NONE);
-#endif
         }
 
 #ifdef DEADLOCK_AVOIDANCE
@@ -10155,8 +10114,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
              * Update: we now remove the hook for start/stop: but native_exec
              * or other individual threads going native could still hit this.
              */
-            (is_thread_currently_native(tr)
-                 IF_CLIENT_INTERFACE(&&!IS_CLIENT_THREAD(tr->dcontext))))
+            (is_thread_currently_native(tr) && !IS_CLIENT_THREAD(tr->dcontext)))
             tids[threads_to_signal++] = tids[i];
     }
 

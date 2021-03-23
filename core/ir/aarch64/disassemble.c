@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -35,8 +36,6 @@
 #include "instr.h"
 #include "decode.h"
 #include "disassemble.h"
-
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
 static const char *const pred_names[] = {
     "",   /* DR_PRED_NONE */
@@ -152,5 +151,3 @@ print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
     } else
         print_to_buffer(buf, bufsz, sofar, "%s", name);
 }
-
-#endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */

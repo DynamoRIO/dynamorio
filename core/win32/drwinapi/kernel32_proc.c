@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,13 +56,11 @@ kernel32_redir_init_proc(void)
      */
     ASSERT(get_os_version() < WINDOWS_VERSION_2003 ||
            (peb->FlsBitmap == NULL || peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT));
-#ifdef CLIENT_INTERFACE
     /* We rely on -private_peb for FLS isolation.  Otherwise we'd have to
      * put back in place all the code to handle mixing private and app FLS
      * callbacks, and we'd have to tweak our FLS redirection.
      */
     ASSERT(INTERNAL_OPTION(private_peb));
-#endif
 }
 
 void
@@ -115,12 +113,7 @@ DECLSPEC_NORETURN
 VOID WINAPI
 redirect_ExitProcess(__in UINT uExitCode)
 {
-#ifdef CLIENT_INTERFACE
     dr_exit_process(uExitCode);
-#else
-    os_terminate_with_code(get_thread_private_dcontext(), /* dcontext is required */
-                           TERMINATE_CLEANUP | TERMINATE_PROCESS, uExitCode);
-#endif
     ASSERT_NOT_REACHED();
 }
 

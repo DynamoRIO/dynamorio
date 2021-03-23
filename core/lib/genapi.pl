@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # Copyright (c) 2018 Arm Limited         All rights reserved.
 # **********************************************************
@@ -150,23 +150,14 @@ if ($header) {
         }
     }
 
-    if (defined($defines{"CLIENT_INTERFACE"})) {
-        # dr_api.h is copied by top-level CMakeLists.txt, for easier
-        # substitution of VERSION_NUMBER_INTEGER
+    # dr_api.h is copied by top-level CMakeLists.txt, for easier
+    # substitution of VERSION_NUMBER_INTEGER
 
-        # dr_app.h is copied verbatim
-        # We used to have #ifdefs (LOGPC I think) in the func declarations
-        # and we had a complex series of commands in core/Makefile to strip
-        # them out while leaving the ifdefs at the top of the file.
-        copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
-
-    } else {
-        if (!defined($defines{"APP_EXPORTS"})) {
-            die "Should not be invoked w/o APP_EXPORTS or CLIENT_INTERFACE\n";
-        }
-        # dr_app.h is copied verbatim
-        copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
-    }
+    # dr_app.h is copied verbatim
+    # We used to have #ifdefs (LOGPC I think) in the func declarations
+    # and we had a complex series of commands in core/Makefile to strip
+    # them out while leaving the ifdefs at the top of the file.
+    copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
 }
 
 $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
@@ -479,7 +470,7 @@ sub process_header_line($)
         if (!$first_pound && $l =~ /^\#/) {
             $first_pound = 1;
             if ($l =~ /^\# /) {
-                # Reduce the indent inside surrounding CLIENT_INTERFACE by clang-format.
+                # Reduce indentation inside surrounding ifdefs by clang-format.
                 $shrink_indent = 1;
             }
         }

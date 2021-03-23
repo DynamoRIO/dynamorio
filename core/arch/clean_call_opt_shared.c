@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
@@ -50,12 +50,11 @@
  * clean call callee info table for i#42 and i#43
  */
 
-#ifdef CLIENT_INTERFACE
 /* hashtable for storing analyzed callee info */
 static generic_table_t *callee_info_table;
 /* we only free callee info at exit, when callee_info_table_exit is true. */
 static bool callee_info_table_exit = false;
-#    define INIT_HTABLE_SIZE_CALLEE 6 /* should remain small */
+#define INIT_HTABLE_SIZE_CALLEE 6 /* should remain small */
 
 static void
 callee_info_init(callee_info_t *ci)
@@ -76,11 +75,11 @@ callee_info_init(callee_info_t *ci)
     ci->num_simd_used = proc_num_simd_registers();
     for (i = 0; i < proc_num_simd_registers(); i++)
         ci->simd_used[i] = true;
-#    ifdef X86
+#ifdef X86
     ci->num_opmask_used = proc_num_opmask_registers();
     for (i = 0; i < proc_num_opmask_registers(); i++)
         ci->opmask_used[i] = true;
-#    endif
+#endif
     for (i = 0; i < DR_NUM_GPR_REGS; i++)
         ci->reg_used[i] = true;
     ci->spill_reg = DR_REG_INVALID;
@@ -202,7 +201,7 @@ callee_info_table_add(callee_info_t *ci)
 /* clean call optimization code */
 
 /* The max number of instructions the callee can have for inline. */
-#    define MAX_NUM_INLINE_INSTRS 20
+#define MAX_NUM_INLINE_INSTRS 20
 
 /* Decode instruction from callee and return the next_pc to be decoded. */
 static app_pc
@@ -430,14 +429,14 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
             "CLEANCALL: callee " PFX " cannot be inlined: uses SIMD.\n", ci->start);
         opt_inline = false;
     }
-#    ifdef X86
+#ifdef X86
     if (ci->num_opmask_used != 0) {
         LOG(THREAD, LOG_CLEANCALL, 1,
             "CLEANCALL: callee " PFX " cannot be inlined: uses mask register.\n",
             ci->start);
         opt_inline = false;
     }
-#    endif
+#endif
     if (ci->tls_used) {
         LOG(THREAD, LOG_CLEANCALL, 1,
             "CLEANCALL: callee " PFX " cannot be inlined: accesses TLS.\n", ci->start);
@@ -517,7 +516,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_simd_skip++;
         }
     }
-#    ifdef X86
+#ifdef X86
     for (i = 0; i < proc_num_opmask_registers(); i++) {
         if (info->opmask_used[i]) {
             cci->opmask_skip[i] = false;
@@ -529,7 +528,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
             cci->num_opmask_skip++;
         }
     }
-#    endif
+#endif
     if (INTERNAL_OPTION(opt_cleancall) > 2 &&
         cci->num_simd_skip != proc_num_simd_registers())
         cci->should_align = false;
@@ -547,7 +546,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
         }
     }
 
-#    ifdef X86
+#ifdef X86
     /* we need save/restore rax if save aflags because rax is used */
     if (!cci->skip_save_flags && cci->reg_skip[0]) {
         LOG(THREAD, LOG_CLEANCALL, 3,
@@ -556,7 +555,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
         cci->reg_skip[0] = false;
         cci->num_regs_skip--;
     }
-#    endif
+#endif
 
     /* i#987: args are passed via regs in 64-bit, which will clober those regs,
      * so we should not skip any regs that are used for arg passing.
@@ -676,12 +675,12 @@ analyze_clean_call_inline(dcontext_t *dcontext, clean_call_info_t *cci)
         if (cci->num_simd_skip == proc_num_simd_registers()) {
             STATS_INC(cleancall_simd_skipped);
         }
-#    ifdef X86
+#ifdef X86
         if (proc_num_opmask_registers() > 0 &&
             cci->num_opmask_skip == proc_num_opmask_registers()) {
             STATS_INC(cleancall_opmask_skipped);
         }
-#    endif
+#endif
         if (cci->skip_save_flags) {
             STATS_INC(cleancall_aflags_save_skipped);
         }
@@ -743,29 +742,29 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
     /* Thresholds for out-of-line calls. The values are based on a guess. The bar
      * for generating out-of-line calls is quite low, so the code size is kept low.
      */
-#    ifdef X86
+#ifdef X86
     /* Use out-of-line calls if more than 3 SIMD registers or 3 mask registers need to be
      * saved.
      */
-#        define SIMD_SAVE_THRESHOLD 3
-#        define OPMASK_SAVE_THRESHOLD 3
-#        ifdef X64
+#    define SIMD_SAVE_THRESHOLD 3
+#    define OPMASK_SAVE_THRESHOLD 3
+#    ifdef X64
     /* Use out-of-line calls if more than 3 GP registers need to be saved. */
-#            define GPR_SAVE_THRESHOLD 3
-#        else
+#        define GPR_SAVE_THRESHOLD 3
+#    else
     /* On X86, a single pusha instruction is used to save the GPRs, so we do not take
      * the number of GPRs that need saving into account.
      */
-#            define GPR_SAVE_THRESHOLD DR_NUM_GPR_REGS
-#        endif
-#    elif defined(AARCH64)
-    /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
-#        define SIMD_SAVE_THRESHOLD 6
-    /* Use out-of-line calls if more than 6 GP registers need to be saved. */
-#        define GPR_SAVE_THRESHOLD 6
+#        define GPR_SAVE_THRESHOLD DR_NUM_GPR_REGS
 #    endif
+#elif defined(AARCH64)
+    /* Use out-of-line calls if more than 6 SIMD registers need to be saved. */
+#    define SIMD_SAVE_THRESHOLD 6
+    /* Use out-of-line calls if more than 6 GP registers need to be saved. */
+#    define GPR_SAVE_THRESHOLD 6
+#endif
 
-#    if defined(X86) || defined(AARCH64)
+#if defined(X86) || defined(AARCH64)
     /* 9. derived fields */
     /* Use out-of-line calls if more than SIMD_SAVE_THRESHOLD SIMD registers have
      * to be saved or if more than GPR_SAVE_THRESHOLD GP registers have to be saved.
@@ -778,7 +777,7 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
             GPR_SAVE_THRESHOLD ||
         always_out_of_line)
         cci->out_of_line_swap = true;
-#    endif
+#endif
 
     return should_inline;
 }
@@ -807,7 +806,7 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instrlist
          * callee): and if not we assume there will be no such faults.
          * We can't have a translation with no handler.
          */
-        if (IF_CLIENT_INTERFACE_ELSE(!dr_xl8_hook_exists(), true))
+        if (!dr_xl8_hook_exists())
             instr_set_translation(instr, NULL);
         instrlist_meta_preinsert(ilist, where, instr);
         instr = instrlist_first(callee);
@@ -843,22 +842,3 @@ clean_call_opt_exit(void)
 {
     callee_info_table_destroy();
 }
-
-#else /* CLIENT_INTERFACE */
-
-/* Stub implementation ifndef CLIENT_INTERFACE.  Initializes cci and returns
- * false for no inlining.  We use dr_insert_clean_call internally, but we don't
- * need it to do inlining.
- */
-bool
-analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, bool always_out_of_line,
-                   uint num_args, opnd_t *args)
-{
-    CLIENT_ASSERT(callee != NULL, "Clean call target is NULL");
-    /* 1. init clean_call_info */
-    clean_call_info_init(cci, callee, save_fpstate, num_args);
-    return false;
-}
-
-#endif /* CLIENT_INTERFACE */

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -365,7 +365,6 @@ choose_gdt_slots(os_local_state_t *os_tls)
     ASSERT_CURIOSITY(tls_gdt_index == (kernel_is_64bit() ? GDT_64BIT : GDT_32BIT));
 #endif
 
-#ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_loader) && tls_gdt_index != -1) {
         /* Use the app's selector with our own TLS base for libraries.  app_fs
          * and app_gs are initialized by the caller in os_tls_app_seg_init().
@@ -397,7 +396,6 @@ choose_gdt_slots(os_local_state_t *os_tls)
          */
         lib_tls_gdt_index = SELECTOR_INDEX(os_tls->app_lib_tls_reg);
     }
-#endif
 }
 
 void
@@ -480,7 +478,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: using MSR\n");
                     tls_using_msr = true;
                 }
-                if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+                if (INTERNAL_OPTION(private_loader)) {
                     res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS,
                                             os_tls->os_seg_info.priv_lib_tls_base);
                     /* Assuming set fs must be successful if set gs succeeded. */
@@ -545,7 +543,6 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 res);
         }
 
-#ifdef CLIENT_INTERFACE
         /* Install the library TLS base. */
         if (INTERNAL_OPTION(private_loader) && res >= 0) {
             app_pc base = os_tls->os_seg_info.priv_lib_tls_base;
@@ -563,7 +560,6 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 WRITE_LIB_SEG(selector);
             }
         }
-#endif
     }
 
     if (os_tls->tls_type == TLS_TYPE_NONE) {
@@ -882,7 +878,7 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     os_local_state_t *os_tls = get_os_tls();
     switch (code) {
     case ARCH_SET_FS: {
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (INTERNAL_OPTION(private_loader)) {
             os_thread_data_t *ostd;
             our_modify_ldt_t *desc;
             /* update new value set by app */
@@ -904,7 +900,7 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         break;
     }
     case ARCH_GET_FS: {
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (INTERNAL_OPTION(private_loader)) {
             safe_write_ex((void *)base, sizeof(void *), &os_tls->app_lib_tls_base, NULL);
         }
         break;

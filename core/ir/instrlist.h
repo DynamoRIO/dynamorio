@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,7 +47,6 @@ struct _instr_list_t {
     instr_t *last;
     int flags;
     app_pc translation_target;
-#ifdef CLIENT_INTERFACE
     /* i#620: provide API for setting fall-throught/return target in bb */
     /* XXX: can this be unioned with traslation_target for saving space?
      * looks no, as traslation_target will be used in mangle and trace,
@@ -57,11 +56,10 @@ struct _instr_list_t {
      * However, we do here to avoid breaking backward compatibility
      */
     app_pc fall_through_bb;
-#    ifdef ARM
+#ifdef ARM
     dr_pred_type_t auto_pred;
-#    endif /* ARM */
-#endif     /* CLIENT_INTERFACE */
-};         /* instrlist_t */
+#endif /* ARM */
+};     /* instrlist_t */
 
 /* DR_API EXPORT TOFILE dr_ir_instrlist.h */
 /* DR_API EXPORT BEGIN */
@@ -268,7 +266,6 @@ DR_API
 void
 instrlist_remove(instrlist_t *ilist, instr_t *instr);
 
-#ifdef CLIENT_INTERFACE
 DR_API
 /**
  * Specifies the fall-through target of a basic block if its last
@@ -302,6 +299,5 @@ instrlist_set_return_target(instrlist_t *bb, app_pc tgt);
  */
 app_pc
 instrlist_get_return_target(instrlist_t *bb);
-#endif /* CLIENT_INTERFACE */
 
 #endif /* _INSTRLIST_H_ */

@@ -73,7 +73,6 @@
 
 /* high-level configuration */
 #cmakedefine PROGRAM_SHEPHERDING
-#cmakedefine CLIENT_INTERFACE
 #cmakedefine APP_EXPORTS
 #cmakedefine STRACE_CLIENT
 #cmakedefine HOT_PATCHING_INTERFACE
@@ -199,16 +198,18 @@
 #    $(D)NOLIBC = doesn't link libc on windows, currently uses ntdll.dll libc
 #      functions, NOLIBC=0 causes the core to be linked against libc and kernel32.dll
 # external interface
-#    $(D)CLIENT_INTERFACE
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
-#    $(D)CUSTOM_TRACES -- optional part of CLIENT_INTERFACE
+#    $(D)CUSTOM_TRACES -- optional interface
 #      has some sub-features that are aggressive and not supported by default:
 #      $(D)CUSTOM_TRACES_RET_REMOVAL = support for removing inlined rets
+#        CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
+#        Only useful if custom traces are doing inlining => do not define for external
+#        release, or even by default for internal since it's always on even if
+#        not building custom traces!
 #      $(D)CLIENT_SIDELINE = allows adaptive interface methods to be called
-#                            from other threads safetly, performance hit
-#                            requires CLIENT_INTERFACE
+#                            from other threads safely, performance hit
 #    $(D)UNSUPPORTED_API -- part of 0.9.4 MIT API but not supported in current API
 #    $(D)NOT_DYNAMORIO_CORE - should be defined by non core components sharing our code
 
@@ -302,21 +303,19 @@
 # define RCT_IND_BRANCH
 #endif
 
-#ifdef CLIENT_INTERFACE
-  /* standard client interface features */
-# define DYNAMORIO_IR_EXPORTS
-# define CUSTOM_TRACES
-# define CLIENT_SIDELINE
-  /* TODO i#4045: Remove completely from the code base.
-# define UNSUPPORTED_API
-   */
-#endif
+/* standard client interface features */
+#define DYNAMORIO_IR_EXPORTS
+#define CUSTOM_TRACES
+#define CLIENT_SIDELINE
+/* TODO i#4045: Remove completely from the code base.
+#define UNSUPPORTED_API
+ */
 
-#if defined(HOT_PATCHING_INTERFACE) && defined(CLIENT_INTERFACE)
+#ifdef HOT_PATCHING_INTERFACE
 # define PROBE_API
 #endif
 
-#if defined(PROGRAM_SHEPHERDING) && defined(CLIENT_INTERFACE)
+#ifdef PROGRAM_SHEPHERDING
 /* used by libutil and tools */
 # define MF_API
 # define PROBE_API

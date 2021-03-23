@@ -68,9 +68,7 @@ typedef enum {
     ACCT_MEM_MGT,
     ACCT_STATS,
     ACCT_SPECIAL,
-#    ifdef CLIENT_INTERFACE
     ACCT_CLIENT,
-#    endif
     ACCT_LIBDUP, /* private copies of system libs => may leak */
     ACCT_CLEANCALL,
     /* NOTE: Also update the whichheap_name in heap.c when adding here */
@@ -156,10 +154,8 @@ vmcode_get_writable_addr(byte *exec_addr);
 byte *
 vmcode_get_executable_addr(byte *write_addr);
 
-#ifdef CLIENT_INTERFACE
 void
 vmm_heap_handle_pending_low_on_memory_event_trigger();
-#endif
 
 bool
 heap_check_option_compatibility(void);

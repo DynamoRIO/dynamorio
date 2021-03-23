@@ -121,9 +121,7 @@ DECLARE_CXTSWPROT_VAR(mutex_t bb_building_lock, INIT_LOCK_FREE(bb_building_lock)
 /* i#1111: we do not use the lock until the 2nd thread is created */
 volatile bool bb_lock_start;
 
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 static file_t bbdump_file = INVALID_FILE;
-#endif
 
 #ifdef DEBUG
 DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
@@ -133,12 +131,10 @@ DECLARE_NEVERPROT_VAR(uint debug_bb_count, 0);
 void
 interp_init()
 {
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         bbdump_file = open_log_file("bbs", NULL, 0);
         ASSERT(bbdump_file != INVALID_FILE);
     }
-#endif
 }
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
@@ -152,11 +148,9 @@ static int num_rets_removed;
 void
 interp_exit()
 {
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         close_log_file(bbdump_file);
     }
-#endif
     DELETE_LOCK(bb_building_lock);
 
     LOG(GLOBAL, LOG_INTERP | LOG_STATS, 1, "Total application code seen: %d KB\n",
@@ -193,14 +187,12 @@ typedef struct {
     app_pc stop_pc;            /* Optional: NULL for normal termination rules.
                                 * Only checked for full_decode.
                                 */
-#ifdef CLIENT_INTERFACE
-    bool pass_to_client; /* pass to client, if a bb hook exists;
-                          * we store this up front to avoid race conditions
-                          * between full_decode setting and hook calling time.
-                          */
-    bool post_client;    /* has the client already processed the bb? */
-    bool for_trace;      /* PR 299808: we tell client if building a trace */
-#endif
+    bool pass_to_client;       /* pass to client, if a bb hook exists;
+                                * we store this up front to avoid race conditions
+                                * between full_decode setting and hook calling time.
+                                */
+    bool post_client;          /* has the client already processed the bb? */
+    bool for_trace;            /* PR 299808: we tell client if building a trace */
 
     /* in and out */
     overlap_info_t *overlap_info; /* if non-null, records overlap information here;
@@ -211,11 +203,9 @@ typedef struct {
     uint flags;
     void *vmlist;
     app_pc end_pc;
-    bool native_exec; /* replace cur ilist with a native_exec version */
-    bool native_call; /* the gateway is a call */
-#ifdef CLIENT_INTERFACE
+    bool native_exec;              /* replace cur ilist with a native_exec version */
+    bool native_call;              /* the gateway is a call */
     instrlist_t **unmangled_ilist; /* PR 299808: clone ilist pre-mangling */
-#endif
 
     /* internal usage only */
     bool full_decode;   /* decode every instruction into a separate instr_t? */
@@ -797,7 +787,6 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
     if (DYNAMO_OPTION(native_exec) && DYNAMO_OPTION(native_exec_dircalls) &&
         !vmvector_empty(native_exec_areas) && is_native_pc(new_pc))
         return false;
-#ifdef CLIENT_INTERFACE
     /* i#805: If we're crossing a module boundary between two modules that are
      * and aren't on null_instrument_list, don't elide the jmp.
      * XXX i#884: if we haven't yet executed from the 2nd module, the client
@@ -808,7 +797,6 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
     if ((!!os_module_get_flag(bb->cur_pc, MODULE_NULL_INSTRUMENT)) !=
         (!!os_module_get_flag(new_pc, MODULE_NULL_INSTRUMENT)))
         return false;
-#endif
     if (!bb->check_vm_area)
         return true;
     /* need to check this even if an intra-page jmp b/c we allow sub-page vm regions */
@@ -1624,8 +1612,7 @@ bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
     if (seg != SEG_GS && seg != SEG_FS)
         return true; /* continue bb */
     /* if no private loader, we only need mangle the non-tls seg */
-    if (seg == IF_X64_ELSE(SEG_FS, SEG_FS) &&
-        IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true))
+    if (seg == IF_X64_ELSE(SEG_FS, SEG_FS) && !INTERNAL_OPTION(private_loader))
         return true; /* continue bb */
 
     if (bb->instr_start == bb->start_pc) {
@@ -1913,14 +1900,12 @@ static inline bool
 bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
 {
     int sysnum;
-#ifdef CLIENT_INTERFACE
     /* PR 307284: for simplicity do syscall/int processing post-client.
      * We give up on inlining but we can still use ignorable/shared syscalls
      * and trace continuation.
      */
     if (bb->pass_to_client && !bb->post_client)
         return false;
-#endif
 #ifdef DGC_DIAGNOSTICS
     if (TEST(FRAG_DYNGEN, bb->flags) && !is_dyngen_vsyscall(bb->instr_start)) {
         LOG(THREAD, LOG_INTERP, 1, "WARNING: syscall @ " PFX " in dyngen code!\n",
@@ -1944,13 +1929,11 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
     });
 #endif
     BBPRINT(bb, 3, "syscall # is %d\n", sysnum);
-#ifdef CLIENT_INTERFACE
     if (sysnum != -1 && instrument_filter_syscall(dcontext, sysnum)) {
         BBPRINT(bb, 3, "client asking to intercept => pretending syscall # %d is -1\n",
                 sysnum);
         sysnum = -1;
     }
-#endif
 #ifdef ARM
     if (sysnum != -1 && instr_is_predicated(bb->instr)) {
         BBPRINT(bb, 3,
@@ -2016,7 +1999,6 @@ bb_process_interrupt(dcontext_t *dcontext, build_bb_t *bb)
 #if defined(DEBUG) || defined(INTERNAL) || defined(WINDOWS)
     int num = instr_get_interrupt_number(bb->instr);
 #endif
-#ifdef CLIENT_INTERFACE
     /* PR 307284: for simplicity do syscall/int processing post-client.
      * We give up on inlining but we can still use ignorable/shared syscalls
      * and trace continuation.
@@ -2024,7 +2006,6 @@ bb_process_interrupt(dcontext_t *dcontext, build_bb_t *bb)
      */
     if (bb->pass_to_client && !bb->post_client IF_WINDOWS(&&num != 0x2d))
         return false;
-#endif
     BBPRINT(bb, 3, "int 0x%x @ " PFX "\n", num, bb->instr_start);
 #ifdef WINDOWS
     if (num == 0x2b) {
@@ -2661,7 +2642,6 @@ instr_will_be_exit_cti(instr_t *inst)
             IF_WINDOWS(&&!instr_is_wow64_syscall(inst)));
 }
 
-#ifdef CLIENT_INTERFACE
 /* PR 215217: check syscall restrictions */
 static bool
 client_check_syscall(instrlist_t *ilist, instr_t *inst, bool *found_syscall,
@@ -2717,11 +2697,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     bool found_exit_cti = false;
     bool found_syscall = false;
     bool found_int = false;
-#    ifdef ANNOTATIONS
+#ifdef ANNOTATIONS
     app_pc trailing_annotation_pc = NULL, instrumentation_pc = NULL;
     bool found_instrumentation_pc = false;
     instr_t *annotation_label = NULL;
-#    endif
+#endif
     instr_t *last_app_instr = NULL;
 
     /* This routine is called by more than just bb builder, also used
@@ -2823,7 +2803,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         }
 
         if (instr_is_meta(inst)) {
-#    ifdef ANNOTATIONS
+#ifdef ANNOTATIONS
             /* Save the trailing_annotation_pc in case a client truncated the bb there. */
             if (is_annotation_label(inst) && last_app_instr == NULL) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
@@ -2831,11 +2811,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 instrumentation_pc = GET_ANNOTATION_INSTRUMENTATION_PC(label_data);
                 annotation_label = inst;
             }
-#    endif
+#endif
 
             continue;
         }
-#    ifdef X86
+#ifdef X86
         if (!d_r_is_avx512_code_in_use()) {
             if (ZMM_ENABLED()) {
                 if (instr_may_write_zmm_or_opmask_register(inst)) {
@@ -2845,13 +2825,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 }
             }
         }
-#    endif
+#endif
 
-#    ifdef ANNOTATIONS
+#ifdef ANNOTATIONS
         if (instrumentation_pc != NULL && !found_instrumentation_pc &&
             instr_get_translation(inst) == instrumentation_pc)
             found_instrumentation_pc = true;
-#    endif
+#endif
 
         /* in case bb was truncated, find last non-meta fall-through */
         if (last_app_instr == NULL)
@@ -2876,12 +2856,12 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             "block's app sources (instr_set_translation() targets) "
             "must remain within original bounds");
 
-#    ifdef AARCH64
+#ifdef AARCH64
         if (instr_get_opcode(inst) == OP_isb) {
             CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
                           "OP_isb must be last instruction in block");
         }
-#    endif
+#endif
 
         /* PR 307284: we didn't process syscalls and ints pre-client
          * so do so now to get bb->flags and bb->exit_type set
@@ -2948,11 +2928,11 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
                                   "an exit mbr or far cti must terminate the block");
                     bb->exit_type = instr_branch_type(inst);
-#    ifdef ARM
+#ifdef ARM
                     if (instr_get_opcode(inst) == OP_blx)
                         bb->ibl_branch_type = IBL_INDCALL;
                     else
-#    endif
+#endif
                         bb->ibl_branch_type = get_ibl_branch_type(inst);
                     bb->exit_target =
                         get_ibl_routine(dcontext, get_ibl_entry_type(bb->exit_type),
@@ -3025,7 +3005,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (last_app_instr != NULL) {
         bool adjusted_cur_pc = false;
         app_pc xl8 = instr_get_translation(last_app_instr);
-#    ifdef ANNOTATIONS
+#ifdef ANNOTATIONS
         if (annotation_label != NULL) {
             if (found_instrumentation_pc) {
                 /* i#1613: if the last app instruction precedes an annotation, extend the
@@ -3052,8 +3032,8 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 }
             }
         }
-#    endif
-#    if defined(WINDOWS) && !defined(STANDALONE_DECODER)
+#endif
+#if defined(WINDOWS) && !defined(STANDALONE_DECODER)
         /* i#1632: if the last app instruction was taken from an intercept because it was
          * occluded by the corresponding hook, `bb->cur_pc` should point to the original
          * app pc (where that instruction was copied from). Cannot use `decode_next_pc()`
@@ -3073,7 +3053,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     intercept_pc, bb->cur_pc);
             }
         }
-#    endif
+#endif
         /* We do not take instr_length of what the client put in, but rather
          * the length of the translation target
          */
@@ -3131,7 +3111,6 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     }
     return true;
 }
-#endif /* CLIENT_INTERFACE */
 
 #ifdef DR_APP_EXPORTS
 static void
@@ -3274,17 +3253,16 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     } else
         ASSERT(dynamo_exited);
 
-    if ((bb->record_translation IF_CLIENT_INTERFACE(
-            &&!INTERNAL_OPTION(fast_client_decode))) ||
+    if ((bb->record_translation && !INTERNAL_OPTION(fast_client_decode)) ||
         !bb->for_cache
              /* to split riprel, need to decode every instr */
              /* in x86_to_x64, need to translate every x86 instr */
-             IF_X64(|| DYNAMO_OPTION(coarse_split_riprel) || DYNAMO_OPTION(x86_to_x64))
-                 IF_CLIENT_INTERFACE(|| INTERNAL_OPTION(full_decode))
-         /* We separate rseq regions into their own blocks to make this check easier. */
-         IF_LINUX(||
-                  (!vmvector_empty(d_r_rseq_areas) &&
-                   vmvector_overlap(d_r_rseq_areas, bb->start_pc, bb->start_pc + 1))))
+             IF_X64(|| DYNAMO_OPTION(coarse_split_riprel) || DYNAMO_OPTION(x86_to_x64)) ||
+        INTERNAL_OPTION(full_decode)
+        /* We separate rseq regions into their own blocks to make this check easier. */
+        IF_LINUX(||
+                 (!vmvector_empty(d_r_rseq_areas) &&
+                  vmvector_overlap(d_r_rseq_areas, bb->start_pc, bb->start_pc + 1))))
         bb->full_decode = true;
     else {
 #if defined(STEAL_REGISTER) || defined(CHECK_RETURNS_SSE2)
@@ -3314,7 +3292,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (!bb->checked_start_vmarea)
         check_new_page_start(dcontext, bb);
 
-#if defined(WINDOWS) && !defined(STANDALONE_DECODER) && defined(CLIENT_INTERFACE)
+#if defined(WINDOWS) && !defined(STANDALONE_DECODER)
     /* i#1632: if `bb->start_pc` points into the middle of a DR intercept hook, change
      * it so instructions are taken from the intercept instead (note that
      * `instr_set_translation` will hide this adjustment from the client). N.B.: this
@@ -3462,10 +3440,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             DOELOG(3, LOG_INTERP,
                    { disassemble_with_bytes(dcontext, bb->instr_start, THREAD); });
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
             if (bb->outf != INVALID_FILE)
                 disassemble_with_bytes(dcontext, bb->instr_start, bb->outf);
-#endif /* INTERNAL || CLIENT_INTERFACE */
 
             if (!instr_valid(bb->instr))
                 break; /* before eflags analysis! */
@@ -4121,7 +4097,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         return;
     }
 #endif
-#ifdef CLIENT_INTERFACE
     if (!client_process_bb(dcontext, bb)) {
         bb_build_abort(dcontext, true /*free vmlist*/, false /*don't unlock*/);
         return;
@@ -4138,7 +4113,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     }
     if (bb->unmangled_ilist != NULL)
         *bb->unmangled_ilist = instrlist_clone(dcontext, bb->ilist);
-#endif
 
     if (bb->instr != NULL && instr_opcode_valid(bb->instr) &&
         instr_is_far_cti(bb->instr)) {
@@ -4158,18 +4132,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      */
     if (bb->exit_target == NULL) { /* not set by ind branch, etc. */
                                    /* fall-through pc */
-#ifdef CLIENT_INTERFACE
         /* i#620: provide API to set fall-through target at end of bb */
         bb->exit_target = instrlist_get_fall_through_target(bb->ilist);
-#endif /* CLIENT_INTERFACE */
         if (bb->exit_target == NULL)
             bb->exit_target = (cache_pc)bb->cur_pc;
-#ifdef CLIENT_INTERFACE
         else {
             LOG(THREAD, LOG_INTERP, 3, "set fall-throught target " PFX " by client\n",
                 bb->exit_target);
         }
-#endif /* CLIENT_INTERFACE */
         if (bb->instr != NULL && instr_opcode_valid(bb->instr) &&
             instr_is_cbr(bb->instr) &&
             (int)(bb->exit_target - bb->start_pc) <= SHRT_MAX &&
@@ -4535,7 +4505,6 @@ build_app_bb_ilist(dcontext_t *dcontext, byte *start_pc, file_t outf)
     return bb.ilist;
 }
 
-#ifdef CLIENT_INTERFACE
 /* Client routine to decode instructions at an arbitrary app address,
  * following all the rules that DynamoRIO follows internally for
  * terminating basic blocks.  Note that DynamoRIO does not validate
@@ -4556,19 +4525,18 @@ decode_as_bb(void *drcontext, byte *start_pc)
      * app code visible to the client (just like it is for the
      * real bb built there, so at least we're consistent).
      */
-#    ifdef WINDOWS
+#ifdef WINDOWS
     byte *real_pc;
     if (is_intercepted_app_pc((app_pc)start_pc, &real_pc))
         start_pc = real_pc;
-#    endif
+#endif
 
     init_build_bb(&bb, start_pc, false /*not interp*/, false /*not for cache*/,
                   false /*do not mangle*/,
-                  true /* translation; xref case 10070 where this
-                        * currently turns on full decode; today we
-                        * provide no way to turn that off, as IR
-                        * expansion routines are not exported (PR 200409). */
-                  ,
+                  true, /* translation; xref case 10070 where this
+                         * currently turns on full decode; today we
+                         * provide no way to turn that off, as IR
+                         * expansion routines are not exported (PR 200409). */
                   INVALID_FILE, 0 /*no pre flags*/, NULL /*no overlap*/);
     build_bb_ilist((dcontext_t *)drcontext, &bb);
     return bb.ilist;
@@ -4598,8 +4566,8 @@ decode_trace(void *drcontext, void *tag)
         if (!is_couldbelinking(dcontext))
             d_r_mutex_lock(&thread_initexit_lock);
         ilist = recreate_fragment_ilist(dcontext, NULL, &frag, &alloc_res,
-                                        false /*no mangling*/
-                                        _IF_CLIENT(false /*do not re-call client*/));
+                                        false /*no mangling*/,
+                                        false /*do not re-call client*/);
         ASSERT(!alloc_res);
         if (!is_couldbelinking(dcontext))
             d_r_mutex_unlock(&thread_initexit_lock);
@@ -4609,7 +4577,6 @@ decode_trace(void *drcontext, void *tag)
 
     return NULL;
 }
-#endif
 
 app_pc
 find_app_bb_end(dcontext_t *dcontext, byte *start_pc, uint flags)
@@ -5006,8 +4973,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start,
  */
 static inline void
 init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
-                     uint initial_flags _IF_CLIENT(bool for_trace)
-                         _IF_CLIENT(instrlist_t **unmangled_ilist))
+                     uint initial_flags, bool for_trace, instrlist_t **unmangled_ilist)
 {
     ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK() && !TEST(FRAG_TEMP_PRIVATE, initial_flags),
                      &bb_building_lock);
@@ -5026,7 +4992,6 @@ init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
         NULL /*no overlap*/);
     if (!TEST(FRAG_TEMP_PRIVATE, initial_flags))
         bb->has_bb_building_lock = true;
-#ifdef CLIENT_INTERFACE
     /* We avoid races where there is no hook when we start building a
      * bb (and hence we don't record translation or do full decode) yet
      * a hook when we're ready to call one by storing whether there is a
@@ -5073,7 +5038,6 @@ init_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb, app_pc start,
     }
     /* we need to clone the ilist pre-mangling */
     bb->unmangled_ilist = unmangled_ilist;
-#endif
 }
 
 static inline void
@@ -5093,9 +5057,8 @@ exit_interp_build_bb(dcontext_t *dcontext, build_bb_t *bb)
  */
 fragment_t *
 build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flags,
-                           bool link,
-                           bool visible _IF_CLIENT(bool for_trace)
-                               _IF_CLIENT(instrlist_t **unmangled_ilist))
+                           bool link, bool visible, bool for_trace,
+                           instrlist_t **unmangled_ilist)
 {
     fragment_t *f;
     build_bb_t bb;
@@ -5112,17 +5075,14 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
      */
     image_entry = check_for_image_entry(start);
 
-    init_interp_build_bb(dcontext, &bb, start,
-                         initial_flags _IF_CLIENT(for_trace) _IF_CLIENT(unmangled_ilist));
+    init_interp_build_bb(dcontext, &bb, start, initial_flags, for_trace, unmangled_ilist);
     if (at_native_exec_gateway(dcontext, start,
                                &bb.native_call _IF_DEBUG(false /*not xfer tgt*/))) {
         DODEBUG({ report_native_module(dcontext, bb.start_pc); });
-#ifdef CLIENT_INTERFACE
         /* PR 232617 - build_native_exec_bb doesn't support setting translation
          * info, but it also doesn't pass the built bb to the client (it
          * contains no app code) so we don't need it. */
         bb.record_translation = false;
-#endif
         build_native_exec_bb(dcontext, &bb);
     } else {
         build_bb_ilist(dcontext, &bb);
@@ -5137,15 +5097,12 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             instrlist_clear_and_destroy(dcontext, bb.ilist);
             vm_area_destroy_list(dcontext, bb.vmlist);
             dcontext->bb_build_info = NULL;
-            init_interp_build_bb(dcontext, &bb, start,
-                                 initial_flags _IF_CLIENT(for_trace)
-                                     _IF_CLIENT(unmangled_ilist));
-#ifdef CLIENT_INTERFACE
+            init_interp_build_bb(dcontext, &bb, start, initial_flags, for_trace,
+                                 unmangled_ilist);
             /* PR 232617 - build_native_exec_bb doesn't support setting
              * translation info, but it also doesn't pass the built bb to the
              * client (it contains no app code) so we don't need it. */
             bb.record_translation = false;
-#endif
             bb.native_call = is_call;
             build_native_exec_bb(dcontext, &bb);
         }
@@ -5188,11 +5145,9 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             disassemble_fragment(dcontext, f, false);
         }
     });
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(bbdump_tags)) {
         disassemble_fragment_header(dcontext, f, bbdump_file);
     }
-#endif
 
 #ifdef INTERNAL
     DODEBUG({
@@ -5224,9 +5179,8 @@ build_basic_block_fragment_done:
 instrlist_t *
 recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_pc,
                   uint flags, uint *res_flags OUT, uint *res_exit_type OUT,
-                  bool check_vm_area, bool mangle,
-                  void **vmlist_out OUT _IF_CLIENT(bool call_client)
-                      _IF_CLIENT(bool for_trace))
+                  bool check_vm_area, bool mangle, void **vmlist_out OUT,
+                  bool call_client, bool for_trace)
 {
     build_bb_t bb;
 
@@ -5249,7 +5203,6 @@ recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_
     bb.check_vm_area = check_vm_area;
     if (check_vm_area && vmlist_out != NULL)
         bb.record_vmlist = true;
-#ifdef CLIENT_INTERFACE
     if (check_vm_area && !bb.record_vmlist)
         bb.record_vmlist = true; /* for xl8 region checks */
     /* PR 214962: we call bb hook again, unless the client told us
@@ -5270,7 +5223,6 @@ recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_
     bb.for_trace = for_trace;
     /* instrument_basic_block, called by build_bb_ilist, verifies that all
      * non-meta instrs have translation fields */
-#endif
     if (pretend_pc != pc)
         bb.pretend_pc = pretend_pc;
 
@@ -5316,7 +5268,7 @@ recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_
 instrlist_t *
 recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
                         /*IN/OUT*/ fragment_t **f_res, /*OUT*/ bool *alloc_res,
-                        bool mangle _IF_CLIENT(bool call_client))
+                        bool mangle, bool call_client)
 {
     fragment_t *f;
     uint flags = 0;
@@ -5367,10 +5319,10 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
 
     if ((f->flags & FRAG_IS_TRACE) == 0) {
         /* easy case: just a bb */
-        ilist = recreate_bb_ilist(
-            dcontext, (byte *)f->tag, (byte *)f->tag, NULL /*default stop*/,
-            0 /*no pre flags*/, &flags, NULL, true /*check vm area*/, mangle,
-            NULL _IF_CLIENT(call_client) _IF_CLIENT(false /*not for_trace*/));
+        ilist = recreate_bb_ilist(dcontext, (byte *)f->tag, (byte *)f->tag,
+                                  NULL /*default stop*/, 0 /*no pre flags*/, &flags, NULL,
+                                  true /*check vm area*/, mangle, NULL, call_client,
+                                  false /*not for_trace*/);
         ASSERT(ilist != NULL);
         if (ilist == NULL) /* a race */
             goto recreate_fragment_done;
@@ -5394,9 +5346,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
             md.num_blks = t->num_bbs;
             md.blk_info = (trace_bb_build_t *)HEAP_ARRAY_ALLOC(
                 dcontext, trace_bb_build_t, md.num_blks, ACCT_TRACE, true);
-#ifdef CLIENT_INTERFACE
             md.pass_to_client = true;
-#endif
         }
 
         ilist = instrlist_create(dcontext);
@@ -5405,11 +5355,10 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
         for (i = 0; i < t->num_bbs; i++) {
             void *vmlist = NULL;
             apc = (byte *)t->bbs[i].tag;
-            bb = recreate_bb_ilist(dcontext, apc, apc, NULL /*default stop*/,
-                                   0 /*no pre flags*/, &flags, &md.final_exit_flags,
-                                   true /*check vm area*/, !mangle_at_end,
-                                   (mangle_at_end ? &vmlist : NULL)_IF_CLIENT(call_client)
-                                       _IF_CLIENT(true /*for_trace*/));
+            bb = recreate_bb_ilist(
+                dcontext, apc, apc, NULL /*default stop*/, 0 /*no pre flags*/, &flags,
+                &md.final_exit_flags, true /*check vm area*/, !mangle_at_end,
+                (mangle_at_end ? &vmlist : NULL), call_client, true /*for_trace*/);
             ASSERT(bb != NULL);
             if (bb == NULL) {
                 instrlist_clear_and_destroy(dcontext, ilist);
@@ -5421,12 +5370,10 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
                 md.blk_info[i].info = t->bbs[i];
             last = instrlist_last(bb);
             ASSERT(last != NULL);
-#ifdef CLIENT_INTERFACE
             if (mangle_at_end) {
                 md.blk_info[i].vmlist = vmlist;
                 md.blk_info[i].final_cti = instr_is_cti(instrlist_last(bb));
             }
-#endif
 
             /* PR 299808: we need to duplicate what we did when we built the trace.
              * While if there's no client trace hook we could mangle and fixup as we
@@ -5474,14 +5421,12 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
             instrlist_destroy(dcontext, bb);
         }
 
-#ifdef CLIENT_INTERFACE
         /* PR 214962: re-apply client changes, this time storing translation
          * info for modified instrs
          */
         if (call_client) /* else it's decode_trace() who is not really recreating */
             instrument_trace(dcontext, f->tag, ilist, true);
-            /* instrument_trace checks that all non-meta instrs have translation fields */
-#endif
+        /* instrument_trace checks that all non-meta instrs have translation fields */
 
         if (mangle) {
             if (mangle_at_end) {
@@ -6627,7 +6572,7 @@ create_exit_jmp(dcontext_t *dcontext, app_pc target, app_pc translation, uint br
 }
 
 /* Given an ilist with no mangling or stitching together, this routine does those
- * things.  This is used both for CLIENT_INTERFACE and for recreating traces
+ * things.  This is used both for clients and for recreating traces
  * for state translation.
  * It assumes the ilist abides by client rules: single-mbr bbs, no
  * changes in source app code.  Else, it returns false.
@@ -6652,13 +6597,11 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
     app_pc fallthrough = NULL;
     bool found_syscall = false, found_int = false;
 
-#ifdef CLIENT_INTERFACE
     /* We don't assert that mangle_trace_at_end() is true b/c the client
      * can unregister its bb and trace hooks if it really wants to,
      * though we discourage it.
      */
     ASSERT(md->pass_to_client);
-#endif
 
     LOG(THREAD, LOG_MONITOR, 2, "mangle_trace " PFX "\n", md->trace_tag);
     DOLOG(4, LOG_INTERP, {
@@ -6689,7 +6632,6 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
             blk++;
         }
 
-#ifdef CLIENT_INTERFACE
         /* Ensure non-ignorable syscall/int2b terminates trace */
         if (md->pass_to_client &&
             !client_check_syscall(ilist, inst, &found_syscall, &found_int))
@@ -6714,7 +6656,6 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                           "must remain within original bounds");
             return false;
         }
-#endif
 
         /* in case no exit ctis in last block, find last non-meta fall-through */
         if (blk == md->num_blks - 1) {

@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2014-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -34,8 +34,6 @@
 
 #include "../globals.h"
 #include "arch.h"
-
-#ifdef CLIENT_INTERFACE
 
 void
 analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
@@ -96,5 +94,3 @@ insert_inline_arg_setup(dcontext_t *dcontext, clean_call_info_t *cci, instrlist_
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#2094: NYI on ARM */
 }
-
-#endif /* CLIENT_INTERFACE */

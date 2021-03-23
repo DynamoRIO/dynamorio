@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -204,10 +204,8 @@ static const linkstub_t linkstub_coarse_trace_head_exit = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_hot_patch = { LINK_FAKE, 0 };
 #endif
 
-#ifdef CLIENT_INTERFACE
 /* used for dr_redirect_exection() call to transfer_to_dispatch() */
 static const linkstub_t linkstub_client = { LINK_FAKE, 0 };
-#endif
 
 /* for !DYNAMO_OPTION(indirect_stubs)
  * FIXME: these are used for shared_syscall as well, yet not marked as
@@ -421,24 +419,8 @@ use_cbr_fallthrough_short(uint flags, int direct_exits, int indirect_exits)
     ASSERT((direct_exits + indirect_exits > 0) || TEST(FRAG_COARSE_GRAIN, flags));
     if (direct_exits != 2 || indirect_exits != 0)
         return false;
-#ifdef CLIENT_INTERFACE
     /* cannot handle instrs inserted between cbr and fall-through jmp */
     return false;
-#else
-    /* we can only use the cbr_fallthrough_linkstub_t if these conditions
-     * apply:
-     *   1) separate stubs will not be individually freed -- we could
-     *      have a fancy scheme that frees both at once, but we simply
-     *      disallow the struct if any freeing will occur.
-     *   2) the fallthrough target is close to the start pc
-     *   3) the fallthrough exit immediately follows the cbr exit
-     *      (we assume this is true if !CLIENT_INTERFACE)
-     * conditions 2 and 3 are asserted in emit.c
-     */
-    return (TEST(FRAG_CBR_FALLTHROUGH_SHORT, flags) && !TEST(FRAG_COARSE_GRAIN, flags) &&
-            ((TEST(FRAG_SHARED, flags) && !DYNAMO_OPTION(unsafe_free_shared_stubs)) ||
-             (!TEST(FRAG_SHARED, flags) && !DYNAMO_OPTION(free_private_stubs))));
-#endif
 }
 
 /* includes the post_linkstub_t offset struct size */
@@ -803,13 +785,11 @@ get_hot_patch_linkstub()
 }
 #endif
 
-#ifdef CLIENT_INTERFACE
 const linkstub_t *
 get_client_linkstub()
 {
     return &linkstub_client;
 }
-#endif
 
 bool
 is_ibl_sourceless_linkstub(const linkstub_t *l)

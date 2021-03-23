@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -508,10 +508,8 @@ get_native_exec_syscall_linkstub(void);
 const linkstub_t *
 get_hot_patch_linkstub(void);
 #endif
-#ifdef CLIENT_INTERFACE
 const linkstub_t *
 get_client_linkstub(void);
-#endif
 const linkstub_t *
 get_special_ibl_linkstub(int index, bool is_trace);
 const linkstub_t *

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2020 Google, Inc. All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -155,7 +155,6 @@ call_dispatch_alt_stack_no_free:
         ret
         END_FUNC(call_switch_stack)
 
-#ifdef CLIENT_INTERFACE
 /*
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
@@ -197,7 +196,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         ldp      x29, x30, [sp], #16
         ret
         END_FUNC(dr_call_on_clean_stack)
-#endif /* CLIENT_INTERFACE */
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
@@ -423,8 +421,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         ret
         END_FUNC(safe_read_asm)
 
-#ifdef CLIENT_INTERFACE
-
 /* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
  *
  * int dr_try_start(try_except_context_t *cxt) ;
@@ -494,8 +490,6 @@ GLOBAL_LABEL(atomic_swap:)
         mov      w0, w2
         ret
         END_FUNC(atomic_swap)
-
-#endif /* CLIENT_INTERFACE */
 
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)
