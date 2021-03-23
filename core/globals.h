@@ -95,18 +95,6 @@
 /* currently we always export statistics structure */
 #define DYNAMORIO_STATS_EXPORTS 1
 
-/* we only export IR interface if CLIENT_INTERFACE is defined */
-#ifdef CLIENT_INTERFACE
-/* in Makefile, we define these (so that genapi.pl, etc. get them):
- *    define DYNAMORIO_IR_EXPORTS 1
- *    define CUSTOM_TRACES 1
- * CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
- * Only useful if custom traces are doing inlining => do not define for external
- * release, or even by default for internal since it's always on even if
- * not building custom traces!
- */
-#endif /* CLIENT_INTERFACE */
-
 #ifdef WINDOWS
 #    define DYNAMORIO_EXPORT __declspec(dllexport)
 #elif defined(USE_VISIBILITY_ATTRIBUTES)
@@ -402,7 +390,6 @@ typedef struct _thread_record_t {
 
 #include "dr_stats.h"
 
-#ifdef CLIENT_INTERFACE
 /* did the client request a premature exit at a potentially awkward spot
  * (nudge handler, signal handler)?
  */
@@ -427,15 +414,15 @@ typedef struct _client_flush_req_t {
 
 /* for -thin_client we don't allocate client_data currently, also client_data could be
  * NULL during thread startup or teardown (i.e. mutex_wait_contended_lock() usage) */
-#    define IS_CLIENT_THREAD(dcontext)                        \
-        ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
-         (dcontext)->client_data != NULL && (dcontext)->client_data->is_client_thread)
-#    ifdef DEBUG
+#define IS_CLIENT_THREAD(dcontext)                        \
+    ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
+     (dcontext)->client_data != NULL && (dcontext)->client_data->is_client_thread)
+#ifdef DEBUG
 /* For use after dcontext->client_data is NULL */
-#        define IS_CLIENT_THREAD_EXITING(dcontext)                \
-            ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
-             (dcontext)->is_client_thread_exiting)
-#    endif
+#    define IS_CLIENT_THREAD_EXITING(dcontext)                \
+        ((dcontext) != NULL && dcontext != GLOBAL_DCONTEXT && \
+         (dcontext)->is_client_thread_exiting)
+#endif
 
 /* Client interface-specific data for dcontexts */
 typedef struct _client_data_t {
@@ -443,9 +430,9 @@ typedef struct _client_data_t {
     void *user_field;
     client_todo_list_t *to_do;
     client_flush_req_t *flush_list;
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     mutex_t sideline_mutex;
-#    endif
+#endif
     /* fields for doing release and debug build checks against erroneous API usage */
     module_data_t *no_delete_mod_data;
 
@@ -474,13 +461,13 @@ typedef struct _client_data_t {
     bool left_unsuspended; /* not suspended by synchall: PR 609569 */
     uint mutex_count;      /* mutex nesting: for PR 558463 */
     void *client_grab_mutex;
-#    ifdef DEBUG
+#ifdef DEBUG
     bool is_translating;
-#    endif
-#    ifdef LINUX
+#endif
+#ifdef LINUX
     /* i#4041: Pass the real translation for signals in rseq sequences. */
     app_pc last_special_xl8;
-#    endif
+#endif
 
     /* flags for asserts on linux and for getting param base right on windows */
     bool in_pre_syscall;
@@ -499,9 +486,6 @@ typedef struct _client_data_t {
      */
     dr_error_code_t error_code;
 } client_data_t;
-#else
-#    define IS_CLIENT_THREAD(dcontext) false
-#endif /* CLIENT_INTERFACE */
 
 #ifdef UNIX
 /* i#61/PR 211530: nudges on Linux do not use separate threads */
@@ -538,12 +522,7 @@ extern thread_id_t detacher_tid;
 extern event_t dr_app_started;
 extern event_t dr_attach_finished;
 
-#if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 extern bool standalone_library; /* used as standalone library */
-#else
-                      /* avoid complex ifdefs everywhere */
-#    define standalone_library false
-#endif
 #ifdef UNIX
 extern bool post_execve; /* have we performed an execve? */
 /* i#237/PR 498284: vfork threads that execve need to be separately delay-freed */
@@ -619,12 +598,10 @@ int
 dynamorio_app_init_part_two_finalize();
 int
 dynamorio_app_exit(void);
-#if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 dcontext_t *
 standalone_init(void);
 void
 standalone_exit(void);
-#endif
 thread_record_t *
 thread_lookup(thread_id_t tid);
 void
@@ -651,8 +628,8 @@ mark_thread_execve(thread_record_t *tr, bool execve);
 bool
 is_thread_initialized(void);
 int
-dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
-                   void *os_data _IF_CLIENT_INTERFACE(bool client_thread));
+dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
+                   bool client_thread);
 int
 dynamo_thread_exit(void);
 void
@@ -831,10 +808,8 @@ typedef struct {
     ushort exit_reason; /* Allows multiplexing LINK_SPECIAL_EXIT */
     /* Above fields are padded to 8 bytes on all archs except Win x86-32. */
 
-#ifdef CLIENT_INTERFACE
     /* Spill slots for inlined clean calls. */
     reg_t inline_spill_slots[CLEANCALL_NUM_INLINE_SLOTS];
-#endif
 } unprotected_context_t;
 
 /* dynamo-specific context associated with each active app thread
@@ -887,7 +862,6 @@ struct _dcontext_t {
 
     bool is_exiting; /* flag for exiting thread */
 #ifdef WINDOWS
-#    ifdef CLIENT_INTERFACE
     /* i#249: TEB field isolation */
     int app_errno;
     void *app_fls_data;
@@ -898,7 +872,6 @@ struct _dcontext_t {
     void *priv_nls_cache;
     void *app_static_tls;
     void *priv_static_tls;
-#    endif
     void *app_stack_limit;
     void *app_stack_base;
     /* we need this to restore ptrs for other threads on detach */
@@ -1081,13 +1054,11 @@ struct _dcontext_t {
     uint64 cache_count[10];  /* top ten cache_frag_counts */
 #endif
 
-#ifdef CLIENT_INTERFACE
     /* client interface-specific data */
     client_data_t *client_data;
-#    ifdef DEBUG
+#ifdef DEBUG
     /* i#2237: on exit we delete client_data before some IS_CLIENT_THREAD asserts. */
     bool is_client_thread_exiting;
-#    endif
 #endif
 
     /* FIXME trace_sysenter_exit is used to capture an exit from a trace that

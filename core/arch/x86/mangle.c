@@ -1130,7 +1130,6 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* N.B.: keep in synch with instr_check_xsp_mangling() */
 static void
 insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1151,7 +1150,7 @@ insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t
             INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, -4),
                                 OPND_CREATE_INT32(val)));
     } else {
-#    ifdef X64
+#ifdef X64
         ptr_int_t val_low = value & (ptr_int_t)0xffffffff;
         ASSERT(opsize == OPSZ_8);
         if (CHECK_TRUNCATE_TYPE_int(value)) {
@@ -1169,12 +1168,11 @@ insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t
                 INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, -4),
                                     OPND_CREATE_INT32(val_high)));
         }
-#    else
+#else
         ASSERT_NOT_REACHED();
-#    endif
+#endif
     }
 }
-#endif /* CLIENT_INTERFACE */
 
 static void
 insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1390,10 +1388,8 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     if (seg != SEG_GS && seg != SEG_FS)
         return oldop;
-#    ifdef CLIENT_INTERFACE
     if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return oldop;
-#    endif
     /* The reg should not be used by the oldop */
     ASSERT(!opnd_uses_reg(oldop, reg));
 
@@ -1757,13 +1753,11 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
 
-#ifdef CLIENT_INTERFACE
     if (TEST(INSTR_CLOBBER_RETADDR, instr->flags)) {
         /* we put the value in the note field earlier */
         ptr_uint_t val = (ptr_uint_t)instr->note;
         insert_mov_ptr_uint_beyond_TOS(dcontext, ilist, instr, val, retsz);
     }
-#endif
 
     if (instr_get_opcode(instr) == OP_ret_far) {
         /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
@@ -2364,7 +2358,7 @@ float_pc_update(dcontext_t *dcontext)
     if (!in_fcache(orig_pc) &&
         /* XXX: i#698: there might be fp instr neither in fcache nor in app */
         !(in_generated_routine(dcontext, orig_pc) || is_dynamo_address(orig_pc) ||
-          is_in_dynamo_dll(orig_pc) IF_CLIENT_INTERFACE(|| is_in_client_lib(orig_pc)))) {
+          is_in_dynamo_dll(orig_pc) || is_in_client_lib(orig_pc))) {
         bool no_xl8 = true;
 #ifdef X64
         if (dcontext->upcontext.upcontext.exit_reason != EXIT_REASON_FLOAT_PC_FXSAVE64 &&
@@ -2934,10 +2928,8 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (opnd_is_reg(dst) && reg_is_segment(opnd_get_reg(dst))) {
         app_pc xl8;
         seg = opnd_get_reg(dst);
-#    ifdef CLIENT_INTERFACE
         if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
             return;
-#    endif
         /* must use the original instr, which might be used by caller */
         xl8 = get_app_instr_xl8(instr);
         instr_reuse(dcontext, instr);
@@ -2955,10 +2947,8 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(reg_is_segment(seg));
     if (seg != SEG_FS && seg != SEG_GS)
         return;
-#    ifdef CLIENT_INTERFACE
     if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return;
-#    endif
 
     /* There are two possible mov_seg instructions:
      * 8C/r           MOV r/m16,Sreg   Move segment register to r/m16
@@ -3055,10 +3045,8 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     seg = opnd_get_segment(segop);
     if (seg != SEG_GS && seg != SEG_FS)
         return;
-#    ifdef CLIENT_INTERFACE
     if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return;
-#    endif
     STATS_INC(app_seg_refs_mangled);
 
     DOLOG(3, LOG_INTERP,
@@ -3143,14 +3131,12 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
                                     UNPROTECTED);
             memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
         }
-#    ifdef CLIENT_INTERFACE /* XXX i#2971: Remove this define. */
         if (handler->pass_pc_in_slot) {
             app_pc pc = GET_ANNOTATION_APP_PC(label_data);
             instrlist_insert_mov_immed_ptrsz(
                 dcontext, (ptr_int_t)pc, dr_reg_spill_slot_opnd(dcontext, SPILL_SLOT_2),
                 ilist, label, NULL, NULL);
         }
-#    endif
         dr_insert_clean_call_ex_varg(dcontext, ilist, label,
                                      receiver->instrumentation.callback,
                                      receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,

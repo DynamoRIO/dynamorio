@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -45,9 +45,7 @@
 #include "memquery.h"
 #include "os_private.h"
 #include <sys/mman.h>
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef HAVE_MEMINFO_QUERY
 #    error Should use direct query and no cache
@@ -407,8 +405,7 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
                  * /proc/maps are executable, even guard pages --x (see case 8821)
                  */
                 /* we add the whole client lib as a single entry */
-                if (IF_CLIENT_INTERFACE_ELSE(
-                        !is_in_client_lib(start) || !is_in_client_lib(end - 1), true)) {
+                if (!is_in_client_lib(start) || !is_in_client_lib(end - 1)) {
                     SYSLOG_INTERNAL_WARNING_ONCE(
                         "get_memory_info mismatch! "
                         "(can happen if os combines entries in /proc/pid/maps)\n"

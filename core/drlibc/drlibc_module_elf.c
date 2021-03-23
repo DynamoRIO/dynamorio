@@ -95,7 +95,6 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
          * file (e.g., .o file) we don't want to treat as a module
          */
         (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)) {
-#ifdef CLIENT_INTERFACE
         /* i#157, we do more check to make sure we load the right modules,
          * i.e. 32/64-bit libraries.
          * We check again in privload_map_and_relocate() in loader for nice
@@ -114,14 +113,13 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         if ((elf_header.e_version != 1) ||
             (memory && elf_header.e_ehsize != sizeof(ELF_HEADER_TYPE)) ||
             (memory &&
-#    ifdef X64
+#ifdef X64
              elf_header.e_machine != EM_X86_64 && elf_header.e_machine != EM_AARCH64
-#    else
+#else
              elf_header.e_machine != EM_386 && elf_header.e_machine != EM_ARM
-#    endif
+#endif
              ))
             return false;
-#endif
         /* FIXME - should we add any of these to the check? For real
          * modules all of these should hold. */
         ASSERT_CURIOSITY(elf_header.e_version == 1);

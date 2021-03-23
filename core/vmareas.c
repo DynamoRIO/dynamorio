@@ -60,9 +60,7 @@
 #    include "events.h" /* event log messages - not supported yet on Linux  */
 #endif
 
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef DEBUG
 #    include "synch.h" /* all_threads_synch_lock */
@@ -2743,11 +2741,10 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
 #endif
         ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
         if (TEST(FRAG_COARSE_GRAIN, frag_flags) && DYNAMO_OPTION(use_persisted) &&
-            info ==
-                NULL
-                    /* if clients are present, don't load until after they're initialized
-                     */
-                    IF_CLIENT_INTERFACE(&&(dynamo_initialized || !CLIENTS_EXIST()))) {
+            info == NULL
+            /* if clients are present, don't load until after they're initialized
+             */
+            && (dynamo_initialized || !CLIENTS_EXIST())) {
             vm_area_t *area;
             if (lookup_addr(executable_areas, start, &area))
                 info = (coarse_info_t *)area->custom.client;
@@ -2844,7 +2841,6 @@ remove_executable_region(app_pc start, size_t size, bool have_writelock)
     return remove_executable_vm_area(start, start + size, have_writelock);
 }
 
-#ifdef CLIENT_INTERFACE
 /* To give clients a chance to process pcaches as we load them, we
  * delay the loading until we've initialized the clients.
  */
@@ -2883,7 +2879,6 @@ vm_area_delay_load_coarse_units(void)
     }
     d_r_write_unlock(&executable_areas->lock);
 }
-#endif
 
 /* case 10995: we have to delay freeing un-executed coarse units until
  * we can release the exec areas lock when we flush an un-executed region.
@@ -3169,9 +3164,7 @@ static bool
 executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_area,
                              /* first_match_start is only set for !are_all_matching */
                              app_pc *first_match_start,
-                             bool are_all_matching /* ALL when true,
-                                                      EXISTS when false */
-                             ,
+                             bool are_all_matching /* ALL when true, EXISTS when false */,
                              uint match_vm_flags, uint match_frag_flags)
 {
     /* binary search below will assure that we hold an executable_areas lock */
@@ -4485,14 +4478,12 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
     }
     ASSERT(action_selected);
 
-#    ifdef CLIENT_INTERFACE
     /* Case 9712: Inform the client of the security violation and
      * give it a chance to modify the action.
      */
     if (CLIENTS_EXIST()) {
         instrument_security_violation(dcontext, addr, violation_type, &action);
     }
-#    endif
 
     /* now we know what is the chosen action and we can report */
     if (TEST(OPTION_REPORT, type_handling))
@@ -6123,7 +6114,7 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         /* assumption: preload/preinject library is not on DR area list since unloaded */
         if (!is_in_dynamo_dll(base) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
-            IF_CLIENT_INTERFACE(&&!is_in_client_lib(base)))
+            && !is_in_client_lib(base))
             return false;
     }
 
@@ -6143,8 +6134,7 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                /* i#626: we skip is_no_stack because of no mcontext at init time,
                 * we also assume that no alloc overlaps w/ stack at init time.
                 */
-               (IF_CLIENT_INTERFACE(dynamo_initialized &&) !is_on_stack(dcontext, base,
-                                                                        NULL))) {
+               (dynamo_initialized && !is_on_stack(dcontext, base, NULL))) {
         LOG(GLOBAL, LOG_VMAREAS, 1,
             "WARNING: " PFX "-" PFX " is writable, NOT adding to executable list\n", base,
             base + size);
@@ -7469,10 +7459,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
          */
         os_check_new_app_module(dcontext, pc);
 #endif
-#ifdef CLIENT_INTERFACE
         /* i#884: module load event is now on first execution */
         instrument_module_load_trigger(pc);
-#endif
         if (!own_execareas_writelock)
             d_r_read_lock(&executable_areas->lock);
         ok = lookup_addr(executable_areas, pc, &area);
@@ -7585,7 +7573,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              */
             bool is_being_unloaded = false;
 
-#ifdef CLIENT_INTERFACE
             /* Clients are allowed to use DR-allocated memory as app code:
              * we give up some robustness by allowing any DR-allocated memory
              * outside of the code cache that is marked as +x (we do not allow
@@ -7598,7 +7585,6 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
             if (is_in_dr && INTERNAL_OPTION(code_api) && TEST(MEMPROT_EXEC, prot) &&
                 !in_fcache(pc))
                 is_in_dr = false; /* allow it */
-#endif
 
             if (!is_allocated_mem) {
                 /* case 9022 - Kaspersky sports JMPs to a driver in

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,17 +51,13 @@
 /* The core of the public API */
 #include "instrument_api.h"
 
-/* xref _USES_DR_VERSION_ in dr_api.h (PR 250952) and compatibility
+/* Xref _USES_DR_VERSION_ in dr_api.h (PR 250952) and compatibility
  * check in instrument.c (OLDEST_COMPATIBLE_VERSION, etc.).
- * this is defined outside of CLIENT_INTERFACE b/c it's used for
- * a general tracedump version as well.
  */
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
 /* to make our own code shorter */
 #define MINSERT instrlist_meta_preinsert
-
-#ifdef CLIENT_INTERFACE
 
 void
 instrument_load_client_libs(void);
@@ -87,19 +83,19 @@ void
 instrument_thread_exit_event(dcontext_t *dcontext);
 void
 instrument_thread_exit(dcontext_t *dcontext);
-#    ifdef UNIX
+#ifdef UNIX
 void
 instrument_fork_init(dcontext_t *dcontext);
-#    endif
+#endif
 bool
 instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool for_trace,
                        bool translating, dr_emit_flags_t *emitflags);
 dr_emit_flags_t
 instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool translating);
-#    ifdef CUSTOM_TRACES
+#ifdef CUSTOM_TRACES
 dr_custom_trace_action_t
 instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag);
-#    endif
+#endif
 void
 instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags);
 bool
@@ -145,36 +141,33 @@ instrument_kernel_xfer(dcontext_t *dcontext, dr_kernel_xfer_type_t type,
 
 void
 instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg);
-#    ifdef WINDOWS
+#ifdef WINDOWS
 bool
 instrument_exception(dcontext_t *dcontext, dr_exception_t *exception);
 void
 wait_for_outstanding_nudges(void);
-#    else
+#else
 dr_signal_action_t
 instrument_signal(dcontext_t *dcontext, dr_siginfo_t *siginfo);
 bool
 dr_signal_hook_exists(void);
-#    endif
+#endif
 int
 get_num_client_threads(void);
-#    ifdef PROGRAM_SHEPHERDING
+#ifdef PROGRAM_SHEPHERDING
 void
 instrument_security_violation(dcontext_t *dcontext, app_pc target_pc,
                               security_violation_t violation, action_type_t *action);
-#    endif
+#endif
 
 void
 set_client_error_code(dcontext_t *dcontext, dr_error_code_t error_code);
-
-#endif /* CLIENT_INTERFACE */
 
 bool
 dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc);
 bool
 dr_modload_hook_exists(void);
 
-#ifdef CLIENT_INTERFACE
 void
 instrument_client_lib_loaded(byte *start, byte *end);
 void
@@ -220,7 +213,5 @@ instrument_resurrect_rw(dcontext_t *dcontext, void *perscxt, byte *map);
 bool
 instrument_persist_patch(dcontext_t *dcontext, void *perscxt, byte *bb_start,
                          size_t bb_size);
-
-#endif /* CLIENT_INTERFACE */
 
 #endif /* _INSTRUMENT_H_ */

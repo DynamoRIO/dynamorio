@@ -93,12 +93,8 @@ START_FILE
 #endif
 
 /* Count the slots for client clean call inlining. */
-#ifdef CLIENT_INTERFACE
 /* Add CLEANCALL_NUM_INLINE_SLOTS(5) * ARG_SZ for these slots.  No padding. */
 # define UPCXT_EXTRA (UPCXT_BEFORE_INLINE_SLOTS + 5 * ARG_SZ)
-#else
-# define UPCXT_EXTRA UPCXT_BEFORE_INLINE_SLOTS
-#endif
 
 /* XXX: duplicated in os_exports.h */
 #ifdef X64
@@ -310,7 +306,6 @@ call_dispatch_alt_stack_no_free:
         ret
         END_FUNC(call_switch_stack)
 
-#ifdef CLIENT_INTERFACE
 /*
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
@@ -431,7 +426,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
 # endif
         ret
         END_FUNC(dr_call_on_clean_stack)
-#endif /* CLIENT_INTERFACE */
 
 /*
  * Copies from the current xsp to tos onto the base of stack and then
@@ -1122,10 +1116,6 @@ GLOBAL_LABEL(dynamorio_syscall_wow64_noedx:)
 #endif /* WINDOWS */
 
 #ifdef UNIX
-/* FIXME: this function should be in #ifdef CLIENT_INTERFACE
- * However, the compiler complains about it in
- * vps-debug-internal-32 build, so we remove the ifdef now.
- */
 /* i#555: to avoid client use app's vsyscall, we enforce all clients
  * use int 0x80 for system call.
  */
@@ -1769,7 +1759,6 @@ GLOBAL_LABEL(native_plt_call:)
  * SEH or do unwinding which is done by standard versions.
  */
 
-#ifdef CLIENT_INTERFACE
 /* Front-end for client use where we don't want to expose our struct layouts,
  * yet we must call dr_setjmp directly w/o a call frame in between for
  * a proper restore point.
@@ -1781,7 +1770,6 @@ GLOBAL_LABEL(dr_try_start:)
         add      ARG1, TRY_CXT_SETJMP_OFFS
         jmp      GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
-#endif /* CLIENT_INTERFACE */
 
 /* int cdecl dr_setjmp(dr_jmp_buf *buf);
  */

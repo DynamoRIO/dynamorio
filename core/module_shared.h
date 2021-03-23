@@ -203,11 +203,9 @@ enum {
     /* do not created a persistent cache from this module */
     MODULE_DO_NOT_PERSIST = 0x00000040,
 #endif
-#ifdef CLIENT_INTERFACE
     MODULE_NULL_INSTRUMENT = 0x00000080,
     /* we use this to send just one module load event on 1st exec (i#884) */
     MODULE_LOAD_EVENT = 0x00000100,
-#endif
 };
 
 /**************** init/exit routines *****************/
@@ -368,10 +366,8 @@ get_proc_address_ex(module_base_t lib, const char *name, const char **forwarder 
 generic_func_t
 get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwarder OUT);
 
-#    ifdef CLIENT_INTERFACE
 generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name);
-#    endif
 
 #endif /* WINDOWS */
 
@@ -492,9 +488,7 @@ typedef struct _privmod_t {
     char path[MAXIMUM_PATH];
     uint ref_count;
     bool externally_loaded;
-#ifdef CLIENT_INTERFACE
     bool is_client; /* or Extension */
-#endif
     bool called_proc_entry;
     bool called_proc_exit;
     struct _privmod_t *next;

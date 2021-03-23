@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -81,14 +81,7 @@ HANDLE
 WINAPI
 redirect_GetProcessHeap(VOID)
 {
-#ifdef CLIENT_INTERFACE
-    /* XXX: perhaps all of these redirection routines should be ifdef CLIENT_INTERFACE.
-     * The loader itself is not, for use w/ hotpatching, etc.
-     */
     return get_private_peb()->ProcessHeap;
-#else
-    return get_peb(NT_CURRENT_PROCESS)->ProcessHeap;
-#endif
 }
 
 __bcount(dwBytes) LPVOID WINAPI

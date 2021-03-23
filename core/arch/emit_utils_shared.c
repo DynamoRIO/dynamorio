@@ -1305,11 +1305,9 @@ fragment_prefix_size(uint flags)
     if (use_ibt_prefix(flags)) {
         return fragment_ibt_prefix_size(flags);
     } else {
-#ifdef CLIENT_INTERFACE
         if (dynamo_options.bb_prefixes)
             return FRAGMENT_BASE_PREFIX_SIZE(flags);
         else
-#endif
             return 0;
     }
 }
@@ -1600,7 +1598,6 @@ void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool absolute,
                    reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv)
 {
-#    ifdef CLIENT_INTERFACE
     /* We assume PEB is globally constant and we don't need per-thread pointers
      * and can use use absolute pointers known at init time
      */
@@ -1621,7 +1618,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                                          PEB_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
     }
-#    endif
     /* See the comment at the definition of SWAP_TEB_STACKLIMIT() for full
      * discussion of which stack fields we swap.
      */
@@ -1692,7 +1688,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                    opnd_create_reg(reg_scratch)));
         }
     }
-#    ifdef CLIENT_INTERFACE
     if (should_swap_teb_nonstack_fields()) {
         /* Preserve app's TEB->LastErrorValue.  We used to do this separately b/c
          * DR at one point long ago made some win32 API calls: now we only have to
@@ -1798,7 +1793,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                                          STATIC_TLS_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
     }
-#    endif /* CLIENT_INTERFACE */
 }
 #endif /* WINDOWS */
 
@@ -2544,7 +2538,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  # save last_exit, currently in eax, into dcontext->last_exit
  *  SAVE_TO_DCONTEXT %xax,last_exit_OFFSET
  *
- *  .ifdef WINDOWS && CLIENT_INTERFACE
+ *  .ifdef WINDOWS
  *    swap_peb
  *  .endif
  *
@@ -3613,7 +3607,6 @@ insert_restore_target_from_dc(dcontext_t *dcontext, instrlist_t *ilist, bool all
             instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2,
                                                SCRATCH_REG4_OFFS));
     }
-#    ifdef CLIENT_INTERFACE
     /* i#537: we push KiFastSystemCallRet on to the stack and adjust the
      * next code to be executed at KiFastSystemCallRet.
      */
@@ -3625,7 +3618,6 @@ insert_restore_target_from_dc(dcontext_t *dcontext, instrlist_t *ilist, bool all
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(SCRATCH_REG2),
                                  OPND_CREATE_INT32(KiFastSystemCallRet_address)));
     }
-#    endif /* CLIENT_INTERFACE */
 }
 
 /* All system call instructions turn into a jump to an exit stub that
@@ -5592,8 +5584,7 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
 void
 link_special_ibl_xfer(dcontext_t *dcontext)
 {
-    IF_CLIENT_INTERFACE(
-        relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_LINKED, IBL_RETURN);)
+    relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_LINKED, IBL_RETURN);
 #ifdef UNIX
     if (DYNAMO_OPTION(native_exec_opt)) {
         relink_special_ibl_xfer(dcontext, NATIVE_PLT_IBL_IDX, IBL_LINKED, IBL_INDCALL);
@@ -5605,8 +5596,7 @@ link_special_ibl_xfer(dcontext_t *dcontext)
 void
 unlink_special_ibl_xfer(dcontext_t *dcontext)
 {
-    IF_CLIENT_INTERFACE(
-        relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_UNLINKED, IBL_RETURN);)
+    relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_UNLINKED, IBL_RETURN);
 #ifdef UNIX
     if (DYNAMO_OPTION(native_exec_opt)) {
         relink_special_ibl_xfer(dcontext, NATIVE_PLT_IBL_IDX, IBL_UNLINKED, IBL_INDCALL);
@@ -5615,7 +5605,6 @@ unlink_special_ibl_xfer(dcontext_t *dcontext)
 #endif
 }
 
-#ifdef CLIENT_INTERFACE
 /* i#849: low-overhead xfer for clients */
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
@@ -5625,8 +5614,6 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
         dcontext, pc, code, CLIENT_IBL_IDX, IBL_RETURN, NULL,
         reg_spill_slot_opnd(dcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT));
 }
-
-#endif /* CLIENT_INTERFACE */
 
 /* i#171: out-of-line clean call */
 /* XXX: i#1149 the clean call context switch should be shared among all threads */

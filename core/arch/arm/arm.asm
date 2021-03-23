@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -120,7 +120,6 @@ call_dispatch_alt_stack_no_free:
         END_FUNC(call_switch_stack)
 
 
-#ifdef CLIENT_INTERFACE
 /*
  * Calls the specified function 'func' after switching to the DR stack
  * for the thread corresponding to 'drcontext'.
@@ -165,7 +164,6 @@ GLOBAL_LABEL(dr_call_on_clean_stack:)
         mov      REG_SP, REG_R4
         pop      {REG_R1-REG_R5, pc} /* don't need r1-r3 values but this is simplest */
         END_FUNC(dr_call_on_clean_stack)
-#endif /* CLIENT_INTERFACE */
 
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
@@ -412,7 +410,6 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         END_FUNC(safe_read_asm)
 
 
-#ifdef CLIENT_INTERFACE
 /* Xref x86.asm dr_try_start about calling dr_setjmp without a call frame.
  *
  * int dr_try_start(try_except_context_t *cxt) ;
@@ -468,8 +465,6 @@ GLOBAL_LABEL(our_cpuid:)
         /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(our_cpuid)
-
-#endif /* CLIENT_INTERFACE */
 
 #ifdef UNIX
         DECLARE_FUNC(client_int_syscall)

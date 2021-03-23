@@ -39,9 +39,7 @@
 
 #include "globals.h"
 #include "module_shared.h"
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h" /* for instrument_client_lib_unloaded */
-#endif
+#include "instrument.h" /* for instrument_client_lib_unloaded */
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
@@ -140,11 +138,9 @@ privload_process_early_mods(void)
         NULL_TERMINATE_BUFFER(name_copy);
         if (!privload_load_process(mod)) {
             mod = NULL; /* it's been unloaded! */
-#ifdef CLIENT_INTERFACE
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 5, get_application_name(),
                    get_application_pid(), name_copy,
                    ": unable to process imports of client library.");
-#endif
             os_terminate(NULL, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         }
@@ -155,7 +151,7 @@ static inline bool
 loader_should_call_entry(privmod_t *mod)
 {
     return !mod->externally_loaded
-#if defined(STATIC_LIBRARY) && defined(WINDOWS) && defined(CLIENT_INTERFACE)
+#if defined(STATIC_LIBRARY) && defined(WINDOWS)
         /* For STATIC_LIBRARY, externally loaded may be a client (the executable)
          * for which we need to handle static TLS: i#4052.
          */
@@ -179,14 +175,10 @@ loader_init_prologue(void)
 
     for (uint i = 0; i < privmod_static_idx; i++) {
         /* Transfer to real list so we can do normal processing later. */
-#ifdef CLIENT_INTERFACE
         privmod_t *mod =
-#endif
             privload_insert(NULL, privmod_static[i].base, privmod_static[i].size,
                             privmod_static[i].name, privmod_static[i].path);
-#ifdef CLIENT_INTERFACE
         mod->is_client = true;
-#endif
     }
 
 #ifdef WINDOWS
@@ -223,10 +215,8 @@ loader_init_epilogue(dcontext_t *dcontext)
         snprintf(name_copy, BUFFER_SIZE_ELEMENTS(name_copy), "%s", mod->name);
         NULL_TERMINATE_BUFFER(name_copy);
         if (!privload_load_finalize(dcontext, mod)) {
-#ifdef CLIENT_INTERFACE
             SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 5, get_application_name(),
                    get_application_pid(), name_copy, ": library initializer failed.");
-#endif
             os_terminate(NULL, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         }
@@ -530,9 +520,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     }
     mod->ref_count = 1;
     mod->externally_loaded = false;
-#ifdef CLIENT_INTERFACE
     mod->is_client = false; /* up to caller to set later */
-#endif
     mod->called_proc_entry = false;
     mod->called_proc_exit = false;
     /* do not add non-heap struct to list: in init() we'll move array to list */
@@ -702,10 +690,8 @@ privload_load(const char *filename, privmod_t *dependent, bool client)
                 return NULL;
         }
     }
-#ifdef CLIENT_INTERFACE
     if (privmod->is_client)
         instrument_client_lib_loaded(privmod->base, privmod->base + privmod->size);
-#endif
     return privmod;
 }
 
@@ -721,10 +707,8 @@ privload_unload(privmod_t *privmod)
     if (privmod->ref_count == 0) {
         LOG(GLOBAL, LOG_LOADER, 1, "%s: unloading %s @ " PFX "\n", __FUNCTION__,
             privmod->name, privmod->base);
-#ifdef CLIENT_INTERFACE
         if (privmod->is_client)
             instrument_client_lib_unloaded(privmod->base, privmod->base + privmod->size);
-#endif
         if (privmod->prev == NULL) {
             bool prot = DATASEC_PROTECTED(DATASEC_RARELY_PROT);
             if (prot)

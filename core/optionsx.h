@@ -359,7 +359,6 @@ OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring
 
 /* -prof_counts and PROFILE_LINKCOUNT are no longer supported and have been removed */
 
-#    ifdef CLIENT_INTERFACE
 /* FIXME (xref PR 215082): make these external now that our product is our API? */
 /* XXX: These -client_lib* options do affect pcaches, but we don't want the
  * client option strings to matter, so we check them separately
@@ -372,7 +371,7 @@ OPTION_NAME_INTERNAL(bool, profile_times, "prof_times", "profiling via measuring
 OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING,
                         ";-separated string containing client "
                         "lib paths, IDs, and options")
-#        ifdef X64
+#    ifdef X64
 OPTION_COMMAND_INTERNAL(liststring_t, client_lib64, EMPTY_STRING, "client_lib64",
                         {
                             snprintf(options->client_lib,
@@ -383,8 +382,8 @@ OPTION_COMMAND_INTERNAL(liststring_t, client_lib64, EMPTY_STRING, "client_lib64"
                         ";-separated string containing client "
                         "lib paths, IDs, and options",
                         STATIC, OP_PCACHE_NOP /* See note about pcache above. */)
-#            define ALT_CLIENT_LIB_NAME client_lib32
-#        else
+#        define ALT_CLIENT_LIB_NAME client_lib32
+#    else
 OPTION_COMMAND_INTERNAL(liststring_t, client_lib32, EMPTY_STRING, "client_lib32",
                         {
                             snprintf(options->client_lib,
@@ -395,8 +394,8 @@ OPTION_COMMAND_INTERNAL(liststring_t, client_lib32, EMPTY_STRING, "client_lib32"
                         ";-separated string containing client "
                         "lib paths, IDs, and options",
                         STATIC, OP_PCACHE_NOP /* See note about pcache above. */)
-#            define ALT_CLIENT_LIB_NAME client_lib64
-#        endif
+#        define ALT_CLIENT_LIB_NAME client_lib64
+#    endif
 OPTION_COMMAND_INTERNAL(liststring_t, ALT_CLIENT_LIB_NAME, EMPTY_STRING,
                         IF_X64_ELSE("client_lib32", "client_lib64"), {},
                         ";-separated string containing client "
@@ -413,7 +412,7 @@ OPTION_DEFAULT_INTERNAL(bool, private_loader,
                         IF_STATIC_LIBRARY_ELSE(IF_WINDOWS_ELSE(true, false),
                                                IF_MACOS_ELSE(false, true)),
                         "use private loader for clients and dependents")
-#        ifdef UNIX
+#    ifdef UNIX
 /* We cannot know the total tls size when allocating tls in os_tls_init,
  * so use the runtime option to control the tls size.
  */
@@ -425,8 +424,8 @@ OPTION_DEFAULT_INTERNAL(uint, client_lib_tls_size, 1,
  */
 OPTION_DEFAULT_INTERNAL(bool, privload_register_gdb, true,
                         "register private loader DLLs with gdb")
-#        endif
-#        ifdef WINDOWS
+#    endif
+#    ifdef WINDOWS
 /* Heap isolation for private dll copies.  Valid only with -private_loader. */
 OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
                         "redirect heap usage by private libraries to DR heap")
@@ -436,7 +435,7 @@ OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
  */
 OPTION_DEFAULT_INTERNAL(bool, private_peb, true,
                         "use private PEB + TEB fields for private libraries")
-#        endif
+#    endif
 
 /* PR 200418: Code Manipulation API.  This option enables the code
  * manipulation events and sets some default options.  We can't
@@ -472,11 +471,11 @@ OPTION_COMMAND_INTERNAL(bool, probe_api, false, "probe_api",
                             }
                         },
                         "enable Probe API", STATIC, OP_PCACHE_NOP)
-#        define DISABLE_PROBE_API(prefix)                \
-            {                                            \
-                (prefix)->probe_api = false;             \
-                IF_HOTP((prefix)->hot_patching = false;) \
-            }
+#    define DISABLE_PROBE_API(prefix)                \
+        {                                            \
+            (prefix)->probe_api = false;             \
+            IF_HOTP((prefix)->hot_patching = false;) \
+        }
 
 /* PR 326610: provide -opt_speed option.  In future we may want to
  * expose these separately (PR 225139), and fully support their
@@ -530,10 +529,9 @@ OPTION_INTERNAL(bool, full_decode, "decode all instrs to level 3 during bb build
  */
 OPTION_INTERNAL(bool, fast_client_decode,
                 "avoid full decoding even when clients are present (risky)")
-#    endif /* CLIENT_INTERFACE */
-#endif     /* EXPOSE_INTERNAL_OPTIONS */
+#endif /* EXPOSE_INTERNAL_OPTIONS */
 #ifdef UNIX
-OPTION_DEFAULT_INTERNAL(bool, separate_private_bss, IF_CLIENT_INTERFACE_ELSE(true, false),
+OPTION_DEFAULT_INTERNAL(bool, separate_private_bss, true,
                         "place empty page to separate private lib .bss")
 #endif
 
@@ -669,8 +667,7 @@ DYNAMIC_OPTION_DEFAULT(
      * we can't print to the cmd console.  The user must explicitly disable
      * for automation or running daemons.
      */
-    IF_WINDOWS_ELSE(
-        IF_CLIENT_INTERFACE_ELSE(IF_UNIT_TEST_ELSE(0, IF_AUTOMATED_ELSE(0, 0xC)), 0), 0),
+    IF_WINDOWS_ELSE(IF_UNIT_TEST_ELSE(0, IF_AUTOMATED_ELSE(0, 0xC)), 0),
     "show a messagebox for events")
 #ifdef WINDOWS
 OPTION_DEFAULT(uint_time, eventlog_timeout, 10000,
@@ -729,13 +726,10 @@ OPTION_DEFAULT_INTERNAL(bool, invoke_app_on_crash, true,
 
 OPTION_DEFAULT(uint, stderr_mask,
                /* Enable for client linux debug so ASSERTS are visible (PR 232783) */
-               IF_CLIENT_INTERFACE_ELSE(IF_DEBUG_ELSE(SYSLOG_ALL,
-                                                      SYSLOG_CRITICAL | SYSLOG_ERROR),
-                                        SYSLOG_NONE),
+               IF_DEBUG_ELSE(SYSLOG_ALL, SYSLOG_CRITICAL | SYSLOG_ERROR),
                "show messages onto stderr")
 
-OPTION_DEFAULT(uint, appfault_mask,
-               IF_CLIENT_INTERFACE_ELSE(IF_DEBUG_ELSE(APPFAULT_CRASH, 0), 0),
+OPTION_DEFAULT(uint, appfault_mask, IF_DEBUG_ELSE(APPFAULT_CRASH, 0),
                "report diagnostic information on application faults")
 
 #ifdef UNIX
@@ -754,7 +748,7 @@ OPTION_DEFAULT(bool, dup_stdin_on_close, true,
  * No downside to raising since we'll let the app have ours if it
  * runs out.
  */
-OPTION_DEFAULT(uint, steal_fds, IF_CLIENT_INTERFACE_ELSE(96, 12),
+OPTION_DEFAULT(uint, steal_fds, 96,
                "number of fds to steal from the app outside the app's reach")
 OPTION_DEFAULT(bool, fail_on_stolen_fds, true,
                "return failure on app operations on fds preserved for DR's usage")
@@ -826,18 +820,15 @@ OPTION_DEFAULT(uint_time, deadlock_timeout,
 
 /* stack_size may be adjusted by adjust_defaults_for_page_size(). */
 OPTION_DEFAULT(uint_size, stack_size,
-               /* the CI build has a larger MAX_OPTIONS_STRING so we need
+               /* For clients we have a larger MAX_OPTIONS_STRING so we need
                 * a larger stack even w/ no client present.
                 * 32KB is the max that will still allow sharing per-thread
-                * gencode in the same 64KB alloc as the stack: we stay
-                * under that w/ no client.
+                * gencode in the same 64KB alloc as the stack on Windows.
                 */
-               IF_CLIENT_INTERFACE_ELSE(24 * 1024, IF_X64_ELSE(20 * 1024, 12 * 1024)),
-               "size of thread-private stacks, in KB")
+               24 * 1024, "size of thread-private stacks, in KB")
 #ifdef UNIX
 /* signal_stack_size may be adjusted by adjust_defaults_for_page_size(). */
-OPTION_DEFAULT(uint_size, signal_stack_size,
-               IF_CLIENT_INTERFACE_ELSE(24 * 1024, IF_X64_ELSE(20 * 1024, 12 * 1024)),
+OPTION_DEFAULT(uint_size, signal_stack_size, 24 * 1024,
                "size of signal handling stacks, in KB")
 #endif
 /* PR 415959: smaller vmm block size makes this both not work and not needed
@@ -849,7 +840,7 @@ OPTION_DEFAULT(bool, stack_shares_gencode,
                 * that aren't nec reachable.  Plus, client stacks are big
                 * enough now (56K) that this option was internally never triggered.
                 */
-               IF_UNIX_ELSE(false, IF_CLIENT_INTERFACE_ELSE(false, true)),
+               false,
                "stack and thread-private generated code share an allocation region")
 
 OPTION_DEFAULT(uint, spinlock_count_on_SMP, 1000U, "spinlock loop cycles on SMP")
@@ -915,8 +906,7 @@ OPTION_DEFAULT(uint, selfmod_max_writes, 5, "maximum write instrs per selfmod fr
 /* If this is too large, clients with heavyweight instrumentation hit the
  * "exceeded maximum size" failure.
  */
-OPTION_DEFAULT(uint, max_bb_instrs, IF_CLIENT_INTERFACE_ELSE(256, 1024),
-               "maximum instrs per basic block")
+OPTION_DEFAULT(uint, max_bb_instrs, 256, "maximum instrs per basic block")
 PC_OPTION_DEFAULT(bool, process_SEH_push, IF_RETURN_AFTER_CALL_ELSE(true, false),
                   "break bb's at an SEH push so we can see the frame pushed on in "
                   "interp, required for -borland_SEH_rct")
@@ -1868,9 +1858,8 @@ OPTION_INTERNAL(bool, shared_eq_ignore,
                 "use ignorable syscall classification for shared_syscalls")
 
 /* We mark as pcache-affecting though we have other explicit checks */
-PC_OPTION_DEFAULT(uint, tls_flags, 1 | 2 /* TLS_FLAG_BITMAP_TOP_DOWN |
-                                          * TLS_FLAG_CACHE_LINE_START */
-                  ,
+PC_OPTION_DEFAULT(uint, tls_flags, 1 | 2, /* TLS_FLAG_BITMAP_TOP_DOWN |
+                                           * TLS_FLAG_CACHE_LINE_START */
                   "TLS allocation choices")
 PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
                   "Use other parts of the TEB for TLS once out of real TLS slots")
@@ -2290,7 +2279,7 @@ OPTION_DEFAULT(uint, handle_ntdll_modify,
                 * err on the side of DR missing stuff while native rather than
                 * messing up the app's behavior.
                 */
-               IF_CLIENT_INTERFACE_ELSE(3 /*DR_MODIFY_ALLOW*/, 1 /*DR_MODIFY_NOP*/),
+               3 /*DR_MODIFY_ALLOW*/,
                "specify how to handle app attempts to modify ntdll code: either halt "
                "with an error, turn into a nop (default), or return failure to the app")
 
@@ -2317,8 +2306,7 @@ PC_OPTION_DEFAULT(liststring_t, whitelist_company_names,
                   "separated company names")
 PC_OPTION_DEFAULT(
     uint, unknown_module_policy,
-    0xf /*MODULEDB_RCT_EXEMPT_TO|MODULEDB_ALL_SECTIONS_BITS:SECTION_ALLOW|MODULEDB_REPORT_ON_LOAD*/
-    ,
+    0xf, /*MODULEDB_RCT_EXEMPT_TO|MODULEDB_ALL_SECTIONS_BITS:SECTION_ALLOW|MODULEDB_REPORT_ON_LOAD*/
     "module policy control field for non-whitelisted modules")
 OPTION_DEFAULT(uint, unknown_module_load_report_max, 10,
                "max number of non whitelist modules to log/report at load time")
@@ -2541,7 +2529,7 @@ OPTION_COMMAND(bool, persist, false, "persist",
                        IF_UNIX(options->coarse_split_calls = true;)
                        IF_X64(options->coarse_split_riprel = true;)
                        /* FIXME: i#660: not compatible w/ Probe API */
-                       IF_CLIENT_INTERFACE(DISABLE_PROBE_API(options);)
+                       DISABLE_PROBE_API(options);
                        /* i#1051: disable reset until we decide how it interacts w/
                         * pcaches */
                        DISABLE_RESET(options);
@@ -2696,8 +2684,7 @@ OPTION_DEFAULT(uint, native_exec_hook_conflict,
                 * for AppInit, or tools that go native, or future attach: all rare
                 * things.
                 */
-               IF_CLIENT_INTERFACE_ELSE(4 /* HOOKED_TRAMPOLINE_NO_HOOK */,
-                                        1 /* HOOKED_TRAMPOLINE_SQUASH */),
+               4 /* HOOKED_TRAMPOLINE_NO_HOOK */,
                "action on conflict with existing Nt* hooks: die, squash, or deeper")
 /* NOTE - be careful about using the default value till the options are
  * read */
@@ -3209,15 +3196,13 @@ OPTION_DEFAULT(liststring_t, ignore_assert_list, EMPTY_STRING,
  * 'Bug #4809 @arch/arch.c:145;Ignore message @arch/arch.c:146'
  */
 
-/* needed primarily for CLIENT_INTERFACE but technically all configurations
- * can have racy crashes at exit time (xref PR 470957)
+/* Needed primarily for clients but technically all configurations
+ * can have racy crashes at exit time (xref PR 470957).
  */
 OPTION(bool, synch_at_exit, "synchronize with all threads at exit in release build")
-#ifdef CLIENT_INTERFACE
 OPTION(bool, multi_thread_exit,
        "do not guarantee that process exit event callback is invoked single-threaded")
 OPTION(bool, skip_thread_exit_at_exit, "skip thread exit events at process exit")
-#endif
 OPTION(bool, unsafe_ignore_takeover_timeout,
        "ignore timeouts trying to take over one or more threads when initializing, "
        "leaving those threads native, which is potentially unsafe")
@@ -3323,7 +3308,7 @@ OPTION_COMMAND(bool, liveshields, false, "liveshields",
                    if (options->liveshields) {
                        options->hot_patching = true;
                        options->hotp_diagnostics = true;
-                       IF_CLIENT_INTERFACE(options->probe_api = false;)
+                       options->probe_api = false;
                    }
                },
                "enables LiveShields", STATIC, OP_PCACHE_NOP)

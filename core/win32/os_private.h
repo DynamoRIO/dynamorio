@@ -161,14 +161,10 @@ extern int *syscalls;
 /* this points to a windows-version-specific WOW table index array */
 extern int *wow64_index;
 
-#ifdef CLIENT_INTERFACE
 /* i#1230: we support the client adding to the end of these, so they are not const
  * (but they're still in .data, so they're read-only once past init)
  */
-#    define SYS_CONST /* in .data */
-#else
-#    define SYS_CONST const
-#endif
+#define SYS_CONST /* in .data */
 extern int windows_unknown_syscalls[];
 extern SYS_CONST int windows_10_1803_x64_syscalls[];
 extern SYS_CONST int windows_10_1803_wow64_syscalls[];

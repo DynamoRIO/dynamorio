@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1878,7 +1878,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                     * FIXME: if a client changes the action to ACTION_CONTINUE,
                     * this address will be exempted and we won't complain again.
                     * In the future we may need to add another action type. */
-                   IF_CLIENT_INTERFACE(|| CLIENTS_EXIST()));
+                   || CLIENTS_EXIST());
             /* we'll cache violation target */
             goto exempted;
         } else { /* decided not to throw the violation */

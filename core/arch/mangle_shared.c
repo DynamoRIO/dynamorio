@@ -452,10 +452,9 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         dcontext, ilist, instr, TEST(META_CALL_CLEAN, flags), num_args, args);
     ASSERT(ALIGNED(stack_for_params, get_ABI_stack_alignment()));
 
-#ifdef CLIENT_INTERFACE
     if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         if (SCRATCH_ALWAYS_TLS()) {
-#    ifdef AARCHXX
+#ifdef AARCHXX
             /* DR_REG_LR is dead here */
             insert_get_mcontext_base(dcontext, ilist, instr, DR_REG_LR);
             /* TLS_REG0_SLOT is not safe since it may be used by clients.
@@ -474,7 +473,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             PRE(ilist, instr,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG0),
                                   OPND_CREATE_MEMPTR(DR_REG_LR, 0)));
-#    else
+#else
             /* SCRATCH_REG0 is dead here, because clean calls only support "cdecl",
              * which specifies that the caller must save xax (and xcx and xdx).
              */
@@ -483,7 +482,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 instr_create_save_immed_to_dc_via_reg(
                     dcontext, SCRATCH_REG0, WHEREAMI_OFFSET, (uint)DR_WHERE_CLEAN_CALLEE,
                     OPSZ_4));
-#    endif
+#endif
         } else {
             PRE(ilist, instr,
                 XINST_CREATE_store(dcontext,
@@ -491,7 +490,6 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                    OPND_CREATE_INT32(DR_WHERE_CLEAN_CALLEE)));
         }
     }
-#endif
 
     /* If we need an indirect call, we use r11 as the last of the scratch regs.
      * We document this to clients using dr_insert_call_ex() or DR_CLEANCALL_INDIRECT.
@@ -510,7 +508,6 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              OPND_CREATE_INT32(stack_for_params)));
     }
 
-#ifdef CLIENT_INTERFACE
     if (TEST(META_CALL_CLEAN, flags) && should_track_where_am_i()) {
         uint whereami;
 
@@ -522,7 +519,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         if (SCRATCH_ALWAYS_TLS()) {
             /* SCRATCH_REG0 is dead here: restore of the app stack will clobber xax */
             insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
-#    ifdef AARCHXX
+#ifdef AARCHXX
             /* TLS_REG1_SLOT is not safe since it may be used by clients.
              * We save it to dcontext.mcontext.x0.
              */
@@ -539,11 +536,11 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             PRE(ilist, instr,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
                                   OPND_CREATE_MEMPTR(SCRATCH_REG0, 0)));
-#    else
+#else
             PRE(ilist, instr,
                 instr_create_save_immed_to_dc_via_reg(dcontext, SCRATCH_REG0,
                                                       WHEREAMI_OFFSET, whereami, OPSZ_4));
-#    endif
+#endif
         } else {
             PRE(ilist, instr,
                 XINST_CREATE_store(dcontext,
@@ -551,7 +548,6 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                    OPND_CREATE_INT32(whereami)));
         }
     }
-#endif
 
     /* mark it all meta */
     if (in == NULL)
@@ -594,14 +590,12 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
 {
     ptr_uint_t retaddr, curaddr;
 
-#ifdef CLIENT_INTERFACE
     /* i#620: provide API to set fall-through and retaddr targets at end of bb */
     if (instr_is_call(instr) && instrlist_get_return_target(ilist) != NULL) {
         retaddr = (ptr_uint_t)instrlist_get_return_target(ilist);
         LOG(THREAD, LOG_INTERP, 3, "set return target " PFX " by client\n", retaddr);
         return retaddr;
     }
-#endif
     /* For CI builds, use the translation field so we can handle cases
      * where the client has changed the target and invalidated the raw
      * bits.  We'll make sure the translation is always set for direct
@@ -1612,7 +1606,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 
 #ifdef AARCHXX
         if (!instr_is_meta(instr) && instr_reads_thread_register(instr) &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+            INTERNAL_OPTION(private_loader)) {
             next_instr = mangle_reads_thread_register(dcontext, ilist, instr, next_instr);
             continue;
         }
@@ -1620,7 +1614,7 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 
 #ifdef AARCH64
         if (!instr_is_meta(instr) && instr_writes_thread_register(instr) &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+            INTERNAL_OPTION(private_loader)) {
             next_instr =
                 mangle_writes_thread_register(dcontext, ilist, instr, next_instr);
             continue;
@@ -1722,7 +1716,6 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 #ifdef STEAL_REGISTER
             steal_reg(dcontext, instr, ilist);
 #endif
-#ifdef CLIENT_INTERFACE
             if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && instr_is_label(instr)) {
                 /* move the value to the note field (which the client cannot
                  * possibly use at this point) so we don't have to search for
@@ -1747,7 +1740,6 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
                     }
                 }
             }
-#endif
             continue;
         }
 
@@ -1817,7 +1809,6 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
  * SYSCALL
  */
 
-#ifdef CLIENT_INTERFACE
 static bool
 cti_is_normal_elision(instr_t *instr)
 {
@@ -1837,7 +1828,6 @@ cti_is_normal_elision(instr_t *instr)
         return true;
     return false;
 }
-#endif
 
 /* Tries to statically find the syscall number for the
  * syscall instruction instr.
@@ -1854,9 +1844,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t *prev = instr_get_prev(instr);
     /* Allow either eax or rax for x86_64 */
     reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
-#ifdef CLIENT_INTERFACE
     instr_t *walk, *tgt;
-#endif
 
     if (prev == NULL) {
 #if defined(WINDOWS) && defined(X64)
@@ -1899,7 +1887,6 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
            (!instr_is_app(prev) ||
             (!instr_is_syscall(prev) && !instr_is_interrupt(prev) &&
              !instr_writes_to_reg(prev, sysreg, DR_QUERY_INCLUDE_ALL)))) {
-#ifdef CLIENT_INTERFACE
         /* If client added cti in between that skips over the syscall, bail
          * and assume non-ignorable.
          */
@@ -1918,7 +1905,6 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
                 return -1;
             }
         }
-#endif
         prev = instr_get_prev_expanded(dcontext, ilist, prev);
     }
     if (prev != NULL && !instr_is_predicated(prev) &&
@@ -1942,7 +1928,6 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
                 return -1;
         }
 #endif
-#ifdef CLIENT_INTERFACE
         /* If client added cti that skips over the write, bail and assume
          * non-ignorable.
          */
@@ -1963,7 +1948,6 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
                 }
             }
         }
-#endif
     } else {
         LOG(THREAD, LOG_SYSCALLS, 3, "%s: never found write of syscall number\n",
             __FUNCTION__);
@@ -2013,16 +1997,12 @@ mangle_init(void)
      * 2. variable clean_callees will not be updated during the execution
      *    and can be set write protected.
      */
-#ifdef CLIENT_INTERFACE
     clean_call_opt_init();
     clean_call_info_init(&default_clean_call_info, NULL, false, 0);
-#endif
 }
 
 void
 mangle_exit(void)
 {
-#ifdef CLIENT_INTERFACE
     clean_call_opt_exit();
-#endif
 }

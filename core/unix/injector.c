@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -1125,12 +1125,10 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     APP(ilist, XINST_CREATE_debug_instr(dc));
     if (verbose) {
         fprintf(stderr, "injecting code:\n");
-#    if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
         /* XXX: This disas call aborts on our raw bytes instructions.  Can we
          * teach DR's disassembler to avoid those instrs?
          */
         instrlist_disassemble(dc, pc, ilist, STDERR);
-#    endif
     }
 
     /* Encode ilist into shellcode. */

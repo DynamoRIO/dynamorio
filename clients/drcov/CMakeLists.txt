@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -106,12 +106,16 @@ if (WIN32)
   if (dbghelp_path)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_CLIENTS_BIN})
   endif ()
-  # for build dir
-  add_custom_command(TARGET drcov2lcov POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-    ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
-    VERBATIM)
+  # For the build dir:
+  if (NOT dr_dll_being_copied_to_client_bin_dir)
+    # Avoid dueling racy copies (i#4668).
+    set(dr_dll_being_copied_to_client_bin_dir ON PARENT_SCOPE)
+    add_custom_command(TARGET drcov2lcov POST_BUILD
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
+      ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
+      VERBATIM)
+  endif ()
 endif (WIN32)
 
 set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})

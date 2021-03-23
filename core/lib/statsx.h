@@ -486,9 +486,7 @@ STATS_DEF("Fragments deleted after selfmod", num_fragments_deleted_selfmod)
 STATS_DEF("Fragments deleted for munmap or RO consistency",
           num_fragments_deleted_consistency)
 STATS_DEF("Fragments deleted for copy & replace", num_fragments_deleted_copy_and_replace)
-#ifdef CLIENT_INTERFACE
 STATS_DEF("Fragments deleted by client interface", num_fragments_deleted_client)
-#endif
 #ifdef SIDELINE
 STATS_DEF("Fragments deleted by sideline replacement", num_fragments_deleted_sideline)
 #endif
@@ -697,9 +695,7 @@ STATS_DEF("Fcache exits, going native", num_exits_native)
 #ifdef HOT_PATCHING_INTERFACE
 STATS_DEF("Fcache exits, hot patching control flow change", num_exits_hot_patch)
 #endif
-#ifdef CLIENT_INTERFACE
 STATS_DEF("Fcache exits, client redirecting", num_exits_client_redirect)
-#endif
 STATS_DEF("Fcache entrances aborted b/c target missing", num_entrances_aborted)
 STATS_DEF("Fcache exits, from traces", num_trace_exits)
 STATS_DEF("Fcache exits, from BBs", num_bb_exits)
@@ -909,10 +905,8 @@ STATS_DEF("Peak total reserved memory", peak_reserved_memory_capacity)
 STATS_DEF("Guard pages, reserved virtual pages", guard_pages)
 STATS_DEF("Peak guard pages, reserved virtual pages", peak_guard_pages)
 
-#ifdef CLIENT_INTERFACE
 RSTATS_DEF("Current client raw mmap size", client_raw_mmap_size)
 RSTATS_DEF("Peak client raw mmap size", peak_client_raw_mmap_size)
-#endif
 RSTATS_DEF("Current stack capacity (bytes)", stack_capacity)
 RSTATS_DEF("Peak stack capacity (bytes)", peak_stack_capacity)
 STATS_DEF("Mmaps sharing stack alloc region", mmap_share_stack_region)

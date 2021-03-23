@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,18 +39,16 @@
 #include "decode_private.h"
 #include "disassemble.h"
 
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
-
-#    ifdef DEBUG
+#ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-#        undef ASSERT_TRUNCATE
-#        undef ASSERT_BITFIELD_TRUNCATE
-#        undef ASSERT_NOT_REACHED
-#        define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#        define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#        define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#    endif
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#endif
 
 static const char *const pred_names[] = {
     "",   /* DR_PRED_NONE */
@@ -496,5 +494,3 @@ print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
     } else
         print_to_buffer(buf, bufsz, sofar, "%s", name);
 }
-
-#endif /* INTERNAL || CLIENT_INTERFACE */

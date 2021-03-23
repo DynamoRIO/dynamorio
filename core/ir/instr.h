@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -205,12 +205,10 @@ enum {
     INSTR_RSEQ_ENDPOINT = 0x01000000,
 #    endif
 
-#    ifdef CLIENT_INTERFACE
     /* This enum is also used for INSTR_OUR_MANGLING_EPILOGUE. Its semantics are
      * orthogonal to this and must not overlap.
      */
     INSTR_CLOBBER_RETADDR = 0x02000000,
-#    endif
 
     /* Indicates that the instruction is part of an own mangling region's
      * epilogue (xref i#3307). Currently, instructions with the

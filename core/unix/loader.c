@@ -121,12 +121,10 @@ static const char *const system_lib_paths[] = {
 static os_privmod_data_t *libdr_opd;
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 static bool printed_gdb_commands = false;
 /* Global so visible in release build gdb */
 static char gdb_priv_cmds[4096];
 static size_t gdb_priv_cmds_sofar;
-#    endif
 #endif
 
 /* pointing to the I/O data structure in privately loaded libc,
@@ -193,7 +191,6 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
 }
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 static void
 privload_add_gdb_cmd(elf_loader_t *loader, const char *filename, bool reachable)
 {
@@ -221,12 +218,11 @@ privload_add_gdb_cmd(elf_loader_t *loader, const char *filename, bool reachable)
         }
         LOG(GLOBAL, LOG_LOADER, 1, "for debugger: add-symbol-file %s %p\n", filename,
             text_addr);
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privload_register_gdb), false)) {
+        if (INTERNAL_OPTION(privload_register_gdb)) {
             dr_gdb_add_symbol_file(filename, text_addr);
         }
     }
 }
-#    endif
 #endif
 
 /* os specific loader initialization prologue before finalizing the load. */
@@ -274,7 +270,7 @@ os_loader_init_prologue(void)
         }
     });
     mod->externally_loaded = true;
-#    if defined(LINUX) /*i#1285*/ && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
+#    ifdef LINUX /*i#1285*/
     if (DYNAMO_OPTION(early_inject)) {
         /* libdynamorio isn't visible to gdb so add to the cmd list */
         byte *dr_base = get_dynamorio_dll_start(), *pref_base;
@@ -297,7 +293,6 @@ void
 os_loader_init_epilogue(void)
 {
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* Print the add-symbol-file commands so they can be copy-pasted into gdb.
      * We have to do it in a single syslog so they can be copy pasted.
      * For non-internal builds, or for private libs loaded after this point,
@@ -313,7 +308,6 @@ os_loader_init_epilogue(void)
                              "%s",
                              gdb_priv_cmds);
     }
-#    endif /* INTERNAL || CLIENT_INTERFACE */
 #endif
 }
 
@@ -327,7 +321,7 @@ os_loader_exit(void)
                        PROTECTED);
     }
 
-#if defined(LINUX) && (defined(INTERNAL) || defined(CLIENT_INTERFACE))
+#ifdef LINUX
     /* Put printed_gdb_commands into its original state for potential
      * re-attaching and os_loader_init_epilogue().
      */
@@ -534,10 +528,8 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         if (size != NULL)
             *size = loader.image_size;
 
-#    if defined(INTERNAL) || defined(CLIENT_INTERFACE)
         if (!TEST(MODLOAD_NOT_PRIVLIB, flags))
             privload_add_gdb_cmd(&loader, filename, TEST(MODLOAD_REACHABLE, flags));
-#    endif
     }
     elf_loader_destroy(&loader);
 
@@ -573,14 +565,12 @@ privload_process_imports(privmod_t *mod)
                     privload_locate_and_load(name, mod, false /*client dir=>true*/);
                 if (impmod == NULL)
                     return false;
-#    ifdef CLIENT_INTERFACE
                 /* i#852: identify all libs that import from DR as client libs.
                  * XXX: this code seems stale as libdynamorio.so is already loaded
                  * (xref #3850).
                  */
                 if (impmod->base == get_dynamorio_dll_start())
                     mod->is_client = true;
-#    endif
             }
         }
         ++dyn;
@@ -764,7 +754,6 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                     snprintf(path, BUFFER_SIZE_ELEMENTS(path), "%.*s", len, list);
                     NULL_TERMINATE_BUFFER(path);
                 }
-#    ifdef CLIENT_INTERFACE
                 if (mod->is_client) {
                     /* We are adding a client's lib rpath to the general search path. This
                      * is not bullet proof compliant with what the loader should really
@@ -788,7 +777,6 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                         search_paths_idx++;
                     }
                 }
-#    endif
                 if (!lib_found) {
                     snprintf(filename, MAXIMUM_PATH, "%s/%s", path, name);
                     filename[MAXIMUM_PATH - 1] = 0;
@@ -796,11 +784,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
                         filename);
                     if (os_file_exists(filename, false /*!is_dir*/) &&
                         module_file_has_module_header(filename)) {
-#    ifdef CLIENT_INTERFACE
                         lib_found = true;
-#    else
-                        return true;
-#    endif
                     }
                 }
                 list += len;

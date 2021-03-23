@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,9 +49,7 @@
 #include "synch.h"
 #include "module_shared.h"
 #include <stddef.h> /* for offsetof */
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 
 #ifdef DEBUG
 #    include "disassemble.h"
@@ -2972,12 +2970,8 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
                          OPTION_STRING_ALIGNMENT));
     x_offs += pers->option_string_len;
 
-#ifdef CLIENT_INTERFACE
     pers->instrument_ro_len = ALIGN_FORWARD(
         instrument_persist_ro_size(dcontext, info, x_offs), CLIENT_ALIGNMENT);
-#else
-    pers->instrument_ro_len = 0;
-#endif
     x_offs += pers->instrument_ro_len;
 
     /* Add new data section here */
@@ -3019,13 +3013,9 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
     pers->pad_len = ALIGN_FORWARD(x_offs, PAGE_SIZE) - x_offs;
     pers->data_len += pers->pad_len;
 
-#ifdef CLIENT_INTERFACE
     pers->instrument_rx_len =
         ALIGN_FORWARD(instrument_persist_rx_size(dcontext, info, x_offs + pers->pad_len),
                       CLIENT_ALIGNMENT);
-#else
-    pers->instrument_rx_len = 0;
-#endif
     pers->data_len += pers->instrument_rx_len;
 
     /* calculate cache_len so we can calculate padding.  we need 2 different pads
@@ -3037,8 +3027,8 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
         /* We need the cache/stub split to be on a file view map boundary,
          * yet have cache+stubs adjacent
          */
-        size_t rwx_offs = x_offs + pers->pad_len +
-            pers->cache_len IF_CLIENT_INTERFACE(+pers->instrument_rx_len);
+        size_t rwx_offs =
+            x_offs + pers->pad_len + pers->cache_len + pers->instrument_rx_len;
         pers->view_pad_len = ALIGN_FORWARD(rwx_offs, MAP_FILE_VIEW_ALIGNMENT) - rwx_offs;
         pers->flags |= PERSCACHE_MAP_RW_SEPARATE;
     }
@@ -3063,13 +3053,9 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
         info->trace_head_return_prefix - info->fcache_return_prefix;
     pers->data_len += pers->fcache_return_prefix_len;
 
-#ifdef CLIENT_INTERFACE
     pers->instrument_rw_len = ALIGN_FORWARD(
         instrument_persist_rw_size(dcontext, info, pers->header_len + pers->data_len),
         CLIENT_ALIGNMENT);
-#else
-    pers->instrument_rw_len = 0;
-#endif
     pers->data_len += pers->instrument_rw_len;
 
     /* We always write the footer regardless of whether we calculate the
@@ -3140,7 +3126,6 @@ coarse_unit_persist_rename(dcontext_t *dcontext, const char *filename,
     return success;
 }
 
-#ifdef CLIENT_INTERFACE
 bool
 instrument_persist_section(dcontext_t *dcontext, file_t fd, coarse_info_t *info,
                            size_t len, bool (*persist_func)(dcontext_t *, void *, file_t))
@@ -3210,7 +3195,6 @@ dr_fragment_persistable(void *drcontext, void *perscxt, void *tag_in)
     }
     return (res != NULL);
 }
-#endif
 
 /* Unlinks all inter-unit stubs.  Can still use info afterward, as
  * lazy linking should soon re-link them.
@@ -3371,7 +3355,6 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         goto coarse_unit_persist_exit;
     }
 
-#ifdef CLIENT_INTERFACE
     /* Give clients a chance to patch the cache mmap before we write it to
      * the file.  We do it here at a clean point between the size and persist
      * calls, rather than in the middle of the persist (must be before persist_rw).
@@ -3383,7 +3366,6 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
         STATS_INC(coarse_units_persist_nopatch);
         goto coarse_unit_persist_exit;
     }
-#endif
 
     /* Write the headers */
     if (!write_persist_file(dcontext, fd, &pers, pers.header_len))
@@ -3402,11 +3384,9 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
 
     /* New data section goes here */
 
-#ifdef CLIENT_INTERFACE
     if (!instrument_persist_section(dcontext, fd, info, pers.instrument_ro_len,
                                     instrument_persist_ro))
         goto coarse_unit_persist_exit;
-#endif
 
 #ifdef HOT_PATCHING_INTERFACE
     if (pers.hotp_patch_list_len > 0) {
@@ -3463,11 +3443,9 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
             goto coarse_unit_persist_exit; /* logs, stats in write_persist_file */
     }
 
-#ifdef CLIENT_INTERFACE
     if (!instrument_persist_section(dcontext, fd, info, pers.instrument_rx_len,
                                     instrument_persist_rx))
         goto coarse_unit_persist_exit;
-#endif
 
     if (pers.view_pad_len > 0) {
         if (!pad_persist_file(dcontext, fd, pers.view_pad_len, info))
@@ -3482,11 +3460,9 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
                             info->stubs_end_pc - info->cache_start_pc))
         goto coarse_unit_persist_exit; /* logs, stats are in write_persist_file */
 
-#ifdef CLIENT_INTERFACE
     if (!instrument_persist_section(dcontext, fd, info, pers.instrument_rw_len,
                                     instrument_persist_rw))
         goto coarse_unit_persist_exit;
-#endif
 
     if (TESTANY(PERSCACHE_GENFILE_MD5_SHORT | PERSCACHE_GENFILE_MD5_COMPLETE,
                 DYNAMO_OPTION(persist_gen_validation))) {
@@ -4090,12 +4066,10 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
     pc -= sizeof(persisted_footer_t);
 
     pc -= pers->instrument_rw_len;
-#ifdef CLIENT_INTERFACE
     if (pers->instrument_rw_len > 0) {
         if (!instrument_resurrect_rw(GLOBAL_DCONTEXT, info, pc))
             goto coarse_unit_load_exit;
     }
-#endif
 
     info->stubs_end_pc = pc;
     pc -= stubs_and_prefixes_len;
@@ -4160,12 +4134,10 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
                               info->fcache_return_prefix - info->cache_start_pc);
 
     pc -= pers->view_pad_len; /* just skip it */
-#ifdef CLIENT_INTERFACE
     if (pers->instrument_rx_len > 0) {
         if (!instrument_resurrect_rx(GLOBAL_DCONTEXT, info, pc))
             goto coarse_unit_load_exit;
     }
-#endif
     pc -= pers->pad_len; /* just skip it */
 
     pc -= pers->stub_htable_len;
@@ -4273,12 +4245,10 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end, bool for_execut
      */
     if (offsetof(coarse_persisted_info_t, instrument_ro_len) < pers->header_len) {
         pc -= pers->instrument_ro_len;
-#ifdef CLIENT_INTERFACE
         if (pers->instrument_ro_len > 0) {
             if (!instrument_resurrect_ro(GLOBAL_DCONTEXT, info, pc))
                 goto coarse_unit_load_exit;
         }
-#endif
     }
 
     ASSERT(pc - map >= (int)pers->header_len);
