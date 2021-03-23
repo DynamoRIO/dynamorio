@@ -3507,7 +3507,7 @@ if (BUILD_CLIENTS)
         set(tool.drcacheoff.burst_malloc_nodr ON)
         torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
           "" "@-simulator_type@basic_counts" "")
-          
+
         set(tool.drcacheoff.burst_reattach_nodr ON)
         torunonly_drcacheoff(burst_reattach tool.drcacheoff.burst_reattach
           "" "@-simulator_type@basic_counts" "")
