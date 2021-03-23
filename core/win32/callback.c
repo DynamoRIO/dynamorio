@@ -7606,10 +7606,9 @@ callback_interception_init_start(void)
         ASSERT(RtlUserThreadStart != NULL);
         ldr_init_pc = pc;
         pc = intercept_call(pc, (byte *)LdrInitializeThunk, intercept_ldr_init,
-                            0,   /* no arg */
-                            true /* FIXME: assume esp only until dstack check
-                                  * separated! */
-                            ,
+                            0,    /* no arg */
+                            true, /* FIXME: assume esp only until dstack check
+                                   * separated! */
                             AFTER_INTERCEPT_LET_GO, false /* cannot ignore on CTI */,
                             false /* handle CTI */, NULL, NULL);
     }
@@ -7625,9 +7624,8 @@ callback_interception_init_start(void)
     after_apc_orig_pc = get_pc_after_call((byte *)KiUserApcDispatcher, NULL);
     apc_pc = pc;
     pc = intercept_call(pc, (byte *)KiUserApcDispatcher, intercept_apc, 0, /* no arg */
-                        true /* FIXME: assume esp only until dstack check
-                              * separated! */
-                        ,
+                        true, /* FIXME: assume esp only until dstack check
+                               * separated! */
                         AFTER_INTERCEPT_LET_GO, false /* cannot ignore on CTI */,
                         false /* handle CTI */, NULL, NULL);
 
@@ -7716,9 +7714,7 @@ callback_interception_init_finish(void)
             pc = intercept_call(
                 pc, (byte *)LdrLoadDll, intercept_load_dll, 0, /* no arg */
                 false /* do not assume esp */, AFTER_INTERCEPT_DYNAMIC_DECISION,
-                true /* not critical trampoline, can ignore if
-                      * hooked with CTI */
-                ,
+                true /* not critical trampoline, can ignore if hooked with CTI */,
                 false /* handle CTI */, NULL, NULL);
             if (pc == NULL) {
                 /* failed to hook, reset pointer for next routine */
@@ -7731,9 +7727,7 @@ callback_interception_init_finish(void)
             pc = intercept_call(
                 pc, (byte *)LdrUnloadDll, intercept_unload_dll, 0, /* no arg */
                 false /* do not assume esp */, AFTER_INTERCEPT_DYNAMIC_DECISION,
-                true /* not critical trampoline, can ignore if
-                      * hooked with CTI */
-                ,
+                true /* not critical trampoline, can ignore if * hooked with CTI */,
                 false /* handle CTI */, NULL, NULL);
             if (pc == NULL) {
                 /* failed to hook, reset pointer for next routine */

@@ -6546,6 +6546,7 @@ dr_trace_exists_at(void *drcontext, void *tag);
 /****************************************************************************
  * proc.c routines exported here due to proc.h being in arch_exports.h
  * which is included in places where opnd_t isn't a complete type.
+ * These are used for dr_insert_clean_call().
  */
 /* DR_API EXPORT TOFILE dr_proc.h */
 DR_API

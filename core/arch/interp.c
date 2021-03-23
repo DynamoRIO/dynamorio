@@ -4533,11 +4533,10 @@ decode_as_bb(void *drcontext, byte *start_pc)
 
     init_build_bb(&bb, start_pc, false /*not interp*/, false /*not for cache*/,
                   false /*do not mangle*/,
-                  true /* translation; xref case 10070 where this
-                        * currently turns on full decode; today we
-                        * provide no way to turn that off, as IR
-                        * expansion routines are not exported (PR 200409). */
-                  ,
+                  true, /* translation; xref case 10070 where this
+                         * currently turns on full decode; today we
+                         * provide no way to turn that off, as IR
+                         * expansion routines are not exported (PR 200409). */
                   INVALID_FILE, 0 /*no pre flags*/, NULL /*no overlap*/);
     build_bb_ilist((dcontext_t *)drcontext, &bb);
     return bb.ilist;
@@ -4567,8 +4566,7 @@ decode_trace(void *drcontext, void *tag)
         if (!is_couldbelinking(dcontext))
             d_r_mutex_lock(&thread_initexit_lock);
         ilist = recreate_fragment_ilist(dcontext, NULL, &frag, &alloc_res,
-                                        false /*no mangling*/
-                                        ,
+                                        false /*no mangling*/,
                                         false /*do not re-call client*/);
         ASSERT(!alloc_res);
         if (!is_couldbelinking(dcontext))

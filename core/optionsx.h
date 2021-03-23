@@ -820,7 +820,7 @@ OPTION_DEFAULT(uint_time, deadlock_timeout,
 
 /* stack_size may be adjusted by adjust_defaults_for_page_size(). */
 OPTION_DEFAULT(uint_size, stack_size,
-               /* For client we have a larger MAX_OPTIONS_STRING so we need
+               /* For clients we have a larger MAX_OPTIONS_STRING so we need
                 * a larger stack even w/ no client present.
                 * 32KB is the max that will still allow sharing per-thread
                 * gencode in the same 64KB alloc as the stack on Windows.
@@ -1858,9 +1858,8 @@ OPTION_INTERNAL(bool, shared_eq_ignore,
                 "use ignorable syscall classification for shared_syscalls")
 
 /* We mark as pcache-affecting though we have other explicit checks */
-PC_OPTION_DEFAULT(uint, tls_flags, 1 | 2 /* TLS_FLAG_BITMAP_TOP_DOWN |
-                                          * TLS_FLAG_CACHE_LINE_START */
-                  ,
+PC_OPTION_DEFAULT(uint, tls_flags, 1 | 2, /* TLS_FLAG_BITMAP_TOP_DOWN |
+                                           * TLS_FLAG_CACHE_LINE_START */
                   "TLS allocation choices")
 PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
                   "Use other parts of the TEB for TLS once out of real TLS slots")
@@ -2307,8 +2306,7 @@ PC_OPTION_DEFAULT(liststring_t, whitelist_company_names,
                   "separated company names")
 PC_OPTION_DEFAULT(
     uint, unknown_module_policy,
-    0xf /*MODULEDB_RCT_EXEMPT_TO|MODULEDB_ALL_SECTIONS_BITS:SECTION_ALLOW|MODULEDB_REPORT_ON_LOAD*/
-    ,
+    0xf, /*MODULEDB_RCT_EXEMPT_TO|MODULEDB_ALL_SECTIONS_BITS:SECTION_ALLOW|MODULEDB_REPORT_ON_LOAD*/
     "module policy control field for non-whitelisted modules")
 OPTION_DEFAULT(uint, unknown_module_load_report_max, 10,
                "max number of non whitelist modules to log/report at load time")

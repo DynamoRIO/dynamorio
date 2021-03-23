@@ -3164,9 +3164,7 @@ static bool
 executable_areas_match_flags(app_pc addr_start, app_pc addr_end, bool *found_area,
                              /* first_match_start is only set for !are_all_matching */
                              app_pc *first_match_start,
-                             bool are_all_matching /* ALL when true,
-                                                      EXISTS when false */
-                             ,
+                             bool are_all_matching /* ALL when true, EXISTS when false */,
                              uint match_vm_flags, uint match_frag_flags)
 {
     /* binary search below will assure that we hold an executable_areas lock */

@@ -175,14 +175,12 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
      * unfortunately -- need to be transactional so we finish building this guy,
      * and then just stop (will delete on next trace build)
      */
-    md->last_fragment =
-        build_basic_block_fragment(dcontext, f->tag, FRAG_TEMP_PRIVATE, true /*link*/,
-                                   /* for clients we make temp-private even when
-                                    * thread-private versions already exist, so
-                                    * we have to make them invisible */
-                                   false, true /*for_trace*/
-                                   ,
-                                   md->pass_to_client ? &md->unmangled_bb_ilist : NULL);
+    md->last_fragment = build_basic_block_fragment(
+        dcontext, f->tag, FRAG_TEMP_PRIVATE, true /*link*/,
+        /* for clients we make temp-private even when
+         * thread-private versions already exist, so
+         * we have to make them invisible */
+        false, true /*for_trace*/, md->pass_to_client ? &md->unmangled_bb_ilist : NULL);
     md->last_copy = md->last_fragment;
 
     STATS_INC(num_trace_private_copies);

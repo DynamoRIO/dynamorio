@@ -208,8 +208,7 @@ d_r_dispatch(dcontext_t *dcontext)
             if (targetf == NULL) {
                 SELF_PROTECT_LOCAL(dcontext, WRITABLE);
                 targetf = build_basic_block_fragment(dcontext, dcontext->next_tag, 0,
-                                                     true /*link*/, true /*visible*/
-                                                     ,
+                                                     true /*link*/, true /*visible*/,
                                                      false /*!for_trace*/, NULL);
                 SELF_PROTECT_LOCAL(dcontext, READONLY);
             }
@@ -1194,8 +1193,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
          * todo list so we should never get here
          */
         if (SHARED_FRAGMENTS_ENABLED()) {
-            USAGE_ERROR("client to_do incompatible with -shared_{bbs,traces}"
-                        " at this time");
+            USAGE_ERROR("dr_{delete,replace}_fragment() are incompatible with "
+                        "-shared_{bbs,traces} at this time");
         }
 #ifdef CLIENT_SIDELINE
         d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));

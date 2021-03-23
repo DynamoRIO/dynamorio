@@ -1366,9 +1366,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 bool new_alloc;
                 DEBUG_DECLARE(fragment_t *pre_f = f;)
                 ilist = recreate_fragment_ilist(tdcontext, NULL, &f, &new_alloc,
-                                                true /*mangle*/
-                                                ,
-                                                true /*client*/);
+                                                true /*mangle*/, true /*client*/);
                 ASSERT(owning_f == NULL || f == owning_f ||
                        (TEST(FRAG_COARSE_GRAIN, owning_f->flags) && f == pre_f));
                 ASSERT(!new_alloc);
@@ -1890,8 +1888,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
          * regions): not ideal to test using part of what we're testing but
          * better than nothing
          */
-        ilist = recreate_fragment_ilist(dcontext, NULL, &f, NULL, true /*mangle*/
-                                        ,
+        ilist = recreate_fragment_ilist(dcontext, NULL, &f, NULL, true /*mangle*/,
                                         true /*call client*/);
     }
 

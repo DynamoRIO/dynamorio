@@ -7815,11 +7815,7 @@ dr_prepopulate_cache(app_pc *tags, size_t tags_count)
              * but for fine-grained this should produce a fully warmed cache.
              */
             f = build_basic_block_fragment(dcontext, tags[i], 0, true /*link*/,
-                                           true /*visible*/
-                                           ,
-                                           false /*!for_trace*/
-                                           ,
-                                           NULL);
+                                           true /*visible*/, false /*!for_trace*/, NULL);
         }
         ASSERT(f != NULL);
         /* We're ok making a thread-private fragment: might be a waste if this
