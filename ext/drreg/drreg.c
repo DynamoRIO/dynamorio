@@ -2009,8 +2009,13 @@ drreg_exit(void)
             return DRREG_ERROR;
     }
 
-    /* Support re-attach */
-    memset(&ops, 0, sizeof(ops));
+    /* Support re-attach. */
+    if (dr_is_detaching()) {
+        memset(&ops, 0, sizeof(ops));
+#ifdef DEBUG
+        stats_max_slot = 0;
+#endif
+    }
 
     return DRREG_SUCCESS;
 }

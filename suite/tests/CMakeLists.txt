@@ -3508,6 +3508,10 @@ if (BUILD_CLIENTS)
         torunonly_drcacheoff(burst_malloc tool.drcacheoff.burst_malloc
           "" "@-simulator_type@basic_counts" "")
 
+        set(tool.drcacheoff.burst_reattach_nodr ON)
+        torunonly_drcacheoff(burst_reattach tool.drcacheoff.burst_reattach
+          "" "@-simulator_type@basic_counts" "")
+
         set(tool.drcacheoff.burst_threadfilter_nodr ON)
         torunonly_drcacheoff(burst_threadfilter tool.drcacheoff.burst_threadfilter
           "" "@-simulator_type@basic_counts" "")

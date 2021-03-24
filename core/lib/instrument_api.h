@@ -6894,4 +6894,13 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
                                                byte *bb_start, size_t bb_size,
                                                void *user_data));
 
+DR_API
+/**
+ * Query whether detach is in progress. This is useful for clients that want to
+ * avoid the cost of resetting their global state on exit if there is no
+ * detaching and thus no chance of re-attaching.
+ */
+bool
+dr_is_detaching(void);
+
 #endif /* _INSTRUMENT_API_H_ */
