@@ -106,16 +106,8 @@ if (WIN32)
   if (dbghelp_path)
     DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_CLIENTS_BIN})
   endif ()
-  # For the build dir:
-  if (NOT dr_dll_being_copied_to_client_bin_dir)
-    # Avoid dueling racy copies (i#4668).
-    set(dr_dll_being_copied_to_client_bin_dir ON PARENT_SCOPE)
-    add_custom_command(TARGET drcov2lcov POST_BUILD
-      COMMAND ${CMAKE_COMMAND}
-      ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-      ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
-      VERBATIM)
-  endif ()
+  # We need a copy of DR for the build dir:
+  add_dependencies(drcov2lcov client_dr_copy)
 endif (WIN32)
 
 set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})

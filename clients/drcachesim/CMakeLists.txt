@@ -491,13 +491,8 @@ if (WIN32)
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drconfiglib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drconfiglib.dll VERBATIM)
-  if (NOT dr_dll_being_copied_to_client_bin_dir)
-    # Avoid dueling racy copies (i#4668).
-    set(dr_dll_being_copied_to_client_bin_dir ON PARENT_SCOPE)
-    add_custom_command(TARGET drcachesim POST_BUILD
-      COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-      ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/dynamorio.dll VERBATIM)
-  endif ()
+  # Avoid dueling racy copies (i#4668).
+  add_dependencies(drcachesim client_dr_copy)
 endif ()
 
 ##################################################

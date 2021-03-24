@@ -78,8 +78,18 @@ disable_compiler_warnings()
 # Clients don't include configure.h so they don't get DR defines
 add_dr_defines()
 
-# Avoid a race on competing copies of dynamorio.dll to the bin dir (i#4668).
-set(dr_dll_being_copied_to_client_bin_dir OFF)
+if (WIN32)
+  # Avoid a race on competing copies of dynamorio.dll to the bin dir from
+  # drcachsim and drcov via a higher-level target here (i#4668).
+  add_custom_target(client_dr_copy ALL
+    DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll)
+  add_custom_command(OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
+    DEPENDS dynamorio
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
+    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dynamorio.dll
+    VERBATIM)
+endif ()
 
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
