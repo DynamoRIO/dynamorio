@@ -1105,7 +1105,10 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     print_instr_prefixes(dcontext, instr, buf, bufsz, sofar);
 
     offs_pre_name = *sofar;
-    print_opcode_name(instr, name, buf, bufsz, sofar);
+    if (instr_opcode_valid(instr)) /* Avoid assert on level-0 bundle. */
+        print_opcode_name(instr, name, buf, bufsz, sofar);
+    else
+        print_to_buffer(buf, bufsz, sofar, "%s", name);
     offs_post_name = *sofar;
     name_width -= (int)(offs_post_name - offs_pre_name);
     print_to_buffer(buf, bufsz, sofar, " ");

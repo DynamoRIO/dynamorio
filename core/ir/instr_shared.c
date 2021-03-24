@@ -1289,7 +1289,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
          * for the logger */
         instr_t *log_instr = instr_clone(dcontext, instr);
         d_r_loginst(dcontext, 4, log_instr, "instr_expand");
-        instr_free(dcontext, log_instr);
+        instr_destroy(dcontext, log_instr);
     });
 
     /* decode routines use dcontext mode, but we want instr mode */
