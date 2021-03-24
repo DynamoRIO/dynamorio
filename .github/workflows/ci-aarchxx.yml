@@ -66,9 +66,6 @@ jobs:
 
     # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
-      # We need the apt-get update to avoid stale version 404 errors.
-      # (We assume this is limited to ubuntu-20.04 and save 30s on other
-      # jobs by not running update there.)
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
@@ -122,9 +119,6 @@ jobs:
 
     # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
-      # We need the apt-get update to avoid stale version 404 errors.
-      # (We assume this is limited to ubuntu-20.04 and save 30s on other
-      # jobs by not running update there.)
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
@@ -178,6 +172,7 @@ jobs:
     # Fetch and install Android NDK for Andoid cross-compile build.
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
@@ -238,6 +233,7 @@ jobs:
 
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Run Suite

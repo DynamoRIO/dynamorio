@@ -38,33 +38,7 @@
  ****************************************************************************
  ****************************************************************************
  ****************************************************************************
-\if vmsafe
-\mainpage VMsafe In-Process API
-\section VMsafe_intro Introduction
-This document describes a component of the VMsafe model that provides control
-at a process level and explains how to use it.   For the rest of the document
-this component shall be referred to as the VMsafe In-Process Runtime or VIPER.
-
-VIPER allows a user specified (via a Guest Agent) in-process agent (referred to
-as client from now on) to monitor and modify the execution of any given
-process.  VIPER is different from the security agent on the security monitor VM
-or an in-guest agent as neither of them provides direct control at the
-process level because they are unaware of processes.  VIPER on the other hand
-is fully aware of process and resides within the address space of each one that
-is intended to be monitored or controlled.  It provides a finer grain of
-control as it allows the user to decide which processes and what aspects of the
-processes' execution to monitor and control.  Also, a client is an optional
-component for any VMsafe-based solution.  The figure below gives an idea of how
-VIPER fits in with other VMsafe components.  All user- or ISV-provided parts of a
-VMsafe solution are shown in blue and the VMsafe components in gray.
-
-\image html viper.png
-\image rtf viper.png
-\image latex viper.eps
-
-\else
 \page page_user_docs Build Your Own Tool
-\endif
 
 DynamoRIO is a <em>runtime code manipulation system</em> that supports
 code transformations on any part of a program, <em>while it executes</em>.
@@ -98,34 +72,23 @@ sections:
 - \subpage using
   <br>The top-level interfaces provided to a tool.
 
-\if vmsafe
-- \subpage API_security
-  <br>An interface for customizing and applying the award-winning Memory
-  Firewall security software.
-
-- \subpage API_probe
-  <br>A powerful probe insertion interface that can operate with the code cache
-  or in a lighter-weight but more restrictive mode without code cache.
-\endif
 - \subpage API_BT
   <br>DynamoRIO's full runtime code manipulation interface.
 
 - \ref page_ext
   <br>DynamoRIO's API is augmented by a collection of extension libraries.
 
-\ifnot vmsafe
 - \subpage page_standalone
   <br>DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM/AArch64
   disassembly, decoding, encoding, and general instruction manipulation.
   A separate static library is provided for this purpose.
-\endif
 
 - \subpage overview
   <br>A description of the implementation of the DynamoRIO system.
 
 - \subpage release_notes
   <br>Release notes for this release, including changes since prior
-  releases \ifnot vmsafe and plans for future releases \endif.
+  releases and plans for future releases.
 
 - \subpage page_license
 
@@ -203,7 +166,6 @@ inlined into a trace.
 Transparency is an important requirement for DynamoRIO and its clients.
 The subject is fully covered in \subpage transparency.
 
-\ifnot vmsafe
 ***************************************************************************
 \section sec_refs References
 
@@ -215,9 +177,6 @@ The canonical reference for DynamoRIO is:
   Ph.D. Thesis, MIT, September 2004.
 
 See \ref page_publications for other publications involving DynamoRIO.
-
-\endif
-
 
 ****************************************************************************
 ****************************************************************************
@@ -233,15 +192,6 @@ See \ref page_publications for other publications involving DynamoRIO.
 This section gives an overview of how to use DynamoRIO, divided into the
 following sub-sections:
 
-\if vmsafe
- - \ref dr_api
- - \ref dr_modes
- - \ref sec_events
- - \ref sec_utils
- - \ref sec_extlibs
- - \ref sec_comm
- - \ref sec_annotations
-\else
  - \ref sec_events
  - \ref sec_utils
  - \ref sec_extlibs
@@ -250,9 +200,7 @@ following sub-sections:
  - \ref sec_annotations
  - \ref sec_64bit_reach
  - \ref sec_utf8
-\endif
 
-\ifnot vmsafe
 DynamoRIO exports a rich Application Programming Interface (API) to the
 user for building a DynamoRIO <em>client</em>. A DynamoRIO client is a
 library that is coupled with DynamoRIO in order to jointly operate on an
@@ -268,41 +216,6 @@ client, are called by DynamoRIO at appropriate times.
 
 DynamoRIO can alternatively be used as a third-party disassembly library
 (see \ref page_standalone).
-\endif
-
-\if vmsafe
-***************************************************************************
-\section dr_api API
-DynamoRIO's API is divided into the following interfaces:
-- \ref API_security
-  <br>An interface for customizing and applying the award-winning Memory
-  Firewall security software.
-- \ref API_probe
-  <br>A powerful probe insertion interface that can operate with the code cache
-  (\ref DR_MODE_CODE_MANIPULATION) or in a lighter-weight but more restrictive
-  mode without the code cache (\ref DR_MODE_PROBE).
-- \ref API_BT
-  <br>The full runtime code manipulation interface.  This includes the Probe
-  API, i.e., probes in the code cache.
-\endif
-
-\if vmsafe
-***************************************************************************
-\section dr_modes Modes
-
-The different modes a client can request DynamoRIO to operate in are listed
-below.  These are not to be confused with the different \ref dr_api provided by
-DynamoRIO.  Each mode of DynamoRIO's operation maps to one or more API.
-
-  - The Memory Firewall mode (#DR_MODE_MEMORY_FIREWALL) maps exclusively to the Memory Firewall API.
-  - The Probe mode maps to the Probe API (#DR_MODE_PROBE) without code cache, i.e., a lighter-weight but restrictive mode.
-  - The Code Manipulation mode maps to the Code Manipulation API (#DR_MODE_CODE_MANIPULATION) and the Probe API (#DR_MODE_PROBE) with code cache.
-  .
-
-Below we describe parts of the system that are common to all modes and
-interfaces.  Each interface adds its own events and utilities, described in
-the section for that interface.
-\endif
 
 ***************************************************************************
 \section sec_events Common Events
@@ -392,8 +305,6 @@ communicates with the client (see \ref sec_comm).  Third-party libraries
 can be used if they are linked statically or loaded privately and there is
 no possibility of global resource conflicts (e.g., a third-party library's
 memory allocation must be wrapped): see \ref sec_extlibs for more details.
-\if vmsafe For the Probe API, these restrictions can be relaxed (see \ref
-sec_trans_probe). \endif
 
 DynamoRIO's API provides:
 
@@ -898,7 +809,6 @@ developers to explicitly mark any variable as defined.
 /**
 ***************************************************************************
 ***************************************************************************
-\ifnot vmsafe
 \page page_standalone Disassembly Library
 
 DynamoRIO can be used as a standalone library for IA-32/AMD64/ARM/AArch64
@@ -997,7 +907,5 @@ follow the steps for \ref page_build_client to include the header files and link
 with the DynamoRIO library, but omit the linker flags requesting no
 standard libraries or startup files.  DynamoRIO's CMake support does this
 automatically via the configure_DynamoRIO_standalone() function.
-
-\endif
 
 */

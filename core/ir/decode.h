@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -567,7 +567,6 @@ DR_API
 byte *
 decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr);
 
-#ifdef CLIENT_INTERFACE
 /* decode_as_bb() is defined in interp.c, but declared here so it will
  * be listed next to the other decode routines in the API headers.
  */
@@ -598,7 +597,6 @@ DR_API
  */
 instrlist_t *
 decode_trace(void *drcontext, void *tag);
-#endif
 
 const struct instr_info_t *
 get_next_instr_info(const instr_info_t *info);

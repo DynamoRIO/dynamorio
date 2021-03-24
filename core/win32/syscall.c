@@ -77,17 +77,13 @@ app_pc KiFastSystemCallRet_address = NULL;
 
 /*******************************************************/
 
-#ifdef CLIENT_INTERFACE
 /* i#1230: we support a limited number of extra interceptions.
  * We add extra slots to all of the arrays.
  */
-#    define CLIENT_EXTRA_TRAMPOLINE 12
-#    define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
+#define CLIENT_EXTRA_TRAMPOLINE 12
+#define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
 /* no lock needed since only supported during dr_client_main */
 static uint syscall_extra_idx;
-#else
-#    define TRAMPOLINE_MAX SYS_MAX
-#endif
 
 const char *SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,     \
@@ -687,13 +683,13 @@ syscall_while_native(app_state_at_intercept_t *state)
         dcontext->thread_record->retakeover = false;
         return AFTER_INTERCEPT_TAKE_OVER; /* syscall under DR */
     } else if (!dcontext->thread_record->under_dynamo_control
-                    /* xref PR 230836 */
-                    IF_CLIENT_INTERFACE(&&!IS_CLIENT_THREAD(dcontext))
-                /* i#1318: may get here from privlib at exit, at least until we
-                 * redirect *everything*.  From privlib we need to keep
-                 * the syscall native as DR locks may be held.
-                 */
-                IF_CLIENT_INTERFACE(&&dcontext->whereami == DR_WHERE_APP)) {
+               /* xref PR 230836 */
+               && !IS_CLIENT_THREAD(dcontext)
+               /* i#1318: may get here from privlib at exit, at least until we
+                * redirect *everything*.  From privlib we need to keep
+                * the syscall native as DR locks may be held.
+                */
+               && dcontext->whereami == DR_WHERE_APP) {
         /* assumption is that any known native thread is one we control in general,
          * just not right now while in a native_exec_list dll */
         STATS_INC(num_syscall_trampolines_native);
@@ -801,19 +797,6 @@ syscall_while_native(app_state_at_intercept_t *state)
      * when priv libs call routines we haven't yet redirected.  Best to disable
      * the syslog for clients (we still have the log warning).
      */
-#ifndef CLIENT_INTERFACE
-    DODEBUG({
-        /* Unfortunately we use various ntdll routines (most notably Ldr*)
-         * that may be hooked (hook code could do anything including making
-         * system calls).  Also some the of the ntdll Rtl routines we
-         * import may be similarly ill behaved (though we don't believe any
-         * of the currently used ones are problematic). Also calling
-         * through Sygate hooks may reach here.
-         */
-        SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
-                                     syscall_names[sysnum]);
-    });
-#endif
     STATS_INC(num_syscall_trampolines_DR);
     LOG(THREAD, LOG_SYSCALLS, 1, "WARNING: syscall_while_native: syscall from DR %s\n",
         syscall_names[sysnum]);
@@ -838,10 +821,8 @@ static inline bool
 intercept_native_syscall(int SYSnum)
 {
     ASSERT(SYSnum < TRAMPOLINE_MAX);
-#ifdef CLIENT_INTERFACE
     if ((uint)SYSnum >= SYS_MAX + syscall_extra_idx)
         return false;
-#endif
     /* Don't hook all syscalls for thin_client. */
     if (DYNAMO_OPTION(thin_client) && !intercept_syscall_for_thin_client(SYSnum))
         return false;
@@ -1887,10 +1868,8 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         copy_mcontext(mc, &mcontext);
         mc->pc = SYSCALL_PC(dcontext);
 
-#ifdef CLIENT_INTERFACE
         /* make sure client nudges are finished */
         wait_for_outstanding_nudges();
-#endif
 
         /* FIXME : issues with cleaning up here what if syscall fails */
         DEBUG_DECLARE(ok =)
@@ -2189,7 +2168,7 @@ presys_SetInformationProcess(dcontext_t *dcontext, reg_t *param_base)
     ULONG info_len = (ULONG)sys_param(dcontext, param_base, 3);
     LOG(THREAD, LOG_SYSCALLS, 2, "NtSetInformationProcess %p %d %p %d\n", process_handle,
         class, info, info_len);
-    if (IF_CLIENT_INTERFACE_ELSE(!should_swap_teb_static_tls(), true))
+    if (!should_swap_teb_static_tls())
         return true;
     if (class != ProcessTlsInformation)
         return true;
@@ -3181,7 +3160,7 @@ pre_system_call(dcontext_t *dcontext)
          * now.
          */
     } else if (sysnum == syscalls[SYS_RaiseException]) {
-        IF_CLIENT_INTERFACE(check_app_stack_limit(dcontext));
+        check_app_stack_limit(dcontext);
         /* FIXME i#1691: detect whether we're inside SEH handling already, in which
          * case this process is about to die by this secondary exception and
          * we want to do a normal exit and give the client a chance to clean up.
@@ -3637,7 +3616,6 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* NtQueryInformationThread */
 static void
 postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool success)
@@ -3660,7 +3638,6 @@ postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool suc
         }
     }
 }
-#endif
 
 /* NtOpenThread */
 static void
@@ -4360,7 +4337,6 @@ postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* i#537: sysenter returns to KiFastSystemCallRet from kernel, and returns to DR
  * from there. We restore the correct app return target and re-execute
  * KiFastSystemCallRet to make sure client see the code at KiFastSystemCallRet.
@@ -4371,13 +4347,11 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     reg_t adjust_esp;
     ASSERT(get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
            KiFastSystemCallRet_address != NULL);
-#    ifdef CLIENT_INTERFACE
     /* We don't want to do this adjustment until after the final syscall
      * in any invoke-another sequence (i#1210)
      */
     if (instrument_invoke_another_syscall(dcontext))
         return;
-#    endif
     /* If this thread is native, don't disrupt the return-to-native */
     if (!dcontext->thread_record->under_dynamo_control)
         return;
@@ -4386,7 +4360,6 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     get_mcontext(dcontext)->xsp = adjust_esp;
     dcontext->asynch_target = KiFastSystemCallRet_address;
 }
-#endif
 
 /* NOTE : no locks can be grabbed on the path to SuspendThread handling code */
 void
@@ -4432,15 +4405,11 @@ post_system_call(dcontext_t *dcontext)
         }
     } else if (sysnum == syscalls[SYS_OpenThread]) {
         postsys_OpenThread(dcontext, param_base, success);
-    }
-#ifdef CLIENT_INTERFACE
-    else if (sysnum == syscalls[SYS_QueryInformationThread]) {
+    } else if (sysnum == syscalls[SYS_QueryInformationThread]) {
         postsys_QueryInformationThread(dcontext, param_base, success);
-    }
-#endif
-    else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
-             /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
-             sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
+    } else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
+               /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
+               sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
         KSTART(post_syscall_alloc);
         postsys_AllocateVirtualMemory(dcontext, param_base, success, sysnum);
         KSTOP(post_syscall_alloc);
@@ -4596,7 +4565,6 @@ post_system_call(dcontext_t *dcontext)
 #endif /* DEBUG */
     }
 
-#ifdef CLIENT_INTERFACE
     /* The instrument_post_syscall should be called after DR finishes all
      * its operations. Xref to i#1.
      */
@@ -4611,7 +4579,6 @@ post_system_call(dcontext_t *dcontext)
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         KiFastSystemCallRet_address != NULL)
         restore_for_KiFastSystemCallRet(dcontext);
-#endif
 
     /* stats lock grabbing ok here, any synch with suspended threads taken
      * care of already */
@@ -4629,7 +4596,6 @@ post_system_call(dcontext_t *dcontext)
  * SYSTEM CALL API
  */
 
-#ifdef CLIENT_INTERFACE
 DR_API
 reg_t
 dr_syscall_get_param(void *drcontext, int param_num)
@@ -4780,11 +4746,11 @@ dr_syscall_invoke_another(void *drcontext)
             mc->xdx = mc->xsp + XSP_SZ;
         }
     }
-#    ifdef X64
+#ifdef X64
     else if (get_syscall_method() == SYSCALL_METHOD_SYSCALL) {
         /* sys_param_addr() is already using r10 */
     }
-#    endif
+#endif
 }
 
 DR_API
@@ -4823,4 +4789,3 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args, int wo
         idx);
     return true;
 }
-#endif /* CLIENT_INTERFACE */

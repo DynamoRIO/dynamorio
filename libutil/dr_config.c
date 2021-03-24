@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -937,14 +937,7 @@ write_options(opt_info_t *opt_info, TCHAR *wbuf)
          */
         mode_str = "";
         break;
-    default:
-#ifndef CLIENT_INTERFACE
-        /* no API's so no added options */
-        mode_str = "";
-        break;
-#else
-        DO_ASSERT(false);
-#endif
+    default: DO_ASSERT(false);
     }
 
     len = _sntprintf(wbuf + sofar, bufsz - sofar, _TEXT(TSTR_FMT), mode_str);

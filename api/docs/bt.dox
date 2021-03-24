@@ -42,28 +42,18 @@ executes.  Modifications are not limited to trampoline insertion and can
 include arbitrary changes.  We divide the API description into the
 following sections:
 
-\ifnot vmsafe
- - \ref sec_IR
- - \ref sec_events_bt
- - \ref sec_decode
- - \ref sec_isa
- - \ref sec_IR_utils
- - \ref sec_reg_stolen
- - \ref sec_translation
- - \ref sec_predication
- - \ref sec_ldrex
- - \ref sec_rseq
- - \ref sec_pcache
- - \ref bt_examples
-\else
- - \ref sec_IR
- - \ref sec_events_bt
- - \ref sec_decode
- - \ref sec_isa
- - \ref sec_IR_utils
- - \ref sec_translation
- - \ref bt_examples
-\endif
+- \ref sec_IR
+- \ref sec_events_bt
+- \ref sec_decode
+- \ref sec_isa
+- \ref sec_IR_utils
+- \ref sec_reg_stolen
+- \ref sec_translation
+- \ref sec_predication
+- \ref sec_ldrex
+- \ref sec_rseq
+- \ref sec_pcache
+- \ref bt_examples
 
 ***************************************************************************
 \htmlonly
@@ -1360,7 +1350,6 @@ op_disable_rseq "disable_rseq" runtime option may be used to return ENOSYS,
 which can provide a workaround for applications which have fallback code
 for kernels where rseq is not supported.
 
-\ifnot vmsafe
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
@@ -1430,8 +1419,6 @@ instrumentation, it must do that on its own in the event callbacks.  The
 TLS check ensures that TLS scratch slots are identical.  DynamoRIO also
 ensures that any runtime options that affect persistent code (such as
 whether traces are enabled) are identical.
-
-\endif
 
 ***************************************************************************
 ****************************************************************************

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -102,6 +102,25 @@ module_load_event(void *dcontext, const module_data_t *data, bool loaded)
 #endif
     if (string_match(data->names.module_name, LIB_TO_LOOK_FOR))
         dr_fprintf(STDERR, "LOADED MODULE: %s\n", data->names.module_name);
+
+#ifdef UNIX
+    /* Sanity checks on the preferred_base field. */
+    if (data->preferred_base != 0) {
+        module_data_t *main_mod = dr_get_main_module();
+        if (main_mod->start != data->start &&
+            /* DR and the client have non-0 preferred bases. */
+            strstr(dr_module_preferred_name(data), "dynamorio") == NULL &&
+            dr_get_client_base(0) != data->start) {
+            dr_fprintf(STDERR, "ERROR: expected 0 preferred base for regular .so\n");
+        }
+        dr_free_module_data(main_mod);
+    }
+#else
+    if (data->preferred_base == 0) {
+        dr_fprintf(STDERR, "ERROR: expected non-zero preferred_base for %s\n",
+                   dr_module_preferred_name(data));
+    }
+#endif
 
 #ifdef WINDOWS
     /* Test iterating symbols imported from a specific module.  The typical use
@@ -245,6 +264,8 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
+    if (id != 0)
+        dr_fprintf(STDERR, "ERROR: We assume the id is 0.\n");
     dr_symbol_import_iterator_t *sym_iter;
     bool found_symbol = false;
     module_data_t *main_mod = dr_get_main_module();

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -367,7 +367,7 @@ set_dynamo_options(options_t *options, const char *optstr);
 #    define RUNNING_WITHOUT_CODE_CACHE() \
         (IF_HOTP(DYNAMO_OPTION(hotp_only) ||) DYNAMO_OPTION(thin_client))
 
-#    if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#    ifndef NOT_DYNAMORIO_CORE_PROPER
 #        define CLIENT_OR_STANDALONE() (standalone_library || CLIENTS_EXIST())
 #    else
 #        define CLIENT_OR_STANDALONE() false
@@ -395,17 +395,13 @@ extern read_write_lock_t options_lock;
             ((default_internal_options.op)[0] == '\0')
 #    endif
 
-#    ifdef CLIENT_INTERFACE
-#        ifdef STATIC_LIBRARY
+#    ifdef STATIC_LIBRARY
 /* For our static model, we enable -code_api and assume that client code could
  * be run at any time, even if there's no dr_init.
  */
-#            define CLIENTS_EXIST() true
-#        else
-#            define CLIENTS_EXIST() (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
-#        endif
+#        define CLIENTS_EXIST() true
 #    else
-#        define CLIENTS_EXIST() false
+#        define CLIENTS_EXIST() (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib))
 #    endif
 
 /* 0=ret => 1, 1=call* => 2, 2=jmp* => 4 */

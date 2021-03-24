@@ -157,20 +157,6 @@ if (embeddable)
   string(REGEX REPLACE "(SEARCHENGINE[ \t]*= )YES" "\\1 NO" string "${string}")
 endif ()
 
-# We no longer support VMSAFE.
-# Here's what we used to do:
-#   ifdef VMSAFE
-#   	$(SED) -i 's/\(PROJECT_NAME[ \t]*=\).*/\1 "VMsafe In-Process API"/' $@
-#   	$(SED) -i 's/\(ENABLED_SECTIONS[ \t]*=\)/\1 vmsafe/' $@
-#   	$(SED) -i 's/DynamoRIO=DynamoRIO/DynamoRIO=${VMSAFE_NAME}/' $@
-#   	$(SED) -i 's/client=client/client=${VMSAFE_CLIENT}/' $@
-#   	$(SED) -i 's/clients=clients/clients=${VMSAFE_CLIENT}s/' $@
-#   	$(SED) -i 's/Client=Client/Client=${VMSAFE_CLIENT}/' $@
-#   	$(SED) -i 's/Clients=Clients/Clients=${VMSAFE_CLIENT}s/' $@
-#   else
-#   	$(SED) -i 's/\(ENABLED_SECTIONS[ \t]*=\)/\1 linux/' $@
-#   endif
-
 file(WRITE ${outfile} "${string}")
 
 # Now update to latest doxygen.  Suppress warnings since they're misleading:

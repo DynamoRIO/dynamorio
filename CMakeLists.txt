@@ -307,31 +307,17 @@ endif ()
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
-# high-level configurations
-option(VMAP "client support" ON)
-option(VPS "security support but no client support")
-option(VMSAFE "client support including security API")
-if (VMAP)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-endif (VMAP)
-if (VMSAFE)
-  set(PROGRAM_SHEPHERDING 1)
-  set(CLIENT_INTERFACE 1)
-  set(APP_EXPORTS 1)
-  set(HOT_PATCHING_INTERFACE 1)
-endif (VMSAFE)
-if (VPS)
-  set(PROGRAM_SHEPHERDING 1)
-  set(HOT_PATCHING_INTERFACE 1)
-  set(PROCESS_CONTROL 1)
-  if (WIN32)
-    set(GBOP 1)
-  endif (WIN32)
-endif (VPS)
+# We no longer support building without a client interface: it is always enabled.
+# TODO i#2971: Remove the APP_EXPORTS option and define.
+set(APP_EXPORTS 1)
 
-# temporary: once build+support issues fixed, remove and add HOT_PATCHING_INTERFACE
-# to VMAP by default
+# TODO: Consider removing these no-longer-maintained options:
+# - VMKERNEL
+# - PROGRAM_SHEPHERDING
+# - PROCESS_CONTROL
+# - GBOP
+
+# TODO: Revive HOT_PATCHING_INTERFACE and combine with PROBE.
 option(PROBE "enable not-yet-supported Probe API")
 mark_as_advanced(PROBE)
 if (PROBE)
@@ -420,10 +406,10 @@ endif (VMKERNEL)
 
 # we do not support most users choosing these
 mark_as_advanced(
+  PROGRAM_SHEPHERDING
+  PROCESS_CONTROL
+  GBOP
   VMKERNEL
-  VMAP
-  VMSAFE
-  VPS
   KSTATS
   CALLPROF
   PROFILE
@@ -1533,20 +1519,6 @@ else ()
   option(BUILD_DOCS "build documentation" ON)
 endif ()
 
-if (VMSAFE)
-  # I did not preserve VMSAFE docs building: to reactivate it, need to
-  # add the missing transformations mentioned in api/docs/CMakeLists.txt
-  # and fix genapi.pl on lib/dr_config.h to handle the outer ifdef WINDOWS
-  # (ends up keeping 1st endif in 1st enum).
-  set(BUILD_DOCS OFF)
-endif (VMSAFE)
-
-if (NOT CLIENT_INTERFACE)
-  set(BUILD_SAMPLES OFF)
-  set(BUILD_EXT OFF)
-  set(BUILD_CLIENTS OFF)
-endif (NOT CLIENT_INTERFACE)
-
 # We include all tests and build them at configure time if requested.
 # An alternative is to keep them in separate projects and only build
 # when we run them via --build-and-test.
@@ -1692,42 +1664,40 @@ function (register_tool_file name)
   endif ()
 endfunction ()
 
-# used by docs, samples, and tests, so here instead of in core/CMakeLists.txt
-if (CLIENT_INTERFACE OR APP_EXPORTS)
-  # set VERSION_NUMBER_INTEGER in dr_api.h
-  configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
-    ${BUILD_INCLUDE}/dr_api.h)
-  if (NOT ANNOTATIONS)
-    # Kind of a hack, in case the user explicitly disables annotations
-    file(READ ${BUILD_INCLUDE}/dr_api.h contents)
-    string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
-    file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
-  endif ()
-  set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
-  add_custom_target(api_headers
-    DEPENDS ${EXTRA_HEADERS})
-  if (AARCH64)
-    add_dependencies(api_headers gen_aarch64_codec)
-  endif()
+# Used by docs, samples, and tests, so here instead of in core/CMakeLists.txt.
+# Set VERSION_NUMBER_INTEGER in dr_api.h:
+configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
+  ${BUILD_INCLUDE}/dr_api.h)
+if (NOT ANNOTATIONS)
+  # Kind of a hack, in case the user explicitly disables annotations
+  file(READ ${BUILD_INCLUDE}/dr_api.h contents)
+  string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
+  file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
+endif ()
+set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
+add_custom_target(api_headers
+  DEPENDS ${EXTRA_HEADERS})
+if (AARCH64)
+  add_dependencies(api_headers gen_aarch64_codec)
+endif()
 
-  file(MAKE_DIRECTORY ${BUILD_INCLUDE})
-  # technically only the headers in the genapi.pl list
-  file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
-    core/arch/*/*.h core/ir/*.h core/ir/*/*.h ext/*/*.h)
-  add_custom_command(
-    OUTPUT ${EXTRA_HEADERS} # among other files
-    DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
-            ${header_files}
-    COMMAND ${PERL_EXECUTABLE}
-    ARGS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
-        -core ${PROJECT_SOURCE_DIR}/core
-        -header ${BUILD_INCLUDE} "${defines} -DAPI_EXPORT_ONLY"
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
-    VERBATIM # recommended: p260
-    )
-  DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .
-    REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
-endif (CLIENT_INTERFACE OR APP_EXPORTS)
+file(MAKE_DIRECTORY ${BUILD_INCLUDE})
+# technically only the headers in the genapi.pl list
+file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
+  core/arch/*/*.h core/ir/*.h core/ir/*/*.h ext/*/*.h)
+add_custom_command(
+  OUTPUT ${EXTRA_HEADERS} # among other files
+  DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
+          ${header_files}
+  COMMAND ${PERL_EXECUTABLE}
+  ARGS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
+      -core ${PROJECT_SOURCE_DIR}/core
+      -header ${BUILD_INCLUDE} "${defines} -DAPI_EXPORT_ONLY"
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
+  VERBATIM # recommended: p260
+  )
+DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .
+  REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 
 # Used by tests in multiple places, and by some drcachesim non-test binaries.
 if (UNIX)
@@ -1781,40 +1751,36 @@ if (BUILD_CLIENTS)
   add_subdirectory(clients)
 endif (BUILD_CLIENTS)
 
-if (CLIENT_INTERFACE OR APP_EXPORTS)
-  if (BUILD_DOCS)
-    find_package(Doxygen)
-    if (NOT DOXYGEN_FOUND)
-      # We require for any automated suite on Linux or Windows.
-      if (TEST_SUITE AND NOT APPLE)
-        message(FATAL_ERROR "doxygen is required to build the documentation")
-      else ()
-        # Non-fatal for a single, un-official build.
-        message(WARNING "doxygen not found: documentation will NOT be built")
-        set(BUILD_DOCS OFF)
-      endif ()
-    endif (NOT DOXYGEN_FOUND)
+if (BUILD_DOCS)
+  find_package(Doxygen)
+  if (NOT DOXYGEN_FOUND)
+    # We require for any automated suite on Linux or Windows.
+    if (TEST_SUITE AND NOT APPLE)
+      message(FATAL_ERROR "doxygen is required to build the documentation")
+    else ()
+      # Non-fatal for a single, un-official build.
+      message(WARNING "doxygen not found: documentation will NOT be built")
+      set(BUILD_DOCS OFF)
+    endif ()
+  endif (NOT DOXYGEN_FOUND)
 
-    if (BUILD_DOCS)
-      add_subdirectory(api/docs)
-    else (BUILD_DOCS)
-      message("*** NOT building documentation *** (must re-enable BUILD_DOCS manually if fix up the component paths)")
-      # Note the difference between cache vars and live vars in CMake.
-      # The cache var indicates "would like to build docs" and the live var
-      # "capable of building docs."  The problem is that if we FORCE the
-      # cache var OFF as further confirmation of the warning message, the
-      # user must not only fix up the paths in the required component vars
-      # but also re-enable BUILD_DOCS before re-configuring due to our
-      # guard above.  An alternative is to add an option BUILD_DOCS_CAPABLE
-      # as an informational message that is peristent and right next to the
-      # real option, but I think forcing the user to re-enable BUILD_DOCS
-      # is actually simpler and reasonable.
-      set(BUILD_DOCS OFF CACHE BOOL "build documentation" FORCE)
-    endif (BUILD_DOCS)
+  if (BUILD_DOCS)
+    add_subdirectory(api/docs)
+  else (BUILD_DOCS)
+    message("*** NOT building documentation *** (must re-enable BUILD_DOCS manually if fix up the component paths)")
+    # Note the difference between cache vars and live vars in CMake.
+    # The cache var indicates "would like to build docs" and the live var
+    # "capable of building docs."  The problem is that if we FORCE the
+    # cache var OFF as further confirmation of the warning message, the
+    # user must not only fix up the paths in the required component vars
+    # but also re-enable BUILD_DOCS before re-configuring due to our
+    # guard above.  An alternative is to add an option BUILD_DOCS_CAPABLE
+    # as an informational message that is peristent and right next to the
+    # real option, but I think forcing the user to re-enable BUILD_DOCS
+    # is actually simpler and reasonable.
+    set(BUILD_DOCS OFF CACHE BOOL "build documentation" FORCE)
   endif (BUILD_DOCS)
-else (CLIENT_INTERFACE OR APP_EXPORTS)
-  message("no documentation will be built for this target")
-endif (CLIENT_INTERFACE OR APP_EXPORTS)
+endif (BUILD_DOCS)
 
 ###########################################################################
 # Style checks:

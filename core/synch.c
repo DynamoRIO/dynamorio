@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -341,9 +341,9 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
                  * xref case 9333 */
                 is_at_do_syscall(dcontext, pc, esp)) &&
             !is_on_initstack(esp) && !is_on_dstack(dcontext, esp) &&
-            IF_CLIENT_INTERFACE(!is_in_client_lib(pc) &&)
+            !is_in_client_lib(pc) &&
             /* xref PR 200067 & 222812 on client-owned native threads */
-            IF_CLIENT_INTERFACE(!IS_CLIENT_THREAD(dcontext) &&)
+            !IS_CLIENT_THREAD(dcontext) &&
 #ifdef HOT_PATCHING_INTERFACE
             /* Shouldn't be in the middle of executing a hotp_only patch.  The
              * check for being in hotp_dll is DR_WHERE_HOTPATCH because the patch can
@@ -383,7 +383,6 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
     if (is_thread_currently_native(trec)) {
         /* running natively, no need to translate unless at do_syscall for an
          * intercepted-via-trampoline syscall which we allow now for case 9333 */
-#ifdef CLIENT_INTERFACE
         if (IS_CLIENT_THREAD(trec->dcontext)) {
             /* don't need to translate anything */
             LOG(THREAD_GET, LOG_SYNCH, 1,
@@ -392,7 +391,6 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
                 trec->id);
             return true;
         }
-#endif
         if (is_native_thread_state_valid(trec->dcontext, (app_pc)mcontext->pc,
                                          (byte *)mcontext->xsp)) {
 #ifdef WINDOWS
@@ -448,12 +446,10 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext, bool restor
                 dump_mcontext(get_mcontext(trec->dcontext), THREAD_GET, DUMP_NOT_XML);
             });
             *mcontext = *get_mcontext(trec->dcontext);
-#ifdef CLIENT_INTERFACE
             if (dr_xl8_hook_exists()) {
                 if (!instrument_restore_nonfcache_state(trec->dcontext, true, mcontext))
                     return false;
             }
-#endif
             return true;
         }
     }
@@ -563,7 +559,6 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
      * FIXME : test for just these and ASSERT(!is_dynamo_address) otherwise */
     if (is_thread_currently_native(trec)) {
         /* thread is running native, verify is not in dr code */
-#ifdef CLIENT_INTERFACE
         /* We treat client-owned threads (such as a client nudge thread) as native and
          * consider them safe if they are in the client_lib.  Since they might own client
          * locks that could block application threads from progressing, we synchronize
@@ -584,7 +579,6 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                 (!should_suspend_client_thread(trec->dcontext, desired_state) ||
                  trec->dcontext->client_data->mutex_count == 0);
         }
-#endif
         if (is_native_thread_state_valid(trec->dcontext, mc->pc, (byte *)mc->xsp)) {
             safe = true;
             /* We should always be able to translate a valid native state, but be
@@ -601,7 +595,6 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
             }
 #endif
         }
-#ifdef CLIENT_INTERFACE
     } else if (desired_state == THREAD_SYNCH_TERMINATED_AND_CLEANED &&
                trec->dcontext->whereami == DR_WHERE_FCACHE &&
                trec->dcontext->client_data->at_safe_to_terminate_syscall) {
@@ -613,7 +606,6 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
          * to rule out some corner cases.
          */
         safe = true;
-#endif
     } else if ((!WRITE_LOCK_HELD(&fcache_unit_areas->lock) &&
                 /* even though we only need the read lock, if our target holds it
                  * and a 3rd thread requests the write lock, we'll hang if we
@@ -696,7 +688,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     if (cur_state == THREAD_SYNCH_VALID_MCONTEXT) {
         ASSERT(!is_dynamo_address(pc));
         /* for detach must set this here and now */
-        IF_WINDOWS(IF_CLIENT_INTERFACE(set_last_error(dcontext->app_errno)));
+        IF_WINDOWS(set_last_error(dcontext->app_errno));
     }
     spinmutex_lock(tsd->synch_lock);
     tsd->synch_perm = cur_state;
@@ -1206,7 +1198,6 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     const uint max_loops = TEST(THREAD_SYNCH_SMALL_LOOP_MAX, flags)
         ? (SYNCH_ALL_THREADS_MAXIMUM_LOOPS / 10)
         : SYNCH_ALL_THREADS_MAXIMUM_LOOPS;
-#ifdef CLIENT_INTERFACE
     /* We treat client-owned threads as native but they don't have a clean native state
      * for us to suspend them in (they are always in client or dr code).  We need to be
      * able to suspend such threads so that they're !couldbelinking and holding no dr
@@ -1219,7 +1210,6 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
      * PR 231301 on issues that arise if the client thread spends most of its time
      * calling out of its lib to dr API, ntdll, or generated code functions. */
     bool finished_non_client_threads;
-#endif
 
     ASSERT(!dynamo_all_threads_synched);
     /* flag any caller who does not give up enough permissions to avoid livelock
@@ -1362,7 +1352,6 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
 
         all_synched = true;
         LOG(THREAD, LOG_SYNCH, 3, "Looping over all threads (%d threads)\n", num_threads);
-#ifdef CLIENT_INTERFACE
         finished_non_client_threads = true;
         for (i = 0; i < num_threads; i++) {
             if (threads[i]->id != my_id && synch_array[i] != SYNCH_WITH_ALL_SYNCHED &&
@@ -1371,7 +1360,6 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                 break;
             }
         }
-#endif
         /* make a copy of the thread ids (can't just keep the thread list
          * since it consists of pointers to live thread_record_t structs).
          * we must make the copy before synching b/c cleaning up a thread
@@ -1387,7 +1375,6 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
         for (i = 0; i < num_threads; i++) {
             /* do not de-ref threads[i] after synching if it was cleaned up! */
             if (synch_array[i] != SYNCH_WITH_ALL_SYNCHED && threads[i]->id != my_id) {
-#ifdef CLIENT_INTERFACE
                 if (!finished_non_client_threads &&
                     IS_CLIENT_THREAD(threads[i]->dcontext)) {
                     all_synched = false;
@@ -1413,7 +1400,6 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     threads[i]->dcontext->client_data->left_unsuspended = true;
                     continue;
                 }
-#endif
                 /* speed things up a tad */
                 if (synch_array[i] != SYNCH_WITH_ALL_NOTIFIED) {
                     ASSERT(synch_array[i] == SYNCH_WITH_ALL_NEW);
@@ -1893,9 +1879,7 @@ send_all_other_threads_native(void)
     init_apc_go_native = true;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-#    ifdef CLIENT_INTERFACE
     wait_for_outstanding_nudges();
-#    endif
 #endif
 
     /* Suspend all threads except those trying to synch with us */
@@ -2080,9 +2064,7 @@ detach_on_permanent_stack(bool internal, bool do_cleanup, dr_stats_t *drstats)
      * since we can't distinguish internally vs externally created threads.
      */
     os_thread_yield();
-#    ifdef CLIENT_INTERFACE
     wait_for_outstanding_nudges();
-#    endif
 #endif
 
 #ifdef UNIX

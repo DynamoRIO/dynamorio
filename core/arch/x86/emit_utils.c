@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1142,7 +1142,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
         ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc)pc) - f->start_pc);
         f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
     } else {
-#ifdef CLIENT_INTERFACE
         if (dynamo_options.bb_prefixes) {
             pc = insert_restore_register(dcontext, f, pc, REG_XCX);
 
@@ -1150,7 +1149,6 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
             ASSERT_TRUNCATE(f->prefix_size, byte, ((cache_pc)pc) - f->start_pc);
             f->prefix_size = (byte)(((cache_pc)pc) - f->start_pc);
         } /* else, no prefix */
-#endif
     }
     /* make sure emitted size matches size we requested */
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));

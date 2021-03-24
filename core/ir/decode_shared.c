@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@
 #include "instr.h"
 #include "decode.h"
 
-#if defined(DEBUG) && defined(CLIENT_INTERFACE)
+#ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
 #    undef ASSERT_TRUNCATE

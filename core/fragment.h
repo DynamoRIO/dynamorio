@@ -500,7 +500,7 @@ typedef struct _per_thread_t {
     fragment_table_t bb;
     fragment_table_t trace;
     fragment_table_t future;
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
+#ifdef CLIENT_SIDELINE
     mutex_t fragment_delete_mutex;
 #endif
     file_t tracefile;
@@ -830,7 +830,7 @@ rct_table_resurrect(dcontext_t *dcontext, byte *mapped_table, rct_type_t which);
 
 #endif /* RETURN_AFTER_CALL || RCT_IND_BRANCH */
 
-#if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
+#ifdef CLIENT_SIDELINE
 /* synchronization routine for sideline thread */
 void
 fragment_get_fragment_delete_mutex(dcontext_t *dcontext);
@@ -1180,10 +1180,8 @@ extern mutex_t shared_cache_flush_lock;
  */
 extern uint flushtime_global;
 
-#ifdef CLIENT_INTERFACE
 extern mutex_t client_flush_request_lock;
 extern client_flush_req_t *client_flush_requests;
-#endif
 
 #ifdef PROFILE_RDTSC
 void

@@ -96,7 +96,7 @@
 #define NONE SYSCALL_NOT_PRESENT
 /* to make some system calls actionable only in DEBUG (because all we do is log) */
 #define ACTION_LOG IF_DEBUG_ELSE(true, false)
-#define ACTION_CLIENT IF_CLIENT_INTERFACE_ELSE(true, false)
+#define ACTION_CLIENT true
 /* clang-format off */
 /*                                                                                                                 vista         vista
  *                                                                                     xp-w7                vista   x64   vista   x64                                      w8.1    w8.1  w8.1    w10     w10   w10    w11     w11  w11     w12     w12  w12     w13     w13  w13     w14     w14  w14   w15     w15  w15

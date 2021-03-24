@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -141,14 +141,10 @@ ignore_assert(const char *assert_file_line, const char *expr);
 void
 external_error(const char *file, int line, const char *msg);
 
-#ifdef CLIENT_INTERFACE
-#    ifdef DEBUG
-#        define CLIENT_ASSERT(x, msg) apicheck(x, msg)
-#    else
-#        define CLIENT_ASSERT(x, msg) /* PR 215261: nothing in release builds */
-#    endif
+#ifdef DEBUG
+#    define CLIENT_ASSERT(x, msg) apicheck(x, msg)
 #else
-#    define CLIENT_ASSERT(x, msg) ASSERT_MESSAGE(CHKLVL_ASSERTS, msg, x)
+#    define CLIENT_ASSERT(x, msg) /* PR 215261: nothing in release builds */
 #endif
 
 #ifdef DR_APP_EXPORTS
@@ -300,10 +296,8 @@ typedef struct _mutex_t {
 #        define MAX_MUTEX_CALLSTACK 4
     byte *callstack[MAX_MUTEX_CALLSTACK];
     /* keep as last item so not initialized in INIT_LOCK_NO_TYPE */
-#        ifdef CLIENT_INTERFACE
     /* i#779: support DR locks used as app locks */
     bool app_lock;
-#        endif
 #    else
 #        define MAX_MUTEX_CALLSTACK 0 /* cannot use */
 #    endif                            /* MUTEX_CALLSTACK */
@@ -385,7 +379,7 @@ enum {
 
     LOCK_RANK(protect_info), /* < cache and heap traversal locks */
 
-#    if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
+#    ifdef CLIENT_SIDELINE
     LOCK_RANK(sideline_mutex),
 #    endif
 
@@ -405,7 +399,7 @@ enum {
     LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(shared_cache_count_lock),
 
-#    if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
+#    ifdef CLIENT_SIDELINE
     LOCK_RANK(fragment_delete_mutex), /* > shared_vm_areas */
 #    endif
 
@@ -486,7 +480,6 @@ enum {
     LOCK_RANK(patch_proof_areas),      /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(emulate_write_areas),    /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(IAT_areas),              /* < dynamo_areas < global_alloc_lock */
-#    ifdef CLIENT_INTERFACE
     /* PR 198871: this same label is used for all client locks */
     LOCK_RANK(dr_client_mutex),            /* > module_data_lock */
     LOCK_RANK(client_thread_count_lock),   /* > dr_client_mutex */
@@ -495,9 +488,8 @@ enum {
                                               global_alloc_lock */
     LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
     LOCK_RANK(client_tls_lock),            /* > dr_client_mutex */
-#    endif
-    LOCK_RANK(intercept_hook_lock), /* < table_rwlock */
-    LOCK_RANK(privload_lock),       /* < modlist_areas, < table_rwlock */
+    LOCK_RANK(intercept_hook_lock),        /* < table_rwlock */
+    LOCK_RANK(privload_lock),              /* < modlist_areas, < table_rwlock */
 #    ifdef LINUX
     LOCK_RANK(sigfdtable_lock), /* < table_rwlock */
 #    endif
@@ -534,11 +526,9 @@ enum {
 #    ifdef WINDOWS
     LOCK_RANK(drwinapi_localheap_lock), /* < global_alloc_lock */
 #    endif
-#    ifdef CLIENT_INTERFACE
     LOCK_RANK(client_aux_libs),
-#        ifdef WINDOWS
+#    ifdef WINDOWS
     LOCK_RANK(client_aux_lib64_lock),
-#        endif
 #    endif
 #    ifdef WINDOWS
     LOCK_RANK(alt_tls_lock),
@@ -778,7 +768,6 @@ d_r_mutex_unlock(mutex_t *mutex);
 void
 d_r_mutex_fork_reset(mutex_t *mutex);
 #endif
-#ifdef CLIENT_INTERFACE
 void
 d_r_mutex_mark_as_app(mutex_t *lock);
 /* Use this version of 'lock' when obtaining a lock in an app context. In the
@@ -788,7 +777,6 @@ d_r_mutex_mark_as_app(mutex_t *lock);
  */
 void
 d_r_mutex_lock_app(mutex_t *mutex, priv_mcontext_t *mc);
-#endif
 
 /* spinmutex synchronization */
 bool
@@ -833,7 +821,6 @@ void
 release_recursive_lock(recursive_lock_t *lock);
 bool
 self_owns_recursive_lock(recursive_lock_t *lock);
-#ifdef CLIENT_INTERFACE
 /* Use this version of 'lock' when obtaining a lock in an app context. In the
  * case that there is contention on this lock, this thread will be marked safe
  * to be relocated and even detached. The current thread's mcontext may be
@@ -841,7 +828,6 @@ self_owns_recursive_lock(recursive_lock_t *lock);
  */
 void
 acquire_recursive_app_lock(recursive_lock_t *mutex, priv_mcontext_t *mc);
-#endif
 
 /* A read write lock allows multiple readers or alternatively a single writer */
 void
@@ -1184,16 +1170,16 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 /* We define MAX_LOG_LENGTH_MINUS_ONE for splitting long buffers.
  * It must be a raw numeric constant as we STRINGIFY it.
  */
-#if defined(PARAMS_IN_REGISTRY) || !defined(CLIENT_INTERFACE)
+#ifdef PARAMS_IN_REGISTRY
 #    define MAX_LOG_LENGTH IF_X64_ELSE(1280, 768)
 #    define MAX_LOG_LENGTH_MINUS_ONE IF_X64_ELSE(1279, 767)
 #else
 /* need more space for printing out longer option strings */
-/* CLIENT_INTERFACE build has larger stack and 2048 option length so go bigger
- * so clients don't have dr_printf truncated as often
+/* For client we have a larger stack and 2048 option length so go bigger
+ * so clients don't have dr_printf truncated as often.
  */
-#    define MAX_LOG_LENGTH IF_CLIENT_INTERFACE_ELSE(2048, 1384)
-#    define MAX_LOG_LENGTH_MINUS_ONE IF_CLIENT_INTERFACE_ELSE(2047, 1383)
+#    define MAX_LOG_LENGTH 2048
+#    define MAX_LOG_LENGTH_MINUS_ONE 2047
 #endif
 
 #if defined(DEBUG) && !defined(STANDALONE_DECODER)
@@ -1713,10 +1699,10 @@ enum { LONGJMP_EXCEPTION = 1 };
 #    define DOCHECKINT(level, statement) /* nothing */
 #endif
 
-/* for use in CLIENT_ASSERT or elsewhere that exists even if
- * STANDALONE_DECODER is defined, unless CLIENT_INTERFACE is off
+/* For use in CLIENT_ASSERT or elsewhere that exists even if
+ * STANDALONE_DECODER is defined.
  */
-#if defined(DEBUG) && (defined(CLIENT_INTERFACE) || !defined(STANDALONE_DECODER))
+#ifdef DEBUG
 #    define DEBUG_EXT_DECLARE(declaration) declaration
 #else
 #    define DEBUG_EXT_DECLARE(declaration)
@@ -1965,9 +1951,7 @@ enum { LONGJMP_EXCEPTION = 1 };
 #endif
 
 extern const char *exception_label_core;
-#ifdef CLIENT_INTERFACE
 extern const char *exception_label_client;
-#endif
 /* These should be the same size for our report_exception_skip_prefix() */
 #define CRASH_NAME "internal crash"
 #define STACK_OVERFLOW_NAME "stack overflow"
@@ -2336,7 +2320,6 @@ void
 divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint precision,
                     uint *top, uint *bottom);
 
-#if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
 /* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
  * preserve floating point state to call this function!!
  * Usage : given double/float a; uint c, d and char *s tmp; dp==double_print
@@ -2347,7 +2330,6 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint 
  */
 void
 double_print(double val, uint precision, uint *top, uint *bottom, const char **sign);
-#endif /* DEBUG || INTERNAL */
 
 #ifdef CALL_PROFILE
 /* Max depth of call stack to maintain.

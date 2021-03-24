@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,16 +42,14 @@
 
 #include "../globals.h"
 
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
-
 /* for printing to buffers */
-#    define MAX_OPND_DIS_SZ 64 /* gets long w/ ibl target names */
+#define MAX_OPND_DIS_SZ 64 /* gets long w/ ibl target names */
 /* Long examples:
  * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00
  * ...>" "lock cmpxchg %rcx <rel> 0x000007fefd1a2728[8byte] %rax -> <rel> "
  * "0x000007fefd1a2728[8byte] %rax "
  */
-#    define MAX_INSTR_DIS_SZ 196
+#define MAX_INSTR_DIS_SZ 196
 /* Here's a pretty long one,
  * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> "
  * "0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
@@ -62,7 +60,7 @@
  * %s31 "
  * "%r9 -> (%r9)[124byte]"
  */
-#    define MAX_PC_DIS_SZ 228
+#define MAX_PC_DIS_SZ 228
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
@@ -296,7 +294,5 @@ DR_API
 void
 instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
                       file_t outfile);
-
-#endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */
 
 #endif /* DISASSEMBLE_H */

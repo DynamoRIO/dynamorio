@@ -55,9 +55,7 @@
 #ifdef PAPI
 #    include "perfctr.h"
 #endif
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 #include "hotpatch.h"
 #include "moduledb.h"
 #include "module_shared.h"
@@ -139,10 +137,8 @@ bool dynamo_exited_log_and_stats = false;
  */
 DECLARE_NEVERPROT_VAR(bool dynamo_all_threads_synched, false);
 bool dynamo_resetting = false;
-#if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 bool standalone_library = false;
 static int standalone_init_count;
-#endif
 #ifdef UNIX
 bool post_execve = false;
 #endif
@@ -525,13 +521,11 @@ dynamorio_app_init_part_two_finalize(void)
 
         /* initialize components (CAUTION: order is important here) */
         vmm_heap_init(); /* must be called even if not using vmm heap */
-#ifdef CLIENT_INTERFACE
         /* PR 200207: load the client lib before callback_interception_init
          * since the client library load would hit our own hooks (xref hotpatch
          * cases about that) -- though -private_loader removes that issue.
          */
         instrument_load_client_libs();
-#endif
         d_r_heap_init();
         dynamo_heap_initialized = true;
 
@@ -539,10 +533,8 @@ dynamorio_app_init_part_two_finalize(void)
          * process_control_int() because the former initializes event logging
          * and the latter can kill the process if a violation occurs.
          */
-        SYSLOG(SYSLOG_INFORMATION,
-               IF_CLIENT_INTERFACE_ELSE(INFO_PROCESS_START_CLIENT, INFO_PROCESS_START),
-               IF_CLIENT_INTERFACE_ELSE(2, 3), get_application_name(),
-               get_application_pid() _IF_NOT_CLIENT_INTERFACE(get_application_md5()));
+        SYSLOG(SYSLOG_INFORMATION, INFO_PROCESS_START_CLIENT, 2, get_application_name(),
+               get_application_pid());
 
 #ifdef PROCESS_CONTROL
         if (IS_PROCESS_CONTROL_ON()) /* Case 8594. */
@@ -673,7 +665,7 @@ dynamorio_app_init_part_two_finalize(void)
         /* i#117/PR 395156: it'd be nice to have mc here but would
          * require changing start/stop API
          */
-        dynamo_thread_init(NULL, NULL, NULL _IF_CLIENT_INTERFACE(false));
+        dynamo_thread_init(NULL, NULL, NULL, false);
         /* i#2751: we need TLS to be set up to relocate and call init funcs. */
         loader_init_epilogue(get_thread_private_dcontext());
 
@@ -707,7 +699,6 @@ dynamorio_app_init_part_two_finalize(void)
          * that before initializing clients.
          */
         dr_app_started = create_broadcast_event();
-#ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
          * Note that we *load* the client library before installing our hooks,
@@ -722,7 +713,6 @@ dynamorio_app_init_part_two_finalize(void)
          * delay the loading until we've initialized the clients.
          */
         vm_area_delay_load_coarse_units();
-#endif
 
 #ifdef WINDOWS
         if (!INTERNAL_OPTION(noasynch))
@@ -887,15 +877,12 @@ dynamorio_fork_init(dcontext_t *dcontext)
     /* this must be called after dynamo_other_thread_exit() above */
     signal_fork_init(dcontext);
 
-#    ifdef CLIENT_INTERFACE
     if (CLIENTS_EXIST()) {
         instrument_fork_init(dcontext);
     }
-#    endif
 }
 #endif /* UNIX */
 
-#if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 /* To make DynamoRIO useful as a library for a standalone client
  * application (as opposed to a client library that works with
  * DynamoRIO in executing a target application).  This makes DynamoRIO
@@ -914,18 +901,18 @@ standalone_init(void)
     /* No reason to limit heap size when there's no code cache. */
     IF_X64(dynamo_options.reachable_heap = false;)
     dynamo_options.vm_base_near_app = false;
-#    if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
+#if defined(INTERNAL) && defined(DEADLOCK_AVOIDANCE)
     /* avoid issues w/ GLOBAL_DCONTEXT instead of thread dcontext */
     dynamo_options.deadlock_avoidance = false;
-#    endif
-#    ifdef UNIX
+#endif
+#ifdef UNIX
     os_page_size_init((const char **)our_environ, is_our_environ_followed_by_auxv());
-#    endif
-#    ifdef WINDOWS
+#endif
+#ifdef WINDOWS
     /* MUST do this before making any system calls */
     if (!syscalls_init())
         return NULL; /* typically b/c of unsupported OS version */
-#    endif
+#endif
     d_r_config_init();
     options_init();
     vmm_heap_init();
@@ -937,7 +924,7 @@ standalone_init(void)
     d_r_os_init();
     config_heap_init();
 
-#    ifdef STANDALONE_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
     os_tls_init();
     dcontext = create_new_dynamo_context(true /*initial*/, NULL, NULL);
     set_thread_private_dcontext(dcontext);
@@ -946,7 +933,7 @@ standalone_init(void)
 
     heap_thread_init(dcontext);
 
-#        ifdef DEBUG
+#    ifdef DEBUG
     /* XXX: share code w/ main init routine? */
     nonshared_stats.logmask = LOG_ALL;
     options_init();
@@ -960,13 +947,13 @@ standalone_init(void)
         SYSLOG_INTERNAL_INFO("Initial options = %s", initial_options);
         print_file(main_logfile, "\n");
     }
-#        endif /* DEBUG */
-#    else
+#    endif /* DEBUG */
+#else
     /* rather than ask the user to call some thread-init routine in
      * every thread, we just use global dcontext everywhere (i#548)
      */
     dcontext = GLOBAL_DCONTEXT;
-#    endif
+#endif
 
     /* In case standalone_exit() is omitted or there's a crash, we clean up any .1config
      * file right now.  the only loss if that we can't synch options: but that
@@ -988,7 +975,7 @@ standalone_exit(void)
         return;
     /* We support re-attach by setting doing_detach. */
     doing_detach = true;
-#    ifdef STANDALONE_UNIT_TEST
+#ifdef STANDALONE_UNIT_TEST
     dcontext_t *dcontext = get_thread_private_dcontext();
     set_thread_private_dcontext(NULL);
     heap_thread_exit(dcontext);
@@ -996,21 +983,21 @@ standalone_exit(void)
     /* We can't call os_tls_exit() b/c we don't have safe_read support for
      * the TLS magic read on Linux.
      */
-#    endif
+#endif
     config_heap_exit();
     os_fast_exit();
     os_slow_exit();
-#    if !defined(STANDALONE_UNIT_TEST) || !defined(AARCH64)
+#if !defined(STANDALONE_UNIT_TEST) || !defined(AARCH64)
     /* XXX: The lock setup is somehow messed up on AArch64.  Disabling cleanup. */
     dynamo_vm_areas_exit();
-#    endif
-#    ifndef STANDALONE_UNIT_TEST
+#endif
+#ifndef STANDALONE_UNIT_TEST
     /* We have a leak b/c we can't call os_tls_exit().  For now we simplify
      * and leave it alone.
      */
     d_r_heap_exit();
     vmm_heap_exit();
-#    endif
+#endif
     options_exit();
     d_r_config_exit();
     doing_detach = false;
@@ -1019,7 +1006,6 @@ standalone_exit(void)
     dynamo_options_initialized = false;
     dynamo_heap_initialized = false;
 }
-#endif
 
 /* Perform exit tasks that require full thread data structs, which we have
  * already cleaned up by the time we reach dynamo_shared_exit() for both
@@ -1078,21 +1064,19 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     annotation_exit();
 #endif
     jitopt_exit();
-#ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other
      * components.  Must be after fragment_exit() so that the client gets all the
      * fragment_deleted() callbacks (xref PR 228156). FIXME - might be issues with the
      * client trying to use api routines that depend on fragment state.
      */
     instrument_exit_event();
-#    ifdef CLIENT_SIDELINE
+#ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
     if (d_r_get_num_threads() > 1)
         synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
     /* only current thread is alive */
     dynamo_exited_all_other_threads = true;
-#    endif /* CLIENT_SIDELINE */
-#endif     /* CLIENT_INTERFACE */
+#endif /* CLIENT_SIDELINE */
     fragment_exit_post_sideline();
 
     /* The dynamo_exited_and_cleaned should be set after the second synch-all.
@@ -1110,12 +1094,10 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     /* we want dcontext around for loader_exit() */
     if (get_thread_private_dcontext() != NULL)
         loader_thread_exit(get_thread_private_dcontext());
-#ifdef CLIENT_INTERFACE
     /* This will unload client libs, which we delay until after they receive their
      * thread exit calls in loader_thread_exit().
      */
     instrument_exit();
-#endif
     loader_exit();
 
     if (toexit != NULL) {
@@ -1158,14 +1140,13 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     d_r_mutex_unlock(&all_threads_lock);
 
 #ifdef WINDOWS
-#    ifdef CLIENT_INTERFACE
     /* for -private_loader we do this here to catch more exit-time crashes */
     if (!INTERNAL_OPTION(noasynch) && INTERNAL_OPTION(private_loader) && !doing_detach)
         callback_interception_unintercept();
-#    endif
-    /* callback_interception_exit must be after fragment exit for CLIENT_INTERFACE so
+    /* callback_interception_exit must be after fragment exit for clients so
      * that fragment_exit->frees fragments->instrument_fragment_deleted->
-     * hide_tag_from_fragment->is_intercepted_app_pc won't crash. xref PR 228156 */
+     * hide_tag_from_fragment->is_intercepted_app_pc won't crash. Xref PR 228156.
+     */
     if (!INTERNAL_OPTION(noasynch)) {
         callback_interception_exit();
     }
@@ -1280,7 +1261,7 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res, bool pre_exit)
         "\nsynch_with_threads_at_exit: cleaning up %d un-terminated threads\n",
         d_r_get_num_threads());
 
-#if defined(CLIENT_INTERFACE) && defined(WINDOWS)
+#ifdef WINDOWS
     /* make sure client nudges are finished */
     wait_for_outstanding_nudges();
 #endif
@@ -1407,8 +1388,7 @@ dynamo_process_exit_cleanup(void)
          * before we unload the client lib (and thus we miss client
          * exit crashes): xref PR 200207.
          */
-        if (!INTERNAL_OPTION(noasynch)
-                IF_CLIENT_INTERFACE(&&!INTERNAL_OPTION(private_loader))) {
+        if (!INTERNAL_OPTION(noasynch) && !INTERNAL_OPTION(private_loader)) {
             callback_interception_unintercept();
         }
 #    else  /* UNIX */
@@ -1498,22 +1478,19 @@ dynamo_process_exit(void)
 #    ifdef KSTATS
     each_thread = each_thread || DYNAMO_OPTION(kstats);
 #    endif
-#    ifdef CLIENT_INTERFACE
     each_thread = each_thread ||
         /* If we don't need a thread exit event, avoid the possibility of
          * racy crashes (PR 470957) by not calling instrument_thread_exit()
          */
         (!INTERNAL_OPTION(nullcalls) && dr_thread_exit_hook_exists() &&
          !DYNAMO_OPTION(skip_thread_exit_at_exit));
-#    endif
 
     if (DYNAMO_OPTION(synch_at_exit)
         /* by default we synch if any exit event exists */
-        IF_CLIENT_INTERFACE(
-            || (!DYNAMO_OPTION(multi_thread_exit) && dr_exit_hook_exists()) ||
-            (!DYNAMO_OPTION(skip_thread_exit_at_exit) && dr_thread_exit_hook_exists()))) {
-        /* needed primarily for CLIENT_INTERFACE but technically all configurations
-         * can have racy crashes at exit time (xref PR 470957)
+        || (!DYNAMO_OPTION(multi_thread_exit) && dr_exit_hook_exists()) ||
+        (!DYNAMO_OPTION(skip_thread_exit_at_exit) && dr_thread_exit_hook_exists())) {
+        /* Needed primarily for clients but technically all configurations
+         * can have racy crashes at exit time (xref PR 470957).
          */
         synch_with_threads_at_exit(exit_synch_state(), true /*pre-exit*/);
 #    ifndef CLIENT_SIDELINE
@@ -1534,7 +1511,7 @@ dynamo_process_exit(void)
                 continue;
 #    endif
             /* FIXME: separate trace dump from rest of fragment cleanup code */
-            if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| true)) {
+            if (TRACEDUMP_ENABLED() || true) {
                 /* We always want to call this for CI builds so we can get the
                  * dr_fragment_deleted() callbacks.
                  */
@@ -1548,7 +1525,6 @@ dynamo_process_exit(void)
             if (DYNAMO_OPTION(kstats))
                 kstat_thread_exit(threads[i]->dcontext);
 #    endif
-#    ifdef CLIENT_INTERFACE
             /* Inform client of all thread exits */
             if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit)) {
                 instrument_thread_exit_event(threads[i]->dcontext);
@@ -1556,73 +1532,66 @@ dynamo_process_exit(void)
                 if (threads[i]->id != d_r_get_thread_id()) /* i#1617: must delay this */
                     loader_thread_exit(threads[i]->dcontext);
             }
-#    endif
         }
         global_heap_free(threads,
                          num * sizeof(thread_record_t *) HEAPACCT(ACCT_THREAD_MGT));
         d_r_mutex_unlock(&thread_initexit_lock);
     }
 
-    /* PR 522783: must be before we clear dcontext (if CLIENT_INTERFACE)! */
+    /* PR 522783: must be before we clear dcontext (for clients)! */
     /* must also be prior to fragment_exit so we actually freeze pcaches (i#703) */
     dynamo_process_exit_with_thread_info();
 
     /* FIXME: separate trace dump from rest of fragment cleanup code.  For client
      * interface we need to call fragment_exit to get all the fragment deleted events. */
-    if (TRACEDUMP_ENABLED() IF_CLIENT_INTERFACE(|| dr_fragment_deleted_hook_exists()))
+    if (TRACEDUMP_ENABLED() || dr_fragment_deleted_hook_exists())
         fragment_exit();
 
-        /* Inform client of process exit */
-#    ifdef CLIENT_INTERFACE
+    /* Inform client of process exit */
     if (!INTERNAL_OPTION(nullcalls)) {
-#        ifdef WINDOWS
+#    ifdef WINDOWS
         /* instrument_exit() unloads the client library, so make sure
          * LdrUnloadDll isn't hooked if using the app loader.
          */
-        if (!INTERNAL_OPTION(noasynch)
-                IF_CLIENT_INTERFACE(&&!INTERNAL_OPTION(private_loader))) {
+        if (!INTERNAL_OPTION(noasynch) && !INTERNAL_OPTION(private_loader)) {
             callback_interception_unintercept();
         }
-#        endif
-#        ifdef UNIX
+#    endif
+#    ifdef UNIX
         /* i#2976: unhook prior to client exit if modules are being watched */
         if (dr_modload_hook_exists())
             unhook_vsyscall();
-#        endif
+#    endif
         /* Must be after fragment_exit() so that the client gets all the
          * fragment_deleted() callbacks (xref PR 228156).  FIXME - might be issues
          * with the client trying to use api routines that depend on fragment state.
          */
         instrument_exit_event();
 
-#        ifdef CLIENT_SIDELINE
+#    ifdef CLIENT_SIDELINE
         /* We only need do a second synch-all if there are sideline client threads. */
         if (d_r_get_num_threads() > 1)
             synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
         dynamo_exited_all_other_threads = true;
-#        endif
+#    endif
 
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.
          */
         if (!INTERNAL_OPTION(nullcalls) && !DYNAMO_OPTION(skip_thread_exit_at_exit))
             loader_thread_exit(get_thread_private_dcontext());
-#        ifdef CLIENT_INTERFACE
         /* This will unload client libs, which we delay until after they receive their
          * thread exit calls in loader_thread_exit().
          */
         instrument_exit();
-#        endif
         loader_exit();
 
         /* for -private_loader we do this here to catch more exit-time crashes */
-#        ifdef WINDOWS
-        if (!INTERNAL_OPTION(noasynch)
-                IF_CLIENT_INTERFACE(&&INTERNAL_OPTION(private_loader)))
+#    ifdef WINDOWS
+        if (!INTERNAL_OPTION(noasynch) && INTERNAL_OPTION(private_loader))
             callback_interception_unintercept();
-#        endif
+#    endif
     }
-#    endif /* CLIENT_INTERFACE */
     fragment_exit_post_sideline();
 
 #    ifdef CALL_PROFILE
@@ -1820,11 +1789,9 @@ initialize_dynamo_context(dcontext_t *dcontext)
 #endif
     dcontext->sys_num = 0;
 #ifdef WINDOWS
-#    ifdef CLIENT_INTERFACE
     dcontext->app_errno = 0;
-#        ifdef DEBUG
+#    ifdef DEBUG
     dcontext->is_client_thread_exiting = false;
-#        endif
 #    endif
     dcontext->sys_param_base = NULL;
     /* always initialize aslr_context */
@@ -1930,7 +1897,6 @@ create_callback_dcontext(dcontext_t *old_dcontext)
      * from within a callback.
      */
     new_dcontext->win32_start_addr = old_dcontext->win32_start_addr;
-#    ifdef CLIENT_INTERFACE
     /* FlsData is persistent across callbacks */
     new_dcontext->app_fls_data = old_dcontext->app_fls_data;
     new_dcontext->priv_fls_data = old_dcontext->priv_fls_data;
@@ -1940,7 +1906,6 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->priv_nls_cache = old_dcontext->priv_nls_cache;
     new_dcontext->app_static_tls = old_dcontext->app_static_tls;
     new_dcontext->priv_static_tls = old_dcontext->priv_static_tls;
-#    endif
     new_dcontext->app_stack_limit = old_dcontext->app_stack_limit;
     new_dcontext->app_stack_base = old_dcontext->app_stack_base;
     new_dcontext->teb_base = old_dcontext->teb_base;
@@ -1949,9 +1914,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->pcprofile_field = old_dcontext->pcprofile_field;
 #    endif
     new_dcontext->private_code = old_dcontext->private_code;
-#    ifdef CLIENT_INTERFACE
     new_dcontext->client_data = old_dcontext->client_data;
-#    endif
 #    ifdef DEBUG
     new_dcontext->logfile = old_dcontext->logfile;
     new_dcontext->thread_stats = old_dcontext->thread_stats;
@@ -2053,7 +2016,7 @@ d_r_get_num_threads(void)
 bool
 is_last_app_thread(void)
 {
-    return (d_r_get_num_threads() == IF_CLIENT_INTERFACE(get_num_client_threads() +) 1);
+    return (d_r_get_num_threads() == get_num_client_threads() + 1);
 }
 
 /* This routine takes a snapshot of all the threads known to DR,
@@ -2279,16 +2242,15 @@ DECLARE_FREQPROT_VAR(static bool reset_at_nth_thread_triggered, false);
  * increased uninit_thread_count.
  */
 int
-dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
-                   void *os_data _IF_CLIENT_INTERFACE(bool client_thread))
+dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
+                   bool client_thread)
 {
     dcontext_t *dcontext;
     /* due to lock issues (see below) we need another var */
     bool reset_at_nth_thread_pending = false;
     bool under_dynamo_control = true;
-    APP_EXPORT_ASSERT(dynamo_initialized || dynamo_exited ||
-                          d_r_get_num_threads() ==
-                              0 IF_CLIENT_INTERFACE(|| client_thread),
+    APP_EXPORT_ASSERT(dynamo_initialized || dynamo_exited || d_r_get_num_threads() == 0 ||
+                          client_thread,
                       PRODUCT_NAME " not initialized");
     if (INTERNAL_OPTION(nullcalls)) {
         ASSERT(uninit_thread_count == 0);
@@ -2414,8 +2376,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
     });
 
     LOG(THREAD, LOG_TOP | LOG_THREADS, 1, "%sTHREAD %d (dcontext " PFX ")\n\n",
-        IF_CLIENT_INTERFACE_ELSE(client_thread ? "CLIENT " : "", ""), d_r_get_thread_id(),
-        dcontext);
+        client_thread ? "CLIENT " : "", d_r_get_thread_id(), dcontext);
     LOG(THREAD, LOG_TOP | LOG_THREADS, 1,
         "DR stack is " PFX "-" PFX " (passed in " PFX ")\n",
         dcontext->dstack - DYNAMORIO_STACK_SIZE, dcontext->dstack, dstack_in);
@@ -2452,22 +2413,18 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc,
      */
     d_r_mutex_unlock(&thread_initexit_lock);
 
-#ifdef CLIENT_INTERFACE
     /* Set up client data needed in loader_thread_init for IS_CLIENT_THREAD */
     instrument_client_thread_init(dcontext, client_thread);
-#endif
 
     loader_thread_init(dcontext);
 
     if (!DYNAMO_OPTION(thin_client)) {
-#ifdef CLIENT_INTERFACE
         /* put client last, may depend on other thread inits.
          * Note that we are calling this prior to instrument_init()
          * now (PR 216936), which is required to initialize
          * the client dcontext field prior to instrument_init().
          */
         instrument_thread_init(dcontext, client_thread, mc != NULL);
-#endif
 
 #ifdef SIDELINE
         if (dynamo_options.sideline) {
@@ -2520,10 +2477,8 @@ dynamo_thread_exit_pre_client(dcontext_t *dcontext, thread_id_t id)
      */
     trace_abort_and_delete(dcontext);
     fragment_thread_exit(dcontext);
-#ifdef CLIENT_INTERFACE
     IF_WINDOWS(loader_pre_client_thread_exit(dcontext));
     instrument_thread_exit_event(dcontext);
-#endif
 }
 
 /* thread-specific cleanup */
@@ -2623,11 +2578,9 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
      */
     if (!dynamo_exited_and_cleaned)
         dynamo_thread_exit_pre_client(dcontext, id);
-#ifdef CLIENT_INTERFACE
     /* PR 243759: don't free client_data until after all fragment deletion events */
     if (!DYNAMO_OPTION(thin_client))
         instrument_thread_exit(dcontext);
-#endif
 
     /* i#920: we can't take segment/timer/asynch actions for other threads.
      * This must be called after dynamo_thread_exit_pre_client where

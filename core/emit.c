@@ -79,7 +79,7 @@ get_last_fragment_body_instr_pc(dcontext_t *dcontext, fragment_t *f)
     linkstub_t *l;
 
     /* Assumption : the last exit stub exit cti is the last instruction in the
-     * body.  PR 215217 enforces this for CLIENT_INTERFACE as well. */
+     * body.  PR 215217 enforces this for clients as well. */
     l = FRAGMENT_EXIT_STUBS(f);
     /* never called on future fragments, so a stub should exist */
     while (!LINKSTUB_FINAL(l))
@@ -532,18 +532,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist, uint 
                 STATS_INC(num_bb_fragment_offset);
         }
     });
-#ifndef CLIENT_INTERFACE
-    /* (can't have ifdef inside DOSTATS so we separate it from above stats)
-     * in a product build we only expect certain kinds of bbs
-     */
-    ASSERT_CURIOSITY(TEST(FRAG_IS_TRACE, flags) ||
-                     (num_indirect_stubs == 1 && num_direct_stubs == 0) ||
-                     (num_indirect_stubs == 0 && num_direct_stubs <= 2) ||
-                     IF_UNIX((num_indirect_stubs == 0 && num_direct_stubs >= 2 &&
-                              TEST(FRAG_HAS_SYSCALL, flags)) ||)(
-                         num_indirect_stubs <= 1 && num_direct_stubs >= 1 &&
-                         TEST(FRAG_SELFMOD_SANDBOXED, flags)));
-#endif
 
     STATS_PAD_JMPS_ADD(flags, body_bytes, extra_jmp_padding_body);
     STATS_PAD_JMPS_ADD(flags, stub_bytes, extra_jmp_padding_stubs);

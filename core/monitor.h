@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -180,13 +180,11 @@ typedef struct _monitor_data_t {
      */
     generic_table_t *thead_table;
 
-#ifdef CLIENT_INTERFACE
     /* PR 299808: we re-build each bb and pass to the client */
     instrlist_t unmangled_ilist;
     instrlist_t *unmangled_bb_ilist; /* next bb */
     /* cache at start of trace building whether we're going to pass to client */
     bool pass_to_client;
-#endif
     /* Record whether final block ends in syscall or int.
      * FIXME: remove once we have PR 307284.
      */
