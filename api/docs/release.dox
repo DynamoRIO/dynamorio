@@ -192,6 +192,7 @@ Further non-compatibility-affecting changes include:
  - Added support for running under QEMU via the \ref op_xarch_root "-xarch_root"
    runtime option which locates guest system libraries and enables workarounds for
    problems with QEMU's threads.
+ - Added dr_is_detaching(), an API to query whether detach is in progress.
 
 **************************************************
 <hr>
