@@ -2270,19 +2270,17 @@ utils_init(void);
 void
 utils_exit(void);
 
-#ifdef NOLIBC
-#    ifdef WINDOWS
-#        ifdef isprint
-#            undef isprint
+#ifdef WINDOWS
+#    ifdef isprint
+#        undef isprint
 bool
 isprint(int c);
-#        endif
+#    endif
 
-#        ifdef isdigit
-#            undef isdigit
+#    ifdef isdigit
+#        undef isdigit
 bool
 isdigit(int c);
-#        endif
 #    endif
 #endif
 
@@ -2320,8 +2318,9 @@ void
 divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint precision,
                     uint *top, uint *bottom);
 
-/* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
- * preserve floating point state to call this function!!
+/* For printing a float.
+ * NOTE: You must preserve x87 floating point state to call this function, unless
+ * you can prove the compiler will never use x87 state for float operations.
  * Usage : given double/float a; uint c, d and char *s tmp; dp==double_print
  *         parameterized on precision p width w
  * note that %f is eqv. to %.6f

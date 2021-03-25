@@ -194,9 +194,6 @@
 #    ($(D)RETURN_STACK: deprecated and now removed)
 #    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
-# transparency
-#    $(D)NOLIBC = doesn't link libc on windows, currently uses ntdll.dll libc
-#      functions, NOLIBC=0 causes the core to be linked against libc and kernel32.dll
 # external interface
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
@@ -244,13 +241,6 @@
 
 ###################################
 */
-
-#ifdef WINDOWS
-   /* we do not support linking to libc.  we should probably remove
-    * this define from the code and eliminate it altogether.
-    */
-# define NOLIBC
-#endif
 
 #ifdef MACOS
 # define ASSEMBLE_WITH_NASM

@@ -1319,16 +1319,6 @@ check_option_compatibility_helper(int recurse_count)
      * warn of unfinished and untested self-protection options
      * FIXME: update once these features are complete
      */
-#    if defined(WINDOWS) && !defined(NOLIBC)
-    if (TEST(SELFPROT_ANY_DATA_SECTION, dynamo_options.protect_mask)) {
-        /* since libc routines are embedded in our dll and we run
-         * them from the code cache we hit write faults
-         */
-        USAGE_ERROR("Cannot protect data segment w/ a non-NOLIBC build");
-        dynamo_options.protect_mask &= ~SELFPROT_ANY_DATA_SECTION;
-        changed_options = true;
-    }
-#    endif
     if (
 #    ifdef WINDOWS
         /* FIXME: CACHE isn't multithread safe yet */

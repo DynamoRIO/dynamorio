@@ -306,7 +306,6 @@ lookup_module_info(module_info_vector_t *v, app_pc addr)
 {
     /* BINARY SEARCH -- assumes the vector is kept sorted by add & remove! */
     module_info_t key = { addr, addr + 1 }; /* end is open */
-#    ifdef NOLIBC
     /* FIXME : copied from find_predecessor(), would be nice to share with
      * that routine and with binary range search (w/linear backsearch) in
      * vmareas.c */
@@ -325,9 +324,6 @@ lookup_module_info(module_info_vector_t *v, app_pc addr)
         }
     }
     return NULL;
-#    else
-    return bsearch(&key, v->buf, v->length, sizeof(module_info_t), module_info_compare);
-#    endif
 }
 
 #    define INITIAL_MODULE_NUMBER 4
