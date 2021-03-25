@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -362,6 +362,12 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
         ERRMSG("Usage error: failed to initialize snoop filter.\n");
         success_ = false;
         return;
+    }
+    // TODO add comment and name "32"
+    if (other_caches_.size() > 0 && (knobs_.model_coherence || knobs_.num_cores > 32)) {
+        for (auto &cache : all_caches_) {
+            cache.second->set_hashtable_use(true);
+        }
     }
 }
 

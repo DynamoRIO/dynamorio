@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -70,14 +70,10 @@ cache_t::flush(const memref_t &memref)
         compute_tag(memref.flush.addr + memref.flush.size - 1 /*no overflow*/);
     last_tag_ = TAG_INVALID;
     for (; tag <= final_tag; ++tag) {
-        int block_idx = compute_block_idx(tag);
-        for (int way = 0; way < associativity_; ++way) {
-            if (get_caching_device_block(block_idx, way).tag_ == tag) {
-                get_caching_device_block(block_idx, way).tag_ = TAG_INVALID;
-                // Xref cache_block_t constructor about why we set counter to 0.
-                get_caching_device_block(block_idx, way).counter_ = 0;
-            }
-        }
+        auto block_way = find_caching_device_block(tag);
+        if (block_way.first == nullptr)
+            continue;
+        invalidate_caching_device_block(block_way.first);
     }
     // We flush parent_'s code cache here.
     // XXX: should L1 data cache be flushed when L1 instr cache is flushed?
