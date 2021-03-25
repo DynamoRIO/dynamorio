@@ -4626,7 +4626,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|common.broadfun
     code_api|common.getretaddr
     code_api|common.nzcv
-    code_api|common.loglevel
     code_api|linux.app_tls
     code_api|linux.execve-null
     code_api|linux.exit
@@ -4678,6 +4677,7 @@ if (NOT ANDROID AND AARCHXX)
   if (DEBUG)
     set_tests_properties(
       code_api|common.logstderr
+      code_api|common.loglevel
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   if (AARCH64)
