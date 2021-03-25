@@ -50,8 +50,8 @@
 #include "decode_private.h"
 #include "disassemble.h"
 #include "../hashtable.h"
-#include "../fcache.h"  /* for in_fcache */
 #include "instrument.h" /* for dr_insert_call */
+#include "../fcache.h"  /* for in_fcache */
 #include "../translate.h"
 
 #ifdef RCT_IND_BRANCH
