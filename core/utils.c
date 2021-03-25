@@ -1634,22 +1634,10 @@ do_file_write(file_t f, const char *fmt, va_list ap)
     ssize_t size, written;
     char logbuf[MAX_LOG_LENGTH];
 
-#ifndef NOLIBC
-    /* W/ libc, we cannot print while .data is protected.  We assume
-     * that DATASEC_RARELY_PROT is .data.
-     */
-    if (DATASEC_PROTECTED(DATASEC_RARELY_PROT)) {
-        ASSERT(TEST(SELFPROT_DATA_RARE, dynamo_options.protect_mask));
-        ASSERT(strcmp(DATASEC_NAMES[DATASEC_RARELY_PROT], ".data") == 0);
-        return -1;
-    }
-#endif
     if (f == INVALID_FILE)
         return -1;
     size = vsnprintf(logbuf, BUFFER_SIZE_ELEMENTS(logbuf), fmt, ap);
     NULL_TERMINATE_BUFFER(logbuf); /* always NULL terminate */
-    /* note that we can't print %f on windows with NOLIBC (returns error
-     * size == -1), use double_print() or divide_uint64_print() as needed */
     DOCHECK(1, {
         /* we have our own do-once to avoid infinite recursion w/ protect_data_section */
         if (size < 0 || size >= BUFFER_SIZE_ELEMENTS(logbuf)) {
@@ -1717,13 +1705,14 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, uint 
 extern long
 double2int_trunc(double d);
 
-/* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
- * preserve floating point state to call this function!!
- * FIXME : truncates instead of rounding, also negative with width looks funny,
- *         finally width can be one off if negative
+/* For printing a float.
+ * NOTE: You must preserve x87 floating point state to call this function, unless
+ * you can prove the compiler will never use x87 state for float operations.
+ * XXX: Truncates instead of rounding; also, negative with width looks funny;
+ *      finally, width can be one off if negative
  * Usage : given double/float a; uint c, d and char *s tmp; dp==double_print
  *         parameterized on precision p width w
- * note that %f is eqv. to %.6f
+ * Note that %f is eqv. to %.6f.
  * "%.pf", a => dp(a, p, &c, &d, &s) "%s%u.%.pu", s, c, d
  * "%w.pf", a => dp(a, p, &c, &d, &s) "%s%(w-p-1)u.%.pu", s, c, d
  */
