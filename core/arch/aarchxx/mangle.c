@@ -2034,7 +2034,6 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
                           opnd_create_reg(reg)));
 }
 
-/* XXX: merge with or refactor out old STEAL_REGISTER x86 code? */
 /* Mangle simple dr_reg_stolen access.
  * dr_reg_stolen in gpr_list is handled in mangle_gpr_list_{read/write}.
  *

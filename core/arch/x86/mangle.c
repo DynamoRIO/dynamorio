@@ -50,11 +50,8 @@
 #include "decode_private.h"
 #include "disassemble.h"
 #include "../hashtable.h"
-#include "../fcache.h" /* for in_fcache */
-#ifdef STEAL_REGISTER
-#    include "steal_reg.h"
-#endif
 #include "instrument.h" /* for dr_insert_call */
+#include "../fcache.h"  /* for in_fcache */
 #include "../translate.h"
 
 #ifdef RCT_IND_BRANCH
@@ -1305,20 +1302,8 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     if (!mangle_calls) {
         /* off-trace call that will be executed natively */
-
         /* relative target must be re-encoded */
         instr_set_raw_bits_valid(instr, false);
-
-#ifdef STEAL_REGISTER
-        /* FIXME: need to push edi prior to call and pop after.
-         * However, need to push edi prior to any args to this call,
-         * and it may be hard to find pre-arg-pushing spot...
-         * edi is supposed to be callee-saved, we're trusting this
-         * off-trace call to return, we may as well trust it to
-         * not trash edi -- these no-inline calls are dynamo's
-         * own routines, after all.
-         */
-#endif
         return next_instr;
     }
 
@@ -1584,19 +1569,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr,
         SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT,
                                  XCX_OFFSET, REG_R9));
-
-#ifdef STEAL_REGISTER
-    /* Steal edi if call uses it, using original call instruction */
-    steal_reg(dcontext, instr, ilist);
-    if (ilist->flags)
-        restore_state(dcontext, next_instr, ilist);
-        /* It's impossible for our register stealing to use ecx
-         * because no call can simultaneously use 3 registers, right?
-         * Maximum is 2, in something like "call *(edi,ecx,4)"?
-         * If it is possible, need to make sure stealing's use of ecx
-         * doesn't conflict w/ our use
-         */
-#endif
 
     /* change: call /2, Ev -> movl Ev, %xcx */
     target = instr_get_src(instr, 0);
@@ -1888,13 +1860,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT,
                                  XCX_OFFSET, REG_R9));
 
-#ifdef STEAL_REGISTER
-    /* Steal edi if branch uses it, using original instruction */
-    steal_reg(dcontext, instr, ilist);
-    if (ilist->flags)
-        restore_state(dcontext, next_instr, ilist);
-#endif
-
     /* change: jmp /4, i_Ev -> movl i_Ev, %xcx */
     target = instr_get_target(instr);
     if (instr_get_opcode(instr) == OP_jmp_far_ind) {
@@ -2076,51 +2041,6 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
         }
     }
 #    endif
-
-#    ifdef STEAL_REGISTER
-    /* in linux, system calls get their parameters via registers.
-     * edi is the last one used, but there are system calls that
-     * use it, so we put the real value into edi.  plus things
-     * like fork() should get the real register values.
-     * it's also a good idea to put the real edi into %edi for
-     * debugger interrupts (int3).
-     */
-
-    /* the only way we can save and then restore our dc
-     * ptr is to use the stack!
-     * this should be fine, all interrupt instructions push
-     * both eflags and return address on stack, so esp must
-     * be valid at this point.  there could be an application
-     * assuming only 2 slots on stack will be used, we use a 3rd
-     * slot, could mess up that app...but what can we do?
-     * also, if kernel examines user stack, we could have problems.
-     *   push edi          # push dcontext ptr
-     *   restore edi       # restore app edi
-     *   <syscall>
-     *   push ebx
-     *   mov edi, ebx
-     *   mov 4(esp), edi   # get dcontext ptr
-     *   save ebx to edi slot
-     *   pop ebx
-     *   add 4,esp         # clean up push of dcontext ptr
-     */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_EDI)));
-    PRE(ilist, instr, instr_create_restore_from_dcontext(dcontext, REG_EDI, XDI_OFFSET));
-
-    /* insert after in reverse order: */
-    POST(ilist, instr,
-         INSTR_CREATE_add(dcontext, opnd_create_reg(REG_ESP), OPND_CREATE_INT8(4)));
-    POST(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_EBX)));
-    POST(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_EBX, XDI_OFFSET));
-    POST(ilist, instr,
-         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_EDI),
-                             OPND_CREATE_MEM32(REG_ESP, 4)));
-    POST(ilist, instr,
-         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_EBX),
-                             opnd_create_reg(REG_EDI)));
-    POST(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_EBX)));
-#    endif /* STEAL_REGISTER */
 
 #else /* WINDOWS */
     /* special handling of system calls is performed in shared_syscall or

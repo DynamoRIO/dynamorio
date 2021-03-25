@@ -1476,7 +1476,6 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
      * -- convert indirect branches into 'save %xcx; lea EA, %xcx';
      * -- convert indirect calls as a combination of direct call and
      *    indirect branch conversion;
-     * -- ifdef STEAL_REGISTER, steal edi for our own use.
      * -- ifdef UNIX, mangle seg ref and mov_seg
      */
 
@@ -1713,9 +1712,6 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 #endif
 
         if (!instr_is_cti(instr) || instr_is_meta(instr)) {
-#ifdef STEAL_REGISTER
-            steal_reg(dcontext, instr, ilist);
-#endif
             if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && instr_is_label(instr)) {
                 /* move the value to the note field (which the client cannot
                  * possibly use at this point) so we don't have to search for
@@ -1742,12 +1738,6 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
             }
             continue;
         }
-
-#ifdef STEAL_REGISTER
-        if (TESTANY(STEAL_REG_ILIST_FLAGS, ilist->flags)) {
-            restore_state(dcontext, instr, ilist); /* end of edi calculation */
-        }
-#endif
 
         if (instr_is_call_direct(instr)) {
             /* mangle_direct_call may inline a call and remove next_instr, so
@@ -1796,12 +1786,6 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
     }
 #endif
 
-#ifdef STEAL_REGISTER
-    /* The following assertion should be guaranteed by fact that all
-     * blocks end in some kind of branch, and the code above restores
-     * the register state on a branch. */
-    ASSERT(!TESTANY(STEAL_REG_ILIST_FLAGS, ilist->flags));
-#endif
     KSTOP(mangling);
 }
 

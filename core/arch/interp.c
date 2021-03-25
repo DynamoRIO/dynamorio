@@ -3265,7 +3265,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                   vmvector_overlap(d_r_rseq_areas, bb->start_pc, bb->start_pc + 1))))
         bb->full_decode = true;
     else {
-#if defined(STEAL_REGISTER) || defined(CHECK_RETURNS_SSE2)
+#ifdef CHECK_RETURNS_SSE2
         bb->full_decode = true;
 #endif
     }
