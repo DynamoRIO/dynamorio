@@ -2054,6 +2054,27 @@ if (DR_HOST_AARCH64)
     "-Wl,--no-export-dynamic")
 endif ()
 
+if (DEBUG)
+  # A high-loglevel test.
+  if (DR_HOST_X86 AND DR_HOST_X64)
+    # Unfortunately it's not possible to create a tiny app on Windows, and hello,world
+    # at -loglevel 19 produces 11GB of data and takes >17 minutes to run (vs <10MB and
+    # <1s for Linux).  We live w/o a regression test on Windows for high loglevels.
+    if (LINUX)
+      tobuild_ops(common.loglevel common/allasm_x86_64.asm
+        "-loglevel 19" "")
+      set_target_properties(common.loglevel PROPERTIES LINKER_LANGUAGE C)
+      append_link_flags(common.loglevel "-nostartfiles -nodefaultlibs -static")
+    endif ()
+  elseif (DR_HOST_AARCH64)
+    torunonly(common.loglevel common.allasm_aarch64_cache
+      common/allasm_aarch64_cache.asm "-loglevel 19" "")
+  elseif (DR_HOST_ARM AND NOT ANDROID)
+    torunonly(common.loglevel common.allasm_thumb
+      common/allasm_thumb.asm "-loglevel 19" "")
+  endif ()
+endif ()
+
 if (NOT ANDROID) # XXX i#1874: get working on Android
   # We don't want to link with DR.  We hack that for now by requesting drdecode so
   # we'll get the arch defs.  XXX: Add a better way!
@@ -4656,6 +4677,7 @@ if (NOT ANDROID AND AARCHXX)
   if (DEBUG)
     set_tests_properties(
       code_api|common.logstderr
+      code_api|common.loglevel
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   if (AARCH64)
