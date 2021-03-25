@@ -79,14 +79,6 @@
 #    define LINKSTUB_TARGET_FRAG_OFFS (offsetof(direct_linkstub_t, target_fragment))
 #endif
 
-/* N.B.: I decided to not keep supporting DCONTEXT_IN_EDI
- * If we really want it later we can add it, it's a pain to keep
- * maintaining it with every change here
- */
-#ifdef DCONTEXT_IN_EDI
-#    error DCONTEXT_IN_EDI Not Implemented
-#endif
-
 /* make code more readable by shortening long lines
  * we mark all as meta to avoid client interface asserts
  */

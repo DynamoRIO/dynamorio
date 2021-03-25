@@ -2647,15 +2647,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #ifdef WINDOWS
     /* clean up all the dcs */
     num_dcontext = 0;
-#    ifdef DCONTEXT_IN_EDI
-    /* go to one end of list */
-    while (dcontext_tmp->next_saved)
-        dcontext_tmp = dcontext_tmp->next_saved;
-#    else
-    /* already at one end of list */
-#    endif
-
-    /* delete through to other end */
+    /* Already at one end of list. Delete through to other end. */
     while (dcontext_tmp) {
         num_dcontext++;
         dcontext_next = dcontext_tmp->prev_unused;

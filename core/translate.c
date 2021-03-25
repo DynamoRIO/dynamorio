@@ -1451,14 +1451,6 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         ok = dr_set_isa_mode(tdcontext, old_mode, NULL);
         ASSERT(ok);
 
-#ifdef STEAL_REGISTER
-        /* FIXME: conflicts w/ PR 263407 reg spill tracking */
-        ASSERT_NOT_IMPLEMENTED(false && "conflicts w/ reg spill tracking");
-        if (!just_pc) {
-            /* get app's value of edi */
-            mc->xdi = get_mcontext(tdcontext)->xdi;
-        }
-#endif
         if (!just_pc)
             restore_stolen_register(tdcontext, mcontext);
         if (res != RECREATE_FAILURE) {

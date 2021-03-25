@@ -197,10 +197,6 @@ typedef byte *cache_pc; /* fragment cache pc */
 #    error PAPI does not work on WINDOWS
 #endif
 
-#if defined(DCONTEXT_IN_EDI) && !defined(STEAL_REGISTER)
-#    error Must steal register to keep dcontext in edi
-#endif
-
 #ifdef DGC_DIAGNOSTICS
 #    ifndef PROGRAM_SHEPHERDING
 #        error DGC_DIAGNOSTICS requires PROGRAM_SHEPHERDING
@@ -982,9 +978,6 @@ struct _dcontext_t {
 
 #ifdef WINDOWS
     /* these fields used for "stack" of contexts for callbacks */
-#    ifdef DCONTEXT_IN_EDI
-    dcontext_t *next_saved;
-#    endif
     dcontext_t *prev_unused;
     /* need to be able to tell which dcontexts in callback stack are valid */
     bool valid;

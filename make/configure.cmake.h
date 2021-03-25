@@ -152,17 +152,10 @@
 #      after fork.
 #    $(D)HAVE_SIGALTSTACK - set if SYS_sigaltstack is available
 #    $(D)INIT_TAKE_OVER - libdynamorio.so init() takes over so no preload needed
-# not supported but still in code because may be useful later
-#    $(D)STEAL_REGISTER
-#    $(D)DCONTEXT_IN_EDI
-#    $(D)ASSUME_NORMAL_EFLAGS - (NEVER ON) (causes errors w/ Microsoft-compiled apps)
 # internal studies, not for general use
 #    $(D)SHARING_STUDY
 #    $(D)FRAGMENT_SIZES_STUDY
 #    $(D)FOOL_CPUID
-#    ($(D)NATIVE_RETURN: deprecated and now removed, along with:
-#       NATIVE_RETURN_CALLDEPTH, NATIVE_RETURN_RET_IN_TRACES,
-#       and NATIVE_RETURN_TRY_TO_PUT_APP_RETURN_PC_ON_STACK)
 #    $(D)LOAD_DYNAMO_DEBUGBREAK
 # profiling
 #    no longer supported: $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
@@ -185,12 +178,9 @@
 #    $(D)GBOP - generic buffer overflow prevention via hooking APIs
 # optimization of application
 #    $(D)SIDELINE
-#    no longer supported: $(D)SIDELINE_COUNT_STUDY
 #    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
-#    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags)
-#                      (defines ASSUME_NORMAL_EFLAGS)
 #    ($(D)RETURN_STACK: deprecated and now removed)
 #    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)

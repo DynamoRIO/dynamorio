@@ -6461,9 +6461,7 @@ callback_setup(app_pc next_pc)
 {
     dcontext_t *old_dcontext;
     dcontext_t *new_dcontext;
-#ifndef DCONTEXT_IN_EDI
     dcontext_t *dc;
-#endif
 
     old_dcontext = get_thread_private_dcontext();
     ASSERT(old_dcontext);
@@ -6495,7 +6493,6 @@ callback_setup(app_pc next_pc)
 
     /* need to save old dcontext and get new dcontext for callback execution */
 
-#ifndef DCONTEXT_IN_EDI
     /* must always use same dcontext because fragment code is hardwired
      * for it, so we use stack of dcontexts to save old ones.
      * what we do here: find or create new dcontext for use with callback.
@@ -6564,26 +6561,6 @@ callback_setup(app_pc next_pc)
     old_dcontext->next_tag = next_pc;
     ASSERT(old_dcontext->next_tag != NULL);
     return old_dcontext;
-
-#else  /* DCONTEXT_IN_EDI */
-    /* since we use edi to point to the dcontext, we can simply use a
-     * different dcontext
-     */
-    if (old_dcontext->prev_unused) {
-        new_dcontext = old_dcontext->prev_unused;
-        LOG(old_dcontext->logfile, LOG_ASYNCH, 2,
-            "callback_setup(): re-using unused dcontext\n");
-    } else {
-        new_dcontext = create_callback_dcontext(old_dcontext);
-        old_dcontext->prev_unused = new_dcontext;
-        new_dcontext->next_saved = old_dcontext;
-    }
-    new_execution_environment(new_dcontext);
-    new_dcontext->next_tag = next_pc;
-    ASSERT(new_dcontext->next_tag != NULL);
-    set_thread_private_dcontext(new_dcontext);
-    return new_dcontext;
-#endif /* DCONTEXT_IN_EDI */
 }
 
 /* Called when a callback has completed execution and is about to return
@@ -6628,8 +6605,7 @@ callback_start_return(priv_mcontext_t *mc)
         }
     });
 
-#ifndef DCONTEXT_IN_EDI
-    /* must always use same dcontext because fragment code is hardwired
+    /* Must always use same dcontext because fragment code is hardwired
      * for it, so we use stack of dcontexts to save old ones.
      * what we do here: find the last dcontext that holds saved values.
      * then swap the new and old dcontexts!
@@ -6746,20 +6722,6 @@ callback_start_return(priv_mcontext_t *mc)
     instrument_kernel_xfer(cur_dcontext, DR_XFER_CALLBACK_RETURN, NULL, NULL,
                            get_mcontext(prev_dcontext), cur_mc->pc, cur_mc->xsp, NULL,
                            cur_mc, 0);
-
-#else /* DCONTEXT_IN_EDI */
-    /* restore previous dcontext */
-    prev_dcontext = cur_dcontext->next_saved;
-    ASSERT(prev_dcontext != NULL);
-    set_thread_private_dcontext(prev_dcontext);
-
-    /* note that we do not need to adjust numthreads in cache, since we
-     * are currently in the cache and will be returning to the cache
-     */
-
-    /* don't delete cur_dcontext, leave in list for use next time */
-    ASSERT(prev_dcontext->prev_unused == cur_dcontext);
-#endif
 }
 
 /* Returns the prev dcontext that was just swapped by callback_start_return */
