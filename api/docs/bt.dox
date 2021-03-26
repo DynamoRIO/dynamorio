@@ -65,18 +65,18 @@ following sections:
 \section sec_IR Instruction Representation
 
 The primary data structures involved in instruction manipulation are
-the \c instr_t, which represents a single instruction, and the \c
-instrlist_t, which is a linked list of instructions.  The header files
+the #instr_t, which represents a single instruction, and the \c
+#instrlist_t, which is a linked list of instructions.  The header files
 dr_ir_instrlist.h and dr_ir_instr.h list a number of functions that
 operate on these data structures, including:
 
 - Routines to create new instructions.
 - Routines to iterate over an instruction's operands.
-- Routines to iterate over an \c instrlist_t.
-- Routines to insert and remove an \c instr_t from an \c instrlist_t.
+- Routines to iterate over an #instrlist_t.
+- Routines to insert and remove an #instr_t from an #instrlist_t.
 
 As we will see in the the \ref sec_events_bt section that follows, a
-client usually interacts with \c instrlist_t's in the form of \e basic \e
+client usually interacts with #instrlist_t's in the form of \e basic \e
 blocks or \e traces.  A basic block is a sequence of instructions that
 terminates with a control transfer operation.  Traces are
 frequently-executed sequences of basic blocks that DynamoRIO forms
@@ -106,7 +106,7 @@ arguments twice, so clients should avoid passing arguments with side effects.
 
 When a new instruction is created using instr_create() or the
 INSTR_CREATE_* or XINST_CREATE_* macros, if the instruction is added to the
-\c instrlist_t that is passed to the basic block or trace events, the heap
+#instrlist_t that is passed to the basic block or trace events, the heap
 memory used by the instruction is automatically freed when that instruction
 list is freed by DynamoRIO.  If instead an instruction is created on the
 heap but used for other purposes and not added to a DynamoRIO-provided
@@ -134,7 +134,7 @@ Internally, DynamoRIO uses all five levels:
 
 \par Level 0: Raw Bundle
 
-At Level 0, the \c instr_t data structure holds raw bytes for group of
+At Level 0, the #instr_t data structure holds raw bytes for group of
 instructions decoded only enough to determine the final instruction
 boundary:
 
@@ -146,7 +146,7 @@ boundary:
 
 \par Level 1: Raw Individual
 
-At Level 1, each \c instr_t holds only one instruction, but has no more
+At Level 1, each #instr_t holds only one instruction, but has no more
 information than raw bytes:
 
 <table border=0 cellpadding=2 cellspacing=1>
@@ -167,7 +167,7 @@ information than raw bytes:
 
 \par Level 2: Opcode and Eflags
 
-At Level 2, \c instr_t has been decoded just enough to determine opcode and
+At Level 2, #instr_t has been decoded just enough to determine opcode and
 flags effects (flags are important when analyzing code).  Raw bytes
 are still used for encoding.  The flags effects below are only shown for
 reading (R) or writing (W) the six arithmetic flags (Carry, Parity, Adjust,
@@ -205,7 +205,7 @@ Zero, Sign, and Overflow).
 
 \par Level 3: Operands
 
-A Level 3 \c instr_t contains dynamically allocated arrays of source and
+A Level 3 #instr_t contains dynamically allocated arrays of source and
 destination operands (dynamic because some ISA's are quite variable) that are now
 filled in.  Raw bytes are still valid and are used for encoding.  This
 level combines high-level information with quick encoding.
@@ -249,9 +249,9 @@ level combines high-level information with quick encoding.
 
 \par Level 4: Modified Operands
 
-At the highest level, \c instr_t has been modified at the operand level, or
+At the highest level, #instr_t has been modified at the operand level, or
 has been created from operands, such that the raw bytes are no longer
-valid.  The \c instr_t must be fully encoded from its operands.
+valid.  The #instr_t must be fully encoded from its operands.
 
 <table border=0 cellpadding=2 cellspacing=1>
 <tr><td>&nbsp;</td>
@@ -293,8 +293,8 @@ valid.  The \c instr_t must be fully encoded from its operands.
 \par Basic Block Example
 
 As an example of using different levels of detail, a basic block in
-DynamoRIO is represented using a Level 0 \c instr_t for all non-control-flow
-instructions, and a Level 3 \c instr_t for the block-ending control-flow
+DynamoRIO is represented using a Level 0 #instr_t for all non-control-flow
+instructions, and a Level 3 #instr_t for the block-ending control-flow
 instruction:
 
 <table border=0 cellpadding=2 cellspacing=1>
@@ -309,7 +309,7 @@ instruction:
 </table>
 
 However, when a client registers for the basic block event, DynamoRIO
-passes an \c instrlist_t of all Level 3 \c instr_t's, for simplicity.
+passes an #instrlist_t of all Level 3 #instr_t's, for simplicity.
 \endif
 
 
@@ -419,7 +419,7 @@ to a file for fast re-use on subsequent runs can include the
 DR_EMIT_PERSISTABLE flag in its return value.  See \ref sec_pcache for more
 information.
 
-To iterate over instructions in an \c instrlist_t, use the \ref
+To iterate over instructions in an #instrlist_t, use the \ref
 instrlist_first(), \ref instrlist_last() (if necessary), and \ref
 instr_get_next() routines. For example:
 
@@ -653,12 +653,12 @@ functionality.
 
 DynamoRIO provides several routines for decoding and disassembling
 instructions.  The most common method for decoding is the
-decode() routine, which populates an \c instr_t data structure with all
+decode() routine, which populates an #instr_t data structure with all
 information about the instruction (e.g., opcode and operand
 information).
 
 When decoding instructions, clients must explicitly manage the \c
-instr_t data structure.  For example, the following code shows how to
+#instr_t data structure.  For example, the following code shows how to
 use the instr_init(), instr_reset(), and instr_free() routines to
 decode a sequence of arbritrary instructions:
 
@@ -984,7 +984,7 @@ old instrumentation event callbacks, and registers new ones.
 In order to directly modify the instrumentation on a particular fragment
 (as opposed to replacing instrumentation on all copies of fragments
 corresponding to particular application code), DynamoRIO also supports
-directly replacing an existing fragment with a new \c instrlist_t:
+directly replacing an existing fragment with a new #instrlist_t:
 
 \code
 dr_replace_fragment()
@@ -1037,7 +1037,7 @@ For example usage, see the callee-inlining client sample \ref sec_ex5.
 ********************
 \subsection sec_custom_stubs Custom Exit Stubs
 
-An exit cti can be given an instrlist_t to be prepended to the standard
+An exit cti can be given an #instrlist_t to be prepended to the standard
 exit stub.  There are set and get methods for this custom exit stub code:
 
 \code
