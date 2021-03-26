@@ -216,7 +216,7 @@ typedef byte *cache_pc; /* fragment cache pc */
 extern const char dynamorio_version_string[];
 extern const char dynamorio_buildmark[];
 
-struct _instr_list_t;
+struct _instrlist_t;
 struct _fragment_t;
 typedef struct _fragment_t fragment_t;
 struct _future_fragment_t;
@@ -236,7 +236,9 @@ typedef struct _coarse_freeze_info_t coarse_freeze_info_t;
 struct _module_data_t;
 /* DR_API EXPORT TOFILE dr_defines.h */
 /* DR_API EXPORT BEGIN */
-typedef struct _instr_list_t instrlist_t;
+/** The opaque type used to represent linear lists of #instr_t instructions. */
+typedef struct _instrlist_t instrlist_t;
+/** Alias for the #_module_data_t structure holding library information. */
 typedef struct _module_data_t module_data_t;
 /* DR_API EXPORT END */
 

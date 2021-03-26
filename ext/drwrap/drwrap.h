@@ -412,7 +412,7 @@ typedef enum {
 #endif
     /** The platform-specific calling convention for a vararg function. */
     DRWRAP_CALLCONV_VARARG = DRWRAP_CALLCONV_DEFAULT,
-    /* Mask for isolating the calling convention from other flags. */
+    /** Mask for isolating the calling convention from other flags. */
     DRWRAP_CALLCONV_MASK = 0xff000000
 } drwrap_callconv_t;
 

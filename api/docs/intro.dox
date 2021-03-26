@@ -524,10 +524,10 @@ make it easier to reference addresses absolutely:
    two instructions depending on whether the address is in the lower 4GB or
    not.
 
- - When using an \p instr_t pointer as an immediate, use the routines
+ - When using an #instr_t pointer as an immediate, use the routines
    instrlist_insert_mov_instr_addr() or instrlist_insert_push_instr_addr()
    to conveniently insert either one or two instructions depending on
-   whether the resulting instr_t encoded address is in the lower 4GB or
+   whether the resulting #instr_t encoded address is in the lower 4GB or
    not.
 
 ***************************************************************************

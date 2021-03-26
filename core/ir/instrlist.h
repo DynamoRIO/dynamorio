@@ -42,7 +42,7 @@
 
 #include "instr.h"
 
-struct _instr_list_t {
+struct _instrlist_t {
     instr_t *first;
     instr_t *last;
     int flags;
