@@ -107,6 +107,7 @@ set(top_order "${top_order} \"${gendox_dir}/tool_gendox.dox\"")
 set(top_order "${top_order} \"${srcdir}/intro.dox\"")
 set(top_order "${top_order} \"${srcdir}/help.dox\"")
 set(top_order "${top_order} \"${srcdir}/developers.dox\"")
+set(top_order "${top_order} \"${srcdir}/license.dox\"")
 
 # Executed inside build dir, so we leave genimages alone
 # and have to fix up refs to source dir and subdirs
