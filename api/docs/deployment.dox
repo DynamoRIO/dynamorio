@@ -649,6 +649,10 @@ dr_app_start()
 dr_app_stop()
 dr_app_cleanup()
 dr_app_take_over()
+dr_app_setup_and_start()
+dr_app_stop_and_cleanup()
+dr_app_stop_and_cleanup_with_stats()
+dr_app_running_under_dynamorio()
 \endcode
 
 When building an executable that uses DynamoRIO's Application Interface,
