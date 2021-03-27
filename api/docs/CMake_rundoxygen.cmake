@@ -217,6 +217,28 @@ if (embeddable)
 \"content\":\"${name} ${extra}\"};\n")
       file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
     endforeach ()
+    # Similarly, put in explicit search entries for sections so searches go
+    # straight to the anchor link.
+    string(REGEX MATCHALL "\n<h1><a class=\"anchor\" id=\"[^\"]*\"></a>\n[^\n]+</h1>"
+      sections "${nosemis}")
+    foreach (section ${sections})
+      string(REGEX REPLACE ".* id=\"([^\"]+)\".*" "\\1" id "${section}")
+      string(REGEX REPLACE ".*</a>\n([^<]+)</h1>" "\\1" name "${section}")
+      if (name STREQUAL "" OR id STREQUAL "" OR name MATCHES "<")
+        message(FATAL_ERROR "Failed to find section name or anchor: ${section}")
+      endif ()
+      set(url "/${fname}.html#${id}")
+      # Quotes cause JavaScript syntax errors.
+      string(REPLACE "\"" "" name "${name}")
+      # Spaces would be ok but it feels nicer w/o them in the key.
+      string(REPLACE " " "_" key "${name}")
+      set(keywords "window.data[\"${fname}-${key}\"]={\
+\"name\":\"${fname}-${key}\",\
+\"title\":\"${name}\",\
+\"url\":\"${url}\",\
+\"content\":\"${name}\"};\n")
+      file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
+    endforeach ()
 
     file(WRITE ${html} "${string}")
   endforeach ()
