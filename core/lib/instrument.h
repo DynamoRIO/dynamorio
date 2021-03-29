@@ -92,10 +92,8 @@ instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb, bool f
                        bool translating, dr_emit_flags_t *emitflags);
 dr_emit_flags_t
 instrument_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool translating);
-#ifdef CUSTOM_TRACES
 dr_custom_trace_action_t
 instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag);
-#endif
 void
 instrument_fragment_deleted(dcontext_t *dcontext, app_pc tag, uint flags);
 bool

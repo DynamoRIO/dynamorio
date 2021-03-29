@@ -606,12 +606,6 @@ typedef struct _instr_t instr_t;
 #    define IF_HOTP(x)
 #endif
 
-#ifdef CUSTOM_TRACES
-#    define IF_CUSTOM_TRACES(x) x
-#else
-#    define IF_CUSTOM_TRACES(x)
-#endif
-
 #ifdef DR_APP_EXPORTS
 #    define IF_APP_EXPORTS(x) x
 #else
