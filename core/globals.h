@@ -109,11 +109,8 @@
 #    define DYNAMORIO_EXPORT
 #endif
 
-#ifdef DYNAMORIO_IR_EXPORTS
-#    define DR_API DYNAMORIO_EXPORT
-#else
-#    define DR_API
-#endif
+/* We always export nowadays. */
+#define DR_API DYNAMORIO_EXPORT
 #if (defined(DEBUG) && defined(BUILD_TESTS)) || defined(UNSUPPORTED_API)
 #    define DR_UNS_EXCEPT_TESTS_API DR_API
 #else
