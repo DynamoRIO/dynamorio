@@ -36,6 +36,11 @@
 # Copyright (c) 2002-2003 Massachusetts Institute of Technology
 # Copyright (c) 2002 Hewlett Packard Company
 
+# TODO i#3092: Refactor all headers with "DR_API EXPORT" directives into
+# separate files containing only public content that we can simply copy using
+# DR_export_header() and then remove genapi.pl altogether.  We also need
+# to drop support for !HAVE_FVISIBILITY to remove the -filter use case.
+
 ### genapi.pl
 ###
 ### generates header files and filter files for our exported data and routines
@@ -139,9 +144,13 @@ if ($header) {
     # we can avoid this auto-clean and have something nicer
     @existing = glob("$dir/dr_*.h");
     if ($#existing >= 0) {
-        # dr_api.h is now created at configure time
+        # Some files are created at configure time:
         foreach $index (0 .. $#existing) {
-            if ("$existing[$index]" eq "$dir/dr_api.h") {
+            if ("$existing[$index]" eq "$dir/dr_api.h" ||
+                "$existing[$index]" eq "$dir/dr_app.h" ||
+                "$existing[$index]" eq "$dir/dr_annotation.h" ||
+                "$existing[$index]" eq "$dir/dr_inject.h" ||
+                "$existing[$index]" eq "$dir/dr_config.h") {
                 delete $existing[$index];
             }
         }
@@ -149,15 +158,6 @@ if ($header) {
             unlink(@existing);
         }
     }
-
-    # dr_api.h is copied by top-level CMakeLists.txt, for easier
-    # substitution of VERSION_NUMBER_INTEGER
-
-    # dr_app.h is copied verbatim
-    # We used to have #ifdefs (LOGPC I think) in the func declarations
-    # and we had a complex series of commands in core/Makefile to strip
-    # them out while leaving the ifdefs at the top of the file.
-    copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
 }
 
 $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
@@ -195,14 +195,8 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/fragment.h",         # binary tracedump format
      "$core/win32/os_private.h", # rsrc section walking
      "$core/hotpatch.c",         # probe api
-     "$core/lib/dr_config.h",
-     "$core/lib/dr_inject.h",
      "$core/../libutil/dr_frontend.h",
      );
-
-if (defined($defines{"ANNOTATIONS"})) {
-    push(@headers, "$core/annotations.h");
-}
 
 # AArch64's opcode.h is auto-generated. We expect $dir point to a directory
 # one level deep in the build directory.

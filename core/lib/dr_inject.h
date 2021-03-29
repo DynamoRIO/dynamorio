@@ -34,8 +34,6 @@
 #ifndef _DR_INJECT_H_
 #define _DR_INJECT_H_ 1
 
-/* DR_API EXPORT TOFILE dr_inject.h */
-/* DR_API EXPORT BEGIN */
 /****************************************************************************
  * Injection API
  */
@@ -62,12 +60,12 @@ extern "C" {
  * assuming no error code conflict on Unix.
  */
 #    define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
+#endif
 /**
  * Alias of ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE to indicate it is not
  * a fatal error on Unix.
  */
-#    define WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
-#endif
+#define WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
 
 DR_EXPORT
 /**
@@ -318,7 +316,5 @@ dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem
 #ifdef __cplusplus
 }
 #endif
-
-/* DR_API EXPORT END */
 
 #endif /* _DR_INJECT_H_ */

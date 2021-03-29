@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -180,6 +180,8 @@ if (WIN32)
     add_gen_events_deps(mfapi)
   endif (MFAPI_ENABLED)
 endif ()
+
+DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_config.h dr_config.h)
 
 install_exported_target(drconfiglib ${INSTALL_LIB_BASE})
 DR_export_target(drconfiglib)
