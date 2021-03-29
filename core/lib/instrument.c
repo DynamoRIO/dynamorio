@@ -346,15 +346,11 @@ bool client_requested_exit;
 static bool block_client_nudge_threads = false;
 DECLARE_CXTSWPROT_VAR(static int num_client_nudge_threads, 0);
 #endif
-#ifdef CLIENT_SIDELINE
 /* # of sideline threads */
 DECLARE_CXTSWPROT_VAR(static int num_client_sideline_threads, 0);
-#endif
-#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
 /* protects block_client_nudge_threads and incrementing num_client_nudge_threads */
 DECLARE_CXTSWPROT_VAR(static mutex_t client_thread_count_lock,
                       INIT_LOCK_FREE(client_thread_count_lock));
-#endif
 
 static vm_area_vector_t *client_aux_libs;
 
@@ -892,9 +888,7 @@ instrument_exit(void)
 #ifdef WINDOWS
     DELETE_LOCK(client_aux_lib64_lock);
 #endif
-#if defined(WINDOWS) || defined(CLIENT_SIDELINE)
     DELETE_LOCK(client_thread_count_lock);
-#endif
     DELETE_READWRITE_LOCK(callback_registration_lock);
 }
 
@@ -1345,15 +1339,12 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
             HEAP_TYPE_ALLOC(dcontext, client_data_t, ACCT_OTHER, PROTECTED);
         memset(dcontext->client_data, 0x0, sizeof(client_data_t));
 
-#ifdef CLIENT_SIDELINE
         ASSIGN_INIT_LOCK_FREE(dcontext->client_data->sideline_mutex, sideline_mutex);
-#endif
         CLIENT_ASSERT(dynamo_initialized || thread_init_callbacks.num == 0 ||
                           client_thread,
                       "1st call to instrument_thread_init should have no cbs");
     }
 
-#ifdef CLIENT_SIDELINE
     if (client_thread) {
         ATOMIC_INC(int, num_client_sideline_threads);
         /* We don't call dynamo_thread_not_under_dynamo() b/c we want itimers. */
@@ -1361,7 +1352,6 @@ instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
         dcontext->client_data->is_client_thread = true;
         dcontext->client_data->suspendable = true;
     }
-#endif /* CLIENT_SIDELINE */
 }
 
 void
@@ -1425,7 +1415,6 @@ instrument_low_on_memory()
 void
 instrument_thread_exit_event(dcontext_t *dcontext)
 {
-#ifdef CLIENT_SIDELINE
     if (IS_CLIENT_THREAD(dcontext)
         /* if nudge thread calls dr_exit_process() it will be marked as a client
          * thread: rule it out here so we properly clean it up
@@ -1435,7 +1424,6 @@ instrument_thread_exit_event(dcontext_t *dcontext)
         /* no exit event */
         return;
     }
-#endif
 
     /* i#1394: best-effort to try to avoid crashing thread exit events
      * where thread init was never called.
@@ -1460,9 +1448,7 @@ instrument_thread_exit(dcontext_t *dcontext)
 #ifdef DEBUG
     /* i#271: avoid racy crashes by not freeing in release build. */
 
-#    ifdef CLIENT_SIDELINE
     DELETE_LOCK(dcontext->client_data->sideline_mutex);
-#    endif
 
     /* could be heap space allocated for the todo list */
     todo = dcontext->client_data->to_do;
@@ -2457,9 +2443,7 @@ int
 get_num_client_threads(void)
 {
     int num = IF_WINDOWS_ELSE(num_client_nudge_threads, 0);
-#ifdef CLIENT_SIDELINE
     num += num_client_sideline_threads;
-#endif
     return num;
 }
 
@@ -5113,7 +5097,6 @@ dr_sleep(int time_ms)
         dcontext->client_data->at_safe_to_terminate_syscall = false;
 }
 
-#ifdef CLIENT_SIDELINE
 DR_API
 bool
 dr_client_thread_set_suspendable(bool suspendable)
@@ -5126,7 +5109,6 @@ dr_client_thread_set_suspendable(bool suspendable)
     dcontext->client_data->suspendable = suspendable;
     return true;
 }
-#endif
 
 DR_API
 bool
@@ -6969,13 +6951,8 @@ dr_delete_fragment(void *drcontext, void *tag)
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
-#ifdef CLIENT_SIDELINE
     d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
-#else
-    CLIENT_ASSERT(drcontext == get_thread_private_dcontext(),
-                  "dr_delete_fragment(): drcontext does not belong to current thread");
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
         /* We avoid "local unprotected" as it is global, complicating thread exit. */
@@ -7002,10 +6979,8 @@ dr_delete_fragment(void *drcontext, void *tag)
             unlink_fragment_incoming(dcontext, f);
         fragment_remove_from_ibt_tables(dcontext, f, false);
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
     d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
-#endif
     if (!waslinking)
         enter_nolinking(dcontext, NULL, false);
     return deletable;
@@ -7044,13 +7019,8 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
     waslinking = is_couldbelinking(dcontext);
     if (!waslinking)
         enter_couldbelinking(dcontext, NULL, false);
-#ifdef CLIENT_SIDELINE
     d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
     fragment_get_fragment_delete_mutex(dcontext);
-#else
-    CLIENT_ASSERT(drcontext == get_thread_private_dcontext(),
-                  "dr_replace_fragment(): drcontext does not belong to current thread");
-#endif
     f = fragment_lookup(dcontext, tag);
     frag_found = (f != NULL);
     if (frag_found) {
@@ -7075,10 +7045,8 @@ dr_replace_fragment(void *drcontext, void *tag, instrlist_t *ilist)
             unlink_fragment_incoming(dcontext, f);
         fragment_remove_from_ibt_tables(dcontext, f, false);
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
     d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
-#endif
     if (!waslinking)
         enter_nolinking(dcontext, NULL, false);
     return frag_found;
@@ -7308,13 +7276,9 @@ dr_fragment_exists_at(void *drcontext, void *tag)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
-#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return f != NULL;
 }
 
@@ -7344,20 +7308,16 @@ dr_fragment_size(void *drcontext, void *tag)
     int size = 0;
     CLIENT_ASSERT(drcontext != NULL, "dr_fragment_size: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT, "dr_fragment_size: drcontext is invalid");
-#ifdef CLIENT_SIDELINE
     /* used to check to see if owning thread, if so don't need lock */
     /* but the check for owning thread more expensive then just getting lock */
     /* to check if owner d_r_get_thread_id() == dcontext->owning_thread */
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f == NULL)
         size = 0;
     else
         size = f->size;
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return size;
 }
 
@@ -7513,12 +7473,10 @@ dr_mark_trace_head(void *drcontext, void *tag)
      * require it.
      */
     SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, acquire, change_linking_lock);
-#ifdef CLIENT_SIDELINE
     /* used to check to see if owning thread, if so don't need lock */
     /* but the check for owning thread more expensive then just getting lock */
     /* to check if owner d_r_get_thread_id() == dcontext->owning_thread */
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup_fine_and_coarse(dcontext, tag, &coarse_f, NULL);
     if (f == NULL) {
         future_fragment_t *fut;
@@ -7530,50 +7488,19 @@ dr_mark_trace_head(void *drcontext, void *tag)
             /* don't call mark_trace_head, it will try to do some linking */
             fut->flags |= FRAG_IS_TRACE_HEAD;
         }
-#ifndef CLIENT_SIDELINE
-        LOG(THREAD, LOG_MONITOR, 2,
-            "Client mark trace head : will mark fragment as trace head when built "
-            ": address " PFX "\n",
-            tag);
-#endif
     } else {
         /* check precluding conditions */
         if (TEST(FRAG_IS_TRACE, f->flags)) {
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Client mark trace head : not marking as trace head, is already "
-                "a trace : address " PFX "\n",
-                tag);
-#endif
             success = false;
         } else if (TEST(FRAG_CANNOT_BE_TRACE, f->flags)) {
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Client mark trace head : not marking as trace head, particular "
-                "fragment cannot be trace head : address " PFX "\n",
-                tag);
-#endif
             success = false;
         } else if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 2,
-                "Client mark trace head : fragment already marked as trace head : "
-                "address " PFX "\n",
-                tag);
-#endif
             success = true;
         } else {
             mark_trace_head(dcontext, f, NULL, NULL);
-#ifndef CLIENT_SIDELINE
-            LOG(THREAD, LOG_MONITOR, 3,
-                "Client mark trace head : just marked as trace head : address " PFX "\n",
-                tag);
-#endif
         }
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     SHARED_FLAGS_RECURSIVE_LOCK(FRAG_SHARED, release, change_linking_lock);
     return success;
 }
@@ -7588,9 +7515,7 @@ dr_trace_head_at(void *drcontext, void *tag)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
     bool trace_head;
-#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL)
         trace_head = (f->flags & FRAG_IS_TRACE_HEAD) != 0;
@@ -7601,9 +7526,7 @@ dr_trace_head_at(void *drcontext, void *tag)
         else
             trace_head = false;
     }
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return trace_head;
 }
 
@@ -7616,17 +7539,13 @@ dr_trace_exists_at(void *drcontext, void *tag)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     fragment_t *f;
     bool trace;
-#ifdef CLIENT_SIDELINE
     fragment_get_fragment_delete_mutex(dcontext);
-#endif
     f = fragment_lookup(dcontext, tag);
     if (f != NULL)
         trace = (f->flags & FRAG_IS_TRACE) != 0;
     else
         trace = false;
-#ifdef CLIENT_SIDELINE
     fragment_release_fragment_delete_mutex(dcontext);
-#endif
     return trace;
 }
 

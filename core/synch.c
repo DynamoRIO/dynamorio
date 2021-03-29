@@ -508,7 +508,6 @@ waiting_at_safe_spot(thread_record_t *trec, thread_synch_state_t desired_state)
     return false;
 }
 
-#ifdef CLIENT_SIDELINE
 static bool
 should_suspend_client_thread(dcontext_t *dcontext, thread_synch_state_t desired_state)
 {
@@ -516,7 +515,6 @@ should_suspend_client_thread(dcontext_t *dcontext, thread_synch_state_t desired_
     ASSERT(IS_CLIENT_THREAD(dcontext));
     return (THREAD_SYNCH_IS_CLEANED(desired_state) || dcontext->client_data->suspendable);
 }
-#endif
 
 /* checks whether the thread trec is at a spot suitable for requested define
  * desired_state
@@ -1542,13 +1540,11 @@ synch_with_all_abort:
         if (threads[i]->id != my_id) {
             if (synch_array[i] == SYNCH_WITH_ALL_SYNCHED) {
                 bool resume = true;
-#ifdef CLIENT_SIDELINE
                 if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
                     threads[i]->dcontext->client_data->left_unsuspended) {
                     /* PR 609569: we did not suspend this thread */
                     resume = false;
                 }
-#endif
                 if (resume) {
                     DEBUG_DECLARE(ok =)
                     os_thread_resume(threads[i]);
@@ -1592,14 +1588,12 @@ resume_all_threads(thread_record_t **threads, const uint num_threads)
     for (i = 0; i < num_threads; i++) {
         if (my_tid == threads[i]->id)
             continue;
-#ifdef CLIENT_SIDELINE
         if (IS_CLIENT_THREAD(threads[i]->dcontext) &&
             threads[i]->dcontext->client_data->left_unsuspended) {
             /* PR 609569: we did not suspend this thread */
             threads[i]->dcontext->client_data->left_unsuspended = false;
             continue;
         }
-#endif
 
         /* This routine assumes that each thread in the array was suspended, so
          * each one has to successfully resume.

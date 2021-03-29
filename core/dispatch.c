@@ -1196,9 +1196,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
             USAGE_ERROR("dr_{delete,replace}_fragment() are incompatible with "
                         "-shared_{bbs,traces} at this time");
         }
-#ifdef CLIENT_SIDELINE
         d_r_mutex_lock(&(dcontext->client_data->sideline_mutex));
-#endif
         todo = dcontext->client_data->to_do;
         while (todo != NULL) {
             client_todo_list_t *next_todo = todo->next;
@@ -1269,9 +1267,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
             todo = next_todo;
         }
         dcontext->client_data->to_do = NULL;
-#ifdef CLIENT_SIDELINE
         d_r_mutex_unlock(&(dcontext->client_data->sideline_mutex));
-#endif
     }
 }
 

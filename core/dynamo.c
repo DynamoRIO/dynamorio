@@ -1070,13 +1070,11 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
      * client trying to use api routines that depend on fragment state.
      */
     instrument_exit_event();
-#ifdef CLIENT_SIDELINE
     /* We only need do a second synch-all if there are sideline client threads. */
     if (d_r_get_num_threads() > 1)
         synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
     /* only current thread is alive */
     dynamo_exited_all_other_threads = true;
-#endif /* CLIENT_SIDELINE */
     fragment_exit_post_sideline();
 
     /* The dynamo_exited_and_cleaned should be set after the second synch-all.
@@ -1358,10 +1356,6 @@ dynamo_process_exit_cleanup(void)
          * the threads we know about here
          */
         synch_with_threads_at_exit(exit_synch_state(), true /*pre-exit*/);
-#    ifndef CLIENT_SIDELINE
-        /* no sideline thread, synchall done */
-        dynamo_exited_all_other_threads = true;
-#    endif
         /* now that APC interception point is unpatched and
          * dynamorio_exited is set and we've killed all the theads we know
          * about, assumption is that no other threads will be running in
@@ -1493,9 +1487,6 @@ dynamo_process_exit(void)
          * can have racy crashes at exit time (xref PR 470957).
          */
         synch_with_threads_at_exit(exit_synch_state(), true /*pre-exit*/);
-#    ifndef CLIENT_SIDELINE
-        dynamo_exited_all_other_threads = true;
-#    endif
     } else
         dynamo_exited = true;
 
@@ -1506,10 +1497,8 @@ dynamo_process_exit(void)
         get_list_of_threads(&threads, &num);
 
         for (i = 0; i < num; i++) {
-#    ifdef CLIENT_SIDELINE
             if (IS_CLIENT_THREAD(threads[i]->dcontext))
                 continue;
-#    endif
             /* FIXME: separate trace dump from rest of fragment cleanup code */
             if (TRACEDUMP_ENABLED() || true) {
                 /* We always want to call this for CI builds so we can get the
@@ -1568,12 +1557,10 @@ dynamo_process_exit(void)
          */
         instrument_exit_event();
 
-#    ifdef CLIENT_SIDELINE
         /* We only need do a second synch-all if there are sideline client threads. */
         if (d_r_get_num_threads() > 1)
             synch_with_threads_at_exit(exit_synch_state(), false /*post-exit*/);
         dynamo_exited_all_other_threads = true;
-#    endif
 
         /* i#1617: We need to call client library fini routines for global
          * destructors, etc.

@@ -3033,13 +3033,11 @@ possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
      * let the thread continue since dynamo_thread_init will imediately
      * return. */
     uint idx;
-#ifdef CLIENT_SIDELINE
     /* We allow a client init routine to create client threads: DR is
      * initialized enough by now
      */
     if (is_new_thread_client_thread(cxt, NULL))
         return;
-#endif
 
     if (dynamo_initialized || dynamo_exited)
         return;
@@ -3104,7 +3102,6 @@ intercept_new_thread(CONTEXT *cxt)
      */
 
     /* initialize thread now */
-#ifdef CLIENT_SIDELINE
     /* i#41/PR 222812: client threads target a certain routine and always
      * directly never via win API (so we don't check THREAT_START_ADDR)
      */
@@ -3125,7 +3122,6 @@ intercept_new_thread(CONTEXT *cxt)
          */
         wait_for_event(dr_app_started, 0);
     }
-#endif
     /* FIXME i#2718: we want the app_state_at_intercept_t context, which is
      * the actual code to be run by the thread *now*, and not this CONTEXT which
      * is what will be run later!  We should make sure nobody is relying on
@@ -3138,7 +3134,6 @@ intercept_new_thread(CONTEXT *cxt)
         LOG_DECLARE(char sym_buf[MAXIMUM_SYMBOL_LENGTH];)
         bool is_nudge_thread = false;
 
-#ifdef CLIENT_SIDELINE
         if (is_client) {
             /* PR 210591: hide our threads from DllMain by not executing rest
              * of Ldr init code and going straight to target.  our_create_thread()
@@ -3147,7 +3142,6 @@ intercept_new_thread(CONTEXT *cxt)
             nt_continue(cxt);
             ASSERT_NOT_REACHED();
         }
-#endif
 
         /* Xref case 552, to ameliorate the risk of an attacker
          * leveraging our detach routines etc. against us, we detect

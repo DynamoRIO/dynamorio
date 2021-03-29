@@ -4743,7 +4743,6 @@ dr_insert_write_raw_tls(void *drcontext, instrlist_t *ilist, instr_t *where,
  * dr_mutex_lock, and dr_messagebox are ok) then it may have performance or
  * correctness (if the synch times out) impacts.
  */
-#ifdef CLIENT_SIDELINE
 DR_API
 /**
  * Creates a new thread that is marked as a non-application thread (i.e., DR
@@ -4809,7 +4808,6 @@ DR_API
  */
 bool
 dr_client_thread_set_suspendable(bool suspendable);
-#endif /* CLIENT_SIDELINE */
 
 DR_API
 /** Current thread sleeps for \p time_ms milliseconds. */

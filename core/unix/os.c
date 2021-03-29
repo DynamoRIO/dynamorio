@@ -3763,8 +3763,7 @@ is_thread_currently_native(thread_record_t *tr)
             (tr->dcontext != NULL && tr->dcontext->currently_stopped));
 }
 
-#ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
-#    ifdef LINUX       /* XXX i#58: just until we have Mac support */
+#ifdef LINUX /* XXX i#58: just until we have Mac support */
 static void
 client_thread_run(void)
 {
@@ -3806,7 +3805,7 @@ client_thread_run(void)
     block_cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false /*just thread*/,
                                 IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
 }
-#    endif
+#endif
 
 /* i#41/PR 222812: client threads
  * * thread must have dcontext since many API routines require one and we
@@ -3822,7 +3821,7 @@ client_thread_run(void)
 DR_API bool
 dr_create_client_thread(void (*func)(void *param), void *arg)
 {
-#    ifdef LINUX
+#ifdef LINUX
     dcontext_t *dcontext = get_thread_private_dcontext();
     byte *xsp;
     /* We do not pass SIGCHLD since don't want signal to parent and don't support
@@ -3852,7 +3851,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      * to the app's.
      */
     os_clone_pre(dcontext);
-#        ifdef AARCHXX
+#    ifdef AARCHXX
     /* We need to invalidate DR's TLS to avoid get_thread_private_dcontext() finding one
      * and hitting asserts in dynamo_thread_init lock calls -- yet we don't want to for
      * app threads, so we're doing this here and not in os_clone_pre().
@@ -3860,13 +3859,13 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
      */
     void *tls = (void *)read_thread_register(LIB_SEG_TLS);
     write_thread_register(NULL);
-#        endif
+#    endif
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, NULL, NULL, client_thread_run);
     /* i#3526 switch DR's tls back to the original one before cloning. */
     os_clone_post(dcontext);
-#        ifdef AARCHXX
+#    ifdef AARCHXX
     write_thread_register(tls);
-#        endif
+#    endif
     /* i#501 the app's tls was switched in os_clone_pre. */
     if (INTERNAL_OPTION(private_loader))
         os_switch_lib_tls(dcontext, false /*to dr*/);
@@ -3879,12 +3878,11 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
         return false;
     }
     return true;
-#    else
+#else
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement on Mac */
     return false;
-#    endif
+#endif
 }
-#endif /* CLIENT_SIDELINE PR 222812: tied to sideline usage */
 
 int
 get_num_processors(void)

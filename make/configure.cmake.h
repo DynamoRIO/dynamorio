@@ -195,8 +195,6 @@
 #        Only useful if custom traces are doing inlining => do not define for external
 #        release, or even by default for internal since it's always on even if
 #        not building custom traces!
-#      $(D)CLIENT_SIDELINE = allows adaptive interface methods to be called
-#                            from other threads safely, performance hit
 #    $(D)UNSUPPORTED_API -- part of 0.9.4 MIT API but not supported in current API
 #    $(D)NOT_DYNAMORIO_CORE - should be defined by non core components sharing our code
 
@@ -285,7 +283,6 @@
 
 /* standard client interface features */
 #define DYNAMORIO_IR_EXPORTS
-#define CLIENT_SIDELINE
 /* TODO i#4045: Remove completely from the code base.
 #define UNSUPPORTED_API
  */
