@@ -2827,7 +2827,6 @@ thread_attach_setup(priv_mcontext_t *mc)
  * CLIENT THREADS
  */
 
-#    ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 /* i#41/PR 222812: client threads
  * * thread must have dcontext since many API routines require one and we
  *   don't expose GLOBAL_DCONTEXT (xref PR 243008, PR 216936, PR 536058)
@@ -2926,7 +2925,6 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     CLIENT_ASSERT(res, "error closing thread handle");
     return res;
 }
-#    endif CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
 
 int
 get_os_version()

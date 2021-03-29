@@ -129,13 +129,11 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add,
 void
 check_for_ldrpLoadImportModule(byte *base, uint *ebp);
 
-#ifdef CLIENT_SIDELINE
 void
 client_thread_target(void *param);
 
 bool
 is_new_thread_client_thread(CONTEXT *cxt, OUT byte **dstack);
-#endif
 
 bool
 os_delete_file_w(const wchar_t *file_name, file_t directory_handle);

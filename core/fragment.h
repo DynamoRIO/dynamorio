@@ -500,9 +500,7 @@ typedef struct _per_thread_t {
     fragment_table_t bb;
     fragment_table_t trace;
     fragment_table_t future;
-#ifdef CLIENT_SIDELINE
     mutex_t fragment_delete_mutex;
-#endif
     file_t tracefile;
 
     /* used for unlinking other threads' caches for flushing */
@@ -830,14 +828,12 @@ rct_table_resurrect(dcontext_t *dcontext, byte *mapped_table, rct_type_t which);
 
 #endif /* RETURN_AFTER_CALL || RCT_IND_BRANCH */
 
-#ifdef CLIENT_SIDELINE
 /* synchronization routine for sideline thread */
 void
 fragment_get_fragment_delete_mutex(dcontext_t *dcontext);
 
 void
 fragment_release_fragment_delete_mutex(dcontext_t *dcontext);
-#endif
 
 /*******************************************************************************
  * COARSE-GRAIN FRAGMENT HASHTABLE

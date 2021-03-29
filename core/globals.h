@@ -428,9 +428,7 @@ typedef struct _client_data_t {
     void *user_field;
     client_todo_list_t *to_do;
     client_flush_req_t *flush_list;
-#ifdef CLIENT_SIDELINE
     mutex_t sideline_mutex;
-#endif
     /* fields for doing release and debug build checks against erroneous API usage */
     module_data_t *no_delete_mod_data;
 

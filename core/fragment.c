@@ -2020,9 +2020,7 @@ fragment_thread_init(dcontext_t *dcontext)
         ASSERT(pt->tracefile != INVALID_FILE);
         init_trace_file(pt);
     }
-#ifdef CLIENT_SIDELINE
     ASSIGN_INIT_LOCK_FREE(pt->fragment_delete_mutex, fragment_delete_mutex);
-#endif
 
     pt->could_be_linking = false;
     pt->wait_for_unlink = false;
@@ -2187,9 +2185,7 @@ fragment_thread_exit(dcontext_t *dcontext)
     destroy_event(pt->finished_all_unlink);
     DELETE_LOCK(pt->linking_lock);
 
-#ifdef CLIENT_SIDELINE
     DELETE_LOCK(pt->fragment_delete_mutex);
-#endif
 
     global_heap_free(pt, sizeof(per_thread_t) HEAPACCT(ACCT_OTHER));
     dcontext->fragment_field = NULL;
@@ -2594,7 +2590,6 @@ fragment_body_end_pc(dcontext_t *dcontext, fragment_t *f)
     return fragment_stubs_end_pc(f);
 }
 
-#ifdef CLIENT_SIDELINE
 /* synchronization routines needed for sideline threads so they don't get
  * fragments they are referencing deleted */
 
@@ -2614,7 +2609,6 @@ fragment_release_fragment_delete_mutex(dcontext_t *dcontext)
     d_r_mutex_unlock(
         &(((per_thread_t *)dcontext->fragment_field)->fragment_delete_mutex));
 }
-#endif
 
 /* cleaner to have own flags since there are no negative versions
  * of FRAG_SHARED and FRAG_IS_TRACE for distinguishing from "don't care"
@@ -2973,10 +2967,8 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
 void
 fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
 {
-#ifdef CLIENT_SIDELINE
     bool acquired_shared_vm_lock = false;
     bool acquired_fragdel_lock = false;
-#endif
     LOG(THREAD, LOG_FRAGMENT, 3,
         "fragment_delete: *" PFX " F%d(" PFX ")." PFX " %s 0x%x\n", f, f->id, f->tag,
         f->start_pc, TEST(FRAG_IS_TRACE, f->flags) ? "trace" : "bb", actions);
@@ -2996,7 +2988,6 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     ASSERT(!TEST(FRAG_SHARED, f->flags) || TEST(FRAG_WAS_DELETED, f->flags) ||
            dynamo_exited || dynamo_resetting || is_self_allsynch_flushing());
 
-#ifdef CLIENT_SIDELINE
     /* need to protect ability to reference frag fields and fcache space */
     /* all other options are mostly notification */
     if (monitor_delete_would_abort_trace(dcontext, f) && DYNAMO_OPTION(shared_traces)) {
@@ -3014,7 +3005,6 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         acquired_fragdel_lock = true;
         fragment_get_fragment_delete_mutex(dcontext);
     }
-#endif
 
     if (!TEST(FRAGDEL_NO_OUTPUT, actions)) {
         if (TEST(FRAGDEL_NEED_CHLINK_LOCK, actions) && TEST(FRAG_SHARED, f->flags))
@@ -3080,14 +3070,12 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     if (!TEST(FRAGDEL_NO_HEAP, actions)) {
         fragment_free(dcontext, f);
     }
-#ifdef CLIENT_SIDELINE
     if (acquired_fragdel_lock)
         fragment_release_fragment_delete_mutex(dcontext);
     if (acquired_shared_vm_lock) {
         release_vm_areas_lock(dcontext, FRAG_SHARED);
         release_recursive_lock(&change_linking_lock);
     }
-#endif
 }
 
 /* Record translation info.  Typically used for pending-delete fragments

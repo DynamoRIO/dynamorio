@@ -379,9 +379,7 @@ enum {
 
     LOCK_RANK(protect_info), /* < cache and heap traversal locks */
 
-#    ifdef CLIENT_SIDELINE
     LOCK_RANK(sideline_mutex),
-#    endif
 
     LOCK_RANK(shared_cache_flush_lock), /* < shared_cache_count_lock,
                                            < shared_delete_lock,
@@ -399,9 +397,7 @@ enum {
     LOCK_RANK(shared_vm_areas), /* > change_linking_lock, < executable_areas  */
     LOCK_RANK(shared_cache_count_lock),
 
-#    ifdef CLIENT_SIDELINE
     LOCK_RANK(fragment_delete_mutex), /* > shared_vm_areas */
-#    endif
 
     LOCK_RANK(tracedump_mutex), /* > fragment_delete_mutex, > shared_vm_areas */
 
