@@ -218,11 +218,9 @@ static callback_list_t bb_callbacks = {
 static callback_list_t trace_callbacks = {
     0,
 };
-#ifdef CUSTOM_TRACES
 static callback_list_t end_trace_callbacks = {
     0,
 };
-#endif
 static callback_list_t fragdel_callbacks = {
     0,
 };
@@ -823,9 +821,7 @@ free_all_callback_lists()
     free_callback_list(&low_on_memory_callbacks);
     free_callback_list(&bb_callbacks);
     free_callback_list(&trace_callbacks);
-#ifdef CUSTOM_TRACES
     free_callback_list(&end_trace_callbacks);
-#endif
     free_callback_list(&fragdel_callbacks);
     free_callback_list(&restore_state_callbacks);
     free_callback_list(&restore_state_ex_callbacks);
@@ -1001,7 +997,6 @@ bool dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *ta
     return remove_callback(&trace_callbacks, (void (*)(void))func, true);
 }
 
-#ifdef CUSTOM_TRACES
 void dr_register_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
                                                                   void *tag,
                                                                   void *next_tag))
@@ -1020,7 +1015,6 @@ bool dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcont
 {
     return remove_callback(&end_trace_callbacks, (void (*)(void))func, true);
 }
-#endif
 
 void
 dr_register_delete_event(void (*func)(void *drcontext, void *tag))
@@ -1838,7 +1832,6 @@ instrument_restore_nonfcache_state(dcontext_t *dcontext, bool restore_memory,
                                                        &client_mcontext);
 }
 
-#ifdef CUSTOM_TRACES
 /* Ask whether to end trace prior to adding next_tag fragment.
  * Return values:
  *   CUSTOM_TRACE_DR_DECIDES = use standard termination criteria
@@ -1861,7 +1854,6 @@ instrument_end_trace(dcontext_t *dcontext, app_pc trace_tag, app_pc next_tag)
 
     return ret;
 }
-#endif
 
 static module_data_t *
 create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,

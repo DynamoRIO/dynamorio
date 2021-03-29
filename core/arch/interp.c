@@ -6133,9 +6133,6 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace, app_pc next_tag, uint n
                 ASSERT_NOT_REACHED();
             }
         } else if (instr_is_ubr(targeter)) {
-#ifndef CUSTOM_TRACES
-            ASSERT(targeter == end_instr);
-#endif
             /* remove unnecessary ubr at end of block */
             delete_after = instr_get_prev(targeter);
             if (delete_after != NULL) {
@@ -6147,10 +6144,9 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace, app_pc next_tag, uint n
     /* remove all instrs after this cti -- but what if internal
      * control flow jumps ahead and then comes back?
      * too expensive to check for such all the time.
-     * FIXME: what to do?
+     * XXX: what to do?
      *
-     * ifdef CUSTOM_TRACES:
-     * FIXME: rather than adding entire trace on and then chopping off where
+     * XXX: rather than adding entire trace on and then chopping off where
      * we exited, why not add after we know where to stop?
      */
     if (delete_after != NULL) {
