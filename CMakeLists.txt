@@ -308,7 +308,10 @@ endif ()
 option(VMKERNEL "target VMkernel (not officially supported yet)")
 
 # We no longer support building without a client interface: it is always enabled.
-# TODO i#2971: Remove the APP_EXPORTS option and define.
+
+# TODO i#4819: Remove {DR_}APP_EXPORTS and replace with a runtime option.
+# We'll still need something to swap DR_APP_API from import to export and
+# set that for static DR, but the rest of the defines can go.
 set(APP_EXPORTS 1)
 
 # TODO: Consider removing these no-longer-maintained options:
@@ -364,6 +367,7 @@ else ()
   # TODO i#1672: Add annotation support to AArchXX.
   set(ANNOTATIONS_DEFAULT OFF)
 endif ()
+# TODO i#4819: Remove the define and replace with a runtime option.
 option(ANNOTATIONS "annotations" ${ANNOTATIONS_DEFAULT})
 
 if (WIN32)

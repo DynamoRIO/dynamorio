@@ -281,8 +281,6 @@
 # define RCT_IND_BRANCH
 #endif
 
-/* standard client interface features */
-#define DYNAMORIO_IR_EXPORTS
 /* TODO i#4045: Remove completely from the code base.
 #define UNSUPPORTED_API
  */
@@ -297,6 +295,7 @@
 # define PROBE_API
 #endif
 
+/* TODO i#4819: Remove this define and replace with a runtime option. */
 #ifdef APP_EXPORTS
 # define DR_APP_EXPORTS
 #endif

@@ -518,15 +518,12 @@ sub process_header_line($)
 
     if ($output_routine) {
         if ($filter) {
-            # only export these guys for DYNAMORIO_IR_EXPORTS
-            if (defined($defines{DYNAMORIO_IR_EXPORTS})) {
-                # symbol export list (-filter option)
-                if ($l =~ /^([A-Za-z0-9_]+)\s*\(/ ||
-                    # order is important: 2nd line might pick up _IF_X64
-                    # inside param list
-                    $l =~ /^[a-zA-Z_].*\s+([A-Za-z0-9_]+)\s*\(/) {
-                    print OUT "$1;\n";
-                }
+            # symbol export list (-filter option)
+            if ($l =~ /^([A-Za-z0-9_]+)\s*\(/ ||
+                # order is important: 2nd line might pick up _IF_X64
+                # inside param list
+                $l =~ /^[a-zA-Z_].*\s+([A-Za-z0-9_]+)\s*\(/) {
+                print OUT "$1;\n";
             }
             if ($l =~ /;\s*$/ &&
                 $l !~ /^\s*\*/ && $l !~ /^\s*\/\*/) { # ignore ; inside comment
