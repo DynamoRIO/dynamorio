@@ -554,11 +554,9 @@ STATS_DEF("Trace fragments extended, ibl exits updated", num_traces_ibl_extended
 STATS_DEF("Trace fragments extended w/shared syscall block",
           num_traces_shared_syscall_extended)
 #endif
-#ifdef CUSTOM_TRACES
 STATS_DEF("Custom traces extended beyond normal stop", custom_traces_stop_late)
 STATS_DEF("Custom traces stopped early", custom_traces_stop_early)
 STATS_DEF("Shadowed bbs built for custom traces", custom_traces_bbs_built)
-#endif
 STATS_DEF("Recreated fragments, total", num_recreated_fragments)
 STATS_DEF("Recreated fragments, traces", num_recreated_traces)
 STATS_DEF("Recreations via app re-decode", recreate_via_app_ilist)

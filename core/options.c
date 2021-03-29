@@ -1365,16 +1365,15 @@ check_option_compatibility_helper(int recurse_count)
               SELFPROT_CACHE | SELFPROT_STACK);
         changed_options = true;
     }
-#    ifdef CUSTOM_TRACES
     if (PRIVATE_TRACES_ENABLED() && DYNAMO_OPTION(shared_bbs)) {
         /* Due to complications with shadowing, we do not support
-         * private traces and shared bbs
+         * private traces and shared bbs if we allow clients to make custom
+         * traces (which is always enabled).
          */
-        USAGE_ERROR("CUSTOM_TRACES incompatible with private traces and shared bbs");
+        USAGE_ERROR("private traces incompatible with shared bbs");
         dynamo_options.shared_bbs = false;
         changed_options = true;
     }
-#    endif
     /****************************************************************************/
 
 #    if defined(PROFILE_RDTSC) && defined(SIDELINE)

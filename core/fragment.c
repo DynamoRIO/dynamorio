@@ -2914,9 +2914,9 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
     DOCHECK(1, {
         fragment_t *existing = fragment_lookup(dcontext, f->tag);
         ASSERT(existing == NULL ||
-               IF_CUSTOM_TRACES(/* we create and persist shadowed trace heads */
-                                (TEST(FRAG_IS_TRACE_HEAD, f->flags) ||
-                                 TEST(FRAG_IS_TRACE_HEAD, existing->flags)) ||)
+               /* For custom traces, we create and persist shadowed trace heads. */
+               TEST(FRAG_IS_TRACE_HEAD, f->flags) ||
+               TEST(FRAG_IS_TRACE_HEAD, existing->flags) ||
                /* private trace or temp can shadow shared bb */
                (TESTANY(FRAG_IS_TRACE | FRAG_TEMP_PRIVATE, f->flags) &&
                 TEST(FRAG_SHARED, f->flags) != TEST(FRAG_SHARED, existing->flags)) ||

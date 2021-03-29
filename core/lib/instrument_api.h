@@ -483,7 +483,6 @@ bool dr_unregister_trace_event(dr_emit_flags_t (*func)(void *drcontext, void *ta
                                                        instrlist_t *trace,
                                                        bool translating));
 
-#ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
 
 /**
@@ -524,7 +523,6 @@ DR_API
 bool dr_unregister_end_trace_event(dr_custom_trace_action_t (*func)(void *drcontext,
                                                                     void *tag,
                                                                     void *next_tag));
-#endif
 
 /* For the new-bb-before-deletion-event problem (PR 495787, and
  * described in the comment below):
@@ -6490,7 +6488,6 @@ DR_API
 bool
 dr_get_stats(dr_stats_t *drstats);
 
-#ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
 
 /****************************************************************************
@@ -6541,7 +6538,6 @@ DR_API
 /** Checks to see that if there is a trace in the code cache at tag \p tag. */
 bool
 dr_trace_exists_at(void *drcontext, void *tag);
-#endif /* CUSTOM_TRACES */
 
 /****************************************************************************
  * proc.c routines exported here due to proc.h being in arch_exports.h

@@ -188,7 +188,7 @@
 #    $(D)ANNOTATIONS -- optional instrumentation of binary annotations
 #                       in the target program
 #    $(D)DR_APP_EXPORTS
-#    $(D)CUSTOM_TRACES -- optional interface
+#    Custom traces is always on, but it
 #      has some sub-features that are aggressive and not supported by default:
 #      $(D)CUSTOM_TRACES_RET_REMOVAL = support for removing inlined rets
 #        CUSTOM_TRACES_RET_REMOVAL is aggressive -- assumes calling convention kept
@@ -285,7 +285,6 @@
 
 /* standard client interface features */
 #define DYNAMORIO_IR_EXPORTS
-#define CUSTOM_TRACES
 #define CLIENT_SIDELINE
 /* TODO i#4045: Remove completely from the code base.
 #define UNSUPPORTED_API
