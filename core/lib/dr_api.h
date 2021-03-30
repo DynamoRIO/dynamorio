@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,10 +55,12 @@ extern "C" {
 /* opnd_t (instruction operand) routines */
 #include "dr_ir_opnd.h"
 
+/* Application module (library) information. */
+#include "dr_modules.h"
+
 /* High-level routines: memory allocation, mutex support, file
  * support, printing, thread support, adaptive optimization,
- * custom traces, processor-specific utilities, trace dumping,
- * and module information.
+ * custom traces, processor-specific utilities, trace dumping.
  */
 #include "dr_tools.h"
 

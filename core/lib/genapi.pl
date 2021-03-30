@@ -150,7 +150,8 @@ if ($header) {
                 "$existing[$index]" eq "$dir/dr_app.h" ||
                 "$existing[$index]" eq "$dir/dr_annotation.h" ||
                 "$existing[$index]" eq "$dir/dr_inject.h" ||
-                "$existing[$index]" eq "$dir/dr_config.h") {
+                "$existing[$index]" eq "$dir/dr_config.h" ||
+                "$existing[$index]" eq "$dir/dr_modules.h") {
                 delete $existing[$index];
             }
         }
@@ -178,7 +179,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/arch/arch_exports.h", # encode routines
      "$core/arch/proc.h",
      "$core/os_shared.h",        # before instrument_api.h
-     "$core/module_shared.h",    # before instrument_api.h
      "$core/lib/instrument_api.h",
      "$core/ir/x86/opcode.h",
      "$core/ir/arm/opcode.h",

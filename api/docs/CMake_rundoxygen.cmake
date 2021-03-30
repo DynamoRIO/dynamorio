@@ -148,7 +148,7 @@ execute_process(COMMAND
   ${DOXYGEN_EXECUTABLE}
   RESULT_VARIABLE doxygen_u_result
   ERROR_VARIABLE doxygen_u_error
-  OUTPUT_QUIET
+#  OUTPUT_QUIET
   )
 if (doxygen_u_result OR doxygen_u_error)
   message(FATAL_ERROR "*** ${DOXYGEN_EXECUTABLE} failed: ***\n${doxygen_u_error}")
