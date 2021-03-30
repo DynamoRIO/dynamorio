@@ -111,6 +111,11 @@
 #    include <stdarg.h> /* for varargs */
 #endif
 /* DR_API EXPORT END */
+#ifdef API_EXPORT_ONLY
+/* DR_API EXPORT VERBATIM */
+#    define DR_API /* Ignore for clients. */
+/* DR_API EXPORT END */
+#endif
 
 #ifdef DR_NO_FAST_IR
 #    undef DR_FAST_IR

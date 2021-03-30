@@ -1426,6 +1426,13 @@ SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE RelWithDebIn
   set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
 endmacro(DR_export_target)
 
+file(MAKE_DIRECTORY ${BUILD_INCLUDE})
+macro(DR_export_header src_path dst_fname)
+  # This is not COPYONLY nor @ONLY so this will expand ${} references, which
+  # we do have in dr_api.h.
+  configure_file(${src_path} ${BUILD_INCLUDE}/${dst_fname})
+endmacro()
+
 # We rely on dbghelp >= 6.0 for any use of drsyms: some sample clients and some
 # tests in our suite.
 # The system dbghelp pre-Vista is too old, so we copy one from VS.
@@ -1670,23 +1677,29 @@ endfunction ()
 
 # Used by docs, samples, and tests, so here instead of in core/CMakeLists.txt.
 # Set VERSION_NUMBER_INTEGER in dr_api.h:
-configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
-  ${BUILD_INCLUDE}/dr_api.h)
+DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h dr_api.h)
 if (NOT ANNOTATIONS)
   # Kind of a hack, in case the user explicitly disables annotations
   file(READ ${BUILD_INCLUDE}/dr_api.h contents)
   string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
   file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
 endif ()
-set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
+set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_defines.h)
 add_custom_target(api_headers
   DEPENDS ${EXTRA_HEADERS})
 if (AARCH64)
   add_dependencies(api_headers gen_aarch64_codec)
 endif()
 
-file(MAKE_DIRECTORY ${BUILD_INCLUDE})
-# technically only the headers in the genapi.pl list
+DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_app.h dr_app.h)
+
+# TODO i#3092: Refactor all headers with "DR_API EXPORT" directives into
+# separate files containing only public content that we can simply copy using
+# DR_export_header() and then remove genapi.pl altogether.
+#
+# For now, we still use genapi.pl for many files.
+# The list of deps is technically only the headers in the genapi.pl list but
+# we list all here for simplicity:
 file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
   core/arch/*/*.h core/ir/*.h core/ir/*/*.h ext/*/*.h)
 add_custom_command(
