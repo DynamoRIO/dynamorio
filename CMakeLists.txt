@@ -1684,7 +1684,7 @@ if (NOT ANNOTATIONS)
   string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
   file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
 endif ()
-set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_api.h ${BUILD_INCLUDE}/dr_defines.h)
+set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_defines.h)
 add_custom_target(api_headers
   DEPENDS ${EXTRA_HEADERS})
 if (AARCH64)
