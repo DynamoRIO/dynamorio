@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2021 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -491,9 +491,8 @@ if (WIN32)
   add_custom_command(TARGET drcachesim POST_BUILD
     COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_BASE_DIRECTORY}/drconfiglib.dll
     ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/drconfiglib.dll VERBATIM)
-  add_custom_command(TARGET drcachesim POST_BUILD
-    COMMAND ${CMAKE_COMMAND} ARGS -E copy ${DR_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-    ${PROJECT_BINARY_DIR}/${BUILD_CLIENTS_BIN}/dynamorio.dll VERBATIM)
+  # Avoid dueling racy copies (i#4668).
+  add_dependencies(drcachesim client_dr_copy)
 endif ()
 
 ##################################################
@@ -576,6 +575,11 @@ if (BUILD_TESTS)
         # Allow our different-arg-count aliases.
         COMPILE_FLAGS "-Wno-attribute-alias")
     endif ()
+
+    add_executable(tool.drcacheoff.burst_reattach tests/burst_reattach.cpp)
+    configure_DynamoRIO_static(tool.drcacheoff.burst_reattach)
+    use_DynamoRIO_static_client(tool.drcacheoff.burst_reattach drmemtrace_static)
+    add_win32_flags(tool.drcacheoff.burst_reattach)
 
     add_executable(tool.drcacheoff.burst_threads tests/burst_threads.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_threads)

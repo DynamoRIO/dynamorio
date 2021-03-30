@@ -255,14 +255,12 @@ get_segment_base(uint seg);
 byte *
 get_app_segment_base(uint seg);
 
-#ifdef CLIENT_INTERFACE
 /* Allocates num_slots tls slots aligned with alignment align */
 bool
 os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment);
 
 bool
 os_tls_cfree(uint offset, uint num_slots);
-#endif
 
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */
@@ -410,9 +408,7 @@ enum {
     DUMPCORE_DEADLOCK = 0x0004,
     DUMPCORE_ASSERTION = 0x0008,
     DUMPCORE_FATAL_USAGE_ERROR = 0x0010,
-#ifdef CLIENT_INTERFACE
     DUMPCORE_CLIENT_EXCEPTION = 0x0020,
-#endif
     DUMPCORE_TIMEOUT = 0x0040,
     DUMPCORE_CURIOSITY = 0x0080,
 #ifdef HOT_PATCHING_INTERFACE /* Part of fix for 5357 & 5988. */
@@ -429,9 +425,7 @@ enum {
     DUMPCORE_HOTP_DETECTION = 0x2000,  /* not on by default in DEBUG */
     DUMPCORE_HOTP_PROTECTION = 0x4000, /* not on by default in DEBUG */
 #endif
-#ifdef CLIENT_INTERFACE
     DUMPCORE_DR_ABORT = 0x8000,
-#endif
     /* all exception cases here are off by default since we expect them to
      * usually be the app's fault (or normal behavior for the app) */
     DUMPCORE_FORGE_ILLEGAL_INST = 0x10000,
@@ -449,15 +443,9 @@ enum {
 #ifdef UNIX
     DUMPCORE_OPTION_PAUSE = DUMPCORE_WAIT_FOR_DEBUGGER | DUMPCORE_INTERNAL_EXCEPTION |
         DUMPCORE_SECURITY_VIOLATION | DUMPCORE_DEADLOCK | DUMPCORE_ASSERTION |
-        DUMPCORE_FATAL_USAGE_ERROR |
-#    ifdef CLIENT_INTERFACE
-        DUMPCORE_CLIENT_EXCEPTION |
-#    endif
+        DUMPCORE_FATAL_USAGE_ERROR | DUMPCORE_CLIENT_EXCEPTION |
         DUMPCORE_UNSUPPORTED_APP | DUMPCORE_TIMEOUT | DUMPCORE_CURIOSITY |
-#    ifdef CLIENT_INTERFACE
-        DUMPCORE_DR_ABORT |
-#    endif
-        DUMPCORE_OUT_OF_MEM | DUMPCORE_OUT_OF_MEM_SILENT,
+        DUMPCORE_DR_ABORT | DUMPCORE_OUT_OF_MEM | DUMPCORE_OUT_OF_MEM_SILENT,
 #endif
 };
 void
@@ -476,7 +464,6 @@ os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  * CLIENT AUXILIARY LIBRARY TYPES
  */
 
-#if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
 /**
  * A handle to a loaded client auxiliary library.  This is a different
  * type than module_handle_t and is not necessarily the base address.
@@ -484,7 +471,7 @@ os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
 typedef void *dr_auxlib_handle_t;
 /** An exported routine in a loaded client auxiliary library. */
 typedef void (*dr_auxlib_routine_ptr_t)();
-#    if defined(WINDOWS) && !defined(X64)
+#if defined(WINDOWS) && !defined(X64)
 /**
  * A handle to a loaded 64-bit client auxiliary library.  This is a different
  * type than module_handle_t and is not necessarily the base address.
@@ -492,7 +479,7 @@ typedef void (*dr_auxlib_routine_ptr_t)();
 typedef uint64 dr_auxlib64_handle_t;
 /** An exported routine in a loaded 64-bit client auxiliary library. */
 typedef uint64 dr_auxlib64_routine_ptr_t;
-#    endif
+#endif
 /* DR_API EXPORT END */
 
 /* Note that this is NOT identical to module_handle_t: on Linux this
@@ -505,13 +492,7 @@ typedef void (*shlib_routine_ptr_t)();
 
 shlib_handle_t
 load_shared_library(const char *name, bool reachable);
-#elif defined(WINDOWS) && !defined(X64)
-/* Used for non-CLIENT_INTERFACE as well */
-typedef uint64 dr_auxlib64_handle_t;
-typedef uint64 dr_auxlib64_routine_ptr_t;
-#endif
 
-#if defined(CLIENT_INTERFACE)
 shlib_routine_ptr_t
 lookup_library_routine(shlib_handle_t lib, const char *name);
 void
@@ -524,7 +505,6 @@ shared_library_error(char *buf, int maxlen);
 bool
 shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
                       OUT byte **start, OUT byte **end);
-#endif
 char *
 get_dynamorio_library_path(void);
 
@@ -1115,7 +1095,7 @@ ksynch_var_initialized(KSYNCH_TYPE *var);
  * \p mc must be valid (e.g. PC, control, integer, MMX fields).
  */
 void
-mutex_wait_contended_lock(mutex_t *lock _IF_CLIENT_INTERFACE(priv_mcontext_t *mc));
+mutex_wait_contended_lock(mutex_t *lock, priv_mcontext_t *mc);
 void
 mutex_notify_released_lock(mutex_t *lock);
 void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,12 +34,6 @@
 #ifndef _DR_CONFIG_H_
 #define _DR_CONFIG_H_ 1
 
-/* Internally we mark routines with export linkage. */
-#include "configure.h"      /* for WINDOWS/UNIX */
-#include "globals_shared.h" /* for DR_EXPORT */
-
-/* DR_API EXPORT TOFILE dr_config.h */
-/* DR_API EXPORT BEGIN */
 /****************************************************************************
  * Deployment API
  */
@@ -69,23 +63,23 @@ typedef enum {
      */
     DR_MODE_NONE = 0,
 
-/** Run DynamoRIO in Code Manipulation mode. */
-#ifdef HOT_PATCHING_INTERFACE
-/** Note that this mode also supports the Probe API. */
-#endif
+    /**
+     * Run DynamoRIO in Code Manipulation mode.
+     * This does not preclude using the Probe API.
+     */
     DR_MODE_CODE_MANIPULATION = 1,
 
-#ifdef HOT_PATCHING_INTERFACE
-    /** Run DynamoRIO in Probe mode.  This mode has no code cache. */
+    /**
+     * Run DynamoRIO in Probe mode.  This mode has no code cache.
+     * \warning This mode is not fully supported at this time.
+     */
     DR_MODE_PROBE = 2,
 
-#endif
-
-#ifdef PROGRAM_SHEPHERDING
-    /** Run DynamoRIO in Memory Firewall mode. */
+    /**
+     * Run DynamoRIO in security Memory Firewall mode.
+     * \warning This mode is not fully supported at this time.
+     */
     DR_MODE_MEMORY_FIREWALL = 3,
-
-#endif
 
     /**
      * Do not run this application under DynamoRIO control.
@@ -1191,7 +1185,5 @@ dr_get_config_dir(bool global, bool alternative_local, char *config_dir /* OUT *
 #ifdef __cplusplus
 }
 #endif
-
-/* DR_API EXPORT END */
 
 #endif /* _DR_CONFIG_H_ */

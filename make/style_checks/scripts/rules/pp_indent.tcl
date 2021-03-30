@@ -1,6 +1,6 @@
 #!/usr/bin/tclsh
 # **********************************************************
-# Copyright (c) 2019-2020 Google, Inc. All rights reserved.
+# Copyright (c) 2019-2021 Google, Inc. All rights reserved.
 # Copyright (c) 2017 ARM Limited. All rights reserved.
 # **********************************************************
 
@@ -41,7 +41,6 @@ set indent_exempt [list {aarch64/instr_create.h}     {1} \
                         {ir/instr_inline.h}        {1} \
                         {arch/retcheck.c}            {1} \
                         {arch/sideline.c}            {1} \
-                        {arch/steal_reg.c}           {1} \
                         {arch/loadtoconst.h}         {1} \
                         {arm/table_private.h}        {1} \
                         {x86/optimize.c}             {1} \

@@ -50,11 +50,8 @@
 #include "decode_private.h"
 #include "disassemble.h"
 #include "../hashtable.h"
-#include "../fcache.h" /* for in_fcache */
-#ifdef STEAL_REGISTER
-#    include "steal_reg.h"
-#endif
 #include "instrument.h" /* for dr_insert_call */
+#include "../fcache.h"  /* for in_fcache */
 #include "../translate.h"
 
 #ifdef RCT_IND_BRANCH
@@ -1130,7 +1127,6 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
 }
 
-#ifdef CLIENT_INTERFACE
 /* N.B.: keep in synch with instr_check_xsp_mangling() */
 static void
 insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1151,7 +1147,7 @@ insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t
             INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, -4),
                                 OPND_CREATE_INT32(val)));
     } else {
-#    ifdef X64
+#ifdef X64
         ptr_int_t val_low = value & (ptr_int_t)0xffffffff;
         ASSERT(opsize == OPSZ_8);
         if (CHECK_TRUNCATE_TYPE_int(value)) {
@@ -1169,12 +1165,11 @@ insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t
                 INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEM32(REG_XSP, -4),
                                     OPND_CREATE_INT32(val_high)));
         }
-#    else
+#else
         ASSERT_NOT_REACHED();
-#    endif
+#endif
     }
 }
-#endif /* CLIENT_INTERFACE */
 
 static void
 insert_push_cs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -1307,20 +1302,8 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     if (!mangle_calls) {
         /* off-trace call that will be executed natively */
-
         /* relative target must be re-encoded */
         instr_set_raw_bits_valid(instr, false);
-
-#ifdef STEAL_REGISTER
-        /* FIXME: need to push edi prior to call and pop after.
-         * However, need to push edi prior to any args to this call,
-         * and it may be hard to find pre-arg-pushing spot...
-         * edi is supposed to be callee-saved, we're trusting this
-         * off-trace call to return, we may as well trust it to
-         * not trash edi -- these no-inline calls are dynamo's
-         * own routines, after all.
-         */
-#endif
         return next_instr;
     }
 
@@ -1390,10 +1373,8 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      */
     if (seg != SEG_GS && seg != SEG_FS)
         return oldop;
-#    ifdef CLIENT_INTERFACE
     if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return oldop;
-#    endif
     /* The reg should not be used by the oldop */
     ASSERT(!opnd_uses_reg(oldop, reg));
 
@@ -1589,19 +1570,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT,
                                  XCX_OFFSET, REG_R9));
 
-#ifdef STEAL_REGISTER
-    /* Steal edi if call uses it, using original call instruction */
-    steal_reg(dcontext, instr, ilist);
-    if (ilist->flags)
-        restore_state(dcontext, next_instr, ilist);
-        /* It's impossible for our register stealing to use ecx
-         * because no call can simultaneously use 3 registers, right?
-         * Maximum is 2, in something like "call *(edi,ecx,4)"?
-         * If it is possible, need to make sure stealing's use of ecx
-         * doesn't conflict w/ our use
-         */
-#endif
-
     /* change: call /2, Ev -> movl Ev, %xcx */
     target = instr_get_src(instr, 0);
     if (instr_get_opcode(instr) == OP_call_far_ind) {
@@ -1757,13 +1725,11 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
 
-#ifdef CLIENT_INTERFACE
     if (TEST(INSTR_CLOBBER_RETADDR, instr->flags)) {
         /* we put the value in the note field earlier */
         ptr_uint_t val = (ptr_uint_t)instr->note;
         insert_mov_ptr_uint_beyond_TOS(dcontext, ilist, instr, val, retsz);
     }
-#endif
 
     if (instr_get_opcode(instr) == OP_ret_far) {
         /* FIXME i#823: we do not support other than flat 0-based CS, DS, SS, and ES.
@@ -1893,13 +1859,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr,
         SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX, MANGLE_XCX_SPILL_SLOT,
                                  XCX_OFFSET, REG_R9));
-
-#ifdef STEAL_REGISTER
-    /* Steal edi if branch uses it, using original instruction */
-    steal_reg(dcontext, instr, ilist);
-    if (ilist->flags)
-        restore_state(dcontext, next_instr, ilist);
-#endif
 
     /* change: jmp /4, i_Ev -> movl i_Ev, %xcx */
     target = instr_get_target(instr);
@@ -2082,51 +2041,6 @@ mangle_syscall_arch(dcontext_t *dcontext, instrlist_t *ilist, uint flags, instr_
         }
     }
 #    endif
-
-#    ifdef STEAL_REGISTER
-    /* in linux, system calls get their parameters via registers.
-     * edi is the last one used, but there are system calls that
-     * use it, so we put the real value into edi.  plus things
-     * like fork() should get the real register values.
-     * it's also a good idea to put the real edi into %edi for
-     * debugger interrupts (int3).
-     */
-
-    /* the only way we can save and then restore our dc
-     * ptr is to use the stack!
-     * this should be fine, all interrupt instructions push
-     * both eflags and return address on stack, so esp must
-     * be valid at this point.  there could be an application
-     * assuming only 2 slots on stack will be used, we use a 3rd
-     * slot, could mess up that app...but what can we do?
-     * also, if kernel examines user stack, we could have problems.
-     *   push edi          # push dcontext ptr
-     *   restore edi       # restore app edi
-     *   <syscall>
-     *   push ebx
-     *   mov edi, ebx
-     *   mov 4(esp), edi   # get dcontext ptr
-     *   save ebx to edi slot
-     *   pop ebx
-     *   add 4,esp         # clean up push of dcontext ptr
-     */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    PRE(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_EDI)));
-    PRE(ilist, instr, instr_create_restore_from_dcontext(dcontext, REG_EDI, XDI_OFFSET));
-
-    /* insert after in reverse order: */
-    POST(ilist, instr,
-         INSTR_CREATE_add(dcontext, opnd_create_reg(REG_ESP), OPND_CREATE_INT8(4)));
-    POST(ilist, instr, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_EBX)));
-    POST(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_EBX, XDI_OFFSET));
-    POST(ilist, instr,
-         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_EDI),
-                             OPND_CREATE_MEM32(REG_ESP, 4)));
-    POST(ilist, instr,
-         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_EBX),
-                             opnd_create_reg(REG_EDI)));
-    POST(ilist, instr, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_EBX)));
-#    endif /* STEAL_REGISTER */
 
 #else /* WINDOWS */
     /* special handling of system calls is performed in shared_syscall or
@@ -2364,7 +2278,7 @@ float_pc_update(dcontext_t *dcontext)
     if (!in_fcache(orig_pc) &&
         /* XXX: i#698: there might be fp instr neither in fcache nor in app */
         !(in_generated_routine(dcontext, orig_pc) || is_dynamo_address(orig_pc) ||
-          is_in_dynamo_dll(orig_pc) IF_CLIENT_INTERFACE(|| is_in_client_lib(orig_pc)))) {
+          is_in_dynamo_dll(orig_pc) || is_in_client_lib(orig_pc))) {
         bool no_xl8 = true;
 #ifdef X64
         if (dcontext->upcontext.upcontext.exit_reason != EXIT_REASON_FLOAT_PC_FXSAVE64 &&
@@ -2934,10 +2848,8 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (opnd_is_reg(dst) && reg_is_segment(opnd_get_reg(dst))) {
         app_pc xl8;
         seg = opnd_get_reg(dst);
-#    ifdef CLIENT_INTERFACE
         if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
             return;
-#    endif
         /* must use the original instr, which might be used by caller */
         xl8 = get_app_instr_xl8(instr);
         instr_reuse(dcontext, instr);
@@ -2955,10 +2867,8 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     ASSERT(reg_is_segment(seg));
     if (seg != SEG_FS && seg != SEG_GS)
         return;
-#    ifdef CLIENT_INTERFACE
     if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return;
-#    endif
 
     /* There are two possible mov_seg instructions:
      * 8C/r           MOV r/m16,Sreg   Move segment register to r/m16
@@ -3055,10 +2965,8 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     seg = opnd_get_segment(segop);
     if (seg != SEG_GS && seg != SEG_FS)
         return;
-#    ifdef CLIENT_INTERFACE
     if (seg == LIB_SEG_TLS && !INTERNAL_OPTION(private_loader))
         return;
-#    endif
     STATS_INC(app_seg_refs_mangled);
 
     DOLOG(3, LOG_INTERP,
@@ -3143,14 +3051,12 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
                                     UNPROTECTED);
             memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
         }
-#    ifdef CLIENT_INTERFACE /* XXX i#2971: Remove this define. */
         if (handler->pass_pc_in_slot) {
             app_pc pc = GET_ANNOTATION_APP_PC(label_data);
             instrlist_insert_mov_immed_ptrsz(
                 dcontext, (ptr_int_t)pc, dr_reg_spill_slot_opnd(dcontext, SPILL_SLOT_2),
                 ilist, label, NULL, NULL);
         }
-#    endif
         dr_insert_clean_call_ex_varg(dcontext, ilist, label,
                                      receiver->instrumentation.callback,
                                      receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,

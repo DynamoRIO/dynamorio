@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # Copyright (c) 2018 Arm Limited         All rights reserved.
 # **********************************************************
@@ -35,6 +35,11 @@
 # Copyright (c) 2003-2007 Determina Corp.
 # Copyright (c) 2002-2003 Massachusetts Institute of Technology
 # Copyright (c) 2002 Hewlett Packard Company
+
+# TODO i#3092: Refactor all headers with "DR_API EXPORT" directives into
+# separate files containing only public content that we can simply copy using
+# DR_export_header() and then remove genapi.pl altogether.  We also need
+# to drop support for !HAVE_FVISIBILITY to remove the -filter use case.
 
 ### genapi.pl
 ###
@@ -139,33 +144,19 @@ if ($header) {
     # we can avoid this auto-clean and have something nicer
     @existing = glob("$dir/dr_*.h");
     if ($#existing >= 0) {
-        # dr_api.h is now created at configure time
+        # Some files are created at configure time:
         foreach $index (0 .. $#existing) {
-            if ("$existing[$index]" eq "$dir/dr_api.h") {
+            if ("$existing[$index]" eq "$dir/dr_api.h" ||
+                "$existing[$index]" eq "$dir/dr_app.h" ||
+                "$existing[$index]" eq "$dir/dr_annotation.h" ||
+                "$existing[$index]" eq "$dir/dr_inject.h" ||
+                "$existing[$index]" eq "$dir/dr_config.h") {
                 delete $existing[$index];
             }
         }
         if ($#existing >= 0) {
             unlink(@existing);
         }
-    }
-
-    if (defined($defines{"CLIENT_INTERFACE"})) {
-        # dr_api.h is copied by top-level CMakeLists.txt, for easier
-        # substitution of VERSION_NUMBER_INTEGER
-
-        # dr_app.h is copied verbatim
-        # We used to have #ifdefs (LOGPC I think) in the func declarations
-        # and we had a complex series of commands in core/Makefile to strip
-        # them out while leaving the ifdefs at the top of the file.
-        copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
-
-    } else {
-        if (!defined($defines{"APP_EXPORTS"})) {
-            die "Should not be invoked w/o APP_EXPORTS or CLIENT_INTERFACE\n";
-        }
-        # dr_app.h is copied verbatim
-        copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
     }
 }
 
@@ -204,14 +195,8 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/fragment.h",         # binary tracedump format
      "$core/win32/os_private.h", # rsrc section walking
      "$core/hotpatch.c",         # probe api
-     "$core/lib/dr_config.h",
-     "$core/lib/dr_inject.h",
      "$core/../libutil/dr_frontend.h",
      );
-
-if (defined($defines{"ANNOTATIONS"})) {
-    push(@headers, "$core/annotations.h");
-}
 
 # AArch64's opcode.h is auto-generated. We expect $dir point to a directory
 # one level deep in the build directory.
@@ -479,7 +464,7 @@ sub process_header_line($)
         if (!$first_pound && $l =~ /^\#/) {
             $first_pound = 1;
             if ($l =~ /^\# /) {
-                # Reduce the indent inside surrounding CLIENT_INTERFACE by clang-format.
+                # Reduce indentation inside surrounding ifdefs by clang-format.
                 $shrink_indent = 1;
             }
         }
@@ -527,15 +512,12 @@ sub process_header_line($)
 
     if ($output_routine) {
         if ($filter) {
-            # only export these guys for DYNAMORIO_IR_EXPORTS
-            if (defined($defines{DYNAMORIO_IR_EXPORTS})) {
-                # symbol export list (-filter option)
-                if ($l =~ /^([A-Za-z0-9_]+)\s*\(/ ||
-                    # order is important: 2nd line might pick up _IF_X64
-                    # inside param list
-                    $l =~ /^[a-zA-Z_].*\s+([A-Za-z0-9_]+)\s*\(/) {
-                    print OUT "$1;\n";
-                }
+            # symbol export list (-filter option)
+            if ($l =~ /^([A-Za-z0-9_]+)\s*\(/ ||
+                # order is important: 2nd line might pick up _IF_X64
+                # inside param list
+                $l =~ /^[a-zA-Z_].*\s+([A-Za-z0-9_]+)\s*\(/) {
+                print OUT "$1;\n";
             }
             if ($l =~ /;\s*$/ &&
                 $l !~ /^\s*\*/ && $l !~ /^\s*\/\*/) { # ignore ; inside comment

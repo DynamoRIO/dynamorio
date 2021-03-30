@@ -217,6 +217,28 @@ if (embeddable)
 \"content\":\"${name} ${extra}\"};\n")
       file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
     endforeach ()
+    # Similarly, put in explicit search entries for sections so searches go
+    # straight to the anchor link.
+    string(REGEX MATCHALL "\n<h1><a class=\"anchor\" id=\"[^\"]*\"></a>\n[^\n]+</h1>"
+      sections "${nosemis}")
+    foreach (section ${sections})
+      string(REGEX REPLACE ".* id=\"([^\"]+)\".*" "\\1" id "${section}")
+      string(REGEX REPLACE ".*</a>\n([^<]+)</h1>" "\\1" name "${section}")
+      if (name STREQUAL "" OR id STREQUAL "" OR name MATCHES "<")
+        message(FATAL_ERROR "Failed to find section name or anchor: ${section}")
+      endif ()
+      set(url "/${fname}.html#${id}")
+      # Quotes cause JavaScript syntax errors.
+      string(REPLACE "\"" "" name "${name}")
+      # Spaces would be ok but it feels nicer w/o them in the key.
+      string(REPLACE " " "_" key "${name}")
+      set(keywords "window.data[\"${fname}-${key}\"]={\
+\"name\":\"${fname}-${key}\",\
+\"title\":\"${name}\",\
+\"url\":\"${url}\",\
+\"content\":\"${name}\"};\n")
+      file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/html/keywords.js "${keywords}")
+    endforeach ()
 
     file(WRITE ${html} "${string}")
   endforeach ()
@@ -258,6 +280,29 @@ if (embeddable)
       string(REGEX REPLACE "var [^\n]* =\n" "" string "${string}")
       # End in a comma for inlining.
       string(REGEX REPLACE "\\];" "]," string "${string}")
+      # Update directory index names which are hashes that differ between the
+      # treeview and embed generations.
+      string(REGEX MATCHALL "\"[a-zA-Z_0-9]+\", \"dir_[a-f0-9]+\\.html\""
+        dir_hashes "${string}")
+      foreach (dir_hash ${dir_hashes})
+        string(REGEX REPLACE "\"([a-zA-Z_0-9]+)\".*" "\\1" key "${dir_hash}")
+        # We go search the dir_*.html embed files looking for key.
+        file(GLOB dir_html ${CMAKE_CURRENT_BINARY_DIR}/html/dir_*.html)
+        set(found_hash OFF)
+        foreach (html ${dir_html})
+          file(READ ${html} html_string)
+          if (html_string MATCHES "${key} Directory Reference")
+            get_filename_component(fname ${html} NAME)
+            string(REGEX REPLACE "\"${key}\", \"dir_[a-f0-9]+\\.html\""
+              "\"${key}\", \"${fname}\"" string "${string}")
+            set(found_hash ON)
+            break ()
+          endif ()
+        endforeach ()
+        if (NOT found_hash)
+          message(FATAL_ERROR "Cannot find corresonding page for ${key}")
+        endif ()
+      endforeach ()
     endif ()
     if (js MATCHES "page_user_docs.js")
       # CMake 3.6+ guarantees the glob is sorted lexicographically, so we've already

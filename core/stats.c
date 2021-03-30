@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -340,6 +340,8 @@ kstats_dump_stack(dcontext_t *dcontext)
 {
     uint i;
     LOG(THREAD, 1, LOG_STATS, "Thread KSTAT stack:\n");
+    if (dcontext->thread_kstats == NULL)
+        return;
     for (i = dcontext->thread_kstats->stack_kstats.depth - 1; i > 0; i--) {
         LOG(THREAD, 1, LOG_STATS, "[%d] " PIFX " %s\n", i,
             &dcontext->thread_kstats->stack_kstats.node[i],

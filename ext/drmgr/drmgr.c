@@ -461,12 +461,6 @@ drmgr_init(void)
     kernel_xfer_event_lock = dr_rwlock_create();
     opcode_table_lock = dr_rwlock_create();
 
-    /* for drbbdup: */
-    bbdup_duplicate_cb = NULL;
-    bbdup_insert_encoding_cb = NULL;
-    bbdup_extract_cb = NULL;
-    bbdup_stitch_cb = NULL;
-
 #ifdef UNIX
     signal_event_lock = dr_rwlock_create();
 #endif
@@ -492,7 +486,6 @@ drmgr_init(void)
     drmgr_event_init();
     drmgr_emulation_init();
     drmgr_init_opcode_hashtable(&global_opcode_instrum_table);
-    was_opcode_instrum_registered = false;
 
     our_tls_idx = drmgr_register_tls_field();
     if (!drmgr_register_thread_init_event(our_thread_init_event) ||
@@ -540,10 +533,6 @@ drmgr_exit(void)
     if (bb_event_count > 0)
         dr_unregister_bb_event(drmgr_bb_event);
 
-    bb_event_count = 0;
-    pair_count = 0;
-    quartet_count = 0;
-
     if (registered_fault) {
         dr_unregister_restore_state_ex_event(drmgr_restore_state_event);
         registered_fault = false;
@@ -569,6 +558,24 @@ drmgr_exit(void)
     dr_rwlock_destroy(bb_cb_lock);
 
     dr_mutex_destroy(note_lock);
+
+    /* Reset global state to handle reattaches with statically linked DR
+     * (no natural reset of global state), but only in case of detaching to
+     * avoid the overhead when there is no chance of re-attaching.
+     */
+    if (dr_is_detaching()) {
+        memset(tls_taken, 0, sizeof(tls_taken));
+        memset(cls_taken, 0, sizeof(cls_taken));
+        bb_event_count = 0;
+        pair_count = 0;
+        quartet_count = 0;
+        was_opcode_instrum_registered = false;
+        /* for drbbdup: */
+        bbdup_duplicate_cb = NULL;
+        bbdup_insert_encoding_cb = NULL;
+        bbdup_extract_cb = NULL;
+        bbdup_stitch_cb = NULL;
+    }
 }
 
 /***************************************************************************

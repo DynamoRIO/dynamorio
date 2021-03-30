@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -317,10 +317,8 @@ typedef struct rt_sigframe {
  */
 typedef struct _sigpending_t {
     sigframe_rt_t rt_frame;
-#ifdef CLIENT_INTERFACE
     /* i#182/PR 449996: we provide the faulting access address for SIGSEGV, etc. */
     byte *access_address;
-#endif
     /* use the sigcontext, not the mcontext (used to restart syscalls for i#1145) */
     bool use_sigcontext;
     /* was this unblocked at receive time? */

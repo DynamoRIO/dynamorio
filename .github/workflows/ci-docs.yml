@@ -105,18 +105,6 @@ jobs:
         DEPLOY_DOCS: yes
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
 
-    # XXX i#4111: Delete this step and the dynamorio_docs repository once
-    # we're happy with the embedded version.
-    - name: Deploy Standalone Docs
-      uses: crazy-max/ghaction-github-pages@v2
-      with:
-        build_dir: html
-        repo: DynamoRIO/dynamorio_docs
-        target_branch: master
-      env:
-        # We need a personal access token for write access to another repo.
-        GH_PAT: ${{ secrets.DOCS_TOKEN }}
-
     - name: Check Out Web
       uses: actions/checkout@v2
       with:

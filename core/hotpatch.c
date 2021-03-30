@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -670,13 +670,11 @@ static vm_area_vector_t *hotp_patch_point_areas;
 static hotp_globals_t *hotp_globals;
 #    endif
 
-#    ifdef CLIENT_INTERFACE
 /* Global counter used to generate unique ids for probes.  This is updated
  * atomically and isn't guarded by any lock.  See GENERATE_PROBE_ID() for
  * details.
  */
 static unsigned int probe_id_counter;
-#    endif
 /*----------------------------------------------------------------------------*/
 /* Function definitions. */
 
@@ -1154,9 +1152,7 @@ hotp_load_hotp_dlls(hotp_vul_t *vul_tab, uint num_vuls)
             return;
         }
     } else {
-#    ifdef CLIENT_INTERFACE
         ASSERT(DYNAMO_OPTION(probe_api));
-#    endif
     }
 
     /* Compute dll cache path, i.e., $DYNAMORIO_HOME/lib/hotp/<engine>/ */
@@ -2762,12 +2758,8 @@ hotp_walk_loader_list(thread_record_t **thread_table, const int num_threads,
      * implementing pcache flushes for probe api - till then this assert is
      * relaxed.
      */
-#        ifdef CLIENT_INTERFACE
     ASSERT(toflush != NULL || DYNAMO_OPTION(hotp_only) ||
            (DYNAMO_OPTION(probe_api) && !DYNAMO_OPTION(use_persisted)));
-#        else
-    ASSERT(toflush != NULL || DYNAMO_OPTION(hotp_only));
-#        endif
 
     start = &ldr->InLoadOrderModuleList;
     for (e = start->Flink; e != start; e = e->Flink) {
@@ -5717,7 +5709,6 @@ hotp_only_read_gbop_policy_defs(hotp_vul_t *tab, uint *num_vuls)
 }
 
 #    endif /* GBOP */
-#    ifdef CLIENT_INTERFACE
 /*----------------------------------------------------------------------------*/
 /* TODO: move all probe api into a separate file - cleaner */
 /* Adding a few data types to see if doxygen works.  Will update later.
@@ -6167,7 +6158,7 @@ dr_register_probes(dr_probe_desc_t *probes, unsigned int num_probes)
         /* Precedence hasn't been implemented yet, however, if it had been,
          * then we don't want gbop hooks to interfere with client probes.
          */
-#        define HOTP_PROBE_PRECEDENCE (HOTP_ONLY_GBOP_PRECEDENCE - 1)
+#    define HOTP_PROBE_PRECEDENCE (HOTP_ONLY_GBOP_PRECEDENCE - 1)
         ppoint->precedence = HOTP_PROBE_PRECEDENCE;
 
         /* id generation should be the last step because parsing of a
@@ -6311,8 +6302,7 @@ dr_get_probe_status(unsigned int id, dr_probe_status_t *status)
     d_r_read_unlock(&hotp_vul_table_lock);
     return res;
 }
-#    endif /* CLIENT_INTERFACE */
-#endif     /* HOT_PATCHING_INTERFACE */
+#endif /* HOT_PATCHING_INTERFACE */
 
 /* Got hotp_read_policy_defs() working, so this can be used for testing now. */
 #ifdef HOT_PATCHING_INTERFACE_UNIT_TESTS

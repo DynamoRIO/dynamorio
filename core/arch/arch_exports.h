@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1633,14 +1633,12 @@ void
 dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar, app_pc pc, app_pc ebp,
                          uint flags /*CALLSTACK_ bitmask*/);
 
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 void
 disassemble_fragment_header(dcontext_t *dcontext, fragment_t *f, file_t outfile);
 void
 disassemble_fragment_body(dcontext_t *dcontext, fragment_t *f, file_t outfile);
 void
 disassemble_app_bb(dcontext_t *dcontext, app_pc tag, file_t outfile);
-#endif /* INTERNAL || DEBUG || CLIENT_INTERFACE */
 
 /* in emit_utils.c */
 
@@ -2102,10 +2100,8 @@ link_special_ibl_xfer(dcontext_t *dcontext);
 void
 unlink_special_ibl_xfer(dcontext_t *dcontext);
 
-#ifdef CLIENT_INTERFACE
 cache_pc
 get_client_ibl_xfer_entry(dcontext_t *dcontext);
-#endif
 
 #ifdef UNIX
 cache_pc
@@ -2248,9 +2244,8 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */);
 
 fragment_t *
 build_basic_block_fragment(dcontext_t *dcontext, app_pc start_pc, uint initial_flags,
-                           bool linked,
-                           bool visible _IF_CLIENT(bool for_trace)
-                               _IF_CLIENT(instrlist_t **unmangled_ilist));
+                           bool linked, bool visible, bool for_trace,
+                           instrlist_t **unmangled_ilist);
 
 void
 interp(dcontext_t *dcontext);
@@ -2325,12 +2320,12 @@ instrlist_t *
 recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc,
                   app_pc stop_pc /*optional, only for full_decode*/, uint flags,
                   uint *res_flags, uint *res_exit_type, bool check_vm_area, bool mangle,
-                  void **vmlist _IF_CLIENT(bool call_client) _IF_CLIENT(bool for_trace));
+                  void **vmlist, bool call_client, bool for_trace);
 
 instrlist_t *
 recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
-                        /*IN/OUT*/ fragment_t **f_res, /*OUT*/ bool *alloc,
-                        bool mangle _IF_CLIENT(bool call_client));
+                        /*IN/OUT*/ fragment_t **f_res, /*OUT*/ bool *alloc, bool mangle,
+                        bool call_client);
 
 app_pc
 find_app_bb_end(dcontext_t *dcontext, byte *start_pc, uint flags);

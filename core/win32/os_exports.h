@@ -297,12 +297,10 @@ extern app_pc int_syscall_address;
  * system calls needs to be in ntdll.dll for some platforms.  This will point
  * to a ret 0 in ntdll (NtYieldExecution). */
 extern app_pc sysenter_ret_address;
-#ifdef CLIENT_INTERFACE
 /* i#537: sysenter returns to KiFastSystemCallRet from KiFastSystemCall.
  * We do not support XPSP{0,1} wrt showing the skipped ret.
  */
 extern app_pc KiFastSystemCallRet_address;
-#endif
 
 /* For Win10 this is ntdll!Wow64SystemServiceCall, which the call* in
  * each ntdll syscall wrappers targets.  There are also copies in
@@ -616,7 +614,6 @@ syscall_uses_edx_param_base();
 /* Handles a private-library FLS callback called from interpreted app code */
 bool
 private_lib_handle_cb(dcontext_t *dcontext, app_pc pc);
-#ifdef CLIENT_INTERFACE
 /* our copy of the PEB for isolation (i#249) */
 PEB *
 get_private_peb(void);
@@ -630,7 +627,6 @@ bool
 should_swap_teb_static_tls(void);
 void
 loader_pre_client_thread_exit(dcontext_t *dcontext);
-#endif
 bool
 is_using_app_peb(dcontext_t *dcontext);
 void

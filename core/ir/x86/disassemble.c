@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,18 +44,16 @@
 #include "decode_private.h"
 #include "disassemble.h"
 
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
-
-#    ifdef DEBUG
+#ifdef DEBUG
 /* case 10450: give messages to clients */
 /* we can't undef ASSERT b/c of DYNAMO_OPTION */
-#        undef ASSERT_TRUNCATE
-#        undef ASSERT_BITFIELD_TRUNCATE
-#        undef ASSERT_NOT_REACHED
-#        define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#        define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#        define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
-#    endif
+#    undef ASSERT_TRUNCATE
+#    undef ASSERT_BITFIELD_TRUNCATE
+#    undef ASSERT_NOT_REACHED
+#    define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#    define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#endif
 
 /* in disassemble_shared.c */
 void
@@ -65,7 +63,7 @@ void
 reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT, reg_id_t reg,
                 dr_opnd_flags_t flags, const char *prefix, const char *suffix);
 
-#    define BYTES_PER_LINE 7
+#define BYTES_PER_LINE 7
 
 int
 print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, byte *pc,
@@ -253,7 +251,7 @@ instr_opcode_name(instr_t *instr)
         case OP_ret_far: return "retf";
         }
     }
-#    ifdef X64
+#ifdef X64
     if (!instr_get_x86_mode(instr)) {
         if (instr_get_opcode(instr) == OP_jecxz &&
             reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1))))
@@ -271,7 +269,7 @@ instr_opcode_name(instr_t *instr)
                  opnd_get_size(instr_get_src(instr, 0)) == OPSZ_PTR)
             return "vpinsrq";
     }
-#    endif
+#endif
     return NULL;
 }
 
@@ -385,10 +383,10 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr, char *buf, size_t buf
             print_to_buffer(buf, bufsz, sofar,
                             X64_MODE_DC(dcontext) ? "addr32 " : "addr16 ");
         }
-#    if 0 /* disabling for PR 256226 */
+#if 0 /* disabling for PR 256226 */
         if (TEST(PREFIX_REX_W, instr->prefixes))
             print_to_buffer(buf, bufsz, sofar, "rex.w ");
-#    endif
+#endif
     }
 }
 
@@ -404,5 +402,3 @@ print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT
     }
     return 0;
 }
-
-#endif /* INTERNAL || CLIENT_INTERFACE */

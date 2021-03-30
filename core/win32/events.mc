@@ -97,7 +97,7 @@ Starting application %1!s! (%2!s!)
 MD5: %3!s!
 .
 
-;// Avoid the MD5 output for CLIENT_INTERFACE
+;// Avoid the MD5 output for clients.
 MessageId =
 Severity = Informational
 Facility = DRCore
@@ -504,7 +504,6 @@ Application %1!s! (%2!s!). Unsupported processor: LAHF/SAHF instructions require
 .
 ;#endif
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -512,7 +511,6 @@ SymbolicName = MSG_CLIENT_LIBRARY_UNLOADABLE
 Language=English
 Application %1!s! (%2!s!). Unable to load client library: %3!s!%4!s!.
 .
-;#endif
 
 MessageId =
 Severity = Error
@@ -522,7 +520,6 @@ Language=English
 Application %1!s! (%2!s!). Library has wrong bitwidth: %3!s!.
 .
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -530,9 +527,7 @@ SymbolicName = MSG_CLIENT_VERSION_INCOMPATIBLE
 Language=English
 Application %1!s! (%2!s!). Client library targets an incompatible API version and should be re-compiled.
 .
-;#endif
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -540,7 +535,6 @@ SymbolicName = MSG_INSTRUMENTATION_TOO_LARGE
 Language=English
 Application %1!s! (%2!s!). Basic block or trace instrumentation exceeded maximum size.  Try lowering -max_bb_instrs and/or -max_trace_bbs.
 .
-;#endif
 
 MessageId =
 Severity = Error
@@ -550,7 +544,6 @@ Language=English
 Application %1!s! (%2!s!). System calls using sysenter are not supported on this operating system.
 .
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -558,7 +551,6 @@ SymbolicName = MSG_WAITING_FOR_DEBUGGER
 Language=English
 Application %1!s! (%2!s!). Waiting for debugger to attach.
 .
-;#endif
 
 ;#ifdef VMX86_SERVER
 MessageId =
@@ -571,7 +563,6 @@ Application %1!s! (%2!s!). Error loading or using vmklib library: %3!s!.
 ;#endif
 
 
-;#ifdef CLIENT_INTERFACE
 MessageId =
 Severity = Error
 Facility = DRCore
@@ -579,9 +570,8 @@ SymbolicName = MSG_TOO_MANY_TLS_MODS
 Language=English
 Max number of modules with tls variables exceeded.
 .
-;#endif
 
-;#if defined(UNIX) && defined(CLIENT_INTERFACE)
+;#ifdef UNIX
 MessageId =
 Severity = Warning
 Facility = DRCore

@@ -90,7 +90,7 @@ if (UNIX)
     "_memfuncs" "" "${asm_deps}")
   add_library(drmemfuncs STATIC ${memfuncs_asm_src} lib/memmove.c)
   add_gen_events_deps(drmemfuncs)
-  if (CLIENT_INTERFACE OR APP_EXPORTS)
+  if (APP_EXPORTS)
     add_dependencies(drmemfuncs api_headers)
   endif ()
 endif ()
@@ -276,7 +276,6 @@ set(ARCH_SRCS
   arch/${ARCH_NAME_SHARED}/mangle.c
   arch/clean_call_opt_shared.c
   arch/${ARCH_NAME}/clean_call_opt.c
-  arch/steal_reg.c
   arch/x86_code.c
   ${arch_core_asm_src}
   ${archshared_core_asm_src}
@@ -502,7 +501,7 @@ function (configure_core_lib target)
   # rather than a separate BUILD_INCLUDES option we always build
   # include headers if building core (or if building docs or samples as
   # they have real dependencies)
-  if (CLIENT_INTERFACE OR APP_EXPORTS)
+  if (APP_EXPORTS)
     add_dependencies(${target} api_headers)
   endif ()
 
@@ -684,12 +683,6 @@ else (UNIX)
   endif (X64)
   set(DEF_BLD ${CMAKE_CURRENT_BINARY_DIR}/dr_ntdll.def)
   file(READ ${DEF_SRC} string)
-  if (NOT CLIENT_INTERFACE)
-    # we're not exporting snprintf() so remove from def file */
-    string(REGEX REPLACE
-      " snprintf"
-      "" string "${string}")
-  endif (NOT CLIENT_INTERFACE)
   file(WRITE ${DEF_BLD} "${string}")
   set(FORWARD_TO_NTDLL "/def:\"${DEF_BLD}\" /ignore:4197")
 
@@ -737,13 +730,11 @@ else (UNIX)
     set(dynamorio_link_flags
       "${dynamorio_link_flags} /export:dr_app_running_under_dynamorio")
   endif (APP_EXPORTS)
-  if (CLIENT_INTERFACE)
-    set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_try_start")
-    set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_call_on_clean_stack")
-    if (NOT X64)
-      set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_invoke_x64_routine")
-    endif (NOT X64)
-  endif (CLIENT_INTERFACE)
+  set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_try_start")
+  set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_call_on_clean_stack")
+  if (NOT X64)
+    set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_invoke_x64_routine")
+  endif (NOT X64)
   if (WINDOWS)
     set(dynamorio_link_flags
       "${dynamorio_link_flags} /export:dynamorio_earliest_init_takeover")
@@ -1162,6 +1153,9 @@ if (NOT APPLE)
   install_exported_target(dynamorio_static ${INSTALL_LIB})
   DR_export_target(dynamorio_static)
 endif ()
+
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/annotations_api.h dr_annotation.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_inject.h dr_inject.h)
 
 install_exported_target(drinjectlib ${INSTALL_LIB_BASE})
 DR_export_target(drinjectlib)

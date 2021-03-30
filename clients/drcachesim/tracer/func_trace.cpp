@@ -529,7 +529,8 @@ func_trace_exit()
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
         !drmgr_unregister_module_unload_event(instru_funcs_module_unload) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
-        !drmgr_unregister_thread_exit_event(event_thread_exit))
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        !drmgr_unregister_tls_field(tls_idx))
         DR_ASSERT(false);
     if (!op_record_dynsym_only.get_value()) {
         if (drsym_exit() != DRSYM_SUCCESS)
