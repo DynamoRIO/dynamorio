@@ -5541,6 +5541,9 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
      * required to bound delivery time for signals received while executing fragments
      * that use the special ibl xfer trampoline, which uses a different (un)linking
      * mechanism.
+     * XXX i#4804: This special unlinking strategy incurs overhead in the fast path
+     * (when linked) too. It can be avoided using a cleaner solution that links/unlinks
+     * just like any other fragment.
      */
     instr_t *skip_unlinked_tgt_jump = INSTR_CREATE_label(dcontext);
     insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
