@@ -3881,11 +3881,15 @@ unlink_fragment_for_signal(dcontext_t *dcontext, fragment_t *f,
     } else if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
         LOG(THREAD, LOG_ASYNCH, 3, "\tunlinking outgoing for interrupted F%d\n", f->id);
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
-        // Double-check flags to ensure some other thread didn't unlink
-        // while we waited for the change_linking_lock.
+        /* Double-check flags to ensure some other thread didn't unlink
+         * while we waited for the change_linking_lock.
+         */
         if (TEST(FRAG_LINKED_OUTGOING, f->flags)) {
             unlink_fragment_outgoing(dcontext, f);
             changed = true;
+            /* i#4670: Fragments that use the special ibl xfer trampoline are unlinked
+             * automatically if pending signals count is greater than zero.
+             */
         }
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
     } else {
