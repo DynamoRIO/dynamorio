@@ -58,6 +58,9 @@ extern "C" {
 /* Application module (library) information. */
 #include "dr_modules.h"
 
+/* Operating-system-specific queries. */
+#include "dr_os_utils.h"
+
 /* High-level routines: memory allocation, mutex support, file
  * support, printing, thread support, adaptive optimization,
  * custom traces, processor-specific utilities, trace dumping.
@@ -81,6 +84,9 @@ extern "C" {
 
 /* CREATE_INSTR_ macros */
 #include "dr_ir_macros.h"
+
+/* Binary trace dump format. */
+#include "dr_tracedump.h"
 
 /* Annotation handler registration routines */
 #include "dr_annotation.h"

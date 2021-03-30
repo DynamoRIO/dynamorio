@@ -185,6 +185,7 @@ char **our_environ;
 #include "../synch.h"
 #include "memquery.h"
 #include "ksynch.h"
+#include "dr_tools.h" /* dr_syscall_result_info_t */
 
 #ifndef HAVE_MEMINFO_QUERY
 #    include "memcache.h"
