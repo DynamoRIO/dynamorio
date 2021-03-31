@@ -70,14 +70,23 @@ extern "C" {
 /* Utility routines for identifying features of the processor. */
 #include "dr_proc.h"
 
-/* Instruction convenience & decode/disassemble routines */
+/* Encoding routines. */
+#include "dr_ir_encode.h"
+
+/* instr_t routines */
+#include "dr_ir_instr.h"
+
+/* Decoding routines. */
+#include "dr_ir_decode.h"
+
+/* Disassembly routines. */
+#include "dr_ir_disassemble.h"
+
+/* Instrumentation support */
 #include "dr_ir_utils.h"
 
 /* instrlist_t routines */
 #include "dr_ir_instrlist.h"
-
-/* instr_t routines */
-#include "dr_ir_instr.h"
 
 /* opcode OP_ constants and opcode-only routines */
 #include "dr_ir_opcodes.h"

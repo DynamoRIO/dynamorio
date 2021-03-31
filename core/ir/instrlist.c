@@ -522,9 +522,10 @@ instrlist_append_instrlist(dcontext_t *dcontext, instrlist_t *ilist,
  * the relative pc for an instr_t jump target
  */
 byte *
-instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc,
+instrlist_encode_to_copy(void *drcontext, instrlist_t *ilist, byte *copy_pc,
                          byte *final_pc, byte *max_pc, bool has_instr_jmp_targets)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *inst;
     int len = 0;
 #ifdef ARM
@@ -573,9 +574,10 @@ instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc
 }
 
 byte *
-instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
+instrlist_encode(void *drcontext, instrlist_t *ilist, byte *pc,
                  bool has_instr_jmp_targets)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return instrlist_encode_to_copy(dcontext, ilist, pc, pc, NULL, has_instr_jmp_targets);
 }
 

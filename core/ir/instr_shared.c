@@ -2487,8 +2487,9 @@ instr_memory_reference_size(instr_t *instr)
  * returns NULL.
  */
 app_pc
-decode_memory_reference_size(dcontext_t *dcontext, app_pc pc, uint *size_in_bytes)
+decode_memory_reference_size(void *drcontext, app_pc pc, uint *size_in_bytes)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     app_pc next_pc;
     instr_t instr;
     instr_init(dcontext, &instr);

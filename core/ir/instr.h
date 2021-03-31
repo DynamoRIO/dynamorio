@@ -2103,26 +2103,6 @@ instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
 instr_label_callback_t
 instr_get_label_callback(instr_t *instr);
 
-/* DR_API EXPORT TOFILE dr_ir_utils.h */
-/* DR_API EXPORT BEGIN */
-
-/***************************************************************************
- * DECODE / DISASSEMBLY ROUTINES
- */
-/* DR_API EXPORT END */
-
-DR_API
-/**
- * Calculates the size, in bytes, of the memory read or write of
- * the instr at \p pc.  If the instruction is a repeating string instruction,
- * considers only one iteration.
- * Returns the pc of the following instruction.
- * If the instruction at \p pc does not reference memory, or is invalid,
- * returns NULL.
- */
-app_pc
-decode_memory_reference_size(dcontext_t *dcontext, app_pc pc, uint *size_in_bytes);
-
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 DR_API
 /**
