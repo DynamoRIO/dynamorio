@@ -40,6 +40,8 @@
 #ifndef OS_SHARED_H
 #define OS_SHARED_H
 
+#include "os_api.h"
+
 enum { VM_ALLOCATION_BOUNDARY = 64 * 1024 }; /* 64KB allocation size for Windows */
 
 struct _local_state_t; /* in arch_exports.h */
@@ -262,36 +264,6 @@ os_tls_calloc(OUT uint *offset, uint num_slots, uint alignment);
 bool
 os_tls_cfree(uint offset, uint num_slots);
 
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * STATE SWAPPING TYPES
- */
-
-/**
- * Flags that control the behavior of dr_switch_to_app_state_ex()
- * and dr_switch_to_dr_state_ex().
- */
-typedef enum {
-#ifdef WINDOWS
-    DR_STATE_PEB = 0x0001,          /**< Switch the PEB pointer. */
-    DR_STATE_TEB_MISC = 0x0002,     /**< Switch miscellaneous TEB fields. */
-    DR_STATE_STACK_BOUNDS = 0x0004, /**< Switch the TEB stack bounds fields. */
-    DR_STATE_ALL = ~0,              /**< Switch all state. */
-#else
-    /**
-     * On Linux, DR's own TLS can optionally be swapped, but this is risky
-     * and not recommended as incoming signals are not properly handled when in
-     * such a state.  Thus DR_STATE_ALL does *not* swap it.
-     */
-    DR_STATE_DR_TLS = 0x0001,
-    DR_STATE_ALL = (~0) & (~DR_STATE_DR_TLS), /**< Switch all normal state. */
-    DR_STATE_GO_NATIVE = ~0,                  /**< Switch all state.  Use with care. */
-#endif
-} dr_state_flags_t;
-
-/* DR_API EXPORT END */
-
 bool
 os_should_swap_state(void);
 
@@ -312,40 +284,6 @@ char *
 get_application_pid(void);
 char *
 get_application_name(void);
-
-/* DR_API EXPORT BEGIN */
-/**
- * Encodings of an application's command-line argument.
- */
-typedef enum {
-    /**
-     * C String Encoding.
-     */
-    DR_APP_ARG_CSTR_COMPAT,
-    /**
-     * UTF 16 String Encoding.
-     */
-    DR_APP_ARG_UTF_16,
-} dr_app_arg_encoding_t;
-
-/**
- * Contains information regarding an application's command-line argument.
- */
-typedef struct _dr_app_arg_t {
-    /**
-     * The start boundary where the content of the arg begins.
-     */
-    void *start;
-    /**
-     * The size, in bytes, of the argument.
-     */
-    size_t size;
-    /**
-     * The encoding of the argument.
-     */
-    dr_app_arg_encoding_t encoding;
-} dr_app_arg_t;
-/* DR_API EXPORT END */
 
 int
 num_app_args();
@@ -458,30 +396,6 @@ void
 os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
           va_list args);
 
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * CLIENT AUXILIARY LIBRARY TYPES
- */
-
-/**
- * A handle to a loaded client auxiliary library.  This is a different
- * type than module_handle_t and is not necessarily the base address.
- */
-typedef void *dr_auxlib_handle_t;
-/** An exported routine in a loaded client auxiliary library. */
-typedef void (*dr_auxlib_routine_ptr_t)();
-#if defined(WINDOWS) && !defined(X64)
-/**
- * A handle to a loaded 64-bit client auxiliary library.  This is a different
- * type than module_handle_t and is not necessarily the base address.
- */
-typedef uint64 dr_auxlib64_handle_t;
-/** An exported routine in a loaded 64-bit client auxiliary library. */
-typedef uint64 dr_auxlib64_routine_ptr_t;
-#endif
-/* DR_API EXPORT END */
-
 /* Note that this is NOT identical to module_handle_t: on Linux this
  * is a pointer to a loader data structure and NOT the base address
  * (xref PR 366195).
@@ -507,89 +421,6 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr, IN const char *name,
                       OUT byte **start, OUT byte **end);
 char *
 get_dynamorio_library_path(void);
-
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * MEMORY INFORMATION TYPES
- */
-
-#define DR_MEMPROT_NONE 0x00  /**< No read, write, or execute privileges. */
-#define DR_MEMPROT_READ 0x01  /**< Read privileges. */
-#define DR_MEMPROT_WRITE 0x02 /**< Write privileges. */
-#define DR_MEMPROT_EXEC 0x04  /**< Execute privileges. */
-#define DR_MEMPROT_GUARD 0x08 /**< Guard page (Windows only) */
-/**
- * DR's default cache consistency strategy modifies the page protection of
- * pages containing code, making them read-only.  It pretends on application
- * and client queries that the page is writable.  On a write fault
- * to such a region by the application or by client-added instrumentation, DR
- * automatically handles the fault and makes the page writable.  This requires
- * flushing the code from the code cache, which can only be done safely when in
- * an application context.  Thus, a client writing to such a page is only
- * supported when these criteria are met:
- *
- * -# The client code must be in an application code cache context.  This rules
- *    out all event callbacks (including the basic block event) except for the
- *    pre and post system call events and the nudge event.
- * -# The client must not hold any locks.  An exception is a lock marked as
- *    an application lock (via dr_mutex_mark_as_app(), dr_rwlock_mark_as_app(),
- *    or dr_recurlock_mark_as_app()).
- * -# The client code must not rely on returning to a particular point in the
- *    code cache, as that point might be flushed and removed during the write
- *    fault processing.  This rules out a clean call (unless
- *    dr_redirect_execution() is used), but does allow something like
- *    drwrap_replace_native() which uses a continuation strategy.
- *
- * A client write fault that does not meet the first two criteria will result in
- * a fatal error report and an abort.  It is up to the client to ensure it
- * satisifies the third criterion.
- *
- * Even when client writes do meet these criteria, for performance it's best for
- * clients to avoid writing to such memory.
- */
-#define DR_MEMPROT_PRETEND_WRITE 0x10
-/**
- * In addition to the appropriate DR_MEMPROT_READ and/or DR_MEMPROT_EXEC flags,
- * this flag will be set for the VDSO and VVAR pages on Linux.
- * The VVAR pages may only be identified by DR on kernels that explicitly label
- * the pages in the /proc/self/maps file (kernel 3.15 and above).
- * In some cases, accessing the VVAR pages can cause problems
- * (e.g., https://github.com/DynamoRIO/drmemory/issues/1778).
- */
-#define DR_MEMPROT_VDSO 0x20
-
-/**
- * Flags describing memory used by dr_query_memory_ex().
- */
-typedef enum {
-    DR_MEMTYPE_FREE,     /**< No memory is allocated here */
-    DR_MEMTYPE_IMAGE,    /**< An executable file is mapped here */
-    DR_MEMTYPE_DATA,     /**< Some other data is allocated here */
-    DR_MEMTYPE_RESERVED, /**< Reserved address space with no physical storage */
-    DR_MEMTYPE_ERROR,    /**< Query failed for unspecified reason */
-    /**
-     * Query failed due to the address being located in Windows kernel space.
-     * No further information is available so iteration must stop.
-     */
-    DR_MEMTYPE_ERROR_WINKERNEL,
-} dr_mem_type_t;
-
-/**
- * Describes a memory region.  Used by dr_query_memory_ex().
- */
-typedef struct _dr_mem_info_t {
-    /** Starting address of memory region */
-    byte *base_pc;
-    /** Size of region */
-    size_t size;
-    /** Protection of region (DR_MEMPROT_* flags) */
-    uint prot;
-    /** Type of region */
-    dr_mem_type_t type;
-} dr_mem_info_t;
-
-/* DR_API EXPORT END */
 
 #define MEMPROT_NONE DR_MEMPROT_NONE
 #define MEMPROT_READ DR_MEMPROT_READ

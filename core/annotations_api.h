@@ -33,6 +33,8 @@
 #ifndef _DR_ANNOTATION_H_
 #define _DR_ANNOTATION_H_ 1
 
+#include "dr_tools.h"
+
 /*********************************************************
  * ROUTINES TO REGISTER ANNOTATION HANDLERS
  */

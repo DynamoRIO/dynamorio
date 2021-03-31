@@ -151,7 +151,10 @@ if ($header) {
                 "$existing[$index]" eq "$dir/dr_annotation.h" ||
                 "$existing[$index]" eq "$dir/dr_inject.h" ||
                 "$existing[$index]" eq "$dir/dr_config.h" ||
-                "$existing[$index]" eq "$dir/dr_modules.h") {
+                "$existing[$index]" eq "$dir/dr_modules.h" ||
+                "$existing[$index]" eq "$dir/dr_os_utils.h" ||
+                "$existing[$index]" eq "$dir/dr_tracedump.h" ||
+                "$existing[$index]" eq "$dir/dr_tools.h") {
                 delete $existing[$index];
             }
         }
@@ -178,7 +181,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/globals.h",
      "$core/arch/arch_exports.h", # encode routines
      "$core/arch/proc.h",
-     "$core/os_shared.h",        # before instrument_api.h
      "$core/lib/instrument_api.h",
      "$core/ir/x86/opcode.h",
      "$core/ir/arm/opcode.h",
@@ -192,7 +194,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/ir/decode.h",       # OPSZ_ consts, decode routines
      "$core/ir/decode_fast.h",  # decode routines
      "$core/ir/disassemble.h",  # disassemble routines
-     "$core/fragment.h",         # binary tracedump format
      "$core/win32/os_private.h", # rsrc section walking
      "$core/hotpatch.c",         # probe api
      "$core/../libutil/dr_frontend.h",
