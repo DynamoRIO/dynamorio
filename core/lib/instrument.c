@@ -5475,8 +5475,9 @@ dr_max_opnd_accessible_spill_slot()
 /* creates an opnd to access spill slot slot, slot must be <=
  * dr_max_opnd_accessible_spill_slot() */
 opnd_t
-reg_spill_slot_opnd(dcontext_t *dcontext, dr_spill_slot_t slot)
+reg_spill_slot_opnd(void *drcontext, dr_spill_slot_t slot)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         return opnd_create_tls_slot(offs);

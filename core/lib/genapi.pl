@@ -154,7 +154,12 @@ if ($header) {
                 "$existing[$index]" eq "$dir/dr_modules.h" ||
                 "$existing[$index]" eq "$dir/dr_os_utils.h" ||
                 "$existing[$index]" eq "$dir/dr_tracedump.h" ||
-                "$existing[$index]" eq "$dir/dr_tools.h") {
+                "$existing[$index]" eq "$dir/dr_tools.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_utils.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_encode.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_decode.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_disassemble.h" ||
+                "$existing[$index]" eq "$dir/dr_events.h") {
                 delete $existing[$index];
             }
         }
@@ -179,9 +184,7 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/lib/globals_shared.h", # defs
      "$core/lib/c_defines.h", # defs
      "$core/globals.h",
-     "$core/arch/arch_exports.h", # encode routines
      "$core/arch/proc.h",
-     "$core/lib/instrument_api.h",
      "$core/ir/x86/opcode.h",
      "$core/ir/arm/opcode.h",
      "$core/ir/opnd.h",
@@ -192,8 +195,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/ir/aarch64/instr_create.h",
      "$core/ir/arm/instr_create.h",
      "$core/ir/decode.h",       # OPSZ_ consts, decode routines
-     "$core/ir/decode_fast.h",  # decode routines
-     "$core/ir/disassemble.h",  # disassemble routines
      "$core/win32/os_private.h", # rsrc section walking
      "$core/hotpatch.c",         # probe api
      "$core/../libutil/dr_frontend.h",

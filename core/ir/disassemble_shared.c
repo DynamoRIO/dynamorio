@@ -672,8 +672,9 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 void
-opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
+opnd_disassemble(void *drcontext, opnd_t opnd, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     char buf[MAX_OPND_DIS_SZ];
     size_t sofar = 0;
     internal_opnd_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, dcontext, opnd,
@@ -684,9 +685,10 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
 }
 
 size_t
-opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd, char *buf, size_t bufsz)
+opnd_disassemble_to_buffer(void *drcontext, opnd_t opnd, char *buf, size_t bufsz)
 
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     size_t sofar = 0;
     internal_opnd_disassemble(buf, bufsz, &sofar, dcontext, opnd, false /*don't know*/);
     return sofar;
@@ -801,8 +803,9 @@ internal_disassemble_to_file(dcontext_t *dcontext, byte *pc, byte *orig_pc,
  * Returns NULL if the instruction at pc is invalid.
  */
 byte *
-disassemble(dcontext_t *dcontext, byte *pc, file_t outfile)
+disassemble(void *drcontext, byte *pc, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return internal_disassemble_to_file(dcontext, pc, pc, outfile, true, false, "");
 }
 
@@ -835,9 +838,10 @@ disassemble_with_bytes(dcontext_t *dcontext, byte *pc, file_t outfile)
  * Returns NULL if the instruction at pc is invalid.
  */
 byte *
-disassemble_with_info(dcontext_t *dcontext, byte *pc, file_t outfile, bool show_pc,
+disassemble_with_info(void *drcontext, byte *pc, file_t outfile, bool show_pc,
                       bool show_bytes)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return internal_disassemble_to_file(dcontext, pc, pc, outfile, show_pc, show_bytes,
                                         "");
 }
@@ -852,17 +856,19 @@ disassemble_with_info(dcontext_t *dcontext, byte *pc, file_t outfile, bool show_
  * \p copy_pc, or NULL if the instruction at \p copy_pc is invalid.
  */
 byte *
-disassemble_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, file_t outfile,
+disassemble_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, file_t outfile,
                       bool show_pc, bool show_bytes)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return internal_disassemble_to_file(dcontext, copy_pc, orig_pc, outfile, show_pc,
                                         show_bytes, "");
 }
 
 byte *
-disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc, bool show_pc,
+disassemble_to_buffer(void *drcontext, byte *pc, byte *orig_pc, bool show_pc,
                       bool show_bytes, char *buf, size_t bufsz, int *printed OUT)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     size_t sofar = 0;
     byte *next = internal_disassemble(buf, bufsz, &sofar, dcontext, pc, orig_pc, show_pc,
                                       show_bytes, "");
@@ -1186,8 +1192,9 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
  * Prints each operand with leading zeros indicating the size.
  */
 void
-instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
+instr_disassemble(void *drcontext, instr_t *instr, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     char buf[MAX_INSTR_DIS_SZ];
     size_t sofar = 0;
     internal_instr_disassemble(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar, dcontext, instr);
@@ -1209,8 +1216,9 @@ instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile)
  * Uses DR syntax unless otherwise specified (see disassemble_set_syntax()).
  */
 size_t
-instr_disassemble_to_buffer(dcontext_t *dcontext, instr_t *instr, char *buf, size_t bufsz)
+instr_disassemble_to_buffer(void *drcontext, instr_t *instr, char *buf, size_t bufsz)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     size_t sofar = 0;
     internal_instr_disassemble(buf, bufsz, &sofar, dcontext, instr);
     return sofar;
@@ -1476,9 +1484,9 @@ disassemble_app_bb(dcontext_t *dcontext, app_pc tag, file_t outfile)
 /* Two entry points to the disassembly routines: */
 
 void
-instrlist_disassemble(dcontext_t *dcontext, app_pc tag, instrlist_t *ilist,
-                      file_t outfile)
+instrlist_disassemble(void *drcontext, app_pc tag, instrlist_t *ilist, file_t outfile)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     int len, sz;
     instr_t *instr;
     byte *addr;

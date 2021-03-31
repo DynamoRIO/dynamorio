@@ -113,7 +113,8 @@
 /* DR_API EXPORT END */
 #ifdef API_EXPORT_ONLY
 /* DR_API EXPORT VERBATIM */
-#    define DR_API /* Ignore for clients. */
+#    define DR_API                  /* Ignore for clients. */
+#    define DR_UNS_EXCEPT_TESTS_API /* Ignore for clients. */
 /* DR_API EXPORT END */
 #endif
 

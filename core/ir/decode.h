@@ -40,6 +40,8 @@
 #ifndef DECODE_H
 #define DECODE_H
 
+#include "decode_api.h"
+
 /* Public prefix constants.  decode_private.h may define additional constants
  * only used during decoding.
  */
@@ -465,8 +467,6 @@ decode_raw_is_jmp(dcontext_t *dcontext, byte *pc);
 byte *
 decode_raw_jmp_target(dcontext_t *dcontext, byte *pc);
 
-/* DR_API EXPORT TOFILE dr_ir_utils.h */
-
 /* exported routines */
 
 bool
@@ -483,24 +483,6 @@ is_isa_mode_legal(dr_isa_mode_t mode);
 #    define X64_MODE_DC(dc) IF_X64_ELSE(true, false)
 #    define X64_CACHE_MODE_DC(dc) IF_X64_ELSE(true, false)
 #endif
-
-DR_API
-/**
- * Decodes only enough of the instruction at address \p pc to determine
- * its eflags usage, which is returned in \p usage as EFLAGS_ constants
- * or'ed together.
- * Returns the address of the next byte after the decoded instruction.
- * Returns NULL on decoding an invalid instruction.
- */
-#ifdef UNSUPPORTED_API
-/**
- * This corresponds to halfway between Level 1 and Level 2: a Level 1 decoding
- * plus eflags information (usually only at Level 2).
- */
-#endif
-byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
-                    dr_opnd_query_flags_t flags);
 
 DR_UNS_API
 /**
@@ -520,133 +502,8 @@ DR_UNS_API
 byte *
 decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
-DR_API
-/**
- * Decodes the instruction at address \p pc into \p instr, filling in the
- * instruction's opcode, eflags usage, prefixes, and operands.
- * The instruction's raw bits are set to valid and pointed at \p pc
- * (xref instr_get_raw_bits()).
- * Assumes that \p instr is already initialized, but uses the x86/x64 mode
- * for the thread \p dcontext rather than that set in instr.
- * If caller is re-using same instr_t struct over multiple decodings,
- * caller should call instr_reset() or instr_reuse().
- * Returns the address of the next byte after the decoded instruction.
- * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
- */
-#ifdef UNSUPPORTED_API
-/**
- * This corresponds to a Level 3 decoding.
- */
-#endif
-byte *
-decode(dcontext_t *dcontext, byte *pc, instr_t *instr);
-
-DR_API
-/**
- * Decodes the instruction at address \p copy_pc into \p instr as though
- * it were located at address \p orig_pc.  Any pc-relative operands have
- * their values calculated as though the instruction were actually at
- * \p orig_pc, though that address is never de-referenced.
- * The instruction's raw bits are not valid, but its application address field
- * (see instr_get_app_pc()) is set to \p orig_pc.
- * The instruction's opcode, eflags usage, prefixes, and operands are
- * all filled in.
- * Assumes that \p instr is already initialized, but uses the x86/x64 mode
- * for the thread \p dcontext rather than that set in instr.
- * If caller is re-using same instr_t struct over multiple decodings,
- * caller should call instr_reset() or instr_reuse().
- * Returns the address of the next byte after the decoded instruction
- * copy at \p copy_pc.
- * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
- */
-#ifdef UNSUPPORTED_API
-/**
- * This corresponds to a Level 3 decoding.
- */
-#endif
-byte *
-decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr);
-
-/* decode_as_bb() is defined in interp.c, but declared here so it will
- * be listed next to the other decode routines in the API headers.
- */
-DR_API
-/**
- * Client routine to decode instructions at an arbitrary app address,
- * following all the rules that DynamoRIO follows internally for
- * terminating basic blocks.  Note that DynamoRIO does not validate
- * that \p start_pc is actually the first instruction of a basic block.
- * \note Caller is reponsible for freeing the list and its instrs!
- */
-instrlist_t *
-decode_as_bb(void *drcontext, byte *start_pc);
-
-/* decode_trace() is also in interp.c */
-DR_API
-/**
- * Decodes the trace with tag \p tag, and returns an instrlist_t of
- * the instructions comprising that fragment.  If \p tag is not a
- * valid tag for an existing trace, the routine returns NULL.  Clients
- * can use dr_trace_exists_at() to determine whether the trace exists.
- * \note Unlike the instruction list presented by the trace event, the
- * list here does not include any existing client modifications.  If
- * client-modified instructions are needed, it is the responsibility
- * of the client to record or recreate that list itself.
- * \note This routine does not support decoding thread-private traces
- * created by other than the calling thread.
- */
-instrlist_t *
-decode_trace(void *drcontext, void *tag);
-
 const struct instr_info_t *
 get_next_instr_info(const instr_info_t *info);
-
-DR_API
-/**
- * Given an OP_ constant, returns the first byte of its opcode when
- * encoded as an IA-32 instruction.
- */
-byte
-decode_first_opcode_byte(int opcode);
-
-DR_API
-/** Given an OP_ constant, returns the string name of its opcode. */
-const char *
-decode_opcode_name(int opcode);
-
-/* DR_API EXPORT BEGIN */
-#ifdef X64
-/* DR_API EXPORT END */
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine sets that flag to the indicated value and returns the old value.  Be
- * sure to restore the old value prior to any further application execution to
- * avoid problems in mis-interpreting application code.
- *
- * \note For 64-bit DR builds only.
- *
- * \deprecated Replaced by dr_set_isa_mode().
- */
-bool
-set_x86_mode(dcontext_t *dcontext, bool x86);
-
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine returns the value of that flag.
- *
- * \note For 64-bit DR builds only.
- *
- * \deprecated Replaced by dr_get_isa_mode().
- */
-bool
-get_x86_mode(dcontext_t *dcontext);
-/* DR_API EXPORT BEGIN */
-#endif
-/* DR_API EXPORT END */
 
 #ifdef DEBUG
 void
@@ -666,27 +523,6 @@ void
 check_encode_decode_consistency(dcontext_t *dcontext, instrlist_t *ilist);
 #    endif
 #endif
-
-DR_API
-/**
- * Given an application program counter value, returns the
- * corresponding value to use as an indirect branch target for the
- * given \p isa_mode.  For ARM's Thumb mode (#DR_ISA_ARM_THUMB), this
- * involves setting the least significant bit of the address.
- */
-app_pc
-dr_app_pc_as_jump_target(dr_isa_mode_t isa_mode, app_pc pc);
-
-DR_API
-/**
- * Given an application program counter value, returns the
- * corresponding value to use as a memory load target for the given \p
- * isa_mode, or for comparing to the application address inside a
- * basic block or trace.  For ARM's Thumb mode (#DR_ISA_ARM_THUMB),
- * this involves clearing the least significant bit of the address.
- */
-app_pc
-dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc);
 
 /* for debugging: printing out types and sizes */
 extern const char *const type_names[];

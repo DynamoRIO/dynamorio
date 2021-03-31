@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -465,9 +465,9 @@ static const byte xop_a_extra[256] = {
  * May return 0 size for certain invalid instructions
  */
 int
-decode_sizeof_ex(dcontext_t *dcontext, byte *start_pc, int *num_prefixes,
-                 uint *rip_rel_pos)
+decode_sizeof_ex(void *drcontext, byte *start_pc, int *num_prefixes, uint *rip_rel_pos)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte *pc = start_pc;
     uint opc = (uint)*pc;
     int sz = 0;
@@ -708,9 +708,10 @@ decode_sizeof_done:
 }
 
 int
-decode_sizeof(dcontext_t *dcontext, byte *start_pc,
+decode_sizeof(void *drcontext, byte *start_pc,
               int *num_prefixes _IF_X64(uint *rip_rel_pos))
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
 #ifdef X64
     return decode_sizeof_ex(dcontext, start_pc, num_prefixes, rip_rel_pos);
 #else
@@ -1311,8 +1312,9 @@ get_implied_mm_e_vex_opcode_bytes(byte *pc, int prefixes, byte vex_mm, byte *byt
  * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
  */
 byte *
-decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte byte0, byte1;
     byte *start_pc = pc;
 
@@ -1753,8 +1755,9 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
  * Returns NULL on decoding an invalid instruction.
  */
 byte *
-decode_next_pc(dcontext_t *dcontext, byte *pc)
+decode_next_pc(void *drcontext, byte *pc)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     int sz = decode_sizeof(dcontext, pc, NULL _IF_X64(NULL));
     if (sz == 0)
         return NULL;

@@ -155,6 +155,12 @@ compatibility changes:
    file dr_modules.h, os-specific queries in dr_os_api.h, and tracedump types in
    dr_tracedump.h.  dr_api.h includes the new files, so users including dr_api.h are
    unaffected.
+ - The header files dr_ir_utils.h, dr_ir_opnd.h, dr_ir_instr.h, and dr_ir_instrlist.h
+   have been split up, with encoding routines now in a new file dr_ir_encode.h,
+   decoding routines in dr_ir_decode.h, disassembly routines in dr_ir_disassemble.h.
+   dr_api.h includes the new files, so users including dr_api.h are unaffected.
+ - The routines dr_insert_save_fpstate(), dr_insert_restore_fpstate(),
+   and dr_insert_get_seg_base() moved from dr_proc.h to dr_ir_utils.h.
 
 Further non-compatibility-affecting changes include:
 
