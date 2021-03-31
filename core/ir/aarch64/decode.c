@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -65,9 +65,9 @@ dr_app_pc_as_load_target(dr_isa_mode_t isa_mode, app_pc pc)
 }
 
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
-                    dr_opnd_query_flags_t flags)
+decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     /* XXX i#2374: Performing full decode here is inefficient. */
     instr_t instr;
     instr_init(dcontext, &instr);
@@ -86,31 +86,34 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 }
 
 byte *
-decode(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, pc, pc, instr);
 }
 
 byte *
-decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
+decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, copy_pc, orig_pc, instr);
 }
 
 byte *
-decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode(dcontext, pc, instr);
 }
 
 byte *
-decode_next_pc(dcontext_t *dcontext, byte *pc)
+decode_next_pc(void *dcontext, byte *pc)
 {
     return pc + AARCH64_INSTR_SIZE;
 }
 
 int
-decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes)
+decode_sizeof(void *drcontext, byte *pc, int *num_prefixes)
 {
     return AARCH64_INSTR_SIZE;
 }
