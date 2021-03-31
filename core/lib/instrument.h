@@ -50,6 +50,7 @@
 
 /* The core of the public API */
 #include "instrument_api.h"
+#include "dr_tools.h"
 
 /* Xref _USES_DR_VERSION_ in dr_api.h (PR 250952) and compatibility
  * check in instrument.c (OLDEST_COMPATIBLE_VERSION, etc.).
