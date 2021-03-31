@@ -75,6 +75,7 @@ extern "C" {
 
 /* instr_t routines */
 #include "dr_ir_instr.h"
+#include "dr_ir_instr_inline.h"
 
 /* Decoding routines. */
 #include "dr_ir_decode.h"

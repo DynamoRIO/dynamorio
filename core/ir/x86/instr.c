@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2179,8 +2179,9 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 }
 
 instr_t *
-instr_create_popa(dcontext_t *dcontext)
+instr_create_popa(void *drcontext)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, OP_popa, 8, 2);
     instr_set_dst(in, 0, opnd_create_reg(REG_ESP));
     instr_set_dst(in, 1, opnd_create_reg(REG_EAX));
@@ -2196,8 +2197,9 @@ instr_create_popa(dcontext_t *dcontext)
 }
 
 instr_t *
-instr_create_pusha(dcontext_t *dcontext)
+instr_create_pusha(void *drcontext)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, OP_pusha, 2, 8);
     instr_set_dst(in, 0, opnd_create_reg(REG_ESP));
     instr_set_dst(in, 1,

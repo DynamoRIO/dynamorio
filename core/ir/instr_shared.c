@@ -82,8 +82,9 @@
 
 /* returns an empty instr_t object */
 instr_t *
-instr_create(dcontext_t *dcontext)
+instr_create(void *drcontext)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = (instr_t *)heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
@@ -98,8 +99,9 @@ instr_create(dcontext_t *dcontext)
 
 /* deletes the instr_t object with handle "instr" and frees its storage */
 void
-instr_destroy(dcontext_t *dcontext, instr_t *instr)
+instr_destroy(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
 #ifdef ARM
     /* i#4680: Reset encode state to avoid dangling pointers.  This doesn't cover
      * auto-scope instr_t vars so the whole IT tracking is still fragile.
@@ -115,8 +117,9 @@ instr_destroy(dcontext_t *dcontext, instr_t *instr)
 
 /* returns a clone of orig, but with next and prev fields set to NULL */
 instr_t *
-instr_clone(dcontext_t *dcontext, instr_t *orig)
+instr_clone(void *drcontext, instr_t *orig)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     /* We could heap-allocate an instr_noalloc_t but it's intended for use in a
      * signal handler or other places where we don't want any heap allocation.
      */
@@ -165,8 +168,9 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
 
 /* zeroes out the fields of instr */
 void
-instr_init(dcontext_t *dcontext, instr_t *instr)
+instr_init(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
@@ -175,8 +179,9 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
 
 /* zeroes out the fields of instr */
 void
-instr_noalloc_init(dcontext_t *dcontext, instr_noalloc_t *instr)
+instr_noalloc_init(void *drcontext, instr_noalloc_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     memset(instr, 0, sizeof(*instr));
     instr->instr.flags |= INSTR_IS_NOALLOC_STRUCT;
     instr_set_isa_mode(&instr->instr, dr_get_isa_mode(dcontext));
@@ -184,8 +189,9 @@ instr_noalloc_init(dcontext_t *dcontext, instr_noalloc_t *instr)
 
 /* Frees all dynamically allocated storage that was allocated by instr */
 void
-instr_free(dcontext_t *dcontext, instr_t *instr)
+instr_free(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (instr_is_label(instr) && instr_get_label_callback(instr) != NULL)
         (*instr->label_cb)(dcontext, instr);
     if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
@@ -233,8 +239,9 @@ instr_mem_usage(instr_t *instr)
  * This instr must have been initialized before!
  */
 void
-instr_reset(dcontext_t *dcontext, instr_t *instr)
+instr_reset(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_free(dcontext, instr);
     if (TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags)) {
         instr_init(dcontext, instr);
@@ -253,8 +260,9 @@ instr_reset(dcontext_t *dcontext, instr_t *instr)
  * This instr must have been initialized before!
  */
 void
-instr_reuse(dcontext_t *dcontext, instr_t *instr)
+instr_reuse(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte *bits = NULL;
     uint len = 0;
     bool alloc = false;
@@ -300,8 +308,9 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
 }
 
 instr_t *
-instr_build(dcontext_t *dcontext, int opcode, int instr_num_dsts, int instr_num_srcs)
+instr_build(void *drcontext, int opcode, int instr_num_dsts, int instr_num_srcs)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = instr_create(dcontext);
     instr_set_opcode(instr, opcode);
     instr_set_num_opnds(dcontext, instr, instr_num_dsts, instr_num_srcs);
@@ -309,8 +318,9 @@ instr_build(dcontext_t *dcontext, int opcode, int instr_num_dsts, int instr_num_
 }
 
 instr_t *
-instr_build_bits(dcontext_t *dcontext, int opcode, uint num_bytes)
+instr_build_bits(void *drcontext, int opcode, uint num_bytes)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *instr = instr_create(dcontext);
     instr_set_opcode(instr, opcode);
     instr_allocate_raw_bits(dcontext, instr, num_bytes);
@@ -539,9 +549,10 @@ instr_get_dst(instr_t *instr, uint pos)
  * assumes that instr is currently all zeroed out!
  */
 void
-instr_set_num_opnds(dcontext_t *dcontext, instr_t *instr, int instr_num_dsts,
+instr_set_num_opnds(void *drcontext, instr_t *instr, int instr_num_dsts,
                     int instr_num_srcs)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if (instr_num_dsts > 0) {
         CLIENT_ASSERT(instr->num_dsts == 0 && instr->dsts == NULL,
                       "instr_set_num_opnds: dsts are already set");
@@ -608,8 +619,9 @@ instr_set_dst(instr_t *instr, uint pos, opnd_t opnd)
 
 /* end is open-ended (so pass pos,pos+1 to remove just the pos-th src) */
 void
-instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
+instr_remove_srcs(void *drcontext, instr_t *instr, uint start, uint end)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     opnd_t *new_srcs;
     CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
                   /* We could implement, but it does not seem an important use case. */
@@ -640,8 +652,9 @@ instr_remove_srcs(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
 
 /* end is open-ended (so pass pos,pos+1 to remove just the pos-th dst) */
 void
-instr_remove_dsts(dcontext_t *dcontext, instr_t *instr, uint start, uint end)
+instr_remove_dsts(void *drcontext, instr_t *instr, uint start, uint end)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     opnd_t *new_dsts;
     CLIENT_ASSERT(!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags),
                   /* We could implement, but it does not seem an important use case. */
@@ -1029,8 +1042,9 @@ instr_set_raw_bits_valid(instr_t *instr, bool valid)
 }
 
 void
-instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
+instr_free_raw_bits(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0)
         return;
     if (!TEST(INSTR_IS_NOALLOC_STRUCT, instr->flags))
@@ -1045,8 +1059,9 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
  * initializes array to the original bits!
  */
 void
-instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
+instr_allocate_raw_bits(void *drcontext, instr_t *instr, uint num_bytes)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte *original_bits = NULL;
     if (TEST(INSTR_RAW_BITS_VALID, instr->flags))
         original_bits = instr->bytes;
@@ -1130,8 +1145,9 @@ instr_get_translation(instr_t *instr)
  * gave you the instr)
  */
 void
-instr_make_persistent(dcontext_t *dcontext, instr_t *instr)
+instr_make_persistent(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     if ((instr->flags & INSTR_RAW_BITS_VALID) != 0 &&
         (instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0) {
         instr_allocate_raw_bits(dcontext, instr, instr->length);
@@ -1215,8 +1231,9 @@ instr_set_raw_word(instr_t *instr, uint pos, uint word)
 }
 
 int
-instr_length(dcontext_t *dcontext, instr_t *instr)
+instr_length(void *drcontext, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     int res;
 
 #ifdef ARM
@@ -2666,9 +2683,9 @@ convert_to_near_rel(dcontext_t *dcontext, instr_t *instr)
 }
 
 instr_t *
-instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
-                                     instr_t *instr)
+instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     /* PR 266292: we convert to a sequence of separate meta instrs for jecxz, etc. */
     CLIENT_ASSERT(instr_is_meta(instr),
                   "instr_convert_short_meta_jmp_to_long: instr is not meta");
@@ -2700,23 +2717,26 @@ instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
  */
 
 instr_t *
-instr_create_0dst_0src(dcontext_t *dcontext, int opcode)
+instr_create_0dst_0src(void *drcontext, int opcode)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 0, 0);
     return in;
 }
 
 instr_t *
-instr_create_0dst_1src(dcontext_t *dcontext, int opcode, opnd_t src)
+instr_create_0dst_1src(void *drcontext, int opcode, opnd_t src)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 0, 1);
     instr_set_src(in, 0, src);
     return in;
 }
 
 instr_t *
-instr_create_0dst_2src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2)
+instr_create_0dst_2src(void *drcontext, int opcode, opnd_t src1, opnd_t src2)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 0, 2);
     instr_set_src(in, 0, src1);
     instr_set_src(in, 1, src2);
@@ -2724,9 +2744,9 @@ instr_create_0dst_2src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src
 }
 
 instr_t *
-instr_create_0dst_3src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
-                       opnd_t src3)
+instr_create_0dst_3src(void *drcontext, int opcode, opnd_t src1, opnd_t src2, opnd_t src3)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 0, 3);
     instr_set_src(in, 0, src1);
     instr_set_src(in, 1, src2);
@@ -2735,9 +2755,10 @@ instr_create_0dst_3src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src
 }
 
 instr_t *
-instr_create_0dst_4src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src2,
-                       opnd_t src3, opnd_t src4)
+instr_create_0dst_4src(void *drcontext, int opcode, opnd_t src1, opnd_t src2, opnd_t src3,
+                       opnd_t src4)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 0, 4);
     instr_set_src(in, 0, src1);
     instr_set_src(in, 1, src2);
@@ -2747,16 +2768,18 @@ instr_create_0dst_4src(dcontext_t *dcontext, int opcode, opnd_t src1, opnd_t src
 }
 
 instr_t *
-instr_create_1dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst)
+instr_create_1dst_0src(void *drcontext, int opcode, opnd_t dst)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 1, 0);
     instr_set_dst(in, 0, dst);
     return in;
 }
 
 instr_t *
-instr_create_1dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src)
+instr_create_1dst_1src(void *drcontext, int opcode, opnd_t dst, opnd_t src)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 1, 1);
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src);
@@ -2764,9 +2787,9 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src)
 }
 
 instr_t *
-instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
-                       opnd_t src2)
+instr_create_1dst_2src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opnd_t src2)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 1, 2);
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src1);
@@ -2775,9 +2798,10 @@ instr_create_1dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1
 }
 
 instr_t *
-instr_create_1dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
-                       opnd_t src2, opnd_t src3)
+instr_create_1dst_3src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opnd_t src2,
+                       opnd_t src3)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 1, 3);
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src1);
@@ -2787,9 +2811,10 @@ instr_create_1dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1
 }
 
 instr_t *
-instr_create_1dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
-                       opnd_t src2, opnd_t src3, opnd_t src4)
+instr_create_1dst_4src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opnd_t src2,
+                       opnd_t src3, opnd_t src4)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 1, 4);
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src1);
@@ -2800,9 +2825,10 @@ instr_create_1dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1
 }
 
 instr_t *
-instr_create_1dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1,
-                       opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
+instr_create_1dst_5src(void *drcontext, int opcode, opnd_t dst, opnd_t src1, opnd_t src2,
+                       opnd_t src3, opnd_t src4, opnd_t src5)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 1, 5);
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src1);
@@ -2814,8 +2840,9 @@ instr_create_1dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst, opnd_t src1
 }
 
 instr_t *
-instr_create_2dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2)
+instr_create_2dst_0src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 2, 0);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2823,9 +2850,9 @@ instr_create_2dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_2dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t src)
+instr_create_2dst_1src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t src)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 2, 1);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2834,9 +2861,10 @@ instr_create_2dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_2dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t src1, opnd_t src2)
+instr_create_2dst_2src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t src1,
+                       opnd_t src2)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 2, 2);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2846,9 +2874,10 @@ instr_create_2dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_2dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t src1, opnd_t src2, opnd_t src3)
+instr_create_2dst_3src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t src1,
+                       opnd_t src2, opnd_t src3)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 2, 3);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2859,9 +2888,10 @@ instr_create_2dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_2dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+instr_create_2dst_4src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t src1,
+                       opnd_t src2, opnd_t src3, opnd_t src4)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 2, 4);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2873,9 +2903,10 @@ instr_create_2dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_2dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
+instr_create_2dst_5src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t src1,
+                       opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 2, 5);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2888,9 +2919,9 @@ instr_create_2dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_3dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3)
+instr_create_3dst_0src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 3, 0);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2899,9 +2930,10 @@ instr_create_3dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_3dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3, opnd_t src1, opnd_t src2)
+instr_create_3dst_2src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t src1, opnd_t src2)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 3, 2);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2912,9 +2944,10 @@ instr_create_3dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_3dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3)
+instr_create_3dst_3src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t src1, opnd_t src2, opnd_t src3)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 3, 3);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2926,9 +2959,10 @@ instr_create_3dst_3src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_3dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+instr_create_3dst_4src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 3, 4);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2941,10 +2975,10 @@ instr_create_3dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_3dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4,
-                       opnd_t src5)
+instr_create_3dst_5src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 3, 5);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2958,9 +2992,10 @@ instr_create_3dst_5src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_4dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3, opnd_t dst4, opnd_t src)
+instr_create_4dst_1src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t src)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 4, 1);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2971,9 +3006,10 @@ instr_create_4dst_1src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_4dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3, opnd_t dst4, opnd_t src1, opnd_t src2)
+instr_create_4dst_2src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t src1, opnd_t src2)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 4, 2);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -2985,10 +3021,10 @@ instr_create_4dst_2src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_4dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst2,
-                       opnd_t dst3, opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3,
-                       opnd_t src4)
+instr_create_4dst_4src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t *in = instr_build(dcontext, opcode, 4, 4);
     instr_set_dst(in, 0, dst1);
     instr_set_dst(in, 1, dst2);
@@ -3002,9 +3038,10 @@ instr_create_4dst_4src(dcontext_t *dcontext, int opcode, opnd_t dst1, opnd_t dst
 }
 
 instr_t *
-instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+instr_create_Ndst_Msrc_varsrc(void *drcontext, int opcode, uint fixed_dsts,
                               uint fixed_srcs, uint var_srcs, uint var_ord, ...)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts, fixed_srcs + var_srcs);
     uint i;
@@ -3034,9 +3071,10 @@ instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
 }
 
 instr_t *
-instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+instr_create_Ndst_Msrc_vardst(void *drcontext, int opcode, uint fixed_dsts,
                               uint fixed_srcs, uint var_dsts, uint var_ord, ...)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts + var_dsts, fixed_srcs);
     uint i;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,29 +30,33 @@
  * DAMAGE.
  */
 
-#ifndef _INSTR_INLINE_H_
-#define _INSTR_INLINE_H_ 1
+#ifndef _DR_IR_INSTR_INLINE_H_
+#define _DR_IR_INSTR_INLINE_H_ 1
 
+/**************************************************
+ * INSTRUCTION ROUTINE INLINING SUPPORT
+ */
+/**
+ * @file dr_ir_instr_inline.h
+ * @brief Instruction routine inlining support.
+ */
+
+#ifdef DR_FAST_IR /* Around whole file. */
+
+#    ifdef DYNAMORIO_INTERNAL
 /* Use different names to avoid conflicting with an including project */
-#define DR_IF_DEBUG IF_DEBUG
-#define DR_IF_DEBUG_ IF_DEBUG_
+#        define DR_IF_DEBUG IF_DEBUG
+#        define DR_IF_DEBUG_ IF_DEBUG_
 
-/* DR_API EXPORT TOFILE dr_ir_instr.h */
-/* DR_API EXPORT BEGIN */
-
-#ifdef DR_FAST_IR
-
-#    ifdef AVOID_API_EXPORT
 #        define MAKE_OPNDS_VALID(instr)                       \
             (void)(TEST(INSTR_OPERANDS_VALID, (instr)->flags) \
                        ? (instr)                              \
                        : instr_decode_with_current_dcontext(instr))
-#    endif
-
 /* CLIENT_ASSERT with a trailing comma in a debug build, otherwise nothing. */
-#    define CLIENT_ASSERT_(cond, msg) DR_IF_DEBUG_(CLIENT_ASSERT(cond, msg))
-
-#    ifdef API_EXPORT_ONLY
+#        define CLIENT_ASSERT_(cond, msg) DR_IF_DEBUG_(CLIENT_ASSERT(cond, msg))
+#    else
+#        define DR_IF_DEBUG(stmt)
+#        define DR_IF_DEBUG_(stmt)
 /* Internally DR has multiple levels of IR, but once it gets to a client, we
  * assume it's already level 3 or higher, and we don't need to do any checks.
  * Furthermore, instr_decode() and get_thread_private_dcontext() are not
@@ -63,8 +67,7 @@
  * internal routines we'd use for these checks anyway.
  */
 #        define CLIENT_ASSERT(cond, msg)
-#        define DR_IF_DEBUG(stmt)
-#        define DR_IF_DEBUG_(stmt)
+#        define CLIENT_ASSERT_(cond, msg)
 #    endif
 
 /* Any function that takes or returns an opnd_t by value should be a macro,
@@ -487,6 +490,4 @@ instr_from_noalloc(instr_noalloc_t *noalloc)
 
 #endif /* DR_FAST_IR */
 
-/* DR_API EXPORT END */
-
-#endif /* _INSTR_INLINE_H_ */
+#endif /* _DR_IR_INSTR_INLINE_H_ */

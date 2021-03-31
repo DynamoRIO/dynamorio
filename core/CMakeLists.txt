@@ -34,6 +34,9 @@ include(../make/policies.cmake NO_POLICY_SCOPE)
 ###########################################################################
 # Sources and targets
 
+# Used to share exported headers with clients.
+add_definitions(-DDYNAMORIO_INTERNAL)
+
 # we have no exe's here, and we want our dll's in the lib dir
 # (could use MODULE instead of SHARED if it would let us link)
 set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
@@ -1159,6 +1162,8 @@ DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_events.h dr_events.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/encode_api.h dr_ir_encode.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/decode_api.h dr_ir_decode.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/disassemble_api.h dr_ir_disassemble.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_api.h dr_ir_instr.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_inline_api.h dr_ir_instr_inline.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_ir_utils.h dr_ir_utils.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_tools.h dr_tools.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/annotations_api.h dr_annotation.h)
