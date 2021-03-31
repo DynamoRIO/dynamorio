@@ -164,6 +164,7 @@ set(CORE_SRCS
   io.c
   native_exec.c
   lib/instrument.c
+  lib/module_api.c
   translate.c
   annotations.c
   jit_opt.c
@@ -1156,6 +1157,7 @@ endif ()
 
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/annotations_api.h dr_annotation.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_inject.h dr_inject.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/module_api.h dr_modules.h)
 
 install_exported_target(drinjectlib ${INSTALL_LIB_BASE})
 DR_export_target(drinjectlib)

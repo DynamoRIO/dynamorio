@@ -35,86 +35,8 @@
 #define MODULE_SHARED_H
 
 #include "heap.h" /* for HEAPACCT */
-
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-/**************************************************
- * MODULE INFORMATION TYPES
- */
-
-/**
- * Type used for dr_get_proc_address().  This can be obtained from the
- * #_module_data_t structure.  It is equivalent to the base address of
- * the module on both Windows and Linux.
- */
-#ifdef AVOID_API_EXPORT
-/* Rather than using a void * for the module base, we forward declare a struct
- * that we never define.  This prevents usage errors such as passing a
- * module_data_t* to dr_get_proc_address().
- */
-#endif
-struct _module_handle_t;
-typedef struct _module_handle_t *module_handle_t;
-
-#ifdef WINDOWS
-
-#    define MODULE_FILE_VERSION_INVALID ULLONG_MAX
-
-/**
- * Used to hold .rsrc section version number information. This number is usually
- * presented as p1.p2.p3.p4 by PE parsing tools.
- */
-typedef union _version_number_t {
-    uint64 version; /**< Representation as a 64-bit integer. */
-    struct {
-        uint ms;    /**< */
-        uint ls;    /**< */
-    } version_uint; /**< Representation as 2 32-bit integers. */
-    struct {
-        ushort p2;   /**< */
-        ushort p1;   /**< */
-        ushort p4;   /**< */
-        ushort p3;   /**< */
-    } version_parts; /**< Representation as 4 16-bit integers. */
-} version_number_t;
-
-#endif
-
-/* DR_API EXPORT END */
-
+#include "module_api.h"
 #include "module.h" /* include os_specific header */
-
-/* DR_API EXPORT TOFILE dr_tools.h */
-/* DR_API EXPORT BEGIN */
-
-/**
- * Holds the names of a module.  This structure contains multiple
- * fields corresponding to different sources of a module name.  Note
- * that some of these names may not exist for certain modules.  It is
- * highly likely, however, that at least one name is available.  Use
- * dr_module_preferred_name() on the parent _module_data_t to get the
- * preferred name of the module.
- */
-typedef struct _module_names_t {
-    const char *module_name; /**< On windows this name comes from the PE header exports
-                              * section (NULL if the module has no exports section).  On
-                              * Linux the name will come from the ELF DYNAMIC program
-                              * header (NULL if the module has no SONAME entry). */
-    const char *file_name; /**< The file name used to load this module. Note - on Windows
-                            * this is not always available. */
-#ifdef WINDOWS
-    const char *exe_name;  /**< If this module is the main executable of this process then
-                            * this is the executable name used to launch the process (NULL
-                            * for all other modules). */
-    const char *rsrc_name; /**< The internal name given to the module in its resource
-                            * section. Will be NULL if the module has no resource section
-                            * or doesn't set this field within it. */
-#else                      /* UNIX */
-    uint64 inode; /**< The inode of the module file mapped in. */
-#endif
-} module_names_t;
-
-/* DR_API EXPORT END */
 
 #ifdef WINDOWS
 /* Introduced as part of case 9842; see module_names_t above.  Shouldn't

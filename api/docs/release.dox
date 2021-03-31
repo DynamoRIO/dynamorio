@@ -151,6 +151,9 @@ compatibility changes:
    and-swap's semantics are not identical: it does not detect "ABA" changes and
    could cause errors in lock-free data structures or other application constructs.
    See \ref sec_ldrex for more information.
+ - The header file dr_tools.h has been split up, with module information now in
+   a new file dr_modules.h.  dr_api.h includes the new file, so users including
+   dr_api.h are unaffected.
 
 Further non-compatibility-affecting changes include:
 
