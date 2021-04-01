@@ -167,6 +167,10 @@ if ($header) {
                 "$existing[$index]" eq "$dir/dr_ir_opcodes_x86.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_opcodes_arm.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_opcodes_aarch64.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_macros.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_macros_x86.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_macros_arm.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_macros_aarch64.h" ||
                 "$existing[$index]" eq "$dir/dr_events.h") {
                 delete $existing[$index];
             }
@@ -192,10 +196,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/lib/c_defines.h", # defs
      "$core/globals.h",
      "$core/arch/proc.h",
-     "$core/ir/instr_create_shared.h",
-     "$core/ir/x86/instr_create.h",
-     "$core/ir/aarch64/instr_create.h",
-     "$core/ir/arm/instr_create.h",
      "$core/win32/os_private.h", # rsrc section walking
      "$core/hotpatch.c",         # probe api
      "$core/../libutil/dr_frontend.h",

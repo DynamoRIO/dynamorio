@@ -47,7 +47,7 @@
 #endif
 #include "instrument.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "disassemble.h"
 #include "os_private.h"

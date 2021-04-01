@@ -1,6 +1,6 @@
 #!/usr/bin/tclsh
 # **********************************************************
-# Copyright (c) 2017-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2017-2021 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,7 @@ array set length_exempt [list {statsx.h} {1} \
                              {table_t32_base.c} {1} \
                              {table_t32_coproc.c} {1} \
                              {table_encode.c} {1} \
-                             {instr_create.h} {1} \
+                             {instr_create_api.h} {1} \
                              {decode_gen.h} {1} \
                              {encode_gen.h} {1} \
                              {elfdefinitions.h} {1} ]
