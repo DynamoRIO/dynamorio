@@ -73,8 +73,14 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           g++-multilib
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
 
     - name: Get Version
       id: version
