@@ -133,6 +133,29 @@ struct _opnd_t {
  */
 #define EXPECTED_SIZEOF_OPND (3 * sizeof(uint) IF_X64(+4 /*struct size padding*/))
 
+#ifdef X86
+/* Debug registers are used for breakpoint with x86.
+ * DynamoRIO needs to keep track of their values process-wide.
+ */
+#    define DEBUG_REGISTERS_NB 4
+/* Dr7 flags mask to enable debug registers */
+#    define DEBUG_REGISTERS_FLAG_ENABLE_DR0 0x3
+#    define DEBUG_REGISTERS_FLAG_ENABLE_DR1 0xc
+#    define DEBUG_REGISTERS_FLAG_ENABLE_DR2 0x30
+#    define DEBUG_REGISTERS_FLAG_ENABLE_DR3 0xc0
+extern app_pc d_r_debug_register[DEBUG_REGISTERS_NB];
+
+/* Tells if instruction will trigger an exception because of debug register. */
+static inline bool
+debug_register_fire_on_addr(app_pc pc)
+{
+    ASSERT(DEBUG_REGISTERS_NB == 4);
+    return (pc != NULL &&
+            (pc == d_r_debug_register[0] || pc == d_r_debug_register[1] ||
+             pc == d_r_debug_register[2] || pc == d_r_debug_register[3]));
+}
+#endif
+
 /* functions to build an operand */
 
 /* not exported */

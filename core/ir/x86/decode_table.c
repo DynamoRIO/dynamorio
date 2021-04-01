@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,7 +69,7 @@
  * Operand pointers into tables
  * When there are multiple encodings of an opcode, this points to the first
  * entry in a linked list.
- * This array corresponds with the enum in opcode.h
+ * This array corresponds with the enum in opcode_api.h
  * IF YOU CHANGE ONE YOU MUST CHANGE THE OTHER
  */
 const instr_info_t * const op_instr[] =
