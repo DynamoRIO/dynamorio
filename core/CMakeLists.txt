@@ -64,10 +64,14 @@ function (add_gen_events_deps target)
 endfunction (add_gen_events_deps)
 
 if (AARCH64)
-  # Required for opcode.h and codec headers, which are auto-generated on AArch64.
+  # Required for opcode_api.h and codec headers, which are auto-generated on AArch64.
   include(../make/CMake_aarch64_gen_codec.cmake)
   add_custom_target(gen_aarch64_codec DEPENDS "${AARCH64_CODEC_GEN_SRCS}")
   include_directories(BEFORE ${PROJECT_BINARY_DIR})
+  add_custom_command(TARGET gen_aarch64_codec POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+    ARGS -E copy ${PROJECT_BINARY_DIR}/opcode_api.h
+    ${BUILD_INCLUDE}/dr_ir_opcodes_aarch64.h VERBATIM)
 endif ()
 
 set(asm_deps
@@ -1166,6 +1170,9 @@ DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/opnd_api.h dr_ir_opnd.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_api.h dr_ir_instr.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instr_inline_api.h dr_ir_instr_inline.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/instrlist_api.h dr_ir_instrlist.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/dr_ir_opcodes.h dr_ir_opcodes.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/x86/opcode_api.h dr_ir_opcodes_x86.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/arm/opcode_api.h dr_ir_opcodes_arm.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_ir_utils.h dr_ir_utils.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_tools.h dr_tools.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/annotations_api.h dr_annotation.h)
