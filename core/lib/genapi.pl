@@ -163,6 +163,10 @@ if ($header) {
                 "$existing[$index]" eq "$dir/dr_ir_instr_inline.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_instrlist.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_opnd.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_opcodes.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_opcodes_x86.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_opcodes_arm.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_opcodes_aarch64.h" ||
                 "$existing[$index]" eq "$dir/dr_events.h") {
                 delete $existing[$index];
             }
@@ -188,9 +192,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/lib/c_defines.h", # defs
      "$core/globals.h",
      "$core/arch/proc.h",
-     "$core/ir/x86/opcode.h",
-     "$core/ir/arm/opcode.h",
-     "$core/ir/instr.h",
      "$core/ir/instr_create_shared.h",
      "$core/ir/x86/instr_create.h",
      "$core/ir/aarch64/instr_create.h",
@@ -199,12 +200,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/hotpatch.c",         # probe api
      "$core/../libutil/dr_frontend.h",
      );
-
-# AArch64's opcode.h is auto-generated. We expect $dir point to a directory
-# one level deep in the build directory.
-if (defined($defines{"AARCH64"})) {
-    push(@headers, "$dir/../opcode.h");
-}
 
 # PR 214947: VMware retroactively holds the copyright.
 $copyright = q+/* **********************************************************

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 # **********************************************************
+# Copyright (c) 2021 Google, Inc.   All rights reserved.
 # Copyright (c) 2016 - 2018 ARM Limited. All rights reserved.
 # **********************************************************
 
@@ -31,7 +32,8 @@
 # DAMAGE.
 
 # This script reads "codec.txt" and generates "decode_gen.h", "encode_gen.h",
-# "opcode.h" and "opcode_names.h". It is automatically run by Cmake when codec.txt changes.
+# "opcode_api.h" and "opcode_names.h".
+# It is automatically run by Cmake when codec.txt changes.
 
 import os
 import re
@@ -247,11 +249,8 @@ def generate_opcodes(patterns):
     mns = dict()
     for p in patterns:
         mns[p[2]] = 1
-    c = ['#ifndef OPCODE_H',
-         '#define OPCODE_H 1',
-         '',
-         '/* DR_API EXPORT TOFILE dr_ir_opcodes_aarch64.h */',
-         '/* DR_API EXPORT BEGIN */',
+    c = ['#ifndef _DR_IR_OPCODES_AARCH64_H_',
+         '#define _DR_IR_OPCODES_AARCH64_H_ 1',
          '',
          '/****************************************************************************',
          ' * OPCODES',
@@ -294,9 +293,8 @@ def generate_opcodes(patterns):
           '',
           '/******************************'
           '**********************************************/',
-          '/* DR_API EXPORT END */',
           '',
-          '#endif /* OPCODE_H */']
+          '#endif /* _DR_IR_OPCODES_AARCH64_H */']
     return '\n'.join(c) + '\n'
 
 def generate_opcode_names(patterns):
@@ -461,7 +459,7 @@ def main():
                      header + generate_decoder(patterns, opndsettab, opndtab))
     write_if_changed(os.path.join(sys.argv[2], 'encode_gen.h'),
                      header + generate_encoder(patterns, opndsettab, opndtab))
-    write_if_changed(os.path.join(sys.argv[2], 'opcode.h'),
+    write_if_changed(os.path.join(sys.argv[2], 'opcode_api.h'),
                      header + generate_opcodes(patterns))
     write_if_changed(os.path.join(sys.argv[2], 'opcode_names.h'),
                      header + generate_opcode_names(patterns))
