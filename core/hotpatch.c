@@ -41,7 +41,7 @@
 #include "fragment.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "instrument.h"
 #include "hotpatch.h"

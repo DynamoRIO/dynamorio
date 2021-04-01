@@ -40,7 +40,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_private.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 
 #ifdef X64
 /*

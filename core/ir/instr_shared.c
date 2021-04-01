@@ -57,7 +57,7 @@
 #include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 /* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
 #include "x86/decode_private.h"
 
@@ -2713,7 +2713,7 @@ instr_convert_short_meta_jmp_to_long(void *drcontext, instrlist_t *ilist, instr_
  * opcode complaints:
  * OP_imm vs. OP_st
  * OP_ret: build routines have to separate ret_imm and ret_far_imm
- * others, see FIXME's in instr_create.h
+ * others, see FIXME's in instr_create_api.h
  */
 
 instr_t *

@@ -40,7 +40,7 @@
 
 #include "../globals.h"
 #include "arch.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrument.h"  /* for insert_get_mcontext_base */
 #include "decode_fast.h" /* for decode_next_pc */
 #include "disassemble.h"

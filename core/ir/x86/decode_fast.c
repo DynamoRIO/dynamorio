@@ -42,7 +42,7 @@
 #include "../link.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode.h"
 #include "decode_private.h"
 #include "disassemble.h"

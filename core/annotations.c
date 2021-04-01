@@ -33,7 +33,7 @@
 #include "globals.h"
 #include "hashtable.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode_fast.h"
 #include "utils.h"
 #include "annotations.h"

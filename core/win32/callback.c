@@ -54,7 +54,7 @@
 #include "../fragment.h"
 #include "decode_fast.h"
 #include "disassemble.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "ntdll.h"
 #include "events.h"
 #include "os_private.h"
