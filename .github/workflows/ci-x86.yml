@@ -77,12 +77,17 @@ jobs:
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install multilib for non-cross-compiling Linux build.
-    # Install g++-8 to work around 32-bit toolchain problems with 9 (i#4830).
     - name: Create Build Environment
       run: |
         sudo apt update
-        sudo apt-get -y install g++-8 doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-8-multilib
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          g++-multilib
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -130,12 +135,17 @@ jobs:
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install multilib for non-cross-compiling Linux build.
-    # Install g++-8 to work around 32-bit toolchain problems with 9 (i#4830).
     - name: Create Build Environment
       run: |
         sudo apt update
-        sudo apt-get -y install g++-8 doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-8-multilib
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          g++-multilib
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
