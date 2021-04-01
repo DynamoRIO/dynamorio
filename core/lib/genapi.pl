@@ -159,6 +159,8 @@ if ($header) {
                 "$existing[$index]" eq "$dir/dr_ir_encode.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_decode.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_disassemble.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_instr.h" ||
+                "$existing[$index]" eq "$dir/dr_ir_instr_inline.h" ||
                 "$existing[$index]" eq "$dir/dr_events.h") {
                 delete $existing[$index];
             }
@@ -189,7 +191,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/ir/arm/opcode.h",
      "$core/ir/opnd.h",
      "$core/ir/instr.h",
-     "$core/ir/instr_inline.h",
      "$core/ir/instr_create_shared.h",
      "$core/ir/x86/instr_create.h",
      "$core/ir/aarch64/instr_create.h",

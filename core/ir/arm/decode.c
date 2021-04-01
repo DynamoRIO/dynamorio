@@ -1789,9 +1789,10 @@ instr_it_block_compute_immediates(dr_pred_type_t pred0, dr_pred_type_t pred1,
 }
 
 instr_t *
-instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
+instr_it_block_create(void *drcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
                       dr_pred_type_t pred2, dr_pred_type_t pred3)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte firstcond = 0, mask = 0;
     if (!instr_it_block_compute_immediates(pred0, pred1, pred2, pred3, &firstcond,
                                            &mask)) {

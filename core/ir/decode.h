@@ -42,33 +42,9 @@
 
 #include "decode_api.h"
 
-/* Public prefix constants.  decode_private.h may define additional constants
- * only used during decoding.
+/* Public PREFIX_ constants are in instr_api.h.
+ * decode_private.h may define additional constants only used during decoding.
  */
-/* DR_API EXPORT TOFILE dr_ir_instr.h */
-/* FIXME i#1551: add another attribute to ARM as PREFIX_ constants:
- *  + Add shift type for shifted source registers: 2-bit enum instead of
- *    6-entry bitfield, since not composable.
- */
-/* DR_API EXPORT BEGIN */
-
-/****************************************************************************
- * instr_t prefixes
- *
- * Note that prefixes that change the data or address size, or that
- * specify a different base segment, are not specified on a
- * whole-instruction level, but rather on individual operands (of
- * course with multiple operands they must all match).
- * The rep and repne prefixes are encoded directly into the opcodes.
- *
- */
-#define PREFIX_LOCK 0x01          /**< Makes the instruction's memory accesses atomic. */
-#define PREFIX_JCC_NOT_TAKEN 0x02 /**< Branch hint: conditional branch is taken. */
-#define PREFIX_JCC_TAKEN 0x04     /**< Branch hint: conditional branch is not taken. */
-#define PREFIX_XACQUIRE 0x08      /**< Transaction hint: start lock elision. */
-#define PREFIX_XRELEASE 0x10      /**< Transaction hint: end lock elision. */
-
-/* DR_API EXPORT END */
 
 /* We encode some prefixes in the operands themselves, such that we shouldn't
  * consider the whole-instr_t flags when considering equality of instr_t
