@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -49,7 +49,7 @@ if (UNIX)
    ${PROJECT_SOURCE_DIR}/core/lib
   )
 
-  add_definitions(-DNOT_DYNAMORIO_CORE)
+  add_definitions(-DNOT_DYNAMORIO_CORE -DDYNAMORIO_INTERNAL)
 
   # i#1092: remove any stale symlink that might be there.
   file(REMOVE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/drdeploy")
@@ -97,7 +97,7 @@ else (UNIX)
   # remove /wd4996
   string(REGEX REPLACE "/W4" "/W3" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   set(tool_cflags "/wd4996")
-  add_definitions(-DNOT_DYNAMORIO_CORE -DWIN32)
+  add_definitions(-DNOT_DYNAMORIO_CORE -DWIN32 -DDYNAMORIO_INTERNAL)
 
   set(RESOURCES ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 

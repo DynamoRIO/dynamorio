@@ -171,7 +171,10 @@ if ($header) {
                 "$existing[$index]" eq "$dir/dr_ir_macros_x86.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_macros_arm.h" ||
                 "$existing[$index]" eq "$dir/dr_ir_macros_aarch64.h" ||
-                "$existing[$index]" eq "$dir/dr_events.h") {
+                "$existing[$index]" eq "$dir/dr_events.h" ||
+                "$existing[$index]" eq "$dir/dr_frontend.h" ||
+                "$existing[$index]" eq "$dir/dr_proc.h" ||
+                "$existing[$index]" eq "$dir/dr_probe.h") {
                 delete $existing[$index];
             }
         }
@@ -196,9 +199,6 @@ $arch = (defined($defines{"AARCH64"}) ? "aarch64" :
      "$core/lib/c_defines.h", # defs
      "$core/globals.h",
      "$core/arch/proc.h",
-     "$core/win32/os_private.h", # rsrc section walking
-     "$core/hotpatch.c",         # probe api
-     "$core/../libutil/dr_frontend.h",
      );
 
 # PR 214947: VMware retroactively holds the copyright.
