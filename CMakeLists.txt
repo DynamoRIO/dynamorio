@@ -1688,7 +1688,7 @@ set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_defines.h)
 add_custom_target(api_headers
   DEPENDS ${EXTRA_HEADERS})
 if (AARCH64)
-  add_dependencies(api_headers gen_aarch64_codec)
+  add_dependencies(api_headers gen_aarch64_codec gen_aarch64_opcodes)
 endif()
 
 DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_app.h dr_app.h)

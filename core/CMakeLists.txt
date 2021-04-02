@@ -68,10 +68,16 @@ if (AARCH64)
   include(../make/CMake_aarch64_gen_codec.cmake)
   add_custom_target(gen_aarch64_codec DEPENDS "${AARCH64_CODEC_GEN_SRCS}")
   include_directories(BEFORE ${PROJECT_BINARY_DIR})
-  add_custom_command(TARGET gen_aarch64_codec POST_BUILD
+  # Export the generated opcode header.  Use a custom target and command to avoid
+  # repeated re-copying (a POST_BUILD with copy_if_different doesn't seem to work how
+  # it should: it still runs the command every time, though it doesn't copy anything).
+  set(aarch64_exported_opcodes ${BUILD_INCLUDE}/dr_ir_opcodes_aarch64.h)
+  add_custom_target(gen_aarch64_opcodes DEPENDS ${aarch64_exported_opcodes})
+  add_custom_command(OUTPUT ${aarch64_exported_opcodes}
+    DEPENDS ${PROJECT_BINARY_DIR}/opcode_api.h
     COMMAND ${CMAKE_COMMAND}
     ARGS -E copy ${PROJECT_BINARY_DIR}/opcode_api.h
-    ${BUILD_INCLUDE}/dr_ir_opcodes_aarch64.h VERBATIM)
+    ${aarch64_exported_opcodes} VERBATIM)
 endif ()
 
 set(asm_deps
