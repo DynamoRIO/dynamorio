@@ -256,14 +256,12 @@ typedef enum {
     FEATURE_AVX512BW = 30 + 128, /**< AVX-512BW instructions supported */
 } feature_bit_t;
 
+/* Make sure to keep this in sync with proc_get_cache_size_str() in proc.c. */
 /**
  * L1 and L2 cache sizes, used by proc_get_L1_icache_size(),
  * proc_get_L1_dcache_size(), proc_get_L2_cache_size(), and
  * proc_get_cache_size_str().
  */
-#ifdef AVOID_API_EXPORT
-/* Make sure to keep this in sync with proc_get_cache_size_str() in proc.c */
-#endif
 typedef enum {
     CACHE_SIZE_8_KB,   /**< L1 or L2 cache size of 8 KB. */
     CACHE_SIZE_16_KB,  /**< L1 or L2 cache size of 16 KB. */

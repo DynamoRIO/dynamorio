@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -73,6 +73,7 @@
 #else
 #    include <windows.h>
 #    include <process.h> /* _beginthreadex */
+#    include <stdlib.h>  /* _set_error_mode */
 #    if defined(DEBUG) && !defined(NO_DBG_CRT)
 #        include <crtdbg.h>
 #    endif

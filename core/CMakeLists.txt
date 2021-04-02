@@ -592,12 +592,7 @@ endfunction (configure_core_lib)
 
 add_library(dynamorio SHARED
   ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS}
-  # FIXME: any other way to add a dependence?  this is for export_list,
-  # where the PRE_LINK custom command doesn't support DEPENDS.
-  # Apparently just files w/ certain extensions are pulled out of here
-  # for automatic rules.
-  ${CMAKE_CURRENT_SOURCE_DIR}/lib/genapi.pl
-  # ditto: adding here for dependence
+  # Adding here for dependence.
   ${PROJECT_SOURCE_DIR}/make/ldscript.cmake
   )
 
@@ -613,18 +608,9 @@ if (UNIX)
   append_property_string(TARGET dynamorio LINK_FLAGS "-Wl,${ld_entry_flag},_start")
 
   if (NOT HAVE_FVISIBILITY)
-    set(export_list ${CMAKE_CURRENT_BINARY_DIR}/exportlist)
-    add_custom_command(TARGET dynamorio
-      PRE_LINK
-      COMMAND ${PERL_EXECUTABLE}
-      ARGS ${CMAKE_CURRENT_SOURCE_DIR}/lib/genapi.pl
-           # we assume ">" will work in all supported shells
-           -filter "${defines}" > ${export_list}
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      VERBATIM # recommended: p260
-      )
-    append_property_string(TARGET dynamorio LINK_FLAGS
-      "-Xlinker --version-script -Xlinker ${export_list}")
+    # We used to have the genapi.pl script build an linker script
+    # export list for us but we no longer support that.
+    message(FATAL_ERROR "-fvisibility is required to build")
   endif (NOT HAVE_FVISIBILITY)
 
   # This appends to LINK_FLAGS, so do it after we set them above.
@@ -1168,6 +1154,8 @@ if (NOT APPLE)
   DR_export_target(dynamorio_static)
 endif ()
 
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/globals_api.h dr_defines.h)
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/mcxtx_api.h dr_mcxtx.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/lib/dr_events.h dr_events.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/encode_api.h dr_ir_encode.h)
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/ir/decode_api.h dr_ir_decode.h)
