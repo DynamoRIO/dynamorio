@@ -69,7 +69,8 @@ jobs:
 
     - name: Create Build Environment
       run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
+          clang-format-6.0
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

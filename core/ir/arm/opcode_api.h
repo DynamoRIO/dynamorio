@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,13 +30,8 @@
  * DAMAGE.
  */
 
-/* file "opcode.h" -- opcode definitions and utilities */
-
-#ifndef _OPCODE_H_
-#define _OPCODE_H_ 1
-
-/* DR_API EXPORT TOFILE dr_ir_opcodes_arm.h */
-/* DR_API EXPORT BEGIN */
+#ifndef _DR_IR_OPCODES_ARM_H_
+#define _DR_IR_OPCODES_ARM_H_ 1
 
 /****************************************************************************
  * OPCODES
@@ -45,7 +40,6 @@
  * @file dr_ir_opcodes_arm.h
  * @brief Instruction opcode constants for ARM.
  */
-#ifdef AVOID_API_EXPORT
 /*
  * This enum corresponds with the arrays in table_*.c.
  * They must be kept consistent, using tools/x86opnums.pl (pass -arm).
@@ -59,7 +53,6 @@
  *   5) instr_create macros
  *   6) suite/tests/api/ir* tests
  */
-#endif
 /** Opcode constants for use in the instr_t data structure. */
 enum {
     /*   0 */ OP_INVALID,
@@ -1021,12 +1014,4 @@ enum {
 #define OP_load OP_ldr          /**< Platform-independent opcode name for load. */
 #define OP_store OP_str         /**< Platform-independent opcode name for store. */
 
-/****************************************************************************/
-/* DR_API EXPORT END */
-
-enum {
-    CBZ_BYTE_A = 0xb1,  /* this assumes the top bit of the disp is 0 */
-    CBNZ_BYTE_A = 0xb9, /* this assumes the top bit of the disp is 0 */
-};
-
-#endif /* _OPCODE_H_ */
+#endif /* _DR_IR_OPCODES_ARM_H_ */

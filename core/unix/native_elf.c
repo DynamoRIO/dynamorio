@@ -38,7 +38,7 @@
 #include "module.h"
 #include "module_private.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrument.h" /* instrlist_meta_append */
 #include "decode.h"
 #include "disassemble.h"

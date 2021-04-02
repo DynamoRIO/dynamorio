@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,37 +31,15 @@
  * DAMAGE.
  */
 
-/* Copyright (c) 2003-2007 Determina Corp. */
-/* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
+#ifndef _DR_IR_OPCODES_H_
+#define _DR_IR_OPCODES_H_ 1
 
-#ifndef _INSTR_CREATE_H_
-#define _INSTR_CREATE_H_ 1
-
-/* Non-exported instr create macros. */
-
-/* Convenience routine for nop of certain size.
- * Note that Intel now recommends a different set of multi-byte nops,
- * but we stick with these as our tools (mainly windbg) don't understand
- * the OP_nop_modrm encoding (though should work on PPro+).
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param n  The number of bytes in the encoding of the nop.
- */
-#define INSTR_CREATE_nopNbyte(dc, n) instr_create_nbyte_nop(dc, n, false)
-
-/* convenience routines for when you only need raw bits */
-#define INSTR_CREATE_RAW_pushf(dc) instr_create_raw_1byte(dc, 0x9c)
-#define INSTR_CREATE_RAW_popf(dc) instr_create_raw_1byte(dc, 0x9d)
-#define INSTR_CREATE_RAW_pusha(dc) instr_create_raw_1byte(dc, 0x60)
-#define INSTR_CREATE_RAW_popa(dc) instr_create_raw_1byte(dc, 0x61)
-#define INSTR_CREATE_RAW_nop(dc) instr_create_raw_1byte(dc, 0x90)
-#define INSTR_CREATE_RAW_nop1byte(dc) INSTR_CREATE_RAW_nop(dc)
-#ifdef X64
-#    define INSTR_CREATE_RAW_nop2byte(dc) instr_create_raw_2bytes(dc, 0x66, 0x90)
-#    define INSTR_CREATE_RAW_nop3byte(dc) instr_create_raw_3bytes(dc, 0x48, 0x8d, 0x3f)
-#else
-#    define INSTR_CREATE_RAW_nop2byte(dc) instr_create_raw_2bytes(dc, 0x8b, 0xff)
-#    define INSTR_CREATE_RAW_nop3byte(dc) instr_create_raw_3bytes(dc, 0x8d, 0x7f, 0x00)
+#ifdef X86
+#    include "dr_ir_opcodes_x86.h"
+#elif defined(AARCH64)
+#    include "dr_ir_opcodes_aarch64.h"
+#elif defined(ARM)
+#    include "dr_ir_opcodes_arm.h"
 #endif
-#define INSTR_CREATE_RAW_nopNbyte(dc, n) instr_create_nbyte_nop(dc, n, true)
 
-#endif /* _INSTR_CREATE_H_ */
+#endif /* _DR_IR_OPCODES_H_ */

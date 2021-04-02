@@ -44,7 +44,7 @@
 #ifndef _INSTR_H_
 #define _INSTR_H_ 1
 
-#include "opcode.h"
+#include "opcode_api.h"
 #include "opnd.h"
 
 /* To avoid duplicating code we use our own exported macros, unless an includer
@@ -61,19 +61,6 @@
 
 /* can't include decode.h, it includes us, just declare struct */
 struct instr_info_t;
-
-/* DR_API EXPORT TOFILE dr_ir_opcodes.h */
-/* DR_API EXPORT BEGIN */
-#ifdef API_EXPORT_ONLY
-#    ifdef X86
-#        include "dr_ir_opcodes_x86.h"
-#    elif defined(AARCH64)
-#        include "dr_ir_opcodes_aarch64.h"
-#    elif defined(ARM)
-#        include "dr_ir_opcodes_arm.h"
-#    endif
-#endif
-/* DR_API EXPORT END */
 
 /* If INSTR_INLINE is already defined, that means we've been included by
  * instr_shared.c, which wants to use C99 extern inline.  Otherwise, DR_FAST_IR
@@ -790,6 +777,94 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /* cbz/cbnz + b */
 #    define CTI_SHORT_REWRITE_LENGTH 6
 #    define CTI_SHORT_REWRITE_B_OFFS 2
+#endif
+
+#ifdef X86
+enum {
+    RAW_OPCODE_nop = 0x90,
+    RAW_OPCODE_jmp_short = 0xeb,
+    RAW_OPCODE_call = 0xe8,
+    RAW_OPCODE_ret = 0xc3,
+    RAW_OPCODE_jmp = 0xe9,
+    RAW_OPCODE_push_imm32 = 0x68,
+    RAW_OPCODE_pop_eax = 0x58,
+    RAW_OPCODE_jcc_short_start = 0x70,
+    RAW_OPCODE_jne_short = 0x75,
+    RAW_OPCODE_jcc_short_end = 0x7f,
+    RAW_OPCODE_jcc_byte1 = 0x0f,
+    RAW_OPCODE_jcc_byte2_start = 0x80,
+    RAW_OPCODE_jcc_byte2_end = 0x8f,
+    RAW_OPCODE_loop_start = 0xe0,
+    RAW_OPCODE_loop_end = 0xe3,
+    RAW_OPCODE_lea = 0x8d,
+    RAW_OPCODE_SIGILL = 0x0b0f,
+    RAW_PREFIX_jcc_not_taken = 0x2e,
+    RAW_PREFIX_jcc_taken = 0x3e,
+    RAW_PREFIX_lock = 0xf0,
+    RAW_PREFIX_xacquire = 0xf2,
+    RAW_PREFIX_xrelease = 0xf3,
+};
+
+enum { /* FIXME: vs RAW_OPCODE_* enum */
+       CS_SEG_OPCODE = RAW_PREFIX_jcc_not_taken,
+       DS_SEG_OPCODE = RAW_PREFIX_jcc_taken,
+       ES_SEG_OPCODE = 0x26,
+       FS_SEG_OPCODE = 0x64,
+       GS_SEG_OPCODE = 0x65,
+       SS_SEG_OPCODE = 0x36,
+
+/* For Windows, we piggyback on native TLS via gs for x64 and fs for x86.
+ * For Linux, we steal a segment register, and so use fs for x86 (where
+ * pthreads uses gs) and gs for x64 (where pthreads uses fs) (presumably
+ * to avoid conflicts w/ wine).
+ */
+#    ifdef X64
+       TLS_SEG_OPCODE = GS_SEG_OPCODE,
+#    else
+       TLS_SEG_OPCODE = FS_SEG_OPCODE,
+#    endif
+
+       DATA_PREFIX_OPCODE = 0x66,
+       ADDR_PREFIX_OPCODE = 0x67,
+       REPNE_PREFIX_OPCODE = 0xf2,
+       REP_PREFIX_OPCODE = 0xf3,
+       REX_PREFIX_BASE_OPCODE = 0x40,
+       REX_PREFIX_W_OPFLAG = 0x8,
+       REX_PREFIX_R_OPFLAG = 0x4,
+       REX_PREFIX_X_OPFLAG = 0x2,
+       REX_PREFIX_B_OPFLAG = 0x1,
+       REX_PREFIX_ALL_OPFLAGS = 0xf,
+       MOV_REG2MEM_OPCODE = 0x89,
+       MOV_MEM2REG_OPCODE = 0x8b,
+       MOV_XAX2MEM_OPCODE = 0xa3, /* no ModRm */
+       MOV_MEM2XAX_OPCODE = 0xa1, /* no ModRm */
+       MOV_IMM2XAX_OPCODE = 0xb8, /* no ModRm */
+       MOV_IMM2XBX_OPCODE = 0xbb, /* no ModRm */
+       MOV_IMM2MEM_OPCODE = 0xc7, /* has ModRm */
+       JECXZ_OPCODE = 0xe3,
+       JMP_SHORT_OPCODE = 0xeb,
+       JMP_OPCODE = 0xe9,
+       JNE_OPCODE_1 = 0x0f,
+       SAHF_OPCODE = 0x9e,
+       LAHF_OPCODE = 0x9f,
+       SETO_OPCODE_1 = 0x0f,
+       SETO_OPCODE_2 = 0x90,
+       ADD_AL_OPCODE = 0x04,
+       INC_MEM32_OPCODE_1 = 0xff, /* has /0 as well */
+       MODRM16_DISP16 = 0x06,     /* see vol.2 Table 2-1 for modR/M */
+       SIB_DISP32 = 0x25,         /* see vol.2 Table 2-1 for modR/M */
+       RET_NOIMM_OPCODE = 0xc3,
+       RET_IMM_OPCODE = 0xc2,
+       MOV_IMM_EDX_OPCODE = 0xba,
+       VEX_2BYTE_PREFIX_OPCODE = 0xc5,
+       VEX_3BYTE_PREFIX_OPCODE = 0xc4,
+       EVEX_PREFIX_OPCODE = 0x62,
+};
+#elif defined(ARM)
+enum {
+    CBZ_BYTE_A = 0xb1,  /* this assumes the top bit of the disp is 0 */
+    CBNZ_BYTE_A = 0xb9, /* this assumes the top bit of the disp is 0 */
+};
 #endif
 
 #include "instr_inline_api.h"

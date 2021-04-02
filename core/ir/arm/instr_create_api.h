@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,14 +34,9 @@
 /* Copyright (c) 2003-2007 Determina Corp. */
 /* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
 
-#ifndef _INSTR_CREATE_H_
-#define _INSTR_CREATE_H_ 1
+#ifndef _DR_IR_MACROS_ARM_H_
+#define _DR_IR_MACROS_ARM_H_ 1
 
-#include "../instr_create_shared.h"
-#include "instr.h"
-
-/* DR_API EXPORT TOFILE dr_ir_macros_arm.h */
-/* DR_API EXPORT BEGIN */
 /**
  * @file dr_ir_macros_arm.h
  * @brief ARM-specific instruction creation convenience macros.
@@ -956,8 +951,8 @@ enum {
 #define INSTR_CREATE_dsb(dc, imm) instr_create_0dst_1src((dc), OP_dsb, (imm))
 #define INSTR_CREATE_eret_imm(dc, imm) \
     instr_create_0dst_2src((dc), OP_eret, opnd_create_reg(DR_REG_LR), (imm))
-#define INSTR_CREATE_hlt(dc, imm) instr_create_0dst_1src((dc), OP_hlt, (imm))
-#define INSTR_CREATE_hvc(dc, imm) instr_create_0dst_1src((dc), OP_hvc, (imm))
+#define dr_ir_macros_arm_hlt(dc, imm) instr_create_0dst_1src((dc), OP_hlt, (imm))
+#define dr_ir_macros_arm_hvc(dc, imm) instr_create_0dst_1src((dc), OP_hvc, (imm))
 #define INSTR_CREATE_isb(dc, imm) instr_create_0dst_1src((dc), OP_isb, (imm))
 #define INSTR_CREATE_setend(dc, imm) instr_create_0dst_1src((dc), OP_setend, (imm))
 #define INSTR_CREATE_smc(dc, imm) instr_create_0dst_1src((dc), OP_smc, (imm))
@@ -5187,6 +5182,4 @@ enum {
                                   __VA_ARGS__)
 /** @} */ /* end doxygen group */
 
-/* DR_API EXPORT END */
-
-#endif /* _INSTR_CREATE_H_ */
+#endif /* _DR_IR_MACROS_ARM_H_ */

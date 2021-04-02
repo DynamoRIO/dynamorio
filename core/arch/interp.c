@@ -48,7 +48,7 @@
 #include "../monitor.h" /* for trace_abort and monitor_data_t */
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"

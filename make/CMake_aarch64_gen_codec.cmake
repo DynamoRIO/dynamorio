@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2020 Google, Inc.   All rights reserved.
+# Copyright (c) 2020-2021 Google, Inc.   All rights reserved.
 # Copyright (c) 2018 Arm Limited    All rights reserved.
 # **********************************************************
 
@@ -37,7 +37,7 @@ if (NOT PYTHONINTERP_FOUND)
 endif ()
 
 set(AARCH64_CODEC_GEN_SRCS
-  ${PROJECT_BINARY_DIR}/opcode.h
+  ${PROJECT_BINARY_DIR}/opcode_api.h
   ${PROJECT_BINARY_DIR}/decode_gen.h
   ${PROJECT_BINARY_DIR}/encode_gen.h
   ${PROJECT_BINARY_DIR}/opcode_names.h

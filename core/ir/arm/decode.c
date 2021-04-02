@@ -35,7 +35,7 @@
 #include "decode.h"
 #include "decode_private.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "disassemble.h"
 
 /* ARM decoder.
@@ -1798,7 +1798,7 @@ instr_it_block_create(void *drcontext, dr_pred_type_t pred0, dr_pred_type_t pred
                                            &mask)) {
         CLIENT_ASSERT(false, "invalid predicates");
     }
-    /* I did not want to include the massive instr_create.h here */
+    /* I did not want to include the massive instr_create_api.h here */
     return INSTR_CREATE_it(dcontext, OPND_CREATE_INT(firstcond), OPND_CREATE_INT(mask));
 }
 
@@ -3055,7 +3055,7 @@ decode_debug_checks_arch(void)
 
 #ifdef DECODE_UNIT_TEST
 /* FIXME i#1551: add unit tests here.  How divide vs suite/tests/api/ tests? */
-#    include "instr_create.h"
+#    include "instr_create_shared.h"
 
 int
 main()

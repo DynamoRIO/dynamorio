@@ -42,7 +42,7 @@
 
 #include "../globals.h"
 #include "decode.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrument.h"
 
 /* Make code more readable by shortening long lines.
