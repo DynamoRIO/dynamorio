@@ -48,9 +48,9 @@ We employ automated code formatting via [`clang-format` version 6.0](https://rel
 Some of the style conventions have changed over time, but we have not
 wanted to incur the cost in time and history confusion of changing all
 old code.  Thus, you may observe old code that does not comply with
-some of these conventions.  These convention overrule surrounding
+some of these conventions.  These listed conventions overrule surrounding
 code!  Please change the style of old code when you are making other
-change to the same lines.
+changes to the same lines.
 
 # Naming Conventions
 

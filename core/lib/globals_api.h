@@ -47,6 +47,16 @@
  * @brief Basic defines and type definitions.
  */
 
+#    ifdef WINDOWS
+#        define WIN32_LEAN_AND_MEAN
+#        include <windows.h>
+#        include <winbase.h>
+#    else
+#        include <stdio.h>
+#        include <stdlib.h>
+#    endif
+#    include <stdarg.h> /* for varargs */
+
 #    ifndef DYNAMORIO_INTERNAL
 /* A client's target operating system and architecture must be specified. */
 #        if !defined(LINUX) && !defined(WINDOWS) && !defined(MACOS)
@@ -72,15 +82,6 @@
 #        else
 #            error Target architecture unknown: define X86_32, X86_64, ARM_32, or ARM_64
 #        endif
-#        ifdef WINDOWS
-#            define WIN32_LEAN_AND_MEAN
-#            include <windows.h>
-#            include <winbase.h>
-#        else
-#            include <stdio.h>
-#            include <stdlib.h>
-#        endif
-#        include <stdarg.h>             /* for varargs */
 #        define DR_API                  /* Ignore for clients. */
 #        define DR_UNS_EXCEPT_TESTS_API /* Ignore for clients. */
 #    endif
