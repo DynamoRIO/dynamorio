@@ -192,7 +192,7 @@ typedef enum {
     */
 
     HOTP_INJECT_OFF = 102 /* Policy has been turned off, so no injection. */
-#endif                    /* AVOID_API_EXPORT */
+#endif                    /* DYNAMORIO_INTERNAL */
 } dr_probe_status_t;
 
 /** Specifies what type of computation to use when computing the address of a

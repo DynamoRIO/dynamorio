@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2019 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -68,7 +68,7 @@ endforeach (config)
 
 set(CMAKE_MFC_FLAG 1) # static dlls
 
-add_definitions(-DNOT_DYNAMORIO_CORE -DWIN32 -DUNICODE -D_UNICODE)
+add_definitions(-DNOT_DYNAMORIO_CORE -DDYNAMORIO_INTERNAL -DWIN32 -DUNICODE -D_UNICODE)
 
 include_directories(
   ${PROJECT_SOURCE_DIR}/libutil

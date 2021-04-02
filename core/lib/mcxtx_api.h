@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -31,19 +31,15 @@
  */
 
 /*
- * mcxtx.h
+ * mcxtx_api.h
  *
  * Machine context struct.  Included into two separate
- * structs for internal and external use.
+ * structs for internal and external use and so it has no include guard.
+ * Not meant to be directly includedt into an implementation file!
  *
  */
 /* clang-format off */
-/* START INCLUDE */
-
 #ifdef AARCHXX
-#    ifdef AVOID_API_EXPORT
-    /* FIXME: have special comment syntax instead of bogus ifdef to
-     * get genapi to strip out internal-only comments? */
     /* We want to simplify things by keeping this in register lists order.
      * We also want registers used by ibl to be placed together to fit on
      * the same 32-byte cache line, whether on a 32-bit or 64-bit machine,
@@ -56,7 +52,6 @@
      * actually holds DR's TLS base just due to a quirk of how fcache_enter
      * operates.
      */
-#    endif
     reg_t r0;   /**< The r0 register. */
     reg_t r1;   /**< The r1 register. */
     reg_t r2;   /**< The r2 register. */
@@ -142,9 +137,6 @@
      */
     dr_simd_t simd[MCXT_NUM_SIMD_SLOTS];
 #else /* X86 */
-#    ifdef AVOID_API_EXPORT
-    /* FIXME: have special comment syntax instead of bogus ifdef to
-     * get genapi to strip out internal-only comments? */
     /* Our inlined ibl uses eax-edx, so we place them together to fit
      * on the same 32-byte cache line; yet we also want to simplify
      * things by keeping this in pusha order.  Whether on a 32-bit or
@@ -155,7 +147,6 @@
      * UPDATE: actually we now use TLS for scratch slots.
      * See the list above of places that assume dr_mcxt_t layout.
      */
-#    endif
     union {
         reg_t xdi; /**< The platform-independent name for full rdi/edi register. */
         reg_t IF_X64_ELSE(rdi, edi); /**< The platform-dependent name for
@@ -248,7 +239,6 @@
          * will not attempt to fill zmm fields w/o support by the processor and OS. The
          * fields then will contain the full zmm register values.
          */
-#    ifdef AVOID_API_EXPORT
         /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,
          * and xmm0-15 if in a 64-bit Linux app (PR 302107).  (Note that
          * mmx0-7 are also caller-saved on linux but we assume they're not
@@ -273,7 +263,6 @@
          * MCXT_NUM_SIMD_SLOTS will be 32. This excludes AVX-512 k mask registers, which
          * will add another 64 bytes.
          */
-#    endif
         dr_zmm_t simd[MCXT_NUM_SIMD_SLOTS];
         /**
          * \deprecated The ymm field is provided for backward compatibility and is an

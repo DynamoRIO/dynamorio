@@ -1331,8 +1331,7 @@ configure_file(
   ${PROJECT_BINARY_DIR}/configure.h
   )
 
-# We want a define that's set to all the options for the C code,
-# and a var set to all the options for genapi.pl.
+# We want a define that's set to all the options.
 # Something like cpp -dN but we need it on Windows and want only defines.
 # Strategy: add -D<define> token after each #define, and then run
 # cpp => left with just the -D<define> that are defined.
@@ -1684,35 +1683,13 @@ if (NOT ANNOTATIONS)
   string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
   file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
 endif ()
-set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_defines.h)
-add_custom_target(api_headers
-  DEPENDS ${EXTRA_HEADERS})
+add_custom_target(api_headers)
 if (AARCH64)
   add_dependencies(api_headers gen_aarch64_codec gen_aarch64_opcodes)
 endif()
 
 DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_app.h dr_app.h)
 
-# TODO i#3092: Refactor all headers with "DR_API EXPORT" directives into
-# separate files containing only public content that we can simply copy using
-# DR_export_header() and then remove genapi.pl altogether.
-#
-# For now, we still use genapi.pl for many files.
-# The list of deps is technically only the headers in the genapi.pl list but
-# we list all here for simplicity:
-file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c
-  core/arch/*/*.h core/ir/*.h core/ir/*/*.h ext/*/*.h)
-add_custom_command(
-  OUTPUT ${EXTRA_HEADERS} # among other files
-  DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
-          ${header_files}
-  COMMAND ${PERL_EXECUTABLE}
-  ARGS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
-      -core ${PROJECT_SOURCE_DIR}/core
-      -header ${BUILD_INCLUDE} "${defines} -DAPI_EXPORT_ONLY"
-  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
-  VERBATIM # recommended: p260
-  )
 DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .
   REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 

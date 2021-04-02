@@ -54,6 +54,8 @@ change to the same lines.
 
 # Naming Conventions
 
+-# Header files consisting of exported interface content that is also used internally are named with an `_api.h` suffix: e.g., `encode_api.h`.  If the content is solely used externally, it should be named the same as its exported name: e.g., `dr_inject.h`.  For the former case, where the exported name is different, the include guards should use the exported name.
+
 -# Variable and function names use only lowercase letters.  Multi-word
 function and variable names are all lowercase with underscores delimiting
 words.  Do not use CamelCase for names, unless mirroring Windows-defined
@@ -120,6 +122,8 @@ have a corresponding leading or trailing underscore:
 -# Functions that operate on a data structure should contain that
 structure as a prefix.  For example, all of the routines that operate on
 the `instr_t` struct begin with `instr_`.
+
+-# In `core/`, short names or any global name with a chance of colliding with names from an including application linking statically should be qualified with a `d_r_` prefx: e.g., `d_r_dispatch`.  This is distinct from the `dr_` prefix which is used on exported interface names.
 
 -# Use `static` when possible for every function or variable
 that is not needed outside of its own file.
