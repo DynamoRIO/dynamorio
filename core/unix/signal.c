@@ -4170,11 +4170,12 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
                 ASSERT(target != NULL);
                 if (target != NULL)
                     f = fragment_pclookup(dcontext, target, &wrapper);
-                /* I tried to hit this case running client.cleancallsig in a loop
-                 * and while I could on x86 and x86_64 I never did on ARM or
-                 * AArch64.  We can remove this once someone hits it and it works.
+                /* Hit this case running client.cleancallsig in a loop on x86
+                 * and x86_64, and hit it in a proprietary application with
+                 * plain DR (debug build) on AArch64. Never tested for ARM. We
+                 * can remove this once someone hits it and it works.
                  */
-                IF_AARCHXX(ASSERT_NOT_TESTED());
+                IF_ARM(ASSERT_NOT_TESTED());
             }
             instr_free(dcontext, &instr);
         }
