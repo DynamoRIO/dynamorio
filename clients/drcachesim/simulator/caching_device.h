@@ -36,7 +36,6 @@
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
-#include <iostream> //NOCHECK
 #include <functional>
 #include <unordered_map>
 #include <vector>
@@ -102,16 +101,19 @@ public:
     {
         return double(loaded_blocks_) / num_blocks_;
     }
+    // Must be called prior to any call to request().
     virtual inline void
     set_hashtable_use(bool use_hashtable)
     {
+        if (!use_tag2block_table_ && use_hashtable) {
+            // Resizing from an initial small table causes noticeable overhead, so we
+            // start with a relatively large table.
+            tag2block.reserve(1 << 16);
+            // Even with the large initial size, for large caches we want to keep the
+            // load factor small.
+            tag2block.max_load_factor(0.5);
+        }
         use_tag2block_table_ = use_hashtable;
-        // Resizing from an initial small table causes noticeable overhead, so we
-        // start with a relatively large table.
-        tag2block.reserve(1 << 16);
-        // Even with the large initial size, for large caches we want to keep the
-        // load factor small.
-        tag2block.max_load_factor(0.5);
     }
 
 protected:
