@@ -363,8 +363,11 @@ cache_simulator_t::cache_simulator_t(std::istream *config_file)
         success_ = false;
         return;
     }
-    // TODO add comment and name "32"
-    if (other_caches_.size() > 0 && (knobs_.model_coherence || knobs_.num_cores > 32)) {
+    // For larger hierarchies, especially with coherence, using hashtables
+    // for faster lookups provides performance wins as high as 15%.
+    // However, hashtables can slow down smaller hierarchies, so we only
+    // enable if we anticipate a win.
+    if (other_caches_.size() > 0 && (knobs_.model_coherence || knobs_.num_cores >= 32)) {
         for (auto &cache : all_caches_) {
             cache.second->set_hashtable_use(true);
         }
