@@ -160,7 +160,7 @@ protected:
     }
 
     // Returns the block (and its way) whose tag equals `tag`.
-    // Returns <nullptr,0> is there is no such block.
+    // Returns <nullptr,0> if there is no such block.
     std::pair<caching_device_block_t *, int>
     find_caching_device_block(addr_t tag);
 

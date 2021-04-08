@@ -45,9 +45,9 @@ public:
     void
     request(const memref_t &memref) override;
 
-    // TODO i#4816: This tag,pid pair lookup needs to be imposed on the parent
-    // methods invalidate(), contains_tag(), and propagate_eviction() by overriding
-    // them.
+    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
+    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
+    // propagate_eviction() by overriding them.
 
 protected:
     void
