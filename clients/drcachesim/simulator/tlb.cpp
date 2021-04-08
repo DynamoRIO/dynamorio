@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,9 @@ tlb_t::request(const memref_t &memref_in)
     // Since pid is needed in a lot of places from the beginning to the end,
     // it might also not be a good way to write a lot of helper functions
     // to isolate them.
+    // TODO i#4816: This tag,pid pair lookup needs to be imposed on the parent
+    // methods invalidate(), contains_tag(), and propagate_eviction() by overriding
+    // them.
 
     // Unfortunately we need to make a copy for our loop so we can pass
     // the right data struct to the parent and stats collectors.

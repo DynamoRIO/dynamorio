@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,10 @@ class tlb_t : public caching_device_t {
 public:
     void
     request(const memref_t &memref) override;
+
+    // TODO i#4816: The addition of the pid as a lookup parameter beyond just the tag
+    // needs to be imposed on the parent methods invalidate(), contains_tag(), and
+    // propagate_eviction() by overriding them.
 
 protected:
     void
