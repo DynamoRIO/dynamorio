@@ -422,6 +422,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,opt_memory|common.loglevel' =>1, # i#4845
                 'code_api,opt_speed|common.decode-stress' =>1, # i#4845
                 'code_api,thread_private,disable_traces|common.nativeexec_bindnow' =>1, # i#4845
+                'code_api,opt_memory|common.nativeexec_retakeover_opt ' =>1, # i#4845
+                'code_api,opt_memory|common.nativeexec_exe_opt' =>1, # i#4845
+                'code_api,opt_memory|common.nativeexec_bindnow_opt' =>1, # i#4845
                 );
             $issue_no = "#2941";
         }
