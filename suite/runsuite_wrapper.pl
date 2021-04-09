@@ -411,22 +411,22 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
                 # These are from the long suite.
-                'code_api,opt_speed|common.decode-stress' =>1, # i#4845
-                'code_api,thread_private|common.decode-stress' =>1, # i#4845
-                'code_api,thread_private,disable_traces|common.decode-stress' =>1, # i#4845
-                'prof_pcs,thread_private|common.decode-stress' =>1, # i#4845
-                'code_api,thread_private,tracedump_binary|common.decode-stress' =>1, # i#4845
+                'code_api,opt_speed|common.decode-stress' => 1, # i#4845
+                'code_api,thread_private|common.decode-stress' => 1, # i#4845
+                'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#4845
+                'prof_pcs,thread_private|common.decode-stress' => 1, # i#4845
+                'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#4845
                 );
             # FIXME i#2941: fix flaky threadfilter test
             %ignore_failures_64 = (
                 'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
                 # These are from the long suite.
-                'code_api,opt_memory|common.loglevel' =>1, # i#4845
-                'code_api,opt_speed|common.decode-stress' =>1, # i#4845
-                'code_api,thread_private,disable_traces|common.nativeexec_bindnow' =>1, # i#4845
-                'code_api,opt_memory|common.nativeexec_retakeover_opt' =>1, # i#4845
-                'code_api,opt_memory|common.nativeexec_exe_opt' =>1, # i#4845
-                'code_api,opt_memory|common.nativeexec_bindnow_opt' =>1, # i#4845
+                'code_api,opt_memory|common.loglevel' => 1, # i#4845
+                'code_api,opt_speed|common.decode-stress' => 1, # i#4845
+                'code_api,thread_private,disable_traces|common.nativeexec_bindnow' => 1, # i#4845
+                'code_api,opt_memory|common.nativeexec_retakeover_opt' => 1, # i#4845
+                'code_api,opt_memory|common.nativeexec_exe_opt' => 1, # i#4845
+                'code_api,opt_memory|common.nativeexec_bindnow_opt' => 1, # i#4845
                 );
             $issue_no = "#2941";
         }
