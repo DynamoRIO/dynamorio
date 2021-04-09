@@ -308,7 +308,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.static_noinit' => 1,
                 # These are from the long suite.
                 'code_api,opt_memory|common.nativeexec' => 1, # i#4845
-                'code_api,opt_speed|common.decode-bad'code_api,opt_speed|common.decode-stress' => 1, # i#4845
+                'code_api,opt_speed|common.decode-bad' => 1, # i#4845
+                'code_api,opt_speed|common.decode-stress' => 1, # i#4845
                 'code_api,opt_speed|common.nativeexec' => 1, # i#4845
                 'code_api,thread_private|common.nativeexec' => 1, # i#4845
                 'code_api,disable_traces|common.nativeexec' => 1, # i#4845
