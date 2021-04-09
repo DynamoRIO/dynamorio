@@ -385,7 +385,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,
                                    'code_api|linux.fib-conflict-early' => 1,
-                                   'code_api|linux.mangle_asynch' => 1);
+                                   'code_api|linux.mangle_asynch' => 1,
+                                   'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#4845
+                                   );
             if ($is_32) {
                 $issue_no = "#2416";
             } else {
