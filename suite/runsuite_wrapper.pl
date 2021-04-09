@@ -231,6 +231,48 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.nudge_test' => 1, # i#2978
                 'code_api|client.nudge_ex' => 1,
                 'code_api|client.alloc-noreset' => 1, # i#4436
+                # These are from the long suite.
+                'code_api,opt_speed|common.decode-stress' => 1, # i#4845
+                'code_api,thread_private|common.decode-stress' => 1, # i#4845
+                'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#4845
+                'prof_pcs|common.broadfun' => 1, # i#4845
+                'prof_pcs|common.fib' => 1, # i#4845
+                'prof_pcs|common.decode-bad' => 1, # i#4845
+                'prof_pcs|common.decode' => 1, # i#4845
+                'prof_pcs|common.decode-stress' => 1, # i#4845
+                'prof_pcs|common.eflags' => 1, # i#4845
+                'prof_pcs|common.floatpc' => 1, # i#4845
+                'prof_pcs|common.floatpc_xl8all' => 1, # i#4845
+                'prof_pcs|common.getretaddr' => 1, # i#4845
+                'prof_pcs|common.nativeexec' => 1, # i#4845
+                'prof_pcs|common.protect-dstack' => 1, # i#4845
+                'prof_pcs|common.segfault' => 1, # i#4845
+                'prof_pcs,thread_private|common.broadfun' => 1, # i#4845
+                'prof_pcs,thread_private|common.fib' => 1, # i#4845
+                'prof_pcs,thread_private|common.decode-bad' => 1, # i#4845
+                'prof_pcs,thread_private|common.decode' => 1, # i#4845
+                'prof_pcs,thread_private|common.decode-stress' => 1, # i#4845
+                'prof_pcs,thread_private|common.eflags' => 1, # i#4845
+                'prof_pcs,thread_private|common.floatpc' => 1, # i#4845
+                'prof_pcs,thread_private|common.floatpc_xl8all' => 1, # i#4845
+                'prof_pcs,thread_private|common.getretaddr' => 1, # i#4845
+                'prof_pcs,thread_private|common.nativeexec' => 1, # i#4845
+                'prof_pcs,thread_private|common.protect-dstack' => 1, # i#4845
+                'prof_pcs,thread_private|common.segfault' => 1, # i#4845
+                'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.broadfun' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.logstderr' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.fib' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.decode-bad' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.decode' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.decode-stress' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.eflags' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.floatpc' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.floatpc_xl8all' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.getretaddr' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.nativeexec' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.protect-dstack' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.segfault' => 1, # i#4845
                 );
             %ignore_failures_64 = (
                 # i#4131: These are failing on GA Server16 and need investigation.
@@ -264,6 +306,62 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.detach_spawn' => 1, # i#2611
                 'code_api|api.static_noclient' => 1,
                 'code_api|api.static_noinit' => 1,
+                # These are from the long suite.
+                'code_api,opt_memory|common.nativeexec' => 1, # i#4845
+                'code_api,opt_speed|common.decode-bad'code_api,opt_speed|common.decode-stress' => 1, # i#4845
+                'code_api,opt_speed|common.nativeexec' => 1, # i#4845
+                'code_api,thread_private|common.nativeexec' => 1, # i#4845
+                'code_api,disable_traces|common.nativeexec' => 1, # i#4845
+                'code_api,thread_private,disable_traces|common.nativeexec' => 1, # i#4845
+                'prof_pcs|common.broadfun' => 1, # i#4845
+                'prof_pcs|common.fib' => 1, # i#4845
+                'prof_pcs|common.decode-bad' => 1, # i#4845
+                'prof_pcs|common.decode' => 1, # i#4845
+                'prof_pcs|common.decode-stress' => 1, # i#4845
+                'prof_pcs|common.eflags' => 1, # i#4845
+                'prof_pcs|common.floatpc' => 1, # i#4845
+                'prof_pcs|common.floatpc_xl8all' => 1, # i#4845
+                'prof_pcs|common.getretaddr' => 1, # i#4845
+                'prof_pcs|common.nativeexec' => 1, # i#4845
+                'prof_pcs|common.protect-dstack' => 1, # i#4845
+                'prof_pcs|common.segfault' => 1, # i#4845
+                'prof_pcs,thread_private|common.broadfun' => 1, # i#4845
+                'prof_pcs,thread_private|common.fib' => 1, # i#4845
+                'prof_pcs,thread_private|common.decode-bad' => 1, # i#4845
+                'prof_pcs,thread_private|common.decode' => 1, # i#4845
+                'prof_pcs,thread_private|common.decode-stress' => 1, # i#4845
+                'prof_pcs,thread_private|common.eflags' => 1, # i#4845
+                'prof_pcs,thread_private|common.floatpc' => 1, # i#4845
+                'prof_pcs,thread_private|common.floatpc_xl8all' => 1, # i#4845
+                'prof_pcs,thread_private|common.getretaddr' => 1, # i#4845
+                'prof_pcs,thread_private|common.nativeexec' => 1, # i#4845
+                'prof_pcs,thread_private|common.protect-dstack' => 1, # i#4845
+                'prof_pcs,thread_private|common.segfault' => 1, # i#4845
+                'code_api,loglevel|common.nativeexec' => 1, # i#4845
+                'code_api,stack_size|common.nativeexec' => 1, # i#4845
+                'enable_full_api|common.nativeexec' => 1, # i#4845
+                'code_api,stack_size,loglevel,no_hide|common.nativeexec' => 1, # i#4845
+                '|common.nativeexec' => 1, # i#4845
+                'code_api,tracedump_text,tracedump_origins|common.nativeexec' => 1, # i#4845
+                'code_api,tracedump_text,tracedump_origins,syntax_intel|common.nativeexec' => 1, # i#4845
+                'code_api,thread_private,tracedump_binary|common.nativeexec' => 1, # i#4845
+                'code_api,bbdump_tags|common.nativeexec' => 1, # i#4845
+                'checklevel|common.nativeexec' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.broadfun' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.logstderr' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.fib' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.decode-bad' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.decode' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.decode-stress' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.eflags' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.floatpc' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.floatpc_xl8all' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.getretaddr' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.nativeexec' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.protect-dstack' => 1, # i#4845
+                'desktop,coarse_freeze_at_exit|common.segfault' => 1, # i#4845
+                'finite_shared_bb_cache,cache_shared_bb_regen|common.nativeexec' => 1, # i#4845
+                'finite_shared_trace_cache,cache_shared_trace_regen|common.nativeexec' => 1, # i#4845
                 );
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
@@ -309,9 +407,21 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|pthreads.ptsig' => 1, # i#2921
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
+                # These are from the long suite.
+                'code_api,opt_speed|common.decode-stress' =>1, # i#4845
+                'code_api,thread_private|common.decode-stress' =>1, # i#4845
+                'code_api,thread_private,disable_traces|common.decode-stress' =>1, # i#4845
+                'prof_pcs,thread_private|common.decode-stress' =>1, # i#4845
+                'code_api,thread_private,tracedump_binary|common.decode-stress' =>1, # i#4845
                 );
             # FIXME i#2941: fix flaky threadfilter test
-            %ignore_failures_64 = ('code_api|tool.drcacheoff.burst_threadfilter' => 1);
+            %ignore_failures_64 = (
+                'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
+                # These are from the long suite.
+                'code_api,opt_memory|common.loglevel' =>1, # i#4845
+                'code_api,opt_speed|common.decode-stress' =>1, # i#4845
+                'code_api,thread_private,disable_traces|common.nativeexec_bindnow' =>1, # i#4845
+                );
             $issue_no = "#2941";
         }
 
