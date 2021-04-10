@@ -52,7 +52,7 @@ cmake_minimum_required(VERSION 3.7)
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 include(../runsuite_common_pre.cmake) # For _DR_set_VS_bitwidth_env_vars.
 
-option(TEST_LONG "run long set of tests")
+option(RUN_LONG_SUITE "run long set of tests")
 option(SKIP_FLAKY_TESTS "do not run tests named *_FLAKY")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
@@ -177,10 +177,10 @@ else ()
 endif ()
 
 # i#4800: Run long test suite on push-to-master events.
-# REVERT before submitting: setting TEST_LONG to ON always, to test long suite on Github Actions CI.
-# if ("$ENV{CI_TRIGGER}" STREQUAL "push" AND "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master")
-set(TEST_LONG ON)
-# endif ()
+if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
+                       "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
+  set(TEST_LONG ON)
+endif ()
 ###########################################################################
 # BUILDING
 
