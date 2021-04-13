@@ -43,7 +43,6 @@
 #define PRE instrlist_meta_preinsert
 #define OPREG opnd_create_reg
 
-#define NOP_INST 0xd503201f
 #define BR_X1_INST (0xd61f0000 | 1 << 5) /* br x1 */
 
 /***************************************************************************/
@@ -149,12 +148,12 @@ get_fcache_return_tls_offs(dcontext_t *dcontext, uint flags)
 /* Generate move (immediate) of a 64-bit value using at most 4 instructions.
  * pc must be a writable (vmcode) pc.
  */
-static uint *
+uint *
 insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val)
 {
     uint rt = dst - DR_REG_X0;
     ASSERT(rt < 31);
-    *pc++ = 0xd2800000 | rt | (val & 0xffff) << 5; /* mov  x(rt), #x */
+    *pc++ = 0xd2800000 | rt | (val & 0xffff) << 5; /* movz  x(rt), #x */
 
     if ((val >> 16 & 0xffff) != 0)
         *pc++ = 0xf2a00000 | rt | (val >> 16 & 0xffff) << 5; /* movk x(rt), #x, lsl #16 */
@@ -211,7 +210,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
          * lots of places expect the stub size to be fixed.
          */
         for (uint j = 0; j < num_nops_needed; j++)
-            *pc++ = NOP_INST;
+            *pc++ = RAW_NOP_INST;
         /* The final slot is a data slot, which will hold the address of either
          * the fcache-return routine or the linked fragment. We reserve 12 bytes
          * and use the 8-byte aligned region of 8 bytes within it.
@@ -248,7 +247,7 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
          * lots of places expect the stub size to be fixed.
          */
         for (uint j = 0; j < num_nops_needed; j++)
-            *pc++ = NOP_INST;
+            *pc++ = RAW_NOP_INST;
     }
 
     return (int)((byte *)pc - (byte *)write_stub_pc);
@@ -404,7 +403,7 @@ static uint *
 get_stub_branch(uint *pc)
 {
     /* Skip NOP instructions backwards. */
-    while (*pc == NOP_INST)
+    while (*pc == RAW_NOP_INST)
         pc--;
     /* The First non-NOP instruction must be the branch. */
     ASSERT(*pc == BR_X1_INST);
@@ -1047,6 +1046,6 @@ fill_with_nops(dr_isa_mode_t isa_mode, byte *addr, size_t size)
         return false;
     }
     for (pc = addr; pc < addr + size; pc += 4)
-        *(uint *)pc = NOP_INST; /* nop */
+        *(uint *)pc = RAW_NOP_INST; /* nop */
     return true;
 }

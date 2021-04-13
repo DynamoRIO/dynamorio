@@ -1312,7 +1312,7 @@ commit.
 
 This run-twice approach is subject to the following limitations:
 
-- Only x86 is supported for now (no arm or aarch64 support yet).
+- Only x86 and aarch64 are supported for now, and 32-bit x86 is not as well-tested.
 - The application must store an rseq_cs struct for each rseq region in a
   section of its binary named "__rseq_cs", optionally with an "__rseq_cs_ptr_array"
   section of pointers into the __rseq_cs section, per established conventions.

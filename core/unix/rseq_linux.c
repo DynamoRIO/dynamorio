@@ -583,6 +583,9 @@ rseq_process_module_cleanup:
     return res;
 }
 
+/* If we did not observe the app invoke SYS_rseq (because we attached mid-run)
+ * we must search for its TLS location.
+ */
 static int
 rseq_locate_tls_offset(void)
 {
@@ -592,20 +595,26 @@ rseq_locate_tls_offset(void)
      * struct using heuristics, because the system call was poorly designed and will not
      * let us replace the app's. Alternatives of no local copy have worse problems.
      */
-    /* Static TLS is at a negative offset from the app library segment base.  We simply
-     * search all possible aligned slots.  Typically there are <64 possible slots.
+    /* We simply search all possible aligned slots.  Typically there
+     * are <64 possible slots.
      */
     int offset = 0;
     byte *addr = get_app_segment_base(LIB_SEG_TLS);
     byte *seg_bottom;
-    if (addr > 0 && get_memory_info(addr, &seg_bottom, NULL, NULL)) {
+    size_t seg_size;
+    if (addr > 0 && get_memory_info(addr, &seg_bottom, &seg_size, NULL)) {
         LOG(GLOBAL, LOG_LOADER, 3, "rseq within static TLS " PFX " - " PFX "\n",
             seg_bottom, addr);
         /* struct rseq_cs is aligned to 32. */
         int alignment = __alignof(struct rseq_cs);
         int i;
-        for (i = 0; addr - i * alignment >= seg_bottom; i++) {
-            byte *try_addr = addr - i * alignment;
+        /* For x86, static TLS is at a negative offset from the app library segment
+         * base, while for aarchxx it is positive.
+         */
+        for (i = 0; IF_X86_ELSE(addr - i * alignment >= seg_bottom,
+                                addr + i * alignment < seg_bottom + seg_size);
+             i++) {
+            byte *try_addr = IF_X86_ELSE(addr - i * alignment, addr + i * alignment);
             ASSERT(try_addr >= seg_bottom); /* For loop guarantees this. */
             /* Our strategy is to check all of the aligned static TLS addresses to
              * find the registered one.  Our caller is not supposed to call here
@@ -629,9 +638,9 @@ rseq_locate_tls_offset(void)
             if (res == -EPERM) {
                 /* Found it! */
                 LOG(GLOBAL, LOG_LOADER, 2,
-                    "Found struct rseq @ " PFX " for thread => %s:-0x%x\n", try_addr,
-                    get_register_name(LIB_SEG_TLS), i * alignment);
-                offset = -i * alignment;
+                    "Found struct rseq @ " PFX " for thread => %s:%s0x%x\n", try_addr,
+                    get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""), i * alignment);
+                offset = IF_X86_ELSE(-i * alignment, i * alignment);
             }
             break;
         }
@@ -653,8 +662,9 @@ rseq_process_syscall(dcontext_t *dcontext)
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         constant_offset = (prior == 0 || prior == offset);
         LOG(GLOBAL, LOG_LOADER, 2,
-            "Observed struct rseq @ " PFX " for thread => %s:-0x%x\n", app_addr,
-            get_register_name(LIB_SEG_TLS), -rseq_tls_offset);
+            "Observed struct rseq @ " PFX " for thread => %s:%s0x%x\n", app_addr,
+            get_register_name(LIB_SEG_TLS), IF_X86_ELSE("-", ""),
+            IF_X86_ELSE(-rseq_tls_offset, rseq_tls_offset));
     } else
         constant_offset = (seg_base + rseq_tls_offset == app_addr);
     if (!constant_offset) {

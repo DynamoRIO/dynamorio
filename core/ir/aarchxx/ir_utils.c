@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -162,6 +162,7 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 #endif
 }
 
+/* Keep this in sync with patch_mov_immed_arch(). */
 void
 insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
                       ptr_int_t val, opnd_t dst, instrlist_t *ilist, instr_t *instr,

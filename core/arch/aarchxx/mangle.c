@@ -1201,11 +1201,34 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
 
 #endif /* !AARCH64 */
 
+/* This is *not* a hot-patchable patch: i.e., it is subject to races. */
 void
 patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
                      instr_t *last)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
+#ifdef AARCH64
+    uint *write_pc = (uint *)vmcode_get_writable_addr(pc);
+    ASSERT(first != NULL && last != NULL);
+    /* We expect OP_movz followed by up to 3 OP_movk. */
+    ASSERT(instr_get_opcode(first) == OP_movz && opnd_is_reg(instr_get_dst(first, 0)));
+    reg_id_t dst_reg = opnd_get_reg(instr_get_dst(first, 0));
+    int instr_count = 1;
+    for (instr_t *inst = instr_get_next(first); inst != NULL;
+         inst = instr_get_next(inst)) {
+        ++instr_count;
+        ASSERT(instr_get_opcode(inst) == OP_movk && opnd_is_reg(instr_get_dst(inst, 0)));
+        if (inst == last)
+            break;
+    }
+    uint *end_pc = insert_mov_imm(write_pc, dst_reg, val);
+    ASSERT(end_pc - write_pc <= instr_count);
+    while (end_pc - write_pc < instr_count) {
+        *end_pc = RAW_NOP_INST;
+        ++end_pc;
+    }
+#else
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1551: NYI */
+#endif
 }
 
 /* Used for fault translation */

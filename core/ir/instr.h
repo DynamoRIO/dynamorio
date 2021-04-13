@@ -865,6 +865,10 @@ enum {
     CBZ_BYTE_A = 0xb1,  /* this assumes the top bit of the disp is 0 */
     CBNZ_BYTE_A = 0xb9, /* this assumes the top bit of the disp is 0 */
 };
+#elif defined(AARCH64)
+enum {
+    RAW_NOP_INST = 0xd503201f,
+};
 #endif
 
 #include "instr_inline_api.h"
