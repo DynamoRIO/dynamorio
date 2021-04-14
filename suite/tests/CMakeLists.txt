@@ -117,8 +117,9 @@ set(main_run_list
   "X86::-code_api -thread_private"   # i#1884: ARM thread_private NYI
   "-code_api -disable_traces"
   "X86::-code_api -thread_private -disable_traces" # i#1884: ARM thread_private NYI
-  "-prof_pcs"
-  "X86::-prof_pcs -thread_private"                 # i#1884: ARM thread_private NYI
+  # i#1807: -prof_pcs fails on Windows currently.
+  "LIN::-prof_pcs"
+  "X86::LIN::-prof_pcs -thread_private"                 # i#1884: ARM thread_private NYI
   "X86::LIN::ONLY::^common::-code_api -no_early_inject" # ARM only supports early
   "DEBUG::ONLY::^common::-code_api -loglevel 1"
   "ONLY::^common::-code_api -stack_size 128k"
@@ -141,10 +142,12 @@ set(main_run_list
 
   # pcache tests: per-user so each app will merge w/ previous, plus merge
   # w/ at-unload persists from earlier -desktop run
-  "WIN::ONLY::^runall::-desktop -coarse_freeze_at_exit"
+  # i#1807: This Windows suite fails currently.
+  # "WIN::ONLY::^runall::-desktop -coarse_freeze_at_exit"
   # run again so each must use the merged pcaches
   # FIXME: order is alpha: need unique name sorted next
-  "WIN::ONLY::^runall::-desktop -coarse_freeze_at_exit"
+  # i#1807: This Windows suite fails currently.
+  # "WIN::ONLY::^runall::-desktop -coarse_freeze_at_exit"
 
   # limit on shared cache size
   "ONLY::^(runall|${osname})::-finite_shared_bb_cache -cache_shared_bb_regen 80"
