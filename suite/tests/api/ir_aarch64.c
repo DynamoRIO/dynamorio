@@ -4622,22 +4622,22 @@ test_fcvtzu_scalar(void *dc)
     instr_t *instr;
     /* FCVTZU <Wd>, <Sn> */
     instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_W7),
-                                         opnd_create_reg(DR_REG_S8));
+                                       opnd_create_reg(DR_REG_S8));
     test_instr_encoding(dc, OP_fcvtzu, instr);
 
     /* FCVTZU <Xd>, <Sn> */
     instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_X13),
-                                         opnd_create_reg(DR_REG_S21));
+                                       opnd_create_reg(DR_REG_S21));
     test_instr_encoding(dc, OP_fcvtzu, instr);
 
     /* FCVTZU <Wd>, <Dn> */
     instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_W0),
-                                         opnd_create_reg(DR_REG_D9));
+                                       opnd_create_reg(DR_REG_D9));
     test_instr_encoding(dc, OP_fcvtzu, instr);
 
     /* FCVTZU <Xd>, <Dn> */
     instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_X12),
-                                         opnd_create_reg(DR_REG_D12));
+                                       opnd_create_reg(DR_REG_D12));
     test_instr_encoding(dc, OP_fcvtzu, instr);
 }
 
@@ -4647,22 +4647,22 @@ test_fcvtzu_vector(void *dc)
     instr_t *instr;
     /* FCVTZU <Vd>.<T>, <Vn>.<T> */
     instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_D7),
-                                          opnd_create_reg(DR_REG_D9), OPND_CREATE_SINGLE());
+                                       opnd_create_reg(DR_REG_D9), OPND_CREATE_SINGLE());
     test_instr_encoding(dc, OP_fcvtzu, instr);
     instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_Q1),
-                                          opnd_create_reg(DR_REG_Q24), OPND_CREATE_SINGLE());
+                                       opnd_create_reg(DR_REG_Q24), OPND_CREATE_SINGLE());
     test_instr_encoding(dc, OP_fcvtzu, instr);
     instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_Q5),
-                                          opnd_create_reg(DR_REG_Q18), OPND_CREATE_DOUBLE());
+                                       opnd_create_reg(DR_REG_Q18), OPND_CREATE_DOUBLE());
     test_instr_encoding(dc, OP_fcvtzu, instr);
 
     /* FCVTZU <V><d>, <V><n> */
     instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_S9),
-                                         opnd_create_reg(DR_REG_S10));
+                                       opnd_create_reg(DR_REG_S10));
     test_instr_encoding(dc, OP_fcvtzu, instr);
 
     instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_D11),
-                                         opnd_create_reg(DR_REG_D0));
+                                       opnd_create_reg(DR_REG_D0));
     test_instr_encoding(dc, OP_fcvtzu, instr);
 }
 

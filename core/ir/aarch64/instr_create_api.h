@@ -1751,7 +1751,8 @@ enum {
  * \param Rd      The output register.
  * \param Rm      The first input register.
  */
-#define INSTR_CREATE_fcvtzu_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
+#define INSTR_CREATE_fcvtzu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
 
 /**
  * Creates a FRINTN floating point instruction.
