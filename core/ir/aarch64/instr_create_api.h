@@ -1748,8 +1748,8 @@ enum {
 /**
  * Creates a FCVTZU floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
  */
 #define INSTR_CREATE_fcvtzu_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
