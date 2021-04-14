@@ -2099,6 +2099,15 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1e63c1fd : fcvt h29, d15                            : fcvt   %d15 -> %h29
 1ee2431c : fcvt s28, h24                            : fcvt   %h24 -> %s28
 1ee2c002 : fcvt d2, h0                              : fcvt   %h0 -> %d2
+1e390121 : fcvtzu w1, s9                            : fcvtzu %s9 -> %w1
+9e39012b : fcvtzu x11, s9                           : fcvtzu %s9 -> %x11
+1e7901a7 : fcvtzu w7, d13                           : fcvtzu %d13 -> %w7
+9e790055 : fcvtzu x21, d2                           : fcvtzu %d2 -> %x21
+2ea1b829 : fcvtzu v9.2s, v1.2s                      : fcvtzu %d1 $0x02 -> %d9
+6ea1b910 : fcvtzu v16.4s, v8.4s                     : fcvtzu %q8 $0x02 -> %q16
+6ee1b803 : fcvtzu v3.2d, v0.2d                      : fcvtzu %q0 $0x03 -> %q3
+7ea1b929 : fcvtzu s9, s9                            : fcvtzu %s9 -> %s9
+7ee1b841 : fcvtzu d1, d2                            : fcvtzu %d2 -> %d1
 
 # Floating-point data-processing (2 source)
 1e7e0b62 : fmul d2, d27, d30                        : fmul   %d27 %d30 -> %d2

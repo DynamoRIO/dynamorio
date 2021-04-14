@@ -1119,6 +1119,19 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0001111011100010010000xxxxxxxxxx     fcvt      s0 : h5
 0001111011100010110000xxxxxxxxxx     fcvt      d0 : h5
 
+# FCVTZU (scalar, integer) FP to GPR reg
+0001111000111001000000xxxxxxxxxx     fcvtzu    w0 : s5
+1001111000111001000000xxxxxxxxxx     fcvtzu    x0 : s5
+0001111001111001000000xxxxxxxxxx     fcvtzu    w0 : d5
+1001111001111001000000xxxxxxxxxx     fcvtzu    x0 : d5
+
+# FCVTZU (vector, integer)
+0x1011101x100001101110xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz
+
+# FCVTZU (Scalar single precision and double-precision)
+0111111010100001101110xxxxxxxxxx     fcvtzu    s0 : s5
+0111111011100001101110xxxxxxxxxx     fcvtzu    d0 : d5
+
 # Floating-point data-processing (2 source)
 00011110xx1xxxxx000010xxxxxxxxxx     fmul      float_reg0 : float_reg5 float_reg16
 00011110xx1xxxxx000110xxxxxxxxxx     fdiv      float_reg0 : float_reg5 float_reg16
