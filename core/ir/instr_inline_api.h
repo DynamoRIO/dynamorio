@@ -332,7 +332,7 @@ instr_is_meta(instr_t *instr)
     return ((instr->flags & INSTR_DO_NOT_MANGLE) != 0);
 }
 
-#    ifdef AVOID_API_EXPORT
+#    ifdef DYNAMORIO_INTERNAL
 /* These are hot internally, but unlikely to be used by clients. */
 INSTR_INLINE
 bool

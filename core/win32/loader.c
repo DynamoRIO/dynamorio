@@ -1698,6 +1698,7 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-Localization-Obsolete-L1-3") ||
              str_case_prefix(name, "API-MS-Win-Core-Path-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Core-Pcw-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-PerfCounters-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-ProcessSnapshot-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Psm-Key-L1-1") ||
@@ -1716,7 +1717,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
         return "kernelbase.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-PrivateProfile-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Atoms-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Core-Job-L2-1"))
+             str_case_prefix(name, "API-MS-Win-Core-Job-L2-1") ||
+             str_case_prefix(name, "API-MS-Win-DownLevel-Kernel32-L2-1"))
         return "kernel32.dll";
     else if (str_case_prefix(name, "API-MS-Win-Core-WinRT-Error-L1-1"))
         return "combase.dll";

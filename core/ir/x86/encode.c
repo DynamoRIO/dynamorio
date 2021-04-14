@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1264,7 +1264,7 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
          * will get the Ib version: do we want to match c1?  What if they really want
          * an immed byte in the encoding?  OTOH, we do match constant registers
          * automatically w/ no control from the user.
-         * Currently, we document in instr_create.h that the user must
+         * Currently, we document in instr_create_api.h that the user must
          * specify OPSZ_0 in order to get c1.
          */
         return (opnd_is_immed_int(opnd) && opnd_get_immed_int(opnd) == 1 &&
@@ -1384,7 +1384,7 @@ opnd_type_ok(decode_info_t *di /*prefixes field is IN/OUT; x86_mode is IN*/, opn
     case TYPE_INDIR_VAR_REG_SIZEx3x5: /* TYPE_INDIR_VAR_REG + scale */
         if (opnd_is_base_disp(opnd)) {
             reg_id_t base = opnd_get_base(opnd);
-            /* NOTE - size needs to match decode_operand() and instr_create.h. */
+            /* NOTE - size needs to match decode_operand() and instr_create_api.h. */
             bool sz_ok = size_ok(di, opnd_get_size(opnd), indir_var_reg_size(di, optype),
                                  false /*!addr*/);
             /* must be after size_ok potentially sets di flags */

@@ -32,7 +32,7 @@
  */
 
 #include "../globals.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "instrument.h"
 

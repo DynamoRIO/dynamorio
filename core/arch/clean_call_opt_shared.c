@@ -43,7 +43,7 @@
 #include "instrument.h"
 #include "../hashtable.h"
 #include "disassemble.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "clean_call_opt.h"
 
 /****************************************************************************

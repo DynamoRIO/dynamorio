@@ -2879,6 +2879,17 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
         return false;
     if (TEST(SA_RESTORER, info->app_sigaction[sig]->flags))
         return true;
+#    ifdef AARCH64
+    /* In AArch64 either the app or the kernel defines a restorer, not glibc, contrary
+     * to x86/ARM where glibc defines a restorer if the app did not define one. Thus,
+     * reading info->app_sigaction[sig]->restorer when SA_RESTORER is not specified by
+     * the app was never an issue for x86/ARM, but for AArch64 if the SA_RESTORER is
+     * not specified DR will read garbage leading to a seg fault later when
+     * safe_reading the restorer. To avoid this issue return false early for AArch64 if
+     * SA_RESTORER is not specified.
+     */
+    return false;
+#    endif
     if (info->app_sigaction[sig]->restorer == NULL)
         return false;
     /* we cache the result due to the safe_read cost */
@@ -4170,11 +4181,12 @@ find_next_fragment_from_gencode(dcontext_t *dcontext, sigcontext_t *sc)
                 ASSERT(target != NULL);
                 if (target != NULL)
                     f = fragment_pclookup(dcontext, target, &wrapper);
-                /* I tried to hit this case running client.cleancallsig in a loop
-                 * and while I could on x86 and x86_64 I never did on ARM or
-                 * AArch64.  We can remove this once someone hits it and it works.
+                /* Hit this case running client.cleancallsig in a loop on x86
+                 * and x86_64, and hit it in a proprietary application with
+                 * plain DR (debug build) on AArch64. Never tested for ARM. We
+                 * can remove this once someone hits it and it works.
                  */
-                IF_AARCHXX(ASSERT_NOT_TESTED());
+                IF_ARM(ASSERT_NOT_TESTED());
             }
             instr_free(dcontext, &instr);
         }

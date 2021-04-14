@@ -35,7 +35,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "codec.h"
 
 bool
@@ -228,7 +228,7 @@ decode_debug_checks_arch(void)
 
 #ifdef DECODE_UNIT_TEST
 
-#    include "instr_create.h"
+#    include "instr_create_shared.h"
 
 int
 main()

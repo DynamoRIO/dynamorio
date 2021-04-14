@@ -85,7 +85,7 @@ set(ROOT_SRCS
 
 # drfrontendlib doesn't want NOT_DYNAMORIO_CORE, so we set that individually
 # on all the other targets.  They all want this:
-add_definitions(-DNOT_DYNAMORIO_CORE_PROPER)
+add_definitions(-DNOT_DYNAMORIO_CORE_PROPER -DDYNAMORIO_INTERNAL)
 
 if (WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE)
@@ -214,3 +214,4 @@ endif ()
 add_static_lib_debug_info(drfrontendlib "${INSTALL_BIN}")
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/dr_frontend.h dr_frontend.h)

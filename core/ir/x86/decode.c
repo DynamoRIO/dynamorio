@@ -2094,7 +2094,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
                                            _IF_X64(false /*!extendable*/));
         opnd_size_t sz =
             resolve_variable_size(di, indir_var_reg_size(di, optype), false /*not reg*/);
-        /* NOTE - needs to match size in opnd_type_ok() and instr_create.h */
+        /* NOTE - needs to match size in opnd_type_ok() and instr_create_api.h */
         *opnd = opnd_create_base_disp(
             reg, REG_NULL, 0, indir_var_reg_offs_factor(optype) * opnd_size_in_bytes(sz),
             sz);
@@ -2745,7 +2745,7 @@ decode_debug_checks_arch(void)
 #endif
 
 #ifdef DECODE_UNIT_TEST
-#    include "instr_create.h"
+#    include "instr_create_shared.h"
 
 /* FIXME: Tried putting this inside a separate unit-decode.c file, but
  *        required creating a unit-decode_table.c file.  Since the

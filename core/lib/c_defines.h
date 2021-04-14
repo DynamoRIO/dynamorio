@@ -42,36 +42,6 @@
 #ifndef _C_DEFINES_H_
 #define _C_DEFINES_H_ 1
 
-/* DR_API EXPORT TOFILE dr_defines.h */
-/* DR_API EXPORT BEGIN */
-#ifndef __cplusplus
-#    ifdef WINDOWS
-#        define inline __inline
-#    else
-#        define inline __inline__
-#    endif
-#endif
-/* DR_API EXPORT END */
-/* DR_API EXPORT VERBATIM */
-#ifndef __cplusplus
-#    ifndef DR_DO_NOT_DEFINE_bool
-#        ifdef DR__Bool_EXISTS
-/* prefer _Bool as it avoids truncation casting non-zero to zero */
-typedef _Bool bool;
-#        else
-/* char-sized for compatibility with C++ */
-typedef char bool;
-#        endif
-#    endif
-#    ifndef true
-#        define true (1)
-#    endif
-#    ifndef false
-#        define false (0)
-#    endif
-#endif
-/* DR_API EXPORT END */
-
 #if !defined(__cplusplus) && !defined(NOT_DYNAMORIO_CORE_PROPER) && \
     !defined(NOT_DYNAMORIO_CORE)
 #    define __try __try_forbidden_construct /* see case 4461 */

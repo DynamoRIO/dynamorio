@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc. All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
@@ -32,14 +32,8 @@
  * DAMAGE.
  */
 
-#ifndef INSTR_CREATE_H
-#define INSTR_CREATE_H 1
-
-#include "../instr_create_shared.h"
-#include "instr.h"
-
-/* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
-/* DR_API EXPORT BEGIN */
+#ifndef DR_IR_MACROS_AARCH64_H
+#define DR_IR_MACROS_AARCH64_H 1
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
@@ -2669,5 +2663,4 @@ enum {
  */
 #define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
-/* DR_API EXPORT END */
-#endif /* INSTR_CREATE_H */
+#endif /* DR_IR_MACROS_AARCH64_H */
