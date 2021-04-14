@@ -231,6 +231,11 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.nudge_test' => 1, # i#2978
                 'code_api|client.nudge_ex' => 1,
                 'code_api|client.alloc-noreset' => 1, # i#4436
+                # These are from the long suite.
+                'code_api,opt_speed|common.decode-stress' => 1, # i#1807
+                'code_api,thread_private|common.decode-stress' => 1, # i#1807
+                'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
+                'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
                 );
             %ignore_failures_64 = (
                 # i#4131: These are failing on GA Server16 and need investigation.
@@ -264,6 +269,26 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.detach_spawn' => 1, # i#2611
                 'code_api|api.static_noclient' => 1,
                 'code_api|api.static_noinit' => 1,
+                # These are from the long suite.
+                'code_api,opt_memory|common.nativeexec' => 1, # i#1807
+                'code_api,opt_speed|common.decode-bad' => 1, # i#1807
+                'code_api,opt_speed|common.decode-stress' => 1, # i#1807
+                'code_api,opt_speed|common.nativeexec' => 1, # i#1807
+                'code_api,thread_private|common.nativeexec' => 1, # i#1807
+                'code_api,disable_traces|common.nativeexec' => 1, # i#1807
+                'code_api,thread_private,disable_traces|common.nativeexec' => 1, # i#1807
+                'code_api,loglevel|common.nativeexec' => 1, # i#1807
+                'code_api,stack_size|common.nativeexec' => 1, # i#1807
+                'enable_full_api|common.nativeexec' => 1, # i#1807
+                'code_api,stack_size,loglevel,no_hide|common.nativeexec' => 1, # i#1807
+                '|common.nativeexec' => 1, # i#1807
+                'code_api,tracedump_text,tracedump_origins|common.nativeexec' => 1, # i#1807
+                'code_api,tracedump_text,tracedump_origins,syntax_intel|common.nativeexec' => 1, # i#1807
+                'code_api,thread_private,tracedump_binary|common.nativeexec' => 1, # i#1807
+                'code_api,bbdump_tags|common.nativeexec' => 1, # i#1807
+                'checklevel|common.nativeexec' => 1, # i#1807
+                'finite_shared_bb_cache,cache_shared_bb_regen|common.nativeexec' => 1, # i#1807
+                'finite_shared_trace_cache,cache_shared_trace_regen|common.nativeexec' => 1, # i#1807
                 );
             $issue_no = "#2145";
         } elsif ($is_aarchxx) {
@@ -286,7 +311,9 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.histogram.offline' => 1, # i#3980
                                    'code_api|linux.fib-conflict' => 1,
                                    'code_api|linux.fib-conflict-early' => 1,
-                                   'code_api|linux.mangle_asynch' => 1);
+                                   'code_api|linux.mangle_asynch' => 1,
+                                   'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
+                                   );
             if ($is_32) {
                 $issue_no = "#2416";
             } else {
@@ -309,9 +336,24 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|pthreads.ptsig' => 1, # i#2921
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
+                # These are from the long suite.
+                'code_api,opt_speed|common.decode-stress' => 1, # i#1807
+                'code_api,thread_private|common.decode-stress' => 1, # i#1807
+                'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
+                'prof_pcs,thread_private|common.decode-stress' => 1, # i#1807
+                'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
                 );
             # FIXME i#2941: fix flaky threadfilter test
-            %ignore_failures_64 = ('code_api|tool.drcacheoff.burst_threadfilter' => 1);
+            %ignore_failures_64 = (
+                'code_api|tool.drcacheoff.burst_threadfilter' => 1, # i#2941
+                # These are from the long suite.
+                'code_api,opt_memory|common.loglevel' => 1, # i#1807
+                'code_api,opt_speed|common.decode-stress' => 1, # i#1807
+                'code_api,thread_private,disable_traces|common.nativeexec_bindnow' => 1, # i#1807
+                'code_api,opt_memory|common.nativeexec_retakeover_opt' => 1, # i#1807
+                'code_api,opt_memory|common.nativeexec_exe_opt' => 1, # i#1807
+                'code_api,opt_memory|common.nativeexec_bindnow_opt' => 1, # i#1807
+                );
             $issue_no = "#2941";
         }
 

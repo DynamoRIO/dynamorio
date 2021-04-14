@@ -110,6 +110,8 @@ jobs:
         # packages built on newer Ubuntu on GA CI.
         DEPLOY_DOCS: no
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
@@ -184,6 +186,8 @@ jobs:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload AArch64
       uses: actions/upload-artifact@v2
@@ -258,6 +262,8 @@ jobs:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload ARM
       uses: actions/upload-artifact@v2
@@ -343,6 +349,8 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
@@ -430,6 +438,8 @@ jobs:
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
