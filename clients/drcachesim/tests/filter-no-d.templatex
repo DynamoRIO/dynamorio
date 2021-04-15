@@ -6,7 +6,7 @@ Core #0 \(1 thread\(s\)\)
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*
     Invalidations:                *0
-.*   Miss rate:                   *[1-9][0-9][,\.]..%
+.*   Miss rate:                   *[1-9]?[0-9][,\.]..%
   L1D stats:
     Hits:                                0
     Misses:                              0
@@ -20,4 +20,4 @@ LL stats:
     Invalidations:                *0
 .*   Local miss rate:        *[0-9,.]*%
     Child hits:                   *[0-9,\.]*
-    Total miss rate:              *[1-9][0-9][,\.]..%
+    Total miss rate:              *[1-9]?[0-9][,\.]..%
