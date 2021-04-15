@@ -865,4 +865,15 @@ blr    %x5 -> %x30
 test_xinst complete
 test_opnd complete
 test_mov_instr_addr complete
+fcvtzu %s8 -> %w7
+fcvtzu %s21 -> %x13
+fcvtzu %d9 -> %w0
+fcvtzu %d12 -> %x12
+test_fcvtzu_scalar complete
+fcvtzu %d9 $0x02 -> %d7
+fcvtzu %q24 $0x02 -> %q1
+fcvtzu %q18 $0x03 -> %q5
+fcvtzu %s10 -> %s9
+fcvtzu %d0 -> %d11
+test_fcvtzu_vector complete
 All tests complete
