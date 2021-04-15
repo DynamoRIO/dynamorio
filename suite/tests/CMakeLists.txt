@@ -4693,9 +4693,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|common.allasm_aarch64_cache
       code_api|common.allasm_aarch64_isa
       code_api|linux.mmap
-      code_api|linux.rseq
-      code_api|linux.rseq_table
-      code_api|linux.rseq_noarray
       code_api,satisfy_w_xor_x|linux.fork
       code_api|security-common.retnonexisting
       code_api|security-linux.trampoline
@@ -4718,6 +4715,11 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.opcodes
       PROPERTIES LABELS RUNS_ON_QEMU)
+    if (LINUX AND X64 AND HAVE_RSEQ)
+      code_api|linux.rseq
+      code_api|linux.rseq_table
+      code_api|linux.rseq_noarray
+    endif ()
   endif ()
   if (ARM)
     set_tests_properties(
