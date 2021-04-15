@@ -213,11 +213,8 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* Test a restart in the middle of the sequence via udf SIGILL. */
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
-        /* For -test_mode trace_invariants: expect a signal after ud2a.
-         * (An alternative is to add decoding to trace_invariants but with
-         * i#2007 and other problems that liimts the test.)
-         */
-        "prfm pldl1keep, [x0]\n\t"
+        "mov x0, #1\n\t"
+        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
         "udf #0\n\t"
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
@@ -377,7 +374,8 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* Test a restart via ud2a SIGILL. */
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
-        "prfm pldl1keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
+        "mov x0, #1\n\t"
+        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
         "udf #0\n\t"
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
