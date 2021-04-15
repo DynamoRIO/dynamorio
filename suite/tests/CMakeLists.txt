@@ -179,12 +179,11 @@ else ()
   set(SKIP_LESS_DIFFERENTIATED_TESTS_FOR_PULL_REQUEST OFF)
 endif ()
 
-# Revert before submitting.
 # i#4800: Run long test suite on push-to-master events.
-# if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
-#                        "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
-set(TEST_LONG ON)
-# endif ()
+if (RUN_LONG_SUITE OR ("$ENV{CI_TRIGGER}" STREQUAL "push" AND
+                       "$ENV{CI_BRANCH}" STREQUAL "refs/heads/master"))
+  set(TEST_LONG ON)
+endif ()
 ###########################################################################
 # BUILDING
 
