@@ -276,7 +276,7 @@ There are numerous limitations in our current “run rseq twice” solution.  As
 
 The biggest limitation is that we only support applications using toolchain support to allow us to statically identify all restartable sequences, and using static thread-local storage with consistent slots across threads.
 
-We have a detailed list of other limitations in our documentation, whose [source code is here](https://github.com/DynamoRIO/dynamorio/blob/master/api/docs/bt.dox#L1307).
+We have a [detailed list of other limitations in our documentation](@ref sec_rseq).
 
 # Citations
 
