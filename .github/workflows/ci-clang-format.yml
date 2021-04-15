@@ -79,6 +79,8 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CC: clang-9
         CXX: clang++-9
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

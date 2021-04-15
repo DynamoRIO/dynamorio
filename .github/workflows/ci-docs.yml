@@ -104,6 +104,8 @@ jobs:
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
         DEPLOY_DOCS: yes
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Check Out Web
       uses: actions/checkout@v2
