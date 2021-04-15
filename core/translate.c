@@ -167,6 +167,8 @@ instr_is_rseq_mangling(dcontext_t *dcontext, instr_t *inst)
     /* This won't fault but we don't want it marked as unsupported. */
     if (!instr_is_our_mangling(inst))
         return false;
+    if (vmvector_empty(d_r_rseq_areas))
+        return false;
     /* XXX: Keep this consistent with mangle_rseq_* in mangle_shared.c. */
     if (instr_get_opcode(inst) == IF_X86_ELSE(OP_mov_ld, OP_ldr) &&
         opnd_is_reg(instr_get_dst(inst, 0)) &&
