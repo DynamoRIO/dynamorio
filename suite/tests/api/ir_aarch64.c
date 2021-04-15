@@ -4616,6 +4616,56 @@ test_mov_instr_addr(void *dc)
     instr_destroy(dc, label_instr);
 }
 
+static void
+test_fcvtzu_scalar(void *dc)
+{
+    instr_t *instr;
+    /* FCVTZU <Wd>, <Sn> */
+    instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_W7),
+                                       opnd_create_reg(DR_REG_S8));
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+
+    /* FCVTZU <Xd>, <Sn> */
+    instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_X13),
+                                       opnd_create_reg(DR_REG_S21));
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+
+    /* FCVTZU <Wd>, <Dn> */
+    instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_W0),
+                                       opnd_create_reg(DR_REG_D9));
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+
+    /* FCVTZU <Xd>, <Dn> */
+    instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_X12),
+                                       opnd_create_reg(DR_REG_D12));
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+}
+
+static void
+test_fcvtzu_vector(void *dc)
+{
+    instr_t *instr;
+    /* FCVTZU <Vd>.<T>, <Vn>.<T> */
+    instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_D7),
+                                       opnd_create_reg(DR_REG_D9), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+    instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_Q1),
+                                       opnd_create_reg(DR_REG_Q24), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+    instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_Q5),
+                                       opnd_create_reg(DR_REG_Q18), OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+
+    /* FCVTZU <V><d>, <V><n> */
+    instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_S9),
+                                       opnd_create_reg(DR_REG_S10));
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+
+    instr = INSTR_CREATE_fcvtzu_scalar(dc, opnd_create_reg(DR_REG_D11),
+                                       opnd_create_reg(DR_REG_D0));
+    test_instr_encoding(dc, OP_fcvtzu, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -4690,6 +4740,12 @@ main(int argc, char *argv[])
 
     test_mov_instr_addr(dcontext);
     print("test_mov_instr_addr complete\n");
+
+    test_fcvtzu_scalar(dcontext);
+    print("test_fcvtzu_scalar complete\n");
+
+    test_fcvtzu_vector(dcontext);
+    print("test_fcvtzu_vector complete\n");
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER

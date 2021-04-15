@@ -1693,6 +1693,16 @@ enum {
 #define INSTR_CREATE_bif_vector(dc, Rd, Rm, Rn) \
     instr_create_1dst_2src(dc, OP_bif, Rd, Rm, Rn)
 
+/**
+ * Creates a FCVTZU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   The input element vector width.
+ */
+#define INSTR_CREATE_fcvtzu_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, width)
+
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
@@ -1734,6 +1744,15 @@ enum {
  * \param Rm      The first input register.
  */
 #define INSTR_CREATE_fcvt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fcvt, Rd, Rm)
+
+/**
+ * Creates a FCVTZU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtzu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
 
 /**
  * Creates a FRINTN floating point instruction.
