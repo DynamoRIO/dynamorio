@@ -4716,9 +4716,11 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.opcodes
       PROPERTIES LABELS RUNS_ON_QEMU)
     if (LINUX AND X64 AND HAVE_RSEQ)
-      code_api|linux.rseq
-      code_api|linux.rseq_table
-      code_api|linux.rseq_noarray
+      set_tests_properties(
+        code_api|linux.rseq
+        code_api|linux.rseq_table
+        code_api|linux.rseq_noarray
+        PROPERTIES LABELS RUNS_ON_QEMU)
     endif ()
   endif ()
   if (ARM)
