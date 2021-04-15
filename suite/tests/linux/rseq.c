@@ -215,7 +215,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
         "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
-        "udf #0\n\t"
+        ".word 0\n\t"              /* udf */
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
         "add x1, x1, #1\n\t"
@@ -376,7 +376,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
         "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
-        "udf #0\n\t"
+        ".word 0\n\t"              /* udf */
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
         "add x1, x1, #1\n\t"
@@ -519,7 +519,7 @@ test_rseq_native_fault(void)
         "cmp x0, #2\n\t"
         "b.ne 11f\n\t"
         /* Raise a signal on the native run. */
-        "udf #0\n\t"
+        ".word 0\n\t" /* udf */
         "11:\n\t"
         "nop\n\t"
 

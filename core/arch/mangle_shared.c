@@ -1292,15 +1292,25 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                                            OPND_CREATE_INT32(0)));
 #    else
     PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch2, TLS_REG2_SLOT));
+    instrlist_preinsert(ilist, insert_at,
+                        INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch2),
+                                         opnd_create_reg(LIB_SEG_TLS)));
+#        ifdef ARM /* No zero register. */
+    PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
     PRE(ilist, insert_at,
-        INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch2),
-                         opnd_create_reg(LIB_SEG_TLS)));
+        XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg),
+                              OPND_CREATE_INT(0)));
+#        endif
     instrlist_preinsert(
         ilist, insert_at,
         XINST_CREATE_store(dcontext,
                            opnd_create_base_disp(scratch2, DR_REG_NULL, 0,
                                                  rseq_get_tls_ptr_offset(), OPSZ_PTR),
-                           opnd_create_reg(DR_REG_XZR)));
+                           opnd_create_reg(IF_AARCH64_ELSE(DR_REG_XZR, scratch_reg))));
+#        ifdef ARM /* No zero register. */
+    PRE(ilist, insert_at,
+        instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+#        endif
     PRE(ilist, insert_at,
         instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
 #    endif

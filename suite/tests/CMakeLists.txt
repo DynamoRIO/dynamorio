@@ -4693,6 +4693,9 @@ if (NOT ANDROID AND AARCHXX)
       code_api|common.allasm_aarch64_cache
       code_api|common.allasm_aarch64_isa
       code_api|linux.mmap
+      code_api|linux.rseq
+      code_api|linux.rseq_table
+      code_api|linux.rseq_noarray
       code_api,satisfy_w_xor_x|linux.fork
       code_api|security-common.retnonexisting
       code_api|security-linux.trampoline
