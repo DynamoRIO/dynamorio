@@ -3490,7 +3490,7 @@ if (BUILD_CLIENTS)
       unset(tool.drcacheoff.func_view_heap_rawtemp) # use preprocessor
     endif ()
 
-    if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
+    if (LINUX AND X64 AND HAVE_RSEQ)
       torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
     endif ()
 
@@ -4138,9 +4138,9 @@ if (UNIX)
   # when running tests in parallel: have to generate pcaches first
   set(linux.persist-use_FLAKY_depends linux.persist_FLAKY)
 
-  if (LINUX AND X86 AND X64 AND HAVE_RSEQ)
+  if (LINUX AND X64 AND HAVE_RSEQ)
     # The rseq kernel feature is Linux-only.
-    # TODO i#2350: Port the assembly in the test to 32-bit, ARM, AArch64.
+    # TODO i#2350: Port the assembly in the test to 32-bit x86 and to ARM.
     tobuild(linux.rseq linux/rseq.c)
     # Test the other sections.  Unfortunately we need a separate binary for each.
     tobuild(linux.rseq_table linux/rseq.c)
@@ -4715,6 +4715,13 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.memtrace_simple
       code_api|sample.opcodes
       PROPERTIES LABELS RUNS_ON_QEMU)
+    if (LINUX AND X64 AND HAVE_RSEQ)
+      set_tests_properties(
+        code_api|linux.rseq
+        code_api|linux.rseq_table
+        code_api|linux.rseq_noarray
+        PROPERTIES LABELS RUNS_ON_QEMU)
+    endif ()
   endif ()
   if (ARM)
     set_tests_properties(

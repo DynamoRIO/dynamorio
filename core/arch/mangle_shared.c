@@ -947,7 +947,8 @@ mangle_rseq_insert_call_sequence(dcontext_t *dcontext, instrlist_t *ilist, instr
         ilist, next_instr,
         XINST_CREATE_add(dcontext, opnd_create_reg(DR_REG_RSP), OPND_CREATE_INT32(8)));
 #    else
-    /* TODO i#2350: Add non-x86 support.  We need to pay particular attention
+    /* TODO i#2350: Given that we plan to deprecate -rseq_assume_call, it may not be
+     * worth implementing non-x86 support.  We'd need to pay particular attention
      * to the stolen register.  If we do a local copy (with no callouts) we could
      * mangle it.  We also cannot do an indirect call through anything but a
      * register and thus need a dead register for the call-return approach, but
@@ -955,11 +956,12 @@ mangle_rseq_insert_call_sequence(dcontext_t *dcontext, instrlist_t *ilist, instr
      */
     REPORT_FATAL_ERROR_AND_EXIT(RSEQ_BEHAVIOR_UNSUPPORTED, 3, get_application_name(),
                                 get_application_pid(),
-                                "Rseq is not yet supported for non-x86");
+                                "-rseq_assume_call is not supported for non-x86");
     ASSERT_NOT_REACHED();
 #    endif
 }
 
+/* scratch_reg is *not* spilled on entry. */
 static void
 mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *insert_at, reg_id_t scratch_reg)
@@ -976,11 +978,25 @@ mangle_rseq_write_exit_reason(dcontext_t *dcontext, instrlist_t *ilist,
                                opnd_create_reg(scratch_reg), ilist, insert_at, NULL,
                                NULL);
     }
+#    ifdef AARCHXX
+    /* We need a 2nd scratch for our immediate. */
+    ASSERT(SCRATCH_ALWAYS_TLS());
+    reg_id_t scratch2 =
+        (scratch_reg == DR_REG_START_GPR) ? DR_REG_START_GPR + 1 : DR_REG_START_GPR;
+    PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch2, TLS_REG2_SLOT));
+    insert_mov_immed_ptrsz(dcontext, EXIT_REASON_RSEQ_ABORT, opnd_create_reg(scratch2),
+                           ilist, insert_at, NULL, NULL);
+#    endif
     PRE(ilist, insert_at,
-        XINST_CREATE_store(dcontext,
-                           opnd_create_dcontext_field_via_reg_sz(
-                               dcontext, scratch_reg, EXIT_REASON_OFFSET, OPSZ_2),
-                           OPND_CREATE_INT16(EXIT_REASON_RSEQ_ABORT)));
+        XINST_CREATE_store_2bytes(dcontext,
+                                  opnd_create_dcontext_field_via_reg_sz(
+                                      dcontext, scratch_reg, EXIT_REASON_OFFSET, OPSZ_2),
+                                  IF_X86_ELSE(OPND_CREATE_INT16(EXIT_REASON_RSEQ_ABORT),
+                                              opnd_create_reg(scratch2))));
+#    ifdef AARCHXX
+    PRE(ilist, insert_at,
+        instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
+#    endif
     if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, insert_at,
             instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
@@ -1120,27 +1136,45 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
      * decode_fragment() and even disassembly.
      */
     instr_t *immed_first, *immed_last;
-    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)INT_MAX IF_X64(+1),
-                           opnd_create_reg(scratch_reg), ilist, insert_at, &immed_first,
-                           &immed_last);
+    insert_mov_immed_ptrsz(dcontext, (ptr_int_t)-1, opnd_create_reg(scratch_reg), ilist,
+                           insert_at, &immed_first, &immed_last);
     ASSERT(immed_first != NULL);
     IF_X86(ASSERT(immed_last == NULL));
+    int immed_count = 1;
+    for (instr_t *immed_inst = immed_first;
+         immed_last != NULL && immed_inst != immed_last;
+         immed_inst = instr_get_next(immed_inst)) {
+        ++immed_count;
+    }
     instr_t *label_rseq_cs =
-        mangle_rseq_create_label(dcontext, DR_RSEQ_LABEL_CS, immed_last == NULL ? 1 : 2);
+        mangle_rseq_create_label(dcontext, DR_RSEQ_LABEL_CS, immed_count);
     PRE(ilist, immed_first /*prior to immeds*/, label_rseq_cs);
-    /* We need to mangle this segment ref, and all of the subsequent local copy. */
 #    ifdef X86
+    /* We need to mangle this segment ref, and all of the subsequent local copy. */
     instr_t *start_mangling = XINST_CREATE_store(
         dcontext,
         opnd_create_far_base_disp(LIB_SEG_TLS, DR_REG_NULL, DR_REG_NULL, 0,
                                   rseq_get_tls_ptr_offset(), OPSZ_PTR),
         opnd_create_reg(scratch_reg));
-#    else
-    /* TODO i#2350: Construct an app TLS access instruction for aarchxx. */
-    ASSERT_NOT_IMPLEMENTED(false);
-    instr_t *start_mangling = INSTR_CREATE_label(dcontext); /* So it compiles. */
-#    endif
     instrlist_preinsert(ilist, insert_at, start_mangling);
+#    else
+    /* We need another scratch reg to write to TLS. */
+    ASSERT(SCRATCH_ALWAYS_TLS());
+    reg_id_t scratch2 =
+        (scratch_reg == DR_REG_START_GPR) ? DR_REG_START_GPR + 1 : DR_REG_START_GPR;
+    PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch2, TLS_REG2_SLOT));
+    /* We need to mangle this segment ref, and the local copy below. */
+    instr_t *start_mangling = INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch2),
+                                               opnd_create_reg(LIB_SEG_TLS));
+    instrlist_preinsert(ilist, insert_at, start_mangling);
+    PRE(ilist, insert_at,
+        XINST_CREATE_store(dcontext,
+                           opnd_create_base_disp(scratch2, DR_REG_NULL, 0,
+                                                 rseq_get_tls_ptr_offset(), OPSZ_PTR),
+                           opnd_create_reg(scratch_reg)));
+    PRE(ilist, insert_at,
+        instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
+#    endif
 
     /* Restore scratch_reg. */
     if (SCRATCH_ALWAYS_TLS()) {
@@ -1240,6 +1274,7 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
     }
     generic_hash_destroy(dcontext, pc2instr);
     /* Now mangle from this point. */
+    ASSERT(start_mangling != NULL);
     *next_instr = start_mangling;
 
     /* Clear the rseq ptr on exit to avoid problems if we free the rseq_cs and
@@ -1256,8 +1291,28 @@ mangle_rseq_insert_native_sequence(dcontext_t *dcontext, instrlist_t *ilist,
                                                rseq_get_tls_ptr_offset(), OPSZ_PTR),
                                            OPND_CREATE_INT32(0)));
 #    else
-    /* TODO i#2350: Construct an app TLS access instruction for aarchxx. */
-    ASSERT_NOT_IMPLEMENTED(false);
+    PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch2, TLS_REG2_SLOT));
+    instrlist_preinsert(ilist, insert_at,
+                        INSTR_CREATE_mrs(dcontext, opnd_create_reg(scratch2),
+                                         opnd_create_reg(LIB_SEG_TLS)));
+#        ifdef ARM /* No zero register. */
+    PRE(ilist, insert_at, instr_create_save_to_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+    PRE(ilist, insert_at,
+        XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch_reg),
+                              OPND_CREATE_INT(0)));
+#        endif
+    instrlist_preinsert(
+        ilist, insert_at,
+        XINST_CREATE_store(dcontext,
+                           opnd_create_base_disp(scratch2, DR_REG_NULL, 0,
+                                                 rseq_get_tls_ptr_offset(), OPSZ_PTR),
+                           opnd_create_reg(IF_AARCH64_ELSE(DR_REG_XZR, scratch_reg))));
+#        ifdef ARM /* No zero register. */
+    PRE(ilist, insert_at,
+        instr_create_restore_from_tls(dcontext, scratch_reg, TLS_REG1_SLOT));
+#        endif
+    PRE(ilist, insert_at,
+        instr_create_restore_from_tls(dcontext, scratch2, TLS_REG2_SLOT));
 #    endif
 
     DOLOG(4, LOG_INTERP, {
@@ -1277,6 +1332,9 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     bool *reg_written;
     int reg_written_size;
     reg_id_t scratch_reg = DR_REG_START_GPR;
+#    ifdef ARM
+    ASSERT_NOT_TESTED();
+#    endif
     if (!rseq_get_region_info(pc, &start, &end, &handler, &reg_written,
                               &reg_written_size)) {
         ASSERT_NOT_REACHED(); /* Caller was supposed to check for overlap */
@@ -1424,16 +1482,23 @@ mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
             case DR_RSEQ_LABEL_CS:
                 immed_start_pc = pc;
                 immed_first = instr_get_next(instr);
-                if (label_data->data[1] > 1)
+                ptr_int_t immed_count = label_data->data[1];
+                /* For A64 we should have 4 immeds to handle any address. */
+                IF_AARCH64(ASSERT(immed_count == 4));
+                if (immed_count > 1) {
                     immed_last = instr_get_next(immed_first);
+                    --immed_count;
+                    while (immed_count > 1) {
+                        immed_last = instr_get_next(immed_last);
+                        --immed_count;
+                    }
+                }
                 break;
             default: ASSERT_NOT_REACHED();
             }
         }
         pc += instr_length(dcontext, instr);
     }
-    LOG(THREAD, LOG_INTERP, 4, "%s: start=" PFX ", end=" PFX ", abort=" PFX "\n",
-        __FUNCTION__, rseq_start, rseq_end, rseq_abort);
     ASSERT(rseq_start != NULL && rseq_end != NULL && rseq_abort != NULL);
 
     byte *rseq_cs_alloc, *rseq_cs;
@@ -1445,6 +1510,8 @@ mangle_rseq_finalize(dcontext_t *dcontext, instrlist_t *ilist, fragment_t *f)
     rseq_cs_alloc = rseq_get_rseq_cs_alloc(&rseq_cs);
     rseq_record_rseq_cs(rseq_cs_alloc, f, rseq_start, rseq_end, rseq_abort);
     ASSERT(immed_start_pc != NULL && immed_first != NULL);
+    LOG(THREAD, LOG_INTERP, 4, "%s: start=%p, end=%p, abort=%p stored @%p\n",
+        __FUNCTION__, rseq_start, rseq_end, rseq_abort, rseq_cs);
     patch_mov_immed_ptrsz(dcontext, (ptr_int_t)rseq_cs, immed_start_pc, immed_first,
                           immed_last);
 }

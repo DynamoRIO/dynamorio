@@ -1201,6 +1201,14 @@ emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 byte *fcache_return_pc, bool thread_shared, int interrupt,
                 uint *syscall_offs /*OUT*/);
 
+#ifdef AARCH64
+/* Generate move (immediate) of a 64-bit value using at most 4 instructions.
+ * pc must be a writable (vmcode) pc.
+ */
+uint *
+insert_mov_imm(uint *pc, reg_id_t dst, ptr_int_t val);
+#endif
+
 #ifdef AARCHXX
 byte *
 emit_fcache_enter_gonative(dcontext_t *dcontext, generated_code_t *code, byte *pc);
