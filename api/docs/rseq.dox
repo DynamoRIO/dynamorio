@@ -186,7 +186,7 @@ Eliding stores is complex for instructions with side effects, which we want to k
 
 Once the instrumented execution reaches the final block in the sequence, we want to execute the sequence again, for the second time.  We need to execute it all in one shot, as one contiguous region, since we need to set it up for restartable semantics with the kernel.  We thus make a local copy of the sequence, described further below.
 
-An early version, operating on applications which only used rseq sequences as function bodies, had a simpler method of invoking the second execution: call the native sequence and assume it will simply return back.  This has a number of drawbacks and assumptions and has been abandoned as we have moved to support more general rseq code.  Support is still in the code base under a temporary option `-rseq_assume_call`, as a failsafe in case there are stability problems discovered with the new native execution implementation.  Once we are happy with the new scheme we will remove the option.
+An early version, operating on applications which only used rseq sequences as function bodies, had a simpler method of invoking the second execution: call the native sequence and assume it will simply return back.  This has a number of drawbacks and assumptions and has been abandoned as we have moved to support more general rseq code.  Until recently support was still in the code base under a temporary option `-rseq_assume_call`, as a failsafe in case there were stability problems discovered with the new native execution implementation.  We have since removed this code and option as we are happy with the new general scheme.
 
 ### Application State Barrier
 
