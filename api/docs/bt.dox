@@ -1327,6 +1327,8 @@ This run-twice approach is subject to the following limitations:
   effects: it must only write to memory and not to any registers.
   For example, a push instruction which both writes to memory and the
   stack pointer register is not supported.
+  An exception is a pre-indexed or post-indexed writeback store, which is
+  supported.
 - Each rseq region's code must end with a fall-through (non-control-flow)
   instruction.
 - Indirect branches that do not exit the rseq region are not allowed.

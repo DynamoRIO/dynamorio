@@ -338,8 +338,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
           [completions] "=m"(completions), [restarts] "=m"(restarts),
           [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
-          [force_restart] "m"(force_restart)
+        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
         : "rax", "rcx", "memory");
 #elif defined(AARCH64)
     __asm__ __volatile__(
@@ -409,8 +408,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
           [completions] "=m"(completions), [restarts] "=m"(restarts),
           [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
-          [force_restart] "m"(force_restart)
+        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
         : "x0", "x1", "memory");
 #else
 #    error Unsupported arch
@@ -711,6 +709,65 @@ test_rseq_native_abort(void)
 #endif /* DEBUG */
 }
 
+#ifdef AARCH64
+static void
+test_rseq_writeback_store(void)
+{
+    __u32 id = RSEQ_CPU_ID_UNINITIALIZED;
+    int array[2] = { 0 };
+    int *index = array;
+    __asm__ __volatile__(
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        RSEQ_ADD_TABLE_ENTRY(writeback, 2f, 3f, 4f)
+        /* clang-format on */
+
+        "6:\n\t"
+        /* Store the entry into the ptr. */
+        "adrp x0, rseq_cs_writeback\n\t"
+        "add x0, x0, :lo12:rseq_cs_writeback\n\t"
+        "str x0, %[rseq_tls]\n\t"
+        /* Test a register input to the sequence. */
+        "ldr x0, %[cpu_id]\n\t"
+        /* Test "falling into" the rseq region. */
+
+        "2:\n\t"
+        "str x0, %[id]\n\t"
+        /* Test writeback stores on both executions by having a loop
+         * that won't terminate otherwise.
+         * Further stress corner cases by using the default stolen register.
+         */
+        "mov x28, %[index]\n\t"
+        "add x2, x28, #8\n\t"
+        "mov w1, #42\n\t"
+        "loop:\n\t"
+        "str w1, [x28, 4]!\n\t"
+        "str w1, [x28], 4\n\t"
+        "cmp x28, x2\n\t"
+        "b.ne loop\n\t"
+        "nop\n\t"
+
+        /* Post-commit. */
+        "3:\n\t"
+        "b 5f\n\t"
+
+        /* Abort handler. */
+        /* clang-format off */ /* (avoid indenting next few lines) */
+        ".long " STRINGIFY(RSEQ_SIG) "\n\t"
+        "4:\n\t"
+        "b 6b\n\t"
+
+        /* Clear the ptr. */
+        "5:\n\t"
+        "str xzr, %[rseq_tls]\n\t"
+        /* clang-format on */
+
+        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id), [index] "=g"(index)
+        : [cpu_id] "m"(rseq_tls.cpu_id)
+        : "x0", "x1", "x2", "x28", "memory");
+    assert(id != RSEQ_CPU_ID_UNINITIALIZED);
+}
+#endif
+
 #ifdef RSEQ_TEST_ATTACH
 void *
 rseq_thread_loop(void *arg)
@@ -886,6 +943,10 @@ main()
         int i;
         for (i = 0; i < 200; i++)
             test_rseq_branches();
+#ifdef AARCH64
+        /* Test nop-ing stores with side effects. */
+        test_rseq_writeback_store();
+#endif
 #ifdef RSEQ_TEST_ATTACH
         /* Detach while the thread is in its rseq region loop. */
         atomic_store(&exit_requested, 1);

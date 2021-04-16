@@ -4716,6 +4716,7 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.opcodes
       PROPERTIES LABELS RUNS_ON_QEMU)
     if (LINUX AND X64 AND HAVE_RSEQ)
+      # QEMU just returns ENOSYS, but still this is testing that.
       set_tests_properties(
         code_api|linux.rseq
         code_api|linux.rseq_table
