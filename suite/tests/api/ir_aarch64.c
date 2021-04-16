@@ -4940,17 +4940,17 @@ test_fcvtzu_vector(void *dc)
     instr_t *instr;
 
     /* FCVTZU <Vd>.<T>, <Vn>.<T> */
-    /* FCVTAS <Vd>.2S, <Vn>.2S */
+    /* FCVTZU <Vd>.2S, <Vn>.2S */
     instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_D7),
                                        opnd_create_reg(DR_REG_D9), OPND_CREATE_SINGLE());
     test_instr_encoding(dc, OP_fcvtzu, instr);
 
-    /* FCVTAS <Vd>.4S, <Vn>.4S */
+    /* FCVTZU <Vd>.4S, <Vn>.4S */
     instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_Q1),
                                        opnd_create_reg(DR_REG_Q24), OPND_CREATE_SINGLE());
     test_instr_encoding(dc, OP_fcvtzu, instr);
 
-    /* FCVTAS <Vd>.2D, <Vn>.2D */
+    /* FCVTZU <Vd>.2D, <Vn>.2D */
     instr = INSTR_CREATE_fcvtzu_vector(dc, opnd_create_reg(DR_REG_Q5),
                                        opnd_create_reg(DR_REG_Q18), OPND_CREATE_DOUBLE());
     test_instr_encoding(dc, OP_fcvtzu, instr);
