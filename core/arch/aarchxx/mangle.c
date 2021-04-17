@@ -671,7 +671,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                            reg_get_size(opnd_get_reg(args[i])) == OPSZ_PTR) ||
                           opnd_is_base_disp(args[i]),
                       "insert_parameter_preparation: bad argument type");
-        ASSERT_NOT_IMPLEMENTED(!opnd_is_base_disp(args[i])); /* FIXME i#2210 */
+        IF_ARM(ASSERT_NOT_IMPLEMENTED(!opnd_is_base_disp(args[i])); /* FIXME i#2210 */)
     }
 
     /* The strategy here is to first set up the arguments that can be set up
@@ -777,7 +777,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     for (i = 0; i < num_regs; i++) {
         if (opnd_is_immed_int(args[i]))
             regs[i] = -1;
-        else {
+        else if (opnd_is_base_disp(args[i])){
+            regs[i] = -3;
+        } else {
             reg_id_t reg = opnd_get_reg(args[i]);
             regs[i] = -2;
             for (j = 0; j < NUM_REGPARM; j++) {
@@ -817,6 +819,9 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                     PRE(ilist, instr,
                         instr_create_restore_from_dc_via_reg(
                             dcontext, d_r_regparms[i], d_r_regparms[i], XSP_OFFSET));
+                } else if (regs[i] == -3){
+                    mov_ldr_aarch64(dcontext, ilist, instr,
+                                           opnd_create_reg(d_r_regparms[i]), args[i]);
                 } else {
                     PRE(ilist, instr,
                         XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
@@ -870,11 +875,12 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                 PRE(ilist, instr,
                     instr_create_restore_from_dc_via_reg(dcontext, DR_REG_LR, DR_REG_LR,
                                                          XSP_OFFSET));
-            } else {
-                ASSERT(opnd_is_immed_int(arg));
+            } else if (opnd_is_immed_int(arg)){
                 insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(arg),
                                        opnd_create_reg(DR_REG_LR), ilist, instr, NULL,
                                        NULL);
+            } else if (opnd_is_memory_reference(arg)){
+                mov_ldr_aarch64(dcontext, ilist, instr, opnd_create_reg(DR_REG_LR), arg);
             }
             PRE(ilist, instr,
                 XINST_CREATE_store(
