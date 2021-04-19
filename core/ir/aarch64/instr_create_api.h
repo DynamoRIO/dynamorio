@@ -1698,7 +1698,8 @@ enum {
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The input vector register.
- * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtas_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtas, Rd, Rm, width)
@@ -1708,7 +1709,8 @@ enum {
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtns_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtns, Rd, Rm, width)
@@ -1718,7 +1720,8 @@ enum {
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtps_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtps, Rd, Rm, width)
@@ -1728,7 +1731,8 @@ enum {
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtpu_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtpu, Rd, Rm, width)
@@ -1738,7 +1742,8 @@ enum {
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtzs_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtzs, Rd, Rm, width)
@@ -1748,7 +1753,8 @@ enum {
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtzu_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, width)
