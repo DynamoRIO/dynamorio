@@ -2095,19 +2095,6 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1e67c26b : frinti d11, d19                          : frinti %d19 -> %d11
 1e27c26b : frinti s11, s19                          : frinti %s19 -> %s11
 1ee7c26b : frinti h11, h19                          : frinti %h19 -> %h11
-1e624117 : fcvt s23, d8                             : fcvt   %d8 -> %s23
-1e63c1fd : fcvt h29, d15                            : fcvt   %d15 -> %h29
-1ee2431c : fcvt s28, h24                            : fcvt   %h24 -> %s28
-1ee2c002 : fcvt d2, h0                              : fcvt   %h0 -> %d2
-1e390121 : fcvtzu w1, s9                            : fcvtzu %s9 -> %w1
-9e39012b : fcvtzu x11, s9                           : fcvtzu %s9 -> %x11
-1e7901a7 : fcvtzu w7, d13                           : fcvtzu %d13 -> %w7
-9e790055 : fcvtzu x21, d2                           : fcvtzu %d2 -> %x21
-2ea1b829 : fcvtzu v9.2s, v1.2s                      : fcvtzu %d1 $0x02 -> %d9
-6ea1b910 : fcvtzu v16.4s, v8.4s                     : fcvtzu %q8 $0x02 -> %q16
-6ee1b803 : fcvtzu v3.2d, v0.2d                      : fcvtzu %q0 $0x03 -> %q3
-7ea1b929 : fcvtzu s9, s9                            : fcvtzu %s9 -> %s9
-7ee1b841 : fcvtzu d1, d2                            : fcvtzu %d2 -> %d1
 
 # Floating-point data-processing (2 source)
 1e7e0b62 : fmul d2, d27, d30                        : fmul   %d27 %d30 -> %d2
@@ -2151,6 +2138,66 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 1f7789e4 : fnmsub d4, d15, d23, d2                  : fnmsub %d15 %d23 %d2 -> %d4
 1f3789e4 : fnmsub s4, s15, s23, s2                  : fnmsub %s15 %s23 %s2 -> %s4
 1ff789e4 : fnmsub h4, h15, h23, h2                  : fnmsub %h15 %h23 %h2 -> %h4
+
+# Floating-point conversion
+1e624117 : fcvt s23, d8                             : fcvt   %d8 -> %s23
+1e63c1fd : fcvt h29, d15                            : fcvt   %d15 -> %h29
+1ee2431c : fcvt s28, h24                            : fcvt   %h24 -> %s28
+1ee2c002 : fcvt d2, h0                              : fcvt   %h0 -> %d2
+1e240034 : fcvtas w20, s1                           : fcvtas %s1 -> %w20
+9e240067 : fcvtas x7, s3                            : fcvtas %s3 -> %x7
+1e6402c0 : fcvtas w0, d22                           : fcvtas %d22 -> %w0
+9e640015 : fcvtas x21, d0                           : fcvtas %d0 -> %x21
+0e21c827 : fcvtas v7.2s, v1.2s                      : fcvtas %d1 $0x02 -> %d7
+4e21c920 : fcvtas v0.4s, v9.4s                      : fcvtas %q9 $0x02 -> %q0
+4e61cba5 : fcvtas v5.2d, v29.2d                     : fcvtas %q29 $0x03 -> %q5
+5e21cbde : fcvtas s30, s30                          : fcvtas %s30 -> %s30
+5e61c987 : fcvtas d7, d12                           : fcvtas %d12 -> %d7
+1e200115 : fcvtns w21, s8                           : fcvtns %s8 -> %w21
+9e2002ae : fcvtns x14, s21                          : fcvtns %s21 -> %x14
+1e6003a7 : fcvtns w7, d29                           : fcvtns %d29 -> %w7
+9e600229 : fcvtns x9, d17                           : fcvtns %d17 -> %x9
+0e21a925 : fcvtns v5.2s, v9.2s                      : fcvtns %d9 $0x02 -> %d5
+4e21aa61 : fcvtns v1.4s, v19.4s                     : fcvtns %q19 $0x02 -> %q1
+4e61a971 : fcvtns v17.2d, v11.2d                    : fcvtns %q11 $0x03 -> %q17
+5e21a849 : fcvtns s9, s2                            : fcvtns %s2 -> %s9
+5e61a8f1 : fcvtns d17, d7                           : fcvtns %d7 -> %d17
+1e2800f3 : fcvtps w19, s7                           : fcvtps %s7 -> %w19
+9e280085 : fcvtps x5, s4                            : fcvtps %s4 -> %x5
+1e680148 : fcvtps w8, d10                           : fcvtps %d10 -> %w8
+9e680249 : fcvtps x9, d18                           : fcvtps %d18 -> %x9
+0ea1a926 : fcvtps v6.2s, v9.2s                      : fcvtps %d9 $0x02 -> %d6
+4ea1aa84 : fcvtps v4.4s, v20.4s                     : fcvtps %q20 $0x02 -> %q4
+4ee1a80f : fcvtps v15.2d, v0.2d                     : fcvtps %q0 $0x03 -> %q15
+5ea1a89d : fcvtps s29, s4                           : fcvtps %s4 -> %s29
+5ee1aa0c : fcvtps d12, d16                          : fcvtps %d16 -> %d12
+1e290041 : fcvtpu w1, s2                            : fcvtpu %s2 -> %w1
+9e29016e : fcvtpu x14, s11                          : fcvtpu %s11 -> %x14
+1e690044 : fcvtpu w4, d2                            : fcvtpu %d2 -> %w4
+9e690029 : fcvtpu x9, d1                            : fcvtpu %d1 -> %x9
+2ea1ab01 : fcvtpu v1.2s, v24.2s                     : fcvtpu %d24 $0x02 -> %d1
+6ea1aab6 : fcvtpu v22.4s, v21.4s                    : fcvtpu %q21 $0x02 -> %q22
+6ee1a96b : fcvtpu v11.2d, v11.2d                    : fcvtpu %q11 $0x03 -> %q11
+7ea1aabb : fcvtpu s27, s21                          : fcvtpu %s21 -> %s27
+7ee1aa4c : fcvtpu d12 -> d18                        : fcvtpu %d18 -> %d12
+1e38010b : fcvtzs w11, s8                           : fcvtzs %s8 -> %w11
+9e38006e : fcvtzs x14, s3                           : fcvtzs %s3 -> %x14
+1e780380 : fcvtzs w0, d28                           : fcvtzs %d28 -> %w0
+9e780029 : fcvtzs x9, d1                            : fcvtzs %d1 -> %x9
+0ea1b903 : fcvtzs v3.2s, v8.2s                      : fcvtzs %d8 $0x02 -> %d3
+4ea1baa9 : fcvtzs v9.4s, v21.4s                     : fcvtzs %q21 $0x02 -> %q9
+4ee1b84b : fcvtzs v11.2d, v2.2d                     : fcvtzs %q2 $0x03 -> %q11
+5ea1b863 : fcvtzs s3, s3                            : fcvtzs %s3 -> %s3
+5ee1b8f1 : fcvtzs d17, d7                           : fcvtzs %d7 -> %d17
+1e390121 : fcvtzu w1, s9                            : fcvtzu %s9 -> %w1
+9e39012b : fcvtzu x11, s9                           : fcvtzu %s9 -> %x11
+1e7901a7 : fcvtzu w7, d13                           : fcvtzu %d13 -> %w7
+9e790055 : fcvtzu x21, d2                           : fcvtzu %d2 -> %x21
+2ea1b829 : fcvtzu v9.2s, v1.2s                      : fcvtzu %d1 $0x02 -> %d9
+6ea1b910 : fcvtzu v16.4s, v8.4s                     : fcvtzu %q8 $0x02 -> %q16
+6ee1b803 : fcvtzu v3.2d, v0.2d                      : fcvtzu %q0 $0x03 -> %q3
+7ea1b929 : fcvtzu s9, s9                            : fcvtzu %s9 -> %s9
+7ee1b841 : fcvtzu d1, d2                            : fcvtzu %d2 -> %d1
 
 # SVE bitwise logical operations (predicated)
 04181da2 : orr z2.b, p7/m, z2.b, z13.b              : orr    %p7 %z2 %z13 $0x00 -> %z2

@@ -1119,18 +1119,59 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0001111011100010010000xxxxxxxxxx     fcvt      s0 : h5
 0001111011100010110000xxxxxxxxxx     fcvt      d0 : h5
 
-# FCVTZU (scalar, integer) FP to GPR reg
+# Floating-point convert (scalar)
+0001111000100100000000xxxxxxxxxx     fcvtas    w0 : s5
+1001111000100100000000xxxxxxxxxx     fcvtas    x0 : s5
+0001111001100100000000xxxxxxxxxx     fcvtas    w0 : d5
+1001111001100100000000xxxxxxxxxx     fcvtas    x0 : d5
+0001111000100000000000xxxxxxxxxx     fcvtns    w0 : s5
+1001111000100000000000xxxxxxxxxx     fcvtns    x0 : s5
+0001111001100000000000xxxxxxxxxx     fcvtns    w0 : d5
+1001111001100000000000xxxxxxxxxx     fcvtns    x0 : d5
+0001111000101000000000xxxxxxxxxx     fcvtps    w0 : s5
+1001111000101000000000xxxxxxxxxx     fcvtps    x0 : s5
+0001111001101000000000xxxxxxxxxx     fcvtps    w0 : d5
+1001111001101000000000xxxxxxxxxx     fcvtps    x0 : d5
+0001111000101001000000xxxxxxxxxx     fcvtpu    w0 : s5
+1001111000101001000000xxxxxxxxxx     fcvtpu    x0 : s5
+0001111001101001000000xxxxxxxxxx     fcvtpu    w0 : d5
+1001111001101001000000xxxxxxxxxx     fcvtpu    x0 : d5
+
+# Floating-point convert (vector) (scalar single-precision and double-precision)
+0101111000100001110010xxxxxxxxxx     fcvtas    s0 : s5
+0101111001100001110010xxxxxxxxxx     fcvtas    d0 : d5
+0101111000100001101010xxxxxxxxxx     fcvtns    s0 : s5
+0101111001100001101010xxxxxxxxxx     fcvtns    d0 : d5
+0101111010100001101010xxxxxxxxxx     fcvtps    s0 : s5
+0101111011100001101010xxxxxxxxxx     fcvtps    d0 : d5
+0111111010100001101010xxxxxxxxxx     fcvtpu    s0 : s5
+0111111011100001101010xxxxxxxxxx     fcvtpu    d0 : d5
+
+# Floating-point convert (vector) (vector single-precision and double-precision)
+0x0011100x100001110010xxxxxxxxxx     fcvtas    dq0 : dq5 sd_sz
+0x0011100x100001101010xxxxxxxxxx     fcvtns    dq0 : dq5 sd_sz
+0x0011101x100001101010xxxxxxxxxx     fcvtps    dq0 : dq5 sd_sz
+0x1011101x100001101010xxxxxxxxxx     fcvtpu    dq0 : dq5 sd_sz
+
+# Floating-point convert (scalar, integer)
+0001111000111000000000xxxxxxxxxx     fcvtzs    w0 : s5
+1001111000111000000000xxxxxxxxxx     fcvtzs    x0 : s5
+0001111001111000000000xxxxxxxxxx     fcvtzs    w0 : d5
+1001111001111000000000xxxxxxxxxx     fcvtzs    x0 : d5
 0001111000111001000000xxxxxxxxxx     fcvtzu    w0 : s5
 1001111000111001000000xxxxxxxxxx     fcvtzu    x0 : s5
 0001111001111001000000xxxxxxxxxx     fcvtzu    w0 : d5
 1001111001111001000000xxxxxxxxxx     fcvtzu    x0 : d5
 
-# FCVTZU (vector, integer)
-0x1011101x100001101110xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz
-
-# FCVTZU (Scalar single precision and double-precision)
+# Floating-point convert (vector, integer) (vector single-precision and double-precision)
+0101111010100001101110xxxxxxxxxx     fcvtzs    s0 : s5
+0101111011100001101110xxxxxxxxxx     fcvtzs    d0 : d5
 0111111010100001101110xxxxxxxxxx     fcvtzu    s0 : s5
 0111111011100001101110xxxxxxxxxx     fcvtzu    d0 : d5
+
+# Floating-point convert (vector, integer) (scalar single-precision and double-precision)
+0x0011101x100001101110xxxxxxxxxx     fcvtzs    dq0 : dq5 sd_sz
+0x1011101x100001101110xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz
 
 # Floating-point data-processing (2 source)
 00011110xx1xxxxx000010xxxxxxxxxx     fmul      float_reg0 : float_reg5 float_reg16

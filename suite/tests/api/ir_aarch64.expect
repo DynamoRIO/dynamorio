@@ -865,6 +865,61 @@ blr    %x5 -> %x30
 test_xinst complete
 test_opnd complete
 test_mov_instr_addr complete
+fcvtas %s1 -> %w20
+fcvtas %s3 -> %x7
+fcvtas %d22 -> %w0
+fcvtas %d0 -> %x21
+test_fcvtas_scalar complete
+fcvtas %d1 $0x02 -> %d7
+fcvtas %q9 $0x02 -> %q0
+fcvtas %q29 $0x03 -> %q5
+fcvtas %s30 -> %s30
+fcvtas %d12 -> %d7
+test_fcvtas_vector complete
+fcvtns %s8 -> %w21
+fcvtns %s21 -> %x14
+fcvtns %d29 -> %w7
+fcvtns %d17 -> %x9
+test_fcvtns_scalar complete
+fcvtns %d9 $0x02 -> %d5
+fcvtns %q19 $0x02 -> %q1
+fcvtns %q11 $0x03 -> %q17
+fcvtns %s2 -> %s9
+fcvtns %d7 -> %d17
+test_fcvtns_vector complete
+fcvtps %s7 -> %w19
+fcvtps %s4 -> %x5
+fcvtps %d10 -> %w8
+fcvtps %d18 -> %x9
+test_fcvtps_scalar complete
+fcvtps %d9 $0x02 -> %d6
+fcvtps %q20 $0x02 -> %q4
+fcvtps %q0 $0x03 -> %q15
+fcvtps %s4 -> %s29
+fcvtps %d16 -> %d12
+test_fcvtps_vector complete
+fcvtpu %s2 -> %w1
+fcvtpu %s14 -> %x14
+fcvtpu %d2 -> %w4
+fcvtpu %d1 -> %x9
+test_fcvtpu_scalar complete
+fcvtpu %d24 $0x02 -> %d1
+fcvtpu %q21 $0x02 -> %q22
+fcvtpu %q11 $0x03 -> %q11
+fcvtpu %s21 -> %s27
+fcvtpu %d18 -> %d12
+test_fcvtpu_vector complete
+fcvtzs %s8 -> %w11
+fcvtzs %s3 -> %x14
+fcvtzs %d28 -> %w0
+fcvtzs %d1 -> %x9
+test_fcvtzs_scalar complete
+fcvtzs %d8 $0x02 -> %d3
+fcvtzs %q21 $0x02 -> %q9
+fcvtzs %q2 $0x03 -> %q11
+fcvtzs %s3 -> %s3
+fcvtzs %d7 -> %d17
+test_fcvtzs_vector complete
 fcvtzu %s8 -> %w7
 fcvtzu %s21 -> %x13
 fcvtzu %d9 -> %w0
