@@ -1694,61 +1694,61 @@ enum {
     instr_create_1dst_2src(dc, OP_bif, Rd, Rm, Rn)
 
 /**
- * Creates a FCVTAS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTAS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
- * \param Rm      The first input register.
- * \param width   The input element vector width.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtas_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtas, Rd, Rm, width)
 
 /**
- * Creates a FCVTNS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTNS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   The input element vector width.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtns_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtns, Rd, Rm, width)
 
 /**
- * Creates a FCVTPS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTPS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   The input element vector width.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtps_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtps, Rd, Rm, width)
 
 /**
- * Creates a FCVTPU vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTPU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   The input element vector width.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtpu_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtpu, Rd, Rm, width)
 
 /**
- * Creates a FCVTZS vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTZS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   The input element vector width.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtzs_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtzs, Rd, Rm, width)
 
 /**
- * Creates a FCVTZU vector instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTZU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The first input register.
- * \param width   The input element vector width.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE() or #OPND_CREATE_DOUBLE().
  */
 #define INSTR_CREATE_fcvtzu_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, width)
@@ -1788,16 +1788,16 @@ enum {
 #define INSTR_CREATE_fsqrt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fsqrt, Rd, Rm)
 
 /**
- * Creates a FCVT floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
+ * Creates an FCVT floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
  */
 #define INSTR_CREATE_fcvt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fcvt, Rd, Rm)
 
 /**
- * Creates a FCVTAS floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTAS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
  * \param Rm      Floating-point input register.
  */
@@ -1805,8 +1805,8 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtas, Rd, Rm)
 
 /**
- * Creates a FCVTNS floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTNS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
  * \param Rm      Floating-point input register.
  */
@@ -1814,8 +1814,8 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtns, Rd, Rm)
 
 /**
- * Creates a FCVTPS floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTPS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
  * \param Rm      Floating-point input register.
  */
@@ -1823,8 +1823,8 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtps, Rd, Rm)
 
 /**
- * Creates a FCVTPU floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTPU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
  * \param Rm      Floating-point input register.
  */
@@ -1832,8 +1832,8 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtpu, Rd, Rm)
 
 /**
- * Creates a FCVTZS floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTZS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
  * \param Rm      Floating-point input register.
  */
@@ -1841,8 +1841,8 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtzs, Rd, Rm)
 
 /**
- * Creates a FCVTZU floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * Creates an FCVTZU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
  * \param Rm      Floating-point input register.
  */
