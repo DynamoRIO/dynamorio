@@ -2040,72 +2040,60 @@ test_predication(void *dc)
     instr_destroy(dc, instr);
 }
 
+/* Destroys instr when done.  Differs from test_instr_decode() by not having raw
+ * bytes available.
+ */
+static void
+test_encode_matches_decode(void *dc, instr_t *instr)
+{
+    byte *pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
+    instr_t *ins2 = instr_create(dc);
+    decode(dc, buf, ins2);
+    ASSERT(instr_same(instr, ins2));
+    instr_destroy(dc, instr);
+    instr_destroy(dc, ins2);
+}
+
 static void
 test_xinst_create(void *dc)
 {
-    byte *pc;
     reg_id_t reg = DR_REG_XDX;
-    instr_t *ins1, *ins2;
     /* load 1 byte zextend */
-    ins1 = XINST_CREATE_load_1byte_zext4(
-        dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_1byte_zext4(
+            dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_4)), MEMARG(OPSZ_1)));
     /* load 1 byte */
-    ins1 = XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
-                                   MEMARG(OPSZ_1));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_1byte(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)),
+                                MEMARG(OPSZ_1)));
     /* load 2 bytes */
-    ins1 = XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
-                                    MEMARG(OPSZ_2));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_load_2bytes(dc, opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)),
+                                 MEMARG(OPSZ_2)));
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
-                                    opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1)));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_store_1byte(dc, MEMARG(OPSZ_1),
+                                 opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_1))));
     /* store 1 byte */
-    ins1 = XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
-                                     opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2)));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(
+        dc,
+        XINST_CREATE_store_2bytes(dc, MEMARG(OPSZ_2),
+                                  opnd_create_reg(reg_resize_to_opsz(reg, OPSZ_2))));
     /* indirect call through a register */
-    ins1 = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_XBX));
-    pc = instr_encode(dc, ins1, buf);
-    ASSERT(pc != NULL);
-    ins2 = instr_create(dc);
-    decode(dc, buf, ins2);
-    ASSERT(instr_same(ins1, ins2));
-    ASSERT(instr_get_opcode(ins2) == OP_call_ind);
-    instr_destroy(dc, ins1);
-    instr_destroy(dc, ins2);
+    test_encode_matches_decode(dc, XINST_CREATE_call_reg(dc, REGARG(XBX)));
+
+    /* Variations of adding. */
+    test_encode_matches_decode(dc, XINST_CREATE_add(dc, REGARG(XBX), IMMARG(OPSZ_4)));
+    test_encode_matches_decode(dc, XINST_CREATE_add(dc, REGARG(XSI), REGARG(XDI)));
+    test_encode_matches_decode(
+        dc, XINST_CREATE_add_2src(dc, REGARG(XBX), REGARG(XAX), IMMARG(OPSZ_4)));
+    test_encode_matches_decode(
+        dc, XINST_CREATE_add_2src(dc, REGARG(XSI), REGARG(XDI), REGARG(XBP)));
 }
 
 static void
