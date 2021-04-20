@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -312,6 +312,8 @@ public:
     append_iflush(byte *buf_ptr, addr_t start, size_t size) override;
     int
     append_thread_header(byte *buf_ptr, thread_id_t tid) override;
+    virtual int
+    append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
     int
     append_unit_header(byte *buf_ptr, thread_id_t tid) override;
 

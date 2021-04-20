@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -174,8 +174,8 @@ analyzer_multi_t::create_analysis_tools()
     num_tools_ = 1;
 #ifdef DEBUG
     if (op_test_mode.get_value()) {
-        tools_[1] =
-            new trace_invariants_t(op_offline.get_value(), op_verbose.get_value());
+        tools_[1] = new trace_invariants_t(op_offline.get_value(), op_verbose.get_value(),
+                                           op_test_mode_name.get_value());
         if (tools_[1] == NULL)
             return false;
         if (!!*tools_[1])

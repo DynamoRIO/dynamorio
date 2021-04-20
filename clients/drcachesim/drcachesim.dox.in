@@ -1010,6 +1010,10 @@ closely match the actual hardware if so desired.
 Traces also include markers indicating disruptions in user mode control
 flow such as signal handler entry and exit.
 
+Filtered traces (filtered via -L0_filter) include the dynamic (pre-filtered)
+per-thread instruction count in a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at
+thread exit.
+
 A final feature that aids core simulators is the pair of interfaces
 module_mapper_t::get_loaded_modules() and
 module_mapper_t::find_mapped_trace_address(), which facilitate reading the raw
