@@ -1216,6 +1216,9 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
+    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+        DR_ASSERT(false);
+    }
     return DR_EMIT_DEFAULT;
 }
 

@@ -3327,6 +3327,11 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
     endif ()
 
+    if (NOT MACOS AND X86)
+      torunonly_drcachesim(scattergather client.drx-scattergather
+        "-simulator_type basic_counts" "")
+    endif ()
+
     # Test offline traces.
     # XXX: we could exclude the pipe files and build the offline trace
     # support by itself for Android.
