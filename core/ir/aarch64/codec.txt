@@ -96,6 +96,7 @@
 -----------------xxxxx----------  q10        # Q register
 ----------------xxx-------------  ext        # extend type
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
+----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
@@ -121,6 +122,7 @@
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
+----------xxxxxx----------------  immhb      # encoding of #fbits value in immh:immb fields
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
@@ -1158,20 +1160,23 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 1001111000111000000000xxxxxxxxxx     fcvtzs    x0 : s5
 0001111001111000000000xxxxxxxxxx     fcvtzs    w0 : d5
 1001111001111000000000xxxxxxxxxx     fcvtzs    x0 : d5
-0001111000111001000000xxxxxxxxxx     fcvtzu    w0 : s5
-1001111000111001000000xxxxxxxxxx     fcvtzu    x0 : s5
-0001111001111001000000xxxxxxxxxx     fcvtzu    w0 : d5
-1001111001111001000000xxxxxxxxxx     fcvtzu    x0 : d5
+x001111000111001000000xxxxxxxxxx     fcvtzu    wx0 : s5
+x001111001111001000000xxxxxxxxxx     fcvtzu    wx0 : d5
+x001111000011001xxxxxxxxxxxxxxxx     fcvtzu    wx0 : s5 scale
+x001111001011001xxxxxxxxxxxxxxxx     fcvtzu    wx0 : d5 scale
 
 # Floating-point convert (vector, integer) (vector single-precision and double-precision)
 0101111010100001101110xxxxxxxxxx     fcvtzs    s0 : s5
 0101111011100001101110xxxxxxxxxx     fcvtzs    d0 : d5
 0111111010100001101110xxxxxxxxxx     fcvtzu    s0 : s5
 0111111011100001101110xxxxxxxxxx     fcvtzu    d0 : d5
+0111111100xxxxxx111111xxxxxxxxxx     fcvtzu    s0 : s5 immhb
+0111111101xxxxxx111111xxxxxxxxxx     fcvtzu    d0 : d5 immhb
 
 # Floating-point convert (vector, integer) (scalar single-precision and double-precision)
 0x0011101x100001101110xxxxxxxxxx     fcvtzs    dq0 : dq5 sd_sz
 0x1011101x100001101110xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz
+0x1011110xxxxxxx111111xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz immhb
 
 # Floating-point data-processing (2 source)
 00011110xx1xxxxx000010xxxxxxxxxx     fmul      float_reg0 : float_reg5 float_reg16

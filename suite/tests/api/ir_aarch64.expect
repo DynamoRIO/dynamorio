@@ -931,4 +931,53 @@ fcvtzu %q18 $0x03 -> %q5
 fcvtzu %s10 -> %s9
 fcvtzu %d0 -> %d11
 test_fcvtzu_vector complete
+fcvtzu %s8 $0x04 -> %w7
+fcvtzu %s21 $0x10 -> %x13
+fcvtzu %d9 $0x20 -> %w30
+fcvtzu %d15 $0x40 -> %x12
+test_fcvtzu_scalar_fixed_gpr complete
+fcvtzu %s1 $0x01 -> %s0
+fcvtzu %s3 $0x02 -> %s2
+fcvtzu %s5 $0x04 -> %s4
+fcvtzu %s7 $0x08 -> %s6
+fcvtzu %s9 $0x10 -> %s8
+fcvtzu %s11 $0x20 -> %s10
+fcvtzu %s29 $0x15 -> %s28
+fcvtzu %s31 $0x1f -> %s30
+fcvtzu %d1 $0x01 -> %d0
+fcvtzu %d3 $0x02 -> %d2
+fcvtzu %d5 $0x04 -> %d4
+fcvtzu %d7 $0x08 -> %d6
+fcvtzu %d9 $0x10 -> %d8
+fcvtzu %d11 $0x20 -> %d10
+fcvtzu %d13 $0x40 -> %d12
+fcvtzu %d29 $0x15 -> %d28
+fcvtzu %d31 $0x2a -> %d30
+test_fcvtzu_scalar_fixed complete
+fcvtzu %q1 $0x02 $0x01 -> %q0
+fcvtzu %q3 $0x02 $0x02 -> %q2
+fcvtzu %q5 $0x02 $0x04 -> %q4
+fcvtzu %q7 $0x02 $0x08 -> %q6
+fcvtzu %q9 $0x02 $0x10 -> %q8
+fcvtzu %q11 $0x02 $0x20 -> %q10
+fcvtzu %q29 $0x02 $0x15 -> %q28
+fcvtzu %q31 $0x02 $0x1f -> %q30
+fcvtzu %q1 $0x03 $0x01 -> %q0
+fcvtzu %q3 $0x03 $0x02 -> %q2
+fcvtzu %q5 $0x03 $0x04 -> %q4
+fcvtzu %q7 $0x03 $0x08 -> %q6
+fcvtzu %q9 $0x03 $0x10 -> %q8
+fcvtzu %q11 $0x03 $0x20 -> %q10
+fcvtzu %q13 $0x03 $0x40 -> %q12
+fcvtzu %q29 $0x03 $0x15 -> %q28
+fcvtzu %q31 $0x03 $0x2a -> %q30
+fcvtzu %d1 $0x02 $0x01 -> %d0
+fcvtzu %d3 $0x02 $0x02 -> %d2
+fcvtzu %d5 $0x02 $0x04 -> %d4
+fcvtzu %d7 $0x02 $0x08 -> %d6
+fcvtzu %d9 $0x02 $0x10 -> %d8
+fcvtzu %d11 $0x02 $0x20 -> %d10
+fcvtzu %d29 $0x02 $0x15 -> %d28
+fcvtzu %d31 $0x02 $0x1f -> %d30
+test_fcvtzu_vector_fixed complete
 All tests complete

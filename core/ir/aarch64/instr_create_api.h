@@ -1759,6 +1759,19 @@ enum {
 #define INSTR_CREATE_fcvtzu_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, width)
 
+/**
+ * Creates an FCVTZU vector floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input register.
+ * \param width   The vector element width. Use either OPND_CREATE_SINGLE() or
+ *                OPND_CREATE_DOUBLE().
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination element.
+ */
+#define INSTR_CREATE_fcvtzu_vector_fixed(dc, Rd, Rm, width, fbits) \
+    instr_create_1dst_3src(dc, OP_fcvtzu, Rd, Rm, width, fbits)
+
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
@@ -1854,6 +1867,17 @@ enum {
  */
 #define INSTR_CREATE_fcvtzu_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
+
+/**
+ * Creates an FCVTZU scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination.
+ */
+#define INSTR_CREATE_fcvtzu_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, fbits)
 
 /**
  * Creates a FRINTN floating point instruction.
