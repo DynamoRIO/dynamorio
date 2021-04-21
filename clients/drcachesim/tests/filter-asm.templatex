@@ -19,7 +19,7 @@ Cache simulation results:
 Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                                0
-    Misses:                              1
+    Misses:                             .*
     Invalidations:                       0
     Miss rate:                      100.00%
   L1D stats:
@@ -31,7 +31,7 @@ Core #2 \(0 thread\(s\)\)
 Core #3 \(0 thread\(s\)\)
 LL stats:
     Hits:                                0
-    Misses:                              1
+    Misses:                             .*
     Invalidations:                       0
     Miss rate:                      100.00%
 

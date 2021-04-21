@@ -93,7 +93,9 @@ trace_invariants_t::process_memref(const memref_t &memref)
         memref.marker.marker_type == TRACE_MARKER_TYPE_INSTRUCTION_COUNT) {
         found_instr_count_marker_[memref.marker.tid] = true;
         if (knob_test_name_ == "filter_asm_instr_count") {
+#ifndef NDEBUG
             static constexpr int ASM_INSTR_COUNT = 133;
+#endif
             assert(memref.marker.marker_value == ASM_INSTR_COUNT);
         }
     }
