@@ -353,6 +353,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,opt_memory|common.nativeexec_retakeover_opt' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_exe_opt' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_bindnow_opt' => 1, # i#1807
+                'code_api,tracedump_text,tracedump_origins,syntax_intel|common.nativeexec_bindnow' => 1, # i#1807
                 );
             $issue_no = "#2941";
         }
