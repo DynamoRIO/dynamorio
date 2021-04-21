@@ -1760,7 +1760,7 @@ enum {
     instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, width)
 
 /**
- * Creates a FCVTZU vector floating-point to fixed-point convert instruction.
+ * Creates an FCVTZU vector floating-point to fixed-point convert instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.
  * \param Rm      The input register.
@@ -1869,7 +1869,7 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
 
 /**
- * Creates a FCVTZU scalar floating-point to fixed-point convert instruction.
+ * Creates an FCVTZU scalar floating-point to fixed-point convert instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
  * \param Rm      Floating-point input register.

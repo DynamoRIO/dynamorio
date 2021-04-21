@@ -1557,9 +1557,9 @@ encode_opnd_cond(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
 }
 
-/* scale: scalar encoding of #fbits operand (number of bits after the decimal point for
- * fixed-point values) */
-
+/* scale: The scalar encoding of #fbits operand. This is the number of bits
+ * after the decimal point for fixed-point values.
+ */
 static inline bool
 decode_opnd_scale(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
@@ -2169,9 +2169,9 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-/* immhb: vector encoding of #fbits operand (number of bits after the decimal point for
- * fixed-point values) */
-
+/* immhb: The vector encoding of #fbits operand. This is the number of bits
+ * after the decimal point for fixed-point values.
+ */
 static inline bool
 decode_opnd_immhb(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
