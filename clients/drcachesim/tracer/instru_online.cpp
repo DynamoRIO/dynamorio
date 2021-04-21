@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -138,15 +138,23 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
+                                      offline_file_type_t file_type)
 {
     byte *new_buf = buf_ptr;
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
 
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_FILETYPE, file_type);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                              proc_get_cache_line_size());
     return (int)(new_buf - buf_ptr);
+}
+
+int
+online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+{
+    return append_thread_header(buf_ptr, tid, OFFLINE_FILE_TYPE_DEFAULT);
 }
 
 int

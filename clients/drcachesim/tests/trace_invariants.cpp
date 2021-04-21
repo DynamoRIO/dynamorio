@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,9 +35,11 @@
 #include <iostream>
 #include <string.h>
 
-trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose)
+trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose,
+                                       std::string test_name)
     : knob_offline_(offline)
     , knob_verbose_(verbose)
+    , knob_test_name_(test_name)
     , instrs_until_interrupt_(-1)
     , memrefs_until_interrupt_(-1)
     , app_handler_pc_(0)
@@ -84,11 +86,27 @@ trace_invariants_t::process_memref(const memref_t &memref)
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
+        file_type_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_INSTRUCTION_COUNT) {
+        found_instr_count_marker_[memref.marker.tid] = true;
+        if (knob_test_name_ == "filter_asm_instr_count") {
+#ifndef NDEBUG
+            static constexpr int ASM_INSTR_COUNT = 133;
+#endif
+            assert(memref.marker.marker_value == ASM_INSTR_COUNT);
+        }
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
         found_cache_line_size_marker_[memref.marker.tid] = true;
     }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
+        assert(!TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
+               found_instr_count_marker_[memref.exit.tid]);
         assert(found_cache_line_size_marker_[memref.exit.tid]);
         thread_exited_[memref.exit.tid] = true;
     }
@@ -122,7 +140,9 @@ trace_invariants_t::process_memref(const memref_t &memref)
         if (prev_instr_.instr.addr != 0 /*first*/ &&
             prev_instr_.instr.tid == memref.instr.tid &&
             !type_is_instr_branch(prev_instr_.instr.type)) {
-            assert( // Regular fall-through.
+            assert( // Filtered.
+                TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
+                // Regular fall-through.
                 (prev_instr_.instr.addr + prev_instr_.instr.size == memref.instr.addr) ||
                 // String loop.
                 (prev_instr_.instr.addr == memref.instr.addr &&

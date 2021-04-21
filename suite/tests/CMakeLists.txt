@@ -3173,9 +3173,21 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(phys ${ci_shared_app} "-use_physical" "")
     endif ()
 
-    torunonly_drcachesim(filter-simple ${ci_shared_app} "-L0_filter" "")
-    torunonly_drcachesim(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "")
-    torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
+    set(test_mode_flag "-test_mode")
+    if (NOT DEBUG)
+      set(test_mode_flag "")
+    endif ()
+    torunonly_drcachesim(filter-simple ${ci_shared_app}
+      "-L0_filter ${test_mode_flag}" "")
+    if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+      # If we have a pure-asm app with a constant instr count, check that count.
+      torunonly_drcachesim(filter-asm common.loglevel
+        "-L0_filter -test_mode -test_mode_name filter_asm_instr_count" "")
+    endif ()
+    torunonly_drcachesim(filter-no-i ${ci_shared_app}
+      "-L0_filter -L0I_size 0 ${test_mode_flag}" "")
+    torunonly_drcachesim(filter-no-d ${ci_shared_app}
+      "-L0_filter -L0D_size 0 ${test_mode_flag}" "")
 
     torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
@@ -3407,9 +3419,11 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(multiproc tool.multiproc "" "" "${tool.multiproc_path}")
     endif ()
 
-    torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
-    torunonly_drcacheoff(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "" "")
-    torunonly_drcacheoff(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "" "")
+    torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter ${test_mode_flag}" "" "")
+    torunonly_drcacheoff(filter-no-i ${ci_shared_app}
+      "-L0_filter -L0I_size 0 ${test_mode_flag}" "" "")
+    torunonly_drcacheoff(filter-no-d ${ci_shared_app}
+      "-L0_filter -L0D_size 0 ${test_mode_flag}" "" "")
 
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")

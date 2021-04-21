@@ -142,6 +142,7 @@ typedef struct {
     instr_t *delay_instrs[MAX_NUM_DELAY_INSTRS];
     bool repstr;
     void *instru_field; /* for use by instru_t */
+    int bb_instr_count;
 } user_data_t;
 
 /* For online simulation, we write to a single global pipe */
@@ -176,6 +177,7 @@ enum {
     /* XXX: we could make these dynamic to save slots when there's no -L0_filter. */
     MEMTRACE_TLS_OFFS_DCACHE,
     MEMTRACE_TLS_OFFS_ICACHE,
+    MEMTRACE_TLS_OFFS_ICOUNT,
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 static reg_id_t tls_seg;
@@ -913,6 +915,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
                                opnd_create_reg(reg_addr)));
+
     // Restore app value b/c the caller will re-compute the app addr.
     // We can avoid clobbering the app address if we either get a 4th scratch or
     // keep re-computing the tag and the mask but it's better to keep the common
@@ -971,6 +974,23 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {
+        // Count dynamic instructions per thread.
+        // It is too expensive to increment per instruction, so we increment once
+        // per block by the instruction count for that block.
+        if (drmgr_is_first_nonlabel_instr(drcontext, app)) {
+            // On x86 we could do this in one instruction if we clobber the flags: but
+            // then we'd have to preserve the flags before our same-line skip in
+            // insert_filter_addr().
+            dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
+                                   tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNT,
+                                   reg_ptr);
+            MINSERT(ilist, where,
+                    XINST_CREATE_add(drcontext, opnd_create_reg(reg_ptr),
+                                     OPND_CREATE_INT8(ud->bb_instr_count)));
+            dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
+                                    tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNT,
+                                    reg_ptr);
+        }
         reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr,
                                        opnd_create_null(), app, skip, DR_PRED_NONE);
         if (reg_third == DR_REG_NULL) {
@@ -1211,6 +1231,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     data->strex = NULL;
     data->num_delay_instrs = 0;
     data->instru_field = NULL;
+    data->bb_instr_count = 0;
     *user_data = (void *)data;
     if (!drutil_expand_rep_string_ex(drcontext, bb, &data->repstr, NULL)) {
         DR_ASSERT(false);
@@ -1225,6 +1246,16 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 {
     user_data_t *ud = (user_data_t *)user_data;
     instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
+    // As elsewhere in this code, we want the single-instr original and not
+    // the expanded 6 labeled-app instrs for repstr loops (i#2011).
+    if (ud->repstr)
+        ud->bb_instr_count = 1;
+    else {
+        for (instr_t *app = instrlist_first_app(bb); app != NULL;
+             app = instr_get_next_app(app)) {
+            ++ud->bb_instr_count;
+        }
+    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -1578,6 +1609,23 @@ init_thread_in_process(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     char buf[MAXIMUM_PATH];
     byte *proc_info;
+    offline_file_type_t file_type =
+        op_L0_filter.get_value() ? OFFLINE_FILE_TYPE_FILTERED : OFFLINE_FILE_TYPE_DEFAULT;
+    if (op_disable_optimizations.get_value()) {
+        file_type = static_cast<offline_file_type_t>(file_type |
+                                                     OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
+    }
+    if (op_instr_only_trace.get_value() ||
+        // Data entries are removed from trace if -L0_filter and -L0D_size 0
+        (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
+        file_type = static_cast<offline_file_type_t>(file_type |
+                                                     OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
+    }
+    file_type = static_cast<offline_file_type_t>(
+        file_type |
+        IF_X86_ELSE(
+            IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
+            IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32)));
     if (op_offline.get_value()) {
         /* We do not need to call drx_init before using drx_open_unique_appid_file.
          * Since we're now in a subdir we could make the name simpler but this
@@ -1606,25 +1654,6 @@ init_thread_in_process(void *drcontext)
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
         /* Write initial headers at the top of the first buffer. */
-        offline_file_type_t file_type = op_L0_filter.get_value()
-            ? OFFLINE_FILE_TYPE_FILTERED
-            : OFFLINE_FILE_TYPE_DEFAULT;
-        if (op_disable_optimizations.get_value()) {
-            file_type = static_cast<offline_file_type_t>(
-                file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
-        }
-        if (op_instr_only_trace.get_value() ||
-            // Data entries are removed from trace if -L0_filter and -L0D_size 0
-            (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
-            file_type = static_cast<offline_file_type_t>(
-                file_type | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
-        }
-        file_type = static_cast<offline_file_type_t>(
-            file_type |
-            IF_X86_ELSE(
-                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
-                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
-                            OFFLINE_FILE_TYPE_ARCH_ARM32)));
         data->init_header_size =
             reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
                 data->buf_base, dr_get_thread_id(drcontext), file_type);
@@ -1633,7 +1662,8 @@ init_thread_in_process(void *drcontext)
     } else {
         /* pass pid and tid to the simulator to register current thread */
         proc_info = (byte *)buf;
-        proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
+        proc_info += reinterpret_cast<online_instru_t *>(instru)->append_thread_header(
+            proc_info, dr_get_thread_id(drcontext), file_type);
         DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(proc_info - (byte *)buf));
         write_trace_data(drcontext, (byte *)buf, proc_info);
 
@@ -1701,6 +1731,20 @@ event_thread_exit(void *drcontext)
         if (is_bytes_written_beyond_trace_max(data)) {
             // If over the limit, we still want to write the footer, but nothing else.
             BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
+        }
+        if (op_L0_filter.get_value()) {
+            // Include the final instruction count.
+            // It might be useful to include the count with each miss as well, but
+            // in experiments that adds non-trivial space and time overheads (as
+            // a separate marker; squished into the instr_count field might be
+            // better but at complexity costs, plus we may need that field for
+            // offset-within-block info to adjust the per-block count) and
+            // would likely need to be under an off-by-default option and have
+            // a mandated use case to justify adding it.
+            uintptr_t icount =
+                *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_INSTRUCTION_COUNT, icount);
         }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
