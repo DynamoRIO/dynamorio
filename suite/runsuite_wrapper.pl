@@ -219,6 +219,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.symtest' => 1, # i#4131
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
+                'code_api|win32.hookerfirst' => 1, # i#4870
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972
@@ -337,11 +338,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
                 # These are from the long suite.
-                'code_api,opt_speed|common.decode-stress' => 1, # i#1807
-                'code_api,thread_private|common.decode-stress' => 1, # i#1807
-                'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
-                'prof_pcs,thread_private|common.decode-stress' => 1, # i#1807
-                'code_api,thread_private,tracedump_binary|common.decode-stress' => 1, # i#1807
+                'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 );
             # FIXME i#2941: fix flaky threadfilter test
             %ignore_failures_64 = (
@@ -349,10 +346,10 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # These are from the long suite.
                 'code_api,opt_memory|common.loglevel' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
-                'code_api,thread_private,disable_traces|common.nativeexec_bindnow' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_retakeover_opt' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_exe_opt' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_bindnow_opt' => 1, # i#1807
+                'common.nativeexec_bindnow' => 1, # i#1807, i#4868 Ignored for all options.
                 );
             $issue_no = "#2941";
         }
@@ -362,10 +359,17 @@ for (my $i = 0; $i <= $#lines; ++$i) {
         my $num_ignore = 0;
         for (my $j = $i+1; $j <= $#lines; ++$j) {
             my $test;
+            my $test_base_name;
             if ($lines[$j] =~ /^\t(\S+)\s/) {
                 $test = $1;
-                if (($is_32 && $ignore_failures_32{$test}) ||
-                    (!$is_32 && $ignore_failures_64{$test})) {
+                # Tests listed in ignore list without any options (that is,
+                # without any '|' in their name) are ignored for all possible
+                # option combinations.
+                $test_base_name = (split '\|', $test)[-1];
+                if (($is_32 && ($ignore_failures_32{$test} ||
+                                $ignore_failures_32{$test_base_name})) ||
+                    (!$is_32 && ($ignore_failures_64{$test} ||
+                                 $ignore_failures_64{$test_base_name}))) {
                     $lines[$j] = "\t(ignore: i" . $issue_no . ") " . $lines[$j];
                     $num_ignore++;
                 } elsif ($test =~ /_FLAKY$/) {
