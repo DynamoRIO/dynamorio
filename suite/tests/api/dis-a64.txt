@@ -2200,6 +2200,27 @@ fd7fffff : ldr    d31, [sp,#32760]        : ldr    +0x7ff8(%sp)[8byte] -> %d31
 7ee1b841 : fcvtzu d1, d2                            : fcvtzu %d2 -> %d1
 
 # Floating-point/fixed-point conversion
+1e18f107 : fcvtzs w7, s8, #4                        : fcvtzs %s8 $0x04 -> %w7
+9e18c2ad : fcvtzs x13, s21, #16                     : fcvtzs %s21 $0x10 -> %x13
+1e58813e : fcvtzs w30, d9, #32                      : fcvtzs %d9 $0x20 -> %w30
+9e5801ec : fcvtzs x12, d15, #64                     : fcvtzs %d15 $0x40 -> %x12
+5f3ffc20 : fcvtzs s0, s1, #1                        : fcvtzs %s1 $0x01 -> %s0
+5f3efc62 : fcvtzs s2, s3, #2                        : fcvtzs %s3 $0x02 -> %s2
+5f3cfca4 : fcvtzs s4, s5, #4                        : fcvtzs %s5 $0x04 -> %s4
+5f38fce6 : fcvtzs s6, s7, #8                        : fcvtzs %s7 $0x08 -> %s6
+5f30fd28 : fcvtzs s8, s9, #16                       : fcvtzs %s9 $0x10 -> %s8
+5f20fd6a : fcvtzs s10, s11, #32                     : fcvtzs %s11 $0x20 -> %s10
+5f2bffbc : fcvtzs s28, s29, #21                     : fcvtzs %s29 $0x15 -> %s28
+5f21fffe : fcvtzs s30, s31, #31                     : fcvtzs %s31 $0x1f -> %s30
+5f7ffc20 : fcvtzs d0, d1, #1                        : fcvtzs %d1 $0x01 -> %d0
+5f7cfca4 : fcvtzs d4, d5, #4                        : fcvtzs %d5 $0x04 -> %d4
+5f78fce6 : fcvtzs d6, d7, #8                        : fcvtzs %d7 $0x08 -> %d6
+5f70fd28 : fcvtzs d8, d9, #16                       : fcvtzs %d9 $0x10 -> %d8
+5f60fd6a : fcvtzs d10, d11, #32                     : fcvtzs %d11 $0x20 -> %d10
+5f40fdac : fcvtzs d12, d13, #64                     : fcvtzs %d13 $0x40 -> %d12
+5f6bffbc : fcvtzs d28, d29, #21                     : fcvtzs %d29 $0x15 -> %d28
+5f56fffe : fcvtzs d30, d31, #42                     : fcvtzs %d31 $0x2a -> %d30
+
 1e19f107 : fcvtzu w7, s8, #4                        : fcvtzu %s8 $0x04 -> %w7
 9e19c2ad : fcvtzu x13, s21, #16                     : fcvtzu %s21 $0x10 -> %x13
 1e59813e : fcvtzu w30, d9, #32                      : fcvtzu %d9 $0x20 -> %w30
