@@ -219,7 +219,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|api.symtest' => 1, # i#4131
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
-                'code_api|win32.hookerfirst' => 1, # i#4872
+                'code_api|win32.hookerfirst' => 1, # i#4870
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972
