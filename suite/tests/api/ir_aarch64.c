@@ -4908,6 +4908,7 @@ test_fcvtzs_vector(void *dc)
                                        opnd_create_reg(DR_REG_D7));
     test_instr_encoding(dc, OP_fcvtzs, instr);
 }
+
 static void
 test_fcvtzs_scalar_fixed_gpr(void *dc)
 {

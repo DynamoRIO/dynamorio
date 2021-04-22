@@ -1867,7 +1867,6 @@ enum {
  * \param fbits   The number of bits after the binary point in the fixed-point
  *                destination.
  */
-
 #define INSTR_CREATE_fcvtzs_scalar_fixed(dc, Rd, Rm, fbits) \
     instr_create_1dst_2src(dc, OP_fcvtzs, Rd, Rm, fbits)
 
