@@ -361,11 +361,14 @@ for (my $i = 0; $i <= $#lines; ++$i) {
             my $test_base_name;
             if ($lines[$j] =~ /^\t(\S+)\s/) {
                 $test = $1;
-                # Tests listed in ignore list without any options (that is, without any '|' in their name)
-                # are ignored for all possible options.
+                # Tests listed in ignore list without any options (that is,
+                # without any '|' in their name) are ignored for all possible
+                # option combinations.
                 $test_base_name = (split '\|', $test)[-1];
-                if (($is_32 && ($ignore_failures_32{$test} || $ignore_failures_32{$test_base_name})) ||
-                    (!$is_32 && ($ignore_failures_64{$test} || $ignore_failures_64{$test_base_name}))) {
+                if (($is_32 && ($ignore_failures_32{$test} ||
+                                $ignore_failures_32{$test_base_name})) ||
+                    (!$is_32 && ($ignore_failures_64{$test} ||
+                                 $ignore_failures_64{$test_base_name}))) {
                     $lines[$j] = "\t(ignore: i" . $issue_no . ") " . $lines[$j];
                     $num_ignore++;
                 } elsif ($test =~ /_FLAKY$/) {
