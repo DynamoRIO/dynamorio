@@ -1860,6 +1860,17 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtzs, Rd, Rm)
 
 /**
+ * Creates an FCVTZS scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination.
+ */
+#define INSTR_CREATE_fcvtzs_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_fcvtzs, Rd, Rm, fbits)
+
+/**
  * Creates an FCVTZU floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.

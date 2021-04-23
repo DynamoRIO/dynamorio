@@ -920,6 +920,29 @@ fcvtzs %q2 $0x03 -> %q11
 fcvtzs %s3 -> %s3
 fcvtzs %d7 -> %d17
 test_fcvtzs_vector complete
+fcvtzs %s8 $0x04 -> %w7
+fcvtzs %s21 $0x10 -> %x13
+fcvtzs %d9 $0x20 -> %w30
+fcvtzs %d15 $0x40 -> %x12
+test_fcvtzs_scalar_fixed_gpr complete
+fcvtzs %s1 $0x01 -> %s0
+fcvtzs %s3 $0x02 -> %s2
+fcvtzs %s5 $0x04 -> %s4
+fcvtzs %s7 $0x08 -> %s6
+fcvtzs %s9 $0x10 -> %s8
+fcvtzs %s11 $0x20 -> %s10
+fcvtzs %s29 $0x15 -> %s28
+fcvtzs %s31 $0x1f -> %s30
+fcvtzs %d1 $0x01 -> %d0
+fcvtzs %d3 $0x02 -> %d2
+fcvtzs %d5 $0x04 -> %d4
+fcvtzs %d7 $0x08 -> %d6
+fcvtzs %d9 $0x10 -> %d8
+fcvtzs %d11 $0x20 -> %d10
+fcvtzs %d13 $0x40 -> %d12
+fcvtzs %d29 $0x15 -> %d28
+fcvtzs %d31 $0x2a -> %d30
+test_fcvtzs_scalar_fixed complete
 fcvtzu %s8 -> %w7
 fcvtzu %s21 -> %x13
 fcvtzu %d9 -> %w0
