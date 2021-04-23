@@ -1160,31 +1160,51 @@ x001111000111000000000xxxxxxxxxx     fcvtzs    wx0 : s5
 x001111001111000000000xxxxxxxxxx     fcvtzs    wx0 : d5
 x001111000111001000000xxxxxxxxxx     fcvtzu    wx0 : s5
 x001111001111001000000xxxxxxxxxx     fcvtzu    wx0 : d5
+x001111000100011000000xxxxxxxxxx     ucvtf     s0 : wx5
+x001111001100011000000xxxxxxxxxx     ucvtf     d0 : wx5
+x001111000100010000000xxxxxxxxxx     scvtf     s0 : wx5
+x001111001100010000000xxxxxxxxxx     scvtf     d0 : wx5
 
-# Floating-point convert (vector, integer) (vector single-precision and double-precision)
+# Floating-point convert (vector, integer) (scalar single-precision and double-precision)
 0101111010100001101110xxxxxxxxxx     fcvtzs    s0 : s5
 0101111011100001101110xxxxxxxxxx     fcvtzs    d0 : d5
 0111111010100001101110xxxxxxxxxx     fcvtzu    s0 : s5
 0111111011100001101110xxxxxxxxxx     fcvtzu    d0 : d5
+0111111000100001110110xxxxxxxxxx     ucvtf     s0  : s5
+0111111001100001110110xxxxxxxxxx     ucvtf     d0  : d5
+0101111000100001110110xxxxxxxxxx     scvtf     s0  : s5
+0101111001100001110110xxxxxxxxxx     scvtf     d0  : d5
 
-# Floating-point convert (vector, integer) (scalar single-precision and double-precision)
+# Floating-point convert (vector, integer) (vector single-precision and double-precision)
 0x0011101x100001101110xxxxxxxxxx     fcvtzs    dq0 : dq5 sd_sz
 0x1011101x100001101110xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz
+0x1011100x100001110110xxxxxxxxxx     ucvtf     dq0 : dq5 sd_sz
+0x0011100x100001110110xxxxxxxxxx     scvtf     dq0 : dq5 sd_sz
 
 # Floating-point convert (scalar, fixed-point)
 x001111000011000xxxxxxxxxxxxxxxx     fcvtzs    wx0 : s5 scale
 x001111001011000xxxxxxxxxxxxxxxx     fcvtzs    wx0 : d5 scale
 x001111000011001xxxxxxxxxxxxxxxx     fcvtzu    wx0 : s5 scale
 x001111001011001xxxxxxxxxxxxxxxx     fcvtzu    wx0 : d5 scale
+x001111000000011xxxxxxxxxxxxxxxx     ucvtf     s0 : wx5 scale
+x001111001000011xxxxxxxxxxxxxxxx     ucvtf     d0 : wx5 scale
+x001111000000010xxxxxxxxxxxxxxxx     scvtf     s0 : wx5 scale
+x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 
 # Floating-point convert (vector, fixed-point) (scalar)
 0101111100xxxxxx111111xxxxxxxxxx     fcvtzs    s0 : s5 immhb
 0101111101xxxxxx111111xxxxxxxxxx     fcvtzs    d0 : d5 immhb
 0111111100xxxxxx111111xxxxxxxxxx     fcvtzu    s0 : s5 immhb
 0111111101xxxxxx111111xxxxxxxxxx     fcvtzu    d0 : d5 immhb
+0111111000xxxxxx111001xxxxxxxxxx     ucvtf     s0 : s5 immhb
+0111111001xxxxxx111001xxxxxxxxxx     ucvtf     d0 : d5 immhb
+0101111100xxxxxx111001xxxxxxxxxx     scvtf     s0 : s5 immhb
+0101111101xxxxxx111001xxxxxxxxxx     scvtf     d0 : d5 immhb
 
 # Floating-point convert (vector, fixed-point) (vector)
 0x1011110xxxxxxx111111xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz immhb
+0x1011110xxxxxxx111001xxxxxxxxxx     ucvtf     dq0 : dq5 sd_sz immhb
+0x0011110xxxxxxx111001xxxxxxxxxx     scvtf     dq0 : dq5 sd_sz immhb
 
 # Floating-point data-processing (2 source)
 00011110xx1xxxxx000010xxxxxxxxxx     fmul      float_reg0 : float_reg5 float_reg16

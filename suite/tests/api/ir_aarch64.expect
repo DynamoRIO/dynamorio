@@ -1003,4 +1003,124 @@ fcvtzu %d11 $0x02 $0x20 -> %d10
 fcvtzu %d29 $0x02 $0x15 -> %d28
 fcvtzu %d31 $0x02 $0x1f -> %d30
 test_fcvtzu_vector_fixed complete
+ucvtf  %w9 -> %s4
+ucvtf  %w28 -> %d11
+ucvtf  %x21 -> %s1
+ucvtf  %x2 -> %d3
+test_ucvtf_scalar complete
+ucvtf  %d7 $0x02 -> %d13
+ucvtf  %q24 $0x02 -> %q12
+ucvtf  %q1 $0x03 -> %q9
+ucvtf  %s20 -> %s17
+ucvtf  %d14 -> %d14
+test_ucvtf_vector complete
+ucvtf  %w8 $0x04 -> %s5
+ucvtf  %x7 $0x10 -> %s13
+ucvtf  %w0 $0x20 -> %d17
+ucvtf  %x11 $0x40 -> %d13
+test_ucvtf_scalar_fixed_gpr complete
+ucvtf  %s8 $0x01 -> %s9
+ucvtf  %s4 $0x02 -> %s21
+ucvtf  %s19 $0x04 -> %s20
+ucvtf  %s7 $0x08 -> %s6
+ucvtf  %s30 $0x10 -> %s12
+ucvtf  %s9 $0x20 -> %s18
+ucvtf  %s21 $0x15 -> %s22
+ucvtf  %s19 $0x1f -> %s11
+ucvtf  %d11 $0x01 -> %d13
+ucvtf  %d3 $0x02 -> %d2
+ucvtf  %d17 $0x04 -> %d19
+ucvtf  %d9 $0x08 -> %d30
+ucvtf  %d11 $0x10 -> %d17
+ucvtf  %d4 $0x20 -> %d8
+ucvtf  %d21 $0x40 -> %d29
+ucvtf  %d29 $0x15 -> %d30
+ucvtf  %d13 $0x2a -> %d17
+test_ucvtf_scalar_fixed complete
+ucvtf  %q1 $0x02 $0x01 -> %q0
+ucvtf  %q3 $0x02 $0x02 -> %q2
+ucvtf  %q5 $0x02 $0x04 -> %q4
+ucvtf  %q7 $0x02 $0x08 -> %q6
+ucvtf  %q9 $0x02 $0x10 -> %q8
+ucvtf  %q11 $0x02 $0x20 -> %q10
+ucvtf  %q29 $0x02 $0x15 -> %q28
+ucvtf  %q31 $0x02 $0x1f -> %q30
+ucvtf  %q1 $0x03 $0x01 -> %q0
+ucvtf  %q3 $0x03 $0x02 -> %q2
+ucvtf  %q5 $0x03 $0x04 -> %q4
+ucvtf  %q7 $0x03 $0x08 -> %q6
+ucvtf  %q9 $0x03 $0x10 -> %q8
+ucvtf  %q11 $0x03 $0x20 -> %q10
+ucvtf  %q13 $0x03 $0x40 -> %q12
+ucvtf  %q29 $0x03 $0x15 -> %q28
+ucvtf  %q31 $0x03 $0x2a -> %q30
+ucvtf  %d1 $0x02 $0x01 -> %d0
+ucvtf  %d3 $0x02 $0x02 -> %d2
+ucvtf  %d5 $0x02 $0x04 -> %d4
+ucvtf  %d7 $0x02 $0x08 -> %d6
+ucvtf  %d9 $0x02 $0x10 -> %d8
+ucvtf  %d11 $0x02 $0x20 -> %d10
+ucvtf  %d29 $0x02 $0x15 -> %d28
+ucvtf  %d31 $0x02 $0x1f -> %d30
+test_ucvtf_vector_fixed complete
+scvtf  %w9 -> %s4
+scvtf  %w28 -> %d11
+scvtf  %x21 -> %s1
+scvtf  %x2 -> %d3
+test_scvtf_scalar complete
+scvtf  %d7 $0x02 -> %d13
+scvtf  %q24 $0x02 -> %q12
+scvtf  %q1 $0x03 -> %q9
+scvtf  %s20 -> %s17
+scvtf  %d14 -> %d14
+test_scvtf_vector complete
+scvtf  %w8 $0x04 -> %s5
+scvtf  %x7 $0x10 -> %s13
+scvtf  %w0 $0x20 -> %d17
+scvtf  %x11 $0x40 -> %d13
+test_scvtf_scalar_fixed_gpr complete
+scvtf  %s8 $0x01 -> %s9
+scvtf  %s4 $0x02 -> %s21
+scvtf  %s19 $0x04 -> %s20
+scvtf  %s7 $0x08 -> %s6
+scvtf  %s30 $0x10 -> %s12
+scvtf  %s9 $0x20 -> %s18
+scvtf  %s21 $0x15 -> %s22
+scvtf  %s19 $0x1f -> %s11
+scvtf  %d11 $0x01 -> %d13
+scvtf  %d3 $0x02 -> %d2
+scvtf  %d17 $0x04 -> %d19
+scvtf  %d9 $0x08 -> %d30
+scvtf  %d11 $0x10 -> %d17
+scvtf  %d4 $0x20 -> %d8
+scvtf  %d21 $0x40 -> %d29
+scvtf  %d29 $0x15 -> %d30
+scvtf  %d13 $0x2a -> %d17
+test_scvtf_scalar_fixed complete
+scvtf  %q1 $0x02 $0x01 -> %q0
+scvtf  %q3 $0x02 $0x02 -> %q2
+scvtf  %q5 $0x02 $0x04 -> %q4
+scvtf  %q7 $0x02 $0x08 -> %q6
+scvtf  %q9 $0x02 $0x10 -> %q8
+scvtf  %q11 $0x02 $0x20 -> %q10
+scvtf  %q29 $0x02 $0x15 -> %q28
+scvtf  %q31 $0x02 $0x1f -> %q30
+scvtf  %q1 $0x03 $0x01 -> %q0
+scvtf  %q3 $0x03 $0x02 -> %q2
+scvtf  %q5 $0x03 $0x04 -> %q4
+scvtf  %q7 $0x03 $0x08 -> %q6
+scvtf  %q9 $0x03 $0x10 -> %q8
+scvtf  %q11 $0x03 $0x20 -> %q10
+scvtf  %q13 $0x03 $0x40 -> %q12
+scvtf  %q29 $0x03 $0x15 -> %q28
+scvtf  %q31 $0x03 $0x2a -> %q30
+scvtf  %d1 $0x02 $0x01 -> %d0
+scvtf  %d3 $0x02 $0x02 -> %d2
+scvtf  %d5 $0x02 $0x04 -> %d4
+scvtf  %d7 $0x02 $0x08 -> %d6
+scvtf  %d9 $0x02 $0x10 -> %d8
+scvtf  %d11 $0x02 $0x20 -> %d10
+scvtf  %d29 $0x02 $0x15 -> %d28
+scvtf  %d31 $0x02 $0x1f -> %d30
+test_scvtf_vector_fixed complete
 All tests complete
