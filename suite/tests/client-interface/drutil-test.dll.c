@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -56,10 +56,10 @@ static void
 event_exit(void);
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating);
+                 bool translating, OUT void **user_data);
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data);
+                  bool translating, void *user_data);
 static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data);
@@ -74,11 +74,8 @@ dr_init(client_id_t id)
     drutil_init();
     dr_register_exit_event(event_exit);
 
-    ok = drmgr_register_bb_app2app_event(event_bb_app2app, &priority);
-    CHECK(ok, "drmgr register bb failed");
-
-    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, event_bb_insert,
-                                                 &priority);
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
+                                                    event_bb_insert, NULL, &priority);
     CHECK(ok, "drmgr register bb failed");
 }
 
@@ -109,7 +106,7 @@ instr_is_stringop_loop(instr_t *inst)
 
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                 bool translating)
+                 bool translating, OUT void **user_data)
 {
     instr_t *inst;
     bool expanded;
@@ -134,14 +131,15 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     CHECK(repstr_seen != 0 || (!expanded && inst == NULL),
           "drutil_expand_rep_string_ex bad OUT values");
 
+    *(ptr_int_t *)user_data = expanded ? 1 : 0;
     return DR_EMIT_DEFAULT;
 }
 
 static dr_emit_flags_t
 event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                  bool translating, OUT void **user_data)
+                  bool translating, void *user_data)
 {
-    /* test label data (i#675) */
+    /* Test label data (i#675). */
     instr_t *first = instrlist_first(bb);
     if (first != NULL) {
         instr_t *l = INSTR_CREATE_label(drcontext);
@@ -151,6 +149,35 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         instr_set_note(l, (void *)(ptr_uint_t)MAGIC_NOTE);
         instrlist_meta_preinsert(bb, first, l);
     }
+
+    bool rep_expanded = (bool)(ptr_int_t)user_data;
+    if (!rep_expanded)
+        return DR_EMIT_DEFAULT;
+
+    bool in_emulation = false;
+    int num_app_instrs = 0;
+    for (instr_t *instr = instrlist_first(bb); instr != NULL;
+         instr = instr_get_next(instr)) {
+        if (drmgr_is_emulation_start(instr)) {
+            emulated_instr_t emulated_instr;
+            emulated_instr.size = sizeof(emulated_instr);
+            CHECK(drmgr_get_emulated_instr_data(instr, &emulated_instr),
+                  "drmgr_get_emulated_instr_data() failed");
+            CHECK(instr_is_stringop_loop(emulated_instr.instr), "orig not string loop");
+            in_emulation = true;
+            continue;
+        }
+        if (drmgr_is_emulation_end(instr)) {
+            in_emulation = false;
+            continue;
+        }
+        if (!in_emulation && instr_is_app(instr)) {
+            ++num_app_instrs;
+            CHECK(!instr_is_stringop_loop(instr), "string loop still here");
+        }
+    }
+    CHECK(num_app_instrs == 1, "string loop not by itself in bb");
+
     return DR_EMIT_DEFAULT;
 }
 

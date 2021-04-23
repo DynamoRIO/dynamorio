@@ -203,6 +203,8 @@ Further non-compatibility-affecting changes include:
    runtime option which locates guest system libraries and enables workarounds for
    problems with QEMU's threads.
  - Added dr_is_detaching(), an API to query whether detach is in progress.
+ - Added instrlist_last_nonlabel(), drmgr_is_last_nonlabel_instr(), and
+   drbbdup_is_last_nonlabel_instr().
 
 **************************************************
 <hr>

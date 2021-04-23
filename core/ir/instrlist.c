@@ -240,6 +240,15 @@ instrlist_last(instrlist_t *ilist)
 }
 
 instr_t *
+instrlist_last_nonlabel(instrlist_t *ilist)
+{
+    instr_t *last = ilist->last;
+    while (last != NULL && instr_is_label(last))
+        last = instr_get_prev(last);
+    return last;
+}
+
+instr_t *
 instrlist_last_app(instrlist_t *ilist)
 {
     instr_t *last = ilist->last;

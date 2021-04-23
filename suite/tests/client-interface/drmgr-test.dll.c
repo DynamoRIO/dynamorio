@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -624,6 +624,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
               instrlist_first_app(bb) == instrlist_last(bb),
           "first incorrect");
     CHECK(drmgr_is_last_instr(drcontext, instrlist_last(bb)), "last incorrect");
+    CHECK(drmgr_is_last_nonlabel_instr(drcontext, instrlist_last_nonlabel(bb)),
+          "last_nonlabel incorrect");
     CHECK(!drmgr_is_last_instr(drcontext, instrlist_first_app(bb)) ||
               instrlist_first_app(bb) == instrlist_last(bb),
           "last incorrect");

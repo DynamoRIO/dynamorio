@@ -146,6 +146,14 @@ instrlist_last(instrlist_t *ilist);
 
 DR_API
 /**
+ * Returns the last instruction in the instruction list \p ilist for which
+ * instr_is_label() returns false.
+ */
+instr_t *
+instrlist_last_nonlabel(instrlist_t *ilist);
+
+DR_API
+/**
  * Returns the last application (non-meta) instruction in the instruction list
  * \p ilist.
  *

@@ -182,15 +182,15 @@ DR_API
  * - If there is more than one application branch, only the last can be
  * conditional.
  * - An application conditional branch must be the final
- * instruction in the block.
- * - An application direct call must be the final
+ * (non-label) instruction in the block.
+ * - An application direct call must be the final (non-label)
  * instruction in the block unless it is inserted by DR for elision and the
  * subsequent instructions are the callee.
  * - There can only be one indirect branch (call, jump, or return) in
- * a basic block, and it must be the final instruction in the
+ * a basic block, and it must be the final (non-label) instruction in the
  * block.
  * - There can only be one far branch (call, jump, or return) in
- * a basic block, and it must be the final instruction in the
+ * a basic block, and it must be the final (non-label) instruction in the
  * block.
  * - The exit control-flow of a block ending in a system call or
  * int instruction cannot be changed, nor can instructions be inserted
@@ -200,7 +200,7 @@ DR_API
  * parameter to a system call, normally kept in the eax register, can
  * be freely changed in a basic block: but not in a trace.)
  * - A system call or interrupt instruction can only be added
- * if it satisfies the above constraints: i.e., if it is the final
+ * if it satisfies the above constraints: i.e., if it is the final (non-label)
  * instruction in the block and the only system call or interrupt.
  * - Any AArch64 #OP_isb instruction must be the last instruction
  * in its block.

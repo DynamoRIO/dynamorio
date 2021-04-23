@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -551,6 +551,15 @@ DR_EXPORT
  */
 bool
 drmgr_is_last_instr(void *drcontext, instr_t *instr);
+
+DR_EXPORT
+/**
+ * Must be called during drmgr's insertion phase.  Returns whether \p instr is the
+ * last non-label instruction in the instruction list (as of immediately after
+ * the analysis phase).
+ */
+bool
+drmgr_is_last_nonlabel_instr(void *drcontext, instr_t *instr);
 
 /***************************************************************************
  * TLS

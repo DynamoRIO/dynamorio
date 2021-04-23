@@ -2673,7 +2673,7 @@ client_check_syscall(instrlist_t *ilist, instr_t *inst, bool *found_syscall,
              * check below but we leave it in place in case we add
              * other flags in future
              */
-            if (inst != instrlist_last(ilist)) {
+            if (inst != instrlist_last_nonlabel(ilist)) {
                 CLIENT_ASSERT(false, "a syscall or interrupt must terminate the block");
                 return false;
             }
@@ -2789,7 +2789,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         if (!instr_opcode_valid(inst))
             continue;
 
-        if (instr_is_cti(inst) && inst != instrlist_last(bb->ilist)) {
+        if (instr_is_cti(inst) && inst != instrlist_last_nonlabel(bb->ilist)) {
             /* PR 213005: coarse_units can't handle added ctis (meta or not)
              * since decode_fragment(), used for state recreation, can't
              * distinguish from exit cti.
@@ -2858,7 +2858,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 
 #ifdef AARCH64
         if (instr_get_opcode(inst) == OP_isb) {
-            CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+            CLIENT_ASSERT(inst == instrlist_last_nonlabel(bb->ilist),
                           "OP_isb must be last instruction in block");
         }
 #endif
@@ -2876,7 +2876,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 /* non-syscall int */
                 bb_process_interrupt(dcontext, bb);
             }
-            if (inst != instrlist_last(bb->ilist))
+            if (inst != instrlist_last_nonlabel(bb->ilist))
                 bb->instr = tmp;
         }
 
@@ -2910,7 +2910,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                     /* conditional OP_bl needs the cbr code below */
                     IF_ARM(&&!instr_is_cbr(inst))) {
                     CLIENT_ASSERT(instr_is_near_ubr(inst) ||
-                                      inst == instrlist_last(bb->ilist) ||
+                                      inst == instrlist_last_nonlabel(bb->ilist) ||
                                       /* for elision we assume calls are followed
                                        * by their callee target code
                                        */
@@ -2925,7 +2925,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                            instr_is_far_cti(inst)
                                IF_ARM(/* mode-switch direct is treated as indirect */
                                       || instr_get_opcode(inst) == OP_blx)) {
-                    CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+                    CLIENT_ASSERT(inst == instrlist_last_nonlabel(bb->ilist),
                                   "an exit mbr or far cti must terminate the block");
                     bb->exit_type = instr_branch_type(inst);
 #ifdef ARM
@@ -2939,7 +2939,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                                         DEFAULT_IBL_BB(), bb->ibl_branch_type);
                 } else {
                     ASSERT(instr_is_cbr(inst));
-                    CLIENT_ASSERT(inst == instrlist_last(bb->ilist),
+                    CLIENT_ASSERT(inst == instrlist_last_nonlabel(bb->ilist),
                                   "an exit cbr must terminate the block");
                     /* A null exit target specifies a cbr (see below). */
                     bb->exit_target = NULL;
@@ -2950,7 +2950,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                 /* since we're walking backward, at the first exit cti
                  * we can check for post-cti code
                  */
-                if (inst != instrlist_last(bb->ilist)) {
+                if (inst != instrlist_last_nonlabel(bb->ilist)) {
                     if (TEST(FRAG_COARSE_GRAIN, bb->flags)) {
                         /* PR 213005: coarse can't handle code beyond ctis */
                         bb->flags &= ~FRAG_COARSE_GRAIN;
@@ -4104,8 +4104,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     /* i#620: provide API to set fall-through and retaddr targets at end of bb */
     if (instrlist_get_return_target(bb->ilist) != NULL ||
         instrlist_get_fall_through_target(bb->ilist) != NULL) {
-        CLIENT_ASSERT(instr_is_cbr(instrlist_last(bb->ilist)) ||
-                          instr_is_call(instrlist_last(bb->ilist)),
+        CLIENT_ASSERT(instr_is_cbr(instrlist_last_nonlabel(bb->ilist)) ||
+                          instr_is_call(instrlist_last_nonlabel(bb->ilist)),
                       "instr_set_return_target/instr_set_fall_through_target"
                       " can only be used in a bb ending with call/cbr");
         /* the bb cannot be added to a trace */
@@ -5368,11 +5368,11 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
             }
             if (mangle_at_end)
                 md.blk_info[i].info = t->bbs[i];
-            last = instrlist_last(bb);
+            last = instrlist_last_nonlabel(bb);
             ASSERT(last != NULL);
             if (mangle_at_end) {
                 md.blk_info[i].vmlist = vmlist;
-                md.blk_info[i].final_cti = instr_is_cti(instrlist_last(bb));
+                md.blk_info[i].final_cti = instr_is_cti(instrlist_last_nonlabel(bb));
             }
 
             /* PR 299808: we need to duplicate what we did when we built the trace.
@@ -5410,7 +5410,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
                      * protective assert in nop_pad_ilist() */
                     remove_nops_from_ilist(dcontext, bb _IF_DEBUG(true));
                 }
-                if (instrlist_last(ilist) != NULL) {
+                if (instrlist_last_nonlabel(ilist) != NULL) {
                     fixup_last_cti(dcontext, ilist, (app_pc)apc, flags, f->flags, NULL,
                                    NULL, true /* record translation */, NULL, NULL, NULL);
                 }
@@ -5787,7 +5787,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     ASSERT(instr_is_ubr(targeter));
     /* expecting basic blocks only */
     ASSERT((end_instr != NULL && targeter == end_instr) ||
-           targeter == instrlist_last(trace));
+           targeter == instrlist_last_nonlabel(trace));
 
     ASSERT(delete_after != NULL);
     *delete_after = (next == NULL || (end_instr != NULL && targeter == end_instr))
@@ -6055,7 +6055,7 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace, app_pc next_tag, uint n
         ASSERT(end_instr != NULL);
     } else {
         start_instr = instrlist_first(trace);
-        end_instr = instrlist_last(trace);
+        end_instr = instrlist_last_nonlabel(trace);
     }
     start_instr = instr_get_prev(start_instr); /* get open-ended bound */
 
@@ -6217,8 +6217,9 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
     int added_size = 0;
     ibl_type_t ibl_type;
 
-    instr_t *inst = instrlist_last(trace); /* currently only relevant to last CTI */
-    instr_t *where = inst;                 /* preinsert before last CTI */
+    instr_t *inst =
+        instrlist_last_nonlabel(trace); /* currently only relevant to last CTI */
+    instr_t *where = inst;              /* preinsert before last CTI */
 
     instr_t *next = instr_get_next(inst);
     DEBUG_DECLARE(bool ok;)
@@ -6373,8 +6374,9 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
     int added_size = 0;
     ibl_type_t ibl_type;
 
-    instr_t *inst = instrlist_last(trace); /* currently only relevant to last CTI */
-    instr_t *where = inst;                 /* preinsert before exit CTI */
+    instr_t *inst =
+        instrlist_last_nonlabel(trace); /* currently only relevant to last CTI */
+    instr_t *where = inst;              /* preinsert before exit CTI */
     reg_id_t reg = IF_X86_ELSE(REG_XCX, DR_REG_R2);
     DEBUG_DECLARE(bool ok;)
 
@@ -6489,7 +6491,7 @@ extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l)
     }
 
     /* insert code to optimize last branch based on new fragment */
-    if (instrlist_last(trace) != NULL) {
+    if (instrlist_last_nonlabel(trace) != NULL) {
         prev_mangle_size =
             fixup_last_cti(dcontext, trace, f->tag, f->flags, md->trace_flags, prev_f,
                            prev_l, false, &num_exits_deleted, NULL, NULL);
@@ -6677,7 +6679,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
          */
         if (instr_will_be_exit_cti(inst) &&
             ((!instr_is_ubr(inst) && !instr_is_near_call_direct(inst)) ||
-             (inst == instrlist_last(ilist) ||
+             (inst == instrlist_last_nonlabel(ilist) ||
               (blk + 1 < md->num_blks &&
                /* client is disallowed from changing bb exits and sequencing in trace
                 * hook; if they change in bb for_trace, will be reflected here.
@@ -6720,9 +6722,15 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                         md->blk_info[blk].info.tag);
                 }
             });
-            if (blk >= md->num_blks && next_inst != NULL) {
-                CLIENT_ASSERT(false, "unsupported trace modification: too many exits");
-                return false;
+            if (blk >= md->num_blks) {
+                instr_t *forw = next_inst;
+                while (forw != NULL && instr_is_label(forw))
+                    forw = instr_get_next(forw);
+                if (forw != NULL) {
+                    CLIENT_ASSERT(false,
+                                  "unsupported trace modification: too many exits");
+                    return false;
+                }
             }
         }
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
@@ -6734,7 +6742,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
 #endif
     }
     if (blk < md->num_blks) {
-        ASSERT(!instr_is_ubr(instrlist_last(ilist)));
+        ASSERT(!instr_is_ubr(instrlist_last_nonlabel(ilist)));
         if (blk + 1 < md->num_blks) {
             CLIENT_ASSERT(false, "unsupported trace modification: too few exits");
             return false;
@@ -6753,14 +6761,14 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
              * survives to here if the instr is not clobbered,
              * and does not come from md->final_exit_flags
              */
-            if (TEST(INSTR_SHARED_SYSCALL, instrlist_last(ilist)->flags)) {
+            if (TEST(INSTR_SHARED_SYSCALL, instrlist_last_nonlabel(ilist)->flags)) {
                 instr_set_target(jmp, opnd_create_pc(shared_syscall_routine(dcontext)));
                 instr_set_our_mangling(jmp, true); /* undone by target set */
             }
             /* FIXME: test for linux too, but allowing ignorable syscalls */
             if (!TESTANY(LINK_NI_SYSCALL_ALL IF_WINDOWS(| LINK_CALLBACK_RETURN),
                          md->final_exit_flags) &&
-                !TEST(INSTR_SHARED_SYSCALL, instrlist_last(ilist)->flags)) {
+                !TEST(INSTR_SHARED_SYSCALL, instrlist_last_nonlabel(ilist)->flags)) {
                 CLIENT_ASSERT(false,
                               "client modified or added a syscall or int: unsupported");
                 return false;
@@ -6777,7 +6785,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
                       "client changed exit target where unsupported\n"
                       "check if trace ends in a syscall or int");
     }
-    ASSERT(instr_is_ubr(instrlist_last(ilist)));
+    ASSERT(instr_is_ubr(instrlist_last_nonlabel(ilist)));
     if (found_syscall)
         md->trace_flags |= FRAG_HAS_SYSCALL;
     else
@@ -6829,9 +6837,15 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
             /* skip fall-throughs */
             while (blk < md->num_blks && md->blk_info[blk].end_instr == NULL)
                 blk++;
-            if (blk >= md->num_blks && next_inst != NULL) {
-                CLIENT_ASSERT(false, "unsupported trace modification: exits modified");
-                return false;
+            if (blk >= md->num_blks) {
+                instr_t *forw = next_inst;
+                while (forw != NULL && instr_is_label(forw))
+                    forw = instr_get_next(forw);
+                if (forw != NULL) {
+                    CLIENT_ASSERT(false,
+                                  "unsupported trace modification: exits modified");
+                    return false;
+                }
             }
             start_instr = next_inst;
         }
@@ -7652,8 +7666,8 @@ decode_fragment_exact(dcontext_t *dcontext, fragment_t *f, byte *buf,
     instrlist_t *ilist =
         decode_fragment(dcontext, f, buf, bufsz, target_flags, dir_exits, indir_exits);
     /* If the final jmp was elided we do NOT want to count it in the size! */
-    if (instr_get_raw_bits(instrlist_last(ilist)) == NULL) {
-        instr_set_ok_to_emit(instrlist_last(ilist), false);
+    if (instr_get_raw_bits(instrlist_last_nonlabel(ilist)) == NULL) {
+        instr_set_ok_to_emit(instrlist_last_nonlabel(ilist), false);
     }
     return ilist;
 }
