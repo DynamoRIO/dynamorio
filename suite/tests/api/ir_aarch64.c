@@ -5349,6 +5349,632 @@ test_fcvtzu_vector_fixed(void *dc)
     test_instr_encoding(dc, OP_fcvtzu, instr);
 }
 
+static void
+test_ucvtf_scalar(void *dc)
+{
+    instr_t *instr;
+    instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(DR_REG_S4),
+                                      opnd_create_reg(DR_REG_W9));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(DR_REG_D11),
+                                      opnd_create_reg(DR_REG_W28));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(DR_REG_S1),
+                                      opnd_create_reg(DR_REG_X21));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(DR_REG_D3),
+                                      opnd_create_reg(DR_REG_X2));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+}
+
+static void
+test_ucvtf_vector(void *dc)
+{
+    instr_t *instr;
+
+    /* UCVTF <Vd>.<T>, <Vn>.<T> */
+    /* UCVTF <Vd>.2S, <Vn>.2S */
+    instr = INSTR_CREATE_ucvtf_vector(dc, opnd_create_reg(DR_REG_D13),
+                                      opnd_create_reg(DR_REG_D7), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Vd>.4S, <Vn>.4S */
+    instr = INSTR_CREATE_ucvtf_vector(dc, opnd_create_reg(DR_REG_Q12),
+                                      opnd_create_reg(DR_REG_Q24), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Vd>.2D, <Vn>.2D */
+    instr = INSTR_CREATE_ucvtf_vector(dc, opnd_create_reg(DR_REG_Q9),
+                                      opnd_create_reg(DR_REG_Q1), OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <V><d>, <V><n> */
+    /* UCVTF <V>S, <V>S */
+    instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(DR_REG_S17),
+                                      opnd_create_reg(DR_REG_S20));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <V>D, <V>D */
+    instr = INSTR_CREATE_ucvtf_scalar(dc, opnd_create_reg(DR_REG_D14),
+                                      opnd_create_reg(DR_REG_D14));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+}
+
+static void
+test_ucvtf_scalar_fixed_gpr(void *dc)
+{
+    instr_t *instr;
+
+    /* UCVTF <Sd>, <Wn>, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S5),
+                                            opnd_create_reg(DR_REG_W8),
+                                            opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Sd>, <Xn>, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S13),
+                                            opnd_create_reg(DR_REG_X7),
+                                            opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Dd>, <Sn>, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D17),
+                                            opnd_create_reg(DR_REG_W0),
+                                            opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Dd>, <Xn>, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D13),
+                                            opnd_create_reg(DR_REG_X11),
+                                            opnd_create_immed_int(64, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+}
+
+static void
+test_ucvtf_scalar_fixed(void *dc)
+{
+    instr_t *instr;
+
+    /* UCVTF <Sd>, <Sn>, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S9),
+                                            opnd_create_reg(DR_REG_S8),
+                                            opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S21),
+                                            opnd_create_reg(DR_REG_S4),
+                                            opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S20),
+                                            opnd_create_reg(DR_REG_S19),
+                                            opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S6),
+                                            opnd_create_reg(DR_REG_S7),
+                                            opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S12),
+                                            opnd_create_reg(DR_REG_S30),
+                                            opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S18),
+                                            opnd_create_reg(DR_REG_S9),
+                                            opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S22),
+                                            opnd_create_reg(DR_REG_S21),
+                                            opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S11),
+                                            opnd_create_reg(DR_REG_S19),
+                                            opnd_create_immed_int(31, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Dd>, <Dn>, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D13),
+                                            opnd_create_reg(DR_REG_D11),
+                                            opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D2),
+                                            opnd_create_reg(DR_REG_D3),
+                                            opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D19),
+                                            opnd_create_reg(DR_REG_D17),
+                                            opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D30),
+                                            opnd_create_reg(DR_REG_D9),
+                                            opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D17),
+                                            opnd_create_reg(DR_REG_D11),
+                                            opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D8),
+                                            opnd_create_reg(DR_REG_D4),
+                                            opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D29),
+                                            opnd_create_reg(DR_REG_D21),
+                                            opnd_create_immed_int(64, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D30),
+                                            opnd_create_reg(DR_REG_D29),
+                                            opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D17),
+                                            opnd_create_reg(DR_REG_D13),
+                                            opnd_create_immed_int(42, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+}
+
+static void
+test_ucvtf_vector_fixed(void *dc)
+{
+    instr_t *instr;
+
+    /* UCVTF <Vd>.<T>, <Vn>.<T>, #<fbits> */
+
+    /* UCVTF <Vd>.4s, <Vn>.4s, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q0), opnd_create_reg(DR_REG_Q1), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q2), opnd_create_reg(DR_REG_Q3), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q4), opnd_create_reg(DR_REG_Q5), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q6), opnd_create_reg(DR_REG_Q7), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q8), opnd_create_reg(DR_REG_Q9), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q10), opnd_create_reg(DR_REG_Q11),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q28), opnd_create_reg(DR_REG_Q29),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q30), opnd_create_reg(DR_REG_Q31),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(31, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Vd>.2d, <Vn>.2d, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q0), opnd_create_reg(DR_REG_Q1), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q2), opnd_create_reg(DR_REG_Q3), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q4), opnd_create_reg(DR_REG_Q5), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q6), opnd_create_reg(DR_REG_Q7), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q8), opnd_create_reg(DR_REG_Q9), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q10), opnd_create_reg(DR_REG_Q11),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q12), opnd_create_reg(DR_REG_Q13),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(64, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q28), opnd_create_reg(DR_REG_Q29),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q30), opnd_create_reg(DR_REG_Q31),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(42, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    /* UCVTF <Vd>.2s, <Vn>.2s, #<fbits> */
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D0), opnd_create_reg(DR_REG_D1), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D2), opnd_create_reg(DR_REG_D3), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D4), opnd_create_reg(DR_REG_D5), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D6), opnd_create_reg(DR_REG_D7), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D8), opnd_create_reg(DR_REG_D9), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D10), opnd_create_reg(DR_REG_D11),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D28), opnd_create_reg(DR_REG_D29),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+
+    instr = INSTR_CREATE_ucvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D30), opnd_create_reg(DR_REG_D31),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(31, OPSZ_6b));
+    test_instr_encoding(dc, OP_ucvtf, instr);
+}
+
+static void
+test_scvtf_scalar(void *dc)
+{
+    instr_t *instr;
+    instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(DR_REG_S4),
+                                      opnd_create_reg(DR_REG_W9));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(DR_REG_D11),
+                                      opnd_create_reg(DR_REG_W28));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(DR_REG_S1),
+                                      opnd_create_reg(DR_REG_X21));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(DR_REG_D3),
+                                      opnd_create_reg(DR_REG_X2));
+    test_instr_encoding(dc, OP_scvtf, instr);
+}
+
+static void
+test_scvtf_vector(void *dc)
+{
+    instr_t *instr;
+
+    /* SCVTF <Vd>.<T>, <Vn>.<T> */
+    /* SCVTF <Vd>.2S, <Vn>.2S */
+    instr = INSTR_CREATE_scvtf_vector(dc, opnd_create_reg(DR_REG_D13),
+                                      opnd_create_reg(DR_REG_D7), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Vd>.4S, <Vn>.4S */
+    instr = INSTR_CREATE_scvtf_vector(dc, opnd_create_reg(DR_REG_Q12),
+                                      opnd_create_reg(DR_REG_Q24), OPND_CREATE_SINGLE());
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Vd>.2D, <Vn>.2D */
+    instr = INSTR_CREATE_scvtf_vector(dc, opnd_create_reg(DR_REG_Q9),
+                                      opnd_create_reg(DR_REG_Q1), OPND_CREATE_DOUBLE());
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <V><d>, <V><n> */
+    /* SCVTF <V>S, <V>S */
+    instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(DR_REG_S17),
+                                      opnd_create_reg(DR_REG_S20));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <V>D, <V>D */
+    instr = INSTR_CREATE_scvtf_scalar(dc, opnd_create_reg(DR_REG_D14),
+                                      opnd_create_reg(DR_REG_D14));
+    test_instr_encoding(dc, OP_scvtf, instr);
+}
+
+static void
+test_scvtf_scalar_fixed_gpr(void *dc)
+{
+    instr_t *instr;
+
+    /* SCVTF <Sd>, <Wn>, #<fbits> */
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S5),
+                                            opnd_create_reg(DR_REG_W8),
+                                            opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Sd>, <Xn>, #<fbits> */
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S13),
+                                            opnd_create_reg(DR_REG_X7),
+                                            opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Dd>, <Sn>, #<fbits> */
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D17),
+                                            opnd_create_reg(DR_REG_W0),
+                                            opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Dd>, <Xn>, #<fbits> */
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D13),
+                                            opnd_create_reg(DR_REG_X11),
+                                            opnd_create_immed_int(64, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+}
+
+static void
+test_scvtf_scalar_fixed(void *dc)
+{
+    instr_t *instr;
+
+    /* SCVTF <Sd>, <Sn>, #<fbits> */
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S9),
+                                            opnd_create_reg(DR_REG_S8),
+                                            opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S21),
+                                            opnd_create_reg(DR_REG_S4),
+                                            opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S20),
+                                            opnd_create_reg(DR_REG_S19),
+                                            opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S6),
+                                            opnd_create_reg(DR_REG_S7),
+                                            opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S12),
+                                            opnd_create_reg(DR_REG_S30),
+                                            opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S18),
+                                            opnd_create_reg(DR_REG_S9),
+                                            opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S22),
+                                            opnd_create_reg(DR_REG_S21),
+                                            opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_S11),
+                                            opnd_create_reg(DR_REG_S19),
+                                            opnd_create_immed_int(31, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Dd>, <Dn>, #<fbits> */
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D13),
+                                            opnd_create_reg(DR_REG_D11),
+                                            opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D2),
+                                            opnd_create_reg(DR_REG_D3),
+                                            opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D19),
+                                            opnd_create_reg(DR_REG_D17),
+                                            opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D30),
+                                            opnd_create_reg(DR_REG_D9),
+                                            opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D17),
+                                            opnd_create_reg(DR_REG_D11),
+                                            opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D8),
+                                            opnd_create_reg(DR_REG_D4),
+                                            opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D29),
+                                            opnd_create_reg(DR_REG_D21),
+                                            opnd_create_immed_int(64, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D30),
+                                            opnd_create_reg(DR_REG_D29),
+                                            opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_scalar_fixed(dc, opnd_create_reg(DR_REG_D17),
+                                            opnd_create_reg(DR_REG_D13),
+                                            opnd_create_immed_int(42, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+}
+
+static void
+test_scvtf_vector_fixed(void *dc)
+{
+    instr_t *instr;
+
+    /* SCVTF <Vd>.<T>, <Vn>.<T>, #<fbits> */
+
+    /* SCVTF <Vd>.4s, <Vn>.4s, #<fbits> */
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q0), opnd_create_reg(DR_REG_Q1), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q2), opnd_create_reg(DR_REG_Q3), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q4), opnd_create_reg(DR_REG_Q5), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q6), opnd_create_reg(DR_REG_Q7), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q8), opnd_create_reg(DR_REG_Q9), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q10), opnd_create_reg(DR_REG_Q11),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q28), opnd_create_reg(DR_REG_Q29),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q30), opnd_create_reg(DR_REG_Q31),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(31, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Vd>.2d, <Vn>.2d, #<fbits> */
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q0), opnd_create_reg(DR_REG_Q1), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q2), opnd_create_reg(DR_REG_Q3), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q4), opnd_create_reg(DR_REG_Q5), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q6), opnd_create_reg(DR_REG_Q7), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q8), opnd_create_reg(DR_REG_Q9), OPND_CREATE_DOUBLE(),
+        opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q10), opnd_create_reg(DR_REG_Q11),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q12), opnd_create_reg(DR_REG_Q13),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(64, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q28), opnd_create_reg(DR_REG_Q29),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_Q30), opnd_create_reg(DR_REG_Q31),
+        OPND_CREATE_DOUBLE(), opnd_create_immed_int(42, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    /* SCVTF <Vd>.2s, <Vn>.2s, #<fbits> */
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D0), opnd_create_reg(DR_REG_D1), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(1, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D2), opnd_create_reg(DR_REG_D3), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(2, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D4), opnd_create_reg(DR_REG_D5), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(4, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D6), opnd_create_reg(DR_REG_D7), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(8, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D8), opnd_create_reg(DR_REG_D9), OPND_CREATE_SINGLE(),
+        opnd_create_immed_int(16, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D10), opnd_create_reg(DR_REG_D11),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(32, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D28), opnd_create_reg(DR_REG_D29),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(21, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+
+    instr = INSTR_CREATE_scvtf_vector_fixed(
+        dc, opnd_create_reg(DR_REG_D30), opnd_create_reg(DR_REG_D31),
+        OPND_CREATE_SINGLE(), opnd_create_immed_int(31, OPSZ_6b));
+    test_instr_encoding(dc, OP_scvtf, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -5474,6 +6100,36 @@ main(int argc, char *argv[])
 
     test_fcvtzu_vector_fixed(dcontext);
     print("test_fcvtzu_vector_fixed complete\n");
+
+    test_ucvtf_scalar(dcontext);
+    print("test_ucvtf_scalar complete\n");
+
+    test_ucvtf_vector(dcontext);
+    print("test_ucvtf_vector complete\n");
+
+    test_ucvtf_scalar_fixed_gpr(dcontext);
+    print("test_ucvtf_scalar_fixed_gpr complete\n");
+
+    test_ucvtf_scalar_fixed(dcontext);
+    print("test_ucvtf_scalar_fixed complete\n");
+
+    test_ucvtf_vector_fixed(dcontext);
+    print("test_ucvtf_vector_fixed complete\n");
+
+    test_scvtf_scalar(dcontext);
+    print("test_scvtf_scalar complete\n");
+
+    test_scvtf_vector(dcontext);
+    print("test_scvtf_vector complete\n");
+
+    test_scvtf_scalar_fixed_gpr(dcontext);
+    print("test_scvtf_scalar_fixed_gpr complete\n");
+
+    test_scvtf_scalar_fixed(dcontext);
+    print("test_scvtf_scalar_fixed complete\n");
+
+    test_scvtf_vector_fixed(dcontext);
+    print("test_scvtf_vector_fixed complete\n");
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER
