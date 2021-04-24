@@ -1803,6 +1803,7 @@ event_exit(void)
         exit_delay_instrumentation();
     drmgr_exit();
     func_trace_exit();
+    drx_exit();
 }
 
 static bool
@@ -1985,7 +1986,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_L0_filter.get_value())
         ++ops.num_spill_slots;
 
-    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS ||
+        !drx_init())
         DR_ASSERT(false);
 
     /* register events */
