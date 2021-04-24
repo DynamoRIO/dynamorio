@@ -3330,6 +3330,12 @@ if (BUILD_CLIENTS)
     if (NOT MACOS AND X86)
       torunonly_drcachesim(scattergather client.drx-scattergather
         "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.scattergather_rawtemp) # use preprocessor
+      if (proc_supports_avx512)
+        set(tool.drcachesim.scattergather_runavx512 1)
+      elseif (proc_supports_avx)
+        set(tool.drcachesim.scattergather_runavx 1)
+      endif ()
     endif ()
 
     # Test offline traces.
