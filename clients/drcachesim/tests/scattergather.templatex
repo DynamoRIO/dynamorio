@@ -1,14 +1,13 @@
 #ifdef __AVX512F__
 AVX-512 gather ok
 AVX-512 gather ok
+#ifdef X64
 AVX-512 gather ok
 AVX-512 gather ok
 AVX-512 gather ok
 AVX-512 gather ok
 AVX-512 gather ok
 AVX-512 gather ok
-AVX-512 scatter ok
-AVX-512 scatter ok
 AVX-512 scatter ok
 AVX-512 scatter ok
 AVX-512 scatter ok
@@ -16,13 +15,18 @@ AVX-512 scatter ok
 AVX-512 scatter ok
 AVX-512 scatter ok
 #endif
+AVX-512 scatter ok
+AVX-512 scatter ok
+#endif
 #ifdef __AVX__
+#ifdef X64
 AVX2 gather ok
 AVX2 gather ok
 AVX2 gather ok
 AVX2 gather ok
 AVX2 gather ok
 AVX2 gather ok
+#endif
 AVX2 gather ok
 AVX2 gather ok
 #endif
