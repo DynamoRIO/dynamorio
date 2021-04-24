@@ -1216,8 +1216,15 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
-    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+    bool scatter_gather_expanded = false;
+    if (!drx_expand_scatter_gather(drcontext, bb, &scatter_gather_expanded)) {
         DR_ASSERT(false);
+    }
+    if (scatter_gather_expanded) {
+        /* We want to avoid spill slot conflicts with later instrumentation passes. */
+        drreg_status_t res = drreg_set_bb_properties(
+            drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS);
+        DR_ASSERT(res == DRREG_SUCCESS);
     }
     return DR_EMIT_DEFAULT;
 }

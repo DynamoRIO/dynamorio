@@ -1,3 +1,36 @@
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+Test restoring the AVX-512 gather scratch mask register upon a fault
+Test restoring the AVX-512 scatter scratch mask register upon a fault
+Test restoring the AVX-512 gather mask register upon translation events
+Test restoring the AVX-512 scatter mask register upon translation events
+Test updating the AVX-512 gather mask register upon translation events
+Test updating the AVX-512 scatter mask register upon translation events
+Test updating the AVX2 gather mask register upon translation events
+AVX2/AVX-512 scatter/gather checks ok
+---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
      .* total \(fetched\) instructions

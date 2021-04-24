@@ -173,14 +173,29 @@ get_where_app_pc(instr_t *where)
  * SPILLING AND RESTORING
  */
 
+static bool
+was_slot_used_in_prior_passes(per_thread_t *pt, instrlist_t *ilist, uint slot)
+{
+    if (!TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props))
+        return false;
+    for (instr_t *in = instrlist_first(ilist);
+         in != NULL /*sanity*/ && in != instrlist_last(ilist); in = instr_get_next(in)) {
+        void *note = instr_get_note(in);
+        if (note != NULL && (ptr_uint_t)note == slot)
+            return true;
+    }
+    return false;
+}
+
 static uint
-find_free_slot(per_thread_t *pt)
+find_free_slot(per_thread_t *pt, instrlist_t *ilist)
 {
     uint i;
     /* 0 is always reserved for AFLAGS_SLOT */
     ASSERT(AFLAGS_SLOT == 0, "AFLAGS_SLOT is not 0");
     for (i = AFLAGS_SLOT + 1; i < MAX_SPILLS; i++) {
-        if (pt->slot_use[i] == DR_REG_NULL)
+        if (pt->slot_use[i] == DR_REG_NULL &&
+            !was_slot_used_in_prior_passes(pt, ilist, i))
             return i;
     }
     return MAX_SPILLS;
@@ -208,6 +223,9 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
     } else {
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_save_reg(drcontext, ilist, where, reg, DR_slot);
+    }
+    if (TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props)) {
+        instr_set_note(instr_get_prev(where), (void *)(ptr_uint_t)slot);
     }
 #ifdef DEBUG
     if (slot > stats_max_slot)
@@ -480,7 +498,7 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                      * register).
                      * XXX: optimize via xchg w/ a dead reg.
                      */
-                    uint tmp_slot = find_free_slot(pt);
+                    uint tmp_slot = find_free_slot(pt, bb);
                     if (tmp_slot == MAX_SPILLS) {
                         drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
                                            "failed to preserve tool val around app read");
@@ -602,7 +620,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     "%s @%d." PFX ": re-spilling %s after app write\n", __FUNCTION__,
                     pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                 if (!restored_for_read[GPR_IDX(reg)]) {
-                    tmp_slot = find_free_slot(pt);
+                    tmp_slot = find_free_slot(pt, bb);
                     if (tmp_slot == MAX_SPILLS) {
                         drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
                                            "failed to preserve tool val wrt app write");
@@ -869,7 +887,7 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
     }
     if (slot == MAX_SPILLS) {
-        slot = find_free_slot(pt);
+        slot = find_free_slot(pt, ilist);
         if (slot == MAX_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
     }
@@ -1358,7 +1376,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
         LOG(drcontext, DR_LOG_ALL, 3, "  using un-restored xax in slot %d\n",
             pt->reg[DR_REG_XAX - DR_REG_START_GPR].slot);
     } else if (pt->aflags.xchg != DR_REG_XAX) {
-        uint xax_slot = find_free_slot(pt);
+        uint xax_slot = find_free_slot(pt, ilist);
         if (xax_slot == MAX_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
         if (ops.conservative ||
@@ -1427,7 +1445,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (pt->aflags.xchg == DR_REG_XAX) {
         ASSERT(pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use, "eflags-in-xax error");
     } else {
-        temp_slot = find_free_slot(pt);
+        temp_slot = find_free_slot(pt, ilist);
         if (temp_slot == MAX_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
         if (pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use) {
