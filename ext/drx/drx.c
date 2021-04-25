@@ -2297,6 +2297,12 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         return true;
     if (!instr_is_gather(first_app) && !instr_is_scatter(first_app))
         return true;
+
+    /* We want to avoid spill slot conflicts with later instrumentation passes. */
+    drreg_status_t res_bb_props =
+        drreg_set_bb_properties(drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS);
+    DR_ASSERT(res_bb_props == DRREG_SUCCESS);
+
     instr_t *sg_instr = first_app;
     scatter_gather_info_t sg_info;
     bool res = false;
@@ -3534,8 +3540,8 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
     if (pc != NULL) {
         scatter_gather_info_t sg_info;
-        get_scatter_gather_info(&inst, &sg_info);
         if (instr_is_gather(&inst)) {
+            get_scatter_gather_info(&inst, &sg_info);
             if (sg_info.is_evex) {
                 success = success &&
                     drx_restore_state_for_avx512_gather(drcontext, info, &sg_info);
@@ -3544,6 +3550,7 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
                     drx_restore_state_for_avx2_gather(drcontext, info, &sg_info);
             }
         } else if (instr_is_scatter(&inst)) {
+            get_scatter_gather_info(&inst, &sg_info);
             success = success &&
                 drx_restore_state_for_avx512_scatter(drcontext, info, &sg_info);
         }
