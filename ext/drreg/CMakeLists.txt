@@ -41,6 +41,10 @@ set(DynamoRIO_USE_LIBC OFF)
 
 set(srcs
   drreg.c
+  drreg_aflag.c
+  drreg_gpr.c
+  drreg_priv.c
+  drreg_simd.c
   # add more here
   )
 

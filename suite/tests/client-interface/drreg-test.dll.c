@@ -375,8 +375,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15\n");
             res = drreg_reserve_dead_register_ex(drcontext, DRREG_SIMD_XMM_SPILL_CLASS,
                                                  bb, inst, NULL, &reg);
-            CHECK(reg == DR_REG_XMM2, "the only dead register available is xmm2");
             CHECK(res == DRREG_SUCCESS, "reserve of xmm register should work");
+            CHECK(reg == DR_REG_XMM2, "the only dead register available is xmm2");
             res = drreg_unreserve_register(drcontext, bb, inst, reg);
             CHECK(res == DRREG_SUCCESS, "unreserve of xmm register should work");
         }
