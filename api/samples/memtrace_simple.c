@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -46,6 +46,8 @@
  * This sample illustrates
  * - the use of drutil_expand_rep_string() to expand string loops to obtain
  *   every memory reference,
+ * - the use of drx_expand_scatter_gather() to expand scatter/gather instrs
+ *   into a set of functionally equivalent stores/loads.
  * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
  *   memory references,
  * - the use of drutil_insert_get_mem_addr() to insert instructions to compute
@@ -63,6 +65,7 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "drx.h"
 #include "utils.h"
 
 enum {
@@ -333,6 +336,16 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
+    bool scatter_gather_expanded = false;
+    if (!drx_expand_scatter_gather(drcontext, bb, &scatter_gather_expanded)) {
+        DR_ASSERT(false);
+    }
+    if (scatter_gather_expanded) {
+        /* We want to avoid spill slot conflicts with later instrumentation passes. */
+        drreg_status_t res = drreg_set_bb_properties(
+            drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS);
+        DR_ASSERT(res == DRREG_SUCCESS);
+    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -402,6 +415,7 @@ event_exit(void)
     dr_mutex_destroy(mutex);
     drutil_exit();
     drmgr_exit();
+    drx_exit();
 }
 
 DR_EXPORT void
@@ -411,7 +425,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     drreg_options_t ops = { sizeof(ops), 3, false };
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
-    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init())
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS || !drutil_init() ||
+        !drx_init())
         DR_ASSERT(false);
 
     /* register events */
