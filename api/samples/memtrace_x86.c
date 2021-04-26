@@ -48,11 +48,11 @@
  *
  * This sample illustrates
  * - the use of drutil_expand_rep_string() to expand string loops to obtain
- *   every memory reference,
+ *   every memory reference;
  * - the use of drx_expand_scatter_gather() to expand scatter/gather instrs
- *   into a set of functionally equivalent stores/loads.
+ *   into a set of functionally equivalent stores/loads;
  * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
- *   memory references,
+ *   memory references.
  *
  * The OUTPUT_TEXT define controls the format of the trace: text or binary.
  * Creating a text trace file makes the tool an order of magnitude (!) slower

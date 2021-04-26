@@ -41,17 +41,17 @@
  *
  * This sample illustrates
  * - inserting instrumentation after the current instruction to read the value
- *   written by it,
+ *   written by it;
  * - the use of drutil_expand_rep_string() to expand string loops to obtain
- *   every memory reference,
+ *   every memory reference;
  * - the use of drx_expand_scatter_gather() to expand scatter/gather instrs
- *   into a set of functionally equivalent stores/loads.
+ *   into a set of functionally equivalent stores/loads;
  * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
- *   memory references,
+ *   memory references;
  * - the use of drutil_insert_get_mem_addr() to insert instructions to compute
- *   the address of each memory reference,
+ *   the address of each memory reference;
  * - the use of the drx_buf extension to fill buffers in a platform-independent
- *   manner
+ *   manner.
  *
  * This client is a simple implementation of a memory reference tracing tool
  * without instrumentation optimization.
