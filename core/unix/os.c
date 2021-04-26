@@ -7834,13 +7834,28 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
                  * Note, if it is a header of a different module, then we'll not have
                  * an overlap, so we will not hit this case.
                  */
-                ASSERT_CURIOSITY(
-                    ma->start + ma->os_data.alignment ==
-                    base
-                        /* On Mac we walk the dyld module list before the
-                         * address space, so we often hit modules we already
-                         * know about. */
-                        IF_MACOS(|| !dynamo_initialized && ma->start == base));
+#ifdef AARCH64
+                /* For AArch64 systems with 64K pages it is possible for small modules
+                 * (less than 1 page of disk space) to have multiple RW LOADable data
+                 * segments. Since these segments are mapped from a single disk space they
+                 * will all have a elf_header satisfying the check above.
+                 */
+                if (ma->os_data.alignment == 65536) {
+                    size_t offset = base - ma->start;
+                    size_t seg_id = offset / ma->os_data.alignment;
+                    ASSERT_CURIOSITY(seg_id < ma->os_data.num_segments &&
+                                     ma->os_data.segments[seg_id].start == base &&
+                                     ma->os_data.segments[seg_id].prot ==
+                                         (MEMPROT_READ | MEMPROT_WRITE));
+                } else
+#endif
+                    ASSERT_CURIOSITY(
+                        ma->start + ma->os_data.alignment ==
+                        base
+                            /* On Mac we walk the dyld module list before the
+                             * address space, so we often hit modules we already
+                             * know about. */
+                            IF_MACOS(|| !dynamo_initialized && ma->start == base));
             }
         });
     }
