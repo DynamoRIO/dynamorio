@@ -714,7 +714,7 @@ dispatch_enter_native(dcontext_t *dcontext)
          * be an alarm signal so we drop it as the simplest solution.
          */
         ASSERT(dcontext->signals_pending);
-        dcontext->signals_pending = false;
+        dcontext->signals_pending = 0;
     } while (true);
 #else
     (*go_native)(dcontext);
