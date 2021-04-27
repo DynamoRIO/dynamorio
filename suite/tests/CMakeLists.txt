@@ -2620,7 +2620,7 @@ if (X86)
       set(client.drx-scattergather_runavx 1)
     endif ()
 
-    if (proc_supports_avx)
+    if (proc_supports_avx && X64)
       add_exe(allasm_scattergather
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
         "-early_inject" "")
@@ -3611,7 +3611,7 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    if (NOT MACOS AND X86 AND proc_supports_avx)
+    if (NOT MACOS AND X86 AND X64 AND proc_supports_avx)
       torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
         "" "@-simulator_type@basic_counts" "")
       unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
