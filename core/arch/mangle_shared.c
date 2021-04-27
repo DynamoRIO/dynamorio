@@ -467,8 +467,10 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                              opnd_create_reg(SCRATCH_REG0), ilist, instr,
                                              NULL, NULL);
             PRE(ilist, instr,
-                instr_create_save_to_dc_via_reg(dcontext, DR_REG_LR, SCRATCH_REG0,
-                                                WHEREAMI_OFFSET));
+                instr_create_save_to_dc_via_reg(
+                    dcontext, DR_REG_LR,
+                    IF_X64_ELSE(reg_64_to_32(SCRATCH_REG0), SCRATCH_REG0),
+                    WHEREAMI_OFFSET));
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG0),
@@ -485,9 +487,10 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
         } else {
             PRE(ilist, instr,
-                XINST_CREATE_store(dcontext,
-                                   opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
-                                   OPND_CREATE_INT32(DR_WHERE_CLEAN_CALLEE)));
+                XINST_CREATE_store(
+                    dcontext,
+                    opnd_create_dcontext_field_sz(dcontext, WHEREAMI_OFFSET, OPSZ_4),
+                    OPND_CREATE_INT32(DR_WHERE_CLEAN_CALLEE)));
         }
     }
 
@@ -530,8 +533,10 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                              opnd_create_reg(SCRATCH_REG1), ilist, instr,
                                              NULL, NULL);
             PRE(ilist, instr,
-                instr_create_save_to_dc_via_reg(dcontext, SCRATCH_REG0, SCRATCH_REG1,
-                                                WHEREAMI_OFFSET));
+                instr_create_save_to_dc_via_reg(
+                    dcontext, SCRATCH_REG0,
+                    IF_X64_ELSE(reg_64_to_32(SCRATCH_REG1), SCRATCH_REG1),
+                    WHEREAMI_OFFSET));
             /* Restore scratch_reg from dcontext.mcontext.x0. */
             PRE(ilist, instr,
                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG1),
@@ -543,9 +548,10 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif
         } else {
             PRE(ilist, instr,
-                XINST_CREATE_store(dcontext,
-                                   opnd_create_dcontext_field(dcontext, WHEREAMI_OFFSET),
-                                   OPND_CREATE_INT32(whereami)));
+                XINST_CREATE_store(
+                    dcontext,
+                    opnd_create_dcontext_field_sz(dcontext, WHEREAMI_OFFSET, OPSZ_4),
+                    OPND_CREATE_INT32(whereami)));
         }
     }
 
