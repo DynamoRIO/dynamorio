@@ -69,7 +69,5 @@ cache_lru_t::replace_which_way(int line_idx)
             max_way = way;
         }
     }
-    // Set to non-zero for later access_update optimization on repeated access
-    get_caching_device_block(line_idx, max_way).counter_ = 1;
     return max_way;
 }
