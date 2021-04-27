@@ -328,7 +328,7 @@ typedef enum {
     /**
      * Turns on stricter logic to find free register spill slots. This makes sure
      * that a slot wasn't used to spill some register value in prior instrumentation
-     * passes. An example usage is in drx_expand_scatter_gather which is used in
+     * passes. An example usage is in drx_expand_scatter_gather() which is used in
      * the app2app pass and requires spilling of registers to slots that may
      * conflict with slots used during later instrumentation passes.
      */

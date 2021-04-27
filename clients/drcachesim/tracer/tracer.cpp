@@ -1216,6 +1216,9 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
+    /* XXX i#4865: Online traces will have incorrect instr counts, because
+     * scatter/gather instrs are emulated by a sequence of scalar stores/loads.
+     */
     if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
         DR_ASSERT(false);
     }

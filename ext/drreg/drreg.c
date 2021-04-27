@@ -125,6 +125,8 @@ static int tls_idx = -1;
 static uint tls_slot_offs;
 static reg_id_t tls_seg;
 
+static ptr_uint_t note_base_spill_slot = -1;
+
 #ifdef DEBUG
 static uint stats_max_slot;
 #endif
@@ -173,6 +175,14 @@ get_where_app_pc(instr_t *where)
  * SPILLING AND RESTORING
  */
 
+/* Get note value based on spill slot. */
+static ptr_uint_t
+get_spill_slot_note_val(uint spill_slot)
+{
+    ASSERT(note_base_spill_slot > -1);
+    return (ptr_uint_t)(note_base_spill_slot + spill_slot);
+}
+
 /* Returns whether the given ilist has an existing usage of the given slot
  * on or after `where`. Such a usage, if any, must have been added by a
  * previous instrumentation pass, and tells us that it is not safe to reuse
@@ -187,7 +197,7 @@ has_pending_slot_usage_by_prior_pass(per_thread_t *pt, instrlist_t *ilist, instr
     for (instr_t *in = where; in != NULL /*sanity*/ && in != instrlist_last(ilist);
          in = instr_get_next(in)) {
         void *note = instr_get_note(in);
-        if (note != NULL && (ptr_uint_t)note == slot) {
+        if (note != NULL && (ptr_uint_t)note == get_spill_slot_note_val(slot)) {
             return true;
         }
     }
@@ -232,8 +242,11 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_save_reg(drcontext, ilist, where, reg, DR_slot);
     }
+    // This must immediately follow the instrs inserted above. We want to add
+    // the note to the instr (or the last instr) that spilled a register to the
+    // given slot.
     if (TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props)) {
-        instr_set_note(instr_get_prev(where), (void *)(ptr_uint_t)slot);
+        instr_set_note(instr_get_prev(where), (void *)get_spill_slot_note_val(slot));
     }
 #ifdef DEBUG
     if (slot > stats_max_slot)
@@ -261,8 +274,11 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_restore_reg(drcontext, ilist, where, reg, DR_slot);
     }
+    // This must immediately follow the instrs inserted above. We want to add
+    // the note to the instr (or the last instr) that restored a register from
+    // the given slot.
     if (release && TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props)) {
-        instr_set_note(instr_get_prev(where), (void *)(ptr_uint_t)slot);
+        instr_set_note(instr_get_prev(where), (void *)get_spill_slot_note_val(slot));
     }
 }
 
@@ -2007,6 +2023,10 @@ drreg_init(drreg_options_t *ops_in)
     /* 0 spill slots is supported and just fills in tls_seg for us. */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
+
+    note_base_spill_slot = drmgr_reserve_note_range(MAX_SPILLS);
+    if (note_base_spill_slot == DRMGR_NOTE_NONE)
+        return DRREG_ERROR;
 
     return DRREG_SUCCESS;
 }
