@@ -2620,7 +2620,7 @@ if (X86)
       set(client.drx-scattergather_runavx 1)
     endif ()
 
-    if (proc_supports_avx && X64)
+    if (proc_supports_avx AND X64)
       add_exe(allasm_scattergather
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
         "-early_inject" "")
