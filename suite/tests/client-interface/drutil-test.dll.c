@@ -104,7 +104,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating, OUT void **user_data)
 {
     instr_t *inst;
-    bool repstr_first, repstr_seen, expanded;
+    bool repstr_first = false, repstr_seen = false, expanded = true;
 
     for (inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
         if (instr_is_stringop_loop(inst)) {
@@ -117,7 +117,6 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     /* insert a meta instr to test drutil_expand_rep_string() handling it (i#1055) */
     instrlist_meta_preinsert(bb, instrlist_first(bb), INSTR_CREATE_label(drcontext));
 
-    expanded = true;
     inst = instrlist_first(bb);
     if (!drutil_expand_rep_string_ex(drcontext, bb, &expanded, &inst)) {
         CHECK(false, "drutil_expand_rep_string_ex failed");
