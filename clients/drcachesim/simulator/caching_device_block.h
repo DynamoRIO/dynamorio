@@ -53,7 +53,7 @@ public:
     // where for the current replacement code we also set the counter at that time.
     caching_device_block_t()
         : tag_(TAG_INVALID)
-        , counter_(0)
+        , counter_(1)
     {
     }
     // Destructor must be virtual and default is not.
