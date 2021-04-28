@@ -713,8 +713,8 @@ dispatch_enter_native(dcontext_t *dcontext)
         /* If fcache_enter returns, there's a pending signal.  It must
          * be an alarm signal so we drop it as the simplest solution.
          */
-        ASSERT(dcontext->signals_pending);
-        dcontext->signals_pending = false;
+        ASSERT(dcontext->signals_pending > 0);
+        dcontext->signals_pending = 0;
     } while (true);
 #else
     (*go_native)(dcontext);
@@ -1174,8 +1174,8 @@ dispatch_exit_fcache(dcontext_t *dcontext)
 #endif
 
 #ifdef UNIX
-    if (dcontext->signals_pending) {
-        /* FIXME: can overflow app stack if stack up too many signals
+    if (dcontext->signals_pending != 0) {
+        /* XXX: We can overflow the app stack if we stack up too many signals
          * by interrupting prev handlers -- exacerbated by RAC lack of
          * caching (case 1858), which causes a cache exit prior to
          * executing every single sigreturn!
@@ -1696,7 +1696,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             STATS_INC(num_exits_dir_self_replacement);
         }
 #        ifdef UNIX
-        else if (dcontext->signals_pending) {
+        else if (dcontext->signals_pending != 0) {
             /* this may not always be the reason...the interrupted fragment
              * field is modularly hidden in unix/signal.c though
              */
@@ -2063,7 +2063,7 @@ handle_system_call(dcontext_t *dcontext)
 #endif
         } while (repeat);
 #ifdef UNIX
-        if (dcontext->signals_pending) {
+        if (dcontext->signals_pending != 0) {
             /* i#2019: see comments in dispatch_enter_fcache() */
             KSTOP(syscall_fcache);
             dcontext->whereami = DR_WHERE_DISPATCH;

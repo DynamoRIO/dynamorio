@@ -4687,7 +4687,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 "\tnon-rt signal already in queue, ignoring this one!\n");
         }
 
-        if (!blocked && !dcontext->signals_pending)
+        if (!blocked && dcontext->signals_pending == 0)
             dcontext->signals_pending = 1;
     }
     ostd->processing_signal--;
