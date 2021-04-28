@@ -908,7 +908,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
          */
         if (exited_due_to_ni_syscall(dcontext) ||
             instrument_invoke_another_syscall(dcontext)) {
-            if (dcontext->signals_pending > 0) {
+            if (IF_UNIX_ELSE(dcontext->signals_pending > 0, false)) {
                 /* Avoid running the pre-handler and aborting the fcache_enter w/o
                  * a good way to undo the pre-handler.
                  */
