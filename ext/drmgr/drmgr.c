@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -203,7 +203,6 @@ typedef struct _per_thread_t {
     instr_t *first_instr;
     instr_t *first_nonlabel_instr;
     instr_t *last_instr;
-    instr_t *last_nonlabel_instr;
 } per_thread_t;
 
 /* Emulation note types */
@@ -953,7 +952,6 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
     pt->first_instr = instrlist_first(bb);
     pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
     pt->last_instr = instrlist_last(bb);
-    pt->last_nonlabel_instr = instrlist_last_nonlabel(bb);
 
     /* For opcode instrumentation:
      * We need to create a local copy of the opcode map.
@@ -1665,14 +1663,6 @@ drmgr_is_last_instr(void *drcontext, instr_t *instr)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
     return instr == pt->last_instr;
-}
-
-DR_EXPORT
-bool
-drmgr_is_last_nonlabel_instr(void *drcontext, instr_t *instr)
-{
-    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
-    return instr == pt->last_nonlabel_instr;
 }
 
 static void

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,7 @@
             dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
             dr_abort();                                                              \
         }                                                                            \
-    } while (0)
+    } while (0);
 
 #define USER_DATA_VAL (void *)222
 #define ORIG_ANALYSIS_VAL (void *)555
@@ -183,7 +183,6 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                  void *orig_analysis_data, void *analysis_data)
 {
     bool is_first, is_first_nonlabel;
-    bool is_last, is_last_nonlabel;
     drbbdup_status_t res;
 
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
@@ -209,17 +208,6 @@ instrument_instr(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         res = drbbdup_is_first_nonlabel_instr(drcontext, instr, &is_first_nonlabel);
         CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is first non label");
         CHECK(is_first_nonlabel, "should be first non label");
-    }
-
-    res = drbbdup_is_last_instr(drcontext, instr, &is_last);
-    CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is last");
-    res = drbbdup_is_last_nonlabel_instr(drcontext, instr, &is_last_nonlabel);
-    CHECK(res == DRBBDUP_SUCCESS, "failed to check whether instr is first non label");
-    if (is_last) {
-        if (!instr_is_label(instr))
-            CHECK(is_last_nonlabel, "should be last non label");
-        else
-            CHECK(!is_last_nonlabel, "should NOT be last non label");
     }
 
     if (is_first && encoding != 0) {

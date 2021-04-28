@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,7 +43,6 @@
 #undef drmgr_is_first_instr
 #undef drmgr_is_first_nonlabel_instr
 #undef drmgr_is_last_instr
-#undef drmgr_is_last_nonlabel_instr
 
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
@@ -120,7 +119,6 @@ typedef struct {
     instr_t *first_instr;          /* The first instr of the bb copy being considered. */
     instr_t *first_nonlabel_instr; /* The first non label instr of the bb copy. */
     instr_t *last_instr;           /* The last instr of the bb copy being considered. */
-    instr_t *last_nonlabel_instr;  /* The last non label instr of the bb copy. */
 } drbbdup_per_thread;
 
 static uint ref_count = 0;        /* Instance count of drbbdup. */
@@ -981,7 +979,7 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
         instr_t *end_instr = drbbdup_next_end(next_instr);
         ASSERT(end_instr != NULL, "end instruction cannot be NULL");
 
-        /* Cache first, first nonlabel, last, and last nonlabel instructions. */
+        /* Cache first, first nonlabel and last instructions. */
         if (next_instr == end_instr && is_last_special) {
             pt->first_instr = last;
             pt->first_nonlabel_instr = last;
@@ -998,22 +996,10 @@ drbbdup_instrument_dups(void *drcontext, app_pc pc, void *tag, instrlist_t *bb,
             }
         }
 
-        if (is_last_special) {
+        if (is_last_special)
             pt->last_instr = last;
-            pt->last_nonlabel_instr = last;
-        } else {
+        else
             pt->last_instr = instr_get_prev(end_instr); /* Update cache to last instr. */
-            instr_t *last_non_label = instr_get_prev(end_instr);
-            while (instr_is_label(last_non_label) &&
-                   last_non_label != pt->first_nonlabel_instr) {
-                last_non_label = instr_get_prev(last_non_label);
-            }
-            if (last_non_label == pt->first_nonlabel_instr && is_last_special) {
-                pt->last_nonlabel_instr = last;
-            } else {
-                pt->last_nonlabel_instr = last_non_label;
-            }
-        }
 
         /* Check whether we reached the last bb version (namely the default case). */
         instr_t *next_bb_label = drbbdup_next_start(end_instr);
@@ -1075,7 +1061,6 @@ drbbdup_instrument_without_dups(void *drcontext, void *tag, instrlist_t *bb,
         pt->first_instr = instr;
         pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
         pt->last_instr = instrlist_last(bb);
-        pt->last_nonlabel_instr = instrlist_last_nonlabel(bb);
         ASSERT(drmgr_is_last_instr(drcontext, pt->last_instr), "instr should be last");
     }
 
@@ -1418,22 +1403,6 @@ drbbdup_is_last_instr(void *drcontext, instr_t *instr, bool *is_last)
         return DRBBDUP_ERROR;
 
     *is_last = pt->last_instr == instr;
-
-    return DRBBDUP_SUCCESS;
-}
-
-drbbdup_status_t
-drbbdup_is_last_nonlabel_instr(void *drcontext, instr_t *instr, bool *is_nonlabel)
-{
-    if (instr == NULL || is_nonlabel == NULL)
-        return DRBBDUP_ERROR_INVALID_PARAMETER;
-
-    drbbdup_per_thread *pt =
-        (drbbdup_per_thread *)drmgr_get_tls_field(drcontext, tls_idx);
-    if (pt == NULL)
-        return DRBBDUP_ERROR;
-
-    *is_nonlabel = pt->last_nonlabel_instr == instr;
 
     return DRBBDUP_SUCCESS;
 }

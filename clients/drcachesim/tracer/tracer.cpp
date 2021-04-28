@@ -1081,7 +1081,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if ((!op_offline.get_value() || !drmgr_is_first_nonlabel_instr(drcontext, instr)) &&
         !(instr_reads_memory(instr) || instr_writes_memory(instr)) &&
         // Avoid dropping trailing instrs
-        !drmgr_is_last_nonlabel_instr(drcontext, instr) &&
+        !drmgr_is_last_instr(drcontext, instr) &&
         // Avoid bundling instrs whose types we separate.
         (instru_t::instr_to_instr_type(instr, ud->repstr) == TRACE_TYPE_INSTR ||
          // We avoid overhead of skipped bundling for online unless the user requested
@@ -1127,8 +1127,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         if (thread_filtering_enabled) {
             bool short_reaches = false;
 #ifdef X86
-            if (ud->num_delay_instrs == 0 &&
-                !drmgr_is_last_nonlabel_instr(drcontext, instr)) {
+            if (ud->num_delay_instrs == 0 && !drmgr_is_last_instr(drcontext, instr)) {
                 /* jecxz should reach (really we want "smart jecxz" automation here) */
                 short_reaches = true;
             }
@@ -1205,7 +1204,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
      * We restore the registers after the clean call, which should be ok
      * assuming the clean call does not need the two register values.
      */
-    if (drmgr_is_last_nonlabel_instr(drcontext, instr)) {
+    if (drmgr_is_last_instr(drcontext, instr)) {
         if (op_L0_filter.get_value())
             insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
         instrument_clean_call(drcontext, bb, instr, reg_ptr);

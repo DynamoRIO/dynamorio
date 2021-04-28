@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2020 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -51,8 +51,6 @@ extern "C" {
     DO_NOT_USE_drmgr_is_first_nonlabel_instr_USE_drbbdup_is_first_nonlabel_instr_instead
 #define drmgr_is_last_instr \
     DO_NOT_USE_drmgr_is_last_instr_USE_drbbdup_is_last_instr_instead
-#define drmgr_is_last_nonlabel_instr \
-    DO_NOT_USE_drmgr_is_last_nonlabel_instr_USE_drbbdup_is_last_nonlabel_instr_instead
 
 /**
  * \addtogroup drbbdup Basic Block Duplicator
@@ -420,19 +418,6 @@ DR_EXPORT
  */
 drbbdup_status_t
 drbbdup_is_last_instr(void *drcontext, instr_t *instr, OUT bool *is_last);
-
-DR_EXPORT
-/**
- * Indicates whether the instruction \p instr is the last non label instruction of
- * the currently considered basic block copy. The result is returned in \p is_nonlabel.
- *
- * Must be called via a #drbbdup_instrument_instr_t call-back function.
- *
- * @return whether successful or an error code on failure.
- * @note when using drbbdup, do not rely on drmgr_is_last_nonlabel_instr().
- */
-drbbdup_status_t
-drbbdup_is_last_nonlabel_instr(void *drcontext, instr_t *instr, bool *is_nonlabel);
 
 DR_EXPORT
 /**
