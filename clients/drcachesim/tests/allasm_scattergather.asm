@@ -91,13 +91,13 @@ _start:
         cmp      eax, 0x09
 
         // Print comparison result.
-        jne      not_equal
-        lea      rsi, equal
-        mov      rdx, 6           // sizeof(equal)
+        jne      incorrect
+        lea      rsi, correct_str
+        mov      rdx, 8           // sizeof(correct_str)
         jmp      done_cmp
-not_equal:
-        lea      rsi, unequal
-        mov      rdx, 8           // sizeof(unequal)
+incorrect:
+        lea      rsi, incorrect_str
+        mov      rdx, 10          // sizeof(incorrect_str)
 done_cmp:
         mov      rdi, 1           // stdout
         mov      eax, 1           // SYS_write
@@ -105,8 +105,8 @@ done_cmp:
 
         // Print end message.
         mov      rdi, 1           // stdout
-        lea      rsi, hello
-        mov      rdx, 13          // sizeof(hello)
+        lea      rsi, hello_str
+        mov      rdx, 13          // sizeof(hello_str)
         mov      eax, 1           // SYS_write
         syscall
 
@@ -116,11 +116,11 @@ done_cmp:
         syscall
         .data
         .align   8
-hello:
-       .string "Hello world!\n"
-equal:
-       .string "Equal\n"
-unequal:
-       .string "Unequal\n"
+hello_str:
+        .string  "Hello world!\n"
+correct_str:
+        .string  "Correct\n"
+incorrect_str:
+        .string  "Incorrect\n"
 arr:
-       .zero 16
+        .zero    16
