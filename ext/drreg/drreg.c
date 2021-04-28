@@ -68,6 +68,14 @@
 /* This should be pretty hard to exceed as there aren't this many GPRs */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
 
+/* We store data about spill slot usage in the data area of a label instr. */
+#define SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET 0
+
+/* Arbitrary base to avoid conflict of default zero value in label data
+ * slot with the zero-numbered spill slot.
+ */
+#define SPILL_SLOT_ID_BASE 100
+
 #define AFLAGS_SLOT 0 /* always */
 
 /* We support using GPR registers only: [DR_REG_START_GPR..DR_REG_STOP_GPR] */
@@ -125,8 +133,6 @@ static int tls_idx = -1;
 static uint tls_slot_offs;
 static reg_id_t tls_seg;
 
-static ptr_uint_t note_base_spill_slot = -1;
-
 #ifdef DEBUG
 static uint stats_max_slot;
 #endif
@@ -175,14 +181,6 @@ get_where_app_pc(instr_t *where)
  * SPILLING AND RESTORING
  */
 
-/* Get note value based on spill slot. */
-static ptr_uint_t
-get_spill_slot_note_val(uint spill_slot)
-{
-    ASSERT(note_base_spill_slot > -1);
-    return (ptr_uint_t)(note_base_spill_slot + spill_slot);
-}
-
 /* Returns whether the given ilist has an existing usage of the given slot
  * on or after `where`. Such a usage, if any, must have been added by a
  * previous instrumentation pass, and tells us that it is not safe to reuse
@@ -196,9 +194,18 @@ has_pending_slot_usage_by_prior_pass(per_thread_t *pt, instrlist_t *ilist, instr
         return false;
     for (instr_t *in = where; in != NULL /*sanity*/ && in != instrlist_last(ilist);
          in = instr_get_next(in)) {
-        void *note = instr_get_note(in);
-        if (note != NULL && (ptr_uint_t)note == get_spill_slot_note_val(slot)) {
-            return true;
+        /* We store data about spill slot usage in the data area of a label instr
+         * immediately preceding the usage.
+         */
+        if (instr_is_label(in)) {
+            dr_instr_label_data_t *data = instr_get_label_data_area(in);
+            ASSERT(data != NULL, "failed to find label's data area");
+            /* Try to continue in release build. */
+            if (data != NULL &&
+                data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] ==
+                    SPILL_SLOT_ID_BASE + slot) {
+                return true;
+            }
         }
     }
     return false;
@@ -235,6 +242,16 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
     if (slot == AFLAGS_SLOT)
         pt->aflags.ever_spilled = true;
     pt->slot_use[slot] = reg;
+    instr_t *spill_slot_data_label = INSTR_CREATE_label(drcontext);
+    dr_instr_label_data_t *data = instr_get_label_data_area(spill_slot_data_label);
+    ASSERT(data != NULL, "failed to find label's data area");
+    /* Try to continue in release build. */
+    if (data != NULL) {
+        data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
+            (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
+    }
+    /* This must immediately precede the spill instrs inserted below. */
+    PRE(ilist, where, spill_slot_data_label);
     if (slot < ops.num_spill_slots) {
         dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                                 tls_slot_offs + slot * sizeof(reg_t), reg);
@@ -242,12 +259,7 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_save_reg(drcontext, ilist, where, reg, DR_slot);
     }
-    // This must immediately follow the instrs inserted above. We want to add
-    // the note to the instr (or the last instr) that spilled a register to the
-    // given slot.
-    if (TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props)) {
-        instr_set_note(instr_get_prev(where), (void *)get_spill_slot_note_val(slot));
-    }
+
 #ifdef DEBUG
     if (slot > stats_max_slot)
         stats_max_slot = slot; /* racy but that's ok */
@@ -265,20 +277,25 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                /* aflags can be saved and restored using different regs */
                (slot == AFLAGS_SLOT && pt->slot_use[slot] != DR_REG_NULL),
            "internal tracking error");
-    if (release)
+    if (release) {
         pt->slot_use[slot] = DR_REG_NULL;
+        instr_t *spill_slot_data_label = INSTR_CREATE_label(drcontext);
+        dr_instr_label_data_t *data = instr_get_label_data_area(spill_slot_data_label);
+        ASSERT(data != NULL, "failed to find label's data area");
+        /* Try to continue in release build. */
+        if (data != NULL) {
+            data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
+                (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
+        }
+        /* This must immediately precede the restore instrs inserted below. */
+        PRE(ilist, where, spill_slot_data_label);
+    }
     if (slot < ops.num_spill_slots) {
         dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
                                tls_slot_offs + slot * sizeof(reg_t), reg);
     } else {
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_restore_reg(drcontext, ilist, where, reg, DR_slot);
-    }
-    // This must immediately follow the instrs inserted above. We want to add
-    // the note to the instr (or the last instr) that restored a register from
-    // the given slot.
-    if (release && TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props)) {
-        instr_set_note(instr_get_prev(where), (void *)get_spill_slot_note_val(slot));
     }
 }
 
@@ -2023,10 +2040,6 @@ drreg_init(drreg_options_t *ops_in)
     /* 0 spill slots is supported and just fills in tls_seg for us. */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
-
-    note_base_spill_slot = drmgr_reserve_note_range(MAX_SPILLS);
-    if (note_base_spill_slot == DRMGR_NOTE_NONE)
-        return DRREG_ERROR;
 
     return DRREG_SUCCESS;
 }
