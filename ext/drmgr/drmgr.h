@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -800,6 +800,24 @@ drmgr_reserve_note_range(size_t size);
  */
 
 /**
+ * Flags describing different types of emulation markers.
+ */
+typedef enum {
+    /**
+     * Indicates that the entire rest of the basic block is one emulation sequence.
+     * There is no end marker, so drmgr_is_emulation_end() will never return true.
+     * No support is provided for traces: clients must examine the constituent
+     * blocks instead to find emulation information.
+     * This is used for emulation sequences that include a block-terminating
+     * conditional branch, indirect branch, or system call or interrupt, as DR
+     * does not allow a label to appear after such instructions.  These
+     * sequences typically want to isolate their emulation to include the entire
+     * block in any case.
+     */
+    DR_EMULATE_REST_OF_BLOCK = 0x0001,
+} dr_emulate_options_t;
+
+/**
  * Holds data about an emulated instruction, typically populated by an emulation
  * client and read by an observational client.
  *
@@ -811,6 +829,7 @@ typedef struct _emulated_instr_t {
     size_t size;    /**< Size of this struct, used for API compatibility checks. */
     app_pc pc;      /**< The PC address of the emulated instruction. */
     instr_t *instr; /**< The emulated instruction. See __Note__ above. */
+    dr_emulate_options_t flags; /**< Flags further describing the emulation. */
 } emulated_instr_t;
 
 /**
@@ -819,8 +838,9 @@ typedef struct _emulated_instr_t {
  * attached which describes the instruction being emulated.
  *
  * A label will also appear at the end of the sequence, added using
- * drmgr_insert_emulation_end(). These start and stop labels can be detected
- * by an observational client using drmgr_is_emulation_start() and
+ * drmgr_insert_emulation_end() (unless #DR_EMULATE_REST_OF_BLOCK is set). These start
+ * and stop labels can be detected by an observational client using
+ * drmgr_is_emulation_start() and
  * drmgr_is_emulation_end() allowing the client to distinguish between native
  * app instructions and instructions used for emulation.
  *
@@ -844,7 +864,9 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
 /**
  * Inserts a label into \p ilist prior to \p where to indicate the end of a
  * sequence of instructions emulating an instruction, preceded by a label created
- * with drmgr_insert_emulation_start().
+ * with drmgr_insert_emulation_start().  Alternatively, #DR_EMULATE_REST_OF_BLOCK
+ * can be used on the start label to include the entire block, with no need for
+ * an end label.
  */
 DR_EXPORT
 void

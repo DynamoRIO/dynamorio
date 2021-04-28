@@ -35,6 +35,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drutil.h"
+#include "client_tools.h"
 #include <string.h> /* memcpy */
 
 #define CHECK(x, msg)                        \
@@ -46,8 +47,6 @@
     } while (0);
 
 static bool verbose;
-
-static int repstr_seen;
 
 #define MAGIC_NOTE 0x9a9b9c9d
 dr_instr_label_data_t magic_vals = { 0xdeadbeef, 0xeeeebabe, 0x12345678, 0x8765432 };
@@ -85,10 +84,6 @@ event_exit(void)
     drutil_exit();
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
-    if (verbose) {
-        /* I see 62 for win x64, and 16 for linux x86 */
-        dr_fprintf(STDERR, "saw %d rep str instrs\n", repstr_seen);
-    }
 }
 
 static bool
@@ -109,29 +104,31 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating, OUT void **user_data)
 {
     instr_t *inst;
-    bool expanded;
+    bool repstr_first, repstr_seen, expanded;
 
     for (inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
-        if (instr_is_stringop_loop(inst))
-            repstr_seen++;
+        if (instr_is_stringop_loop(inst)) {
+            if (inst == instrlist_first(bb))
+                repstr_first = true;
+            repstr_seen = true;
+        }
     }
 
     /* insert a meta instr to test drutil_expand_rep_string() handling it (i#1055) */
     instrlist_meta_preinsert(bb, instrlist_first(bb), INSTR_CREATE_label(drcontext));
-
-    if (!drutil_expand_rep_string(drcontext, bb)) {
-        CHECK(false, "drutil_expand_rep_string failed");
-    }
 
     expanded = true;
     inst = instrlist_first(bb);
     if (!drutil_expand_rep_string_ex(drcontext, bb, &expanded, &inst)) {
         CHECK(false, "drutil_expand_rep_string_ex failed");
     }
-    CHECK(repstr_seen != 0 || (!expanded && inst == NULL),
+    CHECK((repstr_first && expanded) ||
+              (repstr_seen && !repstr_first && !expanded && inst == NULL) ||
+              (!repstr_seen && !repstr_first && !expanded && inst == NULL),
           "drutil_expand_rep_string_ex bad OUT values");
 
     *(ptr_int_t *)user_data = expanded ? 1 : 0;
+
     return DR_EMIT_DEFAULT;
 }
 
@@ -159,18 +156,20 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     for (instr_t *instr = instrlist_first(bb); instr != NULL;
          instr = instr_get_next(instr)) {
         if (drmgr_is_emulation_start(instr)) {
-            emulated_instr_t emulated_instr;
+            emulated_instr_t emulated_instr = {
+                0,
+            };
             emulated_instr.size = sizeof(emulated_instr);
             CHECK(drmgr_get_emulated_instr_data(instr, &emulated_instr),
                   "drmgr_get_emulated_instr_data() failed");
             CHECK(instr_is_stringop_loop(emulated_instr.instr), "orig not string loop");
+            CHECK(TEST(DR_EMULATE_REST_OF_BLOCK, emulated_instr.flags),
+                  "entire block not emulated");
             in_emulation = true;
+            ++num_app_instrs;
             continue;
         }
-        if (drmgr_is_emulation_end(instr)) {
-            in_emulation = false;
-            continue;
-        }
+        CHECK(!drmgr_is_emulation_end(instr), "no end marker expected");
         if (!in_emulation && instr_is_app(instr)) {
             ++num_app_instrs;
             CHECK(!instr_is_stringop_loop(instr), "string loop still here");

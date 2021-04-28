@@ -689,6 +689,12 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
         emulated_instr.size = sizeof(emulated_instr);
         emulated_instr.pc = xl8;
         emulated_instr.instr = inst;
+        /* We can't place an end label after our conditional branch as DR won't
+         * allow anything past the branch (we explored relaxing that and ran into
+         * many complexities that were not worth further work), so we instead
+         * use the flag to mark the whole block as emulated.
+         */
+        emulated_instr.flags = DR_EMULATE_REST_OF_BLOCK;
         drmgr_insert_emulation_start(drcontext, bb, inst, &emulated_instr);
 
         pre_loop = INSTR_CREATE_label(drcontext);
@@ -734,8 +740,6 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
         instr_set_src(loop, 1, xcx);
         instr_set_dst(loop, 0, xcx);
         PREXL8(bb, inst, INSTR_XL8(loop, fake_xl8));
-
-        drmgr_insert_emulation_end(drcontext, bb, inst);
 
         /* Now throw out the original instr.  It is part of the emulation label
          * and will be freed along with the instrlist so we just remove it from
