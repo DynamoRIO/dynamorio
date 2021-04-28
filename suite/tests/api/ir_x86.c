@@ -2397,6 +2397,49 @@ test_opnd(void *dc)
     /* XXX: test other routines like opnd_defines_use() */
 }
 
+static void
+test_simd_zeroes_upper(void *dc)
+{
+    instr_t *instr;
+
+    instr =
+        INSTR_CREATE_pxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(!instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_XMM0), opnd_create_reg(DR_REG_XMM0),
+                           opnd_create_reg(DR_REG_XMM0));
+    ASSERT(instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_YMM0), opnd_create_reg(DR_REG_YMM0),
+                           opnd_create_reg(DR_REG_YMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr =
+        INSTR_CREATE_vpxor(dc, opnd_create_reg(DR_REG_ZMM0), opnd_create_reg(DR_REG_ZMM0),
+                           opnd_create_reg(DR_REG_ZMM0));
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(!instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroupper(dc);
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroall(dc);
+    ASSERT(instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2471,6 +2514,8 @@ main(int argc, char *argv[])
     test_noalloc(dcontext);
 
     test_opnd(dcontext);
+
+    test_simd_zeroes_upper(dcontext);
 
 #ifndef STANDALONE_DECODER /* speed up compilation */
     test_all_opcodes_2_avx512_vex(dcontext);
