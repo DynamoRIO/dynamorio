@@ -127,6 +127,9 @@ typedef struct _per_thread_t {
     bool bb_has_internal_flow;
 } per_thread_t;
 
+/* Enum describing the different types of notes in drreg. */
+enum { DRREG_NOTE_SPILL_SLOT_ID, DRREG_NOTE_COUNT };
+
 static drreg_options_t ops;
 
 static int tls_idx = -1;
@@ -181,6 +184,16 @@ get_where_app_pc(instr_t *where)
  * SPILLING AND RESTORING
  */
 
+static ptr_uint_t drreg_note_base = 0;
+
+/* Get note value for a drreg instr note. */
+static ptr_uint_t
+get_drreg_note_val(uint val)
+{
+    ASSERT(drreg_note_base > 0, "drreg_note_base not initialized");
+    return (ptr_uint_t)(drreg_note_base + val);
+}
+
 /* Returns whether the given ilist has an existing usage of the given slot
  * on or after `where`. Such a usage, if any, must have been added by a
  * previous instrumentation pass, and tells us that it is not safe to reuse
@@ -197,7 +210,8 @@ has_pending_slot_usage_by_prior_pass(per_thread_t *pt, instrlist_t *ilist, instr
         /* We store data about spill slot usage in the data area of a label instr
          * immediately preceding the usage.
          */
-        if (instr_is_label(in)) {
+        if (instr_is_label(in) &&
+            instr_get_note(in) == (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID)) {
             dr_instr_label_data_t *data = instr_get_label_data_area(in);
             ASSERT(data != NULL, "failed to find label's data area");
             /* Try to continue in release build. */
@@ -250,11 +264,8 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
         data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
             (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
     }
-    /* We set note to DRMGR_NOTE_NONE to avoid overlap with other clients.
-     * In future if we have multiple types of label instrs with data in drreg,
-     * we can reserve a range of note values from drmgr to denote type.
-     */
-    instr_set_note(spill_slot_data_label, DRMGR_NOTE_NONE);
+    instr_set_note(spill_slot_data_label,
+                   (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID));
     /* This must immediately precede the spill instrs inserted below. */
     PRE(ilist, where, spill_slot_data_label);
     if (slot < ops.num_spill_slots) {
@@ -292,11 +303,8 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
             data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
                 (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
         }
-        /* We set note to DRMGR_NOTE_NONE to avoid overlap with other clients.
-         * In future if we have multiple types of label instrs with data in drreg,
-         * we can reserve a range of note values from drmgr to denote type.
-         */
-        instr_set_note(spill_slot_data_label, DRMGR_NOTE_NONE);
+        instr_set_note(spill_slot_data_label,
+                       (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID));
         /* This must immediately precede the restore instrs inserted below. */
         PRE(ilist, where, spill_slot_data_label);
     }
@@ -2060,6 +2068,10 @@ drreg_init(drreg_options_t *ops_in)
     /* 0 spill slots is supported and just fills in tls_seg for us. */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
+
+    drreg_note_base = drmgr_reserve_note_range(DRREG_NOTE_COUNT);
+    if (drreg_note_base == DRMGR_NOTE_NONE)
+        return DRREG_ERROR;
 
     return DRREG_SUCCESS;
 }
