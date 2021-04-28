@@ -2428,6 +2428,16 @@ test_simd_zeroes_upper(void *dc)
     ASSERT(!instr_zeroes_ymmh(instr));
     ASSERT(!instr_zeroes_zmmh(instr));
     instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroupper(dc);
+    ASSERT(!instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
+
+    instr = INSTR_CREATE_vzeroall(dc);
+    ASSERT(instr_zeroes_ymmh(instr));
+    ASSERT(instr_zeroes_zmmh(instr));
+    instr_destroy(dc, instr);
 }
 
 int

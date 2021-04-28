@@ -2029,6 +2029,11 @@ instr_zeroes_ymmh(instr_t *instr)
      */
     if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
         return false;
+
+    /* Handle zeroall special case. */
+    if (instr->opcode == OP_vzeroall)
+        return true;
+
     for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd_t opnd = instr_get_dst(instr, i);
         if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
@@ -2047,6 +2052,13 @@ instr_zeroes_zmmh(instr_t *instr)
         return false;
     if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
         return false;
+    /* Handle special cases, namely zeroupper and zeroall. */
+    /* XXX: DR ir should actually have these two instructions have all SIMD vector regs
+     * as operand even though they are implicit.
+     */
+    if (instr->opcode == OP_vzeroall || instr->opcode == OP_vzeroupper)
+        return true;
+
     for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd_t opnd = instr_get_dst(instr, i);
         if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
