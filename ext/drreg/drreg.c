@@ -250,6 +250,11 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
         data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
             (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
     }
+    /* We set note to DRMGR_NOTE_NONE to avoid overlap with other clients.
+     * In future if we have multiple types of label instrs with data in drreg,
+     * we can reserve a range of note values from drmgr to denote type.
+     */
+    instr_set_note(spill_slot_data_label, DRMGR_NOTE_NONE);
     /* This must immediately precede the spill instrs inserted below. */
     PRE(ilist, where, spill_slot_data_label);
     if (slot < ops.num_spill_slots) {
@@ -287,6 +292,11 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
             data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
                 (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
         }
+        /* We set note to DRMGR_NOTE_NONE to avoid overlap with other clients.
+         * In future if we have multiple types of label instrs with data in drreg,
+         * we can reserve a range of note values from drmgr to denote type.
+         */
+        instr_set_note(spill_slot_data_label, DRMGR_NOTE_NONE);
         /* This must immediately precede the restore instrs inserted below. */
         PRE(ilist, where, spill_slot_data_label);
     }
