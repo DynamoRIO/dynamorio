@@ -459,6 +459,17 @@ drreg_event_bb_insert_early(void *drcontext, void *tag, instrlist_t *bb, instr_t
     return DR_EMIT_DEFAULT;
 }
 
+static dr_emit_flags_t
+drreg_event_bb_instru2instru_late(void *drcontext, void *tag, instrlist_t *bb,
+                                  bool for_trace, bool translating)
+{
+    /* We preserve bb_props until late in instru2instru as there may be drreg usages
+     * in other passes that need to look at it.
+     */
+    get_tls_data(drcontext)->bb_props = 0;
+    return DR_EMIT_DEFAULT;
+}
+
 static drreg_status_t
 drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                          bool force_restore, OUT bool *regs_restored)
@@ -698,9 +709,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             pt->pending_unreserved--;
         }
     }
-
-    if (drmgr_is_last_instr(drcontext, inst))
-        pt->bb_props = 0;
 
 #ifdef DEBUG
     if (drmgr_is_last_instr(drcontext, inst)) {
@@ -1984,7 +1992,9 @@ drreg_init(drreg_options_t *ops_in)
             !drmgr_register_bb_instrumentation_event(
                 drreg_event_bb_analysis, drreg_event_bb_insert_late, &low_priority) ||
             !drmgr_register_restore_state_ex_event_ex(drreg_event_restore_state,
-                                                      &fault_priority))
+                                                      &fault_priority) ||
+            !drmgr_register_bb_instru2instru_event(drreg_event_bb_instru2instru_late,
+                                                   &low_priority))
             return DRREG_ERROR;
 #ifdef X86
         /* We get an extra slot for aflags xax, rather than just documenting that
