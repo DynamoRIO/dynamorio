@@ -314,8 +314,8 @@ GLOBAL_LABEL(FUNCNAME:)
      test13:
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
-        mov      REG_XAX, 0xf0
-        mov      REG_XCX, 0x0d
+        mov      REG_XAX, 123
+        mov      REG_XCX, 456
         nop
         add      REG_XAX, REG_XCX
         jmp      test13_done
