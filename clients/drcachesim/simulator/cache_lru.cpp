@@ -39,10 +39,10 @@
 
 bool
 cache_lru_t::init(int associativity, int block_size, int total_size,
-                   caching_device_t *parent, caching_device_stats_t *stats,
-                   prefetcher_t *prefetcher, bool inclusive, bool coherent_cache, int id,
-                   snoop_filter_t *snoop_filter,
-                   const std::vector<caching_device_t *> &children)
+                  caching_device_t *parent, caching_device_stats_t *stats,
+                  prefetcher_t *prefetcher, bool inclusive, bool coherent_cache, int id,
+                  snoop_filter_t *snoop_filter,
+                  const std::vector<caching_device_t *> &children)
 {
     // Works in the same way as the base class,
     // except that the counters are initialized in a different way.
