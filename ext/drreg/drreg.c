@@ -1823,6 +1823,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      * it, recognizing our own spills and restores.  We distinguish a tool value
      * spill to a temp slot (from drreg_event_bb_insert_late()) by watching for
      * a spill of an already-spilled reg to a different slot.
+     *
+     * XXX i#3801: We now keep track of spill slot usages added by drreg, which is
+     * used to avoid slot conflicts in multi-phase uses of drreg (i#3823). Perhaps
+     * that metadata can be used in this restore state code.
      */
     uint spilled_to[DR_NUM_GPR_REGS];
     uint spilled_to_aflags = MAX_SPILLS;
