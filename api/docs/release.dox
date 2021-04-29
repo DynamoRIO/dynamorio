@@ -205,6 +205,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_is_detaching(), an API to query whether detach is in progress.
  - Added instr_zeroes_zmmh() that returns true if an instruction clears the
    upper bits of a ZMM register with zeros.
+ - Added instr_clear_label_callback().
 
 **************************************************
 <hr>

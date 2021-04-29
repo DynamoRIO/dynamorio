@@ -25,6 +25,105 @@ AVX2 gather ok
 AVX2 gather ok
 AVX2 gather ok
 AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
 #endif
 #ifdef UNIX
 #ifdef __AVX512F__
@@ -41,17 +140,17 @@ Test updating the AVX2 gather mask register upon translation events
 AVX2/AVX-512 scatter/gather checks ok
 #ifdef X64
 #ifdef __AVX512F__
-event_exit, 71 scatter/gather instructions
+event_exit, 269 scatter/gather instructions
 #elif defined(__AVX__)
-event_exit, 17 scatter/gather instructions
+event_exit, 215 scatter/gather instructions
 #else
 event_exit, 0 scatter/gather instructions
 #endif
 #else
 #ifdef __AVX512F__
-event_exit, 23 scatter/gather instructions
+event_exit, 221 scatter/gather instructions
 #elif defined(__AVX__)
-event_exit, 5 scatter/gather instructions
+event_exit, 203 scatter/gather instructions
 #else
 event_exit, 0 scatter/gather instructions
 #endif
