@@ -1604,6 +1604,11 @@ void
 instr_set_label_callback(instr_t *instr, instr_label_callback_t func);
 
 DR_API
+/** Removes the callback set by instr_set_label_callback(). */
+void
+instr_clear_label_callback(instr_t *instr);
+
+DR_API
 /**
  * Returns true iff \p instr is an IA-32/AMD64 "mov" instruction: either OP_mov_st,
  * OP_mov_ld, OP_mov_imm, OP_mov_seg, or OP_mov_priv.
