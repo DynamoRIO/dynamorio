@@ -48,7 +48,10 @@ instru2instru in addition to the insertion phase), it is important to call
 drreg_set_bb_properties() with #DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS
 to enable logic that avoids conflicts with spill slots used by previous
 phases.  This may have some performance cost, so we do not turn it on by
-default.
+default.  Using this option also makes spill slots used in prior phases
+less available in future phases; the current logic skips over a slot if
+there's a usage found anywhere later in the bb added by any previous phase.
+So it requires additional spill slots as well.
 
 CAUTION: this extension is still a work in progress.  Not all pieces are
 implemented yet, and the interface may be in flux until the details are

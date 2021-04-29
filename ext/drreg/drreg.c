@@ -187,7 +187,7 @@ get_where_app_pc(instr_t *where)
 static ptr_uint_t drreg_note_base;
 
 /* Get note value for a drreg instr note. */
-static ptr_uint_t
+static inline ptr_uint_t
 get_drreg_note_val(uint val)
 {
     return (ptr_uint_t)(drreg_note_base + val);

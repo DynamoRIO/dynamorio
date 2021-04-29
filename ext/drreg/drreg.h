@@ -336,7 +336,11 @@ typedef enum {
      * conflicts with slots used to spill some register value in prior instrumentation
      * passes. An example usage is in drx_expand_scatter_gather() which is used in
      * the app2app pass and requires spilling of registers to slots that may
-     * conflict with slots used during later instrumentation passes.
+     * conflict with slots used during later instrumentation passes. Using this
+     * option also makes spill slots used in prior phases less available in
+     * future phases; the current logic skips over a slot if there's a usage
+     * found anywhere later in the bb added by any previous phase. So it requires
+     * additional spill slots as well.
      */
     DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS = 0x008,
 } drreg_bb_properties_t;
