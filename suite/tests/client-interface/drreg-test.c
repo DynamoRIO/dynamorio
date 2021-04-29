@@ -309,6 +309,17 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
         jmp      test12_done
      test12_done:
+        jmp     test13
+        /* Test 13: Multi-phase reg spill slot conflicts. */
+     test13:
+        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+        mov      r8, 0xf0
+        mov      r9, 0x0d
+        nop
+        add      r8, r9
+        jmp      test13_done
+     test13_done:
         jmp     epilog
 
      epilog:
