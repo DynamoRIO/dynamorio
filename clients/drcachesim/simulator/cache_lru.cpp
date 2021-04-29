@@ -37,6 +37,31 @@
 // The count value 0 means the most recent access, and the cache line with the
 // highest counter value will be picked for replacement in replace_which_way.
 
+bool
+cache_lru_t::init(int associativity, int block_size, int total_size,
+                  caching_device_t *parent, caching_device_stats_t *stats,
+                  prefetcher_t *prefetcher, bool inclusive, bool coherent_cache, int id,
+                  snoop_filter_t *snoop_filter,
+                  const std::vector<caching_device_t *> &children)
+{
+    // Works in the same way as the base class,
+    // except that the counters are initialized in a different way.
+
+    bool ret_val =
+        cache_t::init(associativity, block_size, total_size, parent, stats, prefetcher,
+                      inclusive, coherent_cache, id, snoop_filter, children);
+    if (ret_val == false)
+        return false;
+
+    // Initialize line counters with 0, 1, 2, ..., associativity - 1.
+    for (int i = 0; i < blocks_per_set_; i++) {
+        for (int way = 0; way < associativity_; ++way) {
+            get_caching_device_block(i << assoc_bits_, way).counter_ = way;
+        }
+    }
+    return true;
+}
+
 void
 cache_lru_t::access_update(int line_idx, int way)
 {
@@ -69,7 +94,5 @@ cache_lru_t::replace_which_way(int line_idx)
             max_way = way;
         }
     }
-    // Set to non-zero for later access_update optimization on repeated access
-    get_caching_device_block(line_idx, max_way).counter_ = 1;
     return max_way;
 }
