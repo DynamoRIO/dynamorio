@@ -203,7 +203,9 @@ Further non-compatibility-affecting changes include:
    runtime option which locates guest system libraries and enables workarounds for
    problems with QEMU's threads.
  - Added dr_is_detaching(), an API to query whether detach is in progress.
- - Added DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS to drreg_bb_properties_t to
+ - Added instr_zeroes_zmmh() that returns true if an instruction clears the
+   upper bits of a ZMM register with zeros.
+ - Added #DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS to #drreg_bb_properties_t to
    enable logic that avoids conflicts in spill slots when drreg is used to reserve
    registers in multiple phases.
 
