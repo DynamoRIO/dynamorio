@@ -222,6 +222,9 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -273,6 +276,9 @@ DR_EXPORT
  *
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
+ *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
  *
  * @return whether successful or an error code on failure.
  */
