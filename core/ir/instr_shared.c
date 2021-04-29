@@ -142,11 +142,11 @@ instr_clone(void *drcontext, instr_t *orig)
         instr->bytes =
             (byte *)heap_reachable_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
-    } else if (instr_is_label(orig)) {
+    } else if (instr_is_label(orig) && instr_get_label_callback(instr) != NULL) {
         /* We don't know what this callback does, we can't copy this. The caller that
          * makes the clone needs to take care of this, xref i#3926.
          */
-        instr_set_label_callback(instr, NULL);
+        instr_clear_label_callback(instr);
     }
     if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         instr->dsts = (opnd_t *)heap_alloc(
@@ -1109,6 +1109,17 @@ instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
     CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
                   "instruction's raw bits occupying label callback memory");
     instr->label_cb = cb;
+}
+
+void
+instr_clear_label_callback(instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only set callback functions for label instructions");
+    CLIENT_ASSERT(instr->label_cb != NULL, "label callback function not set");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    instr->label_cb = NULL;
 }
 
 instr_label_callback_t

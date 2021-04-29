@@ -503,10 +503,15 @@ test_avx2_avx512_scatter_gather(void)
         return false;
 #    endif
 #    ifdef __AVX__
-    if (!test_avx2_gather(test_avx2_vpgatherdd, ref_sparse_test_buf,
-                          ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
-                          output_xmm_ymm_zmm))
-        return false;
+    /* Run in a loop to trigger trace creation and stress things like cloning
+     * (i#3962).
+     */
+    for (int i = 0; i < 100; i++) {
+        if (!test_avx2_gather(test_avx2_vpgatherdd, ref_sparse_test_buf,
+                              ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
+                              output_xmm_ymm_zmm))
+            return false;
+    }
     if (!test_avx2_gather(test_avx2_vgatherdps, ref_sparse_test_buf,
                           ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
                           output_xmm_ymm_zmm))
@@ -596,7 +601,6 @@ main(void)
      */
     if (test_avx2_avx512_scatter_gather())
         print("AVX2/AVX-512 scatter/gather checks ok\n");
-
     return 0;
 }
 
