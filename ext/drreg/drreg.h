@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -324,6 +324,15 @@ typedef enum {
      * to be handled by the user manually, usually via drreg_restore_all().
      */
     DRREG_USER_RESTORES_AT_BB_END = 0x004,
+
+    /**
+     * Turns on stricter logic to find free register spill slots. This avoids
+     * conflicts with slots used to spill some register value in prior instrumentation
+     * passes. An example usage is in drx_expand_scatter_gather() which is used in
+     * the app2app pass and requires spilling of registers to slots that may
+     * conflict with slots used during later instrumentation passes.
+     */
+    DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS = 0x008,
 } drreg_bb_properties_t;
 
 DR_EXPORT

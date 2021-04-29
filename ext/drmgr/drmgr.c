@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -288,7 +288,7 @@ static void
 drmgr_bb_exit(void);
 
 /* Reserve space for emulation specific note values */
-static ptr_uint_t note_base_emul;
+static ptr_uint_t note_base_emul = 0;
 static void
 drmgr_emulation_init(void);
 
@@ -3145,6 +3145,7 @@ drmgr_emulation_init(void)
 static ptr_int_t
 get_emul_note_val(int enote_val)
 {
+    ASSERT(note_base_emul > 0, "note_base_emul not initialized");
     return (ptr_int_t)(note_base_emul + enote_val);
 }
 
