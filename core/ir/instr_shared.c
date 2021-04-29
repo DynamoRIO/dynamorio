@@ -2015,6 +2015,7 @@ instr_writes_memory(instr_t *instr)
 }
 
 #ifdef X86
+
 bool
 instr_zeroes_ymmh(instr_t *instr)
 {
@@ -2022,13 +2023,47 @@ instr_zeroes_ymmh(instr_t *instr)
     const instr_info_t *info = get_encoding_info(instr);
     if (info == NULL)
         return false;
-    /* legacy instrs always preserve top half of ymm */
-    if (!TEST(REQUIRES_VEX, info->flags))
+    /* Legacy (SSE) instructions always preserve top half of YMM.
+     * Moreover, EVEX encoded instructions clear upper ZMM bits, but also
+     * YMM bits if an XMM reg is used.
+     */
+    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
         return false;
+
+    /* Handle zeroall special case. */
+    if (instr->opcode == OP_vzeroall)
+        return true;
+
     for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd_t opnd = instr_get_dst(instr, i);
-        if (opnd_is_reg(opnd) && reg_is_xmm(opnd_get_reg(opnd)) &&
-            !reg_is_ymm(opnd_get_reg(opnd)))
+        if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
+            reg_is_strictly_xmm(opnd_get_reg(opnd)))
+            return true;
+    }
+    return false;
+}
+
+bool
+instr_zeroes_zmmh(instr_t *instr)
+{
+    int i;
+    const instr_info_t *info = get_encoding_info(instr);
+    if (info == NULL)
+        return false;
+    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
+        return false;
+    /* Handle special cases, namely zeroupper and zeroall. */
+    /* XXX: DR ir should actually have these two instructions have all SIMD vector regs
+     * as operand even though they are implicit.
+     */
+    if (instr->opcode == OP_vzeroall || instr->opcode == OP_vzeroupper)
+        return true;
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd_t opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
+            (reg_is_strictly_xmm(opnd_get_reg(opnd)) ||
+             reg_is_strictly_ymm(opnd_get_reg(opnd))))
             return true;
     }
     return false;

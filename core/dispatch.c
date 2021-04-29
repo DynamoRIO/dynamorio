@@ -723,6 +723,24 @@ dispatch_enter_native(dcontext_t *dcontext)
 }
 
 static void
+set_next_tag_to_prior_syscall(dcontext_t *dcontext)
+{
+    /* We need to remember both the post-syscall resumption point and
+     * the fact that we need to execute a syscall, but we only have
+     * a single PC field to place it into inside our sigreturn frame
+     * and other places.  Our solution is to point back at the
+     * syscall instruction itself.  The walk-backward scheme here is a
+     * little hacky perhaps.  We'll make a bb just for this syscall, which
+     * will not know the syscall number: but any re-execution in a loop
+     * will go back to the main bb.
+     */
+    dcontext->next_tag -= syscall_instr_length(
+        dcontext->last_fragment == NULL ? DEFAULT_ISA_MODE
+                                        : FRAG_ISA_MODE(dcontext->last_fragment->flags));
+    ASSERT(is_syscall_at_pc(dcontext, dcontext->next_tag));
+}
+
+static void
 dispatch_enter_dynamorio(dcontext_t *dcontext)
 {
     /* We're transitioning to DynamoRIO from somewhere: either the fcache,
@@ -890,9 +908,17 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
          */
         if (exited_due_to_ni_syscall(dcontext) ||
             instrument_invoke_another_syscall(dcontext)) {
-            handle_system_call(dcontext);
-            /* will return here if decided to skip the syscall; else, back to d_r_dispatch
-             */
+            if (IF_UNIX_ELSE(dcontext->signals_pending > 0, false)) {
+                /* Avoid running the pre-handler and aborting the fcache_enter w/o
+                 * a good way to undo the pre-handler.
+                 */
+                set_next_tag_to_prior_syscall(dcontext);
+            } else {
+                handle_system_call(dcontext);
+                /* We'll return here if decided to skip the syscall; else, back to
+                 *  d_r_dispatch.
+                 */
+            }
         }
 #ifdef WINDOWS
         else if (TEST(LINK_CALLBACK_RETURN, dcontext->last_exit->flags)) {
@@ -1117,21 +1143,26 @@ dispatch_exit_fcache(dcontext_t *dcontext)
         }
 #endif /* RCT_IND_BRANCH */
 
-        /* update IBL target tables for any indirect branch exit */
-        SELF_PROTECT_LOCAL(dcontext, WRITABLE);
-        /* update IBL target table if target is a valid IBT */
-        /* FIXME: This is good for modularity but adds
-         * extra lookups in the fragment table.  If it is
-         * performance problem can we do it better?
-         * Probably best to get bb2bb to work better and
-         * not worry about optimizing DR code.
+        /* Update IBL target tables for any indirect branch exit.
+         * Do not bother to try to update on an exit due to a signal
+         * (so signals_pending>0; for <0 we're in the handler).
          */
-        fragment_add_ibl_target(dcontext, dcontext->next_tag,
-                                extract_branchtype(dcontext->last_exit->flags));
-        /* FIXME: optimize this to stay writable if we're going to
-         * be building a bb as well -- no very quick check though
-         */
-        SELF_PROTECT_LOCAL(dcontext, READONLY);
+        if (IF_UNIX_ELSE(dcontext->signals_pending <= 0, false)) {
+            SELF_PROTECT_LOCAL(dcontext, WRITABLE);
+            /* update IBL target table if target is a valid IBT */
+            /* FIXME: This is good for modularity but adds
+             * extra lookups in the fragment table.  If it is
+             * performance problem can we do it better?
+             * Probably best to get bb2bb to work better and
+             * not worry about optimizing DR code.
+             */
+            fragment_add_ibl_target(dcontext, dcontext->next_tag,
+                                    extract_branchtype(dcontext->last_exit->flags));
+            /* FIXME: optimize this to stay writable if we're going to
+             * be building a bb as well -- no very quick check though
+             */
+            SELF_PROTECT_LOCAL(dcontext, READONLY);
+        }
     } /* LINKSTUB_INDIRECT */
     else if (dcontext->last_exit == get_ibl_deleted_linkstub()) {
         /* We don't know which table it was, so we update all of them.  Otherwise
@@ -1512,7 +1543,16 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
     }
 #    endif /* defined(DEBUG) && defined(DGC_DIAGNOSTICS) */
 
-    if (LINKSTUB_INDIRECT(dcontext->last_exit->flags)) {
+#    ifdef UNIX
+    if (dcontext->signals_pending > 0) {
+        /* this may not always be the reason...the interrupted fragment
+         * field is modularly hidden in unix/signal.c though
+         */
+        LOG(THREAD, LOG_DISPATCH, 2, " (interrupted by delayable signal)");
+        STATS_INC(num_exits_dir_signal);
+    } else
+#    endif
+        if (LINKSTUB_INDIRECT(dcontext->last_exit->flags)) {
 #    ifdef RETURN_AFTER_CALL
         bool ok = false;
 #    endif
@@ -1694,18 +1734,8 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             LOG(THREAD, LOG_DISPATCH, 2, " (self-loop in F%d, replaced by F%d)",
                 last_f->id, next_f->id);
             STATS_INC(num_exits_dir_self_replacement);
-        }
-#        ifdef UNIX
-        else if (dcontext->signals_pending != 0) {
-            /* this may not always be the reason...the interrupted fragment
-             * field is modularly hidden in unix/signal.c though
-             */
-            LOG(THREAD, LOG_DISPATCH, 2, " (interrupted by delayable signal)");
-            STATS_INC(num_exits_dir_signal);
-        }
-#        endif
-        else if (TEST(FRAG_COARSE_GRAIN, next_f->flags) &&
-                 !TEST(FRAG_COARSE_GRAIN, last_f->flags)) {
+        } else if (TEST(FRAG_COARSE_GRAIN, next_f->flags) &&
+                   !TEST(FRAG_COARSE_GRAIN, last_f->flags)) {
             LOG(THREAD, LOG_DISPATCH, 2, " (fine fragment targeting coarse trace head)");
             /* FIXME: We would assert that FRAG_IS_TRACE_HEAD is set, but
              * we have no way of setting that up for fine to coarse links
@@ -2035,17 +2065,20 @@ handle_system_call(dcontext_t *dcontext)
 
         set_at_syscall(dcontext, true);
         KSTART_DC(dcontext, syscall_fcache); /* stopped in dispatch_exit_fcache_stats */
+        bool is_ignorable = ignorable_system_call(sysnum, NULL, dcontext);
         do {
 #ifdef UNIX
-            /* We've already updated the signal mask as though the handler is
-             * completely finished, so we cannot go and receive a signal before
-             * executing the sigreturn syscall.
-             * Similarly, we've already done some clone work.
-             * Sigreturn and clone will come back to d_r_dispatch so there's no worry
-             * about unbounded delay.
+            /* It is difficult to undo some pre-syscall handling, especially for
+             * sigreturn's signal mask and clone syscalls.  We go ahead and run the
+             * syscall before we deliver the signal for all non-ignorable syscalls.
+             * These are nearly all non-blocking so this should not be an issue with
+             * signal delay from blocking.  Sigreturn and clone will come back to
+             * d_r_dispatch so there's no worry about unbounded delay.
              */
-            if ((is_sigreturn_syscall(dcontext) || is_thread_create_syscall(dcontext)) &&
-                dcontext->signals_pending > 0)
+            ASSERT((!is_sigreturn_syscall(dcontext) &&
+                    !is_thread_create_syscall(dcontext)) ||
+                   !is_ignorable);
+            if (!is_ignorable && dcontext->signals_pending > 0)
                 dcontext->signals_pending = -1;
 #endif
             enter_fcache(dcontext,
@@ -2055,8 +2088,7 @@ handle_system_call(dcontext_t *dcontext)
                              PC_AS_JMP_TGT(DEFAULT_ISA_MODE, (app_pc)fcache_enter)),
                          PC_AS_JMP_TGT(DEFAULT_ISA_MODE, do_syscall));
 #ifdef UNIX
-            if ((is_sigreturn_syscall(dcontext) || is_thread_create_syscall(dcontext)) &&
-                dcontext->signals_pending > 0)
+            if (!is_ignorable && dcontext->signals_pending > 0)
                 repeat = true;
             else
                 break;
@@ -2068,22 +2100,15 @@ handle_system_call(dcontext_t *dcontext)
             KSTOP(syscall_fcache);
             dcontext->whereami = DR_WHERE_DISPATCH;
             set_at_syscall(dcontext, false);
-            /* We need to remember both the post-syscall resumption point and
-             * the fact that we need to execute a syscall, but we only have
-             * a single PC field to place it into inside our sigreturn frame
-             * and other places.  Our solution is to point back at the
-             * syscall instruction itself.  The walk-backward scheme here is a
-             * little hacky perhaps.  We'll make a bb just for this syscall, which
-             * will not know the syscall number: but any re-execution in a loop
-             * will go back to the main bb.
+            dcontext->next_tag = saved_next_tag;
+            set_next_tag_to_prior_syscall(dcontext);
+            /* This only happens for ignorable syscalls so there is no pre-syscall
+             * handling to undo or worry about dupilcating when we re-attempt to
+             * execute it after the app's signal handler.
              */
-            dcontext->next_tag = saved_next_tag -
-                syscall_instr_length(dcontext->last_fragment == NULL
-                                         ? DEFAULT_ISA_MODE
-                                         : FRAG_ISA_MODE(dcontext->last_fragment->flags));
-            ASSERT(is_syscall_at_pc(dcontext, dcontext->next_tag));
             LOG(THREAD, LOG_DISPATCH, 2,
-                "Signal arrived in DR: aborting syscall enter; interrupted " PFX "\n",
+                "Signal arrived in DR: aborting ignorable syscall enter; interrupted " PFX
+                "\n",
                 dcontext->next_tag);
             STATS_INC(num_entrances_aborted);
             trace_abort(dcontext);
