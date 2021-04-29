@@ -86,14 +86,8 @@ enum {
     DRX_NOTE_COUNT,
 };
 
-static ptr_uint_t note_base = 0;
-
-static void *
-get_note_val(int val)
-{
-    ASSERT(note_base > 0, "note_base not initialized");
-    return (void *)(ptr_int_t)(note_base + val);
-}
+static ptr_uint_t note_base;
+#define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
 static bool expand_scatter_gather_drreg_initialized;
 
@@ -330,7 +324,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     instr_t *instr;
     ilist_insert_note_label(drcontext, ilist, where,
-                            get_note_val(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
+                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
 #    ifdef X86
     if (restore_oflag) {
         /* add 0x7f, %al */
@@ -340,7 +334,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
     /* sahf */
     instr = INSTR_CREATE_sahf(drcontext);
-    instr_set_note(instr, get_note_val(DRX_NOTE_AFLAGS_RESTORE_SAHF));
+    instr_set_note(instr, NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF));
     MINSERT(ilist, where, instr);
     /* restore eax if necessary */
     if (restore_reg) {
@@ -359,7 +353,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     ASSERT(reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR, "reg must be a GPR");
     instr =
         INSTR_CREATE_mrs(drcontext, opnd_create_reg(reg), opnd_create_reg(DR_REG_CPSR));
-    instr_set_note(instr, get_note_val(DRX_NOTE_AFLAGS_RESTORE_SAHF));
+    instr_set_note(instr, NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF));
     MINSERT(ilist, where, instr);
     if (restore_reg) {
         ASSERT(slot >= SPILL_SLOT_1 && slot <= SPILL_SLOT_MAX, "wrong spill slot");
@@ -367,7 +361,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
 #    endif
     ilist_insert_note_label(drcontext, ilist, where,
-                            get_note_val(DRX_NOTE_AFLAGS_RESTORE_END));
+                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
 }
 #endif /* X86 */
 
@@ -399,7 +393,7 @@ merge_prev_drx_spill(instrlist_t *ilist, instr_t *where, bool aflags)
      * We bail even there is only a label instr in between, which
      * might be a target of internal cti.
      */
-    if (instr_get_note(instr) != get_note_val(DRX_NOTE_AFLAGS_RESTORE_END))
+    if (instr_get_note(instr) != NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END))
         return NULL;
     /* On ARM we do not want to merge two drx spills if they are
      * predicated differently.
@@ -415,7 +409,7 @@ merge_prev_drx_spill(instrlist_t *ilist, instr_t *where, bool aflags)
             return NULL;
         }
         if (instr_is_label(instr)) {
-            if (instr_get_note(instr) == get_note_val(DRX_NOTE_AFLAGS_RESTORE_BEGIN)) {
+            if (instr_get_note(instr) == NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN)) {
                 ASSERT(!aflags || has_sahf, "missing sahf");
                 return instr;
             }
@@ -424,7 +418,7 @@ merge_prev_drx_spill(instrlist_t *ilist, instr_t *where, bool aflags)
             return NULL;
 #ifdef DEBUG
         } else {
-            if (instr_get_note(instr) == get_note_val(DRX_NOTE_AFLAGS_RESTORE_SAHF))
+            if (instr_get_note(instr) == NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF))
                 has_sahf = true;
 #endif
         }
@@ -616,11 +610,11 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
             return false;
     } else if (save_regs) {
         ilist_insert_note_label(drcontext, ilist, where,
-                                get_note_val(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
+                                NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
         dr_restore_reg(drcontext, ilist, where, reg2, slot2);
         dr_restore_reg(drcontext, ilist, where, reg1, slot);
         ilist_insert_note_label(drcontext, ilist, where,
-                                get_note_val(DRX_NOTE_AFLAGS_RESTORE_END));
+                                NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
     }
 #endif
     return true;
