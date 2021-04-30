@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -118,7 +118,7 @@ mmap_syscall_succeeded(byte *retval)
                              result == -EBADF ||
                      result == -EACCES || result == -EINVAL || result == -ETXTBSY ||
                      result == -EAGAIN || result == -ENOMEM || result == -ENODEV ||
-                     result == -EFAULT || result == -EPERM);
+                     result == -EFAULT || result == -EPERM || result == -EEXIST);
     return !fail;
 }
 
