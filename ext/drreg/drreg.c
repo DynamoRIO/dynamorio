@@ -205,8 +205,7 @@ has_pending_slot_usage_by_prior_pass(per_thread_t *pt, instrlist_t *ilist, instr
 {
     if (!TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props))
         return false;
-    for (instr_t *in = where; in != NULL /*sanity*/ && in != instrlist_last(ilist);
-         in = instr_get_next(in)) {
+    for (instr_t *in = where; in != NULL; in = instr_get_next(in)) {
         /* We store data about spill slot usage in the data area of a label instr
          * immediately preceding the usage.
          */
