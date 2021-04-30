@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -92,14 +92,8 @@ enum {
     DRX_NOTE_COUNT,
 };
 
-static ptr_uint_t note_base = 0;
-
-static void *
-get_note_val(int val)
-{
-    ASSERT(note_base > 0, "note_base not initialized");
-    return (void *)(ptr_int_t)(note_base + val);
-}
+static ptr_uint_t note_base;
+#define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
 static bool soft_kills_enabled;
 
@@ -153,7 +147,7 @@ drx_init(void)
      * On Windows however we reserve even fewer slots, as they are
      * shared with the application and reserving even one slot can result
      * in failure to initialize for certain applications (e.g. i#1163).
-     * On Linux, we set do_not_sum_slots to false so that we get atleast
+     * On Linux, we set do_not_sum_slots to false so that we get at least
      * as many slots for drx use.
      */
     drreg_options_t ops = { sizeof(ops), IF_WINDOWS_ELSE(2, 4), false, NULL,

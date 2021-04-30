@@ -184,13 +184,12 @@ get_where_app_pc(instr_t *where)
  * SPILLING AND RESTORING
  */
 
-static ptr_uint_t drreg_note_base = 0;
+static ptr_uint_t drreg_note_base;
 
 /* Get note value for a drreg instr note. */
-static ptr_uint_t
+static inline ptr_uint_t
 get_drreg_note_val(uint val)
 {
-    ASSERT(drreg_note_base > 0, "drreg_note_base not initialized");
     return (ptr_uint_t)(drreg_note_base + val);
 }
 
@@ -1823,6 +1822,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      * it, recognizing our own spills and restores.  We distinguish a tool value
      * spill to a temp slot (from drreg_event_bb_insert_late()) by watching for
      * a spill of an already-spilled reg to a different slot.
+     *
+     * XXX i#3801: We now keep track of spill slot usages added by drreg, which is
+     * used to avoid slot conflicts in multi-phase uses of drreg (i#3823). Perhaps
+     * that metadata can be used in this restore state code.
      */
     uint spilled_to[DR_NUM_GPR_REGS];
     uint spilled_to_aflags = MAX_SPILLS;

@@ -3143,7 +3143,7 @@ drmgr_emulation_init(void)
 }
 
 /* Get note values based on emulation specific enums. */
-static ptr_int_t
+static inline ptr_int_t
 get_emul_note_val(int enote_val)
 {
     ASSERT(note_base_emul > 0, "note_base_emul not initialized");
