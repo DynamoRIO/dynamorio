@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,6 +49,26 @@
 
 #define MAGIC_VAL 0xabcd
 
+uint tls_offs_app2app_spilled_reg;
+
+static uint
+spill_some_reg_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
+{
+    uint tls_offs;
+    /* Loop until some register is spilled to a slot. */
+    do {
+        reg_id_t reg;
+        CHECK(drreg_reserve_register(drcontext, bb, inst, NULL, &reg) == DRREG_SUCCESS,
+              "unable to reserve register");
+        CHECK(drreg_reservation_info(drcontext, reg, NULL, NULL, &tls_offs) ==
+                  DRREG_SUCCESS,
+              "unable to get reservation info");
+        CHECK(drreg_unreserve_register(drcontext, bb, instr_get_next_app(inst), reg) ==
+                  DRREG_SUCCESS,
+              "cannot unreserve register");
+    } while (tls_offs == -1);
+    return tls_offs;
+}
 static dr_emit_flags_t
 event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
               bool translating, OUT void **user_data)
@@ -70,6 +90,22 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 prev_was_mov_const = true;
         } else
             prev_was_mov_const = false;
+    }
+    if (*((ptr_int_t *)user_data) == DRREG_TEST_13_C) {
+        CHECK(drreg_set_bb_properties(
+                  drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
+              "unable to set bb properties");
+        /* Reset for this bb. */
+        tls_offs_app2app_spilled_reg = -1;
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13: app2app phase\n");
+        for (inst = instrlist_first_app(bb); inst != NULL;
+             inst = instr_get_next_app(inst)) {
+            if (instr_is_nop(inst)) {
+                tls_offs_app2app_spilled_reg =
+                    spill_some_reg_to_slot(drcontext, bb, inst);
+                break;
+            }
+        }
     }
     return DR_EMIT_DEFAULT;
 }
@@ -314,6 +350,15 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         res = drreg_unreserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
 #endif
+    } else if (subtest == DRREG_TEST_13_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13: insertion phase\n");
+        if (instr_is_nop(inst)) {
+            CHECK(tls_offs_app2app_spilled_reg != -1,
+                  "unable to use any spill slot in app2app phase.");
+            uint tls_offs = spill_some_reg_to_slot(drcontext, bb, inst);
+            CHECK(tls_offs_app2app_spilled_reg != tls_offs,
+                  "found conflict in use of spill slots across multiple phases");
+        }
     }
 
     drvector_delete(&allowed);

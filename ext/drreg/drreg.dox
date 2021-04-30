@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,16 @@ instrumentation pass scheme.  The results are most efficient when used in
 the \p drmgr instrumentation insertion phase.  Use outside of the insertion
 phase, such as during \p drmgr's instrumentation-to-instrumentation
 transformation phase, or use outside of \p drmgr entirely, is supported,
-but duplicate spills and restores may not be optimized away.
+but duplicate spills and restores may not be optimized away.  When using
+drreg to reserve registers in multiple phases (like app2app or
+instru2instru in addition to the insertion phase), it is important to call
+drreg_set_bb_properties() with #DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS
+to enable logic that avoids conflicts with spill slots used by previous
+phases.  This may have some performance cost, so we do not turn it on by
+default.  Using this option also makes spill slots used in prior phases
+less available in future phases; the current logic skips over a slot if
+there's a usage found anywhere later in the bb added by any previous phase.
+So it requires additional spill slots as well.
 
 CAUTION: this extension is still a work in progress.  Not all pieces are
 implemented yet, and the interface may be in flux until the details are

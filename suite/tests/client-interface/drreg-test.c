@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -309,6 +309,17 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      PTRSZ [TEST_REG_ASM], TEST_REG_ASM
         jmp      test12_done
      test12_done:
+        jmp     test13
+        /* Test 13: Multi-phase reg spill slot conflicts. */
+     test13:
+        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+        mov      REG_XAX, 123
+        mov      REG_XCX, 456
+        nop
+        add      REG_XAX, REG_XCX
+        jmp      test13_done
+     test13_done:
         jmp     epilog
 
      epilog:

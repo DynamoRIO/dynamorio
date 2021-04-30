@@ -209,6 +209,9 @@ Further non-compatibility-affecting changes include:
  - Added a flags field to #emulated_instr_t and a flags value
    #DR_EMULATE_REST_OF_BLOCK, indicating an emulation sequence that has no end label
    and includes the rest of the block.
+ - Added #DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS to #drreg_bb_properties_t to
+   enable logic that avoids conflicts in spill slots when drreg is used to reserve
+   registers in multiple phases.
 
 **************************************************
 <hr>

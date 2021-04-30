@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,6 +67,12 @@
 #define YMM_REG_SIZE 32
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
+#ifdef WINDOWS
+#    define IF_WINDOWS_ELSE(x, y) (x)
+#else
+#    define IF_WINDOWS_ELSE(x, y) (y)
+#endif
+
 #ifdef X86
 /* TODO i#2985: add ARM SIMD. */
 #    define PLATFORM_SUPPORTS_SCATTER_GATHER
@@ -85,10 +91,9 @@ enum {
     DRX_NOTE_AFLAGS_RESTORE_END,
     DRX_NOTE_COUNT,
 };
+
 static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
-
-static bool expand_scatter_gather_drreg_initialized;
 
 static bool soft_kills_enabled;
 
@@ -113,6 +118,9 @@ void
 drx_buf_exit_library(void);
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+
+static int drx_scatter_gather_expanded;
+
 static bool
 drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info);
@@ -129,13 +137,21 @@ bool
 drx_init(void)
 {
     /* drx_insert_counter_update() needs 1 slot on x86 plus the 1 slot
-       drreg uses for aflags, and 2 reg slots on aarch, so 2 on both.
-     * We set do_not_sum_slots to true so that we only ask for *more* slots
-     * if the client doesn't ask for any. Another drreg_init() call is made
-     * in case drx_expand_scatter_gather() is called. More slots are reserved
-     * in that case.
+     * drreg uses for aflags, and 2 reg slots on aarch, so 2 on both.
+     * drx_expand_scatter_gather() needs 4 slots in app2app phase, which
+     * cannot be reused by other phases. So, ideally we should reserve
+     * 6 slots for drx. But we settle with 4 to avoid stealing too many
+     * slots from other clients/libs. When drx needs more for instrumenting
+     * scatter/gather instrs, we fall back on DR slots. As scatter/gather
+     * instrs are spilt into their own bbs, this effect will be limited.
+     * On Windows however we reserve even fewer slots, as they are
+     * shared with the application and reserving even one slot can result
+     * in failure to initialize for certain applications (e.g. i#1163).
+     * On Linux, we set do_not_sum_slots to false so that we get at least
+     * as many slots for drx use.
      */
-    drreg_options_t ops = { sizeof(ops), 2, false, NULL, true };
+    drreg_options_t ops = { sizeof(ops), IF_WINDOWS_ELSE(2, 4), false, NULL,
+                            IF_WINDOWS_ELSE(true, false) };
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
     drmgr_priority_t fault_priority = { sizeof(fault_priority),
@@ -178,10 +194,6 @@ drx_exit()
 
     drx_buf_exit_library();
     drreg_exit();
-    if (expand_scatter_gather_drreg_initialized) {
-        drreg_exit();
-        expand_scatter_gather_drreg_initialized = false;
-    }
     drmgr_exit();
 }
 
@@ -2297,6 +2309,14 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         return true;
     if (!instr_is_gather(first_app) && !instr_is_scatter(first_app))
         return true;
+
+    /* We want to avoid spill slot conflicts with later instrumentation passes. */
+    drreg_status_t res_bb_props =
+        drreg_set_bb_properties(drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS);
+    DR_ASSERT(res_bb_props == DRREG_SUCCESS);
+
+    dr_atomic_store32(&drx_scatter_gather_expanded, 1);
+
     instr_t *sg_instr = first_app;
     scatter_gather_info_t sg_info;
     bool res = false;
@@ -2310,20 +2330,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         return false;
     }
 #    endif
-    /* The expansion potentially needs more slots than the drx default. We need up to 2
-     * slots on x86 plus the 1 slot drreg uses for aflags. We set do_not_sum_slots here
-     * to false.
-     */
-    if (!expand_scatter_gather_drreg_initialized) {
-        /* We're requesting 3 slots for 3 gprs plus 3 additional ones because they are
-         * used cross-app. The additional slots are needed if drreg needs to move the
-         * values as documented in drreg.
-         */
-        drreg_options_t ops = { sizeof(ops), 3 + 3, false, NULL, true };
-        if (drreg_init(&ops) != DRREG_SUCCESS)
-            return false;
-        expand_scatter_gather_drreg_initialized = true;
-    }
     uint no_of_elements = opnd_size_in_bytes(sg_info.scatter_gather_size) /
         MAX(opnd_size_in_bytes(sg_info.scalar_index_size),
             opnd_size_in_bytes(sg_info.scalar_value_size));
@@ -3520,7 +3526,7 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     bool success = true;
     if (info->fragment_info.cache_start_pc == NULL)
         return true; /* fault not in cache */
-    if (!expand_scatter_gather_drreg_initialized) {
+    if (dr_atomic_load32(&drx_scatter_gather_expanded) == 0) {
         /* Nothing to do if nobody had never called expand_scatter_gather() before. */
         return true;
     }

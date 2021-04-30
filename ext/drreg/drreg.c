@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,6 +68,14 @@
 /* This should be pretty hard to exceed as there aren't this many GPRs */
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
 
+/* We store data about spill slot usage in the data area of a label instr. */
+#define SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET 0
+
+/* Arbitrary base to avoid conflict of default zero value in label data
+ * slot with the zero-numbered spill slot.
+ */
+#define SPILL_SLOT_ID_BASE 100
+
 #define AFLAGS_SLOT 0 /* always */
 
 /* We support using GPR registers only: [DR_REG_START_GPR..DR_REG_STOP_GPR] */
@@ -118,6 +126,9 @@ typedef struct _per_thread_t {
     drreg_bb_properties_t bb_props;
     bool bb_has_internal_flow;
 } per_thread_t;
+
+/* Enum describing the different types of notes in drreg. */
+enum { DRREG_NOTE_SPILL_SLOT_ID, DRREG_NOTE_COUNT };
 
 static drreg_options_t ops;
 
@@ -173,15 +184,56 @@ get_where_app_pc(instr_t *where)
  * SPILLING AND RESTORING
  */
 
+static ptr_uint_t drreg_note_base;
+
+/* Get note value for a drreg instr note. */
+static inline ptr_uint_t
+get_drreg_note_val(uint val)
+{
+    return (ptr_uint_t)(drreg_note_base + val);
+}
+
+/* Returns whether the given ilist has an existing usage of the given slot
+ * on or after `where`. Such a usage, if any, must have been added by a
+ * previous instrumentation pass, and tells us that it is not safe to reuse
+ * the slot in the current pass.
+ */
+static bool
+has_pending_slot_usage_by_prior_pass(per_thread_t *pt, instrlist_t *ilist, instr_t *where,
+                                     uint slot)
+{
+    if (!TEST(DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS, pt->bb_props))
+        return false;
+    for (instr_t *in = where; in != NULL; in = instr_get_next(in)) {
+        /* We store data about spill slot usage in the data area of a label instr
+         * immediately preceding the usage.
+         */
+        if (instr_is_label(in) &&
+            instr_get_note(in) == (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID)) {
+            dr_instr_label_data_t *data = instr_get_label_data_area(in);
+            ASSERT(data != NULL, "failed to find label's data area");
+            /* Try to continue in release build. */
+            if (data != NULL &&
+                data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] ==
+                    SPILL_SLOT_ID_BASE + slot) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static uint
-find_free_slot(per_thread_t *pt)
+find_free_slot(per_thread_t *pt, instrlist_t *ilist, instr_t *where)
 {
     uint i;
     /* 0 is always reserved for AFLAGS_SLOT */
     ASSERT(AFLAGS_SLOT == 0, "AFLAGS_SLOT is not 0");
     for (i = AFLAGS_SLOT + 1; i < MAX_SPILLS; i++) {
-        if (pt->slot_use[i] == DR_REG_NULL)
+        if (pt->slot_use[i] == DR_REG_NULL &&
+            !has_pending_slot_usage_by_prior_pass(pt, ilist, where, i)) {
             return i;
+        }
     }
     return MAX_SPILLS;
 }
@@ -202,6 +254,18 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
     if (slot == AFLAGS_SLOT)
         pt->aflags.ever_spilled = true;
     pt->slot_use[slot] = reg;
+    instr_t *spill_slot_data_label = INSTR_CREATE_label(drcontext);
+    dr_instr_label_data_t *data = instr_get_label_data_area(spill_slot_data_label);
+    ASSERT(data != NULL, "failed to find label's data area");
+    /* Try to continue in release build. */
+    if (data != NULL) {
+        data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
+            (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
+    }
+    instr_set_note(spill_slot_data_label,
+                   (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID));
+    /* This must immediately precede the spill instrs inserted below. */
+    PRE(ilist, where, spill_slot_data_label);
     if (slot < ops.num_spill_slots) {
         dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                                 tls_slot_offs + slot * sizeof(reg_t), reg);
@@ -209,6 +273,7 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
         dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
         dr_save_reg(drcontext, ilist, where, reg, DR_slot);
     }
+
 #ifdef DEBUG
     if (slot > stats_max_slot)
         stats_max_slot = slot; /* racy but that's ok */
@@ -226,8 +291,21 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
                /* aflags can be saved and restored using different regs */
                (slot == AFLAGS_SLOT && pt->slot_use[slot] != DR_REG_NULL),
            "internal tracking error");
-    if (release)
+    if (release) {
         pt->slot_use[slot] = DR_REG_NULL;
+        instr_t *spill_slot_data_label = INSTR_CREATE_label(drcontext);
+        dr_instr_label_data_t *data = instr_get_label_data_area(spill_slot_data_label);
+        ASSERT(data != NULL, "failed to find label's data area");
+        /* Try to continue in release build. */
+        if (data != NULL) {
+            data->data[SPILL_SLOT_ID_LABEL_INSTR_DATA_AREA_OFFSET] =
+                (ptr_uint_t)slot + SPILL_SLOT_ID_BASE;
+        }
+        instr_set_note(spill_slot_data_label,
+                       (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID));
+        /* This must immediately precede the restore instrs inserted below. */
+        PRE(ilist, where, spill_slot_data_label);
+    }
     if (slot < ops.num_spill_slots) {
         dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
                                tls_slot_offs + slot * sizeof(reg_t), reg);
@@ -397,6 +475,17 @@ drreg_event_bb_insert_early(void *drcontext, void *tag, instrlist_t *bb, instr_t
     return DR_EMIT_DEFAULT;
 }
 
+static dr_emit_flags_t
+drreg_event_bb_instru2instru_late(void *drcontext, void *tag, instrlist_t *bb,
+                                  bool for_trace, bool translating)
+{
+    /* We preserve bb_props until late in instru2instru as there may be drreg usages
+     * in other passes that need to look at it.
+     */
+    get_tls_data(drcontext)->bb_props = 0;
+    return DR_EMIT_DEFAULT;
+}
+
 static drreg_status_t
 drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                          bool force_restore, OUT bool *regs_restored)
@@ -480,7 +569,7 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                      * register).
                      * XXX: optimize via xchg w/ a dead reg.
                      */
-                    uint tmp_slot = find_free_slot(pt);
+                    uint tmp_slot = find_free_slot(pt, bb, inst);
                     if (tmp_slot == MAX_SPILLS) {
                         drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
                                            "failed to preserve tool val around app read");
@@ -602,7 +691,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     "%s @%d." PFX ": re-spilling %s after app write\n", __FUNCTION__,
                     pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                 if (!restored_for_read[GPR_IDX(reg)]) {
-                    tmp_slot = find_free_slot(pt);
+                    tmp_slot = find_free_slot(pt, bb, inst);
                     if (tmp_slot == MAX_SPILLS) {
                         drreg_report_error(DRREG_ERROR_OUT_OF_SLOTS,
                                            "failed to preserve tool val wrt app write");
@@ -636,9 +725,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             pt->pending_unreserved--;
         }
     }
-
-    if (drmgr_is_last_instr(drcontext, inst))
-        pt->bb_props = 0;
 
 #ifdef DEBUG
     if (drmgr_is_last_instr(drcontext, inst)) {
@@ -869,7 +955,7 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
     }
     if (slot == MAX_SPILLS) {
-        slot = find_free_slot(pt);
+        slot = find_free_slot(pt, ilist, where);
         if (slot == MAX_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
     }
@@ -1358,7 +1444,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
         LOG(drcontext, DR_LOG_ALL, 3, "  using un-restored xax in slot %d\n",
             pt->reg[DR_REG_XAX - DR_REG_START_GPR].slot);
     } else if (pt->aflags.xchg != DR_REG_XAX) {
-        uint xax_slot = find_free_slot(pt);
+        uint xax_slot = find_free_slot(pt, ilist, where);
         if (xax_slot == MAX_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
         if (ops.conservative ||
@@ -1427,7 +1513,7 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (pt->aflags.xchg == DR_REG_XAX) {
         ASSERT(pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use, "eflags-in-xax error");
     } else {
-        temp_slot = find_free_slot(pt);
+        temp_slot = find_free_slot(pt, ilist, where);
         if (temp_slot == MAX_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
         if (pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use) {
@@ -1736,6 +1822,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      * it, recognizing our own spills and restores.  We distinguish a tool value
      * spill to a temp slot (from drreg_event_bb_insert_late()) by watching for
      * a spill of an already-spilled reg to a different slot.
+     *
+     * XXX i#3801: We now keep track of spill slot usages added by drreg, which is
+     * used to avoid slot conflicts in multi-phase uses of drreg (i#3823). Perhaps
+     * that metadata can be used in this restore state code.
      */
     uint spilled_to[DR_NUM_GPR_REGS];
     uint spilled_to_aflags = MAX_SPILLS;
@@ -1832,7 +1922,6 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
             reg_set_value(reg, info->mcontext, val);
         }
     }
-
     return true;
 }
 
@@ -1923,7 +2012,9 @@ drreg_init(drreg_options_t *ops_in)
             !drmgr_register_bb_instrumentation_event(
                 drreg_event_bb_analysis, drreg_event_bb_insert_late, &low_priority) ||
             !drmgr_register_restore_state_ex_event_ex(drreg_event_restore_state,
-                                                      &fault_priority))
+                                                      &fault_priority) ||
+            !drmgr_register_bb_instru2instru_event(drreg_event_bb_instru2instru_late,
+                                                   &low_priority))
             return DRREG_ERROR;
 #ifdef X86
         /* We get an extra slot for aflags xax, rather than just documenting that
@@ -1979,6 +2070,10 @@ drreg_init(drreg_options_t *ops_in)
     /* 0 spill slots is supported and just fills in tls_seg for us. */
     if (!dr_raw_tls_calloc(&tls_seg, &tls_slot_offs, ops.num_spill_slots, 0))
         return DRREG_ERROR_OUT_OF_SLOTS;
+
+    drreg_note_base = drmgr_reserve_note_range(DRREG_NOTE_COUNT);
+    if (drreg_note_base == DRMGR_NOTE_NONE)
+        return DRREG_ERROR;
 
     return DRREG_SUCCESS;
 }
