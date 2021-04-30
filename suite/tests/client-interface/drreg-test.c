@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -314,10 +314,10 @@ GLOBAL_LABEL(FUNCNAME:)
      test13:
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
-        mov      r8, 0xf0
-        mov      r9, 0x0d
+        mov      REG_XAX, 123
+        mov      REG_XCX, 456
         nop
-        add      r8, r9
+        add      REG_XAX, REG_XCX
         jmp      test13_done
      test13_done:
         jmp     epilog

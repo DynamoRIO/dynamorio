@@ -101,8 +101,6 @@ get_note_val(int val)
     return (void *)(ptr_int_t)(note_base + val);
 }
 
-static int drx_scatter_gather_expanded;
-
 static bool soft_kills_enabled;
 
 static void
@@ -126,6 +124,9 @@ void
 drx_buf_exit_library(void);
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+
+static int drx_scatter_gather_expanded;
+
 static bool
 drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info);
