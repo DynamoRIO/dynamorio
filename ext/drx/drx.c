@@ -147,10 +147,11 @@ drx_init(void)
      * On Windows however we reserve even fewer slots, as they are
      * shared with the application and reserving even one slot can result
      * in failure to initialize for certain applications (e.g. i#1163).
-     * We set do_not_sum_slots to false so that we get atleast as many
-     * slots for drx use.
+     * On Linux, we set do_not_sum_slots to false so that we get at least
+     * as many slots for drx use.
      */
-    drreg_options_t ops = { sizeof(ops), IF_WINDOWS_ELSE(2, 4), false, NULL, false };
+    drreg_options_t ops = { sizeof(ops), IF_WINDOWS_ELSE(2, 4), false, NULL,
+                            IF_WINDOWS_ELSE(true, false) };
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
     drmgr_priority_t fault_priority = { sizeof(fault_priority),
