@@ -2366,6 +2366,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     emulated_instr.size = sizeof(emulated_instr);
     emulated_instr.pc = instr_get_app_pc(sg_instr);
     emulated_instr.instr = sg_instr;
+    /* Tools should instrument the data operations in the sequence. */
+    emulated_instr.flags = DR_EMULATE_INSTR_ONLY;
     drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
 
     if (sg_info.is_evex) {
