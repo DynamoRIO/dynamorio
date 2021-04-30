@@ -3752,6 +3752,30 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
     return true;
 }
 
+static bool
+send_signal_to_client_and_handle_action(dcontext_t *dcontext, int sig,
+                                        sigframe_rt_t *frame, sigcontext_t *sc,
+                                        sigcontext_t *sc_orig, byte *access_address,
+                                        bool blocked, fragment_t *fragment,
+                                        bool no_deliver)
+{
+    /* Make a copy of sigcontext_t struct before send_signal_to_client() tweaks it. */
+    sigcontext_t sc_interrupted = *sc;
+    dr_signal_action_t action = send_signal_to_client(dcontext, sig, frame, sc_orig,
+                                                      access_address, blocked, fragment);
+    if (blocked) {
+        /* For blocked signal early event we disallow BYPASS (xref i#182/PR 449996). */
+        CLIENT_ASSERT(action != DR_SIGNAL_BYPASS, "cannot bypass a blocked signal event");
+    } else {
+        if (no_deliver && action == DR_SIGNAL_DELIVER) {
+            /* Do not handle signal delivery here. */
+            return true;
+        }
+    }
+    return handle_client_action_from_cache(dcontext, sig, action, frame, sc_orig,
+                                           &sc_interrupted, blocked);
+}
+
 static void
 abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, byte *target, int sig,
                sigframe_rt_t *frame, const char *prefix, const char *signame,
@@ -4553,20 +4577,14 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         if (blocked && !forged && !can_always_delay[sig] &&
             safe_is_in_fcache(dcontext, pc, xsp)) {
-            dr_signal_action_t action;
             /* cache the fragment since pclookup is expensive for coarse (i#658) */
             f = fragment_pclookup(dcontext, (cache_pc)sc->SC_XIP, &wrapper);
             sc_orig = *sc;
             translate_sigcontext(dcontext, ucxt, true /*shouldn't fail*/, f);
-            /* make a copy before send_signal_to_client() tweaks it */
-            sigcontext_t sc_interrupted = *sc;
-            action = send_signal_to_client(dcontext, sig, frame, &sc_orig, access_address,
-                                           true /*blocked*/, f);
-            /* For blocked signal early event we disallow BYPASS (xref i#182/PR 449996) */
-            CLIENT_ASSERT(action != DR_SIGNAL_BYPASS,
-                          "cannot bypass a blocked signal event");
-            if (!handle_client_action_from_cache(dcontext, sig, action, frame, &sc_orig,
-                                                 &sc_interrupted, true /*blocked*/)) {
+
+            if (!send_signal_to_client_and_handle_action(
+                    dcontext, sig, frame, sc, &sc_orig, access_address, true /*blocked*/,
+                    f, false /*handle deliver*/)) {
                 ostd->processing_signal--;
                 return;
             }
@@ -5376,13 +5394,9 @@ master_signal_handler_C(byte *xsp)
                  * own gencode.  client_exception_event() won't return if client
                  * wants to re-execute faulting instr.
                  */
-                sigcontext_t sc_interrupted = *get_sigcontext_from_rt_frame(frame);
-                dr_signal_action_t action = send_signal_to_client(
-                    dcontext, sig, frame, sc, target, false /*!blocked*/, NULL);
-                if (action != DR_SIGNAL_DELIVER && /* for delivery, continue below */
-                    !handle_client_action_from_cache(dcontext, sig, action, frame, sc,
-                                                     &sc_interrupted,
-                                                     false /*!blocked*/)) {
+                if (!send_signal_to_client_and_handle_action(
+                        dcontext, sig, frame, get_sigcontext_from_rt_frame(frame), sc,
+                        target, false /*!blocked*/, NULL, true /*no_deliver*/)) {
                     /* client handled fault */
                     break;
                 }
@@ -5548,12 +5562,9 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     byte *xsp = get_sigstack_frame_ptr(dcontext, info, sig,
                                        our_frame/* take xsp from (translated)
                                                  * interruption point */);
-
-    sigcontext_t sc_interrupted = *sc;
-    dr_signal_action_t action = send_signal_to_client(
-        dcontext, sig, our_frame, sc_orig, access_address, false /*not blocked*/, f);
-    if (!handle_client_action_from_cache(dcontext, sig, action, our_frame, sc_orig,
-                                         &sc_interrupted, false /*!blocked*/))
+    if (!send_signal_to_client_and_handle_action(dcontext, sig, our_frame, sc, sc_orig,
+                                                 access_address, false /*not blocked*/, f,
+                                                 false /*handle deliver*/))
         return false;
 
     LOG(THREAD, LOG_ASYNCH, 2, "execute_handler_from_cache for signal %d\n", sig);

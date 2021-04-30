@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -680,6 +680,23 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
         ASSERT(opnd_uses_reg(xcx, DR_REG_XCX), "rep string opnd order mismatch");
         ASSERT(inst == instrlist_last(bb), "repstr not alone in bb");
 
+        /* XXX i#4865: This is a different type of emulation where we want
+         * observational clients to look at the original instruction for instruction
+         * fetch info but the emulation sequence for data load/store info.  We need
+         * some kind of flag in emulated_instr_t to indicate this.
+         */
+        emulated_instr_t emulated_instr;
+        emulated_instr.size = sizeof(emulated_instr);
+        emulated_instr.pc = xl8;
+        emulated_instr.instr = inst;
+        /* We can't place an end label after our conditional branch as DR won't
+         * allow anything past the branch (we explored relaxing that and ran into
+         * many complexities that were not worth further work), so we instead
+         * use the flag to mark the whole block as emulated.
+         */
+        emulated_instr.flags = DR_EMULATE_REST_OF_BLOCK;
+        drmgr_insert_emulation_start(drcontext, bb, inst, &emulated_instr);
+
         pre_loop = INSTR_CREATE_label(drcontext);
         /* hack to handle loop decrementing xcx: simpler if could have 2 cbrs! */
         if (opnd_get_size(xcx) == OPSZ_8) {
@@ -724,9 +741,11 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
         instr_set_dst(loop, 0, xcx);
         PREXL8(bb, inst, INSTR_XL8(loop, fake_xl8));
 
-        /* now throw out the orig instr */
+        /* Now throw out the original instr.  It is part of the emulation label
+         * and will be freed along with the instrlist so we just remove it from
+         * the list and do not free it ourselves.
+         */
         instrlist_remove(bb, inst);
-        instr_destroy(drcontext, inst);
 
         if (expanded != NULL)
             *expanded = true;
