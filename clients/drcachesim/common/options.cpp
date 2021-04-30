@@ -161,13 +161,13 @@ droption_t<std::string> op_LL_miss_file(
 
 droption_t<bool> op_L0_filter(
     DROPTION_SCOPE_CLIENT, "L0_filter", false,
-    "Filter out zero-level hits during tracing",
+    "Filter out first-level cache hits during tracing",
     "Filters out instruction and data hits in a 'zero-level' cache during tracing "
-    "itself, "
-    "shrinking the final trace to only contain instruction and data accesses that miss "
-    "in "
-    "this initial cache.  This cache is direct-mapped with sizes equal to -L0I_size and "
-    "-L0D_size.  It uses virtual addresses regardless of -use_physical.");
+    "itself, shrinking the final trace to only contain instruction and data accesses "
+    "that miss in this initial cache.  This cache is direct-mapped with sizes equal to "
+    "-L0I_size and -L0D_size.  It uses virtual addresses regardless of -use_physical. "
+    "The dynamic (pre-filtered) per-thread instruction count is tracked and supplied "
+    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread exit.");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
@@ -327,6 +327,9 @@ droption_t<bool>
 #ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
+droption_t<std::string> op_test_mode_name(
+    DROPTION_SCOPE_ALL, "test_mode_name", "", "Run custom sanity tests",
+    "Run extra analyses for specific sanity checks by name on the trace.");
 #endif
 droption_t<bool> op_disable_optimizations(
     DROPTION_SCOPE_ALL, "disable_optimizations", false,

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -106,6 +106,7 @@ extern droption_t<bool> op_show_func_trace;
 extern droption_t<int> op_jobs;
 #ifdef DEBUG
 extern droption_t<bool> op_test_mode;
+extern droption_t<std::string> op_test_mode_name;
 #endif
 extern droption_t<bool> op_disable_optimizations;
 extern droption_t<std::string> op_dr_root;

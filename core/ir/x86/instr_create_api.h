@@ -336,12 +336,12 @@
  * \param s  The opnd_t explicit source operand for the instruction.  This
  * can be either a register or a 32-bit immediate integer on x86.
  */
-#define XINST_CREATE_add(dc, d, s)                                             \
-    INSTR_CREATE_lea(                                                          \
-        (dc), (d),                                                             \
-        OPND_CREATE_MEM_lea(opnd_get_reg(d),                                   \
-                            opnd_is_reg(s) ? opnd_get_reg(s) : DR_REG_NULL, 0, \
-                            opnd_is_reg(s) ? 0 : (int)opnd_get_immed_int(s)))
+#define XINST_CREATE_add(dc, d, s)                                           \
+    INSTR_CREATE_lea(                                                        \
+        (dc), (d),                                                           \
+        OPND_CREATE_MEM_lea(                                                 \
+            opnd_get_reg(d), opnd_is_reg(s) ? opnd_get_reg(s) : DR_REG_NULL, \
+            opnd_is_reg(s) ? 1 : 0, opnd_is_reg(s) ? 0 : (int)opnd_get_immed_int(s)))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -354,12 +354,12 @@
  * \param s2  The opnd_t explicit source operand for the instruction.  This
  * can be either a register or a 32-bit immediate integer on x86.
  */
-#define XINST_CREATE_add_2src(dc, d, s1, s2)                                     \
-    INSTR_CREATE_lea(                                                            \
-        (dc), (d),                                                               \
-        OPND_CREATE_MEM_lea(opnd_get_reg(s1),                                    \
-                            opnd_is_reg(s2) ? opnd_get_reg(s2) : DR_REG_NULL, 0, \
-                            opnd_is_reg(s2) ? 0 : (int)opnd_get_immed_int(s2)))
+#define XINST_CREATE_add_2src(dc, d, s1, s2)                                    \
+    INSTR_CREATE_lea(                                                           \
+        (dc), (d),                                                              \
+        OPND_CREATE_MEM_lea(                                                    \
+            opnd_get_reg(s1), opnd_is_reg(s2) ? opnd_get_reg(s2) : DR_REG_NULL, \
+            opnd_is_reg(s2) ? 1 : 0, opnd_is_reg(s2) ? 0 : (int)opnd_get_immed_int(s2)))
 
 /**
  * This platform-independent macro creates an instr_t for an addition

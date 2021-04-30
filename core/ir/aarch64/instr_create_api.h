@@ -1759,6 +1759,67 @@ enum {
 #define INSTR_CREATE_fcvtzu_vector(dc, Rd, Rm, width) \
     instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, width)
 
+/**
+ * Creates an FCVTZU vector floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input register.
+ * \param width   The vector element width. Use either OPND_CREATE_SINGLE() or
+ *                OPND_CREATE_DOUBLE().
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination element.
+ */
+#define INSTR_CREATE_fcvtzu_vector_fixed(dc, Rd, Rm, width, fbits) \
+    instr_create_1dst_3src(dc, OP_fcvtzu, Rd, Rm, width, fbits)
+
+/**
+ * Creates a UCVTF vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_ucvtf_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_ucvtf, Rd, Rm, width)
+
+/**
+ * Creates a UCVTF vector floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input register.
+ * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
+ *                #OPND_CREATE_DOUBLE().
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination element.
+ */
+#define INSTR_CREATE_ucvtf_vector_fixed(dc, Rd, Rm, width, fbits) \
+    instr_create_1dst_3src(dc, OP_ucvtf, Rd, Rm, width, fbits)
+
+/**
+ * Creates an SCVTF vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_scvtf_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_scvtf, Rd, Rm, width)
+
+/**
+ * Creates an SCVTF vector floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input register.
+ * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
+ *                #OPND_CREATE_DOUBLE().
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination element.
+ */
+#define INSTR_CREATE_scvtf_vector_fixed(dc, Rd, Rm, width, fbits) \
+    instr_create_1dst_3src(dc, OP_scvtf, Rd, Rm, width, fbits)
+
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
@@ -1847,6 +1908,17 @@ enum {
     instr_create_1dst_1src(dc, OP_fcvtzs, Rd, Rm)
 
 /**
+ * Creates an FCVTZS scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination.
+ */
+#define INSTR_CREATE_fcvtzs_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_fcvtzs, Rd, Rm, fbits)
+
+/**
  * Creates an FCVTZU floating point instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      Floating-point or integer output register.
@@ -1854,6 +1926,55 @@ enum {
  */
 #define INSTR_CREATE_fcvtzu_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
+
+/**
+ * Creates an FCVTZU scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination.
+ */
+#define INSTR_CREATE_fcvtzu_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, fbits)
+
+/**
+ * Creates a UCVTF floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ */
+#define INSTR_CREATE_ucvtf_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_ucvtf, Rd, Rm)
+
+/**
+ * Creates a UCVTF scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                input.
+ */
+#define INSTR_CREATE_ucvtf_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_ucvtf, Rd, Rm, fbits)
+
+/**
+ * Creates an SCVTF floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ */
+#define INSTR_CREATE_scvtf_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_scvtf, Rd, Rm)
+
+/**
+ * Creates an SCVTF scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                input.
+ */
+#define INSTR_CREATE_scvtf_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_scvtf, Rd, Rm, fbits)
 
 /**
  * Creates a FRINTN floating point instruction.

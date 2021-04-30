@@ -60,6 +60,10 @@ typedef struct _os_module_data_t {
      * address references within the file.
      */
     app_pc base_address;
+    /* XXX: All segments are expected to have the same alignment, even though that it is
+     * not a requirement for ELF. To allow a different alignment for each segment we will
+     * need to move this field in the module_segment_t struct.
+     */
     size_t alignment; /* the alignment between segments */
 
     /* Fields for pcaches (PR 295534) */

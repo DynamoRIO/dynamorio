@@ -1798,7 +1798,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
 #endif
 
 #ifdef UNIX
-    dcontext->signals_pending = false;
+    dcontext->signals_pending = 0;
 #endif
 
     /* all thread-private fields are initialized in dynamo_thread_init

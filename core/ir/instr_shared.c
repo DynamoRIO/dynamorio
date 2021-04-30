@@ -142,11 +142,11 @@ instr_clone(void *drcontext, instr_t *orig)
         instr->bytes =
             (byte *)heap_reachable_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
-    } else if (instr_is_label(orig)) {
+    } else if (instr_is_label(orig) && instr_get_label_callback(instr) != NULL) {
         /* We don't know what this callback does, we can't copy this. The caller that
          * makes the clone needs to take care of this, xref i#3926.
          */
-        instr_set_label_callback(instr, NULL);
+        instr_clear_label_callback(instr);
     }
     if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         instr->dsts = (opnd_t *)heap_alloc(
@@ -1111,6 +1111,17 @@ instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
     instr->label_cb = cb;
 }
 
+void
+instr_clear_label_callback(instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only set callback functions for label instructions");
+    CLIENT_ASSERT(instr->label_cb != NULL, "label callback function not set");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    instr->label_cb = NULL;
+}
+
 instr_label_callback_t
 instr_get_label_callback(instr_t *instr)
 {
@@ -2015,6 +2026,7 @@ instr_writes_memory(instr_t *instr)
 }
 
 #ifdef X86
+
 bool
 instr_zeroes_ymmh(instr_t *instr)
 {
@@ -2022,13 +2034,47 @@ instr_zeroes_ymmh(instr_t *instr)
     const instr_info_t *info = get_encoding_info(instr);
     if (info == NULL)
         return false;
-    /* legacy instrs always preserve top half of ymm */
-    if (!TEST(REQUIRES_VEX, info->flags))
+    /* Legacy (SSE) instructions always preserve top half of YMM.
+     * Moreover, EVEX encoded instructions clear upper ZMM bits, but also
+     * YMM bits if an XMM reg is used.
+     */
+    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
         return false;
+
+    /* Handle zeroall special case. */
+    if (instr->opcode == OP_vzeroall)
+        return true;
+
     for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd_t opnd = instr_get_dst(instr, i);
-        if (opnd_is_reg(opnd) && reg_is_xmm(opnd_get_reg(opnd)) &&
-            !reg_is_ymm(opnd_get_reg(opnd)))
+        if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
+            reg_is_strictly_xmm(opnd_get_reg(opnd)))
+            return true;
+    }
+    return false;
+}
+
+bool
+instr_zeroes_zmmh(instr_t *instr)
+{
+    int i;
+    const instr_info_t *info = get_encoding_info(instr);
+    if (info == NULL)
+        return false;
+    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
+        return false;
+    /* Handle special cases, namely zeroupper and zeroall. */
+    /* XXX: DR ir should actually have these two instructions have all SIMD vector regs
+     * as operand even though they are implicit.
+     */
+    if (instr->opcode == OP_vzeroall || instr->opcode == OP_vzeroupper)
+        return true;
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd_t opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
+            (reg_is_strictly_xmm(opnd_get_reg(opnd)) ||
+             reg_is_strictly_ymm(opnd_get_reg(opnd))))
             return true;
     }
     return false;

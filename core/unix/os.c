@@ -7827,20 +7827,30 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
                  * disk space, e.g. /usr/lib/httpd/modules/mod_auth_anon.so.  When
                  * such a module is mapped in, the os maps the same disk page twice,
                  * one readonly and one copy-on-write (see pg.  96, Sec 4.4 from
-                 * Linkers and Loaders by John R.  Levine).  This makes the data
-                 * section also satisfy the elf_header check above.  So, if the new
-                 * mmap overlaps an elf_area and it is also a header, then make sure
-                 * the previous page (correcting for alignment) is also a elf_header.
-                 * Note, if it is a header of a different module, then we'll not have
-                 * an overlap, so we will not hit this case.
+                 * Linkers and Loaders by John R.  Levine). It also possible for
+                 * such small modules to have multiple LOAD data segments. Since all
+                 * these segments are mapped from a single disk page they will all have an
+                 * elf_header satisfying the check above. So, if the new mmap overlaps an
+                 * elf_area and it is also a header, then make sure the offsets (from the
+                 * beginning of the backing file) of all the segments up to the currect
+                 * one are within the page size. Note, if it is a header of a different
+                 * module, then we'll not have an overlap, so we will not hit this case.
                  */
-                ASSERT_CURIOSITY(
-                    ma->start + ma->os_data.alignment ==
-                    base
-                        /* On Mac we walk the dyld module list before the
-                         * address space, so we often hit modules we already
-                         * know about. */
-                        IF_MACOS(|| !dynamo_initialized && ma->start == base));
+                bool cur_seg_found = false;
+                int seg_id = 0;
+                while (seg_id < ma->os_data.num_segments &&
+                       ma->os_data.segments[seg_id].start <= base) {
+                    cur_seg_found = ma->os_data.segments[seg_id].start == base;
+                    ASSERT_CURIOSITY(
+                        ma->os_data.segments[seg_id].offset <
+                        PAGE_SIZE
+                            /* On Mac we walk the dyld module list before the
+                             * address space, so we often hit modules we already
+                             * know about. */
+                            IF_MACOS(|| !dynamo_initialized && ma->start == base));
+                    ++seg_id;
+                }
+                ASSERT_CURIOSITY(cur_seg_found);
             }
         });
     }

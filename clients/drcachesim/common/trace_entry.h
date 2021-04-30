@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -280,6 +280,13 @@ typedef enum {
      */
     TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
 
+    /**
+     * The marker value contains the count of dynamic instruction executions in
+     * this software thread since the start of the trace.  This marker type is only
+     * present in online-cache-filtered traces and is placed at thread exit.
+     */
+    TRACE_MARKER_TYPE_INSTRUCTION_COUNT,
+
     // ...
     // These values are reserved for future built-in marker types.
     // ...
@@ -403,7 +410,8 @@ typedef enum {
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
- * offline final trace and a raw not-yet-postprocessed trace.
+ * offline final trace and a raw not-yet-postprocessed trace, as well as
+ * (despite the OFFLINE_ prefix) an online trace.
  * In a final trace these are stored in a marker of type #TRACE_MARKER_TYPE_FILETYPE.
  */
 typedef enum {
