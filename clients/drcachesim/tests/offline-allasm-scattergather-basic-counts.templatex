@@ -2,8 +2,8 @@ Correct
 Hello world!
 Basic counts tool results:
 Total counts:
-          42 total \(fetched\) instructions
-          42 total unique \(fetched\) instructions
+          43 total \(fetched\) instructions
+          43 total unique \(fetched\) instructions
            0 total non-fetched instructions
            0 total prefetches
 /* FIXME i#2985: drcachesim instrumentation of the expanded
@@ -32,8 +32,8 @@ Total counts:
      .* total function return value markers
      .* total other markers
 Thread .* counts:
-          42 \(fetched\) instructions
-          42 unique \(fetched\) instructions
+          43 \(fetched\) instructions
+          43 unique \(fetched\) instructions
      .* non-fetched instructions
            0 prefetches
            1 data loads

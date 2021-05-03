@@ -86,9 +86,10 @@ _start:
 
         // Compare xmm10 and xmm12.
         // Only first and last elements should be equal.
-        vpcmpud  k2, xmm10, xmm12, 0
-        kmovw    eax, k2
-        cmp      eax, 0x09
+        mov      eax, 0x00
+        vpinsrd  xmm10, xmm10, eax, 0x01
+        vpinsrd  xmm10, xmm10, eax, 0x02
+        cmpss    xmm10, xmm12, 0
 
         // Print comparison result.
         jne      incorrect
