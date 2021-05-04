@@ -1,0 +1,53 @@
+Correct
+Hello world!
+Basic counts tool results:
+Total counts:
+          43 total \(fetched\) instructions
+          43 total unique \(fetched\) instructions
+           0 total non-fetched instructions
+           0 total prefetches
+/* FIXME i#2985: drcachesim instrumentation of the expanded
+ * scatter/gather sequence is broken. Instrumented code and
+ * also basic_counts show only one store/load. There should
+ * really be 3 of each here, and below in per-thread counts.
+ */
+           1 total data loads
+/* If AVX512 scatter instr is not available, then the test
+ * app uses regular stores. In this case, the above issue
+ * won't affect the store count.
+ */
+#ifdef __AVX512F__
+           1 total data stores
+#else
+           3 total data stores
+#endif
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+     .* total other markers
+Thread .* counts:
+          43 \(fetched\) instructions
+          43 unique \(fetched\) instructions
+     .* non-fetched instructions
+           0 prefetches
+           1 data loads
+#ifdef __AVX512F__
+           1 data stores
+#else
+           3 data stores
+#endif
+           0 icache flushes
+           0 dcache flushes
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
+     .* other markers

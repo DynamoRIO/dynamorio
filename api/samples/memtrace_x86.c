@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -46,10 +46,13 @@
  * (2) Inlines the buffer filling code to avoid a full context switch.
  * (3) Uses a lean procedure call for clean calls to reduce code cache size.
  *
- * Illustrates the use of drutil_expand_rep_string() to expand string
- * loops to obtain every memory reference and of
- * drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
- * memory references.
+ * This sample illustrates
+ * - the use of drutil_expand_rep_string() to expand string loops to obtain
+ *   every memory reference;
+ * - the use of drx_expand_scatter_gather() to expand scatter/gather instrs
+ *   into a set of functionally equivalent stores/loads;
+ * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
+ *   memory references.
  *
  * The OUTPUT_TEXT define controls the format of the trace: text or binary.
  * Creating a text trace file makes the tool an order of magnitude (!) slower
@@ -63,6 +66,7 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include "drutil.h"
+#include "drx.h"
 #include "utils.h"
 
 /* Each mem_ref_t includes the type of reference (read or write),
@@ -151,7 +155,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_bb_app2app_event(event_bb_app2app, &priority) ||
         !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert, &priority) ||
-        drreg_init(&ops) != DRREG_SUCCESS) {
+        drreg_init(&ops) != DRREG_SUCCESS || !drx_init()) {
         /* something is wrong: can't continue */
         DR_ASSERT(false);
         return;
@@ -199,6 +203,7 @@ event_exit()
     dr_mutex_destroy(mutex);
     drutil_exit();
     drmgr_exit();
+    drx_exit();
 }
 
 #ifdef WINDOWS
@@ -268,6 +273,9 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
+    }
+    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+        DR_ASSERT(false);
     }
     return DR_EMIT_DEFAULT;
 }

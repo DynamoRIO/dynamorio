@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2017-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -41,15 +41,17 @@
  *
  * This sample illustrates
  * - inserting instrumentation after the current instruction to read the value
- *   written by it,
+ *   written by it;
  * - the use of drutil_expand_rep_string() to expand string loops to obtain
- *   every memory reference,
+ *   every memory reference;
+ * - the use of drx_expand_scatter_gather() to expand scatter/gather instrs
+ *   into a set of functionally equivalent stores/loads;
  * - the use of drutil_opnd_mem_size_in_bytes() to obtain the size of OP_enter
- *   memory references,
+ *   memory references;
  * - the use of drutil_insert_get_mem_addr() to insert instructions to compute
- *   the address of each memory reference,
+ *   the address of each memory reference;
  * - the use of the drx_buf extension to fill buffers in a platform-independent
- *   manner
+ *   manner.
  *
  * This client is a simple implementation of a memory reference tracing tool
  * without instrumentation optimization.
@@ -374,6 +376,9 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     if (!drutil_expand_rep_string(drcontext, bb)) {
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
+    }
+    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+        DR_ASSERT(false);
     }
     drx_tail_pad_block(drcontext, bb);
     return DR_EMIT_DEFAULT;

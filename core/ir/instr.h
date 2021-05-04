@@ -562,10 +562,8 @@ instr_can_set_single_step(instr_t *instr);
 
 /* Returns true if \p instr is part of Intel's AVX-512 instructions that may write to a
  * zmm or opmask register. It approximates this by checking whether PREFIX_EVEX is set. If
- * not set, it is looking at whether the instruction's raw bytes are valid, and if they
- * are, whether the instruction is evex-encoded. The function assumes that the
- * instruction's isa mode is set correctly. If the instruction's raw bytes are not valid,
- * it checks the destinations of \p instr.
+ * not set, it checks the destinations of \p instr. The decoded instr should be
+ * available for inspection as this is invoked only when some client is present.
  */
 bool
 instr_may_write_zmm_or_opmask_register(instr_t *instr);
