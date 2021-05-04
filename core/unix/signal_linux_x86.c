@@ -693,6 +693,13 @@ signal_arch_init(void)
          * compiler from optimizing it away.
          * XXX i#641, i#639: this breaks transparency to some extent until the
          * app uses fpu/xmm but we live with it.
+         * Given a security vulnerability and its mitigations, executing a fpu/xmm
+         * operation here might not be necessary anymore. The vulnerabilty, published on
+         * June 13, 2018, is CVE-2018-3665: "Lazy FPU Restore" schemes are vulnerable to
+         * the FPU state information leakage issue. The kernel-based mitigation was to
+         * automatically default to (safe) "eager" floating point register restore.  In
+         * this mode FPU state is saved and restored for every task/context switch
+         * regardless of whether the current process invokes FPU instructions or not.
          */
         __asm__ __volatile__("movd %%xmm0, %0" : "=g"(rc));
         memset(&act, 0, sizeof(act));
