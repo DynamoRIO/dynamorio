@@ -3915,12 +3915,15 @@ if (UNIX)
         # We can't get the depends property right b/c execve32 has no prefix,
         # so we do this one directly too.
         add_exe(linux.execve64 linux/execve.c)
+        # Use a relative path for the child's execve to stress i#1660, i#4892.
+        file(RELATIVE_PATH relative_sub32 "${CMAKE_CURRENT_BINARY_DIR}"
+          "${32dir}/${test_bindir}/linux.execve-sub32")
         add_test(linux.execve64 ${drrun_path} ${dr_test_ops}
           # We test the "-c32 -c64" syntax for the other direction.
           -c32 ${client32_path} -paramA foo -paramB bar --
           -c64 ${client64_path} -paramA foo -paramB bar --
           ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64
-          "${32dir}/${test_bindir}/linux.execve-sub32")
+          "${relative_sub32}")
         set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
           PASS_REGULAR_EXPRESSION "^${expect}$")
       endif ()

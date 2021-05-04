@@ -995,16 +995,6 @@ get_application_pid()
     return get_application_pid_helper(false);
 }
 
-/* i#907: Called during early injection before data section protection to avoid
- * issues with /proc/self/exe.
- */
-void
-set_executable_path(const char *exe_path)
-{
-    strncpy(executable_path, exe_path, BUFFER_SIZE_ELEMENTS(executable_path));
-    NULL_TERMINATE_BUFFER(executable_path);
-}
-
 /* The OSX kernel used to place the bare executable path above envp.
  * On recent XNU versions, the kernel now prefixes the executable path
  * with the string executable_path= so it can be parsed getenv style.
@@ -1083,6 +1073,18 @@ char *
 get_application_name(void)
 {
     return get_application_name_helper(false, true /* full path */);
+}
+
+/* i#907: Called during early injection before data section protection to avoid
+ * issues with /proc/self/exe.
+ */
+void
+set_executable_path(const char *exe_path)
+{
+    strncpy(executable_path, exe_path, BUFFER_SIZE_ELEMENTS(executable_path));
+    NULL_TERMINATE_BUFFER(executable_path);
+    /* Re-compute the basename in case the full path changed. */
+    get_application_name_helper(true /* re-compute */, false /* basename */);
 }
 
 /* Note: this is exported so that libdrpreload.so (preload.c) can use it to
