@@ -312,6 +312,10 @@ DR_EXPORT
  * DRWRAP_UNWIND_ON_EXCEPTION flag to drwrap_wrap_ex() to ensure that
  * all post-call callbacks will be called on an exception.
  *
+ * This routine may call dr_unlink_flush_region(), which means that it
+ * cannot be called while any locks are held that could block a thread
+ * processing a registered event callback or cache callout.
+ *
  * \note The priority of the app2app pass used here is
  * DRMGR_PRIORITY_INSERT_DRWRAP and its name is
  * DRMGR_PRIORITY_NAME_DRWRAP.
@@ -431,6 +435,10 @@ DR_EXPORT
  * value, or will access a register or stack slot that does not contain
  * any argument value. If no calling convention is specified, defaults
  * to DRWRAP_CALLCONV_DEFAULT.
+ *
+ * This routine may call dr_unlink_flush_region(), which means that it
+ * cannot be called while any locks are held that could block a thread
+ * processing a registered event callback or cache callout.
  */
 bool
 drwrap_wrap_ex(app_pc func, void (*pre_func_cb)(void *wrapcxt, INOUT void **user_data),
