@@ -1237,6 +1237,12 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
+    /* XXX i#4865: Online traces will have incorrect instr counts, because
+     * scatter/gather instrs are emulated by a sequence of scalar stores/loads.
+     */
+    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+        DR_ASSERT(false);
+    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -1844,6 +1850,7 @@ event_exit(void)
         exit_delay_instrumentation();
     drmgr_exit();
     func_trace_exit();
+    drx_exit();
 }
 
 static bool
@@ -2026,7 +2033,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_L0_filter.get_value())
         ++ops.num_spill_slots;
 
-    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS ||
+        !drx_init())
         DR_ASSERT(false);
 
     /* register events */

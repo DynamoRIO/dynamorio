@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -432,6 +432,10 @@ test_avx2_avx512_scatter_gather(void)
                             ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
                             output_xmm_ymm_zmm))
         return false;
+#        ifdef X64
+    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+     * scatter/gather versions in 32-bit mode.
+     */
     if (!test_avx512_gather(test_avx512_vpgatherdq, ref_sparse_test_buf,
                             ref_idx32_val64_xmm_ymm_zmm, test_idx32_vec,
                             output_xmm_ymm_zmm))
@@ -456,6 +460,7 @@ test_avx2_avx512_scatter_gather(void)
                             ref_idx64_val64_xmm_ymm_zmm, test_idx64_vec,
                             output_xmm_ymm_zmm))
         return false;
+#        endif
     /* As pointed out above, the scatter tests scatter data from ref_xmm_ymm_zmm into the
      * array output_sparse_test_buf. It's the inverse of the gather test, so the source
      * data for each xmm, ymm, and zmm scatter instruction is concatenated in
@@ -471,6 +476,10 @@ test_avx2_avx512_scatter_gather(void)
                              false /* check full sparse array */,
                              false /* 32-bit values */, output_sparse_test_buf))
         return false;
+#        ifdef X64
+    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+     * scatter/gather versions in 32-bit mode.
+     */
     if (!test_avx512_scatter(test_avx512_vpscatterdq, ref_sparse_test_buf,
                              ref_idx32_val64_xmm_ymm_zmm, test_idx32_vec,
                              true /* check half of sparse array */,
@@ -501,6 +510,7 @@ test_avx2_avx512_scatter_gather(void)
                              true /* check half of sparse array */,
                              true /* 64-bit values */, output_sparse_test_buf))
         return false;
+#        endif
 #    endif
 #    ifdef __AVX__
     /* Run in a loop to trigger trace creation and stress things like cloning
@@ -516,6 +526,10 @@ test_avx2_avx512_scatter_gather(void)
                           ref_idx32_val32_xmm_ymm_zmm, test_idx32_vec,
                           output_xmm_ymm_zmm))
         return false;
+#        ifdef X64
+    /* FIXME i#2985: we do not yet support expansion of the qword index and value
+     * scatter/gather versions in 32-bit mode.
+     */
     if (!test_avx2_gather(test_avx2_vpgatherdq, ref_sparse_test_buf,
                           ref_idx32_val64_xmm_ymm_zmm, test_idx32_vec,
                           output_xmm_ymm_zmm))
@@ -540,6 +554,7 @@ test_avx2_avx512_scatter_gather(void)
                           ref_idx64_val64_xmm_ymm_zmm, test_idx64_vec,
                           output_xmm_ymm_zmm))
         return false;
+#        endif
 #    endif
 #    ifdef UNIX
 #        ifdef __AVX512F__

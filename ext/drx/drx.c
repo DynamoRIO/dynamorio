@@ -3540,8 +3540,8 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
     if (pc != NULL) {
         scatter_gather_info_t sg_info;
-        get_scatter_gather_info(&inst, &sg_info);
         if (instr_is_gather(&inst)) {
+            get_scatter_gather_info(&inst, &sg_info);
             if (sg_info.is_evex) {
                 success = success &&
                     drx_restore_state_for_avx512_gather(drcontext, info, &sg_info);
@@ -3550,6 +3550,7 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
                     drx_restore_state_for_avx2_gather(drcontext, info, &sg_info);
             }
         } else if (instr_is_scatter(&inst)) {
+            get_scatter_gather_info(&inst, &sg_info);
             success = success &&
                 drx_restore_state_for_avx512_scatter(drcontext, info, &sg_info);
         }

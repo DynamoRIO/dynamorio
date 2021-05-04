@@ -2619,6 +2619,24 @@ if (X86)
       append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX}")
       set(client.drx-scattergather_runavx 1)
     endif ()
+
+    if (proc_supports_avx AND X64)
+      add_exe(allasm_scattergather
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
+        "-early_inject" "")
+      set_target_properties(allasm_scattergather PROPERTIES LINKER_LANGUAGE C)
+      append_link_flags(allasm_scattergather
+        "-nostartfiles -nodefaultlibs -static")
+      append_property_string(TARGET allasm_scattergather LINK_FLAGS
+        # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+        # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+        # is not properly static. Adding --no-export-dynamic avoids the problem.
+        "-Wl,--no-export-dynamic")
+      if (proc_supports_avx512)
+        append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
+        set(allasm_scattergather_runavx512 1)
+      endif ()
+    endif ()
   endif()
 endif ()
 
@@ -3339,6 +3357,17 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
     endif ()
 
+    if (NOT MACOS AND X86)
+      torunonly_drcachesim(scattergather client.drx-scattergather
+        "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.scattergather_rawtemp) # use preprocessor
+      if (proc_supports_avx512)
+        set(tool.drcachesim.scattergather_runavx512 1)
+      elseif (proc_supports_avx)
+        set(tool.drcachesim.scattergather_runavx 1)
+      endif ()
+    endif ()
+
     # Test offline traces.
     # XXX: we could exclude the pipe files and build the offline trace
     # support by itself for Android.
@@ -3593,6 +3622,15 @@ if (BUILD_CLIENTS)
         # FIXME i#2099: the weak symbol is not supported not work on Windows
         set(tool.drcacheoff.burst_client_nodr ON)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
+      endif ()
+    endif ()
+
+    if (NOT MACOS AND X86 AND X64 AND proc_supports_avx)
+      torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
+        "" "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (proc_supports_avx512)
+        set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
       endif ()
     endif ()
 
