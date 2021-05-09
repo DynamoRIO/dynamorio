@@ -62,7 +62,9 @@ drreg_options_t drreg_internal_ops;
 
 int tls_idx = -1;
 
+// Offset for SIMD slots.
 uint drreg_internal_tls_simd_offs = 0;
+// Offset for GPR slots.
 uint drreg_internal_tls_slot_offs = 0;
 reg_id_t drreg_internal_tls_seg = DR_REG_NULL;
 
@@ -363,18 +365,11 @@ drreg_reserve_dead_register_ex(void *drcontext, drreg_spill_class_t spill_class,
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
 #ifdef ARM
-    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS)
+    if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS ||
+        spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
+        spill_class == DRREG_SIMD_ZMM_SPILL_CLASS)
         return DRREG_ERROR_INVALID_PARAMETER;
 #endif
-    if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS ||
-        spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
-#ifdef X86
-        /* TODO i#3844: support on x86. */
-        return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
-#else
-        return DRREG_ERROR_INVALID_PARAMETER;
-#endif
-    }
 
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
         res = drreg_forward_analysis(drcontext, where);
@@ -382,7 +377,7 @@ drreg_reserve_dead_register_ex(void *drcontext, drreg_spill_class_t spill_class,
             return res;
     }
 
-    /* XXX i#2585: drreg should predicate spills and restores as appropriate */
+    /* XXX i#2585: drreg should predicate spills and restores as appropriate. */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_internal_reserve(drcontext, spill_class, ilist, where, reg_allowed, true,
                                  reg_out);
@@ -639,8 +634,19 @@ drreg_is_register_dead(void *drcontext, reg_id_t reg, instr_t *inst, bool *dead)
     if (reg_is_gpr(reg))
         return drreg_internal_is_gpr_dead(pt, reg, dead);
 #ifdef SIMD_SUPPORTED
-    else if (reg_is_vector_simd(reg))
-        return drreg_internal_is_simd_reg_dead(pt, reg, dead);
+    else if (reg_is_vector_simd(reg)) {
+        drreg_spill_class_t spill_class;
+        if (reg_is_strictly_xmm(reg))
+            spill_class = DRREG_SIMD_XMM_SPILL_CLASS;
+        else if (reg_is_strictly_ymm(reg))
+            spill_class = DRREG_SIMD_YMM_SPILL_CLASS;
+        else if (reg_is_strictly_zmm(reg))
+            spill_class = DRREG_SIMD_ZMM_SPILL_CLASS;
+        else
+            return DRREG_ERROR;
+
+        return drreg_internal_is_simd_reg_dead(pt, spill_class, reg, dead);
+    }
 #endif
     else
         return DRREG_ERROR;
@@ -679,9 +685,8 @@ drreg_internal_is_our_spill_or_restore(void *drcontext, instr_t *instr, bool *sp
     /* Flag denoting spill or restore. */
     bool is_spilled;
     /* Flag denoting direct or indirect access. */
-    bool is_indirect;
+    bool is_indirect = false;
 
-    is_indirect = false;
     if (is_indirectly_spilled != NULL)
         *is_indirectly_spilled = is_indirect;
 

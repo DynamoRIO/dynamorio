@@ -187,7 +187,8 @@ drreg_internal_restore_simd_reg_now(void *drcontext, drreg_internal_per_thread_t
 
 /* As the name implies, returns whether the passed SIMD register is dead. */
 drreg_status_t
-drreg_internal_is_simd_reg_dead(drreg_internal_per_thread_t *pt, reg_id_t reg,
+drreg_internal_is_simd_reg_dead(drreg_internal_per_thread_t *pt,
+                                drreg_spill_class_t spill_class, reg_id_t reg,
                                 bool *dead);
 
 /* Initialises and fills a vector of flags denoting which SIMD registers are allowed for

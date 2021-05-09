@@ -294,6 +294,7 @@ drreg_internal_get_simd_liveness_state(instr_t *inst, reg_id_t reg, OUT void **v
             return true;
         } else if (instr_writes_to_exact_reg(inst, ymm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
                    (*value < SIMD_YMM_DEAD || *value >= SIMD_XMM_LIVE)) {
+
             /* The instr should be VEX/EVEX encoding, where upper bits are cleared.
              * Therefore, SIMD_ZMM_DEAD should be assigned.
              */
@@ -301,10 +302,15 @@ drreg_internal_get_simd_liveness_state(instr_t *inst, reg_id_t reg, OUT void **v
             return true;
         } else if (instr_writes_to_exact_reg(inst, xmm_reg, DR_QUERY_INCLUDE_COND_SRCS) &&
                    *value >= SIMD_XMM_LIVE) {
-            *value = SIMD_XMM_DEAD;
+
+            if (instr_zeroes_ymmh(inst))
+                *value = SIMD_YMM_DEAD;
+            else
+                *value = SIMD_XMM_DEAD;
+
             return true;
         }
-        /* We may partially write to above registers, which does not make them dead.
+        /* Note, we may partially write to above registers, which does not make them dead.
          */
     }
     return false;
@@ -356,6 +362,7 @@ drreg_internal_bb_insert_simd_restore_all(void *drcontext,
         if (!pt->simd_reg[SIMD_IDX(reg)].native) {
             ASSERT(drreg_internal_ops.num_spill_simd_slots > 0,
                    "requested SIMD slots cannot be zero");
+
             if (force_restore ||
                 /* This covers reads from all simds, because the applicable range
                  * resembles zmm, and all other x86 simds are included in zmm.
@@ -571,22 +578,24 @@ is_simd_live(void *live_state, const drreg_spill_class_t spill_class /* unused *
 }
 
 drreg_status_t
-drreg_internal_is_simd_reg_dead(drreg_internal_per_thread_t *pt, reg_id_t reg, bool *dead)
+drreg_internal_is_simd_reg_dead(drreg_internal_per_thread_t *pt,
+                                drreg_spill_class_t spill_class, reg_id_t reg, bool *dead)
 {
-    if (dead == NULL || !reg_is_vector_simd(reg))
+    if (dead == NULL || !reg_is_vector_simd(reg) ||
+        spill_class < DRREG_SIMD_XMM_SPILL_CLASS ||
+        DRREG_SIMD_ZMM_SPILL_CLASS < spill_class)
         return DRREG_ERROR_INVALID_PARAMETER;
 
     void *cur_state = drvector_get_entry(&pt->simd_reg[SIMD_IDX(reg)].live, pt->live_idx);
 
     void *cmp_dead_state = SIMD_UNKNOWN;
-    if (reg_is_strictly_xmm(reg))
-        cmp_dead_state = SIMD_XMM_DEAD;
-    else if (reg_is_strictly_ymm(reg))
-        cmp_dead_state = SIMD_YMM_DEAD;
-    else if (reg_is_strictly_zmm(reg))
-        cmp_dead_state = SIMD_ZMM_DEAD;
-    else
-        return DRREG_ERROR;
+
+    switch (spill_class) {
+    case DRREG_SIMD_XMM_SPILL_CLASS: cmp_dead_state = SIMD_XMM_DEAD; break;
+    case DRREG_SIMD_YMM_SPILL_CLASS: cmp_dead_state = SIMD_YMM_DEAD; break;
+    case DRREG_SIMD_ZMM_SPILL_CLASS: cmp_dead_state = SIMD_ZMM_DEAD; break;
+    default: return DRREG_ERROR;
+    }
 
     *dead = cur_state >= cmp_dead_state && cur_state <= SIMD_ZMM_DEAD;
     return DRREG_SUCCESS;
@@ -597,7 +606,7 @@ drreg_internal_is_simd_reg_dead(drreg_internal_per_thread_t *pt, reg_id_t reg, b
  */
 static drreg_status_t
 drreg_internal_find_for_simd_reservation(void *drcontext, drreg_internal_per_thread_t *pt,
-                                         const drreg_spill_class_t spill_class,
+                                         drreg_spill_class_t spill_class,
                                          instrlist_t *ilist, instr_t *where,
                                          drvector_t *reg_allowed, bool only_if_no_spill,
                                          OUT uint *slot_out, OUT reg_id_t *reg_out,
@@ -613,11 +622,24 @@ drreg_internal_find_for_simd_reservation(void *drcontext, drreg_internal_per_thr
         return DRREG_ERROR;
     reg_id_t reg = (reg_id_t)DR_REG_APPLICABLE_STOP_SIMD + 1;
     if (pt->simd_pending_unreserved > 0) {
+
         /* Iterate through not-in-use reserved, to see whether we can use an existing
          * slot. */
         for (reg = DR_REG_APPLICABLE_START_SIMD; reg <= DR_REG_APPLICABLE_STOP_SIMD;
              reg++) {
-            res = drreg_internal_is_simd_reg_dead(pt, reg, &is_dead);
+
+            reg_id_t real_reg;
+            if (spill_class == DRREG_SIMD_XMM_SPILL_CLASS) {
+                real_reg = reg_resize_to_opsz(reg, OPSZ_16);
+            } else if (spill_class == DRREG_SIMD_YMM_SPILL_CLASS) {
+                real_reg = reg_resize_to_opsz(reg, OPSZ_32);
+            } else if (spill_class == DRREG_SIMD_ZMM_SPILL_CLASS) {
+                real_reg = reg_resize_to_opsz(reg, OPSZ_64);
+            } else {
+                return DRREG_ERROR;
+            }
+
+            res = drreg_internal_is_simd_reg_dead(pt, spill_class, reg, &is_dead);
             if (res != DRREG_SUCCESS)
                 return res;
 
@@ -631,7 +653,8 @@ drreg_internal_find_for_simd_reservation(void *drcontext, drreg_internal_per_thr
                 ASSERT(slot < drreg_internal_ops.num_spill_simd_slots,
                        "slot is out-of-bounds");
                 reg_id_t spilled_reg = pt->simd_slot_use[slot];
-                already_spilled = pt->simd_reg[idx].ever_spilled && spilled_reg == reg;
+                already_spilled =
+                    pt->simd_reg[idx].ever_spilled && spilled_reg == real_reg;
                 break;
             }
         }
@@ -647,7 +670,7 @@ drreg_internal_find_for_simd_reservation(void *drcontext, drreg_internal_per_thr
             if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
                 continue;
 
-            res = drreg_internal_is_simd_reg_dead(pt, reg, &is_dead);
+            res = drreg_internal_is_simd_reg_dead(pt, spill_class, reg, &is_dead);
             if (res != DRREG_SUCCESS)
                 return res;
 
@@ -666,11 +689,8 @@ drreg_internal_find_for_simd_reservation(void *drcontext, drreg_internal_per_thr
     if (reg > DR_REG_APPLICABLE_STOP_SIMD) {
         if (best_reg != DR_REG_NULL)
             reg = best_reg;
-        else {
-            dr_fprintf(STDERR, "jj3\n");
-
+        else
             return DRREG_ERROR_REG_CONFLICT;
-        }
     }
     if (slot == MAX_SIMD_SPILLS) {
         slot = drreg_internal_find_simd_free_slot(pt);
@@ -735,6 +755,7 @@ drreg_internal_reserve_simd_reg(void *drcontext, drreg_internal_per_thread_t *pt
             __FUNCTION__, pt->live_idx, get_where_app_pc(where), get_register_name(reg),
             slot);
     }
+
     pt->simd_reg[SIMD_IDX(reg)].native = false;
     pt->simd_reg[SIMD_IDX(reg)].xchg = DR_REG_NULL;
     pt->simd_reg[SIMD_IDX(reg)].slot = slot;
@@ -844,7 +865,7 @@ drreg_internal_set_simd_vector_entry(drvector_t *vec, reg_id_t reg, bool allowed
     reg_id_t start_reg = DR_REG_APPLICABLE_START_SIMD;
 
     /* We assume that the SIMD range is contiguous and no further out of range checks
-     * are performed as done above for GPRs. In part, this assumption is made as we
+     * are performed. In part, this assumption is made as we
      * resize the SIMD register.
      */
     if (vec == NULL || !reg_is_vector_simd(reg))

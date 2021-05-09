@@ -860,6 +860,10 @@ void
 drreg_internal_gpr_restore_state_handle_restore(void *drcontext, byte *pc, uint slot,
                                                 reg_id_t reg, uint *spilled_to)
 {
+    ASSERT(spilled_to != NULL, "cannot be NULL");
+    ASSERT(reg_is_gpr(reg), "spill must be for GPR reg");
+    ASSERT(reg_is_pointer_sized(reg), "spill must be for GPR reg");
+
     if (spilled_to[GPR_IDX(reg)] == slot)
         spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
     else {
