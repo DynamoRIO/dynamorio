@@ -1820,6 +1820,30 @@ enum {
 #define INSTR_CREATE_scvtf_vector_fixed(dc, Rd, Rm, width, fbits) \
     instr_create_1dst_3src(dc, OP_scvtf, Rd, Rm, width, fbits)
 
+/* -------- Memory Touching instructions ------------------------------- */
+
+/**
+ * Creates an LDR immediate instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt      The output register.
+ * \param Xn      The input register or stack pointer
+ * \param Rn      The input memory disposition.
+ * \param imm     Immediate int of the input register offset
+ */
+#define INSTR_CREATE_ldr_imm(dc, Rt, Xn, Rn, imm) \
+    instr_create_2dst_3src(dc, OP_ldr, Rt, Xn, Rn, Xn, imm)
+
+/**
+ * Creates a STR immediate instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt      The output memory disposition.
+ * \param Xt      The input register or stack pointer.
+ * \param Xn      The output register
+ * \param imm     Immediate int of the output register offset
+ */
+#define INSTR_CREATE_str_imm(dc, Rt, Xt, Xn, imm) \
+    instr_create_2dst_3src(dc, OP_str, Rt, Xn, Xt, Xn, imm)
+
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
