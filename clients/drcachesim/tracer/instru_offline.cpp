@@ -671,7 +671,7 @@ offline_instru_t::opnd_is_elidable(opnd_t memop, OUT reg_id_t &base, int version
     if (!opnd_is_near_base_disp(memop) ||
         // We're assuming displacements are all factored out, such that we can share
         // a base across all uses without subtracting the original disp.
-        // TODO(i#2001): This is blocking elision of SP bases on AArch64.  We should
+        // TODO(i#4898): This is blocking elision of SP bases on AArch64.  We should
         // add disp subtraction by storing the disp along with reg_vals in raw2trace
         // for AArch64.
         !opnd_disp_is_elidable(memop) ||
