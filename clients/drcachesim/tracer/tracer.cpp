@@ -736,11 +736,15 @@ insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *whe
                                reg_id_set_t &app_regs_at_skip)
 {
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
-        /* We're not allowed to restore the stolen register this way, but drreg
-         * won't hand it out as a scratch register in any case, so we don't need
-         * a barrier for it.
-         */
         if (app_regs_at_skip.find(reg) != app_regs_at_skip.end() &&
+            /* We spilled reg_tmp in insert_conditional_skip() *before* the jump,
+             * so we do *not* want to restore it before the target.
+             */
+            reg != reg_tmp &&
+            /* We're not allowed to restore the stolen register this way, but drreg
+             * won't hand it out as a scratch register in any case, so we don't need
+             * a barrier for it.
+             */
             reg != dr_get_stolen_reg()) {
             drreg_status_t res = drreg_get_app_value(drcontext, ilist, where, reg, reg);
             if (res != DRREG_ERROR_NO_APP_VALUE && res != DRREG_SUCCESS)
