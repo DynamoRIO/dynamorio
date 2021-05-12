@@ -648,15 +648,28 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
 /* Inserts a conditional branch that jumps to skip_label if reg_skip_if_zero's
  * value is zero.
  * Returns a temp reg that must be passed to insert_conditional_skip_target() at
- * the point where skip_label should be inserted.
+ * the point where skip_label should be inserted.  Additionally, the
+ * app_regs_at_skip set must be empty prior to calling and it must be passed
+ * to insert_conditional_skip_target().
  * reg_skip_if_zero must be DR_REG_XCX on x86.
  */
 static reg_id_t
 insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_skip_if_zero, instr_t *skip_label,
-                        bool short_reaches)
+                        bool short_reaches, reg_id_set_t &app_regs_at_skip)
 {
     reg_id_t reg_tmp = DR_REG_NULL;
+
+    // Record the registers that will need barriers at the skip target.
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
+        drreg_reserve_info_t info = { sizeof(info) };
+        drreg_status_t res = drreg_reservation_info_ex(drcontext, reg, &info);
+        DR_ASSERT(res == DRREG_SUCCESS);
+        if (info.holds_app_value) {
+            app_regs_at_skip.insert(reg);
+        }
+    }
+
 #ifdef X86
     DR_ASSERT(reg_skip_if_zero == DR_REG_XCX);
     if (short_reaches) {
@@ -713,27 +726,29 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 /* Should be called at the point where skip_label should be inserted.
  * reg_tmp must be the return value from insert_conditional_skip().
- * If reg_barrier is not DR_REG_NULL, inserts a barrier for all other
- * registers (to help avoid problems with different paths having different
- * lazy reg restoring from drreg).
+ * Inserts a barrier for all app-valued registers at the jump point
+ * (stored in app_regs_at_skip), to help avoid problems with different
+ * paths having different lazy reg restoring from drreg.
  */
 static void
 insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *where,
                                instr_t *skip_label, reg_id_t reg_tmp,
-                               reg_id_t reg_barrier)
+                               reg_id_set_t &app_regs_at_skip)
 {
-    if (reg_barrier != DR_REG_NULL) {
-        for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
+        if (app_regs_at_skip.find(reg) != app_regs_at_skip.end() &&
+            /* We spilled reg_tmp in insert_conditional_skip() *before* the jump,
+             * so we do *not* want to restore it before the target.
+             */
+            reg != reg_tmp &&
             /* We're not allowed to restore the stolen register this way, but drreg
              * won't hand it out as a scratch register in any case, so we don't need
              * a barrier for it.
              */
-            if (reg != reg_barrier && reg != dr_get_stolen_reg()) {
-                drreg_status_t res =
-                    drreg_get_app_value(drcontext, ilist, where, reg, reg);
-                if (res != DRREG_ERROR_NO_APP_VALUE && res != DRREG_SUCCESS)
-                    FATAL("Fatal error: failed to restore reg.");
-            }
+            reg != dr_get_stolen_reg()) {
+            drreg_status_t res = drreg_get_app_value(drcontext, ilist, where, reg, reg);
+            if (res != DRREG_ERROR_NO_APP_VALUE && res != DRREG_SUCCESS)
+                FATAL("Fatal error: failed to restore reg.");
         }
     }
     MINSERT(ilist, where, skip_label);
@@ -773,21 +788,25 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 #endif
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
     reg_id_t reg_thread = DR_REG_NULL;
+    reg_id_set_t app_regs_at_skip_thread;
     if (op_L0_filter.get_value() && thread_filtering_enabled) {
-        reg_thread = insert_conditional_skip(drcontext, ilist, where, reg_ptr,
-                                             skip_thread, short_reaches);
+        reg_thread =
+            insert_conditional_skip(drcontext, ilist, where, reg_ptr, skip_thread,
+                                    short_reaches, app_regs_at_skip_thread);
     }
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext, opnd_create_reg(reg_ptr),
                               OPND_CREATE_MEMPTR(reg_ptr, 0)));
-    reg_id_t reg_tmp = insert_conditional_skip(drcontext, ilist, where, reg_ptr,
-                                               skip_call, short_reaches);
+    reg_id_set_t app_regs_at_skip_call;
+    reg_id_t reg_tmp =
+        insert_conditional_skip(drcontext, ilist, where, reg_ptr, skip_call,
+                                short_reaches, app_regs_at_skip_call);
     dr_insert_clean_call_ex(drcontext, ilist, where, (void *)clean_call,
                             DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
     insert_conditional_skip_target(drcontext, ilist, where, skip_call, reg_tmp,
-                                   DR_REG_NULL);
+                                   app_regs_at_skip_call);
     insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_thread,
-                                   DR_REG_NULL /*for filter we spill pre-cond*/);
+                                   app_regs_at_skip_thread);
 }
 
 // Called before writing to the trace buffer.
@@ -1121,7 +1140,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* Load buf ptr into reg_ptr, unless we're cache-filtering. */
     instr_t *skip_instru = INSTR_CREATE_label(drcontext);
     reg_id_t reg_skip = DR_REG_NULL;
-    reg_id_t reg_barrier = DR_REG_NULL;
+    reg_id_set_t app_regs_at_skip;
     if (!op_L0_filter.get_value()) {
         insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
         if (thread_filtering_enabled) {
@@ -1133,8 +1152,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             }
 #endif
             reg_skip = insert_conditional_skip(drcontext, bb, instr, reg_ptr, skip_instru,
-                                               short_reaches);
-            reg_barrier = reg_ptr;
+                                               short_reaches, app_regs_at_skip);
         }
     }
 
@@ -1211,7 +1229,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     }
 
     insert_conditional_skip_target(drcontext, bb, instr, skip_instru, reg_skip,
-                                   reg_barrier);
+                                   app_regs_at_skip);
 
     /* restore scratch register */
     if (drreg_unreserve_register(drcontext, bb, instr, reg_ptr) != DRREG_SUCCESS)
