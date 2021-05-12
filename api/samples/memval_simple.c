@@ -219,7 +219,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
     size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
     drx_buf_insert_buf_store(drcontext, trace_buffer, ilist, where, reg_ptr, reg_tmp,
                              OPND_CREATE_INT16(size), OPSZ_2, offsetof(mem_ref_t, size));
-    /* delay updating trace_buffer ptr to post-write, in case the write segfaults */
+    /* postpone updating trace_buffer ptr to post-write, in case the write segfaults */
 
     if (instr_is_call(where)) {
         app_pc pc;
