@@ -3213,8 +3213,7 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
             if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
                 opnd_t src0 = instr_get_src(&params->inst, 0);
                 if (opnd_is_reg(src0)) {
-                    reg_id_t tmp_gpr = opnd_get_reg(src0);
-                    if (reg_is_gpr(tmp_gpr) &&
+                    if (reg_is_gpr(opnd_get_reg(src0)) &&
                         params->restore_scratch_mask_start_pc <=
                             params->info->raw_mcontext->pc &&
                         params->info->raw_mcontext->pc <= params->prev_pc) {
@@ -3235,6 +3234,8 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                          */
                         return true;
                     }
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0,
+                                  params);
                 }
             }
         }

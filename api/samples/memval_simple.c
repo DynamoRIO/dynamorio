@@ -219,8 +219,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
     size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
     drx_buf_insert_buf_store(drcontext, trace_buffer, ilist, where, reg_ptr, reg_tmp,
                              OPND_CREATE_INT16(size), OPSZ_2, offsetof(mem_ref_t, size));
-    drx_buf_insert_update_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr,
-                                  DR_REG_NULL, sizeof(mem_ref_t));
+    /* delay updating trace_buffer ptr to post-write, in case the write segfaults */
 
     if (instr_is_call(where)) {
         app_pc pc;
@@ -279,6 +278,10 @@ instrument_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_
     /* drx_buf_insert_buf_memcpy() internally updates the buffer pointer */
     drx_buf_insert_buf_memcpy(drcontext, write_buffer, ilist, where, reg_ptr, reg_addr,
                               stride);
+
+    drx_buf_insert_load_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr);
+    drx_buf_insert_update_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr,
+                                  DR_REG_NULL, sizeof(mem_ref_t));
 
     if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS)
         DR_ASSERT(false);
