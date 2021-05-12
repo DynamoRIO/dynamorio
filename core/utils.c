@@ -179,13 +179,14 @@ d_r_internal_error(const char *file, int line, const char *expr)
     report_dynamorio_problem(NULL, DUMPCORE_ASSERTION, NULL, NULL,
                              PRODUCT_NAME " debug check failure: %s:%d %s"
 #    if defined(DEBUG) && defined(INTERNAL)
-                                          "\n(Error occurred @%d frags)"
+                                          "\n(Error occurred @%d frags in tid " TIDFMT ")"
 #    endif
                              ,
                              file, line, expr
 #    if defined(DEBUG) && defined(INTERNAL)
                              ,
-                             d_r_stats == NULL ? -1 : GLOBAL_STAT(num_fragments)
+                             d_r_stats == NULL ? -1 : GLOBAL_STAT(num_fragments),
+                             IF_UNIX_ELSE(get_sys_thread_id(), d_r_get_thread_id())
 #    endif
     );
 
