@@ -568,12 +568,20 @@ clean_call(void)
  * Tracing instrumentation.
  */
 
+static int tracing_enabled;
+
 static void
 append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
+    // i#4893: While it would be lower overhead to delay function tracing's drwrap
+    // calls rather than solely skipping i/o, the lock restrictions around drwrap
+    // make it difficult to delay func_trace's module load event.  This is the
+    // simplest way to delay function tracing output.
+    if (dr_atomic_load32(&tracing_enabled) == 0)
+        return; // Delayed tracing has not triggered yet.
     for (int i = 0; i < vec->size; i++) {
         BUF_PTR(data->seg_base) +=
             instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
@@ -1371,7 +1379,6 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
  */
 
 static uint64 instr_count;
-static bool tracing_enabled;
 static volatile bool tracing_scheduled;
 static void *schedule_tracing_lock;
 
@@ -1436,7 +1443,7 @@ enable_tracing_instrumentation()
             event_bb_instru2instru, &memtrace_pri))
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
-    tracing_enabled = true;
+    dr_atomic_store32(&tracing_enabled, 1);
 }
 
 static void
@@ -1833,7 +1840,7 @@ event_exit(void)
 
     drvector_delete(&scratch_reserve_vec);
 
-    if (tracing_enabled) {
+    if (dr_atomic_load32(&tracing_enabled) > 0) {
         dr_unregister_filter_syscall_event(event_filter_syscall);
         if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
             !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
