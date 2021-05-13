@@ -155,7 +155,7 @@ trace_fault(void *drcontext, void *buf_base, size_t size)
 }
 
 static reg_id_t
-instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
+instrument_pre_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
 {
     reg_id_t reg_ptr, reg_tmp, reg_addr;
     ushort type, size;
@@ -172,8 +172,8 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
         return DR_REG_NULL;
     }
 
-    /* i#2449: In the situation that instrument_post_write, instrument_mem and ref all
-     * have the same register reserved, drutil_insert_get_mem_addr will compute the
+    /* i#2449: In the situation that instrument_post_write, instrument_pre_write and ref
+     * all have the same register reserved, drutil_insert_get_mem_addr will compute the
      * address of an operand using an incorrect register value, as drreg will elide the
      * save/restore.
      */
@@ -230,7 +230,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
         app_pc pc;
 
         /* Note that on ARM the call instruction writes only to the link register, so
-         * we would never even get into instrument_mem() on ARM if this was a call.
+         * we would never even get into instrument_pre_write() on ARM if this was a call.
          */
         IF_AARCHXX(DR_ASSERT(false));
         /* We simulate the call instruction's written memory by writing the next app_pc
@@ -367,7 +367,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                 DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
                 break;
             }
-            *reg_next = instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i));
+            *reg_next =
+                instrument_pre_write(drcontext, bb, instr, instr_get_dst(instr, i));
             seen_memref = true;
         }
     }
