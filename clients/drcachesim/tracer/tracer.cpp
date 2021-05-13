@@ -1443,7 +1443,7 @@ enable_tracing_instrumentation()
             event_bb_instru2instru, &memtrace_pri))
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
-    dr_atomic_add32_return_sum(&tracing_enabled, 1);
+    dr_atomic_store32(&tracing_enabled, 1);
 }
 
 static void
