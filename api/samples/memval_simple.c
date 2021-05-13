@@ -284,6 +284,12 @@ instrument_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_
     drx_buf_insert_buf_memcpy(drcontext, write_buffer, ilist, where, reg_ptr, reg_addr,
                               stride);
 
+    /* Data was written to trace_buffer in instrument_pre_write. Here, by updating
+     * the trace_buffer ptr, we essentially commit that data. See comment in
+     * instrument_pre_write for more details.
+     * XXX: This extra overhead of loading trace_buffer ptr in the common path can
+     * be avoided by handling the app-write-fail case in a fault handler instead.
+     */
     drx_buf_insert_load_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr);
     drx_buf_insert_update_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr,
                                   DR_REG_NULL, sizeof(mem_ref_t));
