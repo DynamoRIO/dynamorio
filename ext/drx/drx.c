@@ -475,7 +475,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
         use_drreg = true;
         if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&
-            slot != SPILL_SLOT_MAX + 1) {
+            (slot != SPILL_SLOT_MAX + 1 IF_NOT_X86(|| slot2 != SPILL_SLOT_MAX + 1))) {
             ASSERT(false, "with drmgr, SPILL_SLOT_MAX+1 must be passed");
             return false;
         }
