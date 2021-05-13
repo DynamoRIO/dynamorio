@@ -3459,8 +3459,15 @@ if (BUILD_CLIENTS)
 
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency
-      "-trace_after_instrs 20K -max_global_trace_refs 10K"
+      # Include function tracing to sanity test combining with delay and max.
+      "-trace_after_instrs 20K -max_global_trace_refs 10K -record_heap"
       "@-simulator_type@basic_counts" "${annotation_test_args_shorter}")
+
+    torunonly_drcacheoff(delay-func ${ci_shared_app}
+      # Delay enough that zero data should be logged to test that function
+      # tracing is delayed (i#4893).
+      "-trace_after_instrs 200M -record_heap"
+      "@-simulator_type@basic_counts" "")
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
