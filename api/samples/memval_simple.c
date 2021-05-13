@@ -219,7 +219,12 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
     size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
     drx_buf_insert_buf_store(drcontext, trace_buffer, ilist, where, reg_ptr, reg_tmp,
                              OPND_CREATE_INT16(size), OPSZ_2, offsetof(mem_ref_t, size));
-    /* Postpone updating trace_buffer ptr to post-write, in case the write segfaults. */
+    /* If the app write segfaults, we will be unable to write to the write_buffer, which
+     * means the above trace_buffer entries won't have a corresponding entry in the
+     * write_buffer. To mitigate this scenario, we postpone updating trace_buffer ptr to
+     * the post-write instrumentation. This way, if the app write fails for any reason,
+     * the trace_buffer entry will not be committed.
+     */
 
     if (instr_is_call(where)) {
         app_pc pc;
