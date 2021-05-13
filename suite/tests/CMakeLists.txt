@@ -1030,6 +1030,10 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__")
   endif ()
 
+  if (DEFINED ${key}_test_sample_client)
+    set(rundefs "${rundefs} -DTEST_SAMPLE_CLIENT")
+  endif ()
+
   string(STRIP "${rundefs}" rundefs)
 
   # relies on ${defines} from top level
@@ -3078,12 +3082,20 @@ if (BUILD_SAMPLES)
           endif (NOT X64 AND NOT ARM)
         endif (UNIX)
       elseif (sample STREQUAL "memval_simple")
-        # i#2449: only witnessed crash on 32-bit linux
-        if (X86 AND (NOT X64) AND UNIX)
+        if (X86 AND UNIX)
           tobuild(client.memval-test client-interface/memval-test.c)
           torunonly_ci(sample.${sample} client.memval-test ${sample}
               client-interface/memval-test.c "" "" "")
-        endif(X86 AND (NOT X64) AND UNIX)
+
+          torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
+              client-interface/drx-scattergather.c "" "" "")
+          set(sample.${sample}_scattergather_test_sample_client 1)
+          if (proc_supports_avx512)
+            set(sample.${sample}_scattergather_runavx512 1)
+          elseif (proc_supports_avx)
+            set(sample.${sample}_scattergather_runavx 1)
+          endif ()
+        endif (X86 AND UNIX)
       elseif (sample STREQUAL "opcode_count")
         # We do not do a simple sanity test for opcode_count, but a normal test
         # that checks the sample's output.

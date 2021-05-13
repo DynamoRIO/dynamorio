@@ -155,7 +155,7 @@ trace_fault(void *drcontext, void *buf_base, size_t size)
 }
 
 static reg_id_t
-instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
+instrument_pre_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
 {
     reg_id_t reg_ptr, reg_tmp, reg_addr;
     ushort type, size;
@@ -172,8 +172,8 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
         return DR_REG_NULL;
     }
 
-    /* i#2449: In the situation that instrument_post_write, instrument_mem and ref all
-     * have the same register reserved, drutil_insert_get_mem_addr will compute the
+    /* i#2449: In the situation that instrument_post_write, instrument_pre_write and ref
+     * all have the same register reserved, drutil_insert_get_mem_addr will compute the
      * address of an operand using an incorrect register value, as drreg will elide the
      * save/restore.
      */
@@ -211,22 +211,26 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
                 XINST_CREATE_move(drcontext, opnd_create_reg(reg_addr),
                                   opnd_create_reg(reg_tmp)));
     }
-    /* inserts type */
+    /* Inserts type. */
     type = (ushort)instr_get_opcode(where);
     drx_buf_insert_buf_store(drcontext, trace_buffer, ilist, where, reg_ptr, reg_tmp,
                              OPND_CREATE_INT16(type), OPSZ_2, offsetof(mem_ref_t, type));
-    /* inserts size */
+    /* Inserts size. */
     size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
     drx_buf_insert_buf_store(drcontext, trace_buffer, ilist, where, reg_ptr, reg_tmp,
                              OPND_CREATE_INT16(size), OPSZ_2, offsetof(mem_ref_t, size));
-    drx_buf_insert_update_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr,
-                                  DR_REG_NULL, sizeof(mem_ref_t));
+    /* If the app write segfaults, we will be unable to write to the write_buffer, which
+     * means the above trace_buffer entries won't have a corresponding entry in the
+     * write_buffer. To mitigate this scenario, we postpone updating trace_buffer ptr to
+     * the post-write instrumentation. This way, if the app write fails for any reason,
+     * the trace_buffer entry will not be committed.
+     */
 
     if (instr_is_call(where)) {
         app_pc pc;
 
         /* Note that on ARM the call instruction writes only to the link register, so
-         * we would never even get into instrument_mem() on ARM if this was a call.
+         * we would never even get into instrument_pre_write() on ARM if this was a call.
          */
         IF_AARCHXX(DR_ASSERT(false));
         /* We simulate the call instruction's written memory by writing the next app_pc
@@ -279,6 +283,16 @@ instrument_post_write(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_
     /* drx_buf_insert_buf_memcpy() internally updates the buffer pointer */
     drx_buf_insert_buf_memcpy(drcontext, write_buffer, ilist, where, reg_ptr, reg_addr,
                               stride);
+
+    /* Data was written to trace_buffer in instrument_pre_write. Here, by updating
+     * the trace_buffer ptr, we essentially commit that data. See comment in
+     * instrument_pre_write for more details.
+     * XXX: This extra overhead of loading trace_buffer ptr in the common path can
+     * be avoided by handling the app-write-fail case in a fault handler instead.
+     */
+    drx_buf_insert_load_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr);
+    drx_buf_insert_update_buf_ptr(drcontext, trace_buffer, ilist, where, reg_ptr,
+                                  DR_REG_NULL, sizeof(mem_ref_t));
 
     if (drreg_unreserve_register(drcontext, ilist, where, reg_ptr) != DRREG_SUCCESS)
         DR_ASSERT(false);
@@ -359,7 +373,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                 DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
                 break;
             }
-            *reg_next = instrument_mem(drcontext, bb, instr, instr_get_dst(instr, i));
+            *reg_next =
+                instrument_pre_write(drcontext, bb, instr, instr_get_dst(instr, i));
             seen_memref = true;
         }
     }
