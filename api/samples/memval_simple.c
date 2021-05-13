@@ -211,15 +211,15 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, opnd_t ref)
                 XINST_CREATE_move(drcontext, opnd_create_reg(reg_addr),
                                   opnd_create_reg(reg_tmp)));
     }
-    /* inserts type */
+    /* Inserts type. */
     type = (ushort)instr_get_opcode(where);
     drx_buf_insert_buf_store(drcontext, trace_buffer, ilist, where, reg_ptr, reg_tmp,
                              OPND_CREATE_INT16(type), OPSZ_2, offsetof(mem_ref_t, type));
-    /* inserts size */
+    /* Inserts size. */
     size = (ushort)drutil_opnd_mem_size_in_bytes(ref, where);
     drx_buf_insert_buf_store(drcontext, trace_buffer, ilist, where, reg_ptr, reg_tmp,
                              OPND_CREATE_INT16(size), OPSZ_2, offsetof(mem_ref_t, size));
-    /* postpone updating trace_buffer ptr to post-write, in case the write segfaults */
+    /* Postpone updating trace_buffer ptr to post-write, in case the write segfaults. */
 
     if (instr_is_call(where)) {
         app_pc pc;
