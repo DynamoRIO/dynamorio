@@ -448,10 +448,10 @@ ldr_base_immediate_post_index(void *dc)
     int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int reg_dest[] = { DR_REG_X1, DR_REG_X17, DR_REG_X30 };
-    int value[] = { 129, 255, -256, 170, 85, -86, -171 };
+    int value[] = { 129, 255, 170, 85 };
 
     for (int i = 0; i < 3; i++) {
-        for (int l = 0; l < 7; l++) {
+        for (int l = 0; l < 4; l++) {
             instr_t *instr = INSTR_CREATE_ldr_imm(
                 dc, opnd_create_reg(reg_32[i]), opnd_create_reg(reg_dest[i]),
                 opnd_create_base_disp_aarch64(reg_dest[i], DR_REG_NULL, 0, false, 0, 0,
@@ -476,10 +476,10 @@ ldr_base_immediate_pre_index(void *dc)
     int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int reg_dst[] = { DR_REG_X1, DR_REG_X17, DR_REG_X30 };
-    int value[] = { 129, 255, -256, 170, 85, -86, -171 };
+    int value[] = { 129, 255, 170, 85 };
 
     for (int i = 0; i < 3; i++) {
-        for (int l = 0; l < 7; l++) {
+        for (int l = 0; l < 4; l++) {
             instr_t *instr = INSTR_CREATE_ldr_imm(
                 dc, opnd_create_reg(reg_32[i]), opnd_create_reg(reg_dst[i]),
                 opnd_create_base_disp_aarch64(reg_dst[i], DR_REG_NULL, 0, false, value[l],
@@ -618,9 +618,9 @@ str_base_immediate_post_index(void *dc)
     int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W29 };
     int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X29 };
     int dest_reg[] = { DR_REG_X0, DR_REG_X16, DR_REG_X29 };
-    int value[] = { 0, 129, 255, -256, 170, 85, -86, -171 };
+    int value[] = { 0, 129, 255, 170, 85 };
     for (int i = 0; i < 3; i++) {
-        for (int ii = 0; ii < 8; ii++) {
+        for (int ii = 0; ii < 5; ii++) {
             instr_t *instr = INSTR_CREATE_str_imm(
                 dc,
                 opnd_create_base_disp_aarch64(dest_reg[i], DR_REG_NULL, 0, false, 0, 0,
@@ -647,9 +647,9 @@ str_base_immediate_pre_index(void *dc)
     int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int dest_reg[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
-    int value[] = { 0, 129, 255, -256, 170, 85, -86, -171 };
+    int value[] = { 0, 129, 255, 170, 85 };
     for (int i = 0; i < 3; i++) {
-        for (int ii = 0; ii < 8; ii++) {
+        for (int ii = 0; ii < 5; ii++) {
             instr_t *instr = INSTR_CREATE_str_imm(
                 dc,
                 opnd_create_base_disp_aarch64(dest_reg[i], DR_REG_NULL, 0, false,
