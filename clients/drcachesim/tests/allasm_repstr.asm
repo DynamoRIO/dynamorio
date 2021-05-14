@@ -56,6 +56,7 @@ _start:
         mov      rdi, 0           // exit code
         mov      eax, 231         // SYS_exit_group
         syscall
+
         .data
         .align   8
 hello_str:
