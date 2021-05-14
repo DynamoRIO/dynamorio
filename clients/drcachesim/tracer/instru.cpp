@@ -76,8 +76,11 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     // extra instru to distinguish the 1st and subsequent iters).
     if (instr_is_rep_string_op(instr) || (repstr_expanded && instr_is_string_op(instr)))
         return TRACE_TYPE_INSTR_MAYBE_FETCH;
+#ifdef X86
+    // TODO: NYI on ARM.
     if (instr_is_scatter(instr) || instr_is_gather(instr))
         return TRACE_TYPE_INSTR_MAYBE_FETCH;
+#endif
     return TRACE_TYPE_INSTR;
 }
 
