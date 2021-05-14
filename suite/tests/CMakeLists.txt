@@ -2624,23 +2624,35 @@ if (X86)
       set(client.drx-scattergather_runavx 1)
     endif ()
 
-    if (proc_supports_avx AND X64)
-      add_exe(allasm_scattergather
-        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
+    if (X64)
+      if (proc_supports_avx)
+        add_exe(allasm_scattergather
+          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
+          "-early_inject" "")
+        set_target_properties(allasm_scattergather PROPERTIES LINKER_LANGUAGE C)
+        append_link_flags(allasm_scattergather
+          "-nostartfiles -nodefaultlibs -static")
+        append_property_string(TARGET allasm_scattergather LINK_FLAGS
+          # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+          # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+          # is not properly static. Adding --no-export-dynamic avoids the problem.
+          "-Wl,--no-export-dynamic")
+        if (proc_supports_avx512)
+          append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
+          set(allasm_scattergather_runavx512 1)
+        endif (proc_supports_avx512)
+      endif (proc_supports_avx)
+      add_exe(allasm_repstr
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
-      set_target_properties(allasm_scattergather PROPERTIES LINKER_LANGUAGE C)
-      append_link_flags(allasm_scattergather
-        "-nostartfiles -nodefaultlibs -static")
-      append_property_string(TARGET allasm_scattergather LINK_FLAGS
+      set_target_properties(allasm_repstr PROPERTIES LINKER_LANGUAGE C)
+      append_link_flags(allasm_repstr "-nostartfiles -nodefaultlibs -static")
+      append_property_string(TARGET allasm_repstr LINK_FLAGS
         # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
         # with some tool chains (such as SUSE GCC 6.2) results in an executable that
         # is not properly static. Adding --no-export-dynamic avoids the problem.
         "-Wl,--no-export-dynamic")
-      if (proc_supports_avx512)
-        append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
-        set(allasm_scattergather_runavx512 1)
-      endif ()
-    endif ()
+    endif (X64)
   endif()
 endif ()
 
@@ -3650,8 +3662,21 @@ if (BUILD_CLIENTS)
       unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
       if (proc_supports_avx512)
         set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
-      endif ()
-    endif ()
+      endif (proc_supports_avx512)
+      torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
+        "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+      if (proc_supports_avx512)
+        set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
+      endif (proc_supports_avx512)
+
+      torunonly_drcacheoff(allasm-repstr-basic-counts allasm_repstr
+        "" "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+      torunonly_drcachesim(allasm-repstr-basic-counts allasm_repstr
+        "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+    endif (NOT MACOS AND X86 AND X64 AND proc_supports_avx)
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps

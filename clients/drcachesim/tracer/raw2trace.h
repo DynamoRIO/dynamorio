@@ -1305,8 +1305,9 @@ private:
             // XXX i#2015: if there are multiple predicated memrefs, our instr vs
             // data stream may not be in the correct order here.
             impl()->log(4,
-                        "Missing memref from predication, 0-iter repstr, or filter "
-                        "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
+                        "Missing memref from predication, 0-iter repstr, filter, "
+                        "masked write/read in scatter/gather, or first instr in expanded "
+                        "scatter/gather seq (next type is 0x" ZHEX64_FORMAT_STRING ")\n",
                         in_entry == nullptr ? 0 : in_entry->combined_value);
             if (in_entry != nullptr) {
                 impl()->unread_last_entry(tls);
