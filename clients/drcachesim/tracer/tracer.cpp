@@ -1205,13 +1205,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // ifetch and not any of the expansion instrs.  We instrument the first
     // one to handle a zero-iter loop.  For offline, we just record the pc; for
     // online we have to ignore "instr" here in instru_online::instrument_instr().
-    //
-    // For scatter/gather expansion, we do not have a loop like repstr. So we
-    // need to instrument each mov so that it adds a pc entry before the memrefs.
-    // In addition, we also need to add a pc entry for the first non-label instr,
-    // for cases where the scatter/gather operation is fully supressed by the
-    // mask.
-    if (!(ud->repstr || (ud->scatter_gather && !is_memref)) ||
+    if (!(ud->repstr || ud->scatter_gather) ||
         drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         // TODO PR#_: Seems a bit hacky. Find an alternative.
         if (ud->scatter_gather && is_memref) {

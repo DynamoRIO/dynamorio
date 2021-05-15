@@ -4,12 +4,7 @@ Basic counts tool results:
 Total counts:
           43 total \(fetched\) instructions
           43 total unique \(fetched\) instructions
-/* One for each store/load in expanded scatter/gather seq. */
-#ifdef __AVX512F__
-           6 total non-fetched instructions
-#else
-           3 total non-fetched instructions
-#endif
+           0 total non-fetched instructions
            0 total prefetches
            3 total data loads
            3 total data stores
@@ -26,11 +21,7 @@ Total counts:
 Thread .* counts:
           43 \(fetched\) instructions
           43 unique \(fetched\) instructions
-#ifdef __AVX512F__
-           6 non-fetched instructions
-#else
-           3 non-fetched instructions
-#endif
+           0 non-fetched instructions
            0 prefetches
            3 data loads
            3 data stores
