@@ -1216,12 +1216,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     }
     ud->last_app_pc = instr_get_app_pc(instr);
 
-    // For the scatter/gather expansion, the first instr is a non-app memref (a reg
-    // spill). So, we reach here for a non-app instruction, but we
+    // For the scatter/gather expansion, the first instr turns out to be a non-app
+    // memref (a reg spill). So, we reach here for a non-app instruction and we
     // don't want to add a memref for that.
     bool is_first_instr_in_scatter_gather_expansion =
         ud->scatter_gather && drmgr_is_first_nonlabel_instr(drcontext, instr);
-    DR_ASSERT(!is_first_instr_in_scatter_gather_expansion || !instr_is_app(instr));
     if (is_memref && !is_first_instr_in_scatter_gather_expansion) {
         if (pred != DR_PRED_NONE && adjust != 0) {
             // Update buffer ptr and reset adjust to 0, because

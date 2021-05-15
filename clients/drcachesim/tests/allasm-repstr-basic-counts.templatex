@@ -4,6 +4,7 @@ Basic counts tool results:
 Total counts:
           14 total \(fetched\) instructions
           14 total unique \(fetched\) instructions
+/* One for each movs after the first one. */
            4 total non-fetched instructions
            0 total prefetches
            5 total data loads

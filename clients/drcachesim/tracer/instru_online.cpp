@@ -318,7 +318,7 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
 {
     // We cannot rely on the given instr's app_pc in case of expanded repstr and
     // scatter/gather sequences. In both cases, this routine is called for the instr
-    // at the top of the bb.
+    // at the top of the expanded sequence (which has its own separate bb).
     // - in the repstr expansion, this is a jrcxz instr with a fake app pc.
     // - in the scatter/gather expansion, this is a non-app reg spill instr, which
     // doesn't have an app_pc set.
@@ -331,8 +331,8 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     // For expanded repstr and scatter/gather sequences, we also need to hardcode
     // the type and size. As mentioned above, we cannot rely on the passed `app`
     // instr, as it is not the original instr. These instrs are expanded such that
-    // the resulting bb contains only that instr. So we can use the tag to get the
-    // original instr's details.
+    // the resulting bb contains only that instr's expansion. So we can use the
+    // tag to get the original app instr's details.
     ushort type;
     if (repstr_expanded)
         type = TRACE_TYPE_INSTR_MAYBE_FETCH;

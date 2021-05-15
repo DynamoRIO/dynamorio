@@ -1082,7 +1082,7 @@ private:
                 !is_instr_only_trace) {
                 if (instr->is_scatter_or_gather()) {
                     // The instr should either load or store, but not both. Also,
-                    // should have a single src or dest.
+                    // it should have a single src or dest operand.
                     DR_ASSERT(instr->num_mem_srcs() + instr->num_mem_dests() == 1);
                     bool is_scatter = instr->num_mem_dests() == 1;
                     bool reached_end_of_memrefs = false;
