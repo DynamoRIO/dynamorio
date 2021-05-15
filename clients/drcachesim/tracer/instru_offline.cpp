@@ -587,7 +587,8 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app)
+                                   int adjust, instr_t *app, bool scatter_gather_expanded,
+                                   bool repstr_expanded)
 {
     app_pc pc;
     reg_id_t reg_tmp;
@@ -597,8 +598,10 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
             return adjust;
         pc = dr_fragment_app_pc(tag);
     } else {
+        // This routine is called for the first instr in the expanded scatter/gather
+        // sequence, which turns out to be a non-app instr which doesn't have an app pc.
         // XXX: For repstr do we want tag insted of skipping rep prefix?
-        pc = instr_get_app_pc(app);
+        pc = scatter_gather_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
     }
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);

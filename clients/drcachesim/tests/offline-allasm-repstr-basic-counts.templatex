@@ -3,7 +3,7 @@ Basic counts tool results:
 Total counts:
           14 total \(fetched\) instructions
           14 total unique \(fetched\) instructions
-           0 total non-fetched instructions
+           4 total non-fetched instructions
            0 total prefetches
            5 total data loads
            5 total data stores
@@ -20,7 +20,7 @@ Total counts:
 Thread .* counts:
           14 \(fetched\) instructions
           14 unique \(fetched\) instructions
-           0 non-fetched instructions
+           4 non-fetched instructions
            0 prefetches
            5 data loads
            5 data stores

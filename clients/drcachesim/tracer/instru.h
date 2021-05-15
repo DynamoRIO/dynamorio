@@ -226,7 +226,8 @@ public:
                       int ref_index, bool write, dr_pred_type_t pred) = 0;
     virtual int
     instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) = 0;
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
+                     bool scatter_gather_expanded, bool repstr_expanded) = 0;
     virtual int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
@@ -323,7 +324,8 @@ public:
                       int ref_index, bool write, dr_pred_type_t pred) override;
     int
     instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
+                     bool scatter_gather_expanded, bool repstr_expanded) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,
@@ -390,7 +392,8 @@ public:
                       int ref_index, bool write, dr_pred_type_t pred) override;
     int
     instrument_instr(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app) override;
+                     instr_t *where, reg_id_t reg_ptr, int adjust, instr_t *app,
+                     bool scatter_gather_expanded, bool repstr_expanded) override;
     int
     instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_ptr, int adjust, instr_t **delay_instrs,

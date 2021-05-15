@@ -635,15 +635,16 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
     }
     // Instrument to add a full instr entry for the first instr.
     adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
-                                      reg_ptr, adjust, ud->delay_instrs[0]);
+                                      reg_ptr, adjust, ud->delay_instrs[0],
+                                      ud->scatter_gather, ud->repstr);
     if (have_phys && op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary.
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
-            adjust =
-                instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
-                                         reg_ptr, adjust, ud->delay_instrs[i]);
+            adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist,
+                                              where, reg_ptr, adjust, ud->delay_instrs[i],
+                                              ud->scatter_gather, ud->repstr);
         }
     } else {
         adjust =
@@ -1028,8 +1029,9 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     }
     if (op_L0_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
-                                      reg_ptr, adjust, app);
+    adjust =
+        instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where, reg_ptr,
+                                 adjust, app, ud->scatter_gather, ud->repstr);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
@@ -1088,8 +1090,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
           * Note that we will have identical app pcs also for scatter/gather
           * expansion. However, in that case, all instrs have the same app pc,
           * including all individual scalar mov instrs. Unlike rep str expansion
-          * these are not in a loop and we do need to record memrefs for those
-          * instrs, so we don't skip.
+          * these are not in a loop and we do need to record memrefs for each
+          * mov, so we continue instrumenting each individually.
           */
          (ud->last_app_pc == instr_get_app_pc(instr) && ud->repstr)) &&
         ud->strex == NULL &&
@@ -1207,10 +1209,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // online we have to ignore "instr" here in instru_online::instrument_instr().
     if (!(ud->repstr || ud->scatter_gather) ||
         drmgr_is_first_nonlabel_instr(drcontext, instr)) {
-        // TODO PR#_: Seems a bit hacky. Find an alternative.
-        if (ud->scatter_gather && is_memref) {
-            ud->instru_field = (void *)1;
-        }
+        // For the expanded scatter gather sequence, the first instr turns out to
+        // be a non-app reg spill instr.
+        DR_ASSERT(!ud->scatter_gather || !instr_is_app(instr));
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);

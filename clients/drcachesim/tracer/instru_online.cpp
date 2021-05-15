@@ -313,20 +313,34 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
 int
 online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                  int adjust, instr_t *app)
+                                  int adjust, instr_t *app, bool scatter_gather_expanded,
+                                  bool repstr_expanded)
 {
-    bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
-    app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+    // We cannot rely on the given instr's app_pc in case of expanded repstr and
+    // scatter/gather sequences. In both cases, this routine is called for the instr
+    // at the top of the bb.
+    // - in the repstr expansion, this is a jrcxz instr with a fake app pc.
+    // - in the scatter/gather expansion, this is a non-app reg spill instr, which
+    // doesn't have an app_pc set.
+    app_pc pc = (repstr_expanded || scatter_gather_expanded) ? dr_fragment_app_pc(tag)
+                                                             : instr_get_app_pc(app);
     reg_id_t reg_tmp;
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    // To handle zero-iter repstr loops this routine is called at the top of the bb
-    // where "app" is jecxz so we have to hardcode the rep str type and get length
-    // from the tag.
-    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH
-                                  : instr_to_instr_type(app, repstr_expanded);
-    ushort size = repstr_expanded
+    // For expanded repstr and scatter/gather sequences, we also need to hardcode
+    // the type and size. As mentioned above, we cannot rely on the passed `app`
+    // instr, as it is not the original instr. These instrs are expanded such that
+    // the resulting bb contains only that instr. So we can use the tag to get the
+    // original instr's details.
+    ushort type;
+    if (repstr_expanded)
+        type = TRACE_TYPE_INSTR_MAYBE_FETCH;
+    else if (scatter_gather_expanded)
+        type = TRACE_TYPE_INSTR;
+    else
+        type = instr_to_instr_type(app, repstr_expanded);
+    ushort size = (repstr_expanded || scatter_gather_expanded)
         ? (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL))
         : (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
@@ -373,5 +387,4 @@ void
 online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded)
 {
-    *bb_field = (void *)repstr_expanded;
 }
