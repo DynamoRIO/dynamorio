@@ -2618,7 +2618,7 @@ if (X86)
         add_exe(allasm_scattergather
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
           "-early_inject" "")
-	append_pure_asm_app_link_flags(allasm_scattergather)
+        append_pure_asm_app_link_flags(allasm_scattergather)
         if (proc_supports_avx512)
           append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
           set(allasm_scattergather_runavx512 1)
