@@ -1212,7 +1212,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         // figure out whether the current bb has an expanded scatter/gather instr.
         // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
         // sequence instr that we instrument doesn't need to be a non-app instr.
-        DR_ASSERT(!ud->scatter_gather || !instr_is_app(instr));
+        DR_ASSERT((ud->scatter_gather && !instr_is_app(instr)) ||
+                  (!ud->scatter_gather && instr_is_app(instr)));
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);
