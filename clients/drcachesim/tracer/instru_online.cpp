@@ -383,7 +383,8 @@ online_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_t
 
 void
 online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                             instrlist_t *ilist, bool repstr_expanded)
+                             instrlist_t *ilist, bool repstr_expanded,
+                             bool scatter_gather_expanded)
 {
     *bb_field = (void *)repstr_expanded;
 }

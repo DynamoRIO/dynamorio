@@ -1295,7 +1295,8 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void *user_data)
 {
     user_data_t *ud = (user_data_t *)user_data;
-    instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
+    instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr,
+                        ud->scatter_gather);
     // As elsewhere in this code, we want the single-instr original and not
     // the expanded 6 labeled-app instrs for repstr loops (i#2011).
     if (ud->repstr || ud->scatter_gather)

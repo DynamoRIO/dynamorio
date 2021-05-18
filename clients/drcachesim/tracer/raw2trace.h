@@ -111,9 +111,11 @@ struct module_t {
 struct instr_summary_t final {
     /**
      * Caches information about a single memory reference.
-     * Note that we reuse the same memref_summary_t object for all memrefs of a
-     * scatter/gather instr. This should be okay as they all share the same instr
-     * and the src/dest operand.
+     * Note that we reuse the same memref_summary_t object in raw2trace for all
+     * memrefs of a scatter/gather instr. To avoid any issues due to mismatch
+     * between instru_offline (which sees the expanded scatter/gather instr seq)
+     * and raw2trace (which sees the original app scatter/gather instr only), we
+     * disable address elision for scatter/gather bbs.
      */
     struct memref_summary_t {
         memref_summary_t(opnd_t opnd)
@@ -861,16 +863,23 @@ private:
         // state needed to reconstruct elided addresses.
         instrlist_t *ilist = instrlist_create(dcontext_);
         app_pc pc = start_pc;
+        bool has_scatter_gather_instr = false;
         for (uint count = 0; count < instr_count; ++count) {
             instr_t *inst = instr_create(dcontext_);
             app_pc next_pc = decode(dcontext_, pc, inst);
+            if (instr_is_scatter(inst) || instr_is_gather(inst)) {
+                has_scatter_gather_instr = true;
+            }
             DR_ASSERT(next_pc != NULL);
             instr_set_translation(inst, pc);
             instr_set_note(inst, reinterpret_cast<void *>(static_cast<ptr_int_t>(count)));
             pc = next_pc;
             instrlist_append(ilist, inst);
         }
-        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
+
+        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version,
+                                                    has_scatter_gather_instr);
+
         for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
              inst = instr_get_next(inst)) {
             int index, memop_index;
@@ -1116,9 +1125,10 @@ private:
                         // possible for a given scatter/gather instr.
                         error = process_memref(
                             tls, &buf, instr,
-                            // We reuse the 0th dest/src for all memrefs. This should be
-                            // okay because all memrefs in the scatter/gather actually
-                            // have the same instr/opnd.
+                            // These memrefs were output by multiple store/load instrs in
+                            // the expanded scatter/gather sequence. In raw2trace we see
+                            // only the original app instr though. So we use the 0th
+                            // dest/src of the original scatter/gather instr for all.
                             is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
                             is_scatter, reg_vals, cur_modoffs, instrs_are_separate,
                             &reached_end_of_memrefs, &interrupted);

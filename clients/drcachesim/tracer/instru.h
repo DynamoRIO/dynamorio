@@ -234,7 +234,7 @@ public:
 
     virtual void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded) = 0;
+                bool repstr_expanded, bool scatter_gather_expanded) = 0;
 
     // Utilities.
 #ifdef AARCH64
@@ -331,7 +331,7 @@ public:
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded) override;
+                bool repstr_expanded, bool scatter_gather_expanded) override;
 
 private:
     void
@@ -398,7 +398,7 @@ public:
 
     void
     bb_analysis(void *drcontext, void *tag, void **bb_field, instrlist_t *ilist,
-                bool repstr_expanded) override;
+                bool repstr_expanded, bool scatter_gather_expanded) override;
 
     static bool
     custom_module_data(void *(*load_cb)(module_data_t *module, int seg_idx),
@@ -413,7 +413,8 @@ public:
     // Inserts labels marking elidable addresses. label_marks_elidable() identifies them.
     // "version" is an OFFLINE_FILE_VERSION* constant.
     void
-    identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version);
+    identify_elidable_addresses(void *drcontext, instrlist_t *ilist, int version,
+                                bool has_scatter_gather_instr);
     bool
     label_marks_elidable(instr_t *instr, OUT int *opnd_index, OUT int *memopnd_index,
                          OUT bool *is_write, OUT bool *needs_base);

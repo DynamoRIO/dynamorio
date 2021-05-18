@@ -628,7 +628,8 @@ offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_
 
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                              instrlist_t *ilist, bool repstr_expanded)
+                              instrlist_t *ilist, bool repstr_expanded,
+                              bool scatter_gather_expanded)
 {
     instr_t *instr;
     ptr_uint_t count = 0;
@@ -655,7 +656,8 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
     }
     *bb_field = (void *)count;
 
-    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
+    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
+                                scatter_gather_expanded);
 }
 
 bool
@@ -738,8 +740,16 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
 
 void
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
-                                              int version)
+                                              int version, bool has_scatter_gather_instr)
 {
+    // XXX: We turn off address elision for bbs containing scatter/gather. As
+    // instru_offline and raw2trace see different instrs in scatter gather bbs
+    // (expanded seq vs original app instr), there may be mismatches in identifying
+    // elision opportunities. We can possibly provide a consistent view by using
+    // drx_expand_scatter_gather in raw2trace when building the ilist.
+    if (has_scatter_gather_instr) {
+        return;
+    }
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
     if (disable_optimizations_)
