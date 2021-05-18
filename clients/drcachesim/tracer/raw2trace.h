@@ -1104,11 +1104,16 @@ private:
                     // For expanded scatter/gather instrs, we do not have prior knowledge
                     // of the number of store/load memrefs that will be present. So we
                     // continue reading entries until we find a non-memref entry.
+                    // This works only because drx_expand_scatter_gather ensures that the
+                    // expansion has its own basic block, with no other app instr in it.
                     while (!reached_end_of_memrefs) {
                         // XXX: Add sanity check for max count of store/load memrefs
                         // possible for a given scatter/gather instr.
                         error = process_memref(
                             tls, &buf, instr,
+                            // We reuse the 0th dest/src for all memrefs. This should be
+                            // okay because all memrefs in the scatter/gather actually
+                            // have the same instr/opnd.
                             is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
                             is_scatter, reg_vals, cur_modoffs, instrs_are_separate,
                             &reached_end_of_memrefs, &interrupted);
