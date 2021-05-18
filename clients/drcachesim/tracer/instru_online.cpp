@@ -332,12 +332,11 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-
-    ushort type;
-    if (repstr_expanded)
-        type = TRACE_TYPE_INSTR_MAYBE_FETCH;
-    else
-        type = instr_to_instr_type(app, repstr_expanded);
+    // To handle zero-iter repstr loops this routine is called at the top of the bb
+    // where "app" is jecxz so we have to hardcode the rep str type and get length
+    // from the tag.
+    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH
+                                  : instr_to_instr_type(app, repstr_expanded);
     // We decode to get instr size for repstr and scatter/gather.
     ushort size = (repstr_expanded || !instr_is_app(where))
         ? (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL))
