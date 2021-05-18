@@ -109,7 +109,12 @@ struct module_t {
  * conversion from decoded instructions.
  */
 struct instr_summary_t final {
-    /** Caches information about a single memory reference. */
+    /**
+     * Caches information about a single memory reference.
+     * Note that we reuse the same memref_summary_t object for all memrefs of a
+     * scatter/gather instr. This should be okay as they all share the same instr
+     * and the src/dest operand.
+     */
     struct memref_summary_t {
         memref_summary_t(opnd_t opnd)
             : opnd(opnd)
