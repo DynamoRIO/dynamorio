@@ -966,6 +966,21 @@ private:
     }
 
     std::string
+    process_memref(void *tls, trace_entry_t **buf_in, const instr_summary_t *instr,
+                   instr_summary_t::memref_summary_t memref, bool write,
+                   std::unordered_map<reg_id_t, addr_t> &reg_vals, uint64_t cur_modoffs,
+                   bool instrs_are_separate, OUT bool *reached_end_of_memrefs,
+                   OUT bool *interrupted)
+    {
+        std::string error = append_memref(tls, buf_in, instr, memref, write, reg_vals,
+                                          reached_end_of_memrefs);
+        if (!error.empty())
+            return error;
+        error = handle_kernel_interrupt_and_markers(
+            tls, buf_in, cur_modoffs, instr->length(), instrs_are_separate, interrupted);
+        return error;
+    }
+    std::string
     append_bb_entries(void *tls, const offline_entry_t *in_entry, OUT bool *handled)
     {
         std::string error = "";
@@ -1092,20 +1107,11 @@ private:
                     while (!reached_end_of_memrefs) {
                         // XXX: Add sanity check for max count of store/load memrefs
                         // possible for a given scatter/gather instr.
-                        if (is_scatter) {
-                            error =
-                                append_memref(tls, &buf, instr, instr->mem_dest_at(0),
-                                              true, reg_vals, &reached_end_of_memrefs);
-                        } else {
-                            error =
-                                append_memref(tls, &buf, instr, instr->mem_src_at(0),
-                                              false, reg_vals, &reached_end_of_memrefs);
-                        }
-                        if (!error.empty())
-                            return error;
-                        error = handle_kernel_interrupt_and_markers(
-                            tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
-                            &interrupted);
+                        error = process_memref(
+                            tls, &buf, instr,
+                            is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
+                            is_scatter, reg_vals, cur_modoffs, instrs_are_separate,
+                            &reached_end_of_memrefs, &interrupted);
                         if (!error.empty())
                             return error;
                         if (interrupted)
@@ -1113,13 +1119,9 @@ private:
                     }
                 } else {
                     for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                        error = append_memref(tls, &buf, instr, instr->mem_src_at(j),
-                                              false, reg_vals, nullptr);
-                        if (!error.empty())
-                            return error;
-                        error = handle_kernel_interrupt_and_markers(
-                            tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
-                            &interrupted);
+                        error = process_memref(
+                            tls, &buf, instr, instr->mem_src_at(j), false, reg_vals,
+                            cur_modoffs, instrs_are_separate, nullptr, &interrupted);
                         if (!error.empty())
                             return error;
                         if (interrupted)
@@ -1128,13 +1130,9 @@ private:
                     // We break before subsequent memrefs on an interrupt, though with
                     // today's tracer that will never happen (i#3958).
                     for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
-                        error = append_memref(tls, &buf, instr, instr->mem_dest_at(j),
-                                              true, reg_vals, nullptr);
-                        if (!error.empty())
-                            return error;
-                        error = handle_kernel_interrupt_and_markers(
-                            tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
-                            &interrupted);
+                        error = process_memref(
+                            tls, &buf, instr, instr->mem_dest_at(j), true, reg_vals,
+                            cur_modoffs, instrs_are_separate, nullptr, &interrupted);
                         if (!error.empty())
                             return error;
                         if (interrupted)
