@@ -635,16 +635,15 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
     }
     // Instrument to add a full instr entry for the first instr.
     adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
-                                      reg_ptr, adjust, ud->delay_instrs[0],
-                                      ud->scatter_gather, ud->repstr);
+                                      reg_ptr, adjust, ud->delay_instrs[0]);
     if (have_phys && op_use_physical.get_value()) {
         // No instr bundle if physical-2-virtual since instr bundle may
         // cross page bundary.
         int i;
         for (i = 1; i < ud->num_delay_instrs; i++) {
-            adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist,
-                                              where, reg_ptr, adjust, ud->delay_instrs[i],
-                                              ud->scatter_gather, ud->repstr);
+            adjust =
+                instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+                                         reg_ptr, adjust, ud->delay_instrs[i]);
         }
     } else {
         adjust =
@@ -1029,9 +1028,8 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     }
     if (op_L0_filter.get_value()) // Else already loaded.
         insert_load_buf_ptr(drcontext, ilist, where, reg_ptr);
-    adjust =
-        instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where, reg_ptr,
-                                 adjust, app, ud->scatter_gather, ud->repstr);
+    adjust = instru->instrument_instr(drcontext, tag, &ud->instru_field, ilist, where,
+                                      reg_ptr, adjust, app);
     if (op_L0_filter.get_value() && adjust != 0) {
         // When filtering we can't combine buf_ptr adjustments.
         insert_update_buf_ptr(drcontext, ilist, where, reg_ptr, DR_PRED_NONE, adjust);
@@ -1210,7 +1208,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (!(ud->repstr || ud->scatter_gather) ||
         drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         // For the expanded scatter gather sequence, the first instr turns out to
-        // be a non-app reg spill instr.
+        // be a non-app reg spill instr.  In instrument_instr, we rely on this to
+        // figure out whether the current bb has an expanded scatter/gather instr.
+        // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
+        // sequence instr that we instrument doesn't need to be a non-app instr.
         DR_ASSERT(!ud->scatter_gather || !instr_is_app(instr));
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }

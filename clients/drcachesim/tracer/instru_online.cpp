@@ -313,9 +313,15 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
 int
 online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                  int adjust, instr_t *app, bool scatter_gather_expanded,
-                                  bool repstr_expanded)
+                                  int adjust, instr_t *app)
 {
+    bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
+    // This routine is called for the first instr in the expanded scatter/gather
+    // sequence, which turns out to be a non-app instr which doesn't have an app pc.
+    // To verify this, we have an assert in tracer.cpp where we have info on
+    // whether the current bb has an expanded scatter/gather instr.
+    bool scatter_gather_expanded = !instr_is_app(where);
+
     // We cannot rely on the given instr's app_pc in case of expanded repstr and
     // scatter/gather sequences. In both cases, this routine is called for the instr
     // at the top of the expanded sequence (which has its own separate bb).
@@ -387,4 +393,5 @@ void
 online_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                              instrlist_t *ilist, bool repstr_expanded)
 {
+    *bb_field = (void *)repstr_expanded;
 }

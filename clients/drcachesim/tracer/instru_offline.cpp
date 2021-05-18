@@ -587,8 +587,7 @@ offline_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t
 int
 offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                    instrlist_t *ilist, instr_t *where, reg_id_t reg_ptr,
-                                   int adjust, instr_t *app, bool scatter_gather_expanded,
-                                   bool repstr_expanded)
+                                   int adjust, instr_t *app)
 {
     app_pc pc;
     reg_id_t reg_tmp;
@@ -600,7 +599,10 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     } else {
         // This routine is called for the first instr in the expanded scatter/gather
         // sequence, which turns out to be a non-app instr which doesn't have an app pc.
+        // To verify this, we have an assert in tracer.cpp where we have info on whether
+        // the current bb has an expanded scatter/gather instr.
         // XXX: For repstr do we want tag insted of skipping rep prefix?
+        bool scatter_gather_expanded = !instr_is_app(where);
         pc = scatter_gather_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
     }
     drreg_status_t res =
