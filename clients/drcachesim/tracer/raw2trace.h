@@ -867,9 +867,12 @@ private:
         for (uint count = 0; count < instr_count; ++count) {
             instr_t *inst = instr_create(dcontext_);
             app_pc next_pc = decode(dcontext_, pc, inst);
+#ifdef X86
+            // NYI on ARM/AArch64.
             if (instr_is_scatter(inst) || instr_is_gather(inst)) {
                 has_scatter_gather_instr = true;
             }
+#endif
             DR_ASSERT(next_pc != NULL);
             instr_set_translation(inst, pc);
             instr_set_note(inst, reinterpret_cast<void *>(static_cast<ptr_int_t>(count)));
