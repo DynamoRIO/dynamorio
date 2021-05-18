@@ -902,6 +902,16 @@ macro(tobuild_csharp test source)
   endif ()
 endmacro(tobuild_csharp)
 
+macro(append_pure_asm_app_link_flags target)
+  set_target_properties(${target} PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(${target} "-nostartfiles -nodefaultlibs -static")
+  append_property_string(TARGET ${target} LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+    # is not properly static. Adding --no-export-dynamic avoids the problem.
+    "-Wl,--no-export-dynamic")
+endmacro(append_pure_asm_app_link_flags)
+
 function(tobind target)
   if (BIND_EXECUTABLE)
     add_custom_command(TARGET ${target}
@@ -2033,37 +2043,16 @@ if (DR_HOST_AARCH64)
 
   tobuild_ops(common.allasm_aarch64_cache common/allasm_aarch64_cache.asm
     "-early_inject" "")
-  set_target_properties(common.allasm_aarch64_cache PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(common.allasm_aarch64_cache
-    "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET common.allasm_aarch64_cache LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  append_pure_asm_app_link_flags(common.allasm_aarch64_cache)
 
   add_exe(allasm_aarch64_prefetch
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_prefetch.asm
     "-early_inject" "")
-  set_target_properties(allasm_aarch64_prefetch PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(allasm_aarch64_prefetch
-    "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET allasm_aarch64_prefetch LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  append_pure_asm_app_link_flags(allasm_aarch64_prefetch)
 
   add_exe(allasm_aarch64_flush
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_flush.asm "" "")
-  set_target_properties(allasm_aarch64_flush PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(allasm_aarch64_flush
-    "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET allasm_aarch64_flush LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  append_pure_asm_app_link_flags(allasm_aarch64_flush)
 endif ()
 
 if (DEBUG)
@@ -2629,14 +2618,7 @@ if (X86)
         add_exe(allasm_scattergather
           ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
           "-early_inject" "")
-        set_target_properties(allasm_scattergather PROPERTIES LINKER_LANGUAGE C)
-        append_link_flags(allasm_scattergather
-          "-nostartfiles -nodefaultlibs -static")
-        append_property_string(TARGET allasm_scattergather LINK_FLAGS
-          # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-          # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-          # is not properly static. Adding --no-export-dynamic avoids the problem.
-          "-Wl,--no-export-dynamic")
+	append_pure_asm_app_link_flags(allasm_scattergather)
         if (proc_supports_avx512)
           append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
           set(allasm_scattergather_runavx512 1)
@@ -2645,13 +2627,7 @@ if (X86)
       add_exe(allasm_repstr
         ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
         "-early_inject" "")
-      set_target_properties(allasm_repstr PROPERTIES LINKER_LANGUAGE C)
-      append_link_flags(allasm_repstr "-nostartfiles -nodefaultlibs -static")
-      append_property_string(TARGET allasm_repstr LINK_FLAGS
-        # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-        # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-        # is not properly static. Adding --no-export-dynamic avoids the problem.
-        "-Wl,--no-export-dynamic")
+      append_pure_asm_app_link_flags(allasm_repstr)
     endif (X64 AND UNIX)
   endif()
 endif ()
