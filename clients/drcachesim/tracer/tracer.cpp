@@ -1207,13 +1207,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // online we have to ignore "instr" here in instru_online::instrument_instr().
     if (!(ud->repstr || ud->scatter_gather) ||
         drmgr_is_first_nonlabel_instr(drcontext, instr)) {
-        // For the expanded scatter gather sequence, the first instr turns out to
-        // be a non-app reg spill instr.  In instrument_instr, we rely on this to
-        // figure out whether the current bb has an expanded scatter/gather instr.
-        // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
-        // sequence instr that we instrument doesn't need to be a non-app instr.
-        DR_ASSERT((ud->scatter_gather && !instr_is_app(instr)) ||
-                  (!ud->scatter_gather && instr_is_app(instr)));
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);

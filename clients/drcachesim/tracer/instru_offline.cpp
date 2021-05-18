@@ -599,11 +599,11 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     } else {
         // This routine is called for the first instr in the expanded scatter/gather
         // sequence, which turns out to be a non-app instr which doesn't have an app pc.
-        // To verify this, we have an assert in tracer.cpp where we have info on whether
-        // the current bb has an expanded scatter/gather instr.
+        // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
+        // sequence instr that we instrument doesn't need to be a non-app instr.
         // XXX: For repstr do we want tag insted of skipping rep prefix?
-        bool scatter_gather_expanded = !instr_is_app(where);
-        pc = scatter_gather_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+        DR_ASSERT(instr_is_app(where) || drmgr_is_first_nonlabel_instr(drcontext, where));
+        pc = instr_is_app(where) ? instr_get_app_pc(app) : dr_fragment_app_pc(tag);
     }
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
