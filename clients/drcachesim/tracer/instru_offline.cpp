@@ -757,11 +757,13 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
         // identifying elision opportunities. We can possibly provide a consistent
         // view by expanding the instr in raw2trace (e.g. using
         // drx_expand_scatter_gather) when building the ilist.
-        if (drutil_instr_is_stringop_loop(instr)
-            // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
-            IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
+#ifdef X86
+        // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
+        if (drutil_instr_is_stringop_loop(instr) ||
+            (instr_is_scatter(instr) || instr_is_gather(instr))) {
             return;
         }
+#endif
         if (drmgr_is_emulation_start(instr) || drmgr_is_emulation_end(instr)) {
             return;
         }
