@@ -72,7 +72,7 @@ instru_t::instr_to_instr_type(instr_t *instr, bool repstr_expanded)
     // i#2051: to satisfy both cache and core simulators we mark subsequent iters
     // of string loops as TRACE_TYPE_INSTR_NO_FETCH, converted from this
     // TRACE_TYPE_INSTR_MAYBE_FETCH by reader_t (since online traces would need
-    // extra insru to distinguish the 1st and subsequent iters).
+    // extra instru to distinguish the 1st and subsequent iters).
     if (instr_is_rep_string_op(instr) || (repstr_expanded && instr_is_string_op(instr)))
         return TRACE_TYPE_INSTR_MAYBE_FETCH;
     return TRACE_TYPE_INSTR;

@@ -594,6 +594,17 @@ create_nonloop_stringop(void *drcontext, instr_t *inst)
 
 DR_EXPORT
 bool
+drutil_instr_is_stringop_loop(instr_t *inst)
+{
+#ifdef X86
+    return opc_is_stringop_loop(instr_get_opcode(inst));
+#else
+    return false;
+#endif
+}
+
+DR_EXPORT
+bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT,
                             instr_t **stringop OUT)
 {

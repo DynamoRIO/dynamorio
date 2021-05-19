@@ -597,8 +597,13 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
             return adjust;
         pc = dr_fragment_app_pc(tag);
     } else {
+        // This routine is called for the first instr in the expanded scatter/gather
+        // sequence, which turns out to be a non-app instr which doesn't have an app pc.
+        // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
+        // sequence instr that we instrument doesn't need to be a non-app instr.
         // XXX: For repstr do we want tag insted of skipping rep prefix?
-        pc = instr_get_app_pc(app);
+        DR_ASSERT(instr_is_app(where) || drmgr_is_first_nonlabel_instr(drcontext, where));
+        pc = instr_is_app(where) ? instr_get_app_pc(app) : dr_fragment_app_pc(tag);
     }
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
@@ -743,6 +748,24 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
     if (memref_needs_full_info_)
         return;
     reg_id_set_t saw_base;
+    for (instr_t *instr = instrlist_first(ilist); instr != NULL;
+         instr = instr_get_next(instr)) {
+        // XXX: We turn off address elision for bbs containing emulation sequences
+        // or instrs that are expanded into emulation sequences like scatter/gather
+        // and rep stringop. As instru_offline and raw2trace see different instrs in
+        // these bbs (expanded seq vs original app instr), there may be mismatches in
+        // identifying elision opportunities. We can possibly provide a consistent
+        // view by expanding the instr in raw2trace (e.g. using
+        // drx_expand_scatter_gather) when building the ilist.
+        if (drutil_instr_is_stringop_loop(instr)
+            // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
+            IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
+            return;
+        }
+        if (drmgr_is_emulation_start(instr) || drmgr_is_emulation_end(instr)) {
+            return;
+        }
+    }
     for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;
          instr = instr_get_next_app(instr)) {
         // For now we bail at predication.

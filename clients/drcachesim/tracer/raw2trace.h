@@ -109,7 +109,14 @@ struct module_t {
  * conversion from decoded instructions.
  */
 struct instr_summary_t final {
-    /** Caches information about a single memory reference. */
+    /**
+     * Caches information about a single memory reference.
+     * Note that we reuse the same memref_summary_t object in raw2trace for all
+     * memrefs of a scatter/gather instr. To avoid any issues due to mismatch
+     * between instru_offline (which sees the expanded scatter/gather instr seq)
+     * and raw2trace (which sees the original app scatter/gather instr only), we
+     * disable address elision for scatter/gather bbs.
+     */
     struct memref_summary_t {
         memref_summary_t(opnd_t opnd)
             : opnd(opnd)
@@ -244,6 +251,11 @@ private:
     {
         return TESTANY(kIsCtiMask, packed_);
     }
+    bool
+    is_scatter_or_gather() const
+    {
+        return TESTANY(kIsScatterOrGatherMask, packed_);
+    }
 
     const memref_summary_t &
     mem_src_at(size_t pos) const
@@ -276,6 +288,8 @@ private:
     // it's intended for use only for AArch64 traces. This declaration reserves the
     // assigned mask and makes it unavailable for future masks.
     static const int kIsAarch64DcZvaMask = 0x0020;
+
+    static const int kIsScatterOrGatherMask = 0x0040;
 
     instr_summary_t(const instr_summary_t &other) = delete;
     instr_summary_t &
@@ -858,7 +872,9 @@ private:
             pc = next_pc;
             instrlist_append(ilist, inst);
         }
+
         instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
+
         for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
              inst = instr_get_next(inst)) {
             int index, memop_index;
@@ -956,6 +972,22 @@ private:
         }
         instrlist_clear_and_destroy(dcontext_, ilist);
         return "";
+    }
+
+    std::string
+    process_memref(void *tls, trace_entry_t **buf_in, const instr_summary_t *instr,
+                   instr_summary_t::memref_summary_t memref, bool write,
+                   std::unordered_map<reg_id_t, addr_t> &reg_vals, uint64_t cur_modoffs,
+                   bool instrs_are_separate, OUT bool *reached_end_of_memrefs,
+                   OUT bool *interrupted)
+    {
+        std::string error = append_memref(tls, buf_in, instr, memref, write, reg_vals,
+                                          reached_end_of_memrefs);
+        if (!error.empty())
+            return error;
+        error = handle_kernel_interrupt_and_markers(
+            tls, buf_in, cur_modoffs, instr->length(), instrs_are_separate, interrupted);
+        return error;
     }
 
     std::string
@@ -1073,33 +1105,55 @@ private:
                 (instr->reads_memory() || instr->writes_memory()) &&
                 // No following memref for instruction-only trace type.
                 !is_instr_only_trace) {
-                for (uint j = 0; j < instr->num_mem_srcs(); j++) {
-                    error = append_memref(tls, &buf, instr, instr->mem_src_at(j), false,
-                                          reg_vals);
-                    if (!error.empty())
-                        return error;
-                    error = handle_kernel_interrupt_and_markers(
-                        tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
-                        &interrupted);
-                    if (!error.empty())
-                        return error;
-                    if (interrupted)
-                        break;
-                }
-                // We break before subsequent memrefs on an interrupt, though with
-                // today's tracer that will never happen (i#3958).
-                for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
-                    error = append_memref(tls, &buf, instr, instr->mem_dest_at(j), true,
-                                          reg_vals);
-                    if (!error.empty())
-                        return error;
-                    error = handle_kernel_interrupt_and_markers(
-                        tls, &buf, cur_modoffs, instr->length(), instrs_are_separate,
-                        &interrupted);
-                    if (!error.empty())
-                        return error;
-                    if (interrupted)
-                        break;
+                if (instr->is_scatter_or_gather()) {
+                    // The instr should either load or store, but not both. Also,
+                    // it should have a single src or dest operand.
+                    DR_ASSERT(instr->num_mem_srcs() + instr->num_mem_dests() == 1);
+                    bool is_scatter = instr->num_mem_dests() == 1;
+                    bool reached_end_of_memrefs = false;
+                    // For expanded scatter/gather instrs, we do not have prior knowledge
+                    // of the number of store/load memrefs that will be present. So we
+                    // continue reading entries until we find a non-memref entry.
+                    // This works only because drx_expand_scatter_gather ensures that the
+                    // expansion has its own basic block, with no other app instr in it.
+                    while (!reached_end_of_memrefs) {
+                        // XXX: Add sanity check for max count of store/load memrefs
+                        // possible for a given scatter/gather instr.
+                        error = process_memref(
+                            tls, &buf, instr,
+                            // These memrefs were output by multiple store/load instrs in
+                            // the expanded scatter/gather sequence. In raw2trace we see
+                            // only the original app instr though. So we use the 0th
+                            // dest/src of the original scatter/gather instr for all.
+                            is_scatter ? instr->mem_dest_at(0) : instr->mem_src_at(0),
+                            is_scatter, reg_vals, cur_modoffs, instrs_are_separate,
+                            &reached_end_of_memrefs, &interrupted);
+                        if (!error.empty())
+                            return error;
+                        if (interrupted)
+                            break;
+                    }
+                } else {
+                    for (uint j = 0; j < instr->num_mem_srcs(); j++) {
+                        error = process_memref(
+                            tls, &buf, instr, instr->mem_src_at(j), false, reg_vals,
+                            cur_modoffs, instrs_are_separate, nullptr, &interrupted);
+                        if (!error.empty())
+                            return error;
+                        if (interrupted)
+                            break;
+                    }
+                    // We break before subsequent memrefs on an interrupt, though with
+                    // today's tracer that will never happen (i#3958).
+                    for (uint j = 0; !interrupted && j < instr->num_mem_dests(); j++) {
+                        error = process_memref(
+                            tls, &buf, instr, instr->mem_dest_at(j), true, reg_vals,
+                            cur_modoffs, instrs_are_separate, nullptr, &interrupted);
+                        if (!error.empty())
+                            return error;
+                        if (interrupted)
+                            break;
+                    }
                 }
             }
             cur_modoffs += instr->length();
@@ -1248,7 +1302,8 @@ private:
     std::string
     append_memref(void *tls, INOUT trace_entry_t **buf_in, const instr_summary_t *instr,
                   instr_summary_t::memref_summary_t memref, bool write,
-                  std::unordered_map<reg_id_t, addr_t> &reg_vals)
+                  std::unordered_map<reg_id_t, addr_t> &reg_vals,
+                  OUT bool *reached_end_of_memrefs)
     {
         DR_ASSERT(
             !TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls)));
@@ -1305,11 +1360,15 @@ private:
             // XXX i#2015: if there are multiple predicated memrefs, our instr vs
             // data stream may not be in the correct order here.
             impl()->log(4,
-                        "Missing memref from predication, 0-iter repstr, or filter "
+                        "Missing memref from predication, 0-iter repstr, filter, "
+                        "or reached end of memrefs output by scatter/gather seq "
                         "(next type is 0x" ZHEX64_FORMAT_STRING ")\n",
                         in_entry == nullptr ? 0 : in_entry->combined_value);
             if (in_entry != nullptr) {
                 impl()->unread_last_entry(tls);
+            }
+            if (reached_end_of_memrefs != nullptr) {
+                *reached_end_of_memrefs = true;
             }
             return "";
         }

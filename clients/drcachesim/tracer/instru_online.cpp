@@ -316,7 +316,18 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   int adjust, instr_t *app)
 {
     bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
-    app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+
+    // We cannot rely on the given instr's app_pc in case of expanded repstr and
+    // scatter/gather sequences. In both cases, this routine is called for the instr
+    // at the top of the expanded sequence (which has its own separate bb).
+    // - in the repstr expansion, this is a jrcxz instr with a fake app pc.
+    // - in the scatter/gather expansion, this is a non-app reg spill instr, which
+    // doesn't have an app_pc set.
+    // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
+    // sequence instr that we instrument doesn't need to be a non-app instr.
+    DR_ASSERT(instr_is_app(where) || drmgr_is_first_nonlabel_instr(drcontext, where));
+    app_pc pc = (repstr_expanded || !instr_is_app(where)) ? dr_fragment_app_pc(tag)
+                                                          : instr_get_app_pc(app);
     reg_id_t reg_tmp;
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
@@ -326,7 +337,8 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
     // from the tag.
     ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH
                                   : instr_to_instr_type(app, repstr_expanded);
-    ushort size = repstr_expanded
+    // We decode to get instr size for repstr and scatter/gather.
+    ushort size = (repstr_expanded || !instr_is_app(where))
         ? (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL))
         : (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
