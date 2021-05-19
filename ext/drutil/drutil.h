@@ -185,6 +185,17 @@ bool
 drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, OUT bool *expanded,
                             OUT instr_t **stringop);
 
+DR_EXPORT
+/**
+ * Returns whether the given instr is a stringop loop.
+ *
+ * @param[in]  inst        The instr to inspect.
+ *
+ * \return whether given instr is a stringop loop.
+ */
+bool
+drutil_instr_is_stringop_loop(instr_t *inst);
+
 /**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus

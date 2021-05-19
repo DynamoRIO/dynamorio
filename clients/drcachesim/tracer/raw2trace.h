@@ -863,16 +863,9 @@ private:
         // state needed to reconstruct elided addresses.
         instrlist_t *ilist = instrlist_create(dcontext_);
         app_pc pc = start_pc;
-        bool has_scatter_gather_instr = false;
         for (uint count = 0; count < instr_count; ++count) {
             instr_t *inst = instr_create(dcontext_);
             app_pc next_pc = decode(dcontext_, pc, inst);
-#ifdef X86
-            // NYI on ARM/AArch64.
-            if (instr_is_scatter(inst) || instr_is_gather(inst)) {
-                has_scatter_gather_instr = true;
-            }
-#endif
             DR_ASSERT(next_pc != NULL);
             instr_set_translation(inst, pc);
             instr_set_note(inst, reinterpret_cast<void *>(static_cast<ptr_int_t>(count)));
@@ -880,8 +873,7 @@ private:
             instrlist_append(ilist, inst);
         }
 
-        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version,
-                                                    has_scatter_gather_instr);
+        instru_offline_.identify_elidable_addresses(dcontext_, ilist, version);
 
         for (instr_t *inst = instrlist_first(ilist); inst != nullptr;
              inst = instr_get_next(inst)) {
@@ -997,6 +989,7 @@ private:
             tls, buf_in, cur_modoffs, instr->length(), instrs_are_separate, interrupted);
         return error;
     }
+
     std::string
     append_bb_entries(void *tls, const offline_entry_t *in_entry, OUT bool *handled)
     {

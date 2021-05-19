@@ -628,8 +628,7 @@ offline_instru_t::instrument_ibundle(void *drcontext, instrlist_t *ilist, instr_
 
 void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
-                              instrlist_t *ilist, bool repstr_expanded,
-                              bool scatter_gather_expanded)
+                              instrlist_t *ilist, bool repstr_expanded)
 {
     instr_t *instr;
     ptr_uint_t count = 0;
@@ -656,8 +655,7 @@ offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
     }
     *bb_field = (void *)count;
 
-    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION,
-                                scatter_gather_expanded);
+    identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
 }
 
 bool
@@ -740,16 +738,8 @@ offline_instru_t::label_marks_elidable(instr_t *instr, OUT int *opnd_index,
 
 void
 offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilist,
-                                              int version, bool has_scatter_gather_instr)
+                                              int version)
 {
-    // XXX: We turn off address elision for bbs containing scatter/gather. As
-    // instru_offline and raw2trace see different instrs in scatter gather bbs
-    // (expanded seq vs original app instr), there may be mismatches in identifying
-    // elision opportunities. We can possibly provide a consistent view by using
-    // drx_expand_scatter_gather in raw2trace when building the ilist.
-    if (has_scatter_gather_instr) {
-        return;
-    }
     // Analysis for eliding redundant addresses we can reconstruct during
     // post-processing.
     if (disable_optimizations_)
@@ -758,6 +748,24 @@ offline_instru_t::identify_elidable_addresses(void *drcontext, instrlist_t *ilis
     if (memref_needs_full_info_)
         return;
     reg_id_set_t saw_base;
+    for (instr_t *instr = instrlist_first(ilist); instr != NULL;
+         instr = instr_get_next(instr)) {
+        // XXX: We turn off address elision for bbs containing emulation sequences
+        // or instrs that are expanded into emulation sequences like scatter/gather
+        // and rep stringop. As instru_offline and raw2trace see different instrs in
+        // these bbs (expanded seq vs original app instr), there may be mismatches in
+        // identifying elision opportunities. We can possibly provide a consistent
+        // view by expanding the instr in raw2trace (e.g. using
+        // drx_expand_scatter_gather) when building the ilist.
+        if (drutil_instr_is_stringop_loop(instr)
+            // TODO i#3837: Scatter/gather support NYI on ARM/AArch64.
+            IF_X86(|| instr_is_scatter(instr) || instr_is_gather(instr))) {
+            return;
+        }
+        if (drmgr_is_emulation_start(instr) || drmgr_is_emulation_end(instr)) {
+            return;
+        }
+    }
     for (instr_t *instr = instrlist_first_app(ilist); instr != NULL;
          instr = instr_get_next_app(instr)) {
         // For now we bail at predication.

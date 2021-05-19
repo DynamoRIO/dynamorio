@@ -1216,6 +1216,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // don't want to add a memref for that.
     bool is_first_instr_in_scatter_gather_expansion =
         ud->scatter_gather && drmgr_is_first_nonlabel_instr(drcontext, instr);
+    DR_ASSERT(!is_first_instr_in_scatter_gather_expansion || !instr_is_app(instr));
     if (is_memref && !is_first_instr_in_scatter_gather_expansion) {
         if (pred != DR_PRED_NONE && adjust != 0) {
             // Update buffer ptr and reset adjust to 0, because
@@ -1295,8 +1296,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, void *user_data)
 {
     user_data_t *ud = (user_data_t *)user_data;
-    instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr,
-                        ud->scatter_gather);
+    instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
     // As elsewhere in this code, we want the single-instr original and not
     // the expanded 6 labeled-app instrs for repstr loops (i#2011).
     if (ud->repstr || ud->scatter_gather)
