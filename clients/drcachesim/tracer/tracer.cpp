@@ -1214,8 +1214,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // For the scatter/gather expansion, the first instr turns out to be a non-app
     // memref (a reg spill). So, we reach here for a non-app instruction and we
     // don't want to add a memref for that.
+    // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
+    // sequence instr that we instrument doesn't need to be a non-app instr.
     bool is_first_instr_in_scatter_gather_expansion =
         ud->scatter_gather && drmgr_is_first_nonlabel_instr(drcontext, instr);
+    // Verify that we're not skipping an app memref.
     DR_ASSERT(!is_first_instr_in_scatter_gather_expansion || !instr_is_app(instr));
     if (is_memref && !is_first_instr_in_scatter_gather_expansion) {
         if (pred != DR_PRED_NONE && adjust != 0) {
