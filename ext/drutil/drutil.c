@@ -527,16 +527,6 @@ opc_is_stringop_loop(uint opc)
             opc == OP_repne_cmps || opc == OP_rep_scas || opc == OP_repne_scas);
 }
 
-DR_EXPORT
-bool
-drutil_instr_is_stringop_loop(instr_t *inst)
-{
-#    ifdef X86
-    return opc_is_stringop_loop(instr_get_opcode(inst));
-#    endif
-    return false;
-}
-
 static instr_t *
 create_nonloop_stringop(void *drcontext, instr_t *inst)
 {
@@ -601,6 +591,17 @@ create_nonloop_stringop(void *drcontext, instr_t *inst)
     return res;
 }
 #endif /* X86 */
+
+DR_EXPORT
+bool
+drutil_instr_is_stringop_loop(instr_t *inst)
+{
+#ifdef X86
+    return opc_is_stringop_loop(instr_get_opcode(inst));
+#else
+    return false;
+#endif
+}
 
 DR_EXPORT
 bool
