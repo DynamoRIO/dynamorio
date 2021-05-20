@@ -451,29 +451,22 @@ ldr_base_immediate_post_index(void *dc)
     int value[] = { 129, 255, -86, -256, 170, 85, -86, -171 };
 
     instr_t *instr = INSTR_CREATE_ldr_imm(
-        dc,
-        opnd_create_reg(DR_REG_W0),
-        opnd_create_reg(DR_REG_X1),
-        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0,
-                                        OPSZ_4),
+        dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_X1),
+        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_4),
         OPND_CREATE_INT(-86));
     test_instr_encoding(dc, OP_ldr, instr);
 
     for (int i = 0; i < 3; i++) {
         for (int l = 0; l < 7; l++) {
             instr_t *instr = INSTR_CREATE_ldr_imm(
-                dc,
-                opnd_create_reg(reg_32[i]),
-                opnd_create_reg(reg_dest[i]),
+                dc, opnd_create_reg(reg_32[i]), opnd_create_reg(reg_dest[i]),
                 opnd_create_base_disp_aarch64(reg_dest[i], DR_REG_NULL, 0, false, 0, 0,
                                               OPSZ_4),
                 OPND_CREATE_INT(value[l]));
             test_instr_encoding(dc, OP_ldr, instr);
 
             instr = INSTR_CREATE_ldr_imm(
-                dc,
-                opnd_create_reg(reg_64[i]),
-                opnd_create_reg(reg_dest[i]),
+                dc, opnd_create_reg(reg_64[i]), opnd_create_reg(reg_dest[i]),
                 opnd_create_base_disp_aarch64(reg_dest[i], DR_REG_NULL, 0, false, 0, 0,
                                               OPSZ_8),
                 OPND_CREATE_INT(value[l]));
