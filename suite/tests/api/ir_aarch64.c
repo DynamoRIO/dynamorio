@@ -107,7 +107,6 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
     ASSERT(instr_get_opcode(instr) == opcode);
     instr_disassemble(dc, instr, STDERR);
     print("\n");
-
     ASSERT(instr_is_encoding_possible(instr));
     pc = instr_encode(dc, instr, buf);
     decin = instr_create(dc);
@@ -440,6 +439,337 @@ test_instrs_with_logic_imm(void *dc)
     instr = INSTR_CREATE_ands(dc, opnd_create_reg(DR_REG_W3), opnd_create_reg(DR_REG_W8),
                               OPND_CREATE_INT(0xF));
     test_instr_encoding(dc, OP_ands, instr);
+}
+
+static void
+ldr_base_immediate_post_index(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int reg_dest[] = { DR_REG_X1, DR_REG_X17, DR_REG_X30 };
+    int value[] = { 129, 255, -256, 170, 85, -86, -171 };
+
+    for (int i = 0; i < 3; i++) {
+        for (int l = 0; l < 7; l++) {
+            instr_t *instr = INSTR_CREATE_ldr_imm(
+                dc, opnd_create_reg(reg_32[i]), opnd_create_reg(reg_dest[i]),
+                opnd_create_base_disp_aarch64(reg_dest[i], DR_REG_NULL, 0, false, 0, 0,
+                                              OPSZ_4),
+                OPND_CREATE_INT(value[l]));
+            test_instr_encoding(dc, OP_ldr, instr);
+
+            instr = INSTR_CREATE_ldr_imm(
+                dc, opnd_create_reg(reg_64[i]), opnd_create_reg(reg_dest[i]),
+                opnd_create_base_disp_aarch64(reg_dest[i], DR_REG_NULL, 0, false, 0, 0,
+                                              OPSZ_8),
+                OPND_CREATE_INT(value[l]));
+            test_instr_encoding(dc, OP_ldr, instr);
+        }
+    }
+    print("ldr base immediate post-index complete\n");
+}
+
+static void
+ldr_base_immediate_pre_index(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int reg_dst[] = { DR_REG_X1, DR_REG_X17, DR_REG_X30 };
+    int value[] = { 129, 255, -256, 170, 85, -86, -171 };
+
+    for (int i = 0; i < 3; i++) {
+        for (int l = 0; l < 7; l++) {
+            instr_t *instr = INSTR_CREATE_ldr_imm(
+                dc, opnd_create_reg(reg_32[i]), opnd_create_reg(reg_dst[i]),
+                opnd_create_base_disp_aarch64(reg_dst[i], DR_REG_NULL, 0, false, value[l],
+                                              0, OPSZ_4),
+                OPND_CREATE_INT(value[l]));
+            test_instr_encoding(dc, OP_ldr, instr);
+
+            instr = INSTR_CREATE_ldr_imm(
+                dc, opnd_create_reg(reg_64[i]), opnd_create_reg(reg_dst[i]),
+                opnd_create_base_disp_aarch64(reg_dst[i], DR_REG_NULL, 0, false, value[l],
+                                              0, OPSZ_8),
+                OPND_CREATE_INT(value[l]));
+            test_instr_encoding(dc, OP_ldr, instr);
+        }
+    }
+    print("ldr base immediate pre-index complete\n");
+}
+
+static void
+ldr_base_immediate_offset(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int reg_dst[] = { DR_REG_X1, DR_REG_X17, DR_REG_X30 };
+    int value[] = { 0, 16380, 0b101010101010, 0b010101010101 };
+
+    for (int i = 0; i < 3; i++) {
+        for (int l = 0; l < 4; l++) {
+            instr_t *instr = INSTR_CREATE_ldr(
+                dc, opnd_create_reg(reg_32[i]),
+                opnd_create_base_disp_aarch64(reg_dst[i], DR_REG_NULL, 0, false,
+                                              value[l] & 0b111111111100, 0, OPSZ_4));
+            test_instr_encoding(dc, OP_ldr, instr);
+
+            instr = INSTR_CREATE_ldr(
+                dc, opnd_create_reg(reg_64[i]),
+                opnd_create_base_disp_aarch64(reg_dst[i], DR_REG_NULL, 0, false,
+                                              value[l] & 0b111111111000, 0, OPSZ_8));
+            test_instr_encoding(dc, OP_ldr, instr);
+        }
+    }
+    print("ldr base immediate offset complete\n");
+}
+
+static void
+ldr_base_literal(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int64_t value[] = { 0x0000000000000000, 0x000000000007ffff };
+    for (int i = 0; i < 3; i++) {
+        for (int l = 0; l < 2; l++) {
+            instr_t *instr =
+                INSTR_CREATE_ldr(dc, opnd_create_reg(reg_32[i]),
+                                 OPND_CREATE_ABSMEM((void *)value[i], OPSZ_4));
+            test_instr_encoding(dc, OP_ldr, instr);
+
+            instr = INSTR_CREATE_ldr(dc, opnd_create_reg(reg_64[i]),
+                                     OPND_CREATE_ABSMEM((void *)value[i], OPSZ_8));
+            test_instr_encoding(dc, OP_ldr, instr);
+        }
+    }
+    print("ldr base literal complete\n");
+}
+
+static void
+ldr_base_register(void *dc)
+{
+    int extend[] = { DR_EXTEND_UXTW, DR_EXTEND_UXTX, DR_EXTEND_SXTW, DR_EXTEND_SXTX };
+    int reg32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int dest_0[] = { DR_REG_X1, DR_REG_X17, DR_REG_X29 };
+    int dest_1[] = { DR_REG_X2, DR_REG_X18, DR_REG_X30 };
+    for (int i = 0; i < 4; i++) {
+        for (int ii = 0; ii < 3; ii++) {
+            instr_t *instr = INSTR_CREATE_ldr(
+                dc, opnd_create_reg(reg32[ii]),
+                opnd_create_base_disp_aarch64(dest_0[ii], dest_1[ii], extend[i], false, 0,
+                                              0, OPSZ_4));
+            test_instr_encoding(dc, OP_ldr, instr);
+
+            instr = INSTR_CREATE_ldr(dc, opnd_create_reg(reg64[ii]),
+                                     opnd_create_base_disp_aarch64(dest_0[ii], dest_1[ii],
+                                                                   extend[i], false, 0, 0,
+                                                                   OPSZ_8));
+            test_instr_encoding(dc, OP_ldr, instr);
+        }
+    }
+    print("ldr base register complete\n");
+}
+
+static void
+ldr_base_register_extend(void *dc)
+{
+    int extend[] = { DR_EXTEND_UXTW, DR_EXTEND_UXTX, DR_EXTEND_SXTW, DR_EXTEND_SXTX };
+    int reg32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int dest_0[] = { DR_REG_X1, DR_REG_X17, DR_REG_X29 };
+    int dest_1[] = { DR_REG_X2, DR_REG_X18, DR_REG_X30 };
+    for (int i = 0; i < 4; i++) {
+        for (int ii = 0; ii < 3; ii++) {
+            opnd_t opnd = opnd_create_base_disp_aarch64(
+                dest_0[ii], dest_1[ii], extend[i], false, 0, DR_OPND_SHIFTED, OPSZ_4);
+            opnd_set_index_extend(&opnd, extend[i], 2);
+            instr_t *instr = INSTR_CREATE_ldr(dc, opnd_create_reg(reg32[ii]), opnd);
+            test_instr_encoding(dc, OP_ldr, instr);
+
+            opnd = opnd_create_base_disp_aarch64(dest_0[ii], dest_1[ii], extend[i], false,
+                                                 0, DR_OPND_SHIFTED, OPSZ_8);
+            opnd_set_index_extend(&opnd, extend[i], 3);
+            instr = INSTR_CREATE_ldr(dc, opnd_create_reg(reg64[ii]), opnd);
+            test_instr_encoding(dc, OP_ldr, instr);
+        }
+    }
+    print("ldr base register extend complete\n");
+}
+
+static void
+ldr(void *dc)
+{
+    ldr_base_immediate_post_index(dc);
+    ldr_base_immediate_pre_index(dc);
+    ldr_base_immediate_offset(dc);
+#if 0 /* TODO i#4847: address memory touching instructions that fail to encode */
+        ldr_base_literal(dc);
+#endif
+    ldr_base_register(dc);
+    ldr_base_register_extend(dc);
+
+    print("ldr complete\n");
+}
+
+static void
+str_base_immediate_post_index(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W29 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X29 };
+    int dest_reg[] = { DR_REG_X0, DR_REG_X16, DR_REG_X29 };
+    int value[] = { 0, 129, 255, -256, 170, 85, -86, -171 };
+    for (int i = 0; i < 3; i++) {
+        for (int ii = 0; ii < 8; ii++) {
+            instr_t *instr = INSTR_CREATE_str_imm(
+                dc,
+                opnd_create_base_disp_aarch64(dest_reg[i], DR_REG_NULL, 0, false, 0, 0,
+                                              OPSZ_4),
+                opnd_create_reg(reg_32[i]), opnd_create_reg(dest_reg[i]),
+                OPND_CREATE_INT(value[ii]));
+            test_instr_encoding(dc, OP_str, instr);
+
+            instr = INSTR_CREATE_str_imm(
+                dc,
+                opnd_create_base_disp_aarch64(dest_reg[i], DR_REG_NULL, 0, false, 0, 0,
+                                              OPSZ_8),
+                opnd_create_reg(reg_64[i]), opnd_create_reg(dest_reg[i]),
+                OPND_CREATE_INT(value[ii]));
+            test_instr_encoding(dc, OP_str, instr);
+        }
+    }
+    print("str base immediate post-index complete\n");
+}
+
+static void
+str_base_immediate_pre_index(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int dest_reg[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int value[] = { 0, 129, 255, -256, 170, 85, -86, -171 };
+    for (int i = 0; i < 3; i++) {
+        for (int ii = 0; ii < 8; ii++) {
+            instr_t *instr = INSTR_CREATE_str_imm(
+                dc,
+                opnd_create_base_disp_aarch64(dest_reg[i], DR_REG_NULL, 0, false,
+                                              value[ii], 0, OPSZ_4),
+                opnd_create_reg(reg_32[i]), opnd_create_reg(dest_reg[i]),
+                OPND_CREATE_INT(value[ii]));
+            test_instr_encoding(dc, OP_str, instr);
+
+            instr = INSTR_CREATE_str_imm(
+                dc,
+                opnd_create_base_disp_aarch64(dest_reg[i], DR_REG_NULL, 0, false,
+                                              value[ii], 0, OPSZ_8),
+                opnd_create_reg(reg_64[i]), opnd_create_reg(dest_reg[i]),
+                OPND_CREATE_INT(value[ii]));
+            test_instr_encoding(dc, OP_str, instr);
+        }
+    }
+    print("str base immediate pre-index complete\n");
+}
+
+static void
+str_base_immediate_unsigned_offset(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = {
+        DR_REG_X0,
+        DR_REG_X16,
+        DR_REG_X30,
+    };
+    int reg_dest[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int val_32[] = { 0, 0x204, 0b111111111100, 0b101010101100, 0b010101010100 };
+    int val_64[] = { 0, 0x1020, 0b1111111111000, 0b101010101000, 0b010101011000 };
+
+    for (int i = 0; i < 3; i++) {
+        for (int ii = 0; ii < 4; ii++) {
+            instr_t *instr = INSTR_CREATE_str(
+                dc,
+                opnd_create_base_disp_aarch64(reg_dest[i], DR_REG_NULL, 0, false,
+                                              val_32[ii], 0, OPSZ_4),
+                opnd_create_reg(reg_32[i]));
+            test_instr_encoding(dc, OP_str, instr);
+
+            instr = INSTR_CREATE_str(dc,
+                                     opnd_create_base_disp_aarch64(reg_dest[i],
+                                                                   DR_REG_NULL, 0, false,
+                                                                   val_64[ii], 0, OPSZ_8),
+                                     opnd_create_reg(reg_64[i]));
+            test_instr_encoding(dc, OP_str, instr);
+        }
+    }
+    print("str base immediate unsigned offset complete\n");
+}
+
+static void
+str_base_register(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int reg_dest_1[] = { DR_REG_X0, DR_REG_X15, DR_REG_X29 };
+    int reg_dest_2[] = { DR_REG_X1, DR_REG_X16, DR_REG_X30 };
+    int extend[] = { DR_EXTEND_UXTW, DR_EXTEND_UXTX, DR_EXTEND_SXTW, DR_EXTEND_SXTX };
+
+    for (int i = 0; i < 3; i++) {
+        for (int ii = 0; ii < 4; ii++) {
+            instr_t *instr = INSTR_CREATE_str(
+                dc,
+                opnd_create_base_disp_aarch64(reg_dest_1[i], reg_dest_2[i], extend[ii],
+                                              false, 0, 0, OPSZ_4),
+                opnd_create_reg(reg_32[i]));
+            test_instr_encoding(dc, OP_str, instr);
+
+            instr = INSTR_CREATE_str(
+                dc,
+                opnd_create_base_disp_aarch64(reg_dest_1[i], reg_dest_2[i], extend[ii],
+                                              false, 0, 0, OPSZ_8),
+                opnd_create_reg(reg_64[i]));
+            test_instr_encoding(dc, OP_str, instr);
+        }
+    }
+    print("str base register complete\n");
+}
+
+static void
+str_base_register_extend(void *dc)
+{
+    int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
+    int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
+    int reg_dest_1[] = { DR_REG_X0, DR_REG_X15, DR_REG_X29 };
+    int reg_dest_2[] = { DR_REG_X1, DR_REG_X16, DR_REG_X30 };
+    int extend[] = { DR_EXTEND_UXTW, DR_EXTEND_UXTX, DR_EXTEND_SXTW, DR_EXTEND_SXTX };
+
+    for (int i = 0; i < 3; i++) {
+        for (int ii = 0; ii < 4; ii++) {
+            opnd_t opnd =
+                opnd_create_base_disp_aarch64(reg_dest_1[i], reg_dest_2[i], extend[ii],
+                                              false, 0, DR_OPND_SHIFTED, OPSZ_4);
+            opnd_set_index_extend(&opnd, extend[ii], 2);
+            instr_t *instr = INSTR_CREATE_str(dc, opnd, opnd_create_reg(reg_32[i]));
+            test_instr_encoding(dc, OP_str, instr);
+
+            opnd = opnd_create_base_disp_aarch64(reg_dest_1[i], reg_dest_2[i], extend[ii],
+                                                 false, 0, DR_OPND_SHIFTED, OPSZ_8);
+            opnd_set_index_extend(&opnd, extend[ii], 3);
+            instr = INSTR_CREATE_str(dc, opnd, opnd_create_reg(reg_64[i]));
+            test_instr_encoding(dc, OP_str, instr);
+        }
+    }
+
+    print("str base register extend complete\n");
+}
+
+static void
+str(void *dc)
+{
+    str_base_immediate_post_index(dc);
+    str_base_immediate_pre_index(dc);
+    str_base_immediate_unsigned_offset(dc);
+    str_base_register(dc);
+    str_base_register_extend(dc);
+
+    print("str complete\n");
 }
 
 static void
@@ -6130,6 +6460,9 @@ main(int argc, char *argv[])
 
     test_scvtf_vector_fixed(dcontext);
     print("test_scvtf_vector_fixed complete\n");
+
+    ldr(dcontext);
+    str(dcontext);
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER
