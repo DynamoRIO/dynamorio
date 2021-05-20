@@ -107,7 +107,6 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
     ASSERT(instr_get_opcode(instr) == opcode);
     instr_disassemble(dc, instr, STDERR);
     print("\n");
-
     ASSERT(instr_is_encoding_possible(instr));
     pc = instr_encode(dc, instr, buf);
     decin = instr_create(dc);
@@ -448,13 +447,7 @@ ldr_base_immediate_post_index(void *dc)
     int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int reg_dest[] = { DR_REG_X1, DR_REG_X17, DR_REG_X30 };
-    int value[] = { 129, 255, -86, -256, 170, 85, -86, -171 };
-
-    instr_t *instr = INSTR_CREATE_ldr_imm(
-        dc, opnd_create_reg(DR_REG_W0), opnd_create_reg(DR_REG_X1),
-        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_4),
-        OPND_CREATE_INT(-86));
-    test_instr_encoding(dc, OP_ldr, instr);
+    int value[] = { 129, 255, -256, 170, 85, -86, -171 };
 
     for (int i = 0; i < 3; i++) {
         for (int l = 0; l < 7; l++) {
