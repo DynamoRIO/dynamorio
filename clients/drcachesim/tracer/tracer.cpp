@@ -141,6 +141,7 @@ typedef struct {
     int num_delay_instrs;
     instr_t *delay_instrs[MAX_NUM_DELAY_INSTRS];
     bool repstr;
+    bool scatter_gather;
     void *instru_field; /* for use by instru_t */
     int bb_instr_count;
 } user_data_t;
@@ -1078,10 +1079,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     if ((!instr_is_app(instr) ||
          /* Skip identical app pc, which happens with rep str expansion.
+          * Note that all instrs except the stringop have a fake app pc. So
+          * the stringop memref will not get skipped because it has a different
+          * app pc.
           * XXX: the expansion means our instr fetch trace is not perfect,
           * but we live with having the wrong instr length for online traces.
+          *
+          * Note that we will have identical app pcs also for scatter/gather
+          * expansion. However, in that case, all instrs have the same app pc,
+          * including all individual scalar mov instrs. Unlike rep str expansion
+          * these are not in a loop and we do need to record memrefs for each
+          * mov, so we continue instrumenting each individually.
           */
-         ud->last_app_pc == instr_get_app_pc(instr)) &&
+         (ud->last_app_pc == instr_get_app_pc(instr) && ud->repstr)) &&
         ud->strex == NULL &&
         // Ensure we have an instr entry for the start of the bb.
         !drmgr_is_first_nonlabel_instr(drcontext, instr))
@@ -1118,6 +1128,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         ud->strex == NULL &&
         // Don't bundle the zero-rep-string-iter instr.
         (!ud->repstr || !drmgr_is_first_nonlabel_instr(drcontext, instr)) &&
+        // Don't bundle scatter/gather instr.
+        !ud->scatter_gather &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
@@ -1193,12 +1205,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // ifetch and not any of the expansion instrs.  We instrument the first
     // one to handle a zero-iter loop.  For offline, we just record the pc; for
     // online we have to ignore "instr" here in instru_online::instrument_instr().
-    if (!ud->repstr || drmgr_is_first_nonlabel_instr(drcontext, instr)) {
+    if (!(ud->repstr || ud->scatter_gather) ||
+        drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);
 
-    if (is_memref) {
+    // For the scatter/gather expansion, the first instr turns out to be a non-app
+    // memref (a reg spill). So, we reach here for a non-app instruction and we
+    // don't want to add a memref for that.
+    // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
+    // sequence instr that we instrument doesn't need to be a non-app instr.
+    bool is_first_instr_in_scatter_gather_expansion =
+        ud->scatter_gather && drmgr_is_first_nonlabel_instr(drcontext, instr);
+    // Verify that we're not skipping an app memref.
+    DR_ASSERT(!is_first_instr_in_scatter_gather_expansion || !instr_is_app(instr));
+    if (is_memref && !is_first_instr_in_scatter_gather_expansion) {
         if (pred != DR_PRED_NONE && adjust != 0) {
             // Update buffer ptr and reset adjust to 0, because
             // we may not execute the inserted code below.
@@ -1266,7 +1288,7 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     /* XXX i#4865: Online traces will have incorrect instr counts, because
      * scatter/gather instrs are emulated by a sequence of scalar stores/loads.
      */
-    if (!drx_expand_scatter_gather(drcontext, bb, NULL)) {
+    if (!drx_expand_scatter_gather(drcontext, bb, &data->scatter_gather)) {
         DR_ASSERT(false);
     }
     return DR_EMIT_DEFAULT;
@@ -1280,7 +1302,7 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
     // As elsewhere in this code, we want the single-instr original and not
     // the expanded 6 labeled-app instrs for repstr loops (i#2011).
-    if (ud->repstr)
+    if (ud->repstr || ud->scatter_gather)
         ud->bb_instr_count = 1;
     else {
         for (instr_t *app = instrlist_first_app(bb); app != NULL;
