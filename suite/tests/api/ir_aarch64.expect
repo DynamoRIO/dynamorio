@@ -1123,4 +1123,340 @@ scvtf  %d11 $0x02 $0x20 -> %d10
 scvtf  %d29 $0x02 $0x15 -> %d28
 scvtf  %d31 $0x02 $0x1f -> %d30
 test_scvtf_vector_fixed complete
+ldr    (%x1)[4byte] %x1 $0x0000000000000081 -> %w0 %x1
+ldr    (%x1)[8byte] %x1 $0x0000000000000081 -> %x0 %x1
+ldr    (%x1)[4byte] %x1 $0x00000000000000ff -> %w0 %x1
+ldr    (%x1)[8byte] %x1 $0x00000000000000ff -> %x0 %x1
+ldr    (%x1)[4byte] %x1 $0xffffffffffffff00 -> %w0 %x1
+ldr    (%x1)[8byte] %x1 $0xffffffffffffff00 -> %x0 %x1
+ldr    (%x1)[4byte] %x1 $0x00000000000000aa -> %w0 %x1
+ldr    (%x1)[8byte] %x1 $0x00000000000000aa -> %x0 %x1
+ldr    (%x1)[4byte] %x1 $0x0000000000000055 -> %w0 %x1
+ldr    (%x1)[8byte] %x1 $0x0000000000000055 -> %x0 %x1
+ldr    (%x1)[4byte] %x1 $0xffffffffffffffaa -> %w0 %x1
+ldr    (%x1)[8byte] %x1 $0xffffffffffffffaa -> %x0 %x1
+ldr    (%x1)[4byte] %x1 $0xffffffffffffff55 -> %w0 %x1
+ldr    (%x1)[8byte] %x1 $0xffffffffffffff55 -> %x0 %x1
+ldr    (%x17)[4byte] %x17 $0x0000000000000081 -> %w16 %x17
+ldr    (%x17)[8byte] %x17 $0x0000000000000081 -> %x16 %x17
+ldr    (%x17)[4byte] %x17 $0x00000000000000ff -> %w16 %x17
+ldr    (%x17)[8byte] %x17 $0x00000000000000ff -> %x16 %x17
+ldr    (%x17)[4byte] %x17 $0xffffffffffffff00 -> %w16 %x17
+ldr    (%x17)[8byte] %x17 $0xffffffffffffff00 -> %x16 %x17
+ldr    (%x17)[4byte] %x17 $0x00000000000000aa -> %w16 %x17
+ldr    (%x17)[8byte] %x17 $0x00000000000000aa -> %x16 %x17
+ldr    (%x17)[4byte] %x17 $0x0000000000000055 -> %w16 %x17
+ldr    (%x17)[8byte] %x17 $0x0000000000000055 -> %x16 %x17
+ldr    (%x17)[4byte] %x17 $0xffffffffffffffaa -> %w16 %x17
+ldr    (%x17)[8byte] %x17 $0xffffffffffffffaa -> %x16 %x17
+ldr    (%x17)[4byte] %x17 $0xffffffffffffff55 -> %w16 %x17
+ldr    (%x17)[8byte] %x17 $0xffffffffffffff55 -> %x16 %x17
+ldr    (%x30)[4byte] %x30 $0x0000000000000081 -> %w30 %x30
+ldr    (%x30)[8byte] %x30 $0x0000000000000081 -> %x30 %x30
+ldr    (%x30)[4byte] %x30 $0x00000000000000ff -> %w30 %x30
+ldr    (%x30)[8byte] %x30 $0x00000000000000ff -> %x30 %x30
+ldr    (%x30)[4byte] %x30 $0xffffffffffffff00 -> %w30 %x30
+ldr    (%x30)[8byte] %x30 $0xffffffffffffff00 -> %x30 %x30
+ldr    (%x30)[4byte] %x30 $0x00000000000000aa -> %w30 %x30
+ldr    (%x30)[8byte] %x30 $0x00000000000000aa -> %x30 %x30
+ldr    (%x30)[4byte] %x30 $0x0000000000000055 -> %w30 %x30
+ldr    (%x30)[8byte] %x30 $0x0000000000000055 -> %x30 %x30
+ldr    (%x30)[4byte] %x30 $0xffffffffffffffaa -> %w30 %x30
+ldr    (%x30)[8byte] %x30 $0xffffffffffffffaa -> %x30 %x30
+ldr    (%x30)[4byte] %x30 $0xffffffffffffff55 -> %w30 %x30
+ldr    (%x30)[8byte] %x30 $0xffffffffffffff55 -> %x30 %x30
+ldr base immediate post-index complete
+ldr    +0x81(%x1)[4byte] %x1 $0x0000000000000081 -> %w0 %x1
+ldr    +0x81(%x1)[8byte] %x1 $0x0000000000000081 -> %x0 %x1
+ldr    +0xff(%x1)[4byte] %x1 $0x00000000000000ff -> %w0 %x1
+ldr    +0xff(%x1)[8byte] %x1 $0x00000000000000ff -> %x0 %x1
+ldr    -0x0100(%x1)[4byte] %x1 $0xffffffffffffff00 -> %w0 %x1
+ldr    -0x0100(%x1)[8byte] %x1 $0xffffffffffffff00 -> %x0 %x1
+ldr    +0xaa(%x1)[4byte] %x1 $0x00000000000000aa -> %w0 %x1
+ldr    +0xaa(%x1)[8byte] %x1 $0x00000000000000aa -> %x0 %x1
+ldr    +0x55(%x1)[4byte] %x1 $0x0000000000000055 -> %w0 %x1
+ldr    +0x55(%x1)[8byte] %x1 $0x0000000000000055 -> %x0 %x1
+ldr    -0x56(%x1)[4byte] %x1 $0xffffffffffffffaa -> %w0 %x1
+ldr    -0x56(%x1)[8byte] %x1 $0xffffffffffffffaa -> %x0 %x1
+ldr    -0xab(%x1)[4byte] %x1 $0xffffffffffffff55 -> %w0 %x1
+ldr    -0xab(%x1)[8byte] %x1 $0xffffffffffffff55 -> %x0 %x1
+ldr    +0x81(%x17)[4byte] %x17 $0x0000000000000081 -> %w16 %x17
+ldr    +0x81(%x17)[8byte] %x17 $0x0000000000000081 -> %x16 %x17
+ldr    +0xff(%x17)[4byte] %x17 $0x00000000000000ff -> %w16 %x17
+ldr    +0xff(%x17)[8byte] %x17 $0x00000000000000ff -> %x16 %x17
+ldr    -0x0100(%x17)[4byte] %x17 $0xffffffffffffff00 -> %w16 %x17
+ldr    -0x0100(%x17)[8byte] %x17 $0xffffffffffffff00 -> %x16 %x17
+ldr    +0xaa(%x17)[4byte] %x17 $0x00000000000000aa -> %w16 %x17
+ldr    +0xaa(%x17)[8byte] %x17 $0x00000000000000aa -> %x16 %x17
+ldr    +0x55(%x17)[4byte] %x17 $0x0000000000000055 -> %w16 %x17
+ldr    +0x55(%x17)[8byte] %x17 $0x0000000000000055 -> %x16 %x17
+ldr    -0x56(%x17)[4byte] %x17 $0xffffffffffffffaa -> %w16 %x17
+ldr    -0x56(%x17)[8byte] %x17 $0xffffffffffffffaa -> %x16 %x17
+ldr    -0xab(%x17)[4byte] %x17 $0xffffffffffffff55 -> %w16 %x17
+ldr    -0xab(%x17)[8byte] %x17 $0xffffffffffffff55 -> %x16 %x17
+ldr    +0x81(%x30)[4byte] %x30 $0x0000000000000081 -> %w30 %x30
+ldr    +0x81(%x30)[8byte] %x30 $0x0000000000000081 -> %x30 %x30
+ldr    +0xff(%x30)[4byte] %x30 $0x00000000000000ff -> %w30 %x30
+ldr    +0xff(%x30)[8byte] %x30 $0x00000000000000ff -> %x30 %x30
+ldr    -0x0100(%x30)[4byte] %x30 $0xffffffffffffff00 -> %w30 %x30
+ldr    -0x0100(%x30)[8byte] %x30 $0xffffffffffffff00 -> %x30 %x30
+ldr    +0xaa(%x30)[4byte] %x30 $0x00000000000000aa -> %w30 %x30
+ldr    +0xaa(%x30)[8byte] %x30 $0x00000000000000aa -> %x30 %x30
+ldr    +0x55(%x30)[4byte] %x30 $0x0000000000000055 -> %w30 %x30
+ldr    +0x55(%x30)[8byte] %x30 $0x0000000000000055 -> %x30 %x30
+ldr    -0x56(%x30)[4byte] %x30 $0xffffffffffffffaa -> %w30 %x30
+ldr    -0x56(%x30)[8byte] %x30 $0xffffffffffffffaa -> %x30 %x30
+ldr    -0xab(%x30)[4byte] %x30 $0xffffffffffffff55 -> %w30 %x30
+ldr    -0xab(%x30)[8byte] %x30 $0xffffffffffffff55 -> %x30 %x30
+ldr base immediate pre-index complete
+ldr    (%x1)[4byte] -> %w0
+ldr    (%x1)[8byte] -> %x0
+ldr    +0x0ffc(%x1)[4byte] -> %w0
+ldr    +0x0ff8(%x1)[8byte] -> %x0
+ldr    +0x0aa8(%x1)[4byte] -> %w0
+ldr    +0x0aa8(%x1)[8byte] -> %x0
+ldr    +0x0554(%x1)[4byte] -> %w0
+ldr    +0x0550(%x1)[8byte] -> %x0
+ldr    (%x17)[4byte] -> %w16
+ldr    (%x17)[8byte] -> %x16
+ldr    +0x0ffc(%x17)[4byte] -> %w16
+ldr    +0x0ff8(%x17)[8byte] -> %x16
+ldr    +0x0aa8(%x17)[4byte] -> %w16
+ldr    +0x0aa8(%x17)[8byte] -> %x16
+ldr    +0x0554(%x17)[4byte] -> %w16
+ldr    +0x0550(%x17)[8byte] -> %x16
+ldr    (%x30)[4byte] -> %w30
+ldr    (%x30)[8byte] -> %x30
+ldr    +0x0ffc(%x30)[4byte] -> %w30
+ldr    +0x0ff8(%x30)[8byte] -> %x30
+ldr    +0x0aa8(%x30)[4byte] -> %w30
+ldr    +0x0aa8(%x30)[8byte] -> %x30
+ldr    +0x0554(%x30)[4byte] -> %w30
+ldr    +0x0550(%x30)[8byte] -> %x30
+ldr base immediate offset complete
+ldr    (%x1,%x2,uxtw)[4byte] -> %w0
+ldr    (%x1,%x2,uxtw)[8byte] -> %x0
+ldr    (%x17,%x18,uxtw)[4byte] -> %w16
+ldr    (%x17,%x18,uxtw)[8byte] -> %x16
+ldr    (%x29,%x30,uxtw)[4byte] -> %w30
+ldr    (%x29,%x30,uxtw)[8byte] -> %x30
+ldr    (%x1,%x2)[4byte] -> %w0
+ldr    (%x1,%x2)[8byte] -> %x0
+ldr    (%x17,%x18)[4byte] -> %w16
+ldr    (%x17,%x18)[8byte] -> %x16
+ldr    (%x29,%x30)[4byte] -> %w30
+ldr    (%x29,%x30)[8byte] -> %x30
+ldr    (%x1,%x2,sxtw)[4byte] -> %w0
+ldr    (%x1,%x2,sxtw)[8byte] -> %x0
+ldr    (%x17,%x18,sxtw)[4byte] -> %w16
+ldr    (%x17,%x18,sxtw)[8byte] -> %x16
+ldr    (%x29,%x30,sxtw)[4byte] -> %w30
+ldr    (%x29,%x30,sxtw)[8byte] -> %x30
+ldr    (%x1,%x2,sxtx)[4byte] -> %w0
+ldr    (%x1,%x2,sxtx)[8byte] -> %x0
+ldr    (%x17,%x18,sxtx)[4byte] -> %w16
+ldr    (%x17,%x18,sxtx)[8byte] -> %x16
+ldr    (%x29,%x30,sxtx)[4byte] -> %w30
+ldr    (%x29,%x30,sxtx)[8byte] -> %x30
+ldr base register complete
+ldr    (%x1,%x2,uxtw #2)[4byte] -> %w0
+ldr    (%x1,%x2,uxtw #3)[8byte] -> %x0
+ldr    (%x17,%x18,uxtw #2)[4byte] -> %w16
+ldr    (%x17,%x18,uxtw #3)[8byte] -> %x16
+ldr    (%x29,%x30,uxtw #2)[4byte] -> %w30
+ldr    (%x29,%x30,uxtw #3)[8byte] -> %x30
+ldr    (%x1,%x2,uxtx #2)[4byte] -> %w0
+ldr    (%x1,%x2,uxtx #3)[8byte] -> %x0
+ldr    (%x17,%x18,uxtx #2)[4byte] -> %w16
+ldr    (%x17,%x18,uxtx #3)[8byte] -> %x16
+ldr    (%x29,%x30,uxtx #2)[4byte] -> %w30
+ldr    (%x29,%x30,uxtx #3)[8byte] -> %x30
+ldr    (%x1,%x2,sxtw #2)[4byte] -> %w0
+ldr    (%x1,%x2,sxtw #3)[8byte] -> %x0
+ldr    (%x17,%x18,sxtw #2)[4byte] -> %w16
+ldr    (%x17,%x18,sxtw #3)[8byte] -> %x16
+ldr    (%x29,%x30,sxtw #2)[4byte] -> %w30
+ldr    (%x29,%x30,sxtw #3)[8byte] -> %x30
+ldr    (%x1,%x2,sxtx #2)[4byte] -> %w0
+ldr    (%x1,%x2,sxtx #3)[8byte] -> %x0
+ldr    (%x17,%x18,sxtx #2)[4byte] -> %w16
+ldr    (%x17,%x18,sxtx #3)[8byte] -> %x16
+ldr    (%x29,%x30,sxtx #2)[4byte] -> %w30
+ldr    (%x29,%x30,sxtx #3)[8byte] -> %x30
+ldr base register extend complete
+ldr complete
+str    %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+str    %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+str    %w0 %x0 $0x0000000000000081 -> (%x0)[4byte] %x0
+str    %x0 %x0 $0x0000000000000081 -> (%x0)[8byte] %x0
+str    %w0 %x0 $0x00000000000000ff -> (%x0)[4byte] %x0
+str    %x0 %x0 $0x00000000000000ff -> (%x0)[8byte] %x0
+str    %w0 %x0 $0xffffffffffffff00 -> (%x0)[4byte] %x0
+str    %x0 %x0 $0xffffffffffffff00 -> (%x0)[8byte] %x0
+str    %w0 %x0 $0x00000000000000aa -> (%x0)[4byte] %x0
+str    %x0 %x0 $0x00000000000000aa -> (%x0)[8byte] %x0
+str    %w0 %x0 $0x0000000000000055 -> (%x0)[4byte] %x0
+str    %x0 %x0 $0x0000000000000055 -> (%x0)[8byte] %x0
+str    %w0 %x0 $0xffffffffffffffaa -> (%x0)[4byte] %x0
+str    %x0 %x0 $0xffffffffffffffaa -> (%x0)[8byte] %x0
+str    %w0 %x0 $0xffffffffffffff55 -> (%x0)[4byte] %x0
+str    %x0 %x0 $0xffffffffffffff55 -> (%x0)[8byte] %x0
+str    %w16 %x16 $0x0000000000000000 -> (%x16)[4byte] %x16
+str    %x16 %x16 $0x0000000000000000 -> (%x16)[8byte] %x16
+str    %w16 %x16 $0x0000000000000081 -> (%x16)[4byte] %x16
+str    %x16 %x16 $0x0000000000000081 -> (%x16)[8byte] %x16
+str    %w16 %x16 $0x00000000000000ff -> (%x16)[4byte] %x16
+str    %x16 %x16 $0x00000000000000ff -> (%x16)[8byte] %x16
+str    %w16 %x16 $0xffffffffffffff00 -> (%x16)[4byte] %x16
+str    %x16 %x16 $0xffffffffffffff00 -> (%x16)[8byte] %x16
+str    %w16 %x16 $0x00000000000000aa -> (%x16)[4byte] %x16
+str    %x16 %x16 $0x00000000000000aa -> (%x16)[8byte] %x16
+str    %w16 %x16 $0x0000000000000055 -> (%x16)[4byte] %x16
+str    %x16 %x16 $0x0000000000000055 -> (%x16)[8byte] %x16
+str    %w16 %x16 $0xffffffffffffffaa -> (%x16)[4byte] %x16
+str    %x16 %x16 $0xffffffffffffffaa -> (%x16)[8byte] %x16
+str    %w16 %x16 $0xffffffffffffff55 -> (%x16)[4byte] %x16
+str    %x16 %x16 $0xffffffffffffff55 -> (%x16)[8byte] %x16
+str    %w29 %x29 $0x0000000000000000 -> (%x29)[4byte] %x29
+str    %x29 %x29 $0x0000000000000000 -> (%x29)[8byte] %x29
+str    %w29 %x29 $0x0000000000000081 -> (%x29)[4byte] %x29
+str    %x29 %x29 $0x0000000000000081 -> (%x29)[8byte] %x29
+str    %w29 %x29 $0x00000000000000ff -> (%x29)[4byte] %x29
+str    %x29 %x29 $0x00000000000000ff -> (%x29)[8byte] %x29
+str    %w29 %x29 $0xffffffffffffff00 -> (%x29)[4byte] %x29
+str    %x29 %x29 $0xffffffffffffff00 -> (%x29)[8byte] %x29
+str    %w29 %x29 $0x00000000000000aa -> (%x29)[4byte] %x29
+str    %x29 %x29 $0x00000000000000aa -> (%x29)[8byte] %x29
+str    %w29 %x29 $0x0000000000000055 -> (%x29)[4byte] %x29
+str    %x29 %x29 $0x0000000000000055 -> (%x29)[8byte] %x29
+str    %w29 %x29 $0xffffffffffffffaa -> (%x29)[4byte] %x29
+str    %x29 %x29 $0xffffffffffffffaa -> (%x29)[8byte] %x29
+str    %w29 %x29 $0xffffffffffffff55 -> (%x29)[4byte] %x29
+str    %x29 %x29 $0xffffffffffffff55 -> (%x29)[8byte] %x29
+str base immediate post-index complete
+str    %w0 %x0 $0x0000000000000000 -> (%x0)[4byte] %x0
+str    %x0 %x0 $0x0000000000000000 -> (%x0)[8byte] %x0
+str    %w0 %x0 $0x0000000000000081 -> +0x81(%x0)[4byte] %x0
+str    %x0 %x0 $0x0000000000000081 -> +0x81(%x0)[8byte] %x0
+str    %w0 %x0 $0x00000000000000ff -> +0xff(%x0)[4byte] %x0
+str    %x0 %x0 $0x00000000000000ff -> +0xff(%x0)[8byte] %x0
+str    %w0 %x0 $0xffffffffffffff00 -> -0x0100(%x0)[4byte] %x0
+str    %x0 %x0 $0xffffffffffffff00 -> -0x0100(%x0)[8byte] %x0
+str    %w0 %x0 $0x00000000000000aa -> +0xaa(%x0)[4byte] %x0
+str    %x0 %x0 $0x00000000000000aa -> +0xaa(%x0)[8byte] %x0
+str    %w0 %x0 $0x0000000000000055 -> +0x55(%x0)[4byte] %x0
+str    %x0 %x0 $0x0000000000000055 -> +0x55(%x0)[8byte] %x0
+str    %w0 %x0 $0xffffffffffffffaa -> -0x56(%x0)[4byte] %x0
+str    %x0 %x0 $0xffffffffffffffaa -> -0x56(%x0)[8byte] %x0
+str    %w0 %x0 $0xffffffffffffff55 -> -0xab(%x0)[4byte] %x0
+str    %x0 %x0 $0xffffffffffffff55 -> -0xab(%x0)[8byte] %x0
+str    %w16 %x16 $0x0000000000000000 -> (%x16)[4byte] %x16
+str    %x16 %x16 $0x0000000000000000 -> (%x16)[8byte] %x16
+str    %w16 %x16 $0x0000000000000081 -> +0x81(%x16)[4byte] %x16
+str    %x16 %x16 $0x0000000000000081 -> +0x81(%x16)[8byte] %x16
+str    %w16 %x16 $0x00000000000000ff -> +0xff(%x16)[4byte] %x16
+str    %x16 %x16 $0x00000000000000ff -> +0xff(%x16)[8byte] %x16
+str    %w16 %x16 $0xffffffffffffff00 -> -0x0100(%x16)[4byte] %x16
+str    %x16 %x16 $0xffffffffffffff00 -> -0x0100(%x16)[8byte] %x16
+str    %w16 %x16 $0x00000000000000aa -> +0xaa(%x16)[4byte] %x16
+str    %x16 %x16 $0x00000000000000aa -> +0xaa(%x16)[8byte] %x16
+str    %w16 %x16 $0x0000000000000055 -> +0x55(%x16)[4byte] %x16
+str    %x16 %x16 $0x0000000000000055 -> +0x55(%x16)[8byte] %x16
+str    %w16 %x16 $0xffffffffffffffaa -> -0x56(%x16)[4byte] %x16
+str    %x16 %x16 $0xffffffffffffffaa -> -0x56(%x16)[8byte] %x16
+str    %w16 %x16 $0xffffffffffffff55 -> -0xab(%x16)[4byte] %x16
+str    %x16 %x16 $0xffffffffffffff55 -> -0xab(%x16)[8byte] %x16
+str    %w30 %x30 $0x0000000000000000 -> (%x30)[4byte] %x30
+str    %x30 %x30 $0x0000000000000000 -> (%x30)[8byte] %x30
+str    %w30 %x30 $0x0000000000000081 -> +0x81(%x30)[4byte] %x30
+str    %x30 %x30 $0x0000000000000081 -> +0x81(%x30)[8byte] %x30
+str    %w30 %x30 $0x00000000000000ff -> +0xff(%x30)[4byte] %x30
+str    %x30 %x30 $0x00000000000000ff -> +0xff(%x30)[8byte] %x30
+str    %w30 %x30 $0xffffffffffffff00 -> -0x0100(%x30)[4byte] %x30
+str    %x30 %x30 $0xffffffffffffff00 -> -0x0100(%x30)[8byte] %x30
+str    %w30 %x30 $0x00000000000000aa -> +0xaa(%x30)[4byte] %x30
+str    %x30 %x30 $0x00000000000000aa -> +0xaa(%x30)[8byte] %x30
+str    %w30 %x30 $0x0000000000000055 -> +0x55(%x30)[4byte] %x30
+str    %x30 %x30 $0x0000000000000055 -> +0x55(%x30)[8byte] %x30
+str    %w30 %x30 $0xffffffffffffffaa -> -0x56(%x30)[4byte] %x30
+str    %x30 %x30 $0xffffffffffffffaa -> -0x56(%x30)[8byte] %x30
+str    %w30 %x30 $0xffffffffffffff55 -> -0xab(%x30)[4byte] %x30
+str    %x30 %x30 $0xffffffffffffff55 -> -0xab(%x30)[8byte] %x30
+str base immediate pre-index complete
+str    %w0 -> (%x0)[4byte]
+str    %x0 -> (%x0)[8byte]
+str    %w0 -> +0x0204(%x0)[4byte]
+str    %x0 -> +0x1020(%x0)[8byte]
+str    %w0 -> +0x0ffc(%x0)[4byte]
+str    %x0 -> +0x1ff8(%x0)[8byte]
+str    %w0 -> +0x0aac(%x0)[4byte]
+str    %x0 -> +0x0aa8(%x0)[8byte]
+str    %w16 -> (%x16)[4byte]
+str    %x16 -> (%x16)[8byte]
+str    %w16 -> +0x0204(%x16)[4byte]
+str    %x16 -> +0x1020(%x16)[8byte]
+str    %w16 -> +0x0ffc(%x16)[4byte]
+str    %x16 -> +0x1ff8(%x16)[8byte]
+str    %w16 -> +0x0aac(%x16)[4byte]
+str    %x16 -> +0x0aa8(%x16)[8byte]
+str    %w30 -> (%x30)[4byte]
+str    %x30 -> (%x30)[8byte]
+str    %w30 -> +0x0204(%x30)[4byte]
+str    %x30 -> +0x1020(%x30)[8byte]
+str    %w30 -> +0x0ffc(%x30)[4byte]
+str    %x30 -> +0x1ff8(%x30)[8byte]
+str    %w30 -> +0x0aac(%x30)[4byte]
+str    %x30 -> +0x0aa8(%x30)[8byte]
+str base immediate unsigned offset complete
+str    %w0 -> (%x0,%x1,uxtw)[4byte]
+str    %x0 -> (%x0,%x1,uxtw)[8byte]
+str    %w0 -> (%x0,%x1)[4byte]
+str    %x0 -> (%x0,%x1)[8byte]
+str    %w0 -> (%x0,%x1,sxtw)[4byte]
+str    %x0 -> (%x0,%x1,sxtw)[8byte]
+str    %w0 -> (%x0,%x1,sxtx)[4byte]
+str    %x0 -> (%x0,%x1,sxtx)[8byte]
+str    %w16 -> (%x15,%x16,uxtw)[4byte]
+str    %x16 -> (%x15,%x16,uxtw)[8byte]
+str    %w16 -> (%x15,%x16)[4byte]
+str    %x16 -> (%x15,%x16)[8byte]
+str    %w16 -> (%x15,%x16,sxtw)[4byte]
+str    %x16 -> (%x15,%x16,sxtw)[8byte]
+str    %w16 -> (%x15,%x16,sxtx)[4byte]
+str    %x16 -> (%x15,%x16,sxtx)[8byte]
+str    %w30 -> (%x29,%x30,uxtw)[4byte]
+str    %x30 -> (%x29,%x30,uxtw)[8byte]
+str    %w30 -> (%x29,%x30)[4byte]
+str    %x30 -> (%x29,%x30)[8byte]
+str    %w30 -> (%x29,%x30,sxtw)[4byte]
+str    %x30 -> (%x29,%x30,sxtw)[8byte]
+str    %w30 -> (%x29,%x30,sxtx)[4byte]
+str    %x30 -> (%x29,%x30,sxtx)[8byte]
+str base register complete
+str    %w0 -> (%x0,%x1,uxtw #2)[4byte]
+str    %x0 -> (%x0,%x1,uxtw #3)[8byte]
+str    %w0 -> (%x0,%x1,uxtx #2)[4byte]
+str    %x0 -> (%x0,%x1,uxtx #3)[8byte]
+str    %w0 -> (%x0,%x1,sxtw #2)[4byte]
+str    %x0 -> (%x0,%x1,sxtw #3)[8byte]
+str    %w0 -> (%x0,%x1,sxtx #2)[4byte]
+str    %x0 -> (%x0,%x1,sxtx #3)[8byte]
+str    %w16 -> (%x15,%x16,uxtw #2)[4byte]
+str    %x16 -> (%x15,%x16,uxtw #3)[8byte]
+str    %w16 -> (%x15,%x16,uxtx #2)[4byte]
+str    %x16 -> (%x15,%x16,uxtx #3)[8byte]
+str    %w16 -> (%x15,%x16,sxtw #2)[4byte]
+str    %x16 -> (%x15,%x16,sxtw #3)[8byte]
+str    %w16 -> (%x15,%x16,sxtx #2)[4byte]
+str    %x16 -> (%x15,%x16,sxtx #3)[8byte]
+str    %w30 -> (%x29,%x30,uxtw #2)[4byte]
+str    %x30 -> (%x29,%x30,uxtw #3)[8byte]
+str    %w30 -> (%x29,%x30,uxtx #2)[4byte]
+str    %x30 -> (%x29,%x30,uxtx #3)[8byte]
+str    %w30 -> (%x29,%x30,sxtw #2)[4byte]
+str    %x30 -> (%x29,%x30,sxtw #3)[8byte]
+str    %w30 -> (%x29,%x30,sxtx #2)[4byte]
+str    %x30 -> (%x29,%x30,sxtx #3)[8byte]
+str base register extend complete
+str complete
 All tests complete
