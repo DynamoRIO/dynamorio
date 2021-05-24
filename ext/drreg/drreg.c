@@ -257,9 +257,9 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
         get_where_app_pc(where), get_register_name(reg), slot);
     ASSERT(pt->slot_use[slot] == DR_REG_NULL || pt->slot_use[slot] == reg ||
                /* aflags can be saved and restored using different regs */
-               slot == pt->aflags.slot,
+               slot == (uint)pt->aflags.slot,
            "internal tracking error");
-    if (slot == pt->aflags.slot)
+    if (slot == (uint)pt->aflags.slot)
         pt->aflags.ever_spilled = true;
     pt->slot_use[slot] = reg;
     instr_t *spill_slot_data_label = INSTR_CREATE_label(drcontext);
@@ -298,7 +298,7 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot, release);
     ASSERT(pt->slot_use[slot] == reg ||
                /* aflags can be saved and restored using different regs */
-               (slot == pt->aflags.slot && pt->slot_use[slot] != DR_REG_NULL),
+               (slot == (uint)pt->aflags.slot && pt->slot_use[slot] != DR_REG_NULL),
            "internal tracking error");
     if (release) {
         pt->slot_use[slot] = DR_REG_NULL;
@@ -1896,7 +1896,8 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 "%s @" PFX " found %s to %s offs=0x%x => slot %d\n", __FUNCTION__,
                 prev_pc, spill ? "spill" : "restore", get_register_name(reg), offs, slot);
             if (spill) {
-                if (aflags_in_xax && reg == DR_REG_XAX) {
+                // TODO: Add non-X86 support.
+                if (IF_X86_ELSE(aflags_in_xax && reg == DR_REG_XAX, false)) {
                     spilled_to_aflags = slot;
                 } else if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
                            /* allow redundant spill */

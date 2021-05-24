@@ -181,6 +181,8 @@ main(int argc, const char *argv[])
         test_asm_faultB();
     }
 
+    /* TODO: Add test to verify multi-phase restore of aflags and reg. */
+
 #    if defined(UNIX)
     intercept_signal(SIGILL, (handler_3_t)&handle_signal2, false);
 #    elif defined(WINDOWS)
