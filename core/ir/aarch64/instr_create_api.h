@@ -2434,7 +2434,6 @@ enum {
  * \param Vt3     The third destination vector register operand.
  * \param Vt4     The fourth destination vector register operand.
  * \param Xn      The stack-pointer or GPR to load into the destination vectors.
- * \param Xn      The register to load into Vt and Vt2.
  * \param Xnd     The disposition of Xn.
  * \param index   The index of the vectors
  * \param offset  The post-index offset.
