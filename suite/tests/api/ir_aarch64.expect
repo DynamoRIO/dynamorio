@@ -1459,8 +1459,6 @@ str    %w30 -> (%x29,%x30,sxtx #2)[4byte]
 str    %x30 -> (%x29,%x30,sxtx #3)[8byte]
 str base register extend complete
 str complete
-adrp   <rel> 0x0000000020208000 -> %x1
-adrp complete
 ldpsw  (%x0)[8byte] %x0 $0x0000000000000000 -> %x1 %x2 %x0
 ldpsw  (%x0)[8byte] %x0 $0x0000000000000004 -> %x1 %x2 %x0
 ldpsw  (%x0)[8byte] %x0 $0x00000000000000fc -> %x1 %x2 %x0
