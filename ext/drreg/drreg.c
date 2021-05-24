@@ -1411,7 +1411,7 @@ drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to restore flags before app xax");
         pt->aflags.native = true;
-        // May not need to do this if aflags were saved in xax.
+        /* May not need to do this if aflags were saved in xax. */
         reset_aflags_spill_slot(pt);
     }
     LOG(drcontext, DR_LOG_ALL, 3,
@@ -1896,7 +1896,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 "%s @" PFX " found %s to %s offs=0x%x => slot %d\n", __FUNCTION__,
                 prev_pc, spill ? "spill" : "restore", get_register_name(reg), offs, slot);
             if (spill) {
-                // TODO: Add non-X86 support.
+                /* TODO: Add non-X86 support. */
                 if (IF_X86_ELSE(aflags_in_xax && reg == DR_REG_XAX, false)) {
                     spilled_to_aflags = slot;
                 } else if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
@@ -1929,7 +1929,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #endif
         }
 #ifdef X86
-        // TODO: what if xax is found to be dead, and is not spilled?
+        /* TODO: what if xax is found to be dead, and is not spilled? */
         else if (prev_xax_spill && instr_get_opcode(&inst) == OP_lahf && spill)
             aflags_in_xax = true;
         else if (aflags_in_xax && instr_get_opcode(&inst) == OP_sahf)

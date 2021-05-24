@@ -76,18 +76,22 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
 {
     CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
           "cannot reserve aflags");
+#ifdef X86
     /* Make sure that aflags are spilled to some slot, instead of being stored in xax.
      */
     CHECK(drreg_get_app_value(drcontext, bb, inst, DR_REG_XAX, DR_REG_XCX) ==
               DRREG_SUCCESS,
           "cannot get app value");
+#endif
     uint tls_offs;
     CHECK(drreg_reservation_info(drcontext, DR_REG_NULL, NULL, NULL, &tls_offs) ==
               DRREG_SUCCESS,
           "unable to get reservation info");
     ASSERT(tls_offs != -1);
     /* Make sure that aflags are not dead, which may clear the reserved slot. */
+#ifdef X86
     instrlist_meta_preinsert(bb, instr_get_next_app(inst), INSTR_CREATE_lahf(drcontext));
+#endif
     CHECK(drreg_unreserve_aflags(drcontext, bb, instr_get_next_app(inst)) ==
               DRREG_SUCCESS,
           "cannot unreserve aflags");

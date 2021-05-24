@@ -391,6 +391,13 @@ GLOBAL_LABEL(FUNCNAME:)
         csel     TEST_REG_ASM, x0, x0, gt
         cmp      TEST_REG_ASM, x0
 
+        b        test14
+        /* Test 14: Multi-phase aflags spill slot conflicts. */
+     test14:
+        movz     TEST_REG_ASM, DRREG_TEST_14_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_14_ASM
+        nop
+
         b        epilog
     epilog:
         ret
