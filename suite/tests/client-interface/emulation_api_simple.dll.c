@@ -132,7 +132,7 @@ should_fully_emulate_instr(instr_t *instr)
     return true;
 }
 
-static dr_emit_flags_t
+static void
 emulate_fully(void *drcontext, instrlist_t *bb, instr_t *instr)
 {
 
@@ -264,7 +264,7 @@ should_partly_emulate_instr(instr_t *instr)
     return true;
 }
 
-static dr_emit_flags_t
+static void
 emulate_partly(void *drcontext, instrlist_t *bb, instr_t *instr)
 {
     dr_atomic_add32_return_sum(&count_emulated_partly, 1);
