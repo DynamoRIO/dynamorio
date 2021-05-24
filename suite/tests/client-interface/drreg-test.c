@@ -320,7 +320,15 @@ GLOBAL_LABEL(FUNCNAME:)
         add      REG_XAX, REG_XCX
         jmp      test13_done
      test13_done:
-        jmp     epilog
+        jmp      test14
+        /* Test 14: Multi-phase aflags spill slot conflicts. */
+     test14:
+        mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        nop
+        jmp      test14_done
+     test14_done:
+        jmp      epilog
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
