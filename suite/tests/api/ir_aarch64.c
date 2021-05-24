@@ -7177,10 +7177,10 @@ main(int argc, char *argv[])
     ldr(dcontext);
     str(dcontext);
 
-#if 0 /* TODO i#4847: address memory touching instructions that fail to encode */
+#if 0 /* TODO i#4847: add memory touching instructions */
         adr(dcontext);
+        adrp(dcontext);
 #endif
-    adrp(dcontext);
     ldpsw(dcontext);
     ld2(dcontext);
     ld3(dcontext);
