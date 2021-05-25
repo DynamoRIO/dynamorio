@@ -1126,6 +1126,14 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 1001111000100100000000xxxxxxxxxx     fcvtas    x0 : s5
 0001111001100100000000xxxxxxxxxx     fcvtas    w0 : d5
 1001111001100100000000xxxxxxxxxx     fcvtas    x0 : d5
+0001111000100101000000xxxxxxxxxx     fcvtau    w0 : s5
+1001111000100101000000xxxxxxxxxx     fcvtau    x0 : s5
+0001111001100101000000xxxxxxxxxx     fcvtau    w0 : d5
+1001111001100101000000xxxxxxxxxx     fcvtau    x0 : d5
+0001111000110000000000xxxxxxxxxx     fcvtms    w0 : s5
+1001111000110000000000xxxxxxxxxx     fcvtms    x0 : s5
+0001111001110000000000xxxxxxxxxx     fcvtms    w0 : d5
+1001111001110000000000xxxxxxxxxx     fcvtms    x0 : d5
 0001111000100000000000xxxxxxxxxx     fcvtns    w0 : s5
 1001111000100000000000xxxxxxxxxx     fcvtns    x0 : s5
 0001111001100000000000xxxxxxxxxx     fcvtns    w0 : d5
@@ -1142,6 +1150,10 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 # Floating-point convert (vector) (scalar single-precision and double-precision)
 0101111000100001110010xxxxxxxxxx     fcvtas    s0 : s5
 0101111001100001110010xxxxxxxxxx     fcvtas    d0 : d5
+0111111000100001110010xxxxxxxxxx     fcvtau    s0 : s5
+0111111001100001110010xxxxxxxxxx     fcvtau    d0 : d5
+0101111000100001101110xxxxxxxxxx     fcvtms    s0 : s5
+0101111001100001101110xxxxxxxxxx     fcvtms    d0 : d5
 0101111000100001101010xxxxxxxxxx     fcvtns    s0 : s5
 0101111001100001101010xxxxxxxxxx     fcvtns    d0 : d5
 0101111010100001101010xxxxxxxxxx     fcvtps    s0 : s5
@@ -1151,9 +1163,15 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 
 # Floating-point convert (vector) (vector single-precision and double-precision)
 0x0011100x100001110010xxxxxxxxxx     fcvtas    dq0 : dq5 sd_sz
+0x1011100x100001110010xxxxxxxxxx     fcvtau    dq0 : dq5 sd_sz
+0x0011100x100001101110xxxxxxxxxx     fcvtms    dq0 : dq5 sd_sz
 0x0011100x100001101010xxxxxxxxxx     fcvtns    dq0 : dq5 sd_sz
 0x0011101x100001101010xxxxxxxxxx     fcvtps    dq0 : dq5 sd_sz
 0x1011101x100001101010xxxxxxxxxx     fcvtpu    dq0 : dq5 sd_sz
+000011100x100001011110xxxxxxxxxx     fcvtl     dq0 : dq5 sd_sz
+010011100x100001011110xxxxxxxxxx     fcvtl2    dq0 : dq5 sd_sz
+000011100x100001011010xxxxxxxxxx     fcvtn     dq0 : dq5 sd_sz
+010011100x100001011010xxxxxxxxxx     fcvtn2    dq0 : dq5 sd_sz
 
 # Floating-point convert (scalar, integer)
 x001111000111000000000xxxxxxxxxx     fcvtzs    wx0 : s5
