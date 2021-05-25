@@ -115,8 +115,12 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
                 *user_data = (void *)val1;
                 instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
-            } else
+            } else {
+                if (prev_was_mov_const) {
+                    val1 = val2;
+                }
                 prev_was_mov_const = true;
+            }
         } else
             prev_was_mov_const = false;
     }

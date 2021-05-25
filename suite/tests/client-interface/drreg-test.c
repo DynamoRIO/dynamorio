@@ -501,10 +501,10 @@ GLOBAL_LABEL(FUNCNAME:)
         b        test5
         /* Test 5: fault aflags restore */
      test5:
-        movz     TEST_REG_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
-        movz     xzr, DRREG_TEST_5_ASM
-        movz     xzr, DRREG_TEST_5_ASM
-        msr      nzcv, TEST_REG_ASM
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
+        msr      nzcv, TEST_REG2_ASM
         nop
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
