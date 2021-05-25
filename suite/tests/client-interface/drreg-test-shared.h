@@ -54,6 +54,7 @@
 #    define TEST_REG2 DR_REG_X5
 #    define TEST_REG_ASM x4
 #    define TEST_REG2_ASM x5
+#    define TEST_REG3_ASM x6
 #    define TEST_REG_SIG regs[4]
 #endif
 
