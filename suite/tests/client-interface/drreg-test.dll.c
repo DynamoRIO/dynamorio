@@ -92,9 +92,6 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
 #ifdef X86
     instrlist_meta_preinsert(bb, instr_get_next_app(inst), INSTR_CREATE_lahf(drcontext));
 #endif
-    CHECK(drreg_unreserve_aflags(drcontext, bb, instr_get_next_app(inst)) ==
-              DRREG_SUCCESS,
-          "cannot unreserve aflags");
     return tls_offs;
 }
 
@@ -151,7 +148,9 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             if (instr_is_nop(inst)) {
                 test_14_tls_offs_app2app_spilled_aflags =
                     spill_aflags_to_slot(drcontext, bb, inst);
-                break;
+            } else if (inst == instrlist_last(bb)) {
+                CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                      "cannot unreserve aflags");
             }
         }
     }
@@ -415,6 +414,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             uint tls_offs = spill_aflags_to_slot(drcontext, bb, inst);
             CHECK(test_14_tls_offs_app2app_spilled_aflags != tls_offs,
                   "found conflict in use of aflags spill slot across different phases");
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
         }
     }
 
