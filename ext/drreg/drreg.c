@@ -1868,16 +1868,13 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      * that metadata can be used in this restore state code.
      */
     uint spilled_to[DR_NUM_GPR_REGS];
-    uint spilled_to_aflags = MAX_SPILLS;
+    uint aflags_slot = MAX_SPILLS;
+    reg_id_t aflags_reg = DR_REG_NULL;
     reg_id_t reg;
     instr_t inst;
     byte *prev_pc, *pc = info->fragment_info.cache_start_pc;
     uint offs;
     bool spill;
-#ifdef X86
-    bool prev_xax_spill = false;
-    bool aflags_in_xax = false;
-#endif
     uint slot;
     if (pc == NULL)
         return true; /* fault not in cache */
@@ -1896,9 +1893,19 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 "%s @" PFX " found %s to %s offs=0x%x => slot %d\n", __FUNCTION__,
                 prev_pc, spill ? "spill" : "restore", get_register_name(reg), offs, slot);
             if (spill) {
-                /* TODO: Add non-X86 support. */
-                if (IF_X86_ELSE(aflags_in_xax && reg == DR_REG_XAX, false)) {
-                    spilled_to_aflags = slot;
+                /* XXX: Can it happen that aflags_reg was modified between when we
+                 * recorded the aflags read and now?
+                 */
+                if (reg == aflags_reg) {
+                    if (aflags_slot < MAX_SPILLS && aflags_slot != slot) {
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s @" PFX ": ignoring tool aflags spill\n", __FUNCTION__,
+                            pc);
+                    } else {
+                        aflags_slot = slot;
+                    }
+                    /* Set to DR_REG_NULL as we do not need to track this anymore. */
+                    aflags_reg = DR_REG_NULL;
                 } else if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
                            /* allow redundant spill */
                            spilled_to[GPR_IDX(reg)] != slot) {
@@ -1911,42 +1918,54 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                     spilled_to[GPR_IDX(reg)] = slot;
                 }
             } else {
-                if (spilled_to_aflags == slot)
-                    spilled_to_aflags = MAX_SPILLS;
-                else if (spilled_to[GPR_IDX(reg)] == slot)
+                if (aflags_slot == slot) {
+                    aflags_slot = MAX_SPILLS;
+                    aflags_reg = reg;
+                } else if (spilled_to[GPR_IDX(reg)] == slot)
                     spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
                 else {
                     LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring restore\n",
                         __FUNCTION__, pc);
                 }
             }
-#ifdef X86
-            if (reg == DR_REG_XAX) {
-                prev_xax_spill = true;
-                if (aflags_in_xax)
-                    aflags_in_xax = false;
+        } else if (instr_get_opcode(&inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
+            aflags_reg = IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_dst(&inst, 0)));
+        } else if (aflags_reg != DR_REG_NULL &&
+                   instr_get_opcode(&inst) ==
+                       IF_X86_ELSE(OP_sahf,
+                                   OP_msr &&
+                                       opnd_get_reg(instr_get_src(&inst, 0)) ==
+                                           aflags_reg)) {
+            aflags_reg = DR_REG_NULL;
+        } else if (aflags_reg != DR_REG_NULL) {
+            /* If the reg storing aflags gets written to before being spilled to a slot,
+             * we don't want to confuse a later spill as an aflags spill. This doesn't
+             * handle all possible cases of aflags being swapped around in regs, but
+             * we bail on the more complex instrumentations.
+             */
+            for (int i = 0; i < instr_num_dsts(&inst); i++) {
+                opnd_t opnd = instr_get_dst(&inst, i);
+                if (opnd_is_reg(opnd) && opnd_get_reg(opnd) == aflags_reg) {
+                    aflags_reg = DR_REG_NULL;
+                }
             }
-#endif
         }
-#ifdef X86
-        /* TODO: what if xax is found to be dead, and is not spilled? */
-        else if (prev_xax_spill && instr_get_opcode(&inst) == OP_lahf && spill)
-            aflags_in_xax = true;
-        else if (aflags_in_xax && instr_get_opcode(&inst) == OP_sahf)
-            aflags_in_xax = false;
-#endif
     }
     instr_free(drcontext, &inst);
 
-    if (spilled_to_aflags < MAX_SPILLS IF_X86(|| aflags_in_xax)) {
+    if (aflags_slot < MAX_SPILLS || aflags_reg != DR_REG_NULL) {
         reg_t newval = info->mcontext->xflags;
         reg_t val;
+        if (aflags_reg != DR_REG_NULL) {
 #ifdef X86
-        if (aflags_in_xax)
+            ASSERT(aflags_reg == DR_REG_XAX, "x86 aflags can only be in xax");
             val = info->mcontext->xax;
-        else
+#else
+            val = *(reg_t *)(&info->mcontext->r0 + (aflags_reg - DR_REG_R0));
 #endif
-            val = get_spilled_value(drcontext, spilled_to_aflags);
+        } else {
+            val = get_spilled_value(drcontext, aflags_slot);
+        }
 
         newval = dr_merge_arith_flags(newval, val);
         LOG(drcontext, DR_LOG_ALL, 3, "%s: restoring aflags from " PFX " to " PFX "\n",
