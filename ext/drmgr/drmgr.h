@@ -834,8 +834,9 @@ typedef enum {
      *
      * This flag is used for instruction refactorings that simplify instrumentation:
      * e.g., drutil_expand_rep_string() and drx_expand_scatter_gather().  It is not
-     * used for true emulation of an instruction that is not supported by the current
-     * hardware with an alternative sequence of instructions.
+     * used for true emulation of an instruction, for example, for replacing an
+     * instruction that is not supported by the current hardware with
+     * an alternative sequence of instructions.
      */
     DR_EMULATE_INSTR_ONLY = 0x0004,
 } dr_emulate_options_t;

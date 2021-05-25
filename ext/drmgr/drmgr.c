@@ -3282,6 +3282,9 @@ drmgr_in_emulation_region(void *drcontext, OUT emulated_instr_t *emulation_info)
     if (!pt->in_emulation_region)
         return false;
     if (emulation_info != NULL) {
+        /* The size field supplies compatibility so we copy just the fields the
+         * caller has allocated.
+         */
         size_t size = emulation_info->size;
         if (size > pt->emulation_info.size)
             size = pt->emulation_info.size;

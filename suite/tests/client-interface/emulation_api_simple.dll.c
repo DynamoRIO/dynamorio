@@ -57,6 +57,7 @@
             /* NOCHECK dr_abort(); */                                                \
         }                                                                            \
     } while (0);
+#define PRE instrlist_preinsert
 
 static int count_emulated_fully;
 static int count_emulated_partly;
@@ -97,6 +98,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 static void
 event_exit(void)
 {
+    DR_ASSERT(dr_atomic_load32(&count_emulated_fully) > 0);
+    DR_ASSERT(dr_atomic_load32(&count_emulated_partly) > 0);
 #if VERBOSE
     dr_fprintf(STDERR, "Found and emulated %d instructions fully, %d partly\n",
                dr_atomic_load32(&count_emulated_fully),
@@ -135,7 +138,6 @@ should_fully_emulate_instr(instr_t *instr)
 static void
 emulate_fully(void *drcontext, instrlist_t *bb, instr_t *instr)
 {
-
     dr_atomic_add32_return_sum(&count_emulated_fully, 1);
 
     opnd_t dst = instr_get_dst(instr, 0);
@@ -166,39 +168,41 @@ emulate_fully(void *drcontext, instrlist_t *bb, instr_t *instr)
     /* scratch0 = !src0
      * XXX i#2440 AArch64 missing INSTR_CREATE macros (INSTR_CREATE_orn)
      */
-    instr_t *not0 =
-        instr_create_1dst_4src(drcontext, OP_orn, scratch0, opnd_create_reg(DR_REG_XZR),
-                               src0, OPND_CREATE_LSL(), OPND_CREATE_INT(0));
-    instrlist_preinsert(bb, instr, instr_set_translation(not0, raw_instr_pc));
+    PRE(bb, instr,
+        INSTR_XL8(instr_create_1dst_4src(drcontext, OP_orn, scratch0,
+                                         opnd_create_reg(DR_REG_XZR), src0,
+                                         OPND_CREATE_LSL(), OPND_CREATE_INT(0)),
+                  raw_instr_pc));
 
     /* scratch1 = !src1
      * XXX i#2440 AArch64 missing INSTR_CREATE macros (INSTR_CREATE_orn)
      */
-    instr_t *not1 =
-        instr_create_1dst_4src(drcontext, OP_orn, scratch1, opnd_create_reg(DR_REG_XZR),
-                               src1, OPND_CREATE_LSL(), OPND_CREATE_INT(0));
-    instrlist_preinsert(bb, instr, instr_set_translation(not1, raw_instr_pc));
+    PRE(bb, instr,
+        INSTR_XL8(instr_create_1dst_4src(drcontext, OP_orn, scratch1,
+                                         opnd_create_reg(DR_REG_XZR), src1,
+                                         OPND_CREATE_LSL(), OPND_CREATE_INT(0)),
+                  raw_instr_pc));
 
     /* scratch0 = scratch0 | scratch1
      * XXX i#2440 AArch64 missing INSTR_CREATE macros (INSTR_CREATE_orr)
      */
-    instr_t *or_i =
-        instr_create_1dst_4src(drcontext, OP_orr, scratch0, scratch0, scratch1,
-                               OPND_CREATE_LSL(), OPND_CREATE_INT(0));
-    instrlist_preinsert(bb, instr, instr_set_translation(or_i, raw_instr_pc));
+    PRE(bb, instr,
+        INSTR_XL8(instr_create_1dst_4src(drcontext, OP_orr, scratch0, scratch0, scratch1,
+                                         OPND_CREATE_LSL(), OPND_CREATE_INT(0)),
+                  raw_instr_pc));
 
     /* dst = !scratch0
      * XXX i#2440 AArch64 missing INSTR_CREATE macros (INSTR_CREATE_orn)
      */
-    instr_t *not2 =
-        instr_create_1dst_4src(drcontext, OP_orn, dst, opnd_create_reg(DR_REG_XZR),
-                               scratch0, OPND_CREATE_LSL(), OPND_CREATE_INT(0));
-    instrlist_preinsert(bb, instr, instr_set_translation(not2, raw_instr_pc));
+    PRE(bb, instr,
+        INSTR_XL8(instr_create_1dst_4src(drcontext, OP_orn, dst,
+                                         opnd_create_reg(DR_REG_XZR), scratch0,
+                                         OPND_CREATE_LSL(), OPND_CREATE_INT(0)),
+                  raw_instr_pc));
 
     dr_restore_reg(drcontext, bb, instr, DR_REG_X26, SPILL_SLOT_1);
     dr_restore_reg(drcontext, bb, instr, DR_REG_X27, SPILL_SLOT_2);
 #elif defined(X86_64)
-#    define PRE instrlist_preinsert
     /*  and rax, rdx
      * =>
      *  not rax
@@ -280,7 +284,6 @@ emulate_partly(void *drcontext, instrlist_t *bb, instr_t *instr)
     instr_t *start_derived = INSTR_CREATE_label(drcontext);
     instrlist_meta_preinsert(bb, instr, start_derived);
 
-#define PRE instrlist_preinsert
 #ifdef AARCH64
     /*  ldr reg, [base]
      * =>
@@ -384,14 +387,16 @@ record_instr_fetch_unchanged(instr_t *instr)
 static void
 record_data_addresses_orig(instr_t *instr)
 {
-    DR_ASSERT(should_fully_emulate_instr(instr));
-    DR_ASSERT(!should_partly_emulate_instr(instr));
+    DR_ASSERT(should_fully_emulate_instr(instr) && !should_partly_emulate_instr(instr));
     DR_ASSERT((ptr_uint_t)instr_get_note(instr) != derived_marker);
 }
 
 static void
 record_data_addresses_derived(instr_t *instr)
 {
+    /* For the "partly" case, we should *not* see the original instr
+     * here but instead the replacement.
+     */
     DR_ASSERT(!should_partly_emulate_instr(instr) && !should_fully_emulate_instr(instr));
     DR_ASSERT((ptr_uint_t)instr_get_note(instr) == derived_marker);
 }

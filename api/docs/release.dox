@@ -165,7 +165,8 @@ compatibility changes:
    #DR_EMULATE_REST_OF_BLOCK, indicating an emulation sequence that has no end label
    and includes the rest of the block; and #DR_EMULATE_INSTR_ONLY, indicating
    an emulation for which instrumentation should still examine the
-   emulation sequence for observing data operations.  This change preserves
+   emulation sequence for observing data operations.  A third value is set by
+   drmgr_in_emulation_region(): #DR_EMULATE_FIRST_INSTR.  This flags addition preserves
    binary compatibility, but source code that did not zero the structure could end
    up with an uninitialized flags field when calling drmgr_insert_emulation_start().
 
