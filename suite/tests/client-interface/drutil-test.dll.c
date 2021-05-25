@@ -169,9 +169,6 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             continue;
         }
         CHECK(!drmgr_is_emulation_end(instr), "no end marker expected");
-        CHECK((in_emulation && drmgr_in_emulation_region(drcontext, NULL)) ||
-                  (!in_emulation && !drmgr_in_emulation_region(drcontext, NULL)),
-              "emulation labels do not agree with drmgr_in_emulation_region");
         if (!in_emulation && instr_is_app(instr)) {
             ++num_app_instrs;
             CHECK(!instr_is_stringop_loop(instr), "string loop still here");
