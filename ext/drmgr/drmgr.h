@@ -937,26 +937,24 @@ drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
 /**
  * Must be called during drmgr's insertion phase.  Returns whether the current
  * instruction in the phase is inside an emulation region.  If it returns true,
- * \p emulation_info is filled in with information about the emulation.
+ * \p emulation_info is written with a pointer to information about the emulation.
+ * The pointed-at information's lifetime is the full range of the emulation region.
  *
  * This is a convenience routine that records the state for the
  * drmgr_is_emulation_start() and drmgr_is_emulation_end() labels and the
  * #DR_EMULATE_REST_OF_BLOCK flag to prevent the client having to store state.
  *
- * When calling this function, the \p size field of \p emulation_info should be set
- * using sizeof(). This allows the API to check for compatibility.
- *
  * This is the recommended usage for observational clients in the insertion event,
  * highlighting the different paths for instruction versus data instrumentation:
  *
- *    emulated_instr_t emulation;
+ *    const emulated_instr_t *emulation;
  *    if (drmgr_in_emulation_region(drcontext, &emulation)) {
- *        if (TEST(DR_EMULATE_FIRST_INSTR, emulation.flags)) {
- *            record_instr_fetch(emulation.instr);
- *            if (!TEST(DR_EMULATE_INSTR_ONLY, emulation.flags))
- *                record_data_addresses(emulation.instr);
+ *        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags)) {
+ *            record_instr_fetch(emulation->instr);
+ *            if (!TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
+ *                record_data_addresses(emulation->instr);
  *        } // Else skip further instr fetches until outside emulation region.
- *        if (instr_is_app(exec_instr) && TEST(DR_EMULATE_INSTR_ONLY, emulation.flags))
+ *        if (instr_is_app(exec_instr) && TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
  *            record_data_addresses(exec_instr);
  *    } else if (instr_is_app(exec_instr)) {
  *        record_instr_fetch(exec_instr);
@@ -967,7 +965,7 @@ drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
  */
 DR_EXPORT
 bool
-drmgr_in_emulation_region(void *drcontext, OUT emulated_instr_t *emulation_info);
+drmgr_in_emulation_region(void *drcontext, OUT const emulated_instr_t **emulation_info);
 
 /***************************************************************************
  * UTILITIES

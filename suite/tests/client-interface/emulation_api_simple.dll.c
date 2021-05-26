@@ -59,8 +59,14 @@
     } while (0);
 #define PRE instrlist_preinsert
 
+/* These are atomically incremented for precise counts. */
 static int count_emulated_fully;
 static int count_emulated_partly;
+static int count_record_instr_orig;
+static int count_record_instr_unchanged;
+static int count_record_data_orig;
+static int count_record_data_derived;
+static int count_record_data_unchanged;
 
 static ptr_uint_t derived_marker;
 
@@ -100,6 +106,11 @@ event_exit(void)
 {
     DR_ASSERT(dr_atomic_load32(&count_emulated_fully) > 0);
     DR_ASSERT(dr_atomic_load32(&count_emulated_partly) > 0);
+    DR_ASSERT(dr_atomic_load32(&count_record_instr_orig) > 0);
+    DR_ASSERT(dr_atomic_load32(&count_record_instr_unchanged) > 0);
+    DR_ASSERT(dr_atomic_load32(&count_record_data_orig) > 0);
+    DR_ASSERT(dr_atomic_load32(&count_record_data_derived) > 0);
+    DR_ASSERT(dr_atomic_load32(&count_record_data_unchanged) > 0);
 #if VERBOSE
     dr_fprintf(STDERR, "Found and emulated %d instructions fully, %d partly\n",
                dr_atomic_load32(&count_emulated_fully),
@@ -375,6 +386,11 @@ record_instr_fetch_orig(instr_t *instr)
 {
     DR_ASSERT(should_fully_emulate_instr(instr) || should_partly_emulate_instr(instr));
     DR_ASSERT((ptr_uint_t)instr_get_note(instr) != derived_marker);
+    dr_atomic_add32_return_sum(&count_record_instr_orig, 1);
+    dr_atomic_add32_return_sum(&count_record_instr_unchanged, 1);
+    dr_atomic_add32_return_sum(&count_record_data_orig, 1);
+    dr_atomic_add32_return_sum(&count_record_data_derived, 1);
+    dr_atomic_add32_return_sum(&count_record_data_unchanged, 1);
 }
 
 static void
@@ -413,14 +429,14 @@ event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                 bool for_trace, bool translating, void *user_data)
 {
     /* Use the recommended emulation instrumentation code pattern: */
-    emulated_instr_t emulation;
+    const emulated_instr_t *emulation;
     if (drmgr_in_emulation_region(drcontext, &emulation)) {
-        if (TEST(DR_EMULATE_FIRST_INSTR, emulation.flags)) {
-            record_instr_fetch_orig(emulation.instr);
-            if (!TEST(DR_EMULATE_INSTR_ONLY, emulation.flags))
-                record_data_addresses_orig(emulation.instr);
+        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags)) {
+            record_instr_fetch_orig(emulation->instr);
+            if (!TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
+                record_data_addresses_orig(emulation->instr);
         } /* Else skip further instr fetches until outside emulation region. */
-        if (instr_is_app(inst) && TEST(DR_EMULATE_INSTR_ONLY, emulation.flags))
+        if (instr_is_app(inst) && TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
             record_data_addresses_derived(inst);
     } else if (instr_is_app(inst)) {
         record_instr_fetch_unchanged(inst);

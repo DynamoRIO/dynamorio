@@ -3274,22 +3274,15 @@ drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
 
 DR_EXPORT
 bool
-drmgr_in_emulation_region(void *drcontext, OUT emulated_instr_t *emulation_info)
+drmgr_in_emulation_region(void *drcontext, OUT const emulated_instr_t **emulation_info)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
         return false;
     if (!pt->in_emulation_region)
         return false;
-    if (emulation_info != NULL) {
-        /* The size field supplies compatibility so we copy just the fields the
-         * caller has allocated.
-         */
-        size_t size = emulation_info->size;
-        if (size > pt->emulation_info.size)
-            size = pt->emulation_info.size;
-        memcpy(emulation_info, &pt->emulation_info, size);
-    }
+    if (emulation_info != NULL)
+        *emulation_info = &pt->emulation_info;
     return true;
 }
 
