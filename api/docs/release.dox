@@ -161,6 +161,14 @@ compatibility changes:
    dr_api.h includes the new files, so users including dr_api.h are unaffected.
  - The routines dr_insert_save_fpstate(), dr_insert_restore_fpstate(),
    and dr_insert_get_seg_base() moved from dr_proc.h to dr_ir_utils.h.
+ - Added a flags field to #emulated_instr_t and two emulator-set flags values:
+   #DR_EMULATE_REST_OF_BLOCK, indicating an emulation sequence that has no end label
+   and includes the rest of the block; and #DR_EMULATE_INSTR_ONLY, indicating
+   an emulation for which instrumentation should still examine the
+   emulation sequence for observing data operations.  A third value is set by
+   drmgr_in_emulation_region(): #DR_EMULATE_FIRST_INSTR.  This flags addition preserves
+   binary compatibility, but source code that did not zero the structure could end
+   up with an uninitialized flags field when calling drmgr_insert_emulation_start().
 
 Further non-compatibility-affecting changes include:
 
@@ -206,12 +214,10 @@ Further non-compatibility-affecting changes include:
  - Added instr_zeroes_zmmh() that returns true if an instruction clears the
    upper bits of a ZMM register with zeros.
  - Added instr_clear_label_callback().
- - Added a flags field to #emulated_instr_t and a flags value
-   #DR_EMULATE_REST_OF_BLOCK, indicating an emulation sequence that has no end label
-   and includes the rest of the block.
  - Added #DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS to #drreg_bb_properties_t to
    enable logic that avoids conflicts in spill slots when drreg is used to reserve
    registers in multiple phases.
+ - Added drmgr_in_emulation_region() for more conveniently handling emulation.
 
 **************************************************
 <hr>
