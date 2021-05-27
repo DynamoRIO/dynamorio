@@ -66,7 +66,7 @@
  * specific tests in the client.
  * We limit to 16 bits to work on ARM.
  */
-#define DRREG_TEST_CONST(num) f1f##num
+#define DRREG_TEST_CONST(num) f1##num
 
 #ifdef X86
 /* Set SF,ZF,AF,PF,CF, and bit 1 is always 1 => 0xd7 */
@@ -127,3 +127,6 @@
 
 #define DRREG_TEST_13_ASM MAKE_HEX_ASM(DRREG_TEST_CONST(13))
 #define DRREG_TEST_13_C MAKE_HEX_C(DRREG_TEST_CONST(13))
+
+#define DRREG_TEST_14_ASM MAKE_HEX_ASM(DRREG_TEST_CONST(14))
+#define DRREG_TEST_14_C MAKE_HEX_C(DRREG_TEST_CONST(14))
