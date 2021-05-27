@@ -712,7 +712,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                                    (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID),
                            "instr before 'next' should be a label with spill slot id");
                     ASSERT(instr_get_prev(instr_get_prev(next)) != NULL,
-                           "missing reg restore after app read");
+                           "missing tool value restore after app read");
                     spill_reg(drcontext, pt, reg, pt->reg[GPR_IDX(reg)].slot, bb,
                               instr_get_prev(instr_get_prev(next)));
                 } else {

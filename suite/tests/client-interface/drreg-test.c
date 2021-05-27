@@ -60,9 +60,15 @@ static SIGJMP_BUF mark;
 
 #    if defined(UNIX)
 #        include <signal.h>
+static void
+handle_signal0(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    print("ERROR: did not expect any signal!\n");
+    SIGLONGJMP(mark, 1);
+}
 
 static void
-handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -75,6 +81,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static void
 handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -85,6 +92,7 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static void
 handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -99,6 +107,7 @@ handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
 static void
 handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -113,6 +122,7 @@ handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
 static void
 handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -126,7 +136,14 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
-handle_exception(struct _EXCEPTION_POINTERS *ep)
+handle_exception0(struct _EXCEPTION_POINTERS *ep)
+{
+    print("ERROR: did not expect any signal!\n");
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception1(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
@@ -137,6 +154,7 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static LONG WINAPI
 handle_exception2(struct _EXCEPTION_POINTERS *ep)
 {
@@ -146,6 +164,7 @@ handle_exception2(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static LONG WINAPI
 handle_exception3(struct _EXCEPTION_POINTERS *ep)
 {
@@ -157,6 +176,7 @@ handle_exception3(struct _EXCEPTION_POINTERS *ep)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
 static LONG WINAPI
 handle_exception4(struct _EXCEPTION_POINTERS *ep)
 {
@@ -168,6 +188,7 @@ handle_exception4(struct _EXCEPTION_POINTERS *ep)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
 static LONG WINAPI
 handle_exception5(struct _EXCEPTION_POINTERS *ep)
 {
@@ -178,18 +199,28 @@ handle_exception5(struct _EXCEPTION_POINTERS *ep)
     SIGLONGJMP(mark, 1);
 }
 #    endif
+
 int
 main(int argc, const char *argv[])
 {
+#    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal0, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal0, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception0);
+#    endif
+
     print("drreg-test running\n");
 
-    test_asm();
+    if (SIGSETJMP(mark) == 0) {
+        test_asm();
+    }
 
 #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal1, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal1, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception);
+    SetUnhandledExceptionFilter(&handle_exception1);
 #    endif
 
     /* Test fault reg restore */
@@ -352,9 +383,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fail if reg was not restored correctly. */
         cmp      TEST_REG_ASM, DRREG_TEST_13_ASM
         je       epilog
-        /* Cannot jump to an immediate address on Windows. */
-        mov      TEST_REG_ASM, TEST_INVALID_PC
-        jmp      TEST_REG_ASM
+        ud2
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -397,9 +426,9 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fail if reg was not restored correctly. */
         movw     TEST_REG2_ASM, DRREG_TEST_13_ASM
         cmp      TEST_REG_ASM, TEST_REG2_ASM
-        bne      TEST_INVALID_PC
+        beq      epilog
+        .word 0xe7f000f0 /* udf */
 
-        b        epilog
     epilog:
         bx       lr
 #elif defined(AARCH64)
@@ -439,9 +468,9 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fail if reg was not restored correctly. */
         movz     TEST_REG2_ASM, DRREG_TEST_13_ASM
         cmp      TEST_REG_ASM, TEST_REG2_ASM
-        bne      TEST_INVALID_PC
+        beq      epilog
+        .inst 0xf36d19 /* udf */
 
-        b        epilog
     epilog:
         ret
 #endif

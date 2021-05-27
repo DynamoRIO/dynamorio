@@ -128,8 +128,8 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
             } else if (inst == instrlist_last(bb)) {
                 /* Make sure that TEST_REG isn't dead after its app2app spill.
                  * If it is dead, its next spill will only reserve a slot, but not
-                 * actually write to it. To test the nested restore scenario in
-                 * test13, we need it to actually write.
+                 * actually write to it. To test restore in the multi-phase nested
+                 * spill case (test #13, #14), we need it to actually write.
                  */
                 instrlist_meta_preinsert(bb, inst,
                                          XINST_CREATE_add(drcontext,
