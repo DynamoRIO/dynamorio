@@ -705,7 +705,9 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
          * many complexities that were not worth further work), so we instead
          * use the flag to mark the whole block as emulated.
          */
-        emulated_instr.flags = DR_EMULATE_REST_OF_BLOCK;
+        emulated_instr.flags = DR_EMULATE_REST_OF_BLOCK |
+            /* Tools should instrument the data operations in the sequence. */
+            DR_EMULATE_INSTR_ONLY;
         drmgr_insert_emulation_start(drcontext, bb, inst, &emulated_instr);
 
         pre_loop = INSTR_CREATE_label(drcontext);

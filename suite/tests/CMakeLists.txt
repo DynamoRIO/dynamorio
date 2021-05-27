@@ -2384,10 +2384,11 @@ if (UNIX)
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   endif (X86)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
-  if (AARCH64) # XXX i#3173 Improve testing of emulation API functions
-    tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c "" "" "")
+  if (X64) # XXX i#3173 Improve testing of emulation API functions
+    tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c
+      "" "" "")
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
-  endif (AARCH64)
+  endif ()
 else (UNIX)
   tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
