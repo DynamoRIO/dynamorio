@@ -68,6 +68,9 @@
  */
 #define DRREG_TEST_CONST(num) f1##num
 
+/* PC we jump to when the test fails. */
+#define TEST_INVALID_PC 0
+
 #ifdef X86
 /* Set SF,ZF,AF,PF,CF, and bit 1 is always 1 => 0xd7 */
 #    define DRREG_TEST_AFLAGS_ASM MAKE_HEX_ASM(d7)

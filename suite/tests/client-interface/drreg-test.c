@@ -351,8 +351,10 @@ GLOBAL_LABEL(FUNCNAME:)
      test13_done:
         /* Fail if reg was not restored correctly. */
         cmp      TEST_REG_ASM, DRREG_TEST_13_ASM
-        jne      0
-        jmp      epilog
+        je       epilog
+        /* Cannot jump to an immediate address on Windows. */
+        mov      TEST_REG_ASM, TEST_INVALID_PC
+        jmp      TEST_REG_ASM
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -387,14 +389,15 @@ GLOBAL_LABEL(FUNCNAME:)
         b        test13
         /* Test 13: Multi-phase reg spill slot conflicts. */
      test13:
-        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
-        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_13_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_13_ASM
         nop
         b        test13_done
      test13_done:
         /* Fail if reg was not restored correctly. */
-        cmp      TEST_REG_ASM, DRREG_TEST_13_ASM
-        bne      0
+        movw     TEST_REG2_ASM, DRREG_TEST_13_ASM
+        cmp      TEST_REG_ASM, TEST_REG2_ASM
+        bne      TEST_INVALID_PC
 
         b        epilog
     epilog:
@@ -436,7 +439,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fail if reg was not restored correctly. */
         movz     TEST_REG2_ASM, DRREG_TEST_13_ASM
         cmp      TEST_REG_ASM, TEST_REG2_ASM
-        bne      0
+        bne      TEST_INVALID_PC
 
         b        epilog
     epilog:
