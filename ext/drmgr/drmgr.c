@@ -79,8 +79,10 @@
  */
 #ifdef DEBUG
 #    define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#    define IF_DEBUG(x) x
 #else
 #    define ASSERT(x, msg) /* nothing */
+#    define IF_DEBUG(x)    /* nothing */
 #endif
 
 /***************************************************************************
@@ -203,6 +205,8 @@ typedef struct _per_thread_t {
     instr_t *first_instr;
     instr_t *first_nonlabel_instr;
     instr_t *last_instr;
+    emulated_instr_t emulation_info;
+    bool in_emulation_region;
 } per_thread_t;
 
 /* Emulation note types */
@@ -952,6 +956,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
     pt->first_instr = instrlist_first(bb);
     pt->first_nonlabel_instr = instrlist_first_nonlabel(bb);
     pt->last_instr = instrlist_last(bb);
+    pt->in_emulation_region = false; /* Just to be safe. */
 
     /* For opcode instrumentation:
      * We need to create a local copy of the opcode map.
@@ -970,6 +975,12 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
     /* Main pass for instrumentation. */
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
+        if (!pt->in_emulation_region && drmgr_is_emulation_start(inst)) {
+            IF_DEBUG(bool ok =) drmgr_get_emulated_instr_data(inst, &pt->emulation_info);
+            ASSERT(ok, "should be at emulation start label");
+            pt->in_emulation_region = true;
+            pt->emulation_info.flags |= DR_EMULATE_FIRST_INSTR;
+        }
         if (is_opcode_instrum_applicable && instr_opcode_valid(inst)) {
             opcode = instr_get_opcode(inst);
             local_info->iter_opcode_insert =
@@ -984,6 +995,13 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
         res |= drmgr_bb_event_do_insertion_per_instr(
             drcontext, tag, bb, inst, for_trace, translating, &local_info->iter_insert,
             pair_data, quartet_data);
+        if (pt->in_emulation_region) {
+            pt->emulation_info.flags &= ~DR_EMULATE_FIRST_INSTR;
+            if (drmgr_is_emulation_end(inst) ||
+                (TEST(DR_EMULATE_REST_OF_BLOCK, pt->emulation_info.flags) &&
+                 drmgr_is_last_instr(drcontext, inst)))
+                pt->in_emulation_region = false;
+        }
     }
 
     /* Pass 4: final */
@@ -1670,6 +1688,7 @@ our_thread_init_event(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
     memset(pt, 0, sizeof(*pt));
+    pt->emulation_info.size = sizeof(pt->emulation_info);
     drmgr_set_tls_field(drcontext, our_tls_idx, (void *)pt);
 }
 
@@ -3250,6 +3269,20 @@ drmgr_get_emulated_instr_data(instr_t *instr, emulated_instr_t *emulated)
             (dr_emulate_options_t)get_emul_label_data(instr, DRMGR_EMUL_FLAGS);
     }
 
+    return true;
+}
+
+DR_EXPORT
+bool
+drmgr_in_emulation_region(void *drcontext, OUT const emulated_instr_t **emulation_info)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
+        return false;
+    if (!pt->in_emulation_region)
+        return false;
+    if (emulation_info != NULL)
+        *emulation_info = &pt->emulation_info;
     return true;
 }
 
