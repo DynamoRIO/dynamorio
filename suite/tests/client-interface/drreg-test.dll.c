@@ -85,6 +85,14 @@ spill_test_reg_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst,
     return tls_offs;
 }
 
+static bool
+is_drreg_test_label_marker(instr_t *inst)
+{
+    if (instr_is_label(inst) && instr_get_note(inst) == NOTE_VAL(DRREG_TEST_LABEL_MARKER))
+        return true;
+    return false;
+}
+
 static uint
 spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
 {

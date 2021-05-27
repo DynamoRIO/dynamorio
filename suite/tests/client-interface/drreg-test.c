@@ -199,6 +199,7 @@ handle_exception5(struct _EXCEPTION_POINTERS *ep)
     SIGLONGJMP(mark, 1);
 }
 #    endif
+
 int
 main(int argc, const char *argv[])
 {
@@ -437,6 +438,7 @@ GLOBAL_LABEL(FUNCNAME:)
         cmp      TEST_REG_ASM, TEST_REG2_ASM
         beq      epilog
         .word 0xe7f000f0 /* udf */
+
     epilog:
         bx       lr
 #elif defined(AARCH64)
@@ -464,23 +466,6 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_4_ASM
         csel     TEST_REG_ASM, x0, x0, gt
         cmp      TEST_REG_ASM, x0
-
-        b        test13
-        /* Test 13: Multi-phase reg spill slot conflicts. */
-     test13:
-        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
-        mov      TEST_REG_ASM, DRREG_TEST_13_ASM
-        mov      TEST_REG2_ASM, 123
-        mov      TEST_REG3_ASM, 456
-        nop
-        add      TEST_REG2_ASM, TEST_REG2_ASM, TEST_REG3_ASM
-
-        b        test14
-        /* Test 14: Multi-phase aflags spill slot conflicts. */
-     test14:
-        movz     TEST_REG_ASM, DRREG_TEST_14_ASM
-        movz     TEST_REG_ASM, DRREG_TEST_14_ASM
-        nop
 
         b        test13
         /* Test 13: Multi-phase reg spill slot conflicts. */
