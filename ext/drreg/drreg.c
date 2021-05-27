@@ -702,8 +702,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     }
                     spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
                 }
-                /* If reads and writes, make sure tool-restore and app-spill
-                 * are in the proper order.
+                /* If the instr reads and writes both, make sure that the app-spill
+                 * instr is added **before** the tool-restore instrs added by
+                 * drreg_insert_restore_all called earlier in this routine. Note
+                 * that the tool-restore instrs consists of the actual reg restore and
+                 * a following label (which has some data about spill slot usage).
                  */
                 if (restored_for_read[GPR_IDX(reg)]) {
                     ASSERT(instr_get_prev(next) != NULL &&
