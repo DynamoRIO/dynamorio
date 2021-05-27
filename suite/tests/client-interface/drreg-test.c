@@ -181,16 +181,16 @@ handle_exception5(struct _EXCEPTION_POINTERS *ep)
 int
 main(int argc, const char *argv[])
 {
+    print("drreg-test running\n");
+
+    test_asm();
+
 #    if defined(UNIX)
     intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
     intercept_signal(SIGILL, (handler_3_t)&handle_signal, false);
 #    elif defined(WINDOWS)
     SetUnhandledExceptionFilter(&handle_exception);
 #    endif
-
-    print("drreg-test running\n");
-
-    test_asm();
 
     /* Test fault reg restore */
     if (SIGSETJMP(mark) == 0) {
