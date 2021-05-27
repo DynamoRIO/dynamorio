@@ -49,26 +49,41 @@
 
 #define MAGIC_VAL 0xabcd
 
+static ptr_uint_t note_base;
+#define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
+
+/* Enum describing the different types of notes in drreg-test. */
+enum { DRREG_TEST_LABEL_MARKER, DRREG_TEST_NOTE_COUNT };
+
 uint tls_offs_app2app_spilled_reg;
 
+static bool
+is_drreg_test_label_marker(instr_t *inst)
+{
+    if (instr_is_label(inst) && instr_get_note(inst) == NOTE_VAL(DRREG_TEST_LABEL_MARKER))
+        return true;
+    return false;
+}
+
 static uint
-spill_some_reg_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
+spill_test_reg_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst,
+                       drvector_t *allowed)
 {
     uint tls_offs;
-    /* Loop until some register is spilled to a slot. */
-    do {
-        reg_id_t reg;
-        CHECK(drreg_reserve_register(drcontext, bb, inst, NULL, &reg) == DRREG_SUCCESS,
-              "unable to reserve register");
-        CHECK(drreg_reservation_info(drcontext, reg, NULL, NULL, &tls_offs) ==
-                  DRREG_SUCCESS,
-              "unable to get reservation info");
-        CHECK(drreg_unreserve_register(drcontext, bb, instr_get_next_app(inst), reg) ==
-                  DRREG_SUCCESS,
-              "cannot unreserve register");
-    } while (tls_offs == -1);
+    reg_id_t reg;
+    CHECK(drreg_reserve_register(drcontext, bb, inst, allowed, &reg) == DRREG_SUCCESS,
+          "unable to reserve register");
+    ASSERT(reg == TEST_REG);
+    /* Load with some value so that we need to restore it later. */
+    instrlist_meta_preinsert(bb, inst,
+                             XINST_CREATE_load_int(drcontext, opnd_create_reg(reg),
+                                                   OPND_CREATE_INT32(MAGIC_VAL)));
+    CHECK(drreg_reservation_info(drcontext, reg, NULL, NULL, &tls_offs) == DRREG_SUCCESS,
+          "unable to get reservation info");
+    ASSERT(tls_offs != -1);
     return tls_offs;
 }
+
 static dr_emit_flags_t
 event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
               bool translating, OUT void **user_data)
@@ -76,6 +91,10 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     instr_t *inst;
     bool prev_was_mov_const = false;
     ptr_int_t val1, val2;
+    drvector_t allowed;
+    drreg_init_and_fill_vector(&allowed, false);
+    drreg_set_vector_entry(&allowed, TEST_REG, true);
+
     *user_data = NULL;
     /* Look for duplicate mov immediates telling us which subtest we're in */
     for (inst = instrlist_first_app(bb); inst != NULL; inst = instr_get_next_app(inst)) {
@@ -85,28 +104,44 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 opnd_is_reg(instr_get_dst(inst, 0)) &&
                 opnd_get_reg(instr_get_dst(inst, 0)) == TEST_REG) {
                 *user_data = (void *)val1;
-                instrlist_meta_postinsert(bb, inst, INSTR_CREATE_label(drcontext));
+                instr_t *label = INSTR_CREATE_label(drcontext);
+                instr_set_note(label, NOTE_VAL(DRREG_TEST_LABEL_MARKER));
+                instrlist_meta_postinsert(bb, inst, label);
             } else
                 prev_was_mov_const = true;
         } else
             prev_was_mov_const = false;
     }
-    if (*((ptr_int_t *)user_data) == DRREG_TEST_13_C) {
+    if (*((ptr_int_t *)user_data) == DRREG_TEST_13_C ||
+        *((ptr_int_t *)user_data) == DRREG_TEST_14_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
         /* Reset for this bb. */
         tls_offs_app2app_spilled_reg = -1;
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13: app2app phase\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13/#14: app2app phase\n");
         for (inst = instrlist_first_app(bb); inst != NULL;
              inst = instr_get_next_app(inst)) {
             if (instr_is_nop(inst)) {
                 tls_offs_app2app_spilled_reg =
-                    spill_some_reg_to_slot(drcontext, bb, inst);
-                break;
+                    spill_test_reg_to_slot(drcontext, bb, inst, &allowed);
+            } else if (inst == instrlist_last(bb)) {
+                /* Make sure that TEST_REG isn't dead after its app2app spill.
+                 * If it is dead, its next spill will only reserve a slot, but not
+                 * actually write to it. To test restore in the multi-phase nested
+                 * spill case (test #13, #14), we need it to actually write.
+                 */
+                instrlist_meta_preinsert(bb, inst,
+                                         XINST_CREATE_add(drcontext,
+                                                          opnd_create_reg(TEST_REG),
+                                                          OPND_CREATE_INT32(1)));
+                CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                          DRREG_SUCCESS,
+                      "cannot unreserve register");
             }
         }
     }
+    drvector_delete(&allowed);
     return DR_EMIT_DEFAULT;
 }
 
@@ -281,7 +316,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                subtest == DRREG_TEST_3_C) {
         /* Cross-app-instr tests */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #1/2/3\n");
-        if (instr_is_label(inst)) {
+        if (is_drreg_test_label_marker(inst)) {
             res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
             CHECK(res == DRREG_SUCCESS, "reserve of test reg should work");
             instrlist_meta_preinsert(bb, inst,
@@ -297,7 +332,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C) {
         /* Cross-app-instr aflags test */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4/5\n");
-        if (instr_is_label(inst)) {
+        if (is_drreg_test_label_marker(inst)) {
             res = drreg_reserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
         } else if (instr_is_nop(inst) IF_ARM(
@@ -319,7 +354,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
          * the xl8 point in this test.
          */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #6\n");
-        if (instr_is_label(inst)) {
+        if (is_drreg_test_label_marker(inst)) {
             dr_save_reg(drcontext, bb, inst, TEST_REG, 2);
         } else if (drmgr_is_last_instr(drcontext, inst)) {
             dr_restore_reg(drcontext, bb, inst, TEST_REG, 2);
@@ -350,14 +385,18 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         res = drreg_unreserve_aflags(drcontext, bb, inst);
         CHECK(res == DRREG_SUCCESS, "unreserve of aflags");
 #endif
-    } else if (subtest == DRREG_TEST_13_C) {
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13: insertion phase\n");
+    } else if (subtest == DRREG_TEST_13_C || subtest == DRREG_TEST_14_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13/14: insertion phase\n");
         if (instr_is_nop(inst)) {
             CHECK(tls_offs_app2app_spilled_reg != -1,
                   "unable to use any spill slot in app2app phase.");
-            uint tls_offs = spill_some_reg_to_slot(drcontext, bb, inst);
+            uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, &allowed);
             CHECK(tls_offs_app2app_spilled_reg != tls_offs,
                   "found conflict in use of spill slots across multiple phases");
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
         }
     }
 
@@ -460,6 +499,9 @@ dr_init(client_id_t id)
     drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
     if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
         CHECK(false, "init failed");
+
+    note_base = drmgr_reserve_note_range(DRREG_TEST_NOTE_COUNT);
+    ASSERT(note_base != DRMGR_NOTE_NONE);
 
     /* register events */
     dr_register_exit_event(event_exit);

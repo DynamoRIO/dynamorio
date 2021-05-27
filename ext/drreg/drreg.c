@@ -206,7 +206,7 @@ has_pending_slot_usage_by_prior_pass(per_thread_t *pt, instrlist_t *ilist, instr
         return false;
     for (instr_t *in = where; in != NULL; in = instr_get_next(in)) {
         /* We store data about spill slot usage in the data area of a label instr
-         * immediately preceding the usage.
+         * immediately following the usage.
          */
         if (instr_is_label(in) &&
             instr_get_note(in) == (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID)) {
@@ -254,6 +254,13 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
     if (slot == AFLAGS_SLOT)
         pt->aflags.ever_spilled = true;
     pt->slot_use[slot] = reg;
+    if (slot < ops.num_spill_slots) {
+        dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
+                                tls_slot_offs + slot * sizeof(reg_t), reg);
+    } else {
+        dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
+        dr_save_reg(drcontext, ilist, where, reg, DR_slot);
+    }
     instr_t *spill_slot_data_label = INSTR_CREATE_label(drcontext);
     dr_instr_label_data_t *data = instr_get_label_data_area(spill_slot_data_label);
     ASSERT(data != NULL, "failed to find label's data area");
@@ -264,15 +271,8 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
     }
     instr_set_note(spill_slot_data_label,
                    (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID));
-    /* This must immediately precede the spill instrs inserted below. */
+    /* This must immediately follow the spill instrs inserted above. */
     PRE(ilist, where, spill_slot_data_label);
-    if (slot < ops.num_spill_slots) {
-        dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
-                                tls_slot_offs + slot * sizeof(reg_t), reg);
-    } else {
-        dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
-        dr_save_reg(drcontext, ilist, where, reg, DR_slot);
-    }
 
 #ifdef DEBUG
     if (slot > stats_max_slot)
@@ -293,6 +293,15 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
            "internal tracking error");
     if (release) {
         pt->slot_use[slot] = DR_REG_NULL;
+    }
+    if (slot < ops.num_spill_slots) {
+        dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
+                               tls_slot_offs + slot * sizeof(reg_t), reg);
+    } else {
+        dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
+        dr_restore_reg(drcontext, ilist, where, reg, DR_slot);
+    }
+    if (release) {
         instr_t *spill_slot_data_label = INSTR_CREATE_label(drcontext);
         dr_instr_label_data_t *data = instr_get_label_data_area(spill_slot_data_label);
         ASSERT(data != NULL, "failed to find label's data area");
@@ -303,15 +312,8 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         }
         instr_set_note(spill_slot_data_label,
                        (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID));
-        /* This must immediately precede the restore instrs inserted below. */
+        /* This must immediately follow the restore instrs inserted above. */
         PRE(ilist, where, spill_slot_data_label);
-    }
-    if (slot < ops.num_spill_slots) {
-        dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
-                               tls_slot_offs + slot * sizeof(reg_t), reg);
-    } else {
-        dr_spill_slot_t DR_slot = (dr_spill_slot_t)(slot - ops.num_spill_slots);
-        dr_restore_reg(drcontext, ilist, where, reg, DR_slot);
     }
 }
 
@@ -700,12 +702,26 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                     }
                     spill_reg(drcontext, pt, reg, tmp_slot, bb, inst);
                 }
-                spill_reg(drcontext, pt, reg, pt->reg[GPR_IDX(reg)].slot, bb,
-                          /* If reads and writes, make sure tool-restore and app-spill
-                           * are in the proper order.
-                           */
-                          restored_for_read[GPR_IDX(reg)] ? instr_get_prev(next)
-                                                          : next /*after*/);
+                /* If the instr reads and writes both, make sure that the app-spill
+                 * instr is added **before** the tool-restore instrs added by
+                 * drreg_insert_restore_all called earlier in this routine. Note
+                 * that the tool-restore instrs consist of the actual reg restore and
+                 * a following label (which has some data about spill slot usage).
+                 */
+                if (restored_for_read[GPR_IDX(reg)]) {
+                    ASSERT(instr_get_prev(next) != NULL &&
+                               instr_is_label(instr_get_prev(next)) &&
+                               instr_get_note(instr_get_prev(next)) ==
+                                   (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID),
+                           "instr before 'next' should be a label with spill slot id");
+                    ASSERT(instr_get_prev(instr_get_prev(next)) != NULL,
+                           "missing tool value restore after app read");
+                    spill_reg(drcontext, pt, reg, pt->reg[GPR_IDX(reg)].slot, bb,
+                              instr_get_prev(instr_get_prev(next)));
+                } else {
+                    spill_reg(drcontext, pt, reg, pt->reg[GPR_IDX(reg)].slot, bb,
+                              next /*after*/);
+                }
                 pt->reg[GPR_IDX(reg)].ever_spilled = true;
                 if (!restored_for_read[GPR_IDX(reg)])
                     restore_reg(drcontext, pt, reg, tmp_slot, bb, next /*after*/, true);
