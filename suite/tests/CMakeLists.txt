@@ -4804,6 +4804,7 @@ if (NOT ANDROID AND AARCHXX)
   endif ()
   if (ARM)
     set_tests_properties(
+      code_api|client.drreg-test
       code_api|common.allasm_arm
       code_api|common.allasm_thumb
       code_api|common.broadfun-stress
