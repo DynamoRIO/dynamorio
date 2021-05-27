@@ -312,7 +312,7 @@ restore_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot,
         }
         instr_set_note(spill_slot_data_label,
                        (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID));
-        /* This must immediately precede the restore instrs inserted below. */
+        /* This must immediately follow the restore instrs inserted above. */
         PRE(ilist, where, spill_slot_data_label);
     }
 }
