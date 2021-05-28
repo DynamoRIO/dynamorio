@@ -652,7 +652,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s @%d." PFX ": re-spilling aflags after app write\n", __FUNCTION__,
                 pt->live_idx, get_where_app_pc(inst));
-            /* Appease assert. */
+            /* Release current aflags slot if any. We'll reserve a new one if needed. */
             reset_aflags_spill_slot(pt);
             res = drreg_spill_aflags(drcontext, bb, next /*after*/, pt);
             if (res != DRREG_SUCCESS) {

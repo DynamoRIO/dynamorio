@@ -69,8 +69,6 @@ handle_signal0(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     SIGLONGJMP(mark, 1);
 }
 
-/* TODO: Add test # to each print stmt below. */
-
 static void
 handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -243,8 +241,6 @@ main(int argc, const char *argv[])
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultB();
     }
-
-    /* TODO: Add test to verify multi-phase restore of aflags and reg. */
 
 #    if defined(UNIX)
     intercept_signal(SIGILL, (handler_3_t)&handle_signal2, false);

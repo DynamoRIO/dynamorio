@@ -113,7 +113,6 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
                              INSTR_CREATE_msr(drcontext, opnd_create_reg(DR_REG_NZCV),
                                               opnd_create_reg(TEST_REG2)));
 #endif
-
     uint tls_offs;
     CHECK(drreg_reservation_info(drcontext, DR_REG_NULL, NULL, NULL, &tls_offs) ==
               DRREG_SUCCESS,
@@ -199,19 +198,17 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 tls_offs_app2app_spilled_aflags =
                     spill_aflags_to_slot(drcontext, bb, inst);
             } else if (inst == instrlist_last(bb)) {
-
                 /* Make sure that aflags are not dead, otherwise drreg may not even
                  * reserve a spill slot.
                  */
 #ifdef X86
-
                 instrlist_meta_preinsert(bb, inst, INSTR_CREATE_lahf(drcontext));
 #elif defined(ARM)
                 instrlist_meta_preinsert(bb, inst,
                                          INSTR_CREATE_mrs(drcontext,
                                                           opnd_create_reg(TEST_REG2),
                                                           opnd_create_reg(DR_REG_CPSR)));
-#elif defined(AARCHXX)
+#elif defined(AARCH64)
                 /* XXX i#4930: This is not yet needed on AArch64 because aflags are always
                  * live. If i#4930 is fixed, we'd need to read NZCV.
                  */
