@@ -77,11 +77,11 @@ handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_3_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #3!\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
-            print("ERROR: spilled flags value was not preserved!\n");
+            print("ERROR: spilled flags value was not preserved in test #5!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -92,7 +92,7 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_7_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #6!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -104,7 +104,7 @@ handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->SC_XAX != DRREG_TEST_9_C) {
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #8!\n");
             exit(1);
         }
     }
@@ -119,7 +119,7 @@ handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->SC_XAX != DRREG_TEST_11_C) {
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #10!\n");
             exit(1);
         }
     }
@@ -133,11 +133,11 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_14_C)
-            print("ERROR5: spilled register value was not preserved!\n");
+            print("ERROR5: spilled register value was not preserved in test #14!\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
-            print("ERROR: spilled flags value was not preserved!\n");
+            print("ERROR: spilled flags value was not preserved in test #16!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -155,10 +155,10 @@ handle_exception1(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #3!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
-            print("ERROR: spilled flags value was not preserved!\n");
+            print("ERROR: spilled flags value was not preserved in test #5!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -168,7 +168,7 @@ handle_exception2(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_7_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #6!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -179,7 +179,7 @@ handle_exception3(struct _EXCEPTION_POINTERS *ep)
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_9_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #8!\n");
     }
 #        endif
     SIGLONGJMP(mark, 1);
@@ -191,7 +191,7 @@ handle_exception4(struct _EXCEPTION_POINTERS *ep)
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_XAX_CXT != DRREG_TEST_11_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #10!\n");
     }
 #        endif
     SIGLONGJMP(mark, 1);
@@ -202,10 +202,10 @@ handle_exception5(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_14_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #14!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
-            print("ERROR: spilled flags value was not preserved!\n");
+            print("ERROR: spilled flags value was not preserved in test #16!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -505,9 +505,9 @@ GLOBAL_LABEL(FUNCNAME:)
         .inst 0xf36d19 /* udf */
 
     test15:
+        movz     TEST_REG_ASM, DRREG_TEST_15_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_15_ASM
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
-        movz     TEST_REG_ASM, DRREG_TEST_15_ASM
-        movz     TEST_REG_ASM, DRREG_TEST_15_ASM
         msr      nzcv, TEST_REG2_ASM
         nop
         b        test15_done
@@ -621,9 +621,9 @@ GLOBAL_LABEL(FUNCNAME:)
         b        test5
         /* Test 5: fault aflags restore */
      test5:
+        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
-        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
-        movz     TEST_REG_ASM, DRREG_TEST_5_ASM
         msr      nzcv, TEST_REG2_ASM
         nop
         mov      x0, HEX(0)
@@ -841,9 +841,9 @@ GLOBAL_LABEL(FUNCNAME:)
         /* XXX i#3289: prologue missing */
         b        test16
      test16:
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
-        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
-        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
         msr      nzcv, TEST_REG2_ASM
         nop
         mov      x0, HEX(0)

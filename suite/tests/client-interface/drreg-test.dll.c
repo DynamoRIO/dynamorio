@@ -146,10 +146,13 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 instr_set_note(label, NOTE_VAL(DRREG_TEST_LABEL_MARKER));
                 instrlist_meta_postinsert(bb, inst, label);
             } else {
-                if (prev_was_mov_const) {
+                /* This is needed in order to catch the pair of duplicate mov immediates
+                 * if they occur later in a sequence of mov instrs.
+                 */
+                if (prev_was_mov_const)
                     val1 = val2;
-                }
-                prev_was_mov_const = true;
+                else
+                    prev_was_mov_const = true;
             }
         } else
             prev_was_mov_const = false;
