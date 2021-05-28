@@ -459,8 +459,11 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fail if reg was not restored correctly. */
         movw     TEST_REG2_ASM, DRREG_TEST_13_ASM
         cmp      TEST_REG_ASM, TEST_REG2_ASM
-        beq      epilog
+        beq      test15
         .word 0xe7f000f0 /* udf */
+        /* Test 15: not implemented yet for ARM */
+     test15:
+        b        epilog
 
     epilog:
         bx       lr
@@ -837,6 +840,14 @@ GLOBAL_LABEL(FUNCNAME:)
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
         ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test16
+        /* Test 16: not implemented for ARM */
+     test16:
+        b        epilog16
+    epilog16:
+        bx       lr
 #elif defined(AARCH64)
         /* XXX i#3289: prologue missing */
         b        test16
