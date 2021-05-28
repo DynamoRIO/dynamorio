@@ -106,6 +106,7 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
 #elif defined(ARM)
     instrlist_meta_preinsert(bb, inst,
                              INSTR_CREATE_msr(drcontext, opnd_create_reg(DR_REG_CPSR),
+                                              OPND_CREATE_INT_MSR_NZCVQG(),
                                               opnd_create_reg(TEST_REG2)));
 #elif defined(AARCH64)
     instrlist_meta_preinsert(bb, inst,
