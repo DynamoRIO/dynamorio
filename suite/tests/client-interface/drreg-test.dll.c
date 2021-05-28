@@ -97,15 +97,27 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
               DRREG_SUCCESS,
           "cannot get app value");
 #endif
+    /* Load with some value so that we need to restore it later. */
+    instrlist_meta_preinsert(bb, inst,
+                             XINST_CREATE_load_int(drcontext, opnd_create_reg(TEST_REG2),
+                                                   OPND_CREATE_INT32(MAGIC_VAL)));
+#ifdef X86
+    instrlist_meta_preinsert(bb, inst, INSTR_CREATE_sahf(drcontext));
+#elif defined(ARM)
+    instrlist_meta_preinsert(bb, inst,
+                             INSTR_CREATE_msr(drcontext, opnd_create_reg(DR_REG_CPSR),
+                                              opnd_create_reg(TEST_REG2)));
+#elif defined(AARCH64)
+    instrlist_meta_preinsert(bb, inst,
+                             INSTR_CREATE_msr(drcontext, opnd_create_reg(DR_REG_NZCV),
+                                              opnd_create_reg(TEST_REG2)));
+#endif
+
     uint tls_offs;
     CHECK(drreg_reservation_info(drcontext, DR_REG_NULL, NULL, NULL, &tls_offs) ==
               DRREG_SUCCESS,
           "unable to get reservation info");
     ASSERT(tls_offs != -1);
-    /* Make sure that aflags are not dead, which may clear the reserved slot. */
-#ifdef X86
-    instrlist_meta_preinsert(bb, instr_get_next_app(inst), INSTR_CREATE_lahf(drcontext));
-#endif
     return tls_offs;
 }
 
@@ -169,19 +181,37 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve register");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_15_C) {
+    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_15_C ||
+               *((ptr_int_t *)user_data) == DRREG_TEST_16_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
         /* Reset for this bb. */
         tls_offs_app2app_spilled_aflags = -1;
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15: app2app phase\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15/16: app2app phase\n");
         for (inst = instrlist_first_app(bb); inst != NULL;
              inst = instr_get_next_app(inst)) {
             if (instr_is_nop(inst)) {
                 tls_offs_app2app_spilled_aflags =
                     spill_aflags_to_slot(drcontext, bb, inst);
             } else if (inst == instrlist_last(bb)) {
+
+                /* Make sure that aflags are not dead, otherwise drreg may not even
+                 * reserve a spill slot.
+                 */
+#ifdef X86
+
+                instrlist_meta_preinsert(bb, inst, INSTR_CREATE_lahf(drcontext));
+#elif defined(ARM)
+                instrlist_meta_preinsert(bb, inst,
+                                         INSTR_CREATE_mrs(drcontext,
+                                                          opnd_create_reg(TEST_REG2),
+                                                          opnd_create_reg(DR_REG_CPSR)));
+#elif defined(AARCHXX)
+                /* XXX i#4930: This is not yet needed on AArch64 because aflags are always
+                 * live. If i#4930 is fixed, we'd need to read NZCV.
+                 */
+#endif
                 CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                       "cannot unreserve aflags");
             }
@@ -444,8 +474,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       DRREG_SUCCESS,
                   "cannot unreserve register");
         }
-    } else if (subtest == DRREG_TEST_15_C) {
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15: insertion phase\n");
+    } else if (subtest == DRREG_TEST_15_C || subtest == DRREG_TEST_16_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15/16: insertion phase\n");
         if (instr_is_nop(inst)) {
             CHECK(tls_offs_app2app_spilled_aflags != -1,
                   "unable to use any spill slot for aflags in app2app phase.");

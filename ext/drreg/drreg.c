@@ -239,8 +239,13 @@ find_free_slot(per_thread_t *pt, instrlist_t *ilist, instr_t *where)
 static void
 reset_aflags_spill_slot(per_thread_t *pt)
 {
+    /* May not need to do this if aflags were saved in some reg (like xax). */
     if (pt->aflags.slot != DRREG_AFLAGS_NO_SLOT) {
         pt->slot_use[pt->aflags.slot] = DR_REG_NULL;
+        /* Unlike pt->reg[_].slot, we need to make sure to reset pt->aflags.slot
+         * as we use this field to determine whether we are spilling/restoring
+         * aflags.
+         */
         pt->aflags.slot = DRREG_AFLAGS_NO_SLOT;
     }
 }
@@ -1427,7 +1432,6 @@ drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to restore flags before app xax");
         pt->aflags.native = true;
-        /* May not need to do this if aflags were saved in xax. */
         reset_aflags_spill_slot(pt);
     }
     LOG(drcontext, DR_LOG_ALL, 3,

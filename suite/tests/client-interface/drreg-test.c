@@ -55,6 +55,8 @@ void
 test_asm_faultE();
 void
 test_asm_faultF();
+void
+test_asm_faultG();
 
 static SIGJMP_BUF mark;
 
@@ -66,6 +68,8 @@ handle_signal0(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     print("ERROR: did not expect any signal!\n");
     SIGLONGJMP(mark, 1);
 }
+
+/* TODO: Add test # to each print stmt below. */
 
 static void
 handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
@@ -130,6 +134,10 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_14_C)
             print("ERROR5: spilled register value was not preserved!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+            print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -195,6 +203,9 @@ handle_exception5(struct _EXCEPTION_POINTERS *ep)
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_14_C)
             print("ERROR: spilled register value was not preserved!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+            print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -275,6 +286,7 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal5, false);
     intercept_signal(SIGILL, (handler_3_t)&handle_signal5, false);
 #    elif defined(WINDOWS)
     SetUnhandledExceptionFilter(&handle_exception5);
@@ -283,6 +295,11 @@ main(int argc, const char *argv[])
     /* Test fault reg restore (multi-phase) */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultF();
+    }
+
+    /* Test fault aflags restore (multi-phase) */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultG();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -390,10 +407,16 @@ GLOBAL_LABEL(FUNCNAME:)
      test15:
         mov      TEST_REG_ASM, DRREG_TEST_15_ASM
         mov      TEST_REG_ASM, DRREG_TEST_15_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
         nop
         jmp      test15_done
      test15_done:
-        jmp      epilog
+        /* Fail if aflags were not restored correctly. */
+        lahf
+        cmp      ah, DRREG_TEST_AFLAGS_ASM
+        je       epilog
+        ud2
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -478,8 +501,24 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fail if reg was not restored correctly. */
         movz     TEST_REG2_ASM, DRREG_TEST_13_ASM
         cmp      TEST_REG_ASM, TEST_REG2_ASM
+        beq      test15
+        .inst 0xf36d19 /* udf */
+
+    test15:
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        movz     TEST_REG_ASM, DRREG_TEST_15_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_15_ASM
+        msr      nzcv, TEST_REG2_ASM
+        nop
+        b        test15_done
+     test15_done:
+        /* Fail if aflags were not restored correctly. */
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        mrs      TEST_REG_ASM, nzcv
+        cmp      TEST_REG2_ASM, TEST_REG_ASM
         beq      epilog
         .inst 0xf36d19 /* udf */
+
     epilog:
         ret
 #endif
@@ -769,6 +808,49 @@ GLOBAL_LABEL(FUNCNAME:)
 
         b        epilog14
     epilog14:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 16: restore on fault for aflags reserved in multiple phases */
+#define FUNCNAME test_asm_faultG
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test16
+     test16:
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        nop
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+
+        jmp      epilog16
+     epilog16:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test16
+     test16:
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
+        msr      nzcv, TEST_REG2_ASM
+        nop
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog16
+    epilog16:
         ret
 #endif
         END_FUNC(FUNCNAME)
