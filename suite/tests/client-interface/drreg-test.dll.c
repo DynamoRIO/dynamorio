@@ -398,6 +398,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       DRREG_SUCCESS,
                   "cannot unreserve register");
         }
+#ifdef X86
     } else if (subtest == DRREG_TEST_17_C) {
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
         if (instr_is_nop(inst)) {
@@ -412,6 +413,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot unreserve aflags");
         }
+#endif
     }
 
     drvector_delete(&allowed);

@@ -802,6 +802,10 @@ GLOBAL_LABEL(FUNCNAME:)
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
         ret
+#elif defined(ARM)
+        bx       lr
+#elif defined(AARCH64)
+        ret
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
