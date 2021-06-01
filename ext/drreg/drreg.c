@@ -1918,6 +1918,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                  */
                 if (reg == aflags_reg) {
                     if (aflags_slot < MAX_SPILLS && aflags_slot != slot) {
+                        /* TODO PR#4917: Aflags respill to preserve tool value is broken
+                         * as we select a different slot then also.
+                         */
                         LOG(drcontext, DR_LOG_ALL, 3,
                             "%s @" PFX ": ignoring tool aflags spill\n", __FUNCTION__,
                             pc);
@@ -1949,6 +1952,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 }
             }
         } else if (instr_get_opcode(&inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
+            /* TODO PR#4917: We cannot currently detect whether this spill is for tool
+             * value or app value of aflags.
+             */
             aflags_reg = IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_dst(&inst, 0)));
         } else if (aflags_reg != DR_REG_NULL &&
                    instr_get_opcode(&inst) ==
