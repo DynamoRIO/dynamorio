@@ -53,14 +53,22 @@ void
 test_asm_faultD();
 void
 test_asm_faultE();
+void
+test_asm_faultF();
 
 static SIGJMP_BUF mark;
 
 #    if defined(UNIX)
 #        include <signal.h>
+static void
+handle_signal0(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    print("ERROR: did not expect any signal!\n");
+    SIGLONGJMP(mark, 1);
+}
 
 static void
-handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -73,6 +81,7 @@ handle_signal(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static void
 handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -83,6 +92,7 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static void
 handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -97,6 +107,7 @@ handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
 static void
 handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -111,10 +122,28 @@ handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
+static void
+handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_14_C)
+            print("ERROR5: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
-handle_exception(struct _EXCEPTION_POINTERS *ep)
+handle_exception0(struct _EXCEPTION_POINTERS *ep)
+{
+    print("ERROR: did not expect any signal!\n");
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception1(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
@@ -125,6 +154,7 @@ handle_exception(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static LONG WINAPI
 handle_exception2(struct _EXCEPTION_POINTERS *ep)
 {
@@ -134,6 +164,7 @@ handle_exception2(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
+
 static LONG WINAPI
 handle_exception3(struct _EXCEPTION_POINTERS *ep)
 {
@@ -145,6 +176,7 @@ handle_exception3(struct _EXCEPTION_POINTERS *ep)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
 static LONG WINAPI
 handle_exception4(struct _EXCEPTION_POINTERS *ep)
 {
@@ -156,20 +188,40 @@ handle_exception4(struct _EXCEPTION_POINTERS *ep)
 #        endif
     SIGLONGJMP(mark, 1);
 }
+
+static LONG WINAPI
+handle_exception5(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_14_C)
+            print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
 #    endif
+
 int
 main(int argc, const char *argv[])
 {
 #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal, false);
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal0, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal0, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception);
+    SetUnhandledExceptionFilter(&handle_exception0);
 #    endif
 
     print("drreg-test running\n");
 
-    test_asm();
+    if (SIGSETJMP(mark) == 0) {
+        test_asm();
+    }
+
+#    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal1, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal1, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception1);
+#    endif
 
     /* Test fault reg restore */
     if (SIGSETJMP(mark) == 0) {
@@ -218,6 +270,17 @@ main(int argc, const char *argv[])
      */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultE();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal5, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception5);
+#    endif
+
+    /* Test fault reg restore (multi-phase) */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultF();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -314,13 +377,13 @@ GLOBAL_LABEL(FUNCNAME:)
      test13:
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
-        mov      REG_XAX, 123
-        mov      REG_XCX, 456
         nop
-        add      REG_XAX, REG_XCX
         jmp      test13_done
      test13_done:
-        jmp     epilog
+        /* Fail if reg was not restored correctly. */
+        cmp      TEST_REG_ASM, DRREG_TEST_13_ASM
+        je       epilog
+        ud2
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -352,7 +415,20 @@ GLOBAL_LABEL(FUNCNAME:)
         sel      TEST_REG_ASM, r0, r0
         cmp      TEST_REG_ASM, sp
 
-        b        epilog
+        b        test13
+        /* Test 13: Multi-phase reg spill slot conflicts. */
+     test13:
+        movw     TEST_REG_ASM, DRREG_TEST_13_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_13_ASM
+        nop
+        b        test13_done
+     test13_done:
+        /* Fail if reg was not restored correctly. */
+        movw     TEST_REG2_ASM, DRREG_TEST_13_ASM
+        cmp      TEST_REG_ASM, TEST_REG2_ASM
+        beq      epilog
+        .word 0xe7f000f0 /* udf */
+
     epilog:
         bx       lr
 #elif defined(AARCH64)
@@ -381,7 +457,20 @@ GLOBAL_LABEL(FUNCNAME:)
         csel     TEST_REG_ASM, x0, x0, gt
         cmp      TEST_REG_ASM, x0
 
-        b        epilog
+        b        test13
+        /* Test 13: Multi-phase reg spill slot conflicts. */
+     test13:
+        movz     TEST_REG_ASM, DRREG_TEST_13_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_13_ASM
+        nop
+        b        test13_done
+     test13_done:
+        /* Fail if reg was not restored correctly. */
+        movz     TEST_REG2_ASM, DRREG_TEST_13_ASM
+        cmp      TEST_REG_ASM, TEST_REG2_ASM
+        beq      epilog
+        .inst 0xf36d19 /* udf */
+
     epilog:
         ret
 #endif
@@ -626,6 +715,56 @@ OB        jmp      test10
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+        /* Test 14: restore on fault for gpr reserved in multiple phases */
+#define FUNCNAME test_asm_faultF
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test14
+     test14:
+        mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+        nop
+        ud2
+
+        jmp      epilog14
+     epilog14:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test14
+     test14:
+        movw     TEST_REG_ASM, DRREG_TEST_14_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_14_ASM
+        nop
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog14
+    epilog14:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test14
+     test14:
+        movz     TEST_REG_ASM, DRREG_TEST_14_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_14_ASM
+        nop
+        .inst 0xf36d19 /* udf */
+
+        b        epilog14
+    epilog14:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 END_FILE
 #endif
 /* clang-format on */

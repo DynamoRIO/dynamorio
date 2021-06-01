@@ -2063,6 +2063,29 @@ enum {
 #define INSTR_CREATE_frinti_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frinti, Rd, Rm)
 
+/**
+ * Creates a LDPSW floating point instruction.
+ * \param dc    The void * dcontext used to allocate memory for the instr_t.
+ * \param Xt1   The first GPR output register.
+ * \param Xt2   The second GPR output register.
+ * \param Xn    The input Stack-pointer or GPR register.
+ * \param Xr    The disposition of the input Stack-pointer or GPR register.
+ * \param imm   The immediate integer offset.
+ */
+
+#define INSTR_CREATE_ldpsw(dc, Xt1, Xt2, Xn, Xr, imm) \
+    instr_create_3dst_3src(dc, OP_ldpsw, Xt1, Xt2, Xn, Xr, Xn, imm)
+
+/**
+ * Creates a LDPSW floating point instruction.
+ * \param dc    dc
+ * \param Xt1   The first GPR output register.
+ * \param Xt2   The second GPR output register.
+ * \param Xn    The disposition of the input register.
+ */
+#define INSTR_CREATE_ldpsw_2(dc, Xt1, Xt2, Xn) \
+    instr_create_2dst_1src(dc, OP_ldpsw, Xt1, Xt2, Xn)
+
 /* -------- Floating-point data-processing (2 source) ------------------ */
 
 /**
@@ -2203,6 +2226,252 @@ enum {
 
 /* Advanced SIMD (NEON) memory instructions */
 
+#define INSTR_CREATE_ld2_multi(dc, Vt1, Vt2, Xn, index) \
+    instr_create_2dst_2src(dc, OP_ld2, Vt1, Vt2, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2 instruction to load multiple 2-element
+ * structures to two vector registers with post-indexing, e.g. LD2 {V0.4H, V1.4H}, [X0],
+ * #32. \param dc      The void * dcontext used to allocate memory for the instr_t. \param
+ * Vt1     The destination vector register operand. \param Vt2     The second destination
+ * vector register operand. \param Xn      The stack-pointer or GPR to load into Vt1 and
+ * Vt2. \param disp    The disposition of Xn. \param index   The element index of the
+ * vectors. \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld2_multi_2(dc, Vt1, Vt2, Xn, disp, index, offset) \
+    instr_create_3dst_4src(dc, OP_ld2, Vt1, Vt2, Xn, disp, index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2 instruction to load a 2-element
+ * structure to the index of two vector registers, e.g. LD2 {V0.4H, V1.4H}[5], [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1 and Vt2.
+ * \param index   The vector element index.
+ */
+#define INSTR_CREATE_ld2(dc, Vt1, Vt2, Xn, index) \
+    instr_create_2dst_2src(dc, OP_ld2, Vt1, Vt2, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2 instruction to load a 2-element
+ * structure to the index of two vector registers with post-indexing,
+ * e.g. LD2 {V0.4H, V1.4H}[5], [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into Vt and Vt2.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the destination vectors.
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld2_2(dc, Vt1, Vt2, Xn, Xnd, index, offset) \
+    instr_create_3dst_6src(dc, OP_ld2, Vt1, Vt2, Xn, Vt1, Vt2, Xnd, index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2R instruction to load and replicate a
+ * single 2-element structure to all lanes of two vector registers,
+ * e.g. LD2R {V0.4H, V1.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1 and Vt2.
+ */
+#define INSTR_CREATE_ld2r(dc, Vt1, Vt2, Xn) \
+    instr_create_2dst_1src(dc, OP_ld2r, Vt1, Vt2, Xn)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2R instruction to load and replicate a
+ * single 2-element structure to all lanes of two vector registers with post-indexing
+ * , e.g. LD2R {V0.4H, V1.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt and Vt2.
+ * \param Xnd     Disposition of Xn.
+ * \param Xm      The post-index offset.
+ */
+#define INSTR_CREATE_ld2r_2(dc, Vt1, Vt2, Xn, Xnd, Xm) \
+    instr_create_3dst_3src(dc, OP_ld2r, Vt1, Vt2, Xn, Xnd, Xn, Xm)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load multiple 3-element
+ * structures from memory to three vector register,
+ * e.g. LD3 {V0.4H, V1.4H, V2.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1, Vt2 and Vt3.
+ * \param index   The index of the vectors.
+ */
+#define INSTR_CREATE_ld3_multi(dc, Vt1, Vt2, Vt3, Xn, index) \
+    instr_create_3dst_2src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load multiple 3-element
+ * structures from memory to the index of three vector registers with
+ * post-index offset, e.g. LD3 {V0.4H, V1.4H, V2.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1, Vt2 and Vt3.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the vectors.
+ * \param Xm      The post-index offset.
+ */
+#define INSTR_CREATE_ld3_multi_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, index, Xm) \
+    instr_create_4dst_4src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, Xnd, index, Xn, Xm)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load a single 3-element
+ * structure to the index of three vector registers, e.g. LD3 {V0.4H, V1.4H, V2.4H}[15],
+ * [X0]. \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The GPR to load into Vt1, Vt2 and Vt3.
+ * \param index   The index of the vectors.
+ */
+#define INSTR_CREATE_ld3(dc, Vt1, Vt2, Vt3, Xn, index) \
+    instr_create_3dst_2src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load a single 3-element
+ * structure to the index of three vector registers with post-index offset,
+ * e.g. LD3 {V0.4H, V1.4H, V2.4H}[15], [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The register to load into Vt, Vt2 and Vt3.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the vectors.
+ * \param offset  The immediate or GPR post-index offset.
+ */
+#define INSTR_CREATE_ld3_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, index, offset)                    \
+    instr_create_4dst_7src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, Vt1, Vt2, Vt3, Xnd, index, Xn, \
+                           offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load and replicate a single
+ * 3-element structure to the index of three vector registers, e.g. LD3 {V0.4H, V1.4H,
+ * V2.4H}[15], [X0]. \param dc      The void * dcontext used to allocate memory for the
+ * instr_t. \param Vt1     The first destination vector register operand. \param Vt2 The
+ * second destination vector register operand. \param Vt3     The third destination vector
+ * register operand. \param Xn      The stack-pointer or GPR to load into Vt1, Vt2 and
+ * Vt3.
+ */
+#define INSTR_CREATE_ld3r(dc, Vt1, Vt2, Vt3, Xn) \
+    instr_create_3dst_1src(dc, OP_ld3r, Vt1, Vt2, Vt3, Xn)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load and replicate a single
+ * 3-element structure to the index of three vector registers with post-index offset, e.g.
+ * LD3 {V0.4H, V1.4H, V2.4H}[15], [X0], X1. \param dc      The void * dcontext used to
+ * allocate memory for the instr_t. \param Vt1     The first destination vector register
+ * operand. \param Vt2     The second destination vector register operand. \param Vt3 The
+ * third destination vector register operand. \param Xn      The stack-pointer or GPR to
+ * load into Vt1, Vt2 and Vt3. \param Xnd     The disposition of Xn. \param offset  The
+ * immediate or GPR post-index offset
+ */
+#define INSTR_CREATE_ld3r_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, offset) \
+    instr_create_4dst_3src(dc, OP_ld3r, Vt1, Vt2, Vt3, Xn, Xnd, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load single or multiple 4-element
+ * structures to four vector registers, e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into the destination vectors.
+ * \param index   The immediate or GPR post-index offset.
+ */
+#define INSTR_CREATE_ld4_multi(dc, Vt1, Vt2, Vt3, Vt4, Xn, index) \
+    instr_create_4dst_2src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load multiple 4-element
+ * structures to four vector registers with post-index,
+ * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into the destination vectors
+ * \param Xnd     The disposition of Xn
+ * \param index   The index of the vectors.
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld4_multi_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, offset) \
+    instr_create_5dst_4src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load single or multiple 4-element
+ * structures to four vector registers, e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into the destination vectors.
+ * \param index   The immediate or GPR post-index offset.
+ */
+#define INSTR_CREATE_ld4(dc, Vt1, Vt2, Vt3, Vt4, Xn, index) \
+    instr_create_4dst_2src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load a single 4-element
+ * structures to four vector registers with post-index,
+ * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into the destination vectors.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the vectors
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld4_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, offset)              \
+    instr_create_5dst_8src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, Vt1, Vt2, Vt3, Vt4, Xnd, \
+                           index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4R instruction to load
+ * and replicate a single 4-element structure to four vector registers,
+ * e.g. LD4R {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into the destination vectors.
+ */
+#define INSTR_CREATE_ld4r(dc, Vt1, Vt2, Vt3, Vt4, Xn) \
+    instr_create_4dst_1src(dc, OP_ld4r, Vt1, Vt2, Vt3, Vt4, Xn)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4R instruction to load and
+ * replicate a single 4-element structure to four vector registers with post-indexing,
+ * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into the destination vectors.
+ * \param Xnd     The disposition of Xn.
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld4r_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, offset) \
+    instr_create_5dst_3src(dc, OP_ld4r, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, Xn, offset)
+
 /**
  * Creates an Advanced SIMD (NEON) LD1 instruction to load multiple
  * single element structures to one vector register, e.g. LD1 {V0.4H},[X0].
@@ -2222,12 +2491,6 @@ enum {
  * \param s       The size of the vector element.
  */
 #define INSTR_CREATE_st1_multi_1(dc, r, q, s) instr_create_1dst_2src(dc, OP_st1, r, q, s)
-
-/* TODO i#2626: Remaining advanced SIMD (NEON) memory instructions:
- * #define INSTR_CREATE_ld2/3/4_multi_2/3/4()
- * #define INSTR_CREATE_ld1/2/3/4_single()
- * and st1 equivalents including post-index variants.
- */
 
 /* -------- SVE bitwise logical operations (predicated) ---------------- */
 
