@@ -391,6 +391,230 @@ da83f45f : csneg  xzr, x2, x3, nv         : csneg  %x2 %x3 nv -> %xzr
 d50330bf : dmb    #0x00                   : dmb    $0x00
 d5033fbf : dmb    sy                      : dmb    $0x0f
 
+# DUP (element)
+# DUP (element) <V>.<8b>, <Vn>.<b>[index]
+0e010400 : dup v0.8b, v0.b[0]              : dup    %d0 $0x01 -> %d0
+0e030400 : dup v0.8b, v0.b[1]              : dup    %d0 $0x03 -> %d0
+0e050400 : dup v0.8b, v0.b[2]              : dup    %d0 $0x05 -> %d0
+0e070400 : dup v0.8b, v0.b[3]              : dup    %d0 $0x07 -> %d0
+0e090400 : dup v0.8b, v0.b[4]              : dup    %d0 $0x09 -> %d0
+0e0b0400 : dup v0.8b, v0.b[5]              : dup    %d0 $0x0b -> %d0
+0e0d0400 : dup v0.8b, v0.b[6]              : dup    %d0 $0x0d -> %d0
+0e0f0400 : dup v0.8b, v0.b[7]              : dup    %d0 $0x0f -> %d0
+0e110400 : dup v0.8b, v0.b[8]              : dup    %d0 $0x11 -> %d0
+0e130400 : dup v0.8b, v0.b[9]              : dup    %d0 $0x13 -> %d0
+0e150400 : dup v0.8b, v0.b[10]             : dup    %d0 $0x15 -> %d0
+0e170400 : dup v0.8b, v0.b[11]             : dup    %d0 $0x17 -> %d0
+0e190400 : dup v0.8b, v0.b[12]             : dup    %d0 $0x19 -> %d0
+0e1b0400 : dup v0.8b, v0.b[13]             : dup    %d0 $0x1b -> %d0
+0e1d0400 : dup v0.8b, v0.b[14]             : dup    %d0 $0x1d -> %d0
+0e1f0400 : dup v0.8b, v0.b[15]             : dup    %d0 $0x1f -> %d0
+0e0105ef : dup v15.8b, v15.b[0]            : dup    %d15 $0x01 -> %d15
+0e0305ef : dup v15.8b, v15.b[1]            : dup    %d15 $0x03 -> %d15
+0e0505ef : dup v15.8b, v15.b[2]            : dup    %d15 $0x05 -> %d15
+0e0705ef : dup v15.8b, v15.b[3]            : dup    %d15 $0x07 -> %d15
+0e0905ef : dup v15.8b, v15.b[4]            : dup    %d15 $0x09 -> %d15
+0e0b05ef : dup v15.8b, v15.b[5]            : dup    %d15 $0x0b -> %d15
+0e0d05ef : dup v15.8b, v15.b[6]            : dup    %d15 $0x0d -> %d15
+0e0f05ef : dup v15.8b, v15.b[7]            : dup    %d15 $0x0f -> %d15
+0e1105ef : dup v15.8b, v15.b[8]            : dup    %d15 $0x11 -> %d15
+0e1305ef : dup v15.8b, v15.b[9]            : dup    %d15 $0x13 -> %d15
+0e1505ef : dup v15.8b, v15.b[10]           : dup    %d15 $0x15 -> %d15
+0e1705ef : dup v15.8b, v15.b[11]           : dup    %d15 $0x17 -> %d15
+0e1905ef : dup v15.8b, v15.b[12]           : dup    %d15 $0x19 -> %d15
+0e1b05ef : dup v15.8b, v15.b[13]           : dup    %d15 $0x1b -> %d15
+0e1d05ef : dup v15.8b, v15.b[14]           : dup    %d15 $0x1d -> %d15
+0e1f05ef : dup v15.8b, v15.b[15]           : dup    %d15 $0x1f -> %d15
+0e0107de : dup v30.8b, v30.b[0]            : dup    %d30 $0x01 -> %d30
+0e0307de : dup v30.8b, v30.b[1]            : dup    %d30 $0x03 -> %d30
+0e0507de : dup v30.8b, v30.b[2]            : dup    %d30 $0x05 -> %d30
+0e0707de : dup v30.8b, v30.b[3]            : dup    %d30 $0x07 -> %d30
+0e0907de : dup v30.8b, v30.b[4]            : dup    %d30 $0x09 -> %d30
+0e0b07de : dup v30.8b, v30.b[5]            : dup    %d30 $0x0b -> %d30
+0e0d07de : dup v30.8b, v30.b[6]            : dup    %d30 $0x0d -> %d30
+0e0f07de : dup v30.8b, v30.b[7]            : dup    %d30 $0x0f -> %d30
+0e1107de : dup v30.8b, v30.b[8]            : dup    %d30 $0x11 -> %d30
+0e1307de : dup v30.8b, v30.b[9]            : dup    %d30 $0x13 -> %d30
+0e1507de : dup v30.8b, v30.b[10]           : dup    %d30 $0x15 -> %d30
+0e1707de : dup v30.8b, v30.b[11]           : dup    %d30 $0x17 -> %d30
+0e1907de : dup v30.8b, v30.b[12]           : dup    %d30 $0x19 -> %d30
+0e1b07de : dup v30.8b, v30.b[13]           : dup    %d30 $0x1b -> %d30
+0e1d07de : dup v30.8b, v30.b[14]           : dup    %d30 $0x1d -> %d30
+0e1f07de : dup v30.8b, v30.b[15]           : dup    %d30 $0x1f -> %d30
+
+# DUP (element) <V>.<16b>, <Vn>.<b>[index]
+4e010400 : dup v0.16b, v0.b[0]             : dup    %q0 $0x01 -> %q0
+4e030400 : dup v0.16b, v0.b[1]             : dup    %q0 $0x03 -> %q0
+4e050400 : dup v0.16b, v0.b[2]             : dup    %q0 $0x05 -> %q0
+4e070400 : dup v0.16b, v0.b[3]             : dup    %q0 $0x07 -> %q0
+4e090400 : dup v0.16b, v0.b[4]             : dup    %q0 $0x09 -> %q0
+4e0b0400 : dup v0.16b, v0.b[5]             : dup    %q0 $0x0b -> %q0
+4e0d0400 : dup v0.16b, v0.b[6]             : dup    %q0 $0x0d -> %q0
+4e0f0400 : dup v0.16b, v0.b[7]             : dup    %q0 $0x0f -> %q0
+4e110400 : dup v0.16b, v0.b[8]             : dup    %q0 $0x11 -> %q0
+4e130400 : dup v0.16b, v0.b[9]             : dup    %q0 $0x13 -> %q0
+4e150400 : dup v0.16b, v0.b[10]            : dup    %q0 $0x15 -> %q0
+4e170400 : dup v0.16b, v0.b[11]            : dup    %q0 $0x17 -> %q0
+4e190400 : dup v0.16b, v0.b[12]            : dup    %q0 $0x19 -> %q0
+4e1b0400 : dup v0.16b, v0.b[13]            : dup    %q0 $0x1b -> %q0
+4e1d0400 : dup v0.16b, v0.b[14]            : dup    %q0 $0x1d -> %q0
+4e1f0400 : dup v0.16b, v0.b[15]            : dup    %q0 $0x1f -> %q0
+4e0105ef : dup v15.16b, v15.b[0]           : dup    %q15 $0x01 -> %q15
+4e0305ef : dup v15.16b, v15.b[1]           : dup    %q15 $0x03 -> %q15
+4e0505ef : dup v15.16b, v15.b[2]           : dup    %q15 $0x05 -> %q15
+4e0705ef : dup v15.16b, v15.b[3]           : dup    %q15 $0x07 -> %q15
+4e0905ef : dup v15.16b, v15.b[4]           : dup    %q15 $0x09 -> %q15
+4e0b05ef : dup v15.16b, v15.b[5]           : dup    %q15 $0x0b -> %q15
+4e0d05ef : dup v15.16b, v15.b[6]           : dup    %q15 $0x0d -> %q15
+4e0f05ef : dup v15.16b, v15.b[7]           : dup    %q15 $0x0f -> %q15
+4e1105ef : dup v15.16b, v15.b[8]           : dup    %q15 $0x11 -> %q15
+4e1305ef : dup v15.16b, v15.b[9]           : dup    %q15 $0x13 -> %q15
+4e1505ef : dup v15.16b, v15.b[10]          : dup    %q15 $0x15 -> %q15
+4e1705ef : dup v15.16b, v15.b[11]          : dup    %q15 $0x17 -> %q15
+4e1905ef : dup v15.16b, v15.b[12]          : dup    %q15 $0x19 -> %q15
+4e1b05ef : dup v15.16b, v15.b[13]          : dup    %q15 $0x1b -> %q15
+4e1d05ef : dup v15.16b, v15.b[14]          : dup    %q15 $0x1d -> %q15
+4e1f05ef : dup v15.16b, v15.b[15]          : dup    %q15 $0x1f -> %q15
+4e0107de : dup v30.16b, v30.b[0]           : dup    %q30 $0x01 -> %q30
+4e0307de : dup v30.16b, v30.b[1]           : dup    %q30 $0x03 -> %q30
+4e0507de : dup v30.16b, v30.b[2]           : dup    %q30 $0x05 -> %q30
+4e0707de : dup v30.16b, v30.b[3]           : dup    %q30 $0x07 -> %q30
+4e0907de : dup v30.16b, v30.b[4]           : dup    %q30 $0x09 -> %q30
+4e0b07de : dup v30.16b, v30.b[5]           : dup    %q30 $0x0b -> %q30
+4e0d07de : dup v30.16b, v30.b[6]           : dup    %q30 $0x0d -> %q30
+4e0f07de : dup v30.16b, v30.b[7]           : dup    %q30 $0x0f -> %q30
+4e1107de : dup v30.16b, v30.b[8]           : dup    %q30 $0x11 -> %q30
+4e1307de : dup v30.16b, v30.b[9]           : dup    %q30 $0x13 -> %q30
+4e1507de : dup v30.16b, v30.b[10]          : dup    %q30 $0x15 -> %q30
+4e1707de : dup v30.16b, v30.b[11]          : dup    %q30 $0x17 -> %q30
+4e1907de : dup v30.16b, v30.b[12]          : dup    %q30 $0x19 -> %q30
+4e1b07de : dup v30.16b, v30.b[13]          : dup    %q30 $0x1b -> %q30
+4e1d07de : dup v30.16b, v30.b[14]          : dup    %q30 $0x1d -> %q30
+4e1f07de : dup v30.16b, v30.b[15]          : dup    %q30 $0x1f -> %q30
+
+# DUP (element) <V>.<8h>, <Vn>.<h>[index]
+0e020400 : dup v0.4h, v0.h[0]              : dup    %d0 $0x02 -> %d0
+0e060400 : dup v0.4h, v0.h[1]              : dup    %d0 $0x06 -> %d0
+0e0a0400 : dup v0.4h, v0.h[2]              : dup    %d0 $0x0a -> %d0
+0e0e0400 : dup v0.4h, v0.h[3]              : dup    %d0 $0x0e -> %d0
+0e120400 : dup v0.4h, v0.h[4]              : dup    %d0 $0x12 -> %d0
+0e160400 : dup v0.4h, v0.h[5]              : dup    %d0 $0x16 -> %d0
+0e1a0400 : dup v0.4h, v0.h[6]              : dup    %d0 $0x1a -> %d0
+0e1e0400 : dup v0.4h, v0.h[7]              : dup    %d0 $0x1e -> %d0
+0e0205ef : dup v15.4h, v15.h[0]            : dup    %d15 $0x02 -> %d15
+0e0605ef : dup v15.4h, v15.h[1]            : dup    %d15 $0x06 -> %d15
+0e0a05ef : dup v15.4h, v15.h[2]            : dup    %d15 $0x0a -> %d15
+0e0e05ef : dup v15.4h, v15.h[3]            : dup    %d15 $0x0e -> %d15
+0e1205ef : dup v15.4h, v15.h[4]            : dup    %d15 $0x12 -> %d15
+0e1605ef : dup v15.4h, v15.h[5]            : dup    %d15 $0x16 -> %d15
+0e1a05ef : dup v15.4h, v15.h[6]            : dup    %d15 $0x1a -> %d15
+0e1e05ef : dup v15.4h, v15.h[7]            : dup    %d15 $0x1e -> %d15
+0e0207de : dup v30.4h, v30.h[0]            : dup    %d30 $0x02 -> %d30
+0e0607de : dup v30.4h, v30.h[1]            : dup    %d30 $0x06 -> %d30
+0e0a07de : dup v30.4h, v30.h[2]            : dup    %d30 $0x0a -> %d30
+0e0e07de : dup v30.4h, v30.h[3]            : dup    %d30 $0x0e -> %d30
+0e1207de : dup v30.4h, v30.h[4]            : dup    %d30 $0x12 -> %d30
+0e1607de : dup v30.4h, v30.h[5]            : dup    %d30 $0x16 -> %d30
+0e1a07de : dup v30.4h, v30.h[6]            : dup    %d30 $0x1a -> %d30
+0e1e07de : dup v30.4h, v30.h[7]            : dup    %d30 $0x1e -> %d30
+
+# DUP (element) <V>.<8h>, <Vn>.<h>[index]
+4e020400 : dup v0.8h, v0.h[0]              : dup    %q0 $0x02 -> %q0
+4e060400 : dup v0.8h, v0.h[1]              : dup    %q0 $0x06 -> %q0
+4e0a0400 : dup v0.8h, v0.h[2]              : dup    %q0 $0x0a -> %q0
+4e0e0400 : dup v0.8h, v0.h[3]              : dup    %q0 $0x0e -> %q0
+4e120400 : dup v0.8h, v0.h[4]              : dup    %q0 $0x12 -> %q0
+4e160400 : dup v0.8h, v0.h[5]              : dup    %q0 $0x16 -> %q0
+4e1a0400 : dup v0.8h, v0.h[6]              : dup    %q0 $0x1a -> %q0
+4e1e0400 : dup v0.8h, v0.h[7]              : dup    %q0 $0x1e -> %q0
+4e0205ef : dup v15.8h, v15.h[0]            : dup    %q15 $0x02 -> %q15
+4e0605ef : dup v15.8h, v15.h[1]            : dup    %q15 $0x06 -> %q15
+4e0a05ef : dup v15.8h, v15.h[2]            : dup    %q15 $0x0a -> %q15
+4e0e05ef : dup v15.8h, v15.h[3]            : dup    %q15 $0x0e -> %q15
+4e1205ef : dup v15.8h, v15.h[4]            : dup    %q15 $0x12 -> %q15
+4e1605ef : dup v15.8h, v15.h[5]            : dup    %q15 $0x16 -> %q15
+4e1a05ef : dup v15.8h, v15.h[6]            : dup    %q15 $0x1a -> %q15
+4e1e05ef : dup v15.8h, v15.h[7]            : dup    %q15 $0x1e -> %q15
+4e0207de : dup v30.8h, v30.h[0]            : dup    %q30 $0x02 -> %q30
+4e0607de : dup v30.8h, v30.h[1]            : dup    %q30 $0x06 -> %q30
+4e0a07de : dup v30.8h, v30.h[2]            : dup    %q30 $0x0a -> %q30
+4e0e07de : dup v30.8h, v30.h[3]            : dup    %q30 $0x0e -> %q30
+4e1207de : dup v30.8h, v30.h[4]            : dup    %q30 $0x12 -> %q30
+4e1607de : dup v30.8h, v30.h[5]            : dup    %q30 $0x16 -> %q30
+4e1a07de : dup v30.8h, v30.h[6]            : dup    %q30 $0x1a -> %q30
+4e1e07de : dup v30.8h, v30.h[7]            : dup    %q30 $0x1e -> %q30
+
+# DUP (element) <V>.<2s>, <Vn>.<s>[index]
+0e040400 : dup v0.2s, v0.s[0]              : dup    %d0 $0x04 -> %d0
+0e0c0400 : dup v0.2s, v0.s[1]              : dup    %d0 $0x0c -> %d0
+0e140400 : dup v0.2s, v0.s[2]              : dup    %d0 $0x14 -> %d0
+0e1c0400 : dup v0.2s, v0.s[3]              : dup    %d0 $0x1c -> %d0
+0e0405ef : dup v15.2s, v15.s[0]            : dup    %d15 $0x04 -> %d15
+0e0c05ef : dup v15.2s, v15.s[1]            : dup    %d15 $0x0c -> %d15
+0e1405ef : dup v15.2s, v15.s[2]            : dup    %d15 $0x14 -> %d15
+0e1c05ef : dup v15.2s, v15.s[3]            : dup    %d15 $0x1c -> %d15
+0e0407de : dup v30.2s, v30.s[0]            : dup    %d30 $0x04 -> %d30
+0e0c07de : dup v30.2s, v30.s[1]            : dup    %d30 $0x0c -> %d30
+0e1407de : dup v30.2s, v30.s[2]            : dup    %d30 $0x14 -> %d30
+0e1c07de : dup v30.2s, v30.s[3]            : dup    %d30 $0x1c -> %d30
+
+# DUP (element) <V>.<4s>, <Vn>.<s>[index]
+4e040400 : dup v0.4s, v0.s[0]              : dup    %q0 $0x04 -> %q0
+4e0c0400 : dup v0.4s, v0.s[1]              : dup    %q0 $0x0c -> %q0
+4e140400 : dup v0.4s, v0.s[2]              : dup    %q0 $0x14 -> %q0
+4e1c0400 : dup v0.4s, v0.s[3]              : dup    %q0 $0x1c -> %q0
+4e0405ef : dup v15.4s, v15.s[0]            : dup    %q15 $0x04 -> %q15
+4e0c05ef : dup v15.4s, v15.s[1]            : dup    %q15 $0x0c -> %q15
+4e1405ef : dup v15.4s, v15.s[2]            : dup    %q15 $0x14 -> %q15
+4e1c05ef : dup v15.4s, v15.s[3]            : dup    %q15 $0x1c -> %q15
+4e0407de : dup v30.4s, v30.s[0]            : dup    %q30 $0x04 -> %q30
+4e0c07de : dup v30.4s, v30.s[1]            : dup    %q30 $0x0c -> %q30
+4e1407de : dup v30.4s, v30.s[2]            : dup    %q30 $0x14 -> %q30
+4e1c07de : dup v30.4s, v30.s[3]            : dup    %q30 $0x1c -> %q30
+
+# DUP (element) <V>.<2d>, <Vn>.<d>[index]
+4e080400 : dup v0.2d, v0.d[0]              : dup    %q0 $0x08 -> %q0
+4e180400 : dup v0.2d, v0.d[1]              : dup    %q0 $0x18 -> %q0
+4e0805ef : dup v15.2d, v15.d[0]            : dup    %q15 $0x08 -> %q15
+4e1805ef : dup v15.2d, v15.d[1]            : dup    %q15 $0x18 -> %q15
+4e0807de : dup v30.2d, v30.d[0]            : dup    %q30 $0x08 -> %q30
+4e1807de : dup v30.2d, v30.d[1]            : dup    %q30 $0x18 -> %q30
+
+# DUP (general) <Vd>.<8b>, <W><n>
+0e010c20 : dup v0.8b, w1                   : dup    %w1 $0x01 -> %d0
+0e010e0f : dup v15.8b, w16                 : dup    %w16 $0x01 -> %d15
+0e010fdd : dup v29.8b, w30                 : dup    %w30 $0x01 -> %d29
+
+# DUP (general) <Vd>.<16b>, <W><n>
+4e010c20 : dup v0.16b, w1                  : dup    %x1 $0x01 -> %q0
+4e010e0f : dup v15.16b, w16                : dup    %x16 $0x01 -> %q15
+4e010fdd : dup v29.16b, w30                : dup    %x30 $0x01 -> %q29
+
+# DUP (general) <Vd>.<4h>, <W><n>
+0e020c20 : dup v0.4h, w1                   : dup    %w1 $0x02 -> %d0
+0e020e0f : dup v15.4h, w16                 : dup    %w16 $0x02 -> %d15
+0e020fdd : dup v29.4h, w30                 : dup    %w30 $0x02 -> %d29
+
+# DUP (general) <Vd>.<4h>, <W><n>
+4e020c20 : dup v0.8h, w1                   : dup    %x1 $0x02 -> %q0
+4e020e0f : dup v15.8h, w16                 : dup    %x16 $0x02 -> %q15
+4e020fdd : dup v29.8h, w30                 : dup    %x30 $0x02 -> %q29
+
+# DUP (general) <Vd>.<2s>, <W><n>
+0e040c20 : dup v0.2s, w1                   : dup    %w1 $0x04 -> %d0
+0e040e0f : dup v15.2s, w16                 : dup    %w16 $0x04 -> %d15
+0e040fdd : dup v29.2s, w30                 : dup    %w30 $0x04 -> %d29
+
+# DUP (general) <Vd>.<4s>, <W><n>
+4e040c20 : dup v0.4s, w1                   : dup    %x1 $0x04 -> %q0
+4e040e0f : dup v15.4s, w16                 : dup    %x16 $0x04 -> %q15
+4e040fdd : dup v29.4s, w30                 : dup    %x30 $0x04 -> %q29
+
+# DUP (general) <Vd>.<2d>, <W><n>
+4e080c20 : dup v0.2d, x1                   : dup    %x1 $0x08 -> %q0
+4e080e0f : dup v15.2d, x16                 : dup    %x16 $0x08 -> %q15
+4e080fdd : dup v29.2d, x30                 : dup    %x30 $0x08 -> %q29
+
 d503309f : dsb    #0x00                   : dsb    $0x00
 d5033f9f : dsb    sy                      : dsb    $0x0f
 
