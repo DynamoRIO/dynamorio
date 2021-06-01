@@ -55,6 +55,8 @@ void
 test_asm_faultE();
 void
 test_asm_faultF();
+void
+test_asm_faultG();
 
 static SIGJMP_BUF mark;
 
@@ -130,6 +132,10 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_14_C)
             print("ERROR5: spilled register value was not preserved!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+            print("ERROR: spilled flags value was not preserved in test #17!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -273,6 +279,7 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal5, false);
     intercept_signal(SIGILL, (handler_3_t)&handle_signal5, false);
 #    elif defined(WINDOWS)
     SetUnhandledExceptionFilter(&handle_exception5);
@@ -281,6 +288,11 @@ main(int argc, const char *argv[])
     /* Test fault reg restore (multi-phase) */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultF();
+    }
+
+    /* Test fault aflags restore from xax. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultG();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -760,6 +772,35 @@ GLOBAL_LABEL(FUNCNAME:)
 
         b        epilog14
     epilog14:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 17: restore on fault for aflags stored in xax. */
+#define FUNCNAME test_asm_faultG
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test17
+     test17:
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        nop
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+        /* xax is dead, so should not need to spill when reserving aflags. */
+        mov      REG_XAX, 0x1234
+        jmp      epilog17
+     epilog17:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
         ret
 #endif
         END_FUNC(FUNCNAME)
