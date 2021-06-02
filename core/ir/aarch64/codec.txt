@@ -1326,3 +1326,6 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 # DUP (general)
 00001110000xxxxx000011xxxxxxxxxx     dup       d0 : w5 imm5
 01001110000xxxxx000011xxxxxxxxxx     dup       q0 : x5 imm5
+
+00001110000xxxxx001011xxxxxxxxxx     smov      w0 : d5 imm5
+01001110000xxxxx001011xxxxxxxxxx     smov      x0 : q5 imm5
