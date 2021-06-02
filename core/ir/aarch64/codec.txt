@@ -1316,5 +1316,16 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 00101110xx1xxxxx110000xxxxxxxxxx     umull     q0 : d5 d16 bhs_sz
 01101110xx1xxxxx110000xxxxxxxxxx     umull2    q0 : q5 q16 bhs_sz
 
+# DUP (element) Scalar
+01011110000xxxxx000001xxxxxxxxxx     dup       dq0 : dq5 imm5
+
+# DUP (element) Vector
+00001110000xxxxx000001xxxxxxxxxx     dup       d0 : d5 imm5
+01001110000xxxxx000001xxxxxxxxxx     dup       q0 : q5 imm5
+
+# DUP (general)
+00001110000xxxxx000011xxxxxxxxxx     dup       d0 : w5 imm5
+01001110000xxxxx000011xxxxxxxxxx     dup       q0 : x5 imm5
+
 00001110000xxxxx001011xxxxxxxxxx     smov      w0 : d5 imm5
 01001110000xxxxx001011xxxxxxxxxx     smov      x0 : q5 imm5
