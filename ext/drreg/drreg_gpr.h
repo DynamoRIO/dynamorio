@@ -48,14 +48,17 @@
 /* Returns a free slot for storing the value of a GPR register.
  * If no slots are available, the function returns MAX_SPILLS as an indicator.*/
 uint
-drreg_internal_find_free_gpr_slot(drreg_internal_per_thread_t *pt);
+drreg_internal_find_free_gpr_slot(drreg_internal_reg_class_info_t *pt_gpr_info);
 
-/* Spill the value of a GPR. */
+/* Inserts the actual code for spilling the value of a GPR. */
 void
 drreg_internal_spill_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
                          instrlist_t *ilist, instr_t *where, reg_id_t reg, uint slot);
 
-/* Restores the value of a GPR. */
+/* Inserts the actual code for restoring the value of a GPR.
+ * It is up to caller to update register information (i.e., gpr_info->reg).
+ * This routine updates slot use if release is set to true.
+ */
 void
 drreg_internal_restore_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
                            instrlist_t *ilist, instr_t *where, reg_id_t reg, uint slot,
@@ -74,16 +77,16 @@ void
 drreg_internal_increment_app_gpr_use_count(drreg_internal_per_thread_t *pt, opnd_t opnd,
                                            reg_id_t reg);
 
-/* Initialises thread data for liveness analysis of gprs. */
+/* Initialises thread data for liveness analysis of GPRs. */
 void
 drreg_internal_bb_init_gpr_liveness_analysis(drreg_internal_per_thread_t *pt);
 
-/* Updates liveness information of gprs based on the passed instruction. */
+/* Updates liveness information of GPRs based on the passed instruction. */
 void
 drreg_internal_bb_analyse_gpr_liveness(void *drcontext, drreg_internal_per_thread_t *pt,
                                        instr_t *inst, uint index);
 
-/* Restores all gprs back to their app values if needed by the app instr or is forced by
+/* Restores all GPRs back to their app values if needed by the app instr or is forced by
  * the caller.
  */
 drreg_status_t
@@ -91,11 +94,20 @@ drreg_internal_bb_insert_gpr_restore_all(void *drcontext, drreg_internal_per_thr
                                          instrlist_t *bb, instr_t *inst,
                                          bool force_restore, OUT bool *regs_restored);
 
-/* Updates spilled values of reserved (i.e., in use) gprs after app writes. */
+/* Updates spilled values of reserved (i.e., in use) GPRs after app writes. */
 drreg_status_t
 drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_thread_t *pt,
                                        instrlist_t *bb, instr_t *inst,
                                        bool *restored_for_read);
+
+/* Checks whether the register states updated by lazy GPR restoration has been done
+ * correctly.
+ *
+ * To be called in debug builds.
+ */
+void
+drreg_internal_check_lazy_gpr_restoration(void *drcontext,
+                                          drreg_internal_per_thread_t *pt);
 
 /***************************************************************************
  * USE OUTSIDE INSERT PHASE
@@ -107,12 +119,12 @@ drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_threa
 void
 drreg_internal_init_forward_gpr_liveness_analysis(drreg_internal_per_thread_t *pt);
 
-/* Does a step of the forward liveness analysis for gprs based on the passed instr. */
+/* Does a step of the forward liveness analysis for GPRs based on the passed instr. */
 void
 drreg_internal_forward_analyse_gpr_liveness(drreg_internal_per_thread_t *pt,
                                             instr_t *inst);
 
-/* Does the final processing of the forward liveness analysis, where gprs with
+/* Does the final processing of the forward liveness analysis, where GPRs with
  * an UNKNOWN live state is set to LIVE.
  */
 void
@@ -147,6 +159,8 @@ drreg_internal_restore_gpr_app_value(void *drcontext, drreg_internal_per_thread_
 
 /* Restores all GPR regs used in the passed operand, thus triggering a lazy restoration
  * barrier.
+ *
+ * Note, no_app_value is not optional and therefore cannot be NULL.
  */
 drreg_status_t
 drreg_internal_restore_gpr_app_values(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -225,12 +239,12 @@ drreg_internal_gpr_restore_state_set_values(void *drcontext,
  * INIT AND EXIT
  */
 
-/* Initialises per thread information related to gprs. */
+/* Initialises per thread information related to GPRs. */
 void
-drreg_internal_tls_gpr_data_init(drreg_internal_per_thread_t *pt);
+drreg_internal_tls_gpr_data_init(void *drcontext, drreg_internal_per_thread_t *pt);
 
-/* Deletes per thread information related to gprs. */
+/* Deletes per thread information related to GPRs. */
 void
-drreg_internal_tls_gpr_data_free(drreg_internal_per_thread_t *pt);
+drreg_internal_tls_gpr_data_free(void *drcontext, drreg_internal_per_thread_t *pt);
 
 #endif /* _DRREG_GPR_H_ */

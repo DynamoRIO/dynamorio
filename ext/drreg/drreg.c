@@ -53,9 +53,6 @@
 #include <limits.h>
 #include <stddef.h> /* offsetof */
 
-/* We use this in drreg_internal_per_thread_t.slot_use[] and other places */
-#define DR_REG_EFLAGS DR_REG_INVALID
-
 drreg_internal_per_thread_t drreg_internal_init_pt;
 
 drreg_options_t drreg_internal_ops;
@@ -64,8 +61,10 @@ int tls_idx = -1;
 
 // Offset for SIMD slots.
 uint drreg_internal_tls_simd_offs = 0;
+
 // Offset for GPR slots.
 uint drreg_internal_tls_slot_offs = 0;
+
 reg_id_t drreg_internal_tls_seg = DR_REG_NULL;
 
 #ifdef DEBUG
@@ -222,19 +221,11 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
         pt->bb_props = 0;
 
 #ifdef DEBUG
-    reg_id_t reg;
     if (drmgr_is_last_instr(drcontext, inst)) {
-        uint i;
-        for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-            ASSERT(!pt->aflags.in_use, "user failed to unreserve aflags");
-            ASSERT(pt->aflags.native, "user failed to unreserve aflags");
-            ASSERT(!pt->reg[GPR_IDX(reg)].in_use, "user failed to unreserve a register");
-            ASSERT(pt->reg[GPR_IDX(reg)].native, "user failed to unreserve a register");
-        }
-        for (i = 0; i < MAX_SPILLS; i++) {
-            ASSERT(pt->slot_use[i] == DR_REG_NULL, "user failed to unreserve a register");
-        }
-        for (i = 0; i < MAX_SIMD_SPILLS; i++) {
+        ASSERT(!pt->aflags.in_use, "user failed to unreserve aflags");
+        ASSERT(pt->aflags.native, "user failed to unreserve aflags");
+        drreg_internal_check_lazy_gpr_restoration(drcontext, pt);
+        for (uint i = 0; i < MAX_SIMD_SPILLS; i++) {
             ASSERT(pt->simd_slot_use[i] == DR_REG_NULL,
                    "user failed to unreserve a register");
         }
@@ -517,18 +508,15 @@ drreg_reservation_info(void *drcontext, reg_id_t reg, opnd_t *opnd OUT,
     drreg_reserve_info_t info = {
         sizeof(info),
     };
-    drreg_internal_per_thread_t *pt = drreg_internal_get_tls_data(drcontext);
-    drreg_status_t res;
-    if ((reg < DR_REG_START_GPR || reg > DR_REG_STOP_GPR ||
-         !pt->reg[GPR_IDX(reg)].in_use))
-        return DRREG_ERROR_INVALID_PARAMETER;
-#ifdef SIMD_SUPPORTED
-    if (reg_is_vector_simd(reg) && !pt->simd_reg[SIMD_IDX(reg)].in_use)
-        return DRREG_ERROR_INVALID_PARAMETER;
-#endif
-    res = drreg_reservation_info_ex(drcontext, reg, &info);
+
+    drreg_status_t res = drreg_reservation_info_ex(drcontext, reg, &info);
     if (res != DRREG_SUCCESS)
         return res;
+
+    /* Register must be in use! */
+    if (!info->reserved)
+        DRREG_ERROR_INVALID_PARAMETER;
+
     if (opnd != NULL)
         *opnd = info.opnd;
     if (is_dr_slot != NULL)
@@ -555,6 +543,7 @@ set_reservation_info(drreg_reserve_info_t *info, drreg_internal_per_thread_t *pt
         info->is_dr_slot = false;
         info->tls_offs = -1;
     } else {
+        drreg_internal_reg_class_info_t *gpr_info = &pt->gpr_class_info;
         info->app_value_retained = reg_info->ever_spilled;
         uint slot = reg_info->slot;
 #ifdef DEBUG
@@ -562,8 +551,8 @@ set_reservation_info(drreg_reserve_info_t *info, drreg_internal_per_thread_t *pt
             ASSERT(slot == AFLAGS_SLOT, "slot should be aflags");
 #endif
         if ((reg == DR_REG_NULL && !reg_info->native &&
-             pt->slot_use[slot] != DR_REG_NULL) ||
-            (reg_is_gpr(reg) && pt->slot_use[slot] == reg)) {
+             gpr_info->slot_use[slot] != DR_REG_NULL) ||
+            (reg_is_gpr(reg) && gpr_info->slot_use[slot] == reg)) {
             if (slot < drreg_internal_ops.num_spill_slots) {
                 info->opnd = dr_raw_tls_opnd(drcontext, drreg_internal_tls_seg,
                                              drreg_internal_tls_slot_offs);
@@ -593,14 +582,13 @@ set_reservation_info(drreg_reserve_info_t *info, drreg_internal_per_thread_t *pt
 drreg_status_t
 drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *info OUT)
 {
-    drreg_internal_per_thread_t *pt;
-    drreg_internal_reg_info_t *reg_info;
-
     if (info == NULL || info->size != sizeof(drreg_reserve_info_t))
         return DRREG_ERROR_INVALID_PARAMETER;
 
-    pt = drreg_internal_get_tls_data(drcontext);
+    drreg_internal_per_thread_t *pt = drreg_internal_get_tls_data(drcontext);
+    drreg_internal_reg_class_info_t *gpr_info = &pt->gpr_class_info;
 
+    drreg_internal_reg_info_t *reg_info;
     if (reg == DR_REG_NULL) {
         reg_info = &pt->aflags;
 #ifdef SIMD_SUPPORTED
@@ -608,7 +596,7 @@ drreg_reservation_info_ex(void *drcontext, reg_id_t reg, drreg_reserve_info_t *i
         reg_info = &pt->simd_reg[SIMD_IDX(reg)];
 #endif
     } else if (reg >= DR_REG_START_GPR && reg <= DR_REG_STOP_GPR) {
-        reg_info = &pt->reg[GPR_IDX(reg)];
+        reg_info = &gpr_info->reg[GPR_IDX(reg)];
     } else {
         return DRREG_ERROR_INVALID_PARAMETER;
     }
@@ -838,7 +826,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                                                                     reg, spilled_to);
                 }
             }
-            /* SNIFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFf */
+// Need to check this:
 #ifdef X86
             if (reg == DR_REG_XAX) {
                 prev_xax_spill = true;
@@ -878,7 +866,7 @@ tls_data_init(void *drcontext, drreg_internal_per_thread_t *pt)
 {
     memset(pt, 0, sizeof(*pt));
 
-    drreg_internal_tls_gpr_data_init(pt);
+    drreg_internal_tls_gpr_data_init(drcontext, pt);
 #ifdef SIMD_SUPPORTED
     drreg_internal_tls_simd_data_init(drcontext, pt);
 #endif
@@ -888,11 +876,11 @@ tls_data_init(void *drcontext, drreg_internal_per_thread_t *pt)
 static void
 tls_data_free(void *drcontext, drreg_internal_per_thread_t *pt)
 {
-    drreg_internal_tls_gpr_data_free(pt);
+    drreg_internal_tls_aflag_data_free(pt);
 #ifdef SIMD_SUPPORTED
     drreg_internal_tls_simd_data_free(drcontext, pt);
 #endif
-    drreg_internal_tls_aflag_data_free(pt);
+    drreg_internal_tls_gpr_data_free(drcontext, pt);
 }
 
 static void

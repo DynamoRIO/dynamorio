@@ -123,18 +123,25 @@ typedef struct _drreg_internal_reg_info_t {
     int slot;      /* if !native && xchg==REG_NULL, value is in this TLS slot # */
 } drreg_internal_reg_info_t;
 
+/* Stores common fields for slot information for all registers pertaining to a class,
+ * e.g., GPRs and SIMD vector registers.
+ */
+typedef struct _drreg_internal_reg_class_info_t {
+    drreg_internal_reg_info_t *reg;
+    reg_id_t slot_use[MAX_SPILLS]; /* Holds the reg_id_t of which reg is inside. */
+    int pending_unreserved;      /* The count of to-be-lazily-restored unreserved regs. */
+} drreg_internal_reg_class_info_t;
+
 typedef struct _drreg_internal_per_thread_t {
     instr_t *cur_instr;
     int live_idx;
-    drreg_internal_reg_info_t reg[DR_NUM_GPR_REGS];
+    drreg_internal_reg_class_info_t gpr_class_info;
     drreg_internal_reg_info_t simd_reg[DR_NUM_SIMD_VECTOR_REGS];
     byte *simd_spill_start; /* storage returned by allocator (may not be aligned) */
     byte *simd_spills;      /* aligned storage for SIMD data */
     drreg_internal_reg_info_t aflags;
-    reg_id_t slot_use[MAX_SPILLS]; /* holds the reg_id_t of which reg is inside */
     reg_id_t simd_slot_use[MAX_SIMD_SPILLS]; /* importantly, this can store partial SIMD
                                                 registers  */
-    int pending_unreserved;      /* count of to-be-lazily-restored unreserved gpr regs */
     int simd_pending_unreserved; /* count of to-be-lazily-restored unreserved SIMD regs */
     /* We store the linear address of our TLS for access from another thread: */
     byte *tls_seg_base;

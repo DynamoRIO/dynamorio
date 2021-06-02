@@ -34,6 +34,7 @@
 #include "drreg_priv.h"
 #include "drreg_gpr.h"
 #include "drreg_aflag.h"
+#include <string.h>
 #include "../ext_utils.h"
 #include <limits.h>
 
@@ -42,13 +43,13 @@
  */
 
 uint
-drreg_internal_find_free_gpr_slot(drreg_internal_per_thread_t *pt)
+drreg_internal_find_free_gpr_slot(drreg_internal_reg_class_info_t *pt_gpr_info)
 {
-    uint i;
-    /* 0 is always reserved for AFLAGS_SLOT */
+    /* Zero is always reserved for AFLAGS_SLOT. */
     ASSERT(AFLAGS_SLOT == 0, "AFLAGS_SLOT is not 0");
-    for (i = AFLAGS_SLOT + 1; i < MAX_SPILLS; i++) {
-        if (pt->slot_use[i] == DR_REG_NULL)
+    /* Note, we exclude the dedicated AFLAGS slot in our search. */
+    for (uint i = AFLAGS_SLOT + 1; i < MAX_SPILLS; i++) {
+        if (pt_gpr_info->slot_use[i] == DR_REG_NULL)
             return i;
     }
     return MAX_SPILLS;
@@ -58,15 +59,18 @@ void
 drreg_internal_spill_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
                          instrlist_t *ilist, instr_t *where, reg_id_t reg, uint slot)
 {
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d\n", __FUNCTION__, pt->live_idx,
         get_where_app_pc(where), get_register_name(reg), slot);
-    ASSERT(pt->slot_use[slot] == DR_REG_NULL || pt->slot_use[slot] == reg ||
+    ASSERT(pt_gpr_info->slot_use[slot] == DR_REG_NULL ||
+               pt_gpr_info->slot_use[slot] == reg ||
                /* Aflags can be saved and restored using different regs. */
                slot == AFLAGS_SLOT,
            "internal tracking error");
     if (slot == AFLAGS_SLOT)
         pt->aflags.ever_spilled = true;
-    pt->slot_use[slot] = reg;
+    pt_gpr_info->slot_use[slot] = reg;
     if (slot < drreg_internal_ops.num_spill_slots) {
         dr_insert_write_raw_tls(drcontext, ilist, where, drreg_internal_tls_seg,
                                 drreg_internal_tls_slot_offs + slot * sizeof(reg_t), reg);
@@ -81,29 +85,30 @@ drreg_internal_spill_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
     //    #endif
 }
 
-/*
- * Up to caller to update pt->reg. This routine updates pt->slot_use if release==true.
- */
 void
 drreg_internal_restore_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
                            instrlist_t *ilist, instr_t *where, reg_id_t reg, uint slot,
                            bool release)
 {
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s slot=%d release=%d\n", __FUNCTION__,
         pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot, release);
-    ASSERT(pt->slot_use[slot] == reg ||
+    ASSERT(pt_gpr_info->slot_use[slot] == reg ||
                /* aflags can be saved and restored using different regs */
-               (slot == AFLAGS_SLOT && pt->slot_use[slot] != DR_REG_NULL),
+               (slot == AFLAGS_SLOT && pt_gpr_info->slot_use[slot] != DR_REG_NULL),
            "internal tracking error");
     if (release)
-        pt->slot_use[slot] = DR_REG_NULL;
+        pt_gpr_info->slot_use[slot] = DR_REG_NULL;
     if (slot < drreg_internal_ops.num_spill_slots) {
+        /* Spilled value is in tls. Therefore, we need to read from tls. */
         dr_insert_read_raw_tls(drcontext, ilist, where, drreg_internal_tls_seg,
                                drreg_internal_tls_slot_offs + slot * sizeof(reg_t), reg);
     } else {
-        dr_spill_slot_t DR_slot =
+        /* Spilled value is in DR spill slots. Therefore, we read from the DR slot. */
+        dr_spill_slot_t dr_slot =
             (dr_spill_slot_t)(slot - drreg_internal_ops.num_spill_slots);
-        dr_restore_reg(drcontext, ilist, where, reg, DR_slot);
+        dr_restore_reg(drcontext, ilist, where, reg, dr_slot);
     }
 }
 
@@ -114,9 +119,10 @@ drreg_internal_get_spilled_gpr_value(void *drcontext, uint tls_slot_offs, uint s
         drreg_internal_per_thread_t *pt = drreg_internal_get_tls_data(drcontext);
         return *(reg_t *)(pt->tls_seg_base + tls_slot_offs + slot * sizeof(reg_t));
     } else {
-        dr_spill_slot_t DR_slot =
+        /* Use dr slots as slot number goes beyond that reserved in tls. */
+        dr_spill_slot_t dr_slot =
             (dr_spill_slot_t)(slot - drreg_internal_ops.num_spill_slots);
-        return dr_read_saved_reg(drcontext, DR_slot);
+        return dr_read_saved_reg(drcontext, dr_slot);
     }
 }
 
@@ -130,35 +136,39 @@ drreg_internal_increment_app_gpr_use_count(drreg_internal_per_thread_t *pt, opnd
 {
     ASSERT(reg_is_gpr(reg), "register should be a gpr");
     reg = reg_to_pointer_sized(reg);
-
     ASSERT(reg_is_pointer_sized(reg), "register should be a ptr sized");
-    pt->reg[GPR_IDX(reg)].app_uses++;
+
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+    pt_gpr_info->reg[GPR_IDX(reg)].app_uses++;
+
     /* Tools that instrument memory uses (memtrace, Dr. Memory, etc.)
      * want to double-count memory opnd uses, as they need to restore
      * the app value to get the memory address into a register there.
      * We go ahead and do that for all tools.
      */
     if (opnd_is_memory_reference(opnd))
-        pt->reg[GPR_IDX(reg)].app_uses++;
+        pt_gpr_info->reg[GPR_IDX(reg)].app_uses++;
 }
 
 void
 drreg_internal_bb_init_gpr_liveness_analysis(drreg_internal_per_thread_t *pt)
 {
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
-        pt->reg[GPR_IDX(reg)].app_uses = 0;
+        pt_gpr_info->reg[GPR_IDX(reg)].app_uses = 0;
 }
 
 void
 drreg_internal_bb_analyse_gpr_liveness(void *drcontext, drreg_internal_per_thread_t *pt,
                                        instr_t *inst, uint index)
 {
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         void *value = REG_LIVE;
-        /* DRi#1849: COND_SRCS here includes addressing regs in dsts */
+        /* DRi#1849: COND_SRCS here includes addressing regs in dsts. */
         if (instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
             value = REG_LIVE;
-        /* make sure we don't consider writes to sub-regs */
+        /* Make sure we don't consider writes to sub-regs. */
         else if (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS)
                  /* a write to a 32-bit reg for amd64 zeroes the top 32 bits */
                  IF_X86_64(||
@@ -168,10 +178,10 @@ drreg_internal_bb_analyse_gpr_liveness(void *drcontext, drreg_internal_per_threa
         else if (drreg_internal_is_xfer(inst))
             value = REG_LIVE;
         else if (index > 0)
-            value = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, index - 1);
+            value = drvector_get_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, index - 1);
         LOG(drcontext, DR_LOG_ALL, 3, " %s=%d", get_register_name(reg),
             (int)(ptr_uint_t)value);
-        drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, index, value);
+        drvector_set_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, index, value);
     }
 }
 
@@ -183,13 +193,14 @@ drreg_internal_bb_insert_gpr_restore_all(void *drcontext, drreg_internal_per_thr
     instr_t *next = instr_get_next(inst);
     drreg_status_t res;
 
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (regs_restored != NULL)
             regs_restored[GPR_IDX(reg)] = false;
 
-        if (!pt->reg[GPR_IDX(reg)].native) {
+        if (!pt_gpr_info->reg[GPR_IDX(reg)].native) {
             if (force_restore || instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
-                /* Treat a partial write as a read, to restore rest of reg */
+                /* Treat a partial write as a read, to restore rest of reg. */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) ||
                 /* Treat a conditional write as a read and a write to handle the
@@ -197,16 +208,17 @@ drreg_internal_bb_insert_gpr_restore_all(void *drcontext, drreg_internal_per_thr
                  */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_reg(inst, reg, DR_QUERY_DEFAULT)) ||
-                /* i#1954: for complex bbs we must restore before the next app instr. */
-                (!pt->reg[GPR_IDX(reg)].in_use &&
+                /* i#1954: For complex bbs we must restore before the next app instr. */
+                (!pt_gpr_info->reg[GPR_IDX(reg)].in_use &&
                  ((pt->bb_has_internal_flow &&
                    !TEST(DRREG_IGNORE_CONTROL_FLOW, pt->bb_props)) ||
                   TEST(DRREG_CONTAINS_SPANNING_CONTROL_FLOW, pt->bb_props))) ||
                 /* If we're out of our own slots and are using a DR slot, we have to
                  * restore now b/c DR slots are not guaranteed across app instrs.
                  */
-                pt->reg[GPR_IDX(reg)].slot >= (int)drreg_internal_ops.num_spill_slots) {
-                if (!pt->reg[GPR_IDX(reg)].in_use) {
+                pt_gpr_info->reg[GPR_IDX(reg)].slot >=
+                    (int)drreg_internal_ops.num_spill_slots) {
+                if (!pt_gpr_info->reg[GPR_IDX(reg)].in_use) {
                     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": lazily restoring %s\n",
                         __FUNCTION__, pt->live_idx, get_where_app_pc(inst),
                         get_register_name(reg));
@@ -218,8 +230,8 @@ drreg_internal_bb_insert_gpr_restore_all(void *drcontext, drreg_internal_per_thr
                             pt->live_idx, get_where_app_pc(inst));
                         return res;
                     }
-                    ASSERT(pt->pending_unreserved > 0, "should not go negative");
-                    pt->pending_unreserved--;
+                    ASSERT(pt_gpr_info->pending_unreserved > 0, "should not go negative");
+                    pt_gpr_info->pending_unreserved--;
                 } else if (pt->aflags.xchg == reg) {
                     /* Bail on keeping the flags in the reg. */
                     res = drreg_internal_move_aflags_from_reg(drcontext, pt, bb, inst,
@@ -233,7 +245,7 @@ drreg_internal_bb_insert_gpr_restore_all(void *drcontext, drreg_internal_per_thr
                      * register).
                      * XXX: optimize via xchg w/ a dead reg.
                      */
-                    uint tmp_slot = drreg_internal_find_free_gpr_slot(pt);
+                    uint tmp_slot = drreg_internal_find_free_gpr_slot(pt_gpr_info);
                     if (tmp_slot == MAX_SPILLS)
                         return DRREG_ERROR_OUT_OF_SLOTS;
 
@@ -250,7 +262,7 @@ drreg_internal_bb_insert_gpr_restore_all(void *drcontext, drreg_internal_per_thr
                         pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                     drreg_internal_spill_gpr(drcontext, pt, bb, inst, reg, tmp_slot);
                     drreg_internal_restore_gpr(drcontext, pt, bb, inst, reg,
-                                               pt->reg[GPR_IDX(reg)].slot,
+                                               pt_gpr_info->reg[GPR_IDX(reg)].slot,
                                                false /*keep slot*/);
                     drreg_internal_restore_gpr(drcontext, pt, bb, next, reg, tmp_slot,
                                                true);
@@ -274,13 +286,14 @@ drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_threa
     instr_t *next = instr_get_next(inst);
     drreg_status_t res;
 
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        if (pt->reg[GPR_IDX(reg)].in_use) {
+        if (pt_gpr_info->reg[GPR_IDX(reg)].in_use) {
             if (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                 /* Don't bother if reg is dead beyond this write. */
                 (drreg_internal_ops.conservative || pt->live_idx == 0 ||
-                 drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx - 1) ==
-                     REG_LIVE ||
+                 drvector_get_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live,
+                                    pt->live_idx - 1) == REG_LIVE ||
                  pt->aflags.xchg == reg)) {
                 uint tmp_slot = MAX_SPILLS;
                 if (pt->aflags.xchg == reg) {
@@ -292,7 +305,7 @@ drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_threa
 
                     continue;
                 }
-                if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
+                if (pt_gpr_info->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
                     /* XXX i#511: NYI */
                     return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
                 }
@@ -308,7 +321,7 @@ drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_threa
                     "%s @%d." PFX ": re-spilling %s after app write\n", __FUNCTION__,
                     pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
                 if (!restored_for_read[GPR_IDX(reg)]) {
-                    tmp_slot = drreg_internal_find_free_gpr_slot(pt);
+                    tmp_slot = drreg_internal_find_free_gpr_slot(pt_gpr_info);
                     if (tmp_slot == MAX_SPILLS)
                         return DRREG_ERROR_OUT_OF_SLOTS;
 
@@ -321,14 +334,14 @@ drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_threa
                                          restored_for_read[GPR_IDX(reg)]
                                              ? instr_get_prev(next)
                                              : next /*after*/,
-                                         reg, pt->reg[GPR_IDX(reg)].slot);
-                pt->reg[GPR_IDX(reg)].ever_spilled = true;
+                                         reg, pt_gpr_info->reg[GPR_IDX(reg)].slot);
+                pt_gpr_info->reg[GPR_IDX(reg)].ever_spilled = true;
                 if (!restored_for_read[GPR_IDX(reg)]) {
                     drreg_internal_restore_gpr(drcontext, pt, bb, next /*after*/, reg,
                                                tmp_slot, true);
                 }
             }
-        } else if (!pt->reg[GPR_IDX(reg)].native &&
+        } else if (!pt_gpr_info->reg[GPR_IDX(reg)].native &&
                    instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) {
             /* For an unreserved reg that's written, just drop the slot, even
              * if it was spilled at an earlier reservation point.
@@ -337,16 +350,35 @@ drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_threa
                 "%s @%d." PFX ": dropping slot for unreserved reg %s after app write\n",
                 __FUNCTION__, pt->live_idx, get_where_app_pc(inst),
                 get_register_name(reg));
-            if (pt->reg[GPR_IDX(reg)].ever_spilled)
-                pt->reg[GPR_IDX(reg)].ever_spilled = false; /* no need to restore */
+            if (pt_gpr_info->reg[GPR_IDX(reg)].ever_spilled)
+                pt_gpr_info->reg[GPR_IDX(reg)].ever_spilled =
+                    false; /* no need to restore */
             res = drreg_internal_restore_gpr_reg_now(drcontext, pt, bb, inst, reg);
             if (res != DRREG_SUCCESS)
                 return res;
-            pt->pending_unreserved--;
+            pt_gpr_info->pending_unreserved--;
         }
     }
 
     return DRREG_SUCCESS;
+}
+
+void
+drreg_internal_check_lazy_gpr_restoration(void *drcontext,
+                                          drreg_internal_per_thread_t *pt)
+{
+#ifdef DEBUG
+    drreg_internal_reg_class_info_t *gpr_info = &pt->gpr_class_info;
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        ASSERT(!gpr_info->reg[GPR_IDX(reg)].in_use,
+               "user failed to unreserve a register");
+        ASSERT(gpr_info->reg[GPR_IDX(reg)].native, "user failed to unreserve a register");
+    }
+    for (uint i = 0; i < MAX_SPILLS; i++) {
+        ASSERT(gpr_info->slot_use[i] == DR_REG_NULL,
+               "user failed to unreserve a register");
+    }
+#endif
 }
 
 /***************************************************************************
@@ -356,11 +388,11 @@ drreg_internal_insert_gpr_update_spill(void *drcontext, drreg_internal_per_threa
 void
 drreg_internal_init_forward_gpr_liveness_analysis(drreg_internal_per_thread_t *pt)
 {
-    /* We just use index 0 of the live vectors */
-    /* We just use index 0 of the live vectors */
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        pt->reg[GPR_IDX(reg)].app_uses = 0;
-        drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_UNKNOWN);
+        pt_gpr_info->reg[GPR_IDX(reg)].app_uses = 0;
+        /* We just use index 0 of the live vectors */
+        drvector_set_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, 0, REG_UNKNOWN);
     }
 }
 
@@ -368,32 +400,36 @@ void
 drreg_internal_forward_analyse_gpr_liveness(drreg_internal_per_thread_t *pt,
                                             instr_t *inst)
 {
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         void *value = REG_UNKNOWN;
-        if (drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, 0) != REG_UNKNOWN)
+        if (drvector_get_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, 0) != REG_UNKNOWN)
             continue;
-        /* DRi#1849: COND_SRCS here includes addressing regs in dsts */
+        /* DRi#1849: COND_SRCS here includes addressing regs in dsts. */
         if (instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS))
             value = REG_LIVE;
-        /* make sure we don't consider writes to sub-regs */
+        /* Make sure we don't consider writes to sub-regs. */
         else if (instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_COND_SRCS)
-                 /* a write to a 32-bit reg for amd64 zeroes the top 32 bits */
+                 /* A write to a 32-bit reg for amd64 zeroes the top 32 bits. */
                  IF_X86_64(||
                            instr_writes_to_exact_reg(inst, reg_64_to_32(reg),
                                                      DR_QUERY_INCLUDE_COND_SRCS)))
             value = REG_DEAD;
         if (value != REG_UNKNOWN)
-            drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, value);
+            drvector_set_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, 0, value);
     }
 }
 
 void
 drreg_internal_finalise_forward_gpr_liveness_analysis(drreg_internal_per_thread_t *pt)
 {
-    /* If we could not determine state (i.e. unknown), we set the state to live. */
+    /* After analysis, if we could not determine state (i.e. unknown), we set the state to
+     * live.
+     */
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        if (drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, 0) == REG_UNKNOWN)
-            drvector_set_entry(&pt->reg[GPR_IDX(reg)].live, 0, REG_LIVE);
+        if (drvector_get_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, 0) == REG_UNKNOWN)
+            drvector_set_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, 0, REG_LIVE);
     }
 }
 
@@ -419,16 +455,18 @@ drreg_internal_reserve_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
      * never pick an unreserved and unspilled yet not currently dead reg over
      * some other dead reg.
      */
-    if (pt->pending_unreserved > 0) {
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+    if (pt_gpr_info->pending_unreserved > 0) {
         for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
             uint idx = GPR_IDX(reg);
-            if (!pt->reg[idx].native && !pt->reg[idx].in_use &&
+            if (!pt_gpr_info->reg[idx].native && !pt_gpr_info->reg[idx].in_use &&
                 (reg_allowed == NULL || drvector_get_entry(reg_allowed, idx) != NULL) &&
-                (!only_if_no_spill || pt->reg[idx].ever_spilled ||
-                 drvector_get_entry(&pt->reg[idx].live, pt->live_idx) == REG_DEAD)) {
-                slot = pt->reg[idx].slot;
-                pt->pending_unreserved--;
-                already_spilled = pt->reg[idx].ever_spilled;
+                (!only_if_no_spill || pt_gpr_info->reg[idx].ever_spilled ||
+                 drvector_get_entry(&pt_gpr_info->reg[idx].live, pt->live_idx) ==
+                     REG_DEAD)) {
+                slot = pt_gpr_info->reg[idx].slot;
+                pt_gpr_info->pending_unreserved--;
+                already_spilled = pt_gpr_info->reg[idx].ever_spilled;
                 LOG(drcontext, DR_LOG_ALL, 3,
                     "%s @%d." PFX ": using un-restored %s slot %d\n", __FUNCTION__,
                     pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot);
@@ -438,10 +476,10 @@ drreg_internal_reserve_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
     }
 
     if (reg > DR_REG_STOP_GPR) {
-        /* Look for a dead register, or the least-used register */
+        /* Look for a dead register, or the least-used register. */
         for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
             uint idx = GPR_IDX(reg);
-            if (pt->reg[idx].in_use)
+            if (pt_gpr_info->reg[idx].in_use)
                 continue;
             if (reg ==
                 dr_get_stolen_reg() IF_ARM(|| reg == DR_REG_PC)
@@ -453,15 +491,15 @@ drreg_internal_reserve_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
             if (reg_allowed != NULL && drvector_get_entry(reg_allowed, idx) == NULL)
                 continue;
             /* If we had a hint as to local vs whole-bb we could downgrade being
-             * dead right now as a priority
+             * dead right now as a priority.
              */
-            if (drvector_get_entry(&pt->reg[idx].live, pt->live_idx) == REG_DEAD)
+            if (drvector_get_entry(&pt_gpr_info->reg[idx].live, pt->live_idx) == REG_DEAD)
                 break;
             if (only_if_no_spill)
                 continue;
-            if (pt->reg[idx].app_uses < min_uses) {
+            if (pt_gpr_info->reg[idx].app_uses < min_uses) {
                 best_reg = reg;
-                min_uses = pt->reg[idx].app_uses;
+                min_uses = pt_gpr_info->reg[idx].app_uses;
             }
         }
     }
@@ -473,7 +511,7 @@ drreg_internal_reserve_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
             /* If aflags was unreserved but is still in xax, give it up rather than
              * fail to reserve a new register.
              */
-            if (!pt->aflags.in_use && pt->reg[GPR_IDX(DR_REG_XAX)].in_use &&
+            if (!pt->aflags.in_use && pt_gpr_info->reg[GPR_IDX(DR_REG_XAX)].in_use &&
                 pt->aflags.xchg == DR_REG_XAX &&
                 (reg_allowed == NULL ||
                  drvector_get_entry(reg_allowed, GPR_IDX(DR_REG_XAX)) != NULL)) {
@@ -492,37 +530,38 @@ drreg_internal_reserve_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
         }
     }
     if (slot == MAX_SPILLS) {
-        slot = drreg_internal_find_free_gpr_slot(pt);
+        slot = drreg_internal_find_free_gpr_slot(pt_gpr_info);
         if (slot == MAX_SPILLS)
             return DRREG_ERROR_OUT_OF_SLOTS;
     }
 
-    ASSERT(!pt->reg[GPR_IDX(reg)].in_use, "overlapping uses");
-    pt->reg[GPR_IDX(reg)].in_use = true;
+    ASSERT(!pt_gpr_info->reg[GPR_IDX(reg)].in_use, "overlapping uses");
+    pt_gpr_info->reg[GPR_IDX(reg)].in_use = true;
     if (!already_spilled) {
-        /* Even if dead now, we need to own a slot in case reserved past dead point */
+        /* Even if dead now, we need to own a slot in case reserved past dead point. */
         if (drreg_internal_ops.conservative ||
-            drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_LIVE) {
+            drvector_get_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, pt->live_idx) ==
+                REG_LIVE) {
             LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": spilling %s to slot %d\n",
                 __FUNCTION__, pt->live_idx, get_where_app_pc(where),
                 get_register_name(reg), slot);
             drreg_internal_spill_gpr(drcontext, pt, ilist, where, reg, slot);
-            pt->reg[GPR_IDX(reg)].ever_spilled = true;
+            pt_gpr_info->reg[GPR_IDX(reg)].ever_spilled = true;
         } else {
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s @%d." PFX ": no need to spill %s to slot %d\n", __FUNCTION__,
                 pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot);
-            pt->slot_use[slot] = reg;
-            pt->reg[GPR_IDX(reg)].ever_spilled = false;
+            pt_gpr_info->slot_use[slot] = reg;
+            pt_gpr_info->reg[GPR_IDX(reg)].ever_spilled = false;
         }
     } else {
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": %s already spilled to slot %d\n",
             __FUNCTION__, pt->live_idx, get_where_app_pc(where), get_register_name(reg),
             slot);
     }
-    pt->reg[GPR_IDX(reg)].native = false;
-    pt->reg[GPR_IDX(reg)].xchg = DR_REG_NULL;
-    pt->reg[GPR_IDX(reg)].slot = slot;
+    pt_gpr_info->reg[GPR_IDX(reg)].native = false;
+    pt_gpr_info->reg[GPR_IDX(reg)].xchg = DR_REG_NULL;
+    pt_gpr_info->reg[GPR_IDX(reg)].slot = slot;
     *reg_out = reg;
     return DRREG_SUCCESS;
 }
@@ -536,7 +575,7 @@ drreg_internal_restore_gpr_app_value(void *drcontext, drreg_internal_per_thread_
         !reg_is_pointer_sized(dst_reg))
         return DRREG_ERROR_INVALID_PARAMETER;
 
-    /* check if app_reg is stolen reg */
+    /* Handle case where app_reg is a stolen reg. */
     if (app_reg == dr_get_stolen_reg()) {
         /* DR will refuse to load into the same reg (the caller must use
          * opnd_replace_reg() with a scratch reg in that case).
@@ -551,50 +590,48 @@ drreg_internal_restore_gpr_app_value(void *drcontext, drreg_internal_per_thread_
         return DRREG_ERROR;
     }
 
-    if (reg_is_gpr(app_reg)) {
-        /* Check if app_reg is an unspilled reg. */
-        if (pt->reg[GPR_IDX(app_reg)].native) {
-            LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": reg %s already native\n",
-                __FUNCTION__, pt->live_idx, get_where_app_pc(where),
-                get_register_name(app_reg));
-            if (dst_reg != app_reg) {
-                PRE(ilist, where,
-                    XINST_CREATE_move(drcontext, opnd_create_reg(dst_reg),
-                                      opnd_create_reg(app_reg)));
-            }
-            return DRREG_SUCCESS;
-        }
-        /* We may have lost the app value for a dead reg. */
-        if (!pt->reg[GPR_IDX(app_reg)].ever_spilled) {
-            LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": reg %s never spilled\n",
-                __FUNCTION__, pt->live_idx, get_where_app_pc(where),
-                get_register_name(app_reg));
-            return DRREG_ERROR_NO_APP_VALUE;
-        }
-        /* Restore the app value back to app_reg. */
-        if (pt->reg[GPR_IDX(app_reg)].xchg != DR_REG_NULL) {
-            /* XXX i#511: NYI */
-            return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
-        }
-        LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": getting app value for %s\n",
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+    /* Check if app_reg is an unspilled reg. */
+    if (pt_gpr_info->reg[GPR_IDX(app_reg)].native) {
+        LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": reg %s already native\n",
             __FUNCTION__, pt->live_idx, get_where_app_pc(where),
             get_register_name(app_reg));
-        /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all
-         * here.
-         */
-        if (pt->aflags.xchg == app_reg) {
-            /* Bail on keeping the flags in the reg. */
-            drreg_status_t res = drreg_internal_move_aflags_from_reg(drcontext, pt, ilist,
-                                                                     where, stateful);
-            if (res != DRREG_SUCCESS)
-                return res;
-        } else {
-            drreg_internal_restore_gpr(drcontext, pt, ilist, where, app_reg,
-                                       pt->reg[GPR_IDX(app_reg)].slot,
-                                       stateful && !pt->reg[GPR_IDX(app_reg)].in_use);
-            if (stateful && !pt->reg[GPR_IDX(app_reg)].in_use)
-                pt->reg[GPR_IDX(app_reg)].native = true;
+        if (dst_reg != app_reg) {
+            PRE(ilist, where,
+                XINST_CREATE_move(drcontext, opnd_create_reg(dst_reg),
+                                  opnd_create_reg(app_reg)));
         }
+        return DRREG_SUCCESS;
+    }
+    /* We may have lost the app value for a dead reg. */
+    if (!pt_gpr_info->reg[GPR_IDX(app_reg)].ever_spilled) {
+        LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": reg %s never spilled\n",
+            __FUNCTION__, pt->live_idx, get_where_app_pc(where),
+            get_register_name(app_reg));
+        return DRREG_ERROR_NO_APP_VALUE;
+    }
+    /* Restore the app value back to app_reg. */
+    if (pt_gpr_info->reg[GPR_IDX(app_reg)].xchg != DR_REG_NULL) {
+        /* XXX i#511: NYI */
+        return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
+    }
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": getting app value for %s\n",
+        __FUNCTION__, pt->live_idx, get_where_app_pc(where), get_register_name(app_reg));
+    /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all
+     * here.
+     */
+    if (pt->aflags.xchg == app_reg) {
+        /* Bail on keeping the flags in the reg. */
+        drreg_status_t res =
+            drreg_internal_move_aflags_from_reg(drcontext, pt, ilist, where, stateful);
+        if (res != DRREG_SUCCESS)
+            return res;
+    } else {
+        drreg_internal_restore_gpr(
+            drcontext, pt, ilist, where, app_reg, pt_gpr_info->reg[GPR_IDX(app_reg)].slot,
+            stateful && !pt_gpr_info->reg[GPR_IDX(app_reg)].in_use);
+        if (stateful && !pt_gpr_info->reg[GPR_IDX(app_reg)].in_use)
+            pt_gpr_info->reg[GPR_IDX(app_reg)].native = true;
     }
 
     return DRREG_SUCCESS;
@@ -605,42 +642,45 @@ drreg_internal_restore_gpr_app_values(void *drcontext, instrlist_t *ilist, instr
                                       opnd_t opnd, INOUT reg_id_t *swap,
                                       OUT bool *no_app_value)
 {
+    if (no_app_value == NULL)
+        return DRREG_ERROR_INVALID_PARAMETER;
+
     drreg_status_t res;
     int num_op = opnd_num_regs_used(opnd);
 
-    DR_ASSERT(no_app_value != NULL);
-
-    /* Now restore GPRs. */
     for (int i = 0; i < num_op; i++) {
         reg_id_t reg = opnd_get_reg_used(opnd, i);
+
+        /* Not a GPR. Continue to check the next register. */
         if (!reg_is_gpr(reg))
             continue;
 
         reg = reg_to_pointer_sized(reg);
         reg_id_t dst = reg;
+
+        /* Handle case where reg is also the stolen register. */
         if (reg == dr_get_stolen_reg()) {
-            if (swap == NULL) {
+            if (swap == NULL)
                 return DRREG_ERROR_INVALID_PARAMETER;
-            }
+
             if (*swap == DR_REG_NULL) {
                 res = drreg_reserve_register(drcontext, ilist, where, NULL, &dst);
-                if (res != DRREG_SUCCESS) {
+                if (res != DRREG_SUCCESS)
                     return res;
-                }
             } else
                 dst = *swap;
-            if (!opnd_replace_reg(&opnd, reg, dst)) {
+
+            if (!opnd_replace_reg(&opnd, reg, dst))
                 return DRREG_ERROR;
-            }
+
             *swap = dst;
         }
 
         res = drreg_get_app_value(drcontext, ilist, where, reg, dst);
         if (res == DRREG_ERROR_NO_APP_VALUE)
             *no_app_value = true;
-        else if (res != DRREG_SUCCESS) {
+        else if (res != DRREG_SUCCESS)
             return res;
-        }
     }
 
     return DRREG_SUCCESS;
@@ -653,8 +693,9 @@ drreg_internal_restore_gpr_reg_now(void *drcontext, drreg_internal_per_thread_t 
     if (!reg_is_gpr(reg))
         return DRREG_ERROR_INVALID_PARAMETER;
 
-    if (pt->reg[GPR_IDX(reg)].ever_spilled) {
-        if (pt->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+    if (pt_gpr_info->reg[GPR_IDX(reg)].ever_spilled) {
+        if (pt_gpr_info->reg[GPR_IDX(reg)].xchg != DR_REG_NULL) {
             /* XXX i#511: NYI */
             return DRREG_ERROR_FEATURE_NOT_AVAILABLE;
         }
@@ -662,14 +703,14 @@ drreg_internal_restore_gpr_reg_now(void *drcontext, drreg_internal_per_thread_t 
             pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
 
         drreg_internal_restore_gpr(drcontext, pt, ilist, inst, reg,
-                                   pt->reg[GPR_IDX(reg)].slot, true);
+                                   pt_gpr_info->reg[GPR_IDX(reg)].slot, true);
     } else {
         /* still need to release slot */
         LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": %s never spilled\n", __FUNCTION__,
             pt->live_idx, get_where_app_pc(inst), get_register_name(reg));
-        pt->slot_use[pt->reg[GPR_IDX(reg)].slot] = DR_REG_NULL;
+        pt_gpr_info->slot_use[pt_gpr_info->reg[GPR_IDX(reg)].slot] = DR_REG_NULL;
     }
-    pt->reg[GPR_IDX(reg)].native = true;
+    pt_gpr_info->reg[GPR_IDX(reg)].native = true;
 
     return DRREG_SUCCESS;
 }
@@ -678,7 +719,8 @@ drreg_status_t
 drreg_internal_unreserve_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
                              instrlist_t *ilist, instr_t *where, reg_id_t reg)
 {
-    if (!reg_is_gpr(reg) || !pt->reg[GPR_IDX(reg)].in_use)
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+    if (!reg_is_gpr(reg) || !pt_gpr_info->reg[GPR_IDX(reg)].in_use)
         return DRREG_ERROR_INVALID_PARAMETER;
 
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s\n", __FUNCTION__, pt->live_idx,
@@ -700,11 +742,21 @@ drreg_internal_unreserve_gpr(void *drcontext, drreg_internal_per_thread_t *pt,
         /* We lazily restore in drreg_event_bb_insert_late(), in case
          * someone else wants a local scratch.
          */
-        pt->pending_unreserved++;
+        pt_gpr_info->pending_unreserved++;
     }
-    pt->reg[GPR_IDX(reg)].in_use = false;
+    pt_gpr_info->reg[GPR_IDX(reg)].in_use = false;
 
     return DRREG_SUCCESS;
+}
+
+drreg_internal_reg_info_t
+drreg_gpr_reservation_info(void *drcontext, drreg_internal_per_thread_t *pt, reg_id_t reg)
+{
+    if (reg < DR_REG_START_GPR && reg > DR_REG_STOP_GPR)
+        return false;
+
+    drreg_internal_reg_class_info_t *gpr_info = &pt->gpr_class_info;
+    return &gpr_info->reg[GPR_IDX(reg)];
 }
 
 drreg_status_t
@@ -713,7 +765,9 @@ drreg_internal_is_gpr_dead(drreg_internal_per_thread_t *pt, reg_id_t reg, bool *
     if (dead == NULL || !reg_is_gpr(reg))
         return DRREG_ERROR_INVALID_PARAMETER;
 
-    *dead = drvector_get_entry(&pt->reg[GPR_IDX(reg)].live, pt->live_idx) == REG_DEAD;
+    drreg_internal_reg_class_info_t *pt_gpr_info = &pt->gpr_class_info;
+    *dead = drvector_get_entry(&pt_gpr_info->reg[GPR_IDX(reg)].live, pt->live_idx) ==
+        REG_DEAD;
     return DRREG_SUCCESS;
 }
 
@@ -781,23 +835,21 @@ drreg_internal_is_gpr_spill_or_restore(void *drcontext, instr_t *instr, bool is_
             dr_reg_spill_slot_opnd(drcontext, dr_max_opnd_accessible_spill_slot()));
         uint max_DR_slot = (uint)dr_max_opnd_accessible_spill_slot();
         if (DR_min_offs > DR_max_offs) {
-            if (offs > DR_min_offs) {
+            if (offs > DR_min_offs)
                 *slot_out = (offs - DR_min_offs) / sizeof(reg_t);
-            } else if (offs < DR_max_offs) {
+            else if (offs < DR_max_offs) {
                 /* Fix hidden slot regardless of low-to-high or vice versa. */
                 *slot_out = max_DR_slot + 1;
-            } else {
+            } else
                 *slot_out = (DR_min_offs - offs) / sizeof(reg_t);
-            }
         } else {
-            if (offs > DR_max_offs) {
+            if (offs > DR_max_offs)
                 *slot_out = (offs - DR_max_offs) / sizeof(reg_t);
-            } else if (offs < DR_min_offs) {
+            else if (offs < DR_min_offs) {
                 /* Fix hidden slot regardless of low-to-high or vice versa. */
                 *slot_out = max_DR_slot + 1;
-            } else {
+            } else
                 *slot_out = (offs - DR_min_offs) / sizeof(reg_t);
-            }
         }
         if (*slot_out > max_DR_slot) {
             /* This is not a drreg spill, but some TLS access by
@@ -895,18 +947,39 @@ drreg_internal_gpr_restore_state_set_values(void *drcontext,
  */
 
 void
-drreg_internal_tls_gpr_data_init(drreg_internal_per_thread_t *pt)
+drreg_internal_tls_gpr_data_init(void *drcontext, drreg_internal_per_thread_t *pt)
 {
+    drreg_internal_reg_class_info_t *gpr_info = &pt->gpr_class_info;
+
+    if (drcontext == GLOBAL_DCONTEXT) {
+        gpr_info->reg =
+            dr_global_alloc(DR_NUM_GPR_REGS * sizeof(drreg_internal_reg_info_t));
+    } else {
+        gpr_info->reg = dr_thread_alloc(
+            drcontext, DR_NUM_GPR_REGS * sizeof(drreg_internal_reg_info_t));
+    }
+
+    memset(gpr_info->reg, 0, DR_NUM_GPR_REGS * sizeof(drreg_internal_reg_info_t));
+
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        drvector_init(&pt->reg[GPR_IDX(reg)].live, 20, false /*!synch*/, NULL);
-        pt->reg[GPR_IDX(reg)].native = true;
+        drvector_init(&gpr_info->reg[GPR_IDX(reg)].live, 20, false /*!synch*/, NULL);
+        gpr_info->reg[GPR_IDX(reg)].native = true;
     }
 }
 
 void
-drreg_internal_tls_gpr_data_free(drreg_internal_per_thread_t *pt)
+drreg_internal_tls_gpr_data_free(void *drcontext, drreg_internal_per_thread_t *pt)
 {
-    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        drvector_delete(&pt->reg[GPR_IDX(reg)].live);
+    drreg_internal_reg_class_info_t *gpr_info = &pt->gpr_class_info;
+
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
+        drvector_delete(&gpr_info->reg[GPR_IDX(reg)].live);
+
+    if (drcontext == GLOBAL_DCONTEXT) {
+        dr_global_free(gpr_info->reg,
+                       DR_NUM_GPR_REGS * sizeof(drreg_internal_reg_info_t));
+    } else {
+        dr_thread_free(drcontext, gpr_info->reg,
+                       DR_NUM_GPR_REGS * sizeof(drreg_internal_reg_info_t));
     }
 }
