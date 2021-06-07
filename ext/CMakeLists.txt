@@ -119,6 +119,10 @@ add_subdirectory(drsyms)
 add_subdirectory(drutil)
 add_subdirectory(droption)
 add_subdirectory(drcovlib)
+# TODO i#4678: ARM not yet supported.
+if (X86)
+  add_subdirectory(drstatecmp)
+endif (X86)
 
 # documentation is put into main DR docs/ dir
 
