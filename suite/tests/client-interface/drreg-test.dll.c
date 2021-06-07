@@ -413,6 +413,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot unreserve aflags");
         }
+    } else if (subtest == DRREG_TEST_18_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #18\n");
+        if (instr_is_nop(inst)) {
+            res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
+            CHECK(res == DRREG_SUCCESS && reg == TEST_REG, "only 1 choice");
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_load_int(drcontext,
+                                                           opnd_create_reg(TEST_REG),
+                                                           OPND_CREATE_INT32(MAGIC_VAL)));
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
+            CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+        }
 #endif
     }
 
