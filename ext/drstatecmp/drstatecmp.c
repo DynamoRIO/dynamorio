@@ -414,11 +414,12 @@ drstatecmp_insert_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
     if (!data->side_effect_free) {
         drstatecmp_insert_instrument_bb_with_side_effects();
     } else {
-        if (data->orig_bb_mode)
+        if (data->orig_bb_mode) {
             drstatecmp_insert_instrument_bb_orig_side_effect_free(drcontext, bb, instr,
                                                                   data);
-        else
+        } else {
             drstatecmp_insert_instrument_bb_copy_side_effect_free(drcontext, bb, instr);
+        }
     }
 
     /* Free the user_data when we are done with this bb. */
