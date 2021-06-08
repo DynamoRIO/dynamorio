@@ -828,6 +828,9 @@ drreg_forward_analysis(void *drcontext, instr_t *start)
         aflags_new = instr_get_arith_flags(inst, DR_QUERY_INCLUDE_COND_SRCS);
         /* reading and writing counts only as reading */
         aflags_new &= (~(EFLAGS_READ_TO_WRITE(aflags_new)));
+        /* also checks aflags_cur to make sure the writes are 
+           count only if there are no previously used aflags */
+        aflags_new &= (~(EFLAGS_READ_TO_WRITE(aflags_cur)));
         /* reading doesn't count if already written */
         aflags_new &= (~(EFLAGS_WRITE_TO_READ(aflags_cur)));
         aflags_cur |= aflags_new;
