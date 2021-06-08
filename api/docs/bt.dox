@@ -1340,8 +1340,10 @@ This run-twice approach is subject to the following limitations:
   region whose values are then read afterward, must be general-purpose registers.
 - The instrumented execution of the rseq region may not perfectly reflect
   the native behavior of the application.  The instrumentation will never see
-  the abort handler called, and memory addresses may be wrong if they are based on
-  the underlying cpuid and a migration occurred mid-region.  These are minor and
+  an abort anywhere but just prior to the committing store.
+  Additionally, memory addresses may be wrong if they are based on
+  the live (as opposed to cached at the rseq region entrance) underlying cpuid
+  and a migration occurred mid-region.  These are minor and
   acceptable for most tools (especially given that there is no better alternative).
 
 Some of these limitations are explicitly checked, and DR will exit with an error
