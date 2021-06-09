@@ -816,7 +816,8 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-        /* Test 15: restore on fault for aflags stored in xax. */
+        /* Test 15: restore on fault for aflags stored in xax without preceding
+         * xax spill. */
 #define FUNCNAME test_asm_faultG
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -833,15 +834,14 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
         nop
         ud2
-        /* xax is dead, so should not need to spill when reserving aflags.
-         * drreg_event_restore_state works fine without this.
-         */
+        /* xax is dead, so should not need to spill when reserving aflags. */
         mov      REG_XAX, 0
         jmp      epilog15
      epilog15:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
         ret
+        /* This test does not have AArchXX variants. */
 #elif defined(ARM)
         bx       lr
 #elif defined(AARCH64)
@@ -850,7 +850,9 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-        /* Test 16: restore on fault for reg read by app before crash. */
+        /* Test 16: restore on fault for reg restored once (for app read)
+         * before crash.
+         */
 #define FUNCNAME test_asm_faultH
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -864,9 +866,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_16_ASM
         mov      TEST_REG_ASM, DRREG_TEST_16_ASM
         nop
-        /* Read reg so that restore logic loses its book-keeping.
-         * drreg_event_restore_state works fine without this.
-         */
+        /* Read reg so that it is restored once. */
         add      TEST_REG2_ASM, TEST_REG_ASM
         mov      REG_XCX, 0
         mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
@@ -876,8 +876,34 @@ GLOBAL_LABEL(FUNCNAME:)
         POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test16
+     test16:
+        movw     TEST_REG_ASM, DRREG_TEST_16_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_16_ASM
+        nop
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog16
+    epilog16:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test16
+     test16:
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
+        nop
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog16
+    epilog16:
         ret
 #endif
         END_FUNC(FUNCNAME)

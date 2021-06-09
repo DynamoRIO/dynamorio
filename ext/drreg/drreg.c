@@ -1918,8 +1918,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 }
             } else {
                 if (aflags_spill_slot == slot) {
-                    ASSERT(!gpr_native[GPR_IDX(aflags_spill_reg)],
-                           "reg with aflags cannot be native");
+                    ASSERT(
+                        !gpr_native[GPR_IDX(reg)] ||
+                            gpr_spill_slot[GPR_IDX(reg)] != MAX_SPILLS,
+                        "restoration of aflags shouldn't clobber an unsaved native val");
                     aflags_spill_reg = reg;
                     app_aflags_written_to_reg = true;
                 } else if (gpr_spill_slot[GPR_IDX(reg)] == slot) {
@@ -2001,7 +2003,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #else
             val = *(reg_t *)(&info->mcontext->r0 + (aflags_spill_reg - DR_REG_R0));
 #endif
-        } else if (aflags_spill_slot != MAX_SPILLS) {
+        } else {
             val = get_spilled_value(drcontext, aflags_spill_slot);
         }
         newval = dr_merge_arith_flags(newval, val);
