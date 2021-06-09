@@ -413,6 +413,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot unreserve aflags");
         }
+#endif
     } else if (subtest == DRREG_TEST_18_C) {
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #18\n");
         if (instr_is_nop(inst)) {
@@ -426,7 +427,6 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
         }
-#endif
     }
 
     drvector_delete(&allowed);

@@ -876,8 +876,34 @@ GLOBAL_LABEL(FUNCNAME:)
         POP_CALLEE_SAVED_REGS()
         ret
 #elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test18
+     test18:
+        movw     TEST_REG_ASM, DRREG_TEST_18_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog18
+    epilog18:
         bx       lr
 #elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test18
+     test18:
+        movz     TEST_REG_ASM, DRREG_TEST_18_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog18
+    epilog18:
         ret
 #endif
         END_FUNC(FUNCNAME)
