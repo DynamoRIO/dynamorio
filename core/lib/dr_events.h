@@ -641,6 +641,12 @@ typedef struct _dr_fault_fragment_info_t {
      * depending on the type of cache consistency being used by DR.
      */
     bool app_code_consistent;
+    /**
+     * The recreated ilist for this fragment. This also contains metadata
+     * added by various clients, which may be helpful in restoring state
+     * on fault. Set to NULL if not available.
+     */
+    instrlist_t* ilist;
 } dr_fault_fragment_info_t;
 
 /**
