@@ -646,7 +646,7 @@ typedef struct _dr_fault_fragment_info_t {
      * added by various clients, which may be helpful in restoring state
      * on fault. Set to NULL if not available.
      */
-    instrlist_t* ilist;
+    instrlist_t *ilist;
 } dr_fault_fragment_info_t;
 
 /**
