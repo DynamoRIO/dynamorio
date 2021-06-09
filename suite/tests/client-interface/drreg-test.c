@@ -384,7 +384,17 @@ GLOBAL_LABEL(FUNCNAME:)
         cmp      TEST_REG_ASM, DRREG_TEST_13_ASM
         je       epilog
         ud2
-
+     test15:
+        /* Test 14: drreg_aflags_are_dead */
+        mov      TEST_REG_ASM, MAKE_HEX_ASM(1)
+        sub      TEST_REG_ASM, MAKE_HEX_ASM(2)
+        mov      TEST_REG_ASM, MAKE_HEX_ASM(2)
+        sbb      TEST_REG_ASM, MAKE_HEX_ASM(1)
+     test15_done:
+        /* Fail if aflags are not restored correctly */
+        cmp      TEST_REG_ASM, MAKE_HEX_ASM(0)
+        je       epilog
+        ud2
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()

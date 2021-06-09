@@ -35,6 +35,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
+#include "drx.h"
 #include "client_tools.h"
 #include "drreg-test-shared.h"
 #include <string.h> /* memset */
@@ -149,6 +150,23 @@ static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, OUT void *user_data)
 {
+#ifdef X86
+    for (instr_t* instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        reg_id_t r;
+        drreg_status_t res;
+        bool dead;
+        CHECK(drreg_are_aflags_dead(drcontext, instr, &dead)==DRREG_SUCCESS, "drreg_are_aflags_dead should always work");
+        CHECK(drx_aflags_are_dead(instr)==dead, "aflag liveness estimation of drx and drreg should always consist");
+        res = drreg_reserve_aflags(drcontext, bb, instr);
+        CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
+        CHECK(drreg_reserve_register(drcontext, bb, instr, NULL, &r)==DRREG_SUCCESS, "default reserve should always work");
+        /* clear the CF flag, it should not effect after aflags unreservation */
+        instrlist_meta_preinsert(bb, instr, INSTR_CREATE_xor(drcontext, opnd_create_reg(IF_X64_ELSE(reg_64_to_32(r), r)), opnd_create_reg(IF_X64_ELSE(reg_64_to_32(r), r))));
+        CHECK(drreg_unreserve_register(drcontext, bb, instr, r) == DRREG_SUCCESS, "default unreserve should always work");
+        res = drreg_unreserve_aflags(drcontext, bb, instr);
+        CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
+    }
+#endif
     return DR_EMIT_DEFAULT;
 }
 
@@ -483,10 +501,13 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static void
 event_exit(void)
 {
-    if (!drmgr_unregister_bb_insertion_event(event_app_instruction) ||
+    if (!drmgr_unregister_bb_instrumentation_ex_event(event_app2app, event_app_analysis,
+                                                    event_app_instruction,
+                                                    event_instru2instru) ||
         drreg_exit() != DRREG_SUCCESS)
         CHECK(false, "exit failed");
 
+    drx_exit();
     drmgr_exit();
 }
 
@@ -497,7 +518,7 @@ dr_init(client_id_t id)
      * a DR slot.
      */
     drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
-    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drx_init() || !drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
         CHECK(false, "init failed");
 
     note_base = drmgr_reserve_note_range(DRREG_TEST_NOTE_COUNT);
