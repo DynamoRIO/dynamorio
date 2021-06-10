@@ -341,7 +341,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         drvector_delete(&only_xax);
 #endif
     } else if (subtest == DRREG_TEST_1_C || subtest == DRREG_TEST_2_C ||
-               subtest == DRREG_TEST_3_C) {
+               subtest == DRREG_TEST_3_C || subtest == DRREG_TEST_18_C) {
         /* Cross-app-instr tests */
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #1/2/3\n");
         if (is_drreg_test_label_marker(inst)) {
@@ -477,6 +477,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     /* XXX i#511: add more tests */
 
+    if (subtest == DRREG_TEST_18_C)
+        return DR_EMIT_STORE_TRANSLATIONS;
     return DR_EMIT_DEFAULT;
 }
 

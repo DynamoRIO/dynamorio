@@ -1844,9 +1844,139 @@ forget_slot_use(uint *gpr_spill_slot, uint *aflags_spill_slot, uint slot)
         *aflags_spill_slot = MAX_SPILLS;
 }
 
+/* Restores machine state modified by drreg, without the reconstructed instrlist
+ * of the faulting fragment.
+ * This is a best-effort restore state logic which is used when the faulting
+ * fragment's reconstructed instrlist is not available. This does not handle
+ * some corner cases well, like multiple restores (i#4939), aflags in reg (i#4933)
+ * and multi-phase use (i#3823). It may restore the wrong value or not restore
+ * at all in these cases.
+ * drreg_event_restore_state_with_ilist uses metadata inlined in the
+ * reconstructed ilist to restore state in a robust manner. The metadata
+ * required is essentially just a bit per instruction for whether it's an app
+ * or tool instr.
+ * TODO i#4937: Store required metadata for each fragment and use it here for
+ * a more robust restoration of state.
+ */
 static bool
-drreg_event_restore_state(void *drcontext, bool restore_memory,
-                          dr_restore_state_info_t *info)
+drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
+                                        dr_restore_state_info_t *info)
+{
+    /* To achieve a clean and simple reserve-and-unreserve interface w/o specifying
+     * up front how many cross-app-instr scratch regs (and then limited to whole-bb
+     * regs with stored per-bb info, like Dr. Memory does), we have to pay with a
+     * complex state xl8 scheme.  We need to decode the in-cache fragment and walk
+     * it, recognizing our own spills and restores.  We distinguish a tool value
+     * spill to a temp slot (from drreg_event_bb_insert_late()) by watching for
+     * a spill of an already-spilled reg to a different slot.
+     *
+     */
+    uint spilled_to[DR_NUM_GPR_REGS];
+    uint spilled_to_aflags = MAX_SPILLS;
+    reg_id_t reg;
+    instr_t inst;
+    byte *prev_pc, *pc = info->fragment_info.cache_start_pc;
+    uint offs;
+    bool spill;
+#ifdef X86
+    bool prev_xax_spill = false;
+    bool aflags_in_xax = false;
+#endif
+    uint slot;
+    if (pc == NULL)
+        return true; /* fault not in cache */
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++)
+        spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
+    LOG(drcontext, DR_LOG_ALL, 3,
+        "%s: processing fault @" PFX ": decoding from " PFX "\n", __FUNCTION__,
+        info->raw_mcontext->pc, pc);
+    instr_init(drcontext, &inst);
+    while (pc < info->raw_mcontext->pc) {
+        instr_reset(drcontext, &inst);
+        prev_pc = pc;
+        pc = decode(drcontext, pc, &inst);
+
+        if (is_our_spill_or_restore(drcontext, &inst, &spill, &reg, &slot, &offs)) {
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s @" PFX " found %s to %s offs=0x%x => slot %d\n", __FUNCTION__,
+                prev_pc, spill ? "spill" : "restore", get_register_name(reg), offs, slot);
+            if (spill) {
+                if (slot == AFLAGS_SLOT) {
+                    spilled_to_aflags = slot;
+                } else if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
+                           /* allow redundant spill */
+                           spilled_to[GPR_IDX(reg)] != slot) {
+                    /* This reg is already spilled: we assume that this new spill
+                     * is to a tmp slot for preserving the tool's value.
+                     */
+                    LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring tool spill\n",
+                        __FUNCTION__, pc);
+                } else {
+                    spilled_to[GPR_IDX(reg)] = slot;
+                }
+            } else {
+                if (slot == AFLAGS_SLOT && spilled_to_aflags == slot)
+                    spilled_to_aflags = MAX_SPILLS;
+                else if (spilled_to[GPR_IDX(reg)] == slot)
+                    spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
+                else {
+                    LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring restore\n",
+                        __FUNCTION__, pc);
+                }
+            }
+#ifdef X86
+            if (reg == DR_REG_XAX) {
+                prev_xax_spill = true;
+                if (aflags_in_xax)
+                    aflags_in_xax = false;
+            }
+#endif
+        }
+#ifdef X86
+        else if (prev_xax_spill && instr_get_opcode(&inst) == OP_lahf && spill)
+            aflags_in_xax = true;
+        else if (aflags_in_xax && instr_get_opcode(&inst) == OP_sahf)
+            aflags_in_xax = false;
+#endif
+    }
+    instr_free(drcontext, &inst);
+
+    if (spilled_to_aflags < MAX_SPILLS IF_X86(|| aflags_in_xax)) {
+        reg_t newval = info->mcontext->xflags;
+        reg_t val;
+#ifdef X86
+        if (aflags_in_xax)
+            val = info->mcontext->xax;
+        else
+#endif
+            val = get_spilled_value(drcontext, spilled_to_aflags);
+
+        newval = dr_merge_arith_flags(newval, val);
+        LOG(drcontext, DR_LOG_ALL, 3, "%s: restoring aflags from " PFX " to " PFX "\n",
+            __FUNCTION__, info->mcontext->xflags, newval);
+        info->mcontext->xflags = newval;
+    }
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS) {
+            reg_t val = get_spilled_value(drcontext, spilled_to[GPR_IDX(reg)]);
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s: restoring %s from slot %d from " PFX " to " PFX "\n", __FUNCTION__,
+                get_register_name(reg), spilled_to[GPR_IDX(reg)],
+                reg_get_value(reg, info->mcontext), val);
+            reg_set_value(reg, info->mcontext, val);
+        }
+    }
+    return true;
+}
+
+/* Restores machine state modified by drreg, using the reconstructed instrlist
+ * of the faulting fragment.
+ * This is a more robust version of drreg_event_restore_state_without_ilist
+ * that uses inlined metadata in instrlist.
+ */
+static bool
+drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
+                                     dr_restore_state_info_t *info)
 {
     /* This routine needs to be robust enough to handle the many tricky corner
      * cases that can arise in drreg use: gpr/aflags re-spills (to same or
@@ -1887,9 +2017,8 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     aflags_native = true;
 
     LOG(drcontext, DR_LOG_ALL, 3,
-        "%s: processing fault @" PFX ": decoding from " PFX "\n", __FUNCTION__,
-        info->raw_mcontext->pc, pc);
-    /* XXX: if ilist not available, fall back to some best-effort logic. */
+        "%s: processing fault @" PFX ": using reconstructed fragment ilist \n",
+        __FUNCTION__, info->raw_mcontext->pc);
     ASSERT(info->fragment_info.ilist != NULL, "ilist required for state restoration");
     for (inst = instrlist_first(info->fragment_info.ilist);
          inst != NULL && pc < info->raw_mcontext->pc; inst = instr_get_next(inst)) {
@@ -2037,6 +2166,15 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         }
     }
     return true;
+}
+
+static bool
+drreg_event_restore_state(void *drcontext, bool restore_memory,
+                          dr_restore_state_info_t *info)
+{
+    if (info->fragment_info.ilist != NULL)
+        return drreg_event_restore_state_with_ilist(drcontext, restore_memory, info);
+    return drreg_event_restore_state_without_ilist(drcontext, restore_memory, info);
 }
 
 /***************************************************************************

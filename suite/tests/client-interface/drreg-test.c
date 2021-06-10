@@ -61,6 +61,8 @@ void
 test_asm_faultH();
 void
 test_asm_faultI();
+void
+test_asm_faultJ();
 
 static SIGJMP_BUF mark;
 
@@ -159,6 +161,17 @@ handle_signal6(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     SIGLONGJMP(mark, 1);
 }
 
+static void
+handle_signal7(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_18_C)
+            print("ERROR: spilled register value was not preserved in test #18!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -235,6 +248,16 @@ handle_exception6(struct _EXCEPTION_POINTERS *ep)
     else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_16_C)
             print("ERROR: spilled register value was not preserved in test #16!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception7(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_18_C)
+            print("ERROR: spilled register value was not preserved in test #18!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -343,6 +366,17 @@ main(int argc, const char *argv[])
     /* Test fault reg restore bug */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultH();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal7, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception7);
+#    endif
+
+    /* Test fault reg restore for fragments with DR_EMIT_STORE_TRANSLATIONS */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultJ();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -1001,6 +1035,55 @@ GLOBAL_LABEL(FUNCNAME:)
 
         b        epilog17
     epilog17:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 18: fault reg restore for fragments with DR_EMIT_STORE_TRANSLATIONS */
+#define FUNCNAME test_asm_faultJ
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test18
+     test18:
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        ud2
+
+        jmp      epilog18
+     epilog18:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test18
+     test18:
+        movw     TEST_REG_ASM, DRREG_TEST_18_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog18
+    epilog18:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test18
+     test18:
+        movz     TEST_REG_ASM, DRREG_TEST_18_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        .inst 0xf36d19 /* udf */
+
+        b        epilog18
+    epilog18:
         ret
 #endif
         END_FUNC(FUNCNAME)
