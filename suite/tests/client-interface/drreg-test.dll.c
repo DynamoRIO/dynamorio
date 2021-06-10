@@ -150,23 +150,13 @@ static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, OUT void *user_data)
 {
-#ifdef X86
     for (instr_t* instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
         reg_id_t r;
         drreg_status_t res;
         bool dead;
         CHECK(drreg_are_aflags_dead(drcontext, instr, &dead)==DRREG_SUCCESS, "drreg_are_aflags_dead should always work");
         CHECK(drx_aflags_are_dead(instr)==dead, "aflag liveness estimation of drx and drreg should always consist");
-        res = drreg_reserve_aflags(drcontext, bb, instr);
-        CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
-        CHECK(drreg_reserve_register(drcontext, bb, instr, NULL, &r)==DRREG_SUCCESS, "default reserve should always work");
-        /* clear the CF flag, it should not effect after aflags unreservation */
-        instrlist_meta_preinsert(bb, instr, INSTR_CREATE_xor(drcontext, opnd_create_reg(IF_X64_ELSE(reg_64_to_32(r), r)), opnd_create_reg(IF_X64_ELSE(reg_64_to_32(r), r))));
-        CHECK(drreg_unreserve_register(drcontext, bb, instr, r) == DRREG_SUCCESS, "default unreserve should always work");
-        res = drreg_unreserve_aflags(drcontext, bb, instr);
-        CHECK(res == DRREG_SUCCESS, "unreserve of aflags should work");
     }
-#endif
     return DR_EMIT_DEFAULT;
 }
 
