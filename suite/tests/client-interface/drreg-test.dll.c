@@ -140,6 +140,34 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve register");
             }
         }
+    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_17_C) {
+        CHECK(drreg_set_bb_properties(
+                  drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
+              "unable to set bb properties");
+        /* Reset for this bb. */
+        tls_offs_app2app_spilled_reg = -1;
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17: app2app phase\n");
+        ptr_int_t val;
+        for (inst = instrlist_first_app(bb); inst != NULL;
+             inst = instr_get_next_app(inst)) {
+            if (instr_is_mov_constant(inst, &val) && val == 1) {
+                tls_offs_app2app_spilled_reg =
+                    spill_test_reg_to_slot(drcontext, bb, inst, &allowed);
+            } else if (instr_is_mov_constant(inst, &val) && val == 3) {
+                /* Make sure that TEST_REG isn't dead after its app2app spill.
+                 * If it is dead, its next spill will only reserve a slot, but not
+                 * actually write to it. To test restore in the multi-phase
+                 * overlapping spill case (test #17), we need it to actually write.
+                 */
+                instrlist_meta_preinsert(bb, inst,
+                                         XINST_CREATE_add(drcontext,
+                                                          opnd_create_reg(TEST_REG),
+                                                          OPND_CREATE_INT32(1)));
+                CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                          DRREG_SUCCESS,
+                      "cannot unreserve register");
+            }
+        }
     }
     drvector_delete(&allowed);
     return DR_EMIT_DEFAULT;
@@ -426,6 +454,20 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         } else if (drmgr_is_last_instr(drcontext, inst)) {
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "default unreserve should always work");
+        }
+    } else if (subtest == DRREG_TEST_17_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
+        ptr_int_t val;
+        if (instr_is_mov_constant(inst, &val) && val == 2) {
+            CHECK(tls_offs_app2app_spilled_reg != -1,
+                  "unable to use any spill slot in app2app phase.");
+            uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, &allowed);
+            CHECK(tls_offs_app2app_spilled_reg != tls_offs,
+                  "found conflict in use of spill slots across multiple phases");
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
         }
     }
 

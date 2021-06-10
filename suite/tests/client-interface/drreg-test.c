@@ -59,6 +59,8 @@ void
 test_asm_faultG();
 void
 test_asm_faultH();
+void
+test_asm_faultI();
 
 static SIGJMP_BUF mark;
 
@@ -134,6 +136,10 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_14_C)
             print("ERROR: spilled register value was not preserved!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_17_C)
+            print("ERROR: spilled register value was not preserved in test #17!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -308,13 +314,18 @@ main(int argc, const char *argv[])
 
     #    if defined(UNIX)
     intercept_signal(SIGILL, (handler_3_t)&handle_signal5, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal5, false);
 #    elif defined(WINDOWS)
     SetUnhandledExceptionFilter(&handle_exception5);
 #    endif
 
-    /* Test fault reg restore (multi-phase) */
+    /* Test fault reg restore for multi-phase nested reservation. */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultF();
+    }
+    /* Test fault reg restore for multi-phase non-nested overlapping reservations. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultI();
     }
 
     #    if defined(UNIX)
@@ -767,7 +778,10 @@ OB        jmp      test10
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-        /* Test 14: restore on fault for gpr reserved in multiple phases */
+        /* Test 14: restore on fault for gpr reserved in multiple phases,
+         * where the two spill regions are nested. In this case, the reg
+         * will be restored from the spill slot used by the first (app2app)
+         * phase. */
 #define FUNCNAME test_asm_faultF
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -904,6 +918,87 @@ GLOBAL_LABEL(FUNCNAME:)
 
         b        epilog16
     epilog16:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 17: restore on fault for gpr reserved in multiple phases
+         * with overlapping but not nested spill regions. In this case,
+         * the app value changes slots, from the one used in app2app
+         * phase, to the one used in insertion phase.
+         */
+#define FUNCNAME test_asm_faultI
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test17
+     test17:
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        /* app2app phase will reserve TEST_REG2_ASM here. */
+        mov      TEST_REG2_ASM, 1
+        /* insertion phase will reserve TEST_REG2_ASM here. */
+        mov      TEST_REG2_ASM, 2
+        /* app2app phase will release TEST_REG2_ASM here. */
+        mov      TEST_REG2_ASM, 3
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+        /* insertion phase will release TEST_REG2_ASM here. */
+        jmp      epilog17
+     epilog17:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test17
+     test17:
+        movw     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movw     TEST_REG2_ASM, 1
+        movw     TEST_REG2_ASM, 2
+        movw     TEST_REG2_ASM, 3
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog17
+    epilog17:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        /* TODO PR#4917: This AArch64 variant doesn't work completely as
+         * intended. This test currently won't fail even if the expected
+         * TEST_REG_ASM restore doesn't happen. This is because at the
+         * faulting instr, the TEST_REG_ASM app val is present in the
+         * spill slot reserved by the insertion phase (spill slot 2; slot
+         * 0 is reserved for aflags, slot 1 is used by app2app phase).
+         * Slot 2 is a DR slot and all regs spilled to DR slot are
+         * automatically restored before each app instr.
+         * After PR#4917 though, aflags slot won't be hard-coded and
+         * will be available for gprs (here, TEST_REG_ASM). Therefore,
+         * TEST_REG_ASM will be stored in a TLS slot instead of a DR slot
+         * and won't be automatically restored, and this test will really
+         * verify the restore logic.
+         * Note that the above isn't true for X86 because drreg internally
+         * adds one extra spill slot for X86.
+         */
+        b        test17
+     test17:
+        movz     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movz     TEST_REG2_ASM, 1
+        movz     TEST_REG2_ASM, 2
+        movz     TEST_REG2_ASM, 3
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog17
+    epilog17:
         ret
 #endif
         END_FUNC(FUNCNAME)

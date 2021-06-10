@@ -1991,7 +1991,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         }
         last_opcode = instr_get_opcode(inst);
     }
-
+    ASSERT(pc >= info->raw_mcontext->pc, "fault pc is beyond the given ilist");
     if (!aflags_native &&
         (aflags_spill_reg != DR_REG_NULL || aflags_spill_slot != MAX_SPILLS)) {
         reg_t newval = info->mcontext->xflags;
