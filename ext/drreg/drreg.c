@@ -1895,6 +1895,21 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
          inst != NULL && pc < info->raw_mcontext->pc; inst = instr_get_next(inst)) {
         int len = instr_length(drcontext, inst);
         pc += len;
+#ifdef X86
+        if (!instr_is_app(inst) && instr_get_opcode(inst) == OP_seto &&
+            last_opcode == OP_lahf) {
+            /* Sometimes aflags spilling may require a seto after a lahf. We do not
+             * need to process the seto as the required book-keeping updates have
+             * been done already in the last iteration.
+             */
+            last_opcode = OP_seto;
+            continue;
+        }
+#endif
+        if (!instr_is_label(inst)) {
+            last_opcode = instr_get_opcode(inst);
+        }
+
         bool app_gpr_restored_now = false;
         bool app_aflags_restored_now = false;
         bool app_aflags_written_to_reg_now = false;
@@ -1927,8 +1942,8 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                         __FUNCTION__, pc);
                 }
             }
-        } else if (instr_get_opcode(inst) ==
-                   IF_X86_ELSE(OP_seto && last_opcode == OP_lahf, OP_mrs)) {
+        } else if (!instr_is_app(inst) &&
+                   instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
             if (aflags_native) {
 #ifdef X86
                 aflags_spill_reg = DR_REG_XAX;
@@ -1937,8 +1952,8 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #endif
                 app_aflags_written_to_reg_now = true;
             }
-        } else if (instr_get_opcode(inst) ==
-                   IF_X86_ELSE(OP_sahf && last_opcode == OP_cmp, OP_msr)) {
+        } else if (!instr_is_app(inst) &&
+                   instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
             if (aflags_spill_reg ==
                 IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)))) {
                 aflags_native = true;
@@ -1983,9 +1998,6 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 /* Tool wrote aflags. Not native anymore. */
                 aflags_native = false;
             }
-        }
-        if (!instr_is_label(inst)) {
-            last_opcode = instr_get_opcode(inst);
         }
     }
     ASSERT(inst != NULL, "fault pc is beyond the given ilist");
