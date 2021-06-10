@@ -158,7 +158,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         CHECK(drreg_are_aflags_dead(drcontext, instr, &dead) == DRREG_SUCCESS,
               "drreg_are_aflags_dead should always work");
         CHECK(drx_aflags_are_dead(instr) == dead,
-              "aflag liveness estimation of drx and drreg should always consist");
+              "aflags liveness estimation of drx and drreg should always be consistent");
     }
     return DR_EMIT_DEFAULT;
 }
