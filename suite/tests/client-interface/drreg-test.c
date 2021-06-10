@@ -135,7 +135,7 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_14_C)
-            print("ERROR: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #14!\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_17_C)
@@ -781,7 +781,8 @@ OB        jmp      test10
         /* Test 14: restore on fault for gpr reserved in multiple phases,
          * where the two spill regions are nested. In this case, the reg
          * will be restored from the spill slot used by the first (app2app)
-         * phase. */
+         * phase.
+         */
 #define FUNCNAME test_asm_faultF
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -831,7 +832,8 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
         /* Test 15: restore on fault for aflags stored in xax without preceding
-         * xax spill. */
+         * xax spill.
+         */
 #define FUNCNAME test_asm_faultG
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)

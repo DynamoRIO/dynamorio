@@ -1896,9 +1896,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         int len = instr_length(drcontext, inst);
         pc += len;
         ASSERT(pc <= info->raw_mcontext->pc, "went beyond fault pc while walking ilist");
-        bool app_gpr_restored = false;
-        bool app_aflags_restored = false;
-        bool app_aflags_written_to_reg = false;
+        bool app_gpr_restored_now = false;
+        bool app_aflags_restored_now = false;
+        bool app_aflags_written_to_reg_now = false;
         /* Update book-keeping for gpr/aflags spill slot or aflags spill reg. */
         if (is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, &offs)) {
             if (spill) {
@@ -1923,10 +1923,10 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                             gpr_spill_slot[GPR_IDX(reg)] != MAX_SPILLS,
                         "restoration of aflags shouldn't clobber an unsaved native val");
                     aflags_spill_reg = reg;
-                    app_aflags_written_to_reg = true;
+                    app_aflags_written_to_reg_now = true;
                 } else if (gpr_spill_slot[GPR_IDX(reg)] == slot) {
                     gpr_native[GPR_IDX(reg)] = true;
-                    app_gpr_restored = true;
+                    app_gpr_restored_now = true;
                 } else {
                     LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring tool restore\n",
                         __FUNCTION__, pc);
@@ -1940,25 +1940,27 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
 #else
                 aflags_spill_reg = opnd_get_reg(instr_get_dst(inst, 0));
 #endif
-                app_aflags_written_to_reg = true;
+                app_aflags_written_to_reg_now = true;
             }
         } else if (instr_get_opcode(inst) ==
                    IF_X86_ELSE(OP_sahf && last_opcode == OP_cmp, OP_msr)) {
             if (aflags_spill_reg ==
                 IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)))) {
                 aflags_native = true;
-                app_aflags_restored = true;
+                app_aflags_restored_now = true;
             }
         }
 
         /* Mark gpr/aflags as containing native or non-native value based on whether
-         * the current instr is an app or tool write, respectively.
+         * the current instr is an app or tool write, respectively. Take into account
+         * whether any of these writes were a restore operation, in which case we
+         * skip marking non-native.
          */
         for (int i = 0; i < instr_num_dsts(inst); i++) {
             opnd_t opnd = instr_get_dst(inst, i);
             if (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd))) {
                 reg_id_t resized_reg = reg_to_pointer_sized(opnd_get_reg(opnd));
-                if (resized_reg == aflags_spill_reg && !app_aflags_written_to_reg) {
+                if (resized_reg == aflags_spill_reg && !app_aflags_written_to_reg_now) {
                     /* reg does not contain aflags anymore. */
                     aflags_spill_reg = DR_REG_NULL;
                 }
@@ -1966,11 +1968,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                     /* App instr wrote reg value. Spill slot value not valid anymore. */
                     gpr_native[GPR_IDX(resized_reg)] = true;
                     gpr_spill_slot[GPR_IDX(resized_reg)] = MAX_SPILLS;
-                } else {
-                    if (!app_gpr_restored) {
-                        /* Tool wrote to reg. Not native anymore. */
-                        gpr_native[GPR_IDX(resized_reg)] = false;
-                    }
+                } else if (!app_gpr_restored_now) {
+                    /* Tool wrote to reg. Not native anymore. */
+                    gpr_native[GPR_IDX(resized_reg)] = false;
                 }
             }
         }
@@ -1982,11 +1982,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 aflags_native = true;
                 aflags_spill_slot = MAX_SPILLS;
                 aflags_spill_reg = DR_REG_NULL;
-            } else {
-                if (!app_aflags_restored) {
-                    /* Tool wrote aflags. Not native anymore. */
-                    aflags_native = false;
-                }
+            } else if (!app_aflags_restored_now) {
+                /* Tool wrote aflags. Not native anymore. */
+                aflags_native = false;
             }
         }
         last_opcode = instr_get_opcode(inst);
@@ -2014,19 +2012,17 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         /* Aflags value not saved as it is dead. */
     }
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
-        if (!gpr_native[GPR_IDX(reg)]) {
-            if (gpr_spill_slot[GPR_IDX(reg)] != MAX_SPILLS) {
-                ASSERT(gpr_spill_slot[GPR_IDX(reg)] != MAX_SPILLS,
-                       "gpr restore info lost. but dead.");
-                reg_t val = get_spilled_value(drcontext, gpr_spill_slot[GPR_IDX(reg)]);
-                LOG(drcontext, DR_LOG_ALL, 3,
-                    "%s: restoring %s from slot %d from " PFX " to " PFX "\n",
-                    __FUNCTION__, get_register_name(reg), gpr_spill_slot[GPR_IDX(reg)],
-                    reg_get_value(reg, info->mcontext), val);
-                reg_set_value(reg, info->mcontext, val);
-            } else {
-                /* GPR value not saved as it is dead. */
-            }
+        if (!gpr_native[GPR_IDX(reg)] && gpr_spill_slot[GPR_IDX(reg)] != MAX_SPILLS) {
+            ASSERT(gpr_spill_slot[GPR_IDX(reg)] != MAX_SPILLS,
+                   "gpr restore info lost. but dead.");
+            reg_t val = get_spilled_value(drcontext, gpr_spill_slot[GPR_IDX(reg)]);
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s: restoring %s from slot %d from " PFX " to " PFX "\n", __FUNCTION__,
+                get_register_name(reg), gpr_spill_slot[GPR_IDX(reg)],
+                reg_get_value(reg, info->mcontext), val);
+            reg_set_value(reg, info->mcontext, val);
+        } else if (!gpr_native[GPR_IDX(reg)]) {
+            /* GPR value not saved as it is dead. */
         }
     }
     return true;
