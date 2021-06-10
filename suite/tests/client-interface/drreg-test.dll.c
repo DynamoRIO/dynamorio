@@ -152,8 +152,6 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 {
     for (instr_t *instr = instrlist_first(bb); instr != NULL;
          instr = instr_get_next(instr)) {
-        reg_id_t r;
-        drreg_status_t res;
         bool dead;
         CHECK(drreg_are_aflags_dead(drcontext, instr, &dead) == DRREG_SUCCESS,
               "drreg_are_aflags_dead should always work");
