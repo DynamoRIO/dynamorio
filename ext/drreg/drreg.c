@@ -1877,7 +1877,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     if (pc == NULL)
         return true; /* fault not in cache */
 
-    /* At beginning of bb, all gprs and aflags have their native app value. */
+    /* At beginning of fragment, all gprs and aflags have their native app value. */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         gpr_spill_slot[GPR_IDX(reg)] = MAX_SPILLS;
         gpr_native[GPR_IDX(reg)] = true;
@@ -1892,10 +1892,9 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
     /* XXX: if ilist not available, fall back to some best-effort logic. */
     ASSERT(info->fragment_info.ilist != NULL, "ilist required for state restoration");
     for (inst = instrlist_first(info->fragment_info.ilist);
-         inst && pc < info->raw_mcontext->pc; inst = instr_get_next(inst)) {
+         inst != NULL && pc < info->raw_mcontext->pc; inst = instr_get_next(inst)) {
         int len = instr_length(drcontext, inst);
         pc += len;
-        ASSERT(pc < info->raw_mcontext->pc, "went beyond fault pc while walking ilist");
         bool app_gpr_restored_now = false;
         bool app_aflags_restored_now = false;
         bool app_aflags_written_to_reg_now = false;
@@ -1947,10 +1946,12 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
             }
         }
 
-        /* Mark gpr/aflags as containing native or non-native value based on whether
-         * the current instr is an app or tool write, respectively. Take into account
-         * whether any of these writes were a restore operation, in which case we
-         * skip marking non-native.
+        /* Mark gprs/aflags as containing native or non-native value based on whether
+         * the current instr is an app or tool write, respectively. An example of the
+         * latter is a restore for a spilled tool value, which may happen in the
+         * multi-phase nested reservation case.
+         * If the current instr is a tool write that restores an app value (as tracked
+         * by the various *_now bools), we skip marking the gpr/aflags as non-native.
          */
         for (int i = 0; i < instr_num_dsts(inst); i++) {
             opnd_t opnd = instr_get_dst(inst, i);
@@ -1983,9 +1984,11 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 aflags_native = false;
             }
         }
-        last_opcode = instr_get_opcode(inst);
+        if (!instr_is_label(inst)) {
+            last_opcode = instr_get_opcode(inst);
+        }
     }
-    ASSERT(pc >= info->raw_mcontext->pc, "fault pc is beyond the given ilist");
+    ASSERT(inst != NULL, "fault pc is beyond the given ilist");
     if (!aflags_native &&
         (aflags_spill_reg != DR_REG_NULL || aflags_spill_slot != MAX_SPILLS)) {
         reg_t newval = info->mcontext->xflags;

@@ -82,7 +82,7 @@ handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
             print("ERROR: spilled register value was not preserved!\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+        if (TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
             print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
@@ -149,7 +149,7 @@ handle_signal6(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+        if (TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
             print("ERROR: spilled flags value was not preserved in test #15!\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -175,7 +175,7 @@ handle_exception1(struct _EXCEPTION_POINTERS *ep)
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
             print("ERROR: spilled register value was not preserved!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+        if (TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
@@ -229,7 +229,7 @@ static LONG WINAPI
 handle_exception6(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
-        if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+        if (TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved in test #15!\n");
     }
     else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
