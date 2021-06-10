@@ -150,12 +150,15 @@ static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, OUT void *user_data)
 {
-    for (instr_t* instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+    for (instr_t *instr = instrlist_first(bb); instr != NULL;
+         instr = instr_get_next(instr)) {
         reg_id_t r;
         drreg_status_t res;
         bool dead;
-        CHECK(drreg_are_aflags_dead(drcontext, instr, &dead)==DRREG_SUCCESS, "drreg_are_aflags_dead should always work");
-        CHECK(drx_aflags_are_dead(instr)==dead, "aflag liveness estimation of drx and drreg should always consist");
+        CHECK(drreg_are_aflags_dead(drcontext, instr, &dead) == DRREG_SUCCESS,
+              "drreg_are_aflags_dead should always work");
+        CHECK(drx_aflags_are_dead(instr) == dead,
+              "aflag liveness estimation of drx and drreg should always consist");
     }
     return DR_EMIT_DEFAULT;
 }
@@ -492,8 +495,8 @@ static void
 event_exit(void)
 {
     if (!drmgr_unregister_bb_instrumentation_ex_event(event_app2app, event_app_analysis,
-                                                    event_app_instruction,
-                                                    event_instru2instru) ||
+                                                      event_app_instruction,
+                                                      event_instru2instru) ||
         drreg_exit() != DRREG_SUCCESS)
         CHECK(false, "exit failed");
 
