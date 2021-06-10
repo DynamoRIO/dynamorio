@@ -942,15 +942,15 @@ GLOBAL_LABEL(FUNCNAME:)
      test17:
         mov      TEST_REG_ASM, DRREG_TEST_17_ASM
         mov      TEST_REG_ASM, DRREG_TEST_17_ASM
-        /* app2app phase will reserve TEST_REG2_ASM here. */
+        /* app2app phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, 1
-        /* insertion phase will reserve TEST_REG2_ASM here. */
+        /* insertion phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, 2
-        /* app2app phase will release TEST_REG2_ASM here. */
+        /* app2app phase will release TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, 3
         mov      REG_XCX, 0
         mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
-        /* insertion phase will release TEST_REG2_ASM here. */
+        /* insertion phase will release TEST_REG_ASM here. */
         jmp      epilog17
      epilog17:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */

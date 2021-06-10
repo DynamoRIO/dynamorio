@@ -1895,7 +1895,7 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
          inst && pc < info->raw_mcontext->pc; inst = instr_get_next(inst)) {
         int len = instr_length(drcontext, inst);
         pc += len;
-        ASSERT(pc <= info->raw_mcontext->pc, "went beyond fault pc while walking ilist");
+        ASSERT(pc < info->raw_mcontext->pc, "went beyond fault pc while walking ilist");
         bool app_gpr_restored_now = false;
         bool app_aflags_restored_now = false;
         bool app_aflags_written_to_reg_now = false;
@@ -1918,10 +1918,6 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
                 }
             } else {
                 if (aflags_spill_slot == slot) {
-                    ASSERT(
-                        !gpr_native[GPR_IDX(reg)] ||
-                            gpr_spill_slot[GPR_IDX(reg)] != MAX_SPILLS,
-                        "restoration of aflags shouldn't clobber an unsaved native val");
                     aflags_spill_reg = reg;
                     app_aflags_written_to_reg_now = true;
                 } else if (gpr_spill_slot[GPR_IDX(reg)] == slot) {
