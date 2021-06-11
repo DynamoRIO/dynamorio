@@ -176,12 +176,17 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         } else {
             /* We were unable to encode this instruction. */
             IF_DEBUG({
-                char disas_instr[MAX_INSTR_DIS_SZ];
-                instr_disassemble_to_buffer(dcontext, instr, disas_instr,
-                                            MAX_INSTR_DIS_SZ);
-                SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
-                                      " '%s'\n",
-                                      disas_instr);
+                /* If check_reachable, then failure due to reachability issue was
+                 * expected, so skip the error log.
+                 */
+                if (!check_reachable) {
+                    char disas_instr[MAX_INSTR_DIS_SZ];
+                    instr_disassemble_to_buffer(dcontext, instr, disas_instr,
+                                                MAX_INSTR_DIS_SZ);
+                    SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
+                                          " '%s'\n",
+                                          disas_instr);
+                }
             });
             return NULL;
         }
