@@ -1255,7 +1255,6 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Should be atleast (TEST_FAUX_SPILL_TLS_OFFS+1)*8 bytes. */
        .data
 some_data: .skip   350*8
-
 END_FILE
 #endif
 /* clang-format on */

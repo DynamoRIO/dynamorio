@@ -1851,7 +1851,7 @@ find_spill_slot_for_reg(void *drcontext, reg_id_t *spill_slot_to_reg, uint reg)
 {
     uint spill_slot = MAX_SPILLS;
 #ifdef DEBUG
-    reg_t val;
+    reg_t val = 0;
 #endif
     for (int i = 0; i < MAX_SPILLS; i++) {
         if (spill_slot_to_reg[i] == reg) {
