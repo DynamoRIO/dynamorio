@@ -2009,13 +2009,13 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
      * different slot) after app instr write, multiple reg restores due to app
      * instr read, aflags spilled to reg instead of slot (for x86 only), lazy
      * restores, multi-phase use of drreg leading to nested or overlapping
-     * spill regions, ...
+     * spill regions, re-spills of native value by multiple phases, ...
      * The strategy we follow here is to trace the app value of aflags and gpr
      * as it is moved between spill slots and regs. At times the app value may
-     * be present in the gpr/aflags and spill slot both, but later either one
-     * of the two may be clobbered by a tool write or another spill
-     * respectively. At the end, we restore all live gprs/aflags that do not
-     * have their native app value.
+     * be present in the gpr/aflags and one or more spill slots too, but later
+     * the gpr or any of the spill slots may be clobbered by a tool write or
+     * another spill respectively. At the end, we restore all live gprs/aflags
+     * that do not have their native app value.
      */
     reg_id_t spill_slot_to_reg[MAX_SPILLS];
     reg_id_t aflags_spill_reg;
@@ -2036,6 +2036,8 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         gpr_native[GPR_IDX(reg)] = true;
     }
+    aflags_native = true;
+    /* At beginning of fragment, no spill slot has a native value. */
     for (int i = 0; i < MAX_SPILLS; i++) {
         spill_slot_to_reg[i] = DR_REG_NULL;
     }
@@ -2044,7 +2046,6 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
      * spilled to multiple gprs by different phases.
      */
     aflags_spill_reg = DR_REG_NULL;
-    aflags_native = true;
 
     LOG(drcontext, DR_LOG_ALL, 3,
         "%s: processing fault @" PFX ": using reconstructed fragment ilist \n",
