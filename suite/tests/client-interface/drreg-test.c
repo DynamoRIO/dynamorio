@@ -1149,6 +1149,7 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
+        END_PROLOG
         ret
 #elif defined(ARM)
         bx       lr
