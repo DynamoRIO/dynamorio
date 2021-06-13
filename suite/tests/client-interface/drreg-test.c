@@ -1251,10 +1251,12 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
-
-        /* Should be atleast (TEST_FAUX_SPILL_TLS_OFFS+1)*8 bytes. */
-    some_data:
-        .skip   350*8
+START_DATA
+    /* Should be atleast (TEST_FAUX_SPILL_TLS_OFFS+1)*8 bytes.
+     * Cannot use the macro as the expression needs to be
+     * absolute.
+     */
+    BYTES_ARR(some_data, (1000+1)*8)
 END_FILE
 #endif
 /* clang-format on */

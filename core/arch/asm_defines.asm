@@ -96,6 +96,7 @@
 
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
+# define START_DATA .data
 # define START_FILE .text
 # define END_FILE /* nothing */
 # define DECLARE_FUNC(symbol) \
@@ -154,6 +155,7 @@
 # define DECL_EXTERN(symbol) /* nothing */
 /* include newline so we can put multiple on one line */
 # define RAW(n) .byte HEX(n) @N@
+# define BYTES_ARR(symbol, n) symbol: .skip n, 0
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
@@ -171,6 +173,7 @@
 # define VAR_VIA_GOT(base, sym) [sym @GOTOFF + base]
 /****************************************************/
 #elif defined(ASSEMBLE_WITH_MASM)
+#define START_DATA .DATA
 # ifdef X64
 #  define START_FILE \
 /* We add blank lines to match the 32-bit line count */ \
@@ -214,6 +217,7 @@ ASSUME fs:_DATA @N@\
 # define DECL_EXTERN(symbol) EXTERN symbol:PROC
 /* include newline so we can put multiple on one line */
 # define RAW(n) DB HEX(n) @N@
+# define BYTES_ARR(symbol, n) symbol byte n dup (0)
 # define ADD_STACK_ALIGNMENT_NOSEH sub REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # define RESTORE_STACK_ALIGNMENT add REG_XSP, FRAME_ALIGNMENT - ARG_SZ
 # ifdef X64
@@ -237,6 +241,7 @@ ASSUME fs:_DATA @N@\
 # endif
 /****************************************************/
 #elif defined(ASSEMBLE_WITH_NASM)
+# define START_DATA SECTION .data
 # define START_FILE SECTION .text
 # define END_FILE /* nothing */
 /* for MacOS, at least, we have to add _ ourselves */
@@ -265,6 +270,7 @@ ASSUME fs:_DATA @N@\
 # define SEGMEM(seg,mem) [seg:mem]
 # define DECL_EXTERN(symbol) EXTERN GLOBAL_REF(symbol)
 # define RAW(n) DB HEX(n) @N@
+# define BYTES_ARR(symbol, n) symbol times n DB 0
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg
