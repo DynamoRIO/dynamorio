@@ -78,9 +78,10 @@
 
 #define AFLAGS_SLOT 0 /* always */
 
-/* For simplicity, we assume that aflags are another gpr numbered one past
- * the last one. This helps in simpler handling of data structures like
- * spill_slots_to_reg.
+/* For simplicity, we assign aflags an alias that's one past the last gpr.
+ * This is only for simpler handling of data structures like spill_slots_to_reg.
+ * Note that this is not same as the aflags spill reg, which is the actual
+ * gpr that contains the spilled native aflags.
  */
 #define AFLAGS_ALIAS_REG (DR_REG_STOP_GPR + 1)
 
@@ -1851,17 +1852,18 @@ find_spill_slot_for_reg(void *drcontext, reg_id_t *spill_slot_to_reg, uint reg)
 {
     uint spill_slot = MAX_SPILLS;
 #ifdef DEBUG
-    reg_t val = 0;
+    reg_t val = 0, newval;
 #endif
     for (int i = 0; i < MAX_SPILLS; i++) {
         if (spill_slot_to_reg[i] == reg) {
 #ifdef DEBUG
+            newval = get_spilled_value(drcontext, i);
             if (spill_slot != MAX_SPILLS) {
-                ASSERT(val == get_spilled_value(drcontext, i),
-                       "spill slot vals don't match");
+                ASSERT(val == newval, "spilled val doesn't match across slots");
+            } else {
+                spill_slot = i;
             }
-            val = get_spilled_value(drcontext, i);
-            spill_slot = i;
+            val = newval;
 #else
             return i;
 #endif
@@ -2043,7 +2045,10 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
     }
     /* TODO PR#4917: Add support for test_asm_faultL similar to what's added for gprs.
      * Essentially, we want to handle the condition where native value of aflags is
-     * spilled to multiple gprs by different phases.
+     * spilled to multiple gprs by different phases. This may not happen on x86
+     * because it has only one reg where aflags can be spilled to; so for re-spills
+     * of native aflags, the first spill in xax will need to be spilled to some slot
+     * first.
      */
     aflags_spill_reg = DR_REG_NULL;
 
@@ -2088,7 +2093,8 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                 } else if (gpr_native[GPR_IDX(reg)]) {
                     spill_slot_to_reg[slot] = reg;
                 } else {
-                    LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring tool spill\n",
+                    LOG(drcontext, DR_LOG_ALL, 3,
+                        "%s @" PFX ": ignoring tool spill of non-native value.\n",
                         __FUNCTION__, pc);
                 }
             } else {
@@ -2099,7 +2105,8 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                     gpr_native[GPR_IDX(reg)] = true;
                     app_gpr_restored_now = true;
                 } else {
-                    LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring tool restore\n",
+                    LOG(drcontext, DR_LOG_ALL, 3,
+                        "%s @" PFX ": ignoring tool restore of non-native value\n",
                         __FUNCTION__, pc);
                 }
             }
@@ -2189,7 +2196,6 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
         } else {
             LOG(drcontext, DR_LOG_ALL, 3, "%s: aflags not saved as they are dead\n",
                 __FUNCTION__);
-            /* Aflags value not saved as it is dead. */
         }
     }
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {

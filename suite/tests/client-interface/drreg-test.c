@@ -1141,9 +1141,11 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-    /* Test 19: Test fault reg restore for fragments with a faux spill instr -- an
-     * app instr that looks like a drreg spill instr, which may corrupt
-     * drreg state restoration.
+    /* Test 19: Test fault reg restore for fragments with a faux spill
+     * instr -- an app instr that looks like a drreg spill instr, which
+     * may corrupt drreg state restoration. This cannot happen on x86 as
+     * an app instr that uses the %gs register will be mangled into a
+     * non-far memref.
      */
 #define FUNCNAME test_asm_faultK
         DECLARE_FUNC_SEH(FUNCNAME)
