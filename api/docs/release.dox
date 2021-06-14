@@ -218,6 +218,9 @@ Further non-compatibility-affecting changes include:
    enable logic that avoids conflicts in spill slots when drreg is used to reserve
    registers in multiple phases.
  - Added drmgr_in_emulation_region() for more conveniently handling emulation.
+ - Added the reconstructed #instrlist_t when available for the faulting fragment
+   to #dr_fault_fragment_info_t. This makes it available to the restore state
+   event callback(s) via the #dr_restore_state_info_t arg.
 
 **************************************************
 <hr>

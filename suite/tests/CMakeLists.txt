@@ -3542,7 +3542,7 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (LINUX AND X64 AND HAVE_RSEQ)
-      torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
+      torunonly_drcacheoff(rseq linux.rseq "" "${test_mode_flag}" "")
     endif ()
 
     if (AARCH64)
