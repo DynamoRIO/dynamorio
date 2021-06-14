@@ -1019,7 +1019,7 @@ void
 mov_ldr_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opnd_t src);
 
 /* Instruments a branch to a specific value, allowing for the value
- * operand to be supplied inside a register, immidiate, 
+ * operand to be supplied inside a register, immidiate,
  */
 DR_API
 void

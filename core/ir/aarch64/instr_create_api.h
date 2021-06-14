@@ -451,8 +451,7 @@ enum {
  * \param Rd The destination register opnd_t operand.
  * \param rm_or_imm The second input register or immediate.
  */
-#define INSTR_CREATE_tst(dc, Rd, Rn, rm_or_imm) \
-    INSTR_CREATE_ands(dc, Rd, Rn, rm_or_imm)
+#define INSTR_CREATE_tst(dc, Rd, Rn, rm_or_imm) INSTR_CREATE_ands(dc, Rd, Rn, rm_or_imm)
 
 /**
  * This macro creates an instr_t for a negate instruction,
@@ -461,7 +460,7 @@ enum {
  * \param Rd The destination register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  */
-#define INSTR_CREATE_neg(dc, Rd, Rn)                       \
+#define INSTR_CREATE_neg(dc, Rd, Rn) \
     INSTR_CREATE_sub((dc), (Rd), OPND_CREATE_ZR(Rn), (Rn))
 
 /**
@@ -472,7 +471,7 @@ enum {
  * \param Rn The source register opnd_t operand.
  * \param imm The integer immediate opnd_t operand.
  */
-#define INSTR_CREATE_ror_imm(dc, Rd, Rn, imm)                     \
+#define INSTR_CREATE_ror_imm(dc, Rd, Rn, imm) \
     instr_create_1dst_3src((dc), OP_extr, (Rd), (Rn), (Rn), (imm))
 
 /**
@@ -483,7 +482,7 @@ enum {
  * \param Rn The source register opnd_t operand.
  * \param rm_or_imm The second input register or immediate.
  */
-#define INSTR_CREATE_ror(dc, Rd, Rn, rm_or_imm)                   \
+#define INSTR_CREATE_ror(dc, Rd, Rn, rm_or_imm) \
     instr_create_1dst_2src((dc), OP_rorv, (Rd), (Rn), (rm_or_imm))
 
 /**
@@ -494,7 +493,7 @@ enum {
  * \param Rn The source register opnd_t operand.
  * \param rm_or_imm The second input register or immediate.
  */
-#define INSTR_CREATE_asr(dc, Rd, Rn, rm_or_imm)                   \
+#define INSTR_CREATE_asr(dc, Rd, Rn, rm_or_imm) \
     instr_create_1dst_2src((dc), OP_asrv, (Rd), (Rn), (rm_or_imm))
 
 /**
@@ -504,10 +503,10 @@ enum {
  * \param Rn The source register opnd_t operand.
  * \param rm_or_imm The second input register or immediate.
  */
-#define INSTR_CREATE_orr(dc, Rd, Rn, rm_or_imm)                            \
-    (opnd_is_reg(rm_or_imm)                                                \
-         ? INSTR_CREATE_orr_shimm((dc), (Rd), (Rn), (rm_or_imm),           \
-                                  OPND_CREATE_LSL(), OPND_CREATE_INT(0))   \
+#define INSTR_CREATE_orr(dc, Rd, Rn, rm_or_imm)                                     \
+    (opnd_is_reg(rm_or_imm)                                                         \
+         ? INSTR_CREATE_orr_shimm((dc), (Rd), (Rn), (rm_or_imm), OPND_CREATE_LSL(), \
+                                  OPND_CREATE_INT(0))                               \
          : instr_create_1dst_2src((dc), OP_orr, (Rd), (Rn), (rm_or_imm)))
 
 /**
@@ -536,12 +535,13 @@ enum {
  * \param Rn The source register opnd_t operand.
  * \param rm_or_imm The second input register or immediate.
  */
-//TODO: this imm path might not be 100% right
-#define INSTR_CREATE_lsl(dc, Rd, Rn, rm_or_imm)                                      \
-    (opnd_is_reg(rm_or_imm)                                                          \
-        ? instr_create_1dst_2src((dc), OP_lslv, (Rd), (Rn), (rm_or_imm))             \
-        : instr_create_1dst_3src((dc), OP_extr, (Rd), (Rn), OPND_CREATE_ZR(Rn)       \
-                                    OPND_CREATE_INT(opnd_get_immed_int(rm_or_imm))))
+// TODO: this imm path might not be 100% right
+#define INSTR_CREATE_lsl(dc, Rd, Rn, rm_or_imm)                           \
+    (opnd_is_reg(rm_or_imm)                                               \
+         ? instr_create_1dst_2src((dc), OP_lslv, (Rd), (Rn), (rm_or_imm)) \
+         : instr_create_1dst_3src((dc), OP_extr, (Rd), (Rn),              \
+                                  OPND_CREATE_ZR(Rn)                      \
+                                      OPND_CREATE_INT(opnd_get_immed_int(rm_or_imm))))
 
 /**
  * This platform-independent macro creates an instr_t for a nop instruction.
