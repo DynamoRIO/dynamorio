@@ -80,8 +80,12 @@
 
 /* For simplicity, we assign aflags an alias that's one past the last gpr.
  * This is only for simpler handling of data structures like spill_slots_to_reg.
- * Note that this is not same as the aflags spill reg, which is the actual
+ * Note that this is not the same as the aflags spill reg, which is the actual
  * gpr that contains the spilled native aflags.
+ * Note that we cannot use DR_REG_NULL to be the aflags alias because DR_REG_NULL
+ * means something else in the context of spill_slots_to_reg.
+ * XXX: Replace use of DR_REG_NULL as aflags alias in drreg routines like
+ * drreg_statelessly_restore_app_value. Use AFLAGS_ALIAS_REG instead.
  */
 #define AFLAGS_ALIAS_REG (DR_REG_STOP_GPR + 1)
 
