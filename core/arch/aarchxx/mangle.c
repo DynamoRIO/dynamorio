@@ -879,8 +879,10 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                 insert_mov_immed_ptrsz(dcontext, opnd_get_immed_int(arg),
                                        opnd_create_reg(DR_REG_LR), ilist, instr, NULL,
                                        NULL);
+#ifdef AARCH64
             } else if (opnd_is_memory_reference(arg)) {
                 mov_ldr_aarch64(dcontext, ilist, instr, opnd_create_reg(DR_REG_LR), arg);
+#endif
             }
             PRE(ilist, instr,
                 XINST_CREATE_store(

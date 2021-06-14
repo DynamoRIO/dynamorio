@@ -231,6 +231,7 @@ mem_access_fixer(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t mem, bo
     }
 }
 
+#ifdef AARCH64
 /* Instruments the store of a memory reference to a register,
  * with operand size detection and overcomes a displacement being
  * too far for to be encoded in a single instruction,
@@ -351,6 +352,7 @@ branch_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst)
         ASSERT_NOT_IMPLEMENTED("unkown branch type");
     }
 }
+#endif
 
 /* Keep this in sync with patch_mov_immed_arch(). */
 void
