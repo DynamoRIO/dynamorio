@@ -819,9 +819,11 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                     PRE(ilist, instr,
                         instr_create_restore_from_dc_via_reg(
                             dcontext, d_r_regparms[i], d_r_regparms[i], XSP_OFFSET));
+#ifdef AARCH64
                 } else if (regs[i] == -3) {
                     mov_ldr_aarch64(dcontext, ilist, instr,
                                     opnd_create_reg(d_r_regparms[i]), args[i]);
+#endif
                 } else {
                     PRE(ilist, instr,
                         XINST_CREATE_move(dcontext, opnd_create_reg(d_r_regparms[i]),
