@@ -442,7 +442,7 @@ main(int argc, const char *argv[])
 
     /* Test fault aflags restore (multi-phase) */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultG();
+        test_asm_faultM();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -1303,7 +1303,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
         /* Test 21: restore on fault for aflags reserved in multiple phases */
-#define FUNCNAME test_asm_faultG
+#define FUNCNAME test_asm_faultM
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
