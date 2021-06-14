@@ -55,6 +55,18 @@ void
 test_asm_faultE();
 void
 test_asm_faultF();
+void
+test_asm_faultG();
+void
+test_asm_faultH();
+void
+test_asm_faultI();
+void
+test_asm_faultJ();
+void
+test_asm_faultK();
+void
+test_asm_faultL();
 
 static SIGJMP_BUF mark;
 
@@ -76,7 +88,7 @@ handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
             print("ERROR: spilled register value was not preserved!\n");
     } else if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-        if (((sc->TEST_FLAGS_SIG) & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
             print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
@@ -129,10 +141,56 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         if (sc->TEST_REG_SIG != DRREG_TEST_14_C)
-            print("ERROR5: spilled register value was not preserved!\n");
+            print("ERROR: spilled register value was not preserved in test #14!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_17_C)
+            print("ERROR: spilled register value was not preserved in test #17!\n");
     }
     SIGLONGJMP(mark, 1);
 }
+
+static void
+handle_signal6(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #15!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_16_C)
+            print("ERROR: spilled register value was not preserved in test #16!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+handle_signal7(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_18_C)
+            print("ERROR: spilled register value was not preserved in test #18!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_19_C)
+            print("ERROR: spilled register value was not preserved in test #19!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+handle_signal8(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_20_C)
+            print("ERROR: spilled register value was not preserved in test #20!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -149,7 +207,7 @@ handle_exception1(struct _EXCEPTION_POINTERS *ep)
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
             print("ERROR: spilled register value was not preserved!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
-        if ((ep->ContextRecord->CXT_XFLAGS & DRREG_TEST_AFLAGS_C) != DRREG_TEST_AFLAGS_C)
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved!\n");
     }
     SIGLONGJMP(mark, 1);
@@ -195,6 +253,43 @@ handle_exception5(struct _EXCEPTION_POINTERS *ep)
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_14_C)
             print("ERROR: spilled register value was not preserved!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception6(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #15!\n");
+    }
+    else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_16_C)
+            print("ERROR: spilled register value was not preserved in test #16!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception7(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_18_C)
+            print("ERROR: spilled register value was not preserved in test #18!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_19_C)
+            print("ERROR: spilled register value was not preserved in test #19!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception8(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_20_C)
+            print("ERROR: spilled register value was not preserved in test #20!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -274,13 +369,66 @@ main(int argc, const char *argv[])
 
     #    if defined(UNIX)
     intercept_signal(SIGILL, (handler_3_t)&handle_signal5, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal5, false);
 #    elif defined(WINDOWS)
     SetUnhandledExceptionFilter(&handle_exception5);
 #    endif
 
-    /* Test fault reg restore (multi-phase) */
+    /* Test fault reg restore for multi-phase nested reservation. */
     if (SIGSETJMP(mark) == 0) {
         test_asm_faultF();
+    }
+    /* Test fault reg restore for multi-phase non-nested overlapping reservations. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultI();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal6, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal6, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception6);
+#    endif
+
+    /* Test fault aflags restore from xax. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultG();
+    }
+
+    /* Test fault reg restore bug */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultH();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal7, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal7, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception7);
+#    endif
+
+    /* Test fault reg restore for fragments with DR_EMIT_STORE_TRANSLATIONS */
+    if (SIGSETJMP(mark) == 0) {
+       test_asm_faultJ();
+    }
+
+    /* Test fault reg restore for fragments with a faux spill instr. */
+    if (SIGSETJMP(mark) == 0) {
+         test_asm_faultK();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal8, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception8);
+#    endif
+
+    /* Test fault reg restore for multi-phase nested reservation where
+     * the first phase doesn't write the reg before the second
+     * reservation.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultL();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -716,7 +864,11 @@ OB        jmp      test10
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-        /* Test 14: restore on fault for gpr reserved in multiple phases */
+        /* Test 14: restore on fault for gpr reserved in multiple phases,
+         * where the two spill regions are nested. In this case, the reg
+         * will be restored from the spill slot used by the first (app2app)
+         * phase.
+         */
 #define FUNCNAME test_asm_faultF
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -765,6 +917,349 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+        /* Test 15: restore on fault for aflags stored in xax without preceding
+         * xax spill.
+         */
+#define FUNCNAME test_asm_faultG
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test15
+     test15:
+        mov      TEST_REG_ASM, DRREG_TEST_15_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_15_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        nop
+        ud2
+        /* xax is dead, so should not need to spill when reserving aflags. */
+        mov      REG_XAX, 0
+        jmp      epilog15
+     epilog15:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+        /* This test does not have AArchXX variants. */
+#elif defined(ARM)
+        bx       lr
+#elif defined(AARCH64)
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 16: restore on fault for reg restored once (for app read)
+         * before crash.
+         */
+#define FUNCNAME test_asm_faultH
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test16
+     test16:
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_16_ASM
+        nop
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+        jmp      epilog16
+     epilog16:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test16
+     test16:
+        movw     TEST_REG_ASM, DRREG_TEST_16_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_16_ASM
+        nop
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog16
+    epilog16:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test16
+     test16:
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_16_ASM
+        nop
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog16
+    epilog16:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 17: restore on fault for gpr reserved in multiple phases
+         * with overlapping but not nested spill regions. In this case,
+         * the app value changes slots, from the one used in app2app
+         * phase, to the one used in insertion phase.
+         */
+#define FUNCNAME test_asm_faultI
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test17
+     test17:
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_17_ASM
+        /* app2app phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, 1
+        /* insertion phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, 2
+        /* app2app phase will release TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, 3
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+        /* insertion phase will release TEST_REG_ASM here. */
+        jmp      epilog17
+     epilog17:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test17
+     test17:
+        movw     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movw     TEST_REG2_ASM, 1
+        movw     TEST_REG2_ASM, 2
+        movw     TEST_REG2_ASM, 3
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog17
+    epilog17:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        /* TODO PR#4917: This AArch64 variant doesn't work completely as
+         * intended. This test currently won't fail even if the expected
+         * TEST_REG_ASM restore doesn't happen. This is because at the
+         * faulting instr, the TEST_REG_ASM app val is present in the
+         * spill slot reserved by the insertion phase (spill slot 2; slot
+         * 0 is reserved for aflags, slot 1 is used by app2app phase).
+         * Slot 2 is a DR slot and all regs spilled to DR slot are
+         * automatically restored before each app instr.
+         * After PR#4917 though, aflags slot won't be hard-coded and
+         * will be available for gprs (here, TEST_REG_ASM). Therefore,
+         * TEST_REG_ASM will be stored in a TLS slot instead of a DR slot
+         * and won't be automatically restored, and this test will really
+         * verify the restore logic.
+         * Note that the above isn't true for X86 because drreg internally
+         * adds one extra spill slot for X86.
+         */
+        b        test17
+     test17:
+        movz     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_17_ASM
+        movz     TEST_REG2_ASM, 1
+        movz     TEST_REG2_ASM, 2
+        movz     TEST_REG2_ASM, 3
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog17
+    epilog17:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 18: fault reg restore for fragments with DR_EMIT_STORE_TRANSLATIONS */
+#define FUNCNAME test_asm_faultJ
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test18
+     test18:
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        ud2
+
+        jmp      epilog18
+     epilog18:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test18
+     test18:
+        movw     TEST_REG_ASM, DRREG_TEST_18_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog18
+    epilog18:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test18
+     test18:
+        movz     TEST_REG_ASM, DRREG_TEST_18_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_18_ASM
+        nop
+        .inst 0xf36d19 /* udf */
+
+        b        epilog18
+    epilog18:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+    /* Test 19: Test fault reg restore for fragments with a faux spill
+     * instr -- an app instr that looks like a drreg spill instr, which
+     * may corrupt drreg state restoration. This cannot happen on x86 as
+     * an app instr that uses the %gs register will be mangled into a
+     * non-far memref.
+     */
+#define FUNCNAME test_asm_faultK
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        END_PROLOG
+        ret
+#elif defined(ARM)
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test19
+     test19:
+        movz     TEST_REG_ASM, DRREG_TEST_19_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_19_ASM
+        /* TEST_REG_ASM is reserved here. */
+        movz     TEST_REG2_ASM, 1
+        adr      TEST_REG_STOLEN_ASM, some_data
+        /* A faux spill instr -- looks like a drreg spill but isn't.
+         * It will seem as if the spill slot used for TEST_REG_ASM
+         * is being overwritten.
+         */
+        str      TEST_REG2_ASM, PTRSZ [TEST_REG_STOLEN_ASM, #TEST_FAUX_SPILL_TLS_OFFS]
+
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog19
+    epilog19:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 20: Test restore on fault for gpr reserved in multiple
+         * phases, where the two spill regions are nested, and the first
+         * phase doesn't write the reg before the second reservation. This
+         * is to verify that drreg state restoration logic remembers that
+         * the app value can be found in both the spill slots.
+         */
+#define FUNCNAME test_asm_faultL
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test20
+     test20:
+        mov      TEST_REG_ASM, DRREG_TEST_20_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_20_ASM
+        /* - app2app reserves TEST_REG_ASM here, but doesn't write it.
+         * - insertion reserves TEST_REG_ASM here, which may confuse the
+         *   state restoration logic into overwritting the spill slot for
+         *   TEST_REG_ASM as it still has its native value.
+         */
+        mov      TEST_REG2_ASM, 1
+        /* - insertion phase unreserves TEST_REG_ASM and frees the spill
+         *   slot.
+         */
+        mov      TEST_REG2_ASM, 2
+        /* - insertion phase reserves TEST_REG2_ASM which would use the
+         *   same spill slot as freed above, and overwrite TEST_REG_ASM
+         *   value stored there currently. After this TEST_REG_ASM can
+         *   only be found in its app2app spill slot.
+         * - insertion phase writes to TEST_REG_ASM so that we need to
+         *   restore it.
+         */
+        mov      TEST_REG2_ASM, 3
+        ud2
+
+        jmp      epilog20
+     epilog20:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test20
+     test20:
+        movw     TEST_REG_ASM, DRREG_TEST_20_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_20_ASM
+        movw     TEST_REG2_ASM, 1
+        movw     TEST_REG2_ASM, 2
+        movw     TEST_REG2_ASM, 3
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog20
+    epilog20:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test20
+     test20:
+        movz     TEST_REG_ASM, DRREG_TEST_20_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_20_ASM
+        movz     TEST_REG2_ASM, 1
+        movz     TEST_REG2_ASM, 2
+        movz     TEST_REG2_ASM, 3
+        .inst 0xf36d19 /* udf */
+
+        b        epilog20
+    epilog20:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+START_DATA
+    /* Should be atleast (TEST_FAUX_SPILL_TLS_OFFS+1)*8 bytes.
+     * Cannot use the macro as the expression needs to be
+     * absolute.
+     */
+    BYTES_ARR(some_data, (1000+1)*8)
 END_FILE
 #endif
 /* clang-format on */

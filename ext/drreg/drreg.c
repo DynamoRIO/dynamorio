@@ -78,6 +78,17 @@
 
 #define AFLAGS_SLOT 0 /* always */
 
+/* For simplicity, we assign aflags an alias that's one past the last gpr.
+ * This is only for simpler handling of data structures like spill_slots_to_reg.
+ * Note that this is not the same as the aflags spill reg, which is the actual
+ * gpr that contains the spilled native aflags.
+ * Note that we cannot use DR_REG_NULL to be the aflags alias because DR_REG_NULL
+ * means something else in the context of spill_slots_to_reg.
+ * XXX: Replace use of DR_REG_NULL as aflags alias in drreg routines like
+ * drreg_statelessly_restore_app_value. Use AFLAGS_ALIAS_REG instead.
+ */
+#define AFLAGS_ALIAS_REG (DR_REG_STOP_GPR + 1)
+
 /* We support using GPR registers only: [DR_REG_START_GPR..DR_REG_STOP_GPR] */
 
 #define REG_DEAD ((void *)(ptr_uint_t)0)
@@ -1831,9 +1842,57 @@ drreg_is_instr_spill_or_restore(void *drcontext, instr_t *instr, bool *spill OUT
     return DRREG_SUCCESS;
 }
 
+static void
+forget_existing_spill_slot_use(reg_id_t *spill_slot_to_reg, uint reg)
+{
+    for (int i = 0; i < MAX_SPILLS; i++) {
+        if (spill_slot_to_reg[i] == reg)
+            spill_slot_to_reg[i] = DR_REG_NULL;
+    }
+}
+
+static uint
+find_spill_slot_for_reg(void *drcontext, reg_id_t *spill_slot_to_reg, uint reg)
+{
+    uint spill_slot = MAX_SPILLS;
+#ifdef DEBUG
+    reg_t val = 0, newval;
+#endif
+    for (int i = 0; i < MAX_SPILLS; i++) {
+        if (spill_slot_to_reg[i] == reg) {
+#ifdef DEBUG
+            newval = get_spilled_value(drcontext, i);
+            if (spill_slot != MAX_SPILLS) {
+                ASSERT(val == newval, "spilled val doesn't match across slots");
+            } else {
+                spill_slot = i;
+            }
+            val = newval;
+#else
+            return i;
+#endif
+        }
+    }
+    return spill_slot;
+}
+
+/* Restores machine state modified by drreg, without the reconstructed instrlist
+ * of the faulting fragment.
+ * This is a best-effort restore state logic which is used when the faulting
+ * fragment's reconstructed instrlist is not available. This does not handle
+ * some corner cases well, like multiple restores (i#4939), aflags in reg (i#4933)
+ * and multi-phase use (i#3823). It may restore the wrong value or not restore
+ * at all in these cases.
+ * drreg_event_restore_state_with_ilist uses metadata inlined in the
+ * reconstructed ilist to restore state in a robust manner. The metadata
+ * required is essentially just a bit per instruction for whether it's an app
+ * or tool instr.
+ * TODO i#4937: Store required metadata for each fragment and use it here for
+ * a more robust restoration of state.
+ */
 static bool
-drreg_event_restore_state(void *drcontext, bool restore_memory,
-                          dr_restore_state_info_t *info)
+drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
+                                        dr_restore_state_info_t *info)
 {
     /* To achieve a clean and simple reserve-and-unreserve interface w/o specifying
      * up front how many cross-app-instr scratch regs (and then limited to whole-bb
@@ -1843,9 +1902,6 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
      * spill to a temp slot (from drreg_event_bb_insert_late()) by watching for
      * a spill of an already-spilled reg to a different slot.
      *
-     * XXX i#3801: We now keep track of spill slot usages added by drreg, which is
-     * used to avoid slot conflicts in multi-phase uses of drreg (i#3823). Perhaps
-     * that metadata can be used in this restore state code.
      */
     uint spilled_to[DR_NUM_GPR_REGS];
     uint spilled_to_aflags = MAX_SPILLS;
@@ -1943,6 +1999,235 @@ drreg_event_restore_state(void *drcontext, bool restore_memory,
         }
     }
     return true;
+}
+
+/* Restores machine state modified by drreg, using the reconstructed instrlist
+ * of the faulting fragment.
+ * This is a more robust version of drreg_event_restore_state_without_ilist
+ * that uses inlined metadata in instrlist.
+ */
+static bool
+drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
+                                     dr_restore_state_info_t *info)
+{
+    /* This routine needs to be robust enough to handle the many tricky corner
+     * cases that can arise in drreg use: gpr/aflags re-spills (to same or
+     * different slot) after app instr write, multiple reg restores due to app
+     * instr read, aflags spilled to reg instead of slot (for x86 only), lazy
+     * restores, multi-phase use of drreg leading to nested or overlapping
+     * spill regions, re-spills of native value by multiple phases, ...
+     * The strategy we follow here is to trace the app value of aflags and gpr
+     * as it is moved between spill slots and regs. At times the app value may
+     * be present in the gpr/aflags and one or more spill slots too, but later
+     * the gpr or any of the spill slots may be clobbered by a tool write or
+     * another spill respectively. At the end, we restore all live gprs/aflags
+     * that do not have their native app value.
+     */
+    reg_id_t spill_slot_to_reg[MAX_SPILLS];
+    reg_id_t aflags_spill_reg;
+    bool gpr_native[DR_NUM_GPR_REGS];
+    bool aflags_native;
+    int last_opcode = 0;
+
+    reg_id_t reg;
+    instr_t *inst;
+    byte *pc = info->fragment_info.cache_start_pc;
+    uint offs;
+    bool spill;
+    uint slot;
+    if (pc == NULL)
+        return true; /* fault not in cache */
+
+    /* At beginning of fragment, all gprs and aflags have their native app value. */
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        gpr_native[GPR_IDX(reg)] = true;
+    }
+    aflags_native = true;
+    /* At beginning of fragment, no spill slot has a native value. */
+    for (int i = 0; i < MAX_SPILLS; i++) {
+        spill_slot_to_reg[i] = DR_REG_NULL;
+    }
+    /* TODO PR#4917: Add support for test_asm_faultL similar to what's added for gprs.
+     * Essentially, we want to handle the condition where native value of aflags is
+     * spilled to multiple gprs by different phases. This may not happen on x86
+     * because it has only one reg where aflags can be spilled to; so for re-spills
+     * of native aflags, the first spill in xax will need to be spilled to some slot
+     * first.
+     */
+    aflags_spill_reg = DR_REG_NULL;
+
+    LOG(drcontext, DR_LOG_ALL, 3,
+        "%s: processing fault @" PFX ": using reconstructed fragment ilist \n",
+        __FUNCTION__, info->raw_mcontext->pc);
+    ASSERT(info->fragment_info.ilist != NULL, "ilist required for state restoration");
+    for (inst = instrlist_first(info->fragment_info.ilist);
+         inst != NULL && pc < info->raw_mcontext->pc; inst = instr_get_next(inst)) {
+        int len = instr_length(drcontext, inst);
+        pc += len;
+#ifdef X86
+        if (!instr_is_app(inst) && instr_get_opcode(inst) == OP_seto &&
+            last_opcode == OP_lahf) {
+            /* Sometimes aflags spilling may require a seto after a lahf. We do not
+             * need to process the seto as the required book-keeping updates have
+             * been done already in the last iteration.
+             */
+            last_opcode = OP_seto;
+            continue;
+        }
+#endif
+        if (!instr_is_label(inst)) {
+            last_opcode = instr_get_opcode(inst);
+        }
+
+        bool app_gpr_restored_now = false;
+        bool app_aflags_restored_now = false;
+        bool app_aflags_written_to_reg_now = false;
+        /* Update book-keeping for gpr/aflags spill slot or aflags spill reg. */
+        if (!instr_is_app(inst) &&
+            is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, &offs)) {
+            if (spill) {
+                /* Slot used in current instr may have a previous spilled gpr/aflags
+                 * value that may already have been restored. Forget that.
+                 */
+                spill_slot_to_reg[slot] = DR_REG_NULL;
+                if (aflags_spill_reg == reg) {
+                    ASSERT(!gpr_native[GPR_IDX(aflags_spill_reg)],
+                           "reg with aflags cannot be native");
+                    spill_slot_to_reg[slot] = AFLAGS_ALIAS_REG;
+                } else if (gpr_native[GPR_IDX(reg)]) {
+                    spill_slot_to_reg[slot] = reg;
+                } else {
+                    LOG(drcontext, DR_LOG_ALL, 3,
+                        "%s @" PFX ": ignoring tool spill of non-native value.\n",
+                        __FUNCTION__, pc);
+                }
+            } else {
+                if (spill_slot_to_reg[slot] == AFLAGS_ALIAS_REG) {
+                    aflags_spill_reg = reg;
+                    app_aflags_written_to_reg_now = true;
+                } else if (spill_slot_to_reg[slot] == reg) {
+                    gpr_native[GPR_IDX(reg)] = true;
+                    app_gpr_restored_now = true;
+                } else {
+                    LOG(drcontext, DR_LOG_ALL, 3,
+                        "%s @" PFX ": ignoring tool restore of non-native value\n",
+                        __FUNCTION__, pc);
+                }
+            }
+        } else if (!instr_is_app(inst) &&
+                   instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
+            if (aflags_native) {
+#ifdef X86
+                aflags_spill_reg = DR_REG_XAX;
+#else
+                aflags_spill_reg = opnd_get_reg(instr_get_dst(inst, 0));
+#endif
+                app_aflags_written_to_reg_now = true;
+            }
+        } else if (!instr_is_app(inst) &&
+                   instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
+            if (aflags_spill_reg ==
+                IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)))) {
+                aflags_native = true;
+                app_aflags_restored_now = true;
+            }
+        }
+
+        /* Mark gprs/aflags as containing native or non-native value based on whether
+         * the current instr is an app or tool write, respectively. An example of the
+         * latter is a restore for a spilled tool value, which may happen in the
+         * multi-phase nested reservation case.
+         * If the current instr is a tool write that restores an app value (as tracked
+         * by the various *_now bools), we skip marking the gpr/aflags as non-native.
+         */
+        for (int i = 0; i < instr_num_dsts(inst); i++) {
+            opnd_t opnd = instr_get_dst(inst, i);
+            if (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd))) {
+                reg_id_t resized_reg = reg_to_pointer_sized(opnd_get_reg(opnd));
+                if (resized_reg == aflags_spill_reg && !app_aflags_written_to_reg_now) {
+                    /* reg does not contain aflags anymore. */
+                    aflags_spill_reg = DR_REG_NULL;
+                }
+                if (instr_is_app(inst)) {
+                    /* App instr wrote reg value. Spill slot value not valid anymore. */
+                    gpr_native[GPR_IDX(resized_reg)] = true;
+                    forget_existing_spill_slot_use(spill_slot_to_reg, resized_reg);
+                } else if (!app_gpr_restored_now) {
+                    /* Tool wrote to reg. Not native anymore. */
+                    gpr_native[GPR_IDX(resized_reg)] = false;
+                }
+            }
+        }
+        if (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL))) {
+            if (instr_is_app(inst)) {
+                /* App instr wrote aflags. Saved aflags value (in slot or reg) not valid
+                 * anymore.
+                 */
+                aflags_native = true;
+                forget_existing_spill_slot_use(spill_slot_to_reg, AFLAGS_ALIAS_REG);
+                aflags_spill_reg = DR_REG_NULL;
+            } else if (!app_aflags_restored_now) {
+                /* Tool wrote aflags. Not native anymore. */
+                aflags_native = false;
+            }
+        }
+    }
+    ASSERT(inst != NULL, "fault pc is beyond the given ilist");
+    if (!aflags_native) {
+        slot = find_spill_slot_for_reg(drcontext, spill_slot_to_reg, AFLAGS_ALIAS_REG);
+        if (aflags_spill_reg != DR_REG_NULL || slot != MAX_SPILLS) {
+            reg_t newval = info->mcontext->xflags;
+            reg_t val;
+            if (aflags_spill_reg != DR_REG_NULL) {
+#ifdef X86
+                ASSERT(aflags_spill_reg == DR_REG_XAX, "x86 aflags can only be in xax");
+                val = info->mcontext->xax;
+#else
+                val = *(reg_t *)(&info->mcontext->r0 + (aflags_spill_reg - DR_REG_R0));
+#endif
+                newval = dr_merge_arith_flags(newval, val);
+                LOG(drcontext, DR_LOG_ALL, 3,
+                    "%s: restoring aflags from reg %s " PFX " to " PFX "\n", __FUNCTION__,
+                    get_register_name(aflags_spill_reg), info->mcontext->xflags, newval);
+            } else {
+                val = get_spilled_value(drcontext, slot);
+                newval = dr_merge_arith_flags(newval, val);
+                LOG(drcontext, DR_LOG_ALL, 3,
+                    "%s: restoring aflags from slot %d from " PFX " to " PFX "\n",
+                    __FUNCTION__, slot, info->mcontext->xflags, newval);
+            }
+            info->mcontext->xflags = newval;
+        } else {
+            LOG(drcontext, DR_LOG_ALL, 3, "%s: aflags not saved as they are dead\n",
+                __FUNCTION__);
+        }
+    }
+    for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        if (!gpr_native[GPR_IDX(reg)]) {
+            slot = find_spill_slot_for_reg(drcontext, spill_slot_to_reg, reg);
+            if (slot != MAX_SPILLS) {
+                reg_t val = get_spilled_value(drcontext, slot);
+                LOG(drcontext, DR_LOG_ALL, 3,
+                    "%s: restoring %s from slot %d from " PFX " to " PFX "\n",
+                    __FUNCTION__, get_register_name(reg), slot,
+                    reg_get_value(reg, info->mcontext), val);
+                reg_set_value(reg, info->mcontext, val);
+            } else {
+                LOG(drcontext, DR_LOG_ALL, 3, "%s: %s not saved as it is dead\n",
+                    __FUNCTION__, get_register_name(reg));
+            }
+        }
+    }
+    return true;
+}
+
+static bool
+drreg_event_restore_state(void *drcontext, bool restore_memory,
+                          dr_restore_state_info_t *info)
+{
+    if (info->fragment_info.ilist != NULL)
+        return drreg_event_restore_state_with_ilist(drcontext, restore_memory, info);
+    return drreg_event_restore_state_without_ilist(drcontext, restore_memory, info);
 }
 
 /***************************************************************************

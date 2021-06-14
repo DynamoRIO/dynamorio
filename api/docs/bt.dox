@@ -1145,7 +1145,15 @@ Furthermore, if the client's modifications change any part of the machine
 state besides the program counter, the client should use
 dr_register_restore_state_event() or dr_register_restore_state_ex_event()
 (see \ref sec_events_translation) to restore the registers to their
-original application values.
+original application values. DR attempts to reconstruct the #instrlist_t
+for the faulting fragment; this list contains all instrs added by the
+basic block event(s) with \p translating set to true, and also DR's own
+mangling of some instrs. If this reconstructed #instrlist_t is available,
+it will be passed on to the registered callback as part of
+#dr_fault_fragment_info_t in #dr_restore_state_info_t. It may not be
+available when some or all clients returned #DR_EMIT_STORE_TRANSLATIONS,
+or for DR internal reasons when the app code may not be consistent: for
+pending deletion or self-modifying fragments.
 
 For meta instructions that do not reference application memory (i.e., they
 should not fault), leave the translation field as NULL.  A NULL value
