@@ -108,10 +108,12 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
               DRREG_SUCCESS,
           "cannot get app value");
 #endif
-    /* Load with some value so that we need to restore it later. */
-    instrlist_meta_preinsert(bb, inst,
-                             XINST_CREATE_load_int(drcontext, opnd_create_reg(TEST_REG2),
-                                                   OPND_CREATE_INT32(MAGIC_VAL)));
+    /* Load aflags with some value so that we need to restore it later. */
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_load_int(drcontext,
+                              opnd_create_reg(IF_X86_ELSE(DR_REG_XAX, TEST_REG2)),
+                              OPND_CREATE_INT32(MAGIC_VAL)));
 #ifdef X86
     instrlist_meta_preinsert(bb, inst, INSTR_CREATE_sahf(drcontext));
 #elif defined(ARM)
