@@ -449,6 +449,7 @@ enum {
  * This macro creates an instr_t for a test or ands instruction.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param Rd The destination register opnd_t operand.
+ * \param Rn The first input register opnd_t operand.
  * \param rm_or_imm The second input register or immediate.
  */
 #define INSTR_CREATE_tst(dc, Rd, Rn, rm_or_imm) INSTR_CREATE_ands(dc, Rd, Rn, rm_or_imm)
