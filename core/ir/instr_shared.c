@@ -142,11 +142,11 @@ instr_clone(void *drcontext, instr_t *orig)
         instr->bytes =
             (byte *)heap_reachable_alloc(dcontext, instr->length HEAPACCT(ACCT_IR));
         memcpy((void *)instr->bytes, (void *)orig->bytes, instr->length);
-    } else if (instr_is_label(orig)) {
+    } else if (instr_is_label(orig) && instr_get_label_callback(instr) != NULL) {
         /* We don't know what this callback does, we can't copy this. The caller that
          * makes the clone needs to take care of this, xref i#3926.
          */
-        instr_set_label_callback(instr, NULL);
+        instr_clear_label_callback(instr);
     }
     if (orig->num_dsts > 0) { /* checking num_dsts, not dsts, b/c of label data */
         instr->dsts = (opnd_t *)heap_alloc(
@@ -1111,6 +1111,17 @@ instr_set_label_callback(instr_t *instr, instr_label_callback_t cb)
     instr->label_cb = cb;
 }
 
+void
+instr_clear_label_callback(instr_t *instr)
+{
+    CLIENT_ASSERT(instr_is_label(instr),
+                  "only set callback functions for label instructions");
+    CLIENT_ASSERT(instr->label_cb != NULL, "label callback function not set");
+    CLIENT_ASSERT(!TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags),
+                  "instruction's raw bits occupying label callback memory");
+    instr->label_cb = NULL;
+}
+
 instr_label_callback_t
 instr_get_label_callback(instr_t *instr)
 {
@@ -2015,6 +2026,7 @@ instr_writes_memory(instr_t *instr)
 }
 
 #ifdef X86
+
 bool
 instr_zeroes_ymmh(instr_t *instr)
 {
@@ -2022,13 +2034,47 @@ instr_zeroes_ymmh(instr_t *instr)
     const instr_info_t *info = get_encoding_info(instr);
     if (info == NULL)
         return false;
-    /* legacy instrs always preserve top half of ymm */
-    if (!TEST(REQUIRES_VEX, info->flags))
+    /* Legacy (SSE) instructions always preserve top half of YMM.
+     * Moreover, EVEX encoded instructions clear upper ZMM bits, but also
+     * YMM bits if an XMM reg is used.
+     */
+    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
         return false;
+
+    /* Handle zeroall special case. */
+    if (instr->opcode == OP_vzeroall)
+        return true;
+
     for (i = 0; i < instr_num_dsts(instr); i++) {
         opnd_t opnd = instr_get_dst(instr, i);
-        if (opnd_is_reg(opnd) && reg_is_xmm(opnd_get_reg(opnd)) &&
-            !reg_is_ymm(opnd_get_reg(opnd)))
+        if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
+            reg_is_strictly_xmm(opnd_get_reg(opnd)))
+            return true;
+    }
+    return false;
+}
+
+bool
+instr_zeroes_zmmh(instr_t *instr)
+{
+    int i;
+    const instr_info_t *info = get_encoding_info(instr);
+    if (info == NULL)
+        return false;
+    if (!TEST(REQUIRES_VEX, info->flags) && !TEST(REQUIRES_EVEX, info->flags))
+        return false;
+    /* Handle special cases, namely zeroupper and zeroall. */
+    /* XXX: DR ir should actually have these two instructions have all SIMD vector regs
+     * as operand even though they are implicit.
+     */
+    if (instr->opcode == OP_vzeroall || instr->opcode == OP_vzeroupper)
+        return true;
+
+    for (i = 0; i < instr_num_dsts(instr); i++) {
+        opnd_t opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(opnd) && reg_is_vector_simd(opnd_get_reg(opnd)) &&
+            (reg_is_strictly_xmm(opnd_get_reg(opnd)) ||
+             reg_is_strictly_ymm(opnd_get_reg(opnd))))
             return true;
     }
     return false;
@@ -2930,6 +2976,19 @@ instr_create_3dst_0src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, op
 }
 
 instr_t *
+instr_create_3dst_1src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t src1)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 3, 1);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_src(in, 0, src1);
+    return in;
+}
+
+instr_t *
 instr_create_3dst_2src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
                        opnd_t src1, opnd_t src2)
 {
@@ -2992,6 +3051,26 @@ instr_create_3dst_5src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, op
 }
 
 instr_t *
+
+instr_create_3dst_6src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5,
+                       opnd_t src6)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 3, 6);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    instr_set_src(in, 4, src5);
+    instr_set_src(in, 5, src6);
+    return in;
+}
+
+instr_t *
 instr_create_4dst_1src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
                        opnd_t dst4, opnd_t src)
 {
@@ -3021,6 +3100,22 @@ instr_create_4dst_2src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, op
 }
 
 instr_t *
+instr_create_4dst_3src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 4, 3);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_dst(in, 3, dst4);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    return in;
+}
+
+instr_t *
 instr_create_4dst_4src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
                        opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
 {
@@ -3034,6 +3129,86 @@ instr_create_4dst_4src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, op
     instr_set_src(in, 1, src2);
     instr_set_src(in, 2, src3);
     instr_set_src(in, 3, src4);
+    return in;
+}
+
+instr_t *
+instr_create_4dst_7src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4,
+                       opnd_t src5, opnd_t src6, opnd_t src7)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 4, 7);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_dst(in, 3, dst4);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    instr_set_src(in, 4, src5);
+    instr_set_src(in, 5, src6);
+    instr_set_src(in, 6, src7);
+    return in;
+}
+
+instr_t *
+instr_create_5dst_3src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t dst5, opnd_t src1, opnd_t src2, opnd_t src3)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 5, 3);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_dst(in, 3, dst4);
+    instr_set_dst(in, 4, dst5);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    return in;
+}
+
+instr_t *
+instr_create_5dst_4src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t dst5, opnd_t src1, opnd_t src2, opnd_t src3,
+                       opnd_t src4)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 5, 4);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_dst(in, 3, dst4);
+    instr_set_dst(in, 4, dst5);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    return in;
+}
+
+instr_t *
+instr_create_5dst_8src(void *drcontext, int opcode, opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t dst4, opnd_t dst5, opnd_t src1, opnd_t src2, opnd_t src3,
+                       opnd_t src4, opnd_t src5, opnd_t src6, opnd_t src7, opnd_t src8)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t *in = instr_build(dcontext, opcode, 5, 8);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_dst(in, 2, dst3);
+    instr_set_dst(in, 3, dst4);
+    instr_set_dst(in, 4, dst5);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    instr_set_src(in, 4, src5);
+    instr_set_src(in, 5, src6);
+    instr_set_src(in, 6, src7);
+    instr_set_src(in, 7, src8);
     return in;
 }
 

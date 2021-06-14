@@ -1,0 +1,36 @@
+Correct
+Hello world!
+Basic counts tool results:
+Total counts:
+          43 total \(fetched\) instructions
+          43 total unique \(fetched\) instructions
+           0 total non-fetched instructions
+           0 total prefetches
+           3 total data loads
+           3 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+     .* total other markers
+Thread .* counts:
+          43 \(fetched\) instructions
+          43 unique \(fetched\) instructions
+           0 non-fetched instructions
+           0 prefetches
+           3 data loads
+           3 data stores
+           0 icache flushes
+           0 dcache flushes
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
+     .* other markers

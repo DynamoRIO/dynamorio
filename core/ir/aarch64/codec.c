@@ -1557,6 +1557,35 @@ encode_opnd_cond(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
 }
 
+/* scale: The scalar encoding of #fbits operand. This is the number of bits
+ * after the decimal point for fixed-point values.
+ */
+static inline bool
+decode_opnd_scale(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint scale = extract_uint(enc, 10, 6);
+    *opnd = opnd_create_immed_int(64 - scale, OPSZ_6b);
+    return true;
+}
+
+static inline bool
+encode_opnd_scale(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t fbits;
+
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    fbits = opnd_get_immed_int(opnd);
+
+    if (fbits < 1 || fbits > 64)
+        return false;
+
+    *enc_out = (64 - fbits) << 10; /* 'scale' bitfield in encoding */
+
+    return true;
+}
+
 /* fpimm8: immediate operand for SIMD fmov */
 
 static inline bool
@@ -2137,6 +2166,34 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     if (val < 0 || val >= 8)
         return false;
     *enc_out = (val >> 2 & 1) << 11 | (val >> 1 & 1) << 21 | (val & 1) << 20;
+    return true;
+}
+
+/* immhb: The vector encoding of #fbits operand. This is the number of bits
+ * after the decimal point for fixed-point values.
+ */
+static inline bool
+decode_opnd_immhb(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint immhb = extract_uint(enc, 16, 6);
+    *opnd = opnd_create_immed_int(64 - immhb, OPSZ_6b);
+    return true;
+}
+
+static inline bool
+encode_opnd_immhb(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    ptr_int_t fbits;
+
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    fbits = opnd_get_immed_int(opnd);
+    if (fbits < 1 || fbits > 64)
+        return false;
+
+    *enc_out = (64 - fbits) << 16;
+
     return true;
 }
 

@@ -902,6 +902,16 @@ macro(tobuild_csharp test source)
   endif ()
 endmacro(tobuild_csharp)
 
+macro(append_pure_asm_app_link_flags target)
+  set_target_properties(${target} PROPERTIES LINKER_LANGUAGE C)
+  append_link_flags(${target} "-nostartfiles -nodefaultlibs -static")
+  append_property_string(TARGET ${target} LINK_FLAGS
+    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
+    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
+    # is not properly static. Adding --no-export-dynamic avoids the problem.
+    "-Wl,--no-export-dynamic")
+endmacro(append_pure_asm_app_link_flags)
+
 function(tobind target)
   if (BIND_EXECUTABLE)
     add_custom_command(TARGET ${target}
@@ -1028,6 +1038,10 @@ function(template2expect outexpect template runops key)
     set(rundefs "${rundefs} -D__AVX__ -D__AVX512F__")
   elseif (DEFINED ${key}_runavx)
     set(rundefs "${rundefs} -D__AVX__")
+  endif ()
+
+  if (DEFINED ${key}_test_sample_client)
+    set(rundefs "${rundefs} -DTEST_SAMPLE_CLIENT")
   endif ()
 
   string(STRIP "${rundefs}" rundefs)
@@ -2029,37 +2043,16 @@ if (DR_HOST_AARCH64)
 
   tobuild_ops(common.allasm_aarch64_cache common/allasm_aarch64_cache.asm
     "-early_inject" "")
-  set_target_properties(common.allasm_aarch64_cache PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(common.allasm_aarch64_cache
-    "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET common.allasm_aarch64_cache LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  append_pure_asm_app_link_flags(common.allasm_aarch64_cache)
 
   add_exe(allasm_aarch64_prefetch
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_prefetch.asm
     "-early_inject" "")
-  set_target_properties(allasm_aarch64_prefetch PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(allasm_aarch64_prefetch
-    "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET allasm_aarch64_prefetch LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  append_pure_asm_app_link_flags(allasm_aarch64_prefetch)
 
   add_exe(allasm_aarch64_flush
     ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_aarch64_flush.asm "" "")
-  set_target_properties(allasm_aarch64_flush PROPERTIES LINKER_LANGUAGE C)
-  append_link_flags(allasm_aarch64_flush
-    "-nostartfiles -nodefaultlibs -static")
-  append_property_string(TARGET allasm_aarch64_flush LINK_FLAGS
-    # The default value of CMAKE_SHARED_LIBRARY_LINK_C_FLAGS has -rdynamic, which
-    # with some tool chains (such as SUSE GCC 6.2) results in an executable that
-    # is not properly static. Adding --no-export-dynamic avoids the problem.
-    "-Wl,--no-export-dynamic")
+  append_pure_asm_app_link_flags(allasm_aarch64_flush)
 endif ()
 
 if (DEBUG)
@@ -2391,10 +2384,11 @@ if (UNIX)
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   endif (X86)
   tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
-  if (AARCH64) # XXX i#3173 Improve testing of emulation API functions
-    tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c "" "" "")
+  if (X64) # XXX i#3173 Improve testing of emulation API functions
+    tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c
+      "" "" "")
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
-  endif (AARCH64)
+  endif ()
 else (UNIX)
   tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
@@ -2619,6 +2613,23 @@ if (X86)
       append_property_string(TARGET client.drx-scattergather COMPILE_FLAGS "${CFLAGS_AVX}")
       set(client.drx-scattergather_runavx 1)
     endif ()
+
+    if (X64 AND UNIX)
+      if (proc_supports_avx)
+        add_exe(allasm_scattergather
+          ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_scattergather.asm
+          "-early_inject" "")
+        append_pure_asm_app_link_flags(allasm_scattergather)
+        if (proc_supports_avx512)
+          append_property_string(TARGET allasm_scattergather COMPILE_FLAGS "${CFLAGS_AVX512}")
+          set(allasm_scattergather_runavx512 1)
+        endif (proc_supports_avx512)
+      endif (proc_supports_avx)
+      add_exe(allasm_repstr
+        ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/allasm_repstr.asm
+        "-early_inject" "")
+      append_pure_asm_app_link_flags(allasm_repstr)
+    endif (X64 AND UNIX)
   endif()
 endif ()
 
@@ -3060,12 +3071,20 @@ if (BUILD_SAMPLES)
           endif (NOT X64 AND NOT ARM)
         endif (UNIX)
       elseif (sample STREQUAL "memval_simple")
-        # i#2449: only witnessed crash on 32-bit linux
-        if (X86 AND (NOT X64) AND UNIX)
+        if (X86 AND UNIX)
           tobuild(client.memval-test client-interface/memval-test.c)
           torunonly_ci(sample.${sample} client.memval-test ${sample}
               client-interface/memval-test.c "" "" "")
-        endif(X86 AND (NOT X64) AND UNIX)
+
+          torunonly_ci(sample.${sample}_scattergather client.drx-scattergather ${sample}
+              client-interface/drx-scattergather.c "" "" "")
+          set(sample.${sample}_scattergather_test_sample_client 1)
+          if (proc_supports_avx512)
+            set(sample.${sample}_scattergather_runavx512 1)
+          elseif (proc_supports_avx)
+            set(sample.${sample}_scattergather_runavx 1)
+          endif ()
+        endif (X86 AND UNIX)
       elseif (sample STREQUAL "opcode_count")
         # We do not do a simple sanity test for opcode_count, but a normal test
         # that checks the sample's output.
@@ -3173,9 +3192,21 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(phys ${ci_shared_app} "-use_physical" "")
     endif ()
 
-    torunonly_drcachesim(filter-simple ${ci_shared_app} "-L0_filter" "")
-    torunonly_drcachesim(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "")
-    torunonly_drcachesim(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "")
+    set(test_mode_flag "-test_mode")
+    if (NOT DEBUG)
+      set(test_mode_flag "")
+    endif ()
+    torunonly_drcachesim(filter-simple ${ci_shared_app}
+      "-L0_filter ${test_mode_flag}" "")
+    if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
+      # If we have a pure-asm app with a constant instr count, check that count.
+      torunonly_drcachesim(filter-asm common.loglevel
+        "-L0_filter -test_mode -test_mode_name filter_asm_instr_count" "")
+    endif ()
+    torunonly_drcachesim(filter-no-i ${ci_shared_app}
+      "-L0_filter -L0I_size 0 ${test_mode_flag}" "")
+    torunonly_drcachesim(filter-no-d ${ci_shared_app}
+      "-L0_filter -L0D_size 0 ${test_mode_flag}" "")
 
     torunonly_drcachesim(instr-only-trace ${ci_shared_app} "-instr_only_trace" "")
 
@@ -3327,6 +3358,17 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
     endif ()
 
+    if (NOT MACOS AND X86)
+      torunonly_drcachesim(scattergather client.drx-scattergather
+        "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.scattergather_rawtemp) # use preprocessor
+      if (proc_supports_avx512)
+        set(tool.drcachesim.scattergather_runavx512 1)
+      elseif (proc_supports_avx)
+        set(tool.drcachesim.scattergather_runavx 1)
+      endif ()
+    endif ()
+
     # Test offline traces.
     # XXX: we could exclude the pipe files and build the offline trace
     # support by itself for Android.
@@ -3407,17 +3449,26 @@ if (BUILD_CLIENTS)
       torunonly_drcacheoff(multiproc tool.multiproc "" "" "${tool.multiproc_path}")
     endif ()
 
-    torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter" "" "")
-    torunonly_drcacheoff(filter-no-i ${ci_shared_app} "-L0_filter -L0I_size 0" "" "")
-    torunonly_drcacheoff(filter-no-d ${ci_shared_app} "-L0_filter -L0D_size 0" "" "")
+    torunonly_drcacheoff(filter ${ci_shared_app} "-L0_filter ${test_mode_flag}" "" "")
+    torunonly_drcacheoff(filter-no-i ${ci_shared_app}
+      "-L0_filter -L0I_size 0 ${test_mode_flag}" "" "")
+    torunonly_drcacheoff(filter-no-d ${ci_shared_app}
+      "-L0_filter -L0D_size 0 ${test_mode_flag}" "" "")
 
     torunonly_drcacheoff(instr-only-trace ${ci_shared_app} "-instr_only_trace" "" "")
     torunonly_drcacheoff(filter-and-instr-only-trace ${ci_shared_app} "-instr_only_trace -L0_filter" "" "")
 
     # As for the online test, we check that only 1 thread is in the final trace.
     torunonly_drcacheoff(max-global client.annotation-concurrency
-      "-trace_after_instrs 20K -max_global_trace_refs 10K"
+      # Include function tracing to sanity test combining with delay and max.
+      "-trace_after_instrs 20K -max_global_trace_refs 10K -record_heap"
       "@-simulator_type@basic_counts" "${annotation_test_args_shorter}")
+
+    torunonly_drcacheoff(delay-func ${ci_shared_app}
+      # Delay enough that zero data should be logged to test that function
+      # tracing is delayed (i#4893).
+      "-trace_after_instrs 200M -record_heap"
+      "@-simulator_type@basic_counts" "")
 
     # __builtin_prefetch used in the test is not defined on MSVC.
     if (NOT MSVC)
@@ -3491,7 +3542,7 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (LINUX AND X64 AND HAVE_RSEQ)
-      torunonly_drcacheoff(rseq linux.rseq "" "@-test_mode" "")
+      torunonly_drcacheoff(rseq linux.rseq "" "${test_mode_flag}" "")
     endif ()
 
     if (AARCH64)
@@ -3581,6 +3632,30 @@ if (BUILD_CLIENTS)
         torunonly_drcacheoff(burst_client tool.drcacheoff.burst_client "" "" "")
       endif ()
     endif ()
+
+    if (UNIX AND X86 AND X64)
+      if (proc_supports_avx)
+        torunonly_drcacheoff(allasm-scattergather-basic-counts allasm_scattergather
+          "" "@-simulator_type@basic_counts" "")
+        unset(tool.drcacheoff.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+        if (proc_supports_avx512)
+          set(tool.drcacheoff.allasm-scattergather-basic-counts_runavx512 1)
+        endif (proc_supports_avx512)
+        torunonly_drcachesim(allasm-scattergather-basic-counts allasm_scattergather
+          "-simulator_type basic_counts" "")
+        unset(tool.drcachesim.allasm-scattergather-basic-counts_rawtemp) # use preprocessor
+        if (proc_supports_avx512)
+          set(tool.drcachesim.allasm-scattergather-basic-counts_runavx512 1)
+        endif (proc_supports_avx512)
+      endif (proc_supports_avx)
+
+      torunonly_drcacheoff(allasm-repstr-basic-counts allasm_repstr
+        "" "@-simulator_type@basic_counts" "")
+      unset(tool.drcacheoff.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+      torunonly_drcachesim(allasm-repstr-basic-counts allasm_repstr
+        "-simulator_type basic_counts" "")
+      unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
+    endif (UNIX AND X86 AND X64)
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
@@ -3863,12 +3938,15 @@ if (UNIX)
         # We can't get the depends property right b/c execve32 has no prefix,
         # so we do this one directly too.
         add_exe(linux.execve64 linux/execve.c)
+        # Use a relative path for the child's execve to stress i#1660, i#4892.
+        file(RELATIVE_PATH relative_sub32 "${CMAKE_CURRENT_BINARY_DIR}"
+          "${32dir}/${test_bindir}/linux.execve-sub32")
         add_test(linux.execve64 ${drrun_path} ${dr_test_ops}
           # We test the "-c32 -c64" syntax for the other direction.
           -c32 ${client32_path} -paramA foo -paramB bar --
           -c64 ${client64_path} -paramA foo -paramB bar --
           ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/linux.execve64
-          "${32dir}/${test_bindir}/linux.execve-sub32")
+          "${relative_sub32}")
         set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
           PASS_REGULAR_EXPRESSION "^${expect}$")
       endif ()

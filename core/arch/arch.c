@@ -3700,6 +3700,10 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }
+        for (i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+            print_file(f, dump_xml ? "\t\tk%d= \"" PFX "\"\n" : "\tk%d= " PFX "\n", i,
+                       context->opmask[i]);
+        }
         DOLOG(2, LOG_INTERP, {
             /* Not part of mcontext but useful for tracking app behavior */
             if (!dump_xml) {

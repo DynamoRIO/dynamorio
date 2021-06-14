@@ -1,5 +1,5 @@
-/* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ /* **********************************************************
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -30,42 +30,36 @@
  * DAMAGE.
  */
 
-/* trace_invariants: a memory trace invariants checker.
- */
+/* This is a statically-linked app. */
+.text
+.globl _start
+.type _start, @function
+        .align   8
+_start:
+        // Align stack pointer to cache line.
+        and      rsp, -16
 
-#ifndef _TRACE_INVARIANTS_H_
-#define _TRACE_INVARIANTS_H_ 1
+        mov      ecx, 5
+        lea      esi, bye_str
+        lea      edi, hello_str
+        cld
+        rep      movsb
 
-#include "../analysis_tool.h"
-#include "../common/memref.h"
-#include <unordered_map>
+        // Print end message.
+        mov      rdi, 1           // stdout
+        lea      rsi, hello_str
+        mov      rdx, 13          // sizeof(hello_str)
+        mov      eax, 1           // SYS_write
+        syscall
 
-class trace_invariants_t : public analysis_tool_t {
-public:
-    trace_invariants_t(bool offline = true, unsigned int verbose = 0,
-                       std::string test_name = "");
-    virtual ~trace_invariants_t();
-    bool
-    process_memref(const memref_t &memref) override;
-    bool
-    print_results() override;
+        // Exit.
+        mov      rdi, 0           // exit code
+        mov      eax, 231         // SYS_exit_group
+        syscall
 
-protected:
-    bool knob_offline_;
-    unsigned int knob_verbose_;
-    std::string knob_test_name_;
-    memref_t prev_instr_;
-    memref_t prev_xfer_marker_;
-    memref_t prev_entry_;
-    memref_t prev_prev_entry_;
-    memref_t pre_signal_instr_;
-    int instrs_until_interrupt_;
-    int memrefs_until_interrupt_;
-    addr_t app_handler_pc_;
-    offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
-    std::unordered_map<memref_tid_t, bool> thread_exited_;
-    std::unordered_map<memref_tid_t, bool> found_cache_line_size_marker_;
-    std::unordered_map<memref_tid_t, bool> found_instr_count_marker_;
-};
-
-#endif /* _TRACE_INVARIANTS_H_ */
+        .data
+        .align   8
+hello_str:
+        .string  "Hello world!\n"
+bye_str:
+        .string  "Adios\n"

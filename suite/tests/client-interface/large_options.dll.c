@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,6 +40,9 @@
  */
 
 #include "dr_api.h"
+#ifdef UNIX
+#    include <string.h>
+#endif
 
 static void
 event_exit(void)
@@ -51,6 +54,12 @@ DR_EXPORT void
 dr_init(client_id_t client_id)
 {
     const char *opts = dr_get_options(client_id);
+#ifdef UNIX
+    /* Test i#4892. */
+    if (strchr(dr_get_application_name(), '/')) {
+        dr_fprintf(STDERR, "dr_get_application_name() has slashes!\n");
+    }
+#endif
     dr_fprintf(STDERR, "large_options passed: %s\n", opts);
     dr_register_exit_event(event_exit);
 }

@@ -21,4 +21,7 @@ LL stats:
     Invalidations:                *0
 .*   Local miss rate:        *[0-9,.]*%
     Child hits:                   *[0-9,\.]*
-    Total miss rate:              *[1-9]?[0-9][,\.]..%
+    Total miss rate:              *[1-9]?[0-9][,\.]..%(
+
+===========================================================================
+Trace invariant checks passed)?

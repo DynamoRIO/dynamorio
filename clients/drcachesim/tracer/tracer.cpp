@@ -141,7 +141,9 @@ typedef struct {
     int num_delay_instrs;
     instr_t *delay_instrs[MAX_NUM_DELAY_INSTRS];
     bool repstr;
+    bool scatter_gather;
     void *instru_field; /* for use by instru_t */
+    int bb_instr_count;
 } user_data_t;
 
 /* For online simulation, we write to a single global pipe */
@@ -176,6 +178,7 @@ enum {
     /* XXX: we could make these dynamic to save slots when there's no -L0_filter. */
     MEMTRACE_TLS_OFFS_DCACHE,
     MEMTRACE_TLS_OFFS_ICACHE,
+    MEMTRACE_TLS_OFFS_ICOUNT,
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 static reg_id_t tls_seg;
@@ -566,12 +569,20 @@ clean_call(void)
  * Tracing instrumentation.
  */
 
+static int tracing_enabled;
+
 static void
 append_marker_seg_base(void *drcontext, func_trace_entry_vector_t *vec)
 {
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     if (BUF_PTR(data->seg_base) == NULL)
         return; /* This thread was filtered out. */
+    // i#4893: While it would be lower overhead to delay function tracing's drwrap
+    // calls rather than solely skipping i/o, the lock restrictions around drwrap
+    // make it difficult to delay func_trace's module load event.  This is the
+    // simplest way to delay function tracing output.
+    if (dr_atomic_load32(&tracing_enabled) == 0)
+        return; // Delayed tracing has not triggered yet.
     for (int i = 0; i < vec->size; i++) {
         BUF_PTR(data->seg_base) +=
             instru->append_marker(BUF_PTR(data->seg_base), vec->entries[i].marker_type,
@@ -646,15 +657,28 @@ instrument_delay_instrs(void *drcontext, void *tag, instrlist_t *ilist, user_dat
 /* Inserts a conditional branch that jumps to skip_label if reg_skip_if_zero's
  * value is zero.
  * Returns a temp reg that must be passed to insert_conditional_skip_target() at
- * the point where skip_label should be inserted.
+ * the point where skip_label should be inserted.  Additionally, the
+ * app_regs_at_skip set must be empty prior to calling and it must be passed
+ * to insert_conditional_skip_target().
  * reg_skip_if_zero must be DR_REG_XCX on x86.
  */
 static reg_id_t
 insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
                         reg_id_t reg_skip_if_zero, instr_t *skip_label,
-                        bool short_reaches)
+                        bool short_reaches, reg_id_set_t &app_regs_at_skip)
 {
     reg_id_t reg_tmp = DR_REG_NULL;
+
+    // Record the registers that will need barriers at the skip target.
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
+        drreg_reserve_info_t info = { sizeof(info) };
+        drreg_status_t res = drreg_reservation_info_ex(drcontext, reg, &info);
+        DR_ASSERT(res == DRREG_SUCCESS);
+        if (info.holds_app_value) {
+            app_regs_at_skip.insert(reg);
+        }
+    }
+
 #ifdef X86
     DR_ASSERT(reg_skip_if_zero == DR_REG_XCX);
     if (short_reaches) {
@@ -711,27 +735,29 @@ insert_conditional_skip(void *drcontext, instrlist_t *ilist, instr_t *where,
 
 /* Should be called at the point where skip_label should be inserted.
  * reg_tmp must be the return value from insert_conditional_skip().
- * If reg_barrier is not DR_REG_NULL, inserts a barrier for all other
- * registers (to help avoid problems with different paths having different
- * lazy reg restoring from drreg).
+ * Inserts a barrier for all app-valued registers at the jump point
+ * (stored in app_regs_at_skip), to help avoid problems with different
+ * paths having different lazy reg restoring from drreg.
  */
 static void
 insert_conditional_skip_target(void *drcontext, instrlist_t *ilist, instr_t *where,
                                instr_t *skip_label, reg_id_t reg_tmp,
-                               reg_id_t reg_barrier)
+                               reg_id_set_t &app_regs_at_skip)
 {
-    if (reg_barrier != DR_REG_NULL) {
-        for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; ++reg) {
+        if (app_regs_at_skip.find(reg) != app_regs_at_skip.end() &&
+            /* We spilled reg_tmp in insert_conditional_skip() *before* the jump,
+             * so we do *not* want to restore it before the target.
+             */
+            reg != reg_tmp &&
             /* We're not allowed to restore the stolen register this way, but drreg
              * won't hand it out as a scratch register in any case, so we don't need
              * a barrier for it.
              */
-            if (reg != reg_barrier && reg != dr_get_stolen_reg()) {
-                drreg_status_t res =
-                    drreg_get_app_value(drcontext, ilist, where, reg, reg);
-                if (res != DRREG_ERROR_NO_APP_VALUE && res != DRREG_SUCCESS)
-                    FATAL("Fatal error: failed to restore reg.");
-            }
+            reg != dr_get_stolen_reg()) {
+            drreg_status_t res = drreg_get_app_value(drcontext, ilist, where, reg, reg);
+            if (res != DRREG_ERROR_NO_APP_VALUE && res != DRREG_SUCCESS)
+                FATAL("Fatal error: failed to restore reg.");
         }
     }
     MINSERT(ilist, where, skip_label);
@@ -771,21 +797,25 @@ instrument_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
 #endif
     instr_t *skip_thread = INSTR_CREATE_label(drcontext);
     reg_id_t reg_thread = DR_REG_NULL;
+    reg_id_set_t app_regs_at_skip_thread;
     if (op_L0_filter.get_value() && thread_filtering_enabled) {
-        reg_thread = insert_conditional_skip(drcontext, ilist, where, reg_ptr,
-                                             skip_thread, short_reaches);
+        reg_thread =
+            insert_conditional_skip(drcontext, ilist, where, reg_ptr, skip_thread,
+                                    short_reaches, app_regs_at_skip_thread);
     }
     MINSERT(ilist, where,
             XINST_CREATE_load(drcontext, opnd_create_reg(reg_ptr),
                               OPND_CREATE_MEMPTR(reg_ptr, 0)));
-    reg_id_t reg_tmp = insert_conditional_skip(drcontext, ilist, where, reg_ptr,
-                                               skip_call, short_reaches);
+    reg_id_set_t app_regs_at_skip_call;
+    reg_id_t reg_tmp =
+        insert_conditional_skip(drcontext, ilist, where, reg_ptr, skip_call,
+                                short_reaches, app_regs_at_skip_call);
     dr_insert_clean_call_ex(drcontext, ilist, where, (void *)clean_call,
                             DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
     insert_conditional_skip_target(drcontext, ilist, where, skip_call, reg_tmp,
-                                   DR_REG_NULL);
+                                   app_regs_at_skip_call);
     insert_conditional_skip_target(drcontext, ilist, where, skip_thread, reg_thread,
-                                   DR_REG_NULL /*for filter we spill pre-cond*/);
+                                   app_regs_at_skip_thread);
 }
 
 // Called before writing to the trace buffer.
@@ -913,6 +943,7 @@ insert_filter_addr(void *drcontext, instrlist_t *ilist, instr_t *where, user_dat
     MINSERT(ilist, where,
             XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg_ptr, 0),
                                opnd_create_reg(reg_addr)));
+
     // Restore app value b/c the caller will re-compute the app addr.
     // We can avoid clobbering the app address if we either get a 4th scratch or
     // keep re-computing the tag and the mask but it's better to keep the common
@@ -971,6 +1002,23 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
     instr_t *skip = INSTR_CREATE_label(drcontext);
     reg_id_t reg_third = DR_REG_NULL;
     if (op_L0_filter.get_value()) {
+        // Count dynamic instructions per thread.
+        // It is too expensive to increment per instruction, so we increment once
+        // per block by the instruction count for that block.
+        if (drmgr_is_first_nonlabel_instr(drcontext, app)) {
+            // On x86 we could do this in one instruction if we clobber the flags: but
+            // then we'd have to preserve the flags before our same-line skip in
+            // insert_filter_addr().
+            dr_insert_read_raw_tls(drcontext, ilist, where, tls_seg,
+                                   tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNT,
+                                   reg_ptr);
+            MINSERT(ilist, where,
+                    XINST_CREATE_add(drcontext, opnd_create_reg(reg_ptr),
+                                     OPND_CREATE_INT8(ud->bb_instr_count)));
+            dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
+                                    tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNT,
+                                    reg_ptr);
+        }
         reg_third = insert_filter_addr(drcontext, ilist, where, ud, reg_ptr,
                                        opnd_create_null(), app, skip, DR_PRED_NONE);
         if (reg_third == DR_REG_NULL) {
@@ -1031,10 +1079,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     if ((!instr_is_app(instr) ||
          /* Skip identical app pc, which happens with rep str expansion.
+          * Note that all instrs except the stringop have a fake app pc. So
+          * the stringop memref will not get skipped because it has a different
+          * app pc.
           * XXX: the expansion means our instr fetch trace is not perfect,
           * but we live with having the wrong instr length for online traces.
+          *
+          * Note that we will have identical app pcs also for scatter/gather
+          * expansion. However, in that case, all instrs have the same app pc,
+          * including all individual scalar mov instrs. Unlike rep str expansion
+          * these are not in a loop and we do need to record memrefs for each
+          * mov, so we continue instrumenting each individually.
           */
-         ud->last_app_pc == instr_get_app_pc(instr)) &&
+         (ud->last_app_pc == instr_get_app_pc(instr) && ud->repstr)) &&
         ud->strex == NULL &&
         // Ensure we have an instr entry for the start of the bb.
         !drmgr_is_first_nonlabel_instr(drcontext, instr))
@@ -1071,6 +1128,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         ud->strex == NULL &&
         // Don't bundle the zero-rep-string-iter instr.
         (!ud->repstr || !drmgr_is_first_nonlabel_instr(drcontext, instr)) &&
+        // Don't bundle scatter/gather instr.
+        !ud->scatter_gather &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.
@@ -1101,7 +1160,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     /* Load buf ptr into reg_ptr, unless we're cache-filtering. */
     instr_t *skip_instru = INSTR_CREATE_label(drcontext);
     reg_id_t reg_skip = DR_REG_NULL;
-    reg_id_t reg_barrier = DR_REG_NULL;
+    reg_id_set_t app_regs_at_skip;
     if (!op_L0_filter.get_value()) {
         insert_load_buf_ptr(drcontext, bb, instr, reg_ptr);
         if (thread_filtering_enabled) {
@@ -1113,8 +1172,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             }
 #endif
             reg_skip = insert_conditional_skip(drcontext, bb, instr, reg_ptr, skip_instru,
-                                               short_reaches);
-            reg_barrier = reg_ptr;
+                                               short_reaches, app_regs_at_skip);
         }
     }
 
@@ -1147,12 +1205,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     // ifetch and not any of the expansion instrs.  We instrument the first
     // one to handle a zero-iter loop.  For offline, we just record the pc; for
     // online we have to ignore "instr" here in instru_online::instrument_instr().
-    if (!ud->repstr || drmgr_is_first_nonlabel_instr(drcontext, instr)) {
+    if (!(ud->repstr || ud->scatter_gather) ||
+        drmgr_is_first_nonlabel_instr(drcontext, instr)) {
         adjust = instrument_instr(drcontext, tag, ud, bb, instr, reg_ptr, adjust, instr);
     }
     ud->last_app_pc = instr_get_app_pc(instr);
 
-    if (is_memref) {
+    // For the scatter/gather expansion, the first instr turns out to be a non-app
+    // memref (a reg spill). So, we reach here for a non-app instruction and we
+    // don't want to add a memref for that.
+    // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
+    // sequence instr that we instrument doesn't need to be a non-app instr.
+    bool is_first_instr_in_scatter_gather_expansion =
+        ud->scatter_gather && drmgr_is_first_nonlabel_instr(drcontext, instr);
+    // Verify that we're not skipping an app memref.
+    DR_ASSERT(!is_first_instr_in_scatter_gather_expansion || !instr_is_app(instr));
+    if (is_memref && !is_first_instr_in_scatter_gather_expansion) {
         if (pred != DR_PRED_NONE && adjust != 0) {
             // Update buffer ptr and reset adjust to 0, because
             // we may not execute the inserted code below.
@@ -1191,7 +1259,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     }
 
     insert_conditional_skip_target(drcontext, bb, instr, skip_instru, reg_skip,
-                                   reg_barrier);
+                                   app_regs_at_skip);
 
     /* restore scratch register */
     if (drreg_unreserve_register(drcontext, bb, instr, reg_ptr) != DRREG_SUCCESS)
@@ -1211,10 +1279,17 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     data->strex = NULL;
     data->num_delay_instrs = 0;
     data->instru_field = NULL;
+    data->bb_instr_count = 0;
     *user_data = (void *)data;
     if (!drutil_expand_rep_string_ex(drcontext, bb, &data->repstr, NULL)) {
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
+    }
+    /* XXX i#4865: Online traces will have incorrect instr counts, because
+     * scatter/gather instrs are emulated by a sequence of scalar stores/loads.
+     */
+    if (!drx_expand_scatter_gather(drcontext, bb, &data->scatter_gather)) {
+        DR_ASSERT(false);
     }
     return DR_EMIT_DEFAULT;
 }
@@ -1225,6 +1300,16 @@ event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 {
     user_data_t *ud = (user_data_t *)user_data;
     instru->bb_analysis(drcontext, tag, &ud->instru_field, bb, ud->repstr);
+    // As elsewhere in this code, we want the single-instr original and not
+    // the expanded 6 labeled-app instrs for repstr loops (i#2011).
+    if (ud->repstr || ud->scatter_gather)
+        ud->bb_instr_count = 1;
+    else {
+        for (instr_t *app = instrlist_first_app(bb); app != NULL;
+             app = instr_get_next_app(app)) {
+            ++ud->bb_instr_count;
+        }
+    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -1316,7 +1401,6 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
  */
 
 static uint64 instr_count;
-static bool tracing_enabled;
 static volatile bool tracing_scheduled;
 static void *schedule_tracing_lock;
 
@@ -1381,7 +1465,7 @@ enable_tracing_instrumentation()
             event_bb_instru2instru, &memtrace_pri))
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
-    tracing_enabled = true;
+    dr_atomic_store32(&tracing_enabled, 1);
 }
 
 static void
@@ -1578,6 +1662,23 @@ init_thread_in_process(void *drcontext)
     per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     char buf[MAXIMUM_PATH];
     byte *proc_info;
+    offline_file_type_t file_type =
+        op_L0_filter.get_value() ? OFFLINE_FILE_TYPE_FILTERED : OFFLINE_FILE_TYPE_DEFAULT;
+    if (op_disable_optimizations.get_value()) {
+        file_type = static_cast<offline_file_type_t>(file_type |
+                                                     OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
+    }
+    if (op_instr_only_trace.get_value() ||
+        // Data entries are removed from trace if -L0_filter and -L0D_size 0
+        (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
+        file_type = static_cast<offline_file_type_t>(file_type |
+                                                     OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
+    }
+    file_type = static_cast<offline_file_type_t>(
+        file_type |
+        IF_X86_ELSE(
+            IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
+            IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64, OFFLINE_FILE_TYPE_ARCH_ARM32)));
     if (op_offline.get_value()) {
         /* We do not need to call drx_init before using drx_open_unique_appid_file.
          * Since we're now in a subdir we could make the name simpler but this
@@ -1606,25 +1707,6 @@ init_thread_in_process(void *drcontext)
         NOTIFY(2, "Created thread trace file %s\n", buf);
 
         /* Write initial headers at the top of the first buffer. */
-        offline_file_type_t file_type = op_L0_filter.get_value()
-            ? OFFLINE_FILE_TYPE_FILTERED
-            : OFFLINE_FILE_TYPE_DEFAULT;
-        if (op_disable_optimizations.get_value()) {
-            file_type = static_cast<offline_file_type_t>(
-                file_type | OFFLINE_FILE_TYPE_NO_OPTIMIZATIONS);
-        }
-        if (op_instr_only_trace.get_value() ||
-            // Data entries are removed from trace if -L0_filter and -L0D_size 0
-            (op_L0_filter.get_value() && op_L0D_size.get_value() == 0)) {
-            file_type = static_cast<offline_file_type_t>(
-                file_type | OFFLINE_FILE_TYPE_INSTRUCTION_ONLY);
-        }
-        file_type = static_cast<offline_file_type_t>(
-            file_type |
-            IF_X86_ELSE(
-                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_X86_64, OFFLINE_FILE_TYPE_ARCH_X86_32),
-                IF_X64_ELSE(OFFLINE_FILE_TYPE_ARCH_AARCH64,
-                            OFFLINE_FILE_TYPE_ARCH_ARM32)));
         data->init_header_size =
             reinterpret_cast<offline_instru_t *>(instru)->append_thread_header(
                 data->buf_base, dr_get_thread_id(drcontext), file_type);
@@ -1633,7 +1715,8 @@ init_thread_in_process(void *drcontext)
     } else {
         /* pass pid and tid to the simulator to register current thread */
         proc_info = (byte *)buf;
-        proc_info += instru->append_thread_header(proc_info, dr_get_thread_id(drcontext));
+        proc_info += reinterpret_cast<online_instru_t *>(instru)->append_thread_header(
+            proc_info, dr_get_thread_id(drcontext), file_type);
         DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= (size_t)(proc_info - (byte *)buf));
         write_trace_data(drcontext, (byte *)buf, proc_info);
 
@@ -1702,6 +1785,20 @@ event_thread_exit(void *drcontext)
             // If over the limit, we still want to write the footer, but nothing else.
             BUF_PTR(data->seg_base) = data->buf_base + buf_hdr_slots_size;
         }
+        if (op_L0_filter.get_value()) {
+            // Include the final instruction count.
+            // It might be useful to include the count with each miss as well, but
+            // in experiments that adds non-trivial space and time overheads (as
+            // a separate marker; squished into the instr_count field might be
+            // better but at complexity costs, plus we may need that field for
+            // offset-within-block info to adjust the per-block count) and
+            // would likely need to be under an off-by-default option and have
+            // a mandated use case to justify adding it.
+            uintptr_t icount =
+                *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
+            BUF_PTR(data->seg_base) += instru->append_marker(
+                BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_INSTRUCTION_COUNT, icount);
+        }
         BUF_PTR(data->seg_base) += instru->append_thread_exit(
             BUF_PTR(data->seg_base), dr_get_thread_id(drcontext));
 
@@ -1765,7 +1862,7 @@ event_exit(void)
 
     drvector_delete(&scratch_reserve_vec);
 
-    if (tracing_enabled) {
+    if (dr_atomic_load32(&tracing_enabled) > 0) {
         dr_unregister_filter_syscall_event(event_filter_syscall);
         if (!drmgr_unregister_pre_syscall_event(event_pre_syscall) ||
             !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
@@ -1800,6 +1897,7 @@ event_exit(void)
         exit_delay_instrumentation();
     drmgr_exit();
     func_trace_exit();
+    drx_exit();
 }
 
 static bool
@@ -1982,7 +2080,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (op_L0_filter.get_value())
         ++ops.num_spill_slots;
 
-    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS ||
+        !drx_init())
         DR_ASSERT(false);
 
     /* register events */

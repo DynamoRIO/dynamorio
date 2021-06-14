@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -222,6 +222,9 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -274,6 +277,9 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -324,6 +330,19 @@ typedef enum {
      * to be handled by the user manually, usually via drreg_restore_all().
      */
     DRREG_USER_RESTORES_AT_BB_END = 0x004,
+
+    /**
+     * Turns on stricter logic to find free register spill slots. This avoids
+     * conflicts with slots used to spill some register value in prior instrumentation
+     * passes. An example usage is in drx_expand_scatter_gather() which is used in
+     * the app2app pass and requires spilling of registers to slots that may
+     * conflict with slots used during later instrumentation passes. Using this
+     * option also makes spill slots used in prior phases less available in
+     * future phases; the current logic skips over a slot if there's a usage
+     * found anywhere later in the bb added by any previous phase. So it requires
+     * additional spill slots as well.
+     */
+    DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS = 0x008,
 } drreg_bb_properties_t;
 
 DR_EXPORT

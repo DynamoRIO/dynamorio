@@ -96,6 +96,7 @@
 -----------------xxxxx----------  q10        # Q register
 ----------------xxx-------------  ext        # extend type
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
+----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
@@ -121,6 +122,7 @@
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
+----------xxxxxx----------------  immhb      # encoding of #fbits value in immh:immb fields
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
@@ -1119,18 +1121,108 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0001111011100010010000xxxxxxxxxx     fcvt      s0 : h5
 0001111011100010110000xxxxxxxxxx     fcvt      d0 : h5
 
-# FCVTZU (scalar, integer) FP to GPR reg
-0001111000111001000000xxxxxxxxxx     fcvtzu    w0 : s5
-1001111000111001000000xxxxxxxxxx     fcvtzu    x0 : s5
-0001111001111001000000xxxxxxxxxx     fcvtzu    w0 : d5
-1001111001111001000000xxxxxxxxxx     fcvtzu    x0 : d5
+# Floating-point convert (scalar)
+0001111000100100000000xxxxxxxxxx     fcvtas    w0 : s5
+1001111000100100000000xxxxxxxxxx     fcvtas    x0 : s5
+0001111001100100000000xxxxxxxxxx     fcvtas    w0 : d5
+1001111001100100000000xxxxxxxxxx     fcvtas    x0 : d5
+0001111000100101000000xxxxxxxxxx     fcvtau    w0 : s5
+1001111000100101000000xxxxxxxxxx     fcvtau    x0 : s5
+0001111001100101000000xxxxxxxxxx     fcvtau    w0 : d5
+1001111001100101000000xxxxxxxxxx     fcvtau    x0 : d5
+0001111000110000000000xxxxxxxxxx     fcvtms    w0 : s5
+1001111000110000000000xxxxxxxxxx     fcvtms    x0 : s5
+0001111001110000000000xxxxxxxxxx     fcvtms    w0 : d5
+1001111001110000000000xxxxxxxxxx     fcvtms    x0 : d5
+0001111000100000000000xxxxxxxxxx     fcvtns    w0 : s5
+1001111000100000000000xxxxxxxxxx     fcvtns    x0 : s5
+0001111001100000000000xxxxxxxxxx     fcvtns    w0 : d5
+1001111001100000000000xxxxxxxxxx     fcvtns    x0 : d5
+0001111000101000000000xxxxxxxxxx     fcvtps    w0 : s5
+1001111000101000000000xxxxxxxxxx     fcvtps    x0 : s5
+0001111001101000000000xxxxxxxxxx     fcvtps    w0 : d5
+1001111001101000000000xxxxxxxxxx     fcvtps    x0 : d5
+0001111000101001000000xxxxxxxxxx     fcvtpu    w0 : s5
+1001111000101001000000xxxxxxxxxx     fcvtpu    x0 : s5
+0001111001101001000000xxxxxxxxxx     fcvtpu    w0 : d5
+1001111001101001000000xxxxxxxxxx     fcvtpu    x0 : d5
 
-# FCVTZU (vector, integer)
-0x1011101x100001101110xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz
+# Floating-point convert (vector) (scalar single-precision and double-precision)
+0101111000100001110010xxxxxxxxxx     fcvtas    s0 : s5
+0101111001100001110010xxxxxxxxxx     fcvtas    d0 : d5
+0111111000100001110010xxxxxxxxxx     fcvtau    s0 : s5
+0111111001100001110010xxxxxxxxxx     fcvtau    d0 : d5
+0101111000100001101110xxxxxxxxxx     fcvtms    s0 : s5
+0101111001100001101110xxxxxxxxxx     fcvtms    d0 : d5
+0101111000100001101010xxxxxxxxxx     fcvtns    s0 : s5
+0101111001100001101010xxxxxxxxxx     fcvtns    d0 : d5
+0101111010100001101010xxxxxxxxxx     fcvtps    s0 : s5
+0101111011100001101010xxxxxxxxxx     fcvtps    d0 : d5
+0111111010100001101010xxxxxxxxxx     fcvtpu    s0 : s5
+0111111011100001101010xxxxxxxxxx     fcvtpu    d0 : d5
 
-# FCVTZU (Scalar single precision and double-precision)
+# Floating-point convert (vector) (vector single-precision and double-precision)
+0x0011100x100001110010xxxxxxxxxx     fcvtas    dq0 : dq5 sd_sz
+0x1011100x100001110010xxxxxxxxxx     fcvtau    dq0 : dq5 sd_sz
+0x0011100x100001101110xxxxxxxxxx     fcvtms    dq0 : dq5 sd_sz
+0x0011100x100001101010xxxxxxxxxx     fcvtns    dq0 : dq5 sd_sz
+0x0011101x100001101010xxxxxxxxxx     fcvtps    dq0 : dq5 sd_sz
+0x1011101x100001101010xxxxxxxxxx     fcvtpu    dq0 : dq5 sd_sz
+000011100x100001011110xxxxxxxxxx     fcvtl     dq0 : dq5 sd_sz
+010011100x100001011110xxxxxxxxxx     fcvtl2    dq0 : dq5 sd_sz
+000011100x100001011010xxxxxxxxxx     fcvtn     dq0 : dq5 sd_sz
+010011100x100001011010xxxxxxxxxx     fcvtn2    dq0 : dq5 sd_sz
+
+# Floating-point convert (scalar, integer)
+x001111000111000000000xxxxxxxxxx     fcvtzs    wx0 : s5
+x001111001111000000000xxxxxxxxxx     fcvtzs    wx0 : d5
+x001111000111001000000xxxxxxxxxx     fcvtzu    wx0 : s5
+x001111001111001000000xxxxxxxxxx     fcvtzu    wx0 : d5
+x001111000100011000000xxxxxxxxxx     ucvtf     s0 : wx5
+x001111001100011000000xxxxxxxxxx     ucvtf     d0 : wx5
+x001111000100010000000xxxxxxxxxx     scvtf     s0 : wx5
+x001111001100010000000xxxxxxxxxx     scvtf     d0 : wx5
+
+# Floating-point convert (vector, integer) (scalar single-precision and double-precision)
+0101111010100001101110xxxxxxxxxx     fcvtzs    s0 : s5
+0101111011100001101110xxxxxxxxxx     fcvtzs    d0 : d5
 0111111010100001101110xxxxxxxxxx     fcvtzu    s0 : s5
 0111111011100001101110xxxxxxxxxx     fcvtzu    d0 : d5
+0111111000100001110110xxxxxxxxxx     ucvtf     s0  : s5
+0111111001100001110110xxxxxxxxxx     ucvtf     d0  : d5
+0101111000100001110110xxxxxxxxxx     scvtf     s0  : s5
+0101111001100001110110xxxxxxxxxx     scvtf     d0  : d5
+
+# Floating-point convert (vector, integer) (vector single-precision and double-precision)
+0x0011101x100001101110xxxxxxxxxx     fcvtzs    dq0 : dq5 sd_sz
+0x1011101x100001101110xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz
+0x1011100x100001110110xxxxxxxxxx     ucvtf     dq0 : dq5 sd_sz
+0x0011100x100001110110xxxxxxxxxx     scvtf     dq0 : dq5 sd_sz
+
+# Floating-point convert (scalar, fixed-point)
+x001111000011000xxxxxxxxxxxxxxxx     fcvtzs    wx0 : s5 scale
+x001111001011000xxxxxxxxxxxxxxxx     fcvtzs    wx0 : d5 scale
+x001111000011001xxxxxxxxxxxxxxxx     fcvtzu    wx0 : s5 scale
+x001111001011001xxxxxxxxxxxxxxxx     fcvtzu    wx0 : d5 scale
+x001111000000011xxxxxxxxxxxxxxxx     ucvtf     s0 : wx5 scale
+x001111001000011xxxxxxxxxxxxxxxx     ucvtf     d0 : wx5 scale
+x001111000000010xxxxxxxxxxxxxxxx     scvtf     s0 : wx5 scale
+x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
+
+# Floating-point convert (vector, fixed-point) (scalar)
+0101111100xxxxxx111111xxxxxxxxxx     fcvtzs    s0 : s5 immhb
+0101111101xxxxxx111111xxxxxxxxxx     fcvtzs    d0 : d5 immhb
+0111111100xxxxxx111111xxxxxxxxxx     fcvtzu    s0 : s5 immhb
+0111111101xxxxxx111111xxxxxxxxxx     fcvtzu    d0 : d5 immhb
+0111111000xxxxxx111001xxxxxxxxxx     ucvtf     s0 : s5 immhb
+0111111001xxxxxx111001xxxxxxxxxx     ucvtf     d0 : d5 immhb
+0101111100xxxxxx111001xxxxxxxxxx     scvtf     s0 : s5 immhb
+0101111101xxxxxx111001xxxxxxxxxx     scvtf     d0 : d5 immhb
+
+# Floating-point convert (vector, fixed-point) (vector)
+0x1011110xxxxxxx111111xxxxxxxxxx     fcvtzu    dq0 : dq5 sd_sz immhb
+0x1011110xxxxxxx111001xxxxxxxxxx     ucvtf     dq0 : dq5 sd_sz immhb
+0x0011110xxxxxxx111001xxxxxxxxxx     scvtf     dq0 : dq5 sd_sz immhb
 
 # Floating-point data-processing (2 source)
 00011110xx1xxxxx000010xxxxxxxxxx     fmul      float_reg0 : float_reg5 float_reg16
@@ -1223,3 +1315,17 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 01101110xx1xxxxx101000xxxxxxxxxx     umlsl2    q0 : q5 q16 bhs_sz
 00101110xx1xxxxx110000xxxxxxxxxx     umull     q0 : d5 d16 bhs_sz
 01101110xx1xxxxx110000xxxxxxxxxx     umull2    q0 : q5 q16 bhs_sz
+
+# DUP (element) Scalar
+01011110000xxxxx000001xxxxxxxxxx     dup       dq0 : dq5 imm5
+
+# DUP (element) Vector
+00001110000xxxxx000001xxxxxxxxxx     dup       d0 : d5 imm5
+01001110000xxxxx000001xxxxxxxxxx     dup       q0 : q5 imm5
+
+# DUP (general)
+00001110000xxxxx000011xxxxxxxxxx     dup       d0 : w5 imm5
+01001110000xxxxx000011xxxxxxxxxx     dup       q0 : x5 imm5
+
+00001110000xxxxx001011xxxxxxxxxx     smov      w0 : d5 imm5
+01001110000xxxxx001011xxxxxxxxxx     smov      x0 : q5 imm5
