@@ -240,9 +240,10 @@ void
 mov_str_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opnd_t src)
 {
 
-    if (!opnd_is_memory_reference(dst) || !opnd_is_reg(src))
+    if (!opnd_is_memory_reference(dst) || !opnd_is_reg(src)) {
         ASSERT_NOT_IMPLEMENTED(
             "can only store to a memory address from a register on aarch64");
+    }
 
     opnd_t src_tmp = opnd_create_reg(reg_to_pointer_sized(opnd_get_reg(src)));
 
@@ -287,9 +288,10 @@ mov_ldr_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opn
 
     dst = opnd_create_reg(reg_to_pointer_sized(opnd_get_reg(dst)));
 
-    if (opnd_is_instr(src))
+    if (opnd_is_instr(src)) {
         ASSERT_NOT_IMPLEMENTED(
             "saving an instruction address to a register not available, yet.");
+    }
 
     if (opnd_is_reg(dst) && (opnd_is_immed(src))) {
         instrlist_insert_mov_immed_ptrsz(drcontext, opnd_get_immed_int(src), dst, bb,
