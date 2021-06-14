@@ -197,34 +197,37 @@ mem_access_fixer(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t mem, bo
             if (((disp >> (12 * i)) & mask) != 0) {
                 shift_amount += 12 * missed;
 
-                if (shift_amount > 0)
+                if (shift_amount > 0) {
                     PRE(bb, inst,
                         INSTR_CREATE_ror_imm(drcontext, opnd_create_reg(mem_base_reg),
                                              opnd_create_reg(mem_base_reg),
                                              OPND_CREATE_INT8(shift_amount)));
+                }
                 shifted += shift_amount;
                 shift_amount = 12;
                 missed = 0;
 
-                if (before)
+                if (before) {
                     PRE(bb, inst,
                         INSTR_CREATE_add(drcontext, opnd_create_reg(mem_base_reg),
                                          opnd_create_reg(mem_base_reg),
                                          OPND_CREATE_INT16((disp >> 12 * i) & mask)));
-                else
+                } else {
                     PRE(bb, inst,
                         INSTR_CREATE_sub(drcontext, opnd_create_reg(mem_base_reg),
                                          opnd_create_reg(mem_base_reg),
                                          OPND_CREATE_INT16((disp >> 12 * i) & mask)));
+                }
             } else {
                 missed++;
             }
         }
-        if (shifted > 0 && 64 - shifted > 0)
+        if (shifted > 0 && 64 - shifted > 0) {
             PRE(bb, inst,
                 INSTR_CREATE_ror_imm(drcontext, opnd_create_reg(mem_base_reg),
                                      opnd_create_reg(mem_base_reg),
                                      OPND_CREATE_INT8(64 - shifted)));
+        }
     }
 }
 
@@ -247,22 +250,23 @@ mov_str_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opn
 
     mem_access_fixer(drcontext, bb, inst, dst, true);
 
-    if (is_mem_imm_invalid(opnd_get_disp(dst)))
+    if (is_mem_imm_invalid(opnd_get_disp(dst))) {
         dst_tmp = opnd_create_base_disp_aarch64(opnd_get_base(dst), DR_REG_NULL, 0, false,
                                                 0, 0, opnd_get_size(dst));
+    }
 
     instr_t *str_instr;
 
-    if (opnd_get_size(dst) == OPSZ_4)
+    if (opnd_get_size(dst) == OPSZ_4) {
         str_instr = INSTR_CREATE_str(
             drcontext, dst_tmp, opnd_create_reg(reg_64_to_32(opnd_get_reg(src_tmp))));
-    else if (opnd_get_size(dst) == OPSZ_2)
+    } else if (opnd_get_size(dst) == OPSZ_2) {
         str_instr = INSTR_CREATE_strh(
             drcontext, dst_tmp, opnd_create_reg(reg_64_to_32(opnd_get_reg(src_tmp))));
-    else if (opnd_get_size(dst) == OPSZ_1)
+    } else if (opnd_get_size(dst) == OPSZ_1) {
         str_instr = INSTR_CREATE_strb(
             drcontext, dst_tmp, opnd_create_reg(reg_64_to_32(opnd_get_reg(src_tmp))));
-    else
+    } else
         str_instr = INSTR_CREATE_str(drcontext, dst_tmp, src_tmp);
 
     PRE(bb, inst, str_instr);
@@ -297,22 +301,23 @@ mov_ldr_aarch64(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t dst, opn
 
     mem_access_fixer(drcontext, bb, inst, src, true);
 
-    if (is_mem_imm_invalid(opnd_get_disp(src)))
+    if (is_mem_imm_invalid(opnd_get_disp(src))) {
         src_tmp = opnd_create_base_disp_aarch64(opnd_get_base(src), DR_REG_NULL, 0, false,
                                                 0, 0, opnd_get_size(src));
+    }
 
     instr_t *ldr_instr;
 
-    if (opnd_get_size(src) == OPSZ_4)
+    if (opnd_get_size(src) == OPSZ_4) {
         ldr_instr = INSTR_CREATE_ldr(
             drcontext, opnd_create_reg(reg_64_to_32(opnd_get_reg(dst))), src_tmp);
-    else if (opnd_get_size(src) == OPSZ_2)
+    } else if (opnd_get_size(src) == OPSZ_2) {
         ldr_instr = INSTR_CREATE_ldrh(
             drcontext, opnd_create_reg(reg_64_to_32(opnd_get_reg(dst))), src_tmp);
-    else if (opnd_get_size(src) == OPSZ_1)
+    } else if (opnd_get_size(src) == OPSZ_1) {
         ldr_instr = INSTR_CREATE_ldrb(
             drcontext, opnd_create_reg(reg_64_to_32(opnd_get_reg(dst))), src_tmp);
-    else
+    } else
         ldr_instr = INSTR_CREATE_ldr(drcontext, dst, src_tmp);
 
     PRE(bb, inst, ldr_instr);
