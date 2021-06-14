@@ -69,6 +69,7 @@ void
 test_asm_faultL();
 void
 test_asm_faultM();
+
 static SIGJMP_BUF mark;
 
 #    if defined(UNIX)
