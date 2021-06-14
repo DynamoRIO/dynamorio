@@ -162,6 +162,7 @@ convert_to_near_rel_arch(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
 #endif
 }
 
+#ifdef AARCH64
 /* TODO optimisation: check if this needs to be done more thoroughly
  * via encoding scheme
  */
@@ -231,7 +232,6 @@ mem_access_fixer(void *drcontext, instrlist_t *bb, instr_t *inst, opnd_t mem, bo
     }
 }
 
-#ifdef AARCH64
 /* Instruments the store of a memory reference to a register,
  * with operand size detection and overcomes a displacement being
  * too far for to be encoded in a single instruction,
