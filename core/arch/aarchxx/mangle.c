@@ -773,6 +773,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
      * A non-negative value x means d_r_regparms[x];
      * -1 means an immediate integer;
      * -2 means a non-parameter register.
+     * -3 means a memory reference type parameter.
      */
     for (i = 0; i < num_regs; i++) {
         if (opnd_is_immed_int(args[i]))
