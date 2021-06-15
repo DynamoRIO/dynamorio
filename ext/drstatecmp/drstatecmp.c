@@ -42,9 +42,9 @@
 #    define ASSERT(x, msg)
 #endif
 
-/* TODO i#4678 : ARM not yet supported. */
-#ifndef X86
-#    error ARM is not yet supported
+/* TODO i#4678 : ARM and X86-32 not yet supported. */
+#ifndef X86_64
+#    error ARM and X86_32 is not yet supported
 #endif
 
 typedef struct {
@@ -372,7 +372,7 @@ drstatecmp_insert_instrument_bb_orig_side_effect_free(void *drcontext, instrlist
 
     /* Change mode to process the copy bb once we encounter the COPY_BB label.
      * Save the state at the end of this bb for later comparison, and remove the
-     * previously inserted jmp instr to the EXIT label of the copy bb and let it fall
+     * previously inserted jmp instr to the TERM label of the copy bb and let it fall
      * through to the instructions of the copy bb (that will be instrumentation-free).
      * Finally, restore the machine state to the state before executing the original
      * version of this bb (allows us to re-execute this bb).
