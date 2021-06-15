@@ -44,6 +44,7 @@ application's machine state that would typically lead to obscure bugs.
  - \ref sec_drstatecmp_checks
  - \ref sec_drstatecmp_instr_state_sharing
  - \ref sec_drstatecmp_machine_state_saved
+ - \ref sec_drstatecmp_vs_drbbdup
 
 \section sec_drstatecmp_init Setup
 
@@ -69,24 +70,24 @@ the end. Essentially, we check whether the machine state at the end of the basic
 the same with and without instrumentation code. This check should catch any state
 clobbering by instrumentation.
 
-The side-effect-free basic blocks are duplicated at drmgr's app2app stage. The copy of each
-such basic block is appended immediately after the original basic block. Labels are inserted
-in the beginning of the original basic block (ORIG_BB) and its copy (COPY_BB) to allow
-identification in later stages. The terminating instruction of the basic block (if any)
-is only kept in the copy and is preceded by a TERM label. A jump to the TERM label is
+The side-effect-free basic blocks are duplicated at drmgr's app2app stage. The copy of
+each such basic block is appended immediately after the original basic block. Labels are
+inserted in the beginning of the original basic block (ORIG_BB) and its copy (COPY_BB) to
+allow identification in later stages. The terminating instruction of the basic block (if
+any) is only kept in the copy and is preceded by a TERM label. A jump to the TERM label is
 inserted at the end the original basic block to skip the duplicated bb.
 
-The insert instrumentation stage inserts the actual checks. First, the original basic block
-is instrumented. In the beginning of the original basic block, the machine state is saved.
-This state will be used for state restoration before the re-execution of the basic block.
-At the end of the original block, code is inserted to save the state for later comparison
-and restore the machine state to the state before executing this bb. This stage also removes
-the previously inserted jump instr to the TERM label and let it fall through to the
-instructions of the copy of the basic block. Then, the copy of the basic block is
+The insert instrumentation stage inserts the actual checks. First, the original basic
+block is instrumented. In the beginning of the original basic block, the machine state is
+saved. This state will be used for state restoration before the re-execution of the basic
+block. At the end of the original block, code is inserted to save the state for later
+comparison and restore the machine state to the state before executing this bb. This stage
+also removes the previously inserted jump instr to the TERM label and let it fall through
+to the instructions of the copy of the basic block. Then, the copy of the basic block is
 instrumented. At the end of the copy, a clean call is inserted that compares the current
-machine state with the machine state that was saved at the end of the original basic block.
-Finally, all previously-inserted (from other passes) instrumentation instructions are
-removed from the basic block copy, making it instrumentation-free and enabling
+machine state with the machine state that was saved at the end of the original basic
+block. Finally, all previously-inserted (from other passes) instrumentation instructions
+are removed from the basic block copy, making it instrumentation-free and enabling
 identification of various types of instrumentation clobering.
 
 \subsection sec_drstatecmp_checks_side_effects Basic Blocks with Side Effects
@@ -131,5 +132,15 @@ side-effect basic block. One is the state of the original basic block before its
 execution (used for state restoration) and the other is the state of the original
 basic block after its execution (used for state comparison).
 
+\section sec_drstatecmp_vs_drbbdup Comparison with DrBBDup
+
+The main functionality and most of the complexity of DrStateCmp is the machine state
+comparison and the instrumentation added to enable it. The basic block duplication is
+relatively simple and a small part of DrStateCmp's code, and even though there is a bit of
+redundancy for this part, the use case in DrStateCmp is different enough from what DrBBDup
+provides so that DrBBDup cannot be used as it is (or with minimum changes). A main
+difference is that DrBBDup dispatches control according to runtime conditions and only one
+copy/case is executed every time. Instead, for duplicated basic blocks DrStateCmp executes
+both the original basic block and its copy.
 
 */
