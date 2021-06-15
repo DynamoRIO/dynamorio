@@ -42,9 +42,9 @@
 #    define ASSERT(x, msg)
 #endif
 
-/* TODO i#4678 : ARM and X86-32 not yet supported. */
-#ifndef X86_64
-#    error ARM and X86_32 is not yet supported
+/* TODO i#4678 : ARM not yet supported. */
+#ifndef X86
+#    error ARM is not yet supported
 #endif
 
 typedef struct {
@@ -319,10 +319,13 @@ drstatecmp_compare_state_call(void)
     drstatecmp_check_gpr_value("xbp", mc_instrumented->xbp, mc_expected.xbp);
     drstatecmp_check_gpr_value("xsp", mc_instrumented->xsp, mc_expected.xsp);
 
-    drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected.xax);
     drstatecmp_check_gpr_value("xbx", mc_instrumented->xbx, mc_expected.xbx);
     drstatecmp_check_gpr_value("xcx", mc_instrumented->xcx, mc_expected.xcx);
     drstatecmp_check_gpr_value("xdx", mc_instrumented->xdx, mc_expected.xdx);
+
+#    ifdef X64
+    drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected.xax);
+#    endif
 
 #    ifdef X64
     drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected.r8);
