@@ -337,13 +337,10 @@ drstatecmp_compare_state_call(void)
     drstatecmp_check_gpr_value("xsi", mc_instrumented->xsi, mc_expected.xsi);
     drstatecmp_check_gpr_value("xbp", mc_instrumented->xbp, mc_expected.xbp);
 
+    drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected.xax);
     drstatecmp_check_gpr_value("xbx", mc_instrumented->xbx, mc_expected.xbx);
     drstatecmp_check_gpr_value("xcx", mc_instrumented->xcx, mc_expected.xcx);
     drstatecmp_check_gpr_value("xdx", mc_instrumented->xdx, mc_expected.xdx);
-
-#    ifdef X64
-    drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected.xax);
-#    endif
 
 #    ifdef X64
     drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected.r8);
@@ -454,18 +451,20 @@ static void
 drstatecmp_insert_instrument_bb_copy_side_effect_free(void *drcontext, instrlist_t *bb,
                                                       instr_t *instr)
 {
+    /* Compare current state at the end of the bb with the saved state at the
+     * end of the original (instrumented) bb.
+     */
+    if (match_label_val(instr, DRSTATECMP_LABEL_TERM)) {
+        drstatecmp_compare_state(drcontext, bb, instr);
+        return;
+    }
+
     /* Remove all instrumentation code in the bb copy to detect any
      * unintended clobbering by instrumentation.
      */
     if (!instr_is_app(instr)) {
         instrlist_remove(bb, instr);
         instr_destroy(drcontext, instr);
-    }
-    /* Compare current state at the end of the bb with the saved state at the
-     * end of the original (instrumented) bb.
-     */
-    if (instr == instrlist_last_app(bb)) {
-        drstatecmp_compare_state(drcontext, bb, instr);
     }
 }
 
