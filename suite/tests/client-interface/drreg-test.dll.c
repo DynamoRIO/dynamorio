@@ -134,7 +134,6 @@ static uint
 spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst, bool overwrite)
 {
     uint tls_offs, offs;
-    reg_id_t reg;
     opnd_t opnd;
     bool is_dr_slot;
     CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
@@ -144,10 +143,15 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst, bool overw
         /* Load aflags with some value so that we need to restore it later. */
         write_aflags(drcontext, bb, inst);
     }
-    CHECK(drreg_reservation_info(drcontext, DR_REG_NULL, NULL, NULL, &tls_offs) ==
+    CHECK(drreg_reservation_info(drcontext, DR_REG_NULL, &opnd, &is_dr_slot, &offs) ==
               DRREG_SUCCESS,
           "unable to get reservation info");
-    ASSERT(tls_offs != -1);
+    CHECK(offs != -1, "aflags should be spilled to some slot.");
+    if (is_dr_slot) {
+        tls_offs = opnd_get_disp(opnd);
+    } else {
+        tls_offs = offs;
+    }
     return tls_offs;
 }
 
