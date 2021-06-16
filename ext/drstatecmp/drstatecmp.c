@@ -42,11 +42,6 @@
 #    define ASSERT(x, msg)
 #endif
 
-/* TODO i#4678 : ARM not yet supported. */
-#ifndef X86
-#    error ARM is not yet supported
-#endif
-
 typedef struct {
     bool side_effect_free; /* Denotes whether the current bb has side-effects. */
     bool orig_bb_mode; /* True when processing the instructions of the original version of
@@ -201,7 +196,7 @@ drstatecmp_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for
      * terminating instruction of the bb clone (if any).
      */
     instr_t *term_inst = instrlist_last_app(bb);
-    instr_t *jmp_term = INSTR_CREATE_jmp(drcontext, term_label_opnd);
+    instr_t *jmp_term = XINST_CREATE_jump(drcontext, term_label_opnd);
     if (instr_is_cti(term_inst) || instr_is_return(term_inst)) {
         instrlist_replace(bb, term_inst, jmp_term);
         instr_destroy(drcontext, term_inst);
@@ -294,11 +289,35 @@ drstatecmp_check_gpr_value(const char *name, reg_t reg_value, reg_t reg_expected
     DR_ASSERT_MSG(reg_value == reg_expected, name);
 }
 
+#ifdef AARCHXX
 static void
-drstatecmp_check_simd_value(dr_zmm_t *value, dr_zmm_t *expected)
+drstatecmp_check_xflags_value(const char *name, uint reg_value, uint reg_expected)
+{
+    DR_ASSERT_MSG(reg_value == reg_expected, name);
+}
+#endif
+
+static void
+drstatecmp_check_simd_value
+#ifdef X86
+    (dr_zmm_t *value, dr_zmm_t *expected)
 {
     DR_ASSERT_MSG(!memcmp(value, expected, sizeof(dr_zmm_t)), "SIMD mismatch");
 }
+#elif defined(AARCHXX)
+    (dr_simd_t *value, dr_simd_t *expected)
+{
+    DR_ASSERT_MSG(!memcmp(value, expected, sizeof(dr_simd_t)), "SIMD mismatch");
+}
+#endif
+
+#ifdef X86
+static void
+drstatecmp_check_opmask_value(dr_opmask_t opmask_value, dr_opmask_t opmask_expected)
+{
+    DR_ASSERT_MSG(opmask_value == opmask_expected, "opmask mismatch");
+}
+#endif
 
 static void
 drstatecmp_compare_state_call(void)
@@ -313,21 +332,20 @@ drstatecmp_compare_state_call(void)
     mc_expected.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc_expected);
 
-#ifdef X86
+#    ifdef X86
     drstatecmp_check_gpr_value("xdi", mc_instrumented->xdi, mc_expected.xdi);
     drstatecmp_check_gpr_value("xsi", mc_instrumented->xsi, mc_expected.xsi);
     drstatecmp_check_gpr_value("xbp", mc_instrumented->xbp, mc_expected.xbp);
-    drstatecmp_check_gpr_value("xsp", mc_instrumented->xsp, mc_expected.xsp);
 
     drstatecmp_check_gpr_value("xbx", mc_instrumented->xbx, mc_expected.xbx);
     drstatecmp_check_gpr_value("xcx", mc_instrumented->xcx, mc_expected.xcx);
     drstatecmp_check_gpr_value("xdx", mc_instrumented->xdx, mc_expected.xdx);
 
-#    ifdef X64
+#        ifdef X64
     drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected.xax);
-#    endif
+#        endif
 
-#    ifdef X64
+#        ifdef X64
     drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected.r8);
     drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected.r9);
     drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected.r10);
@@ -336,17 +354,59 @@ drstatecmp_compare_state_call(void)
     drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected.r13);
     drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected.r14);
     drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected.r15);
-#    endif
+#        endif
 
     drstatecmp_check_gpr_value("xflags", mc_instrumented->xflags, mc_expected.xflags);
+    for (int i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+        drstatecmp_check_opmask_value(mc_instrumented->opmask[i], mc_expected.opmask[i]);
+    }
 
+#    elif defined(AARCHXX)
+    drstatecmp_check_gpr_value("r0", mc_instrumented->r0, mc_expected.r0);
+    drstatecmp_check_gpr_value("r1", mc_instrumented->r1, mc_expected.r1);
+    drstatecmp_check_gpr_value("r2", mc_instrumented->r2, mc_expected.r2);
+    drstatecmp_check_gpr_value("r3", mc_instrumented->r3, mc_expected.r3);
+    drstatecmp_check_gpr_value("r4", mc_instrumented->r4, mc_expected.r4);
+    drstatecmp_check_gpr_value("r5", mc_instrumented->r5, mc_expected.r5);
+    drstatecmp_check_gpr_value("r6", mc_instrumented->r6, mc_expected.r6);
+    drstatecmp_check_gpr_value("r7", mc_instrumented->r7, mc_expected.r7);
+    drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected.r8);
+    drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected.r9);
+    drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected.r10);
+    drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected.r11);
+    drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected.r12);
+
+#        ifdef X64
+    drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected.r13);
+    drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected.r14);
+    drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected.r15);
+    drstatecmp_check_gpr_value("r16", mc_instrumented->r16, mc_expected.r16);
+    drstatecmp_check_gpr_value("r17", mc_instrumented->r17, mc_expected.r17);
+    drstatecmp_check_gpr_value("r18", mc_instrumented->r18, mc_expected.r18);
+    drstatecmp_check_gpr_value("r19", mc_instrumented->r19, mc_expected.r19);
+    drstatecmp_check_gpr_value("r20", mc_instrumented->r20, mc_expected.r20);
+    drstatecmp_check_gpr_value("r21", mc_instrumented->r21, mc_expected.r21);
+    drstatecmp_check_gpr_value("r22", mc_instrumented->r22, mc_expected.r22);
+    drstatecmp_check_gpr_value("r23", mc_instrumented->r23, mc_expected.r23);
+    drstatecmp_check_gpr_value("r24", mc_instrumented->r24, mc_expected.r24);
+    drstatecmp_check_gpr_value("r25", mc_instrumented->r25, mc_expected.r25);
+    drstatecmp_check_gpr_value("r26", mc_instrumented->r26, mc_expected.r26);
+    drstatecmp_check_gpr_value("r27", mc_instrumented->r27, mc_expected.r27);
+    drstatecmp_check_gpr_value("r28", mc_instrumented->r28, mc_expected.r28);
+    drstatecmp_check_gpr_value("r29", mc_instrumented->r29, mc_expected.r29);
+#        endif
+
+    drstatecmp_check_gpr_value("lr", mc_instrumented->lr, mc_expected.lr);
+    drstatecmp_check_xflags_value("xflags", mc_instrumented->xflags, mc_expected.xflags);
+
+#else
+#    error NYI
+#endif
+
+    drstatecmp_check_gpr_value("xsp", mc_instrumented->xsp, mc_expected.xsp);
     for (int i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
         drstatecmp_check_simd_value(&mc_instrumented->simd[i], &mc_expected.simd[i]);
     }
-
-#else
-#    error NYI /* TODO i#4678: Add ARM support. */
-#endif
 }
 
 static void
