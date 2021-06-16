@@ -1422,8 +1422,14 @@ GLOBAL_LABEL(FUNCNAME:)
 #elif defined(ARM)
         /* XXX i#3289: prologue missing */
         b        test21
-        /* Test 21: not implemented for ARM */
      test21:
+        movw     TEST_REG_ASM, DRREG_TEST_21_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_21_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+        nop
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
         b        epilog21
     epilog21:
         bx       lr
@@ -1489,8 +1495,7 @@ GLOBAL_LABEL(FUNCNAME:)
      test23:
         movw     TEST_REG_ASM, DRREG_TEST_23_ASM
         movw     TEST_REG_ASM, DRREG_TEST_23_ASM
-        movw     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
-        msr      APSR_nzcvq, TEST_REG2_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
         movw     TEST_REG2_ASM, 1
         movw     TEST_REG2_ASM, 2
@@ -1561,12 +1566,11 @@ GLOBAL_LABEL(FUNCNAME:)
      test24:
         movw     TEST_REG_ASM, DRREG_TEST_24_ASM
         movw     TEST_REG_ASM, DRREG_TEST_24_ASM
-        movw     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
-        msr      APSR_nzcvq, TEST_REG2_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
         movw     TEST_REG2_ASM, 1
         /* Read aflags so that it is restored once. */
-        mrs      TEST_REG2_ASM, APSR_nzcvq
+        mrs      TEST_REG2_ASM, APSR
         movw     TEST_REG2_ASM, 2
 
         mov      r0, HEX(0)
@@ -1652,8 +1656,7 @@ GLOBAL_LABEL(FUNCNAME:)
      test25:
         movw     TEST_REG_ASM, DRREG_TEST_25_ASM
         movw     TEST_REG_ASM, DRREG_TEST_25_ASM
-        movw     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
-        msr      APSR_nzcvq, TEST_REG2_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
         movw     TEST_REG2_ASM, 1
         movw     TEST_REG2_ASM, 2
