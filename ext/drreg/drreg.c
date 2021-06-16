@@ -531,7 +531,8 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
          (TESTANY(EFLAGS_WRITE_ARITH, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)) &&
           aflags != 0 /*0 means everything is dead*/) ||
          /* DR slots are not guaranteed across app instrs */
-         pt->aflags.slot >= (int)ops.num_spill_slots)) {
+         (pt->aflags.slot != MAX_SPILLS &&
+          pt->aflags.slot >= (int)ops.num_spill_slots))) {
         /* Restore aflags to app value */
         LOG(drcontext, DR_LOG_ALL, 3,
             "%s @%d." PFX " aflags=0x%x use=%d: lazily restoring aflags\n", __FUNCTION__,
@@ -2126,8 +2127,7 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
     ASSERT(info->fragment_info.ilist != NULL, "ilist required for state restoration");
     for (inst = instrlist_first(info->fragment_info.ilist);
          inst != NULL && pc < info->raw_mcontext->pc; inst = instr_get_next(inst)) {
-        int len = instr_length(drcontext, inst);
-        pc += len;
+        pc += instr_length(drcontext, inst);
 #ifdef X86
         if (!instr_is_app(inst) && instr_get_opcode(inst) == OP_seto &&
             last_opcode == OP_lahf) {
