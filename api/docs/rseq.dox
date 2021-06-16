@@ -268,7 +268,7 @@ We do not yet perfectly handle a midpoint exit during the instrumentation execut
 
 We do not yet handle indirect branch exits out of a sequence.
 
-We are currently ignoring the flags which indicate which triggers (out of preempt, signal, and migrate) should cause the abort handler to be called.  We blindly run a second time even the preempt and migrate bits are not set, which the application may not expect without a signal arriving or may expect to only happen in a fatal error condition.
+We are currently ignoring the flags which indicate which triggers (out of preempt, signal, and migrate) should cause the abort handler to be called.  We blindly run a second time even if the preempt and migrate bits are not set, which the application may not expect without a signal arriving or may expect to only happen in a fatal error condition.
 
 # Limitations
 
