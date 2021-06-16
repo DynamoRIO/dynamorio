@@ -332,7 +332,7 @@ drstatecmp_compare_state_call(void)
     mc_expected.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc_expected);
 
-#    ifdef X86
+#ifdef X86
     drstatecmp_check_gpr_value("xdi", mc_instrumented->xdi, mc_expected.xdi);
     drstatecmp_check_gpr_value("xsi", mc_instrumented->xsi, mc_expected.xsi);
     drstatecmp_check_gpr_value("xbp", mc_instrumented->xbp, mc_expected.xbp);
@@ -341,11 +341,11 @@ drstatecmp_compare_state_call(void)
     drstatecmp_check_gpr_value("xcx", mc_instrumented->xcx, mc_expected.xcx);
     drstatecmp_check_gpr_value("xdx", mc_instrumented->xdx, mc_expected.xdx);
 
-#        ifdef X64
+#    ifdef X64
     drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected.xax);
-#        endif
+#    endif
 
-#        ifdef X64
+#    ifdef X64
     drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected.r8);
     drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected.r9);
     drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected.r10);
@@ -354,14 +354,14 @@ drstatecmp_compare_state_call(void)
     drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected.r13);
     drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected.r14);
     drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected.r15);
-#        endif
+#    endif
 
     drstatecmp_check_gpr_value("xflags", mc_instrumented->xflags, mc_expected.xflags);
     for (int i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
         drstatecmp_check_opmask_value(mc_instrumented->opmask[i], mc_expected.opmask[i]);
     }
 
-#    elif defined(AARCHXX)
+#elif defined(AARCHXX)
     drstatecmp_check_gpr_value("r0", mc_instrumented->r0, mc_expected.r0);
     drstatecmp_check_gpr_value("r1", mc_instrumented->r1, mc_expected.r1);
     drstatecmp_check_gpr_value("r2", mc_instrumented->r2, mc_expected.r2);
@@ -376,7 +376,7 @@ drstatecmp_compare_state_call(void)
     drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected.r11);
     drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected.r12);
 
-#        ifdef X64
+#    ifdef X64
     drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected.r13);
     drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected.r14);
     drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected.r15);
@@ -394,7 +394,7 @@ drstatecmp_compare_state_call(void)
     drstatecmp_check_gpr_value("r27", mc_instrumented->r27, mc_expected.r27);
     drstatecmp_check_gpr_value("r28", mc_instrumented->r28, mc_expected.r28);
     drstatecmp_check_gpr_value("r29", mc_instrumented->r29, mc_expected.r29);
-#        endif
+#    endif
 
     drstatecmp_check_gpr_value("lr", mc_instrumented->lr, mc_expected.lr);
     drstatecmp_check_xflags_value("xflags", mc_instrumented->xflags, mc_expected.xflags);
