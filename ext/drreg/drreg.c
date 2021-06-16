@@ -300,6 +300,9 @@ spill_reg(void *drcontext, per_thread_t *pt, reg_id_t reg, uint slot, instrlist_
     if (slot > stats_max_slot)
         stats_max_slot = slot; /* racy but that's ok */
 #endif
+    /* Remove this and other tmp logs added for debugging. */
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " %s %d done\n", __FUNCTION__,
+        pt->live_idx, get_where_app_pc(where), get_register_name(reg), slot);
 }
 
 /* Up to caller to update pt->reg.  This routine updates pt->slot_use if release==true. */
@@ -1032,6 +1035,8 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
     pt->reg[GPR_IDX(reg)].xchg = DR_REG_NULL;
     pt->reg[GPR_IDX(reg)].slot = slot;
     *reg_out = reg;
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX ": %s reservation done\n", __FUNCTION__,
+        pt->live_idx, get_where_app_pc(where), get_register_name(reg));
     return DRREG_SUCCESS;
 }
 
@@ -1039,6 +1044,8 @@ drreg_status_t
 drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                        drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
+    LOG(drcontext, DR_LOG_ALL, 3, "%s " PFX ": start\n", __FUNCTION__,
+        get_where_app_pc(where));
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
@@ -1052,6 +1059,8 @@ drreg_reserve_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     res =
         drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed, false, reg_out);
     instrlist_set_auto_predicate(ilist, pred);
+    LOG(drcontext, DR_LOG_ALL, 3, "%s " PFX ": done\n", __FUNCTION__,
+        get_where_app_pc(where));
     return res;
 }
 
@@ -1059,6 +1068,8 @@ drreg_status_t
 drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                             drvector_t *reg_allowed, OUT reg_id_t *reg_out)
 {
+    LOG(drcontext, DR_LOG_ALL, 3, "%s " PFX ": start\n", __FUNCTION__,
+        get_where_app_pc(where));
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
@@ -1070,6 +1081,8 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed, true, reg_out);
     instrlist_set_auto_predicate(ilist, pred);
+    LOG(drcontext, DR_LOG_ALL, 3, "%s " PFX ": done\n", __FUNCTION__,
+        get_where_app_pc(where));
     return res;
 }
 
