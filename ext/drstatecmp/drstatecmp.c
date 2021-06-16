@@ -156,6 +156,9 @@ drstatecmp_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for
      * duplicated bb is for now skipped with a jump. The insert instrumentation stage will
      * remove this jump, and add saving/restoring of machine state and the state
      * comparison.
+     * Note that there might be no term_instr (no control transfer instruction) and the bb
+     * just falls-through. Even with no term_instr the jmp and the TERM label are inserted
+     * in the same way, as shown in this example.
      *
      * The example bb is transformed, in this stage, as follows:
      * ORIG_BB:
