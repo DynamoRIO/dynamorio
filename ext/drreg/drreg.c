@@ -1069,6 +1069,7 @@ drreg_reserve_dead_register(void *drcontext, instrlist_t *ilist, instr_t *where,
     /* XXX i#2585: drreg should predicate spills and restores as appropriate */
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
     res = drreg_reserve_reg_internal(drcontext, ilist, where, reg_allowed, true, reg_out);
+    instrlist_set_auto_predicate(ilist, pred);
     return res;
 }
 
@@ -2091,6 +2092,11 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
      * that do not have their native app value.
      */
     reg_id_t spill_slot_to_reg[MAX_SPILLS];
+    /* Note that we do not need to track multiple spill regs for aflags. On x86
+     * aflags can be spilled only to xax using lahf. On AArchXX, while they can
+     * be read into any register using mrs, but they are always spilled to a
+     * slot.
+     */
     reg_id_t aflags_spill_reg;
     bool gpr_native[DR_NUM_GPR_REGS];
     bool aflags_native;
@@ -2114,13 +2120,6 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
     for (int i = 0; i < MAX_SPILLS; i++) {
         spill_slot_to_reg[i] = DR_REG_NULL;
     }
-    /* TODO PR#4917: Add support for test_asm_faultL similar to what's added for gprs.
-     * Essentially, we want to handle the condition where native value of aflags is
-     * spilled to multiple gprs by different phases. This may not happen on x86
-     * because it has only one reg where aflags can be spilled to; so for re-spills
-     * of native aflags, the first spill in xax will need to be spilled to some slot
-     * first.
-     */
     aflags_spill_reg = DR_REG_NULL;
 
     LOG(drcontext, DR_LOG_ALL, 3,
