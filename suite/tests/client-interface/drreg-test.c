@@ -781,9 +781,8 @@ GLOBAL_LABEL(FUNCNAME:)
         b        test22_done
      test22_done:
         /* Fail if aflags were not restored correctly. */
-        movw     TEST_REG2_ASM, DRREG_TEST_AFLAGS_ASM
         mrs      TEST_REG_ASM, APSR
-        cmp      TEST_REG2_ASM, TEST_REG_ASM
+        cmp      TEST_REG_ASM, DRREG_TEST_AFLAGS_ASM
         beq      epilog
         .word 0xe7f000f0 /* udf */
 
