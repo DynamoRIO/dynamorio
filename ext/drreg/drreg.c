@@ -2004,8 +2004,7 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
                      * drreg_event_restore_state_with_ilist.
                      */
                     spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
-                }
-                else {
+                } else {
                     LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring restore\n",
                         __FUNCTION__, pc);
                 }
