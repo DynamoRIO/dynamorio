@@ -534,9 +534,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "unreserve should work");
         }
-    } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C) {
+    } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C ||
+               subtest == DRREG_TEST_26_C) {
         /* Cross-app-instr aflags test */
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4/5\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4/5/26\n");
         if (is_drreg_test_label_marker(inst)) {
             res = drreg_reserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
@@ -605,8 +606,8 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                   "cannot unreserve register");
         }
 #ifdef X86
-    } else if (subtest == DRREG_TEST_15_C) {
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15\n");
+    } else if (subtest == DRREG_TEST_15_C || subtest == DRREG_TEST_27_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15/#27\n");
         if (instr_is_nop(inst)) {
             CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot reserve aflags");
@@ -767,7 +768,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     /* XXX i#511: add more tests */
 
-    if (subtest == DRREG_TEST_18_C)
+    /* Test state restoration without ilist of faulting fragment. */
+    if (subtest == DRREG_TEST_18_C || subtest == DRREG_TEST_26_C ||
+        subtest == DRREG_TEST_27_C)
         return DR_EMIT_STORE_TRANSLATIONS;
     return DR_EMIT_DEFAULT;
 }

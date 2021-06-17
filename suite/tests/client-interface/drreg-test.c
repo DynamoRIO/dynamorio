@@ -75,6 +75,10 @@ void
 test_asm_faultO();
 void
 test_asm_faultP();
+void
+test_asm_faultQ();
+void
+test_asm_faultR();
 
 static SIGJMP_BUF mark;
 
@@ -236,6 +240,21 @@ handle_signal11(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     SIGLONGJMP(mark, 1);
 }
 
+static void
+handle_signal12(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #26!\n");
+    } else if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #27!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -371,6 +390,19 @@ handle_exception11(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
+
+static LONG WINAPI
+handle_exception12(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #26!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #27!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
 #    endif
 
 int
@@ -486,7 +518,7 @@ main(int argc, const char *argv[])
     SetUnhandledExceptionFilter(&handle_exception7);
 #    endif
 
-    /* Test fault reg restore for fragments with DR_EMIT_STORE_TRANSLATIONS */
+    /* Test fault reg restore for fragments emitting DR_EMIT_STORE_TRANSLATIONS */
     if (SIGSETJMP(mark) == 0) {
        test_asm_faultJ();
     }
@@ -516,6 +548,11 @@ main(int argc, const char *argv[])
         test_asm_faultM();
     }
 
+    /* For some aflags restore tests below we do not use SIGILL to raise the
+     * fault. This is because the undefined instr on AArchXX is assumed to
+     * read aflags, and therefore restores aflags automatically. So the
+     * restore logic doesn't come into play.
+     */
     #    if defined(UNIX)
     intercept_signal(SIGSEGV, (handler_3_t)&handle_signal9, false);
 #    elif defined(WINDOWS)
@@ -554,6 +591,26 @@ main(int argc, const char *argv[])
         test_asm_faultP();
     }
 
+    #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal12, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal12, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception12);
+#    endif
+
+    /* Test restore on fault for aflags spilled to slot for fragment
+     * emitting DR_EMIT_STORE_TRANSLATIONS.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultQ();
+    }
+
+    /* Test restore on fault for aflags spilled to xax for fragment
+     * emitting DR_EMIT_STORE_TRANSLATIONS.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultR();
+    }
     /* XXX i#511: add more fault tests and other tricky corner cases */
 
     print("drreg-test finished\n");
@@ -1092,7 +1149,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
         nop
         ud2
-        /* xax is dead, so should not need to spill when reserving aflags. */
+        /* xax is dead, so should not need to spill aflags to slot. */
         mov      REG_XAX, 0
         jmp      epilog15
      epilog15:
@@ -1690,6 +1747,108 @@ GLOBAL_LABEL(FUNCNAME:)
 #endif
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+        /* Test 26: fault aflags restore from spill slot for fragment emitting
+         * DR_EMIT_STORE_TRANSLATIONS. This uses the state restoration logic
+         * without ilist.
+         */
+#define FUNCNAME test_asm_faultQ
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test26
+     test26:
+        mov      TEST_REG_ASM, DRREG_TEST_26_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_26_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        nop
+
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+
+        jmp      epilog26
+     epilog26:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test26
+     test26:
+        movw     TEST_REG_ASM, DRREG_TEST_26_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_26_ASM
+        /* XXX: also test GE flags */
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+        nop
+
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+
+        b        epilog26
+    epilog26:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test26
+     test26:
+        movz     TEST_REG_ASM, DRREG_TEST_26_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_26_ASM
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        msr      nzcv, TEST_REG2_ASM
+        nop
+
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+
+        b        epilog26
+    epilog26:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+
+        /* Test 27: restore on fault for aflags stored in xax without preceding
+         * xax spill, for fragments emitting DR_EMIT_STORE_TRANSLATIONS. This
+         * uses the state restoration logic without ilist.
+         */
+#define FUNCNAME test_asm_faultR
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test27
+     test27:
+        mov      TEST_REG_ASM, DRREG_TEST_27_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_27_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        nop
+        ud2
+        /* xax is dead, so should not need to spill aflags to slot. */
+        mov      REG_XAX, 0
+        jmp      epilog27
+     epilog27:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+        /* This test does not have AArchXX variants. */
+#elif defined(ARM)
+        bx       lr
+#elif defined(AARCH64)
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 
 START_DATA
     /* Should be atleast (TEST_FAUX_SPILL_TLS_OFFS+1)*8 bytes.

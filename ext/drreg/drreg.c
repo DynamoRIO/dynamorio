@@ -1971,21 +1971,17 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
                 "%s @" PFX " found %s to %s offs=0x%x => slot %d\n", __FUNCTION__,
                 prev_pc, spill ? "spill" : "restore", get_register_name(reg), offs, slot);
             if (spill) {
-                /* XXX: Can it happen that aflags_reg was modified between when we
-                 * recorded the aflags read and now?
-                 */
                 if (reg == aflags_reg) {
-                    if (aflags_slot < MAX_SPILLS && aflags_slot != slot) {
-                        /* TODO PR#4917: Aflags respill to preserve tool value is broken
-                         * as we select a different slot then also.
-                         */
-                        LOG(drcontext, DR_LOG_ALL, 3,
-                            "%s @" PFX ": ignoring tool aflags spill\n", __FUNCTION__,
-                            pc);
-                    } else {
-                        aflags_slot = slot;
-                    }
-                    /* Set to DR_REG_NULL as we do not need to track this anymore. */
+                    /* TODO i#4937: Aflags are re-spilled when some app instr writes
+                     * them. Unlike gpr respills, aflags respills may use a different
+                     * slot, or may not use a slot at all (if they are kept in xax as
+                     * an optimisation). Unfortunately, without the extra metadata
+                     * provided by the faulting fragment ilist, we cannot determine
+                     * whether this spill was a tool aflags spill or app aflags spill.
+                     * We assume the latter and update our book-keeping.
+                     */
+                    aflags_slot = slot;
+                    /* We do not need to track this anymore. */
                     aflags_reg = DR_REG_NULL;
                 } else if (spilled_to[GPR_IDX(reg)] < MAX_SPILLS &&
                            /* allow redundant spill */
@@ -2010,8 +2006,10 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
                 }
             }
         } else if (instr_get_opcode(&inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
-            /* TODO PR#4917: We cannot currently detect whether this spill is for tool
-             * value or app value of aflags.
+            /* TODO i#4937: Unfortunately, without the extra metadata provided by the
+             * faulting fragment ilist, we cannot determine whether this spill was a tool
+             * aflags spill or app aflags spill. We assume the latter and update our
+             * book-keeping.
              */
             aflags_reg = IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_dst(&inst, 0)));
         } else if (aflags_reg != DR_REG_NULL &&
@@ -2050,7 +2048,6 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
         } else {
             val = get_spilled_value(drcontext, aflags_slot);
         }
-
         newval = dr_merge_arith_flags(newval, val);
         LOG(drcontext, DR_LOG_ALL, 3, "%s: restoring aflags from " PFX " to " PFX "\n",
             __FUNCTION__, info->mcontext->xflags, newval);
