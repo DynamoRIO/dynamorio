@@ -641,6 +641,18 @@ typedef struct _dr_fault_fragment_info_t {
      * depending on the type of cache consistency being used by DR.
      */
     bool app_code_consistent;
+    /**
+     * The recreated ilist for this fragment, which contains instrs added
+     * by the basic block event(s) with \p translating set to true and also
+     * DR's own mangling of some instrs. This includes client-added metadata
+     * in the form of notes and label instrs too. This may be helpful in
+     * restoring app state on a fault.
+     * When the recreated ilist is not available, this is set to NULL. This
+     * may happen when a client returns #DR_EMIT_STORE_TRANSLATIONS, or for
+     * DR internal reasons when the app code may not be consistent: for pending
+     * deletion or self-modifying fragments.
+     */
+    instrlist_t *ilist;
 } dr_fault_fragment_info_t;
 
 /**

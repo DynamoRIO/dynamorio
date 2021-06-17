@@ -1319,3 +1319,17 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 
 0x101110xx100000000010xxxxxxxxxx     rev32     dq0 : dq5 bhs_sz
 0x001110xx100000000010xxxxxxxxxx     rev64     dq0 : dq5 bhs_sz
+
+# DUP (element) Scalar
+01011110000xxxxx000001xxxxxxxxxx     dup       dq0 : dq5 imm5
+
+# DUP (element) Vector
+00001110000xxxxx000001xxxxxxxxxx     dup       d0 : d5 imm5
+01001110000xxxxx000001xxxxxxxxxx     dup       q0 : q5 imm5
+
+# DUP (general)
+00001110000xxxxx000011xxxxxxxxxx     dup       d0 : w5 imm5
+01001110000xxxxx000011xxxxxxxxxx     dup       q0 : x5 imm5
+
+00001110000xxxxx001011xxxxxxxxxx     smov      w0 : d5 imm5
+01001110000xxxxx001011xxxxxxxxxx     smov      x0 : q5 imm5
