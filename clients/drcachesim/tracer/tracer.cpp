@@ -1285,11 +1285,6 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         DR_ASSERT(false);
         /* in release build, carry on: we'll just miss per-iter refs */
     }
-    if (data->repstr) {
-        dr_printf("AAA expanded rep string bb is: ");
-        instrlist_disassemble(drcontext, 0, bb, STDERR);
-        dr_printf("\n");
-    }
     /* XXX i#4865: Online traces will have incorrect instr counts, because
      * scatter/gather instrs are emulated by a sequence of scalar stores/loads.
      */
