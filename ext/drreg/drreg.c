@@ -216,6 +216,8 @@ has_pending_slot_usage_by_prior_pass(per_thread_t *pt, instrlist_t *ilist, instr
     for (instr_t *in = where; in != NULL; in = instr_get_next(in)) {
         /* We store data about spill slot usage in the data area of a label instr
          * immediately following the usage.
+         * TODO i#3823: We can use is_our_spill_or_restore instead of this extra
+         * metadata.
          */
         if (instr_is_label(in) &&
             instr_get_note(in) == (void *)get_drreg_note_val(DRREG_NOTE_SPILL_SLOT_ID)) {
@@ -1996,6 +1998,11 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
                     aflags_slot = MAX_SPILLS;
                     aflags_reg = reg;
                 } else if (spilled_to[GPR_IDX(reg)] == slot)
+                    /* This suffers from i#4939: we forget the spill slot after it
+                     * is read once to restore the gpr for an app read. This case is
+                     * handled only if the faulting fragment's ilist is available, in
+                     * drreg_event_restore_state_with_ilist.
+                     */
                     spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
                 else {
                     LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring restore\n",
