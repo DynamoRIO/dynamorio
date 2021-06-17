@@ -543,16 +543,19 @@ main(int argc, const char *argv[])
         test_asm_faultL();
     }
 
-    /* Test fault aflags restore (multi-phase) with nested spill regions. */
-    if (SIGSETJMP(mark) == 0) {
-        test_asm_faultM();
-    }
-
     /* For some aflags restore tests below we do not use SIGILL to raise the
      * fault. This is because the undefined instr on AArchXX is assumed to
      * read aflags, and therefore restores aflags automatically. So the
      * restore logic doesn't come into play.
      */
+
+    /* Test restore on fault for aflags reserved in multiple phases, with
+     * nested spill regions.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_faultM();
+    }
+
     #    if defined(UNIX)
     intercept_signal(SIGSEGV, (handler_3_t)&handle_signal9, false);
 #    elif defined(WINDOWS)
@@ -584,7 +587,7 @@ main(int argc, const char *argv[])
     SetUnhandledExceptionFilter(&handle_exception11);
 #    endif
 
-    /* Test fault aflags restore when native aflags are spilled
+    /* Test restore on fault for aflags when native aflags are spilled
      * to multiple slots initially.
      */
     if (SIGSETJMP(mark) == 0) {
@@ -770,9 +773,19 @@ GLOBAL_LABEL(FUNCNAME:)
         cmp      TEST_REG_ASM, TEST_REG2_ASM
         beq      test22
         .word 0xe7f000f0 /* udf */
-        /* Test 22: not implemented yet for ARM */
      test22:
-        b        epilog
+        movw     TEST_REG_ASM, DRREG_TEST_22_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_22_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+        nop
+        b        test22_done
+     test22_done:
+        /* Fail if aflags were not restored correctly. */
+        movw     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM
+        mrs      TEST_REG_ASM, nzcv
+        cmp      TEST_REG2_ASM, TEST_REG_ASM
+        beq      epilog
+        .word 0xe7f000f0 /* udf */
 
     epilog:
         bx       lr
@@ -1452,7 +1465,9 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-        /* Test 21: restore on fault for aflags reserved in multiple phases */
+        /* Test 21: restore on fault for aflags reserved in multiple phases
+         * with nested spill regions.
+         */
 #define FUNCNAME test_asm_faultM
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -1468,6 +1483,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
         nop
+
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -1484,6 +1500,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_21_ASM
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
         nop
+
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
 
@@ -1499,6 +1516,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
         msr      nzcv, TEST_REG2_ASM
         nop
+
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
@@ -1511,10 +1529,13 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* Test 23: restore on fault for aflags reserved in multiple phases
          * with overlapping but not nested spill regions. In this case,
-         * the native value gets stored in the insertion phase slot after
-         * the app2app unreservation. Also note that we do not respill
-         * aflags to the same slot, but select a new slot at each
-         * app/app2app write.
+         * the native aflags are stored in the app2app slot initially. Then,
+         * they are swapped to the insertion phase slot after the app2app
+         * unreservation.
+         * Note that we do not respill aflags to the same slot, but select
+         * a new slot at each re-spill, so the app2app phase slot gets
+         * recycled and used by the insertion phase slot to re-spill the app
+         * aflags.
          */
 #define FUNCNAME test_asm_faultN
         DECLARE_FUNC_SEH(FUNCNAME)
@@ -1699,6 +1720,7 @@ GLOBAL_LABEL(FUNCNAME:)
          *   restore it.
          */
         mov      TEST_REG2_ASM, 3
+
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -1750,7 +1772,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* Test 26: fault aflags restore from spill slot for fragment emitting
          * DR_EMIT_STORE_TRANSLATIONS. This uses the state restoration logic
-         * without ilist.
+         * without the faulting fragment's ilist.
          */
 #define FUNCNAME test_asm_faultQ
         DECLARE_FUNC_SEH(FUNCNAME)

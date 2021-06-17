@@ -1654,15 +1654,11 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     }
     aflags = (uint)(ptr_uint_t)drvector_get_entry(&pt->aflags.live, pt->live_idx);
     /* Just like scratch regs, flags are exclusively owned */
-    if (pt->aflags.in_use) {
-        LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": aflags-in-use error\n", __FUNCTION__,
-            get_where_app_pc(where));
+    if (pt->aflags.in_use)
         return DRREG_ERROR_IN_USE;
-    }
     if (!TESTANY(EFLAGS_READ_ARITH, aflags)) {
         /* If the flags were not yet lazily restored and are now dead, clear the slot */
         if (!pt->aflags.native) {
-            ASSERT(pt->aflags.slot != MAX_SPILLS, "Aflags slot not reserved");
             reset_aflags_spill_slot(pt);
         }
         pt->aflags.in_use = true;
@@ -1726,6 +1722,7 @@ drreg_unreserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
             ASSERT(pt->aflags.slot != MAX_SPILLS, "Aflags slot not reserved");
             reset_aflags_spill_slot(pt);
         }
+        ASSERT(pt->aflags.slot == MAX_SPILLS, "Aflags slot not reset");
         instrlist_set_auto_predicate(ilist, pred);
     }
     LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX "\n", __FUNCTION__, pt->live_idx,
@@ -2023,7 +2020,9 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
             /* If the reg storing aflags gets written to before being spilled to a slot,
              * we don't want to confuse a later spill as an aflags spill. This doesn't
              * handle all possible cases of aflags being swapped around in regs, but
-             * we bail on the more complex instrumentations.
+             * we bail on the more complex instrumentations. The more complex cases
+             * are handled only if the faulting fragment's ilist is available, in
+             * drreg_event_restore_state_with_ilist.
              */
             for (int i = 0; i < instr_num_dsts(&inst); i++) {
                 opnd_t opnd = instr_get_dst(&inst, i);

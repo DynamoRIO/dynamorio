@@ -55,7 +55,6 @@
 #    define TEST_REG_STOLEN DR_REG_X28
 #    define TEST_REG_ASM x4
 #    define TEST_REG2_ASM x5
-#    define TEST_REG3_ASM x6
 #    define TEST_REG_STOLEN_ASM x28
 #    define TEST_REG_SIG regs[4]
 #    define TEST_FAUX_SPILL_TLS_OFFS 0x148
