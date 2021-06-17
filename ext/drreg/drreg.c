@@ -1997,13 +1997,14 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
                 if (aflags_slot == slot) {
                     aflags_slot = MAX_SPILLS;
                     aflags_reg = reg;
-                } else if (spilled_to[GPR_IDX(reg)] == slot)
+                } else if (spilled_to[GPR_IDX(reg)] == slot) {
                     /* This suffers from i#4939: we forget the spill slot after it
                      * is read once to restore the gpr for an app read. This case is
                      * handled only if the faulting fragment's ilist is available, in
                      * drreg_event_restore_state_with_ilist.
                      */
                     spilled_to[GPR_IDX(reg)] = MAX_SPILLS;
+                }
                 else {
                     LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": ignoring restore\n",
                         __FUNCTION__, pc);
