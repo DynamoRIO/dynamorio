@@ -1675,8 +1675,11 @@ drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
     }
     aflags = (uint)(ptr_uint_t)drvector_get_entry(&pt->aflags.live, pt->live_idx);
     /* Just like scratch regs, flags are exclusively owned */
-    if (pt->aflags.in_use)
+    if (pt->aflags.in_use) {
+        LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": aflags-in-use error\n", __FUNCTION__,
+            get_where_app_pc(where));
         return DRREG_ERROR_IN_USE;
+    }
     if (!TESTANY(EFLAGS_READ_ARITH, aflags)) {
         /* If the flags were not yet lazily restored and are now dead, clear the slot */
         if (!pt->aflags.native) {
