@@ -920,6 +920,10 @@ drreg_reserve_reg_internal(void *drcontext, instrlist_t *ilist, instr_t *where,
                            drvector_t *reg_allowed, bool only_if_no_spill,
                            OUT reg_id_t *reg_out)
 {
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": start at instr\n", __FUNCTION__,
+        get_where_app_pc(where));
+    instr_disassemble(drcontext, where, STDERR);
+    LOG(drcontext, DR_LOG_ALL, 3, "\n");
     per_thread_t *pt = get_tls_data(drcontext);
     uint slot = MAX_SPILLS;
     uint min_uses = UINT_MAX;
@@ -1655,6 +1659,10 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
 drreg_status_t
 drreg_reserve_aflags(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
+    LOG(drcontext, DR_LOG_ALL, 3, "%s @" PFX ": at instr\n", __FUNCTION__,
+        get_where_app_pc(where));
+    instr_disassemble(drcontext, where, STDERR);
+    LOG(drcontext, DR_LOG_ALL, 3, "\n");
     per_thread_t *pt = get_tls_data(drcontext);
     dr_pred_type_t pred = instrlist_get_auto_predicate(ilist);
     drreg_status_t res;
