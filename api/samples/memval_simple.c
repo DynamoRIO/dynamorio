@@ -368,31 +368,30 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
     instr_t *instr_fetch = drmgr_orig_app_instr_for_fetch(drcontext);
     if (instr_fetch != NULL)
         data->last_opcode = instr_get_opcode(instr_fetch);
-    int last_opcode = data->last_opcode;
-    if (drmgr_is_last_instr(drcontext, where))
-        dr_thread_free(drcontext, data, sizeof(*data));
 
     instr_t *instr_operands = drmgr_orig_app_instr_for_operands(drcontext);
-    if (instr_operands == NULL || !instr_writes_memory(instr_operands))
-        return DR_EMIT_DEFAULT;
-    DR_ASSERT(instr_is_app(instr_operands));
-    DR_ASSERT(last_opcode != 0);
-
-    /* XXX: See above, in handle_post_write(). To simplify the handling of registers, we
-     * assume no instruction has multiple distinct memory destination operands.
-     */
-    for (i = 0; i < instr_num_dsts(instr_operands); ++i) {
-        if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
-            if (seen_memref) {
-                DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
-                break;
+    if (instr_operands != NULL && instr_writes_memory(instr_operands)) {
+        DR_ASSERT(instr_is_app(instr_operands));
+        DR_ASSERT(data->last_opcode != 0);
+        /* XXX: See above, in handle_post_write(). To simplify the handling of registers,
+         * we assume no instruction has multiple distinct memory destination operands.
+         */
+        for (i = 0; i < instr_num_dsts(instr_operands); ++i) {
+            if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
+                if (seen_memref) {
+                    DR_ASSERT_MSG(false, "Found inst with multiple memory destinations");
+                    break;
+                }
+                data->reg_addr = instrument_pre_write(drcontext, bb, where,
+                                                      data->last_opcode, instr_operands,
+                                                      instr_get_dst(instr_operands, i));
+                seen_memref = true;
             }
-            data->reg_addr =
-                instrument_pre_write(drcontext, bb, where, last_opcode, instr_operands,
-                                     instr_get_dst(instr_operands, i));
-            seen_memref = true;
         }
     }
+
+    if (drmgr_is_last_instr(drcontext, where))
+        dr_thread_free(drcontext, data, sizeof(*data));
     return DR_EMIT_DEFAULT;
 }
 
