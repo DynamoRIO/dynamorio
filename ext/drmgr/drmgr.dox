@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,7 @@ composed and combined.
  - \ref sec_drmgr_setup
  - \ref sec_drmgr_events
  - \ref sec_drmgr_stages
+ - \ref sec_drmgr_emulation
  - \ref sec_drmgr_tls
  - \ref sec_drmgr_notes
 
@@ -103,6 +104,39 @@ actions.  The instrumentation insertion is performed in one forward pass:
 for each instruction, each registered component is invoked.  This simplifies
 register allocation (register allocation is provided by a separate
 Extension \p drreg).
+
+\subsection sec_drmgr_emulation Emulation-Aware Instrumentation
+
+Support for one client library or component emulating or refactoring
+application code while another observes application behavior is
+provided through emulation marking and reading support.
+
+An emulation-creating library uses drmgr_insert_emulation_start() and
+drmgr_insert_emulation_end() to mark the emulation region and make a copy
+of the original instruction being replaced.
+
+An emulation-aware observational client then wants to instrument the
+original copy, rather than the emulation sequence present in the
+instruction list.  The client should use the
+drmgr_orig_app_instr_for_fetch() and
+drmgr_orig_app_instr_for_operands() routines inside the insertion
+event to determine the instruction to observe, ignoring the
+instruction passed to the insertion event except as a placeholder in
+the instruction list for where to place added instructions for
+instrumentation.
+
+The refactoring of application code for simpler instrumentation performed
+by drutil_expand_rep_string() and drx_expand_scatter_gather() is also
+marked as emulation, but only for instructions, not data: i.e.,
+#DR_EMULATE_INSTR_ONLY is set for these refactorings.  These are typically
+used in address tracing clients, and we recommend that such clients also
+use the emulation-aware instrumentation approach just outlined.
+
+If expansions or true emulation is present and a client is not
+emulation-aware, it may not accurately observe the application's
+behavior.  For example, an opcode recording client might record the
+opcodes for the expansion sequence emulating a scatter instruction,
+rather than the original scatter opcode.
 
 \subsection sec_drmgr_ordering Ordering
 

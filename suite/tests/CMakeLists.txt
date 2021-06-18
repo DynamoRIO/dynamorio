@@ -3053,7 +3053,7 @@ if (BUILD_SAMPLES)
     get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
     foreach (sample ${sample_list})
       # FIXME i#4392: Remove sanity checks and replace with functioning tests like
-      # that done for the opcode_count sample.
+      # that done for the opcode_count and memtrace_simple samples.
       torunonly_ci(sample.${sample} common.${control_flags}
         ${sample} common/${control_flags}.c "" "" "")
       if (sample STREQUAL "inscount")
@@ -3097,7 +3097,12 @@ if (BUILD_SAMPLES)
 
           torunonly_ci(sample.${sample} sample.opcode_count-test ${sample}_test
             samples/opcode_count-test.asm "-opcode 5" "" "")
-        endif(X86 AND (NOT X64) AND UNIX)
+        endif (X86 AND (NOT X64) AND UNIX)
+      elseif (sample STREQUAL "memtrace_simple")
+        if (X86 AND X64 AND UNIX)
+          torunonly_ci(sample.${sample}_repstr allasm_repstr ${sample}_test
+            samples/${sample}_repstr "-log_to_stderr" "" "")
+        endif ()
       endif()
     endforeach ()
   endif (NOT ANDROID)
