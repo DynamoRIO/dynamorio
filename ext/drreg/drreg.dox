@@ -53,6 +53,11 @@ less available in future phases; the current logic skips over a slot if
 there's a usage found anywhere later in the bb added by any previous phase.
 So it requires additional spill slots as well.
 
+Note that DR provides APIs to directly access TLS slots: like
+\p dr_insert_write_raw_tls(), \p dr_insert_write_tls_field(). These are
+also used by drreg internally. It is unsafe to mix usages of drreg and
+these direct APIs as it may cause conflicts in slot usages.
+
 CAUTION: this extension is still a work in progress.  Not all pieces are
 implemented yet, and the interface may be in flux until the details are
 finalized.
