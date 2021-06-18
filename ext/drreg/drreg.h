@@ -120,9 +120,9 @@ typedef struct _drreg_options_t {
      * expensive to access (beyond the first few). DR's base slots may
      * also be used by core DR or other clients, which may cause
      * correctness issues if there's some slot usage conflict. Therefore,
-     * clients should make sure to request sufficient slots.
-     * This number should be computed as one plus the number of
-     * simultaneously used general-purpose register spill slots, as
+     * clients should make sure to request sufficient dedicated slots
+     * from drreg. This number should be computed as one plus the number
+     * of simultaneously used general-purpose register spill slots, as
      * drreg reserves one of the requested slots for arithmetic flag
      * preservation.
      *
