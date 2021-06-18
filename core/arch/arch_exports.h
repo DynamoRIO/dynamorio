@@ -813,9 +813,12 @@ DEF_ATOMIC_incdec(ATOMIC_INC_int, int, "w", "add") DEF_ATOMIC_incdec(ATOMIC_INC_
 }
 
 #        define MEMORY_STORE_BARRIER() __asm__ __volatile__("dmb st")
+/* i#4719: QEMU crashes on "wfi" so we use the superset "wfe".
+ * XXX: Consider issuing "sev" on lock release?
+ */
 #        define SPINLOCK_PAUSE()             \
             do {                             \
-                __asm__ __volatile__("wfi"); \
+                __asm__ __volatile__("wfe"); \
             } while (0) /* wait for interrupt */
 
 uint64
@@ -980,7 +983,10 @@ atomic_dec_becomes_zero(volatile int *var)
                                  : "cc", "memory", "r2", "r3");
 
 #        define MEMORY_STORE_BARRIER() __asm__ __volatile__("dmb st")
-#        define SPINLOCK_PAUSE() __asm__ __volatile__("wfi") /* wait for interrupt */
+/* QEMU crashes on "wfi" so we use the superset "wfe".
+ * XXX: Consider issuing "sev" on lock release?
+ */
+#        define SPINLOCK_PAUSE() __asm__ __volatile__("wfe") /* wait for interrupt */
 uint64
 proc_get_timestamp(void);
 #        define RDTSC_LL(llval) (llval) = proc_get_timestamp()
