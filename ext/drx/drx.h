@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -509,7 +509,10 @@ DR_EXPORT
  * equivalent scalar load and stores, mask register bit tests, and mask register bit
  * updates.
  *
- * \warning This function is not fully supported yet. Do not use.
+ * Clients applying this expansion are encouraged to use emulation-aware
+ * instrumentation via drmgr_orig_app_instr_for_fetch() and
+ * drmgr_orig_app_instr_for_operands() in order to observe the original
+ * opcode with the expanded memory operands.
  *
  * \warning The added multi-instruction sequence contains several control-transfer
  * instructions and is not straight-line code, which can complicate subsequent analysis

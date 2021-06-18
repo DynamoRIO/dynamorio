@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -64,7 +64,7 @@
 #  add_executable(myapp myapp.c)
 #  configure_DynamoRIO_standalone(myapp)
 #
-# If using the drconfig (dr_config.h) and/or drinject (dr_inject.h) API's,
+# If using the drconfig (dr_config.h) and/or drinject (dr_inject.h) APIs,
 # you also need to explicitly link with those libraries:
 #
 #  target_link_libraries(myapp drinjectlib drconfiglib)
