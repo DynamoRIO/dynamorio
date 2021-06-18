@@ -437,12 +437,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
 
     if (argc > 1) {
-        if (strcmp(argv[1], "-log_to_stderr") == 0)
+        if (argc == 2 && strcmp(argv[1], "-log_to_stderr") == 0)
             log_to_stderr = true;
         else {
             dr_fprintf(STDERR,
-                       "Error: unknown options |%s|: only -log_to_stderr is supported\n",
-                       client_ops);
+                       "Error: unknown options: only -log_to_stderr is supported\n");
             dr_abort();
         }
     }
