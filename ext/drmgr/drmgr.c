@@ -208,6 +208,9 @@ typedef struct _per_thread_t {
     instr_t *last_instr;
     emulated_instr_t emulation_info;
     bool in_emulation_region;
+    /* This field stores the current insertion event instruction so that
+     * separate query API's don't need to take in the instruction.
+     */
     instr_t *insertion_instr;
 } per_thread_t;
 
@@ -984,7 +987,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
             IF_DEBUG(bool ok =) drmgr_get_emulated_instr_data(inst, &pt->emulation_info);
             ASSERT(ok, "should be at emulation start label");
             pt->in_emulation_region = true;
-            pt->emulation_info.flags |= DR_EMULATE_FIRST_INSTR;
+            pt->emulation_info.flags |= DR_EMULATE_IS_FIRST_INSTR;
         }
         if (is_opcode_instrum_applicable && instr_opcode_valid(inst)) {
             opcode = instr_get_opcode(inst);
@@ -1001,7 +1004,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
             drcontext, tag, bb, inst, for_trace, translating, &local_info->iter_insert,
             pair_data, quartet_data);
         if (pt->in_emulation_region) {
-            pt->emulation_info.flags &= ~DR_EMULATE_FIRST_INSTR;
+            pt->emulation_info.flags &= ~DR_EMULATE_IS_FIRST_INSTR;
             if (drmgr_is_emulation_end(inst) ||
                 (TEST(DR_EMULATE_REST_OF_BLOCK, pt->emulation_info.flags) &&
                  drmgr_is_last_instr(drcontext, inst)))
@@ -3328,7 +3331,7 @@ drmgr_orig_app_instr_for_fetch(void *drcontext)
         return NULL;
     const emulated_instr_t *emulation;
     if (drmgr_in_emulation_region(drcontext, &emulation)) {
-        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags)) {
+        if (TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags)) {
             return emulation->instr;
         } // Else skip further instr fetches until outside emulation region.
     } else if (instr_is_app(pt->insertion_instr)) {
@@ -3346,7 +3349,7 @@ drmgr_orig_app_instr_for_operands(void *drcontext)
         return NULL;
     const emulated_instr_t *emulation;
     if (drmgr_in_emulation_region(drcontext, &emulation)) {
-        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags) &&
+        if (TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags) &&
             !TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
             return emulation->instr;
         if (instr_is_app(pt->insertion_instr) &&

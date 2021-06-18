@@ -431,11 +431,12 @@ event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     /* Use the recommended emulation instrumentation code pattern: */
     const emulated_instr_t *emulation;
     if (drmgr_in_emulation_region(drcontext, &emulation)) {
-        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags)) {
+        if (TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags)) {
             DR_ASSERT(drmgr_orig_app_instr_for_fetch(drcontext) == emulation->instr);
             record_instr_fetch_orig(emulation->instr);
             if (!TEST(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
-                DR_ASSERT(drmgr_orig_app_instr_for_fetch(drcontext) == emulation->instr);
+                DR_ASSERT(drmgr_orig_app_instr_for_operands(drcontext) ==
+                          emulation->instr);
                 record_data_addresses_orig(emulation->instr);
             }
         } else {
@@ -445,7 +446,7 @@ event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
         if (instr_is_app(inst) && TEST(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
             DR_ASSERT(drmgr_orig_app_instr_for_operands(drcontext) == inst);
             record_data_addresses_derived(inst);
-        } else if (!TEST(DR_EMULATE_FIRST_INSTR, emulation->flags) ||
+        } else if (!TEST(DR_EMULATE_IS_FIRST_INSTR, emulation->flags) ||
                    TEST(DR_EMULATE_INSTR_ONLY, emulation->flags)) {
             DR_ASSERT(drmgr_orig_app_instr_for_operands(drcontext) == NULL);
         }

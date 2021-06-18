@@ -821,7 +821,7 @@ typedef enum {
      * a client to act on the original instruction just once, despite multiple
      * emulation instructions.
      */
-    DR_EMULATE_FIRST_INSTR = 0x0002,
+    DR_EMULATE_IS_FIRST_INSTR = 0x0002,
     /**
      * Indicates that only the instruction fetch is being emulated differently.
      * The operation of the instruction remains the same.
@@ -944,31 +944,11 @@ drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
  * drmgr_is_emulation_start() and drmgr_is_emulation_end() labels and the
  * #DR_EMULATE_REST_OF_BLOCK flag to prevent the client having to store state.
  *
- * This is the recommended usage for observational clients in the insertion event,
- * highlighting the different paths for instruction versus data instrumentation:
- *
- * dr_emit_flags_t
- * event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *insert_instr,
- *                 bool for_trace, bool translating, void *user_data) {
- *     const emulated_instr_t *emulation;
- *     if (drmgr_in_emulation_region(drcontext, &emulation)) {
- *         if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags)) {
- *             record_instr_fetch(emulation->instr);
- *             if (!TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
- *                 record_data_addresses(emulation->instr);
- *         } // Else skip further instr fetches until outside emulation region.
- *         if (instr_is_app(insert_instr) &&
- *             TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
- *             record_data_addresses(insert_instr);
- *     } else if (instr_is_app(insert_instr)) {
- *         record_instr_fetch(insert_instr);
- *         record_data_addresses(insert_instr);
- *     }
- *     return DR_EMIT_DEFAULT;
- * }
- *
- * An alternative, simpler usage model is to instead use the two routines
- * drmgr_orig_app_instr_for_fetch() and drmgr_orig_app_instr_for_operands():
+ * While this is exported, there is still complexity in analyzing the
+ * different flags, and we recommend that clients do not use this
+ * function directly but instead use the two routines
+ * drmgr_orig_app_instr_for_fetch() and
+ * drmgr_orig_app_instr_for_operands() (which internally use this function):
  *
  * dr_emit_flags_t
  * event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *insert_instr,
@@ -994,26 +974,12 @@ DR_EXPORT
  *
  * Returns the instruction to consider as the current application
  * instruction for observational clients with respect to which
- * instruction executed, taking into account emulation.  This may be
+ * instruction is executed, taking into account emulation.  This may be
  * different from the current instruction list instruction passed to
  * the insertion event.
  *
  * Returns NULL if observational clients should skip the current instruction
  * list instruction.
- *
- * This is a convenience routine.  It follows the logic of the recommended usage
- * for drmgr_in_emulation_region() laid out in the documentation for that method,
- * repeated here for instruction fetch only:
- *
- *    const emulated_instr_t *emulation;
- *    if (drmgr_in_emulation_region(drcontext, &emulation)) {
- *        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags)) {
- *            return emulation->instr;
- *        } // Else skip further instr fetches until outside emulation region.
- *    } else if (instr_is_app(insert_instr)) {
- *        return insert_instr;
- *    }
- *    return NULL;
  */
 instr_t *
 drmgr_orig_app_instr_for_fetch(void *drcontext);
@@ -1030,23 +996,6 @@ DR_EXPORT
  *
  * Returns NULL if observational clients should skip the current instruction
  * list instruction.
- *
- * This is a convenience routine.  It follows the logic of the recommended usage
- * for drmgr_in_emulation_region() laid out in the documentation for that method,
- * repeated here for operands only:
- *
- *    const emulated_instr_t *emulation;
- *    if (drmgr_in_emulation_region(drcontext, &emulation)) {
- *        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags) &&
- *            !TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
- *            return emulation->instr;
- *        if (instr_is_app(insert_instr) &&
- *            TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
- *            return insert_instr;
- *    } else if (instr_is_app(insert_instr)) {
- *        return insert_instr;
- *    }
- *    return NULL;
  */
 instr_t *
 drmgr_orig_app_instr_for_operands(void *drcontext);
