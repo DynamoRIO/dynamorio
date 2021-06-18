@@ -209,7 +209,7 @@ typedef struct _per_thread_t {
     emulated_instr_t emulation_info;
     bool in_emulation_region;
     /* This field stores the current insertion event instruction so that
-     * separate query API's don't need to take in the instruction.
+     * separate query APIs don't need to take in the instruction.
      */
     instr_t *insertion_instr;
 } per_thread_t;

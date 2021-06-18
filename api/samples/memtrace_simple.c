@@ -436,9 +436,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
                        "http://dynamorio.org/issues");
 
-    const char *client_ops = dr_get_options(id);
-    if (client_ops != NULL && client_ops[0] != '\0') {
-        if (strcmp(client_ops, "-log_to_stderr") == 0)
+    if (argc > 1) {
+        if (strcmp(argv[1], "-log_to_stderr") == 0)
             log_to_stderr = true;
         else {
             dr_fprintf(STDERR,
