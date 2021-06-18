@@ -4772,7 +4772,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|sample.stl_test
     code_api|sample.syscall
     code_api|sample.wrap
-    unit_tests
     PROPERTIES LABELS RUNS_ON_QEMU)
   if (DEBUG)
     set_tests_properties(
