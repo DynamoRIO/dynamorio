@@ -117,7 +117,13 @@ typedef struct _drreg_options_t {
      * requested from DR via dr_raw_tls_calloc().  Any slots needed beyond
      * this number will use DR's base slots, which are not allowed to be
      * used across application instructions.  DR's slots are also more
-     * expensive to access (beyond the first few).
+     * expensive to access (beyond the first few).  DR's base slots may
+     * also be used by APIs like dr_save_reg()/dr_restore_reg() (and the
+     * corresponding dr_read_saved_reg()/dr_write_saved_reg()), which may
+     * cause correctness issues if there's some slot usage conflict within
+     * the same client or with other clients/libraries.  Therefore, all
+     * cooperating client components should use drreg.  Also, clients
+     * should make sure to request sufficient dedicated slots from drreg.
      * This number should be computed as one plus the number of
      * simultaneously used general-purpose register spill slots, as
      * drreg reserves one of the requested slots for arithmetic flag
