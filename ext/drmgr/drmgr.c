@@ -208,6 +208,7 @@ typedef struct _per_thread_t {
     instr_t *last_instr;
     emulated_instr_t emulation_info;
     bool in_emulation_region;
+    instr_t *insertion_instr;
 } per_thread_t;
 
 /* Emulation note types */
@@ -978,6 +979,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
     /* Main pass for instrumentation. */
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
+        pt->insertion_instr = inst;
         if (!pt->in_emulation_region && drmgr_is_emulation_start(inst)) {
             IF_DEBUG(bool ok =) drmgr_get_emulated_instr_data(inst, &pt->emulation_info);
             ASSERT(ok, "should be at emulation start label");
@@ -3162,6 +3164,10 @@ drmgr_disable_auto_predication(void *drcontext, instrlist_t *ilist)
 
 /***************************************************************************
  * EMULATION
+ *
+ * XXX i#4947: Should we add new instrumentation insertion events that
+ * hide expansions and emulations for a simpler model than the current
+ * query interfaces below?
  */
 
 /*
@@ -3311,6 +3317,45 @@ drmgr_in_emulation_region(void *drcontext, OUT const emulated_instr_t **emulatio
     if (emulation_info != NULL)
         *emulation_info = &pt->emulation_info;
     return true;
+}
+
+DR_EXPORT
+instr_t *
+drmgr_orig_app_instr_for_fetch(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
+        return NULL;
+    const emulated_instr_t *emulation;
+    if (drmgr_in_emulation_region(drcontext, &emulation)) {
+        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags)) {
+            return emulation->instr;
+        } // Else skip further instr fetches until outside emulation region.
+    } else if (instr_is_app(pt->insertion_instr)) {
+        return pt->insertion_instr;
+    }
+    return NULL;
+}
+
+DR_EXPORT
+instr_t *
+drmgr_orig_app_instr_for_operands(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, our_tls_idx);
+    if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION)
+        return NULL;
+    const emulated_instr_t *emulation;
+    if (drmgr_in_emulation_region(drcontext, &emulation)) {
+        if (TEST(DR_EMULATE_FIRST_INSTR, emulation->flags) &&
+            !TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
+            return emulation->instr;
+        if (instr_is_app(pt->insertion_instr) &&
+            TEST(DR_EMULATE_INSTR_ONLY, emulation->flags))
+            return pt->insertion_instr;
+    } else if (instr_is_app(pt->insertion_instr)) {
+        return pt->insertion_instr;
+    }
+    return NULL;
 }
 
 /***************************************************************************

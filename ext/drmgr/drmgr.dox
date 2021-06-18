@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,7 @@ composed and combined.
  - \ref sec_drmgr_setup
  - \ref sec_drmgr_events
  - \ref sec_drmgr_stages
+ - \ref sec_drmgr_emulation
  - \ref sec_drmgr_tls
  - \ref sec_drmgr_notes
 
@@ -103,6 +104,37 @@ actions.  The instrumentation insertion is performed in one forward pass:
 for each instruction, each registered component is invoked.  This simplifies
 register allocation (register allocation is provided by a separate
 Extension \p drreg).
+
+\subsection sec_drmgr_emulation Emulation-Aware Instrumentation
+
+Support for one client library emulating or refactoring application code
+while another observes application behavior is provided through emulation
+marking and reading support.
+
+An emulation-creating library uses drmgr_insert_emulation_start() and
+drmgr_insert_emulation_end() to mark the emulation region and make a copy
+of the original instruction being replaced.
+
+An emulation-aware observational client then wants to instrument the
+original copy, rather than the emulation sequence present in the
+instruction list.  This is most easily done using the application
+instruction and data events, which split the third stage, insertion, into
+two parts, and ignores non-application instructions (i.e., labels and meta
+instructions added as part of emulation in the app2app phase is all hidden
+from these two events).  Use drmgr_register_bb_app_observation_event() to
+register these events.
+
+Another method for an observational client is to use the regular insertion
+event and manually determine which instruction to examine, using
+drmgr_in_emulation_region() and the recommended code sequence in the
+documentation for that function.
+
+The refactoring of application code for simpler instrumentation performed
+by drutil_expand_rep_string() and drx_expand_scatter_gather() is also
+marked as emulation, but only for instructions, not data: i.e.,
+#DR_EMULATE_INSTR_ONLY is set for these refactorings.  These are typically
+used in address tracing clients, and we recommend that such clients also
+use the emulation-aware instrumentation approaches outlined here.
 
 \subsection sec_drmgr_ordering Ordering
 
