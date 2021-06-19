@@ -352,6 +352,32 @@ create_buffer(per_thread_t *data)
     }
 }
 
+static int
+append_unit_header(void *drcontext, byte *buf_ptr, thread_id_t tid)
+{
+    int size_added = instru->append_unit_header(buf_ptr, tid);
+    if (op_L0_filter.get_value()) {
+        // Include the instruction count.
+        // It might be useful to include the count with each miss as well, but
+        // in experiments that adds non-trivial space and time overheads (as
+        // a separate marker; squished into the instr_count field might be
+        // better but at complexity costs, plus we may need that field for
+        // offset-within-block info to adjust the per-block count) and
+        // would likely need to be under an off-by-default option and have
+        // a mandated use case to justify adding it.
+        // Per-buffer should be sufficient as markers to align filtered traces
+        // with unfiltered traces, and is much lower overhead.
+        uintptr_t icount = 0;
+        if (drcontext != NULL) { // Handle process-init header.
+            per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+            icount = *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNT);
+        }
+        size_added += instru->append_marker(buf_ptr + size_added,
+                                            TRACE_MARKER_TYPE_INSTRUCTION_COUNT, icount);
+    }
+    return size_added;
+}
+
 static inline byte *
 atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
 {
@@ -363,7 +389,7 @@ atomic_pipe_write(void *drcontext, byte *pipe_start, byte *pipe_end)
     // Re-emit buffer unit header to handle split pipe writes.
     if (pipe_end - buf_hdr_slots_size > pipe_start) {
         pipe_start = pipe_end - buf_hdr_slots_size;
-        instru->append_unit_header(pipe_start, dr_get_thread_id(drcontext));
+        append_unit_header(drcontext, pipe_start, dr_get_thread_id(drcontext));
     }
     return pipe_start;
 }
@@ -427,8 +453,8 @@ memtrace(void *drcontext, bool skip_size_cap)
     if (buf_ptr == data->buf_base + header_size + buf_hdr_slots_size)
         return;
     // The initial slots are left empty for the header, which we add here.
-    header_size += instru->append_unit_header(data->buf_base + header_size,
-                                              dr_get_thread_id(drcontext));
+    header_size += append_unit_header(drcontext, data->buf_base + header_size,
+                                      dr_get_thread_id(drcontext));
     pipe_start = data->buf_base;
     pipe_end = pipe_start;
     if (!skip_size_cap &&
@@ -2119,7 +2145,8 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     /* Mark any padding as redzone as well */
     redzone_size = max_buf_size - trace_buf_size;
     /* Append a throwaway header to get its size. */
-    buf_hdr_slots_size = instru->append_unit_header(buf, 0 /*doesn't matter*/);
+    buf_hdr_slots_size =
+        append_unit_header(NULL /*no TLS yet*/, buf, 0 /*doesn't matter*/);
     DR_ASSERT(BUFFER_SIZE_BYTES(buf) >= buf_hdr_slots_size);
 
     client_id = id;
