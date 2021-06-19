@@ -100,6 +100,11 @@ typedef struct {
     uint64 num_refs;
 } per_thread_t;
 
+/* Cross-instrumentation-phase data. */
+typedef struct {
+    app_pc last_pc;
+} instru_data_t;
+
 static size_t page_size;
 static client_id_t client_id;
 static app_pc code_cache;
@@ -116,7 +121,9 @@ event_thread_exit(void *drcontext);
 static dr_emit_flags_t
 event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  bool translating);
-
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void **user_data);
 static dr_emit_flags_t
 event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
                 bool for_trace, bool translating, void *user_data);
@@ -130,7 +137,8 @@ code_cache_init(void);
 static void
 code_cache_exit(void);
 static void
-instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, int pos, bool write);
+instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, app_pc pc,
+               instr_t *memref_instr, int pos, bool write);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -154,7 +162,8 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_register_thread_init_event(event_thread_init) ||
         !drmgr_register_thread_exit_event(event_thread_exit) ||
         !drmgr_register_bb_app2app_event(event_bb_app2app, &priority) ||
-        !drmgr_register_bb_instrumentation_event(NULL, event_bb_insert, &priority) ||
+        !drmgr_register_bb_instrumentation_event(event_bb_analysis, event_bb_insert,
+                                                 &priority) ||
         drreg_init(&ops) != DRREG_SUCCESS || !drx_init()) {
         /* something is wrong: can't continue */
         DR_ASSERT(false);
@@ -280,27 +289,54 @@ event_bb_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     return DR_EMIT_DEFAULT;
 }
 
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, void **user_data)
+{
+    instru_data_t *data = (instru_data_t *)dr_thread_alloc(drcontext, sizeof(*data));
+    data->last_pc = NULL;
+    *user_data = (void *)data;
+    return DR_EMIT_DEFAULT;
+}
+
 /* event_bb_insert calls instrument_mem to instrument every
  * application memory reference.
  */
 static dr_emit_flags_t
-event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *where,
                 bool for_trace, bool translating, void *user_data)
 {
     int i;
-    if (instr_get_app_pc(instr) == NULL)
+    instru_data_t *data = (instru_data_t *)user_data;
+    /* Use the drmgr_orig_app_instr_* interface to properly handle our own use
+     * of drutil_expand_rep_string() and drx_expand_scatter_gather() (as well
+     * as another client/library emulating the instruction stream).
+     */
+    instr_t *instr_fetch = drmgr_orig_app_instr_for_fetch(drcontext);
+    if (instr_fetch != NULL)
+        data->last_pc = instr_get_app_pc(instr_fetch);
+    app_pc last_pc = data->last_pc;
+    if (drmgr_is_last_instr(drcontext, where))
+        dr_thread_free(drcontext, data, sizeof(*data));
+
+    instr_t *instr_operands = drmgr_orig_app_instr_for_operands(drcontext);
+    if (instr_operands == NULL ||
+        (!instr_writes_memory(instr_operands) && !instr_reads_memory(instr_operands)))
         return DR_EMIT_DEFAULT;
-    if (instr_reads_memory(instr)) {
-        for (i = 0; i < instr_num_srcs(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_src(instr, i))) {
-                instrument_mem(drcontext, bb, instr, i, false);
+    DR_ASSERT(instr_is_app(instr_operands));
+    DR_ASSERT(last_pc != NULL);
+
+    if (instr_reads_memory(instr_operands)) {
+        for (i = 0; i < instr_num_srcs(instr_operands); i++) {
+            if (opnd_is_memory_reference(instr_get_src(instr_operands, i))) {
+                instrument_mem(drcontext, bb, where, last_pc, instr_operands, i, false);
             }
         }
     }
-    if (instr_writes_memory(instr)) {
-        for (i = 0; i < instr_num_dsts(instr); i++) {
-            if (opnd_is_memory_reference(instr_get_dst(instr, i))) {
-                instrument_mem(drcontext, bb, instr, i, true);
+    if (instr_writes_memory(instr_operands)) {
+        for (i = 0; i < instr_num_dsts(instr_operands); i++) {
+            if (opnd_is_memory_reference(instr_get_dst(instr_operands, i))) {
+                instrument_mem(drcontext, bb, where, last_pc, instr_operands, i, true);
             }
         }
     }
@@ -388,14 +424,14 @@ code_cache_exit(void)
  * and jump to our own code cache to call the clean_call when the buffer is full.
  */
 static void
-instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, int pos, bool write)
+instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, app_pc pc,
+               instr_t *memref_instr, int pos, bool write)
 {
     instr_t *instr, *call, *restore;
     opnd_t ref, opnd1, opnd2;
     reg_id_t reg1, reg2;
     drvector_t allowed;
     per_thread_t *data;
-    app_pc pc;
 
     data = drmgr_get_tls_field(drcontext, tls_index);
 
@@ -414,9 +450,9 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, int pos, boo
     drvector_delete(&allowed);
 
     if (write)
-        ref = instr_get_dst(where, pos);
+        ref = instr_get_dst(memref_instr, pos);
     else
-        ref = instr_get_src(where, pos);
+        ref = instr_get_src(memref_instr, pos);
 
     /* use drutil to get mem address */
     drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg1, reg2);
@@ -452,12 +488,11 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, int pos, boo
     /* Store size in memory ref */
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, size));
     /* drutil_opnd_mem_size_in_bytes handles OP_enter */
-    opnd2 = OPND_CREATE_INT32(drutil_opnd_mem_size_in_bytes(ref, where));
+    opnd2 = OPND_CREATE_INT32(drutil_opnd_mem_size_in_bytes(ref, memref_instr));
     instr = INSTR_CREATE_mov_st(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
 
     /* Store pc in memory ref */
-    pc = instr_get_app_pc(where);
     /* For 64-bit, we can't use a 64-bit immediate so we split pc into two halves.
      * We could alternatively load it into reg1 and then store reg1.
      * We use a convenience routine that does the two-step store for us.
