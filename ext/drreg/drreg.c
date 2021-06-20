@@ -2042,8 +2042,7 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
     reg_id_t spill_slot_to_reg[MAX_SPILLS];
     /* Note that we do not need to track multiple spill regs for aflags. On x86
      * aflags can be spilled only to xax using lahf. On AArchXX, while they can
-     * be read into any register using mrs, but they are always spilled to a
-     * slot.
+     * be read into any register using mrs, they are always spilled to a slot.
      */
     reg_id_t aflags_spill_reg;
     bool gpr_native[DR_NUM_GPR_REGS];

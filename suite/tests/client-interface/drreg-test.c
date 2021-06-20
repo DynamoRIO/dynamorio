@@ -543,9 +543,9 @@ main(int argc, const char *argv[])
         test_asm_faultL();
     }
 
-    /* For some aflags restore tests below we do not use SIGILL to raise the
-     * fault. This is because the undefined instr on AArchXX is assumed to
-     * read aflags, and therefore restores aflags automatically. So the
+    /* XXX i#4849: For some aflags restore tests below we do not use SIGILL to
+     * raise the fault. This is because the undefined instr on AArchXX is assumed
+     * to read aflags, and therefore restores aflags automatically. So the
      * restore logic doesn't come into play.
      */
 
