@@ -89,6 +89,9 @@
 #    define DRREG_TEST_AFLAGS_C MAKE_HEX(f0000000)
 #endif
 
+/* Markers to identify locations in test asm code where instrumentation
+ * is to be inserted.
+ */
 #define TEST_INSTRUMENTATION_MARKER_1 1
 #define TEST_INSTRUMENTATION_MARKER_2 2
 #define TEST_INSTRUMENTATION_MARKER_3 3

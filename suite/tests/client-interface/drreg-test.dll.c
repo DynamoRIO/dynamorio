@@ -208,8 +208,8 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         } else
             prev_was_mov_const = false;
     }
-    if (*((ptr_int_t *)user_data) == DRREG_TEST_13_C ||
-        *((ptr_int_t *)user_data) == DRREG_TEST_14_C) {
+    ptr_int_t subtest = *((ptr_int_t *)user_data);
+    if (subtest == DRREG_TEST_13_C || subtest == DRREG_TEST_14_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
@@ -236,7 +236,7 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve register");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_17_C) {
+    } else if (subtest == DRREG_TEST_17_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
@@ -266,7 +266,7 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve register");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_20_C) {
+    } else if (subtest == DRREG_TEST_20_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
@@ -292,8 +292,7 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve register");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_21_C ||
-               *((ptr_int_t *)user_data) == DRREG_TEST_22_C) {
+    } else if (subtest == DRREG_TEST_21_C || subtest == DRREG_TEST_22_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
@@ -311,7 +310,7 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve aflags");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_23_C) {
+    } else if (subtest == DRREG_TEST_23_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
@@ -330,7 +329,7 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve aflags");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_25_C) {
+    } else if (subtest == DRREG_TEST_25_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");

@@ -1395,7 +1395,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_19_ASM
         movz     TEST_REG_ASM, DRREG_TEST_19_ASM
         /* TEST_REG_ASM is reserved here. */
-        movz     TEST_REG2_ASM, 1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         adr      TEST_REG_STOLEN_ASM, some_data
         /* A faux spill instr -- looks like a drreg spill but isn't.
          * It will seem as if the spill slot used for TEST_REG_ASM
