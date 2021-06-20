@@ -44,41 +44,41 @@
 void
 test_asm();
 void
-test_asm_faultA();
+test_asm_fault_restore_gpr();
 void
-test_asm_faultB();
+test_asm_fault_restore_aflags_in_slot();
 void
-test_asm_faultC();
+test_asm_fault_restore_ignore_3rd_dr_tls_slot();
 void
-test_asm_faultD();
+test_asm_fault_restore_non_public_dr_slot();
 void
-test_asm_faultE();
+test_asm_fault_restore_non_public_dr_slot_rip_rel_addr_in_reg();
 void
-test_asm_faultF();
+test_asm_fault_restore_multi_phase_gpr_nested_spill_regions();
 void
-test_asm_faultG();
+test_asm_fault_restore_aflags_in_xax();
 void
-test_asm_faultH();
+test_asm_fault_restore_gpr_restored_for_read();
 void
-test_asm_faultI();
+test_asm_fault_restore_multi_phase_gpr_overlapping_spill_regions();
 void
-test_asm_faultJ();
+test_asm_fault_restore_gpr_store_xl8();
 void
-test_asm_faultK();
+test_asm_fault_restore_faux_gpr_spill();
 void
-test_asm_faultL();
+test_asm_fault_restore_multi_phase_native_gpr_spilled_twice();
 void
-test_asm_faultM();
+test_asm_fault_restore_multi_phase_aflags_nested_spill_regions();
 void
-test_asm_faultN();
+test_asm_fault_restore_multi_phase_aflags_overlapping_spill_regions();
 void
-test_asm_faultO();
+test_asm_fault_restore_aflags_restored_for_read();
 void
-test_asm_faultP();
+test_asm_fault_restore_multi_phase_native_aflags_spilled_twice();
 void
-test_asm_faultQ();
+test_asm_fault_restore_aflags_in_slot_store_xl8();
 void
-test_asm_faultR();
+test_asm_fault_restore_aflags_in_xax_store_xl8();
 
 static SIGJMP_BUF mark;
 
@@ -430,12 +430,12 @@ main(int argc, const char *argv[])
 
     /* Test fault reg restore */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultA();
+        test_asm_fault_restore_gpr();
     }
 
     /* Test fault aflags restore */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultB();
+        test_asm_fault_restore_aflags_in_slot();
     }
 
 #    if defined(UNIX)
@@ -446,7 +446,7 @@ main(int argc, const char *argv[])
 
     /* Test fault check ignore 3rd DR TLS slot */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultC();
+        test_asm_fault_restore_ignore_3rd_dr_tls_slot();
     }
 
 #    if defined(UNIX)
@@ -459,7 +459,7 @@ main(int argc, const char *argv[])
      * Making sure drreg ignores restoring this slot.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultD();
+        test_asm_fault_restore_non_public_dr_slot();
     }
 
 #    if defined(UNIX)
@@ -474,7 +474,7 @@ main(int argc, const char *argv[])
      * if reg is optimized to be app's dead reg.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultE();
+        test_asm_fault_restore_non_public_dr_slot_rip_rel_addr_in_reg();
     }
 
     #    if defined(UNIX)
@@ -486,12 +486,12 @@ main(int argc, const char *argv[])
 
     /* Test fault reg restore for multi-phase nested reservation. */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultF();
+        test_asm_fault_restore_multi_phase_gpr_nested_spill_regions();
     }
 
     /* Test fault reg restore for multi-phase non-nested overlapping reservations. */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultI();
+        test_asm_fault_restore_multi_phase_gpr_overlapping_spill_regions();
     }
 
     #    if defined(UNIX)
@@ -503,12 +503,14 @@ main(int argc, const char *argv[])
 
     /* Test fault aflags restore from xax. */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultG();
+        test_asm_fault_restore_aflags_in_xax();
     }
 
-    /* Test fault reg restore bug */
+    /* Test fault gpr restore on fault when it has been restored before for an
+     * app read.
+     */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultH();
+        test_asm_fault_restore_gpr_restored_for_read();
     }
 
     #    if defined(UNIX)
@@ -520,12 +522,12 @@ main(int argc, const char *argv[])
 
     /* Test fault reg restore for fragments emitting DR_EMIT_STORE_TRANSLATIONS */
     if (SIGSETJMP(mark) == 0) {
-       test_asm_faultJ();
+       test_asm_fault_restore_gpr_store_xl8();
     }
 
     /* Test fault reg restore for fragments with a faux spill instr. */
     if (SIGSETJMP(mark) == 0) {
-         test_asm_faultK();
+         test_asm_fault_restore_faux_gpr_spill();
     }
 
     #    if defined(UNIX)
@@ -540,7 +542,7 @@ main(int argc, const char *argv[])
      * reservation.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultL();
+        test_asm_fault_restore_multi_phase_native_gpr_spilled_twice();
     }
 
     /* XXX i#4849: For some aflags restore tests below we do not use SIGILL to
@@ -553,7 +555,7 @@ main(int argc, const char *argv[])
      * nested spill regions.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultM();
+        test_asm_fault_restore_multi_phase_aflags_nested_spill_regions();
     }
 
     #    if defined(UNIX)
@@ -566,7 +568,7 @@ main(int argc, const char *argv[])
      * with overlapping but not nested spill regions.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultN();
+        test_asm_fault_restore_multi_phase_aflags_overlapping_spill_regions();
     }
 
     #    if defined(UNIX)
@@ -579,7 +581,7 @@ main(int argc, const char *argv[])
      * before crash.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultO();
+        test_asm_fault_restore_aflags_restored_for_read();
     }
     #    if defined(UNIX)
     intercept_signal(SIGSEGV, (handler_3_t)&handle_signal11, false);
@@ -591,7 +593,7 @@ main(int argc, const char *argv[])
      * to multiple slots initially.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultP();
+        test_asm_fault_restore_multi_phase_native_aflags_spilled_twice();
     }
 
     #    if defined(UNIX)
@@ -605,14 +607,14 @@ main(int argc, const char *argv[])
      * emitting DR_EMIT_STORE_TRANSLATIONS.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultQ();
+        test_asm_fault_restore_aflags_in_slot_store_xl8();
     }
 
     /* Test restore on fault for aflags spilled to xax for fragment
      * emitting DR_EMIT_STORE_TRANSLATIONS.
      */
     if (SIGSETJMP(mark) == 0) {
-        test_asm_faultR();
+        test_asm_fault_restore_aflags_in_xax_store_xl8();
     }
     /* XXX i#511: add more fault tests and other tricky corner cases */
 
@@ -870,7 +872,7 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME test_asm_faultA
+#define FUNCNAME test_asm_fault_restore_gpr
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -921,7 +923,7 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME test_asm_faultB
+#define FUNCNAME test_asm_fault_restore_aflags_in_slot
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -981,7 +983,7 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME test_asm_faultC
+#define FUNCNAME test_asm_fault_restore_ignore_3rd_dr_tls_slot
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1016,7 +1018,7 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME test_asm_faultD
+#define FUNCNAME test_asm_fault_restore_non_public_dr_slot
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1062,7 +1064,7 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-#define FUNCNAME test_asm_faultE
+#define FUNCNAME test_asm_fault_restore_non_public_dr_slot_rip_rel_addr_in_reg
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1114,7 +1116,7 @@ OB        jmp      test10
          * will be restored from the spill slot used by the first (app2app)
          * phase.
          */
-#define FUNCNAME test_asm_faultF
+#define FUNCNAME test_asm_fault_restore_multi_phase_gpr_nested_spill_regions
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1165,7 +1167,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Test 15: restore on fault for aflags stored in xax without preceding
          * xax spill.
          */
-#define FUNCNAME test_asm_faultG
+#define FUNCNAME test_asm_fault_restore_aflags_in_xax
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1198,9 +1200,11 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
         /* Test 16: restore on fault for reg restored once (for app read)
-         * before crash.
+         * before crash. This is to verify that the drreg state restoration
+         * logic doesn't forget a spill slot after it sees one restore (like
+         * for an app read instr),
          */
-#define FUNCNAME test_asm_faultH
+#define FUNCNAME test_asm_fault_restore_gpr_restored_for_read
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1261,7 +1265,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * the app value changes slots, from the one used in app2app
          * phase, to the one used in insertion phase.
          */
-#define FUNCNAME test_asm_faultI
+#define FUNCNAME test_asm_fault_restore_multi_phase_gpr_overlapping_spill_regions
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1322,7 +1326,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
         /* Test 18: fault reg restore for fragments with DR_EMIT_STORE_TRANSLATIONS */
-#define FUNCNAME test_asm_faultJ
+#define FUNCNAME test_asm_fault_restore_gpr_store_xl8
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1376,7 +1380,7 @@ GLOBAL_LABEL(FUNCNAME:)
      * an app instr that uses the %gs register will be mangled into a
      * non-far memref.
      */
-#define FUNCNAME test_asm_faultK
+#define FUNCNAME test_asm_fault_restore_faux_gpr_spill
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1415,7 +1419,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * is to verify that drreg state restoration logic remembers that
          * the app value can be found in both the spill slots.
          */
-#define FUNCNAME test_asm_faultL
+#define FUNCNAME test_asm_fault_restore_multi_phase_native_gpr_spilled_twice
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1487,7 +1491,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Test 21: restore on fault for aflags reserved in multiple phases
          * with nested spill regions.
          */
-#define FUNCNAME test_asm_faultM
+#define FUNCNAME test_asm_fault_restore_multi_phase_aflags_nested_spill_regions
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1556,7 +1560,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * recycled and used by the insertion phase slot to re-spill the app
          * aflags.
          */
-#define FUNCNAME test_asm_faultN
+#define FUNCNAME test_asm_fault_restore_multi_phase_aflags_overlapping_spill_regions
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1628,9 +1632,11 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
         /* Test 24: restore on fault for aflags restored once (for app read)
-         * before crash.
+         * before crash. This is to verify that the drreg state restoration
+         * logic doesn't forget a spill slot after it sees one restore (like
+         * for an app read instr),
          */
-#define FUNCNAME test_asm_faultO
+#define FUNCNAME test_asm_fault_restore_aflags_restored_for_read
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1706,7 +1712,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * is to verify that drreg state restoration logic remembers that
          * the app value can be found in both the spill slots.
          */
-#define FUNCNAME test_asm_faultP
+#define FUNCNAME test_asm_fault_restore_multi_phase_native_aflags_spilled_twice
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1793,7 +1799,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * DR_EMIT_STORE_TRANSLATIONS. This uses the state restoration logic
          * without the faulting fragment's ilist.
          */
-#define FUNCNAME test_asm_faultQ
+#define FUNCNAME test_asm_fault_restore_aflags_in_slot_store_xl8
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
@@ -1853,12 +1859,11 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-
         /* Test 27: restore on fault for aflags stored in xax without preceding
          * xax spill, for fragments emitting DR_EMIT_STORE_TRANSLATIONS. This
          * uses the state restoration logic without ilist.
          */
-#define FUNCNAME test_asm_faultR
+#define FUNCNAME test_asm_fault_restore_aflags_in_xax_store_xl8
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
 #ifdef X86
