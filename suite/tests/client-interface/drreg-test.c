@@ -1278,11 +1278,11 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_17_ASM
         mov      TEST_REG_ASM, DRREG_TEST_17_ASM
         /* app2app phase will reserve TEST_REG_ASM here and write to it. */
-        mov      TEST_REG2_ASM, 1
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* insertion phase will reserve TEST_REG_ASM here. */
-        mov      TEST_REG2_ASM, 2
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* app2app phase will release TEST_REG_ASM here. */
-        mov      TEST_REG2_ASM, 3
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         mov      REG_XCX, 0
         mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
         /* insertion phase will release TEST_REG_ASM here. */
@@ -1297,9 +1297,9 @@ GLOBAL_LABEL(FUNCNAME:)
      test17:
         movw     TEST_REG_ASM, DRREG_TEST_17_ASM
         movw     TEST_REG_ASM, DRREG_TEST_17_ASM
-        movw     TEST_REG2_ASM, 1
-        movw     TEST_REG2_ASM, 2
-        movw     TEST_REG2_ASM, 3
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
 
@@ -1312,9 +1312,9 @@ GLOBAL_LABEL(FUNCNAME:)
      test17:
         movz     TEST_REG_ASM, DRREG_TEST_17_ASM
         movz     TEST_REG_ASM, DRREG_TEST_17_ASM
-        movz     TEST_REG2_ASM, 1
-        movz     TEST_REG2_ASM, 2
-        movz     TEST_REG2_ASM, 3
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
@@ -1436,11 +1436,11 @@ GLOBAL_LABEL(FUNCNAME:)
          *   state restoration logic into overwritting the spill slot for
          *   TEST_REG_ASM as it still has its native value.
          */
-        mov      TEST_REG2_ASM, 1
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* - insertion phase unreserves TEST_REG_ASM and frees the spill
          *   slot.
          */
-        mov      TEST_REG2_ASM, 2
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* - insertion phase reserves TEST_REG2_ASM which would use the
          *   same spill slot as freed above, and overwrite TEST_REG_ASM
          *   value stored there currently. After this TEST_REG_ASM can
@@ -1448,7 +1448,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * - insertion phase writes to TEST_REG_ASM so that we need to
          *   restore it.
          */
-        mov      TEST_REG2_ASM, 3
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         ud2
 
         jmp      epilog20
@@ -1462,9 +1462,9 @@ GLOBAL_LABEL(FUNCNAME:)
      test20:
         movw     TEST_REG_ASM, DRREG_TEST_20_ASM
         movw     TEST_REG_ASM, DRREG_TEST_20_ASM
-        movw     TEST_REG2_ASM, 1
-        movw     TEST_REG2_ASM, 2
-        movw     TEST_REG2_ASM, 3
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         .word 0xe7f000f0 /* udf */
 
         b        epilog20
@@ -1476,9 +1476,9 @@ GLOBAL_LABEL(FUNCNAME:)
      test20:
         movz     TEST_REG_ASM, DRREG_TEST_20_ASM
         movz     TEST_REG_ASM, DRREG_TEST_20_ASM
-        movz     TEST_REG2_ASM, 1
-        movz     TEST_REG2_ASM, 2
-        movz     TEST_REG2_ASM, 3
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         .inst 0xf36d19 /* udf */
 
         b        epilog20
@@ -1576,11 +1576,11 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
 
         /* app2app phase will reserve aflags here. */
-        mov      TEST_REG2_ASM, 1
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* insertion phase will reserve aflags here. */
-        mov      TEST_REG2_ASM, 2
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* app2app phase will release aflags here. */
-        mov      TEST_REG2_ASM, 3
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
@@ -1598,9 +1598,9 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_23_ASM
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
-        movw     TEST_REG2_ASM, 1
-        movw     TEST_REG2_ASM, 2
-        movw     TEST_REG2_ASM, 3
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
@@ -1617,9 +1617,9 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
         msr      nzcv, TEST_REG2_ASM
 
-        movz     TEST_REG2_ASM, 1
-        movz     TEST_REG2_ASM, 2
-        movz     TEST_REG2_ASM, 3
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
@@ -1651,10 +1651,10 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
 
-        mov      TEST_REG2_ASM, 1
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* Read aflags so that it is restored once. */
         lahf
-        mov      TEST_REG2_ASM, 2
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
@@ -1671,10 +1671,10 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_24_ASM
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
-        movw     TEST_REG2_ASM, 1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* Read aflags so that it is restored once. */
         mrs      TEST_REG2_ASM, APSR
-        movw     TEST_REG2_ASM, 2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
@@ -1691,10 +1691,10 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
         msr      nzcv, TEST_REG2_ASM
 
-        movz     TEST_REG2_ASM, 1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* Read aflags so that it is restored once. */
         mrs      TEST_REG2_ASM, nzcv
-        movz     TEST_REG2_ASM, 2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
@@ -1732,11 +1732,11 @@ GLOBAL_LABEL(FUNCNAME:)
          *   state restoration logic into overwritting the spill slot for
          *   TEST_REG_ASM as it still has its native value.
          */
-        mov      TEST_REG2_ASM, 1
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* - insertion phase unreserves TEST_REG_ASM and frees the spill
          *   slot.
          */
-        mov      TEST_REG2_ASM, 2
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* - insertion phase reserves TEST_REG2_ASM which would use the
          *   same spill slot as freed above, and overwrite TEST_REG_ASM
          *   value stored there currently. After this TEST_REG_ASM can
@@ -1744,7 +1744,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * - insertion phase writes to TEST_REG_ASM so that we need to
          *   restore it.
          */
-        mov      TEST_REG2_ASM, 3
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
@@ -1762,9 +1762,9 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_25_ASM
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
-        movw     TEST_REG2_ASM, 1
-        movw     TEST_REG2_ASM, 2
-        movw     TEST_REG2_ASM, 3
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
@@ -1781,9 +1781,9 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
         msr      nzcv, TEST_REG2_ASM
 
-        movz     TEST_REG2_ASM, 1
-        movz     TEST_REG2_ASM, 2
-        movz     TEST_REG2_ASM, 3
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
