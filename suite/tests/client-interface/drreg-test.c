@@ -727,6 +727,26 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Fail if aflags were not restored correctly. */
         lahf
         cmp      ah, DRREG_TEST_AFLAGS_ASM
+        je       test28
+        ud2
+
+        /* Test 28: Aflags spilled to xax, and xax statelessly restored. */
+     test28:
+        mov      TEST_REG_ASM, DRREG_TEST_28_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_28_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        /* aflags reserved here; spilled to xax. */
+        mov      TEST_REG2_ASM, 1
+        /* xax statelessly restored here. */
+        mov      TEST_REG2_ASM, 2
+        /* xax is dead, so initial aflags spill should not use slot. */
+        mov      REG_XAX, 0
+        jmp      test28_done
+     test28_done:
+        /* Fail if aflags were not restored correctly. */
+        lahf
+        cmp      ah, DRREG_TEST_AFLAGS_ASM
         je       epilog
         ud2
 

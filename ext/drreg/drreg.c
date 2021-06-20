@@ -1173,11 +1173,16 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
          */
 #ifdef X86
     if (reg != DR_REG_NULL && pt->aflags.xchg == reg) {
+        /* drreg_restore_app_value invokes drreg_move_aflags_from_reg with stateful=false
+         * above. This spills aflags to some slot, regardless of whether they are live or
+         * not. Also, even though aflags are spilled to a slot, pt->aflags.xchg is not
+         * cleared. Below, we restore aflags to xax, and forget the spill slot.
+         */
         ASSERT(pt->aflags.slot != MAX_SPILLS, "Aflags slot not reserved");
         pt->slot_use[pt->aflags.slot] = DR_REG_XAX; /* appease assert */
         restore_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where_respill,
-                    false);
-        pt->slot_use[pt->aflags.slot] = DR_REG_NULL;
+                    /*release=*/true);
+        reset_aflags_spill_slot(pt);
         if (respill_needed != NULL)
             *respill_needed = true;
     } else
@@ -1372,7 +1377,7 @@ drreg_move_aflags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *where,
             __FUNCTION__, pt->live_idx, get_where_app_pc(where));
         ASSERT(pt->aflags.slot == MAX_SPILLS, "aflags slot not reset");
         if (pt->aflags.slot == MAX_SPILLS) {
-            pt->aflags.slot = find_free_slot(pt, ilist, where);
+            pt->aflags.slot = find_free_slot(drcontext, pt, ilist, where);
         }
         spill_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where);
     } else if (!pt->aflags.native) {
@@ -1462,7 +1467,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
                               opnd_create_reg(DR_REG_XAX)));
         ASSERT(pt->aflags.slot == MAX_SPILLS, "aflags slot not reset");
         if (pt->aflags.slot == MAX_SPILLS) {
-            pt->aflags.slot = find_free_slot(pt, ilist, where);
+            pt->aflags.slot = find_free_slot(drcontext, pt, ilist, where);
         }
         spill_reg(drcontext, pt, xax_swap, pt->aflags.slot, ilist, where);
         res = drreg_unreserve_register(drcontext, ilist, where, xax_swap);
@@ -1487,7 +1492,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
     dr_save_arith_flags_to_reg(drcontext, ilist, where, scratch);
     ASSERT(pt->aflags.slot == MAX_SPILLS, "aflags slot not reset");
     if (pt->aflags.slot == MAX_SPILLS) {
-        pt->aflags.slot = find_free_slot(pt, ilist, where);
+        pt->aflags.slot = find_free_slot(drcontext, pt, ilist, where);
     }
     spill_reg(drcontext, pt, scratch, pt->aflags.slot, ilist, where);
     res = drreg_unreserve_register(drcontext, ilist, where, scratch);

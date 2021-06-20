@@ -761,6 +761,29 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot unreserve aflags");
         }
+#ifdef X86
+    } else if (subtest == DRREG_TEST_28_C) {
+        ptr_int_t val;
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #28\n");
+        if (instr_is_mov_constant(inst, &val) && val == 1) {
+            CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot reserve aflags");
+            /* Load with some value so that we need to restore it later. */
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_cmp(drcontext,
+                                                      opnd_create_reg(DR_REG_XAX),
+                                                      opnd_create_reg(DR_REG_XCX)));
+        } else if (instr_is_mov_constant(inst, &val) && val == 2) {
+            CHECK(
+                drreg_statelessly_restore_app_value(
+                    drcontext, bb, DR_REG_XAX, inst, inst, NULL, NULL) == DRREG_SUCCESS,
+                "cannot statelessly restore xax value");
+        }
+        else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
+        }
+#endif
     }
 
     drvector_delete(&allowed_test_reg_1);
