@@ -79,6 +79,8 @@ void
 test_asm_fault_restore_aflags_in_slot_store_xl8();
 void
 test_asm_fault_restore_aflags_in_xax_store_xl8();
+void
+test_asm_fault_restore_aflags_xax_already_spilled();
 
 static SIGJMP_BUF mark;
 
@@ -255,6 +257,17 @@ handle_signal12(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
     SIGLONGJMP(mark, 1);
 }
 
+static void
+handle_signal13(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #29!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -400,6 +413,16 @@ handle_exception12(struct _EXCEPTION_POINTERS *ep)
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved in test #27!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception13(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #29!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -616,6 +639,21 @@ main(int argc, const char *argv[])
     if (SIGSETJMP(mark) == 0) {
         test_asm_fault_restore_aflags_in_xax_store_xl8();
     }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal13, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception13);
+#    endif
+
+    /* Test restore on fault for aflags stored in slot, when xax was
+     * already spilled and in-use by instrumentation. This is to
+     * verify that aflags are spilled using xax only.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_aflags_xax_already_spilled();
+    }
+
     /* XXX i#511: add more fault tests and other tricky corner cases */
 
     print("drreg-test finished\n");
@@ -2000,6 +2038,43 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+        /* Test 29: restore on fault for aflags stored in slot. In this test,
+         * when aflags are spilled, xax was already reserved and in-use. This
+         * is to verify that aflags are spilled using xax only.
+         */
+#define FUNCNAME test_asm_fault_restore_aflags_xax_already_spilled
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test29
+     test29:
+        mov      TEST_REG_ASM, DRREG_TEST_29_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_29_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+        /* xax is reserved here */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* aflags are reserved here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        ud2
+        jmp      epilog29
+     epilog29:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+        /* This test does not have AArchXX variants. */
+#elif defined(ARM)
+        bx       lr
+#elif defined(AARCH64)
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
 
 START_DATA
     /* Should be atleast (TEST_FAUX_SPILL_TLS_OFFS+1)*8 bytes.

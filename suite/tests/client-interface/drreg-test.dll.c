@@ -771,6 +771,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
                                                    &allowed_test_reg_1, false);
             CHECK(tls_offs == tls_offs_aflags, "must use the freed up slot");
+            /* Overwrite aflags so that we need to restore it later. */
             write_aflags(drcontext, bb, inst);
         } else if (drmgr_is_last_instr(drcontext, inst)) {
 #ifdef X86
@@ -798,7 +799,39 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_XAX, inst,
                                                       inst, NULL, NULL) == DRREG_SUCCESS,
                   "cannot statelessly restore xax value");
+            CHECK(drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_XAX, inst,
+                                                      inst, NULL, NULL) == DRREG_SUCCESS,
+                  "cannot statelessly restore xax value");
         } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
+        }
+    } else if (subtest == DRREG_TEST_29_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #29\n");
+
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
+            drvector_t allowed_test_reg_xax;
+            drreg_init_and_fill_vector(&allowed_test_reg_xax, false);
+            drreg_set_vector_entry(&allowed_test_reg_xax, DR_REG_XAX, true);
+            /* Spill xax so that its tool value needs to be saved before reading aflags.
+             * drreg accomplishes this by reserving another reg and xchg'ing xax with it.
+             */
+            spill_test_reg_to_slot(drcontext, bb, inst, DR_REG_XAX, &allowed_test_reg_xax,
+                                   false);
+            drvector_delete(&allowed_test_reg_xax);
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_2) {
+            CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot reserve aflags");
+            /* Load with some value so that we need to restore it later. */
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_cmp(drcontext,
+                                                      opnd_create_reg(DR_REG_XAX),
+                                                      opnd_create_reg(DR_REG_XCX)));
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, DR_REG_XAX) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve xax");
             CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot unreserve aflags");
         }

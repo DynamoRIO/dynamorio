@@ -1179,7 +1179,6 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
          * cleared. Below, we restore aflags to xax, and forget the spill slot.
          */
         ASSERT(pt->aflags.slot != MAX_SPILLS, "Aflags slot not reserved");
-        pt->slot_use[pt->aflags.slot] = DR_REG_XAX; /* appease assert */
         restore_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where_respill,
                     /*release=*/true);
         reset_aflags_spill_slot(pt);
@@ -1462,14 +1461,14 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
             INSTR_CREATE_setcc(drcontext, OP_seto, opnd_create_reg(DR_REG_AL)));
     }
     if (xax_swap != DR_REG_NULL) {
-        PRE(ilist, where,
-            INSTR_CREATE_xchg(drcontext, opnd_create_reg(xax_swap),
-                              opnd_create_reg(DR_REG_XAX)));
         ASSERT(pt->aflags.slot == MAX_SPILLS, "aflags slot not reset");
         if (pt->aflags.slot == MAX_SPILLS) {
             pt->aflags.slot = find_free_slot(drcontext, pt, ilist, where);
         }
-        spill_reg(drcontext, pt, xax_swap, pt->aflags.slot, ilist, where);
+        spill_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where);
+        PRE(ilist, where,
+            INSTR_CREATE_xchg(drcontext, opnd_create_reg(xax_swap),
+                              opnd_create_reg(DR_REG_XAX)));
         res = drreg_unreserve_register(drcontext, ilist, where, xax_swap);
         if (res != DRREG_SUCCESS)
             return res; /* XXX: undo already-inserted instrs? */
