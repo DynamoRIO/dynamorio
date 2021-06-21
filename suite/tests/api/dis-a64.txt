@@ -299,6 +299,60 @@ dac01441 : cls    x1, x2                  : cls    %x2 -> %x1
 5ac01041 : clz    w1, w2                  : clz    %w2 -> %w1
 dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 
+# CLZ <Vd>.8b, <Vn>.8b
+2e204820 : clz v0.8b, v1.8b                 : clz    %d1 $0x00 -> %d0
+2e2048c5 : clz v5.8b, v6.8b                 : clz    %d6 $0x00 -> %d5
+2e20496a : clz v10.8b, v11.8b               : clz    %d11 $0x00 -> %d10
+2e204a0f : clz v15.8b, v16.8b               : clz    %d16 $0x00 -> %d15
+2e204ab4 : clz v20.8b, v21.8b               : clz    %d21 $0x00 -> %d20
+2e204b59 : clz v25.8b, v26.8b               : clz    %d26 $0x00 -> %d25
+2e204bdd : clz v29.8b, v30.8b               : clz    %d30 $0x00 -> %d29
+
+# CLZ <Vd>.16b, <Vn>.16b
+6e204820 : clz v0.16b, v1.16b                 : clz    %q1 $0x00 -> %q0
+6e2048c5 : clz v5.16b, v6.16b                 : clz    %q6 $0x00 -> %q5
+6e20496a : clz v10.16b, v11.16b               : clz    %q11 $0x00 -> %q10
+6e204a0f : clz v15.16b, v16.16b               : clz    %q16 $0x00 -> %q15
+6e204ab4 : clz v20.16b, v21.16b               : clz    %q21 $0x00 -> %q20
+6e204b59 : clz v25.16b, v26.16b               : clz    %q26 $0x00 -> %q25
+6e204bdd : clz v29.16b, v30.16b               : clz    %q30 $0x00 -> %q29
+
+# CLZ <Vd>.4h, <Vn>.4h
+2e604820 : clz v0.4h, v1.4h                 : clz    %d1 $0x01 -> %d0
+2e6048c5 : clz v5.4h, v6.4h                 : clz    %d6 $0x01 -> %d5
+2e60496a : clz v10.4h, v11.4h               : clz    %d11 $0x01 -> %d10
+2e604a0f : clz v15.4h, v16.4h               : clz    %d16 $0x01 -> %d15
+2e604ab4 : clz v20.4h, v21.4h               : clz    %d21 $0x01 -> %d20
+2e604b59 : clz v25.4h, v26.4h               : clz    %d26 $0x01 -> %d25
+2e604bdd : clz v29.4h, v30.4h               : clz    %d30 $0x01 -> %d29
+
+# CLZ <Vd>.8h, <Vn>.8h
+6e604820 : clz v0.8h, v1.8h                 : clz    %q1 $0x01 -> %q0
+6e6048c5 : clz v5.8h, v6.8h                 : clz    %q6 $0x01 -> %q5
+6e60496a : clz v10.8h, v11.8h               : clz    %q11 $0x01 -> %q10
+6e604a0f : clz v15.8h, v16.8h               : clz    %q16 $0x01 -> %q15
+6e604ab4 : clz v20.8h, v21.8h               : clz    %q21 $0x01 -> %q20
+6e604b59 : clz v25.8h, v26.8h               : clz    %q26 $0x01 -> %q25
+6e604bdd : clz v29.8h, v30.8h               : clz    %q30 $0x01 -> %q29
+
+# CLZ <Vd>.2s, <Vn>.2s
+2ea04820 : clz v0.2s, v1.2s                 : clz    %d1 $0x02 -> %d0
+2ea048c5 : clz v5.2s, v6.2s                 : clz    %d6 $0x02 -> %d5
+2ea0496a : clz v10.2s, v11.2s               : clz    %d11 $0x02 -> %d10
+2ea04a0f : clz v15.2s, v16.2s               : clz    %d16 $0x02 -> %d15
+2ea04ab4 : clz v20.2s, v21.2s               : clz    %d21 $0x02 -> %d20
+2ea04b59 : clz v25.2s, v26.2s               : clz    %d26 $0x02 -> %d25
+2ea04bdd : clz v29.2s, v30.2s               : clz    %d30 $0x02 -> %d29
+
+# CLZ <Vd>.4s, <Vn>.4s
+6ea04820 : clz v0.4s, v1.4s                 : clz    %q1 $0x02 -> %q0
+6ea048c5 : clz v5.4s, v6.4s                 : clz    %q6 $0x02 -> %q5
+6ea0496a : clz v10.4s, v11.4s               : clz    %q11 $0x02 -> %q10
+6ea04a0f : clz v15.4s, v16.4s               : clz    %q16 $0x02 -> %q15
+6ea04ab4 : clz v20.4s, v21.4s               : clz    %q21 $0x02 -> %q20
+6ea04b59 : clz v25.4s, v26.4s               : clz    %q26 $0x02 -> %q25
+6ea04bdd : clz v29.4s, v30.4s               : clz    %q30 $0x02 -> %q29
+
 2e378e2d : cmeq v13.8b, v17.8b, v23.8b              : cmeq   %d17 %d23 $0x00 -> %d13
 6e378e2d : cmeq v13.16b, v17.16b, v23.16b           : cmeq   %q17 %q23 $0x00 -> %q13
 2e778e2d : cmeq v13.4h, v17.4h, v23.4h              : cmeq   %d17 %d23 $0x01 -> %d13
@@ -2258,6 +2312,122 @@ d37fffff : lsr    xzr, xzr, #63           : ubfm   %xzr $0x3f $0x3f -> %xzr
 aadf13ff : mov    xzr, xzr                : orr    %xzr %xzr ror $0x04 -> %xzr
 d2ffffff : mov    xzr, #0xffff000000000000: movz   $0xffff lsl $0x30 -> %xzr
 
+# MOV (element): MOV <Vd>.B[<index1>], <Vn>.B[<index2>]
+6e010420 : mov v0.b[0], v1.b[0]          : ins    %q1 $0x00 -> %q0 $0x01
+6e030c20 : mov v0.b[1], v1.b[1]          : ins    %q1 $0x01 -> %q0 $0x03
+6e051420 : mov v0.b[2], v1.b[2]          : ins    %q1 $0x02 -> %q0 $0x05
+6e071c20 : mov v0.b[3], v1.b[3]          : ins    %q1 $0x03 -> %q0 $0x07
+6e092420 : mov v0.b[4], v1.b[4]          : ins    %q1 $0x04 -> %q0 $0x09
+6e0b2c20 : mov v0.b[5], v1.b[5]          : ins    %q1 $0x05 -> %q0 $0x0b
+6e0d3420 : mov v0.b[6], v1.b[6]          : ins    %q1 $0x06 -> %q0 $0x0d
+6e0f3c20 : mov v0.b[7], v1.b[7]          : ins    %q1 $0x07 -> %q0 $0x0f
+6e114420 : mov v0.b[8], v1.b[8]          : ins    %q1 $0x08 -> %q0 $0x11
+6e134c20 : mov v0.b[9], v1.b[9]          : ins    %q1 $0x09 -> %q0 $0x13
+6e155420 : mov v0.b[10], v1.b[10]        : ins    %q1 $0x0a -> %q0 $0x15
+6e175c20 : mov v0.b[11], v1.b[11]        : ins    %q1 $0x0b -> %q0 $0x17
+6e196420 : mov v0.b[12], v1.b[12]        : ins    %q1 $0x0c -> %q0 $0x19
+6e1b6c20 : mov v0.b[13], v1.b[13]        : ins    %q1 $0x0d -> %q0 $0x1b
+6e1d7420 : mov v0.b[14], v1.b[14]        : ins    %q1 $0x0e -> %q0 $0x1d
+6e1f7c20 : mov v0.b[15], v1.b[15]        : ins    %q1 $0x0f -> %q0 $0x1f
+6e1f7d6a : mov v10.b[15], v11.b[15]      : ins    %q11 $0x0f -> %q10 $0x1f
+6e1f7eb4 : mov v20.b[15], v21.b[15]      : ins    %q21 $0x0f -> %q20 $0x1f
+6e1f7fdd : mov v29.b[15], v30.b[15]      : ins    %q30 $0x0f -> %q29 $0x1f
+
+# MOV (element): MOV <Vd>.H[<index1>], <Vn>.H[<index2>]
+6e020420 : mov v0.h[0], v1.h[0]          : ins    %q1 $0x00 -> %q0 $0x02
+6e061420 : mov v0.h[1], v1.h[1]          : ins    %q1 $0x02 -> %q0 $0x06
+6e0a2420 : mov v0.h[2], v1.h[2]          : ins    %q1 $0x04 -> %q0 $0x0a
+6e0e3420 : mov v0.h[3], v1.h[3]          : ins    %q1 $0x06 -> %q0 $0x0e
+6e124420 : mov v0.h[4], v1.h[4]          : ins    %q1 $0x08 -> %q0 $0x12
+6e165420 : mov v0.h[5], v1.h[5]          : ins    %q1 $0x0a -> %q0 $0x16
+6e1a6420 : mov v0.h[6], v1.h[6]          : ins    %q1 $0x0c -> %q0 $0x1a
+6e1e7420 : mov v0.h[7], v1.h[7]          : ins    %q1 $0x0e -> %q0 $0x1e
+6e1e756a : mov v10.h[7], v11.h[7]        : ins    %q11 $0x0e -> %q10 $0x1e
+6e1e76b4 : mov v20.h[7], v21.h[7]        : ins    %q21 $0x0e -> %q20 $0x1e
+6e1e77be : mov v30.h[7], v29.h[7]        : ins    %q29 $0x0e -> %q30 $0x1e
+
+# MOV (element): MOV <Vd>.S[<index1>], <Vn>.S[<index2>]
+6e040420 : mov v0.s[0], v1.s[0]          : ins    %q1 $0x00 -> %q0 $0x04
+6e0c2420 : mov v0.s[1], v1.s[1]          : ins    %q1 $0x04 -> %q0 $0x0c
+6e144420 : mov v0.s[2], v1.s[2]          : ins    %q1 $0x08 -> %q0 $0x14
+6e1c6420 : mov v0.s[3], v1.s[3]          : ins    %q1 $0x0c -> %q0 $0x1c
+6e1c656a : mov v10.s[3], v11.s[3]        : ins    %q11 $0x0c -> %q10 $0x1c
+6e1c66b4 : mov v20.s[3], v21.s[3]        : ins    %q21 $0x0c -> %q20 $0x1c
+6e1c67be : mov v30.s[3], v29.s[3]        : ins    %q29 $0x0c -> %q30 $0x1c
+
+# MOV (element): MOV <Vd>.D[<index1>], <Vn>.D[<index2>]
+6e080420 : mov v0.d[0], v1.d[0]          : ins    %q1 $0x00 -> %q0 $0x08
+6e184420 : mov v0.d[1], v1.d[1]          : ins    %q1 $0x08 -> %q0 $0x18
+6e18456a : mov v10.d[1], v11.d[1]        : ins    %q11 $0x08 -> %q10 $0x18
+6e1846b4 : mov v20.d[1], v21.d[1]        : ins    %q21 $0x08 -> %q20 $0x18
+6e1847be : mov v30.d[1], v29.d[1]        : ins    %q29 $0x08 -> %q30 $0x18
+
+# MOV (from general): MOV <Vd>.B[<index>], W<n>
+4e011c20 : mov v0.b[0], w1               : ins    %w1 -> %q0 $0x01
+4e031c20 : mov v0.b[1], w1               : ins    %w1 -> %q0 $0x03
+4e051c20 : mov v0.b[2], w1               : ins    %w1 -> %q0 $0x05
+4e071c20 : mov v0.b[3], w1               : ins    %w1 -> %q0 $0x07
+4e091c20 : mov v0.b[4], w1               : ins    %w1 -> %q0 $0x09
+4e0b1c20 : mov v0.b[5], w1               : ins    %w1 -> %q0 $0x0b
+4e0d1c20 : mov v0.b[6], w1               : ins    %w1 -> %q0 $0x0d
+4e0f1c20 : mov v0.b[7], w1               : ins    %w1 -> %q0 $0x0f
+4e111c20 : mov v0.b[8], w1               : ins    %w1 -> %q0 $0x11
+4e131c20 : mov v0.b[9], w1               : ins    %w1 -> %q0 $0x13
+4e151c20 : mov v0.b[10], w1              : ins    %w1 -> %q0 $0x15
+4e171c20 : mov v0.b[11], w1              : ins    %w1 -> %q0 $0x17
+4e191c20 : mov v0.b[12], w1              : ins    %w1 -> %q0 $0x19
+4e1b1c20 : mov v0.b[13], w1              : ins    %w1 -> %q0 $0x1b
+4e1d1c20 : mov v0.b[14], w1              : ins    %w1 -> %q0 $0x1d
+4e1f1c20 : mov v0.b[15], w1              : ins    %w1 -> %q0 $0x1f
+4e011d4a : mov v10.b[0], w10             : ins    %w10 -> %q10 $0x01
+4e011e94 : mov v20.b[0], w20             : ins    %w20 -> %q20 $0x01
+4e011fde : mov v30.b[0], w30             : ins    %w30 -> %q30 $0x01
+
+# MOV (from general): MOV <Vd>.H[<index>], W<n>
+4e021c20 : mov v0.h[0], w1               : ins    %w1 -> %q0 $0x02
+4e061c20 : mov v0.h[1], w1               : ins    %w1 -> %q0 $0x06
+4e0a1c20 : mov v0.h[2], w1               : ins    %w1 -> %q0 $0x0a
+4e0e1c20 : mov v0.h[3], w1               : ins    %w1 -> %q0 $0x0e
+4e121c20 : mov v0.h[4], w1               : ins    %w1 -> %q0 $0x12
+4e161c20 : mov v0.h[5], w1               : ins    %w1 -> %q0 $0x16
+4e1a1c20 : mov v0.h[6], w1               : ins    %w1 -> %q0 $0x1a
+4e1e1c20 : mov v0.h[7], w1               : ins    %w1 -> %q0 $0x1e
+4e021d4a : mov v10.h[0], w10             : ins    %w10 -> %q10 $0x02
+4e021e94 : mov v20.h[0], w20             : ins    %w20 -> %q20 $0x02
+4e021fde : mov v30.h[0], w30             : ins    %w30 -> %q30 $0x02
+
+# MOV (from general): MOV <Vd>.S[<index>], W<n>
+4e041c20 : mov v0.s[0], w1               : ins    %w1 -> %q0 $0x04
+4e0c1c20 : mov v0.s[1], w1               : ins    %w1 -> %q0 $0x0c
+4e141c20 : mov v0.s[2], w1               : ins    %w1 -> %q0 $0x14
+4e1c1c20 : mov v0.s[3], w1               : ins    %w1 -> %q0 $0x1c
+4e041d4a : mov v10.s[0], w10             : ins    %w10 -> %q10 $0x04
+4e041e94 : mov v20.s[0], w20             : ins    %w20 -> %q20 $0x04
+4e041fde : mov v30.s[0], w30             : ins    %w30 -> %q30 $0x04
+
+# MOV (from general): MOV <Vd>.D[<index>], X<n>
+4e081c20 : mov v0.d[0], x1               : ins    %x1 -> %q0 $0x08
+4e181c20 : mov v0.d[1], x1               : ins    %x1 -> %q0 $0x18
+4e081d4a : mov v10.d[0], x10             : ins    %x10 -> %q10 $0x08
+4e081e94 : mov v20.d[0], x20             : ins    %x20 -> %q20 $0x08
+4e081fde : mov v30.d[0], x30             : ins    %x30 -> %q30 $0x08
+
+# MOV (to general): MOV <Wd>, <Vn>.S[<index>]
+0e043c00 : mov w0, v0.s[0]               : umov   %q0 $0x04 -> %w0
+0e0c3c00 : mov w0, v0.s[1]               : umov   %q0 $0x0c -> %w0
+0e143c00 : mov w0, v0.s[2]               : umov   %q0 $0x14 -> %w0
+0e1c3c00 : mov w0, v0.s[3]               : umov   %q0 $0x1c -> %w0
+0e1c3d4a : mov w10, v10.s[3]             : umov   %q10 $0x1c -> %w10
+0e1c3e94 : mov w20, v20.s[3]             : umov   %q20 $0x1c -> %w20
+0e1c3fde : mov w30, v30.s[3]             : umov   %q30 $0x1c -> %w30
+
+# MOV (to general): MOV <Xd>, <Vn>.D[<index>]
+4e083c00 : mov x0, v0.d[0]               : umov   %q0 $0x08 -> %x0
+4e183c00 : mov x0, v0.d[1]               : umov   %q0 $0x18 -> %x0
+4e183d4a : mov x10, v10.d[1]             : umov   %q10 $0x18 -> %x10
+4e183e94 : mov x20, v20.d[1]             : umov   %q20 $0x18 -> %x20
+4e183fde : mov x30, v30.d[1]             : umov   %q30 $0x18 -> %x30
+
 72881041 : movk   w1, #0x4082             : movk   %w1 $0x4082 lsl $0x00 -> %w1
 f2ffffff : movk   xzr, #0xffff, lsl #48   : movk   %xzr $0xffff lsl $0x30 -> %xzr
 
@@ -2421,6 +2591,78 @@ aaffffff : mvn    xzr, xzr, ror #63       : orn    %xzr %xzr ror $0x3f -> %xzr
 4b9f7fff : neg    wzr, wzr, asr #31       : sub    %wzr %wzr asr $0x1f -> %wzr
 cb9f13ff : neg    xzr, xzr, asr #4        : sub    %xzr %xzr asr $0x04 -> %xzr
 
+# NEG (vector, scalar): NEG D<d>, D<n>
+7ee0b820 : neg    d0, d1                    : neg    %q1 -> %q0
+7ee0b8c5 : neg    d5, d6                    : neg    %q6 -> %q5
+7ee0b96a : neg    d10, d11                  : neg    %q11 -> %q10
+7ee0ba0f : neg    d15, d16                  : neg    %q16 -> %q15
+7ee0bab4 : neg    d20, d21                  : neg    %q21 -> %q20
+7ee0bb59 : neg    d25, d26                  : neg    %q26 -> %q25
+7ee0bbdd : neg    d29, d30                  : neg    %q30 -> %q29
+
+# NEG (vector): NEG <Vd>.8b, <Vn>.8b
+2e20b820 : neg    v0.8b, v1.8b                : neg    %d1 $0x00 -> %d0
+2e20b8c5 : neg    v5.8b, v6.8b                : neg    %d6 $0x00 -> %d5
+2e20b96a : neg    v10.8b, v11.8b              : neg    %d11 $0x00 -> %d10
+2e20ba0f : neg    v15.8b, v16.8b              : neg    %d16 $0x00 -> %d15
+2e20bab4 : neg    v20.8b, v21.8b              : neg    %d21 $0x00 -> %d20
+2e20bb59 : neg    v25.8b, v26.8b              : neg    %d26 $0x00 -> %d25
+2e20bbdd : neg    v29.8b, v30.8b              : neg    %d30 $0x00 -> %d29
+
+# NEG (vector): NEG <Vd>.16b, <Vn>.16b
+6e20b820 : neg    v0.16b, v1.16b                : neg    %q1 $0x00 -> %q0
+6e20b8c5 : neg    v5.16b, v6.16b                : neg    %q6 $0x00 -> %q5
+6e20b96a : neg    v10.16b, v11.16b              : neg    %q11 $0x00 -> %q10
+6e20ba0f : neg    v15.16b, v16.16b              : neg    %q16 $0x00 -> %q15
+6e20bab4 : neg    v20.16b, v21.16b              : neg    %q21 $0x00 -> %q20
+6e20bb59 : neg    v25.16b, v26.16b              : neg    %q26 $0x00 -> %q25
+6e20bbdd : neg    v29.16b, v30.16b              : neg    %q30 $0x00 -> %q29
+
+# NEG (vector): NEG <Vd>.4h, <Vn>.4h
+2e60b820 : neg    v0.4h, v1.4h                : neg    %d1 $0x01 -> %d0
+2e60b8c5 : neg    v5.4h, v6.4h                : neg    %d6 $0x01 -> %d5
+2e60b96a : neg    v10.4h, v11.4h              : neg    %d11 $0x01 -> %d10
+2e60ba0f : neg    v15.4h, v16.4h              : neg    %d16 $0x01 -> %d15
+2e60bab4 : neg    v20.4h, v21.4h              : neg    %d21 $0x01 -> %d20
+2e60bb59 : neg    v25.4h, v26.4h              : neg    %d26 $0x01 -> %d25
+2e60bbdd : neg    v29.4h, v30.4h              : neg    %d30 $0x01 -> %d29
+
+# NEG (vector): NEG <Vd>.8h, <Vn>.8h
+6e60b820 : neg    v0.8h, v1.8h                : neg    %q1 $0x01 -> %q0
+6e60b8c5 : neg    v5.8h, v6.8h                : neg    %q6 $0x01 -> %q5
+6e60b96a : neg    v10.8h, v11.8h              : neg    %q11 $0x01 -> %q10
+6e60ba0f : neg    v15.8h, v16.8h              : neg    %q16 $0x01 -> %q15
+6e60bab4 : neg    v20.8h, v21.8h              : neg    %q21 $0x01 -> %q20
+6e60bb59 : neg    v25.8h, v26.8h              : neg    %q26 $0x01 -> %q25
+6e60bbdd : neg    v29.8h, v30.8h              : neg    %q30 $0x01 -> %q29
+
+# NEG (vector): NEG <Vd>.2s, <Vn>.2s
+2ea0b820 : neg    v0.2s, v1.2s                : neg    %d1 $0x02 -> %d0
+2ea0b8c5 : neg    v5.2s, v6.2s                : neg    %d6 $0x02 -> %d5
+2ea0b96a : neg    v10.2s, v11.2s              : neg    %d11 $0x02 -> %d10
+2ea0ba0f : neg    v15.2s, v16.2s              : neg    %d16 $0x02 -> %d15
+2ea0bab4 : neg    v20.2s, v21.2s              : neg    %d21 $0x02 -> %d20
+2ea0bb59 : neg    v25.2s, v26.2s              : neg    %d26 $0x02 -> %d25
+2ea0bbdd : neg    v29.2s, v30.2s              : neg    %d30 $0x02 -> %d29
+
+# NEG (vector): NEG <Vd>.4s, <Vn>.4s
+6ea0b820 : neg    v0.4s, v1.4s                : neg    %q1 $0x02 -> %q0
+6ea0b8c5 : neg    v5.4s, v6.4s                : neg    %q6 $0x02 -> %q5
+6ea0b96a : neg    v10.4s, v11.4s              : neg    %q11 $0x02 -> %q10
+6ea0ba0f : neg    v15.4s, v16.4s              : neg    %q16 $0x02 -> %q15
+6ea0bab4 : neg    v20.4s, v21.4s              : neg    %q21 $0x02 -> %q20
+6ea0bb59 : neg    v25.4s, v26.4s              : neg    %q26 $0x02 -> %q25
+6ea0bbdd : neg    v29.4s, v30.4s              : neg    %q30 $0x02 -> %q29
+
+# NEG (vector): NEG <Vd>.2d, <Vn>.2d
+6ee0b820 : neg    v0.2d, v1.2d                : neg    %q1 $0x03 -> %q0
+6ee0b8c5 : neg    v5.2d, v6.2d                : neg    %q6 $0x03 -> %q5
+6ee0b96a : neg    v10.2d, v11.2d              : neg    %q11 $0x03 -> %q10
+6ee0ba0f : neg    v15.2d, v16.2d              : neg    %q16 $0x03 -> %q15
+6ee0bab4 : neg    v20.2d, v21.2d              : neg    %q21 $0x03 -> %q20
+6ee0bb59 : neg    v25.2d, v26.2d              : neg    %q26 $0x03 -> %q25
+6ee0bbdd : neg    v29.2d, v30.2d              : neg    %q30 $0x03 -> %q29
+
 6b1f7fff : negs   wzr, wzr, lsl #31       : subs   %wzr %wzr lsl $0x1f -> %wzr
 6b9f13ff : negs   wzr, wzr, asr #4        : subs   %wzr %wzr asr $0x04 -> %wzr
 eb5fffff : negs   xzr, xzr, lsr #63       : subs   %xzr %xzr lsr $0x3f -> %xzr
@@ -2437,16 +2679,124 @@ aa631041 : orn    x1, x2, x3, lsr #4      : orn    %x2 %x3 lsr $0x04 -> %x1
 0ee31c9c : orn v28.8b, v4.8b, v3.8b                 : orn    %d4 %d3 -> %d28
 4ee31c9c : orn v28.16b, v4.16b, v3.16b              : orn    %q4 %q3 -> %q28
 
-2a031041 : orr    w1, w2, w3, lsl #4      : orr    %w2 %w3 lsl $0x04 -> %w1
-32000441 : orr    w1, w2, #0x3            : orr    %w2 $0x00000003 -> %w1
-aa431041 : orr    x1, x2, x3, lsr #4      : orr    %x2 %x3 lsr $0x04 -> %x1
-b2400441 : orr    x1, x2, #0x3            : orr    %x2 $0x0000000000000003 -> %x1
+2a031041 : orr    w1, w2, w3, lsl #4                : orr    %w2 %w3 lsl $0x04 -> %w1
+32000441 : orr    w1, w2, #0x3                      : orr    %w2 $0x00000003 -> %w1
+aa431041 : orr    x1, x2, x3, lsr #4                : orr    %x2 %x3 lsr $0x04 -> %x1
+b2400441 : orr    x1, x2, #0x3                      : orr    %x2 $0x0000000000000003 -> %x1
 0ea01c5a : orr v26.8b, v2.8b, v0.8b                 : orr    %d2 %d0 -> %d26
 4ea01c5a : orr v26.16b, v2.16b, v0.16b              : orr    %q2 %q0 -> %q26
 04181da2 : orr z2.b, p7/m, z2.b, z13.b              : orr    %p7 %z2 %z13 $0x00 -> %z2
 04581da2 : orr z2.h, p7/m, z2.h, z13.h              : orr    %p7 %z2 %z13 $0x01 -> %z2
 04981da2 : orr z2.s, p7/m, z2.s, z13.s              : orr    %p7 %z2 %z13 $0x02 -> %z2
 04d81da2 : orr z2.d, p7/m, z2.d, z13.d              : orr    %p7 %z2 %z13 $0x03 -> %z2
+
+# ORR (vector, immediate): <Vd>.4h, #<imm8>{, LSL #0}
+0f009400 : orr v0.4h, #0, lsl #0                    : orr    $0x00 $0x04 -> %d0
+0f0296a0 : orr v0.4h, #85, lsl #0                   : orr    $0x55 $0x04 -> %d0
+0f059540 : orr v0.4h, #170, lsl #0                  : orr    $0xaa $0x04 -> %d0
+0f0797e0 : orr v0.4h, #255, lsl #0                  : orr    $0xff $0x04 -> %d0
+0f04940a : orr v10.4h, #128, lsl #0                 : orr    $0x80 $0x04 -> %d10
+0f049414 : orr v20.4h, #128, lsl #0                 : orr    $0x80 $0x04 -> %d20
+0f04941e : orr v30.4h, #128, lsl #0                 : orr    $0x80 $0x04 -> %d30
+
+# ORR (vector, immediate): <Vd>.4h, #<imm8>{, LSL #8}
+0f00b400 : orr v0.4h, #0, lsl #8                    : orr    $0x00 $0x05 -> %d0
+0f02b6a0 : orr v0.4h, #85, lsl #8                   : orr    $0x55 $0x05 -> %d0
+0f05b540 : orr v0.4h, #170, lsl #8                  : orr    $0xaa $0x05 -> %d0
+0f07b7e0 : orr v0.4h, #255, lsl #8                  : orr    $0xff $0x05 -> %d0
+0f04b40a : orr v10.4h, #128, lsl #8                 : orr    $0x80 $0x05 -> %d10
+0f04b414 : orr v20.4h, #128, lsl #8                 : orr    $0x80 $0x05 -> %d20
+0f04b41e : orr v30.4h, #128, lsl #8                 : orr    $0x80 $0x05 -> %d30
+
+# ORR (vector, immediate): <Vd>.8h, #<imm8>{, LSL #0}
+4f009400 : orr v0.8h, #0, lsl #0                    : orr    $0x00 $0x04 -> %q0
+4f0296a0 : orr v0.8h, #85, lsl #0                   : orr    $0x55 $0x04 -> %q0
+4f059540 : orr v0.8h, #170, lsl #0                  : orr    $0xaa $0x04 -> %q0
+4f0797e0 : orr v0.8h, #255, lsl #0                  : orr    $0xff $0x04 -> %q0
+4f04940a : orr v10.8h, #128, lsl #0                 : orr    $0x80 $0x04 -> %q10
+4f049414 : orr v20.8h, #128, lsl #0                 : orr    $0x80 $0x04 -> %q20
+4f04941e : orr v30.8h, #128, lsl #0                 : orr    $0x80 $0x04 -> %q30
+
+# ORR (vector, immediate): <Vd>.8h, #<imm8>{, LSL #8}
+4f00b400 : orr v0.8h, #0, lsl #8                    : orr    $0x00 $0x05 -> %q0
+4f02b6a0 : orr v0.8h, #85, lsl #8                   : orr    $0x55 $0x05 -> %q0
+4f05b540 : orr v0.8h, #170, lsl #8                  : orr    $0xaa $0x05 -> %q0
+4f07b7e0 : orr v0.8h, #255, lsl #8                  : orr    $0xff $0x05 -> %q0
+4f04b40a : orr v10.8h, #128, lsl #8                 : orr    $0x80 $0x05 -> %q10
+4f04b414 : orr v20.8h, #128, lsl #8                 : orr    $0x80 $0x05 -> %q20
+4f04b41e : orr v30.8h, #128, lsl #8                 : orr    $0x80 $0x05 -> %q30
+
+# ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #0}
+0f001400 : orr v0.2s, #0, lsl #0                    : orr    $0x00 $0x00 -> %d0
+0f0216a0 : orr v0.2s, #85, lsl #0                   : orr    $0x55 $0x00 -> %d0
+0f051540 : orr v0.2s, #170, lsl #0                  : orr    $0xaa $0x00 -> %d0
+0f0717e0 : orr v0.2s, #255, lsl #0                  : orr    $0xff $0x00 -> %d0
+0f04140a : orr v10.2s, #128, lsl #0                 : orr    $0x80 $0x00 -> %d10
+0f041414 : orr v20.2s, #128, lsl #0                 : orr    $0x80 $0x00 -> %d20
+0f04141e : orr v30.2s, #128, lsl #0                 : orr    $0x80 $0x00 -> %d30
+
+# ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #8}
+0f003400 : orr v0.2s, #0, lsl #8                    : orr    $0x00 $0x01 -> %d0
+0f0236a0 : orr v0.2s, #85, lsl #8                   : orr    $0x55 $0x01 -> %d0
+0f053540 : orr v0.2s, #170, lsl #8                  : orr    $0xaa $0x01 -> %d0
+0f0737e0 : orr v0.2s, #255, lsl #8                  : orr    $0xff $0x01 -> %d0
+0f04340a : orr v10.2s, #128, lsl #8                 : orr    $0x80 $0x01 -> %d10
+0f043414 : orr v20.2s, #128, lsl #8                 : orr    $0x80 $0x01 -> %d20
+0f04341e : orr v30.2s, #128, lsl #8                 : orr    $0x80 $0x01 -> %d30
+
+# ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #16}
+0f005400 : orr v0.2s, #0, lsl #16                  : orr    $0x00 $0x02 -> %d0
+0f0256a0 : orr v0.2s, #85, lsl #16                 : orr    $0x55 $0x02 -> %d0
+0f055540 : orr v0.2s, #170, lsl #16                : orr    $0xaa $0x02 -> %d0
+0f0757e0 : orr v0.2s, #255, lsl #16                : orr    $0xff $0x02 -> %d0
+0f04540a : orr v10.2s, #128, lsl #16               : orr    $0x80 $0x02 -> %d10
+0f045414 : orr v20.2s, #128, lsl #16               : orr    $0x80 $0x02 -> %d20
+0f04541e : orr v30.2s, #128, lsl #16               : orr    $0x80 $0x02 -> %d30
+
+# ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #24}
+0f007400 : orr v0.2s, #0, lsl #24                  : orr    $0x00 $0x03 -> %d0
+0f0276a0 : orr v0.2s, #85, lsl #24                 : orr    $0x55 $0x03 -> %d0
+0f057540 : orr v0.2s, #170, lsl #24                : orr    $0xaa $0x03 -> %d0
+0f0777e0 : orr v0.2s, #255, lsl #24                : orr    $0xff $0x03 -> %d0
+0f04740a : orr v10.2s, #128, lsl #24               : orr    $0x80 $0x03 -> %d10
+0f047414 : orr v20.2s, #128, lsl #24               : orr    $0x80 $0x03 -> %d20
+0f04741e : orr v30.2s, #128, lsl #24               : orr    $0x80 $0x03 -> %d30
+
+# ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #0}
+4f001400 : orr v0.4s, #0, lsl #0                   : orr    $0x00 $0x00 -> %q0
+4f0216a0 : orr v0.4s, #85, lsl #0                  : orr    $0x55 $0x00 -> %q0
+4f051540 : orr v0.4s, #170, lsl #0                 : orr    $0xaa $0x00 -> %q0
+4f0717e0 : orr v0.4s, #255, lsl #0                 : orr    $0xff $0x00 -> %q0
+4f04140a : orr v10.4s, #128, lsl #0                : orr    $0x80 $0x00 -> %q10
+4f041414 : orr v20.4s, #128, lsl #0                : orr    $0x80 $0x00 -> %q20
+4f04141e : orr v30.4s, #128, lsl #0                : orr    $0x80 $0x00 -> %q30
+
+# ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #8}
+4f003400 : orr v0.4s, #0, lsl #8                   : orr    $0x00 $0x01 -> %q0
+4f0236a0 : orr v0.4s, #85, lsl #8                  : orr    $0x55 $0x01 -> %q0
+4f053540 : orr v0.4s, #170, lsl #8                 : orr    $0xaa $0x01 -> %q0
+4f0737e0 : orr v0.4s, #255, lsl #8                 : orr    $0xff $0x01 -> %q0
+4f04340a : orr v10.4s, #128, lsl #8                : orr    $0x80 $0x01 -> %q10
+4f043414 : orr v20.4s, #128, lsl #8                : orr    $0x80 $0x01 -> %q20
+4f04341e : orr v30.4s, #128, lsl #8                : orr    $0x80 $0x01 -> %q30
+
+# ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #16}
+4f005400 : orr v0.4s, #0, lsl #16                  : orr    $0x00 $0x02 -> %q0
+4f0256a0 : orr v0.4s, #85, lsl #16                 : orr    $0x55 $0x02 -> %q0
+4f055540 : orr v0.4s, #170, lsl #16                : orr    $0xaa $0x02 -> %q0
+4f0757e0 : orr v0.4s, #255, lsl #16                : orr    $0xff $0x02 -> %q0
+4f04540a : orr v10.4s, #128, lsl #16               : orr    $0x80 $0x02 -> %q10
+4f045414 : orr v20.4s, #128, lsl #16               : orr    $0x80 $0x02 -> %q20
+4f04541e : orr v30.4s, #128, lsl #16               : orr    $0x80 $0x02 -> %q30
+
+# ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #24}
+4f007400 : orr v0.4s, #0, lsl #24                  : orr    $0x00 $0x03 -> %q0
+4f0276a0 : orr v0.4s, #85, lsl #24                 : orr    $0x55 $0x03 -> %q0
+4f057540 : orr v0.4s, #170, lsl #24                : orr    $0xaa $0x03 -> %q0
+4f0777e0 : orr v0.4s, #255, lsl #24                : orr    $0xff $0x03 -> %q0
+4f04740a : orr v10.4s, #128, lsl #24               : orr    $0x80 $0x03 -> %q10
+4f047414 : orr v20.4s, #128, lsl #24               : orr    $0x80 $0x03 -> %q20
+4f04741e : orr v30.4s, #128, lsl #24               : orr    $0x80 $0x03 -> %q30
 
 2e2c9f1a : pmul v26.8b, v24.8b, v12.8b              : pmul   %d24 %d12 $0x00 -> %d26
 6e2c9f1a : pmul v26.16b, v24.16b, v12.16b           : pmul   %q24 %q12 $0x00 -> %q26
