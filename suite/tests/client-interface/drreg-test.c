@@ -728,8 +728,8 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_22_ASM
         mov      TEST_REG_ASM, DRREG_TEST_22_ASM
         /* Set overflow bit. */
-        mov      al, 0x60
-        add      al, 0x60
+        mov      al, 100
+        add      al, 100
         /* Set other aflags. */
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
@@ -761,8 +761,8 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_28_ASM
         mov      TEST_REG_ASM, DRREG_TEST_28_ASM
         /* Set overflow bit. */
-        mov      al, 0x60
-        add      al, 0x60
+        mov      al, 100
+        add      al, 100
         /* Set other aflags. */
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
