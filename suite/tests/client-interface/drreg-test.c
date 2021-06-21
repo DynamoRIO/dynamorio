@@ -532,6 +532,7 @@ GLOBAL_LABEL(FUNCNAME:)
         cmp      TEST_REG_ASM, DRREG_TEST_13_ASM
         je       epilog
         ud2
+
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
