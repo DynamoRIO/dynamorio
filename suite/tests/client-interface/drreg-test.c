@@ -727,6 +727,10 @@ GLOBAL_LABEL(FUNCNAME:)
      test22:
         mov      TEST_REG_ASM, DRREG_TEST_22_ASM
         mov      TEST_REG_ASM, DRREG_TEST_22_ASM
+        /* Set overflow bit. */
+        mov      al, 0x60
+        add      al, 0x60
+        /* Set other aflags. */
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
 
@@ -741,14 +745,25 @@ GLOBAL_LABEL(FUNCNAME:)
      test22_done:
         /* Fail if aflags were not restored correctly. */
         lahf
+        seto     al
         cmp      ah, DRREG_TEST_AFLAGS_ASM
-        je       test28
+        jne      test22_fail
+        cmp      al, 1
+        jne      test22_fail
+        jmp      test28
+     test22_fail:
         ud2
+        /* Unreachable, but we want this bb to end here. */
+        jmp      test28
 
         /* Test 28: Aflags spilled to xax, and xax statelessly restored. */
      test28:
         mov      TEST_REG_ASM, DRREG_TEST_28_ASM
         mov      TEST_REG_ASM, DRREG_TEST_28_ASM
+        /* Set overflow bit. */
+        mov      al, 0x60
+        add      al, 0x60
+        /* Set other aflags. */
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
         /* aflags reserved here; spilled to xax. */
@@ -761,9 +776,16 @@ GLOBAL_LABEL(FUNCNAME:)
      test28_done:
         /* Fail if aflags were not restored correctly. */
         lahf
+        seto     al
         cmp      ah, DRREG_TEST_AFLAGS_ASM
-        je       epilog
+        jne      test28_fail
+        cmp      al, 1
+        jne      test28_fail
+        jmp      epilog
+     test28_fail:
         ud2
+        /* Unreachable, but we want this bb to end here. */
+        jmp      epilog
 
      epilog:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1500,7 +1522,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* - app2app reserves TEST_REG_ASM here, but doesn't write it.
          * - insertion reserves TEST_REG_ASM here, which may confuse the
          *   state restoration logic into overwritting the spill slot for
-         *   TEST_REG_ASM as it still has its native value.
+         *   TEST_REG_ASM as the new slot also has its native value.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* - insertion phase unreserves TEST_REG_ASM and frees the spill
@@ -1735,7 +1757,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* Read aflags so that it is restored once. */
-        lahf
+        seto     al
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         mov      REG_XAX, 0
@@ -1809,21 +1831,21 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
 
-        /* - app2app reserves TEST_REG_ASM here, but doesn't write it.
-         * - insertion reserves TEST_REG_ASM here, which may confuse the
+        /* - app2app reserves aflags here, but doesn't write it.
+         * - insertion reserves aflags here, which may confuse the
          *   state restoration logic into overwritting the spill slot for
-         *   TEST_REG_ASM as it still has its native value.
+         *   aflags as the new slot also has its native value.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        /* - insertion phase unreserves TEST_REG_ASM and frees the spill
+        /* - insertion phase unreserves aflags and frees the spill
          *   slot.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        /* - insertion phase reserves TEST_REG2_ASM which would use the
-         *   same spill slot as freed above, and overwrite TEST_REG_ASM
-         *   value stored there currently. After this TEST_REG_ASM can
+        /* - insertion phase reserves TEST_REG_ASM which would use the
+         *   same spill slot as freed above, and overwrite the aflags
+         *   value stored there currently. After this native aflags can
          *   only be found in its app2app spill slot.
-         * - insertion phase writes to TEST_REG_ASM so that we need to
+         * - insertion phase writes to aflags so that we need to
          *   restore it.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3

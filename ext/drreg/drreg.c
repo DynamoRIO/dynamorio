@@ -1985,7 +1985,6 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
         }
     }
     instr_free(drcontext, &inst);
-
     if (aflags_slot < MAX_SPILLS || aflags_reg != DR_REG_NULL) {
         reg_t newval = info->mcontext->xflags;
         reg_t val;

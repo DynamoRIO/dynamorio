@@ -757,14 +757,30 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             /* So that the slot is released and can be reused below and overwritten. */
             CHECK(drreg_restore_app_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "unable to restore app aflags");
-            write_aflags(drcontext, bb, inst);
         } else if (instr_is_mov_constant(inst, &val) &&
                    val == TEST_INSTRUMENTATION_MARKER_3) {
-            uint tls_offs = spill_aflags_to_slot(drcontext, bb, inst, false);
+#ifdef X86
+            /* For X86, we need to reserve an extra gpr to use the aflags slot freed
+             * above. This is because we had freed the slot used to spill xax in
+             * ensure_aflags_in_slot. For other arch, that register is still in the
+             * slot due to lazy restore.
+             */
+            spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG2, &allowed_test_reg_2,
+                                   false);
+#endif
+            uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
+                                                   &allowed_test_reg_1, false);
             CHECK(tls_offs == tls_offs_aflags, "must use the freed up slot");
+            write_aflags(drcontext, bb, inst);
         } else if (drmgr_is_last_instr(drcontext, inst)) {
-            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
-                  "cannot unreserve aflags");
+#ifdef X86
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG2) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
+#endif
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
         }
 #ifdef X86
     } else if (subtest == DRREG_TEST_28_C) {
