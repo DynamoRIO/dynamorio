@@ -52,7 +52,7 @@ operating system (Windows, Linux, or Android) and commodity IA-32, AMD64,
 ARM, and AArch64 hardware.  See \ref sec_limit_platforms for details of
 which platform combinations are fully supported.
 
-This document describes the DynamoRIO system and the various API's that it
+This document describes the DynamoRIO system and the various APIs that it
 exports for building custom tools.  It is divided into the following
 sections:
 

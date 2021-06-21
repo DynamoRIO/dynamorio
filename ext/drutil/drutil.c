@@ -691,11 +691,6 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
         ASSERT(opnd_uses_reg(xcx, DR_REG_XCX), "rep string opnd order mismatch");
         ASSERT(inst == instrlist_last(bb), "repstr not alone in bb");
 
-        /* XXX i#4865: This is a different type of emulation where we want
-         * observational clients to look at the original instruction for instruction
-         * fetch info but the emulation sequence for data load/store info.  We need
-         * some kind of flag in emulated_instr_t to indicate this.
-         */
         emulated_instr_t emulated_instr;
         emulated_instr.size = sizeof(emulated_instr);
         emulated_instr.pc = xl8;
@@ -706,7 +701,11 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
          * use the flag to mark the whole block as emulated.
          */
         emulated_instr.flags = DR_EMULATE_REST_OF_BLOCK |
-            /* Tools should instrument the data operations in the sequence. */
+            /* This is a different type of emulation where we want
+             * observational clients to look at the original instruction for instruction
+             * fetch info but the emulation sequence for data load/store info.  We use
+             * this flag in emulated_instr_t to indicate this.
+             */
             DR_EMULATE_INSTR_ONLY;
         drmgr_insert_emulation_start(drcontext, bb, inst, &emulated_instr);
 

@@ -53,9 +53,16 @@ less available in future phases; the current logic skips over a slot if
 there's a usage found anywhere later in the bb added by any previous phase.
 So it requires additional spill slots as well.
 
-CAUTION: this extension is still a work in progress.  Not all pieces are
-implemented yet, and the interface may be in flux until the details are
-finalized.
+Note that DR provides other APIs to save or restore regs, like \p
+dr_save_reg() and \p dr_restore_reg(), and the corresponding \p
+dr_read_saved_reg() and \p dr_write_saved_reg(). They use DR spill slots.
+drreg may also use DR spill slots if not given enough dedicated slots via
+#drreg_options_t.num_spill_slots. It is unsafe to mix usages of drreg and
+these direct APIs as it may cause conflicts in slot usages within the same
+client or with other clients/libraries. Therefore, all cooperating client
+components should use drreg. Also, clients should make sure to request
+sufficient dedicated slots from drreg. See documentation of
+#drreg_options_t.num_spill_slots for more details.
 
  - \ref sec_drreg_setup
  - \ref sec_drreg_usage
