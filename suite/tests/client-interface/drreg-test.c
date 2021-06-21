@@ -710,7 +710,13 @@ GLOBAL_LABEL(FUNCNAME:)
      test13:
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
         mov      TEST_REG_ASM, DRREG_TEST_13_ASM
-        nop
+        /* app2app phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* app2app phase will unreserve TEST_REG_ASM here. */
         jmp      test13_done
      test13_done:
         /* Fail if reg was not restored correctly. */
@@ -723,7 +729,14 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_22_ASM
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
-        nop
+
+        /* app2app phase will reserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* app2app phase will unreserve aflags here. */
         jmp      test22_done
      test22_done:
         /* Fail if aflags were not restored correctly. */
@@ -787,7 +800,13 @@ GLOBAL_LABEL(FUNCNAME:)
      test13:
         movw     TEST_REG_ASM, DRREG_TEST_13_ASM
         movw     TEST_REG_ASM, DRREG_TEST_13_ASM
-        nop
+        /* app2app phase will reserve TEST_REG_ASM here. */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve TEST_REG_ASM here. */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve TEST_REG_ASM here. */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* app2app phase will unreserve TEST_REG_ASM here. */
         b        test13_done
      test13_done:
         /* Fail if reg was not restored correctly. */
@@ -799,7 +818,13 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_22_ASM
         movw     TEST_REG_ASM, DRREG_TEST_22_ASM
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
-        nop
+        /* app2app phase will reserve aflags here. */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve aflags here. */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve aflags here. */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* app2app phase will unreserve aflags here. */
         b        test22_done
      test22_done:
         /* Fail if aflags were not restored correctly. */
@@ -841,7 +866,13 @@ GLOBAL_LABEL(FUNCNAME:)
      test13:
         movz     TEST_REG_ASM, DRREG_TEST_13_ASM
         movz     TEST_REG_ASM, DRREG_TEST_13_ASM
-        nop
+        /* app2app phase will reserve TEST_REG_ASM here. */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve TEST_REG_ASM here. */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve TEST_REG_ASM here. */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* app2app phase will unreserve TEST_REG_ASM here. */
         b        test13_done
      test13_done:
         /* Fail if reg was not restored correctly. */
@@ -856,7 +887,13 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_22_ASM
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
         msr      nzcv, TEST_REG2_ASM
-        nop
+        /* app2app phase will reserve aflags here. */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve aflags here. */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve aflags here. */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* app2app phase will unreserve aflags here. */
         b        test22_done
      test22_done:
         /* Fail if aflags were not restored correctly. */
@@ -886,6 +923,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_3_ASM
         mov      TEST_REG_ASM, DRREG_TEST_3_ASM
         nop
+
         ud2
 
         jmp      epilog2
@@ -901,6 +939,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_3_ASM
         movw     TEST_REG_ASM, DRREG_TEST_3_ASM
         nop
+
         .word 0xe7f000f0 /* udf */
 
         b        epilog2
@@ -914,6 +953,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_3_ASM
         movz     TEST_REG_ASM, DRREG_TEST_3_ASM
         nop
+
         .inst 0xf36d19 /* udf */
 
         b        epilog2
@@ -939,6 +979,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
         nop
+
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -957,6 +998,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* XXX: also test GE flags */
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
         nop
+
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
 
@@ -973,6 +1015,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
         msr      nzcv, TEST_REG2_ASM
         nop
+
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
@@ -999,6 +1042,7 @@ GLOBAL_LABEL(FUNCNAME:)
         nop
         mov      TEST_REG_ASM, DRREG_TEST_7_ASM
         nop
+
         ud2
 
         jmp      epilog6
@@ -1128,9 +1172,15 @@ GLOBAL_LABEL(FUNCNAME:)
      test14:
         mov      TEST_REG_ASM, DRREG_TEST_14_ASM
         mov      TEST_REG_ASM, DRREG_TEST_14_ASM
-        nop
-        ud2
+        /* app2app phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
+        ud2
+        /* app2app phase will unreserve TEST_REG_ASM here. */
         jmp      epilog14
      epilog14:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1142,7 +1192,10 @@ GLOBAL_LABEL(FUNCNAME:)
      test14:
         movw     TEST_REG_ASM, DRREG_TEST_14_ASM
         movw     TEST_REG_ASM, DRREG_TEST_14_ASM
-        nop
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         .word 0xe7f000f0 /* udf */
 
         b        epilog14
@@ -1154,7 +1207,10 @@ GLOBAL_LABEL(FUNCNAME:)
      test14:
         movz     TEST_REG_ASM, DRREG_TEST_14_ASM
         movz     TEST_REG_ASM, DRREG_TEST_14_ASM
-        nop
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         .inst 0xf36d19 /* udf */
 
         b        epilog14
@@ -1182,6 +1238,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
         nop
+
         ud2
         /* xax is dead, so should not need to spill aflags to slot. */
         mov      REG_XAX, 0
@@ -1219,6 +1276,7 @@ GLOBAL_LABEL(FUNCNAME:)
         nop
         /* Read reg so that it is restored once. */
         add      TEST_REG2_ASM, TEST_REG_ASM
+
         mov      REG_XCX, 0
         mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
         jmp      epilog16
@@ -1235,6 +1293,7 @@ GLOBAL_LABEL(FUNCNAME:)
         nop
         /* Read reg so that it is restored once. */
         add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
 
@@ -1250,6 +1309,7 @@ GLOBAL_LABEL(FUNCNAME:)
         nop
         /* Read reg so that it is restored once. */
         add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
+
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
@@ -1277,12 +1337,13 @@ GLOBAL_LABEL(FUNCNAME:)
      test17:
         mov      TEST_REG_ASM, DRREG_TEST_17_ASM
         mov      TEST_REG_ASM, DRREG_TEST_17_ASM
-        /* app2app phase will reserve TEST_REG_ASM here and write to it. */
+        /* app2app phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         /* insertion phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* app2app phase will release TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         mov      REG_XCX, 0
         mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
         /* insertion phase will release TEST_REG_ASM here. */
@@ -1300,6 +1361,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
 
@@ -1315,6 +1377,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
@@ -1339,6 +1402,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_18_ASM
         mov      TEST_REG_ASM, DRREG_TEST_18_ASM
         nop
+
         ud2
 
         jmp      epilog18
@@ -1353,6 +1417,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_18_ASM
         movw     TEST_REG_ASM, DRREG_TEST_18_ASM
         nop
+
         .word 0xe7f000f0 /* udf */
 
         b        epilog18
@@ -1365,6 +1430,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_18_ASM
         movz     TEST_REG_ASM, DRREG_TEST_18_ASM
         nop
+
         .inst 0xf36d19 /* udf */
 
         b        epilog18
@@ -1449,6 +1515,7 @@ GLOBAL_LABEL(FUNCNAME:)
          *   restore it.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         ud2
 
         jmp      epilog20
@@ -1465,6 +1532,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         .word 0xe7f000f0 /* udf */
 
         b        epilog20
@@ -1479,6 +1547,7 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
         .inst 0xf36d19 /* udf */
 
         b        epilog20
@@ -1505,11 +1574,18 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_21_ASM
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
-        nop
+
+        /* app2app phase will reserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* insertion phase will reserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
+        /* app2app phase will unreserve aflags here. */
         jmp      epilog21
      epilog21:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1522,7 +1598,10 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_21_ASM
         movw     TEST_REG_ASM, DRREG_TEST_21_ASM
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
-        nop
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
@@ -1538,7 +1617,10 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_21_ASM
         movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
         msr      nzcv, TEST_REG2_ASM
-        nop
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
@@ -1878,6 +1960,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      ah, DRREG_TEST_AFLAGS_ASM
         sahf
         nop
+
         ud2
         /* xax is dead, so should not need to spill aflags to slot. */
         mov      REG_XAX, 0
