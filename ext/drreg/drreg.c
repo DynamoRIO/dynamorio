@@ -1178,8 +1178,9 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
          * and then restored from the slot to reg at `where_respill`. This is done locally
          * to this routine, and doesn't affect any existing drreg state (so this routine
          * continues to be 'stateless'). This spill slot is used only between
-         * `where_restore` and `where_respill`; we assume there's no app instr in between
-         * these, where some new reservation could be made that overwrites this temp slot.
+         * `where_restore` and `where_respill`; we assume there's no new drreg reservation
+         * by the client in between these, which could spill to this temp slot and clobber
+         * native aflags value.
          *
          * The first step (spilling of aflags from reg to slot) is done by
          * drreg_restore_app_value above which invokes drreg_move_aflags_from_reg with
