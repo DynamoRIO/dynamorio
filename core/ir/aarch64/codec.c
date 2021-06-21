@@ -1782,11 +1782,11 @@ encode_opnd_imm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
         return false;
     uint eight_bits = opnd_get_immed_int(opnd);
 
-    uint enc_top;
+    uint enc_top = 0;
     opnd = opnd_create_immed_uint((eight_bits >> 5) & 0b111, OPSZ_3b);
     encode_opnd_int(16, 3, false, false, 0, opnd, &enc_top);
 
-    uint enc_bottom;
+    uint enc_bottom = 0;
     opnd = opnd_create_immed_uint(eight_bits & 0b11111, OPSZ_5b);
     encode_opnd_int(5, 5, false, false, 0, opnd, &enc_bottom);
 
@@ -3056,8 +3056,8 @@ decode_opnd_wx0_imm5_q(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_wx0_imm5_q(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    uint num;
-    bool is_x;
+    uint num = 0;
+    bool is_x = false;
     if (!opnd_is_reg(opnd))
         ASSERT(false);
     if (!encode_reg(&num, &is_x, opnd_get_reg(opnd), false))
