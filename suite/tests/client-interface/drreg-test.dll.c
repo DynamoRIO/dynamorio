@@ -98,7 +98,7 @@ spill_test_reg_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst,
 }
 
 static void
-aflags_ensure_in_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
+ensure_aflags_in_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
 {
 #ifdef X86
     /* Make sure that aflags are spilled to some slot, instead of being stored in xax.
@@ -138,7 +138,7 @@ spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst, bool overw
     bool is_dr_slot;
     CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
           "cannot reserve aflags");
-    aflags_ensure_in_slot(drcontext, bb, inst);
+    ensure_aflags_in_slot(drcontext, bb, inst);
     if (overwrite) {
         /* Load aflags with some value so that we need to restore it later. */
         write_aflags(drcontext, bb, inst);
@@ -726,7 +726,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             /* After app2app releases aflags, it'll be stored in rax as it is dead.
              * But we want it to be in a slot for this test.
              */
-            aflags_ensure_in_slot(drcontext, bb, inst);
+            ensure_aflags_in_slot(drcontext, bb, inst);
             /* Write aflags so that we need to restore later. */
             write_aflags(drcontext, bb, inst);
         } else if (drmgr_is_last_instr(drcontext, inst)) {
