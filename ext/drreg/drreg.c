@@ -1173,10 +1173,20 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
          */
 #ifdef X86
     if (reg != DR_REG_NULL && pt->aflags.xchg == reg) {
-        /* drreg_restore_app_value invokes drreg_move_aflags_from_reg with stateful=false
-         * above. This spills aflags to some slot, regardless of whether they are live or
-         * not. Also, even though aflags are spilled to a slot, pt->aflags.xchg is not
-         * cleared. Below, we restore aflags to xax, and forget the spill slot.
+        ASSERT(reg == DR_REG_XAX, "xax is the only x86 reg that may have spilled aflags");
+        /* If reg has aflags, they need to be spilled from reg to slot at `where_restore`,
+         * and then restored from the slot to reg at `where_respill`. This is done locally
+         * to this routine, and doesn't affect any existing drreg state (so this routine
+         * continues to be 'stateless'). This spill slot is used only between
+         * `where_restore` and `where_respill`; we assume there's no app instr in between
+         * these, where some new reservation could be made that overwrites this temp slot.
+         *
+         * The first step (spilling of aflags from reg to slot) is done by
+         * drreg_restore_app_value above which invokes drreg_move_aflags_from_reg with
+         * stateful=false, which spills aflags to some slot regardless of whether they are
+         * live or not. Also, even though aflags are spilled to a slot, pt->aflags.xchg is
+         * not cleared. Below, we do the second step (restore aflags from slot to reg), and
+         * forget the spill slot.
          */
         ASSERT(pt->aflags.slot != MAX_SPILLS, "Aflags slot not reserved");
         restore_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where_respill,
