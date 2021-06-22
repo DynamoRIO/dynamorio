@@ -1130,6 +1130,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *wher
          // bundle-ends-in-this-branch-type to avoid this but for now it's not worth it.
          (!op_offline.get_value() && !op_online_instr_types.get_value())) &&
         ud->strex == NULL &&
+        // Don't bundle emulated instructions, as they sometimes have internal control
+        // flow and other complications that could cause us to skip an instruction.
+        !drmgr_in_emulation_region(drcontext, NULL) &&
         // We can't bundle with a filter.
         !op_L0_filter.get_value() &&
         // The delay instr buffer is not full.

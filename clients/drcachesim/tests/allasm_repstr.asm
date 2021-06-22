@@ -39,6 +39,14 @@ _start:
         // Align stack pointer to cache line.
         and      rsp, -16
 
+        // Test a zero-iter rep string loop.
+        mov      ecx, 0
+        lea      esi, bye_str
+        lea      edi, hello_str
+        cld
+        rep      movsd
+
+        // Test a rep string loop.
         mov      ecx, 5
         lea      esi, bye_str
         lea      edi, hello_str
@@ -46,7 +54,7 @@ _start:
         rep      movsb
 
         // Print end message.
-        mov      rdi, 1           // stdout
+        mov      rdi, 2           // stderr
         lea      rsi, hello_str
         mov      rdx, 13          // sizeof(hello_str)
         mov      eax, 1           // SYS_write
