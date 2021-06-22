@@ -1012,7 +1012,7 @@ flow such as signal handler entry and exit.
 
 Filtered traces (filtered via -L0_filter) include the dynamic (pre-filtered)
 per-thread instruction count in a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at
-thread exit.
+each thread buffer boundary and at thread exit.
 
 A final feature that aids core simulators is the pair of interfaces
 module_mapper_t::get_loaded_modules() and
