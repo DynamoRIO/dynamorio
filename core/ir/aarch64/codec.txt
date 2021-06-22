@@ -135,6 +135,7 @@
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
+--------??xx--------x-----------  index_lhm  # imm3 from bits 11, 21 and/or 20 inferred from sz
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)
@@ -1055,6 +1056,7 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x001110xx1xxxxx100001xxxxxxxxxx     add       dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx100011xxxxxxxxxx     cmtst     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx100101xxxxxxxxxx     mla       dq0 : dq0 dq5 dq16 bhs_sz
+0x101111xxxxxxxx0000x0xxxxxxxxxx     mla       dq0 : dq5 dq16_h_sz bhsd_sz index_lhm
 0x001110xx1xxxxx100111xxxxxxxxxx     mul       dq0 : dq5 dq16 bhs_sz
 0x001111xxxxxxxx1000x0xxxxxxxxxx     mul       dq0 : dq5 dq16_h_sz vindex_H hs_sz
 0x001110xx1xxxxx101001xxxxxxxxxx     smaxp     dq0 : dq5 dq16 bhs_sz
@@ -1099,6 +1101,7 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x101110xx1xxxxx100001xxxxxxxxxx     sub       dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100011xxxxxxxxxx     cmeq      dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100101xxxxxxxxxx     mls       dq0 : dq0 dq5 dq16 bhs_sz
+0x101111xxxxxxxx0100x0xxxxxxxxxx     mls       dq0 : dq5 dq16_h_sz bhsd_sz index_lhm
 0x101110xx1xxxxx100111xxxxxxxxxx     pmul      dq0 : dq5 dq16 b_sz
 0x101110xx1xxxxx101001xxxxxxxxxx     umaxp     dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx101011xxxxxxxxxx     uminp     dq0 : dq5 dq16 bhs_sz
@@ -1350,5 +1353,6 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 00001110000xxxxx000011xxxxxxxxxx     dup       d0 : w5 imm5
 01001110000xxxxx000011xxxxxxxxxx     dup       q0 : x5 imm5
 
+0x001110xx110001101110xxxxxxxxxx     addv      dq0 : dq5 bhsd_sz
 0111111011100000101110xxxxxxxxxx     neg       q0 : q5
 0x101110xx100000101110xxxxxxxxxx     neg       dq0 : dq5 bhsd_sz
