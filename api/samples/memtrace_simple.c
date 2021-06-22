@@ -43,6 +43,9 @@
  * - mem ref instr: e.g., { type = 42 (call), size = 5, addr = 0x7f59c2d002d3 }
  * - mem ref info:  e.g., { type = 1 (write), size = 8, addr = 0x7ffeacab0ec8 }.
  *
+ * Each memory-referencing instruction is output as an instruction entry followed
+ * by a sequence of loads and stores performed by that instruction, if any.
+ *
  * This sample illustrates
  * - the use of drutil_expand_rep_string() to expand string loops to obtain
  *   every memory reference;
