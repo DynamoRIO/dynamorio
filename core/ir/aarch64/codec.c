@@ -251,9 +251,9 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
 static inline reg_id_t
 decode_reg(uint n, bool is_x, bool is_sp)
 {
-    return (n < 31 ? (is_x ? DR_REG_X0 : DR_REG_W0) + n
-                   : is_sp ? (is_x ? DR_REG_XSP : DR_REG_WSP)
-                           : (is_x ? DR_REG_XZR : DR_REG_WZR));
+    return (n < 31      ? (is_x ? DR_REG_X0 : DR_REG_W0) + n
+                : is_sp ? (is_x ? DR_REG_XSP : DR_REG_WSP)
+                        : (is_x ? DR_REG_XZR : DR_REG_WZR));
 }
 
 /* Encode integer register. */
@@ -2470,9 +2470,9 @@ decode_opnd_index_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     opnd_size_t opsz = OPSZ_2b;
 
     uint sz = extract_uint(enc, 22, 2);
-    if(sz < 0b01 || sz > 0b11)
+    if (sz < 0b01 || sz > 0b11)
         return false;
-    if(sz == 0b01){
+    if (sz == 0b01) {
         uint m = extract_uint(enc, 20, 1);
         value = (value << 1) | m;
         opsz = OPSZ_3b;
@@ -2486,9 +2486,9 @@ static inline bool
 encode_opnd_index_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     uint sz = extract_uint(enc, 22, 2);
-    if(sz < 0b01 || sz > 0b11)
+    if (sz < 0b01 || sz > 0b11)
         return false;
-    if(!opnd_is_immed_int(opnd))
+    if (!opnd_is_immed_int(opnd))
         return false;
     uint val = opnd_get_immed_int(opnd);
     if (sz == 0b10)
