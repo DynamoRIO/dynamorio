@@ -1445,6 +1445,23 @@ encode_opnd_p10_low(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_p(10, 7, opnd, enc_out);
 }
 
+/* imm4 encoded in bits 11-14 */
+static inline bool
+decode_opnd_imm4idx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint value = extract_uint(enc, 11, 4);
+    *opnd = opnd_create_immed_uint(value, OPSZ_4b);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm4idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    return encode_opnd_int(11, 4, false, 0, 0, opnd, enc_out);
+}
+
 /* ign10: ignored register field at bit position 10 in load/store exclusive */
 
 static inline bool
@@ -1541,6 +1558,26 @@ static inline bool
 encode_opnd_ext(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(13, 3, false, 0, DR_OPND_IS_EXTEND, opnd, enc_out);
+}
+
+/* cmode3: 3 bit int decoded from bits 13-15 */
+
+static inline bool
+decode_opnd_cmode3(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int value = extract_uint(enc, 13, 3);
+    *opnd = opnd_create_immed_uint(value, OPSZ_3b);
+    return true;
+}
+
+static inline bool
+encode_opnd_cmode3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    int value = opnd_get_immed_int(opnd);
+    opnd = opnd_create_immed_uint(value, OPSZ_3b);
+    return encode_opnd_int(13, 3, false, false, 0, opnd, enc_out);
 }
 
 /* cond: condition operand for conditional compare */
@@ -1726,6 +1763,37 @@ encode_opnd_fpimm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return true;
 }
 
+/* imm8: an 8 bit uint stitched together from 2 parts of bits 16-18 and 5-9*/
+
+static inline bool
+decode_opnd_imm8(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int value_0 = extract_uint(enc, 16, 3);
+    int value_1 = extract_uint(enc, 5, 5);
+    int value = (value_0 << 5) | value_1;
+    *opnd = opnd_create_immed_uint(value, OPSZ_1);
+    return true;
+}
+
+static inline bool
+encode_opnd_imm8(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+    uint eight_bits = opnd_get_immed_int(opnd);
+
+    uint enc_top = 0;
+    opnd = opnd_create_immed_uint((eight_bits >> 5) & 0b111, OPSZ_3b);
+    encode_opnd_int(16, 3, false, false, 0, opnd, &enc_top);
+
+    uint enc_bottom = 0;
+    opnd = opnd_create_immed_uint(eight_bits & 0b11111, OPSZ_5b);
+    encode_opnd_int(5, 5, false, false, 0, opnd, &enc_bottom);
+
+    *enc_out = enc_top | enc_bottom;
+    return true;
+}
+
 /* sysops: immediate operand for SYS instruction which specifies SYS operations */
 
 static inline bool
@@ -1756,6 +1824,47 @@ encode_opnd_sysreg(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     if (!encode_sysreg(&t, opnd))
         return false;
     *enc_out = t << 5;
+    return true;
+}
+
+/* helper function for getting the index of the least
+   significant high bit of a 5 bit immediate, e.g.
+   00001 = 0, 00010 = 1, 00100 = 2 ...
+*/
+static inline int
+get_imm5_offset(int val)
+{
+    for (int i = 0; i < 4; i++) {
+        if ((1 << i) & val) {
+            return i;
+        }
+    }
+    ASSERT(false);
+    return -1;
+}
+
+/* wx5_imm5: bits 5-9 is a GPR whos width is dependent on information in
+   an imm5 from bits 16-20
+*/
+static inline bool
+decode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint imm5 = extract_int(enc, 16, 5);
+    bool is_x_register = get_imm5_offset(imm5) == 3 ? true : false;
+    *opnd = opnd_create_reg(decode_reg(extract_uint(enc, 5, 5), is_x_register, false));
+    return true;
+}
+
+static inline bool
+encode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd))
+        ASSERT(false);
+    uint num;
+    bool is_x;
+    if (!encode_reg(&num, &is_x, opnd_get_reg(opnd), false))
+        ASSERT(false);
+    *enc_out = num << 5;
     return true;
 }
 
@@ -2929,6 +3038,33 @@ encode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     if (num >= 16)
         return false;
     *enc_out = num << 16 | (uint)q << 30;
+    return true;
+}
+
+/* wx0_imm5: bits 0-4 is a GPR whos width is dependent on information in
+   an imm5 from bits 16-20 and Q from bit 30
+*/
+static inline bool
+decode_opnd_wx0_imm5_q(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint imm5 = extract_int(enc, 16, 5);
+    bool is_x_register = get_imm5_offset(imm5) == 3 ? true : false;
+    *opnd = opnd_create_reg(decode_reg(extract_uint(enc, 0, 5), is_x_register, false));
+    return true;
+}
+
+static inline bool
+encode_opnd_wx0_imm5_q(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint num = 0;
+    bool is_x = false;
+    if (!opnd_is_reg(opnd))
+        ASSERT(false);
+    if (!encode_reg(&num, &is_x, opnd_get_reg(opnd), false))
+        ASSERT(false);
+    *enc_out = num;
+    if (is_x)
+        *enc_out |= (1 << 30);
     return true;
 }
 
