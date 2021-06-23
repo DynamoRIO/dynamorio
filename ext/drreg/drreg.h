@@ -491,7 +491,7 @@ DR_EXPORT
  * For correct operation on x86 in the case when aflags are in xax and this routine
  * is invoked to get app value of xax, there shouldn't be any new reservation between
  * \p where_restore and \p where_respill that may write to a spill slot and clobber
- * the tmp slot used in this routine.
+ * the temporary slot used in this routine.
  *
  * The results from drreg_reservation_info_ex() can be used to predict the behavior
  * of this routine.  A restore is needed if !drreg_reserve_info_t.holds_app_value.

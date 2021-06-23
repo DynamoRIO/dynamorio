@@ -1180,10 +1180,10 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
          * continues to be 'stateless'). This spill slot is used only between
          * `where_restore` and `where_respill`; we assume there's no new drreg reservation
          * by the client in between these, which could spill to this temp slot and clobber
-         * native aflags value. The alternative to this limitation is to keep a slot aside
-         * for aflags whenever aflags are reserved (currently we do not reserve any spill
-         * slot for aflags when they can be stored in xax), which may reduce number of
-         * available spill slots, so we don't go for that option.
+         * the native aflags value. The alternative to this limitation is to keep a slot
+         * aside for aflags whenever aflags are reserved (currently we do not reserve any
+         * spill slot for aflags when they can be stored in xax), which may reduce the
+         * number of available spill slots, so we don't go for that option.
          *
          * The first step (spilling of aflags from reg to slot) is done by
          * drreg_restore_app_value above which invokes drreg_move_aflags_from_reg with
@@ -1480,7 +1480,7 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
             pt->aflags.slot = find_free_slot(drcontext, pt, ilist, where);
         }
         /* We want to use xax only to spill aflags. This is to make drreg state
-         * restoration a bit simpler. So, we first spill aflags to slot using xax,
+         * restoration a bit simpler. So, we first spill aflags to a slot using xax,
          * and then restore xax's value from xax_swap.
          */
         spill_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where);
