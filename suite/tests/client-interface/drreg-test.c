@@ -87,14 +87,14 @@ static SIGJMP_BUF mark;
 #    if defined(UNIX)
 #        include <signal.h>
 static void
-handle_signal0(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_test_asm(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     print("ERROR: did not expect any signal!\n");
     SIGLONGJMP(mark, 1);
 }
 
 static void
-handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_gpr_aflags_in_slot(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -109,7 +109,7 @@ handle_signal1(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_ignore_3rd_slot(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -120,7 +120,7 @@ handle_signal2(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_non_public_slot(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #        ifdef X86
     if (signal == SIGSEGV) {
@@ -135,7 +135,7 @@ handle_signal3(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_non_public_slot_rip_rel(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
 #        ifdef X86
     if (signal == SIGSEGV) {
@@ -150,7 +150,7 @@ handle_signal4(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_multi_phase_gpr(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -165,7 +165,7 @@ handle_signal5(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal6(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_aflags_xax_gpr_read(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -180,7 +180,7 @@ handle_signal6(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal7(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_gpr_xl8_faux_gpr_spill(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -195,7 +195,7 @@ handle_signal7(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal8(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_gpr_multi_spill_aflags_nested(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -210,7 +210,7 @@ handle_signal8(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal9(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_multi_phase_aflags_overlapping(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -221,7 +221,7 @@ handle_signal9(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal10(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_aflags_read(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -232,7 +232,7 @@ handle_signal10(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal11(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_aflags_multi_spill(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -243,7 +243,7 @@ handle_signal11(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal12(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_aflags_xl8(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGSEGV) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -258,7 +258,7 @@ handle_signal12(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 }
 
 static void
-handle_signal13(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+handle_signal_aflags_xax_already_spilled(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (signal == SIGILL) {
         sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
@@ -271,14 +271,14 @@ handle_signal13(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
-handle_exception0(struct _EXCEPTION_POINTERS *ep)
+handle_exception_test_asm(struct _EXCEPTION_POINTERS *ep)
 {
     print("ERROR: did not expect any signal!\n");
     SIGLONGJMP(mark, 1);
 }
 
 static LONG WINAPI
-handle_exception1(struct _EXCEPTION_POINTERS *ep)
+handle_exception_gpr_aflags_in_slot(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_3_C)
@@ -291,7 +291,7 @@ handle_exception1(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception2(struct _EXCEPTION_POINTERS *ep)
+handle_exception_ignore_3rd_slot(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_7_C)
@@ -301,7 +301,7 @@ handle_exception2(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception3(struct _EXCEPTION_POINTERS *ep)
+handle_exception_non_public_slot(struct _EXCEPTION_POINTERS *ep)
 {
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
@@ -313,7 +313,7 @@ handle_exception3(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception4(struct _EXCEPTION_POINTERS *ep)
+handle_exception_non_public_slot_rip_rel(struct _EXCEPTION_POINTERS *ep)
 {
 #        ifdef X86
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
@@ -325,7 +325,7 @@ handle_exception4(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception5(struct _EXCEPTION_POINTERS *ep)
+handle_exception_multi_phase_gpr(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_14_C)
@@ -335,7 +335,7 @@ handle_exception5(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception6(struct _EXCEPTION_POINTERS *ep)
+handle_exception_aflags_xax_gpr_read(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
@@ -349,7 +349,7 @@ handle_exception6(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception7(struct _EXCEPTION_POINTERS *ep)
+handle_exception_gpr_xl8_faux_gpr_spill(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_18_C)
@@ -362,7 +362,7 @@ handle_exception7(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception8(struct _EXCEPTION_POINTERS *ep)
+handle_exception_gpr_multi_spill_aflags_nested(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_20_C)
@@ -375,7 +375,7 @@ handle_exception8(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception9(struct _EXCEPTION_POINTERS *ep)
+handle_exception_multi_phase_aflags_overlapping(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
@@ -385,7 +385,7 @@ handle_exception9(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception10(struct _EXCEPTION_POINTERS *ep)
+handle_exception_aflags_read(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
@@ -395,7 +395,7 @@ handle_exception10(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception11(struct _EXCEPTION_POINTERS *ep)
+handle_exception_aflags_multi_spill(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
@@ -405,7 +405,7 @@ handle_exception11(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception12(struct _EXCEPTION_POINTERS *ep)
+handle_exception_aflags_xl8(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
@@ -418,7 +418,7 @@ handle_exception12(struct _EXCEPTION_POINTERS *ep)
 }
 
 static LONG WINAPI
-handle_exception13(struct _EXCEPTION_POINTERS *ep)
+handle_exception_aflags_xax_already_spilled(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
@@ -432,10 +432,10 @@ int
 main(int argc, const char *argv[])
 {
 #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal0, false);
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal0, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_test_asm, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_test_asm, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception0);
+    SetUnhandledExceptionFilter(&handle_exception_test_asm);
 #    endif
 
     print("drreg-test running\n");
@@ -445,10 +445,10 @@ main(int argc, const char *argv[])
     }
 
 #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal1, false);
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal1, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_gpr_aflags_in_slot, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_gpr_aflags_in_slot, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception1);
+    SetUnhandledExceptionFilter(&handle_exception_gpr_aflags_in_slot);
 #    endif
 
     /* Test fault reg restore */
@@ -462,9 +462,9 @@ main(int argc, const char *argv[])
     }
 
 #    if defined(UNIX)
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal2, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_ignore_3rd_slot, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception2);
+    SetUnhandledExceptionFilter(&handle_exception_ignore_3rd_slot);
 #    endif
 
     /* Test fault check ignore 3rd DR TLS slot */
@@ -473,9 +473,9 @@ main(int argc, const char *argv[])
     }
 
 #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal3, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_non_public_slot, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception3);
+    SetUnhandledExceptionFilter(&handle_exception_non_public_slot);
 #    endif
 
     /* Test fault restore of non-public DR slot used by mangling.
@@ -486,9 +486,9 @@ main(int argc, const char *argv[])
     }
 
 #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal4, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_non_public_slot_rip_rel, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception4);
+    SetUnhandledExceptionFilter(&handle_exception_non_public_slot_rip_rel);
 #    endif
 
     /* Test 10: test fault restore of non-public DR slot used by mangling,
@@ -501,10 +501,10 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal5, false);
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal5, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_multi_phase_gpr, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_multi_phase_gpr, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception5);
+    SetUnhandledExceptionFilter(&handle_exception_multi_phase_gpr);
 #    endif
 
     /* Test fault reg restore for multi-phase nested reservation. */
@@ -518,10 +518,10 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal6, false);
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal6, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_aflags_xax_gpr_read, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_aflags_xax_gpr_read, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception6);
+    SetUnhandledExceptionFilter(&handle_exception_aflags_xax_gpr_read);
 #    endif
 
     /* Test fault aflags restore from xax. */
@@ -537,10 +537,10 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal7, false);
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal7, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_gpr_xl8_faux_gpr_spill, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_gpr_xl8_faux_gpr_spill, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception7);
+    SetUnhandledExceptionFilter(&handle_exception_gpr_xl8_faux_gpr_spill);
 #    endif
 
     /* Test fault reg restore for fragments emitting DR_EMIT_STORE_TRANSLATIONS */
@@ -554,10 +554,10 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal8, false);
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal8, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_gpr_multi_spill_aflags_nested, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_gpr_multi_spill_aflags_nested, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception8);
+    SetUnhandledExceptionFilter(&handle_exception_gpr_multi_spill_aflags_nested);
 #    endif
 
     /* Test fault reg restore for multi-phase nested reservation where
@@ -582,9 +582,9 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal9, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_multi_phase_aflags_overlapping, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception9);
+    SetUnhandledExceptionFilter(&handle_exception_multi_phase_aflags_overlapping);
 #    endif
 
     /* Test restore on fault for aflags reserved in multiple phases
@@ -595,9 +595,9 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal10, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_aflags_read, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception10);
+    SetUnhandledExceptionFilter(&handle_exception_aflags_read);
 #    endif
 
     /* Test restore on fault for aflags restored once (for app read)
@@ -607,9 +607,9 @@ main(int argc, const char *argv[])
         test_asm_fault_restore_aflags_restored_for_read();
     }
     #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal11, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_aflags_multi_spill, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception11);
+    SetUnhandledExceptionFilter(&handle_exception_aflags_multi_spill);
 #    endif
 
     /* Test restore on fault for aflags when native aflags are spilled
@@ -620,10 +620,10 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal12, false);
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal12, false);
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_aflags_xl8, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_aflags_xl8, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception12);
+    SetUnhandledExceptionFilter(&handle_exception_aflags_xl8);
 #    endif
 
     /* Test restore on fault for aflags spilled to slot for fragment
@@ -641,9 +641,9 @@ main(int argc, const char *argv[])
     }
 
     #    if defined(UNIX)
-    intercept_signal(SIGILL, (handler_3_t)&handle_signal13, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_aflags_xax_already_spilled, false);
 #    elif defined(WINDOWS)
-    SetUnhandledExceptionFilter(&handle_exception13);
+    SetUnhandledExceptionFilter(&handle_exception_aflags_xax_already_spilled);
 #    endif
 
     /* Test restore on fault for aflags stored in slot, when xax was
