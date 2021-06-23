@@ -55,8 +55,10 @@ static ptr_uint_t note_base;
 /* Enum describing the different types of notes in drreg-test. */
 enum { DRREG_TEST_LABEL_MARKER, DRREG_TEST_NOTE_COUNT };
 
+uint tls_offs_app2app_spilled_aflags;
 uint tls_offs_app2app_spilled_reg;
 uint tls_offs_test_reg_1;
+uint tls_offs_aflags;
 
 static bool
 is_drreg_test_label_marker(instr_t *inst)
@@ -95,13 +97,89 @@ spill_test_reg_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst,
     return tls_offs;
 }
 
+static void
+ensure_aflags_in_slot(void *drcontext, instrlist_t *bb, instr_t *inst)
+{
+#ifdef X86
+    /* Make sure that aflags are spilled to some slot, instead of being stored in xax.
+     */
+    CHECK(drreg_get_app_value(drcontext, bb, inst, DR_REG_XAX, DR_REG_XCX) ==
+              DRREG_SUCCESS,
+          "cannot get app value");
+#endif
+}
+
+static void
+write_aflags(void *drcontext, instrlist_t *bb, instr_t *inst)
+{
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_load_int(drcontext,
+                              opnd_create_reg(IF_X86_ELSE(DR_REG_XAX, TEST_REG2)),
+                              OPND_CREATE_INT32(MAGIC_VAL)));
+#ifdef X86
+    instrlist_meta_preinsert(bb, inst, INSTR_CREATE_sahf(drcontext));
+#elif defined(ARM)
+    instrlist_meta_preinsert(bb, inst,
+                             INSTR_CREATE_msr(drcontext, opnd_create_reg(DR_REG_CPSR),
+                                              OPND_CREATE_INT_MSR_NZCVQG(),
+                                              opnd_create_reg(TEST_REG2)));
+#elif defined(AARCH64)
+    instrlist_meta_preinsert(bb, inst,
+                             INSTR_CREATE_msr(drcontext, opnd_create_reg(DR_REG_NZCV),
+                                              opnd_create_reg(TEST_REG2)));
+#endif
+}
+static uint
+spill_aflags_to_slot(void *drcontext, instrlist_t *bb, instr_t *inst, bool overwrite)
+{
+    uint tls_offs, offs;
+    opnd_t opnd;
+    bool is_dr_slot;
+    CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+          "cannot reserve aflags");
+    ensure_aflags_in_slot(drcontext, bb, inst);
+    if (overwrite) {
+        /* Load aflags with some value so that we need to restore it later. */
+        write_aflags(drcontext, bb, inst);
+    }
+    CHECK(drreg_reservation_info(drcontext, DR_REG_NULL, &opnd, &is_dr_slot, &offs) ==
+              DRREG_SUCCESS,
+          "unable to get reservation info");
+    CHECK(offs != -1, "aflags should be spilled to some slot.");
+    if (is_dr_slot) {
+        tls_offs = opnd_get_disp(opnd);
+    } else {
+        tls_offs = offs;
+    }
+    return tls_offs;
+}
+
+void
+aflags_ensure_live(void *drcontext, instrlist_t *bb, instr_t *inst)
+{
+    /* Make sure that aflags are not dead, otherwise drreg may not even
+     * reserve a spill slot.
+     */
+#ifdef X86
+    instrlist_meta_preinsert(bb, inst, INSTR_CREATE_lahf(drcontext));
+#elif defined(ARM)
+    instrlist_meta_preinsert(bb, inst,
+                             INSTR_CREATE_mrs(drcontext, opnd_create_reg(TEST_REG2),
+                                              opnd_create_reg(DR_REG_CPSR)));
+#elif defined(AARCH64)
+    /* XXX i#4930: This is not yet needed on AArch64 because aflags are always
+     * live. If i#4930 is fixed, we'd need to read NZCV.
+     */
+#endif
+}
 static dr_emit_flags_t
 event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
               bool translating, OUT void **user_data)
 {
     instr_t *inst;
     bool prev_was_mov_const = false;
-    ptr_int_t val1, val2;
+    ptr_int_t val, val1, val2;
     drvector_t allowed;
     drreg_init_and_fill_vector(&allowed, false);
     drreg_set_vector_entry(&allowed, TEST_REG, true);
@@ -118,13 +196,20 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 instr_t *label = INSTR_CREATE_label(drcontext);
                 instr_set_note(label, NOTE_VAL(DRREG_TEST_LABEL_MARKER));
                 instrlist_meta_postinsert(bb, inst, label);
-            } else
-                prev_was_mov_const = true;
+            } else {
+                /* This is needed in order to catch the pair of duplicate mov immediates
+                 * if they occur later in a sequence of mov instrs.
+                 */
+                if (prev_was_mov_const)
+                    val1 = val2;
+                else
+                    prev_was_mov_const = true;
+            }
         } else
             prev_was_mov_const = false;
     }
-    if (*((ptr_int_t *)user_data) == DRREG_TEST_13_C ||
-        *((ptr_int_t *)user_data) == DRREG_TEST_14_C) {
+    ptr_int_t subtest = *((ptr_int_t *)user_data);
+    if (subtest == DRREG_TEST_13_C || subtest == DRREG_TEST_14_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
@@ -133,7 +218,8 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13/#14: app2app phase\n");
         for (inst = instrlist_first_app(bb); inst != NULL;
              inst = instr_get_next_app(inst)) {
-            if (instr_is_nop(inst)) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
                 tls_offs_app2app_spilled_reg =
                     spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG, &allowed, true);
             } else if (inst == instrlist_last(bb)) {
@@ -151,20 +237,21 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve register");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_17_C) {
+    } else if (subtest == DRREG_TEST_17_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
         /* Reset for this bb. */
         tls_offs_app2app_spilled_reg = -1;
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17: app2app phase\n");
-        ptr_int_t val;
         for (inst = instrlist_first_app(bb); inst != NULL;
              inst = instr_get_next_app(inst)) {
-            if (instr_is_mov_constant(inst, &val) && val == 1) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
                 tls_offs_app2app_spilled_reg =
                     spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG, &allowed, true);
-            } else if (instr_is_mov_constant(inst, &val) && val == 3) {
+            } else if (instr_is_mov_constant(inst, &val) &&
+                       val == TEST_INSTRUMENTATION_MARKER_3) {
                 /* Make sure that TEST_REG isn't dead after its app2app spill.
                  * If it is dead, its next spill will only reserve a slot, but not
                  * actually write to it. To test restore in the multi-phase
@@ -179,15 +266,15 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve register");
             }
         }
-    } else if (*((ptr_int_t *)user_data) == DRREG_TEST_20_C) {
+    } else if (subtest == DRREG_TEST_20_C) {
         CHECK(drreg_set_bb_properties(
                   drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
               "unable to set bb properties");
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #20: app2app phase\n");
-        ptr_int_t val;
         for (inst = instrlist_first_app(bb); inst != NULL;
              inst = instr_get_next_app(inst)) {
-            if (instr_is_mov_constant(inst, &val) && val == 1) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
                 tls_offs_app2app_spilled_reg = spill_test_reg_to_slot(
                     drcontext, bb, inst, TEST_REG, &allowed, false);
             } else if (inst == instrlist_last(bb)) {
@@ -202,6 +289,60 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                 CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
                           DRREG_SUCCESS,
                       "cannot unreserve register");
+            }
+        }
+    } else if (subtest == DRREG_TEST_21_C || subtest == DRREG_TEST_22_C) {
+        CHECK(drreg_set_bb_properties(
+                  drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
+              "unable to set bb properties");
+        /* Reset for this bb. */
+        tls_offs_app2app_spilled_aflags = -1;
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #21/22: app2app phase\n");
+        for (inst = instrlist_first_app(bb); inst != NULL;
+             inst = instr_get_next_app(inst)) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
+                tls_offs_app2app_spilled_aflags =
+                    spill_aflags_to_slot(drcontext, bb, inst, true);
+            } else if (inst == instrlist_last(bb)) {
+                aflags_ensure_live(drcontext, bb, inst);
+                CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                      "cannot unreserve aflags");
+            }
+        }
+    } else if (subtest == DRREG_TEST_23_C) {
+        CHECK(drreg_set_bb_properties(
+                  drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
+              "unable to set bb properties");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #23: app2app phase\n");
+        for (inst = instrlist_first_app(bb); inst != NULL;
+             inst = instr_get_next_app(inst)) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
+                tls_offs_app2app_spilled_aflags =
+                    spill_aflags_to_slot(drcontext, bb, inst, true);
+            } else if (instr_is_mov_constant(inst, &val) &&
+                       val == TEST_INSTRUMENTATION_MARKER_3) {
+                aflags_ensure_live(drcontext, bb, inst);
+                CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                      "cannot unreserve aflags");
+            }
+        }
+    } else if (subtest == DRREG_TEST_25_C) {
+        CHECK(drreg_set_bb_properties(
+                  drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
+              "unable to set bb properties");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #25: app2app phase\n");
+        for (inst = instrlist_first_app(bb); inst != NULL;
+             inst = instr_get_next_app(inst)) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
+                tls_offs_app2app_spilled_aflags =
+                    spill_aflags_to_slot(drcontext, bb, inst, false);
+            } else if (inst == instrlist_last(bb)) {
+                aflags_ensure_live(drcontext, bb, inst);
+                CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                      "cannot unreserve aflags");
             }
         }
     }
@@ -239,6 +380,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     drreg_reserve_info_t info = {
         sizeof(info),
     };
+    ptr_int_t val;
 
     drreg_init_and_fill_vector(&allowed_test_reg_1, false);
     drreg_set_vector_entry(&allowed_test_reg_1, TEST_REG, true);
@@ -396,9 +538,10 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             res = drreg_unreserve_register(drcontext, bb, inst, TEST_REG);
             CHECK(res == DRREG_SUCCESS, "unreserve should work");
         }
-    } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C) {
+    } else if (subtest == DRREG_TEST_4_C || subtest == DRREG_TEST_5_C ||
+               subtest == DRREG_TEST_26_C) {
         /* Cross-app-instr aflags test */
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4/5\n");
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #4/5/26\n");
         if (is_drreg_test_label_marker(inst)) {
             res = drreg_reserve_aflags(drcontext, bb, inst);
             CHECK(res == DRREG_SUCCESS, "reserve of aflags should work");
@@ -454,21 +597,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #endif
     } else if (subtest == DRREG_TEST_13_C || subtest == DRREG_TEST_14_C) {
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #13/14: insertion phase\n");
-        if (instr_is_nop(inst)) {
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_2) {
             CHECK(tls_offs_app2app_spilled_reg != -1,
                   "unable to use any spill slot in app2app phase.");
             uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
                                                    &allowed_test_reg_1, true);
             CHECK(tls_offs_app2app_spilled_reg != tls_offs,
                   "found conflict in use of spill slots across multiple phases");
-        } else if (drmgr_is_last_instr(drcontext, inst)) {
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_3) {
             CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
                       DRREG_SUCCESS,
                   "cannot unreserve register");
         }
 #ifdef X86
-    } else if (subtest == DRREG_TEST_15_C) {
-        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15\n");
+    } else if (subtest == DRREG_TEST_15_C || subtest == DRREG_TEST_27_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #15/#27\n");
         if (instr_is_nop(inst)) {
             CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot reserve aflags");
@@ -499,8 +643,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         }
     } else if (subtest == DRREG_TEST_17_C) {
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #17\n");
-        ptr_int_t val;
-        if (instr_is_mov_constant(inst, &val) && val == 2) {
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_2) {
             CHECK(tls_offs_app2app_spilled_reg != -1,
                   "unable to use any spill slot in app2app phase.");
             uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
@@ -516,8 +659,7 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     } else if (subtest == DRREG_TEST_19_C) {
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #19\n");
         CHECK(dr_get_stolen_reg() == TEST_REG_STOLEN, "stolen reg doesn't match");
-        ptr_int_t val;
-        if (instr_is_mov_constant(inst, &val) && val == 1) {
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
             tls_offs_test_reg_1 = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
                                                          &allowed_test_reg_1, true);
             CHECK(tls_offs_test_reg_1 == TEST_FAUX_SPILL_TLS_OFFS, "unexpected tls offs");
@@ -529,21 +671,22 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 #endif
     } else if (subtest == DRREG_TEST_20_C) {
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #20\n");
-        ptr_int_t val;
-        if (instr_is_mov_constant(inst, &val) && val == 1) {
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
             tls_offs_test_reg_1 = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
                                                          &allowed_test_reg_1, true);
             CHECK(tls_offs_app2app_spilled_reg != tls_offs_test_reg_1,
                   "spill slot conflict across phases");
-        } else if (instr_is_mov_constant(inst, &val) && val == 2) {
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_2) {
             CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
                       DRREG_SUCCESS,
                   "cannot unreserve register");
-            /* so that the slot is released and can be reused below and overwritten. */
+            /* So that the slot is released and can be reused below and overwritten. */
             CHECK(drreg_get_app_value(drcontext, bb, inst, TEST_REG, TEST_REG) ==
                       DRREG_SUCCESS,
                   "should get app value");
-        } else if (instr_is_mov_constant(inst, &val) && val == 3) {
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_3) {
             uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG2,
                                                    &allowed_test_reg_2, false);
             instrlist_meta_preinsert(bb, inst,
@@ -556,6 +699,143 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
                       DRREG_SUCCESS,
                   "cannot unreserve register");
         }
+    } else if (subtest == DRREG_TEST_21_C || subtest == DRREG_TEST_22_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #21/22: insertion phase\n");
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_2) {
+            CHECK(tls_offs_app2app_spilled_aflags != -1,
+                  "unable to use any spill slot for aflags in app2app phase.");
+            uint tls_offs = spill_aflags_to_slot(drcontext, bb, inst, true);
+            CHECK(tls_offs_app2app_spilled_aflags != tls_offs,
+                  "found conflict in use of aflags spill slot across different phases");
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_3) {
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
+        }
+    } else if (subtest == DRREG_TEST_23_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #23\n");
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_2) {
+            tls_offs_aflags = spill_aflags_to_slot(drcontext, bb, inst, true);
+            CHECK(tls_offs_app2app_spilled_aflags != tls_offs_aflags,
+                  "aflags spill slot conflict across phases");
+        }
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_3) {
+            /* After app2app releases aflags, it'll be stored in rax as it is dead.
+             * But we want it to be in a slot for this test.
+             */
+            ensure_aflags_in_slot(drcontext, bb, inst);
+            /* Write aflags so that we need to restore later. */
+            write_aflags(drcontext, bb, inst);
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
+        }
+    } else if (subtest == DRREG_TEST_24_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #24\n");
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
+            spill_aflags_to_slot(drcontext, bb, inst, true);
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_2) {
+            /* App aflags read before this app instr restored aflags. Overwrite
+             * so that we need to restore them.
+             */
+            write_aflags(drcontext, bb, inst);
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            res = drreg_unreserve_aflags(drcontext, bb, inst);
+            CHECK(res == DRREG_SUCCESS, "unreserve should always work");
+        }
+    } else if (subtest == DRREG_TEST_25_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #25\n");
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
+            tls_offs_aflags = spill_aflags_to_slot(drcontext, bb, inst, false);
+            CHECK(tls_offs_app2app_spilled_aflags != tls_offs_aflags,
+                  "aflags spill slot conflict across phases");
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_2) {
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
+            /* So that the slot is released and can be reused below and overwritten. */
+            CHECK(drreg_restore_app_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "unable to restore app aflags");
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_3) {
+#ifdef X86
+            /* For X86, we need to reserve an extra gpr to use the aflags slot freed
+             * above. This is because we had freed the slot used to spill xax in
+             * ensure_aflags_in_slot. For other arch, that register is still in the
+             * slot due to lazy restore.
+             */
+            spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG2, &allowed_test_reg_2,
+                                   false);
+#endif
+            uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
+                                                   &allowed_test_reg_1, false);
+            CHECK(tls_offs == tls_offs_aflags, "must use the freed up slot");
+            /* Overwrite aflags so that we need to restore it later. */
+            write_aflags(drcontext, bb, inst);
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+#ifdef X86
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG2) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
+#endif
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
+        }
+#ifdef X86
+    } else if (subtest == DRREG_TEST_28_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #28\n");
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
+            CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot reserve aflags");
+            /* Load with some value so that we need to restore it later. */
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_cmp(drcontext,
+                                                      opnd_create_reg(DR_REG_XAX),
+                                                      opnd_create_reg(DR_REG_XCX)));
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_2) {
+            CHECK(drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_XAX, inst,
+                                                      inst, NULL, NULL) == DRREG_SUCCESS,
+                  "cannot statelessly restore xax value");
+            CHECK(drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_XAX, inst,
+                                                      inst, NULL, NULL) == DRREG_SUCCESS,
+                  "cannot statelessly restore xax value");
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
+        }
+    } else if (subtest == DRREG_TEST_29_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #29\n");
+
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
+            drvector_t allowed_test_reg_xax;
+            drreg_init_and_fill_vector(&allowed_test_reg_xax, false);
+            drreg_set_vector_entry(&allowed_test_reg_xax, DR_REG_XAX, true);
+            /* Spill xax so that its tool value needs to be saved before reading aflags.
+             * drreg accomplishes this by reserving another reg and xchg'ing xax with it.
+             */
+            spill_test_reg_to_slot(drcontext, bb, inst, DR_REG_XAX, &allowed_test_reg_xax,
+                                   false);
+            drvector_delete(&allowed_test_reg_xax);
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_2) {
+            CHECK(drreg_reserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot reserve aflags");
+            /* Load with some value so that we need to restore it later. */
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_cmp(drcontext,
+                                                      opnd_create_reg(DR_REG_XAX),
+                                                      opnd_create_reg(DR_REG_XCX)));
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, DR_REG_XAX) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve xax");
+            CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
+                  "cannot unreserve aflags");
+        }
+#endif
     }
 
     drvector_delete(&allowed_test_reg_1);
@@ -563,7 +843,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
     /* XXX i#511: add more tests */
 
-    if (subtest == DRREG_TEST_18_C)
+    /* Test state restoration without ilist of faulting fragment. */
+    if (subtest == DRREG_TEST_18_C || subtest == DRREG_TEST_26_C ||
+        subtest == DRREG_TEST_27_C)
         return DR_EMIT_STORE_TRANSLATIONS;
     return DR_EMIT_DEFAULT;
 }
@@ -581,7 +863,13 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
     reg_id_t reg0, reg1;
     ptr_int_t subtest = (ptr_int_t)user_data;
 
-    if (subtest == DRREG_TEST_19_C || subtest == DRREG_TEST_20_C) {
+    /* Skip instru2instru2 aflags checks for other aflags tests, or
+     * to avoid complex instrumented bbs.
+     */
+    if (subtest == DRREG_TEST_19_C || subtest == DRREG_TEST_20_C ||
+        subtest == DRREG_TEST_21_C || subtest == DRREG_TEST_22_C ||
+        subtest == DRREG_TEST_23_C || subtest == DRREG_TEST_24_C ||
+        subtest == DRREG_TEST_25_C) {
         return DR_EMIT_DEFAULT;
     }
 

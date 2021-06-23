@@ -488,6 +488,11 @@ DR_EXPORT
  * whether instructions were inserted at \p where_restore and \p where_respill,
  * respectively.
  *
+ * For correct operation on x86 in the case when aflags are in xax and this routine
+ * is invoked to get app value of xax, there shouldn't be any new reservation between
+ * \p where_restore and \p where_respill that may write to a spill slot and clobber
+ * the temporary slot used in this routine.
+ *
  * The results from drreg_reservation_info_ex() can be used to predict the behavior
  * of this routine.  A restore is needed if !drreg_reserve_info_t.holds_app_value.
  * and drreg_reserve_info_t.app_value_retained.  A respill is needed if a restore is
@@ -513,7 +518,8 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
 DR_EXPORT
 /**
  * Returns information about the TLS slot assigned to \p reg, which
- * must be a currently-reserved register.
+ * must be a currently-reserved register. To query information about
+ * the arithmetic flags, pass #DR_REG_NULL for \p reg.
  *
  * If \p opnd is non-NULL, returns an opnd_t in \p opnd that references
  * the TLS slot assigned to \p reg.  If too many slots are in use and
