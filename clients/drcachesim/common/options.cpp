@@ -167,7 +167,8 @@ droption_t<bool> op_L0_filter(
     "that miss in this initial cache.  This cache is direct-mapped with sizes equal to "
     "-L0I_size and -L0D_size.  It uses virtual addresses regardless of -use_physical. "
     "The dynamic (pre-filtered) per-thread instruction count is tracked and supplied "
-    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread exit.");
+    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries "
+    "and at thread exit.");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -325,4 +325,29 @@ instru_t::get_timestamp()
     // If we want something faster we can try to use the VDSO gettimeofday (via
     // libc) or KUSER_SHARED_DATA on Windows (i#2842).
     return dr_get_microseconds();
+}
+
+int
+instru_t::count_app_instrs(instrlist_t *ilist)
+{
+    int count = 0;
+    bool in_emulation_region = false;
+    for (instr_t *inst = instrlist_first(ilist); inst != NULL;
+         inst = instr_get_next(inst)) {
+        if (!in_emulation_region && drmgr_is_emulation_start(inst)) {
+            in_emulation_region = true;
+            // Each emulation region corresponds to a single app instr.
+            ++count;
+        }
+        if (!in_emulation_region && instr_is_app(inst)) {
+            // Hooked native functions end up with an artifical jump whose translation
+            // is its target.  We do not want to count these.
+            if (!(instr_is_ubr(inst) && opnd_is_pc(instr_get_target(inst)) &&
+                  opnd_get_pc(instr_get_target(inst)) == instr_get_app_pc(inst)))
+                ++count;
+        }
+        if (in_emulation_region && drmgr_is_emulation_end(inst))
+            in_emulation_region = false;
+    }
+    return count;
 }
