@@ -150,6 +150,7 @@ extract_int(uint enc, int pos, int len)
 static inline ptr_uint_t
 extract_uint(uint enc, int pos, int len)
 {
+    /* pos starts at bit 0 and len includes pos bit as part of its length. */
     return enc >> pos & (((uint)1 << len) - 1);
 }
 
