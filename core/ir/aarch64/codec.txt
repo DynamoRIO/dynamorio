@@ -939,6 +939,7 @@ x0011010100xxxxxxxxx00xxxxxxxxxx  csel   wx0 : wx5 wx16 cond
 x0011010100xxxxxxxxx01xxxxxxxxxx  csinc  wx0 : wx5 wx16 cond
 x1011010100xxxxxxxxx00xxxxxxxxxx  csinv  wx0 : wx5 wx16 cond
 x1011010100xxxxxxxxx01xxxxxxxxxx  csneg  wx0 : wx5 wx16 cond
+00011110xx1xxxxxxxxx11xxxxxxxxxx  fcsel  float_reg0 : float_reg5 float_reg16 cond
 
 # Data-processing (3 source)
 
@@ -1143,6 +1144,14 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0001111001100011110000xxxxxxxxxx     fcvt      h0 : d5
 0001111011100010010000xxxxxxxxxx     fcvt      s0 : h5
 0001111011100010110000xxxxxxxxxx     fcvt      d0 : h5
+00011110xx1xxxxx001000xxxxx00000     fcmp      float_reg5 : float_reg16
+00011110xx100000001000xxxxx01000     fcmp      float_reg5 : bhsd_sz
+00011110xx1xxxxxxxxx01xxxxx0xxxx     fccmp     float_reg5 : float_reg16 cond nzcv
+00011110xx1xxxxxxxxx01xxxxx1xxxx     fccmpe    float_reg5 : float_reg16 cond nzcv
+0x10111000110000111110xxxxxxxxxx     fmaxv     s0 : dq5
+0x00111000110000111110xxxxxxxxxx     fmaxv     h0 : dq5
+0x10111010110000111110xxxxxxxxxx     fminv     s0 : dq5
+0x00111010110000111110xxxxxxxxxx     fminv     h0 : dq5
 
 # Floating-point convert (scalar)
 0001111000100100000000xxxxxxxxxx     fcvtas    w0 : s5

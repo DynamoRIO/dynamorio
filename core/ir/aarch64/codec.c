@@ -150,6 +150,7 @@ extract_int(uint enc, int pos, int len)
 static inline ptr_uint_t
 extract_uint(uint enc, int pos, int len)
 {
+    /* pos starts at bit 0 and len includes pos bit as part of its length. */
     return enc >> pos & (((uint)1 << len) - 1);
 }
 
@@ -1887,7 +1888,7 @@ encode_opnd_ign16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_int(16, 5, false, 0, OPSZ_6b, 0, enc, opnd);
+    return decode_opnd_int(16, 5, false, 0, OPSZ_5b, 0, enc, opnd);
 }
 
 static inline bool
