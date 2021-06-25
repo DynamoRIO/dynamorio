@@ -1365,3 +1365,11 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 0x001110xx110001101110xxxxxxxxxx     addv      dq0 : dq5 bhsd_sz
 0111111011100000101110xxxxxxxxxx     neg       q0 : q5
 0x101110xx100000101110xxxxxxxxxx     neg       dq0 : dq5 bhsd_sz
+
+0101111011100000101110xxxxxxxxxx     abs       d0 : d5
+0x001110xx100000101110xxxxxxxxxx     abs       dq0 : dq5 bhsd_sz
+0101111011110001101110xxxxxxxxxx     addp      d0 : q5
+0x001110xx110000101010xxxxxxxxxx     smaxv     dq0 : dq5 bhsd_sz
+0x001110xx110001101010xxxxxxxxxx     sminv     dq0 : dq5 bhsd_sz
+0x001110xx0xxxxx001110xxxxxxxxxx     zip1      dq0 : dq5 dq16 bhsd_sz
+0x001110xx0xxxxx011110xxxxxxxxxx     zip2      dq0 : dq5 dq16 bhsd_sz
