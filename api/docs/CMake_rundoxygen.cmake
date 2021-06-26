@@ -181,6 +181,10 @@ if (embeddable)
       string "${string}")
     # Our images are in an images/ subdir.
     string(REGEX REPLACE "<img src=\"" "<img src=\"/images/" string "${string}")
+    string(REGEX REPLACE
+        "<object type=\"image/svg\\+xml\" data=\""
+        "<object type=\"image/svg+xml\" data=\"/images/"
+        string "${string}")
 
     # Collect type info for keyword searches with direct anchor links (else the
     # search finds the page but the user then has to manually search within the long
