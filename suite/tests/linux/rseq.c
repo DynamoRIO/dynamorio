@@ -676,6 +676,8 @@ test_rseq_native_abort(void)
         "add x2, x2, :lo12:sched_mask_2\n\t"
         "mov w8, #%[sysnum_setaffinity]\n\t"
         "svc #0\n\t"
+        ".global test_rseq_native_abort_pre_commit\n\t"
+        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -917,6 +919,7 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     if (info->type == DR_XFER_RSEQ_ABORT) {
         /* The interrupted context should be identical except the pc. */
         assert(info->source_mcontext->pc != mc.pc);
+#    ifdef X86
         assert(info->source_mcontext->xax == mc.xax);
         assert(info->source_mcontext->xcx == mc.xcx);
         assert(info->source_mcontext->xdx == mc.xdx);
@@ -925,6 +928,11 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
         assert(info->source_mcontext->xdi == mc.xdi);
         assert(info->source_mcontext->xbp == mc.xbp);
         assert(info->source_mcontext->xsp == mc.xsp);
+#    elif defined(AARCH64)
+        assert(memcmp(&info->source_mcontext->r0, &mc.r0, sizeof(mc.r0) * 32) == 0);
+#    else
+#        error Unsupported arch
+#    endif
         /* Check that the interrupted PC for the true abort case is *prior* to the
          * committing store.
          */
