@@ -131,6 +131,7 @@
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
+----------xx--------x-----------  index_lhm  # imm3 from bits 11, 21 and/or 20 inferred from sz
 ----------xxxxxx----------------  immhb      # encoding of #fbits value in immh:immb fields
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
@@ -140,7 +141,6 @@
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
-----------xx--------x-----------  index_lhm  # imm3 from bits 11, 21 and/or 20 inferred from sz
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)

@@ -2347,6 +2347,32 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
+/* index_lhm: imm3 from bits 21, 20 and 11 */
+
+static inline bool
+decode_opnd_index_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint h = extract_uint(enc, 11, 1);
+    uint l = extract_uint(enc, 21, 1);
+    uint m = extract_uint(enc, 20, 1);
+    uint value = (h << 2) | (l << 1) | m;
+    *opnd = opnd_create_immed_uint(value, OPSZ_3b);
+    return true;
+}
+
+static inline bool
+encode_opnd_index_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    uint val = opnd_get_immed_int(opnd);
+    if (val & (1 << 2))
+        *enc_out |= (1 << 11);
+    if (val & (1 << 1))
+        *enc_out |= (1 << 21);
+    if (val & 1)
+        *enc_out |= (1 << 20);
+    return true;
+}
+
 /* immhb: The vector encoding of #fbits operand. This is the number of bits
  * after the decimal point for fixed-point values.
  */
@@ -2634,32 +2660,6 @@ encode_opnd_fpimm13(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     } else
         return false;
 
-    return true;
-}
-
-/* index_lhm: imm3 from bits 21, 20 and 11 */
-
-static inline bool
-decode_opnd_index_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    uint h = extract_uint(enc, 11, 1);
-    uint l = extract_uint(enc, 21, 1);
-    uint m = extract_uint(enc, 20, 1);
-    uint value = (h << 2) | (l << 1) | m;
-    *opnd = opnd_create_immed_uint(value, OPSZ_3b);
-    return true;
-}
-
-static inline bool
-encode_opnd_index_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    uint val = opnd_get_immed_int(opnd);
-    if (val & (1 << 2))
-        *enc_out |= (1 << 11);
-    if (val & (1 << 1))
-        *enc_out |= (1 << 21);
-    if (val & 1)
-        *enc_out |= (1 << 20);
     return true;
 }
 
