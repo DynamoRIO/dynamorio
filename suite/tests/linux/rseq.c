@@ -933,10 +933,12 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
 #    else
 #        error Unsupported arch
 #    endif
+#    ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
         /* Check that the interrupted PC for the true abort case is *prior* to the
          * committing store.
          */
         assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_pre_commit);
+#    endif
     }
 }
 
