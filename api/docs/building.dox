@@ -821,7 +821,7 @@ Here is a sample bash function to make building easier within Cygwin:
 
 ```
 function build {
-    config=`grep ^CMAKE_CONFIGURATION_TYPES:S CMakeCache.txt | sed 's/^.*=//'`
+    config=$(grep ^CMAKE_CONFIGURATION_TYPES:S CMakeCache.txt | sed 's/^.*=//')
     /usr/bin/time cmake --build . --config $config -- /m
 }
 ```
@@ -886,7 +886,7 @@ than two cores we have seen some strange build errors that may be pdb
 creation races.  We recommend using the Visual Studio generator instead if
 you are hitting these problems.
 
-## Building the Qt DrGUI extension
+\section sec_drgui Building the Qt DrGUI extension
 
 Simply install Qt 5.x and ensure that the architecture and compiler match what you will be using to build DynamoRIO.  E.g., on Fedora:
 ```
