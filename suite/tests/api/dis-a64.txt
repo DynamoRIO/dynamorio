@@ -36,6 +36,54 @@
 # Field 2: Disassembly produced by objdump (not used for testing).
 # Field 3: Disassembly produced by DynamoRIO.
 
+# ABS d<d>, d<n>
+5ee0b820 : abs    d0, d1                  : abs    %d1 -> %d0
+5ee0b96a : abs    d10, d11                : abs    %d11 -> %d10
+5ee0bab4 : abs    d20, d21                : abs    %d21 -> %d20
+5ee0bbbe : abs    d30, d29                : abs    %d29 -> %d30
+
+# ABS <Vd>.8b, <Vn>.8b
+0e20b820 : abs    v0.8b, v1.8b            : abs    %d1 $0x00 -> %d0
+0e20b96a : abs    v10.8b, v11.8b          : abs    %d11 $0x00 -> %d10
+0e20bab4 : abs    v20.8b, v21.8b          : abs    %d21 $0x00 -> %d20
+0e20bbbe : abs    v30.8b, v29.8b          : abs    %d29 $0x00 -> %d30
+
+# ABS <Vd>.16b, <Vn>.16b
+4e20b820 : abs    v0.16b, v1.16b          : abs    %q1 $0x00 -> %q0
+4e20b96a : abs    v10.16b, v11.16b        : abs    %q11 $0x00 -> %q10
+4e20bab4 : abs    v20.16b, v21.16b        : abs    %q21 $0x00 -> %q20
+4e20bbbe : abs    v30.16b, v29.16b        : abs    %q29 $0x00 -> %q30
+
+# ABS <Vd>.4h, <Vn>.4h
+0e60b820 : abs    v0.4h, v1.4h            : abs    %d1 $0x01 -> %d0
+0e60b96a : abs    v10.4h, v11.4h          : abs    %d11 $0x01 -> %d10
+0e60bab4 : abs    v20.4h, v21.4h          : abs    %d21 $0x01 -> %d20
+0e60bbbe : abs    v30.4h, v29.4h          : abs    %d29 $0x01 -> %d30
+
+# ABS <Vd>.8h, <Vn>.8h
+4e60b820 : abs    v0.8h, v1.8h            : abs    %q1 $0x01 -> %q0
+4e60b96a : abs    v10.8h, v11.8h          : abs    %q11 $0x01 -> %q10
+4e60bab4 : abs    v20.8h, v21.8h          : abs    %q21 $0x01 -> %q20
+4e60bbbe : abs    v30.8h, v29.8h          : abs    %q29 $0x01 -> %q30
+
+# ABS <Vd>.2s, <Vn>.2s
+0ea0b820 : abs    v0.2s, v1.2s            : abs    %d1 $0x02 -> %d0
+0ea0b96a : abs    v10.2s, v11.2s          : abs    %d11 $0x02 -> %d10
+0ea0bab4 : abs    v20.2s, v21.2s          : abs    %d21 $0x02 -> %d20
+0ea0bbbe : abs    v30.2s, v29.2s          : abs    %d29 $0x02 -> %d30
+
+# ABS <Vd>.4s, <Vn>.4s
+4ea0b820 : abs    v0.4s, v1.4s            : abs    %q1 $0x02 -> %q0
+4ea0b96a : abs    v10.4s, v11.4s          : abs    %q11 $0x02 -> %q10
+4ea0bab4 : abs    v20.4s, v21.4s          : abs    %q21 $0x02 -> %q20
+4ea0bbbe : abs    v30.4s, v29.4s          : abs    %q29 $0x02 -> %q30
+
+# ABS <Vd>.2d, <Vn>.2d
+4ee0b820 : abs    v0.2d, v1.2d            : abs    %q1 $0x03 -> %q0
+4ee0b96a : abs    v10.2d, v11.2d          : abs    %q11 $0x03 -> %q10
+4ee0bab4 : abs    v20.2d, v21.2d          : abs    %q21 $0x03 -> %q20
+4ee0bbbe : abs    v30.2d, v29.2d          : abs    %q29 $0x03 -> %q30
+
 1a030041 : adc    w1, w2, w3              : adc    %w2 %w3 -> %w1
 9a1f03ff : adc    xzr, xzr, xzr           : adc    %xzr %xzr -> %xzr
 
@@ -82,6 +130,12 @@ ba030041 : adcs   x1, x2, x3              : adcs   %x2 %x3 -> %x1
 0eafbf9a : addp v26.2s, v28.2s, v15.2s              : addp   %d28 %d15 $0x02 -> %d26
 4eafbf9a : addp v26.4s, v28.4s, v15.4s              : addp   %q28 %q15 $0x02 -> %q26
 4eefbf9a : addp v26.2d, v28.2d, v15.2d              : addp   %q28 %q15 $0x03 -> %q26
+
+# ADDP d<d>, <Vn>.2d
+5ef1b820 : addp   d0, v1.2d                         : addp   %q1 -> %d0
+5ef1b96a : addp   d10, v11.2d                       : addp   %q11 -> %d10
+5ef1bab4 : addp   d20, v21.2d                       : addp   %q21 -> %d20
+5ef1bbbe : addp   d30, v29.2d                       : addp   %q29 -> %d30
 
 # ADDV <V><d>, <Vn>.<T>
 # ADDV b<d>, <Vn>.8b
@@ -3472,6 +3526,36 @@ d50320bf : sevl                           : sevl
 0ea7a537 : smaxp v23.2s, v9.2s, v7.2s               : smaxp  %d9 %d7 $0x02 -> %d23
 4ea7a537 : smaxp v23.4s, v9.4s, v7.4s               : smaxp  %q9 %q7 $0x02 -> %q23
 
+# SMAXV b<d>, <Vn>.8b
+0e30a800 : smaxv b0, v0.8b                          : smaxv  %d0 $0x00 -> %d0
+0e30a94a : smaxv b10, v10.8b                        : smaxv  %d10 $0x00 -> %d10
+0e30aa94 : smaxv b20, v20.8b                        : smaxv  %d20 $0x00 -> %d20
+0e30abde : smaxv b30, v30.8b                        : smaxv  %d30 $0x00 -> %d30
+
+# SMAXV b<d>, <Vn>.16b
+4e30a800 : smaxv b0, v0.16b                         : smaxv  %q0 $0x00 -> %q0
+4e30a94a : smaxv b10, v10.16b                       : smaxv  %q10 $0x00 -> %q10
+4e30aa94 : smaxv b20, v20.16b                       : smaxv  %q20 $0x00 -> %q20
+4e30abde : smaxv b30, v30.16b                       : smaxv  %q30 $0x00 -> %q30
+
+# SMAXV h<d>, <Vn>.4h
+0e70a800 : smaxv h0, v0.4h                          : smaxv  %d0 $0x01 -> %d0
+0e70a94a : smaxv h10, v10.4h                        : smaxv  %d10 $0x01 -> %d10
+0e70aa94 : smaxv h20, v20.4h                        : smaxv  %d20 $0x01 -> %d20
+0e70abde : smaxv h30, v30.4h                        : smaxv  %d30 $0x01 -> %d30
+
+# SMAXV h<d>, <Vn>.8h
+4e70a800 : smaxv h0, v0.8h                          : smaxv  %q0 $0x01 -> %q0
+4e70a94a : smaxv h10, v10.8h                        : smaxv  %q10 $0x01 -> %q10
+4e70aa94 : smaxv h20, v20.8h                        : smaxv  %q20 $0x01 -> %q20
+4e70abde : smaxv h30, v30.8h                        : smaxv  %q30 $0x01 -> %q30
+
+# SMAXV s<d>, <Vn>.4s
+4eb0a800 : smaxv s0, v0.4s                          : smaxv  %q0 $0x02 -> %q0
+4eb0a94a : smaxv s10, v10.4s                        : smaxv  %q10 $0x02 -> %q10
+4eb0aa94 : smaxv s20, v20.4s                        : smaxv  %q20 $0x02 -> %q20
+4eb0abde : smaxv s30, v30.4s                        : smaxv  %q30 $0x02 -> %q30
+
 d4000003 : smc    #0x0                    : smc    $0x0000
 d41fffe3 : smc    #0xffff                 : smc    $0xffff
 
@@ -3488,6 +3572,36 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4e6aaf86 : sminp v6.8h, v28.8h, v10.8h              : sminp  %q28 %q10 $0x01 -> %q6
 0eaaaf86 : sminp v6.2s, v28.2s, v10.2s              : sminp  %d28 %d10 $0x02 -> %d6
 4eaaaf86 : sminp v6.4s, v28.4s, v10.4s              : sminp  %q28 %q10 $0x02 -> %q6
+
+# SMINV b<d>, <Vn>.8b
+0e31a800 : sminv b0, v0.8b                          : sminv  %d0 $0x00 -> %d0
+0e31a94a : sminv b10, v10.8b                        : sminv  %d10 $0x00 -> %d10
+0e31aa94 : sminv b20, v20.8b                        : sminv  %d20 $0x00 -> %d20
+0e31abde : sminv b30, v30.8b                        : sminv  %d30 $0x00 -> %d30
+
+# SMINV b<d>, <Vn>.16b
+4e31a800 : sminv b0, v0.16b                         : sminv  %q0 $0x00 -> %q0
+4e31a94a : sminv b10, v10.16b                       : sminv  %q10 $0x00 -> %q10
+4e31aa94 : sminv b20, v20.16b                       : sminv  %q20 $0x00 -> %q20
+4e31abde : sminv b30, v30.16b                       : sminv  %q30 $0x00 -> %q30
+
+# SMINV h<d>, <Vn>.4h
+0e71a800 : sminv h0, v0.4h                          : sminv  %d0 $0x01 -> %d0
+0e71a94a : sminv h10, v10.4h                        : sminv  %d10 $0x01 -> %d10
+0e71aa94 : sminv h20, v20.4h                        : sminv  %d20 $0x01 -> %d20
+0e71abde : sminv h30, v30.4h                        : sminv  %d30 $0x01 -> %d30
+
+# SMINV h<d>, <Vn>.8h
+4e71a800 : sminv h0, v0.8h                          : sminv  %q0 $0x01 -> %q0
+4e71a94a : sminv h10, v10.8h                        : sminv  %q10 $0x01 -> %q10
+4e71aa94 : sminv h20, v20.8h                        : sminv  %q20 $0x01 -> %q20
+4e71abde : sminv h30, v30.8h                        : sminv  %q30 $0x01 -> %q30
+
+# SMINV s<d>, <Vn>.4s
+4eb1a800 : sminv s0, v0.4s                          : sminv  %q0 $0x02 -> %q0
+4eb1a94a : sminv s10, v10.4s                        : sminv  %q10 $0x02 -> %q10
+4eb1aa94 : sminv s20, v20.4s                        : sminv  %q20 $0x02 -> %q20
+4eb1abde : sminv s30, v30.4s                        : sminv  %q30 $0x02 -> %q30
 
 0e32809b : smlal v27.8h, v4.8b, v18.8b              : smlal  %d4 %d18 $0x00 -> %q27
 0e72809b : smlal v27.4s, v4.4h, v18.4h              : smlal  %d4 %d18 $0x01 -> %q27
@@ -7178,3 +7292,87 @@ d503205f : wfe                            : wfe
 d503207f : wfi                            : wfi
 
 d503203f : yield                          : yield
+
+# ZIP1: <Vd>.8b, <Vn>.8b, <Vm>.8b
+0e023820 : zip1 v0.8b, v1.8b, v2.8b                    : zip1   %d1 %d2 $0x00 -> %d0
+0e09390a : zip1 v10.8b, v8.8b, v9.8b                   : zip1   %d8 %d9 $0x00 -> %d10
+0e133a54 : zip1 v20.8b, v18.8b, v19.8b                 : zip1   %d18 %d19 $0x00 -> %d20
+0e1d3b9e : zip1 v30.8b, v28.8b, v29.8b                 : zip1   %d28 %d29 $0x00 -> %d30
+
+# ZIP1: <Vd>.16b, <Vn>.16b, <Vm>.16b
+4e023820 : zip1 v0.16b, v1.16b, v2.16b                 : zip1   %q1 %q2 $0x00 -> %q0
+4e09390a : zip1 v10.16b, v8.16b, v9.16b                : zip1   %q8 %q9 $0x00 -> %q10
+4e133a54 : zip1 v20.16b, v18.16b, v19.16b              : zip1   %q18 %q19 $0x00 -> %q20
+4e1d3b9e : zip1 v30.16b, v28.16b, v29.16b              : zip1   %q28 %q29 $0x00 -> %q30
+
+# ZIP1: <Vd>.4h, <Vn>.4h, <Vm>.4h
+0e423820 : zip1 v0.4h, v1.4h, v2.4h                    : zip1   %d1 %d2 $0x01 -> %d0
+0e49390a : zip1 v10.4h, v8.4h, v9.4h                   : zip1   %d8 %d9 $0x01 -> %d10
+0e533a54 : zip1 v20.4h, v18.4h, v19.4h                 : zip1   %d18 %d19 $0x01 -> %d20
+0e5d3b9e : zip1 v30.4h, v28.4h, v29.4h                 : zip1   %d28 %d29 $0x01 -> %d30
+
+# ZIP1: <Vd>.8h, <Vn>.8h, <Vm>.8h
+4e423820 : zip1 v0.8h, v1.8h, v2.8h                    : zip1   %q1 %q2 $0x01 -> %q0
+4e49390a : zip1 v10.8h, v8.8h, v9.8h                   : zip1   %q8 %q9 $0x01 -> %q10
+4e533a54 : zip1 v20.8h, v18.8h, v19.8h                 : zip1   %q18 %q19 $0x01 -> %q20
+4e5d3b9e : zip1 v30.8h, v28.8h, v29.8h                 : zip1   %q28 %q29 $0x01 -> %q30
+
+# ZIP1: <Vd>.2s, <Vn>.2s, <Vm>.2s
+0e823820 : zip1 v0.2s, v1.2s, v2.2s                    : zip1   %d1 %d2 $0x02 -> %d0
+0e89390a : zip1 v10.2s, v8.2s, v9.2s                   : zip1   %d8 %d9 $0x02 -> %d10
+0e933a54 : zip1 v20.2s, v18.2s, v19.2s                 : zip1   %d18 %d19 $0x02 -> %d20
+0e9d3b9e : zip1 v30.2s, v28.2s, v29.2s                 : zip1   %d28 %d29 $0x02 -> %d30
+
+# ZIP1: <Vd>.4s, <Vn>.4s, <Vm>.4s
+4e823820 : zip1 v0.4s, v1.4s, v2.4s                    : zip1   %q1 %q2 $0x02 -> %q0
+4e89390a : zip1 v10.4s, v8.4s, v9.4s                   : zip1   %q8 %q9 $0x02 -> %q10
+4e933a54 : zip1 v20.4s, v18.4s, v19.4s                 : zip1   %q18 %q19 $0x02 -> %q20
+4e9d3b9e : zip1 v30.4s, v28.4s, v29.4s                 : zip1   %q28 %q29 $0x02 -> %q30
+
+# ZIP1: <Vd>.2d, <Vn>.2d, <Vm>.2d
+4ec23820 : zip1 v0.2d, v1.2d, v2.2d                    : zip1   %q1 %q2 $0x03 -> %q0
+4ec9390a : zip1 v10.2d, v8.2d, v9.2d                   : zip1   %q8 %q9 $0x03 -> %q10
+4ed33a54 : zip1 v20.2d, v18.2d, v19.2d                 : zip1   %q18 %q19 $0x03 -> %q20
+4edd3b9e : zip1 v30.2d, v28.2d, v29.2d                 : zip1   %q28 %q29 $0x03 -> %q30
+
+# ZIP2: <Vd>.8b, <Vn>.8b, <Vm>.8b
+0e027820 : zip2 v0.8b, v1.8b, v2.8b                    : zip2   %d1 %d2 $0x00 -> %d0
+0e09790a : zip2 v10.8b, v8.8b, v9.8b                   : zip2   %d8 %d9 $0x00 -> %d10
+0e137a54 : zip2 v20.8b, v18.8b, v19.8b                 : zip2   %d18 %d19 $0x00 -> %d20
+0e1d7b9e : zip2 v30.8b, v28.8b, v29.8b                 : zip2   %d28 %d29 $0x00 -> %d30
+
+# ZIP2: <Vd>.16b, <Vn>.16b, <Vm>.16b
+4e027820 : zip2 v0.16b, v1.16b, v2.16b                 : zip2   %q1 %q2 $0x00 -> %q0
+4e09790a : zip2 v10.16b, v8.16b, v9.16b                : zip2   %q8 %q9 $0x00 -> %q10
+4e137a54 : zip2 v20.16b, v18.16b, v19.16b              : zip2   %q18 %q19 $0x00 -> %q20
+4e1d7b9e : zip2 v30.16b, v28.16b, v29.16b              : zip2   %q28 %q29 $0x00 -> %q30
+
+# ZIP2: <Vd>.4h, <Vn>.4h, <Vm>.4h
+0e427820 : zip2 v0.4h, v1.4h, v2.4h                    : zip2   %d1 %d2 $0x01 -> %d0
+0e49790a : zip2 v10.4h, v8.4h, v9.4h                   : zip2   %d8 %d9 $0x01 -> %d10
+0e537a54 : zip2 v20.4h, v18.4h, v19.4h                 : zip2   %d18 %d19 $0x01 -> %d20
+0e5d7b9e : zip2 v30.4h, v28.4h, v29.4h                 : zip2   %d28 %d29 $0x01 -> %d30
+
+# ZIP2: <Vd>.8h, <Vn>.8h, <Vm>.8h
+4e427820 : zip2 v0.8h, v1.8h, v2.8h                    : zip2   %q1 %q2 $0x01 -> %q0
+4e49790a : zip2 v10.8h, v8.8h, v9.8h                   : zip2   %q8 %q9 $0x01 -> %q10
+4e537a54 : zip2 v20.8h, v18.8h, v19.8h                 : zip2   %q18 %q19 $0x01 -> %q20
+4e5d7b9e : zip2 v30.8h, v28.8h, v29.8h                 : zip2   %q28 %q29 $0x01 -> %q30
+
+# ZIP2: <Vd>.2s, <Vn>.2s, <Vm>.2s
+0e827820 : zip2 v0.2s, v1.2s, v2.2s                    : zip2   %d1 %d2 $0x02 -> %d0
+0e89790a : zip2 v10.2s, v8.2s, v9.2s                   : zip2   %d8 %d9 $0x02 -> %d10
+0e937a54 : zip2 v20.2s, v18.2s, v19.2s                 : zip2   %d18 %d19 $0x02 -> %d20
+0e9d7b9e : zip2 v30.2s, v28.2s, v29.2s                 : zip2   %d28 %d29 $0x02 -> %d30
+
+# ZIP2: <Vd>.4s, <Vn>.4s, <Vm>.4s
+4e827820 : zip2 v0.4s, v1.4s, v2.4s                    : zip2   %q1 %q2 $0x02 -> %q0
+4e89790a : zip2 v10.4s, v8.4s, v9.4s                   : zip2   %q8 %q9 $0x02 -> %q10
+4e937a54 : zip2 v20.4s, v18.4s, v19.4s                 : zip2   %q18 %q19 $0x02 -> %q20
+4e9d7b9e : zip2 v30.4s, v28.4s, v29.4s                 : zip2   %q28 %q29 $0x02 -> %q30
+
+# ZIP2: <Vd>.2d, <Vn>.2d, <Vm>.2d
+4ec27820 : zip2 v0.2d, v1.2d, v2.2d                    : zip2   %q1 %q2 $0x03 -> %q0
+4ec9790a : zip2 v10.2d, v8.2d, v9.2d                   : zip2   %q8 %q9 $0x03 -> %q10
+4ed37a54 : zip2 v20.2d, v18.2d, v19.2d                 : zip2   %q18 %q19 $0x03 -> %q20
+4edd7b9e : zip2 v30.2d, v28.2d, v29.2d                 : zip2   %q28 %q29 $0x03 -> %q30
