@@ -1822,9 +1822,7 @@ encode_opnd_sysops(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_int(5, 14, false, 0, 0, opnd, enc_out);
 }
 
-/* wx5_imm5: bits 5-9 is a GPR whos width is dependent on information in
-   an imm5 from bits 16-20
-*/
+/* imm4_16: imm4 from bits 16-20 */
 static inline bool
 decode_opnd_imm4_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
