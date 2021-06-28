@@ -3788,6 +3788,22 @@ if (BUILD_CLIENTS)
       OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+
+    # Test the legacy trace versions OFFLINE_FILE_VERSION_KERNEL_INT_PC-1 and
+    # TRACE_ENTRY_VERSION_NO_KERNEL_PC.  This requires a checked-in trace and thus
+    # -alt_module_dir; it has gzipped .raw files; hence here next to the altbindir test.
+    set(srcdir
+      ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.legacy-int-offs.raw)
+    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.legacy-int-offs)
+    file(REMOVE_RECURSE ${locdir})
+    file(MAKE_DIRECTORY ${locdir})
+    file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+    torunonly_api(tool.drcacheoff.legacy-int-offs "${drcachesim_path}"
+      "offline-legacy-int-offs.c" ""
+      "-indir;${locdir};-simulator_type;basic_counts;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+      OFF)
+    set(tool.drcacheoff.legacy-int-offs_basedir
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
 
   ###########################################################################

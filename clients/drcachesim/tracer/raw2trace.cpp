@@ -507,7 +507,9 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
-    int version = TRACE_ENTRY_VERSION;
+    int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
+        ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
+        : TRACE_ENTRY_VERSION;
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
@@ -925,6 +927,7 @@ raw2trace_t::get_next_entry(void *tls)
     // be i/o bound (or ISA decode bound) and aren't worried about some extra copies
     // from the vector.
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    tdata->last_entry_is_split = false;
     if (!tdata->pre_read.empty()) {
         tdata->last_entry = tdata->pre_read[0];
         tdata->pre_read.erase(tdata->pre_read.begin(), tdata->pre_read.begin() + 1);
@@ -940,10 +943,31 @@ raw2trace_t::get_next_entry(void *tls)
     return &tdata->last_entry;
 }
 
+const offline_entry_t *
+raw2trace_t::get_next_entry_keep_prior(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        // Cannot record two live split entries.
+        return nullptr;
+    }
+    VPRINT(4, "Remembering split entry for unreading both at once\n");
+    tdata->last_split_first_entry = tdata->last_entry;
+    const offline_entry_t *next = get_next_entry(tls);
+    // Set this *after* calling get_next_entry as it clears the field.
+    tdata->last_entry_is_split = true;
+    return next;
+}
+
 void
 raw2trace_t::unread_last_entry(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        VPRINT(4, "Unreading both parts of split entry at once\n");
+        tdata->pre_read.push_back(tdata->last_split_first_entry);
+        tdata->last_entry_is_split = false;
+    }
     tdata->pre_read.push_back(tdata->last_entry);
 }
 

@@ -59,6 +59,8 @@ protected:
     std::unordered_map<memref_tid_t, memref_t> prev_instr_;
     std::unordered_map<memref_tid_t, memref_t> prev_xfer_marker_;
 #ifdef UNIX
+    // We only support sigreturn-using handlers so we have pairing: no longjmp.
+    std::unordered_map<memref_tid_t, std::stack<addr_t>> prev_xfer_int_pc_;
     std::unordered_map<memref_tid_t, memref_t> prev_entry_;
     std::unordered_map<memref_tid_t, memref_t> prev_prev_entry_;
     std::unordered_map<memref_tid_t, std::stack<memref_t>> pre_signal_instr_;

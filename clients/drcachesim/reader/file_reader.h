@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -168,7 +168,8 @@ protected:
                 return false;
             }
             // We can handle the older version 1 as well which simply omits the
-            // early marker with the arch tag.
+            // early marker with the arch tag, and version 2 which only differs wrt
+            // TRACE_MARKER_TYPE_KERNEL_EVENT..
             if (header.addr > TRACE_ENTRY_VERSION) {
                 ERRMSG(
                     "Cannot handle version #%zu (expect version <= #%u) for input file "
