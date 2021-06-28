@@ -55,6 +55,7 @@ protected:
     bool knob_offline_;
     unsigned int knob_verbose_;
     std::string knob_test_name_;
+    memref_t prev_interleaved_instr_;
     std::unordered_map<memref_tid_t, memref_t> prev_instr_;
     std::unordered_map<memref_tid_t, memref_t> prev_xfer_marker_;
     std::unordered_map<memref_tid_t, memref_t> prev_entry_;

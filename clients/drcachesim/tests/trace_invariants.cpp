@@ -42,6 +42,7 @@ trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose,
     , knob_test_name_(test_name)
     , app_handler_pc_(0)
 {
+    memset(&prev_interleaved_instr_, 0, sizeof(prev_interleaved_instr_));
 }
 
 trace_invariants_t::~trace_invariants_t()
@@ -156,7 +157,13 @@ trace_invariants_t::process_memref(const memref_t &memref)
                  memref.instr.addr) ||
                 // String loop.
                 (prev_instr_[memref.data.tid].instr.addr == memref.instr.addr &&
-                 memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) ||
+                 (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+                  // Online incorrectly marks the 1st string instr across a thread
+                  // switch as fetched.
+                  // TODO i#4915, #4948: Eliminate non-fetched and remove the underlying
+                  // instrs altogether, which would fix this for us.
+                  (!knob_offline_ &&
+                   prev_interleaved_instr_.instr.tid != memref.instr.tid))) ||
                 // Kernel-mediated, but we can't tell if we had a thread swap.
                 (prev_xfer_marker_[memref.data.tid].instr.tid != 0 &&
                  (prev_xfer_marker_[memref.data.tid].instr.tid != memref.instr.tid ||
@@ -192,6 +199,7 @@ trace_invariants_t::process_memref(const memref_t &memref)
             pre_signal_instr_[memref.data.tid].pop();
         }
 #endif
+        prev_interleaved_instr_ = memref;
         prev_instr_[memref.data.tid] = memref;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
