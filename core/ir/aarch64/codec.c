@@ -1822,15 +1822,15 @@ encode_opnd_sysops(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_int(5, 14, false, 0, 0, opnd, enc_out);
 }
 
-/* imm4_16: imm4 from bits 16-20 */
+/* dq16_idx_lhm: imm4 from bits 16-20, the lower 4 bits of register Rm with idx_lhm */
 static inline bool
-decode_opnd_imm4_16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_dq16_idx_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_int(16, 4, false, 0, OPSZ_4b, 0, enc, opnd);
 }
 
 static inline bool
-encode_opnd_imm4_16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_dq16_idx_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(16, 4, false, 0, 0, opnd, enc_out);
 }
@@ -2347,10 +2347,10 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-/* index_lhm: imm3 from bits 21, 20 and 11 */
+/* idx_lhm: imm3 from bits 21, 20 and 11 */
 
 static inline bool
-decode_opnd_index_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+decode_opnd_idx_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     uint h = extract_uint(enc, 11, 1);
     uint l = extract_uint(enc, 21, 1);
@@ -2361,7 +2361,7 @@ decode_opnd_index_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_index_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_idx_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     uint val = opnd_get_immed_int(opnd);
     if (val & (1 << 2))
