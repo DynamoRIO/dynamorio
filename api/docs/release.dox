@@ -222,6 +222,8 @@ Further non-compatibility-affecting changes include:
  - Added the reconstructed #instrlist_t when available for the faulting fragment
    to #dr_fault_fragment_info_t. This makes it available to the restore state
    event callback(s) via the #dr_restore_state_info_t arg.
+ - Added the source context for restartable sequence aborts (#DR_XFER_RSEQ_ABORT)
+   which was previously missing.
 
 **************************************************
 <hr>

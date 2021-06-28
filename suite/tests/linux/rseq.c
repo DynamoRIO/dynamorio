@@ -59,6 +59,7 @@
 #include <sched.h>
 #include <linux/rseq.h>
 #include <errno.h>
+#undef NDEBUG
 #include <assert.h>
 
 #define EXPANDSTR(x) #x
@@ -94,6 +95,9 @@
 static __thread volatile struct rseq rseq_tls;
 /* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
 static __thread volatile struct rseq fill_up_tls[128];
+
+extern void
+test_rseq_native_abort_pre_commit();
 
 #ifdef RSEQ_TEST_ATTACH
 static atomic_int exit_requested;
@@ -602,6 +606,8 @@ test_rseq_native_abort(void)
         "leaq sched_mask_2(%%rip), %%rdx\n\t"
         "mov %[sysnum_setaffinity], %%eax\n\t"
         "syscall\n\t"
+        ".global test_rseq_native_abort_pre_commit\n\t"
+        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -670,6 +676,8 @@ test_rseq_native_abort(void)
         "add x2, x2, :lo12:sched_mask_2\n\t"
         "mov w8, #%[sysnum_setaffinity]\n\t"
         "svc #0\n\t"
+        ".global test_rseq_native_abort_pre_commit\n\t"
+        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -906,6 +914,32 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     mc.flags = DR_MC_ALL;
     ok = dr_get_mcontext(drcontext, &mc);
     assert(ok);
+    /* All transfer cases in this test should have source info. */
+    assert(info->source_mcontext != NULL);
+    if (info->type == DR_XFER_RSEQ_ABORT) {
+        /* The interrupted context should be identical except the pc. */
+        assert(info->source_mcontext->pc != mc.pc);
+#    ifdef X86
+        assert(info->source_mcontext->xax == mc.xax);
+        assert(info->source_mcontext->xcx == mc.xcx);
+        assert(info->source_mcontext->xdx == mc.xdx);
+        assert(info->source_mcontext->xbx == mc.xbx);
+        assert(info->source_mcontext->xsi == mc.xsi);
+        assert(info->source_mcontext->xdi == mc.xdi);
+        assert(info->source_mcontext->xbp == mc.xbp);
+        assert(info->source_mcontext->xsp == mc.xsp);
+#    elif defined(AARCH64)
+        assert(memcmp(&info->source_mcontext->r0, &mc.r0, sizeof(mc.r0) * 32) == 0);
+#    else
+#        error Unsupported arch
+#    endif
+#    ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
+        /* Check that the interrupted PC for the true abort case is *prior* to the
+         * committing store.
+         */
+        assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_pre_commit);
+#    endif
+    }
 }
 
 DR_EXPORT void
