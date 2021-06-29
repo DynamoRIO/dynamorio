@@ -78,6 +78,7 @@
 ----------------------xxxxx-----  w5         # W register (or WZR)
 ----------------------xxxxx-----  x5         # X register (or XZR)
 ----------------------xxxxx-----  x5sp       # X register or XSP
+----------------------xxxxx-----  b5         # B register
 ----------------------xxxxx-----  h5         # H register
 ----------------------xxxxx-----  s5         # S register
 ----------------------xxxxx-----  d5         # D register
@@ -102,6 +103,7 @@
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:10
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
+------------xxxx----------------  dq16_idx_lhm # lower 4 bits of Rm with idx_lhm
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
 -----------xxxxx----------------  ign16      # ignored reg field in load/store exclusive
@@ -115,6 +117,9 @@
 -----------xxxxx----------------  d16        # D register
 -----------xxxxx----------------  q16        # Q register
 -----------xxxxx----------------  z16        # Z register
+-----------xxxxx----------------  b16        # B register
+-----------xxxxx----------------  h16        # H register
+-----------xxxxx----------------  s16        # S register
 -----------xxxxxxxxx------------  mem9off    # immed offset for mem9/mem9post
 -----------xxxxxxxxx--xxxxx-----  mem9q      # size is 16 bytes
 -----------xxxxxxxxx--xxxxx-----  prf9       # size is 0 bytes (prefetch variant of mem9)
@@ -126,6 +131,7 @@
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
+----------xx--------x-----------  idx_lhm    # imm3 from bits 11, 21 and/or 20 inferred from sz
 ----------xxxxxx----------------  immhb      # encoding of #fbits value in immh:immb fields
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
@@ -135,7 +141,6 @@
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
---------??xx--------x-----------  index_lhm  # imm3 from bits 11, 21 and/or 20 inferred from sz
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)
@@ -1048,6 +1053,12 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x001110xx1xxxxx001111xxxxxxxxxx     cmge      dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx010001xxxxxxxxxx     sshl      dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx010011xxxxxxxxxx     sqshl     dq0 : dq5 dq16 bhsd_sz
+01011110001xxxxx010011xxxxxxxxxx     sqshl      b0 : b5 b16
+01011110011xxxxx010011xxxxxxxxxx     sqshl      h0 : h5 h16
+01011110101xxxxx010011xxxxxxxxxx     sqshl      s0 : s5 s16
+01011110111xxxxx010011xxxxxxxxxx     sqshl      d0 : d5 d16
+0101111100xxxxxx011101xxxxxxxxxx     sqshl      s0 : s5 immhb
+0101111101xxxxxx011101xxxxxxxxxx     sqshl      d0 : d5 immhb
 0x001110xx1xxxxx010101xxxxxxxxxx     srshl     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx010111xxxxxxxxxx     sqrshl    dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx011001xxxxxxxxxx     smax      dq0 : dq5 dq16 bhs_sz
@@ -1057,12 +1068,38 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x001110xx1xxxxx100001xxxxxxxxxx     add       dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx100011xxxxxxxxxx     cmtst     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx100101xxxxxxxxxx     mla       dq0 : dq0 dq5 dq16 bhs_sz
-0x101111xxxxxxxx0000x0xxxxxxxxxx     mla       dq0 : dq5 dq16_h_sz bhsd_sz index_lhm
+0x101111xxxxxxxx0000x0xxxxxxxxxx     mla       dq0 : dq5 dq16_idx_lhm bhsd_sz idx_lhm
 0x001110xx1xxxxx100111xxxxxxxxxx     mul       dq0 : dq5 dq16 bhs_sz
 0x001111xxxxxxxx1000x0xxxxxxxxxx     mul       dq0 : dq5 dq16_h_sz vindex_H hs_sz
 0x001110xx1xxxxx101001xxxxxxxxxx     smaxp     dq0 : dq5 dq16 bhs_sz
 0x001110xx1xxxxx101011xxxxxxxxxx     sminp     dq0 : dq5 dq16 bhs_sz
 0x001110xx1xxxxx101101xxxxxxxxxx     sqdmulh   dq0 : dq5 dq16 hs_sz
+01011110011xxxxx101101xxxxxxxxxx     sqdmulh    h0 : h5 h16
+01011110101xxxxx101101xxxxxxxxxx     sqdmulh    s0 : s5 s16
+0x001111xxxxxxxx1100x0xxxxxxxxxx     sqdmulh   dq0 : dq5 dq16_idx_lhm bhsd_sz idx_lhm
+0101111101xxxxxx1100x0xxxxxxxxxx     sqdmulh    h0 : h5 dq16_idx_lhm idx_lhm
+0101111110xxxxxx1100x0xxxxxxxxxx     sqdmulh    s0 : s5 dq16_idx_lhm idx_lhm
+0x101111xxxxxxxx1101x0xxxxxxxxxx     sqrdmlah  dq0 : dq5 dq16_idx_lhm bhsd_sz idx_lhm
+0111111101xxxxxx1101x0xxxxxxxxxx     sqrdmlah   h0 : h5 dq16_idx_lhm idx_lhm
+0111111110xxxxxx1101x0xxxxxxxxxx     sqrdmlah   s0 : s5 dq16_idx_lhm idx_lhm
+0x101110xx0xxxxx100001xxxxxxxxxx     sqrdmlah  dq0 : dq5 dq16 hs_sz
+01111110010xxxxx100001xxxxxxxxxx     sqrdmlah   h0 : h5 h16
+01111110100xxxxx100001xxxxxxxxxx     sqrdmlah   s0 : s5 s16
+0101111000100001010010xxxxxxxxxx     sqxtn      b0 : h5
+0101111001100001010010xxxxxxxxxx     sqxtn      h0 : s5
+0101111010100001010010xxxxxxxxxx     sqxtn      s0 : d5
+00001110xx100001010010xxxxxxxxxx     sqxtn      d0 : d5 bhs_sz
+01001110xx100001010010xxxxxxxxxx     sqxtn2     q0 : q5 bhs_sz
+0111111000100001001010xxxxxxxxxx     sqxtun     b0 : h5
+0111111001100001001010xxxxxxxxxx     sqxtun     h0 : s5
+0111111010100001001010xxxxxxxxxx     sqxtun     s0 : d5
+00101110xx100001001010xxxxxxxxxx     sqxtun     d0 : d5 bhs_sz
+01101110xx100001001010xxxxxxxxxx     sqxtun2    q0 : q5 bhs_sz
+0111111000100001010010xxxxxxxxxx     uqxtn      b0 : h5
+0111111001100001010010xxxxxxxxxx     uqxtn      h0 : s5
+0111111010100001010010xxxxxxxxxx     uqxtn      s0 : d5
+00101110xx100001010010xxxxxxxxxx     uqxtn      d0 : d5 bhs_sz
+01101110xx100001010010xxxxxxxxxx     uqxtn2     q0 : q5 bhs_sz
 0x001110xx1xxxxx101111xxxxxxxxxx     addp      dq0 : dq5 dq16 bhsd_sz
 0x0011100x1xxxxx110001xxxxxxxxxx     fmaxnm    dq0 : dq5 dq16 sd_sz
 0x0011100x1xxxxx110011xxxxxxxxxx     fmla      dq0 : dq0 dq5 dq16 sd_sz
@@ -1102,11 +1139,16 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x101110xx1xxxxx100001xxxxxxxxxx     sub       dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100011xxxxxxxxxx     cmeq      dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100101xxxxxxxxxx     mls       dq0 : dq0 dq5 dq16 bhs_sz
-0x101111xxxxxxxx0100x0xxxxxxxxxx     mls       dq0 : dq5 dq16_h_sz bhsd_sz index_lhm
+0x101111xxxxxxxx0100x0xxxxxxxxxx     mls       dq0 : dq5 dq16_idx_lhm bhsd_sz idx_lhm
 0x101110xx1xxxxx100111xxxxxxxxxx     pmul      dq0 : dq5 dq16 b_sz
 0x101110xx1xxxxx101001xxxxxxxxxx     umaxp     dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx101011xxxxxxxxxx     uminp     dq0 : dq5 dq16 bhs_sz
+01111110011xxxxx101101xxxxxxxxxx     sqrdmulh  h0 : h5 h16
+01111110101xxxxx101101xxxxxxxxxx     sqrdmulh  s0 : s5 s16
 0x101110xx1xxxxx101101xxxxxxxxxx     sqrdmulh  dq0 : dq5 dq16 hs_sz
+0x001111xxxxxxxx1101x0xxxxxxxxxx     sqrdmulh  dq0 : dq5 dq16_idx_lhm bhsd_sz idx_lhm
+0101111101xxxxxx1101x0xxxxxxxxxx     sqrdmulh  h0 : h5 dq16_idx_lhm idx_lhm
+0101111110xxxxxx1101x0xxxxxxxxxx     sqrdmulh  s0 : s5 dq16_idx_lhm idx_lhm
 0x1011100x1xxxxx110001xxxxxxxxxx     fmaxnmp   dq0 : dq5 dq16 sd_sz
 0x101110001xxxxx110011xxxxxxxxxx     fmlal2    dq0 : dq0 dq5 dq16
 0x1011100x1xxxxx110101xxxxxxxxxx     faddp     dq0 : dq5 dq16 sd_sz
