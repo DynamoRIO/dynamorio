@@ -51,7 +51,7 @@ extern "C" {
 typedef enum {
     DRSTATECMP_SUCCESS,                   /* Operation succeeded. */
     DRSTATECMP_ERROR,                     /* Operation failed. */
-    DRSTATECMP_ERROR_ALREADY_INITIALISED, /* DRSTATECMP can only be initialised once. */
+    DRSTATECMP_ERROR_ALREADY_INITIALIZED, /* drstatecmp can only be initialized once. */
     DRSTATECMP_ERROR_NOT_INITIALIZED,     /* Operation failed: not initialized. */
 } drstatecmp_status_t;
 

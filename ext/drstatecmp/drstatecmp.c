@@ -43,13 +43,6 @@
 #endif
 
 typedef struct {
-    bool side_effect_free; /* Denotes whether the current bb has side-effects. */
-    bool orig_bb_mode; /* True when processing the instructions of the original version of
-                          a side-effect-free bb. Becomes false when starting processing
-                           the copies of these instructions*/
-} drstatecmp_user_data_t;
-
-typedef struct {
     dr_mcontext_t saved_state_for_restore; /* Last saved machine state for restoration. */
     dr_mcontext_t saved_state_for_cmp;     /* Last saved machine state for comparison. */
 } drstatecmp_saved_states;
@@ -59,8 +52,8 @@ static int tls_idx = -1; /* For thread local storage info. */
 /* Label types. */
 typedef enum {
     DRSTATECMP_LABEL_TERM,    /* Denotes the terminator of the original bb. */
-    DRSTATECMP_LABEL_ORIG_BB, /* Denotes the original bb. */
-    DRSTATECMP_LABEL_COPY_BB, /* Denotes the bb copy. */
+    DRSTATECMP_LABEL_ORIG_BB, /* Denotes the beginning of the original bb. */
+    DRSTATECMP_LABEL_COPY_BB, /* Denotes the beginning of the bb copy. */
     DRSTATECMP_LABEL_COUNT,
 } drstatecmp_label_t;
 
@@ -89,8 +82,8 @@ match_label_val(instr_t *instr, drstatecmp_label_t label_type)
 
 /* Create and insert bb labels. */
 static instr_t *
-drstatecmp_insert_labels(void *drcontext, instrlist_t *ilist, instr_t *where,
-                         drstatecmp_label_t label_type, bool preinsert)
+drstatecmp_insert_label(void *drcontext, instrlist_t *ilist, instr_t *where,
+                        drstatecmp_label_t label_type, bool preinsert)
 {
     instr_t *label = INSTR_CREATE_label(drcontext);
     instr_set_meta(label);
@@ -102,73 +95,50 @@ drstatecmp_insert_labels(void *drcontext, instrlist_t *ilist, instr_t *where,
     return label;
 }
 
+typedef struct {
+    instr_t *orig_bb_start;
+    instr_t *copy_bb_start;
+    instr_t *term;
+} drstatecmp_dup_labels_t;
+
 /* Returns whether or not instr may have side effects. */
 static bool
 drstatecmp_may_have_side_effects_instr(instr_t *instr)
 {
     /* Instructions with side effects include instructions that write to memory,
-     * interrupts, and syscalls. To avoid inter-procedural analysis, all function calls
-     * are conservatively assumed to have side effects.
+     * interrupts, and syscalls.
      */
     return instr_writes_memory(instr) || instr_is_interrupt(instr) ||
-        instr_is_syscall(instr) || instr_is_call(instr);
+        instr_is_syscall(instr);
 }
 
-/****************************************************************************
- * APPLICATION-TO-APPLICATION PHASE
- *
- * In this phase, the side-effect-free basic blocks are duplicated. */
-
-/* Duplicates the bb if it is side-effect-free. */
-static dr_emit_flags_t
-drstatecmp_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                           bool translating, OUT void **user_data)
+static void
+drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_dup_labels_t *labels)
 {
-    /* Allocate space for user_data. */
-    drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)dr_thread_alloc(
-        drcontext, sizeof(drstatecmp_user_data_t));
-    memset(data, 0, sizeof(*data));
-    *user_data = (void *)data;
-
-    /* Determine whether the basic block is free of side effects. */
-    bool side_effect_free = true;
-    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
-         inst = instr_get_next_app(inst)) {
-        side_effect_free &= !drstatecmp_may_have_side_effects_instr(inst);
-    }
-    /* Cannot easily execute twice the bb if it has side-effects. Thus, no need to
-     * duplicate.
-     */
-    if (!side_effect_free) {
-        data->side_effect_free = false;
-        return DR_EMIT_DEFAULT;
-    }
-    data->side_effect_free = true;
-
     /* Duplication process.
      * Consider the following example bb:
      *   instr1
+     *   meta_instr
      *   instr2
      *   term_instr
      *
      * In this stage, we just duplicate the bb (except for its terminating
-     * instruction) and add special labels to the original and duplicated blocks. The
-     * duplicated bb is for now skipped with a jump. The insert instrumentation stage will
-     * remove this jump, and add saving/restoring of machine state and the state
-     * comparison.
-     * Note that there might be no term_instr (no control transfer instruction) and the bb
-     * just falls-through. Even with no term_instr the jmp and the TERM label are inserted
-     * in the same way, as shown in this example.
+     * instruction and meta instructions) and add special labels to the original and
+     * duplicated blocks.  add saving/restoring of machine
+     * state and the state comparison. Note that there might be no term_instr (no control
+     * transfer instruction) and the bb just falls-through. Even with no term_instr the
+     * jmp and the TERM label are inserted in the same way, as shown in this example.
      *
      * The example bb is transformed, in this stage, as follows:
      * ORIG_BB:
      *   instr1
+     *   meta_instr
      *   instr2
-     *   jmp TERM
      *
      * COPY_BB:
      *   instr1
      *   instr2
+     *
      * TERM:
      *   term_instr
      *
@@ -177,70 +147,49 @@ drstatecmp_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for
     /* Create a clone of bb. */
     instrlist_t *copy_bb = instrlist_clone(drcontext, bb);
 
-    /* Create and insert the labels. */
-    drstatecmp_insert_labels(drcontext, bb, instrlist_first(bb), DRSTATECMP_LABEL_ORIG_BB,
-                             /*preinsert=*/true);
-    instr_t *copy_bb_label =
-        drstatecmp_insert_labels(drcontext, copy_bb, instrlist_first(copy_bb),
-                                 DRSTATECMP_LABEL_COPY_BB, /*preinsert=*/true);
-    instr_t *term_inst_copy_bb = instrlist_last_app(copy_bb);
-    instr_t *term_label = NULL;
-    if (instr_is_cti(term_inst_copy_bb) || instr_is_return(term_inst_copy_bb)) {
-        term_label = drstatecmp_insert_labels(drcontext, copy_bb, term_inst_copy_bb,
-                                              DRSTATECMP_LABEL_TERM, /*preinsert=*/true);
-    } else {
-        term_label = drstatecmp_insert_labels(drcontext, copy_bb, term_inst_copy_bb,
-                                              DRSTATECMP_LABEL_TERM, /*preinsert=*/false);
+    /* Remove all instrumentation code in the bb copy. */
+    for (instr_t *instr = instrlist_first(copy_bb); instr != NULL;
+         instr = instr_get_next(instr)) {
+        if (!instr_is_app(instr)) {
+            instrlist_remove(copy_bb, instr);
+            instr_destroy(drcontext, instr);
+        }
     }
-    /* Need an operand for the jmp instr targeting this label. */
-    opnd_t term_label_opnd = opnd_create_instr(term_label);
 
-    /* Replace the terminating instruction of the original bb with a jmp to the
-     * terminating instruction of the bb clone (if any).
+    /* Create and insert the labels. */
+    labels->orig_bb_start = drstatecmp_insert_label(drcontext, bb, instrlist_first(bb),
+                                                    DRSTATECMP_LABEL_ORIG_BB,
+                                                    /*preinsert=*/true);
+    labels->copy_bb_start =
+        drstatecmp_insert_label(drcontext, copy_bb, instrlist_first(copy_bb),
+                                DRSTATECMP_LABEL_COPY_BB, /*preinsert=*/true);
+    /* Insert the TERM label before the terminating instruction or after the
+     * last instruction if the bb falls through.
+     */
+    instr_t *term_inst_copy_bb = instrlist_last_app(copy_bb);
+    bool preinsert = true;
+    if (!instr_is_cti(term_inst_copy_bb) && !instr_is_return(term_inst_copy_bb))
+        preinsert = false;
+    labels->term = drstatecmp_insert_label(drcontext, copy_bb, term_inst_copy_bb,
+                                           DRSTATECMP_LABEL_TERM, preinsert);
+
+    /* Delete the terminating instruction of the original bb (if any) to let the original
+     * bb fall through to its copy for re-execution.
      */
     instr_t *term_inst = instrlist_last_app(bb);
-    instr_t *jmp_term = XINST_CREATE_jump(drcontext, term_label_opnd);
     if (instr_is_cti(term_inst) || instr_is_return(term_inst)) {
-        instrlist_replace(bb, term_inst, jmp_term);
+        instrlist_remove(bb, term_inst);
         instr_destroy(drcontext, term_inst);
-    } else {
-        /* If there is no control transfer, append a jmp at the end of the bb. */
-        instrlist_postinsert(bb, term_inst, jmp_term);
     }
 
     /* Append the instructions of the bb copy to the original bb. */
-    instrlist_append(bb, copy_bb_label);
-    /* Empty and destroy the bb copy (but not its instrs) since it is not needed anymore.
+    instrlist_append(bb, labels->copy_bb_start);
+    /* Empty and destroy the bb copy (but not its instructions) since it is not needed
+     * anymore.
      */
     instrlist_init(copy_bb);
     instrlist_destroy(drcontext, copy_bb);
-
-    /* We will first process the instructions of the original bb. */
-    data->orig_bb_mode = true;
-
-    return DR_EMIT_DEFAULT;
 }
-
-/****************************************************************************
- * ANALYSIS PHASE
- *
- * Analysis pass used to maintain the user_data (created in the app2app phase) for the
- * insert instrumentation phase.
- *
- */
-
-static dr_emit_flags_t
-drstatecmp_analyze_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                         bool translating, void *user_data)
-{
-    return DR_EMIT_DEFAULT;
-}
-
-/****************************************************************************
- * INSTRUMENTATION INSERTION PHASE
- *
- * In this phase, drstatecmp inserts all the necessary state comparisons.
- */
 
 static void
 drstatecmp_save_state_call(int for_cmp)
@@ -417,82 +366,69 @@ drstatecmp_compare_state(void *drcontext, instrlist_t *bb, instr_t *instr)
 }
 
 static void
-drstatecmp_insert_instrument_bb_with_side_effects(void)
+drstatecmp_check_reexecution(void *drcontext, instrlist_t *bb,
+                             drstatecmp_dup_labels_t *labels)
+{
+    /* Save state at the beginning of the original bb in order to restore it at the
+     * end of it (to enable re-execution of the bb). */
+    drstatecmp_save_state(drcontext, bb, labels->orig_bb_start, /*for_cmp=*/false);
+
+    /* Save the state at the end of the original bb (or alternatively before the start of
+     * the copy bb) for later comparison and restore the machine state to the state before
+     * executing the original bb (allows re-execution).
+     */
+    drstatecmp_save_state(drcontext, bb, labels->copy_bb_start, /*for_cmp=*/true);
+    drstatecmp_restore_state(drcontext, bb, labels->copy_bb_start);
+
+    /* Compare the state at the end of the copy bb (uninstrumented) with the saved state
+     * at the end of the original (instrumented) bb to detect clobbering by the
+     * instrumentation.
+     */
+    drstatecmp_compare_state(drcontext, bb, labels->term);
+}
+
+/* Duplicate the side-effect basic block for re-execution and add saving/restoring of
+ * machine state and state comparison to check for instrumentation-induced clobbering of
+ * machine state.
+ */
+static void
+drstatecmp_post_process_side_effect_free_bb(void *drcontext, instrlist_t *bb)
+{
+  drstatecmp_dup_labels_t labels;
+  drstatecmp_duplicate_bb(drcontext, bb, &labels);
+  drstatecmp_check_reexecution(drcontext, bb, &labels);
+}
+
+static void
+drstatecmp_post_process_bb_with_side_effects(void)
 {
     /* TODO i#4678: Add checks for bbs with side effects.  */
 }
 
-static void
-drstatecmp_insert_instrument_bb_orig_side_effect_free(void *drcontext, instrlist_t *bb,
-                                                      instr_t *instr,
-                                                      drstatecmp_user_data_t *data)
-{
-    /* Save state at the beginning of this bb in order to restore it at the end of
-     * the bb (to enable re-execution of the bb). */
-    if (match_label_val(instr, DRSTATECMP_LABEL_ORIG_BB)) {
-        drstatecmp_save_state(drcontext, bb, instr, /*for_cmp=*/false);
-    }
-
-    /* Change mode to process the copy bb once we encounter the COPY_BB label.
-     * Save the state at the end of this bb for later comparison, and remove the
-     * previously inserted jmp instr to the TERM label of the copy bb and let it fall
-     * through to the instructions of the copy bb (that will be instrumentation-free).
-     * Finally, restore the machine state to the state before executing the original
-     * version of this bb (allows us to re-execute this bb).
-     */
-    else if (match_label_val(instr, DRSTATECMP_LABEL_COPY_BB)) {
-        data->orig_bb_mode = false;
-        instr_t *prev_instr = instr_get_prev_app(instr);
-        instrlist_remove(bb, prev_instr);
-        instr_destroy(drcontext, prev_instr);
-        drstatecmp_save_state(drcontext, bb, instr, /*for_cmp=*/true);
-        drstatecmp_restore_state(drcontext, bb, instr);
-    }
-}
-
-static void
-drstatecmp_insert_instrument_bb_copy_side_effect_free(void *drcontext, instrlist_t *bb,
-                                                      instr_t *instr)
-{
-    /* Compare current state at the end of the bb with the saved state at the
-     * end of the original (instrumented) bb.
-     */
-    if (match_label_val(instr, DRSTATECMP_LABEL_TERM)) {
-        drstatecmp_compare_state(drcontext, bb, instr);
-        return;
-    }
-
-    /* Remove all instrumentation code in the bb copy to detect any
-     * unintended clobbering by instrumentation.
-     */
-    if (!instr_is_app(instr)) {
-        instrlist_remove(bb, instr);
-        instr_destroy(drcontext, instr);
-    }
-}
-
 static dr_emit_flags_t
-drstatecmp_insert_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
-                        bool for_trace, bool translating, void *user_data)
+drstatecmp_post_instru_phase(void *drcontext, void *tag, instrlist_t *bb,
+                               bool for_trace, bool translating)
 {
-    drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)user_data;
-    if (!data->side_effect_free) {
-        drstatecmp_insert_instrument_bb_with_side_effects();
-    } else {
-        if (data->orig_bb_mode) {
-            drstatecmp_insert_instrument_bb_orig_side_effect_free(drcontext, bb, instr,
-                                                                  data);
-        } else {
-            drstatecmp_insert_instrument_bb_copy_side_effect_free(drcontext, bb, instr);
+    /* Determine whether the basic block is free of side effects. */
+    bool side_effect_free = true;
+    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
+         inst = instr_get_next_app(inst)) {
+        if (drstatecmp_may_have_side_effects_instr(inst)) {
+            side_effect_free = false;
+            break;
         }
     }
 
-    /* Free the user_data when we are done with this bb. */
-    if (instr == instrlist_last(bb))
-        dr_thread_free(drcontext, user_data, sizeof(drstatecmp_user_data_t));
+    if (side_effect_free) {
+        drstatecmp_post_process_side_effect_free_bb(drcontext, bb);
+    } else {
+        /* Basic blocks with side-effects not handled yet. */
+        drstatecmp_post_process_bb_with_side_effects();
+    }
 
     return DR_EMIT_DEFAULT;
 }
+
 
 /****************************************************************************
  *  THREAD INIT AND EXIT
@@ -527,7 +463,7 @@ drstatecmp_init(void)
 {
     int count = dr_atomic_add32_return_sum(&drstatecmp_init_count, 1);
     if (count != 1)
-        return DRSTATECMP_ERROR_ALREADY_INITIALISED;
+        return DRSTATECMP_ERROR_ALREADY_INITIALIZED;
 
     drmgr_priority_t priority = { sizeof(drmgr_priority_t),
                                   DRMGR_PRIORITY_NAME_DRSTATECMP, NULL, NULL,
@@ -543,9 +479,7 @@ drstatecmp_init(void)
 
     if (!drmgr_register_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_register_thread_exit_event(drstatecmp_thread_exit) ||
-        !drmgr_register_bb_instrumentation_ex_event(
-            drstatecmp_duplicate_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
-            NULL, &priority))
+        !drmgr_register_bb_post_instru_event(drstatecmp_post_instru_phase, &priority))
         return DRSTATECMP_ERROR;
 
     return DRSTATECMP_SUCCESS;
@@ -561,9 +495,7 @@ drstatecmp_exit(void)
     if (!drmgr_unregister_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_unregister_thread_exit_event(drstatecmp_thread_exit) ||
         !drmgr_unregister_tls_field(tls_idx) ||
-        !drmgr_unregister_bb_instrumentation_ex_event(drstatecmp_duplicate_phase,
-                                                      drstatecmp_analyze_phase,
-                                                      drstatecmp_insert_phase, NULL))
+        !drmgr_unregister_bb_post_instru_event(drstatecmp_post_instru_phase))
         return DRSTATECMP_ERROR;
 
     drmgr_exit();

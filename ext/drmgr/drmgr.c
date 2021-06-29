@@ -228,10 +228,12 @@ typedef struct _local_ctx_t {
     cb_list_t iter_app2app;
     cb_list_t iter_insert;
     cb_list_t iter_instru;
+    cb_list_t iter_post_instru;
     /* used as stack storage by the cb if large enough: */
     cb_entry_t app2app[EVENTS_STACK_SZ];
     cb_entry_t insert[EVENTS_STACK_SZ];
     cb_entry_t instru[EVENTS_STACK_SZ];
+    cb_entry_t post_instru[EVENTS_STACK_SZ];
     /* for opcode instrumentation events: */
     cb_list_t *iter_opcode_insert;
     bool was_opcode_instrum_registered;
@@ -267,6 +269,7 @@ static uint bb_event_count;
 static cb_list_t cblist_app2app;
 static cb_list_t cblist_instrumentation;
 static cb_list_t cblist_instru2instru;
+static cb_list_t cblist_post_instru;
 
 /* For opcode specific instrumentation. */
 static hashtable_t global_opcode_instrum_table; /* maps opcodes to cb lists */
@@ -1012,7 +1015,7 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
         }
     }
 
-    /* Pass 4: final */
+    /* Pass 4: instru optimizations */
     pt->cur_phase = DRMGR_PHASE_INSTRU2INSTRU;
     for (quartet_idx = 0, i = 0; i < local_info->iter_instru.num_def; i++) {
         e = &local_info->iter_instru.cbs.bb[i];
@@ -1024,6 +1027,15 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
             quartet_idx++;
         } else
             res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
+    }
+
+    /* Pass 5: post-instrumentation (final) */
+    pt->cur_phase = DRMGR_PHASE_POST_INSTRU;
+    for (quartet_idx = 0, i = 0; i < local_info->iter_post_instru.num_def; i++) {
+        e = &local_info->iter_post_instru.cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
+        res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
 
     pt->cur_phase = DRMGR_PHASE_NONE;
@@ -1097,6 +1109,9 @@ drmgr_bb_event_set_local_cb_info(void *drcontext, OUT local_cb_info_t *local_inf
     cblist_create_local(drcontext, &cblist_instru2instru, &local_info->iter_instru,
                         (byte *)local_info->instru,
                         BUFFER_SIZE_ELEMENTS(local_info->instru));
+    cblist_create_local(drcontext, &cblist_post_instru, &local_info->iter_post_instru,
+                        (byte *)local_info->post_instru,
+                        BUFFER_SIZE_ELEMENTS(local_info->post_instru));
     local_info->pair_count = pair_count;
     local_info->quartet_count = quartet_count;
     local_info->was_opcode_instrum_registered = was_opcode_instrum_registered;
@@ -1486,6 +1501,7 @@ drmgr_bb_init(void)
     cblist_init(&cblist_app2app, sizeof(cb_entry_t));
     cblist_init(&cblist_instrumentation, sizeof(cb_entry_t));
     cblist_init(&cblist_instru2instru, sizeof(cb_entry_t));
+    cblist_init(&cblist_post_instru, sizeof(cb_entry_t));
 }
 
 static void
@@ -1498,6 +1514,7 @@ drmgr_bb_exit(void)
     cblist_delete(&cblist_app2app);
     cblist_delete(&cblist_instrumentation);
     cblist_delete(&cblist_instru2instru);
+    cblist_delete(&cblist_post_instru);
 }
 
 static bool
@@ -1666,6 +1683,25 @@ drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
     dr_rwlock_write_unlock(opcode_table_lock);
 
     return drmgr_bb_cb_remove(opcode_cb_list, (void *)func, cb_entry_matches_opcode);
+}
+
+DR_EXPORT
+bool
+drmgr_register_bb_post_instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority)
+{
+    if (func == NULL)
+        return false; /* invalid params */
+    return drmgr_bb_cb_add(&cblist_post_instru, (void *)func, NULL, priority,
+                           NULL /* no user data */, cb_entry_set_fields_xform);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_bb_post_instru_event(drmgr_xform_cb_t func)
+{
+    if (func == NULL)
+        return false; /* invalid params */
+    return drmgr_bb_cb_remove(&cblist_post_instru, (void *)func, cb_entry_matches_xform);
 }
 
 DR_EXPORT
