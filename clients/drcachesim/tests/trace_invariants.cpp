@@ -52,15 +52,15 @@ trace_invariants_t::~trace_invariants_t()
 bool
 trace_invariants_t::process_memref(const memref_t &memref)
 {
-    if (prev_entry_.find(memref.data.tid) == prev_entry_.end()) {
+    if (prev_instr_.find(memref.data.tid) == prev_instr_.end()) {
 #ifdef UNIX
         instrs_until_interrupt_[memref.data.tid] = -1;
         memrefs_until_interrupt_[memref.data.tid] = -1;
+        prev_entry_[memref.data.tid] = {};
+        prev_prev_entry_[memref.data.tid] = {};
 #endif
         prev_instr_[memref.data.tid] = {};
         prev_xfer_marker_[memref.data.tid] = {};
-        prev_entry_[memref.data.tid] = {};
-        prev_prev_entry_[memref.data.tid] = {};
     }
 #ifdef UNIX
     // Check conditions specific to the signal_invariants app, where it
@@ -84,7 +84,6 @@ trace_invariants_t::process_memref(const memref_t &memref)
         assert(memrefs_until_interrupt_[memref.data.tid] != 0);
         --memrefs_until_interrupt_[memref.data.tid];
     }
-#endif
     // Check that the signal delivery marker is immediately followed by the
     // app's signal handler, which we have annotated with "prefetcht0 [1]".
     if (memref.data.type == TRACE_TYPE_PREFETCHT0 && memref.data.addr == 1) {
@@ -94,6 +93,7 @@ trace_invariants_t::process_memref(const memref_t &memref)
                    TRACE_MARKER_TYPE_KERNEL_EVENT);
         app_handler_pc_ = prev_entry_[memref.data.tid].instr.addr;
     }
+#endif
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
@@ -174,8 +174,7 @@ trace_invariants_t::process_memref(const memref_t &memref)
                    prev_interleaved_instr_.instr.tid != memref.instr.tid))) ||
                 // Kernel-mediated, but we can't tell if we had a thread swap.
                 (prev_xfer_marker_[memref.data.tid].instr.tid != 0 &&
-                 (prev_xfer_marker_[memref.data.tid].instr.tid != memref.instr.tid ||
-                  prev_xfer_marker_[memref.data.tid].marker.marker_type ==
+                 (prev_xfer_marker_[memref.data.tid].marker.marker_type ==
                       TRACE_MARKER_TYPE_KERNEL_EVENT ||
                   prev_xfer_marker_[memref.data.tid].marker.marker_type ==
                       TRACE_MARKER_TYPE_KERNEL_XFER)) ||
@@ -208,6 +207,9 @@ trace_invariants_t::process_memref(const memref_t &memref)
         }
 #endif
         prev_interleaved_instr_ = memref;
+        // These 2 hash assignments cause a 2.5x slowdown for this test on Windows.
+        // We have as many other hash lookups as we can under UNIX.
+        // We could try to only update on a tid change to further reduce overhead.
         prev_instr_[memref.data.tid] = memref;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
@@ -243,10 +245,11 @@ trace_invariants_t::process_memref(const memref_t &memref)
     if (memref.data.type == TRACE_TYPE_PREFETCHT1 && memref.data.addr < 1024) {
         memrefs_until_interrupt_[memref.data.tid] = static_cast<int>(memref.data.addr);
     }
-#endif
 
     prev_prev_entry_[memref.data.tid] = prev_entry_[memref.data.tid];
     prev_entry_[memref.data.tid] = memref;
+#endif
+
     return true;
 }
 

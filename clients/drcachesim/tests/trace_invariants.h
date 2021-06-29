@@ -58,9 +58,9 @@ protected:
     memref_t prev_interleaved_instr_;
     std::unordered_map<memref_tid_t, memref_t> prev_instr_;
     std::unordered_map<memref_tid_t, memref_t> prev_xfer_marker_;
+#ifdef UNIX
     std::unordered_map<memref_tid_t, memref_t> prev_entry_;
     std::unordered_map<memref_tid_t, memref_t> prev_prev_entry_;
-#ifdef UNIX
     std::unordered_map<memref_tid_t, std::stack<memref_t>> pre_signal_instr_;
     // These are only available via annotations in signal_invariants.cpp.
     std::unordered_map<memref_tid_t, int> instrs_until_interrupt_;
