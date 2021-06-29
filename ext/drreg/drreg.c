@@ -2146,50 +2146,52 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
             }
         }
 
-        /* Update book-keeping for gpr/aflags spill slot or aflags spill reg. */
-        if (!instr_is_app(inst) &&
-            is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, &offs)) {
-            if (spill) {
-                /* Slot used in current instr may have a previous spilled gpr/aflags
-                 * value that may already have been restored. Forget that.
-                 */
-                spill_slot_to_reg[slot] = DR_REG_NULL;
-                if (aflags_spill_reg == reg) {
-                    ASSERT(!gpr_native[GPR_IDX(aflags_spill_reg)],
-                           "reg with aflags cannot be native");
-                    spill_slot_to_reg[slot] = AFLAGS_ALIAS_REG;
-                } else if (gpr_native[GPR_IDX(reg)]) {
-                    spill_slot_to_reg[slot] = reg;
+        /* Update book-keeping for gpr/aflags spill slot and aflags spill reg. Mark
+         * as native the gprs/aflags that were restored. All spills/restores are meta
+         * instrs.
+         */
+        if (!instr_is_app(inst)) {
+            if (is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, &offs)) {
+                if (spill) {
+                    /* Slot used in current instr may have a previous spilled gpr/aflags
+                     * value that may already have been restored. Forget that.
+                     */
+                    spill_slot_to_reg[slot] = DR_REG_NULL;
+                    if (aflags_spill_reg == reg) {
+                        ASSERT(!gpr_native[GPR_IDX(aflags_spill_reg)],
+                               "reg with aflags cannot be native");
+                        spill_slot_to_reg[slot] = AFLAGS_ALIAS_REG;
+                    } else if (gpr_native[GPR_IDX(reg)]) {
+                        spill_slot_to_reg[slot] = reg;
+                    } else {
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s @" PFX ": ignoring tool spill of non-native value.\n",
+                            __FUNCTION__, pc);
+                    }
                 } else {
-                    LOG(drcontext, DR_LOG_ALL, 3,
-                        "%s @" PFX ": ignoring tool spill of non-native value.\n",
-                        __FUNCTION__, pc);
+                    if (spill_slot_to_reg[slot] == AFLAGS_ALIAS_REG) {
+                        aflags_spill_reg = reg;
+                    } else if (spill_slot_to_reg[slot] == reg) {
+                        gpr_native[GPR_IDX(reg)] = true;
+                    } else {
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s @" PFX ": ignoring tool restore of non-native value\n",
+                            __FUNCTION__, pc);
+                    }
                 }
-            } else {
-                if (spill_slot_to_reg[slot] == AFLAGS_ALIAS_REG) {
-                    aflags_spill_reg = reg;
-                } else if (spill_slot_to_reg[slot] == reg) {
-                    gpr_native[GPR_IDX(reg)] = true;
-                } else {
-                    LOG(drcontext, DR_LOG_ALL, 3,
-                        "%s @" PFX ": ignoring tool restore of non-native value\n",
-                        __FUNCTION__, pc);
-                }
-            }
-        } else if (!instr_is_app(inst) &&
-                   instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
-            if (aflags_native) {
+            } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
+                if (aflags_native) {
 #ifdef X86
-                aflags_spill_reg = DR_REG_XAX;
+                    aflags_spill_reg = DR_REG_XAX;
 #else
-                aflags_spill_reg = opnd_get_reg(instr_get_dst(inst, 0));
+                    aflags_spill_reg = opnd_get_reg(instr_get_dst(inst, 0));
 #endif
-            }
-        } else if (!instr_is_app(inst) &&
-                   instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
-            if (aflags_spill_reg ==
-                IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)))) {
-                aflags_native = true;
+                }
+            } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
+                if (aflags_spill_reg ==
+                    IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)))) {
+                    aflags_native = true;
+                }
             }
         }
     }
