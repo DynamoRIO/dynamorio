@@ -946,9 +946,12 @@ typedef struct _dr_kernel_xfer_info_t {
     dr_kernel_xfer_type_t type;
     /**
      * The source machine context which is about to be changed.  This may be NULL
-     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER and
-     * #DR_XFER_RSEQ_ABORT (where the PC is not known but the rest of the state
-     * matches the current state).
+     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER.
+     * For #DR_XFER_RSEQ_ABORT, due to the constraints of handling restartable
+     * sequences, the abort PC will point prior to the committing store, while
+     * that store already executed during instrumentation.  We recommend that
+     * clients treat the store as never-executed in that situation, if possible,
+     * to produce a more-representative sequence.
      */
     const dr_mcontext_t *source_mcontext;
     /**
