@@ -394,9 +394,9 @@ drstatecmp_check_reexecution(void *drcontext, instrlist_t *bb,
 static void
 drstatecmp_post_process_side_effect_free_bb(void *drcontext, instrlist_t *bb)
 {
-  drstatecmp_dup_labels_t labels;
-  drstatecmp_duplicate_bb(drcontext, bb, &labels);
-  drstatecmp_check_reexecution(drcontext, bb, &labels);
+    drstatecmp_dup_labels_t labels;
+    drstatecmp_duplicate_bb(drcontext, bb, &labels);
+    drstatecmp_check_reexecution(drcontext, bb, &labels);
 }
 
 static void
@@ -406,8 +406,8 @@ drstatecmp_post_process_bb_with_side_effects(void)
 }
 
 static dr_emit_flags_t
-drstatecmp_post_instru_phase(void *drcontext, void *tag, instrlist_t *bb,
-                               bool for_trace, bool translating)
+drstatecmp_post_instru_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                             bool translating)
 {
     /* Determine whether the basic block is free of side effects. */
     bool side_effect_free = true;
@@ -428,7 +428,6 @@ drstatecmp_post_instru_phase(void *drcontext, void *tag, instrlist_t *bb,
 
     return DR_EMIT_DEFAULT;
 }
-
 
 /****************************************************************************
  *  THREAD INIT AND EXIT
