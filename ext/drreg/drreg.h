@@ -117,7 +117,13 @@ typedef struct _drreg_options_t {
      * requested from DR via dr_raw_tls_calloc().  Any slots needed beyond
      * this number will use DR's base slots, which are not allowed to be
      * used across application instructions.  DR's slots are also more
-     * expensive to access (beyond the first few).
+     * expensive to access (beyond the first few).  DR's base slots may
+     * also be used by APIs like dr_save_reg()/dr_restore_reg() (and the
+     * corresponding dr_read_saved_reg()/dr_write_saved_reg()), which may
+     * cause correctness issues if there's some slot usage conflict within
+     * the same client or with other clients/libraries.  Therefore, all
+     * cooperating client components should use drreg.  Also, clients
+     * should make sure to request sufficient dedicated slots from drreg.
      * This number should be computed as one plus the number of
      * simultaneously used general-purpose register spill slots, as
      * drreg reserves one of the requested slots for arithmetic flag
@@ -482,6 +488,11 @@ DR_EXPORT
  * whether instructions were inserted at \p where_restore and \p where_respill,
  * respectively.
  *
+ * For correct operation on x86 in the case when aflags are in xax and this routine
+ * is invoked to get app value of xax, there shouldn't be any new reservation between
+ * \p where_restore and \p where_respill that may write to a spill slot and clobber
+ * the temporary slot used in this routine.
+ *
  * The results from drreg_reservation_info_ex() can be used to predict the behavior
  * of this routine.  A restore is needed if !drreg_reserve_info_t.holds_app_value.
  * and drreg_reserve_info_t.app_value_retained.  A respill is needed if a restore is
@@ -507,7 +518,8 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
 DR_EXPORT
 /**
  * Returns information about the TLS slot assigned to \p reg, which
- * must be a currently-reserved register.
+ * must be a currently-reserved register. To query information about
+ * the arithmetic flags, pass #DR_REG_NULL for \p reg.
  *
  * If \p opnd is non-NULL, returns an opnd_t in \p opnd that references
  * the TLS slot assigned to \p reg.  If too many slots are in use and

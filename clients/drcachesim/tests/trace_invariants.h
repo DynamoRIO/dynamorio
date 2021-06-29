@@ -66,6 +66,7 @@ protected:
     std::unordered_map<memref_tid_t, bool> thread_exited_;
     std::unordered_map<memref_tid_t, bool> found_cache_line_size_marker_;
     std::unordered_map<memref_tid_t, bool> found_instr_count_marker_;
+    std::unordered_map<memref_tid_t, uint64_t> last_instr_count_marker_;
 };
 
 #endif /* _TRACE_INVARIANTS_H_ */

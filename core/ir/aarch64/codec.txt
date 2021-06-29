@@ -88,6 +88,7 @@
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB
 -------------------xxx----------  extam      # extend amount
 ------------------xxxx----------  p10_low    # SVE predicate registers p0-p7
+-----------------xxxx-----------  imm4idx    # imm4 from 11-14
 -----------------xxxxx----------  ign10      # ignored reg field in load/store exclusive
 -----------------xxxxx----------  w10        # W register (or WZR)
 -----------------xxxxx----------  x10        # X register (or XZR)
@@ -95,11 +96,14 @@
 -----------------xxxxx----------  d10        # D register
 -----------------xxxxx----------  q10        # Q register
 ----------------xxx-------------  ext        # extend type
+----------------xxx-------------  cmode3     # immediate from 13-15
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
+-------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:10
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
+-----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
 -----------xxxxx----------------  ign16      # ignored reg field in load/store exclusive
 -----------xxxxx----------------  imm5       # immediate for CCMN, CCMP
 -----------xxxxx----------------  w16        # W register (or WZR)
@@ -131,6 +135,7 @@
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
+--------??xx--------x-----------  index_lhm  # imm3 from bits 11, 21 and/or 20 inferred from sz
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
 --------xx----------------------  bhs_sz     # element width of a vector (8<<bhs_sz)
@@ -159,6 +164,7 @@
 -x-----------------xxx----------  index0     # index of B subreg in Q: 0-15
 -x--------------????--xxxxx-----  memvm      # computes multiplier from 15:12
 -x----------xxxx----------------  dq16_h_sz # Q register (0-15) if bit 30 is set, else D
+-x---------?????-----------xxxxx  wx0_imm5_q # reg 0-4 d or q is inferred from bits and encodes q
 -x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 ?---------------xxxxxx----------  imm6       # shift amount
 ?---------------xxxxxx----------  imms       # bitfield immediate, checks 31
@@ -933,6 +939,7 @@ x0011010100xxxxxxxxx00xxxxxxxxxx  csel   wx0 : wx5 wx16 cond
 x0011010100xxxxxxxxx01xxxxxxxxxx  csinc  wx0 : wx5 wx16 cond
 x1011010100xxxxxxxxx00xxxxxxxxxx  csinv  wx0 : wx5 wx16 cond
 x1011010100xxxxxxxxx01xxxxxxxxxx  csneg  wx0 : wx5 wx16 cond
+00011110xx1xxxxxxxxx11xxxxxxxxxx  fcsel  float_reg0 : float_reg5 float_reg16 cond
 
 # Data-processing (3 source)
 
@@ -970,6 +977,7 @@ x101101011000000000000xxxxxxxxxx  rbit    wx0 : wx5
 x101101011000000000001xxxxxxxxxx  rev16   wx0 : wx5
 0101101011000000000010xxxxxxxxxx  rev     w0  : w5
 x101101011000000000100xxxxxxxxxx  clz     wx0 : wx5
+0x101110xx100000010010xxxxxxxxxx  clz     dq0 : dq5 bhs_sz
 x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 1101101011000000000010xxxxxxxxxx  rev32   x0 : x5
 1101101011000000000011xxxxxxxxxx  rev     x0 : x5
@@ -992,6 +1000,18 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 # FMOV immediate to vector reg
 0x00111100000xxx111111xxxxxxxxxx     fmov dq0 : fpimm8 h_sz # Armv8.2
 
+# SMOV
+00001110000xxxxx001011xxxxxxxxxx     smov      w0 : d5 imm5
+01001110000xxxxx001011xxxxxxxxxx     smov      x0 : q5 imm5
+
+# UMOV
+0x001110000xxxxx001111xxxxxxxxxx     umov      wx0_imm5_q : q5 imm5
+
+# INS (element)
+01101110000xxxxx0xxxx1xxxxxxxxxx     ins       q0 imm5 : q5 imm4idx
+
+# INS (general)
+01001110000xxxxx000111xxxxxxxxxx     ins       q0 imm5 : wx5_imm5
 
 # Advanced SIMD three same (FP16)
 0x001110010xxxxx000001xxxxxxxxxx     fmaxnm    dq0 : dq5 dq16 h_sz
@@ -1037,7 +1057,9 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x001110xx1xxxxx100001xxxxxxxxxx     add       dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx100011xxxxxxxxxx     cmtst     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx100101xxxxxxxxxx     mla       dq0 : dq0 dq5 dq16 bhs_sz
+0x101111xxxxxxxx0000x0xxxxxxxxxx     mla       dq0 : dq5 dq16_h_sz bhsd_sz index_lhm
 0x001110xx1xxxxx100111xxxxxxxxxx     mul       dq0 : dq5 dq16 bhs_sz
+0x001111xxxxxxxx1000x0xxxxxxxxxx     mul       dq0 : dq5 dq16_h_sz vindex_H hs_sz
 0x001110xx1xxxxx101001xxxxxxxxxx     smaxp     dq0 : dq5 dq16 bhs_sz
 0x001110xx1xxxxx101011xxxxxxxxxx     sminp     dq0 : dq5 dq16 bhs_sz
 0x001110xx1xxxxx101101xxxxxxxxxx     sqdmulh   dq0 : dq5 dq16 hs_sz
@@ -1060,6 +1082,7 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x0011101x1xxxxx111101xxxxxxxxxx     fmin      dq0 : dq5 dq16 sd_sz
 0x0011101x1xxxxx111111xxxxxxxxxx     frsqrts   dq0 : dq5 dq16 sd_sz
 0x001110101xxxxx000111xxxxxxxxxx     orr       dq0 : dq5 dq16
+0x00111100000xxxxxx101xxxxxxxxxx     orr       dq0 : imm8 cmode3
 0x001110111xxxxx000111xxxxxxxxxx     orn       dq0 : dq5 dq16
 0x101110xx1xxxxx000001xxxxxxxxxx     uhadd     dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx000011xxxxxxxxxx     uqadd     dq0 : dq5 dq16 bhsd_sz
@@ -1079,6 +1102,7 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x101110xx1xxxxx100001xxxxxxxxxx     sub       dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100011xxxxxxxxxx     cmeq      dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100101xxxxxxxxxx     mls       dq0 : dq0 dq5 dq16 bhs_sz
+0x101111xxxxxxxx0100x0xxxxxxxxxx     mls       dq0 : dq5 dq16_h_sz bhsd_sz index_lhm
 0x101110xx1xxxxx100111xxxxxxxxxx     pmul      dq0 : dq5 dq16 b_sz
 0x101110xx1xxxxx101001xxxxxxxxxx     umaxp     dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx101011xxxxxxxxxx     uminp     dq0 : dq5 dq16 bhs_sz
@@ -1120,6 +1144,14 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0001111001100011110000xxxxxxxxxx     fcvt      h0 : d5
 0001111011100010010000xxxxxxxxxx     fcvt      s0 : h5
 0001111011100010110000xxxxxxxxxx     fcvt      d0 : h5
+00011110xx1xxxxx001000xxxxx00000     fcmp      float_reg5 : float_reg16
+00011110xx100000001000xxxxx01000     fcmp      float_reg5 : bhsd_sz
+00011110xx1xxxxxxxxx01xxxxx0xxxx     fccmp     float_reg5 : float_reg16 cond nzcv
+00011110xx1xxxxxxxxx01xxxxx1xxxx     fccmpe    float_reg5 : float_reg16 cond nzcv
+0x10111000110000111110xxxxxxxxxx     fmaxv     s0 : dq5
+0x00111000110000111110xxxxxxxxxx     fmaxv     h0 : dq5
+0x10111010110000111110xxxxxxxxxx     fminv     s0 : dq5
+0x00111010110000111110xxxxxxxxxx     fminv     h0 : dq5
 
 # Floating-point convert (scalar)
 0001111000100100000000xxxxxxxxxx     fcvtas    w0 : s5
@@ -1316,6 +1348,9 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 00101110xx1xxxxx110000xxxxxxxxxx     umull     q0 : d5 d16 bhs_sz
 01101110xx1xxxxx110000xxxxxxxxxx     umull2    q0 : q5 q16 bhs_sz
 
+0x101110xx100000000010xxxxxxxxxx     rev32     dq0 : dq5 bhs_sz
+0x001110xx100000000010xxxxxxxxxx     rev64     dq0 : dq5 bhs_sz
+
 # DUP (element) Scalar
 01011110000xxxxx000001xxxxxxxxxx     dup       dq0 : dq5 imm5
 
@@ -1327,5 +1362,14 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 00001110000xxxxx000011xxxxxxxxxx     dup       d0 : w5 imm5
 01001110000xxxxx000011xxxxxxxxxx     dup       q0 : x5 imm5
 
-00001110000xxxxx001011xxxxxxxxxx     smov      w0 : d5 imm5
-01001110000xxxxx001011xxxxxxxxxx     smov      x0 : q5 imm5
+0x001110xx110001101110xxxxxxxxxx     addv      dq0 : dq5 bhsd_sz
+0111111011100000101110xxxxxxxxxx     neg       q0 : q5
+0x101110xx100000101110xxxxxxxxxx     neg       dq0 : dq5 bhsd_sz
+
+0101111011100000101110xxxxxxxxxx     abs       d0 : d5
+0x001110xx100000101110xxxxxxxxxx     abs       dq0 : dq5 bhsd_sz
+0101111011110001101110xxxxxxxxxx     addp      d0 : q5
+0x001110xx110000101010xxxxxxxxxx     smaxv     dq0 : dq5 bhsd_sz
+0x001110xx110001101010xxxxxxxxxx     sminv     dq0 : dq5 bhsd_sz
+0x001110xx0xxxxx001110xxxxxxxxxx     zip1      dq0 : dq5 dq16 bhsd_sz
+0x001110xx0xxxxx011110xxxxxxxxxx     zip2      dq0 : dq5 dq16 bhsd_sz

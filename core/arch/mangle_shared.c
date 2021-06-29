@@ -1364,6 +1364,7 @@ mangle_rseq(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 "Rseq sequences must fall through their endpoints");
             ASSERT_NOT_REACHED();
         }
+        rseq_set_final_instr_pc(start, pc);
         mangle_rseq_insert_native_sequence(dcontext, ilist, instr, next_instr, flags,
                                            start, end, handler, scratch_reg, reg_written,
                                            reg_written_count);

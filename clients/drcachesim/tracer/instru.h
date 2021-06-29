@@ -263,6 +263,8 @@ public:
     get_cpu_id();
     static uint64
     get_timestamp();
+    static int
+    count_app_instrs(instrlist_t *ilist);
     virtual void
     insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,

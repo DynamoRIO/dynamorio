@@ -88,6 +88,7 @@ typedef struct _rseq_region_t {
     app_pc start;
     app_pc end;
     app_pc handler;
+    app_pc final_instr_pc;
     /* We need to preserve input registers for targeting "start" instead of "handler"
      * for our 2nd invocation, if they're written in the rseq region.  We only support
      * GPR inputs.  We document that we do not support any other inputs (no flags, no
@@ -185,6 +186,18 @@ rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *hand
         *reg_written = info->reg_written;
     if (reg_written_size != NULL)
         *reg_written_size = sizeof(info->reg_written) / sizeof(info->reg_written[0]);
+    return true;
+}
+
+bool
+rseq_set_final_instr_pc(app_pc start, app_pc final_instr_pc)
+{
+    rseq_region_t *info;
+    if (!vmvector_lookup_data(d_r_rseq_areas, start, NULL, NULL, (void **)&info))
+        return false;
+    if (final_instr_pc < start || final_instr_pc >= info->end)
+        return false;
+    info->final_instr_pc = final_instr_pc;
     return true;
 }
 
@@ -378,6 +391,7 @@ rseq_process_entry(struct rseq_cs *entry, ssize_t load_offs)
     info->start = (app_pc)(ptr_uint_t)entry->start_ip + load_offs;
     info->end = info->start + entry->post_commit_offset;
     info->handler = (app_pc)(ptr_uint_t)entry->abort_ip + load_offs;
+    info->final_instr_pc = NULL; /* Only set later at block building time. */
     int signature;
     if (!d_r_safe_read(info->handler - sizeof(signature), sizeof(signature),
                        &signature)) {
@@ -740,14 +754,29 @@ rseq_process_native_abort(dcontext_t *dcontext)
 {
     /* Raise a transfer event. */
     LOG(THREAD, LOG_INTERP | LOG_VMAREAS, 2, "Abort triggered in rseq native code\n");
+    /* We do not know the precise interruption point but we try to present something
+     * reasonable.
+     */
+    rseq_region_t *info = NULL;
+    priv_mcontext_t *source_mc = NULL;
+    if (dcontext->last_fragment != NULL &&
+        vmvector_lookup_data(d_r_rseq_areas, dcontext->last_fragment->tag, NULL, NULL,
+                             (void **)&info)) {
+        /* An artifact of our run-twice solution is that clients have already seen
+         * the whole sequence when any abort anywhere in the native execution occurs.
+         * We thus give the source PC as the final instr in the region, and use the
+         * target context as the rest of the context.
+         */
+        source_mc = HEAP_TYPE_ALLOC(dcontext, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
+        *source_mc = *get_mcontext(dcontext);
+        source_mc->pc = info->final_instr_pc;
+    }
     get_mcontext(dcontext)->pc = dcontext->next_tag;
-    if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, osc_empty,
-                               /* We do not know the source PC so we do not
-                                * supply a source state.
-                                */
-                               NULL, NULL, dcontext->next_tag,
-                               get_mcontext(dcontext)->xsp, osc_empty,
+    if (instrument_kernel_xfer(dcontext, DR_XFER_RSEQ_ABORT, osc_empty, NULL, source_mc,
+                               dcontext->next_tag, get_mcontext(dcontext)->xsp, osc_empty,
                                get_mcontext(dcontext), 0)) {
         dcontext->next_tag = canonicalize_pc_target(dcontext, get_mcontext(dcontext)->pc);
     }
+    if (source_mc != NULL)
+        HEAP_TYPE_FREE(dcontext, source_mc, priv_mcontext_t, ACCT_CLIENT, PROTECTED);
 }

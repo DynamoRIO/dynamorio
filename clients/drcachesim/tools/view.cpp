@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -139,8 +139,20 @@ view_t::process_memref(const memref_t &memref)
         case TRACE_MARKER_TYPE_KERNEL_XFER:
             std::cerr << "<marker: syscall xfer>\n";
             break;
+        case TRACE_MARKER_TYPE_INSTRUCTION_COUNT:
+            std::cerr << "<marker: instruction count " << memref.marker.marker_value
+                      << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_FILETYPE:
+            std::cerr << "<marker: filetype " << memref.marker.marker_value << ">\n";
+            break;
+        case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
+            std::cerr << "<marker: cache line size " << memref.marker.marker_value
+                      << ">\n";
+            break;
         default:
-            // We ignore other markers such as call/ret profiling for now.
+            std::cerr << "<marker: type " << memref.marker.marker_type << "; value "
+                      << memref.marker.marker_value << ">\n";
             break;
         }
         return true;

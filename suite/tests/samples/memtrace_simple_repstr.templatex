@@ -1,0 +1,19 @@
+// Without emulation awareness, this will print "1, movs" instead of "2, rep movs".
+Format: <data address>: <data size>, <\(r\)ead/\(w\)rite/opcode>
+0x[0-9a-f]*:  2, rep movs
+0x[0-9a-f]*:  2, rep movs
+0x[0-9a-f]*:  1, r
+0x[0-9a-f]*:  1, w
+0x[0-9a-f]*:  2, rep movs
+0x[0-9a-f]*:  1, r
+0x[0-9a-f]*:  1, w
+0x[0-9a-f]*:  2, rep movs
+0x[0-9a-f]*:  1, r
+0x[0-9a-f]*:  1, w
+0x[0-9a-f]*:  2, rep movs
+0x[0-9a-f]*:  1, r
+0x[0-9a-f]*:  1, w
+0x[0-9a-f]*:  2, rep movs
+0x[0-9a-f]*:  1, r
+0x[0-9a-f]*:  1, w
+Adios world!

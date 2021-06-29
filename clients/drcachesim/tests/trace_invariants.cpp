@@ -92,12 +92,8 @@ trace_invariants_t::process_memref(const memref_t &memref)
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_INSTRUCTION_COUNT) {
         found_instr_count_marker_[memref.marker.tid] = true;
-        if (knob_test_name_ == "filter_asm_instr_count") {
-#ifndef NDEBUG
-            static constexpr int ASM_INSTR_COUNT = 133;
-#endif
-            assert(memref.marker.marker_value == ASM_INSTR_COUNT);
-        }
+        assert(memref.marker.marker_value >= last_instr_count_marker_[memref.marker.tid]);
+        last_instr_count_marker_[memref.marker.tid] = memref.marker.marker_value;
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_CACHE_LINE_SIZE) {
@@ -108,6 +104,12 @@ trace_invariants_t::process_memref(const memref_t &memref)
         assert(!TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
                found_instr_count_marker_[memref.exit.tid]);
         assert(found_cache_line_size_marker_[memref.exit.tid]);
+        if (knob_test_name_ == "filter_asm_instr_count") {
+#ifndef NDEBUG
+            static constexpr int ASM_INSTR_COUNT = 133;
+#endif
+            assert(last_instr_count_marker_[memref.exit.tid] == ASM_INSTR_COUNT);
+        }
         thread_exited_[memref.exit.tid] = true;
     }
     if (type_is_instr(memref.instr.type) ||
