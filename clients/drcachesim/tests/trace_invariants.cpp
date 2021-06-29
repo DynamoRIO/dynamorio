@@ -216,11 +216,13 @@ trace_invariants_t::process_memref(const memref_t &memref)
                       << "marker type " << memref.marker.marker_type << " value "
                       << memref.marker.marker_value << "\n";
         }
+#ifdef UNIX
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
             // Give up on back-to-back signals.
             prev_xfer_marker_[memref.data.tid].marker.marker_type !=
                 TRACE_MARKER_TYPE_KERNEL_XFER)
             pre_signal_instr_[memref.data.tid].push(prev_instr_[memref.data.tid]);
+#endif
         prev_xfer_marker_[memref.data.tid] = memref;
     }
 
