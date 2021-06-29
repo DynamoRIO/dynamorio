@@ -60,9 +60,12 @@ protected:
     std::unordered_map<memref_tid_t, memref_t> prev_xfer_marker_;
     std::unordered_map<memref_tid_t, memref_t> prev_entry_;
     std::unordered_map<memref_tid_t, memref_t> prev_prev_entry_;
+#ifdef UNIX
     std::unordered_map<memref_tid_t, std::stack<memref_t>> pre_signal_instr_;
+    // These are only available via annotations in signal_invariants.cpp.
     std::unordered_map<memref_tid_t, int> instrs_until_interrupt_;
     std::unordered_map<memref_tid_t, int> memrefs_until_interrupt_;
+#endif
     addr_t app_handler_pc_;
     offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
     std::unordered_map<memref_tid_t, bool> thread_exited_;
