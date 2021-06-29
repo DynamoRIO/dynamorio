@@ -73,13 +73,6 @@ get_label_val(drstatecmp_label_t label_type)
     return (ptr_int_t)(label_base + label_type);
 }
 
-/* Compare instr label against a label_type. Returns true if they match. */
-static inline bool
-match_label_val(instr_t *instr, drstatecmp_label_t label_type)
-{
-    return instr_get_note(instr) == (void *)get_label_val(label_type);
-}
-
 /* Create and insert bb labels. */
 static instr_t *
 drstatecmp_insert_label(void *drcontext, instrlist_t *ilist, instr_t *where,
