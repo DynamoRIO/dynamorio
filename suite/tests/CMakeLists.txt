@@ -3362,8 +3362,9 @@ if (BUILD_CLIENTS)
     if (DEBUG) # for -test_mode
       if (WIN32)
         # Just like for tool.histogram.offline, this is slow on Windows, so
-        # we narrow the tracing window.
-        set(invariants_ops "-trace_after_instrs 20M")
+        # we narrow the tracing window a little.  If we delay too far we start
+        # in the middle of a callback and hit asserts though.
+        set(invariants_ops "-trace_after_instrs 5M")
       else ()
         set(invariants_ops "")
       endif ()
