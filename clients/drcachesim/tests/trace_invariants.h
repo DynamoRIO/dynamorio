@@ -38,6 +38,7 @@
 
 #include "../analysis_tool.h"
 #include "../common/memref.h"
+#include <stack>
 #include <unordered_map>
 
 class trace_invariants_t : public analysis_tool_t {
@@ -54,13 +55,17 @@ protected:
     bool knob_offline_;
     unsigned int knob_verbose_;
     std::string knob_test_name_;
-    memref_t prev_instr_;
-    memref_t prev_xfer_marker_;
-    memref_t prev_entry_;
-    memref_t prev_prev_entry_;
-    memref_t pre_signal_instr_;
-    int instrs_until_interrupt_;
-    int memrefs_until_interrupt_;
+    memref_t prev_interleaved_instr_;
+    std::unordered_map<memref_tid_t, memref_t> prev_instr_;
+    std::unordered_map<memref_tid_t, memref_t> prev_xfer_marker_;
+#ifdef UNIX
+    std::unordered_map<memref_tid_t, memref_t> prev_entry_;
+    std::unordered_map<memref_tid_t, memref_t> prev_prev_entry_;
+    std::unordered_map<memref_tid_t, std::stack<memref_t>> pre_signal_instr_;
+    // These are only available via annotations in signal_invariants.cpp.
+    std::unordered_map<memref_tid_t, int> instrs_until_interrupt_;
+    std::unordered_map<memref_tid_t, int> memrefs_until_interrupt_;
+#endif
     addr_t app_handler_pc_;
     offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
     std::unordered_map<memref_tid_t, bool> thread_exited_;

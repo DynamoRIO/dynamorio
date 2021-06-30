@@ -1354,7 +1354,9 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 00001110xx1xxxxx011100xxxxxxxxxx     sabdl     q0 : d5 d16 bhs_sz
 01001110xx1xxxxx011100xxxxxxxxxx     sabdl2    q0 : q5 q16 bhs_sz
 00001110xx1xxxxx100000xxxxxxxxxx     smlal     q0 : d5 d16 bhs_sz
+00001111xxxxxxxx0010x0xxxxxxxxxx     smlal     d0 : d5 dq16_idx_lhm bhsd_sz idx_lhm
 01001110xx1xxxxx100000xxxxxxxxxx     smlal2    q0 : q5 q16 bhs_sz
+01001111xxxxxxxx0010x0xxxxxxxxxx     smlal2    q0 : q5 dq16_idx_lhm bhsd_sz idx_lhm
 00001110xx1xxxxx100100xxxxxxxxxx     sqdmlal   q0 : d5 d16 hs_sz
 01001110xx1xxxxx100100xxxxxxxxxx     sqdmlal2  q0 : q5 q16 hs_sz
 00001110xx1xxxxx101000xxxxxxxxxx     smlsl     q0 : d5 d16 bhs_sz
@@ -1405,13 +1407,17 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 01001110000xxxxx000011xxxxxxxxxx     dup       q0 : x5 imm5
 
 0x001110xx110001101110xxxxxxxxxx     addv      dq0 : dq5 bhsd_sz
-0111111011100000101110xxxxxxxxxx     neg       q0 : q5
+0111111011100000101110xxxxxxxxxx     neg        q0 : q5
 0x101110xx100000101110xxxxxxxxxx     neg       dq0 : dq5 bhsd_sz
 
-0101111011100000101110xxxxxxxxxx     abs       d0 : d5
+0101111011100000101110xxxxxxxxxx     abs        d0 : d5
 0x001110xx100000101110xxxxxxxxxx     abs       dq0 : dq5 bhsd_sz
-0101111011110001101110xxxxxxxxxx     addp      d0 : q5
+0101111011110001101110xxxxxxxxxx     addp       d0 : q5
 0x001110xx110000101010xxxxxxxxxx     smaxv     dq0 : dq5 bhsd_sz
 0x001110xx110001101010xxxxxxxxxx     sminv     dq0 : dq5 bhsd_sz
 0x001110xx0xxxxx001110xxxxxxxxxx     zip1      dq0 : dq5 dq16 bhsd_sz
 0x001110xx0xxxxx011110xxxxxxxxxx     zip2      dq0 : dq5 dq16 bhsd_sz
+0x001110xx100000011010xxxxxxxxxx     sadalp    dq0 : dq5 bhsd_sz
+0x001110xx100000001010xxxxxxxxxx     saddlp    dq0 : dq5 bhsd_sz
+0000111100xxxxxx101001xxxxxxxxxx     sshll      d0 : d5 immhb
+0100111100xxxxxx101001xxxxxxxxxx     sshll2     q0 : q5 immhb
