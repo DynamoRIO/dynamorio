@@ -114,7 +114,7 @@ view_t::process_memref(const memref_t &memref)
         case TRACE_MARKER_TYPE_VERSION:
             std::cerr << "<marker: version " << memref.marker.marker_value << ">\n";
             if (trace_version_ == -1)
-                trace_version_ = memref.marker.marker_value;
+                trace_version_ = static_cast<int>(memref.marker.marker_value);
             else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
                 error_string_ = std::string("Version mismatch across files");
                 return false;
