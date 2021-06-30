@@ -507,86 +507,140 @@ Opcode mix tool results:
 ...
 \endcode
 
-\section sec_tool_view View Disassembly
+\section sec_tool_view Human-Readable View
 
-The view tool prints out disassembled instructions in att, intel, arm or DR
-format for offline traces. The -skip_refs and -sim_refs flags can be used to
+The view tool prints out the contents of the trace for human viewing, including
+disassembling instructions in AT&T, Intel, Arm, or DR format, for offline traces. The
+-skip_refs and -sim_refs flags can be used to
 set a start point and end point for the disassembled view. Note that these
 flags compute the number of instructions which are skipped or displayed which
 is distinct from the number of trace entries.
 
-The tool also displays metadata marker entries for timestamps, on
-which core and thread the subsequent instruction sequence was
+The tool displays loads and stores, as well as metadata marker entries for
+timestamps, on which core and thread the subsequent instruction sequence was
 executed, and kernel and system call transfers (these correspond to
 signal or event handler interruptions of the regular execution flow).
 
 \code
 $ bin64/drrun -t drcachesim -simulator_type view -sim_refs 20 -indir drmemtrace.*.dir
-<marker: timestamp 13218166936578899>
-<marker: tid 46977 on core 7>
-  0x00007f3a5127d870  48 83 ec 48          sub    $0x48, %rsp
-  0x00007f3a5127d874  0f 31                rdtsc
-  0x00007f3a5127d876  48 c1 e2 20          shl    $0x20, %rdx
-  0x00007f3a5127d87a  89 c0                mov    %eax, %eax
-  0x00007f3a5127d87c  48 09 c2             or     %rax, %rdx
-  0x00007f3a5127d87f  48 8b 05 ea 25 22 00 mov    <rel> 0x00007f3a5149fe70, %rax
-  0x00007f3a5127d886  48 89 15 d3 23 22 00 mov    %rdx, <rel> 0x00007f3a5149fc60
-  0x00007f3a5127d88d  48 8d 15 dc 25 22 00 lea    <rel> 0x00007f3a5149fe70, %rdx
-  0x00007f3a5127d894  49 89 d6             mov    %rdx, %r14
-  0x00007f3a5127d897  4c 2b 35 62 27 22 00 sub    <rel> 0x00007f3a514a0000, %r14
-  0x00007f3a5127d89e  48 85 c0             test   %rax, %rax
-  0x00007f3a5127d8a1  48 89 15 40 31 22 00 mov    %rdx, <rel> 0x00007f3a514a09e8
-  0x00007f3a5127d8a8  4c 89 35 29 31 22 00 mov    %r14, <rel> 0x00007f3a514a09d8
-  0x00007f3a5127d8af  0f 84 9b 00 00 00    jz     $0x00007f3a5127d950
-  0x00007f3a5127d8b5  4c 8d 05 84 27 22 00 lea    <rel> 0x00007f3a514a0040, %r8
-  0x00007f3a5127d8bc  49 b9 d8 03 00 80 03 mov    $0x00000003800003d8, %r9
-                      00 00 00
-  0x00007f3a5127d8c6  48 b9 78 fb ff 7f 03 mov    $0x000000037ffffb78, %rcx
-                      00 00 00
-  0x00007f3a5127d8d0  48 8d 35 41 31 22 00 lea    <rel> 0x00007f3a514a0a18, %rsi
-  0x00007f3a5127d8d7  bf ff ff ff 6f       mov    $0x6fffffff, %edi
-  0x00007f3a5127d8dc  41 bb ff fd ff 6f    mov    $0x6ffffdff, %r11d
+T80431 <marker: version 3>
+T80431 <marker: filetype 0x40>
+T80431 <marker: cache line size 64>
+T80431 <marker: timestamp 13269546858099127>
+T80431 <marker: tid 80431 on core 1>
+T80431   0x00007f2ae335d090  48 89 e7             mov    %rsp, %rdi
+T80431   0x00007f2ae335d093  e8 48 0d 00 00       call   $0x00007f2ae335dde0
+T80431     write 8 byte(s) @ 0x7ffdf5770ac8
+T80431   0x00007f2ae335dde0  55                   push   %rbp
+T80431     write 8 byte(s) @ 0x7ffdf5770ac0
+T80431   0x00007f2ae335dde1  48 89 e5             mov    %rsp, %rbp
+T80431   0x00007f2ae335dde4  41 57                push   %r15
+T80431     write 8 byte(s) @ 0x7ffdf5770ab8
+T80431   0x00007f2ae335dde6  49 89 ff             mov    %rdi, %r15
+T80431   0x00007f2ae335dde9  41 56                push   %r14
+T80431     write 8 byte(s) @ 0x7ffdf5770ab0
+T80431   0x00007f2ae335ddeb  41 55                push   %r13
+T80431     write 8 byte(s) @ 0x7ffdf5770aa8
+T80431   0x00007f2ae335dded  41 54                push   %r12
+T80431     write 8 byte(s) @ 0x7ffdf5770aa0
+T80431   0x00007f2ae335ddef  53                   push   %rbx
+T80431     write 8 byte(s) @ 0x7ffdf5770a98
+T80431   0x00007f2ae335ddf0  48 83 ec 38          sub    $0x38, %rsp
+T80431   0x00007f2ae335ddf4  0f 31                rdtsc
+T80431   0x00007f2ae335ddf6  48 c1 e2 20          shl    $0x20, %rdx
+T80431   0x00007f2ae335ddfa  48 09 d0             or     %rdx, %rax
+T80431   0x00007f2ae335ddfd  48 8d 15 74 90 02 00 lea    <rel> 0x00007f2ae3386e78, %rdx
+T80431   0x00007f2ae335de04  48 89 05 75 87 02 00 mov    %rax, <rel> 0x00007f2ae3386580
+T80431     write 8 byte(s) @ 0x7f2ae3386580
+T80431   0x00007f2ae335de0b  48 8b 05 66 90 02 00 mov    <rel> 0x00007f2ae3386e78, %rax
+T80431     read  8 byte(s) @ 0x7f2ae3386e78
+T80431   0x00007f2ae335de12  49 89 d4             mov    %rdx, %r12
+T80431   0x00007f2ae335de15  4c 2b 25 e4 91 02 00 sub    <rel> 0x00007f2ae3387000, %r12
+T80431     read  8 byte(s) @ 0x7f2ae3387000
+T80431   0x00007f2ae335de1c  48 89 15 d5 9b 02 00 mov    %rdx, <rel> 0x00007f2ae33879f8
 View tool results:
              20 : total disassembled instructions
 \endcode
 
+An example of thread switches:
+
+\code
+------------------------------------------------------------
+T342625 <marker: timestamp 13260900247983768>
+T342625 <marker: tid 342625 on core 3>
+T342625   0x0000000000402460  31 ed                xor    %ebp, %ebp
+T342625   0x0000000000402462  49 89 d1             mov    %rdx, %r9
+T342625   0x0000000000402465  5e                   pop    %rsi
+T342625     read  8 byte(s) @ 0x7ffe70dce480
+T342625   0x0000000000402466  48 89 e2             mov    %rsp, %rdx
+...
+T342625   0x0000000000467c42  4d 89 c8             mov    %r9, %r8
+T342625   0x0000000000467c45  4c 8b 54 24 08       mov    0x08(%rsp), %r10
+T342625     read  8 byte(s) @ 0x7ffe70dce100
+T342625   0x0000000000467c4a  b8 38 00 00 00       mov    $0x00000038, %eax
+T342625   0x0000000000467c4f  0f 05                syscall
+------------------------------------------------------------
+T342626 <marker: timestamp 13260900248221723>
+T342626 <marker: tid 342626 on core 0>
+T342626   0x0000000000467c51  48 85 c0             test   %rax, %rax
+T342626   0x0000000000467c54  7c 13                jl     $0x0000000000467c69
+T342626   0x0000000000467c56  74 01                jz     $0x0000000000467c59
+T342626   0x0000000000467c59  31 ed                xor    %ebp, %ebp
+T342626   0x0000000000467c5b  58                   pop    %rax
+T342626     read  8 byte(s) @ 0x7f899f928e70
+T342626   0x0000000000467c5c  5f                   pop    %rdi
+T342626     read  8 byte(s) @ 0x7f899f928e78
+T342626   0x0000000000467c5d  ff d0                call   %rax
+T342626     write 8 byte(s) @ 0x7f899f928e78
+T342626   0x0000000000404a30  41 54                push   %r12
+T342626     write 8 byte(s) @ 0x7f899f928e70
+...
+\endcode
+
+
 Here is an example of a signal handler interrupting the regular flow:
 
 \code
-  0x00007fa87c6c0512  eb 5a                jmp    $0x00007fa87c6c056e
-  0x00007fa87c6c056e  80 bd 7c ff ff ff 00 cmp    -0x84(%rbp), $0x00
-  0x00007fa87c6c0575  0f 85 e5 03 00 00    jnz    $0x00007fa87c6c0960
-<marker: kernel xfer to handler>
-<marker: timestamp 13218875821472138>
-<marker: tid 159754 on core 0>
-  0x00007fa879bb88dc  55                   push   %rbp
-  0x00007fa879bb88dd  48 89 e5             mov    %rsp, %rbp
-  0x00007fa879bb88e0  48 83 ec 40          sub    $0x40, %rsp
-  0x00007fa879bb88e4  89 7d dc             mov    %edi, -0x24(%rbp)
-  0x00007fa879bb88e7  48 89 75 d0          mov    %rsi, -0x30(%rbp)
-  0x00007fa879bb88eb  48 89 55 c8          mov    %rdx, -0x38(%rbp)
-  0x00007fa879bb88ef  83 7d dc 0a          cmp    -0x24(%rbp), $0x0a
-  0x00007fa879bb88f3  74 0e                jz     $0x00007fa879bb8903
-  0x00007fa879bb8903  48 8b 45 c8          mov    -0x38(%rbp), %rax
-  0x00007fa879bb8907  48 83 c0 28          add    $0x28, %rax
-  0x00007fa879bb890b  48 89 45 f8          mov    %rax, -0x08(%rbp)
-  0x00007fa879bb890f  48 8b 45 f8          mov    -0x08(%rbp), %rax
-  0x00007fa879bb8913  48 8b 80 80 00 00 00 mov    0x80(%rax), %rax
-  0x00007fa879bb891a  48 89 45 f0          mov    %rax, -0x10(%rbp)
-  0x00007fa879bb891e  eb 6d                jmp    $0x00007fa879bb898d
-  0x00007fa879bb898d  90                   nop
-  0x00007fa879bb898e  c9                   leave
-  0x00007fa879bb898f  c3                   ret
-  0x00007fa87c6ca3a0  48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
-  0x00007fa87c6ca3a7  0f 05                syscall
-<marker: timestamp 13218875821472148>
-<marker: tid 159754 on core 0>
-<marker: syscall xfer>
-<marker: timestamp 13218875821475975>
-<marker: tid 159754 on core 4>
-  0x00007fa87c6c057b  48 8b 75 c8          mov    -0x38(%rbp), %rsi
-  0x00007fa87c6c057f  64 48 33 34 25 28 00 xor    %fs:0x28, %rsi
-                      00 00
+T342625   0x0000000000469957  49 8b 44 17 18       mov    0x18(%r15,%rdx), %rax
+T342625     read  8 byte(s) @ 0x4e7848
+T342625   0x000000000046995c  48 85 c0             test   %rax, %rax
+T342625   0x000000000046995f  0f 84 a5 00 00 00    jz     $0x0000000000469a0a
+T342625 <marker: kernel xfer to handler>
+T342625 <marker: timestamp 13260900248211321>
+T342625 <marker: tid 342625 on core 3>
+T342625   0x000000000040257d  55                   push   %rbp
+T342625     write 8 byte(s) @ 0x7ffe70dcda30
+T342625   0x000000000040257e  48 89 e5             mov    %rsp, %rbp
+T342625   0x0000000000402581  89 7d fc             mov    %edi, -0x04(%rbp)
+T342625     write 4 byte(s) @ 0x7ffe70dcda2c
+T342625   0x0000000000402584  48 89 75 f0          mov    %rsi, -0x10(%rbp)
+T342625     write 8 byte(s) @ 0x7ffe70dcda20
+T342625   0x0000000000402588  48 89 55 e8          mov    %rdx, -0x18(%rbp)
+T342625     write 8 byte(s) @ 0x7ffe70dcda18
+T342625   0x000000000040258c  83 7d fc 1a          cmp    -0x04(%rbp), $0x1a
+T342625     read  4 byte(s) @ 0x7ffe70dcda2c
+T342625   0x0000000000402590  75 0f                jnz    $0x00000000004025a1
+T342625   0x0000000000402592  8b 05 5c 0f 0e 00    mov    <rel> 0x00000000004e34f4, %eax
+T342625     read  4 byte(s) @ 0x4e34f4
+T342625   0x0000000000402598  83 c0 01             add    $0x01, %eax
+T342625   0x000000000040259b  89 05 53 0f 0e 00    mov    %eax, <rel> 0x00000000004e34f4
+T342625     write 4 byte(s) @ 0x4e34f4
+T342625   0x00000000004025a1  90                   nop
+T342625   0x00000000004025a2  5d                   pop    %rbp
+T342625     read  8 byte(s) @ 0x7ffe70dcda30
+T342625   0x00000000004025a3  c3                   ret
+T342625     read  8 byte(s) @ 0x7ffe70dcda38
+T342625   0x0000000000407bb0  48 c7 c0 0f 00 00 00 mov    $0x0000000f, %rax
+T342625   0x0000000000407bb7  0f 05                syscall
+T342625 <marker: timestamp 13260900248211330>
+T342625 <marker: tid 342625 on core 3>
+T342625 <marker: syscall xfer>
+T342625 <marker: timestamp 13260900248214640>
+T342625 <marker: tid 342625 on core 3>
+T342625   0x0000000000469965  49 8b 54 17 10       mov    0x10(%r15,%rdx), %rdx
+T342625     read  8 byte(s) @ 0x4e7840
+T342625   0x000000000046996a  48 3b 15 9f fa 07 00 cmp    %rdx, <rel> 0x00000000004e9410
+T342625     read  8 byte(s) @ 0x4e9410
 \endcode
 
 \section sec_tool_func_view View Function Calls
