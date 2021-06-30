@@ -447,18 +447,6 @@ dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 6eb78e2d : cmeq v13.4s, v17.4s, v23.4s      : cmeq   %q17 %q23 $0x02 -> %q13
 6ef78e2d : cmeq v13.2d, v17.2d, v23.2d      : cmeq   %q17 %q23 $0x03 -> %q13
 
-# CMEQ <V><d>, <V><n>, <V><m>
-7ee18c02 : cmeq  d2, d0, d1                 : cmeq   %d0 %d1 -> %d2
-7ee48c65 : cmeq  d5, d3, d4                 : cmeq   %d3 %d4 -> %d5
-7ee78cc8 : cmeq  d8, d6, d7                 : cmeq   %d6 %d7 -> %d8
-7eea8d2b : cmeq  d11, d9, d10               : cmeq   %d9 %d10 -> %d11
-7eed8d8e : cmeq  d14, d12, d13              : cmeq   %d12 %d13 -> %d14
-7ef08df1 : cmeq  d17, d15, d16              : cmeq   %d15 %d16 -> %d17
-7ef38e54 : cmeq  d20, d18, d19              : cmeq   %d18 %d19 -> %d20
-7ef68eb7 : cmeq  d23, d21, d22              : cmeq   %d21 %d22 -> %d23
-7ef98f1a : cmeq  d26, d24, d25              : cmeq   %d24 %d25 -> %d26
-7efc8f7d : cmeq  d29, d27, d28              : cmeq   %d27 %d28 -> %d29
-
 # CMEQ <Vd>.<T>, <Vn>.<T>, #0
 0e209801 : cmeq  v1.8b, v0.8b, #0           : cmeq   %d0 $0x00 -> %d1
 4e209843 : cmeq  v3.16b, v2.16b, #0         : cmeq   %q2 $0x00 -> %q3
@@ -494,18 +482,6 @@ dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 4eba3f16 : cmge v22.4s, v24.4s, v26.4s      : cmge   %q24 %q26 $0x02 -> %q22
 4efa3f16 : cmge v22.2d, v24.2d, v26.2d      : cmge   %q24 %q26 $0x03 -> %q22
 
-# CMGE <V><d>, <V><n>, <V><m>
-5ee13c02 : cmge  d2, d0, d1                 : cmge   %d0 %d1 -> %d2
-5ee43c65 : cmge  d5, d3, d4                 : cmge   %d3 %d4 -> %d5
-5ee73cc8 : cmge  d8, d6, d7                 : cmge   %d6 %d7 -> %d8
-5eea3d2b : cmge  d11, d9, d10               : cmge   %d9 %d10 -> %d11
-5eed3d8e : cmge  d14, d12, d13              : cmge   %d12 %d13 -> %d14
-5ef03df1 : cmge  d17, d15, d16              : cmge   %d15 %d16 -> %d17
-5ef33e54 : cmge  d20, d18, d19              : cmge   %d18 %d19 -> %d20
-5ef63eb7 : cmge  d23, d21, d22              : cmge   %d21 %d22 -> %d23
-5ef93f1a : cmge  d26, d24, d25              : cmge   %d24 %d25 -> %d26
-5efc3f7d : cmge  d29, d27, d28              : cmge   %d27 %d28 -> %d29
-
 # CMGE <Vd>.<T>, <Vn>.<T>, #0
 2e208801 : cmge  v1.8b, v0.8b, #0           : cmge   %d0 $0x00 -> %d1
 6e208843 : cmge  v3.16b, v2.16b, #0         : cmge   %q2 $0x00 -> %q3
@@ -540,18 +516,6 @@ dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 0ea83742 : cmgt v2.2s, v26.2s, v8.2s        : cmgt   %d26 %d8 $0x02 -> %d2
 4ea83742 : cmgt v2.4s, v26.4s, v8.4s        : cmgt   %q26 %q8 $0x02 -> %q2
 4ee83742 : cmgt v2.2d, v26.2d, v8.2d        : cmgt   %q26 %q8 $0x03 -> %q2
-
-# CMGT <V><d>, <V><n>, <V><m>
-5ee13402 : cmgt  d2, d0, d1                 : cmgt   %d0 %d1 -> %d2
-5ee43465 : cmgt  d5, d3, d4                 : cmgt   %d3 %d4 -> %d5
-5ee734c8 : cmgt  d8, d6, d7                 : cmgt   %d6 %d7 -> %d8
-5eea352b : cmgt  d11, d9, d10               : cmgt   %d9 %d10 -> %d11
-5eed358e : cmgt  d14, d12, d13              : cmgt   %d12 %d13 -> %d14
-5ef035f1 : cmgt  d17, d15, d16              : cmgt   %d15 %d16 -> %d17
-5ef33654 : cmgt  d20, d18, d19              : cmgt   %d18 %d19 -> %d20
-5ef636b7 : cmgt  d23, d21, d22              : cmgt   %d21 %d22 -> %d23
-5ef9371a : cmgt  d26, d24, d25              : cmgt   %d24 %d25 -> %d26
-5efc377d : cmgt  d29, d27, d28              : cmgt   %d27 %d28 -> %d29
 
 # CMGT <Vd>.<T>, <Vn>.<T>, #0
 0e208801 : cmgt  v1.8b, v0.8b, #0           : cmgt   %d0 $0x00 -> %d1

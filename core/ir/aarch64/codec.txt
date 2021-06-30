@@ -1051,11 +1051,9 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x001110xx1xxxxx001011xxxxxxxxxx     sqsub     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx001101xxxxxxxxxx     cmgt      dq0 : dq5 dq16 bhsd_sz
 0x001110xx100000100010xxxxxxxxxx     cmgt      dq0 : dq5 bhsd_sz
-01011110111xxxxx001101xxxxxxxxxx     cmgt       d0 : d5 d16
 0101111011100000100010xxxxxxxxxx     cmgt       d0 : d5
 0x001110xx1xxxxx001111xxxxxxxxxx     cmge      dq0 : dq5 dq16 bhsd_sz
 0x101110xx100000100010xxxxxxxxxx     cmge      dq0 : dq5 bhsd_sz
-01011110111xxxxx001111xxxxxxxxxx     cmge       d0 : d5 d16
 0111111011100000100010xxxxxxxxxx     cmge       d0 : d5
 0x001110xx100000101010xxxxxxxxxx     cmlt      dq0 : dq5 bhsd_sz
 0101111011100000101010xxxxxxxxxx     cmlt       d0 : d5
@@ -1147,7 +1145,6 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x101110xx1xxxxx100001xxxxxxxxxx     sub       dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100011xxxxxxxxxx     cmeq      dq0 : dq5 dq16 bhsd_sz
 0x001110xx100000100110xxxxxxxxxx     cmeq      dq0 : dq5 bhsd_sz
-01111110111xxxxx100011xxxxxxxxxx     cmeq       d0 : d5 d16
 0101111011100000100110xxxxxxxxxx     cmeq       d0 : d5
 
 0x101110xx1xxxxx100101xxxxxxxxxx     mls       dq0 : dq0 dq5 dq16 bhs_sz
