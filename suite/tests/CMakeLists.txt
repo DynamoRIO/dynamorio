@@ -3360,16 +3360,10 @@ if (BUILD_CLIENTS)
       set(kernel_xfer_app client.winxfer) # We want threads and xfers.
     endif()
     if (DEBUG) # for -test_mode
-      if (WIN32)
-        # Just like for tool.histogram.offline, this is slow on Windows, so
-        # we narrow the tracing window a little.  If we delay too far we start
-        # in the middle of a callback and hit asserts though.
-        set(invariants_ops "-trace_after_instrs 5M")
-      else ()
-        set(invariants_ops "")
-      endif ()
-      torunonly_drcachesim(invariants ${kernel_xfer_app}
-        "-test_mode ${invariants_ops}" "")
+      torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
+      # This is slow on Windows.  I tried reducing the tracing window but
+      # it seems to vary too much across machines, and if we delay too far
+      # we start in the middle of a callback.
       set(tool.drcachesim.invariants_timeout 180)
     endif ()
 
