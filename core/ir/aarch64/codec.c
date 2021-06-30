@@ -1459,6 +1459,20 @@ encode_opnd_p10_low(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_p(10, 7, opnd, enc_out);
 }
 
+/* len: imm2 at bits 13 & 14 */
+
+static inline bool
+decode_opnd_len(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(13, 2, false, 0, OPSZ_2b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_len(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(13, 2, false, 0, 0, opnd, enc_out);
+}
+
 /* imm4 encoded in bits 11-14 */
 static inline bool
 decode_opnd_imm4idx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
