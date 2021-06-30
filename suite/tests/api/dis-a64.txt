@@ -3432,6 +3432,94 @@ dac00841 : rev32  x1, x2                  : rev32  %x2 -> %x1
 4e7172ba : sabdl2 v26.4s, v21.8h, v17.8h            : sabdl2 %q21 %q17 $0x01 -> %q26
 4eb172ba : sabdl2 v26.2d, v21.4s, v17.4s            : sabdl2 %q21 %q17 $0x02 -> %q26
 
+# SADALP <Vd>.<Ta>, <Vn>.<Tb>
+0e206820 : sadalp v0.4h, v1.8b                      : sadalp %d1 $0x00 -> %d0
+0e206885 : sadalp v5.4h, v4.8b                      : sadalp %d4 $0x00 -> %d5
+0e20692a : sadalp v10.4h, v9.8b                     : sadalp %d9 $0x00 -> %d10
+0e2069cf : sadalp v15.4h, v14.8b                    : sadalp %d14 $0x00 -> %d15
+0e206a74 : sadalp v20.4h, v19.8b                    : sadalp %d19 $0x00 -> %d20
+0e206b19 : sadalp v25.4h, v24.8b                    : sadalp %d24 $0x00 -> %d25
+0e206bbe : sadalp v30.4h, v29.8b                    : sadalp %d29 $0x00 -> %d30
+4e206820 : sadalp v0.8h, v1.16b                     : sadalp %q1 $0x00 -> %q0
+4e206885 : sadalp v5.8h, v4.16b                     : sadalp %q4 $0x00 -> %q5
+4e20692a : sadalp v10.8h, v9.16b                    : sadalp %q9 $0x00 -> %q10
+4e2069cf : sadalp v15.8h, v14.16b                   : sadalp %q14 $0x00 -> %q15
+4e206a74 : sadalp v20.8h, v19.16b                   : sadalp %q19 $0x00 -> %q20
+4e206b19 : sadalp v25.8h, v24.16b                   : sadalp %q24 $0x00 -> %q25
+4e206bbe : sadalp v30.8h, v29.16b                   : sadalp %q29 $0x00 -> %q30
+0e606820 : sadalp v0.2s, v1.4h                      : sadalp %d1 $0x01 -> %d0
+0e606885 : sadalp v5.2s, v4.4h                      : sadalp %d4 $0x01 -> %d5
+0e60692a : sadalp v10.2s, v9.4h                     : sadalp %d9 $0x01 -> %d10
+0e6069cf : sadalp v15.2s, v14.4h                    : sadalp %d14 $0x01 -> %d15
+0e606a74 : sadalp v20.2s, v19.4h                    : sadalp %d19 $0x01 -> %d20
+0e606b19 : sadalp v25.2s, v24.4h                    : sadalp %d24 $0x01 -> %d25
+0e606bbe : sadalp v30.2s, v29.4h                    : sadalp %d29 $0x01 -> %d30
+4e606820 : sadalp v0.4s, v1.8h                      : sadalp %q1 $0x01 -> %q0
+4e606885 : sadalp v5.4s, v4.8h                      : sadalp %q4 $0x01 -> %q5
+4e60692a : sadalp v10.4s, v9.8h                     : sadalp %q9 $0x01 -> %q10
+4e6069cf : sadalp v15.4s, v14.8h                    : sadalp %q14 $0x01 -> %q15
+4e606a74 : sadalp v20.4s, v19.8h                    : sadalp %q19 $0x01 -> %q20
+4e606b19 : sadalp v25.4s, v24.8h                    : sadalp %q24 $0x01 -> %q25
+4e606bbe : sadalp v30.4s, v29.8h                    : sadalp %q29 $0x01 -> %q30
+0ea06820 : sadalp v0.1d, v1.2s                      : sadalp %d1 $0x02 -> %d0
+0ea06885 : sadalp v5.1d, v4.2s                      : sadalp %d4 $0x02 -> %d5
+0ea0692a : sadalp v10.1d, v9.2s                     : sadalp %d9 $0x02 -> %d10
+0ea069cf : sadalp v15.1d, v14.2s                    : sadalp %d14 $0x02 -> %d15
+0ea06a74 : sadalp v20.1d, v19.2s                    : sadalp %d19 $0x02 -> %d20
+0ea06b19 : sadalp v25.1d, v24.2s                    : sadalp %d24 $0x02 -> %d25
+0ea06bbe : sadalp v30.1d, v29.2s                    : sadalp %d29 $0x02 -> %d30
+4ea06820 : sadalp v0.2d, v1.4s                      : sadalp %q1 $0x02 -> %q0
+4ea06885 : sadalp v5.2d, v4.4s                      : sadalp %q4 $0x02 -> %q5
+4ea0692a : sadalp v10.2d, v9.4s                     : sadalp %q9 $0x02 -> %q10
+4ea069cf : sadalp v15.2d, v14.4s                    : sadalp %q14 $0x02 -> %q15
+4ea06a74 : sadalp v20.2d, v19.4s                    : sadalp %q19 $0x02 -> %q20
+4ea06b19 : sadalp v25.2d, v24.4s                    : sadalp %q24 $0x02 -> %q25
+4ea06bbe : sadalp v30.2d, v29.4s                    : sadalp %q29 $0x02 -> %q30
+
+# SADDLP <Vd>.<Ta>, <Vn>.<Tb>
+0e202820 : saddlp v0.4h, v1.8b                      : saddlp %d1 $0x00 -> %d0
+0e202885 : saddlp v5.4h, v4.8b                      : saddlp %d4 $0x00 -> %d5
+0e20292a : saddlp v10.4h, v9.8b                     : saddlp %d9 $0x00 -> %d10
+0e2029cf : saddlp v15.4h, v14.8b                    : saddlp %d14 $0x00 -> %d15
+0e202a74 : saddlp v20.4h, v19.8b                    : saddlp %d19 $0x00 -> %d20
+0e202b19 : saddlp v25.4h, v24.8b                    : saddlp %d24 $0x00 -> %d25
+0e202bbe : saddlp v30.4h, v29.8b                    : saddlp %d29 $0x00 -> %d30
+4e202820 : saddlp v0.8h, v1.16b                     : saddlp %q1 $0x00 -> %q0
+4e202885 : saddlp v5.8h, v4.16b                     : saddlp %q4 $0x00 -> %q5
+4e20292a : saddlp v10.8h, v9.16b                    : saddlp %q9 $0x00 -> %q10
+4e2029cf : saddlp v15.8h, v14.16b                   : saddlp %q14 $0x00 -> %q15
+4e202a74 : saddlp v20.8h, v19.16b                   : saddlp %q19 $0x00 -> %q20
+4e202b19 : saddlp v25.8h, v24.16b                   : saddlp %q24 $0x00 -> %q25
+4e202bbe : saddlp v30.8h, v29.16b                   : saddlp %q29 $0x00 -> %q30
+0e602820 : saddlp v0.2s, v1.4h                      : saddlp %d1 $0x01 -> %d0
+0e602885 : saddlp v5.2s, v4.4h                      : saddlp %d4 $0x01 -> %d5
+0e60292a : saddlp v10.2s, v9.4h                     : saddlp %d9 $0x01 -> %d10
+0e6029cf : saddlp v15.2s, v14.4h                    : saddlp %d14 $0x01 -> %d15
+0e602a74 : saddlp v20.2s, v19.4h                    : saddlp %d19 $0x01 -> %d20
+0e602b19 : saddlp v25.2s, v24.4h                    : saddlp %d24 $0x01 -> %d25
+0e602bbe : saddlp v30.2s, v29.4h                    : saddlp %d29 $0x01 -> %d30
+4e602820 : saddlp v0.4s, v1.8h                      : saddlp %q1 $0x01 -> %q0
+4e602885 : saddlp v5.4s, v4.8h                      : saddlp %q4 $0x01 -> %q5
+4e60292a : saddlp v10.4s, v9.8h                     : saddlp %q9 $0x01 -> %q10
+4e6029cf : saddlp v15.4s, v14.8h                    : saddlp %q14 $0x01 -> %q15
+4e602a74 : saddlp v20.4s, v19.8h                    : saddlp %q19 $0x01 -> %q20
+4e602b19 : saddlp v25.4s, v24.8h                    : saddlp %q24 $0x01 -> %q25
+4e602bbe : saddlp v30.4s, v29.8h                    : saddlp %q29 $0x01 -> %q30
+0ea02820 : saddlp v0.1d, v1.2s                      : saddlp %d1 $0x02 -> %d0
+0ea02885 : saddlp v5.1d, v4.2s                      : saddlp %d4 $0x02 -> %d5
+0ea0292a : saddlp v10.1d, v9.2s                     : saddlp %d9 $0x02 -> %d10
+0ea029cf : saddlp v15.1d, v14.2s                    : saddlp %d14 $0x02 -> %d15
+0ea02a74 : saddlp v20.1d, v19.2s                    : saddlp %d19 $0x02 -> %d20
+0ea02b19 : saddlp v25.1d, v24.2s                    : saddlp %d24 $0x02 -> %d25
+0ea02bbe : saddlp v30.1d, v29.2s                    : saddlp %d29 $0x02 -> %d30
+4ea02820 : saddlp v0.2d, v1.4s                      : saddlp %q1 $0x02 -> %q0
+4ea02885 : saddlp v5.2d, v4.4s                      : saddlp %q4 $0x02 -> %q5
+4ea0292a : saddlp v10.2d, v9.4s                     : saddlp %q9 $0x02 -> %q10
+4ea029cf : saddlp v15.2d, v14.4s                    : saddlp %q14 $0x02 -> %q15
+4ea02a74 : saddlp v20.2d, v19.4s                    : saddlp %q19 $0x02 -> %q20
+4ea02b19 : saddlp v25.2d, v24.4s                    : saddlp %q24 $0x02 -> %q25
+4ea02bbe : saddlp v30.2d, v29.4s                    : saddlp %q29 $0x02 -> %q30
+
 0e3201b2 : saddl v18.8h, v13.8b, v18.8b             : saddl  %d13 %d18 $0x00 -> %q18
 0e7201b2 : saddl v18.4s, v13.4h, v18.4h             : saddl  %d13 %d18 $0x01 -> %q18
 0eb201b2 : saddl v18.2d, v13.2s, v18.2s             : saddl  %d13 %d18 $0x02 -> %q18
@@ -3619,9 +3707,47 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 0e72809b : smlal v27.4s, v4.4h, v18.4h              : smlal  %d4 %d18 $0x01 -> %q27
 0eb2809b : smlal v27.2d, v4.2s, v18.2s              : smlal  %d4 %d18 $0x02 -> %q27
 
+0f422020 : smlal v0.4s, v1.4h, v2.h[0]              : smlal  %d1 $0x02 $0x01 $0x00 -> %d0
+0f522020 : smlal v0.4s, v1.4h, v2.h[1]              : smlal  %d1 $0x02 $0x01 $0x01 -> %d0
+0f622020 : smlal v0.4s, v1.4h, v2.h[2]              : smlal  %d1 $0x02 $0x01 $0x02 -> %d0
+0f722020 : smlal v0.4s, v1.4h, v2.h[3]              : smlal  %d1 $0x02 $0x01 $0x03 -> %d0
+0f422820 : smlal v0.4s, v1.4h, v2.h[4]              : smlal  %d1 $0x02 $0x01 $0x04 -> %d0
+0f522820 : smlal v0.4s, v1.4h, v2.h[5]              : smlal  %d1 $0x02 $0x01 $0x05 -> %d0
+0f622820 : smlal v0.4s, v1.4h, v2.h[6]              : smlal  %d1 $0x02 $0x01 $0x06 -> %d0
+0f722820 : smlal v0.4s, v1.4h, v2.h[7]              : smlal  %d1 $0x02 $0x01 $0x07 -> %d0
+0f742865 : smlal v5.4s, v3.4h, v4.h[7]              : smlal  %d3 $0x04 $0x01 $0x07 -> %d5
+0f79290a : smlal v10.4s, v8.4h, v9.h[7]             : smlal  %d8 $0x09 $0x01 $0x07 -> %d10
+0f7e29af : smlal v15.4s, v13.4h, v14.h[7]           : smlal  %d13 $0x0e $0x01 $0x07 -> %d15
+0f822020 : smlal v0.2d, v1.2s, v2.s[0]              : smlal  %d1 $0x02 $0x02 $0x00 -> %d0
+0fa22020 : smlal v0.2d, v1.2s, v2.s[1]              : smlal  %d1 $0x02 $0x02 $0x02 -> %d0
+0f822820 : smlal v0.2d, v1.2s, v2.s[2]              : smlal  %d1 $0x02 $0x02 $0x04 -> %d0
+0fa22820 : smlal v0.2d, v1.2s, v2.s[3]              : smlal  %d1 $0x02 $0x02 $0x06 -> %d0
+0fa9290a : smlal v10.2d, v8.2s, v9.s[3]             : smlal  %d8 $0x09 $0x02 $0x06 -> %d10
+0fb32a54 : smlal v20.2d, v18.2s, v19.s[3]           : smlal  %d18 $0x03 $0x02 $0x07 -> %d20
+0fbd2b9e : smlal v30.2d, v28.2s, v29.s[3]           : smlal  %d28 $0x0d $0x02 $0x07 -> %d30
+
 4e23826b : smlal2 v11.8h, v19.16b, v3.16b           : smlal2 %q19 %q3 $0x00 -> %q11
 4e63826b : smlal2 v11.4s, v19.8h, v3.8h             : smlal2 %q19 %q3 $0x01 -> %q11
 4ea3826b : smlal2 v11.2d, v19.4s, v3.4s             : smlal2 %q19 %q3 $0x02 -> %q11
+
+4f422020 : smlal2 v0.4s, v1.8h, v2.h[0]             : smlal2 %q1 $0x02 $0x01 $0x00 -> %q0
+4f522020 : smlal2 v0.4s, v1.8h, v2.h[1]             : smlal2 %q1 $0x02 $0x01 $0x01 -> %q0
+4f622020 : smlal2 v0.4s, v1.8h, v2.h[2]             : smlal2 %q1 $0x02 $0x01 $0x02 -> %q0
+4f722020 : smlal2 v0.4s, v1.8h, v2.h[3]             : smlal2 %q1 $0x02 $0x01 $0x03 -> %q0
+4f422820 : smlal2 v0.4s, v1.8h, v2.h[4]             : smlal2 %q1 $0x02 $0x01 $0x04 -> %q0
+4f522820 : smlal2 v0.4s, v1.8h, v2.h[5]             : smlal2 %q1 $0x02 $0x01 $0x05 -> %q0
+4f622820 : smlal2 v0.4s, v1.8h, v2.h[6]             : smlal2 %q1 $0x02 $0x01 $0x06 -> %q0
+4f722820 : smlal2 v0.4s, v1.8h, v2.h[7]             : smlal2 %q1 $0x02 $0x01 $0x07 -> %q0
+4f742865 : smlal2 v5.4s, v3.8h, v4.h[7]             : smlal2 %q3 $0x04 $0x01 $0x07 -> %q5
+4f79290a : smlal2 v10.4s, v8.8h, v9.h[7]            : smlal2 %q8 $0x09 $0x01 $0x07 -> %q10
+4f7e29af : smlal2 v15.4s, v13.8h, v14.h[7]          : smlal2 %q13 $0x0e $0x01 $0x07 -> %q15
+4f822020 : smlal2 v0.2d, v1.4s, v2.s[0]             : smlal2 %q1 $0x02 $0x02 $0x00 -> %q0
+4fa22020 : smlal2 v0.2d, v1.4s, v2.s[1]             : smlal2 %q1 $0x02 $0x02 $0x02 -> %q0
+4f822820 : smlal2 v0.2d, v1.4s, v2.s[2]             : smlal2 %q1 $0x02 $0x02 $0x04 -> %q0
+4fa22820 : smlal2 v0.2d, v1.4s, v2.s[3]             : smlal2 %q1 $0x02 $0x02 $0x06 -> %q0
+4fa9290a : smlal2 v10.2d, v8.4s, v9.s[3]            : smlal2 %q8 $0x09 $0x02 $0x06 -> %q10
+4fb32a54 : smlal2 v20.2d, v18.4s, v19.s[3]          : smlal2 %q18 $0x03 $0x02 $0x07 -> %q20
+4fbd2b9e : smlal2 v30.2d, v28.4s, v29.s[3]          : smlal2 %q28 $0x0d $0x02 $0x07 -> %q30
 
 0e28a0ed : smlsl v13.8h, v7.8b, v8.8b               : smlsl  %d7 %d8 $0x00 -> %q13
 0e68a0ed : smlsl v13.4s, v7.4h, v8.4h               : smlsl  %d7 %d8 $0x01 -> %q13
@@ -7565,6 +7691,52 @@ d50b7a21 : sys    #3,  C7,  C10, #1, x1   : sys    $0x1bd1 (%x1)[1byte]
 d50b7b21 : sys    #3,  C7,  C11, #1, x1   : sys    $0x1bd9 (%x1)[1byte]
 d50b7e21 : sys    #3,  C7,  C14, #1, x1   : sys    $0x1bf1 (%x1)[1byte]
 d50b7521 : sys    #3,  C7,  C5,  #1, x1   : sys    $0x1ba9 (%x1)[1byte]
+
+# SSHLL <V><d>, <Vn>.<T>
+0f08a420 : sxtl v0.8h, v1.8b                          : sshll  %d1 $0x38 -> %d0
+0f08a485 : sxtl v5.8h, v4.8b                          : sshll  %d4 $0x38 -> %d5
+0f08a52a : sxtl v10.8h, v9.8b                         : sshll  %d9 $0x38 -> %d10
+0f08a5cf : sxtl v15.8h, v14.8b                        : sshll  %d14 $0x38 -> %d15
+0f08a674 : sxtl v20.8h, v19.8b                        : sshll  %d19 $0x38 -> %d20
+0f08a719 : sxtl v25.8h, v24.8b                        : sshll  %d24 $0x38 -> %d25
+0f08a7be : sxtl v30.8h, v29.8b                        : sshll  %d29 $0x38 -> %d30
+0f10a420 : sxtl v0.4s, v1.4h                          : sshll  %d1 $0x30 -> %d0
+0f10a485 : sxtl v5.4s, v4.4h                          : sshll  %d4 $0x30 -> %d5
+0f10a52a : sxtl v10.4s, v9.4h                         : sshll  %d9 $0x30 -> %d10
+0f10a5cf : sxtl v15.4s, v14.4h                        : sshll  %d14 $0x30 -> %d15
+0f10a674 : sxtl v20.4s, v19.4h                        : sshll  %d19 $0x30 -> %d20
+0f10a719 : sxtl v25.4s, v24.4h                        : sshll  %d24 $0x30 -> %d25
+0f10a7be : sxtl v30.4s, v29.4h                        : sshll  %d29 $0x30 -> %d30
+0f20a420 : sxtl v0.2d, v1.2s                          : sshll  %d1 $0x20 -> %d0
+0f20a485 : sxtl v5.2d, v4.2s                          : sshll  %d4 $0x20 -> %d5
+0f20a52a : sxtl v10.2d, v9.2s                         : sshll  %d9 $0x20 -> %d10
+0f20a5cf : sxtl v15.2d, v14.2s                        : sshll  %d14 $0x20 -> %d15
+0f20a674 : sxtl v20.2d, v19.2s                        : sshll  %d19 $0x20 -> %d20
+0f20a719 : sxtl v25.2d, v24.2s                        : sshll  %d24 $0x20 -> %d25
+0f20a7be : sxtl v30.2d, v29.2s                        : sshll  %d29 $0x20 -> %d30
+
+# SSHLL2 <V><d>, <Vn>.<T>
+4f08a420 : sxtl2 v0.8h, v1.16b                        : sshll2 %q1 $0x38 -> %q0
+4f08a485 : sxtl2 v5.8h, v4.16b                        : sshll2 %q4 $0x38 -> %q5
+4f08a52a : sxtl2 v10.8h, v9.16b                       : sshll2 %q9 $0x38 -> %q10
+4f08a5cf : sxtl2 v15.8h, v14.16b                      : sshll2 %q14 $0x38 -> %q15
+4f08a674 : sxtl2 v20.8h, v19.16b                      : sshll2 %q19 $0x38 -> %q20
+4f08a719 : sxtl2 v25.8h, v24.16b                      : sshll2 %q24 $0x38 -> %q25
+4f08a7be : sxtl2 v30.8h, v29.16b                      : sshll2 %q29 $0x38 -> %q30
+4f10a420 : sxtl2 v0.4s, v1.8h                         : sshll2 %q1 $0x30 -> %q0
+4f10a485 : sxtl2 v5.4s, v4.8h                         : sshll2 %q4 $0x30 -> %q5
+4f10a52a : sxtl2 v10.4s, v9.8h                        : sshll2 %q9 $0x30 -> %q10
+4f10a5cf : sxtl2 v15.4s, v14.8h                       : sshll2 %q14 $0x30 -> %q15
+4f10a674 : sxtl2 v20.4s, v19.8h                       : sshll2 %q19 $0x30 -> %q20
+4f10a719 : sxtl2 v25.4s, v24.8h                       : sshll2 %q24 $0x30 -> %q25
+4f10a7be : sxtl2 v30.4s, v29.8h                       : sshll2 %q29 $0x30 -> %q30
+4f20a420 : sxtl2 v0.2d, v1.4s                         : sshll2 %q1 $0x20 -> %q0
+4f20a485 : sxtl2 v5.2d, v4.4s                         : sshll2 %q4 $0x20 -> %q5
+4f20a52a : sxtl2 v10.2d, v9.4s                        : sshll2 %q9 $0x20 -> %q10
+4f20a5cf : sxtl2 v15.2d, v14.4s                       : sshll2 %q14 $0x20 -> %q15
+4f20a674 : sxtl2 v20.2d, v19.4s                       : sshll2 %q19 $0x20 -> %q20
+4f20a719 : sxtl2 v25.2d, v24.4s                       : sshll2 %q24 $0x20 -> %q25
+4f20a7be : sxtl2 v30.2d, v29.4s                       : sshll2 %q29 $0x20 -> %q30
 
 37081041 : tbnz   w1, #1, 10000208        : tbnz   $0x0000000010000208 %x1 $0x01
 b7fc0000 : tbnz   x0, #63, fff8000        : tbnz   $0x000000000fff8000 %x0 $0x3f

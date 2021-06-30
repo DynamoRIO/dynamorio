@@ -40,15 +40,9 @@ trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose,
     : knob_offline_(offline)
     , knob_verbose_(verbose)
     , knob_test_name_(test_name)
-    , instrs_until_interrupt_(-1)
-    , memrefs_until_interrupt_(-1)
     , app_handler_pc_(0)
 {
-    memset(&prev_instr_, 0, sizeof(prev_instr_));
-    memset(&pre_signal_instr_, 0, sizeof(pre_signal_instr_));
-    memset(&prev_xfer_marker_, 0, sizeof(prev_xfer_marker_));
-    memset(&prev_entry_, 0, sizeof(prev_entry_));
-    memset(&prev_prev_entry_, 0, sizeof(prev_prev_entry_));
+    memset(&prev_interleaved_instr_, 0, sizeof(prev_interleaved_instr_));
 }
 
 trace_invariants_t::~trace_invariants_t()
@@ -58,32 +52,48 @@ trace_invariants_t::~trace_invariants_t()
 bool
 trace_invariants_t::process_memref(const memref_t &memref)
 {
+    if (prev_instr_.find(memref.data.tid) == prev_instr_.end()) {
+#ifdef UNIX
+        instrs_until_interrupt_[memref.data.tid] = -1;
+        memrefs_until_interrupt_[memref.data.tid] = -1;
+        prev_entry_[memref.data.tid] = {};
+        prev_prev_entry_[memref.data.tid] = {};
+#endif
+        prev_instr_[memref.data.tid] = {};
+        prev_xfer_marker_[memref.data.tid] = {};
+    }
+#ifdef UNIX
     // Check conditions specific to the signal_invariants app, where it
     // has annotations in prefetch instructions telling us how many instrs
     // and/or memrefs until a signal should arrive.
-    if ((instrs_until_interrupt_ == 0 && memrefs_until_interrupt_ == -1) ||
-        (instrs_until_interrupt_ == -1 && memrefs_until_interrupt_ == 0) ||
-        (instrs_until_interrupt_ == 0 && memrefs_until_interrupt_ == 0)) {
+    if ((instrs_until_interrupt_[memref.data.tid] == 0 &&
+         memrefs_until_interrupt_[memref.data.tid] == -1) ||
+        (instrs_until_interrupt_[memref.data.tid] == -1 &&
+         memrefs_until_interrupt_[memref.data.tid] == 0) ||
+        (instrs_until_interrupt_[memref.data.tid] == 0 &&
+         memrefs_until_interrupt_[memref.data.tid] == 0)) {
         assert((memref.marker.type == TRACE_TYPE_MARKER &&
                 memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) ||
                // TODO i#3937: Online instr bundles currently violate this.
                !knob_offline_);
-        instrs_until_interrupt_ = -1;
-        memrefs_until_interrupt_ = -1;
+        instrs_until_interrupt_[memref.data.tid] = -1;
+        memrefs_until_interrupt_[memref.data.tid] = -1;
     }
-    if (memrefs_until_interrupt_ >= 0 &&
+    if (memrefs_until_interrupt_[memref.data.tid] >= 0 &&
         (memref.data.type == TRACE_TYPE_READ || memref.data.type == TRACE_TYPE_WRITE)) {
-        assert(memrefs_until_interrupt_ != 0);
-        --memrefs_until_interrupt_;
+        assert(memrefs_until_interrupt_[memref.data.tid] != 0);
+        --memrefs_until_interrupt_[memref.data.tid];
     }
     // Check that the signal delivery marker is immediately followed by the
     // app's signal handler, which we have annotated with "prefetcht0 [1]".
     if (memref.data.type == TRACE_TYPE_PREFETCHT0 && memref.data.addr == 1) {
-        assert(type_is_instr(prev_entry_.instr.type) &&
-               prev_prev_entry_.marker.type == TRACE_TYPE_MARKER &&
-               prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT);
-        app_handler_pc_ = prev_entry_.instr.addr;
+        assert(type_is_instr(prev_entry_[memref.data.tid].instr.type) &&
+               prev_prev_entry_[memref.data.tid].marker.type == TRACE_TYPE_MARKER &&
+               prev_xfer_marker_[memref.data.tid].marker.marker_type ==
+                   TRACE_MARKER_TYPE_KERNEL_EVENT);
+        app_handler_pc_ = prev_entry_[memref.data.tid].instr.addr;
     }
+#endif
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
@@ -123,51 +133,65 @@ trace_invariants_t::process_memref(const memref_t &memref)
                               : "")
                       << " instr x" << memref.instr.size << "\n";
         }
-        assert(instrs_until_interrupt_ != 0);
-        if (instrs_until_interrupt_ > 0)
-            --instrs_until_interrupt_;
+#ifdef UNIX
+        assert(instrs_until_interrupt_[memref.data.tid] != 0);
+        if (instrs_until_interrupt_[memref.data.tid] > 0)
+            --instrs_until_interrupt_[memref.data.tid];
+#endif
         // Invariant: offline traces guarantee that a branch target must immediately
-        // follow the branch w/ no intervening trace switch.
-        if (knob_offline_ && type_is_instr_branch(prev_instr_.instr.type)) {
-            assert(
-                prev_instr_.instr.tid == memref.instr.tid ||
-                // For limited-window traces a thread might exit after a branch.
-                thread_exited_[prev_instr_.instr.tid] ||
-                // The invariant is relaxed for a signal.
-                (prev_xfer_marker_.instr.tid == prev_instr_.instr.tid &&
-                 prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT));
+        // follow the branch w/ no intervening thread switch.
+        if (knob_offline_ && type_is_instr_branch(prev_interleaved_instr_.instr.type)) {
+            assert(prev_interleaved_instr_.instr.tid == memref.instr.tid ||
+                   // For limited-window traces a thread might exit after a branch.
+                   thread_exited_[prev_interleaved_instr_.instr.tid] ||
+                   // The invariant is relaxed for a signal.
+                   (prev_xfer_marker_[memref.data.tid].instr.tid ==
+                        prev_interleaved_instr_.instr.tid &&
+                    prev_xfer_marker_[memref.data.tid].marker.marker_type ==
+                        TRACE_MARKER_TYPE_KERNEL_EVENT));
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
         // by markers.
-        if (prev_instr_.instr.addr != 0 /*first*/ &&
-            prev_instr_.instr.tid == memref.instr.tid &&
-            !type_is_instr_branch(prev_instr_.instr.type)) {
+        // We cache the prev_instr_ hash lookup to avoid large slowdowns on Windows.
+        memref_t *prev_instr_ptr = prev_interleaved_instr_.instr.tid == memref.instr.tid
+            ? &prev_interleaved_instr_
+            : &prev_instr_[memref.data.tid];
+        if (prev_instr_ptr->instr.addr != 0 /*first*/ &&
+            !type_is_instr_branch(prev_instr_ptr->instr.type)) {
             assert( // Filtered.
                 TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
                 // Regular fall-through.
-                (prev_instr_.instr.addr + prev_instr_.instr.size == memref.instr.addr) ||
+                (prev_instr_ptr->instr.addr + prev_instr_ptr->instr.size ==
+                 memref.instr.addr) ||
                 // String loop.
-                (prev_instr_.instr.addr == memref.instr.addr &&
-                 memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH) ||
+                (prev_instr_ptr->instr.addr == memref.instr.addr &&
+                 (memref.instr.type == TRACE_TYPE_INSTR_NO_FETCH ||
+                  // Online incorrectly marks the 1st string instr across a thread
+                  // switch as fetched.
+                  // TODO i#4915, #4948: Eliminate non-fetched and remove the underlying
+                  // instrs altogether, which would fix this for us.
+                  (!knob_offline_ &&
+                   prev_interleaved_instr_.instr.tid != memref.instr.tid))) ||
                 // Kernel-mediated, but we can't tell if we had a thread swap.
-                (prev_xfer_marker_.instr.tid != 0 &&
-                 (prev_xfer_marker_.instr.tid != memref.instr.tid ||
-                  prev_xfer_marker_.marker.marker_type ==
+                (prev_xfer_marker_[memref.data.tid].instr.tid != 0 &&
+                 (prev_xfer_marker_[memref.data.tid].marker.marker_type ==
                       TRACE_MARKER_TYPE_KERNEL_EVENT ||
-                  prev_xfer_marker_.marker.marker_type ==
+                  prev_xfer_marker_[memref.data.tid].marker.marker_type ==
                       TRACE_MARKER_TYPE_KERNEL_XFER)) ||
-                prev_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER);
+                prev_instr_ptr->instr.type == TRACE_TYPE_INSTR_SYSENTER);
             // XXX: If we had instr decoding we could check direct branch targets
             // and look for gaps after branches.
         }
 #ifdef UNIX
         // Ensure signal handlers return to the interruption point.
-        if (prev_xfer_marker_.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER) {
-            assert(memref.instr.tid != pre_signal_instr_.instr.tid ||
-                   memref.instr.addr == pre_signal_instr_.instr.addr ||
+        if (prev_xfer_marker_[memref.data.tid].marker.marker_type ==
+            TRACE_MARKER_TYPE_KERNEL_XFER) {
+            assert(memref.instr.addr ==
+                       pre_signal_instr_[memref.data.tid].top().instr.addr ||
                    // Asynch will go to the subsequent instr.
                    memref.instr.addr ==
-                       pre_signal_instr_.instr.addr + pre_signal_instr_.instr.size ||
+                       pre_signal_instr_[memref.data.tid].top().instr.addr +
+                           pre_signal_instr_[memref.data.tid].top().instr.size ||
                    // Nested signal.  XXX: This only works for our annotated test
                    // signal_invariants.
                    memref.instr.addr == app_handler_pc_ ||
@@ -175,15 +199,22 @@ trace_invariants_t::process_memref(const memref_t &memref)
                    // we need an instruction and not a data type.
                    memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
                    // Too hard to figure out branch targets.
-                   type_is_instr_branch(pre_signal_instr_.instr.type) ||
-                   pre_signal_instr_.instr.type == TRACE_TYPE_INSTR_SYSENTER);
+                   type_is_instr_branch(
+                       pre_signal_instr_[memref.data.tid].top().instr.type) ||
+                   pre_signal_instr_[memref.data.tid].top().instr.type ==
+                       TRACE_TYPE_INSTR_SYSENTER);
+            pre_signal_instr_[memref.data.tid].pop();
         }
 #endif
-        prev_instr_ = memref;
+        prev_interleaved_instr_ = memref;
+        // These 2 hash assignments cause a 2.5x slowdown for this test on Windows.
+        // We have as many other hash lookups as we can under UNIX.
+        // We could try to only update on a tid change to further reduce overhead.
+        prev_instr_[memref.data.tid] = memref;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
-        memset(&prev_xfer_marker_, 0, sizeof(prev_xfer_marker_));
+        prev_xfer_marker_[memref.data.tid] = {};
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up a signal delivery boundaries
@@ -195,24 +226,30 @@ trace_invariants_t::process_memref(const memref_t &memref)
                       << "marker type " << memref.marker.marker_type << " value "
                       << memref.marker.marker_value << "\n";
         }
+#ifdef UNIX
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
             // Give up on back-to-back signals.
-            prev_xfer_marker_.marker.marker_type != TRACE_MARKER_TYPE_KERNEL_XFER)
-            pre_signal_instr_ = prev_instr_;
-        prev_xfer_marker_ = memref;
+            prev_xfer_marker_[memref.data.tid].marker.marker_type !=
+                TRACE_MARKER_TYPE_KERNEL_XFER)
+            pre_signal_instr_[memref.data.tid].push(prev_instr_[memref.data.tid]);
+#endif
+        prev_xfer_marker_[memref.data.tid] = memref;
     }
 
+#ifdef UNIX
     // Look for annotations where signal_invariants.c and rseq.c pass info to us on what
     // to check for.  We assume the app does not have prefetch instrs w/ low addresses.
     if (memref.data.type == TRACE_TYPE_PREFETCHT2 && memref.data.addr < 1024) {
-        instrs_until_interrupt_ = static_cast<int>(memref.data.addr);
+        instrs_until_interrupt_[memref.data.tid] = static_cast<int>(memref.data.addr);
     }
     if (memref.data.type == TRACE_TYPE_PREFETCHT1 && memref.data.addr < 1024) {
-        memrefs_until_interrupt_ = static_cast<int>(memref.data.addr);
+        memrefs_until_interrupt_[memref.data.tid] = static_cast<int>(memref.data.addr);
     }
 
-    prev_prev_entry_ = prev_entry_;
-    prev_entry_ = memref;
+    prev_prev_entry_[memref.data.tid] = prev_entry_[memref.data.tid];
+    prev_entry_[memref.data.tid] = memref;
+#endif
+
     return true;
 }
 

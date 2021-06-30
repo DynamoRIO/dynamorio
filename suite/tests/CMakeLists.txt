@@ -3361,6 +3361,10 @@ if (BUILD_CLIENTS)
     endif()
     if (DEBUG) # for -test_mode
       torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
+      # This is slow on Windows.  I tried reducing the tracing window but
+      # it seems to vary too much across machines, and if we delay too far
+      # we start in the middle of a callback.
+      set(tool.drcachesim.invariants_timeout 180)
     endif ()
 
     if (NOT MACOS AND X86)
