@@ -2111,8 +2111,8 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
          * the current instr is an app or tool write, respectively. An example of the
          * latter is a restore for a spilled tool value, which may happen in the
          * multi-phase nested reservation case.
-         * Later we check whether the current instr restores native app value for any
-         * gpr/aflags, and if it does we mark the written gpr/aflags as native.
+         * Later we check whether the current instr restores the native app value for
+         * any gpr/aflags, and if it does we mark the written gpr/aflags as native.
          */
         for (int i = 0; i < instr_num_dsts(inst); i++) {
             opnd_t opnd = instr_get_dst(inst, i);
