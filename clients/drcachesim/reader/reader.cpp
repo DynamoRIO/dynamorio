@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -205,6 +205,7 @@ reader_t::operator++()
             have_memref = true;
             cur_ref_.marker.type = (trace_type_t)input_entry_->type;
             assert((cur_tid_ != 0 && cur_pid_ != 0) ||
+                   input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
                    input_entry_->size == TRACE_MARKER_TYPE_FILETYPE);
             cur_ref_.marker.pid = cur_pid_;
             cur_ref_.marker.tid = cur_tid_;

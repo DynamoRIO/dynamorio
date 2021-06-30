@@ -507,10 +507,11 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
+    int version = TRACE_ENTRY_VERSION;
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
-    entry.addr = TRACE_ENTRY_VERSION;
+    entry.addr = version;
     if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
         return "Failed to write header to output file";
 
@@ -530,7 +531,8 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
-    // Write the arch and other type flags.
+    // Write the version, arch, and other type flags.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
     // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);

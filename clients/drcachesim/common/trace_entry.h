@@ -53,7 +53,14 @@
 
 typedef uintptr_t addr_t; /**< The type of a memory address. */
 
-#define TRACE_ENTRY_VERSION 2 /**< The version of the trace format. */
+/**
+ * The version number of the trace format.
+ * This is presented to analysis tools as a marker of type
+ * #TRACE_MARKER_TYPE_VERSION.
+ */
+typedef enum {
+    TRACE_ENTRY_VERSION = 2 /**< The latest version of the trace format. */
+} trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
 // The type identifier for trace entries in the raw trace_entry_t passed to
@@ -286,6 +293,13 @@ typedef enum {
      * present in online-cache-filtered traces and is placed at thread exit.
      */
     TRACE_MARKER_TYPE_INSTRUCTION_COUNT,
+
+    /**
+     * The marker value contains the version of the trace format: a value
+     * of type #trace_version_t.  The marker is present in the first few entries
+     * of a trace file.
+     */
+    TRACE_MARKER_TYPE_VERSION,
 
     // ...
     // These values are reserved for future built-in marker types.

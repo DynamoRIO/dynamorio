@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,6 +71,7 @@ protected:
     std::unique_ptr<module_mapper_t> module_mapper_;
     raw2trace_directory_t directory_;
     unsigned int knob_verbose_;
+    int trace_version_;
     uint64_t instr_count_;
     static const std::string TOOL_NAME;
     uint64_t knob_skip_refs_;
