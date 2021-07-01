@@ -5720,14 +5720,17 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist, instr_t *wh
     CLIENT_ASSERT(reg == DR_REG_XAX,
                   "only xax should be used for save arith flags in X86");
     /* flag restoring code:
-     *   add 0x7f,%al
+     *   cmp %al $0x81
      *   sahf
+     *
+     * Note that we prefer the above cmp instead of an "add 0x7f, %al" to restore the
+     * overflow bit. This is because the latter destroys the value in AL. While that
+     * isn't a problem in this routine, using the former is better as it is consistent
+     * with other places where we do want to preserve AL.
      */
-    /* do an add such that OF will be set only if seto set
-     * the LSB of AL to 1
-     */
-    MINSERT(ilist, where,
-            INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+    MINSERT(
+        ilist, where,
+        INSTR_CREATE_cmp(drcontext, opnd_create_reg(DR_REG_AL), OPND_CREATE_INT8(-127)));
     MINSERT(ilist, where, INSTR_CREATE_sahf(dcontext));
 #elif defined(ARM)
     /* flag restoring code: mrs reg, apsr_nzcvqg */

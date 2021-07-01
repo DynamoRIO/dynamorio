@@ -81,6 +81,12 @@ void
 test_asm_fault_restore_aflags_in_xax_store_xl8();
 void
 test_asm_fault_restore_aflags_xax_already_spilled();
+void
+test_asm_fault_restore_gpr_spilled_to_mcontext_previously();
+void
+test_asm_fault_restore_aflags_spilled_to_mcontext_previously();
+void
+test_asm_fault_restore_gpr_spilled_during_clean_call_previously();
 
 static SIGJMP_BUF mark;
 
@@ -268,6 +274,32 @@ handle_signal_aflags_xax_already_spilled(int signal, siginfo_t *siginfo, ucontex
     SIGLONGJMP(mark, 1);
 }
 
+static void
+handle_signal_spilled_to_mcontext_previously(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_30_C)
+            print("ERROR: spilled register value was not preserved in test #30!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #31!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+handle_signal_spilled_during_clean_call_previously(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_CLEAN_CALL_MCONTEXT_SIG != DRREG_TEST_32_C)
+            print("ERROR: spilled register value was not preserved in test #32!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -423,6 +455,29 @@ handle_exception_aflags_xax_already_spilled(struct _EXCEPTION_POINTERS *ep)
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved in test #29!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception_spilled_to_mcontext_previously(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_30_C)
+            print("ERROR: spilled flags value was not preserved in test #30!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #31!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception_spilled_during_clean_call_previously(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CLEAN_CALL_MCONTEXT_CXT != DRREG_TEST_32_C)
+            print("ERROR: spilled flags value was not preserved in test #32!\n");
     }
     SIGLONGJMP(mark, 1);
 }
@@ -652,6 +707,34 @@ main(int argc, const char *argv[])
      */
     if (SIGSETJMP(mark) == 0) {
         test_asm_fault_restore_aflags_xax_already_spilled();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_spilled_to_mcontext_previously, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_spilled_to_mcontext_previously, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception_spilled_to_mcontext_previously);
+#    endif
+
+    /* Test restore on fault for gpr spilled to mcontext previously by non-drreg routines. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_gpr_spilled_to_mcontext_previously();
+    }
+
+    /* Test restore on fault for aflags spilled to mcontext previously by non-drreg routines. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_aflags_spilled_to_mcontext_previously();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_spilled_during_clean_call_previously, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception_spilled_during_clean_call_previously);
+#    endif
+
+    /* Test restore on fault for gpr spilled during clean call previously by non-drreg routines. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_gpr_spilled_during_clean_call_previously();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -2071,6 +2154,205 @@ GLOBAL_LABEL(FUNCNAME:)
 #elif defined(ARM)
         bx       lr
 #elif defined(AARCH64)
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 30: Test restoration of gpr when it was spilled to mcontext
+         * previously by non-drreg routines. This is to verify correct tracking
+         * of movement of native gpr value to/from mcontext.
+         */
+#define FUNCNAME test_asm_fault_restore_gpr_spilled_to_mcontext_previously
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test30
+     test30:
+        mov      TEST_REG_ASM, DRREG_TEST_30_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_30_ASM
+
+        /* TEST_REG_ASM will be spilled and restored from mcontext here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* TEST_REG_ASM will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        ud2
+
+        jmp      epilog30
+     epilog30:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test30
+     test30:
+        movw     TEST_REG_ASM, DRREG_TEST_30_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_30_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog30
+    epilog30:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test30
+     test30:
+        movz     TEST_REG_ASM, DRREG_TEST_30_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_30_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        .inst 0xf36d19 /* udf */
+
+        b        epilog30
+    epilog30:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 31: Test restoration of aflags when they were spilled to
+         * mcontext previously by non-drreg routines. This is to verify correct
+         * tracking of movement of native app aflags to/from mcontext.
+         */
+#define FUNCNAME test_asm_fault_restore_aflags_spilled_to_mcontext_previously
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test31
+     test31:
+        mov      TEST_REG_ASM, DRREG_TEST_31_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_31_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+
+        /* aflags will be spilled and restored from mcontext here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* aflags will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+
+        jmp      epilog31
+     epilog31:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test31
+     test31:
+        movw     TEST_REG_ASM, DRREG_TEST_31_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_31_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        mov      r1, HEX(0)
+        ldr      r1, PTRSZ [r1] /* crash */
+
+        b        epilog31
+    epilog31:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test31
+     test31:
+        movz     TEST_REG_ASM, DRREG_TEST_31_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_31_ASM
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        msr      nzcv, TEST_REG2_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        mov      x1, HEX(0)
+        ldr      x1, PTRSZ [x1] /* crash */
+
+        b        epilog31
+    epilog31:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 32: Test restoration of mcontext reg that was reserved
+         * using non-drreg routines during clean call instrumentation.
+         */
+#define FUNCNAME test_asm_fault_restore_gpr_spilled_during_clean_call_previously
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test32
+     test32:
+        mov      TEST_REG_ASM, DRREG_TEST_32_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_32_ASM
+        mov      TEST_REG_CLEAN_CALL_MCONTEXT_ASM, DRREG_TEST_32_ASM
+
+        /* Clean call will be added here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* TEST_REG_CLEAN_CALL_MCONTEXT_ASM will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        ud2
+
+        jmp      epilog32
+     epilog32:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test32
+     test32:
+        movw     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movw     TEST_REG_CLEAN_CALL_MCONTEXT_ASM, DRREG_TEST_32_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        .word 0xe7f000f0 /* udf */
+
+        b        epilog32
+    epilog32:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test32
+     test32:
+        movz     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movz     TEST_REG_CLEAN_CALL_MCONTEXT_ASM, DRREG_TEST_32_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        .inst 0xf36d19 /* udf */
+
+        b        epilog32
+    epilog32:
         ret
 #endif
         END_FUNC(FUNCNAME)

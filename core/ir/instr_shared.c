@@ -3642,13 +3642,10 @@ instr_is_tls_xcx_spill(instr_t *instr)
 
 /* this routine may upgrade a level 1 instr */
 static bool
-instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr, bool *spill,
-                                   reg_id_t *reg, int *offs)
+instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
+                                   reg_id_t mcontext_reg, bool *spill, reg_id_t *reg,
+                                   int *offs)
 {
-#    ifdef X64
-    /* PR 244737: we always use tls for x64 */
-    return false;
-#    else
     opnd_t regop, memop;
     if (instr_get_opcode(instr) == OP_store) {
         regop = instr_get_src(instr, 0);
@@ -3660,35 +3657,48 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr, bool *s
         memop = instr_get_src(instr, 0);
         if (spill != NULL)
             *spill = false;
-#        ifdef X86
+#    ifdef X86
     } else if (instr_get_opcode(instr) == OP_xchg) {
         /* we use xchg to restore in dr_insert_mbr_instrumentation */
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = false;
-#        endif /* X86 */
+#    endif /* X86 */
     } else
         return false;
-    if (opnd_is_near_base_disp(memop) && opnd_is_abs_base_disp(memop) &&
-        opnd_is_reg(regop)) {
-        byte *pc = (byte *)opnd_get_disp(memop);
-        byte *mc = (byte *)get_mcontext(dcontext);
-        if (pc >= mc && pc < mc + sizeof(priv_mcontext_t)) {
-            if (reg != NULL)
-                *reg = opnd_get_reg(regop);
-            if (offs != NULL)
-                *offs = pc - (byte *)dcontext;
-            return true;
+    if (opnd_is_near_base_disp(memop) && opnd_is_reg(regop)) {
+        if (opnd_is_abs_base_disp(memop)) {
+            byte *pc = (byte *)(ptr_uint_t)opnd_get_disp(memop);
+            byte *mc = (byte *)(ptr_uint_t)get_mcontext(dcontext);
+            if (pc >= mc && pc < mc + sizeof(priv_mcontext_t)) {
+                if (reg != NULL)
+                    *reg = opnd_get_reg(regop);
+                if (offs != NULL)
+                    *offs = pc - (byte *)dcontext;
+                return true;
+            }
+        } else if (mcontext_reg != DR_REG_NULL && opnd_get_base(memop) == mcontext_reg) {
+            /* We use unprotected_context_t instead of priv_mcontext_t so that we can
+             * detect spills/restores that use inline_spill_slots as well.
+             */
+            if (opnd_get_disp(memop) < sizeof(unprotected_context_t)) {
+                if (reg != NULL)
+                    *reg = opnd_get_reg(regop);
+                if (offs != NULL) {
+                    *offs = opnd_get_disp(memop);
+                }
+                return true;
+            }
         }
     }
     return false;
-#    endif
 }
 
 static bool
-instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, bool *tls,
-                                 bool *spill, reg_id_t *reg, uint *offs_out)
+instr_is_reg_spill_or_restore_internal(void *drcontext, instr_t *instr, bool DR_only,
+                                       reg_id_t mcontext_reg, bool *tls, bool *spill,
+                                       reg_id_t *reg, uint *offs_out)
 {
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     int check_disp = 0; /* init to satisfy some compilers */
@@ -3720,7 +3730,8 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
         }
     }
     if (dcontext != GLOBAL_DCONTEXT &&
-        instr_check_mcontext_spill_restore(dcontext, instr, spill, reg, &check_disp)) {
+        instr_check_mcontext_spill_restore(dcontext, instr, mcontext_reg, spill, reg,
+                                           &check_disp)) {
         int offs = opnd_get_reg_dcontext_offs(dr_reg_fixer[*reg]);
         if (!DR_only || (offs != -1 && check_disp == offs)) {
             if (tls != NULL)
@@ -3735,19 +3746,38 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
 
 DR_API
 bool
+instr_is_load_mcontext_base(instr_t *inst)
+{
+    if (instr_get_opcode(inst) != OP_load || !opnd_is_base_disp(instr_get_src(inst, 0)))
+        return false;
+    return opnd_get_disp(instr_get_src(inst, 0)) ==
+        os_tls_offset((ushort)TLS_DCONTEXT_SLOT);
+}
+
+DR_API
+bool
 instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
                               reg_id_t *reg, uint *offs)
 {
-    return instr_is_reg_spill_or_restore_ex(drcontext, instr, false, tls, spill, reg,
-                                            offs);
+    return instr_is_reg_spill_or_restore_internal(drcontext, instr, false, DR_REG_NULL,
+                                                  tls, spill, reg, offs);
+}
+
+DR_API
+bool
+instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, reg_id_t mcontext_reg,
+                                 bool *tls, bool *spill, reg_id_t *reg, uint *offs)
+{
+    return instr_is_reg_spill_or_restore_internal(drcontext, instr, false, mcontext_reg,
+                                                  tls, spill, reg, offs);
 }
 
 bool
 instr_is_DR_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls, bool *spill,
                                  reg_id_t *reg, uint *offs)
 {
-    return instr_is_reg_spill_or_restore_ex(drcontext, instr, true, tls, spill, reg,
-                                            offs);
+    return instr_is_reg_spill_or_restore_internal(drcontext, instr, true, DR_REG_NULL,
+                                                  tls, spill, reg, offs);
 }
 
 /* N.B. : client meta routines (dr_insert_* etc.) should never use anything other

@@ -2338,6 +2338,11 @@ instr_t *
 instr_create_pusha(void *drcontext);
 
 DR_API
+/** Returns whether \p instr loads mcontext base to some reg. */
+bool
+instr_is_load_mcontext_base(instr_t *instr);
+
+DR_API
 /**
  * Returns whether \p instr is a register spill or restore, whether it was
  * created by dr_save_reg(), dr_restore_reg(), dr_insert_read_raw_tls(),
@@ -2350,6 +2355,17 @@ DR_API
 bool
 instr_is_reg_spill_or_restore(void *drcontext, instr_t *instr, bool *tls OUT,
                               bool *spill OUT, reg_id_t *reg OUT, uint *offs OUT);
+
+DR_API
+/**
+ * Same as \p instr_is_reg_spill_or_restore but also considers spills/restores using
+ * mcontext base in given reg.
+ */
+bool
+instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr,
+                                       reg_id_t mcontext_reg, bool *tls OUT,
+                                       bool *spill OUT, reg_id_t *reg OUT,
+                                       uint *offs OUT);
 
 /****************************************************************************
  * EFLAGS/CONDITION CODES

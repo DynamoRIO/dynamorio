@@ -237,15 +237,6 @@ instr_is_mov_PC_immed(dcontext_t *dcontext, instr_t *inst)
 }
 #endif
 
-static bool
-instr_is_load_mcontext_base(instr_t *inst)
-{
-    if (instr_get_opcode(inst) != OP_load || !opnd_is_base_disp(instr_get_src(inst, 0)))
-        return false;
-    return opnd_get_disp(instr_get_src(inst, 0)) ==
-        os_tls_offset((ushort)TLS_DCONTEXT_SLOT);
-}
-
 #ifdef X86
 
 /* FIXME i#3329: add support for ARM/AArch64. */

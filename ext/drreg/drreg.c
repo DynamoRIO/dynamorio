@@ -79,6 +79,14 @@
  */
 #define AFLAGS_ALIAS_REG (DR_REG_STOP_GPR + 1)
 
+/* Used to indicate that "no offset" is being used. */
+#define NO_OFFS 0xffffffff
+
+/* Value used as base to help differentiate the offset for a TLS and mcontext
+ * spill added by non-drreg routines.
+ */
+#define NON_DRREG_TLS_SPILL_OFFS_BASE 0xf00000
+
 /* We support using GPR registers only: [DR_REG_START_GPR..DR_REG_STOP_GPR] */
 
 #define REG_DEAD ((void *)(ptr_uint_t)0)
@@ -2033,6 +2041,14 @@ drreg_event_restore_state_without_ilist(void *drcontext, bool restore_memory,
     return true;
 }
 
+static void
+clear_existing_non_drreg_slot_use(uint *gpr_to_non_drreg_slot_offs, uint offs)
+{
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR + 1; reg++) {
+        if (gpr_to_non_drreg_slot_offs[GPR_IDX(reg)] == offs)
+            gpr_to_non_drreg_slot_offs[GPR_IDX(reg)] = NO_OFFS;
+    }
+}
 /* Restores machine state modified by drreg, using the reconstructed instrlist
  * of the faulting fragment.
  * This is a more robust version of drreg_event_restore_state_without_ilist
@@ -2047,43 +2063,78 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
      * different slot) after app instr write, multiple reg restores due to app
      * instr read, aflags spilled to reg instead of slot (for x86 only), lazy
      * restores, multi-phase use of drreg leading to nested or overlapping
-     * spill regions, re-spills of native value by multiple phases, ...
-     * The strategy we follow here is to trace the app value of aflags and gpr
-     * as it is moved between spill slots and regs. At times the app value may
-     * be present in the gpr/aflags and one or more spill slots too, but later
-     * the gpr or any of the spill slots may be clobbered by a tool write or
-     * another spill respectively. At the end, we restore all live gprs/aflags
-     * that do not have their native app value.
+     * spill regions, re-spills of native value by multiple phases, spills by
+     * DR using non-drreg routines (to non-drreg spill slots or even stack).
+     *
+     * The strategy we follow here is to trace the app value of aflags and each
+     * gpr as it is moved between spill locations and regs. At times the app value
+     * may be present in the gpr/aflags and one or more spill locations too, but
+     * later the gpr or any of the spill locations may be clobbered by a tool write
+     * or another spill respectively. At the end, we restore the value of all non-
+     * native gprs/aflags for which we have some spill information. If we don't
+     * have any spill information for some non-native gpr/aflags, it probably
+     * means that the gpr/aflags were dead, therefore weren't spilled.
+     *
+     * Even though we do not need to restore gprs spilled by non-drreg spilling
+     * methods (like dr_save_reg or other methods like pushing to stack), we need
+     * to keep track of such spills/restores. This is needed to correctly track
+     * whether a gpr contains its app value currently or not, which is required to
+     * differentiate between app value and tool value spills, which is particularly
+     * important if drreg was used in multiple phases.
      */
+
+    /* Tracks which gpr's app value is stored by each spill slot. */
     reg_id_t spill_slot_to_reg[MAX_SPILLS];
-    /* Note that we do not need to track multiple spill regs for aflags. On x86
+    /* Tracks which gpr contains the aflags app value.
+     * Note that we do not need to track multiple spill regs for aflags. On x86
      * aflags can be spilled only to xax using lahf. On AArchXX, while they can
      * be read into any register using mrs, they are always spilled to a slot.
      */
     reg_id_t aflags_spill_reg;
+    /* Tracks which gpr contains the mcontext base. This is required to identify
+     * mcontext spills/restores.
+     */
+    reg_id_t mcontext_reg;
+    /* Tracks whether a gpr/aflags has its native app value or not. */
     bool gpr_native[DR_NUM_GPR_REGS];
     bool aflags_native;
-    int last_opcode = 0;
+    /* Tracks the offset of each gpr's spill slot. This is for non-drreg spills
+     * only. We do not restore these spills. This is only to help us keep track
+     * of the native gpr value. For simplicity, we assume that non-drreg
+     * instrumentation will spill a gpr only to a single slot (no multiple
+     * simultaneous spills).
+     * XXX: Handling multiple simultaneous spills requires keeping track of
+     * slot_offs->gpr mapping (like spill_slot_to_reg); but it gets tricky because
+     * here we have different types of offs that cannot be used easily as array
+     * indices unlike spill slot ids, so we'd need a map instead of an array.
+     */
+    uint gpr_to_non_drreg_slot_offs[DR_NUM_GPR_REGS + 1];
+    ASSERT(GPR_IDX(AFLAGS_ALIAS_REG) == DR_NUM_GPR_REGS, "aflags entry should be last");
 
+    int last_opcode = 0;
     reg_id_t reg;
     instr_t *inst;
     byte *pc = info->fragment_info.cache_start_pc;
     uint offs;
-    bool spill;
     uint slot;
+    bool spill;
+    bool tls;
     if (pc == NULL)
         return true; /* fault not in cache */
 
     /* At beginning of fragment, all gprs and aflags have their native app value. */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         gpr_native[GPR_IDX(reg)] = true;
+        gpr_to_non_drreg_slot_offs[GPR_IDX(reg)] = NO_OFFS;
     }
+    gpr_to_non_drreg_slot_offs[GPR_IDX(AFLAGS_ALIAS_REG)] = NO_OFFS;
     aflags_native = true;
     /* At beginning of fragment, no spill slot has a native value. */
     for (int i = 0; i < MAX_SPILLS; i++) {
         spill_slot_to_reg[i] = DR_REG_NULL;
     }
     aflags_spill_reg = DR_REG_NULL;
+    mcontext_reg = DR_REG_NULL;
 
     LOG(drcontext, DR_LOG_ALL, 3,
         "%s: processing fault @" PFX ": using reconstructed fragment ilist \n",
@@ -2107,6 +2158,7 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
             last_opcode = instr_get_opcode(inst);
         }
 
+        bool clear_mcontext_reg = false;
         /* Mark gprs/aflags as containing native or non-native value based on whether
          * the current instr is an app or tool write, respectively. An example of the
          * latter is a restore for a spilled tool value, which may happen in the
@@ -2126,9 +2178,18 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                     /* App instr wrote reg value. Spill slot value not valid anymore. */
                     gpr_native[GPR_IDX(resized_reg)] = true;
                     forget_existing_spill_slot_use(spill_slot_to_reg, resized_reg);
+                    gpr_to_non_drreg_slot_offs[GPR_IDX(resized_reg)] = NO_OFFS;
                 } else {
                     /* Tool wrote to reg. Not native anymore. */
                     gpr_native[GPR_IDX(resized_reg)] = false;
+                    if (mcontext_reg == resized_reg) {
+                        /* We clear mcontext_reg later, because we need it to detect
+                         * mcontext spills/restores below. If we clear it now, we
+                         * won't be able to detect restores of the reg containing
+                         * the mcontext base.
+                         */
+                        clear_mcontext_reg = true;
+                    }
                 }
             }
         }
@@ -2140,17 +2201,33 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                 aflags_native = true;
                 forget_existing_spill_slot_use(spill_slot_to_reg, AFLAGS_ALIAS_REG);
                 aflags_spill_reg = DR_REG_NULL;
+                gpr_to_non_drreg_slot_offs[GPR_IDX(AFLAGS_ALIAS_REG)] = NO_OFFS;
             } else {
                 /* Tool wrote aflags. Not native anymore. */
                 aflags_native = false;
             }
         }
-
-        /* Update book-keeping for gpr/aflags spill slot and aflags spill reg. Mark
-         * as native the gprs/aflags that were restored. All spills/restores are meta
-         * instrs.
+        /* Update book-keeping for gpr/aflags spill slot or aflags spill reg, and
+         * mark as native the gprs/aflags that were restored by drreg. All spills/restores
+         * are meta instrs.
          */
         if (!instr_is_app(inst)) {
+            /* There are multiple types of instrs that may spill or restore the gpr/aflags
+             * native value:
+             * - drreg spill or restore: detected using is_our_spill_or_restore
+             * - non-drreg spill or restore to mcontext slot or TLS slot not reserved by
+             *   drreg: if above is false, detected using instr_is_reg_spill_or_restore_ex
+             * - non-drreg spill or restore to stack: e.g. this may happen in some cases
+             *   during clean call instrumentation. TODO: add support to detect this.
+             *
+             * During drreg's state restoration, we need to restore only the values
+             * spilled by drreg (the first category above). However, our logic needs to be
+             * aware of other ways the native gpr/aflags value can be saved/restored by
+             * meta instrs. This is because we need to correctly track gpr_native[_] and
+             * aflags_native to be able to properly differentiate between app value and
+             * tool value spills, which is particularly important if there's multi-phase
+             * drreg use.
+             */
             if (is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, &offs)) {
                 if (spill) {
                     /* Slot used in current instr may have a previous spilled gpr/aflags
@@ -2179,6 +2256,26 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                             __FUNCTION__, pc);
                     }
                 }
+            } else if (instr_is_reg_spill_or_restore_ex(drcontext, inst, mcontext_reg,
+                                                        &tls, &spill, &reg, &offs)) {
+                if (tls)
+                    offs += NON_DRREG_TLS_SPILL_OFFS_BASE;
+                if (spill) {
+                    clear_existing_non_drreg_slot_use(gpr_to_non_drreg_slot_offs, offs);
+                    if (aflags_spill_reg == reg) {
+                        ASSERT(!gpr_native[GPR_IDX(aflags_spill_reg)],
+                               "reg with aflags cannot be native");
+                        gpr_to_non_drreg_slot_offs[GPR_IDX(AFLAGS_ALIAS_REG)] = offs;
+                    } else if (gpr_native[GPR_IDX(reg)]) {
+                        gpr_to_non_drreg_slot_offs[GPR_IDX(reg)] = offs;
+                    }
+                } else {
+                    if (gpr_to_non_drreg_slot_offs[GPR_IDX(AFLAGS_ALIAS_REG)] == offs) {
+                        aflags_spill_reg = reg;
+                    } else if (gpr_to_non_drreg_slot_offs[GPR_IDX(reg)] == offs) {
+                        gpr_native[GPR_IDX(reg)] = true;
+                    }
+                }
             } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
                 if (aflags_native) {
 #ifdef X86
@@ -2193,6 +2290,11 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                     aflags_native = true;
                 }
             }
+        }
+        if (!instr_is_app(inst) && instr_is_load_mcontext_base(inst)) {
+            mcontext_reg = opnd_get_reg(instr_get_dst(inst, 0));
+        } else if (clear_mcontext_reg) {
+            mcontext_reg = DR_REG_NULL;
         }
     }
     ASSERT(inst != NULL, "fault pc is beyond the given ilist");
@@ -2221,7 +2323,9 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
             }
             info->mcontext->xflags = newval;
         } else {
-            LOG(drcontext, DR_LOG_ALL, 3, "%s: aflags not saved as they are dead\n",
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s: native aflags value not found in any slot/reg (maybe they are "
+                "dead)\n",
                 __FUNCTION__);
         }
     }
@@ -2236,7 +2340,8 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                     reg_get_value(reg, info->mcontext), val);
                 reg_set_value(reg, info->mcontext, val);
             } else {
-                LOG(drcontext, DR_LOG_ALL, 3, "%s: %s not saved as it is dead\n",
+                LOG(drcontext, DR_LOG_ALL, 3,
+                    "%s: native %s value not found in any slot (maybe it is dead)\n",
                     __FUNCTION__, get_register_name(reg));
             }
         }
