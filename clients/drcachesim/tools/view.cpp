@@ -66,6 +66,8 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
     , knob_syntax_(syntax)
     , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
+    , prev_tid_(-1)
+    , prev_filetype_(0)
 {
 }
 
@@ -109,10 +111,26 @@ view_t::process_memref(const memref_t &memref)
         return true;
     }
 
+    if (memref.instr.tid != 0) {
+        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
+            std::cerr << "------------------------------------------------------------\n";
+        prev_tid_ = memref.instr.tid;
+        std::cerr << "T" << memref.instr.tid << " ";
+    }
+
     if (memref.marker.type == TRACE_TYPE_MARKER) {
+        if (memref.marker.tid != 0 &&
+            printed_header_.find(memref.marker.tid) == printed_header_.end()) {
+            printed_header_.insert(memref.marker.tid);
+            std::cerr << "<marker: version " << trace_version_ << ">\n";
+            std::cerr << "T" << memref.instr.tid << " ";
+            std::cerr << "<marker: filetype 0x" << std::hex << prev_filetype_ << std::dec
+                      << ">\n";
+            std::cerr << "T" << memref.instr.tid << " ";
+        }
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_VERSION:
-            std::cerr << "<marker: version " << memref.marker.marker_value << ">\n";
+            // We delay printing until we know the tid.
             if (trace_version_ == -1)
                 trace_version_ = static_cast<int>(memref.marker.marker_value);
             else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
@@ -121,8 +139,8 @@ view_t::process_memref(const memref_t &memref)
             }
             break;
         case TRACE_MARKER_TYPE_FILETYPE:
-            std::cerr << "<marker: filetype 0x" << std::hex << memref.marker.marker_value
-                      << std::dec << ">\n";
+            // We delay printing until we know the tid.
+            prev_filetype_ = memref.marker.marker_value;
             if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
@@ -166,8 +184,23 @@ view_t::process_memref(const memref_t &memref)
     }
 
     if (!type_is_instr(memref.instr.type) &&
-        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
+        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
+        switch (memref.data.type) {
+        case TRACE_TYPE_READ:
+            std::cerr << "    read  " << memref.data.size << " byte(s) @ 0x" << std::hex
+                      << memref.data.addr << std::dec << "\n";
+            break;
+        case TRACE_TYPE_WRITE:
+            std::cerr << "    write " << memref.data.size << " byte(s) @ 0x" << std::hex
+                      << memref.data.addr << std::dec << "\n";
+            break;
+        case TRACE_TYPE_THREAD_EXIT:
+            std::cerr << "<thread " << memref.data.tid << " exited>\n";
+            break;
+        default: std::cerr << "<entry type " << memref.data.type << ">\n"; break;
+        }
         return true;
+    }
 
     ++instr_count_;
 
@@ -197,11 +230,15 @@ view_t::process_memref(const memref_t &memref)
             return false;
         }
         disasm = buf;
+        // Put our prefix on raw byte spillover.
+        auto newline = disasm.find('\n');
+        if (newline != std::string::npos && newline < disasm.size() - 1) {
+            std::stringstream prefix;
+            prefix << "T" << memref.instr.tid << " ";
+            disasm.insert(newline + 1, prefix.str());
+        }
         disasm_cache_.insert({ mapped_pc, disasm });
     }
-    // XXX: For now we print the disassembly of instructions only. We should extend
-    // this tool to annotate load/store operations with the entries recorded in
-    // the offline trace.
     std::cerr << disasm;
     ++num_disasm_instrs_;
     return true;

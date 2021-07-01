@@ -35,6 +35,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "analysis_tool.h"
 #include "raw2trace.h"
@@ -80,6 +81,9 @@ protected:
     std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;
     std::unordered_map<app_pc, std::string> disasm_cache_;
+    memref_tid_t prev_tid_;
+    uintptr_t prev_filetype_;
+    std::unordered_set<memref_tid_t> printed_header_;
 };
 
 #endif /* _VIEW_H_ */
