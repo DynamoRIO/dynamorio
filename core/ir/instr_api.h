@@ -2362,10 +2362,9 @@ DR_API
  * mcontext base in given reg.
  */
 bool
-instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr,
-                                       reg_id_t mcontext_reg, bool *tls OUT,
-                                       bool *spill OUT, reg_id_t *reg OUT,
-                                       uint *offs OUT);
+instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, reg_id_t mcontext_reg,
+                                 bool *tls OUT, bool *spill OUT, reg_id_t *reg OUT,
+                                 uint *offs OUT);
 
 /****************************************************************************
  * EFLAGS/CONDITION CODES
