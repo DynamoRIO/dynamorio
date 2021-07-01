@@ -1084,12 +1084,12 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
                             OPND_CREATE_MEM32(REG_NULL, (int)(size_t)mode_switch_data));
 	byte* eaxpos =(byte*) ((size_t)mode_switch_data) + 8;
 	// Restoring eax back, which is storing routine address that needs to be passed to RtlUserStartThread
-	instr_t *restore_ebx = INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_EAX), 
+	instr_t *restore_eax = INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_EAX), 
 		OPND_CREATE_MEM32(REG_NULL, (int)(size_t)eaxpos));
 	
     instr_set_x86_mode(jmp, true);
     instr_set_x86_mode(restore_esp, true);
-	instr_set_x86_mode(restore_ebx, true);
+    instr_set_x86_mode(restore_eax, true);
     instrlist_init(&ilist);
     /* We patch the 0 with the correct target location in this function */
     APP(&ilist, INSTR_CREATE_push_imm(GDC, OPND_CREATE_INT32(0)));
@@ -1100,7 +1100,7 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
         INSTR_CREATE_jmp_far_ind(GDC,
                                  opnd_create_base_disp(REG_RSP, REG_NULL, 0, 0, OPSZ_6)));
     APP(&ilist, restore_esp);
-	APP(&ilist, restore_ebx);
+    APP(&ilist, restore_eax);
     APP(&ilist, jmp);
 
     pc = instrlist_encode_to_copy(GDC, &ilist, local_code_buf, mode_switch_buf,
@@ -1112,7 +1112,7 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
      * to x86 mode
      */
     sz = (size_t)(pc - local_code_buf - instr_length(GDC, jmp) -
-                  instr_length(GDC, restore_esp) - instr_length(GDC, restore_ebx));
+                  instr_length(GDC, restore_esp) - instr_length(GDC, restore_eax));
     instrlist_clear(GDC, &ilist);
     /* For x86 code the address must be 32 bit */
     ASSERT_TRUNCATE(target, uint, (size_t)mode_switch_buf);
