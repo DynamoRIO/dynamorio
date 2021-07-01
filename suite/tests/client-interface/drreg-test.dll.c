@@ -903,7 +903,9 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     } else if (subtest == DRREG_TEST_32_C) {
         dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #34\n");
         if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
-            /* This internally spills/restores regs using mcontext base. */
+            /* This internally spills/restores regs using mcontext base.
+             * This is similar to the clean call used by drcachesim.
+             */
             dr_insert_clean_call_ex(drcontext, bb, inst, (void *)empty_clean_call,
                                     DR_CLEANCALL_ALWAYS_OUT_OF_LINE, 0);
             /* Verify test sanity -- TEST_REG_CLEAN_CALL_MCONTEXT should be used to

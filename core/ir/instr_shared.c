@@ -3675,7 +3675,7 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
                 if (reg != NULL)
                     *reg = opnd_get_reg(regop);
                 if (offs != NULL)
-                    *offs = pc - (byte *)dcontext;
+                    *offs = (int)(pc - (byte *)dcontext);
                 return true;
             }
         } else if (mcontext_reg != DR_REG_NULL && opnd_get_base(memop) == mcontext_reg) {
