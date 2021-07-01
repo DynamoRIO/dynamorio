@@ -89,6 +89,7 @@
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB
 -------------------xxx----------  extam      # extend amount
 ------------------xxxx----------  p10_low    # SVE predicate registers p0-p7
+-----------------xx-------------  len        # imm2 len
 -----------------xxxx-----------  imm4idx    # imm4 from 11-14
 -----------------xxxxx----------  ign10      # ignored reg field in load/store exclusive
 -----------------xxxxx----------  w10        # W register (or WZR)
@@ -1417,7 +1418,12 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 0x001110xx110001101010xxxxxxxxxx     sminv     dq0 : dq5 bhsd_sz
 0x001110xx0xxxxx001110xxxxxxxxxx     zip1      dq0 : dq5 dq16 bhsd_sz
 0x001110xx0xxxxx011110xxxxxxxxxx     zip2      dq0 : dq5 dq16 bhsd_sz
-
+11010101000000110010000110011111     autia1716 :
+11010101000000110010000111011111     autib1716 :
+11010101000000110010000011111111     xpaclri   :
+0x10111000100000010110xxxxxxxxxx     not       dq0 : dq5
+0x001110000xxxxx0xx000xxxxxxxxxx     tbl       dq0 : dq5 dq16 len
+0x10111100000xxxxxx101xxxxxxxxxx     bic       dq0 : imm8 cmode3
 0x101110xx100000011010xxxxxxxxxx     uadalp    dq0 : dq5 bhsd_sz
 0x101110xx100000001010xxxxxxxxxx     uaddlp    dq0 : dq5 bhsd_sz
 0x101110xx110000001110xxxxxxxxxx     uaddlv    dq0 : dq5 bhsd_sz

@@ -208,6 +208,12 @@ f2400441 : ands   x1, x2, #0x3            : ands   %x2 $0x0000000000000003 -> %x
 937fffff : asr    xzr, xzr, #63           : sbfm   %xzr $0x3f $0x3f -> %xzr
 9ac32841 : asr    x1, x2, x3              : asrv   %x2 %x3 -> %x1
 
+d503219f : autia1716                      : autia1716
+
+d50321df : autib1716                      : autib1716
+
+d50320ff : xpaclri                        : xpaclri
+
 14081041 : b      10204104                : b      $0x0000000010204104
 15ffffff : b      17fffffc                : b      $0x0000000017fffffc
 17ffffff : b      ffffffc                 : b      $0x000000000ffffffc
@@ -261,6 +267,92 @@ b37fffff : bfxil  xzr, xzr, #63, #1       : bfm    %xzr %xzr $0x3f $0x3f -> %xzr
 045b0b02 : bic z2.h, p2/m, z2.h, z24.h              : bic    %p2 %z2 %z24 $0x01 -> %z2
 049b0b02 : bic z2.s, p2/m, z2.s, z24.s              : bic    %p2 %z2 %z24 $0x02 -> %z2
 04db0b02 : bic z2.d, p2/m, z2.d, z24.d              : bic    %p2 %z2 %z24 $0x03 -> %z2
+
+# BIC <Vd>.<T>, #<imm8>{, LSL #<amount>}
+2f009400 : bic v0.4h, #0, lsl #0                    : bic    $0x00 $0x04 -> %d0
+2f0296a0 : bic v0.4h, #85, lsl #0                   : bic    $0x55 $0x04 -> %d0
+2f059540 : bic v0.4h, #170, lsl #0                  : bic    $0xaa $0x04 -> %d0
+2f0797e0 : bic v0.4h, #255, lsl #0                  : bic    $0xff $0x04 -> %d0
+2f04940a : bic v10.4h, #128, lsl #0                 : bic    $0x80 $0x04 -> %d10
+2f049414 : bic v20.4h, #128, lsl #0                 : bic    $0x80 $0x04 -> %d20
+2f04941e : bic v30.4h, #128, lsl #0                 : bic    $0x80 $0x04 -> %d30
+2f00b400 : bic v0.4h, #0, lsl #8                    : bic    $0x00 $0x05 -> %d0
+2f02b6a0 : bic v0.4h, #85, lsl #8                   : bic    $0x55 $0x05 -> %d0
+2f05b540 : bic v0.4h, #170, lsl #8                  : bic    $0xaa $0x05 -> %d0
+2f07b7e0 : bic v0.4h, #255, lsl #8                  : bic    $0xff $0x05 -> %d0
+2f04b40a : bic v10.4h, #128, lsl #8                 : bic    $0x80 $0x05 -> %d10
+2f04b414 : bic v20.4h, #128, lsl #8                 : bic    $0x80 $0x05 -> %d20
+2f04b41e : bic v30.4h, #128, lsl #8                 : bic    $0x80 $0x05 -> %d30
+6f009400 : bic v0.8h, #0, lsl #0                    : bic    $0x00 $0x04 -> %q0
+6f0296a0 : bic v0.8h, #85, lsl #0                   : bic    $0x55 $0x04 -> %q0
+6f059540 : bic v0.8h, #170, lsl #0                  : bic    $0xaa $0x04 -> %q0
+6f0797e0 : bic v0.8h, #255, lsl #0                  : bic    $0xff $0x04 -> %q0
+6f04940a : bic v10.8h, #128, lsl #0                 : bic    $0x80 $0x04 -> %q10
+6f049414 : bic v20.8h, #128, lsl #0                 : bic    $0x80 $0x04 -> %q20
+6f04941e : bic v30.8h, #128, lsl #0                 : bic    $0x80 $0x04 -> %q30
+6f00b400 : bic v0.8h, #0, lsl #8                    : bic    $0x00 $0x05 -> %q0
+6f02b6a0 : bic v0.8h, #85, lsl #8                   : bic    $0x55 $0x05 -> %q0
+6f05b540 : bic v0.8h, #170, lsl #8                  : bic    $0xaa $0x05 -> %q0
+6f07b7e0 : bic v0.8h, #255, lsl #8                  : bic    $0xff $0x05 -> %q0
+6f04b40a : bic v10.8h, #128, lsl #8                 : bic    $0x80 $0x05 -> %q10
+6f04b414 : bic v20.8h, #128, lsl #8                 : bic    $0x80 $0x05 -> %q20
+6f04b41e : bic v30.8h, #128, lsl #8                 : bic    $0x80 $0x05 -> %q30
+2f001400 : bic v0.2s, #0, lsl #0                    : bic    $0x00 $0x00 -> %d0
+2f0216a0 : bic v0.2s, #85, lsl #0                   : bic    $0x55 $0x00 -> %d0
+2f051540 : bic v0.2s, #170, lsl #0                  : bic    $0xaa $0x00 -> %d0
+2f0717e0 : bic v0.2s, #255, lsl #0                  : bic    $0xff $0x00 -> %d0
+2f04140a : bic v10.2s, #128, lsl #0                 : bic    $0x80 $0x00 -> %d10
+2f041414 : bic v20.2s, #128, lsl #0                 : bic    $0x80 $0x00 -> %d20
+2f04141e : bic v30.2s, #128, lsl #0                 : bic    $0x80 $0x00 -> %d30
+2f003400 : bic v0.2s, #0, lsl #8                    : bic    $0x00 $0x01 -> %d0
+2f0236a0 : bic v0.2s, #85, lsl #8                   : bic    $0x55 $0x01 -> %d0
+2f053540 : bic v0.2s, #170, lsl #8                  : bic    $0xaa $0x01 -> %d0
+2f0737e0 : bic v0.2s, #255, lsl #8                  : bic    $0xff $0x01 -> %d0
+2f04340a : bic v10.2s, #128, lsl #8                 : bic    $0x80 $0x01 -> %d10
+2f043414 : bic v20.2s, #128, lsl #8                 : bic    $0x80 $0x01 -> %d20
+2f04341e : bic v30.2s, #128, lsl #8                 : bic    $0x80 $0x01 -> %d30
+2f005400 : bic v0.2s, #0, lsl #16                   : bic    $0x00 $0x02 -> %d0
+2f0256a0 : bic v0.2s, #85, lsl #16                  : bic    $0x55 $0x02 -> %d0
+2f055540 : bic v0.2s, #170, lsl #16                 : bic    $0xaa $0x02 -> %d0
+2f0757e0 : bic v0.2s, #255, lsl #16                 : bic    $0xff $0x02 -> %d0
+2f04540a : bic v10.2s, #128, lsl #16                : bic    $0x80 $0x02 -> %d10
+2f045414 : bic v20.2s, #128, lsl #16                : bic    $0x80 $0x02 -> %d20
+2f04541e : bic v30.2s, #128, lsl #16                : bic    $0x80 $0x02 -> %d30
+2f007400 : bic v0.2s, #0, lsl #24                   : bic    $0x00 $0x03 -> %d0
+2f0276a0 : bic v0.2s, #85, lsl #24                  : bic    $0x55 $0x03 -> %d0
+2f057540 : bic v0.2s, #170, lsl #24                 : bic    $0xaa $0x03 -> %d0
+2f0777e0 : bic v0.2s, #255, lsl #24                 : bic    $0xff $0x03 -> %d0
+2f04740a : bic v10.2s, #128, lsl #24                : bic    $0x80 $0x03 -> %d10
+2f047414 : bic v20.2s, #128, lsl #24                : bic    $0x80 $0x03 -> %d20
+2f04741e : bic v30.2s, #128, lsl #24                : bic    $0x80 $0x03 -> %d30
+6f001400 : bic v0.4s, #0, lsl #0                    : bic    $0x00 $0x00 -> %q0
+6f0216a0 : bic v0.4s, #85, lsl #0                   : bic    $0x55 $0x00 -> %q0
+6f051540 : bic v0.4s, #170, lsl #0                  : bic    $0xaa $0x00 -> %q0
+6f0717e0 : bic v0.4s, #255, lsl #0                  : bic    $0xff $0x00 -> %q0
+6f04140a : bic v10.4s, #128, lsl #0                 : bic    $0x80 $0x00 -> %q10
+6f041414 : bic v20.4s, #128, lsl #0                 : bic    $0x80 $0x00 -> %q20
+6f04141e : bic v30.4s, #128, lsl #0                 : bic    $0x80 $0x00 -> %q30
+6f003400 : bic v0.4s, #0, lsl #8                    : bic    $0x00 $0x01 -> %q0
+6f0236a0 : bic v0.4s, #85, lsl #8                   : bic    $0x55 $0x01 -> %q0
+6f053540 : bic v0.4s, #170, lsl #8                  : bic    $0xaa $0x01 -> %q0
+6f0737e0 : bic v0.4s, #255, lsl #8                  : bic    $0xff $0x01 -> %q0
+6f04340a : bic v10.4s, #128, lsl #8                 : bic    $0x80 $0x01 -> %q10
+6f043414 : bic v20.4s, #128, lsl #8                 : bic    $0x80 $0x01 -> %q20
+6f04341e : bic v30.4s, #128, lsl #8                 : bic    $0x80 $0x01 -> %q30
+6f005400 : bic v0.4s, #0, lsl #16                   : bic    $0x00 $0x02 -> %q0
+6f0256a0 : bic v0.4s, #85, lsl #16                  : bic    $0x55 $0x02 -> %q0
+6f055540 : bic v0.4s, #170, lsl #16                 : bic    $0xaa $0x02 -> %q0
+6f0757e0 : bic v0.4s, #255, lsl #16                 : bic    $0xff $0x02 -> %q0
+6f04540a : bic v10.4s, #128, lsl #16                : bic    $0x80 $0x02 -> %q10
+6f045414 : bic v20.4s, #128, lsl #16                : bic    $0x80 $0x02 -> %q20
+6f04541e : bic v30.4s, #128, lsl #16                : bic    $0x80 $0x02 -> %q30
+6f007400 : bic v0.4s, #0, lsl #24                   : bic    $0x00 $0x03 -> %q0
+6f0276a0 : bic v0.4s, #85, lsl #24                  : bic    $0x55 $0x03 -> %q0
+6f057540 : bic v0.4s, #170, lsl #24                 : bic    $0xaa $0x03 -> %q0
+6f0777e0 : bic v0.4s, #255, lsl #24                 : bic    $0xff $0x03 -> %q0
+6f04740a : bic v10.4s, #128, lsl #24                : bic    $0x80 $0x03 -> %q10
+6f047414 : bic v20.4s, #128, lsl #24                : bic    $0x80 $0x03 -> %q20
+6f04741e : bic v30.4s, #128, lsl #24                : bic    $0x80 $0x03 -> %q30
 
 6a231041 : bics   w1, w2, w3, lsl #4      : bics   %w2 %w3 lsl $0x04 -> %w1
 6abf13ff : bics   wzr, wzr, wzr, asr #4   : bics   %wzr %wzr asr $0x04 -> %wzr
@@ -3031,6 +3123,22 @@ d51fffff : msr    s3_7_c15_c15_7, xzr     : msr    %xzr $0x7fff
 2abf13ff : mvn    wzr, wzr, asr #4        : orn    %wzr %wzr asr $0x04 -> %wzr
 aaff13ff : mvn    xzr, xzr, ror #4        : orn    %xzr %xzr ror $0x04 -> %xzr
 aaffffff : mvn    xzr, xzr, ror #63       : orn    %xzr %xzr ror $0x3f -> %xzr
+
+# MVN <Vd>.<T>, <Vn>.<T>
+2e205801 : mvn    v1.8b, v0.8b            : not    %d0 -> %d1
+2e205885 : mvn    v5.8b, v4.8b            : not    %d4 -> %d5
+2e20592a : mvn    v10.8b, v9.8b           : not    %d9 -> %d10
+2e2059cf : mvn    v15.8b, v14.8b          : not    %d14 -> %d15
+2e205a74 : mvn    v20.8b, v19.8b          : not    %d19 -> %d20
+2e205b19 : mvn    v25.8b, v24.8b          : not    %d24 -> %d25
+2e205bbe : mvn    v30.8b, v29.8b          : not    %d29 -> %d30
+6e205801 : mvn    v1.16b, v0.16b          : not    %q0 -> %q1
+6e205885 : mvn    v5.16b, v4.16b          : not    %q4 -> %q5
+6e20592a : mvn    v10.16b, v9.16b         : not    %q9 -> %q10
+6e2059cf : mvn    v15.16b, v14.16b        : not    %q14 -> %q15
+6e205a74 : mvn    v20.16b, v19.16b        : not    %q19 -> %q20
+6e205b19 : mvn    v25.16b, v24.16b        : not    %q24 -> %q25
+6e205bbe : mvn    v30.16b, v29.16b        : not    %q29 -> %q30
 
 4b9f13ff : neg    wzr, wzr, asr #4        : sub    %wzr %wzr asr $0x04 -> %wzr
 4b9f7fff : neg    wzr, wzr, asr #31       : sub    %wzr %wzr asr $0x1f -> %wzr
@@ -7741,6 +7849,66 @@ d50b7521 : sys    #3,  C7,  C5,  #1, x1   : sys    $0x1ba9 (%x1)[1byte]
 37081041 : tbnz   w1, #1, 10000208        : tbnz   $0x0000000010000208 %x1 $0x01
 b7fc0000 : tbnz   x0, #63, fff8000        : tbnz   $0x000000000fff8000 %x0 $0x3f
 b7ffffff : tbnz   xzr, #63, ffffffc       : tbnz   $0x000000000ffffffc %xzr $0x3f
+
+# TBL <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
+0e020020 : tbl v0.8b, {v1.16b}, v2.8b                                  : tbl    %d1 %d2 $0x00 -> %d0
+0e0700c5 : tbl v5.8b, {v6.16b}, v7.8b                                  : tbl    %d6 %d7 $0x00 -> %d5
+0e0c016a : tbl v10.8b, {v11.16b}, v12.8b                               : tbl    %d11 %d12 $0x00 -> %d10
+0e11020f : tbl v15.8b, {v16.16b}, v17.8b                               : tbl    %d16 %d17 $0x00 -> %d15
+0e1602b4 : tbl v20.8b, {v21.16b}, v22.8b                               : tbl    %d21 %d22 $0x00 -> %d20
+0e1b0359 : tbl v25.8b, {v26.16b}, v27.8b                               : tbl    %d26 %d27 $0x00 -> %d25
+0e1d039e : tbl v30.8b, {v28.16b}, v29.8b                               : tbl    %d28 %d29 $0x00 -> %d30
+4e020020 : tbl v0.16b, {v1.16b}, v2.16b                                : tbl    %q1 %q2 $0x00 -> %q0
+4e0700c5 : tbl v5.16b, {v6.16b}, v7.16b                                : tbl    %q6 %q7 $0x00 -> %q5
+4e0c016a : tbl v10.16b, {v11.16b}, v12.16b                             : tbl    %q11 %q12 $0x00 -> %q10
+4e11020f : tbl v15.16b, {v16.16b}, v17.16b                             : tbl    %q16 %q17 $0x00 -> %q15
+4e1602b4 : tbl v20.16b, {v21.16b}, v22.16b                             : tbl    %q21 %q22 $0x00 -> %q20
+4e1b0359 : tbl v25.16b, {v26.16b}, v27.16b                             : tbl    %q26 %q27 $0x00 -> %q25
+4e1d039e : tbl v30.16b, {v28.16b}, v29.16b                             : tbl    %q28 %q29 $0x00 -> %q30
+
+# TBL <Vd>.<Ta>, { <Vn>.16B, <Vn+1>.16B }, <Vm>.<Ta>
+0e032020 : tbl v0.8b, {v1.16b, v2.16b}, v3.8b                          : tbl    %d1 %d3 $0x01 -> %d0
+0e0820c5 : tbl v5.8b, {v6.16b, v7.16b}, v8.8b                          : tbl    %d6 %d8 $0x01 -> %d5
+0e0d216a : tbl v10.8b, {v11.16b, v12.16b}, v13.8b                      : tbl    %d11 %d13 $0x01 -> %d10
+0e12220f : tbl v15.8b, {v16.16b, v17.16b}, v18.8b                      : tbl    %d16 %d18 $0x01 -> %d15
+0e1722b4 : tbl v20.8b, {v21.16b, v22.16b}, v23.8b                      : tbl    %d21 %d23 $0x01 -> %d20
+0e1c2359 : tbl v25.8b, {v26.16b, v27.16b}, v28.8b                      : tbl    %d26 %d28 $0x01 -> %d25
+0e1d237e : tbl v30.8b, {v27.16b, v28.16b}, v29.8b                      : tbl    %d27 %d29 $0x01 -> %d30
+4e032020 : tbl v1.16b, {v1.16b, v2.16b}, v3.16b                        : tbl    %q1 %q3 $0x01 -> %q0
+4e0820c5 : tbl v5.16b, {v6.16b, v7.16b}, v8.16b                        : tbl    %q6 %q8 $0x01 -> %q5
+4e0d216a : tbl v10.16b, {v11.16b, v12.16b}, v13.16b                    : tbl    %q11 %q13 $0x01 -> %q10
+4e12220f : tbl v15.16b, {v16.16b, v17.16b}, v18.16b                    : tbl    %q16 %q18 $0x01 -> %q15
+4e1722b4 : tbl v20.16b, {v21.16b, v22.16b}, v23.16b                    : tbl    %q21 %q23 $0x01 -> %q20
+4e1c2359 : tbl v25.16b, {v26.16b, v27.16b}, v28.16b                    : tbl    %q26 %q28 $0x01 -> %q25
+4e1d237e : tbl v30.16b, {v27.16b, v28.16b}, v29.16b                    : tbl    %q27 %q29 $0x01 -> %q30
+
+# TBL <Vd>.<Ta>, { <Vn>.16B, <Vn+1>.16B, <Vn+2>.16B }, <Vm>.<Ta>
+0e044020 : tbl v0.8b, {v1.16b, v2.16b, v3.16b}, v4.8b                  : tbl    %d1 %d4 $0x02 -> %d0
+0e0940c5 : tbl v5.8b, {v6.16b, v7.16b, v8.16b}, v9.8b                  : tbl    %d6 %d9 $0x02 -> %d5
+0e0e416a : tbl v10.8b, {v11.16b, v12.16b, v13.16b}, v14.8b             : tbl    %d11 %d14 $0x02 -> %d10
+0e12420f : tbl v15.8b, {v16.16b, v17.16b, v18.16b}, v18.8b             : tbl    %d16 %d18 $0x02 -> %d15
+0e1842b4 : tbl v20.8b, {v21.16b, v22.16b, v23.16b}, v24.8b             : tbl    %d21 %d24 $0x02 -> %d20
+0e1d4359 : tbl v25.8b, {v26.16b, v27.16b, v28.16b}, v29.8b             : tbl    %d26 %d29 $0x02 -> %d25
+4e044020 : tbl v0.16b, {v1.16b, v2.16b, v3.16b}, v4.16b                : tbl    %q1 %q4 $0x02 -> %q0
+4e0940c5 : tbl v5.16b, {v6.16b, v7.16b, v8.16b}, v9.16b                : tbl    %q6 %q9 $0x02 -> %q5
+4e0e416a : tbl v10.16b, {v11.16b, v12.16b, v13.16b}, v14.16b           : tbl    %q11 %q14 $0x02 -> %q10
+4e12420f : tbl v15.16b, {v16.16b, v17.16b, v18.16b}, v18.16b           : tbl    %q16 %q18 $0x02 -> %q15
+4e1842b4 : tbl v20.16b, {v21.16b, v22.16b, v23.16b}, v24.16b           : tbl    %q21 %q24 $0x02 -> %q20
+4e1d4359 : tbl v25.16b, {v26.16b, v27.16b, v28.16b}, v29.16b           : tbl    %q26 %q29 $0x02 -> %q25
+
+# TBL <Vd>.<Ta>, { <Vn>.16B, <Vn+1>.16B, <Vn+2>.16B, <Vn+3>.16B }, <Vm>.<Ta>
+0e056020 : tbl v0.8b, {v1.16b, v2.16b, v3.16b, v4.16b}, v5.8b          : tbl    %d1 %d5 $0x03 -> %d0
+0e0a60c5 : tbl v5.8b, {v6.16b, v7.16b, v8.16b, v9.16b}, v10.8b         : tbl    %d6 %d10 $0x03 -> %d5
+0e0f616a : tbl v10.8b, {v11.16b, v12.16b, v13.16b, v14.16b}, v15.8b    : tbl    %d11 %d15 $0x03 -> %d10
+0e14620f : tbl v15.8b, {v16.16b, v17.16b, v18.16b, v19.16b}, v20.8b    : tbl    %d16 %d20 $0x03 -> %d15
+0e1962b4 : tbl v20.8b, {v21.16b, v22.16b, v23.16b, v24.16b}, v25.8b    : tbl    %d21 %d25 $0x03 -> %d20
+0e1e6359 : tbl v25.8b, {v26.16b, v27.16b, v28.16b, v29.16b}, v30.8b    : tbl    %d26 %d30 $0x03 -> %d25
+4e056020 : tbl v0.16b, {v1.16b, v2.16b, v3.16b, v4.16b}, v5.16b        : tbl    %q1 %q5 $0x03 -> %q0
+4e0a60c5 : tbl v5.16b, {v6.16b, v7.16b, v8.16b, v9.16b}, v10.16b       : tbl    %q6 %q10 $0x03 -> %q5
+4e0f616a : tbl v10.16b, {v11.16b, v12.16b, v13.16b, v14.16b}, v15.16b  : tbl    %q11 %q15 $0x03 -> %q10
+4e14620f : tbl v15.16b, {v16.16b, v17.16b, v18.16b, v19.16b}, v20.16b  : tbl    %q16 %q20 $0x03 -> %q15
+4e1962b4 : tbl v20.16b, {v21.16b, v22.16b, v23.16b, v24.16b}, v25.16b  : tbl    %q21 %q25 $0x03 -> %q20
+4e1e6359 : tbl v25.16b, {v26.16b, v27.16b, v28.16b, v29.16b}, v30.16b  : tbl    %q26 %q30 $0x03 -> %q25
 
 3603ffff : tbz    wzr, #0, 10007ffc       : tbz    $0x0000000010007ffc %xzr $0x00
 36081041 : tbz    w1, #1, 10000208        : tbz    $0x0000000010000208 %x1 $0x01
