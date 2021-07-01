@@ -439,13 +439,13 @@ dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 6ea04bdd : clz v29.4s, v30.4s               : clz    %q30 $0x02 -> %q29
 
 # CMEQ <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-2e378e2d : cmeq v13.8b, v17.8b, v23.8b      : cmeq   %d17 %d23 $0x00 -> %d13
-6e378e2d : cmeq v13.16b, v17.16b, v23.16b   : cmeq   %q17 %q23 $0x00 -> %q13
-2e778e2d : cmeq v13.4h, v17.4h, v23.4h      : cmeq   %d17 %d23 $0x01 -> %d13
-6e778e2d : cmeq v13.8h, v17.8h, v23.8h      : cmeq   %q17 %q23 $0x01 -> %q13
-2eb78e2d : cmeq v13.2s, v17.2s, v23.2s      : cmeq   %d17 %d23 $0x02 -> %d13
-6eb78e2d : cmeq v13.4s, v17.4s, v23.4s      : cmeq   %q17 %q23 $0x02 -> %q13
-6ef78e2d : cmeq v13.2d, v17.2d, v23.2d      : cmeq   %q17 %q23 $0x03 -> %q13
+2e238c41 : cmeq  v1.8b, v2.8b, v3.8b        : cmeq   %d2 %d3 $0x00 -> %d1
+6e268ca4 : cmeq  v4.16b, v5.16b, v6.16b     : cmeq   %q5 %q6 $0x00 -> %q4
+2e698d07 : cmeq  v7.4h, v8.4h, v9.4h        : cmeq   %d8 %d9 $0x01 -> %d7
+6e6f8dcd : cmeq  v13.8h, v14.8h, v15.8h     : cmeq   %q14 %q15 $0x01 -> %q13
+2eb38e51 : cmeq  v17.2s, v18.2s, v19.2s     : cmeq   %d18 %d19 $0x02 -> %d17
+6ebc8f7a : cmeq  v26.4s, v27.4s, v28.4s     : cmeq   %q27 %q28 $0x02 -> %q26
+6eff8fdd : cmeq  v29.2d, v30.2d, v31.2d     : cmeq   %q30 %q31 $0x03 -> %q29
 
 # CMEQ <Vd>.<T>, <Vn>.<T>, #0
 0e209801 : cmeq  v1.8b, v0.8b, #0           : cmeq   %d0 $0x00 -> %d1
