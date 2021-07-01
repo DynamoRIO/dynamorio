@@ -1417,6 +1417,12 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 0x001110xx110001101010xxxxxxxxxx     sminv     dq0 : dq5 bhsd_sz
 0x001110xx0xxxxx001110xxxxxxxxxx     zip1      dq0 : dq5 dq16 bhsd_sz
 0x001110xx0xxxxx011110xxxxxxxxxx     zip2      dq0 : dq5 dq16 bhsd_sz
+
+0x101110xx100000011010xxxxxxxxxx     uadalp    dq0 : dq5 bhsd_sz
+0x101110xx100000001010xxxxxxxxxx     uaddlp    dq0 : dq5 bhsd_sz
+0x101110xx110000001110xxxxxxxxxx     uaddlv    dq0 : dq5 bhsd_sz
+0x101110xx110000101010xxxxxxxxxx     umaxv     dq0 : dq5 bhsd_sz
+0x101110xx110001101010xxxxxxxxxx     uminv     dq0 : dq5 bhsd_sz
 0x001110xx100000011010xxxxxxxxxx     sadalp    dq0 : dq5 bhsd_sz
 0x001110xx100000001010xxxxxxxxxx     saddlp    dq0 : dq5 bhsd_sz
 0000111100xxxxxx101001xxxxxxxxxx     sshll      d0 : d5 immhb
