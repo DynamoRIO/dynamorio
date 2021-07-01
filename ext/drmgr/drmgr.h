@@ -454,7 +454,7 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
 
 DR_EXPORT
 /**
- * Unregisters the given four callbacks that
+ * Unregisters the five given callbacks that
  * were registered via drmgr_register_bb_instrumentation_ex_event().
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).

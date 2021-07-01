@@ -169,6 +169,10 @@ compatibility changes:
    drmgr_in_emulation_region(): #DR_EMULATE_IS_FIRST_INSTR.  This flag addition preserves
    binary compatibility, but source code that did not zero the structure could end
    up with an uninitialized flags field when calling drmgr_insert_emulation_start().
+ - Added a fifth instrumentation phase (post_instru) that executes after the
+   insertion of instrumentation and instrumentation optimizations. Its primary purpose
+   is to enable debugging of instrumentation sequences and detection of
+   instrumentation-induced bugs.
 
 Further non-compatibility-affecting changes include:
 
@@ -224,6 +228,8 @@ Further non-compatibility-affecting changes include:
    event callback(s) via the #dr_restore_state_info_t arg.
  - Added the source context for restartable sequence aborts (#DR_XFER_RSEQ_ABORT)
    which was previously missing.
+ - Added \p drstatecmp Extension which provides mechanisms to enable systematic
+   and exhaustive machine state comparisons across instrumentation sequences.
 
 **************************************************
 <hr>
