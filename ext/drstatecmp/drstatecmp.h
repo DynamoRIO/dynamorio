@@ -65,8 +65,9 @@ typedef enum {
  * drmgr_priority_t.before field or can use these numeric priorities
  * in the drmgr_priority_t.priority field to ensure proper pass ordering.
  */
-/* Priority of drstatecmp passes. */
-#define DRMGR_PRIORITY_DRSTATECMP 8000
+/* Priority of drstatecmp passes. Requires the highest priority among all app2app passes.
+ */
+#define DRMGR_PRIORITY_DRSTATECMP -8000
 /* Name of drstatecmp pass priorities. */
 #define DRMGR_PRIORITY_NAME_DRSTATECMP "drstatecmp_prio"
 

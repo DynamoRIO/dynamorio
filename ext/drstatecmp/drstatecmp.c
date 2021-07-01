@@ -43,9 +43,19 @@
 #endif
 
 typedef struct {
+    bool side_effect_free_bb; /* Denotes whether the bb has side-effects. */
+    union {
+        instrlist_t *pre_app2app_bb; /* Copy of the pre-app2app bb. */
+        instrlist_t *golden_bb_copy; /* Golden copy of the bb (either pre- or post-app2app
+                                      * bb), used for state comparison with re-execution.
+                                      */
+    };
+} drstatecmp_user_data_t;
+
+typedef struct {
     dr_mcontext_t saved_state_for_restore; /* Last saved machine state for restoration. */
     dr_mcontext_t saved_state_for_cmp;     /* Last saved machine state for comparison. */
-} drstatecmp_saved_states;
+} drstatecmp_saved_states_t;
 
 static int tls_idx = -1; /* For thread local storage info. */
 
@@ -105,8 +115,110 @@ drstatecmp_may_have_side_effects_instr(instr_t *instr)
         instr_is_syscall(instr);
 }
 
+/****************************************************************************
+ * APPLICATION-TO-APPLICATION PHASE
+ *
+ * Save a pre-app2app copy of side-effect-free basic blocks.
+ * It is assumed that this pass has the highest priority among all app2app passes
+ * and thus it is able to capture the pre-app2app state.
+ *
+ */
+
+static dr_emit_flags_t
+drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                         bool translating, OUT void **user_data)
+{
+    /* Allocate space for user_data. */
+    drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)dr_thread_alloc(
+        drcontext, sizeof(drstatecmp_user_data_t));
+    memset(data, 0, sizeof(*data));
+    *user_data = (void *)data;
+
+    /* Determine whether the basic block is free of side effects. */
+    data->side_effect_free_bb = true;
+    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
+         inst = instr_get_next_app(inst)) {
+        if (drstatecmp_may_have_side_effects_instr(inst)) {
+            data->side_effect_free_bb = false;
+            return DR_EMIT_DEFAULT;
+        }
+    }
+
+    /* Current bb is side-effect free. Save a copy of this pre-app2app bb. */
+    data->pre_app2app_bb = instrlist_clone(drcontext, bb);
+    return DR_EMIT_DEFAULT;
+}
+
+/****************************************************************************
+ * ANALYSIS PHASE
+ *
+ * The analysis phase determines which copy of each side-effect bb should be used as the
+ * golden copy for comparison. There are two options: i) pre-app2app-phase copy, where
+ * the code just contains the original app instructions, and ii) post-app2app phase copy.
+ * The first option can catch bugs in app2app passes and it is selected unless any of
+ * original app instructions requires emulation (true emulation). In that case, the
+ * pre-app2app code is not executable, whereas the post-app2app code contains emulation
+ * code and thus can be used for state checks with re-execution. Cases that do
+ * not require the emulation sequence for re-execution include instruction
+ * refactoring that simplify instrumentation but do not correspond to true
+ * emulation (e.g., drutil_expand_rep_string() and drx_expand_scatter_gather()).
+ *
+ */
+
+static dr_emit_flags_t
+drstatecmp_analyze_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                         bool translating, void *user_data)
+{
+    drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)user_data;
+
+    if (!data->side_effect_free_bb)
+        return DR_EMIT_DEFAULT;
+
+    for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
+        if (drmgr_is_emulation_start(inst)) {
+            emulated_instr_t emulated_inst;
+            drmgr_get_emulated_instr_data(inst, &emulated_inst);
+            if (!(emulated_inst.flags & DR_EMULATE_INSTR_ONLY)) {
+                /* Emulation sequence required for re-execution and golden bb copy should
+                 * be the post-app2app copy.
+                 */
+                instrlist_clear_and_destroy(drcontext, data->pre_app2app_bb);
+                data->golden_bb_copy = instrlist_clone(drcontext, bb);
+                return DR_EMIT_DEFAULT;
+            }
+        }
+    }
+
+    /* Emulation not required for re-execution and thus it is safe to use the pre-app2app
+     * bb. No change needed since data->golden_bb_copy already points to the correct copy.
+     */
+    return DR_EMIT_DEFAULT;
+}
+
+/****************************************************************************
+ * INSTRUMENTATION INSERTION PHASE
+ *
+ * Instrumentation insertion pass is used to maintain the user_data (created in the
+ * app2app phase) for the post-instrumentation phase.
+ *
+ */
+
+static dr_emit_flags_t
+drstatecmp_insert_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
+                        bool for_trace, bool translating, void *user_data)
+{
+    return DR_EMIT_DEFAULT;
+}
+
+/****************************************************************************
+ * POST-INSTRUMENTATION PHASE
+ *
+ * In this phase, drstatecmp inserts all the necessary state comparisons.
+ */
+
 static void
-drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_dup_labels_t *labels)
+drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_user_data_t *data,
+                        drstatecmp_dup_labels_t *labels)
 {
     /* Duplication process.
      * Consider the following example bb:
@@ -117,10 +229,11 @@ drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_dup_labels_
      *
      * In this stage, we just duplicate the bb (except for its terminating
      * instruction and meta instructions) and add special labels to the original and
-     * duplicated blocks.  add saving/restoring of machine
-     * state and the state comparison. Note that there might be no term_instr (no control
-     * transfer instruction) and the bb just falls-through. Even with no term_instr the
-     * jmp and the TERM label are inserted in the same way, as shown in this example.
+     * duplicated blocks. Note that there might be no term_instr (no control
+     * transfer instruction) and the bb just falls-through. Also note that we use for the
+     * bb copy the golden_copy that was determined in the analysis phase. This golden copy
+     * contains the app instructions of the bb without any of the instrumentation. It
+     * might also contain app2app changes if emulation was required.
      *
      * The example bb is transformed, in this stage, as follows:
      * ORIG_BB:
@@ -137,17 +250,9 @@ drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_dup_labels_
      *
      */
 
-    /* Create a clone of bb. */
-    instrlist_t *copy_bb = instrlist_clone(drcontext, bb);
-
-    /* Remove all instrumentation code in the bb copy. */
-    for (instr_t *instr = instrlist_first(copy_bb); instr != NULL;
-         instr = instr_get_next(instr)) {
-        if (!instr_is_app(instr)) {
-            instrlist_remove(copy_bb, instr);
-            instr_destroy(drcontext, instr);
-        }
-    }
+    /* Get an instrumentation-free copy of the bb which is the golden copy kept
+     * in the user_data*/
+    instrlist_t *copy_bb = data->golden_bb_copy;
 
     /* Create and insert the labels. */
     labels->orig_bb_start = drstatecmp_insert_label(drcontext, bb, instrlist_first(bb),
@@ -188,8 +293,8 @@ static void
 drstatecmp_save_state_call(int for_cmp)
 {
     void *drcontext = dr_get_current_drcontext();
-    drstatecmp_saved_states *pt =
-        (drstatecmp_saved_states *)drmgr_get_tls_field(drcontext, tls_idx);
+    drstatecmp_saved_states_t *pt =
+        (drstatecmp_saved_states_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     dr_mcontext_t *mcontext = NULL;
     if (for_cmp)
@@ -212,8 +317,8 @@ static void
 drstatecmp_restore_state_call(void)
 {
     void *drcontext = dr_get_current_drcontext();
-    drstatecmp_saved_states *pt =
-        (drstatecmp_saved_states *)drmgr_get_tls_field(drcontext, tls_idx);
+    drstatecmp_saved_states_t *pt =
+        (drstatecmp_saved_states_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     dr_mcontext_t *mcontext = &pt->saved_state_for_restore;
     mcontext->size = sizeof(*mcontext);
@@ -268,8 +373,8 @@ static void
 drstatecmp_compare_state_call(void)
 {
     void *drcontext = dr_get_current_drcontext();
-    drstatecmp_saved_states *pt =
-        (drstatecmp_saved_states *)drmgr_get_tls_field(drcontext, tls_idx);
+    drstatecmp_saved_states_t *pt =
+        (drstatecmp_saved_states_t *)drmgr_get_tls_field(drcontext, tls_idx);
 
     dr_mcontext_t *mc_instrumented = &pt->saved_state_for_cmp;
     dr_mcontext_t mc_expected;
@@ -385,39 +490,35 @@ drstatecmp_check_reexecution(void *drcontext, instrlist_t *bb,
  * machine state.
  */
 static void
-drstatecmp_post_process_side_effect_free_bb(void *drcontext, instrlist_t *bb)
+drstatecmp_postprocess_side_effect_free_bb(void *drcontext, instrlist_t *bb,
+                                           drstatecmp_user_data_t *data)
 {
     drstatecmp_dup_labels_t labels;
-    drstatecmp_duplicate_bb(drcontext, bb, &labels);
+    drstatecmp_duplicate_bb(drcontext, bb, data, &labels);
     drstatecmp_check_reexecution(drcontext, bb, &labels);
 }
 
 static void
-drstatecmp_post_process_bb_with_side_effects(void)
+drstatecmp_postprocess_bb_with_side_effects(void)
 {
     /* TODO i#4678: Add checks for bbs with side effects.  */
 }
 
 static dr_emit_flags_t
 drstatecmp_post_instru_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
-                             bool translating)
+                             bool translating, void *user_data)
 {
-    /* Determine whether the basic block is free of side effects. */
-    bool side_effect_free = true;
-    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
-         inst = instr_get_next_app(inst)) {
-        if (drstatecmp_may_have_side_effects_instr(inst)) {
-            side_effect_free = false;
-            break;
-        }
-    }
+    drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)user_data;
 
-    if (side_effect_free) {
-        drstatecmp_post_process_side_effect_free_bb(drcontext, bb);
+    if (data->side_effect_free_bb) {
+        drstatecmp_postprocess_side_effect_free_bb(drcontext, bb, data);
     } else {
         /* Basic blocks with side-effects not handled yet. */
-        drstatecmp_post_process_bb_with_side_effects();
+        drstatecmp_postprocess_bb_with_side_effects();
     }
+
+    /* Free the user_data since we are done with this bb. */
+    dr_thread_free(drcontext, user_data, sizeof(drstatecmp_user_data_t));
 
     return DR_EMIT_DEFAULT;
 }
@@ -429,8 +530,8 @@ drstatecmp_post_instru_phase(void *drcontext, void *tag, instrlist_t *bb, bool f
 static void
 drstatecmp_thread_init(void *drcontext)
 {
-    drstatecmp_saved_states *pt = (drstatecmp_saved_states *)dr_thread_alloc(
-        drcontext, sizeof(drstatecmp_saved_states));
+    drstatecmp_saved_states_t *pt = (drstatecmp_saved_states_t *)dr_thread_alloc(
+        drcontext, sizeof(drstatecmp_saved_states_t));
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
     memset(pt, 0, sizeof(*pt));
 }
@@ -438,10 +539,10 @@ drstatecmp_thread_init(void *drcontext)
 static void
 drstatecmp_thread_exit(void *drcontext)
 {
-    drstatecmp_saved_states *pt =
-        (drstatecmp_saved_states *)drmgr_get_tls_field(drcontext, tls_idx);
+    drstatecmp_saved_states_t *pt =
+        (drstatecmp_saved_states_t *)drmgr_get_tls_field(drcontext, tls_idx);
     ASSERT(pt != NULL, "thread-local storage should not be NULL");
-    dr_thread_free(drcontext, pt, sizeof(drstatecmp_saved_states));
+    dr_thread_free(drcontext, pt, sizeof(drstatecmp_saved_states_t));
 }
 
 /***************************************************************************
@@ -471,7 +572,9 @@ drstatecmp_init(void)
 
     if (!drmgr_register_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_register_thread_exit_event(drstatecmp_thread_exit) ||
-        !drmgr_register_bb_post_instru_event(drstatecmp_post_instru_phase, &priority))
+        !drmgr_register_bb_instrumentation_ex_event(
+            drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
+            NULL, drstatecmp_post_instru_phase, &priority))
         return DRSTATECMP_ERROR;
 
     return DRSTATECMP_SUCCESS;
@@ -487,7 +590,9 @@ drstatecmp_exit(void)
     if (!drmgr_unregister_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_unregister_thread_exit_event(drstatecmp_thread_exit) ||
         !drmgr_unregister_tls_field(tls_idx) ||
-        !drmgr_unregister_bb_post_instru_event(drstatecmp_post_instru_phase))
+        !drmgr_unregister_bb_instrumentation_ex_event(
+            drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
+            NULL, drstatecmp_post_instru_phase))
         return DRSTATECMP_ERROR;
 
     drmgr_exit();

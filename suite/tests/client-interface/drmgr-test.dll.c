@@ -286,17 +286,17 @@ dr_init(client_id_t id)
     /* check register/unregister instrumentation_ex */
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app, event_bb4_analysis,
                                                     event_bb4_insert2,
-                                                    event_bb4_instru2instru, NULL);
+                                                    event_bb4_instru2instru, NULL, NULL);
     CHECK(ok, "drmgr_register_bb_instrumentation_ex_event failed");
     ok = drmgr_unregister_bb_instrumentation_ex_event(
-        event_bb4_app2app, event_bb4_analysis, event_bb4_insert2,
-        event_bb4_instru2instru);
+        event_bb4_app2app, event_bb4_analysis, event_bb4_insert2, event_bb4_instru2instru,
+        NULL);
     CHECK(ok, "drmgr_unregister_bb_instrumentation_ex_event failed");
 
     /* test data passing among all 4 phases */
-    ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app, event_bb4_analysis,
-                                                    event_bb4_insert,
-                                                    event_bb4_instru2instru, &priority4);
+    ok = drmgr_register_bb_instrumentation_ex_event(
+        event_bb4_app2app, event_bb4_analysis, event_bb4_insert, event_bb4_instru2instru,
+        NULL, &priority4);
 
     drmgr_register_module_load_event_user_data(event_mod_load, NULL,
                                                (void *)mod_user_data_test);
@@ -383,7 +383,7 @@ event_exit(void)
 
     if (!drmgr_unregister_bb_instrumentation_ex_event(
             event_bb4_app2app, event_bb4_analysis, event_bb4_insert,
-            event_bb4_instru2instru))
+            event_bb4_instru2instru, NULL))
         CHECK(false, "drmgr unregistration failed");
 
     if (!drmgr_unregister_opcode_instrumentation_event(event_opcode_add_insert_A, OP_add))

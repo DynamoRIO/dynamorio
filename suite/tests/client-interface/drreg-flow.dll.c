@@ -77,8 +77,8 @@ dr_init(client_id_t id)
     drutil_init();
     dr_register_exit_event(event_exit);
 
-    ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
-                                                    event_bb_insert, NULL, &priority);
+    ok = drmgr_register_bb_instrumentation_ex_event(
+        event_bb_app2app, event_bb_analysis, event_bb_insert, NULL, NULL, &priority);
     CHECK(ok, "drmgr register bb failed");
 }
 
@@ -86,7 +86,7 @@ static void
 event_exit(void)
 {
     bool ok = drmgr_unregister_bb_instrumentation_ex_event(
-        event_bb_app2app, event_bb_analysis, event_bb_insert, NULL);
+        event_bb_app2app, event_bb_analysis, event_bb_insert, NULL, NULL);
     CHECK(ok, "drmgr un register bb failed");
     drutil_exit();
     drreg_exit();

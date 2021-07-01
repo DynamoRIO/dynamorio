@@ -960,7 +960,7 @@ dr_init(client_id_t id)
     dr_register_exit_event(event_exit);
     if (!drmgr_register_bb_instrumentation_ex_event(event_app2app, event_app_analysis,
                                                     event_app_instruction,
-                                                    event_instru2instru, NULL))
+                                                    event_instru2instru, NULL, NULL))
         CHECK(false, "init failed");
     /* i#2910: test use during process init. */
     void *drcontext = dr_get_current_drcontext();

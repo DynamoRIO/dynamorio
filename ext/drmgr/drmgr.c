@@ -118,6 +118,7 @@ typedef struct _cb_entry_t {
         } pair_ex;
         drmgr_ilist_ex_cb_t instru2instru_ex_cb;
         drmgr_opcode_insertion_cb_t opcode_insertion_cb;
+        drmgr_ilist_ex_cb_t post_instru_ex_cb;
     } cb;
 } cb_entry_t;
 
@@ -1035,7 +1036,12 @@ drmgr_bb_event_do_instrum_phases(void *drcontext, void *tag, instrlist_t *bb,
         e = &local_info->iter_post_instru.cbs.bb[i];
         if (!e->pri.valid)
             continue;
-        res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
+        if (e->has_quartet) {
+            res |= (*e->cb.post_instru_ex_cb)(drcontext, tag, bb, for_trace, translating,
+                                              quartet_data[quartet_idx]);
+            quartet_idx++;
+        } else
+            res |= (*e->cb.xform_cb)(drcontext, tag, bb, for_trace, translating);
     }
 
     pt->cur_phase = DRMGR_PHASE_NONE;
@@ -1424,17 +1430,26 @@ cb_entry_set_fields_instru2instru_ex(cb_entry_t *new_e, void *func1, void *func2
     new_e->cb.instru2instru_ex_cb = (drmgr_ilist_ex_cb_t)func1;
 }
 
+static void
+cb_entry_set_fields_post_instru_ex(cb_entry_t *new_e, void *func1, void *func2)
+{
+    ASSERT(func2 == NULL, "invalid internal params");
+    new_e->has_quartet = true;
+    new_e->cb.post_instru_ex_cb = (drmgr_ilist_ex_cb_t)func1;
+}
+
 DR_EXPORT
 bool
 drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                            drmgr_ilist_ex_cb_t analysis_func,
                                            drmgr_insertion_cb_t insertion_func,
                                            drmgr_ilist_ex_cb_t instru2instru_func,
+                                           drmgr_ilist_ex_cb_t post_instru_func,
                                            drmgr_priority_t *priority)
 {
     bool ok = true;
     if ((app2app_func == NULL && analysis_func == NULL && insertion_func == NULL &&
-         instru2instru_func == NULL) ||
+         instru2instru_func == NULL && post_instru_func == NULL) ||
         /* can't have insertion but not analysis here b/c of unreg constraints */
         (analysis_func == NULL && insertion_func != NULL))
         return false; /* invalid params */
@@ -1453,6 +1468,12 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
         ok = drmgr_bb_cb_add(&cblist_instru2instru, (void *)instru2instru_func, NULL,
                              priority, NULL /* no user data */,
                              cb_entry_set_fields_instru2instru_ex) &&
+            ok;
+    }
+    if (post_instru_func != NULL) {
+        ok = drmgr_bb_cb_add(&cblist_post_instru, (void *)post_instru_func, NULL,
+                             priority, NULL /* no user data */,
+                             cb_entry_set_fields_post_instru_ex) &&
             ok;
     }
     return ok;
@@ -1592,16 +1613,23 @@ cb_entry_matches_instru2instru_ex(cb_entry_t *e, void *func)
     return e->cb.instru2instru_ex_cb == func;
 }
 
+static bool
+cb_entry_matches_post_instru_ex(cb_entry_t *e, void *func)
+{
+    return e->cb.post_instru_ex_cb == func;
+}
+
 DR_EXPORT
 bool
 drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t analysis_func,
                                              drmgr_insertion_cb_t insertion_func,
-                                             drmgr_ilist_ex_cb_t instru2instru_func)
+                                             drmgr_ilist_ex_cb_t instru2instru_func,
+                                             drmgr_ilist_ex_cb_t post_instru_func)
 {
     bool ok = true;
     if ((app2app_func == NULL && analysis_func == NULL && insertion_func == NULL &&
-         instru2instru_func == NULL) ||
+         instru2instru_func == NULL && post_instru_func == NULL) ||
         /* can't have insertion but not analysis here b/c of unreg constraints */
         (analysis_func == NULL && insertion_func != NULL))
         return false; /* invalid params */
@@ -1622,6 +1650,11 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
     if (instru2instru_func != NULL) {
         ok = drmgr_bb_cb_remove(&cblist_instru2instru, (void *)instru2instru_func,
                                 cb_entry_matches_instru2instru_ex) &&
+            ok;
+    }
+    if (post_instru_func != NULL) {
+        ok = drmgr_bb_cb_remove(&cblist_post_instru, (void *)post_instru_func,
+                                cb_entry_matches_post_instru_ex) &&
             ok;
     }
     return ok;

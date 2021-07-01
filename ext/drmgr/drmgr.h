@@ -107,8 +107,8 @@ extern "C" {
  */
 
 /**
- * Callback function for the first and fourth stages: app2app and instru2instru
- * transformations on the whole instruction list.
+ * Callback function for the first, fourth, and fifth stages: app2app, instru2instru, and
+ * post_instru transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
  * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
@@ -138,8 +138,8 @@ typedef dr_emit_flags_t (*drmgr_analysis_cb_t)(void *drcontext, void *tag,
 typedef drmgr_analysis_cb_t drmgr_app2app_ex_cb_t;
 
 /**
- * Callback function for the second and fourth stages when using a user
- * data parameter for the first four: analysis and instru2instru
+ * Callback function for the second, fourth, and fifth stages when using a user
+ * data parameter for all five: analysis, instru2instru, and post_instru
  * transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
@@ -434,21 +434,22 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func);
 
 DR_EXPORT
 /**
- * Registers callbacks for the first four instrumentation passes at once, with a \p
+ * Registers callbacks for all five instrumentation passes at once, with a \p
  * user_data parameter passed among them all, enabling data sharing for all
- * four of them.  See the documentation for drmgr_register_bb_app2app_event(),
- * drmgr_register_bb_instrumentation_event(), and
- * drmgr_register_bb_instru2instru_event() for further details of each pass.
- * The aforemented routines are identical to this with the exception of the
- * extra \p user_data parameter, which is an OUT parameter to the \p
- * app2app_func and passed in to the three subsequent callbacks.
- * The \p priority param can be NULL, in which case a default priority is used.
+ * five of them.  See the documentation for drmgr_register_bb_app2app_event(),
+ * drmgr_register_bb_instrumentation_event(), drmgr_register_bb_instru2instru_event(), and
+ * drmgr_register_bb_post_instru_event() for further details of each pass. The
+ * aforementioned routines are identical to this with the exception of the extra \p
+ * user_data parameter, which is an OUT parameter to the \p app2app_func and passed in to
+ * the three subsequent callbacks. The \p priority param can be NULL, in which case a
+ * default priority is used.
  */
 bool
 drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                            drmgr_ilist_ex_cb_t analysis_func,
                                            drmgr_insertion_cb_t insertion_func,
                                            drmgr_ilist_ex_cb_t instru2instru_func,
+                                           drmgr_ilist_ex_cb_t post_instru_func,
                                            drmgr_priority_t *priority);
 
 DR_EXPORT
@@ -465,7 +466,8 @@ bool
 drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t analysis_func,
                                              drmgr_insertion_cb_t insertion_func,
-                                             drmgr_ilist_ex_cb_t instru2instru_func);
+                                             drmgr_ilist_ex_cb_t instru2instru_func,
+                                             drmgr_ilist_ex_cb_t post_instru_func);
 
 DR_EXPORT
 /**
