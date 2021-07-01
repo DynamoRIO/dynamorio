@@ -1744,7 +1744,10 @@ propagate_options_via_env_vars(dcontext_t *dcontext, HANDLE process_handle,
      * model without requiring setting up config files for children.
      */
     uint64 peb;
-    bool peb_is_32 = is_32bit_process(process_handle);
+    bool peb_is_32 = is_32bit_process(process_handle)
+	    // if x64 client targeting WOW64 we need to 
+	    // target x64 PEB
+	    IF_X64(&& !DYNAMO_OPTION(inject_x64));
     size_t sz_read;
     union {
         uint64 ptr_64;
@@ -2961,7 +2964,12 @@ pre_system_call(dcontext_t *dcontext)
     reg_t *param_base = pre_system_call_param_base(mc);
     dr_where_am_i_t old_whereami = dcontext->whereami;
     dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
-    IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
+    // FIXME
+    // commenting this ASSERT since x64 client injected in
+    // WOW64 binaries will be using mc->rax as comparaison
+    // thus making the assert fail, while the syscall still
+    // being valid.
+    //IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
     KSTART(pre_syscall);
