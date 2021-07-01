@@ -224,6 +224,7 @@ Further non-compatibility-affecting changes include:
    event callback(s) via the #dr_restore_state_info_t arg.
  - Added the source context for restartable sequence aborts (#DR_XFER_RSEQ_ABORT)
    which was previously missing.
+ - Added a #TRACE_MARKER_TYPE_VERSION entry to drmemtrace traces.
 
 **************************************************
 <hr>

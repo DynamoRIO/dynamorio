@@ -145,10 +145,13 @@ trace_invariants_t::process_memref(const memref_t &memref)
                    // For limited-window traces a thread might exit after a branch.
                    thread_exited_[prev_interleaved_instr_.instr.tid] ||
                    // The invariant is relaxed for a signal.
-                   (prev_xfer_marker_[memref.data.tid].instr.tid ==
+                   // prev_xfer_marker_ is cleared on an instr, so if set to
+                   // non-zero it means it is immediately prior, in between
+                   // prev_interleaved_instr_ and memref.
+                   (prev_xfer_marker_[prev_interleaved_instr_.instr.tid].instr.tid ==
                         prev_interleaved_instr_.instr.tid &&
-                    prev_xfer_marker_[memref.data.tid].marker.marker_type ==
-                        TRACE_MARKER_TYPE_KERNEL_EVENT));
+                    prev_xfer_marker_[prev_interleaved_instr_.instr.tid]
+                            .marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT));
         }
         // Invariant: non-explicit control flow (i.e., kernel-mediated) is indicated
         // by markers.
