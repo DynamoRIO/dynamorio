@@ -1,7 +1,7 @@
 Hello, world!
 .*
-<marker: timestamp.*
-<marker: tid [0-9]* on core [0-9]*>
+T[0-9]* <marker: timestamp.*
+T[0-9]* <marker: tid [0-9]* on core [0-9]*>
 .*
 View tool results:
     *[0-9]* : total disassembled instructions

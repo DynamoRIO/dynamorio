@@ -2107,72 +2107,18 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
             last_opcode = instr_get_opcode(inst);
         }
 
-        bool app_gpr_restored_now = false;
-        bool app_aflags_restored_now = false;
-        bool app_aflags_written_to_reg_now = false;
-        /* Update book-keeping for gpr/aflags spill slot or aflags spill reg. */
-        if (!instr_is_app(inst) &&
-            is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, &offs)) {
-            if (spill) {
-                /* Slot used in current instr may have a previous spilled gpr/aflags
-                 * value that may already have been restored. Forget that.
-                 */
-                spill_slot_to_reg[slot] = DR_REG_NULL;
-                if (aflags_spill_reg == reg) {
-                    ASSERT(!gpr_native[GPR_IDX(aflags_spill_reg)],
-                           "reg with aflags cannot be native");
-                    spill_slot_to_reg[slot] = AFLAGS_ALIAS_REG;
-                } else if (gpr_native[GPR_IDX(reg)]) {
-                    spill_slot_to_reg[slot] = reg;
-                } else {
-                    LOG(drcontext, DR_LOG_ALL, 3,
-                        "%s @" PFX ": ignoring tool spill of non-native value.\n",
-                        __FUNCTION__, pc);
-                }
-            } else {
-                if (spill_slot_to_reg[slot] == AFLAGS_ALIAS_REG) {
-                    aflags_spill_reg = reg;
-                    app_aflags_written_to_reg_now = true;
-                } else if (spill_slot_to_reg[slot] == reg) {
-                    gpr_native[GPR_IDX(reg)] = true;
-                    app_gpr_restored_now = true;
-                } else {
-                    LOG(drcontext, DR_LOG_ALL, 3,
-                        "%s @" PFX ": ignoring tool restore of non-native value\n",
-                        __FUNCTION__, pc);
-                }
-            }
-        } else if (!instr_is_app(inst) &&
-                   instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
-            if (aflags_native) {
-#ifdef X86
-                aflags_spill_reg = DR_REG_XAX;
-#else
-                aflags_spill_reg = opnd_get_reg(instr_get_dst(inst, 0));
-#endif
-                app_aflags_written_to_reg_now = true;
-            }
-        } else if (!instr_is_app(inst) &&
-                   instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
-            if (aflags_spill_reg ==
-                IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)))) {
-                aflags_native = true;
-                app_aflags_restored_now = true;
-            }
-        }
-
         /* Mark gprs/aflags as containing native or non-native value based on whether
          * the current instr is an app or tool write, respectively. An example of the
          * latter is a restore for a spilled tool value, which may happen in the
          * multi-phase nested reservation case.
-         * If the current instr is a tool write that restores an app value (as tracked
-         * by the various *_now bools), we skip marking the gpr/aflags as non-native.
+         * Later we check whether the current instr restores the native app value for
+         * any gpr/aflags, and if it does we mark the written gpr/aflags as native.
          */
         for (int i = 0; i < instr_num_dsts(inst); i++) {
             opnd_t opnd = instr_get_dst(inst, i);
             if (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd))) {
                 reg_id_t resized_reg = reg_to_pointer_sized(opnd_get_reg(opnd));
-                if (resized_reg == aflags_spill_reg && !app_aflags_written_to_reg_now) {
+                if (resized_reg == aflags_spill_reg) {
                     /* reg does not contain aflags anymore. */
                     aflags_spill_reg = DR_REG_NULL;
                 }
@@ -2180,7 +2126,7 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                     /* App instr wrote reg value. Spill slot value not valid anymore. */
                     gpr_native[GPR_IDX(resized_reg)] = true;
                     forget_existing_spill_slot_use(spill_slot_to_reg, resized_reg);
-                } else if (!app_gpr_restored_now) {
+                } else {
                     /* Tool wrote to reg. Not native anymore. */
                     gpr_native[GPR_IDX(resized_reg)] = false;
                 }
@@ -2194,9 +2140,58 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                 aflags_native = true;
                 forget_existing_spill_slot_use(spill_slot_to_reg, AFLAGS_ALIAS_REG);
                 aflags_spill_reg = DR_REG_NULL;
-            } else if (!app_aflags_restored_now) {
+            } else {
                 /* Tool wrote aflags. Not native anymore. */
                 aflags_native = false;
+            }
+        }
+
+        /* Update book-keeping for gpr/aflags spill slot and aflags spill reg. Mark
+         * as native the gprs/aflags that were restored. All spills/restores are meta
+         * instrs.
+         */
+        if (!instr_is_app(inst)) {
+            if (is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, &offs)) {
+                if (spill) {
+                    /* Slot used in current instr may have a previous spilled gpr/aflags
+                     * value that may already have been restored. Forget that.
+                     */
+                    spill_slot_to_reg[slot] = DR_REG_NULL;
+                    if (aflags_spill_reg == reg) {
+                        ASSERT(!gpr_native[GPR_IDX(aflags_spill_reg)],
+                               "reg with aflags cannot be native");
+                        spill_slot_to_reg[slot] = AFLAGS_ALIAS_REG;
+                    } else if (gpr_native[GPR_IDX(reg)]) {
+                        spill_slot_to_reg[slot] = reg;
+                    } else {
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s @" PFX ": ignoring tool spill of non-native value.\n",
+                            __FUNCTION__, pc);
+                    }
+                } else {
+                    if (spill_slot_to_reg[slot] == AFLAGS_ALIAS_REG) {
+                        aflags_spill_reg = reg;
+                    } else if (spill_slot_to_reg[slot] == reg) {
+                        gpr_native[GPR_IDX(reg)] = true;
+                    } else {
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s @" PFX ": ignoring tool restore of non-native value\n",
+                            __FUNCTION__, pc);
+                    }
+                }
+            } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
+                if (aflags_native) {
+#ifdef X86
+                    aflags_spill_reg = DR_REG_XAX;
+#else
+                    aflags_spill_reg = opnd_get_reg(instr_get_dst(inst, 0));
+#endif
+                }
+            } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
+                if (aflags_spill_reg ==
+                    IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)))) {
+                    aflags_native = true;
+                }
             }
         }
     }
