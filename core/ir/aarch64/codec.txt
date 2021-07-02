@@ -1444,3 +1444,7 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 01011110000xxxxx010100xxxxxxxxxx     sha256h2  q0 : q5 d16
 0101111000101000001010xxxxxxxxxx     sha256su0 d0 : d5
 01011110000xxxxx011000xxxxxxxxxx     sha256su1 d0 : d5 d16
+0100111000101000010110xxxxxxxxxx     aesd      q0 : q5
+0100111000101000010010xxxxxxxxxx     aese      q0 : q5
+0100111000101000011110xxxxxxxxxx     aesimc    q0 : q5
+0100111000101000011010xxxxxxxxxx     aesmc     q0 : q5

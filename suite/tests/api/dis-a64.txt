@@ -183,6 +183,38 @@ b1000c41 : adds   x1, x2, #0x3            : adds   %x2 $0x0003 lsl $0x00 -> %x1
 f07fffff : adrp   xzr, 10ffff000          : adrp   <rel> 0x000000010ffff000 -> %xzr
 f0ffffff : adrp   xzr, ffff000            : adrp   <rel> 0x000000000ffff000 -> %xzr
 
+4e285820 : aesd v0.16b, v1.16b            : aesd   %q1 -> %q0
+4e285885 : aesd v5.16b, v4.16b            : aesd   %q4 -> %q5
+4e28592a : aesd v10.16b, v9.16b           : aesd   %q9 -> %q10
+4e2859cf : aesd v15.16b, v14.16b          : aesd   %q14 -> %q15
+4e285a74 : aesd v20.16b, v19.16b          : aesd   %q19 -> %q20
+4e285b19 : aesd v25.16b, v24.16b          : aesd   %q24 -> %q25
+4e285bbe : aesd v30.16b, v29.16b          : aesd   %q29 -> %q30
+
+4e284820 : aese v0.16b, v1.16b            : aese   %q1 -> %q0
+4e284885 : aese v5.16b, v4.16b            : aese   %q4 -> %q5
+4e28492a : aese v10.16b, v9.16b           : aese   %q9 -> %q10
+4e2849cf : aese v15.16b, v14.16b          : aese   %q14 -> %q15
+4e284a74 : aese v20.16b, v19.16b          : aese   %q19 -> %q20
+4e284b19 : aese v25.16b, v24.16b          : aese   %q24 -> %q25
+4e284bbe : aese v30.16b, v29.16b          : aese   %q29 -> %q30
+
+4e287820 : aesimc v0.16b, v1.16b          : aesimc %q1 -> %q0
+4e287885 : aesimc v5.16b, v4.16b          : aesimc %q4 -> %q5
+4e28792a : aesimc v10.16b, v9.16b         : aesimc %q9 -> %q10
+4e2879cf : aesimc v15.16b, v14.16b        : aesimc %q14 -> %q15
+4e287a74 : aesimc v20.16b, v19.16b        : aesimc %q19 -> %q20
+4e287b19 : aesimc v25.16b, v24.16b        : aesimc %q24 -> %q25
+4e287bbe : aesimc v30.16b, v29.16b        : aesimc %q29 -> %q30
+
+4e286820 : aesmc v0.16b, v1.16b           : aesmc  %q1 -> %q0
+4e286885 : aesmc v5.16b, v4.16b           : aesmc  %q4 -> %q5
+4e28692a : aesmc v10.16b, v9.16b          : aesmc  %q9 -> %q10
+4e2869cf : aesmc v15.16b, v14.16b         : aesmc  %q14 -> %q15
+4e286a74 : aesmc v20.16b, v19.16b         : aesmc  %q19 -> %q20
+4e286b19 : aesmc v25.16b, v24.16b         : aesmc  %q24 -> %q25
+4e286bbe : aesmc v30.16b, v29.16b         : aesmc  %q29 -> %q30
+
 0a031041 : and    w1, w2, w3, lsl #4      : and    %w2 %w3 lsl $0x04 -> %w1
 0a9f13ff : and    wzr, wzr, wzr, asr #4   : and    %wzr %wzr asr $0x04 -> %wzr
 12000441 : and    w1, w2, #0x3            : and    %w2 $0x00000003 -> %w1
