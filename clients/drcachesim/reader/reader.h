@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -128,6 +128,7 @@ protected:
     bool at_eof_ = true;
 
     int verbosity_ = 0;
+    bool online_ = true;
     const char *output_prefix_ = "[reader]";
 
 private:

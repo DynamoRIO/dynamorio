@@ -71,16 +71,19 @@ template <typename T> class file_reader_t : public reader_t {
 public:
     file_reader_t()
     {
+        online_ = false;
     }
     file_reader_t(const std::string &path, int verbosity = 0)
         : reader_t(verbosity, "[file_reader]")
         , input_path_(path)
     {
+        online_ = false;
     }
     explicit file_reader_t(const std::vector<std::string> &path_list, int verbosity = 0)
         : reader_t(verbosity, "[file_reader]")
         , input_path_list_(path_list)
     {
+        online_ = false;
     }
     virtual ~file_reader_t();
     bool

@@ -1405,10 +1405,10 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
              * module index is very large, when it will take two entries, while using
              * an absolute PC here might always take two entries for some modules.
              */
-            kernel_interrupted_raw_pc_t raw_pc = { 0 };
+            kernel_interrupted_raw_pc_t raw_pc = {};
             raw_pc.pc.modidx = modidx;
             raw_pc.pc.modoffs = modoffs;
-            marker_val = raw_pc.combined_value;
+            marker_val = static_cast<uintptr_t>(raw_pc.combined_value);
         } else {
             marker_val = reinterpret_cast<uintptr_t>(info->source_mcontext->pc);
         }
