@@ -619,6 +619,36 @@ eb3fe3ff : cmp    sp, xzr, sxtx           : subs   %sp %xzr sxtx $0x00 -> %xzr
 f1000fff : cmp    sp, #0x3                : subs   %sp $0x0003 lsl $0x00 -> %xzr
 f16003ff : cmp    sp, #0x800, lsl #12     : subs   %sp $0x0800 lsl $0x10 -> %xzr
 
+# CNT <Vd>.<T>, <Vn>.<T>
+0e205801 : cnt v1.8b, v0.8b               : cnt    %d0 -> %d1
+0e205885 : cnt v5.8b, v4.8b               : cnt    %d4 -> %d5
+0e20592a : cnt v10.8b, v9.8b              : cnt    %d9 -> %d10
+0e2059cf : cnt v15.8b, v14.8b             : cnt    %d14 -> %d15
+0e205a74 : cnt v20.8b, v19.8b             : cnt    %d19 -> %d20
+0e205b19 : cnt v25.8b, v24.8b             : cnt    %d24 -> %d25
+0e205bbe : cnt v30.8b, v29.8b             : cnt    %d29 -> %d30
+4e205801 : cnt v1.16b, v0.16b             : cnt    %q0 -> %q1
+4e205885 : cnt v5.16b, v4.16b             : cnt    %q4 -> %q5
+4e20592a : cnt v10.16b, v9.16b            : cnt    %q9 -> %q10
+4e2059cf : cnt v15.16b, v14.16b           : cnt    %q14 -> %q15
+4e205a74 : cnt v20.16b, v19.16b           : cnt    %q19 -> %q20
+4e205b19 : cnt v25.16b, v24.16b           : cnt    %q24 -> %q25
+4e205bbe : cnt v30.16b, v29.16b           : cnt    %q29 -> %q30
+
+# EXT <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>
+2e040065 : ext v5.8b, v3.8b, v4.8b, #0        : ext    %d3 %d4 $0x00 -> %d5
+2e09010a : ext v10.8b, v8.8b, v9.8b, #0       : ext    %d8 %d9 $0x00 -> %d10
+2e0e01af : ext v15.8b, v13.8b, v14.8b, #0     : ext    %d13 %d14 $0x00 -> %d15
+2e130254 : ext v20.8b, v18.8b, v19.8b, #0     : ext    %d18 %d19 $0x00 -> %d20
+2e1802f9 : ext v25.8b, v23.8b, v24.8b, #0     : ext    %d23 %d24 $0x00 -> %d25
+2e1d039e : ext v30.8b, v28.8b, v29.8b, #0     : ext    %d28 %d29 $0x00 -> %d30
+6e040065 : ext v5.16b, v3.16b, v4.16b, #0     : ext    %q3 %q4 $0x00 -> %q5
+6e09010a : ext v10.16b, v8.16b, v9.16b, #0    : ext    %q8 %q9 $0x00 -> %q10
+6e0e01af : ext v15.16b, v13.16b, v14.16b, #0  : ext    %q13 %q14 $0x00 -> %q15
+6e130254 : ext v20.16b, v18.16b, v19.16b, #0  : ext    %q18 %q19 $0x00 -> %q20
+6e1802f9 : ext v25.16b, v23.16b, v24.16b, #0  : ext    %q23 %q24 $0x00 -> %q25
+6e1d039e : ext v30.16b, v28.16b, v29.16b, #0  : ext    %q28 %q29 $0x00 -> %q30
+
 # FCMP <Hn>, <Hm>
 # FCMP <Hn>, #0.0
 1ee12000 : fcmp   h0, h1                  : fcmp   %h1 -> %h0
@@ -8026,6 +8056,108 @@ b7ffffff : tbnz   xzr, #63, ffffffc       : tbnz   $0x000000000ffffffc %xzr $0x3
 36081041 : tbz    w1, #1, 10000208        : tbz    $0x0000000010000208 %x1 $0x01
 b6ffffff : tbz    xzr, #63, ffffffc       : tbz    $0x000000000ffffffc %xzr $0x3f
 
+# TRN1 <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+0e002822 : trn1 v2.8b, v1.8b, v0.8b          : trn1   %d1 %d0 $0x00 -> %d2
+0e032885 : trn1 v5.8b, v4.8b, v3.8b          : trn1   %d4 %d3 $0x00 -> %d5
+0e08292a : trn1 v10.8b, v9.8b, v8.8b         : trn1   %d9 %d8 $0x00 -> %d10
+0e0d29cf : trn1 v15.8b, v14.8b, v13.8b       : trn1   %d14 %d13 $0x00 -> %d15
+0e122a74 : trn1 v20.8b, v19.8b, v18.8b       : trn1   %d19 %d18 $0x00 -> %d20
+0e172b19 : trn1 v25.8b, v24.8b, v23.8b       : trn1   %d24 %d23 $0x00 -> %d25
+0e1c2bbe : trn1 v30.8b, v29.8b, v28.8b       : trn1   %d29 %d28 $0x00 -> %d30
+0e402822 : trn1 v2.4h, v1.4h, v0.4h          : trn1   %d1 %d0 $0x01 -> %d2
+0e432885 : trn1 v5.4h, v4.4h, v3.4h          : trn1   %d4 %d3 $0x01 -> %d5
+0e48292a : trn1 v10.4h, v9.4h, v8.4h         : trn1   %d9 %d8 $0x01 -> %d10
+0e4d29cf : trn1 v15.4h, v14.4h, v13.4h       : trn1   %d14 %d13 $0x01 -> %d15
+0e522a74 : trn1 v20.4h, v19.4h, v18.4h       : trn1   %d19 %d18 $0x01 -> %d20
+0e572b19 : trn1 v25.4h, v24.4h, v23.4h       : trn1   %d24 %d23 $0x01 -> %d25
+0e5c2bbe : trn1 v30.4h, v29.4h, v28.4h       : trn1   %d29 %d28 $0x01 -> %d30
+0e802822 : trn1 v2.2s, v1.2s, v0.2s          : trn1   %d1 %d0 $0x02 -> %d2
+0e832885 : trn1 v5.2s, v4.2s, v3.2s          : trn1   %d4 %d3 $0x02 -> %d5
+0e88292a : trn1 v10.2s, v9.2s, v8.2s         : trn1   %d9 %d8 $0x02 -> %d10
+0e8d29cf : trn1 v15.2s, v14.2s, v13.2s       : trn1   %d14 %d13 $0x02 -> %d15
+0e922a74 : trn1 v20.2s, v19.2s, v18.2s       : trn1   %d19 %d18 $0x02 -> %d20
+0e972b19 : trn1 v25.2s, v24.2s, v23.2s       : trn1   %d24 %d23 $0x02 -> %d25
+0e9c2bbe : trn1 v30.2s, v29.2s, v28.2s       : trn1   %d29 %d28 $0x02 -> %d30
+4e002822 : trn1 v2.16b, v1.16b, v0.16b       : trn1   %q1 %q0 $0x00 -> %q2
+4e032885 : trn1 v5.16b, v4.16b, v3.16b       : trn1   %q4 %q3 $0x00 -> %q5
+4e08292a : trn1 v10.16b, v9.16b, v8.16b      : trn1   %q9 %q8 $0x00 -> %q10
+4e0d29cf : trn1 v15.16b, v14.16b, v13.16b    : trn1   %q14 %q13 $0x00 -> %q15
+4e122a74 : trn1 v20.16b, v19.16b, v18.16b    : trn1   %q19 %q18 $0x00 -> %q20
+4e172b19 : trn1 v25.16b, v24.16b, v23.16b    : trn1   %q24 %q23 $0x00 -> %q25
+4e1c2bbe : trn1 v30.16b, v29.16b, v28.16b    : trn1   %q29 %q28 $0x00 -> %q30
+4e402822 : trn1 v2.8h, v1.8h, v0.8h          : trn1   %q1 %q0 $0x01 -> %q2
+4e432885 : trn1 v5.8h, v4.8h, v3.8h          : trn1   %q4 %q3 $0x01 -> %q5
+4e48292a : trn1 v10.8h, v9.8h, v8.8h         : trn1   %q9 %q8 $0x01 -> %q10
+4e4d29cf : trn1 v15.8h, v14.8h, v13.8h       : trn1   %q14 %q13 $0x01 -> %q15
+4e522a74 : trn1 v20.8h, v19.8h, v18.8h       : trn1   %q19 %q18 $0x01 -> %q20
+4e572b19 : trn1 v25.8h, v24.8h, v23.8h       : trn1   %q24 %q23 $0x01 -> %q25
+4e5c2bbe : trn1 v30.8h, v29.8h, v28.8h       : trn1   %q29 %q28 $0x01 -> %q30
+4e802822 : trn1 v2.4s, v1.4s, v0.4s          : trn1   %q1 %q0 $0x02 -> %q2
+4e832885 : trn1 v5.4s, v4.4s, v3.4s          : trn1   %q4 %q3 $0x02 -> %q5
+4e88292a : trn1 v10.4s, v9.4s, v8.4s         : trn1   %q9 %q8 $0x02 -> %q10
+4e8d29cf : trn1 v15.4s, v14.4s, v13.4s       : trn1   %q14 %q13 $0x02 -> %q15
+4e922a74 : trn1 v20.4s, v19.4s, v18.4s       : trn1   %q19 %q18 $0x02 -> %q20
+4e972b19 : trn1 v25.4s, v24.4s, v23.4s       : trn1   %q24 %q23 $0x02 -> %q25
+4e9c2bbe : trn1 v30.4s, v29.4s, v28.4s       : trn1   %q29 %q28 $0x02 -> %q30
+4ec02822 : trn1 v2.2d, v1.2d, v0.2d          : trn1   %q1 %q0 $0x03 -> %q2
+4ec32885 : trn1 v5.2d, v4.2d, v3.2d          : trn1   %q4 %q3 $0x03 -> %q5
+4ec8292a : trn1 v10.2d, v9.2d, v8.2d         : trn1   %q9 %q8 $0x03 -> %q10
+4ecd29cf : trn1 v15.2d, v14.2d, v13.2d       : trn1   %q14 %q13 $0x03 -> %q15
+4ed22a74 : trn1 v20.2d, v19.2d, v18.2d       : trn1   %q19 %q18 $0x03 -> %q20
+4ed72b19 : trn1 v25.2d, v24.2d, v23.2d       : trn1   %q24 %q23 $0x03 -> %q25
+4edc2bbe : trn1 v30.2d, v29.2d, v28.2d       : trn1   %q29 %q28 $0x03 -> %q30
+
+# TRN2 <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+0e006822 : trn2 v2.8b, v1.8b, v0.8b          : trn2   %d1 %d0 $0x00 -> %d2
+0e036885 : trn2 v5.8b, v4.8b, v3.8b          : trn2   %d4 %d3 $0x00 -> %d5
+0e08692a : trn2 v10.8b, v9.8b, v8.8b         : trn2   %d9 %d8 $0x00 -> %d10
+0e0d69cf : trn2 v15.8b, v14.8b, v13.8b       : trn2   %d14 %d13 $0x00 -> %d15
+0e126a74 : trn2 v20.8b, v19.8b, v18.8b       : trn2   %d19 %d18 $0x00 -> %d20
+0e176b19 : trn2 v25.8b, v24.8b, v23.8b       : trn2   %d24 %d23 $0x00 -> %d25
+0e1c6bbe : trn2 v30.8b, v29.8b, v28.8b       : trn2   %d29 %d28 $0x00 -> %d30
+0e406822 : trn2 v2.4h, v1.4h, v0.4h          : trn2   %d1 %d0 $0x01 -> %d2
+0e436885 : trn2 v5.4h, v4.4h, v3.4h          : trn2   %d4 %d3 $0x01 -> %d5
+0e48692a : trn2 v10.4h, v9.4h, v8.4h         : trn2   %d9 %d8 $0x01 -> %d10
+0e4d69cf : trn2 v15.4h, v14.4h, v13.4h       : trn2   %d14 %d13 $0x01 -> %d15
+0e526a74 : trn2 v20.4h, v19.4h, v18.4h       : trn2   %d19 %d18 $0x01 -> %d20
+0e576b19 : trn2 v25.4h, v24.4h, v23.4h       : trn2   %d24 %d23 $0x01 -> %d25
+0e5c6bbe : trn2 v30.4h, v29.4h, v28.4h       : trn2   %d29 %d28 $0x01 -> %d30
+0e806822 : trn2 v2.2s, v1.2s, v0.2s          : trn2   %d1 %d0 $0x02 -> %d2
+0e836885 : trn2 v5.2s, v4.2s, v3.2s          : trn2   %d4 %d3 $0x02 -> %d5
+0e88692a : trn2 v10.2s, v9.2s, v8.2s         : trn2   %d9 %d8 $0x02 -> %d10
+0e8d69cf : trn2 v15.2s, v14.2s, v13.2s       : trn2   %d14 %d13 $0x02 -> %d15
+0e926a74 : trn2 v20.2s, v19.2s, v18.2s       : trn2   %d19 %d18 $0x02 -> %d20
+0e976b19 : trn2 v25.2s, v24.2s, v23.2s       : trn2   %d24 %d23 $0x02 -> %d25
+0e9c6bbe : trn2 v30.2s, v29.2s, v28.2s       : trn2   %d29 %d28 $0x02 -> %d30
+4e006822 : trn2 v2.16b, v1.16b, v0.16b       : trn2   %q1 %q0 $0x00 -> %q2
+4e036885 : trn2 v5.16b, v4.16b, v3.16b       : trn2   %q4 %q3 $0x00 -> %q5
+4e08692a : trn2 v10.16b, v9.16b, v8.16b      : trn2   %q9 %q8 $0x00 -> %q10
+4e0d69cf : trn2 v15.16b, v14.16b, v13.16b    : trn2   %q14 %q13 $0x00 -> %q15
+4e126a74 : trn2 v20.16b, v19.16b, v18.16b    : trn2   %q19 %q18 $0x00 -> %q20
+4e176b19 : trn2 v25.16b, v24.16b, v23.16b    : trn2   %q24 %q23 $0x00 -> %q25
+4e1c6bbe : trn2 v30.16b, v29.16b, v28.16b    : trn2   %q29 %q28 $0x00 -> %q30
+4e406822 : trn2 v2.8h, v1.8h, v0.8h          : trn2   %q1 %q0 $0x01 -> %q2
+4e436885 : trn2 v5.8h, v4.8h, v3.8h          : trn2   %q4 %q3 $0x01 -> %q5
+4e48692a : trn2 v10.8h, v9.8h, v8.8h         : trn2   %q9 %q8 $0x01 -> %q10
+4e4d69cf : trn2 v15.8h, v14.8h, v13.8h       : trn2   %q14 %q13 $0x01 -> %q15
+4e526a74 : trn2 v20.8h, v19.8h, v18.8h       : trn2   %q19 %q18 $0x01 -> %q20
+4e576b19 : trn2 v25.8h, v24.8h, v23.8h       : trn2   %q24 %q23 $0x01 -> %q25
+4e5c6bbe : trn2 v30.8h, v29.8h, v28.8h       : trn2   %q29 %q28 $0x01 -> %q30
+4e806822 : trn2 v2.4s, v1.4s, v0.4s          : trn2   %q1 %q0 $0x02 -> %q2
+4e836885 : trn2 v5.4s, v4.4s, v3.4s          : trn2   %q4 %q3 $0x02 -> %q5
+4e88692a : trn2 v10.4s, v9.4s, v8.4s         : trn2   %q9 %q8 $0x02 -> %q10
+4e8d69cf : trn2 v15.4s, v14.4s, v13.4s       : trn2   %q14 %q13 $0x02 -> %q15
+4e926a74 : trn2 v20.4s, v19.4s, v18.4s       : trn2   %q19 %q18 $0x02 -> %q20
+4e976b19 : trn2 v25.4s, v24.4s, v23.4s       : trn2   %q24 %q23 $0x02 -> %q25
+4e9c6bbe : trn2 v30.4s, v29.4s, v28.4s       : trn2   %q29 %q28 $0x02 -> %q30
+4ec06822 : trn2 v2.2d, v1.2d, v0.2d          : trn2   %q1 %q0 $0x03 -> %q2
+4ec36885 : trn2 v5.2d, v4.2d, v3.2d          : trn2   %q4 %q3 $0x03 -> %q5
+4ec8692a : trn2 v10.2d, v9.2d, v8.2d         : trn2   %q9 %q8 $0x03 -> %q10
+4ecd69cf : trn2 v15.2d, v14.2d, v13.2d       : trn2   %q14 %q13 $0x03 -> %q15
+4ed26a74 : trn2 v20.2d, v19.2d, v18.2d       : trn2   %q19 %q18 $0x03 -> %q20
+4ed76b19 : trn2 v25.2d, v24.2d, v23.2d       : trn2   %q24 %q23 $0x03 -> %q25
+4edc6bbe : trn2 v30.2d, v29.2d, v28.2d       : trn2   %q29 %q28 $0x03 -> %q30
+
 6a9f13ff : tst    wzr, wzr, asr #4        : ands   %wzr %wzr asr $0x04 -> %wzr
 ea9fffff : tst    xzr, xzr, asr #63       : ands   %xzr %xzr asr $0x3f -> %xzr
 eadf13ff : tst    xzr, xzr, ror #4        : ands   %xzr %xzr ror $0x04 -> %xzr
@@ -8478,9 +8610,203 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 6e6e3062 : usubw2 v2.4s, v3.4s, v14.8h              : usubw2 %q3 %q14 $0x01 -> %q2
 6eae3062 : usubw2 v2.2d, v3.2d, v14.4s              : usubw2 %q3 %q14 $0x02 -> %q2
 
+# UXTL <Vd>.<Ta>, <Vn>.<Tb>
+2f08a401 : uxtl v1.8h, v0.8b                 : ushll  %d0 $0x38 -> %d1
+2f08a485 : uxtl v5.8h, v4.8b                 : ushll  %d4 $0x38 -> %d5
+2f08a52a : uxtl v10.8h, v9.8b                : ushll  %d9 $0x38 -> %d10
+2f08a5cf : uxtl v15.8h, v14.8b               : ushll  %d14 $0x38 -> %d15
+2f08a674 : uxtl v20.8h, v19.8b               : ushll  %d19 $0x38 -> %d20
+2f08a719 : uxtl v25.8h, v24.8b               : ushll  %d24 $0x38 -> %d25
+2f08a7be : uxtl v30.8h, v29.8b               : ushll  %d29 $0x38 -> %d30
+2f10a401 : uxtl v1.4s, v0.4h                 : ushll  %d0 $0x30 -> %d1
+2f10a485 : uxtl v5.4s, v4.4h                 : ushll  %d4 $0x30 -> %d5
+2f10a52a : uxtl v10.4s, v9.4h                : ushll  %d9 $0x30 -> %d10
+2f10a5cf : uxtl v15.4s, v14.4h               : ushll  %d14 $0x30 -> %d15
+2f10a674 : uxtl v20.4s, v19.4h               : ushll  %d19 $0x30 -> %d20
+2f10a719 : uxtl v25.4s, v24.4h               : ushll  %d24 $0x30 -> %d25
+2f10a7be : uxtl v30.4s, v29.4h               : ushll  %d29 $0x30 -> %d30
+2f20a401 : uxtl v1.2d, v0.2s                 : ushll  %d0 $0x20 -> %d1
+2f20a485 : uxtl v5.2d, v4.2s                 : ushll  %d4 $0x20 -> %d5
+2f20a52a : uxtl v10.2d, v9.2s                : ushll  %d9 $0x20 -> %d10
+2f20a5cf : uxtl v15.2d, v14.2s               : ushll  %d14 $0x20 -> %d15
+2f20a674 : uxtl v20.2d, v19.2s               : ushll  %d19 $0x20 -> %d20
+2f20a719 : uxtl v25.2d, v24.2s               : ushll  %d24 $0x20 -> %d25
+2f20a7be : uxtl v30.2d, v29.2s               : ushll  %d29 $0x20 -> %d30
+
+# UXTL2 <Vd>.<Ta>, <Vn>.<Tb>
+6f08a401 : uxtl2 v1.8h, v0.16b               : ushll2 %q0 $0x38 -> %q1
+6f08a485 : uxtl2 v5.8h, v4.16b               : ushll2 %q4 $0x38 -> %q5
+6f08a52a : uxtl2 v10.8h, v9.16b              : ushll2 %q9 $0x38 -> %q10
+6f08a5cf : uxtl2 v15.8h, v14.16b             : ushll2 %q14 $0x38 -> %q15
+6f08a674 : uxtl2 v20.8h, v19.16b             : ushll2 %q19 $0x38 -> %q20
+6f08a719 : uxtl2 v25.8h, v24.16b             : ushll2 %q24 $0x38 -> %q25
+6f08a7be : uxtl2 v30.8h, v29.16b             : ushll2 %q29 $0x38 -> %q30
+6f10a401 : uxtl2 v1.4s, v0.8h                : ushll2 %q0 $0x30 -> %q1
+6f10a485 : uxtl2 v5.4s, v4.8h                : ushll2 %q4 $0x30 -> %q5
+6f10a52a : uxtl2 v10.4s, v9.8h               : ushll2 %q9 $0x30 -> %q10
+6f10a5cf : uxtl2 v15.4s, v14.8h              : ushll2 %q14 $0x30 -> %q15
+6f10a674 : uxtl2 v20.4s, v19.8h              : ushll2 %q19 $0x30 -> %q20
+6f10a719 : uxtl2 v25.4s, v24.8h              : ushll2 %q24 $0x30 -> %q25
+6f10a7be : uxtl2 v30.4s, v29.8h              : ushll2 %q29 $0x30 -> %q30
+6f20a401 : uxtl2 v1.2d, v0.4s                : ushll2 %q0 $0x20 -> %q1
+6f20a485 : uxtl2 v5.2d, v4.4s                : ushll2 %q4 $0x20 -> %q5
+6f20a52a : uxtl2 v10.2d, v9.4s               : ushll2 %q9 $0x20 -> %q10
+6f20a5cf : uxtl2 v15.2d, v14.4s              : ushll2 %q14 $0x20 -> %q15
+6f20a674 : uxtl2 v20.2d, v19.4s              : ushll2 %q19 $0x20 -> %q20
+6f20a719 : uxtl2 v25.2d, v24.4s              : ushll2 %q24 $0x20 -> %q25
+6f20a7be : uxtl2 v30.2d, v29.4s              : ushll2 %q29 $0x20 -> %q30
+
+# UZP1 <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+0e001822 : uzp1 v2.8b, v1.8b, v0.8b          : uzp1   %d1 %d0 $0x00 -> %d2
+0e031885 : uzp1 v5.8b, v4.8b, v3.8b          : uzp1   %d4 %d3 $0x00 -> %d5
+0e08192a : uzp1 v10.8b, v9.8b, v8.8b         : uzp1   %d9 %d8 $0x00 -> %d10
+0e0d19cf : uzp1 v15.8b, v14.8b, v13.8b       : uzp1   %d14 %d13 $0x00 -> %d15
+0e121a74 : uzp1 v20.8b, v19.8b, v18.8b       : uzp1   %d19 %d18 $0x00 -> %d20
+0e171b19 : uzp1 v25.8b, v24.8b, v23.8b       : uzp1   %d24 %d23 $0x00 -> %d25
+0e1c1bbe : uzp1 v30.8b, v29.8b, v28.8b       : uzp1   %d29 %d28 $0x00 -> %d30
+0e401822 : uzp1 v2.4h, v1.4h, v0.4h          : uzp1   %d1 %d0 $0x01 -> %d2
+0e431885 : uzp1 v5.4h, v4.4h, v3.4h          : uzp1   %d4 %d3 $0x01 -> %d5
+0e48192a : uzp1 v10.4h, v9.4h, v8.4h         : uzp1   %d9 %d8 $0x01 -> %d10
+0e4d19cf : uzp1 v15.4h, v14.4h, v13.4h       : uzp1   %d14 %d13 $0x01 -> %d15
+0e521a74 : uzp1 v20.4h, v19.4h, v18.4h       : uzp1   %d19 %d18 $0x01 -> %d20
+0e571b19 : uzp1 v25.4h, v24.4h, v23.4h       : uzp1   %d24 %d23 $0x01 -> %d25
+0e5c1bbe : uzp1 v30.4h, v29.4h, v28.4h       : uzp1   %d29 %d28 $0x01 -> %d30
+0e801822 : uzp1 v2.2s, v1.2s, v0.2s          : uzp1   %d1 %d0 $0x02 -> %d2
+0e831885 : uzp1 v5.2s, v4.2s, v3.2s          : uzp1   %d4 %d3 $0x02 -> %d5
+0e88192a : uzp1 v10.2s, v9.2s, v8.2s         : uzp1   %d9 %d8 $0x02 -> %d10
+0e8d19cf : uzp1 v15.2s, v14.2s, v13.2s       : uzp1   %d14 %d13 $0x02 -> %d15
+0e921a74 : uzp1 v20.2s, v19.2s, v18.2s       : uzp1   %d19 %d18 $0x02 -> %d20
+0e971b19 : uzp1 v25.2s, v24.2s, v23.2s       : uzp1   %d24 %d23 $0x02 -> %d25
+0e9c1bbe : uzp1 v30.2s, v29.2s, v28.2s       : uzp1   %d29 %d28 $0x02 -> %d30
+4e001822 : uzp1 v2.16b, v1.16b, v0.16b       : uzp1   %q1 %q0 $0x00 -> %q2
+4e031885 : uzp1 v5.16b, v4.16b, v3.16b       : uzp1   %q4 %q3 $0x00 -> %q5
+4e08192a : uzp1 v10.16b, v9.16b, v8.16b      : uzp1   %q9 %q8 $0x00 -> %q10
+4e0d19cf : uzp1 v15.16b, v14.16b, v13.16b    : uzp1   %q14 %q13 $0x00 -> %q15
+4e121a74 : uzp1 v20.16b, v19.16b, v18.16b    : uzp1   %q19 %q18 $0x00 -> %q20
+4e171b19 : uzp1 v25.16b, v24.16b, v23.16b    : uzp1   %q24 %q23 $0x00 -> %q25
+4e1c1bbe : uzp1 v30.16b, v29.16b, v28.16b    : uzp1   %q29 %q28 $0x00 -> %q30
+4e401822 : uzp1 v2.8h, v1.8h, v0.8h          : uzp1   %q1 %q0 $0x01 -> %q2
+4e431885 : uzp1 v5.8h, v4.8h, v3.8h          : uzp1   %q4 %q3 $0x01 -> %q5
+4e48192a : uzp1 v10.8h, v9.8h, v8.8h         : uzp1   %q9 %q8 $0x01 -> %q10
+4e4d19cf : uzp1 v15.8h, v14.8h, v13.8h       : uzp1   %q14 %q13 $0x01 -> %q15
+4e521a74 : uzp1 v20.8h, v19.8h, v18.8h       : uzp1   %q19 %q18 $0x01 -> %q20
+4e571b19 : uzp1 v25.8h, v24.8h, v23.8h       : uzp1   %q24 %q23 $0x01 -> %q25
+4e5c1bbe : uzp1 v30.8h, v29.8h, v28.8h       : uzp1   %q29 %q28 $0x01 -> %q30
+4e801822 : uzp1 v2.4s, v1.4s, v0.4s          : uzp1   %q1 %q0 $0x02 -> %q2
+4e831885 : uzp1 v5.4s, v4.4s, v3.4s          : uzp1   %q4 %q3 $0x02 -> %q5
+4e88192a : uzp1 v10.4s, v9.4s, v8.4s         : uzp1   %q9 %q8 $0x02 -> %q10
+4e8d19cf : uzp1 v15.4s, v14.4s, v13.4s       : uzp1   %q14 %q13 $0x02 -> %q15
+4e921a74 : uzp1 v20.4s, v19.4s, v18.4s       : uzp1   %q19 %q18 $0x02 -> %q20
+4e971b19 : uzp1 v25.4s, v24.4s, v23.4s       : uzp1   %q24 %q23 $0x02 -> %q25
+4e9c1bbe : uzp1 v30.4s, v29.4s, v28.4s       : uzp1   %q29 %q28 $0x02 -> %q30
+4ec01822 : uzp1 v2.2d, v1.2d, v0.2d          : uzp1   %q1 %q0 $0x03 -> %q2
+4ec31885 : uzp1 v5.2d, v4.2d, v3.2d          : uzp1   %q4 %q3 $0x03 -> %q5
+4ec8192a : uzp1 v10.2d, v9.2d, v8.2d         : uzp1   %q9 %q8 $0x03 -> %q10
+4ecd19cf : uzp1 v15.2d, v14.2d, v13.2d       : uzp1   %q14 %q13 $0x03 -> %q15
+4ed21a74 : uzp1 v20.2d, v19.2d, v18.2d       : uzp1   %q19 %q18 $0x03 -> %q20
+4ed71b19 : uzp1 v25.2d, v24.2d, v23.2d       : uzp1   %q24 %q23 $0x03 -> %q25
+4edc1bbe : uzp1 v30.2d, v29.2d, v28.2d       : uzp1   %q29 %q28 $0x03 -> %q30
+
+# UZP2 <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+0e005822 : uzp2 v2.8b, v1.8b, v0.8b          : uzp2   %d1 %d0 $0x00 -> %d2
+0e035885 : uzp2 v5.8b, v4.8b, v3.8b          : uzp2   %d4 %d3 $0x00 -> %d5
+0e08592a : uzp2 v10.8b, v9.8b, v8.8b         : uzp2   %d9 %d8 $0x00 -> %d10
+0e0d59cf : uzp2 v15.8b, v14.8b, v13.8b       : uzp2   %d14 %d13 $0x00 -> %d15
+0e125a74 : uzp2 v20.8b, v19.8b, v18.8b       : uzp2   %d19 %d18 $0x00 -> %d20
+0e175b19 : uzp2 v25.8b, v24.8b, v23.8b       : uzp2   %d24 %d23 $0x00 -> %d25
+0e1c5bbe : uzp2 v30.8b, v29.8b, v28.8b       : uzp2   %d29 %d28 $0x00 -> %d30
+0e405822 : uzp2 v2.4h, v1.4h, v0.4h          : uzp2   %d1 %d0 $0x01 -> %d2
+0e435885 : uzp2 v5.4h, v4.4h, v3.4h          : uzp2   %d4 %d3 $0x01 -> %d5
+0e48592a : uzp2 v10.4h, v9.4h, v8.4h         : uzp2   %d9 %d8 $0x01 -> %d10
+0e4d59cf : uzp2 v15.4h, v14.4h, v13.4h       : uzp2   %d14 %d13 $0x01 -> %d15
+0e525a74 : uzp2 v20.4h, v19.4h, v18.4h       : uzp2   %d19 %d18 $0x01 -> %d20
+0e575b19 : uzp2 v25.4h, v24.4h, v23.4h       : uzp2   %d24 %d23 $0x01 -> %d25
+0e5c5bbe : uzp2 v30.4h, v29.4h, v28.4h       : uzp2   %d29 %d28 $0x01 -> %d30
+0e805822 : uzp2 v2.2s, v1.2s, v0.2s          : uzp2   %d1 %d0 $0x02 -> %d2
+0e835885 : uzp2 v5.2s, v4.2s, v3.2s          : uzp2   %d4 %d3 $0x02 -> %d5
+0e88592a : uzp2 v10.2s, v9.2s, v8.2s         : uzp2   %d9 %d8 $0x02 -> %d10
+0e8d59cf : uzp2 v15.2s, v14.2s, v13.2s       : uzp2   %d14 %d13 $0x02 -> %d15
+0e925a74 : uzp2 v20.2s, v19.2s, v18.2s       : uzp2   %d19 %d18 $0x02 -> %d20
+0e975b19 : uzp2 v25.2s, v24.2s, v23.2s       : uzp2   %d24 %d23 $0x02 -> %d25
+0e9c5bbe : uzp2 v30.2s, v29.2s, v28.2s       : uzp2   %d29 %d28 $0x02 -> %d30
+4e005822 : uzp2 v2.16b, v1.16b, v0.16b       : uzp2   %q1 %q0 $0x00 -> %q2
+4e035885 : uzp2 v5.16b, v4.16b, v3.16b       : uzp2   %q4 %q3 $0x00 -> %q5
+4e08592a : uzp2 v10.16b, v9.16b, v8.16b      : uzp2   %q9 %q8 $0x00 -> %q10
+4e0d59cf : uzp2 v15.16b, v14.16b, v13.16b    : uzp2   %q14 %q13 $0x00 -> %q15
+4e125a74 : uzp2 v20.16b, v19.16b, v18.16b    : uzp2   %q19 %q18 $0x00 -> %q20
+4e175b19 : uzp2 v25.16b, v24.16b, v23.16b    : uzp2   %q24 %q23 $0x00 -> %q25
+4e1c5bbe : uzp2 v30.16b, v29.16b, v28.16b    : uzp2   %q29 %q28 $0x00 -> %q30
+4e405822 : uzp2 v2.8h, v1.8h, v0.8h          : uzp2   %q1 %q0 $0x01 -> %q2
+4e435885 : uzp2 v5.8h, v4.8h, v3.8h          : uzp2   %q4 %q3 $0x01 -> %q5
+4e48592a : uzp2 v10.8h, v9.8h, v8.8h         : uzp2   %q9 %q8 $0x01 -> %q10
+4e4d59cf : uzp2 v15.8h, v14.8h, v13.8h       : uzp2   %q14 %q13 $0x01 -> %q15
+4e525a74 : uzp2 v20.8h, v19.8h, v18.8h       : uzp2   %q19 %q18 $0x01 -> %q20
+4e575b19 : uzp2 v25.8h, v24.8h, v23.8h       : uzp2   %q24 %q23 $0x01 -> %q25
+4e5c5bbe : uzp2 v30.8h, v29.8h, v28.8h       : uzp2   %q29 %q28 $0x01 -> %q30
+4e805822 : uzp2 v2.4s, v1.4s, v0.4s          : uzp2   %q1 %q0 $0x02 -> %q2
+4e835885 : uzp2 v5.4s, v4.4s, v3.4s          : uzp2   %q4 %q3 $0x02 -> %q5
+4e88592a : uzp2 v10.4s, v9.4s, v8.4s         : uzp2   %q9 %q8 $0x02 -> %q10
+4e8d59cf : uzp2 v15.4s, v14.4s, v13.4s       : uzp2   %q14 %q13 $0x02 -> %q15
+4e925a74 : uzp2 v20.4s, v19.4s, v18.4s       : uzp2   %q19 %q18 $0x02 -> %q20
+4e975b19 : uzp2 v25.4s, v24.4s, v23.4s       : uzp2   %q24 %q23 $0x02 -> %q25
+4e9c5bbe : uzp2 v30.4s, v29.4s, v28.4s       : uzp2   %q29 %q28 $0x02 -> %q30
+4ec05822 : uzp2 v2.2d, v1.2d, v0.2d          : uzp2   %q1 %q0 $0x03 -> %q2
+4ec35885 : uzp2 v5.2d, v4.2d, v3.2d          : uzp2   %q4 %q3 $0x03 -> %q5
+4ec8592a : uzp2 v10.2d, v9.2d, v8.2d         : uzp2   %q9 %q8 $0x03 -> %q10
+4ecd59cf : uzp2 v15.2d, v14.2d, v13.2d       : uzp2   %q14 %q13 $0x03 -> %q15
+4ed25a74 : uzp2 v20.2d, v19.2d, v18.2d       : uzp2   %q19 %q18 $0x03 -> %q20
+4ed75b19 : uzp2 v25.2d, v24.2d, v23.2d       : uzp2   %q24 %q23 $0x03 -> %q25
+4edc5bbe : uzp2 v30.2d, v29.2d, v28.2d       : uzp2   %q29 %q28 $0x03 -> %q30
+
 d503205f : wfe                            : wfe
 
 d503207f : wfi                            : wfi
+
+# XTN <Vd>.<Tb>, <Vn>.<Ta>
+0e212801 : xtn v1.8b, v0.8h               : xtn    %d0 $0x00 -> %d1
+0e212885 : xtn v5.8b, v4.8h               : xtn    %d4 $0x00 -> %d5
+0e21292a : xtn v10.8b, v9.8h              : xtn    %d9 $0x00 -> %d10
+0e2129cf : xtn v15.8b, v14.8h             : xtn    %d14 $0x00 -> %d15
+0e212a74 : xtn v20.8b, v19.8h             : xtn    %d19 $0x00 -> %d20
+0e212b19 : xtn v25.8b, v24.8h             : xtn    %d24 $0x00 -> %d25
+0e212bbe : xtn v30.8b, v29.8h             : xtn    %d29 $0x00 -> %d30
+0e612801 : xtn v1.4h, v0.4s               : xtn    %d0 $0x01 -> %d1
+0e612885 : xtn v5.4h, v4.4s               : xtn    %d4 $0x01 -> %d5
+0e61292a : xtn v10.4h, v9.4s              : xtn    %d9 $0x01 -> %d10
+0e6129cf : xtn v15.4h, v14.4s             : xtn    %d14 $0x01 -> %d15
+0e612a74 : xtn v20.4h, v19.4s             : xtn    %d19 $0x01 -> %d20
+0e612b19 : xtn v25.4h, v24.4s             : xtn    %d24 $0x01 -> %d25
+0e612bbe : xtn v30.4h, v29.4s             : xtn    %d29 $0x01 -> %d30
+0ea12801 : xtn v1.2s, v0.2d               : xtn    %d0 $0x02 -> %d1
+0ea12885 : xtn v5.2s, v4.2d               : xtn    %d4 $0x02 -> %d5
+0ea1292a : xtn v10.2s, v9.2d              : xtn    %d9 $0x02 -> %d10
+0ea129cf : xtn v15.2s, v14.2d             : xtn    %d14 $0x02 -> %d15
+0ea12a74 : xtn v20.2s, v19.2d             : xtn    %d19 $0x02 -> %d20
+0ea12b19 : xtn v25.2s, v24.2d             : xtn    %d24 $0x02 -> %d25
+0ea12bbe : xtn v30.2s, v29.2d             : xtn    %d29 $0x02 -> %d30
+
+# XTN2 <Vd>.<Tb>, <Vn>.<Ta>
+4e212801 : xtn2 v1.16b, v0.8h             : xtn2   %q0 $0x00 -> %q1
+4e212885 : xtn2 v5.16b, v4.8h             : xtn2   %q4 $0x00 -> %q5
+4e21292a : xtn2 v10.16b, v9.8h            : xtn2   %q9 $0x00 -> %q10
+4e2129cf : xtn2 v15.16b, v14.8h           : xtn2   %q14 $0x00 -> %q15
+4e212a74 : xtn2 v20.16b, v19.8h           : xtn2   %q19 $0x00 -> %q20
+4e212b19 : xtn2 v25.16b, v24.8h           : xtn2   %q24 $0x00 -> %q25
+4e212bbe : xtn2 v30.16b, v29.8h           : xtn2   %q29 $0x00 -> %q30
+4e612801 : xtn2 v1.8h, v0.4s              : xtn2   %q0 $0x01 -> %q1
+4e612885 : xtn2 v5.8h, v4.4s              : xtn2   %q4 $0x01 -> %q5
+4e61292a : xtn2 v10.8h, v9.4s             : xtn2   %q9 $0x01 -> %q10
+4e6129cf : xtn2 v15.8h, v14.4s            : xtn2   %q14 $0x01 -> %q15
+4e612a74 : xtn2 v20.8h, v19.4s            : xtn2   %q19 $0x01 -> %q20
+4e612b19 : xtn2 v25.8h, v24.4s            : xtn2   %q24 $0x01 -> %q25
+4e612bbe : xtn2 v30.8h, v29.4s            : xtn2   %q29 $0x01 -> %q30
+4ea12801 : xtn2 v1.4s, v0.2d              : xtn2   %q0 $0x02 -> %q1
+4ea12885 : xtn2 v5.4s, v4.2d              : xtn2   %q4 $0x02 -> %q5
+4ea1292a : xtn2 v10.4s, v9.2d             : xtn2   %q9 $0x02 -> %q10
+4ea129cf : xtn2 v15.4s, v14.2d            : xtn2   %q14 $0x02 -> %q15
+4ea12a74 : xtn2 v20.4s, v19.2d            : xtn2   %q19 $0x02 -> %q20
+4ea12b19 : xtn2 v25.4s, v24.2d            : xtn2   %q24 $0x02 -> %q25
+4ea12bbe : xtn2 v30.4s, v29.2d            : xtn2   %q29 $0x02 -> %q30
 
 d503203f : yield                          : yield
 
