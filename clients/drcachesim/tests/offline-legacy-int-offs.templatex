@@ -1,3 +1,6 @@
+#ifdef AARCH64
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.legacy-int-offs/raw/drmemtrace.drmemtrace.signal_invariants..*.raw.gz: Architecture mismatch: trace recorded on x86_64 but tools built for aarch64
+#elif defined(X86) && defined(X64)
 Basic counts tool results:
 Total counts:
       109205 total \(fetched\) instructions
@@ -64,3 +67,6 @@ Thread 552324 counts:
            0 function argument markers
            0 function return value markers
            3 other markers
+#else
+ERROR: failed to initialize analyzer: Directory setup failed: Failed sanity checks for thread log file .*/drmemtrace.legacy-int-offs/raw/drmemtrace.drmemtrace.signal_invariants..*.raw.gz: Architecture mismatch: trace recorded on x86_64 but tools built for i386
+#endif
