@@ -1082,11 +1082,12 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
     instr_t *restore_esp =
         INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_ESP),
                             OPND_CREATE_MEM32(REG_NULL, (int)(size_t)mode_switch_data));
-	byte* eaxpos =(byte*) ((size_t)mode_switch_data) + 8;
-	// Restoring eax back, which is storing routine address that needs to be passed to RtlUserStartThread
-	instr_t *restore_eax = INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_EAX), 
-		OPND_CREATE_MEM32(REG_NULL, (int)(size_t)eaxpos));
-	
+    const byte *eax_saved_offset = (byte *)((size_t)mode_switch_data) + 4;
+    // Restoring eax back, which is storing routine address that needs to be passed to
+    // RtlUserStartThread
+    instr_t *restore_eax = INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_EAX),
+                            OPND_CREATE_MEM32(REG_NULL, (int)(size_t)eax_saved_offset));
+
     instr_set_x86_mode(jmp, true);
     instr_set_x86_mode(restore_esp, true);
     instr_set_x86_mode(restore_eax, true);
@@ -1118,8 +1119,8 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
     ASSERT_TRUNCATE(target, uint, (size_t)mode_switch_buf);
     target = (uint)(size_t)((byte *)mode_switch_buf + sz);
     /* Patch the operand of push with target of jmp far indirect.
-    * 1 is the size of the opcode of push instruction.
-    */
+     * 1 is the size of the opcode of push instruction.
+     */
     *(uint *)(local_code_buf + 1) = target;
 
     /* FIXME: Need to free this page after jumping to the hook location b/c
@@ -1177,6 +1178,10 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
                              byte hook_buf[EARLY_INJECT_HOOK_SIZE], byte *map,
                              void *must_reach, bool x86_code, bool late_injection)
 {
+    bool target_64 = !x86_code IF_X64(|| DYNAMO_OPTION(inject_x64));
+    // if (IF_X64(DYNAMO_OPTION(inject_x64))) {
+    //	target_64 = false;
+    //}
     uint64 remote_code_buf = 0, remote_data;
     byte *local_code_buf = NULL;
     uint64 pc;
@@ -1191,14 +1196,13 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
     size_t switch_code_sz = PAGE_SIZE;
     size_t switch_data_sz = SWITCH_MODE_DATA_SIZE;
     if (x86_code && DYNAMO_OPTION(inject_x64)) {
-	switch_data_sz *= 3; // we need space for saving ESP and EAX
+        switch_data_sz += 4; // we need space for ESP and EAX
     }
 #endif
     size_t num_bytes_out;
     uint old_prot;
     earliest_args_t args;
     int i;
-    bool target_64 = !x86_code IF_X64(|| DYNAMO_OPTION(inject_x64));
 
     /* Generate code and data. */
     /* We only support low-address remote allocations. */
@@ -1230,10 +1234,18 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         hook_code_buf += switch_code_sz;
     }
 #endif
-
     /* see below on why it's easier to point at args in memory */
     args.dr_base = (uint64)map;
+#ifdef X64
+    if (x86_code && DYNAMO_OPTION(inject_x64)) {
+        args.ntdll_base = find_remote_ntdll_base(phandle, target_64);
+    } else {
+        args.ntdll_base = find_remote_ntdll_base(phandle, target_64);
+    }
+#else
     args.ntdll_base = find_remote_ntdll_base(phandle, target_64);
+#endif
+
     if (args.ntdll_base == 0)
         goto error;
     args.tofree_base = remote_code_buf;
@@ -1252,44 +1264,48 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
      * creating 64-bit code from 32-bit DR.  XXX i#1684: Once we have multi-arch
      * cross-bitwidth IR support from a single build, switch this back to using IR.
      */
-    byte *cur_local_pos = local_code_buf;
+    byte *cur_local_pos = (byte *)local_code_buf;
 #ifdef X64
     if (x86_code && DYNAMO_OPTION(inject_x64)) {
         /* Mode Switch from 32 bit to 64 bit.
          * Forward align stack.
          */
-	byte* eaxpos = mode_switch_data + 8;
-	// mov dword ptr[mode_switch_data] , esp
-	*cur_local_pos++ = MOV_REG32_2_RM32;
-	*cur_local_pos++ = 0x24;
-	*cur_local_pos++ = 0x25;
-	RAW_INSERT_INT32(cur_local_pos, mode_switch_data);
-	// mov dword ptr[mode_switch_data+8], eax
-	*cur_local_pos++ = MOV_REG32_2_RM32;
-	*cur_local_pos++ = MOV_IMM_RM_ABS;
-	RAW_INSERT_INT32(cur_local_pos,
-		eaxpos);
-	
-	/* Far jmp to next instr. */
-	const int far_jmp_len = 7;
-	byte *pre_jmp = cur_local_pos;
-	uint64 cur_remote_pos_tmp = remote_code_buf + (cur_local_pos - local_code_buf + switch_code_sz);
 
-	*cur_local_pos++ = JMP_FAR_DIRECT;
-	RAW_INSERT_INT32(cur_local_pos, cur_remote_pos_tmp + far_jmp_len);
-	RAW_INSERT_INT16(cur_local_pos, CS64_SELECTOR);
-	ASSERT(cur_local_pos == pre_jmp + far_jmp_len);
-	/* Align stack. */		
-	// and    rsp,0xfffffffffffffff0
-	*cur_local_pos++ = 0x83;
-	*cur_local_pos++ = 0xe4;
-	*cur_local_pos++ = 0xf0;    
+        const byte *eax_saved_offset = mode_switch_data + 4;
+        // mov dword ptr[mode_switch_data] , esp
+        *cur_local_pos++ = MOV_REG32_2_RM32;
+        *cur_local_pos++ = 0x24;
+        *cur_local_pos++ = 0x25;
+        RAW_INSERT_INT32(cur_local_pos, mode_switch_data);
+
+        // mov dword ptr[mode_switch_data+8], eax
+        *cur_local_pos++ = MOV_REG32_2_RM32;
+        *cur_local_pos++ = MOV_IMM_RM_ABS;
+        RAW_INSERT_INT32(cur_local_pos, eax_saved_offset);
+
+        /* Far jmp to next instr. */
+        const int far_jmp_len = 7;
+        byte *pre_jmp = cur_local_pos;
+        uint64 cur_remote_pos_tmp =
+            remote_code_buf + (cur_local_pos - local_code_buf + switch_code_sz);
+
+        *cur_local_pos++ = JMP_FAR_DIRECT;
+        RAW_INSERT_INT32(cur_local_pos, cur_remote_pos_tmp + far_jmp_len);
+        RAW_INSERT_INT16(cur_local_pos, CS64_SELECTOR);
+        ASSERT(cur_local_pos == pre_jmp + far_jmp_len);
+
+        /* Align stack. */
+        // and    rsp,0xfffffffffffffff0
+        *cur_local_pos++ = 0x83;
+        *cur_local_pos++ = 0xe4;
+        *cur_local_pos++ = 0xf0;
     }
 #endif
     /* Save xax, which we clobber below.  It is live for INJECT_LOCATION_ThreadStart.
      * We write it into earliest_args_t.app_xax, and in dynamorio_earliest_init_takeover
      * we use the saved value to update the PUSHGRP pushed xax.
      */
+    // mov	dword ptr [remote_data], xax
     if (target_64)
         *cur_local_pos++ = REX_W;
     *cur_local_pos++ = MOV_REG32_2_RM32;
@@ -1298,9 +1314,12 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
     RAW_INSERT_INT32(cur_local_pos,
                      target_64 ? (remote_data - (cur_remote_pos + sizeof(int)))
                                : remote_data);
+
     /* Restore hook rather than trying to pass contents to C code
      * (we leave hooked page writable for this and C code restores).
      */
+
+    /* movabs rax, hook_location */
     if (target_64)
         *cur_local_pos++ = REX_W;
     *cur_local_pos++ = MOV_IMM_XAX;
@@ -1324,6 +1343,22 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         RAW_INSERT_INT8(cur_local_pos, (char)hook_buf[i]);
     }
 
+    /* We can't use dr_insert_call() b/c it's not avail in drdecode for drinject,
+     * and its main value is passing params and we can't use regular param regs.
+     * we don't even want the 4 stack slots for x64 here b/c we don't want to
+     * clean them up.
+     */
+    // push switch_code_location / hook_location
+    if (target_64) {
+        *cur_local_pos++ = REX_W;
+        *cur_local_pos++ = MOV_IMM_XAX;
+        RAW_INSERT_INT64(cur_local_pos, switch_code_location);
+        *cur_local_pos++ = 0x50; // push rax
+        // RAW_PUSH_INT64(cur_local_pos, switch_code_location); // switch_code_location ==
+        // hook_location if !injectx64
+    } else
+        RAW_PUSH_INT32(cur_local_pos, switch_code_location);
+
     /* Call DR earliest-takeover routine w/ retaddr pointing at hooked
      * location.  DR will free remote_code_buf.
      * If we passed regular args to a C routine, we'd clobber the args to
@@ -1336,6 +1371,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
      * isn't counting on of course).
      * We pass our args in memory pointed at by xax stored in the 2nd page.
      */
+    /* movabs rax, remote_data */
     if (target_64)
         *cur_local_pos++ = REX_W;
     *cur_local_pos++ = MOV_IMM_XAX;
@@ -1343,26 +1379,22 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         RAW_INSERT_INT64(cur_local_pos, remote_data);
     else
         RAW_INSERT_INT32(cur_local_pos, remote_data);
-    /* We can't use dr_insert_call() b/c it's not avail in drdecode for drinject,
-     * and its main value is passing params and we can't use regular param regs.
-     * we don't even want the 4 stack slots for x64 here b/c we don't want to
-     * clean them up.
-     */
-    if (target_64)
-        RAW_PUSH_INT64(cur_local_pos, switch_code_location);
-    else
-        RAW_PUSH_INT32(cur_local_pos, switch_code_location);
+
     pc =
         get_remote_proc_address(phandle, (uint64)map, "dynamorio_earliest_init_takeover");
     if (pc == 0)
         goto error;
+
     if (REL32_REACHABLE((int64)pc, (int64)hook_code_buf) &&
         /* over-estimate to be sure: we assert below we're < PAGE_SIZE */
         REL32_REACHABLE((int64)pc, (int64)remote_code_buf + PAGE_SIZE)) {
         *cur_local_pos++ = JMP_REL32;
         cur_remote_pos = remote_code_buf + (cur_local_pos - local_code_buf);
-        RAW_INSERT_INT32(cur_local_pos,
-                         (int64)pc - (int64)(cur_remote_pos + sizeof(int)));
+        RAW_INSERT_INT32(
+            cur_local_pos,
+            (int64)pc -
+                (int64)(cur_remote_pos +
+                        sizeof(int))); // jmp rel to dynamorio_earliest_init_takeover
     } else {
         /* Indirect through an inlined target. */
         *cur_local_pos++ = JMP_ABS_IND64_OPCODE;
@@ -1374,6 +1406,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         else
             RAW_INSERT_INT32(cur_local_pos, pc);
     }
+
     ASSERT(cur_local_pos - local_code_buf <= (ssize_t)hook_code_sz);
 
     /* copy local buffer to child process */
@@ -1390,6 +1423,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
     }
 
     free_remote_code_buffer(NT_CURRENT_PROCESS, local_code_buf);
+
     return hook_code_buf;
 
 error:

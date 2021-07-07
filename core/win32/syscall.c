@@ -2964,12 +2964,13 @@ pre_system_call(dcontext_t *dcontext)
     reg_t *param_base = pre_system_call_param_base(mc);
     dr_where_am_i_t old_whereami = dcontext->whereami;
     dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
-    // FIXME
-    // commenting this ASSERT since x64 client injected in
-    // WOW64 binaries will be using mc->rax as comparaison
-    // thus making the assert fail, while the syscall still
-    // being valid.
-    //IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
+    /* FIXME
+     * Commenting this ASSERT since x64 client injected in
+     * WOW64 binaries will be using mc->rax as comparaison
+     * thus making the assert fail, no matter if the
+     * syscall is correct or not.
+     */
+    // IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax)); 
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
     KSTART(pre_syscall);
