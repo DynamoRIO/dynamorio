@@ -1266,7 +1266,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         *cur_local_pos++ = 0x25;
         RAW_INSERT_INT32(cur_local_pos, mode_switch_data);
 
-        // mov dword ptr[mode_switch_data+8], eax
+        // mov dword ptr[mode_switch_data+4], eax
         *cur_local_pos++ = MOV_REG32_2_RM32;
         *cur_local_pos++ = MOV_IMM_RM_ABS;
         RAW_INSERT_INT32(cur_local_pos, eax_saved_offset);
