@@ -1387,13 +1387,13 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
      * for online though.
      */
     if (info->source_mcontext != nullptr) {
+        /* Enable post-processing to figure out the ordering of this xfer vs
+         * non-memref instrs in the bb, and also to give core simulators the
+         * interrupted PC -- primarily for a kernel event arriving right
+         * after a branch to give a core simulator the branch target.
+         */
+#ifdef X64 /* For 32-bit we can fit the abs pc but not modix:modoffs. */
         if (op_offline.get_value()) {
-            /* Enable post-processing to figure out the ordering of this xfer vs
-             * non-memref instrs in the bb.
-             * We'll turn this into an absolute PC in the final trace for offline traces
-             * to provide the interrupted PC, primarily for a kernel event arriving right
-             * after a branch to give a core simulator the branch target.
-             */
             uint modidx;
             /* Just like PC entries, this is the offset from the base, not from
              * the indexed segment.
@@ -1404,14 +1404,15 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
              * These 49 bits will always fit into the 48-bit value field unless the
              * module index is very large, when it will take two entries, while using
              * an absolute PC here might always take two entries for some modules.
+             * We'll turn this into an absolute PC in the final trace.
              */
             kernel_interrupted_raw_pc_t raw_pc = {};
             raw_pc.pc.modidx = modidx;
             raw_pc.pc.modoffs = modoffs;
-            marker_val = static_cast<uintptr_t>(raw_pc.combined_value);
-        } else {
+            marker_val = raw_pc.combined_value;
+        } else
+#endif
             marker_val = reinterpret_cast<uintptr_t>(info->source_mcontext->pc);
-        }
         NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
                info->source_mcontext->pc, marker_val);
     }

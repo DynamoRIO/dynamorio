@@ -201,7 +201,11 @@ trace_invariants_t::process_memref(const memref_t &memref)
         // Ensure signal handlers return to the interruption point.
         if (prev_xfer_marker_[memref.data.tid].marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
-            assert((memref.instr.addr == prev_xfer_int_pc_[memref.data.tid].top() &&
+            assert(((memref.instr.addr == prev_xfer_int_pc_[memref.data.tid].top() ||
+                     // DR hands us a different address for sysenter than the
+                     // resumption point.
+                     pre_signal_instr_[memref.data.tid].top().instr.type ==
+                         TRACE_TYPE_INSTR_SYSENTER) &&
                     (memref.instr.addr ==
                          pre_signal_instr_[memref.data.tid].top().instr.addr ||
                      // Asynch will go to the subsequent instr.

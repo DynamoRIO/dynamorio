@@ -1330,6 +1330,7 @@ private:
             return "TRACE_MARKER_TYPE_SPLIT_VALUE unexpected for 32-bit";
 #endif
         }
+#ifdef X64 // 32-bit has the absolute pc as the raw marker value.
         if ((*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
             (*entry)->extended.valueB == TRACE_MARKER_TYPE_RSEQ_ABORT ||
             (*entry)->extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER) {
@@ -1339,12 +1340,15 @@ private:
                 raw_pc.combined_value = marker_val;
                 app_pc pc = modvec_()[raw_pc.pc.modidx].orig_seg_base +
                     (raw_pc.pc.modoffs - modvec_()[raw_pc.pc.modidx].seg_offs);
-                impl()->log(3, "Kernel marker: converting %p idx=%d with base=%p to %p\n",
+                impl()->log(3,
+                            "Kernel marker: converting 0x" ZHEX64_FORMAT_STRING
+                            " idx=" INT64_FORMAT_STRING " with base=%p to %p\n",
                             marker_val, raw_pc.pc.modidx,
                             modvec_()[raw_pc.pc.modidx].orig_seg_base, pc);
-                marker_val = (uintptr_t)pc;
+                marker_val = reinterpret_cast<uintptr_t>(pc);
             } // Else we've already marked as TRACE_ENTRY_VERSION_NO_KERNEL_PC.
         }
+#endif
         *value = marker_val;
         return "";
     }
