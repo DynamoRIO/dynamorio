@@ -1012,8 +1012,9 @@ private:
             // FIXME i#2062: add support for code not in a module (vsyscall, JIT, etc.).
             // Once that support is in we can remove the bool return value and handle
             // the memrefs up here.
-            impl()->log(3, "Skipping ifetch for %u instrs not in a module\n",
-                        instr_count);
+            impl()->log(
+                3, "Skipping ifetch for %u instrs not in a module (idx %d, +" PIFX ")\n",
+                instr_count, in_entry->pc.modidx, in_entry->pc.modoffs);
             *handled = false;
             return "";
         } else {
