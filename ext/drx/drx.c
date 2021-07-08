@@ -222,7 +222,7 @@ drx_aflags_are_dead(instr_t *where)
     bool dead = false;
     void *drcontext = dr_get_current_drcontext();
     drreg_status_t res = drreg_are_aflags_dead(drcontext, where, &dead);
-    if(res != DRREG_SUCCESS) {
+    if (res != DRREG_SUCCESS) {
         ASSERT(false, "drreg_are_aflags_dead failed!");
     }
     return dead;
