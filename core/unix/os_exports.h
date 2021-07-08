@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -545,6 +545,9 @@ extern vm_area_vector_t *d_r_rseq_areas;
 bool
 rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
                      bool **reg_written OUT, int *reg_written_size OUT);
+
+bool
+rseq_set_final_instr_pc(app_pc start, app_pc final_instr_pc);
 
 int
 rseq_get_tls_ptr_offset(void);
