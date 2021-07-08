@@ -1899,16 +1899,15 @@ vmm_heap_init()
         request_region_be_heap_reachable(0, 0x80000000);
 #endif
     if (DYNAMO_OPTION(vm_reserve)) {
-
         vmm_heap_unit_init(&heapmgt->vmcode, DYNAMO_OPTION(vm_size), true, "vmcode");
         if (!REACHABLE_HEAP()) {
             if (DYNAMO_OPTION(inject_x64)){
                 vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vmheap_size_wow64), false,
                                    "vmheap");
-			} else {
+            } else {
                 vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vmheap_size), false,
                                    "vmheap");
-			}
+            }
         }
     }
 }
