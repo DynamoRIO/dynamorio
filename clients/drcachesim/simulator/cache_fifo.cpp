@@ -56,8 +56,8 @@ cache_fifo_t::init(int associativity, int block_size, int total_size,
 
     // Create a replacement pointer for each set, and
     // initialize it to point to the first block.
-    for (int i = 0; i < blocks_per_set_; i++) {
-        get_caching_device_block(i << assoc_bits_, 0).counter_ = 1;
+    for (int i = 0; i < blocks_per_way_; i++) {
+        get_caching_device_block_scaled(i, 0).counter_ = 1;
     }
     return true;
 }
@@ -79,8 +79,8 @@ cache_fifo_t::replace_which_way(int block_idx)
             // clear the counter of the victim block
             get_caching_device_block(block_idx, i).counter_ = 0;
             // set the next block as victim
-            get_caching_device_block(block_idx, (i + 1) & (associativity_ - 1)).counter_ =
-                1;
+            unsigned int next_way = ((i + 1) < associativity_) ? (i + 1) : 0;
+            get_caching_device_block(block_idx, next_way).counter_ = 1;
             return i;
         }
     }
