@@ -225,6 +225,9 @@ Further non-compatibility-affecting changes include:
  - Added the source context for restartable sequence aborts (#DR_XFER_RSEQ_ABORT)
    which was previously missing.
  - Added a #TRACE_MARKER_TYPE_VERSION entry to drmemtrace traces.
+ - Augmented drmemtrace #TRACE_MARKER_TYPE_KERNEL_EVENT entries with the absolute
+   PC of the interruption point, including for restartable sequence aborts, which
+   now also have an additional #TRACE_MARKER_TYPE_RSEQ_ABORT identifier.
 
 **************************************************
 <hr>

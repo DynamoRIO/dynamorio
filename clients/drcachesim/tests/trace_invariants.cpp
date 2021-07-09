@@ -84,6 +84,18 @@ trace_invariants_t::process_memref(const memref_t &memref)
         assert(memrefs_until_interrupt_[memref.data.tid] != 0);
         --memrefs_until_interrupt_[memref.data.tid];
     }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        prev_entry_[memref.data.tid].marker.type == TRACE_TYPE_MARKER &&
+        prev_entry_[memref.data.tid].marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+        // The rseq marker must be immediately prior to the kernel event marker.
+        assert(memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT);
+    }
+    if (memref.marker.type == TRACE_TYPE_MARKER &&
+        memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
+        // Check that the rseq final instruction was not executed: that raw2trace
+        // rolled it back.
+        assert(memref.marker.marker_value != prev_instr_[memref.data.tid].instr.addr);
+    }
     // Check that the signal delivery marker is immediately followed by the
     // app's signal handler, which we have annotated with "prefetcht0 [1]".
     if (memref.data.type == TRACE_TYPE_PREFETCHT0 && memref.data.addr == 1) {
@@ -189,23 +201,32 @@ trace_invariants_t::process_memref(const memref_t &memref)
         // Ensure signal handlers return to the interruption point.
         if (prev_xfer_marker_[memref.data.tid].marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
-            assert(memref.instr.addr ==
-                       pre_signal_instr_[memref.data.tid].top().instr.addr ||
-                   // Asynch will go to the subsequent instr.
-                   memref.instr.addr ==
-                       pre_signal_instr_[memref.data.tid].top().instr.addr +
-                           pre_signal_instr_[memref.data.tid].top().instr.size ||
+            assert(((memref.instr.addr == prev_xfer_int_pc_[memref.data.tid].top() ||
+                     // DR hands us a different address for sysenter than the
+                     // resumption point.
+                     pre_signal_instr_[memref.data.tid].top().instr.type ==
+                         TRACE_TYPE_INSTR_SYSENTER) &&
+                    (memref.instr.addr ==
+                         pre_signal_instr_[memref.data.tid].top().instr.addr ||
+                     // Asynch will go to the subsequent instr.
+                     memref.instr.addr ==
+                         pre_signal_instr_[memref.data.tid].top().instr.addr +
+                             pre_signal_instr_[memref.data.tid].top().instr.size ||
+                     // Too hard to figure out branch targets.  We have the
+                     // prev_xfer_int_pc_ though.
+                     type_is_instr_branch(
+                         pre_signal_instr_[memref.data.tid].top().instr.type) ||
+                     pre_signal_instr_[memref.data.tid].top().instr.type ==
+                         TRACE_TYPE_INSTR_SYSENTER)) ||
                    // Nested signal.  XXX: This only works for our annotated test
                    // signal_invariants.
                    memref.instr.addr == app_handler_pc_ ||
                    // Marker for rseq abort handler.  Not as unique as a prefetch, but
                    // we need an instruction and not a data type.
-                   memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP ||
-                   // Too hard to figure out branch targets.
-                   type_is_instr_branch(
-                       pre_signal_instr_[memref.data.tid].top().instr.type) ||
-                   pre_signal_instr_[memref.data.tid].top().instr.type ==
-                       TRACE_TYPE_INSTR_SYSENTER);
+                   memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP);
+            // We assume paired signal entry-exit (so no longjmp and no rseq
+            // inside signal handlers).
+            prev_xfer_int_pc_[memref.data.tid].pop();
             pre_signal_instr_[memref.data.tid].pop();
         }
 #endif
@@ -226,10 +247,13 @@ trace_invariants_t::process_memref(const memref_t &memref)
          memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_XFER)) {
         if (knob_verbose_ >= 3) {
             std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
-                      << "marker type " << memref.marker.marker_type << " value "
-                      << memref.marker.marker_value << "\n";
+                      << "marker type " << memref.marker.marker_type << " value 0x"
+                      << std::hex << memref.marker.marker_value << std::dec << "\n";
         }
 #ifdef UNIX
+        if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)
+            prev_xfer_int_pc_[memref.data.tid].push(memref.marker.marker_value);
+        assert(memref.marker.marker_value != 0);
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
             // Give up on back-to-back signals.
             prev_xfer_marker_[memref.data.tid].marker.marker_type !=

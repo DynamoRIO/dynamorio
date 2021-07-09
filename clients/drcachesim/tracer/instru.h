@@ -367,7 +367,7 @@ public:
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
     uint64_t
-    get_modoffs(void *drcontext, app_pc pc);
+    get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx);
 
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;
