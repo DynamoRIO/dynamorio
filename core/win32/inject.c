@@ -1083,7 +1083,7 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
         INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_ESP),
                             OPND_CREATE_MEM32(REG_NULL, (int)(size_t)mode_switch_data));
 
-    /* XXX: eax register is getting clobbered somehow in injection process, and we don't 
+    /* XXX: eax register is getting clobbered somehow in injection process, and we don't
      * know how/where yet. Thus we need to restore it now, before calling RtlUserStartThread
      */
     const byte *eax_saved_offset = (byte *)((size_t)mode_switch_data) + 4;
@@ -1268,7 +1268,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         *cur_local_pos++ = 0x25;
         RAW_INSERT_INT32(cur_local_pos, mode_switch_data);
 
-        /* XXX: eax register is getting clobbered somehow in injection process, and we don't 
+        /* XXX: eax register is getting clobbered somehow in injection process, and we don't
          * know how/where yet. Thus we need to restore it now, before calling RtlUserStartThread
          */
         // mov dword ptr[mode_switch_data+4], eax
