@@ -1901,6 +1901,8 @@ vmm_heap_init()
     if (DYNAMO_OPTION(vm_reserve)) {
         vmm_heap_unit_init(&heapmgt->vmcode, DYNAMO_OPTION(vm_size), true, "vmcode");
         if (!REACHABLE_HEAP()) {
+            // XXX : We should also be testing for target to be wow64 along with 
+            // inject_x64 option.
             if (DYNAMO_OPTION(inject_x64)){
                 vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vmheap_size_wow64), false,
                                    "vmheap");
