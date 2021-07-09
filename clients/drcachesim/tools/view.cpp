@@ -248,14 +248,14 @@ view_t::process_memref(const memref_t &memref)
             return false;
         }
         disasm = buf;
-        // Put our prefix on raw byte spillover.
-        auto newline = disasm.find('\n');
-        if (newline != std::string::npos && newline < disasm.size() - 1) {
-            std::stringstream prefix;
-            prefix << "T" << memref.instr.tid << " ";
-            disasm.insert(newline + 1, prefix.str());
-        }
         disasm_cache_.insert({ mapped_pc, disasm });
+    }
+    // Put our prefix on raw byte spillover.
+    auto newline = disasm.find('\n');
+    if (newline != std::string::npos && newline < disasm.size() - 1) {
+        std::stringstream prefix;
+        prefix << "T" << memref.instr.tid << " ";
+        disasm.insert(newline + 1, prefix.str());
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;
