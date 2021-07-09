@@ -69,11 +69,9 @@
 #define MAX_SPILLS (SPILL_SLOT_MAX + 8)
 
 /* For simplicity, we assign aflags an alias that's one past the last gpr.
- * This is only for simpler handling of data structures like spill_slots_to_reg.
+ * This is only for simpler handling of data structures like spill_slot.
  * Note that this is not the same as the aflags spill reg, which is the actual
  * gpr that contains the spilled native aflags.
- * Note that we cannot use DR_REG_NULL to be the aflags alias because DR_REG_NULL
- * means something else in the context of spill_slots_to_reg.
  * XXX: Replace use of DR_REG_NULL as aflags alias in drreg routines like
  * drreg_statelessly_restore_app_value. Use AFLAGS_ALIAS_REG instead.
  */
@@ -2008,7 +2006,9 @@ static bool
 drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                                      dr_restore_state_info_t *info)
 {
-    /* Tracks the slot where the app value of all gprs/aflags is spilled to. */
+    /* Tracks the slot where the app value of all gprs/aflags is spilled to.
+     * The last element in the array (AFLAGS_ALIAS_REG) is for aflags.
+     */
     uint spill_slot[DR_NUM_GPR_REGS + 1];
     /* Tracks the gpr where the app value of aflags is spilled to. */
     reg_id_t aflags_spill_reg;
@@ -2066,50 +2066,82 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
          inst = instr_get_prev(inst)) {
         /* XXX: The check for faux spills/restores (app instrs that look like drreg
          * spills/restores) needs the ilist, but maybe we can live without that check,
-         * or atleast merge drreg_event_restore_state_with_ilist and
+         * or at least merge drreg_event_restore_state_with_ilist and
          * drreg_event_restore_state_without_ilist and check for !instr_is_app only if
          * the ilist is available.
          */
         if (!instr_is_app(inst)) {
             if (is_our_spill_or_restore(drcontext, inst, &spill, &reg, &slot, NULL)) {
                 if (!spill) {
-                    /* Found a restore for app aflags/gpr. While working our way back,
-                     * we'll look for the matching spill (identified using the slot id).
-                     * If we don't find any matching spill before the faulting instr, it
-                     * means that the spill happened before the fault occurred and needs
-                     * to be restored.
+                    /* If we find a restore for app aflags/gpr, we'll record it now. While
+                     * working our way back, we'll look for the matching spill (identified
+                     * using the slot id). If we don't find any matching spill before
+                     * reaching the faulting instr, it means that the spill happened
+                     * before the fault occurred and needs to be restored.
                      */
                     if (reg == aflags_spill_reg) {
+                        /* Found a restore for the app aflags from a slot to a gpr. */
                         ASSERT(spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)] == MAX_SPILLS,
                                "no spill found for last seen aflags restore");
                         spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)] = slot;
                         aflags_spill_reg = DR_REG_NULL;
                     } else if (reg == tool_aflags_spill_reg) {
-                        /* Found a restore instr that reads tool aflags from a slot into
-                         * a reg. This should not be confused with a restore for the reg
-                         * itself; we do not record any slot for tool_aflags_spill_reg.
+                        /* Ignore this restore because we have already recorded the slot
+                         * from where the app aflags will be restored. This restore may
+                         * be for tool aflags or an app aflags restore before some app
+                         * read.
+                         * This should also not be confused with a restore for the reg
+                         * itself; we do not record any slot for tool_aflags_spill_reg
+                         * either.
                          */
                         tool_aflags_spill_reg = DR_REG_NULL;
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s: ignoring aflags restore to reg %s from slot %d\n",
+                            __FUNCTION__, get_register_name(reg), slot);
                     } else if (spill_slot[GPR_IDX(reg)] == MAX_SPILLS) {
+                        /* Found a restore for an app gpr from a slot. */
                         spill_slot[GPR_IDX(reg)] = slot;
+                    } else {
+                        /* Ignore this restore because we have already recorded the
+                         * spill slot from where this gpr will be restored. This
+                         * restore may be for a tool gpr value or an app gpr restore
+                         * before some app read.
+                         */
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s: ignoring gpr restore for reg %s from slot %d\n",
+                            __FUNCTION__, get_register_name(reg), slot);
                     }
                 } else {
-                    /* Found the matching app aflags/gpr value spill for the previously
-                     * recorded restore. This means that the spill lies after the
-                     * faulting instr and has not happened yet, therefore doesn't need to
-                     * be restored.
+                    /* If we find a matching spill here for a previously recorded aflags
+                     * or gpr restore, it means that the spill lies after the faulting
+                     * instr and has not happened yet, therefore doesn't need to be
+                     * restored. So, we clear the recorded spill slot id.
                      */
                     if (spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)] == slot) {
+                        /* Found the matching app aflags spill for the previously recorded
+                         * restore.
+                         */
                         spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)] = MAX_SPILLS;
                         aflags_spill_reg = reg;
                     } else if (spill_slot[GPR_IDX(reg)] == slot) {
+                        /* Found the matching app gpr spill for the previously recorded
+                         * restore.
+                         */
                         spill_slot[GPR_IDX(reg)] = MAX_SPILLS;
+                    } else {
+                        /* Ignore this spill because we didn't record any restore for
+                         * it. It may be a tool value spill, and we not record restores
+                         * for tool values.
+                         */
+                        LOG(drcontext, DR_LOG_ALL, 3,
+                            "%s: ignoring spill for reg %s from slot %d\n", __FUNCTION__,
+                            get_register_name(reg), slot);
                     }
                 }
             } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_sahf, OP_msr)) {
-                /* Found a restore for app aflags to reg. */
                 if (aflags_spill_reg == DR_REG_NULL &&
                     spill_slot[GPR_IDX(AFLAGS_ALIAS_REG)] == MAX_SPILLS) {
+                    /* Found a restore for app aflags from reg. */
                     aflags_spill_reg =
                         IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)));
                 } else {
@@ -2120,15 +2152,19 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
                         IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_src(inst, 0)));
                 }
             } else if (instr_get_opcode(inst) == IF_X86_ELSE(OP_lahf, OP_mrs)) {
-                /* Found the matching app value spill for the previously recorded aflags
-                 * restore.
-                 */
+
                 if (aflags_spill_reg ==
                     IF_X86_ELSE(DR_REG_XAX, opnd_get_reg(instr_get_dst(inst, 0)))) {
+                    /* Found the matching app aflags spill for the previously recorded
+                     * app aflags restore.
+                     */
                     aflags_spill_reg = DR_REG_NULL;
                 } else if (tool_aflags_spill_reg ==
                            IF_X86_ELSE(DR_REG_XAX,
                                        opnd_get_reg(instr_get_dst(inst, 0)))) {
+                    /* Found the matching tool aflags spill for the previously recorded
+                     * tool aflags restore.
+                     */
                     tool_aflags_spill_reg = DR_REG_NULL;
                 }
             } else {
