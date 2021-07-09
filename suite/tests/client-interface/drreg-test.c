@@ -508,7 +508,7 @@ handle_exception_spilled_to_mcontext_later(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_30_C)
-            print("ERROR: spilled flags value was not preserved in test #30!\n");
+            print("ERROR: spilled register value was not preserved in test #30!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved in test #31!\n");
@@ -521,7 +521,7 @@ handle_exception_spilled_during_clean_call_later(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         if (ep->ContextRecord->TEST_REG_CLEAN_CALL_MCONTEXT_CXT != DRREG_TEST_32_C)
-            print("ERROR: spilled flags value was not preserved in test #32!\n");
+            print("ERROR: spilled register value was not preserved in test #32!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved in test #33!\n");
@@ -533,8 +533,8 @@ static LONG WINAPI
 handle_exception_spilled_to_mcontext_between(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
-        if (ep->ContextRecord->TEST_REG_CLEAN_CALL_MCONTEXT_CXT != DRREG_TEST_34_C)
-            print("ERROR: spilled flags value was not preserved in test #34!\n");
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_34_C)
+            print("ERROR: spilled register value was not preserved in test #34!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved in test #35!\n");
@@ -546,8 +546,8 @@ static LONG WINAPI
 handle_exception_nested_gpr_aflags_spill_insertion_outer(struct _EXCEPTION_POINTERS *ep)
 {
     if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
-        if (ep->ContextRecord->TEST_REG_CLEAN_CALL_MCONTEXT_CXT != DRREG_TEST_36_C)
-            print("ERROR: spilled flags value was not preserved in test #36!\n");
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_36_C)
+            print("ERROR: spilled register value was not preserved in test #36!\n");
     } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
             print("ERROR: spilled flags value was not preserved in test #37!\n");
