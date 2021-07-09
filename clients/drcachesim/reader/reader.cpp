@@ -204,9 +204,17 @@ reader_t::operator++()
         case TRACE_TYPE_MARKER:
             have_memref = true;
             cur_ref_.marker.type = (trace_type_t)input_entry_->type;
-            assert((cur_tid_ != 0 && cur_pid_ != 0) ||
-                   input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
-                   input_entry_->size == TRACE_MARKER_TYPE_FILETYPE);
+            if (!online_ &&
+                (input_entry_->size == TRACE_MARKER_TYPE_VERSION ||
+                 input_entry_->size == TRACE_MARKER_TYPE_FILETYPE)) {
+                // Do not carry over a prior thread on a thread switch to a
+                // first-time-seen new thread, whose tid entry is *after* these
+                // markers for offline traces.
+                cur_pid_ = 0;
+                cur_tid_ = 0;
+            } else {
+                assert(cur_tid_ != 0 && cur_pid_ != 0);
+            }
             cur_ref_.marker.pid = cur_pid_;
             cur_ref_.marker.tid = cur_tid_;
             cur_ref_.marker.marker_type = (trace_marker_type_t)input_entry_->size;
