@@ -234,15 +234,14 @@ config_reader_t::configure_cache(cache_params_t &cache)
                 return false;
             }
         } else if (param == "assoc") {
-            // Cache associativity_. Must be a power of 2.
+            // Cache associativity_.
             if (!(*fin_ >> cache.assoc)) {
                 ERRMSG("Error reading cache assoc from "
                        "the configuration file\n");
                 return false;
             }
-            if (cache.assoc <= 0 || !IS_POWER_OF_2(cache.assoc)) {
-                ERRMSG("Cache associativity (%u) must be >0 and a power of 2\n",
-                       cache.assoc);
+            if (cache.assoc <= 0) {
+                ERRMSG("Cache associativity (%u) must be >0\n", cache.assoc);
                 return false;
             }
         } else if (param == "inclusive") {
