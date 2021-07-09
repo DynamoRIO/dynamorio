@@ -1904,11 +1904,11 @@ vmm_heap_init()
             // XXX : We should also be testing for target to be wow64 along with
             // inject_x64 option.
             if (DYNAMO_OPTION(inject_x64)){
-                vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vmheap_size_wow64), false,
-                                   "vmheap");
+                vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vmheap_size_wow64),
+                    false, "vmheap");
             } else {
                 vmm_heap_unit_init(&heapmgt->vmheap, DYNAMO_OPTION(vmheap_size), false,
-                                   "vmheap");
+                    "vmheap");
             }
         }
     }
