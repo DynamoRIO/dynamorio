@@ -1745,7 +1745,7 @@ propagate_options_via_env_vars(dcontext_t *dcontext, HANDLE process_handle,
      */
     uint64 peb;
     bool peb_is_32 = is_32bit_process(process_handle)
-        // If x64 client targeting WOW64 we need to 
+        // If x64 client targeting WOW64 we need to
         // target x64 PEB.
         IF_X64(&& !DYNAMO_OPTION(inject_x64));
     size_t sz_read;
@@ -2970,7 +2970,7 @@ pre_system_call(dcontext_t *dcontext)
      * thus making the assert fail, no matter if the
      * syscall is correct or not.
      */
-    // IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax)); 
+    // IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
     KSTART(pre_syscall);
