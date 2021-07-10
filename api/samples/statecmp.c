@@ -30,8 +30,8 @@
  * DAMAGE.
  */
 
-/* Illustrates using the drstatecmp extension.
- *
+/* Illustrates use of the drstatecmp extension by a sample client.
+ * This sample client is not meant for comprehensive testing.
  */
 
 #include "dr_api.h"
@@ -50,6 +50,14 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
     /* Make it easy to tell, by looking at log file, which client executed. */
     dr_log(NULL, DR_LOG_ALL, 1, "Client 'statecmp' initializing\n");
+    /* To enable state comparison checks by the drstatecmp library, a client simply needs
+     * to initially invoke drstatecmp_init() and drstatecmp_exit() on exit.
+     * The invocation of drstatecmp_init() registers callbacks that insert
+     * machine state comparison checks in the code. Assertions will trigger if
+     * there is any state mismatch indicating a instrumentation-induced clobbering.
+     * Invoking drstatecmp_exit() unregisters the drstatecmp's callbacks and frees up the
+     * allocated thread-local storage.
+     */
     drstatecmp_init();
     dr_register_exit_event(event_exit);
 }

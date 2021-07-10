@@ -42,7 +42,6 @@ application's machine state that would typically lead to obscure bugs.
 
  - \ref sec_drstatecmp_init
  - \ref sec_drstatecmp_checks
- - \ref sec_drstatecmp_instr_state_sharing
  - \ref sec_drstatecmp_machine_state_saved
  - \ref sec_drstatecmp_vs_drbbdup
 
@@ -55,8 +54,12 @@ To use \p drstatecmp with your client simply include this line in your client's
 
 That will automatically set up the include path and library dependence.
 
-The initialization routine \p drstatecmp_init() must be called prior to any of
-the other routines.
+The initialization routine \p drstatecmp_init() enables the insertion of the machine state
+checks. When drstatecmp is linked but the client does not invoke \p drstatecmp_init(),
+there are no inserted checks and no overhead to the client. Thus, a client can wrap the
+initialization of drstatecmp with a flag or a ifdef and invoke it only on debug builds.
+Each call to \p drstatecmp_init() should be paired with a call to \p drstatecmp_exit() on
+client exit.
 
 \section sec_drstatecmp_checks Checks
 
@@ -66,44 +69,41 @@ There are two types of checks depending on whether a basic block has any side-ef
 
 Side-effect-free basic blocks are duplicated and executed twice, once with the full
 instrumentation sequence and once with no instrumentation except for a state comparison at
-the end. Essentially, we check whether the machine state at the end of the basic block is
-the same with and without instrumentation code. This check should catch any state
-clobbering by instrumentation.
+the end. Essentially, we check whether the machine state at the end of the basic block
+execution is the same with and without instrumentation code. This check should catch any
+state clobbering by instrumentation.
 
-The side-effect-free basic blocks are duplicated at drmgr's app2app stage. The copy of
-each such basic block is appended immediately after the original basic block. Labels are
-inserted in the beginning of the original basic block (ORIG_BB) and its copy (COPY_BB) to
-allow identification in later stages. The terminating instruction of the basic block (if
-any) is only kept in the copy and is preceded by a TERM label. A jump to the TERM label is
-inserted at the end the original basic block to skip the duplicated bb.
+Beyond instrumentation bugs, drstatecmp can also catch bugs introduced in the
+application-to-application phase. To that end, instead of using for re-execution the
+post-app2app-phase version of each side-effect-free basic block (i.e.,
+instrumentation-free copy but with potentially modified application instructions), it uses
+the pre-app2app-phase version (contains only the original app instructions), unless any of
+original app instructions requires emulation (i.e., not executable).
 
-The insert instrumentation stage inserts the actual checks. First, the original basic
-block is instrumented. In the beginning of the original basic block, the machine state is
-saved. This state will be used for state restoration before the re-execution of the basic
-block. At the end of the original block, code is inserted to save the state for later
-comparison and restore the machine state to the state before executing this bb. This stage
-also removes the previously inserted jump instr to the TERM label and let it fall through
-to the instructions of the copy of the basic block. Then, the copy of the basic block is
-instrumented. At the end of the copy, a clean call is inserted that compares the current
-machine state with the machine state that was saved at the end of the original basic
-block. Finally, all previously-inserted (from other passes) instrumentation instructions
-are removed from the basic block copy, making it instrumentation-free and enabling
-identification of various types of instrumentation clobering.
+The duplication of side-effect-free basic blocks and the checks insertion occurs at
+drmgr's post-instrumentation stage. A instrumentation-free copy of each side-effect-free
+basic block is appended immediately after the original/instrumented version of the basic
+block. Before the execution of the original basic block, its machine state is saved. This
+state will be used for state restoration before the re-execution of the basic block. At
+the end of the original basic block, code is inserted to save the current state for later
+comparison and then restore the machine state to the state before executing the original
+basic block. At the end of the instrumentation-free copy of the basic block, a clean call
+is inserted that compares the current machine state of the instrumentation-free basic
+block with the machine state that was saved at the end of the original basic block. \p
+DR_ASSERT_MSG is triggered in case of any mismatch.
+
 
 \subsection sec_drstatecmp_checks_side_effects Basic Blocks with Side Effects
 
 Checking basic blocks with side effects is not yet implemented but this section serves
-as a high-level design overview.
+as a high-level design overview. Instructions with side effects include instructions that
+write to memory, interrupts, and system calls.
 
 Basic blocks with side-effects cannot be executed twice (at least not without a lot of
 extra complexity to monitor and restore memory state). In this case, the checks are
 inserted throughout the basic block whenever needed taking into account the app
 instructions, existing instrumentation, and the lazy restoration by drreg. As a result,
-incomplete-decoder bugs and lazy-condition-ddreg bugs will not be detected.
-
-Instructions with side effects include instructions that write to memory, interrupts,
-and system calls. To avoid inter-procedural analysis, all function calls are
-conservatively assumed to have side effects.
+incomplete-decoder bugs and lazy-condition-drreg bugs will not be detected.
 
 Some of the side effects could be handled in a way that enables re-execution of more
 basic blocks. For example, system calls could be executed once in the original basic
@@ -115,20 +115,10 @@ memory state in addition to the machine state. Naturally, monitoring of the writ
 memory addresses is needed to limit the memory state size.
 
 
-\section sec_drstatecmp_instr_state_sharing Instrumentation State Sharing
-
-The instrumentation stages communicate through the user_data parameter. Space for this
-data is allocated in thread-local storage in the app2app stage and deallocated at the
-end of the insert instrumentation stage. The app2app stage specifies in the user_data
-whether a basic block is side-effect free or not. The analysis stage is not used except
-for passing over the user_data to the insert instrumentation stage. In the latter stage,
-the user_data is also used to track when the instrumentation moves from the original
-basic block to its copy.
-
 \section sec_drstatecmp_machine_state_saved Machine States Saved
 
 During execution, thread-local storage is used to keep two machine states for each
-side-effect basic block. One is the state of the original basic block before its
+side-effect-free basic block. One is the state of the original basic block before its
 execution (used for state restoration) and the other is the state of the original
 basic block after its execution (used for state comparison).
 

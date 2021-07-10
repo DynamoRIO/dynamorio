@@ -67,8 +67,8 @@ typedef enum {
     DRSTATECMP_LABEL_COUNT,
 } drstatecmp_label_t;
 
-/* Reserve space for the label values. */
 static ptr_uint_t label_base;
+/* Reserve space for the label values. */
 static void
 drstatecmp_label_init(void)
 {
@@ -80,6 +80,7 @@ drstatecmp_label_init(void)
 static inline ptr_int_t
 get_label_val(drstatecmp_label_t label_type)
 {
+    ASSERT(label_type < DRSTATECMP_LABEL_COUNT, "invalid label");
     return (ptr_int_t)(label_base + label_type);
 }
 
@@ -89,7 +90,6 @@ drstatecmp_insert_label(void *drcontext, instrlist_t *ilist, instr_t *where,
                         drstatecmp_label_t label_type, bool preinsert)
 {
     instr_t *label = INSTR_CREATE_label(drcontext);
-    instr_set_meta(label);
     instr_set_note(label, (void *)get_label_val(label_type));
     if (preinsert)
         instrlist_meta_preinsert(ilist, where, label);
@@ -154,7 +154,7 @@ drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
  *
  * The analysis phase determines which copy of each side-effect bb should be used as the
  * golden copy for comparison. There are two options: i) pre-app2app-phase copy, where
- * the code just contains the original app instructions, and ii) post-app2app phase copy.
+ * the code just contains the original app instructions, and ii) post-app2app-phase copy.
  * The first option can catch bugs in app2app passes and it is selected unless any of
  * original app instructions requires emulation (true emulation). In that case, the
  * pre-app2app code is not executable, whereas the post-app2app code contains emulation
@@ -370,6 +370,82 @@ drstatecmp_check_opmask_value(dr_opmask_t opmask_value, dr_opmask_t opmask_expec
 #endif
 
 static void
+drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc_expected)
+{
+#ifdef X86
+    drstatecmp_check_gpr_value("xdi", mc_instrumented->xdi, mc_expected->xdi);
+    drstatecmp_check_gpr_value("xsi", mc_instrumented->xsi, mc_expected->xsi);
+    drstatecmp_check_gpr_value("xbp", mc_instrumented->xbp, mc_expected->xbp);
+
+    drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected->xax);
+    drstatecmp_check_gpr_value("xbx", mc_instrumented->xbx, mc_expected->xbx);
+    drstatecmp_check_gpr_value("xcx", mc_instrumented->xcx, mc_expected->xcx);
+    drstatecmp_check_gpr_value("xdx", mc_instrumented->xdx, mc_expected->xdx);
+
+#    ifdef X64
+    drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected->r8);
+    drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected->r9);
+    drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected->r10);
+    drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected->r11);
+    drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected->r12);
+    drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected->r13);
+    drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected->r14);
+    drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected->r15);
+#    endif
+
+    drstatecmp_check_gpr_value("xflags", mc_instrumented->xflags, mc_expected->xflags);
+    for (int i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
+        drstatecmp_check_opmask_value(mc_instrumented->opmask[i], mc_expected->opmask[i]);
+    }
+#elif defined(AARCHXX)
+    drstatecmp_check_gpr_value("r0", mc_instrumented->r0, mc_expected->r0);
+    drstatecmp_check_gpr_value("r1", mc_instrumented->r1, mc_expected->r1);
+    drstatecmp_check_gpr_value("r2", mc_instrumented->r2, mc_expected->r2);
+    drstatecmp_check_gpr_value("r3", mc_instrumented->r3, mc_expected->r3);
+    drstatecmp_check_gpr_value("r4", mc_instrumented->r4, mc_expected->r4);
+    drstatecmp_check_gpr_value("r5", mc_instrumented->r5, mc_expected->r5);
+    drstatecmp_check_gpr_value("r6", mc_instrumented->r6, mc_expected->r6);
+    drstatecmp_check_gpr_value("r7", mc_instrumented->r7, mc_expected->r7);
+    drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected->r8);
+    drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected->r9);
+    drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected->r10);
+    drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected->r11);
+    drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected->r12);
+
+#    ifdef X64
+    drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected->r13);
+    drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected->r14);
+    drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected->r15);
+    drstatecmp_check_gpr_value("r16", mc_instrumented->r16, mc_expected->r16);
+    drstatecmp_check_gpr_value("r17", mc_instrumented->r17, mc_expected->r17);
+    drstatecmp_check_gpr_value("r18", mc_instrumented->r18, mc_expected->r18);
+    drstatecmp_check_gpr_value("r19", mc_instrumented->r19, mc_expected->r19);
+    drstatecmp_check_gpr_value("r20", mc_instrumented->r20, mc_expected->r20);
+    drstatecmp_check_gpr_value("r21", mc_instrumented->r21, mc_expected->r21);
+    drstatecmp_check_gpr_value("r22", mc_instrumented->r22, mc_expected->r22);
+    drstatecmp_check_gpr_value("r23", mc_instrumented->r23, mc_expected->r23);
+    drstatecmp_check_gpr_value("r24", mc_instrumented->r24, mc_expected->r24);
+    drstatecmp_check_gpr_value("r25", mc_instrumented->r25, mc_expected->r25);
+    drstatecmp_check_gpr_value("r26", mc_instrumented->r26, mc_expected->r26);
+    drstatecmp_check_gpr_value("r27", mc_instrumented->r27, mc_expected->r27);
+    drstatecmp_check_gpr_value("r28", mc_instrumented->r28, mc_expected->r28);
+    drstatecmp_check_gpr_value("r29", mc_instrumented->r29, mc_expected->r29);
+#    endif
+
+    drstatecmp_check_gpr_value("lr", mc_instrumented->lr, mc_expected->lr);
+    drstatecmp_check_xflags_value("xflags", mc_instrumented->xflags, mc_expected->xflags);
+
+#else
+#    error NYI
+#endif
+
+    drstatecmp_check_gpr_value("xsp", mc_instrumented->xsp, mc_expected->xsp);
+    for (int i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
+        drstatecmp_check_simd_value(&mc_instrumented->simd[i], &mc_expected->simd[i]);
+    }
+}
+
+static void
 drstatecmp_compare_state_call(void)
 {
     void *drcontext = dr_get_current_drcontext();
@@ -382,78 +458,7 @@ drstatecmp_compare_state_call(void)
     mc_expected.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc_expected);
 
-#ifdef X86
-    drstatecmp_check_gpr_value("xdi", mc_instrumented->xdi, mc_expected.xdi);
-    drstatecmp_check_gpr_value("xsi", mc_instrumented->xsi, mc_expected.xsi);
-    drstatecmp_check_gpr_value("xbp", mc_instrumented->xbp, mc_expected.xbp);
-
-    drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected.xax);
-    drstatecmp_check_gpr_value("xbx", mc_instrumented->xbx, mc_expected.xbx);
-    drstatecmp_check_gpr_value("xcx", mc_instrumented->xcx, mc_expected.xcx);
-    drstatecmp_check_gpr_value("xdx", mc_instrumented->xdx, mc_expected.xdx);
-
-#    ifdef X64
-    drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected.r8);
-    drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected.r9);
-    drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected.r10);
-    drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected.r11);
-    drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected.r12);
-    drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected.r13);
-    drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected.r14);
-    drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected.r15);
-#    endif
-
-    drstatecmp_check_gpr_value("xflags", mc_instrumented->xflags, mc_expected.xflags);
-    for (int i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
-        drstatecmp_check_opmask_value(mc_instrumented->opmask[i], mc_expected.opmask[i]);
-    }
-
-#elif defined(AARCHXX)
-    drstatecmp_check_gpr_value("r0", mc_instrumented->r0, mc_expected.r0);
-    drstatecmp_check_gpr_value("r1", mc_instrumented->r1, mc_expected.r1);
-    drstatecmp_check_gpr_value("r2", mc_instrumented->r2, mc_expected.r2);
-    drstatecmp_check_gpr_value("r3", mc_instrumented->r3, mc_expected.r3);
-    drstatecmp_check_gpr_value("r4", mc_instrumented->r4, mc_expected.r4);
-    drstatecmp_check_gpr_value("r5", mc_instrumented->r5, mc_expected.r5);
-    drstatecmp_check_gpr_value("r6", mc_instrumented->r6, mc_expected.r6);
-    drstatecmp_check_gpr_value("r7", mc_instrumented->r7, mc_expected.r7);
-    drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected.r8);
-    drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected.r9);
-    drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected.r10);
-    drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected.r11);
-    drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected.r12);
-
-#    ifdef X64
-    drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected.r13);
-    drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected.r14);
-    drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected.r15);
-    drstatecmp_check_gpr_value("r16", mc_instrumented->r16, mc_expected.r16);
-    drstatecmp_check_gpr_value("r17", mc_instrumented->r17, mc_expected.r17);
-    drstatecmp_check_gpr_value("r18", mc_instrumented->r18, mc_expected.r18);
-    drstatecmp_check_gpr_value("r19", mc_instrumented->r19, mc_expected.r19);
-    drstatecmp_check_gpr_value("r20", mc_instrumented->r20, mc_expected.r20);
-    drstatecmp_check_gpr_value("r21", mc_instrumented->r21, mc_expected.r21);
-    drstatecmp_check_gpr_value("r22", mc_instrumented->r22, mc_expected.r22);
-    drstatecmp_check_gpr_value("r23", mc_instrumented->r23, mc_expected.r23);
-    drstatecmp_check_gpr_value("r24", mc_instrumented->r24, mc_expected.r24);
-    drstatecmp_check_gpr_value("r25", mc_instrumented->r25, mc_expected.r25);
-    drstatecmp_check_gpr_value("r26", mc_instrumented->r26, mc_expected.r26);
-    drstatecmp_check_gpr_value("r27", mc_instrumented->r27, mc_expected.r27);
-    drstatecmp_check_gpr_value("r28", mc_instrumented->r28, mc_expected.r28);
-    drstatecmp_check_gpr_value("r29", mc_instrumented->r29, mc_expected.r29);
-#    endif
-
-    drstatecmp_check_gpr_value("lr", mc_instrumented->lr, mc_expected.lr);
-    drstatecmp_check_xflags_value("xflags", mc_instrumented->xflags, mc_expected.xflags);
-
-#else
-#    error NYI
-#endif
-
-    drstatecmp_check_gpr_value("xsp", mc_instrumented->xsp, mc_expected.xsp);
-    for (int i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
-        drstatecmp_check_simd_value(&mc_instrumented->simd[i], &mc_expected.simd[i]);
-    }
+    drstatecmp_check_machine_state(mc_instrumented, &mc_expected);
 }
 
 static void

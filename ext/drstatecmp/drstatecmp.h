@@ -45,14 +45,14 @@ extern "C" {
 /**
  * \addtogroup drstatecmp Machine State Comparison Library
  */
-/*@{*/ /* begin doxygen group */
+/**@{*/ /* begin doxygen group */
 
 /** Success code for each drstatecmp operation. */
 typedef enum {
-    DRSTATECMP_SUCCESS,                   /* Operation succeeded. */
-    DRSTATECMP_ERROR,                     /* Operation failed. */
-    DRSTATECMP_ERROR_ALREADY_INITIALIZED, /* drstatecmp can only be initialized once. */
-    DRSTATECMP_ERROR_NOT_INITIALIZED,     /* Operation failed: not initialized. */
+    DRSTATECMP_SUCCESS,                   /**< Operation succeeded. */
+    DRSTATECMP_ERROR,                     /**< Operation failed. */
+    DRSTATECMP_ERROR_ALREADY_INITIALIZED, /**< drstatecmp can only be initialized once. */
+    DRSTATECMP_ERROR_NOT_INITIALIZED,     /**< Operation failed: not initialized. */
 } drstatecmp_status_t;
 
 /***************************************************************************
@@ -61,14 +61,15 @@ typedef enum {
 
 /**
  * Priorities of drmgr instrumentation passes used by drstatecmp.  Users
- * of drstatecmp can use the name DRMGR_PRIORITY_NAME_DRSTATECMP in the
- * drmgr_priority_t.before field or can use these numeric priorities
- * in the drmgr_priority_t.priority field to ensure proper pass ordering.
+ * of drstatecmp can use the name #DRMGR_PRIORITY_NAME_DRSTATECMP in the
+ * #drmgr_priority_t.before field or can use these numeric priorities
+ * in the #drmgr_priority_t.priority field to ensure proper pass ordering.
  */
-/* Priority of drstatecmp passes. Requires the highest priority among all app2app passes.
+/**
+ * Priority of drstatecmp passes. Requires the highest priority among all app2app passes.
  */
 #define DRMGR_PRIORITY_DRSTATECMP -8000
-/* Name of drstatecmp pass priorities. */
+/** Name of drstatecmp pass priorities. */
 #define DRMGR_PRIORITY_NAME_DRSTATECMP "drstatecmp_prio"
 
 DR_EXPORT
@@ -91,7 +92,7 @@ DR_EXPORT
 drstatecmp_status_t
 drstatecmp_exit(void);
 
-/*@}*/ /* end doxygen group */
+/**@}*/ /* end doxygen group */
 
 #ifdef __cplusplus
 }
