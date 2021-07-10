@@ -2060,6 +2060,9 @@ drreg_event_restore_state_with_ilist(void *drcontext, bool restore_memory,
      * simpler than going forwards and finding the matching restore for a spill because
      * there may be multiple restores (besides the final restore that ends the spill
      * region, there may be restores for app reads and also user prompted restores).
+     *
+     * Note that our reverse walk should include the faulting instr. We do not want to
+     * consider it executed because it hasn't retired yet.
      */
     for (inst = instrlist_last(info->fragment_info.ilist);
          inst != NULL && instr_get_next(inst) != fault_inst;
