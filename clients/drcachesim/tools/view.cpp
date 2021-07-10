@@ -59,12 +59,15 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
                const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
+    , trace_version_(-1)
     , instr_count_(0)
     , knob_skip_refs_(skip_refs)
     , knob_sim_refs_(sim_refs)
     , knob_syntax_(syntax)
     , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
+    , prev_tid_(-1)
+    , prev_filetype_(0)
 {
 }
 
@@ -100,18 +103,6 @@ view_t::initialize()
 bool
 view_t::process_memref(const memref_t &memref)
 {
-    if (memref.marker.type == TRACE_TYPE_MARKER &&
-        memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
-        if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
-            !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
-            error_string_ = std::string("Architecture mismatch: trace recorded on ") +
-                trace_arch_string(static_cast<offline_file_type_t>(
-                    memref.marker.marker_value)) +
-                " but tool built for " + trace_arch_string(build_target_arch_type());
-            return false;
-        }
-    }
-
     if (instr_count_ < knob_skip_refs_ ||
         instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
         if (type_is_instr(memref.instr.type) ||
@@ -120,8 +111,45 @@ view_t::process_memref(const memref_t &memref)
         return true;
     }
 
+    if (memref.instr.tid != 0) {
+        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
+            std::cerr << "------------------------------------------------------------\n";
+        prev_tid_ = memref.instr.tid;
+        std::cerr << "T" << memref.instr.tid << " ";
+    }
+
     if (memref.marker.type == TRACE_TYPE_MARKER) {
+        if (memref.marker.tid != 0 &&
+            printed_header_.find(memref.marker.tid) == printed_header_.end()) {
+            printed_header_.insert(memref.marker.tid);
+            std::cerr << "<marker: version " << trace_version_ << ">\n";
+            std::cerr << "T" << memref.instr.tid << " ";
+            std::cerr << "<marker: filetype 0x" << std::hex << prev_filetype_ << std::dec
+                      << ">\n";
+            std::cerr << "T" << memref.instr.tid << " ";
+        }
         switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_VERSION:
+            // We delay printing until we know the tid.
+            if (trace_version_ == -1)
+                trace_version_ = static_cast<int>(memref.marker.marker_value);
+            else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
+                error_string_ = std::string("Version mismatch across files");
+                return false;
+            }
+            break;
+        case TRACE_MARKER_TYPE_FILETYPE:
+            // We delay printing until we know the tid.
+            prev_filetype_ = memref.marker.marker_value;
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+                !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
+                error_string_ = std::string("Architecture mismatch: trace recorded on ") +
+                    trace_arch_string(static_cast<offline_file_type_t>(
+                        memref.marker.marker_value)) +
+                    " but tool built for " + trace_arch_string(build_target_arch_type());
+                return false;
+            }
+            break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
             std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
             break;
@@ -134,17 +162,32 @@ view_t::process_memref(const memref_t &memref)
                       << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_KERNEL_EVENT:
-            std::cerr << "<marker: kernel xfer to handler>\n";
+            if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
+                // Legacy traces just have the module offset.
+                std::cerr << "<marker: kernel xfer from module offset +0x" << std::hex
+                          << memref.marker.marker_value << std::dec << " to handler>\n";
+            } else {
+                std::cerr << "<marker: kernel xfer from 0x" << std::hex
+                          << memref.marker.marker_value << std::dec << " to handler>\n";
+            }
+            break;
+        case TRACE_MARKER_TYPE_RSEQ_ABORT:
+            std::cerr << "<marker: rseq abort from 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << " to handler>\n";
             break;
         case TRACE_MARKER_TYPE_KERNEL_XFER:
-            std::cerr << "<marker: syscall xfer>\n";
+            if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
+                // Legacy traces just have the module offset.
+                std::cerr << "<marker: syscall xfer from module offset +0x" << std::hex
+                          << memref.marker.marker_value << std::dec << ">\n";
+            } else {
+                std::cerr << "<marker: syscall xfer from 0x" << std::hex
+                          << memref.marker.marker_value << std::dec << ">\n";
+            }
             break;
         case TRACE_MARKER_TYPE_INSTRUCTION_COUNT:
             std::cerr << "<marker: instruction count " << memref.marker.marker_value
                       << ">\n";
-            break;
-        case TRACE_MARKER_TYPE_FILETYPE:
-            std::cerr << "<marker: filetype " << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_CACHE_LINE_SIZE:
             std::cerr << "<marker: cache line size " << memref.marker.marker_value
@@ -159,8 +202,23 @@ view_t::process_memref(const memref_t &memref)
     }
 
     if (!type_is_instr(memref.instr.type) &&
-        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH)
+        memref.data.type != TRACE_TYPE_INSTR_NO_FETCH) {
+        switch (memref.data.type) {
+        case TRACE_TYPE_READ:
+            std::cerr << "    read  " << memref.data.size << " byte(s) @ 0x" << std::hex
+                      << memref.data.addr << std::dec << "\n";
+            break;
+        case TRACE_TYPE_WRITE:
+            std::cerr << "    write " << memref.data.size << " byte(s) @ 0x" << std::hex
+                      << memref.data.addr << std::dec << "\n";
+            break;
+        case TRACE_TYPE_THREAD_EXIT:
+            std::cerr << "<thread " << memref.data.tid << " exited>\n";
+            break;
+        default: std::cerr << "<entry type " << memref.data.type << ">\n"; break;
+        }
         return true;
+    }
 
     ++instr_count_;
 
@@ -192,9 +250,13 @@ view_t::process_memref(const memref_t &memref)
         disasm = buf;
         disasm_cache_.insert({ mapped_pc, disasm });
     }
-    // XXX: For now we print the disassembly of instructions only. We should extend
-    // this tool to annotate load/store operations with the entries recorded in
-    // the offline trace.
+    // Put our prefix on raw byte spillover.
+    auto newline = disasm.find('\n');
+    if (newline != std::string::npos && newline < disasm.size() - 1) {
+        std::stringstream prefix;
+        prefix << "T" << memref.instr.tid << " ";
+        disasm.insert(newline + 1, prefix.str());
+    }
     std::cerr << disasm;
     ++num_disasm_instrs_;
     return true;

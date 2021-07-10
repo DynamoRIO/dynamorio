@@ -1379,18 +1379,46 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     default: DR_ASSERT(false && "unknown kernel xfer type"); return;
     }
     NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
-    /* TODO i3937: We need something similar to this for online too, to place signals
-     * inside instr bundles.
+    /* TODO i#3937: We need something similar to what raw2trace does with this info
+     * for online too, to place signals inside instr bundles.
      */
-    if (op_offline.get_value() && info->source_mcontext != nullptr) {
+    /* XXX i#4041: For rseq abort, offline post-processing rolls back the committing
+     * store so the abort happens at a reasonable point.  We don't have a solution
+     * for online though.
+     */
+    if (info->source_mcontext != nullptr) {
         /* Enable post-processing to figure out the ordering of this xfer vs
-         * non-memref instrs in the bb.
+         * non-memref instrs in the bb, and also to give core simulators the
+         * interrupted PC -- primarily for a kernel event arriving right
+         * after a branch to give a core simulator the branch target.
          */
-        uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
-            drcontext, info->source_mcontext->pc);
-        marker_val = static_cast<uintptr_t>(modoffs);
+#ifdef X64 /* For 32-bit we can fit the abs pc but not modix:modoffs. */
+        if (op_offline.get_value()) {
+            uint modidx;
+            /* Just like PC entries, this is the offset from the base, not from
+             * the indexed segment.
+             */
+            uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
+                drcontext, info->source_mcontext->pc, &modidx);
+            /* We save space by using the modidx,modoffs format instead of a raw PC.
+             * These 49 bits will always fit into the 48-bit value field unless the
+             * module index is very large, when it will take two entries, while using
+             * an absolute PC here might always take two entries for some modules.
+             * We'll turn this into an absolute PC in the final trace.
+             */
+            kernel_interrupted_raw_pc_t raw_pc = {};
+            raw_pc.pc.modidx = modidx;
+            raw_pc.pc.modoffs = modoffs;
+            marker_val = raw_pc.combined_value;
+        } else
+#endif
+            marker_val = reinterpret_cast<uintptr_t>(info->source_mcontext->pc);
         NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
                info->source_mcontext->pc, marker_val);
+    }
+    if (info->type == DR_XFER_RSEQ_ABORT) {
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_RSEQ_ABORT, marker_val);
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);

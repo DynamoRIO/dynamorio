@@ -383,10 +383,10 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
 }
 
 uint64_t
-offline_instru_t::get_modoffs(void *drcontext, app_pc pc)
+offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
 {
     app_pc modbase;
-    if (drmodtrack_lookup(drcontext, pc, NULL, &modbase) != DRCOVLIB_SUCCESS)
+    if (drmodtrack_lookup(drcontext, pc, modidx, &modbase) != DRCOVLIB_SUCCESS)
         return 0;
     return pc - modbase;
 }
