@@ -2540,9 +2540,10 @@ drx_expand_scatter_gather_exit:
  * in between recognized states. This is an approximation and could be broken in many
  * ways, e.g. by a client adding more than DRX_RESTORE_EVENT_SKIP_UNKNOWN_INSTR_MAX
  * number of instructions as instrumentation, or by altering the emulation sequence's
- * code. A more safe way to do this would be along the lines of xref i#3801: if we had
- * instruction lists available, we could see and pass down emulation labels instead of
- * guessing the sequence based on decoding the code cache.
+ * code.
+ * TODO i#5005: A more safe way to do this would be along the lines of xref i#3801: if
+ * we had instruction lists available, we could see and pass down emulation labels
+ * instead of guessing the sequence based on decoding the code cache.
  *
  * AVX-512 gather sequence detection example:
  *
