@@ -162,10 +162,28 @@ view_t::process_memref(const memref_t &memref)
                       << memref.marker.marker_value << ">\n";
             break;
         case TRACE_MARKER_TYPE_KERNEL_EVENT:
-            std::cerr << "<marker: kernel xfer to handler>\n";
+            if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
+                // Legacy traces just have the module offset.
+                std::cerr << "<marker: kernel xfer from module offset +0x" << std::hex
+                          << memref.marker.marker_value << std::dec << " to handler>\n";
+            } else {
+                std::cerr << "<marker: kernel xfer from 0x" << std::hex
+                          << memref.marker.marker_value << std::dec << " to handler>\n";
+            }
+            break;
+        case TRACE_MARKER_TYPE_RSEQ_ABORT:
+            std::cerr << "<marker: rseq abort from 0x" << std::hex
+                      << memref.marker.marker_value << std::dec << " to handler>\n";
             break;
         case TRACE_MARKER_TYPE_KERNEL_XFER:
-            std::cerr << "<marker: syscall xfer>\n";
+            if (trace_version_ <= TRACE_ENTRY_VERSION_NO_KERNEL_PC) {
+                // Legacy traces just have the module offset.
+                std::cerr << "<marker: syscall xfer from module offset +0x" << std::hex
+                          << memref.marker.marker_value << std::dec << ">\n";
+            } else {
+                std::cerr << "<marker: syscall xfer from 0x" << std::hex
+                          << memref.marker.marker_value << std::dec << ">\n";
+            }
             break;
         case TRACE_MARKER_TYPE_INSTRUCTION_COUNT:
             std::cerr << "<marker: instruction count " << memref.marker.marker_value
@@ -230,14 +248,14 @@ view_t::process_memref(const memref_t &memref)
             return false;
         }
         disasm = buf;
-        // Put our prefix on raw byte spillover.
-        auto newline = disasm.find('\n');
-        if (newline != std::string::npos && newline < disasm.size() - 1) {
-            std::stringstream prefix;
-            prefix << "T" << memref.instr.tid << " ";
-            disasm.insert(newline + 1, prefix.str());
-        }
         disasm_cache_.insert({ mapped_pc, disasm });
+    }
+    // Put our prefix on raw byte spillover.
+    auto newline = disasm.find('\n');
+    if (newline != std::string::npos && newline < disasm.size() - 1) {
+        std::stringstream prefix;
+        prefix << "T" << memref.instr.tid << " ";
+        disasm.insert(newline + 1, prefix.str());
     }
     std::cerr << disasm;
     ++num_disasm_instrs_;
