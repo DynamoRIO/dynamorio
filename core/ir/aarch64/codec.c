@@ -1255,6 +1255,20 @@ encode_opnd_prfop(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_opnd_int(0, 5, false, 0, 0, opnd, enc_out);
 }
 
+/* op2: 3-bit immediate from bits 5-7 */
+
+static inline bool
+decode_opnd_op2(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(5, 3, false, 0, OPSZ_3b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_op2(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(5, 3, false, 0, 0, opnd, enc_out);
+}
+
 /* w5: W register or WZR at bit position 5 */
 
 static inline bool
@@ -1608,6 +1622,20 @@ encode_opnd_cmode3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_int(13, 3, false, false, 0, opnd, enc_out);
 }
 
+/* crn: 4-bit immediate from bits 12-15*/
+
+static inline bool
+decode_opnd_crn(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(12, 4, false, 0, OPSZ_4b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_crn(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
+}
+
 /* cond: condition operand for conditional compare */
 
 static inline bool
@@ -1649,6 +1677,20 @@ encode_opnd_scale(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     *enc_out = (64 - fbits) << 10; /* 'scale' bitfield in encoding */
 
     return true;
+}
+
+/* op1: 3-bit immediate from bits 16-18 */
+
+static inline bool
+decode_opnd_op1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(16, 3, false, 0, OPSZ_3b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_op1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(16, 3, false, 0, 0, opnd, enc_out);
 }
 
 /* fpimm8: immediate operand for SIMD fmov */
