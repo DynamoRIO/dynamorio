@@ -1255,7 +1255,7 @@ encode_opnd_prfop(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_opnd_int(0, 5, false, 0, 0, opnd, enc_out);
 }
 
-/* op2 */
+/* op2: 3-bit immediate from bits 5-7 */
 
 static inline bool
 decode_opnd_op2(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -1622,7 +1622,7 @@ encode_opnd_cmode3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_int(13, 3, false, false, 0, opnd, enc_out);
 }
 
-/* crn */
+/* crn: 4-bit immediate from bits 12-15*/
 
 static inline bool
 decode_opnd_crn(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -1679,7 +1679,7 @@ encode_opnd_scale(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return true;
 }
 
-/* op1 */
+/* op1: 3-bit immediate from bits 16-18 */
 
 static inline bool
 decode_opnd_op1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
