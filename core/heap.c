@@ -1904,9 +1904,11 @@ vmm_heap_init()
             vmm_heap_unit_init(
                 &heapmgt->vmheap,
 #ifdef WINDOWS
+#ifdef X64
                 (DYNAMO_OPTION(inject_x64) && is_wow64_process(NT_CURRENT_PROCESS))
                     ? DYNAMO_OPTION(vmheap_size_wow64)
                     :
+#endif
 #endif
                     DYNAMO_OPTION(vmheap_size),
                 false, "vmheap");

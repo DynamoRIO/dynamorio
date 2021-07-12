@@ -2964,13 +2964,12 @@ pre_system_call(dcontext_t *dcontext)
     reg_t *param_base = pre_system_call_param_base(mc);
     dr_where_am_i_t old_whereami = dcontext->whereami;
     dcontext->whereami = DR_WHERE_SYSCALL_HANDLER;
-    /* FIXME
-     * Commenting this ASSERT since x64 client injected in
-     * WOW64 binaries will be using mc->rax as comparaison
-     * thus making the assert fail, no matter if the
-     * syscall is correct or not.
+    /* XXX i#49: mc->rax's top bits are non-zero in 32-bit mode for
+     * reasons we do not yet understand.
+     * For now we disable the assert for mixed-mode.
      */
-    // IF_X64(ASSERT_TRUNCATE(sysnum, int, mc->xax));
+    IF_X64(ASSERT(is_wow64_process(NT_CURRENT_PROCESS) ||
+           CHECK_TRUNCATE_TYPE_int(mc->xax)));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
     KSTART(pre_syscall);
