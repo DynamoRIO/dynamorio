@@ -3697,7 +3697,8 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
     if (reg == NULL)
         reg = &myreg;
     if (instr_check_tls_spill_restore(instr, spill, reg, &check_disp)) {
-        if (!DR_only ||
+        /* We do not want to count an mcontext base load as a reg spill/restore. */
+        if ((!DR_only && check_disp != os_tls_offset((ushort)TLS_DCONTEXT_SLOT)) ||
             (reg_spill_tls_offs(*reg) != -1 &&
              /* Mangling may choose to spill registers to a not natural tls offset,
               * e.g. rip-rel mangling will, if rax is used by the instruction. We
