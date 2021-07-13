@@ -1905,9 +1905,11 @@ vmm_heap_init()
                 &heapmgt->vmheap,
                 /* Use vmheap_size_wow64 if target is WoW64 windows process. */
                 IF_WINDOWS_ELSE(IF_X64_ELSE(is_wow64_process(NT_CURRENT_PROCESS)
-                                                ? DYNAMO_OPTION(vmheap_size_wow64)
-                                                : DYNAMO_OPTION(vmheap_size),
-                                DYNAMO_OPTION(vmheap_size)),
+                    ? DYNAMO_OPTION(vmheap_size_wow64)
+                    : DYNAMO_OPTION(vmheap_size),
+                    DYNAMO_OPTION(vmheap_size)
+                ),
+                    DYNAMO_OPTION(vmheap_size)),
                 false, "vmheap");
         }
     }
