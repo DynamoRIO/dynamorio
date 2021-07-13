@@ -1082,13 +1082,11 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
     instr_t *restore_esp =
         INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_ESP),
                             OPND_CREATE_MEM32(REG_NULL, (int)(size_t)mode_switch_data));
-
-    /* XXX: eax register is getting clobbered somehow in injection process,
-     * and we don't know how/where yet. Thus we need to restore it now,
-     * before calling RtlUserStartThread
-     */
     const byte *eax_saved_offset = (byte *)((size_t)mode_switch_data) + 4;
-    instr_t *restore_eax = INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_EAX),
+    // Restoring eax back, which is storing routine address that needs to be passed to
+    // RtlUserStartThread
+    instr_t *restore_eax =
+        INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_EAX),
                             OPND_CREATE_MEM32(REG_NULL, (int)(size_t)eax_saved_offset));
 
     instr_set_x86_mode(jmp, true);

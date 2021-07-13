@@ -1747,7 +1747,7 @@ propagate_options_via_env_vars(dcontext_t *dcontext, HANDLE process_handle,
     bool peb_is_32 = is_32bit_process(process_handle)
         // If x64 client targeting WOW64 we need to
         // target x64 PEB.
-        IF_X64(&& !DYNAMO_OPTION(inject_x64));
+        IF_X64(&&!DYNAMO_OPTION(inject_x64));
     size_t sz_read;
     union {
         uint64 ptr_64;
@@ -2968,8 +2968,8 @@ pre_system_call(dcontext_t *dcontext)
      * reasons we do not yet understand.
      * For now we disable the assert for mixed-mode.
      */
-    IF_X64(ASSERT(is_wow64_process(NT_CURRENT_PROCESS) ||
-           CHECK_TRUNCATE_TYPE_int(mc->xax)));
+    IF_X64(
+        ASSERT(is_wow64_process(NT_CURRENT_PROCESS) || CHECK_TRUNCATE_TYPE_int(mc->xax)));
     DODEBUG(dcontext->expect_last_syscall_to_fail = false;);
 
     KSTART(pre_syscall);
