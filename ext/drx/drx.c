@@ -220,8 +220,9 @@ bool
 drx_aflags_are_dead(instr_t *where)
 {
     bool dead = false;
-    drreg_status_t res = drreg_are_aflags_dead(dr_get_current_drcontext(), where, &dead);
-    DR_ASSERT_MSG(res == DRREG_SUCCESS, "drreg_are_aflags_dead failed!");
+    IF_DEBUG(drreg_status_t res =)
+    drreg_are_aflags_dead(dr_get_current_drcontext(), where, &dead);
+    ASSERT(res == DRREG_SUCCESS, "drreg_are_aflags_dead failed!");
     return dead;
 }
 
