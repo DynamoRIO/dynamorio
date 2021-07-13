@@ -25,17 +25,6 @@ creating child
 terminating child by sending SIGKILL
 event_nudge exit code 2304
 event_exit
-#ifdef AARCHXX
-/* PR#4944: drreg_event_restore_state uses instr_get_eflags to get
- * instr eflags. This requires encoding the instr. We fail to
- * encode the syscall skip branch instr because the target is too
- * far from the tmp buf address to fit into the 26-bit offset. This
- * is not fatal as private_instr_encode works around the issue by
- * using instr_encode_ignore_reachability instead.
- */
-<Internal Error: Failed to encode instruction: 'b      \$.*'
->
-#endif
 child exit code = 9
 event_exit
 #endif
