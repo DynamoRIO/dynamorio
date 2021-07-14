@@ -119,6 +119,7 @@ thread_routine(void *arg)
         rc = sigaction(SIG_NEST, NULL, &act);
         ASSERT_NOERR(rc);
     }
+    return NULL;
 }
 
 int
