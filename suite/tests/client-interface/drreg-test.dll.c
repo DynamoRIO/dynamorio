@@ -1154,7 +1154,6 @@ event_exit(void)
         drreg_exit() != DRREG_SUCCESS)
         CHECK(false, "exit failed");
 
-    drx_exit();
     drmgr_exit();
 }
 
@@ -1165,7 +1164,7 @@ dr_init(client_id_t id)
      * a DR slot.
      */
     drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
-    if (!drx_init() || !drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
+    if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS)
         CHECK(false, "init failed");
 
     note_base = drmgr_reserve_note_range(DRREG_TEST_NOTE_COUNT);
