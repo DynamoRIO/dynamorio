@@ -57,7 +57,7 @@ That will automatically set up the include path and library dependence.
 The initialization routine \p drstatecmp_init() enables the insertion of the machine state
 checks. When drstatecmp is linked but the client does not invoke \p drstatecmp_init(),
 there are no inserted checks and no overhead to the client. Thus, a client can wrap the
-initialization of drstatecmp with a flag or a ifdef and invoke it only on debug builds.
+initialization of drstatecmp with a flag or an ifdef and invoke it only on debug builds.
 Each call to \p drstatecmp_init() should be paired with a call to \p drstatecmp_exit() on
 client exit.
 
@@ -81,17 +81,18 @@ the pre-app2app-phase version (contains only the original app instructions), unl
 original app instructions requires emulation (i.e., not executable).
 
 The duplication of side-effect-free basic blocks and the checks insertion occurs at
-drmgr's post-instrumentation stage. A instrumentation-free copy of each side-effect-free
-basic block is appended immediately after the original/instrumented version of the basic
-block. Before the execution of the original basic block, its machine state is saved. This
+drmgr's post-instrumentation stage. An instrumentation-free copy of each side-effect-free
+basic block is appended immediately after the instrumented version of the basic block.
+Before the execution of the instrumented basic block, its machine state is saved. This
 state will be used for state restoration before the re-execution of the basic block. At
-the end of the original basic block, code is inserted to save the current state for later
-comparison and then restore the machine state to the state before executing the original
-basic block. At the end of the instrumentation-free copy of the basic block, a clean call
-is inserted that compares the current machine state of the instrumentation-free basic
-block with the machine state that was saved at the end of the original basic block. \p
-DR_ASSERT_MSG is triggered in case of any mismatch.
-
+the end of the instrumented basic block, code is inserted to save the current state for
+later comparison and then restore the machine state to the state before executing the
+instrumented basic block. At the end of the instrumentation-free copy of the basic block,
+a clean call is inserted that compares the current machine state of the
+instrumentation-free basic block with the machine state that was saved at the end of the
+instrumented basic block. An user-supplied callback is invoked in case of any state
+mismatch. If the user provides no such callback, \p DR_ASSERT_MSG is triggered on
+mismatches.
 
 \subsection sec_drstatecmp_checks_side_effects Basic Blocks with Side Effects
 
@@ -118,8 +119,8 @@ memory addresses is needed to limit the memory state size.
 \section sec_drstatecmp_machine_state_saved Machine States Saved
 
 During execution, thread-local storage is used to keep two machine states for each
-side-effect-free basic block. One is the state of the original basic block before its
-execution (used for state restoration) and the other is the state of the original
+side-effect-free basic block. One is the state of the instrumented basic block before its
+execution (used for state restoration) and the other is the state of the instrumented
 basic block after its execution (used for state comparison).
 
 \section sec_drstatecmp_vs_drbbdup Comparison with DrBBDup
@@ -131,6 +132,6 @@ redundancy for this part, the use case in DrStateCmp is different enough from wh
 provides so that DrBBDup cannot be used as it is (or with minimum changes). A main
 difference is that DrBBDup dispatches control according to runtime conditions and only one
 copy/case is executed every time. Instead, for duplicated basic blocks DrStateCmp executes
-both the original basic block and its copy.
+both the instrumented basic block and its non-instrumented copy.
 
 */

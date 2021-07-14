@@ -1524,9 +1524,8 @@ drbbdup_init(drbbdup_options_t *ops_in)
                                          DRMGR_PRIORITY_INSERT_DRBBDUP };
 
     if (!drmgr_register_bb_app2app_event(drbbdup_duplicate_phase, &app2app_priority) ||
-        !drmgr_register_bb_instrumentation_ex_event(NULL, drbbdup_analyse_phase,
-                                                    drbbdup_link_phase, NULL, NULL,
-                                                    &insert_priority) ||
+        !drmgr_register_bb_instrumentation_ex_event(
+            NULL, drbbdup_analyse_phase, drbbdup_link_phase, NULL, &insert_priority) ||
         !drmgr_register_thread_init_event(drbbdup_thread_init) ||
         !drmgr_register_thread_exit_event(drbbdup_thread_exit) ||
         !dr_raw_tls_calloc(&tls_raw_reg, &tls_raw_base, DRBBDUP_SLOT_COUNT, 0) ||
@@ -1574,8 +1573,8 @@ drbbdup_exit(void)
         destroy_fp_cache(new_case_cache_pc);
 
         if (!drmgr_unregister_bb_app2app_event(drbbdup_duplicate_phase) ||
-            !drmgr_unregister_bb_instrumentation_ex_event(
-                NULL, drbbdup_analyse_phase, drbbdup_link_phase, NULL, NULL) ||
+            !drmgr_unregister_bb_instrumentation_ex_event(NULL, drbbdup_analyse_phase,
+                                                          drbbdup_link_phase, NULL) ||
             !drmgr_unregister_thread_init_event(drbbdup_thread_init) ||
             !drmgr_unregister_thread_exit_event(drbbdup_thread_exit) ||
             !dr_raw_tls_cfree(tls_raw_base, DRBBDUP_SLOT_COUNT) ||

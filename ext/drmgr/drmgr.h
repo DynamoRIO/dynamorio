@@ -434,27 +434,25 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func);
 
 DR_EXPORT
 /**
- * Registers callbacks for all five instrumentation passes at once, with a \p
+ * Registers callbacks for the first four instrumentation passes at once, with a \p
  * user_data parameter passed among them all, enabling data sharing for all
- * five of them.  See the documentation for drmgr_register_bb_app2app_event(),
- * drmgr_register_bb_instrumentation_event(), drmgr_register_bb_instru2instru_event(), and
- * drmgr_register_bb_post_instru_event() for further details of each pass. The
- * aforementioned routines are identical to this with the exception of the extra \p
- * user_data parameter, which is an OUT parameter to the \p app2app_func and passed in to
- * the three subsequent callbacks. The \p priority param can be NULL, in which case a
- * default priority is used.
+ * four of them.  See the documentation for drmgr_register_bb_app2app_event(),
+ * drmgr_register_bb_instrumentation_event(), and drmgr_register_bb_instru2instru_event()
+ * for further details of each pass. The aforementioned routines are identical to this
+ * with the exception of the extra \p user_data parameter, which is an OUT parameter to
+ * the \p app2app_func and passed in to the three subsequent callbacks. The \p priority
+ * param can be NULL, in which case a default priority is used.
  */
 bool
 drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                            drmgr_ilist_ex_cb_t analysis_func,
                                            drmgr_insertion_cb_t insertion_func,
                                            drmgr_ilist_ex_cb_t instru2instru_func,
-                                           drmgr_ilist_ex_cb_t post_instru_func,
                                            drmgr_priority_t *priority);
 
 DR_EXPORT
 /**
- * Unregisters the five given callbacks that
+ * Unregisters the four given callbacks that
  * were registered via drmgr_register_bb_instrumentation_ex_event().
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
@@ -466,8 +464,7 @@ bool
 drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t analysis_func,
                                              drmgr_insertion_cb_t insertion_func,
-                                             drmgr_ilist_ex_cb_t instru2instru_func,
-                                             drmgr_ilist_ex_cb_t post_instru_func);
+                                             drmgr_ilist_ex_cb_t instru2instru_func);
 
 DR_EXPORT
 /**
@@ -525,7 +522,7 @@ DR_EXPORT
  * basic block.  drmgr will call \p func as the fifth of five
  * instrumentation stages for each dynamic application basic block.
  * Post-instrumentation passes are allowed to insert both meta and
- * not non-meta instructions, and are intended for debugging prior
+ * non-meta instructions, and are primarily intended for debugging prior
  * instrumentation passes.
  *
  * All instrumentation must follow the guidelines for
@@ -553,6 +550,43 @@ DR_EXPORT
  */
 bool
 drmgr_unregister_bb_post_instru_event(drmgr_xform_cb_t func);
+
+DR_EXPORT
+/**
+ * Registers callbacks for all five instrumentation passes at once, with a \p
+ * user_data parameter passed among them all, enabling data sharing for all
+ * five of them.  See the documentation for drmgr_register_bb_app2app_event(),
+ * drmgr_register_bb_instrumentation_event(), drmgr_register_bb_instru2instru_event(), and
+ * drmgr_register_bb_post_instru_event() for further details of each pass. The
+ * aforementioned routines are identical to this with the exception of the extra \p
+ * user_data parameter, which is an OUT parameter to the \p app2app_func and passed in to
+ * the four subsequent callbacks. The \p priority param can be NULL, in which case a
+ * default priority is used.
+ */
+bool
+drmgr_register_bb_post_instru_ex_event(drmgr_app2app_ex_cb_t app2app_func,
+                                       drmgr_ilist_ex_cb_t analysis_func,
+                                       drmgr_insertion_cb_t insertion_func,
+                                       drmgr_ilist_ex_cb_t instru2instru_func,
+                                       drmgr_ilist_ex_cb_t post_instru_func,
+                                       drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregisters the five given callbacks that
+ * were registered via drmgr_register_bb_post_instru_ex_event().
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ *
+ * The recommendations for dr_unregister_bb_event() about when it
+ * is safe to unregister apply here as well.
+ */
+bool
+drmgr_unregister_bb_post_instru_ex_event(drmgr_app2app_ex_cb_t app2app_func,
+                                         drmgr_ilist_ex_cb_t analysis_func,
+                                         drmgr_insertion_cb_t insertion_func,
+                                         drmgr_ilist_ex_cb_t instru2instru_func,
+                                         drmgr_ilist_ex_cb_t post_instru_func);
 
 DR_EXPORT
 /**

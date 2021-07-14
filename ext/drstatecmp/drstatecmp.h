@@ -59,6 +59,16 @@ typedef enum {
  * INIT
  */
 
+/** Specifies the options when initializing drstatecmp. */
+typedef struct {
+    /**
+     * When a state comparison fails, drstatecmp will call this callback and pass the
+     * error message. If this callback is NULL, drstatecmp will call #DR_ASSERT_MSG.
+     */
+    void (*error_callback)(const char *msg);
+
+} drstatecmp_options_t;
+
 /**
  * Priorities of drmgr instrumentation passes used by drstatecmp.  Users
  * of drstatecmp can use the name #DRMGR_PRIORITY_NAME_DRSTATECMP in the
@@ -81,7 +91,7 @@ DR_EXPORT
  * @return whether successful or an error code on failure.
  */
 drstatecmp_status_t
-drstatecmp_init(void);
+drstatecmp_init(drstatecmp_options_t *ops_in);
 
 DR_EXPORT
 /**

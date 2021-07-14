@@ -31,21 +31,114 @@
  */
 
 /* Illustrates use of the drstatecmp extension by a sample client.
- * This sample client is not meant for comprehensive testing.
+ * This sample client introduces an instrumentation bug that is caught by
+ * drstatecmp. This sample client also shows how to specify an user-defined
+ * callback to be invoked on state comparison mismatches.
  */
 
 #include "dr_api.h"
+#include "drreg.h"
 #include "drstatecmp.h"
+#include <string.h>
+#include <limits.h>
+
+#define MINSERT instrlist_meta_preinsert
+
+static int error_detected = 0;
+static int global_count = 0;
 
 static void
 event_exit(void)
 {
+    drreg_exit();
     drstatecmp_exit();
+    DR_ASSERT(error_detected == 1);
+}
+
+/* Invoked by drstatecmp when a state comparison fails. */
+static void
+error_callback(const char *msg)
+{
+    error_detected = 1;
+    DR_ASSERT(!strcmp(msg, "xflags"));
+}
+
+static bool
+bb_may_have_side_effects(instrlist_t *bb)
+{
+    /* Instructions with side effects include instructions that write to memory,
+     * interrupts, and syscalls.
+     */
+    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
+         inst = instr_get_next_app(inst)) {
+        if (instr_writes_memory(inst) || instr_is_interrupt(inst) ||
+            instr_is_syscall(inst))
+            return true;
+    }
+    return false;
+}
+
+static dr_emit_flags_t
+event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+               bool translating, OUT void **user_data)
+{
+
+    bool *side_effect_free = (bool *)dr_thread_alloc(drcontext, sizeof(bool));
+    *side_effect_free = !bb_may_have_side_effects(bb);
+    *user_data = (void *)side_effect_free;
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_insert_instru(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                    bool for_trace, bool translating, void *user_data)
+{
+    if (!drmgr_is_last_instr(drcontext, inst))
+        return DR_EMIT_DEFAULT;
+
+    bool side_effect_free = *(bool *)user_data;
+    dr_thread_free(drcontext, user_data, sizeof(bool));
+    /* Avoid clobbering of basic blocks with side-effects since such blocks are
+     * not currently covered by drstatecmp.
+     */
+    if (!side_effect_free)
+        return DR_EMIT_DEFAULT;
+
+#ifdef X86
+    // Instrumentation clobbering the arithmetic flags.
+    MINSERT(bb, inst,
+            INSTR_CREATE_add(drcontext, OPND_CREATE_ABSMEM(&global_count, OPSZ_4),
+                             OPND_CREATE_INT_32OR8(1)));
+#elif defined(AARCHXX)
+    reg_id_t reg1, reg2;
+    if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg1) != DRREG_SUCCESS ||
+        drreg_reserve_register(drcontext, bb, inst, NULL, &reg2) != DRREG_SUCCESS)
+        return false;
+
+    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&global_count,
+                                     opnd_create_reg(reg1), bb, inst, NULL, NULL);
+    MINSERT(
+        bb, inst,
+        XINST_CREATE_load(drcontext, opnd_create_reg(reg2), OPND_CREATE_MEMPTR(reg1, 0)));
+    // Instrumentation clobbering the arithmetic flags.
+    MINSERT(bb, inst,
+            XINST_CREATE_add_s(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(1)));
+    MINSERT(bb, inst,
+            XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
+                               opnd_create_reg(reg2)));
+
+    if (drreg_unreserve_register(drcontext, bb, inst, reg1) != DRREG_SUCCESS ||
+        drreg_unreserve_register(drcontext, bb, inst, reg2) != DRREG_SUCCESS)
+        return false;
+#endif
+    return DR_EMIT_DEFAULT;
 }
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
+    drreg_options_t drreg_ops = { sizeof(drreg_ops), 1 /*max slots needed: aflags*/,
+                                  false };
     dr_set_client_name("DynamoRIO Sample Client 'statecmp'",
                        "http://dynamorio.org/issues");
     /* Make it easy to tell, by looking at log file, which client executed. */
@@ -53,11 +146,20 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     /* To enable state comparison checks by the drstatecmp library, a client simply needs
      * to initially invoke drstatecmp_init() and drstatecmp_exit() on exit.
      * The invocation of drstatecmp_init() registers callbacks that insert
-     * machine state comparison checks in the code. Assertions will trigger if
-     * there is any state mismatch indicating a instrumentation-induced clobbering.
-     * Invoking drstatecmp_exit() unregisters the drstatecmp's callbacks and frees up the
-     * allocated thread-local storage.
+     * machine state comparison checks in the code. An user-provided callback is
+     * invoked (or assertions triggered if no callback specified) when there is any state
+     * mismatch, indicating an instrumentation-induced clobbering. Invoking
+     * drstatecmp_exit() unregisters the drstatecmp's callbacks and frees up the allocated
+     * thread-local storage.
      */
-    drstatecmp_init();
+    drstatecmp_options_t drstatecmp_ops = { error_callback };
+    if (drstatecmp_init(&drstatecmp_ops) != DRSTATECMP_SUCCESS ||
+        drreg_init(&drreg_ops) != DRREG_SUCCESS)
+        DR_ASSERT(false);
+
+    if (!drmgr_register_bb_instrumentation_event(event_analysis, event_insert_instru,
+                                                 NULL))
+        DR_ASSERT(false);
+
     dr_register_exit_event(event_exit);
 }

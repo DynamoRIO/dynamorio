@@ -1492,7 +1492,7 @@ enable_tracing_instrumentation()
         !drmgr_register_kernel_xfer_event(event_kernel_xfer) ||
         !drmgr_register_bb_instrumentation_ex_event(
             event_bb_app2app, event_bb_analysis, event_app_instruction,
-            event_bb_instru2instru, NULL, &memtrace_pri))
+            event_bb_instru2instru, &memtrace_pri))
         DR_ASSERT(false);
     dr_register_filter_syscall_event(event_filter_syscall);
     dr_atomic_store32(&tracing_enabled, 1);
@@ -1898,7 +1898,7 @@ event_exit(void)
             !drmgr_unregister_kernel_xfer_event(event_kernel_xfer) ||
             !drmgr_unregister_bb_instrumentation_ex_event(
                 event_bb_app2app, event_bb_analysis, event_app_instruction,
-                event_bb_instru2instru, NULL))
+                event_bb_instru2instru))
             DR_ASSERT(false);
     } else {
         disable_delay_instrumentation();

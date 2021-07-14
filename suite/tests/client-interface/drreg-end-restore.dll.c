@@ -85,8 +85,8 @@ dr_init(client_id_t id)
     CHECK(res == DRREG_SUCCESS, "drreg init failed");
     dr_register_exit_event(event_exit);
 
-    ok = drmgr_register_bb_instrumentation_ex_event(
-        event_bb_app2app, event_bb_analysis, event_bb_insert, NULL, NULL, &priority);
+    ok = drmgr_register_bb_instrumentation_ex_event(event_bb_app2app, event_bb_analysis,
+                                                    event_bb_insert, NULL, &priority);
     CHECK(ok, "drmgr register bb failed");
 
     tls_idx = drmgr_register_tls_field();
@@ -99,7 +99,7 @@ event_exit(void)
     drmgr_unregister_tls_field(tls_idx);
 
     bool ok = drmgr_unregister_bb_instrumentation_ex_event(
-        event_bb_app2app, event_bb_analysis, event_bb_insert, NULL, NULL);
+        event_bb_app2app, event_bb_analysis, event_bb_insert, NULL);
     CHECK(ok, "drmgr unregister bb failed");
     CHECK(performed_check, "check was not performed");
     drreg_exit();

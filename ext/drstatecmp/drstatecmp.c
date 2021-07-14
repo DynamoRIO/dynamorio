@@ -29,7 +29,6 @@
  * DAMAGE.
  */
 
-#include "dr_defines.h"
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drstatecmp.h"
@@ -56,6 +55,8 @@ typedef struct {
     dr_mcontext_t saved_state_for_restore; /* Last saved machine state for restoration. */
     dr_mcontext_t saved_state_for_cmp;     /* Last saved machine state for comparison. */
 } drstatecmp_saved_states_t;
+
+static drstatecmp_options_t ops;
 
 static int tls_idx = -1; /* For thread local storage info. */
 
@@ -121,7 +122,6 @@ drstatecmp_may_have_side_effects_instr(instr_t *instr)
  * Save a pre-app2app copy of side-effect-free basic blocks.
  * It is assumed that this pass has the highest priority among all app2app passes
  * and thus it is able to capture the pre-app2app state.
- *
  */
 
 static dr_emit_flags_t
@@ -178,7 +178,7 @@ drstatecmp_analyze_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         if (drmgr_is_emulation_start(inst)) {
             emulated_instr_t emulated_inst;
             drmgr_get_emulated_instr_data(inst, &emulated_inst);
-            if (!(emulated_inst.flags & DR_EMULATE_INSTR_ONLY)) {
+            if (!TEST(DR_EMULATE_INSTR_ONLY, emulated_inst.flags)) {
                 /* Emulation sequence required for re-execution and golden bb copy should
                  * be the post-app2app copy.
                  */
@@ -251,7 +251,8 @@ drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_user_data_t
      */
 
     /* Get an instrumentation-free copy of the bb which is the golden copy kept
-     * in the user_data*/
+     * in the user_data.
+     */
     instrlist_t *copy_bb = data->golden_bb_copy;
 
     /* Create and insert the labels. */
@@ -266,7 +267,7 @@ drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_user_data_t
      */
     instr_t *term_inst_copy_bb = instrlist_last_app(copy_bb);
     bool preinsert = true;
-    if (!instr_is_cti(term_inst_copy_bb) && !instr_is_return(term_inst_copy_bb))
+    if (!instr_is_cti(term_inst_copy_bb))
         preinsert = false;
     labels->term = drstatecmp_insert_label(drcontext, copy_bb, term_inst_copy_bb,
                                            DRSTATECMP_LABEL_TERM, preinsert);
@@ -275,7 +276,7 @@ drstatecmp_duplicate_bb(void *drcontext, instrlist_t *bb, drstatecmp_user_data_t
      * bb fall through to its copy for re-execution.
      */
     instr_t *term_inst = instrlist_last_app(bb);
-    if (instr_is_cti(term_inst) || instr_is_return(term_inst)) {
+    if (instr_is_cti(term_inst)) {
         instrlist_remove(bb, term_inst);
         instr_destroy(drcontext, term_inst);
     }
@@ -310,7 +311,7 @@ static void
 drstatecmp_save_state(void *drcontext, instrlist_t *bb, instr_t *instr, bool for_cmp)
 {
     dr_insert_clean_call(drcontext, bb, instr, (void *)drstatecmp_save_state_call,
-                         false /*fpstate */, 1, OPND_CREATE_INT32((int)for_cmp));
+                         false /* fpstate */, 1, OPND_CREATE_INT32((int)for_cmp));
 }
 
 static void
@@ -330,20 +331,31 @@ static void
 drstatecmp_restore_state(void *drcontext, instrlist_t *bb, instr_t *instr)
 {
     dr_insert_clean_call(drcontext, bb, instr, (void *)drstatecmp_restore_state_call,
-                         false /*fpstate */, 0);
+                         false /* fpstate */, 0);
+}
+
+static void
+drstatecmp_report_error(const char *msg)
+{
+    if (ops.error_callback != NULL)
+        (*ops.error_callback)(msg);
+    else
+        DR_ASSERT_MSG(false, msg);
 }
 
 static void
 drstatecmp_check_gpr_value(const char *name, reg_t reg_value, reg_t reg_expected)
 {
-    DR_ASSERT_MSG(reg_value == reg_expected, name);
+    if (reg_value != reg_expected)
+        drstatecmp_report_error(name);
 }
 
 #ifdef AARCHXX
 static void
 drstatecmp_check_xflags_value(const char *name, uint reg_value, uint reg_expected)
 {
-    DR_ASSERT_MSG(reg_value == reg_expected, name);
+    if (reg_value != reg_expected)
+        drstatecmp_report_error(name);
 }
 #endif
 
@@ -352,12 +364,14 @@ drstatecmp_check_simd_value
 #ifdef X86
     (dr_zmm_t *value, dr_zmm_t *expected)
 {
-    DR_ASSERT_MSG(!memcmp(value, expected, sizeof(dr_zmm_t)), "SIMD mismatch");
+    if (memcmp(value, expected, sizeof(dr_zmm_t)))
+        drstatecmp_report_error("SIMD mismatch");
 }
 #elif defined(AARCHXX)
     (dr_simd_t *value, dr_simd_t *expected)
 {
-    DR_ASSERT_MSG(!memcmp(value, expected, sizeof(dr_simd_t)), "SIMD mismatch");
+    if (memcmp(value, expected, sizeof(dr_simd_t)))
+        drstatecmp_report_error("SIMD mismatch");
 }
 #endif
 
@@ -365,7 +379,8 @@ drstatecmp_check_simd_value
 static void
 drstatecmp_check_opmask_value(dr_opmask_t opmask_value, dr_opmask_t opmask_expected)
 {
-    DR_ASSERT_MSG(opmask_value == opmask_expected, "opmask mismatch");
+    if (opmask_value != opmask_expected)
+        drstatecmp_report_error("opmask mismatch");
 }
 #endif
 
@@ -465,7 +480,7 @@ static void
 drstatecmp_compare_state(void *drcontext, instrlist_t *bb, instr_t *instr)
 {
     dr_insert_clean_call(drcontext, bb, instr, (void *)drstatecmp_compare_state_call,
-                         false /*fpstate */, 0);
+                         false /* fpstate */, 0);
 }
 
 static void
@@ -490,7 +505,7 @@ drstatecmp_check_reexecution(void *drcontext, instrlist_t *bb,
     drstatecmp_compare_state(drcontext, bb, labels->term);
 }
 
-/* Duplicate the side-effect basic block for re-execution and add saving/restoring of
+/* Duplicate the side-effect-free basic block for re-execution and add saving/restoring of
  * machine state and state comparison to check for instrumentation-induced clobbering of
  * machine state.
  */
@@ -557,11 +572,13 @@ drstatecmp_thread_exit(void *drcontext)
 static int drstatecmp_init_count;
 
 drstatecmp_status_t
-drstatecmp_init(void)
+drstatecmp_init(drstatecmp_options_t *ops_in)
 {
     int count = dr_atomic_add32_return_sum(&drstatecmp_init_count, 1);
     if (count != 1)
         return DRSTATECMP_ERROR_ALREADY_INITIALIZED;
+
+    memcpy(&ops, ops_in, sizeof(drstatecmp_options_t));
 
     drmgr_priority_t priority = { sizeof(drmgr_priority_t),
                                   DRMGR_PRIORITY_NAME_DRSTATECMP, NULL, NULL,
@@ -577,7 +594,7 @@ drstatecmp_init(void)
 
     if (!drmgr_register_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_register_thread_exit_event(drstatecmp_thread_exit) ||
-        !drmgr_register_bb_instrumentation_ex_event(
+        !drmgr_register_bb_post_instru_ex_event(
             drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
             NULL, drstatecmp_post_instru_phase, &priority))
         return DRSTATECMP_ERROR;
@@ -595,7 +612,7 @@ drstatecmp_exit(void)
     if (!drmgr_unregister_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_unregister_thread_exit_event(drstatecmp_thread_exit) ||
         !drmgr_unregister_tls_field(tls_idx) ||
-        !drmgr_unregister_bb_instrumentation_ex_event(
+        !drmgr_unregister_bb_post_instru_ex_event(
             drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
             NULL, drstatecmp_post_instru_phase))
         return DRSTATECMP_ERROR;
