@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -800,6 +800,48 @@ drmgr_reserve_note_range(size_t size);
  */
 
 /**
+ * Flags describing different types of emulation markers.
+ */
+typedef enum {
+    /**
+     * Indicates that the entire rest of the basic block is one emulation sequence.
+     * There is no end marker, so drmgr_is_emulation_end() will never return true.
+     * No support is provided for traces: clients must examine the constituent
+     * blocks instead to find emulation information.
+     * This is used for emulation sequences that include a block-terminating
+     * conditional branch, indirect branch, or system call or interrupt, as DR
+     * does not allow a label to appear after such instructions.  These
+     * sequences typically want to isolate their emulation to include the entire
+     * block in any case.
+     */
+    DR_EMULATE_REST_OF_BLOCK = 0x0001,
+    /**
+     * When used with drmgr_in_emulation_region(), indicates that the current
+     * instruction is the first instruction of the emulation region.  This allows
+     * a client to act on the original instruction just once, despite multiple
+     * emulation instructions.
+     */
+    DR_EMULATE_IS_FIRST_INSTR = 0x0002,
+    /**
+     * Indicates that only the instruction fetch is being emulated differently.
+     * The operation of the instruction remains the same.
+     * Observational instrumentation should examine the original instruction
+     * (in #emulated_instr_t.instr) for instruction fetch purposes, but should
+     * examine the emulation sequence for data accesses (e.g., loads and stores for
+     * a memory address tracing tool).  If this flag is not set, instrumentation
+     * should instrument the original instruction in every way and ignore the
+     * emulation sequence.
+     *
+     * This flag is used for instruction refactorings that simplify instrumentation:
+     * e.g., drutil_expand_rep_string() and drx_expand_scatter_gather().  It is not
+     * used for true emulation of an instruction, for example, for replacing an
+     * instruction that is not supported by the current hardware with
+     * an alternative sequence of instructions.
+     */
+    DR_EMULATE_INSTR_ONLY = 0x0004,
+} dr_emulate_options_t;
+
+/**
  * Holds data about an emulated instruction, typically populated by an emulation
  * client and read by an observational client.
  *
@@ -811,6 +853,7 @@ typedef struct _emulated_instr_t {
     size_t size;    /**< Size of this struct, used for API compatibility checks. */
     app_pc pc;      /**< The PC address of the emulated instruction. */
     instr_t *instr; /**< The emulated instruction. See __Note__ above. */
+    dr_emulate_options_t flags; /**< Flags further describing the emulation. */
 } emulated_instr_t;
 
 /**
@@ -819,8 +862,9 @@ typedef struct _emulated_instr_t {
  * attached which describes the instruction being emulated.
  *
  * A label will also appear at the end of the sequence, added using
- * drmgr_insert_emulation_end(). These start and stop labels can be detected
- * by an observational client using drmgr_is_emulation_start() and
+ * drmgr_insert_emulation_end() (unless #DR_EMULATE_REST_OF_BLOCK is set). These start
+ * and stop labels can be detected by an observational client using
+ * drmgr_is_emulation_start() and
  * drmgr_is_emulation_end() allowing the client to distinguish between native
  * app instructions and instructions used for emulation.
  *
@@ -844,7 +888,9 @@ drmgr_insert_emulation_start(void *drcontext, instrlist_t *ilist, instr_t *where
 /**
  * Inserts a label into \p ilist prior to \p where to indicate the end of a
  * sequence of instructions emulating an instruction, preceded by a label created
- * with drmgr_insert_emulation_start().
+ * with drmgr_insert_emulation_start().  Alternatively, #DR_EMULATE_REST_OF_BLOCK
+ * can be used on the start label to include the entire block, with no need for
+ * an end label.
  */
 DR_EXPORT
 void
@@ -887,6 +933,72 @@ drmgr_is_emulation_end(instr_t *instr);
 DR_EXPORT
 bool
 drmgr_get_emulated_instr_data(instr_t *instr, OUT emulated_instr_t *emulated);
+
+/**
+ * Must be called during drmgr's insertion phase.  Returns whether the current
+ * instruction in the phase is inside an emulation region.  If it returns true,
+ * \p emulation_info is written with a pointer to information about the emulation.
+ * The pointed-at information's lifetime is the full range of the emulation region.
+ *
+ * This is a convenience routine that records the state for the
+ * drmgr_is_emulation_start() and drmgr_is_emulation_end() labels and the
+ * #DR_EMULATE_REST_OF_BLOCK flag to prevent the client having to store state.
+ *
+ * While this is exported, there is still complexity in analyzing the
+ * different flags, and we recommend that clients do not use this
+ * function directly but instead use the two routines
+ * drmgr_orig_app_instr_for_fetch() and
+ * drmgr_orig_app_instr_for_operands() (which internally use this function):
+ *
+ * dr_emit_flags_t
+ * event_insertion(void *drcontext, void *tag, instrlist_t *bb, instr_t *insert_instr,
+ *                 bool for_trace, bool translating, void *user_data) {
+ *     instr_t *instr_fetch = drmgr_orig_app_instr_for_fetch(drcontext);
+ *     if (instr_fetch != NULL)
+ *         record_instr_fetch(instr_fetch);
+ *     instr_t *instr_operands = drmgr_orig_app_instr_for_operands(drcontext);
+ *     if (instr_operands_valid != NULL)
+ *         record_data_addresses(instr_operands);
+ *     return DR_EMIT_DEFAULT;
+ * }
+ *
+ * \return false if the caller's \p emulated_instr_t is not compatible, true otherwise.
+ */
+DR_EXPORT
+bool
+drmgr_in_emulation_region(void *drcontext, OUT const emulated_instr_t **emulation_info);
+
+DR_EXPORT
+/**
+ * Must be called during drmgr's insertion phase.
+ *
+ * Returns the instruction to consider as the current application
+ * instruction for observational clients with respect to which
+ * instruction is executed, taking into account emulation.  This may be
+ * different from the current instruction list instruction passed to
+ * the insertion event.
+ *
+ * Returns NULL if observational clients should skip the current instruction
+ * list instruction.
+ */
+instr_t *
+drmgr_orig_app_instr_for_fetch(void *drcontext);
+
+DR_EXPORT
+/**
+ * Must be called during drmgr's insertion phase.
+ *
+ * Returns the instruction to consider as the current application
+ * instruction for observational clients with respect to the operands
+ * of the instruction, taking into account emulation.  This may be
+ * different from the current instruction list instruction passed to
+ * the insertion event.
+ *
+ * Returns NULL if observational clients should skip the current instruction
+ * list instruction.
+ */
+instr_t *
+drmgr_orig_app_instr_for_operands(void *drcontext);
 
 /***************************************************************************
  * UTILITIES

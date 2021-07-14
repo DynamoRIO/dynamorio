@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -138,15 +138,24 @@ online_instru_t::append_iflush(byte *buf_ptr, addr_t start, size_t size)
 }
 
 int
-online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
+                                      offline_file_type_t file_type)
 {
     byte *new_buf = buf_ptr;
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
 
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION);
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_FILETYPE, file_type);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                              proc_get_cache_line_size());
     return (int)(new_buf - buf_ptr);
+}
+
+int
+online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid)
+{
+    return append_thread_header(buf_ptr, tid, OFFLINE_FILE_TYPE_DEFAULT);
 }
 
 int
@@ -280,9 +289,8 @@ online_instru_t::instrument_memref(void *drcontext, instrlist_t *ilist, instr_t 
         // The 0 size indicates it's a non-icache entry.
         insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp,
                                   TRACE_TYPE_INSTR, 0, adjust);
-        insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp,
-                       // XXX: For repstr do we want tag insted of skipping rep prefix?
-                       instr_get_app_pc(app), adjust);
+        insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, instr_get_app_pc(app),
+                       adjust);
         adjust += sizeof(trace_entry_t);
     }
     insert_save_addr(drcontext, ilist, where, reg_ptr, reg_tmp, adjust, ref);
@@ -308,19 +316,15 @@ online_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
                                   int adjust, instr_t *app)
 {
     bool repstr_expanded = *bb_field != 0; // Avoid cl warning C4800.
-    app_pc pc = repstr_expanded ? dr_fragment_app_pc(tag) : instr_get_app_pc(app);
+
+    DR_ASSERT(instr_is_app(app));
+    app_pc pc = instr_get_app_pc(app);
     reg_id_t reg_tmp;
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
     DR_ASSERT(res == DRREG_SUCCESS); // Can't recover.
-    // To handle zero-iter repstr loops this routine is called at the top of the bb
-    // where "app" is jecxz so we have to hardcode the rep str type and get length
-    // from the tag.
-    ushort type = repstr_expanded ? TRACE_TYPE_INSTR_MAYBE_FETCH
-                                  : instr_to_instr_type(app, repstr_expanded);
-    ushort size = repstr_expanded
-        ? (ushort)decode_sizeof(drcontext, pc, NULL _IF_X86_64(NULL))
-        : (ushort)instr_length(drcontext, app);
+    ushort type = instr_to_instr_type(app, repstr_expanded);
+    ushort size = (ushort)instr_length(drcontext, app);
     insert_save_type_and_size(drcontext, ilist, where, reg_ptr, reg_tmp, type, size,
                               adjust);
     insert_save_pc(drcontext, ilist, where, reg_ptr, reg_tmp, pc, adjust);

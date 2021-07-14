@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,8 @@
 #ifndef _CACHING_DEVICE_H_
 #define _CACHING_DEVICE_H_ 1
 
+#include <functional>
+#include <unordered_map>
 #include <vector>
 
 #include "caching_device_block.h"
@@ -99,6 +101,20 @@ public:
     {
         return double(loaded_blocks_) / num_blocks_;
     }
+    // Must be called prior to any call to request().
+    virtual inline void
+    set_hashtable_use(bool use_hashtable)
+    {
+        if (!use_tag2block_table_ && use_hashtable) {
+            // Resizing from an initial small table causes noticeable overhead, so we
+            // start with a relatively large table.
+            tag2block.reserve(1 << 16);
+            // Even with the large initial size, for large caches we want to keep the
+            // load factor small.
+            tag2block.max_load_factor(0.5);
+        }
+        use_tag2block_table_ = use_hashtable;
+    }
 
 protected:
     virtual void
@@ -121,6 +137,33 @@ protected:
     {
         return *(blocks_[block_idx + way]);
     }
+
+    inline void
+    invalidate_caching_device_block(caching_device_block_t *block)
+    {
+        if (use_tag2block_table_)
+            tag2block.erase(block->tag_);
+        block->tag_ = TAG_INVALID;
+        // Xref cache_block_t constructor about why we set counter to 0.
+        block->counter_ = 0;
+    }
+
+    inline void
+    update_tag(caching_device_block_t *block, int way, addr_t new_tag)
+    {
+        if (use_tag2block_table_) {
+            if (block->tag_ != TAG_INVALID)
+                tag2block.erase(block->tag_);
+            tag2block[new_tag] = std::make_pair(block, way);
+        }
+        block->tag_ = new_tag;
+    }
+
+    // Returns the block (and its way) whose tag equals `tag`.
+    // Returns <nullptr,0> if there is no such block.
+    std::pair<caching_device_block_t *, int>
+    find_caching_device_block(addr_t tag);
+
     // a pure virtual function for subclasses to initialize their own block array
     virtual void
     init_blocks() = 0;
@@ -161,6 +204,16 @@ protected:
     addr_t last_tag_;
     int last_way_;
     int last_block_idx_;
+    // Optimization: keep a hashtable for quick lookup of {block,way}
+    // given a tag, if using a large cache hierarchy where serial
+    // walks over the associativity end up as bottlenecks.
+    // We can't easily remove the blocks_ array and replace with just
+    // the hashtable as replace_which_way(), etc. want quick access to
+    // every way for a given line index.
+    std::unordered_map<addr_t, std::pair<caching_device_block_t *, int>,
+                       std::function<unsigned long(addr_t)>>
+        tag2block;
+    bool use_tag2block_table_ = false;
 };
 
 #endif /* _CACHING_DEVICE_H_ */

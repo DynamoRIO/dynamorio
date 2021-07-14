@@ -5,12 +5,14 @@ Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*
-    Invalidations:                *[0-9,\.]*
+    Parent invalidations:         *[0-9,\.]*
+    Write invalidations:          *[0-9,\.]*
 .*    Miss rate:                        [0-9][,\.]..%
   L1D stats:
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*
-    Invalidations:                *[0-9,\.]*
+    Parent invalidations:         *[0-9,\.]*
+    Write invalidations:          *[0-9,\.]*
 .*   Miss rate:                        [0-9][,\.]..%
 L2 stats:
     Hits:                         *[0-9,\.]*
@@ -26,3 +28,4 @@ LLC stats:
 .*   Local miss rate:         *[0-9,\.]*%
     Child hits:                   *[0-9,\.]*
     Total miss rate:          *[0-9,\.]*%
+Coherence stats:.*

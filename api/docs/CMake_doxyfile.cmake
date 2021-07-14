@@ -107,6 +107,7 @@ set(top_order "${top_order} \"${gendox_dir}/tool_gendox.dox\"")
 set(top_order "${top_order} \"${srcdir}/intro.dox\"")
 set(top_order "${top_order} \"${srcdir}/help.dox\"")
 set(top_order "${top_order} \"${srcdir}/developers.dox\"")
+set(top_order "${top_order} \"${srcdir}/license.dox\"")
 
 # Executed inside build dir, so we leave genimages alone
 # and have to fix up refs to source dir and subdirs
@@ -156,20 +157,6 @@ if (embeddable)
   # Turn off the confusing search box.
   string(REGEX REPLACE "(SEARCHENGINE[ \t]*= )YES" "\\1 NO" string "${string}")
 endif ()
-
-# We no longer support VMSAFE.
-# Here's what we used to do:
-#   ifdef VMSAFE
-#   	$(SED) -i 's/\(PROJECT_NAME[ \t]*=\).*/\1 "VMsafe In-Process API"/' $@
-#   	$(SED) -i 's/\(ENABLED_SECTIONS[ \t]*=\)/\1 vmsafe/' $@
-#   	$(SED) -i 's/DynamoRIO=DynamoRIO/DynamoRIO=${VMSAFE_NAME}/' $@
-#   	$(SED) -i 's/client=client/client=${VMSAFE_CLIENT}/' $@
-#   	$(SED) -i 's/clients=clients/clients=${VMSAFE_CLIENT}s/' $@
-#   	$(SED) -i 's/Client=Client/Client=${VMSAFE_CLIENT}/' $@
-#   	$(SED) -i 's/Clients=Clients/Clients=${VMSAFE_CLIENT}s/' $@
-#   else
-#   	$(SED) -i 's/\(ENABLED_SECTIONS[ \t]*=\)/\1 linux/' $@
-#   endif
 
 file(WRITE ${outfile} "${string}")
 

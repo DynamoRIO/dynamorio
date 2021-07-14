@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,10 +39,10 @@
 /* clang-format off */
 
 /* When adding new opcodes here, run tools/x86opnums.pl (with the -arm option) on
- * this file and update opcode.h using the resulting output.
+ * this file and update opcode_api.h using the resulting output.
  * Also run tools/arm_table_chain.pl to update the
  * encoding chains in the tables.
- * See the list of other places to edit when adding new opcodes in opcode.h.
+ * See the list of other places to edit when adding new opcodes in opcode_api.h.
  *
  * DO NOT MANUALLY EDIT THE ENCODING CHAINS, INCLUDING THE STARTING POINTS
  * STORED IN THIS ARRAY!  Use tools/arm_table_chain.pl instead.

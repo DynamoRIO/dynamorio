@@ -737,6 +737,7 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                                     "opnd_create_base_disp_aarch64: invalid index");
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
+    opnd.value.base_disp.pre_index = false;
     opnd_set_disp_helper(&opnd, disp);
     opnd.aux.flags = flags;
     if (!opnd_set_index_extend(&opnd, extend_type, scaled))

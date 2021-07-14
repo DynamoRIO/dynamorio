@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -127,14 +127,16 @@ instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc,
 }
 
 byte *
-instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
+instr_encode_to_copy(void *drcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return instr_encode_arch(dcontext, instr, copy_pc, final_pc, true,
                              NULL _IF_DEBUG(true));
 }
 
 byte *
-instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
+instr_encode(void *drcontext, instr_t *instr, byte *pc)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return instr_encode_to_copy(dcontext, instr, pc, pc);
 }

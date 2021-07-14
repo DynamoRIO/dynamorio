@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2018 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -117,7 +117,13 @@ typedef struct _drreg_options_t {
      * requested from DR via dr_raw_tls_calloc().  Any slots needed beyond
      * this number will use DR's base slots, which are not allowed to be
      * used across application instructions.  DR's slots are also more
-     * expensive to access (beyond the first few).
+     * expensive to access (beyond the first few).  DR's base slots may
+     * also be used by APIs like dr_save_reg()/dr_restore_reg() (and the
+     * corresponding dr_read_saved_reg()/dr_write_saved_reg()), which may
+     * cause correctness issues if there's some slot usage conflict within
+     * the same client or with other clients/libraries.  Therefore, all
+     * cooperating client components should use drreg.  Also, clients
+     * should make sure to request sufficient dedicated slots from drreg.
      * This number should be computed as one plus the number of
      * simultaneously used general-purpose register spill slots, as
      * drreg reserves one of the requested slots for arithmetic flag
@@ -222,6 +228,9 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -274,6 +283,9 @@ DR_EXPORT
  * If called during drmgr's insertion phase, \p where must be the
  * current application instruction.
  *
+ * TODO i#3823: Support multi-phase use. This will require adding support
+ * to spill aflags to slots other than AFLAGS_SLOT.
+ *
  * @return whether successful or an error code on failure.
  */
 drreg_status_t
@@ -324,6 +336,19 @@ typedef enum {
      * to be handled by the user manually, usually via drreg_restore_all().
      */
     DRREG_USER_RESTORES_AT_BB_END = 0x004,
+
+    /**
+     * Turns on stricter logic to find free register spill slots. This avoids
+     * conflicts with slots used to spill some register value in prior instrumentation
+     * passes. An example usage is in drx_expand_scatter_gather() which is used in
+     * the app2app pass and requires spilling of registers to slots that may
+     * conflict with slots used during later instrumentation passes. Using this
+     * option also makes spill slots used in prior phases less available in
+     * future phases; the current logic skips over a slot if there's a usage
+     * found anywhere later in the bb added by any previous phase. So it requires
+     * additional spill slots as well.
+     */
+    DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS = 0x008,
 } drreg_bb_properties_t;
 
 DR_EXPORT
@@ -463,6 +488,11 @@ DR_EXPORT
  * whether instructions were inserted at \p where_restore and \p where_respill,
  * respectively.
  *
+ * For correct operation on x86 in the case when aflags are in xax and this routine
+ * is invoked to get app value of xax, there shouldn't be any new reservation between
+ * \p where_restore and \p where_respill that may write to a spill slot and clobber
+ * the temporary slot used in this routine.
+ *
  * The results from drreg_reservation_info_ex() can be used to predict the behavior
  * of this routine.  A restore is needed if !drreg_reserve_info_t.holds_app_value.
  * and drreg_reserve_info_t.app_value_retained.  A respill is needed if a restore is
@@ -488,7 +518,8 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
 DR_EXPORT
 /**
  * Returns information about the TLS slot assigned to \p reg, which
- * must be a currently-reserved register.
+ * must be a currently-reserved register. To query information about
+ * the arithmetic flags, pass #DR_REG_NULL for \p reg.
  *
  * If \p opnd is non-NULL, returns an opnd_t in \p opnd that references
  * the TLS slot assigned to \p reg.  If too many slots are in use and

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,7 +35,7 @@
 #include "decode.h"
 #include "decode_private.h"
 #include "decode_fast.h" /* ensure we export decode_next_pc, decode_sizeof */
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "disassemble.h"
 
 /* ARM decoder.
@@ -1789,15 +1789,16 @@ instr_it_block_compute_immediates(dr_pred_type_t pred0, dr_pred_type_t pred1,
 }
 
 instr_t *
-instr_it_block_create(dcontext_t *dcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
+instr_it_block_create(void *drcontext, dr_pred_type_t pred0, dr_pred_type_t pred1,
                       dr_pred_type_t pred2, dr_pred_type_t pred3)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte firstcond = 0, mask = 0;
     if (!instr_it_block_compute_immediates(pred0, pred1, pred2, pred3, &firstcond,
                                            &mask)) {
         CLIENT_ASSERT(false, "invalid predicates");
     }
-    /* I did not want to include the massive instr_create.h here */
+    /* I did not want to include the massive instr_create_api.h here */
     return INSTR_CREATE_it(dcontext, OPND_CREATE_INT(firstcond), OPND_CREATE_INT(mask));
 }
 
@@ -2393,9 +2394,9 @@ decode_eflags_to_instr_eflags(decode_info_t *di, const instr_info_t *info)
 }
 
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
-                    dr_opnd_query_flags_t flags)
+decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     const instr_info_t *info;
     decode_info_t di;
     uint eflags;
@@ -2528,32 +2529,36 @@ decode_invalid:
 }
 
 byte *
-decode(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode(void *drcontext, byte *pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, pc, pc, instr);
 }
 
 byte *
-decode_from_copy(dcontext_t *dcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
+decode_from_copy(void *drcontext, byte *copy_pc, byte *orig_pc, instr_t *instr)
 {
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode_common(dcontext, copy_pc, orig_pc, instr);
 }
 
 byte *
-decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
+decode_cti(void *drcontext, byte *pc, instr_t *instr)
 {
     /* XXX i#1551: build a fast decoder for branches -- though it may not make
      * sense for 32-bit where many instrs can write to the pc.
      */
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     return decode(dcontext, pc, instr);
 }
 
 byte *
-decode_next_pc(dcontext_t *dcontext, byte *pc)
+decode_next_pc(void *drcontext, byte *pc)
 {
     /* XXX: check for invalid opcodes, though maybe it's fine to never do so
      * (xref i#1685).
      */
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     dr_isa_mode_t isa_mode;
     byte *read_pc = pc;
     if (TEST(0x1, (ptr_uint_t)pc)) {
@@ -2573,11 +2578,12 @@ decode_next_pc(dcontext_t *dcontext, byte *pc)
 }
 
 int
-decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes)
+decode_sizeof(void *drcontext, byte *pc, int *num_prefixes)
 {
     /* XXX: check for invalid opcodes, though maybe it's fine to never do so
      * (xref i#1685).
      */
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
     byte *next_pc = decode_next_pc(dcontext, pc);
     return next_pc - pc;
 }
@@ -3049,7 +3055,7 @@ decode_debug_checks_arch(void)
 
 #ifdef DECODE_UNIT_TEST
 /* FIXME i#1551: add unit tests here.  How divide vs suite/tests/api/ tests? */
-#    include "instr_create.h"
+#    include "instr_create_shared.h"
 
 int
 main()

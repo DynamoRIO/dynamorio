@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1932,7 +1932,7 @@ fcache_increase_size(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     size_t new_size = unit->size;
     size_t commit_size;
     /* i#696: Incompatible with clients that use labels-as-values. */
-    IF_CLIENT_INTERFACE(ASSERT(!dr_bb_hook_exists() && !dr_trace_hook_exists()));
+    ASSERT(!dr_bb_hook_exists() && !dr_trace_hook_exists());
     /* we shouldn't come here if we have reservation room */
     ASSERT(unit->reserved_end_pc == unit->end_pc);
     if (new_size * 4 <= cache->max_quadrupled_unit_size)
@@ -2559,8 +2559,8 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
          * i#696: Don't try to resize fcache units when clients are present.
          * They may use labels to insert absolute fragment PCs.
          */
-        if (unit->size >= cache->max_unit_size IF_CLIENT_INTERFACE(
-                              || dr_bb_hook_exists() || dr_trace_hook_exists())) {
+        if (unit->size >= cache->max_unit_size || dr_bb_hook_exists() ||
+            dr_trace_hook_exists()) {
             fcache_unit_t *newunit;
             size_t newsize;
             ASSERT(!USE_FIFO_FOR_CACHE(cache) || cache->fifo != NULL ||

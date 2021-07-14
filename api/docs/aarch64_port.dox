@@ -136,7 +136,7 @@ specifying the zero register as the destination. A typical assembler
 accepts both of these forms, generating the same instruction,
 typically disassembled as CMP. However, DynamoRIO's AArch64 IR ignores
 aliases, so there is no OP_cmp. However, for convenience there are (or
-should be) macros in aarch64/instr_create.h corresponding to the
+should be) macros in aarch64/instr_create_api.h corresponding to the
 standard aliases.
 
 There is no DR_REG_PC for AArch64. Literal loads and instructions that

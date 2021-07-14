@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,22 +44,16 @@ flexibility but complicates transparency.  To achieve transparency,
 DynamoRIO cannot make any assumptions about a program's stack usage, heap
 usage, or any of its dependencies on the instruction set architecture or
 operating system.  DynamoRIO's transparency restrictions necessarily apply
-to a client as\if vmsafe well (though they are lessened when using the Probe API in
-lightweight mode).\else well.\endif
+to a client as well.
 
 Contents:
 - \ref sec_trans_resource
 - \ref sec_trans_unmod
 - \ref sec_trans_pretend
 - \ref sec_trans_alertable
-\if vmsafe
-- \ref sec_trans_probe
-\endif
 
 We first describe each of the three transparency categories for DynamoRIO
-and their ramifications for clients using the code cache.  \if vmsafe
-Finally, we discuss transparency issues for the Probe API, which has
-fewer limitations. \endif
+and their ramifications for clients using the code cache.
 
 ***************************************************************************
 \section sec_trans_resource Resource Usage Conflicts
@@ -320,20 +314,6 @@ issues noted above.
 
 On Windows, DynamoRIO does not support a client making alertable system
 calls.  See \ref sec_alertable for more information.
-
-\if vmsafe
-***************************************************************************
-\section sec_trans_probe Transparency of Probe API Clients
-
-For the Probe API, any particular probe routine is interrupting the
-application at a single, known point.  If the client is certain that this
-is a safe point for invoking shared resources or performing other actions
-that are risky when attempted at arbitrary points, then they may be
-invoked.  However, be warned that it can be difficult to be certain that
-library routines are safe, as they may themselves acquire locks or call
-other routines that are not safe.
-
-\endif
 
 ***************************************************************************
 ****************************************************************************

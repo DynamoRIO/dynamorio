@@ -78,6 +78,8 @@ jobs:
         # To find available versions, add the following as a step above:
         #  - run: ls -l /Applications
         DEVELOPER_DIR: /Applications/Xcode_11.3.1.app/Contents/Developer
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

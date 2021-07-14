@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,30 +55,48 @@ extern "C" {
 /* opnd_t (instruction operand) routines */
 #include "dr_ir_opnd.h"
 
+/* Application module (library) information. */
+#include "dr_modules.h"
+
+/* Operating-system-specific queries. */
+#include "dr_os_utils.h"
+
 /* High-level routines: memory allocation, mutex support, file
  * support, printing, thread support, adaptive optimization,
- * custom traces, processor-specific utilities, trace dumping,
- * and module information.
+ * custom traces, processor-specific utilities, trace dumping.
  */
 #include "dr_tools.h"
 
 /* Utility routines for identifying features of the processor. */
 #include "dr_proc.h"
 
-/* Instruction convenience & decode/disassemble routines */
+/* Encoding routines. */
+#include "dr_ir_encode.h"
+
+/* instr_t routines */
+#include "dr_ir_instr.h"
+#include "dr_ir_instr_inline.h"
+
+/* Decoding routines. */
+#include "dr_ir_decode.h"
+
+/* Disassembly routines. */
+#include "dr_ir_disassemble.h"
+
+/* Instrumentation support */
 #include "dr_ir_utils.h"
 
 /* instrlist_t routines */
 #include "dr_ir_instrlist.h"
-
-/* instr_t routines */
-#include "dr_ir_instr.h"
 
 /* opcode OP_ constants and opcode-only routines */
 #include "dr_ir_opcodes.h"
 
 /* CREATE_INSTR_ macros */
 #include "dr_ir_macros.h"
+
+/* Binary trace dump format. */
+#include "dr_tracedump.h"
 
 /* Annotation handler registration routines */
 #include "dr_annotation.h"

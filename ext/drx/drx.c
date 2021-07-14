@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,6 +67,12 @@
 #define YMM_REG_SIZE 32
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
+#ifdef WINDOWS
+#    define IF_WINDOWS_ELSE(x, y) (x)
+#else
+#    define IF_WINDOWS_ELSE(x, y) (y)
+#endif
+
 #ifdef X86
 /* TODO i#2985: add ARM SIMD. */
 #    define PLATFORM_SUPPORTS_SCATTER_GATHER
@@ -85,10 +91,9 @@ enum {
     DRX_NOTE_AFLAGS_RESTORE_END,
     DRX_NOTE_COUNT,
 };
+
 static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
-
-static bool expand_scatter_gather_drreg_initialized;
 
 static bool soft_kills_enabled;
 
@@ -113,6 +118,9 @@ void
 drx_buf_exit_library(void);
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+
+static int drx_scatter_gather_expanded;
+
 static bool
 drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info);
@@ -129,13 +137,21 @@ bool
 drx_init(void)
 {
     /* drx_insert_counter_update() needs 1 slot on x86 plus the 1 slot
-       drreg uses for aflags, and 2 reg slots on aarch, so 2 on both.
-     * We set do_not_sum_slots to true so that we only ask for *more* slots
-     * if the client doesn't ask for any. Another drreg_init() call is made
-     * in case drx_expand_scatter_gather() is called. More slots are reserved
-     * in that case.
+     * drreg uses for aflags, and 2 reg slots on aarch, so 2 on both.
+     * drx_expand_scatter_gather() needs 4 slots in app2app phase, which
+     * cannot be reused by other phases. So, ideally we should reserve
+     * 6 slots for drx. But we settle with 4 to avoid stealing too many
+     * slots from other clients/libs. When drx needs more for instrumenting
+     * scatter/gather instrs, we fall back on DR slots. As scatter/gather
+     * instrs are spilt into their own bbs, this effect will be limited.
+     * On Windows however we reserve even fewer slots, as they are
+     * shared with the application and reserving even one slot can result
+     * in failure to initialize for certain applications (e.g. i#1163).
+     * On Linux, we set do_not_sum_slots to false so that we get at least
+     * as many slots for drx use.
      */
-    drreg_options_t ops = { sizeof(ops), 2, false, NULL, true };
+    drreg_options_t ops = { sizeof(ops), IF_WINDOWS_ELSE(2, 4), false, NULL,
+                            IF_WINDOWS_ELSE(true, false) };
 
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
     drmgr_priority_t fault_priority = { sizeof(fault_priority),
@@ -171,13 +187,13 @@ drx_exit()
     if (count != 0)
         return;
 
-    if (soft_kills_enabled)
+    if (soft_kills_enabled) {
         soft_kills_exit();
+        soft_kills_enabled = false;
+    }
 
     drx_buf_exit_library();
     drreg_exit();
-    if (expand_scatter_gather_drreg_initialized)
-        drreg_exit();
     drmgr_exit();
 }
 
@@ -459,7 +475,7 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION) {
         use_drreg = true;
         if (drmgr_current_bb_phase(drcontext) == DRMGR_PHASE_INSERTION &&
-            slot != SPILL_SLOT_MAX + 1) {
+            (slot != SPILL_SLOT_MAX + 1 IF_NOT_X86(|| slot2 != SPILL_SLOT_MAX + 1))) {
             ASSERT(false, "with drmgr, SPILL_SLOT_MAX+1 must be passed");
             return false;
         }
@@ -2293,6 +2309,14 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         return true;
     if (!instr_is_gather(first_app) && !instr_is_scatter(first_app))
         return true;
+
+    /* We want to avoid spill slot conflicts with later instrumentation passes. */
+    drreg_status_t res_bb_props =
+        drreg_set_bb_properties(drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS);
+    DR_ASSERT(res_bb_props == DRREG_SUCCESS);
+
+    dr_atomic_store32(&drx_scatter_gather_expanded, 1);
+
     instr_t *sg_instr = first_app;
     scatter_gather_info_t sg_info;
     bool res = false;
@@ -2306,20 +2330,6 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         return false;
     }
 #    endif
-    /* The expansion potentially needs more slots than the drx default. We need up to 2
-     * slots on x86 plus the 1 slot drreg uses for aflags. We set do_not_sum_slots here
-     * to false.
-     */
-    if (!expand_scatter_gather_drreg_initialized) {
-        /* We're requesting 3 slots for 3 gprs plus 3 additional ones because they are
-         * used cross-app. The additional slots are needed if drreg needs to move the
-         * values as documented in drreg.
-         */
-        drreg_options_t ops = { sizeof(ops), 3 + 3, false, NULL, true };
-        if (drreg_init(&ops) != DRREG_SUCCESS)
-            return false;
-        expand_scatter_gather_drreg_initialized = true;
-    }
     uint no_of_elements = opnd_size_in_bytes(sg_info.scatter_gather_size) /
         MAX(opnd_size_in_bytes(sg_info.scalar_index_size),
             opnd_size_in_bytes(sg_info.scalar_value_size));
@@ -2356,6 +2366,8 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     emulated_instr.size = sizeof(emulated_instr);
     emulated_instr.pc = instr_get_app_pc(sg_instr);
     emulated_instr.instr = sg_instr;
+    /* Tools should instrument the data operations in the sequence. */
+    emulated_instr.flags = DR_EMULATE_INSTR_ONLY;
     drmgr_insert_emulation_start(drcontext, bb, sg_instr, &emulated_instr);
 
     if (sg_info.is_evex) {
@@ -2528,9 +2540,10 @@ drx_expand_scatter_gather_exit:
  * in between recognized states. This is an approximation and could be broken in many
  * ways, e.g. by a client adding more than DRX_RESTORE_EVENT_SKIP_UNKNOWN_INSTR_MAX
  * number of instructions as instrumentation, or by altering the emulation sequence's
- * code. A more safe way to do this would be along the lines of xref i#3801: if we had
- * instruction lists available, we could see and pass down emulation labels instead of
- * guessing the sequence based on decoding the code cache.
+ * code.
+ * TODO i#5005: A more safe way to do this would be along the lines of xref i#3801: if
+ * we had instruction lists available, we could see and pass down emulation labels
+ * instead of guessing the sequence based on decoding the code cache.
  *
  * AVX-512 gather sequence detection example:
  *
@@ -3203,8 +3216,7 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
             if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
                 opnd_t src0 = instr_get_src(&params->inst, 0);
                 if (opnd_is_reg(src0)) {
-                    reg_id_t tmp_gpr = opnd_get_reg(src0);
-                    if (reg_is_gpr(tmp_gpr) &&
+                    if (reg_is_gpr(opnd_get_reg(src0)) &&
                         params->restore_scratch_mask_start_pc <=
                             params->info->raw_mcontext->pc &&
                         params->info->raw_mcontext->pc <= params->prev_pc) {
@@ -3225,6 +3237,8 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                          */
                         return true;
                     }
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0,
+                                  params);
                 }
             }
         }
@@ -3516,7 +3530,7 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     bool success = true;
     if (info->fragment_info.cache_start_pc == NULL)
         return true; /* fault not in cache */
-    if (!expand_scatter_gather_drreg_initialized) {
+    if (dr_atomic_load32(&drx_scatter_gather_expanded) == 0) {
         /* Nothing to do if nobody had never called expand_scatter_gather() before. */
         return true;
     }
@@ -3530,8 +3544,8 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
     byte *pc = decode(drcontext, dr_fragment_app_pc(info->fragment_info.tag), &inst);
     if (pc != NULL) {
         scatter_gather_info_t sg_info;
-        get_scatter_gather_info(&inst, &sg_info);
         if (instr_is_gather(&inst)) {
+            get_scatter_gather_info(&inst, &sg_info);
             if (sg_info.is_evex) {
                 success = success &&
                     drx_restore_state_for_avx512_gather(drcontext, info, &sg_info);
@@ -3540,6 +3554,7 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
                     drx_restore_state_for_avx2_gather(drcontext, info, &sg_info);
             }
         } else if (instr_is_scatter(&inst)) {
+            get_scatter_gather_info(&inst, &sg_info);
             success = success &&
                 drx_restore_state_for_avx512_scatter(drcontext, info, &sg_info);
         }

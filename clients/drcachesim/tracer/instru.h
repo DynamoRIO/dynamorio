@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -263,6 +263,8 @@ public:
     get_cpu_id();
     static uint64
     get_timestamp();
+    static int
+    count_app_instrs(instrlist_t *ilist);
     virtual void
     insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
@@ -312,6 +314,8 @@ public:
     append_iflush(byte *buf_ptr, addr_t start, size_t size) override;
     int
     append_thread_header(byte *buf_ptr, thread_id_t tid) override;
+    virtual int
+    append_thread_header(byte *buf_ptr, thread_id_t tid, offline_file_type_t file_type);
     int
     append_unit_header(byte *buf_ptr, thread_id_t tid) override;
 
@@ -363,7 +367,7 @@ public:
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
     uint64_t
-    get_modoffs(void *drcontext, app_pc pc);
+    get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx);
 
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;

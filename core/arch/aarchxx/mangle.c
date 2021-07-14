@@ -33,7 +33,7 @@
 
 #include "../globals.h"
 #include "arch.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrument.h" /* instrlist_meta_preinsert */
 #include "../clean_call_opt.h"
 #include "disassemble.h"
@@ -1201,11 +1201,34 @@ mangle_reinstate_it_blocks(dcontext_t *dcontext, instrlist_t *ilist, instr_t *st
 
 #endif /* !AARCH64 */
 
+/* This is *not* a hot-patchable patch: i.e., it is subject to races. */
 void
 patch_mov_immed_arch(dcontext_t *dcontext, ptr_int_t val, byte *pc, instr_t *first,
                      instr_t *last)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1551, i#1569 */
+#ifdef AARCH64
+    uint *write_pc = (uint *)vmcode_get_writable_addr(pc);
+    ASSERT(first != NULL && last != NULL);
+    /* We expect OP_movz followed by up to 3 OP_movk. */
+    ASSERT(instr_get_opcode(first) == OP_movz && opnd_is_reg(instr_get_dst(first, 0)));
+    reg_id_t dst_reg = opnd_get_reg(instr_get_dst(first, 0));
+    int instr_count = 1;
+    for (instr_t *inst = instr_get_next(first); inst != NULL;
+         inst = instr_get_next(inst)) {
+        ++instr_count;
+        ASSERT(instr_get_opcode(inst) == OP_movk && opnd_is_reg(instr_get_dst(inst, 0)));
+        if (inst == last)
+            break;
+    }
+    uint *end_pc = insert_mov_imm(write_pc, dst_reg, val);
+    ASSERT(end_pc - write_pc <= instr_count);
+    while (end_pc - write_pc < instr_count) {
+        *end_pc = RAW_NOP_INST;
+        ++end_pc;
+    }
+#else
+    ASSERT_NOT_IMPLEMENTED(false); /* TODO i#1551: NYI */
+#endif
 }
 
 /* Used for fault translation */
@@ -1545,7 +1568,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         opnd_set_size(&memop, OPSZ_VAR_REGLIST);
         instr_set_src(instr, 0, memop);
         instr_set_dst(instr, 0, opnd_create_reg(IBL_TARGET_REG));
-#    ifdef CLIENT_INTERFACE
         /* We target only the typical return instructions: multi-pop here */
         if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldmia) {
             bool writeback = instr_num_srcs(instr) > 1;
@@ -1560,7 +1582,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      XINST_CREATE_store(dcontext, memop, opnd_create_reg(dr_reg_stolen)));
             } /* else not a pop */
         }
-#    endif
     } else if (opc == OP_bx || opc == OP_bxj) {
         ASSERT(opnd_is_reg(instr_get_target(instr)));
         if (opnd_same(instr_get_target(instr), opnd_create_reg(dr_reg_stolen))) {
@@ -1682,7 +1703,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             mangle_stolen_reg(dcontext, ilist, instr, immed_next, remove_instr);
         }
-#    ifdef CLIENT_INTERFACE
         /* We target only the typical return instructions: single pop here */
         if (TEST(INSTR_CLOBBER_RETADDR, instr->flags) && opc == OP_ldr) {
             bool writeback = instr_num_srcs(instr) > 1;
@@ -1694,7 +1714,6 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                      XINST_CREATE_store(dcontext, memop, opnd_create_reg(dr_reg_stolen)));
             } /* else not a pop */
         }
-#    endif
     }
     if (instr_is_predicated(instr)) {
         mangle_add_predicated_fall_through(dcontext, ilist, instr, next_instr,
@@ -2038,7 +2057,6 @@ restore_tls_base_to_stolen_reg(dcontext_t *dcontext, instrlist_t *ilist, instr_t
                           opnd_create_reg(reg)));
 }
 
-/* XXX: merge with or refactor out old STEAL_REGISTER x86 code? */
 /* Mangle simple dr_reg_stolen access.
  * dr_reg_stolen in gpr_list is handled in mangle_gpr_list_{read/write}.
  *

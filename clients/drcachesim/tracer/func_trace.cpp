@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -261,6 +261,9 @@ instru_funcs_module_load(void *drcontext, const module_data_t *mod, bool loaded)
             if (!hashtable_add(&pc2idplus1, (void *)f_pc, (void *)(ptr_int_t)(id + 1)))
                 DR_ASSERT(false && "Failed to maintain pc2idplus1 internal hashtable");
         }
+        // With the lock restrictions for calling drwrap_wrap_ex(), we can't hold a
+        // a lock across this entire callback.  We release our lock during our
+        // drwrap_wrap_ex() call.
         dr_mutex_unlock(funcs_wrapped_lock);
         if (existing_id != 0) {
             continue;
@@ -529,7 +532,8 @@ func_trace_exit()
     if (!drmgr_unregister_module_load_event(instru_funcs_module_load) ||
         !drmgr_unregister_module_unload_event(instru_funcs_module_unload) ||
         !drmgr_unregister_thread_init_event(event_thread_init) ||
-        !drmgr_unregister_thread_exit_event(event_thread_exit))
+        !drmgr_unregister_thread_exit_event(event_thread_exit) ||
+        !drmgr_unregister_tls_field(tls_idx))
         DR_ASSERT(false);
     if (!op_record_dynsym_only.get_value()) {
         if (drsym_exit() != DRSYM_SUCCESS)

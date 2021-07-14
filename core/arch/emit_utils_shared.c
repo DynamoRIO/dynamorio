@@ -51,7 +51,7 @@
 
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "instrlist.h"
 #include "instrument.h" /* for dr_insert_call() */
 #include "proc.h"
@@ -77,14 +77,6 @@
 #ifdef TRACE_HEAD_CACHE_INCR
 /* linkstub_t field */
 #    define LINKSTUB_TARGET_FRAG_OFFS (offsetof(direct_linkstub_t, target_fragment))
-#endif
-
-/* N.B.: I decided to not keep supporting DCONTEXT_IN_EDI
- * If we really want it later we can add it, it's a pain to keep
- * maintaining it with every change here
- */
-#ifdef DCONTEXT_IN_EDI
-#    error DCONTEXT_IN_EDI Not Implemented
 #endif
 
 /* make code more readable by shortening long lines
@@ -1305,11 +1297,9 @@ fragment_prefix_size(uint flags)
     if (use_ibt_prefix(flags)) {
         return fragment_ibt_prefix_size(flags);
     } else {
-#ifdef CLIENT_INTERFACE
         if (dynamo_options.bb_prefixes)
             return FRAGMENT_BASE_PREFIX_SIZE(flags);
         else
-#endif
             return 0;
     }
 }
@@ -1600,7 +1590,6 @@ void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool absolute,
                    reg_id_t reg_dr, reg_id_t reg_scratch, bool to_priv)
 {
-#    ifdef CLIENT_INTERFACE
     /* We assume PEB is globally constant and we don't need per-thread pointers
      * and can use use absolute pointers known at init time
      */
@@ -1621,7 +1610,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                                          PEB_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
     }
-#    endif
     /* See the comment at the definition of SWAP_TEB_STACKLIMIT() for full
      * discussion of which stack fields we swap.
      */
@@ -1692,7 +1680,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                    opnd_create_reg(reg_scratch)));
         }
     }
-#    ifdef CLIENT_INTERFACE
     if (should_swap_teb_nonstack_fields()) {
         /* Preserve app's TEB->LastErrorValue.  We used to do this separately b/c
          * DR at one point long ago made some win32 API calls: now we only have to
@@ -1798,7 +1785,6 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next, bool
                                                          STATIC_TLS_TIB_OFFSET, OPSZ_PTR),
                                opnd_create_reg(reg_scratch)));
     }
-#    endif /* CLIENT_INTERFACE */
 }
 #endif /* WINDOWS */
 
@@ -2544,7 +2530,7 @@ append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
  *  # save last_exit, currently in eax, into dcontext->last_exit
  *  SAVE_TO_DCONTEXT %xax,last_exit_OFFSET
  *
- *  .ifdef WINDOWS && CLIENT_INTERFACE
+ *  .ifdef WINDOWS
  *    swap_peb
  *  .endif
  *
@@ -3613,7 +3599,6 @@ insert_restore_target_from_dc(dcontext_t *dcontext, instrlist_t *ilist, bool all
             instr_create_restore_from_dcontext(dcontext, SCRATCH_REG2,
                                                SCRATCH_REG4_OFFS));
     }
-#    ifdef CLIENT_INTERFACE
     /* i#537: we push KiFastSystemCallRet on to the stack and adjust the
      * next code to be executed at KiFastSystemCallRet.
      */
@@ -3625,7 +3610,6 @@ insert_restore_target_from_dc(dcontext_t *dcontext, instrlist_t *ilist, bool all
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(SCRATCH_REG2),
                                  OPND_CREATE_INT32(KiFastSystemCallRet_address)));
     }
-#    endif /* CLIENT_INTERFACE */
 }
 
 /* All system call instructions turn into a jump to an exit stub that
@@ -5494,10 +5478,12 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     reg_id_t stub_reg = IF_AARCH64_ELSE(SCRATCH_REG0, SCRATCH_REG1);
     ushort stub_slot = IF_AARCH64_ELSE(TLS_REG0_SLOT, TLS_REG1_SLOT);
     IF_X86(size_t len;)
-    byte *ibl_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
+    byte *ibl_linked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
+    byte *ibl_unlinked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_UNLINKED, ibl_type);
     bool absolute = !code->thread_shared;
 
-    ASSERT(ibl_tgt != NULL);
+    ASSERT(ibl_linked_tgt != NULL);
+    ASSERT(ibl_unlinked_tgt != NULL);
     instrlist_init(&ilist);
     init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_FS);
 
@@ -5534,6 +5520,70 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
         in = instrlist_first(custom_ilist);
     }
 
+#ifdef UNIX
+    /* i#4670: Jump to the unlinked IBL target if there are pending signals. This is
+     * required to bound delivery time for signals received while executing fragments
+     * that use the special ibl xfer trampoline, which uses a different (un)linking
+     * mechanism.
+     * XXX i#4804: This special unlinking strategy incurs overhead in the fast path
+     * (when linked) too. It can be avoided using a cleaner solution that links/unlinks
+     * just like any other fragment.
+     */
+    instr_t *skip_unlinked_tgt_jump = INSTR_CREATE_label(dcontext);
+    insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
+#    ifdef X86
+    /* Reuse DR_REG_XDI which contains dcontext currently. */
+    APP(&ilist,
+        XINST_CREATE_load_1byte_zext4(
+            dcontext, opnd_create_reg(DR_REG_EDI),
+            OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+    APP(&ilist,
+        INSTR_CREATE_xchg(dcontext, opnd_create_reg(DR_REG_XDI),
+                          opnd_create_reg(DR_REG_XCX)));
+    APP(&ilist, INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_unlinked_tgt_jump)));
+    APP(&ilist,
+        INSTR_CREATE_xchg(dcontext, opnd_create_reg(DR_REG_XDI),
+                          opnd_create_reg(DR_REG_XCX)));
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+    APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_unlinked_tgt)));
+#    elif defined(AARCHXX)
+    /* Reuse SCRATCH_REG5 which contains dcontext currently. */
+    APP(&ilist,
+        INSTR_CREATE_ldrsb(dcontext, opnd_create_reg(SCRATCH_REG5),
+                           OPND_DC_FIELD(false, dcontext, OPSZ_1, SIGPENDING_OFFSET)));
+    APP(&ilist,
+        INSTR_CREATE_cbz(dcontext, opnd_create_instr(skip_unlinked_tgt_jump),
+                         opnd_create_reg(SCRATCH_REG5)));
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+#        if defined(AARCH64)
+    APP(&ilist,
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(SCRATCH_REG1),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
+    APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
+#        else  /* ARM */
+    /* i#4670: The unlinking case is observed to hit very infrequently on x86.
+     * The fix has been tested on AArch64 but not on ARM yet.
+     */
+    ASSERT_NOT_TESTED();
+    /* i#1906: loads to PC must use word-aligned addresses */
+    ASSERT(
+        ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt), PC_LOAD_ADDR_ALIGN));
+    APP(&ilist,
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(DR_REG_PC),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_unlinked_tgt))));
+#        endif /* AARCH64/ARM */
+#    endif     /* X86/AARCHXX */
+    APP(&ilist, skip_unlinked_tgt_jump);
+#    ifdef X86
+    APP(&ilist,
+        INSTR_CREATE_xchg(dcontext, opnd_create_reg(DR_REG_XDI),
+                          opnd_create_reg(DR_REG_XCX)));
+#    endif /* X86 */
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+#endif /* UNIX */
+
 #ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode))
         instrlist_convert_to_x86(&ilist);
@@ -5562,18 +5612,20 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
          */
         APP(&ilist, nop_inst);
     }
-    APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_tgt)));
+    APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_linked_tgt)));
 #elif defined(AARCH64)
     APP(&ilist,
-        INSTR_CREATE_ldr(dcontext, opnd_create_reg(SCRATCH_REG1),
-                         OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_tgt))));
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(SCRATCH_REG1),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
     APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
 #elif defined(ARM)
     /* i#1906: loads to PC must use word-aligned addresses */
-    ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_tgt), PC_LOAD_ADDR_ALIGN));
+    ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt), PC_LOAD_ADDR_ALIGN));
     APP(&ilist,
-        INSTR_CREATE_ldr(dcontext, opnd_create_reg(DR_REG_PC),
-                         OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_tgt))));
+        INSTR_CREATE_ldr(
+            dcontext, opnd_create_reg(DR_REG_PC),
+            OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
 #endif
     add_patch_marker(&patch, instrlist_last(&ilist), PATCH_UINT_SIZED /* pc relative */,
                      0 /* point at opcode */,
@@ -5582,7 +5634,6 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     /* now encode the instructions */
     pc += encode_with_patch_list(dcontext, &patch, &ilist, pc);
     ASSERT(pc != NULL);
-
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
 
@@ -5592,8 +5643,7 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
 void
 link_special_ibl_xfer(dcontext_t *dcontext)
 {
-    IF_CLIENT_INTERFACE(
-        relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_LINKED, IBL_RETURN);)
+    relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_LINKED, IBL_RETURN);
 #ifdef UNIX
     if (DYNAMO_OPTION(native_exec_opt)) {
         relink_special_ibl_xfer(dcontext, NATIVE_PLT_IBL_IDX, IBL_LINKED, IBL_INDCALL);
@@ -5605,8 +5655,7 @@ link_special_ibl_xfer(dcontext_t *dcontext)
 void
 unlink_special_ibl_xfer(dcontext_t *dcontext)
 {
-    IF_CLIENT_INTERFACE(
-        relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_UNLINKED, IBL_RETURN);)
+    relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX, IBL_UNLINKED, IBL_RETURN);
 #ifdef UNIX
     if (DYNAMO_OPTION(native_exec_opt)) {
         relink_special_ibl_xfer(dcontext, NATIVE_PLT_IBL_IDX, IBL_UNLINKED, IBL_INDCALL);
@@ -5615,7 +5664,6 @@ unlink_special_ibl_xfer(dcontext_t *dcontext)
 #endif
 }
 
-#ifdef CLIENT_INTERFACE
 /* i#849: low-overhead xfer for clients */
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
@@ -5625,8 +5673,6 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
         dcontext, pc, code, CLIENT_IBL_IDX, IBL_RETURN, NULL,
         reg_spill_slot_opnd(dcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT));
 }
-
-#endif /* CLIENT_INTERFACE */
 
 /* i#171: out-of-line clean call */
 /* XXX: i#1149 the clean call context switch should be shared among all threads */

@@ -66,9 +66,6 @@ jobs:
 
     # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
-      # We need the apt-get update to avoid stale version 404 errors.
-      # (We assume this is limited to ubuntu-20.04 and save 30s on other
-      # jobs by not running update there.)
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
@@ -79,6 +76,8 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
@@ -122,9 +121,6 @@ jobs:
 
     # Install cross-compiler for cross-compiling Linux build:
     - name: Create Build Environment
-      # We need the apt-get update to avoid stale version 404 errors.
-      # (We assume this is limited to ubuntu-20.04 and save 30s on other
-      # jobs by not running update there.)
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
@@ -135,6 +131,8 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci 32_only
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
@@ -178,6 +176,7 @@ jobs:
     # Fetch and install Android NDK for Andoid cross-compile build.
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
@@ -195,6 +194,8 @@ jobs:
       env:
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
       run: ./suite/runsuite_wrapper.pl automated_ci
 
     - name: Send failure mail to dynamorio-devs
@@ -238,6 +239,7 @@ jobs:
 
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
 
     - name: Run Suite
@@ -245,6 +247,8 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci
       env:
         DYNAMORIO_A64_ON_X86_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'

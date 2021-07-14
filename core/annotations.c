@@ -33,7 +33,7 @@
 #include "globals.h"
 #include "hashtable.h"
 #include "instr.h"
-#include "instr_create.h"
+#include "instr_create_shared.h"
 #include "decode_fast.h"
 #include "utils.h"
 #include "annotations.h"
@@ -757,12 +757,9 @@ handle_vg_annotation(app_pc request_args)
     }
 
     /* Put the result in %xdx where the target app expects to find it. */
-#        ifdef CLIENT_INTERFACE
     if (dcontext->client_data->mcontext_in_dcontext) {
         get_mcontext(dcontext)->xdx = result;
-    } else
-#        endif
-    {
+    } else {
         priv_mcontext_t *state = get_priv_mcontext_from_dstack(dcontext);
         state->xdx = result;
     }

@@ -1,0 +1,178 @@
+#ifdef __AVX512F__
+AVX-512 gather ok
+AVX-512 gather ok
+#ifdef X64
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 gather ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+AVX-512 scatter ok
+#endif
+AVX-512 scatter ok
+AVX-512 scatter ok
+#endif
+#ifdef __AVX__
+#ifdef X64
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+#endif
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+AVX2 gather ok
+#endif
+#ifdef UNIX
+#ifdef __AVX512F__
+Test restoring the AVX-512 gather scratch mask register upon a fault
+Test restoring the AVX-512 scatter scratch mask register upon a fault
+Test restoring the AVX-512 gather mask register upon translation events
+Test restoring the AVX-512 scatter mask register upon translation events
+Test updating the AVX-512 gather mask register upon translation events
+Test updating the AVX-512 scatter mask register upon translation events
+#endif
+Test updating the AVX2 gather mask register upon translation events
+#endif
+AVX2/AVX-512 scatter/gather checks ok
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+     .* total \(fetched\) instructions
+     .* total unique \(fetched\) instructions
+     .* total non-fetched instructions
+     .* total prefetches
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
+           1 total threads
+     .* total scheduling markers
+     .* total transfer markers
+     .* total function id markers
+     .* total function return address markers
+     .* total function argument markers
+     .* total function return value markers
+     .* total other markers
+Thread .* counts:
+     .* \(fetched\) instructions
+     .* unique \(fetched\) instructions
+     .* non-fetched instructions
+     .* prefetches
+     .* data loads
+     .* data stores
+     .* icache flushes
+     .* dcache flushes
+     .* scheduling markers
+     .* transfer markers
+     .* function id markers
+     .* function return address markers
+     .* function argument markers
+     .* function return value markers
+     .* other markers

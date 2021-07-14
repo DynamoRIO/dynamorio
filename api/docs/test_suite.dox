@@ -69,6 +69,10 @@ If the CI on master turns red, the tree is "closed": meaning that there should b
 
 Our CI setups provide "trybot" functionality for nearly every platform via pull request testing.  To test a change on platforms you don't have locally, or test whether your change will pass the CI, you can create a pull request.  The CI will then automatically run the test suite on your change.
 
+## Debugging Tests on Github Actions Runner
+
+Test failures that happen only on Github Actions and are not reproducible locally can be hard to debug. Fortunately, there's a way to SSH into a Github Actions runner to debug the test. This can be done using `tmate`: https://github.com/marketplace/actions/debugging-with-tmate. Follow instructions on the page to make a temporary change to the Github Actions workflow config in your branch, and use the link output by `tmate` to ssh into the runner. You can install `gdb` if needed on the runner. `tmate` also allows web shell access; note that you may need to press `q` one time if the web page doesn't show anything.
+
 # Regression Test Suite
 
 The black box test suite for DynamoRIO resides in the suite/ directory.
@@ -180,26 +184,7 @@ We also have support for running tests under QEMU emulation.  This is automatica
 $ sudo apt-get install qemu-user qemu-user-binfmt
 ```
 
-To manually run under QEMU, use the `-xarch_root` option:
-
-```
-$ qemu-arm -L /usr/arm-linux-gnueabihf bin32/drrun -xarch_root /usr/arm-linux-gnueabihf -- suite/tests/bin/simple_app
-```
-
-If using a custom build of QEMU, be sure to update the binfmt rule to ensure the proper build is used across execve: QEMU does *not* ensure that the same build is preserved and instead relies on the global binfmt rule.  On an Ubuntu system, edit `/usr/share/binfmts/qemu-arm` and replace the `interpreter` path.  Then run:
-```
-$ sudo update-binfmts --import /usr/share/binfmts/qemu-arm
-```
-
-Confirm the change took effect:
-```
-$ update-binfmts --find bin32/drrun
-```
-
-On Fedora, edit `/usr/lib/binfmt.d/qemu-arm-dynamic.conf` and then run:
-```
-$ sudo systemctl restart systemd-binfmt.service
-```
+For instructions on how to manually run under QEMU, see \ref qemu_deploy.
 
 ## Test Output
 

@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -49,10 +49,6 @@
 #    error ARM/AArch64-only
 #endif
 
-#ifndef CLIENT_INTERFACE
-#    error CLIENT_INTERFACE build only for TLS mangling on ARM/AArch64
-#endif
-
 byte **
 get_dr_tls_base_addr(void)
 {
@@ -69,7 +65,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     /* XXX: Keep whether we change the thread register consistent with
      * os_should_swap_state() and os_switch_seg_to_context() code.
      */
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+    if (INTERNAL_OPTION(private_loader)) {
         LOG(GLOBAL, LOG_THREADS, 2, "tls_thread_init: cur priv lib tls base is " PFX "\n",
             os_tls->os_seg_info.priv_lib_tls_base);
         write_thread_register(os_tls->os_seg_info.priv_lib_tls_base);

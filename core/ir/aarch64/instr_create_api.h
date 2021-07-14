@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc. All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
@@ -32,14 +32,8 @@
  * DAMAGE.
  */
 
-#ifndef INSTR_CREATE_H
-#define INSTR_CREATE_H 1
-
-#include "../instr_create_shared.h"
-#include "instr.h"
-
-/* DR_API EXPORT TOFILE dr_ir_macros_aarch64.h */
-/* DR_API EXPORT BEGIN */
+#ifndef DR_IR_MACROS_AARCH64_H
+#define DR_IR_MACROS_AARCH64_H 1
 
 /**
  * Used in an additional immediate source operand to a vector operation, denotes
@@ -1699,6 +1693,157 @@ enum {
 #define INSTR_CREATE_bif_vector(dc, Rd, Rm, Rn) \
     instr_create_1dst_2src(dc, OP_bif, Rd, Rm, Rn)
 
+/**
+ * Creates an FCVTAS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input vector register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtas_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtas, Rd, Rm, width)
+
+/**
+ * Creates an FCVTNS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtns_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtns, Rd, Rm, width)
+
+/**
+ * Creates an FCVTPS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtps_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtps, Rd, Rm, width)
+
+/**
+ * Creates an FCVTPU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtpu_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtpu, Rd, Rm, width)
+
+/**
+ * Creates an FCVTZS vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtzs_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtzs, Rd, Rm, width)
+
+/**
+ * Creates an FCVTZU vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_fcvtzu_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, width)
+
+/**
+ * Creates an FCVTZU vector floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input register.
+ * \param width   The vector element width. Use either OPND_CREATE_SINGLE() or
+ *                OPND_CREATE_DOUBLE().
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination element.
+ */
+#define INSTR_CREATE_fcvtzu_vector_fixed(dc, Rd, Rm, width, fbits) \
+    instr_create_1dst_3src(dc, OP_fcvtzu, Rd, Rm, width, fbits)
+
+/**
+ * Creates a UCVTF vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_ucvtf_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_ucvtf, Rd, Rm, width)
+
+/**
+ * Creates a UCVTF vector floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input register.
+ * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
+ *                #OPND_CREATE_DOUBLE().
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination element.
+ */
+#define INSTR_CREATE_ucvtf_vector_fixed(dc, Rd, Rm, width, fbits) \
+    instr_create_1dst_3src(dc, OP_ucvtf, Rd, Rm, width, fbits)
+
+/**
+ * Creates an SCVTF vector instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The first input register.
+ * \param width   Immediate int of the vector element width. Must be #OPND_CREATE_SINGLE()
+ * or #OPND_CREATE_DOUBLE().
+ */
+#define INSTR_CREATE_scvtf_vector(dc, Rd, Rm, width) \
+    instr_create_1dst_2src(dc, OP_scvtf, Rd, Rm, width)
+
+/**
+ * Creates an SCVTF vector floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rm      The input register.
+ * \param width   The vector element width. Must be #OPND_CREATE_SINGLE() or
+ *                #OPND_CREATE_DOUBLE().
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination element.
+ */
+#define INSTR_CREATE_scvtf_vector_fixed(dc, Rd, Rm, width, fbits) \
+    instr_create_1dst_3src(dc, OP_scvtf, Rd, Rm, width, fbits)
+
+/* -------- Memory Touching instructions ------------------------------- */
+
+/**
+ * Creates an LDR immediate instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt      The output register.
+ * \param Xn      The input register or stack pointer
+ * \param Rn      The input memory disposition.
+ * \param imm     Immediate int of the input register offset
+ */
+#define INSTR_CREATE_ldr_imm(dc, Rt, Xn, Rn, imm) \
+    instr_create_2dst_3src(dc, OP_ldr, Rt, Xn, Rn, Xn, imm)
+
+/**
+ * Creates a STR immediate instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rt      The output memory disposition.
+ * \param Xt      The input register or stack pointer.
+ * \param Xn      The output register
+ * \param imm     Immediate int of the output register offset
+ */
+#define INSTR_CREATE_str_imm(dc, Rt, Xt, Xn, imm) \
+    instr_create_2dst_3src(dc, OP_str, Rt, Xn, Xt, Xn, imm)
+
 /* -------- Floating-point data-processing (1 source) ------------------ */
 
 /**
@@ -1734,12 +1879,126 @@ enum {
 #define INSTR_CREATE_fsqrt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fsqrt, Rd, Rm)
 
 /**
- * Creates a FCVT floating point instruction.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
- * \param Rd      The output register.
- * \param Rm      The first input register.
+ * Creates an FCVT floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
  */
 #define INSTR_CREATE_fcvt_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_fcvt, Rd, Rm)
+
+/**
+ * Creates an FCVTAS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtas_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtas, Rd, Rm)
+
+/**
+ * Creates an FCVTNS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtns_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtns, Rd, Rm)
+
+/**
+ * Creates an FCVTPS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtps_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtps, Rd, Rm)
+
+/**
+ * Creates an FCVTPU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtpu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtpu, Rd, Rm)
+
+/**
+ * Creates an FCVTZS floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtzs_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtzs, Rd, Rm)
+
+/**
+ * Creates an FCVTZS scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination.
+ */
+#define INSTR_CREATE_fcvtzs_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_fcvtzs, Rd, Rm, fbits)
+
+/**
+ * Creates an FCVTZU floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ */
+#define INSTR_CREATE_fcvtzu_scalar(dc, Rd, Rm) \
+    instr_create_1dst_1src(dc, OP_fcvtzu, Rd, Rm)
+
+/**
+ * Creates an FCVTZU scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point or integer output register.
+ * \param Rm      Floating-point input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                destination.
+ */
+#define INSTR_CREATE_fcvtzu_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_fcvtzu, Rd, Rm, fbits)
+
+/**
+ * Creates a UCVTF floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ */
+#define INSTR_CREATE_ucvtf_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_ucvtf, Rd, Rm)
+
+/**
+ * Creates a UCVTF scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                input.
+ */
+#define INSTR_CREATE_ucvtf_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_ucvtf, Rd, Rm, fbits)
+
+/**
+ * Creates an SCVTF floating point instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ */
+#define INSTR_CREATE_scvtf_scalar(dc, Rd, Rm) instr_create_1dst_1src(dc, OP_scvtf, Rd, Rm)
+
+/**
+ * Creates an SCVTF scalar floating-point to fixed-point convert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      Floating-point output register.
+ * \param Rm      Integer input register.
+ * \param fbits   The number of bits after the binary point in the fixed-point
+ *                input.
+ */
+#define INSTR_CREATE_scvtf_scalar_fixed(dc, Rd, Rm, fbits) \
+    instr_create_1dst_2src(dc, OP_scvtf, Rd, Rm, fbits)
 
 /**
  * Creates a FRINTN floating point instruction.
@@ -1803,6 +2062,29 @@ enum {
  */
 #define INSTR_CREATE_frinti_scalar(dc, Rd, Rm) \
     instr_create_1dst_1src(dc, OP_frinti, Rd, Rm)
+
+/**
+ * Creates a LDPSW floating point instruction.
+ * \param dc    The void * dcontext used to allocate memory for the instr_t.
+ * \param Xt1   The first GPR output register.
+ * \param Xt2   The second GPR output register.
+ * \param Xn    The input Stack-pointer or GPR register.
+ * \param Xr    The disposition of the input Stack-pointer or GPR register.
+ * \param imm   The immediate integer offset.
+ */
+
+#define INSTR_CREATE_ldpsw(dc, Xt1, Xt2, Xn, Xr, imm) \
+    instr_create_3dst_3src(dc, OP_ldpsw, Xt1, Xt2, Xn, Xr, Xn, imm)
+
+/**
+ * Creates a LDPSW floating point instruction.
+ * \param dc    dc
+ * \param Xt1   The first GPR output register.
+ * \param Xt2   The second GPR output register.
+ * \param Xn    The disposition of the input register.
+ */
+#define INSTR_CREATE_ldpsw_2(dc, Xt1, Xt2, Xn) \
+    instr_create_2dst_1src(dc, OP_ldpsw, Xt1, Xt2, Xn)
 
 /* -------- Floating-point data-processing (2 source) ------------------ */
 
@@ -1944,6 +2226,252 @@ enum {
 
 /* Advanced SIMD (NEON) memory instructions */
 
+#define INSTR_CREATE_ld2_multi(dc, Vt1, Vt2, Xn, index) \
+    instr_create_2dst_2src(dc, OP_ld2, Vt1, Vt2, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2 instruction to load multiple 2-element
+ * structures to two vector registers with post-indexing, e.g. LD2 {V0.4H, V1.4H}, [X0],
+ * #32. \param dc      The void * dcontext used to allocate memory for the instr_t. \param
+ * Vt1     The destination vector register operand. \param Vt2     The second destination
+ * vector register operand. \param Xn      The stack-pointer or GPR to load into Vt1 and
+ * Vt2. \param disp    The disposition of Xn. \param index   The element index of the
+ * vectors. \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld2_multi_2(dc, Vt1, Vt2, Xn, disp, index, offset) \
+    instr_create_3dst_4src(dc, OP_ld2, Vt1, Vt2, Xn, disp, index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2 instruction to load a 2-element
+ * structure to the index of two vector registers, e.g. LD2 {V0.4H, V1.4H}[5], [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1 and Vt2.
+ * \param index   The vector element index.
+ */
+#define INSTR_CREATE_ld2(dc, Vt1, Vt2, Xn, index) \
+    instr_create_2dst_2src(dc, OP_ld2, Vt1, Vt2, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2 instruction to load a 2-element
+ * structure to the index of two vector registers with post-indexing,
+ * e.g. LD2 {V0.4H, V1.4H}[5], [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into Vt and Vt2.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the destination vectors.
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld2_2(dc, Vt1, Vt2, Xn, Xnd, index, offset) \
+    instr_create_3dst_6src(dc, OP_ld2, Vt1, Vt2, Xn, Vt1, Vt2, Xnd, index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2R instruction to load and replicate a
+ * single 2-element structure to all lanes of two vector registers,
+ * e.g. LD2R {V0.4H, V1.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1 and Vt2.
+ */
+#define INSTR_CREATE_ld2r(dc, Vt1, Vt2, Xn) \
+    instr_create_2dst_1src(dc, OP_ld2r, Vt1, Vt2, Xn)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD2R instruction to load and replicate a
+ * single 2-element structure to all lanes of two vector registers with post-indexing
+ * , e.g. LD2R {V0.4H, V1.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt and Vt2.
+ * \param Xnd     Disposition of Xn.
+ * \param Xm      The post-index offset.
+ */
+#define INSTR_CREATE_ld2r_2(dc, Vt1, Vt2, Xn, Xnd, Xm) \
+    instr_create_3dst_3src(dc, OP_ld2r, Vt1, Vt2, Xn, Xnd, Xn, Xm)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load multiple 3-element
+ * structures from memory to three vector register,
+ * e.g. LD3 {V0.4H, V1.4H, V2.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1, Vt2 and Vt3.
+ * \param index   The index of the vectors.
+ */
+#define INSTR_CREATE_ld3_multi(dc, Vt1, Vt2, Vt3, Xn, index) \
+    instr_create_3dst_2src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load multiple 3-element
+ * structures from memory to the index of three vector registers with
+ * post-index offset, e.g. LD3 {V0.4H, V1.4H, V2.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into Vt1, Vt2 and Vt3.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the vectors.
+ * \param Xm      The post-index offset.
+ */
+#define INSTR_CREATE_ld3_multi_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, index, Xm) \
+    instr_create_4dst_4src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, Xnd, index, Xn, Xm)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load a single 3-element
+ * structure to the index of three vector registers, e.g. LD3 {V0.4H, V1.4H, V2.4H}[15],
+ * [X0]. \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The GPR to load into Vt1, Vt2 and Vt3.
+ * \param index   The index of the vectors.
+ */
+#define INSTR_CREATE_ld3(dc, Vt1, Vt2, Vt3, Xn, index) \
+    instr_create_3dst_2src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load a single 3-element
+ * structure to the index of three vector registers with post-index offset,
+ * e.g. LD3 {V0.4H, V1.4H, V2.4H}[15], [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Xn      The register to load into Vt, Vt2 and Vt3.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the vectors.
+ * \param offset  The immediate or GPR post-index offset.
+ */
+#define INSTR_CREATE_ld3_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, index, offset)                    \
+    instr_create_4dst_7src(dc, OP_ld3, Vt1, Vt2, Vt3, Xn, Vt1, Vt2, Vt3, Xnd, index, Xn, \
+                           offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load and replicate a single
+ * 3-element structure to the index of three vector registers, e.g. LD3 {V0.4H, V1.4H,
+ * V2.4H}[15], [X0]. \param dc      The void * dcontext used to allocate memory for the
+ * instr_t. \param Vt1     The first destination vector register operand. \param Vt2 The
+ * second destination vector register operand. \param Vt3     The third destination vector
+ * register operand. \param Xn      The stack-pointer or GPR to load into Vt1, Vt2 and
+ * Vt3.
+ */
+#define INSTR_CREATE_ld3r(dc, Vt1, Vt2, Vt3, Xn) \
+    instr_create_3dst_1src(dc, OP_ld3r, Vt1, Vt2, Vt3, Xn)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD3 instruction to load and replicate a single
+ * 3-element structure to the index of three vector registers with post-index offset, e.g.
+ * LD3 {V0.4H, V1.4H, V2.4H}[15], [X0], X1. \param dc      The void * dcontext used to
+ * allocate memory for the instr_t. \param Vt1     The first destination vector register
+ * operand. \param Vt2     The second destination vector register operand. \param Vt3 The
+ * third destination vector register operand. \param Xn      The stack-pointer or GPR to
+ * load into Vt1, Vt2 and Vt3. \param Xnd     The disposition of Xn. \param offset  The
+ * immediate or GPR post-index offset
+ */
+#define INSTR_CREATE_ld3r_2(dc, Vt1, Vt2, Vt3, Xn, Xnd, offset) \
+    instr_create_4dst_3src(dc, OP_ld3r, Vt1, Vt2, Vt3, Xn, Xnd, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load single or multiple 4-element
+ * structures to four vector registers, e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into the destination vectors.
+ * \param index   The immediate or GPR post-index offset.
+ */
+#define INSTR_CREATE_ld4_multi(dc, Vt1, Vt2, Vt3, Vt4, Xn, index) \
+    instr_create_4dst_2src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load multiple 4-element
+ * structures to four vector registers with post-index,
+ * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into the destination vectors
+ * \param Xnd     The disposition of Xn
+ * \param index   The index of the vectors.
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld4_multi_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, offset) \
+    instr_create_5dst_4src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load single or multiple 4-element
+ * structures to four vector registers, e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into the destination vectors.
+ * \param index   The immediate or GPR post-index offset.
+ */
+#define INSTR_CREATE_ld4(dc, Vt1, Vt2, Vt3, Vt4, Xn, index) \
+    instr_create_4dst_2src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, index)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4 instruction to load a single 4-element
+ * structures to four vector registers with post-index,
+ * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into the destination vectors.
+ * \param Xnd     The disposition of Xn.
+ * \param index   The index of the vectors
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld4_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, index, offset)              \
+    instr_create_5dst_8src(dc, OP_ld4, Vt1, Vt2, Vt3, Vt4, Xn, Vt1, Vt2, Vt3, Vt4, Xnd, \
+                           index, Xn, offset)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4R instruction to load
+ * and replicate a single 4-element structure to four vector registers,
+ * e.g. LD4R {V0.4H, V1.4H, V2.4H, V3.4H}, [X0].
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or GPR to load into the destination vectors.
+ */
+#define INSTR_CREATE_ld4r(dc, Vt1, Vt2, Vt3, Vt4, Xn) \
+    instr_create_4dst_1src(dc, OP_ld4r, Vt1, Vt2, Vt3, Vt4, Xn)
+
+/**
+ * Creates an Advanced SIMD (NEON) LD4R instruction to load and
+ * replicate a single 4-element structure to four vector registers with post-indexing,
+ * e.g. LD4 {V0.4H, V1.4H, V2.4H, V3.4H}, [X0], X1.
+ * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param Vt1     The first destination vector register operand.
+ * \param Vt2     The second destination vector register operand.
+ * \param Vt3     The third destination vector register operand.
+ * \param Vt4     The fourth destination vector register operand.
+ * \param Xn      The stack-pointer or register to load into the destination vectors.
+ * \param Xnd     The disposition of Xn.
+ * \param offset  The post-index offset.
+ */
+#define INSTR_CREATE_ld4r_2(dc, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, offset) \
+    instr_create_5dst_3src(dc, OP_ld4r, Vt1, Vt2, Vt3, Vt4, Xn, Xnd, Xn, offset)
+
 /**
  * Creates an Advanced SIMD (NEON) LD1 instruction to load multiple
  * single element structures to one vector register, e.g. LD1 {V0.4H},[X0].
@@ -1963,12 +2491,6 @@ enum {
  * \param s       The size of the vector element.
  */
 #define INSTR_CREATE_st1_multi_1(dc, r, q, s) instr_create_1dst_2src(dc, OP_st1, r, q, s)
-
-/* TODO i#2626: Remaining advanced SIMD (NEON) memory instructions:
- * #define INSTR_CREATE_ld2/3/4_multi_2/3/4()
- * #define INSTR_CREATE_ld1/2/3/4_single()
- * and st1 equivalents including post-index variants.
- */
 
 /* -------- SVE bitwise logical operations (predicated) ---------------- */
 
@@ -2669,5 +3191,4 @@ enum {
  */
 #define INSTR_CREATE_fmov_scalar_imm(dc, Rd, f) instr_create_1dst_1src(dc, OP_fmov, Rd, f)
 
-/* DR_API EXPORT END */
-#endif /* INSTR_CREATE_H */
+#endif /* DR_IR_MACROS_AARCH64_H */

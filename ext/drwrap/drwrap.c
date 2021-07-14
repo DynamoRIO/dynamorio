@@ -1004,10 +1004,17 @@ drwrap_exit(void)
         !drmgr_unregister_tls_field(tls_idx))
         ASSERT(false, "failed to unregister in drwrap_exit");
 
-    for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
-        postcall_cache[i] = NULL;
+    if (dr_is_detaching()) {
+        memset(&drwrap_stats, 0, sizeof(drwrap_stats_t));
+        for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
+            postcall_cache[i] = NULL;
+        }
+        postcall_cache_idx = 0;
+#ifdef WINDOWS
+        sysnum_NtContinue = -1;
+#endif
+        disabled_count = 0;
     }
-    postcall_cache_idx = 0;
 
     hashtable_delete(&replace_table);
     hashtable_delete(&replace_native_table);

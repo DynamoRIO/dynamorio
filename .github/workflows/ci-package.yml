@@ -72,8 +72,15 @@ jobs:
     # Install multilib for non-cross-compiling Linux build:
     - name: Create Build Environment
       run: |
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+        sudo apt update
+        sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           g++-multilib
+
+    # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
+    - name: Setup newer cmake
+      uses: jwlawson/actions-setup-cmake@v1.8
+      with:
+        cmake-version: '3.19.7'
 
     - name: Get Version
       id: version
@@ -103,6 +110,8 @@ jobs:
         # packages built on newer Ubuntu on GA CI.
         DEPLOY_DOCS: no
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
@@ -152,6 +161,7 @@ jobs:
     # Install cross-compilers for cross-compiling Linux build:
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
 
@@ -176,6 +186,8 @@ jobs:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload AArch64
       uses: actions/upload-artifact@v2
@@ -225,6 +237,7 @@ jobs:
     # Install cross-compilers for cross-compiling Linux build:
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
 
@@ -249,6 +262,8 @@ jobs:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: yes
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload ARM
       uses: actions/upload-artifact@v2
@@ -298,6 +313,7 @@ jobs:
     # Fetch and install Android NDK for Andoid cross-compile build.
     - name: Create Build Environment
       run: |
+        sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
         cd /tmp
         wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
@@ -333,6 +349,8 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         DYNAMORIO_CROSS_ANDROID_ONLY: yes
         DYNAMORIO_ANDROID_TOOLCHAIN: /tmp/android-gcc-arm-ndk-10e
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
@@ -420,6 +438,8 @@ jobs:
       env:
         CI_TARGET: package
         VERSION_NUMBER: ${{ steps.version.outputs.version_number }}
+        CI_TRIGGER: ${{ github.event_name }}
+        CI_BRANCH: ${{ github.ref }}
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2

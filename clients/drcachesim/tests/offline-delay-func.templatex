@@ -1,0 +1,20 @@
+Hello, world!
+Basic counts tool results:
+Total counts:
+           0 total \(fetched\) instructions
+           0 total unique \(fetched\) instructions
+           0 total non-fetched instructions
+           0 total prefetches
+           0 total data loads
+           0 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+           2 total scheduling markers
+           0 total transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           3 total other markers
+.*

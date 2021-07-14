@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,56 +40,7 @@
 #ifndef DECODE_FAST_H
 #define DECODE_FAST_H
 
-/* DR_API EXPORT TOFILE dr_ir_utils.h */
-DR_API
-/**
- * Decodes only enough of the instruction at address \p pc to determine its size.
- * Returns that size.
- * If \p num_prefixes is non-NULL, returns the number of prefix bytes.
- *
- * On x86, if \p rip_rel_pos is non-NULL, returns the offset into the instruction of a
- * rip-relative addressing displacement (for data only: ignores control-transfer
- * relative addressing; use decode_sizeof_ex() for that), or 0 if none.
- * The \p rip_rel_pos parameter is only implemented for x86, where the displacement
- * is always 4 bytes in size.
- *
- * May return 0 size for certain invalid instructions.
- */
-int
-decode_sizeof(dcontext_t *dcontext, byte *pc,
-              int *num_prefixes _IF_X86_64(uint *rip_rel_pos));
-
-#ifdef X86
-DR_API
-/**
- * Decodes only enough of the instruction at address \p pc to determine its size.
- * Returns that size.
- * If \p num_prefixes is non-NULL, returns the number of prefix bytes.
- *
- * On x86, if \p rip_rel_pos is non-NULL, returns the offset into the instruction of a
- * rip-relative addressing displacement for data or control-transfer relative
- * addressing, or 0 if none.  This is only implemented for x86, where the displacement
- * is always 4 bytes for data but can be 1 byte for control.
- *
- * May return 0 size for certain invalid instructions.
- */
-int
-decode_sizeof_ex(dcontext_t *dcontext, byte *pc, int *num_prefixes, uint *rip_rel_pos);
-#endif
-
-DR_API
-/**
- * Decodes only enough of the instruction at address \p pc to determine its size.
- * Returns the address of the byte following the instruction.
- * May return NULL on decoding certain invalid instructions.
- */
-#ifdef UNSUPPORTED_API
-/**
- * This corresponds to a Level 1 decoding.
- */
-#endif
-byte *
-decode_next_pc(dcontext_t *dcontext, byte *pc);
+#include "decode_api.h"
 
 DR_UNS_API
 /**
@@ -103,43 +54,10 @@ DR_UNS_API
  * Returns the address of the next byte after the decoded instruction.
  * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
  */
-#ifdef UNSUPPORTED_API
-/* This corresponds to a Level 1 decoding. */
-#endif
+/* This corresponds to a Level 1 decoding.  Levels are not exposed
+ * in the API anymore, however.
+ */
 byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr);
-
-DR_UNS_EXCEPT_TESTS_API
-/**
- * Decodes only enough of the instruction at address \p pc to determine
- * its size, its effects on the 6 arithmetic eflags, and whether it is
- * a control-transfer instruction.  If it is, the operands fields of
- * \p instr are filled in.  If not, only the raw bits fields of \p instr are
- * filled in.
- *
- * Fills in the PREFIX_SEG_GS and PREFIX_SEG_FS prefix flags for all instrs.
- * Does NOT fill in any other prefix flags unless this is a cti instr
- * and the flags affect the instr.
- *
- * For x86, calls instr_set_rip_rel_pos().  Thus, if the raw bytes are
- * not modified prior to encode time, any rip-relative offset will be
- * automatically re-relativized (though encoding will fail if the new
- * encode location cannot reach the original target).
- *
- * Assumes that \p instr is already initialized, but uses the x86/x64 mode
- * for the thread \p dcontext rather than that set in instr.
- * If caller is re-using same instr struct over multiple decodings,
- * caller should call instr_reset() or instr_reuse().
- * Returns the address of the byte following the instruction.
- * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
- */
-#ifdef UNSUPPORTED_API
-/* This corresponds to a Level 3 decoding for control transfer
- * instructions but a Level 1 decoding plus arithmetic eflags
- * information for all other instructions.
- */
-#endif
-byte *
-decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
 #endif /* DECODE_FAST_H */

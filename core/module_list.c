@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -289,10 +289,8 @@ void
 module_list_remove(app_pc base, size_t view_size)
 {
     /* lookup and free module */
-#ifdef CLIENT_INTERFACE
     module_data_t *client_data = NULL;
     bool inform_client = false;
-#endif
     module_area_t *ma;
 
     /* note that vmvector_lookup doesn't protect the custom data,
@@ -309,7 +307,6 @@ module_list_remove(app_pc base, size_t view_size)
         (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>"
                                               : GET_MODULE_NAME(&ma->names));
 
-#ifdef CLIENT_INTERFACE
     /* inform clients of module unloads, we copy the data now and wait to
      * call the client till after we've released the module areas lock */
     if (CLIENTS_EXIST()
@@ -328,7 +325,6 @@ module_list_remove(app_pc base, size_t view_size)
     os_get_module_info_write_lock();
     ma = (module_area_t *)vmvector_lookup(loaded_module_areas, base);
     ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
-#endif
 
     native_exec_module_unload(ma);
 

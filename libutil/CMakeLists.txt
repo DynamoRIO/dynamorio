@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -85,7 +85,7 @@ set(ROOT_SRCS
 
 # drfrontendlib doesn't want NOT_DYNAMORIO_CORE, so we set that individually
 # on all the other targets.  They all want this:
-add_definitions(-DNOT_DYNAMORIO_CORE_PROPER)
+add_definitions(-DNOT_DYNAMORIO_CORE_PROPER -DDYNAMORIO_INTERNAL)
 
 if (WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE)
@@ -181,6 +181,8 @@ if (WIN32)
   endif (MFAPI_ENABLED)
 endif ()
 
+DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_config.h dr_config.h)
+
 install_exported_target(drconfiglib ${INSTALL_LIB_BASE})
 DR_export_target(drconfiglib)
 # drinject.exe and company need a copy in the bin dir (i#1737 would eliminate this)
@@ -212,3 +214,4 @@ endif ()
 add_static_lib_debug_info(drfrontendlib "${INSTALL_BIN}")
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})
+DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/dr_frontend.h dr_frontend.h)

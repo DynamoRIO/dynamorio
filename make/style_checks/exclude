@@ -1,6 +1,6 @@
 #!/usr/bin/tclsh
 # **********************************************************
-# Copyright (c) 2017-2018 Google, Inc.    All rights reserved.
+# Copyright (c) 2017-2021 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,6 @@ foreach rule $rules {
         loadtoconst.h
         retcheck.c
         sideline.c
-        steal_reg.c
         symtab.c
         # tools/* in this category is excluded via regex.
     }
@@ -80,7 +79,6 @@ foreach rule $rules {
 ## .*/core/arch/loadtoconst.*
 ## .*/core/arch/retcheck.c
 ## .*/core/arch/sideline.c
-## .*/core/arch/steal_reg.c
 ## .*/core/unix/symtab.c
 ## .*/tools/.*
 ##

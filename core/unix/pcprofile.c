@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,9 +43,7 @@
 #include "../utils.h"
 #include "../fragment.h"
 #include "../fcache.h"
-#ifdef CLIENT_INTERFACE
-#    include "instrument.h"
-#endif
+#include "instrument.h"
 #include "disassemble.h"
 #include <sys/time.h> /* ITIMER_VIRTUAL */
 
@@ -413,7 +411,6 @@ pcprofile_results(thread_pc_info_t *info)
 
     print_file(info->file, "DynamoRIO library: " PFX "-" PFX "\n",
                get_dynamorio_dll_start(), get_dynamorio_dll_end());
-#ifdef CLIENT_INTERFACE
     {
         app_pc client_start, client_end;
         if (get_client_bounds(0, &client_start, &client_end)) {
@@ -421,7 +418,6 @@ pcprofile_results(thread_pc_info_t *info)
                        client_end);
         }
     }
-#endif
     print_file(info->file, "ITIMER distribution (%d):\n", total);
     if (info->where[DR_WHERE_APP] > 0) {
         print_file(info->file, "  %5.1f%% of time in APPLICATION (%d)\n",
@@ -535,12 +531,8 @@ pcprofile_results(thread_pc_info_t *info)
                                e->pc, e->counter,
                                (comment == NULL) ? "<UNKNOWN>" : comment);
                 }
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
                 disassemble_with_info(GLOBAL_DCONTEXT, e->pc, info->file,
                                       false /*show pc*/, false /*show bytes*/);
-#else
-                print_file(info->file, "\n");
-#endif
             } else {
 #if USE_SYMTAB
                 if (valid_symtab) {

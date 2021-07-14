@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -334,6 +334,27 @@ main(int argc, char **argv)
           : "=m"(buffer)
           :
           : "eax", "edx", "memory");
+#    endif
+
+    /* Test rep string expansions. */
+    char buf1[1024];
+    char buf2[1024];
+#    ifdef X86_64
+    __asm("lea %[buf1], %%rdi\n\t"
+          "lea %[buf2], %%rsi\n\t"
+          "mov %[count], %%ecx\n\t"
+          "rep movsq\n\t"
+          :
+          : [buf1] "m"(buf1), [buf2] "m"(buf2), [count] "i"(sizeof(buf1))
+          : "ecx", "rdi", "rsi", "memory");
+#    elif defined(X86_32)
+    __asm("lea %[buf1], %%edi\n\t"
+          "lea %[buf2], %%esi\n\t"
+          "mov %[count], %%ecx\n\t"
+          "rep movsd\n\t"
+          :
+          : [buf1] "m"(buf1), [buf2] "m"(buf2), [count] "i"(sizeof(buf1))
+          : "ecx", "edi", "esi", "memory");
 #    endif
 
     intervals = 10;
