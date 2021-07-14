@@ -289,7 +289,8 @@ dr_init(client_id_t id)
                                                     event_bb4_instru2instru, NULL);
     CHECK(ok, "drmgr_register_bb_instrumentation_ex_event failed");
     ok = drmgr_unregister_bb_instrumentation_ex_event(
-        event_bb4_app2app, event_bb4_analysis, event_bb4_insert2, event_bb4_instru2instru);
+        event_bb4_app2app, event_bb4_analysis, event_bb4_insert2,
+        event_bb4_instru2instru);
     CHECK(ok, "drmgr_unregister_bb_instrumentation_ex_event failed");
 
     /* test data passing among all 4 phases */
