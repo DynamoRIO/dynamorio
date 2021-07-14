@@ -4664,6 +4664,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
             pend->next = info->sigpending[sig];
             info->sigpending[sig] = pend;
+            pend->unblocked_at_receipt = !blocked;
 
             /* FIXME: note that for asynchronous signals we don't need to
              *  bother to record exact machine context, even entire frame,
@@ -6394,7 +6395,18 @@ receive_pending_signal(dcontext_t *dcontext)
     for (sig = 1; sig <= MAX_SIGNUM; sig++) {
         if (info->sigpending[sig] != NULL) {
             bool executing = true;
-            if (kernel_sigismember(&info->app_sigblocked, sig)) {
+            /* We do not re-check whether blocked if it was unblocked at receive time
+             * to handle a signal arriving during a mask-changing syscall
+             * (handle_pre_extended_syscall_sigmasks()).  The problem is that we exit
+             * the syscall (restoring the pre-syscall mask) *before* we come here.
+             * We clear the unblocked_at_receipt field below to limit this to the
+             * first syscall, to avoid erroneously delivering more later (xref
+             * i#4998).  We don't need this for sigsuspend because we can delay its
+             * post-syscall mask restore until signal delivery
+             * (terminate_sigsuspend()).
+             */
+            if (!info->sigpending[sig]->unblocked_at_receipt &&
+                kernel_sigismember(&info->app_sigblocked, sig)) {
                 LOG(THREAD, LOG_ASYNCH, 3, "\tsignal %d is blocked!\n", sig);
                 continue;
             }
@@ -6418,6 +6430,11 @@ receive_pending_signal(dcontext_t *dcontext)
                 break;
             }
         }
+    }
+    /* Only one signal can be delivered ignoring the back-in-dispatch blocked set. */
+    for (sig = 1; sig <= MAX_SIGNUM; sig++) {
+        if (info->sigpending[sig] != NULL && info->sigpending[sig]->unblocked_at_receipt)
+            info->sigpending[sig]->unblocked_at_receipt = false;
     }
     /* barrier to prevent compiler from moving the below write above the loop */
     __asm__ __volatile__("" : : : "memory");
