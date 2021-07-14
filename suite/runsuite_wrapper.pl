@@ -354,8 +354,8 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_exe_opt' => 1, # i#1807
                 'common.nativeexec_bindnow_opt' => 1, # i#5010 Ignored for all options.
-                'common.nativeexec_retakeover_opt' # i#5010 Ignored for all options.
-                'common.nativeexec_exe' # i#5010 Ignored for all options.
+                'common.nativeexec_retakeover_opt' => 1, # i#5010 Ignored for all options.
+                'common.nativeexec_exe' => 1, # i#5010 Ignored for all options.
                 'common.nativeexec_bindnow' => 1, # i#5010 Ignored for all options.
                 );
             $issue_no = "#2941";
