@@ -2562,6 +2562,7 @@ endif (UNIX)
 tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
 use_DynamoRIO_extension(client.drreg-test.dll drmgr)
 use_DynamoRIO_extension(client.drreg-test.dll drreg)
+use_DynamoRIO_extension(client.drreg-test.dll drx)
 target_include_directories(client.drreg-test PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
