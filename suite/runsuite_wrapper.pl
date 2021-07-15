@@ -320,6 +320,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcachesim.TLB-threads' => 1, # i#4928
                                    'code_api|tool.drcachesim.threads' => 1, # i#4928
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
+                                   'code_api|tool.drcachesim.threads-with-config-file' => 1, # i#4954
                                    );
             if ($is_32) {
                 $issue_no = "#2416";
