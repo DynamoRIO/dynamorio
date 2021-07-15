@@ -139,6 +139,13 @@ drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
     data->side_effect_free_bb = true;
     for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
          inst = instr_get_next_app(inst)) {
+
+        /* Ignore the last instruction if it is a control transfer instruction,
+         * because it will not be re-executed.
+         */
+        if (inst == instrlist_last_app(bb) && instr_is_cti(inst))
+            continue;
+
         if (drstatecmp_may_have_side_effects_instr(inst)) {
             data->side_effect_free_bb = false;
             return DR_EMIT_DEFAULT;

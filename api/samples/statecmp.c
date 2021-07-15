@@ -64,13 +64,19 @@ error_callback(const char *msg)
 }
 
 static bool
-bb_may_have_side_effects(instrlist_t *bb)
+bb_may_have_side_effects(void *drcontext, instrlist_t *bb)
 {
     /* Instructions with side effects include instructions that write to memory,
      * interrupts, and syscalls.
      */
     for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
          inst = instr_get_next_app(inst)) {
+        /* Ignore the last instruction if it is a control transfer instruction,
+         * because it will not be re-executed.
+         */
+        if (inst == instrlist_last_app(bb) && instr_is_cti(inst))
+            return false;
+
         if (instr_writes_memory(inst) || instr_is_interrupt(inst) ||
             instr_is_syscall(inst))
             return true;
@@ -84,7 +90,7 @@ event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 {
 
     bool *side_effect_free = (bool *)dr_thread_alloc(drcontext, sizeof(bool));
-    *side_effect_free = !bb_may_have_side_effects(bb);
+    *side_effect_free = !bb_may_have_side_effects(drcontext, bb);
     *user_data = (void *)side_effect_free;
     return DR_EMIT_DEFAULT;
 }
