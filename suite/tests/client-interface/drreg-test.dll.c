@@ -1153,7 +1153,9 @@ event_exit(void)
                                                       event_instru2instru) ||
         drreg_exit() != DRREG_SUCCESS)
         CHECK(false, "exit failed");
-
+    /* We skip drx_init/drx_exit because that will change the number of total drreg spill
+     * slots available for the drreg tests. Skipping drx_init is okay because we use only
+     * drx_are_aflags_dead which doesn't need any drx state to be initialised. */
     drmgr_exit();
 }
 
