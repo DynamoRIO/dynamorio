@@ -1065,7 +1065,6 @@ error:
  * process, mode_switch_buf_sz is maximum size for switch code, and
  * mode_switch_data is the address where the app stack pointer is stored.
  */
-
 static size_t
 generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
                                  byte *mode_switch_buf, byte *hook_location,
@@ -1083,20 +1082,27 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
     instr_t *restore_esp =
         INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_ESP),
                             OPND_CREATE_MEM32(REG_NULL, (int)(size_t)mode_switch_data));
+    const byte *eax_saved_offset = (byte *)((size_t)mode_switch_data) + 4;
+    // Restoring eax back, which is storing routine address that needs to be passed to
+    // RtlUserStartThread
+    instr_t *restore_eax =
+        INSTR_CREATE_mov_ld(GDC, opnd_create_reg(REG_EAX),
+                            OPND_CREATE_MEM32(REG_NULL, (int)(size_t)eax_saved_offset));
 
     instr_set_x86_mode(jmp, true);
     instr_set_x86_mode(restore_esp, true);
+    instr_set_x86_mode(restore_eax, true);
     instrlist_init(&ilist);
     /* We patch the 0 with the correct target location in this function */
     APP(&ilist, INSTR_CREATE_push_imm(GDC, OPND_CREATE_INT32(0)));
     APP(&ilist,
         INSTR_CREATE_mov_st(GDC, OPND_CREATE_MEM16(REG_RSP, 4),
                             OPND_CREATE_INT16((ushort)CS32_SELECTOR)));
-
     APP(&ilist,
         INSTR_CREATE_jmp_far_ind(GDC,
                                  opnd_create_base_disp(REG_RSP, REG_NULL, 0, 0, OPSZ_6)));
     APP(&ilist, restore_esp);
+    APP(&ilist, restore_eax);
     APP(&ilist, jmp);
 
     pc = instrlist_encode_to_copy(GDC, &ilist, local_code_buf, mode_switch_buf,
@@ -1108,7 +1114,7 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
      * to x86 mode
      */
     sz = (size_t)(pc - local_code_buf - instr_length(GDC, jmp) -
-                  instr_length(GDC, restore_esp));
+                  instr_length(GDC, restore_esp) - instr_length(GDC, restore_eax));
     instrlist_clear(GDC, &ilist);
     /* For x86 code the address must be 32 bit */
     ASSERT_TRUNCATE(target, uint, (size_t)mode_switch_buf);
@@ -1185,7 +1191,10 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
     byte *mode_switch_buf = NULL;
     byte *mode_switch_data = NULL;
     size_t switch_code_sz = PAGE_SIZE;
-    static const size_t switch_data_sz = SWITCH_MODE_DATA_SIZE;
+    size_t switch_data_sz = SWITCH_MODE_DATA_SIZE;
+    if (x86_code && DYNAMO_OPTION(inject_x64)) {
+        switch_data_sz += 4; // we need space for ESP and EAX
+    }
 #endif
     size_t num_bytes_out;
     uint old_prot;
@@ -1251,21 +1260,38 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         /* Mode Switch from 32 bit to 64 bit.
          * Forward align stack.
          */
+        const byte *eax_saved_offset = mode_switch_data + 4;
+        // mov dword ptr[mode_switch_data] , esp
         *cur_local_pos++ = MOV_REG32_2_RM32;
         *cur_local_pos++ = 0x24;
         *cur_local_pos++ = 0x25;
         RAW_INSERT_INT32(cur_local_pos, mode_switch_data);
+
+        /* XXX: eax register is getting clobbered somehow in injection process,
+         * and we don't know how/where yet. Thus we need to restore it now,
+         * before calling RtlUserStartThread
+         */
+        // mov dword ptr[mode_switch_data+4], eax
+        *cur_local_pos++ = MOV_REG32_2_RM32;
+        *cur_local_pos++ = MOV_IMM_RM_ABS;
+        RAW_INSERT_INT32(cur_local_pos, eax_saved_offset);
+
         /* Far jmp to next instr. */
         const int far_jmp_len = 7;
         byte *pre_jmp = cur_local_pos;
+        uint64 cur_remote_pos_tmp =
+            remote_code_buf + (cur_local_pos - local_code_buf + switch_code_sz);
+
         *cur_local_pos++ = JMP_FAR_DIRECT;
-        RAW_INSERT_INT32(cur_local_pos, pre_jmp + far_jmp_len);
+        RAW_INSERT_INT32(cur_local_pos, cur_remote_pos_tmp + far_jmp_len);
         RAW_INSERT_INT16(cur_local_pos, CS64_SELECTOR);
         ASSERT(cur_local_pos == pre_jmp + far_jmp_len);
+
         /* Align stack. */
-        *cur_local_pos++ = AND_RM32_IMM32;
+        // and    rsp,0xfffffffffffffff0
+        *cur_local_pos++ = 0x83;
         *cur_local_pos++ = 0xe4;
-        RAW_INSERT_INT32(cur_local_pos, -8);
+        *cur_local_pos++ = 0xf0;
     }
 #endif
     /* Save xax, which we clobber below.  It is live for INJECT_LOCATION_ThreadStart.
