@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2021-Google, Inc.  All rights reserved.
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -60,7 +60,7 @@ static void
 error_callback(const char *msg)
 {
     error_detected = 1;
-    DR_ASSERT(!strcmp(msg, "xflags"));
+    DR_ASSERT_MSG(!strcmp(msg, "xflags"), msg);
 }
 
 static bool
