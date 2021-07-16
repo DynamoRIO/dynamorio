@@ -106,6 +106,8 @@ typedef struct {
     instr_t *term;
 } drstatecmp_dup_labels_t;
 
+typedef enum { DRSTATECMP_SKIP_CHECK_LR = 0x01 } drstatecmp_check_flags_t;
+
 /* Returns whether or not instr may have side effects. */
 static bool
 drstatecmp_may_have_side_effects_instr(instr_t *instr)
@@ -393,7 +395,8 @@ drstatecmp_check_opmask_value(dr_opmask_t opmask_value, dr_opmask_t opmask_expec
 #endif
 
 static void
-drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc_expected)
+drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc_expected,
+                               int flags)
 {
 #ifdef X86
     drstatecmp_check_gpr_value("xdi", mc_instrumented->xdi, mc_expected->xdi);
@@ -455,7 +458,9 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
     drstatecmp_check_gpr_value("r29", mc_instrumented->r29, mc_expected->r29);
 #    endif
 
-    drstatecmp_check_gpr_value("lr", mc_instrumented->lr, mc_expected->lr);
+    if (!TEST(DRSTATECMP_SKIP_CHECK_LR, flags))
+        drstatecmp_check_gpr_value("lr", mc_instrumented->lr, mc_expected->lr);
+
     drstatecmp_check_xflags_value("xflags", mc_instrumented->xflags, mc_expected->xflags);
 
 #else
@@ -469,7 +474,7 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
 }
 
 static void
-drstatecmp_compare_state_call(void)
+drstatecmp_compare_state_call(int flags)
 {
     void *drcontext = dr_get_current_drcontext();
     drstatecmp_saved_states_t *pt =
@@ -481,14 +486,29 @@ drstatecmp_compare_state_call(void)
     mc_expected.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc_expected);
 
-    drstatecmp_check_machine_state(mc_instrumented, &mc_expected);
+    drstatecmp_check_machine_state(mc_instrumented, &mc_expected, flags);
 }
 
 static void
 drstatecmp_compare_state(void *drcontext, instrlist_t *bb, instr_t *instr)
 {
+    int flags = 0;
+#ifdef AARCHXX
+    /* Avoid false positives by not checking LR when it is dead just before the
+     * terminating instruction. This is necessary, for example, when the terminating
+     * instruction (not re-executed and follows the state comparison) is 'blr'. The 'blr'
+     * instruction overwrites the lr register and instrumentation could have clobbered
+     * this register earlier if the register was dead at the time of clobbering.
+     */
+    instr_t *term = instrlist_last_app(bb);
+    if (instr_is_cti(term) &&
+        !instr_reads_from_reg(term, DR_REG_LR, DR_QUERY_INCLUDE_COND_SRCS) &&
+        instr_writes_to_exact_reg(term, DR_REG_LR, DR_QUERY_INCLUDE_COND_SRCS))
+        flags |= DRSTATECMP_SKIP_CHECK_LR;
+#endif
+
     dr_insert_clean_call(drcontext, bb, instr, (void *)drstatecmp_compare_state_call,
-                         false /* fpstate */, 0);
+                         false /* fpstate */, 1, OPND_CREATE_INT32(flags));
 }
 
 static void
