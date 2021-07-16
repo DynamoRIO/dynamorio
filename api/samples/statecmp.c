@@ -66,9 +66,6 @@ error_callback(const char *msg)
 static bool
 bb_may_have_side_effects(void *drcontext, instrlist_t *bb)
 {
-    /* Instructions with side effects include instructions that write to memory,
-     * interrupts, and syscalls.
-     */
     for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
          inst = instr_get_next_app(inst)) {
         /* Ignore the last instruction if it is a control transfer instruction,
@@ -77,9 +74,21 @@ bb_may_have_side_effects(void *drcontext, instrlist_t *bb)
         if (inst == instrlist_last_app(bb) && instr_is_cti(inst))
             return false;
 
+        /* Instructions with side effects include instructions that write to memory,
+         * interrupts, and syscalls.
+         */
         if (instr_writes_memory(inst) || instr_is_interrupt(inst) ||
             instr_is_syscall(inst))
             return true;
+
+#ifdef X86
+        /* Avoid instructions that with identical input state can yield different results
+         * on re-executions.
+         */
+        int opc = instr_get_opcode(inst);
+        if (opc == OP_rdtsc || opc == OP_rdtscp)
+            return true;
+#endif
     }
     return false;
 }
@@ -119,7 +128,7 @@ event_insert_instru(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
     reg_id_t reg1, reg2;
     if (drreg_reserve_register(drcontext, bb, inst, NULL, &reg1) != DRREG_SUCCESS ||
         drreg_reserve_register(drcontext, bb, inst, NULL, &reg2) != DRREG_SUCCESS)
-        return false;
+        return DR_EMIT_DEFAULT;
 
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&global_count,
                                      opnd_create_reg(reg1), bb, inst, NULL, NULL);
@@ -135,7 +144,7 @@ event_insert_instru(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
 
     if (drreg_unreserve_register(drcontext, bb, inst, reg1) != DRREG_SUCCESS ||
         drreg_unreserve_register(drcontext, bb, inst, reg2) != DRREG_SUCCESS)
-        return false;
+        return DR_EMIT_DEFAULT;
 #endif
     return DR_EMIT_DEFAULT;
 }

@@ -115,8 +115,20 @@ drstatecmp_may_have_side_effects_instr(instr_t *instr)
     /* Instructions with side effects include instructions that write to memory,
      * interrupts, and syscalls.
      */
-    return instr_writes_memory(instr) || instr_is_interrupt(instr) ||
-        instr_is_syscall(instr);
+    if (instr_writes_memory(instr) || instr_is_interrupt(instr) ||
+        instr_is_syscall(instr))
+        return true;
+
+#ifdef X86
+    /* Avoid instructions that with identical input state can yield different results on
+     * re-executions.
+     */
+    int opc = instr_get_opcode(instr);
+    if (opc == OP_rdtsc || opc == OP_rdtscp)
+        return true;
+#endif
+
+    return false;
 }
 
 /****************************************************************************
