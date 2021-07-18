@@ -1276,6 +1276,7 @@ _tmain(int argc, TCHAR *targv[])
             use_ptrace = true;
             continue;
         }
+#    endif /* UNIX */
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
         else if (strcmp(argv[i], "-early") == 0) {
             /* Now the default: left here just for back-compat */
