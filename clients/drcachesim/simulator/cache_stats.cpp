@@ -41,6 +41,9 @@ cache_stats_t::cache_stats_t(const std::string &miss_file, bool warmup_enabled,
     , num_prefetch_hits_(0)
     , num_prefetch_misses_(0)
 {
+    stats_map_.emplace(FLUSHES, num_flushes_);
+    stats_map_.emplace(PREFETCH_HITS, num_prefetch_hits_);
+    stats_map_.emplace(PREFETCH_MISSES, num_prefetch_misses_);
 }
 
 void

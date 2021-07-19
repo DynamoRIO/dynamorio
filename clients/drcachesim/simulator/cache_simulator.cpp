@@ -594,6 +594,91 @@ cache_simulator_t::print_results()
     return true;
 }
 
+inline std::string
+cache_simulator_t::get_l1_icache_name(unsigned int core) const {
+    return "L1_I_Cache_" + std::to_string(core);
+}
+
+inline std::string
+cache_simulator_t::get_l1_dcache_name(unsigned int core)  const {
+    return "L1_D_Cache_" + std::to_string(core);
+}
+
+const caching_device_stats_t *
+cache_simulator_t::get_cache_stats(const std::string& cache_type) const {
+    auto pos = all_caches_.find(cache_type);
+
+    if (pos != all_caches_.end()) {
+        return pos->second->get_stats();
+    } else {
+        ERRMSG("Couldn't get statistics. Wrong cache type.\n");
+        return nullptr;
+    }
+}
+
+int_least64_t
+cache_simulator_t::get_l1i_metric(metric_name_t metric, unsigned int core) const
+{
+    if (core >= knobs_.num_cores) {
+        ERRMSG("Wrong core number: %u.\n", core);
+        return 0;
+    }
+
+    const auto *stats = get_cache_stats(get_l1_icache_name(core));
+
+    if (!stats) {
+        return 0;
+    }
+
+    return stats->get_metric(metric);
+}
+
+int_least64_t
+cache_simulator_t::get_l1d_metric(metric_name_t metric, unsigned int core) const
+{
+    if (core >= knobs_.num_cores) {
+        ERRMSG("Wrong core number: %u.\n", core);
+        return 0;
+    }
+
+    const auto *stats = get_cache_stats(get_l1_dcache_name(core));
+
+    if (!stats) {
+        return 0;
+    }
+
+    return stats->get_metric(metric);
+}
+
+int_least64_t
+cache_simulator_t::get_ll_metric(metric_name_t metric) const
+{
+    const auto *stats = get_cache_stats(ll_cache_name);
+
+    if (!stats) {
+        return 0;
+    }
+
+    return stats->get_metric(metric);
+}
+
+unsigned int
+cache_simulator_t::get_core_num() const {
+    return knobs_.num_cores;
+}
+
+bool
+cache_simulator_t::is_prefetcher_used() const
+{
+    return knobs_.data_prefetcher != PREFETCH_POLICY_NONE;
+}
+
+bool
+cache_simulator_t::is_cache_coherent() const
+{
+    return knobs_.model_coherence;
+}
+
 cache_t *
 cache_simulator_t::create_cache(const std::string &policy)
 {
