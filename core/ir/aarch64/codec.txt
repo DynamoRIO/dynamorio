@@ -1436,7 +1436,6 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 0x001110xx100000001010xxxxxxxxxx     saddlp    dq0 : dq5 bhsd_sz
 0000111100xxxxxx101001xxxxxxxxxx     sshll      d0 : d5 immhb
 0100111100xxxxxx101001xxxxxxxxxx     sshll2     q0 : q5 immhb
-
 01011110000xxxxx000000xxxxxxxxxx     sha1c     q0 : s5 d16
 0101111000101000000010xxxxxxxxxx     sha1h     s0 : s5
 01011110000xxxxx001000xxxxxxxxxx     sha1m     q0 : s5 d16
@@ -1461,6 +1460,21 @@ x001111001000010xxxxxxxxxxxxxxxx     scvtf     d0 : wx5 scale
 0x001110xx0xxxxx010110xxxxxxxxxx     uzp2     dq0 : dq5 dq16 bhsd_sz
 00001110xx100001001010xxxxxxxxxx     xtn       d0 : d5 bhsd_sz
 01001110xx100001001010xxxxxxxxxx     xtn2      q0 : q5 bhsd_sz
+0101111101xxxxxx001001xxxxxxxxxx     srshr      d0 : d5 immhb
+0x0011110xxxxxxx001001xxxxxxxxxx     srshr     dq0 : dq5 sd_sz immhb
+0101111101xxxxxx001101xxxxxxxxxx     srsra      d0 : d5 immhb
+0101111101xxxxxx000001xxxxxxxxxx     sshr       d0 : d5 immhb
+0x0011110xxxxxxx000001xxxxxxxxxx     sshr      dq0 : dq5 sd_sz immhb
+0101111101xxxxxx000101xxxxxxxxxx     ssra       d0 : d5 immhb
+0101111101xxxxxx010101xxxxxxxxxx     shl        d0 : d5 immhb
+0111111101xxxxxx010101xxxxxxxxxx     sli        d0 : d5 immhb
+0111111101xxxxxx000001xxxxxxxxxx     ushr       d0 : d5 immhb
+0x1011110xxxxxxx000001xxxxxxxxxx     ushr      dq0 : dq5 sd_sz immhb
+0111111101xxxxxx000101xxxxxxxxxx     usra       d0 : d5 immhb
+0000111100xxxxxx100001xxxxxxxxxx     shrn       d0 : d5 immhb
+0100111100xxxxxx100001xxxxxxxxxx     shrn2      q0 : q5 immhb
+00101110xx100001001110xxxxxxxxxx     shll       d0 : d5 bhs_sz
+01101110xx100001001110xxxxxxxxxx     shll2      q0 : q5 bhs_sz
 x001111011110001000000xxxxxxxxxx     fcvtmu   wx0 : h5
 x001111000110001000000xxxxxxxxxx     fcvtmu   wx0 : s5
 x001111001110001000000xxxxxxxxxx     fcvtmu   wx0 : d5
