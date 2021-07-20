@@ -607,7 +607,7 @@ cache_simulator_t::get_l1_dcache_name(unsigned int core) const
 }
 
 const caching_device_stats_t *
-cache_simulator_t::get_cache_stats(const std::string& cache_type) const
+cache_simulator_t::get_cache_stats(const std::string &cache_type) const
 {
     auto pos = all_caches_.find(cache_type);
 
