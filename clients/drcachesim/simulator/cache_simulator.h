@@ -111,7 +111,7 @@ private:
     std::string
     get_l1_dcache_name(unsigned int core) const;
     const caching_device_stats_t *
-    get_cache_stats(const std::string& cache_type) const;
+    get_cache_stats(const std::string &cache_type) const;
 
     const std::string ll_cache_name = "LL";
     bool is_warmed_up_;

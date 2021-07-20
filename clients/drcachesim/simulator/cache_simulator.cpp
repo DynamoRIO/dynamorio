@@ -595,17 +595,20 @@ cache_simulator_t::print_results()
 }
 
 inline std::string
-cache_simulator_t::get_l1_icache_name(unsigned int core) const {
+cache_simulator_t::get_l1_icache_name(unsigned int core) const
+{
     return "L1_I_Cache_" + std::to_string(core);
 }
 
 inline std::string
-cache_simulator_t::get_l1_dcache_name(unsigned int core)  const {
+cache_simulator_t::get_l1_dcache_name(unsigned int core) const
+{
     return "L1_D_Cache_" + std::to_string(core);
 }
 
 const caching_device_stats_t *
-cache_simulator_t::get_cache_stats(const std::string& cache_type) const {
+cache_simulator_t::get_cache_stats(const std::string& cache_type) const
+{
     auto pos = all_caches_.find(cache_type);
 
     if (pos != all_caches_.end()) {
@@ -663,7 +666,8 @@ cache_simulator_t::get_ll_metric(metric_name_t metric) const
 }
 
 unsigned int
-cache_simulator_t::get_core_num() const {
+cache_simulator_t::get_core_num() const
+{
     return knobs_.num_cores;
 }
 

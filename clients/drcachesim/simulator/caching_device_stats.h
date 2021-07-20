@@ -97,7 +97,8 @@ public:
     invalidate(invalidation_type_t invalidation_type);
 
     int_least64_t
-    get_metric(metric_name_t metric) const {
+    get_metric(metric_name_t metric) const
+    {
         if (stats_map_.find(metric) != stats_map_.end()) {
             return stats_map_.at(metric);
         } else {
@@ -142,7 +143,7 @@ protected:
 
     // References to the properties with statistics are held in the map with the
     // statistic name as the key. Sample map element: {HITS, num_hits_}
-    std::map<metric_name_t, int_least64_t&> stats_map_;
+    std::map<metric_name_t, int_least64_t &> stats_map_;
 
     // We provide a feature of dumping misses to a file.
     bool dump_misses_;
