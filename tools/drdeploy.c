@@ -298,8 +298,10 @@ const char *options_list_str =
 #        endif
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
 #    endif
-    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
-    "                          for pid to launch and inject into a new process.\n"
+    "       -attach <pid>      Attach to the process with the given pid.\n"
+#    ifdef WINDOWS
+    "                          (Experimental)\n"
+#    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
@@ -1261,9 +1263,11 @@ _tmain(int argc, TCHAR *targv[])
             const char *pid_str = argv[++i];
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
-                usage(false, "-attach expects an integer pid");
+                usage(false, "attach expects an integer pid");
+            if (pid == 0)
+                usage(false, "attach to invalid pid %d", pid);
             attach_pid = pid;
-            limit = -1;
+            //limit = -1;
 #    ifdef UNIX
             use_ptrace = true;
 #    endif
@@ -1546,15 +1550,21 @@ done_with_options:
      */
 #        ifdef UNIX
     if (attach_pid != 0) {
-        char *exe = malloc(PATH_MAX);
-        char *exe_str = malloc(PATH_MAX);
+        char exe[MAXIMUM_PATH];
+        char exe_str[MAXIMUM_PATH];
         ssize_t size;
-        sprintf(exe_str, "/proc/%u/exe", attach_pid);
-        size = readlink(exe_str, exe, PATH_MAX);
-        exe[size] = 0;
-        app_name = strdup(exe);
-        free(exe);
-        free(exe_str);
+        _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
+        NULL_TERMINATE_BUFFER(exe_str);
+        size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
+        if (size > 0) {
+            if (size < BUFFER_SIZE_ELEMENTS(exe))
+                exe[size] = '\0';
+            else
+                NULL_TERMINATE_BUFFER(exe);
+        }
+        else
+            usage(false, "attach to invalid pid %d", attach_pid);
+        app_name = exe;
     }
 #        endif /* UNIX */
     if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {

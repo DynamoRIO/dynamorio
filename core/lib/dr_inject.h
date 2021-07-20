@@ -105,7 +105,7 @@ dr_inject_process_create(const char *app_name, const char **app_cmdline, void **
 #ifdef WINDOWS
 DR_EXPORT
 /**
- * Attach to a existing process.
+ * Attach to an existing process.
  *
  * \param[in]   pid            PID for process to attach.
  *

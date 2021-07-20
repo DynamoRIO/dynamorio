@@ -78,6 +78,7 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <time.h>
 #ifdef MACOS
 #    include <spawn.h>
 #    include <crt_externs.h> /* _NSGetEnviron() */
@@ -756,7 +757,6 @@ bool
 dr_inject_wait_for_child(void *data, uint64 timeout_millis)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
-    pid_t res;
 
     timeout_expired = false;
     if (timeout_millis > 0) {
@@ -777,12 +777,34 @@ dr_inject_wait_for_child(void *data, uint64 timeout_millis)
         setitimer(ITIMER_REAL, &timer, NULL);
     }
 
-    do {
-        res = waitpid(info->pid, &info->exitcode, 0);
-    } while (res != info->pid && res != -1 &&
-             /* The signal handler sets this and makes waitpid return EINTR. */
-             !timeout_expired);
-    info->exited = (res == info->pid);
+    if (info->method != INJECT_PTRACE) {
+        pid_t res;
+        do {
+            res = waitpid(info->pid, &info->exitcode, 0);
+        } while (res != info->pid && res != -1 &&
+                /* The signal handler sets this and makes waitpid return EINTR. */
+                !timeout_expired);
+        info->exited = (res == info->pid);
+    }
+    else {
+        int exit = 0;
+        struct timespec t;
+        t.tv_sec  = 1;
+        t.tv_nsec = 0L;
+        do {
+            /* At this point dr_inject_process_run has called PTRACE_DETACH
+             * For non-child target, we should poll for its exit.
+             * There is no standard way of getting non-child target process' exit code.
+             */
+            if (kill(info->pid, 0) == -1)
+                if (errno == ESRCH)
+                    exit = 1;
+            /* sleep might not be implemented using nanosleep */
+            nanosleep(&t, 0);
+        } while (!exit && !timeout_expired);
+        info->exitcode = 0;
+        info->exited = (exit != 0);
+    }
     return info->exited;
 }
 
@@ -813,7 +835,8 @@ dr_inject_process_exit(void *data, bool terminate)
         /* Do a blocking wait to get the real status code.  This shouldn't take
          * long since we just sent an unblockable SIGKILL.
          */
-        waitpid(info->pid, &status, 0);
+        if (info->method != INJECT_PTRACE)
+            waitpid(info->pid, &status, 0);
     } else {
         /* Use WNOHANG to match our Windows semantics, which does not block if
          * the child hasn't exited.  The status returned is probably not useful,
