@@ -233,6 +233,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.nudge_ex' => 1,
                 'code_api|client.alloc-noreset' => 1, # i#4436
                 # These are from the long suite.
+                'code_api,thread_private,tracedump_binary|common.fib' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
@@ -319,6 +320,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|tool.drcachesim.TLB-threads' => 1, # i#4928
                                    'code_api|tool.drcachesim.threads' => 1, # i#4928
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
+                                   'code_api|tool.drcachesim.threads-with-config-file' => 1, # i#4954
                                    );
             if ($is_32) {
                 $issue_no = "#2416";
@@ -351,10 +353,11 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # These are from the long suite.
                 'code_api,opt_memory|common.loglevel' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
-                'code_api,opt_memory|common.nativeexec_retakeover_opt' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_exe_opt' => 1, # i#1807
-                'code_api,opt_memory|common.nativeexec_bindnow_opt' => 1, # i#1807
-                'common.nativeexec_bindnow' => 1, # i#1807, i#4868 Ignored for all options.
+                'common.nativeexec_bindnow_opt' => 1, # i#5010 Ignored for all options.
+                'common.nativeexec_retakeover_opt' => 1, # i#5010 Ignored for all options.
+                'common.nativeexec_exe' => 1, # i#5010 Ignored for all options.
+                'common.nativeexec_bindnow' => 1, # i#5010 Ignored for all options.
                 );
             $issue_no = "#2941";
         }
