@@ -602,6 +602,42 @@ dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 6ebe3d82 : cmhs v2.4s, v12.4s, v30.4s               : cmhs   %q12 %q30 $0x02 -> %q2
 6efe3d82 : cmhs v2.2d, v12.2d, v30.2d               : cmhs   %q12 %q30 $0x03 -> %q2
 
+# CMLE <V><d>, <V><n>, #0
+7ee09820 : cmle d0, d1, #0                          : cmle   %d1 -> %d0
+7ee0992a : cmle d10, d9, #0                         : cmle   %d9 -> %d10
+7ee09a74 : cmle d20, d19, #0                        : cmle   %d19 -> %d20
+7ee09bbe : cmle d30, d29, #0                        : cmle   %d29 -> %d30
+
+# CMLE <Vd>.<T>, <Vn>.<T>, #0
+2e209820 : cmle v0.8b, v1.8b, #0                    : cmle   %d1 $0x00 -> %d0
+2e20992a : cmle v10.8b, v9.8b, #0                   : cmle   %d9 $0x00 -> %d10
+2e209a74 : cmle v20.8b, v19.8b, #0                  : cmle   %d19 $0x00 -> %d20
+2e209bbe : cmle v30.8b, v29.8b, #0                  : cmle   %d29 $0x00 -> %d30
+6e209820 : cmle v0.16b, v1.16b, #0                  : cmle   %q1 $0x00 -> %q0
+6e20992a : cmle v10.16b, v9.16b, #0                 : cmle   %q9 $0x00 -> %q10
+6e209a74 : cmle v20.16b, v19.16b, #0                : cmle   %q19 $0x00 -> %q20
+6e209bbe : cmle v30.16b, v29.16b, #0                : cmle   %q29 $0x00 -> %q30
+2e609820 : cmle v0.4h, v1.4h, #0                    : cmle   %d1 $0x01 -> %d0
+2e60992a : cmle v10.4h, v9.4h, #0                   : cmle   %d9 $0x01 -> %d10
+2e609a74 : cmle v20.4h, v19.4h, #0                  : cmle   %d19 $0x01 -> %d20
+2e609bbe : cmle v30.4h, v29.4h, #0                  : cmle   %d29 $0x01 -> %d30
+6e609820 : cmle v0.8h, v1.8h, #0                    : cmle   %q1 $0x01 -> %q0
+6e60992a : cmle v10.8h, v9.8h, #0                   : cmle   %q9 $0x01 -> %q10
+6e609a74 : cmle v20.8h, v19.8h, #0                  : cmle   %q19 $0x01 -> %q20
+6e609bbe : cmle v30.8h, v29.8h, #0                  : cmle   %q29 $0x01 -> %q30
+2ea09820 : cmle v0.2s, v1.2s, #0                    : cmle   %d1 $0x02 -> %d0
+2ea0992a : cmle v10.2s, v9.2s, #0                   : cmle   %d9 $0x02 -> %d10
+2ea09a74 : cmle v20.2s, v19.2s, #0                  : cmle   %d19 $0x02 -> %d20
+2ea09bbe : cmle v30.2s, v29.2s, #0                  : cmle   %d29 $0x02 -> %d30
+6ea09820 : cmle v0.4s, v1.4s, #0                    : cmle   %q1 $0x02 -> %q0
+6ea0992a : cmle v10.4s, v9.4s, #0                   : cmle   %q9 $0x02 -> %q10
+6ea09a74 : cmle v20.4s, v19.4s, #0                  : cmle   %q19 $0x02 -> %q20
+6ea09bbe : cmle v30.4s, v29.4s, #0                  : cmle   %q29 $0x02 -> %q30
+6ee09820 : cmle v0.2d, v1.2d, #0                    : cmle   %q1 $0x03 -> %q0
+6ee0992a : cmle v10.2d, v9.2d, #0                   : cmle   %q9 $0x03 -> %q10
+6ee09a74 : cmle v20.2d, v19.2d, #0                  : cmle   %q19 $0x03 -> %q20
+6ee09bbe : cmle v30.2d, v29.2d, #0                  : cmle   %q29 $0x03 -> %q30
+
 2b3f43ff : cmn    wsp, wzr                : adds   %wsp %wzr uxtw $0x00 -> %wzr
 2b5f7fff : cmn    wzr, wzr, lsr #31       : adds   %wzr %wzr lsr $0x1f -> %wzr
 2b9f13ff : cmn    wzr, wzr, asr #4        : adds   %wzr %wzr asr $0x04 -> %wzr
@@ -717,6 +753,58 @@ f16003ff : cmp    sp, #0x800, lsl #12     : subs   %sp $0x0800 lsl $0x10 -> %xzr
 1e6022c8 : fcmp   d22, #0.0               : fcmp   $0x01 -> %d22
 1e7d23c0 : fcmp   d30, d29                : fcmp   %d29 -> %d30
 1e602388 : fcmp   d28, #0.0               : fcmp   $0x01 -> %d28
+
+# FCMPE <Hn>, <Hm>
+1ee12010 : fcmpe h0, h1                   : fcmpe  %h0 %h1
+1ee92150 : fcmpe h10, h9                  : fcmpe  %h10 %h9
+1ef32290 : fcmpe h20, h19                 : fcmpe  %h20 %h19
+1efd23d0 : fcmpe h30, h29                 : fcmpe  %h30 %h29
+
+# FCMPE <Sn>, <Sm>
+1e212010 : fcmpe s0, s1                   : fcmpe  %s0 %s1
+1e292150 : fcmpe s10, s9                  : fcmpe  %s10 %s9
+1e332290 : fcmpe s20, s19                 : fcmpe  %s20 %s19
+1e3d23d0 : fcmpe s30, s29                 : fcmpe  %s30 %s29
+
+# FCMPE <Dn>, <Dm>
+1e612010 : fcmpe d0, d1                   : fcmpe  %d0 %d1
+1e692150 : fcmpe d10, d9                  : fcmpe  %d10 %d9
+1e732290 : fcmpe d20, d19                 : fcmpe  %d20 %d19
+1e7d23d0 : fcmpe d30, d29                 : fcmpe  %d30 %d29
+
+# FCMPE <Hn>, #0.0
+1ee02018 : fcmpe h0, #0.0                 : fcmpe  %h0
+1ee02158 : fcmpe h10, #0.0                : fcmpe  %h10
+1ee02298 : fcmpe h20, #0.0                : fcmpe  %h20
+1ee023d8 : fcmpe h30, #0.0                : fcmpe  %h30
+
+# FCMPE <Sn>, #0.0
+1e202018 : fcmpe s0, #0.0                 : fcmpe  %s0
+1e202158 : fcmpe s10, #0.0                : fcmpe  %s10
+1e202298 : fcmpe s20, #0.0                : fcmpe  %s20
+1e2023d8 : fcmpe s30, #0.0                : fcmpe  %s30
+
+# FCMPE <Dn>, #0.0
+1e602018 : fcmpe d0, #0.0                 : fcmpe  %d0
+1e602158 : fcmpe d10, #0.0                : fcmpe  %d10
+1e602298 : fcmpe d20, #0.0                : fcmpe  %d20
+1e6023d8 : fcmpe d30, #0.0                : fcmpe  %d30
+
+# FCVTXN <Vb><d>, <Va><n>
+7e616820 : fcvtxn s0, d1                  : fcvtxn %d1 -> %s0
+7e61692a : fcvtxn s10, d9                 : fcvtxn %d9 -> %s10
+7e616a74 : fcvtxn s20, d19                : fcvtxn %d19 -> %s20
+7e616bbe : fcvtxn s30, d29                : fcvtxn %d29 -> %s30
+
+# FCVTXN{2} <Vd>.<Tb>, <Vn>.<Ta>
+2e616820 : fcvtxn v0.2s, v1.2d            : fcvtxn %q1 -> %d0
+2e61692a : fcvtxn v10.2s, v9.2d           : fcvtxn %q9 -> %d10
+2e616a74 : fcvtxn v20.2s, v19.2d          : fcvtxn %q19 -> %d20
+2e616bbe : fcvtxn v30.2s, v29.2d          : fcvtxn %q29 -> %d30
+6e616820 : fcvtxn2 v0.4s, v1.2d            : fcvtxn2 %q1 -> %q0
+6e61692a : fcvtxn2 v10.4s, v9.2d           : fcvtxn2 %q9 -> %q10
+6e616a74 : fcvtxn2 v20.4s, v19.2d          : fcvtxn2 %q19 -> %q20
+6e616bbe : fcvtxn2 v30.4s, v29.2d          : fcvtxn2 %q29 -> %q30
 
 # FCCMP <Hn>, <Hm>, #<nzcv>, <cond>
 1ee10400 : fccmp  h0, h1, #0x0, eq        : fccmp  %h1 eq $0x00 -> %h0
