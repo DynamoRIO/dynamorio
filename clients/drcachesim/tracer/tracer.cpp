@@ -480,6 +480,13 @@ memtrace(void *drcontext, bool skip_size_cap)
                 int count = dr_atomic_add32_return_sum(&notify_beyond_global_max_once, 1);
                 if (count == 1) {
                     NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+                    // We're not detaching, so the app keeps running and we don't flush
+                    // thread buffers or emit thread exits until the app exits.  To avoid
+                    // huge time gaps we use the current timestamp for all future
+                    // entries.  (An alternative would be a suspsend-the-world now and
+                    // flush-and-exit all threads; a better solution for most use cases
+                    // is probably i#5022: -detach_after_tracing.)
+                    instru->set_frozen_timestamp(instru_t::get_timestamp());
                 }
             }
         }
