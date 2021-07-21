@@ -4592,6 +4592,65 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6fb3da54 : sqrdmlah v20.4s, v18.4s, v19.s[3]         : sqrdmlah %q18 $0x03 $0x02 $0x07 -> %q20
 6fbddb9e : sqrdmlah v30.4s, v28.4s, v29.s[3]         : sqrdmlah %q28 $0x0d $0x02 $0x07 -> %q30
 
+# SQNEG <V><d>, <V><n>
+7e207820 : sqneg b0, b1                              : sqneg  %b1 -> %b0
+7e20792a : sqneg b10, b9                             : sqneg  %b9 -> %b10
+7e207a74 : sqneg b20, b19                            : sqneg  %b19 -> %b20
+7e207bbe : sqneg b30, b29                            : sqneg  %b29 -> %b30
+7e607820 : sqneg h0, h1                              : sqneg  %h1 -> %h0
+7e60792a : sqneg h10, h9                             : sqneg  %h9 -> %h10
+7e607a74 : sqneg h20, h19                            : sqneg  %h19 -> %h20
+7e607bbe : sqneg h30, h29                            : sqneg  %h29 -> %h30
+7ea07820 : sqneg s0, s1                              : sqneg  %s1 -> %s0
+7ea0792a : sqneg s10, s9                             : sqneg  %s9 -> %s10
+7ea07a74 : sqneg s20, s19                            : sqneg  %s19 -> %s20
+7ea07bbe : sqneg s30, s29                            : sqneg  %s29 -> %s30
+7ee07820 : sqneg d0, d1                              : sqneg  %d1 -> %d0
+7ee0792a : sqneg d10, d9                             : sqneg  %d9 -> %d10
+7ee07a74 : sqneg d20, d19                            : sqneg  %d19 -> %d20
+7ee07bbe : sqneg d30, d29                            : sqneg  %d29 -> %d30
+
+# SQNEG <Vd>.<T>, <Vn>.<T>
+2e207820 : sqneg v0.8b, v1.8b                        : sqneg  %d1 $0x00 -> %d0
+2e20792a : sqneg v10.8b, v9.8b                       : sqneg  %d9 $0x00 -> %d10
+2e207a74 : sqneg v20.8b, v19.8b                      : sqneg  %d19 $0x00 -> %d20
+2e207bbe : sqneg v30.8b, v29.8b                      : sqneg  %d29 $0x00 -> %d30
+6e207820 : sqneg v0.16b, v1.16b                      : sqneg  %q1 $0x00 -> %q0
+6e20792a : sqneg v10.16b, v9.16b                     : sqneg  %q9 $0x00 -> %q10
+6e207a74 : sqneg v20.16b, v19.16b                    : sqneg  %q19 $0x00 -> %q20
+6e207bbe : sqneg v30.16b, v29.16b                    : sqneg  %q29 $0x00 -> %q30
+2e607820 : sqneg v0.4h, v1.4h                        : sqneg  %d1 $0x01 -> %d0
+2e60792a : sqneg v10.4h, v9.4h                       : sqneg  %d9 $0x01 -> %d10
+2e607a74 : sqneg v20.4h, v19.4h                      : sqneg  %d19 $0x01 -> %d20
+2e607bbe : sqneg v30.4h, v29.4h                      : sqneg  %d29 $0x01 -> %d30
+6e607820 : sqneg v0.8h, v1.8h                        : sqneg  %q1 $0x01 -> %q0
+6e60792a : sqneg v10.8h, v9.8h                       : sqneg  %q9 $0x01 -> %q10
+6e607a74 : sqneg v20.8h, v19.8h                      : sqneg  %q19 $0x01 -> %q20
+6e607bbe : sqneg v30.8h, v29.8h                      : sqneg  %q29 $0x01 -> %q30
+2ea07820 : sqneg v0.2s, v1.2s                        : sqneg  %d1 $0x02 -> %d0
+2ea0792a : sqneg v10.2s, v9.2s                       : sqneg  %d9 $0x02 -> %d10
+2ea07a74 : sqneg v20.2s, v19.2s                      : sqneg  %d19 $0x02 -> %d20
+2ea07bbe : sqneg v30.2s, v29.2s                      : sqneg  %d29 $0x02 -> %d30
+6ea07820 : sqneg v0.4s, v1.4s                        : sqneg  %q1 $0x02 -> %q0
+6ea0792a : sqneg v10.4s, v9.4s                       : sqneg  %q9 $0x02 -> %q10
+6ea07a74 : sqneg v20.4s, v19.4s                      : sqneg  %q19 $0x02 -> %q20
+6ea07bbe : sqneg v30.4s, v29.4s                      : sqneg  %q29 $0x02 -> %q30
+6ee07820 : sqneg v0.2d, v1.2d                        : sqneg  %q1 $0x03 -> %q0
+6ee0792a : sqneg v10.2d, v9.2d                       : sqneg  %q9 $0x03 -> %q10
+6ee07a74 : sqneg v20.2d, v19.2d                      : sqneg  %q19 $0x03 -> %q20
+6ee07bbe : sqneg v30.2d, v29.2d                      : sqneg  %q29 $0x03 -> %q30
+
+# SRI <V><d>, <V><n>, #<shift>
+7f7f4420 : sri d0, d1, #1                            : sri    %d1 $0x01 -> %d0
+
+# SRI <Vd>.<T>, <Vn>.<T>, #<shift>
+2f0f4420 : sri v0.8b, v1.8b, #1                      : sri    %d1 $0x02 $0x31 -> %d0
+6f0f4420 : sri v0.16b, v1.16b, #1                    : sri    %q1 $0x02 $0x31 -> %q0
+2f1f4420 : sri v0.4h, v1.4h, #1                      : sri    %d1 $0x02 $0x21 -> %d0
+6f1f4420 : sri v0.8h, v1.8h, #1                      : sri    %q1 $0x02 $0x21 -> %q0
+2f3f4420 : sri v0.2s, v1.2s, #1                      : sri    %d1 $0x02 $0x01 -> %d0
+6f3f4420 : sri v0.4s, v1.4s, #1                      : sri    %q1 $0x02 $0x01 -> %q0
+
 # SMOV <Wd>, <Vn>.<B>[<index>]
 0e012c00 : smov w0, v0.b[0]              : smov   %d0 $0x01 -> %w0
 0e032c00 : smov w0, v0.b[1]              : smov   %d0 $0x03 -> %w0
@@ -4765,6 +4824,42 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 0ea25f1c : sqrshl v28.2s, v24.2s, v2.2s             : sqrshl %d24 %d2 $0x02 -> %d28
 4ea25f1c : sqrshl v28.4s, v24.4s, v2.4s             : sqrshl %q24 %q2 $0x02 -> %q28
 4ee25f1c : sqrshl v28.2d, v24.2d, v2.2d             : sqrshl %q24 %q2 $0x03 -> %q28
+
+# SQRSHRN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
+0f0f9c20 : sqrshrn v0.8b, v1.8h, #1                 : sqrshrn %d1 $0x31 -> %d0
+0f1f9c20 : sqrshrn v0.4h, v1.4s, #1                 : sqrshrn %d1 $0x21 -> %d0
+0f3f9c20 : sqrshrn v0.2s, v1.2d, #1                 : sqrshrn %d1 $0x01 -> %d0
+4f0f9c20 : sqrshrn2 v0.16b, v1.8h, #1               : sqrshrn2 %q1 $0x31 -> %q0
+4f1f9c20 : sqrshrn2 v0.8h, v1.4s, #1                : sqrshrn2 %q1 $0x21 -> %q0
+4f3f9c20 : sqrshrn2 v0.4s, v1.2d, #1                : sqrshrn2 %q1 $0x01 -> %q0
+
+# SQRSHRUN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
+2f0f8c20 : sqrshrun v0.8b, v1.8h, #1                : sqrshrun %d1 $0x31 -> %d0
+2f1f8c20 : sqrshrun v0.4h, v1.4s, #1                : sqrshrun %d1 $0x21 -> %d0
+2f3f8c20 : sqrshrun v0.2s, v1.2d, #1                : sqrshrun %d1 $0x01 -> %d0
+6f0f8c20 : sqrshrun2 v0.16b, v1.8h, #1              : sqrshrun2 %q1 $0x31 -> %q0
+6f1f8c20 : sqrshrun2 v0.8h, v1.4s, #1               : sqrshrun2 %q1 $0x21 -> %q0
+6f3f8c20 : sqrshrun2 v0.4s, v1.2d, #1               : sqrshrun2 %q1 $0x01 -> %q0
+
+# SQSHLU <V><d>, <V><n>, #<shift>
+7f216420 : sqshlu s0, s1                            : sqshlu %s1 $0x1f -> %s0
+7f416420 : sqshlu d0, d1                            : sqshlu %d1 $0x3f -> %d0
+
+# SQSHLU <Vd>.<T>, <Vn>.<T>, #<shift>
+2f096420 : sqshlu v0.8b, v1.8b, #1                  : sqshlu %d1 $0x02 $0x37 -> %d0
+6f096420 : sqshlu v0.16b, v1.16b, #1                : sqshlu %q1 $0x02 $0x37 -> %q0
+2f116420 : sqshlu v0.4h, v1.4h, #1                  : sqshlu %d1 $0x02 $0x2f -> %d0
+6f116420 : sqshlu v0.8h, v1.8h, #1                  : sqshlu %q1 $0x02 $0x2f -> %q0
+2f216420 : sqshlu v0.2s, v1.2s, #1                  : sqshlu %d1 $0x02 $0x1f -> %d0
+6f216420 : sqshlu v0.4s, v1.4s, #1                  : sqshlu %q1 $0x02 $0x1f -> %q0
+
+# SQSHRUN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
+2f0f8420 : sqshrun v0.8b, v1.8h, #1                 : sqshrun %d1 $0x31 -> %d0
+2f1f8420 : sqshrun v0.4h, v1.4s, #1                 : sqshrun %d1 $0x21 -> %d0
+2f3f8420 : sqshrun v0.2s, v1.2d, #1                 : sqshrun %d1 $0x01 -> %d0
+6f0f8420 : sqshrun2 v0.16b, v1.8h, #1               : sqshrun2 %q1 $0x31 -> %q0
+6f1f8420 : sqshrun2 v0.8h, v1.4s, #1                : sqshrun2 %q1 $0x21 -> %q0
+6f3f8420 : sqshrun2 v0.4s, v1.2d, #1                : sqshrun2 %q1 $0x01 -> %q0
 
 # SQSHL <V><d>, <V><n>, <V><m>
 5e224c20 : sqshl b0, b1, b2                         : sqshl  %b1 %b2 -> %b0
