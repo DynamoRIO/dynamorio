@@ -1492,6 +1492,31 @@ x001111001100001000000xxxxxxxxxx     fcvtnu   wx0 : d5
 0101111011100000101010xxxxxxxxxx     cmlt      d0 : d5
 0x001110xx100000101010xxxxxxxxxx     cmlt     dq0 : dq5 bhsd_sz
 1101010100101xxxxxxxxxxxxxxxxxxx     sysl      x0 : op1 crn imm4 op2
+0000111000110000110010xxxxxxxxxx     fmaxnmv   h0 : d5
+0100111000110000110010xxxxxxxxxx     fmaxnmv   h0 : q5
+0110111000110000110010xxxxxxxxxx     fmaxnmv   s0 : q5
+0000111010110000110010xxxxxxxxxx     fminnmv   h0 : d5
+0100111010110000110010xxxxxxxxxx     fminnmv   h0 : q5
+0110111010110000110010xxxxxxxxxx     fminnmv   s0 : q5
+0101111011111001110110xxxxxxxxxx     frecpe     h0 : h5
+0101111010100001110110xxxxxxxxxx     frecpe     s0 : s5
+0101111011100001110110xxxxxxxxxx     frecpe     d0 : d5
+0x0011101x100001110110xxxxxxxxxx     frecpe    dq0 : dq5 bd_sz
+0101111011111001111110xxxxxxxxxx     frecpx     h0 : h5
+0101111010100001111110xxxxxxxxxx     frecpx     s0 : s5
+0101111011100001111110xxxxxxxxxx     frecpx     d0 : d5
+0111111011111001110110xxxxxxxxxx     frsqrte    h0 : h5
+0111111010100001110110xxxxxxxxxx     frsqrte    s0 : s5
+0111111011100001110110xxxxxxxxxx     frsqrte    d0 : d5
+0x1011101x100001110110xxxxxxxxxx     frsqrte   dq0 : dq5 bd_sz
+0000111100xxxxxx100011xxxxxxxxxx     rshrn      d0 : d5 immhb
+0100111100xxxxxx100011xxxxxxxxxx     rshrn2     q0 : q5 immhb
+0x001110xx110000001110xxxxxxxxxx     saddlv    dq0 : dq5 bhsd_sz
+0101111000100000011110xxxxxxxxxx     sqabs     b0 : b5
+0101111001100000011110xxxxxxxxxx     sqabs     h0 : h5
+0101111010100000011110xxxxxxxxxx     sqabs     s0 : s5
+0101111011100000011110xxxxxxxxxx     sqabs     d0 : d5
+0x001110xx100000011110xxxxxxxxxx     sqabs     dq0 : dq5 bhsd_sz
 0111111011100000100110xxxxxxxxxx     cmle       d0 : d5
 0x101110xx100000100110xxxxxxxxxx     cmle      dq0 : dq5 bhsd_sz
 0111111011111000110110xxxxxxxxxx     fcmle      h0 : h5
