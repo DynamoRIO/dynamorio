@@ -1,4 +1,4 @@
-sending 2 signals
-in handler 42
-in handler 42
+sending no-nest signals
+sending nestable signals
+saw nesting
 all done
