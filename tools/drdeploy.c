@@ -1267,7 +1267,6 @@ _tmain(int argc, TCHAR *targv[])
             if (pid == 0)
                 usage(false, "attach to invalid pid %d", pid);
             attach_pid = pid;
-            //limit = -1;
 #    ifdef UNIX
             use_ptrace = true;
 #    endif

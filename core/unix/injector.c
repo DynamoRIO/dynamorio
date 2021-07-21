@@ -796,9 +796,10 @@ dr_inject_wait_for_child(void *data, uint64 timeout_millis)
              * For non-child target, we should poll for its exit.
              * There is no standard way of getting non-child target process' exit code.
              */
-            if (kill(info->pid, 0) == -1)
+            if (kill(info->pid, 0) == -1) {
                 if (errno == ESRCH)
                     exit = 1;
+            }
             /* sleep might not be implemented using nanosleep */
             nanosleep(&t, 0);
         } while (!exit && !timeout_expired);
@@ -813,7 +814,7 @@ int
 dr_inject_process_exit(void *data, bool terminate)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
-    int status;
+    int status = 0;
     if (info->exited) {
         /* If it already exited when we waited on it above, then we *cannot*
          * wait on it again or try to kill it, or we might target some new
