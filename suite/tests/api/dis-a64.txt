@@ -707,6 +707,30 @@ f16003ff : cmp    sp, #0x800, lsl #12     : subs   %sp $0x0800 lsl $0x10 -> %xzr
 4e205b19 : cnt v25.16b, v24.16b           : cnt    %q24 -> %q25
 4e205bbe : cnt v30.16b, v29.16b           : cnt    %q29 -> %q30
 
+# DCPS1 {#<imm>}
+d4a00001 : dcps1 #0                       : dcps1  $0x0000
+d4aaaaa1 : dcps1 #21845                   : dcps1  $0x5555
+d4b55541 : dcps1 #43690                   : dcps1  $0xaaaa
+d4bfffe1 : dcps1 #65535                   : dcps1  $0xffff
+
+# DCPS2 {#<imm>}
+d4a00002 : dcps2 #0                       : dcps2  $0x0000
+d4aaaaa2 : dcps2 #21845                   : dcps2  $0x5555
+d4b55542 : dcps2 #43690                   : dcps2  $0xaaaa
+d4bfffe2 : dcps2 #65535                   : dcps2  $0xffff
+
+# DCPS3 {#<imm>}
+d4a00003 : dcps3 #0                       : dcps3  $0x0000
+d4aaaaa3 : dcps3 #21845                   : dcps3  $0x5555
+d4b55543 : dcps3 #43690                   : dcps3  $0xaaaa
+d4bfffe3 : dcps3 #65535                   : dcps3  $0xffff
+
+# DRPS
+d6bf03e0 : drps                           : drps
+
+# ERET
+d69f03e0 : eret                           : eret
+
 # EXT <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>
 2e040065 : ext v5.8b, v3.8b, v4.8b, #0        : ext    %d3 %d4 $0x00 -> %d5
 2e09010a : ext v10.8b, v8.8b, v9.8b, #0       : ext    %d8 %d9 $0x00 -> %d10

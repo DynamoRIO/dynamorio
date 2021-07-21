@@ -1492,6 +1492,11 @@ x001111001100001000000xxxxxxxxxx     fcvtnu   wx0 : d5
 0101111011100000101010xxxxxxxxxx     cmlt      d0 : d5
 0x001110xx100000101010xxxxxxxxxx     cmlt     dq0 : dq5 bhsd_sz
 1101010100101xxxxxxxxxxxxxxxxxxx     sysl      x0 : op1 crn imm4 op2
+11010100101xxxxxxxxxxxxxxxx00001     dcps1        : imm16
+11010100101xxxxxxxxxxxxxxxx00010     dcps2        : imm16
+11010100101xxxxxxxxxxxxxxxx00011     dcps3        : imm16
+11010110101111110000001111100000     drps         :
+11010110100111110000001111100000     eret         :
 0101111000100000001110xxxxxxxxxx     suqadd    b0 : b5
 0101111001100000001110xxxxxxxxxx     suqadd    h0 : h5
 0101111010100000001110xxxxxxxxxx     suqadd    s0 : s5
