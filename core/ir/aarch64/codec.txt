@@ -1492,6 +1492,21 @@ x001111001100001000000xxxxxxxxxx     fcvtnu   wx0 : d5
 0101111011100000101010xxxxxxxxxx     cmlt      d0 : d5
 0x001110xx100000101010xxxxxxxxxx     cmlt     dq0 : dq5 bhsd_sz
 1101010100101xxxxxxxxxxxxxxxxxxx     sysl      x0 : op1 crn imm4 op2
+0101111000100000001110xxxxxxxxxx     suqadd    b0 : b5
+0101111001100000001110xxxxxxxxxx     suqadd    h0 : h5
+0101111010100000001110xxxxxxxxxx     suqadd    s0 : s5
+0101111011100000001110xxxxxxxxxx     suqadd    d0 : d5
+0x001110xx100000001110xxxxxxxxxx     suqadd   dq0 : dq5 bhsd_sz
+0x001110000xxxxx0xx100xxxxxxxxxx     tbx      dq0 : dq5 dq16 len
+0010111100xxxxxx100111xxxxxxxxxx     uqrshrn   d0 : d5 immhb
+0110111100xxxxxx100111xxxxxxxxxx     uqrshrn2  q0 : q5 immhb
+0x0011101x100001110010xxxxxxxxxx     urecpe   dq0 : dq5 sd_sz
+0111111101xxxxxx001101xxxxxxxxxx     ursra     d0 : d5 immhb
+0111111000100000001110xxxxxxxxxx     usqadd    b0 : b5
+0111111001100000001110xxxxxxxxxx     usqadd    h0 : h5
+0111111010100000001110xxxxxxxxxx     usqadd    s0 : s5
+0111111011100000001110xxxxxxxxxx     usqadd    d0 : d5
+0x101110xx100000001110xxxxxxxxxx     usqadd   dq0 : dq5 bhsd_sz
 0111111000100000011110xxxxxxxxxx     sqneg     b0 : b5
 0111111001100000011110xxxxxxxxxx     sqneg     h0 : h5
 0111111010100000011110xxxxxxxxxx     sqneg     s0 : s5

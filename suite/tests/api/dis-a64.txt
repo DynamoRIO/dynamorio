@@ -5112,6 +5112,51 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6ea12b19 : sqxtun2 v25.4s, v24.2d                   : sqxtun2 %q24 $0x02 -> %q25
 6ea12bbe : sqxtun2 v30.4s, v29.2d                   : sqxtun2 %q29 $0x02 -> %q30
 
+# SUQADD <V><d>, <V><n>
+5e203820 : suqadd b0, b1                            : suqadd %b1 -> %b0
+5e603820 : suqadd h0, h1                            : suqadd %h1 -> %h0
+5ea03820 : suqadd s0, s1                            : suqadd %s1 -> %s0
+5ee03820 : suqadd d0, d1                            : suqadd %d1 -> %d0
+
+# SUQADD <Vd>.<T>, <Vn>.<T>
+0e203820 : suqadd v0.8b, v1.8b                      : suqadd %d1 $0x00 -> %d0
+4e203820 : suqadd v0.16b, v1.16b                    : suqadd %q1 $0x00 -> %q0
+0e603820 : suqadd v0.4h, v1.4h                      : suqadd %d1 $0x01 -> %d0
+4e603820 : suqadd v0.8h, v1.8h                      : suqadd %q1 $0x01 -> %q0
+0ea03820 : suqadd v0.2s, v1.2s                      : suqadd %d1 $0x02 -> %d0
+4ea03820 : suqadd v0.4s, v1.4s                      : suqadd %q1 $0x02 -> %q0
+4ee03820 : suqadd v0.2d, v1.2d                      : suqadd %q1 $0x03 -> %q0
+
+# UQRSHRN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
+2f0f9c20 : uqrshrn v0.8b, v1.8h, #1                 : uqrshrn %d1 $0x31 -> %d0
+2f1f9c20 : uqrshrn v0.4h, v1.4s, #1                 : uqrshrn %d1 $0x21 -> %d0
+2f3f9c20 : uqrshrn v0.2s, v1.2d, #1                 : uqrshrn %d1 $0x01 -> %d0
+6f0f9c20 : uqrshrn2 v0.16b, v1.8h, #1               : uqrshrn2 %q1 $0x31 -> %q0
+6f1f9c20 : uqrshrn2 v0.8h, v1.4s, #1                : uqrshrn2 %q1 $0x21 -> %q0
+6f3f9c20 : uqrshrn2 v0.4s, v1.2d, #1                : uqrshrn2 %q1 $0x01 -> %q0
+
+# URECPE <Vd>.<T>, <Vn>.<T>
+0ea1c820 : urecpe v0.2s, v1.2s                      : urecpe %d1 $0x02 -> %d0
+4ea1c820 : urecpe v0.4s, v1.4s                      : urecpe %q1 $0x02 -> %q0
+
+# URSRA <V><d>, <V><n>, #<shift>
+7f7f3420 : ursra d0, d1, #1                         : ursra  %d1 $0x01 -> %d0
+
+# USQADD <V><d>, <V><n>
+7e203820 : usqadd b0, b1                            : usqadd %b1 -> %b0
+7e603820 : usqadd h0, h1                            : usqadd %h1 -> %h0
+7ea03820 : usqadd s0, s1                            : usqadd %s1 -> %s0
+7ee03820 : usqadd d0, d1                            : usqadd %d1 -> %d0
+
+# USQADD <Vd>.<T>, <Vn>.<T>
+2e203820 : usqadd v0.8b, v1.8b                      : usqadd %d1 $0x00 -> %d0
+2e603820 : usqadd v0.4h, v1.4h                      : usqadd %d1 $0x01 -> %d0
+2ea03820 : usqadd v0.2s, v1.2s                      : usqadd %d1 $0x02 -> %d0
+6e203820 : usqadd v0.16b, v1.16b                    : usqadd %q1 $0x00 -> %q0
+6e603820 : usqadd v0.8h, v1.8h                      : usqadd %q1 $0x01 -> %q0
+6ea03820 : usqadd v0.4s, v1.4s                      : usqadd %q1 $0x02 -> %q0
+6ee03820 : usqadd v0.2d, v1.2d                      : usqadd %q1 $0x03 -> %q0
+
 # UQXTN <Vb><d>, <Va><n>
 7e214820 : uqxtn b0, h1                             : uqxtn  %h1 -> %b0
 7e214885 : uqxtn b5, h4                             : uqxtn  %h4 -> %b5
@@ -8805,6 +8850,60 @@ b7ffffff : tbnz   xzr, #63, ffffffc       : tbnz   $0x000000000ffffffc %xzr $0x3
 4e14620f : tbl v15.16b, {v16.16b, v17.16b, v18.16b, v19.16b}, v20.16b  : tbl    %q16 %q20 $0x03 -> %q15
 4e1962b4 : tbl v20.16b, {v21.16b, v22.16b, v23.16b, v24.16b}, v25.16b  : tbl    %q21 %q25 $0x03 -> %q20
 4e1e6359 : tbl v25.16b, {v26.16b, v27.16b, v28.16b, v29.16b}, v30.16b  : tbl    %q26 %q30 $0x03 -> %q25
+
+# TBX <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
+0e021020 : tbx v0.8b, {v1.16b}, v2.8b                                  : tbx    %d1 %d2 $0x00 -> %d0
+0e0710c5 : tbx v5.8b, {v6.16b}, v7.8b                                  : tbx    %d6 %d7 $0x00 -> %d5
+0e0c116a : tbx v10.8b, {v11.16b}, v12.8b                               : tbx    %d11 %d12 $0x00 -> %d10
+0e11120f : tbx v15.8b, {v16.16b}, v17.8b                               : tbx    %d16 %d17 $0x00 -> %d15
+0e1612b4 : tbx v20.8b, {v21.16b}, v22.8b                               : tbx    %d21 %d22 $0x00 -> %d20
+0e1b1359 : tbx v25.8b, {v26.16b}, v27.8b                               : tbx    %d26 %d27 $0x00 -> %d25
+0e1d139e : tbx v30.8b, {v28.16b}, v29.8b                               : tbx    %d28 %d29 $0x00 -> %d30
+4e021020 : tbx v0.16b, {v1.16b}, v2.16b                                : tbx    %q1 %q2 $0x00 -> %q0
+4e0710c5 : tbx v5.16b, {v6.16b}, v7.16b                                : tbx    %q6 %q7 $0x00 -> %q5
+4e0c116a : tbx v10.16b, {v11.16b}, v12.16b                             : tbx    %q11 %q12 $0x00 -> %q10
+4e11120f : tbx v15.16b, {v16.16b}, v17.16b                             : tbx    %q16 %q17 $0x00 -> %q15
+4e1612b4 : tbx v20.16b, {v21.16b}, v22.16b                             : tbx    %q21 %q22 $0x00 -> %q20
+4e1b1359 : tbx v25.16b, {v26.16b}, v27.16b                             : tbx    %q26 %q27 $0x00 -> %q25
+4e1d139e : tbx v30.16b, {v28.16b}, v29.16b                             : tbx    %q28 %q29 $0x00 -> %q30
+0e033020 : tbx v0.8b, {v1.16b, v2.16b}, v3.8b                          : tbx    %d1 %d3 $0x01 -> %d0
+0e0830c5 : tbx v5.8b, {v6.16b, v7.16b}, v8.8b                          : tbx    %d6 %d8 $0x01 -> %d5
+0e0d316a : tbx v10.8b, {v11.16b, v12.16b}, v13.8b                      : tbx    %d11 %d13 $0x01 -> %d10
+0e12320f : tbx v15.8b, {v16.16b, v17.16b}, v18.8b                      : tbx    %d16 %d18 $0x01 -> %d15
+0e1732b4 : tbx v20.8b, {v21.16b, v22.16b}, v23.8b                      : tbx    %d21 %d23 $0x01 -> %d20
+0e1c3359 : tbx v25.8b, {v26.16b, v27.16b}, v28.8b                      : tbx    %d26 %d28 $0x01 -> %d25
+0e1d337e : tbx v30.8b, {v27.16b, v28.16b}, v29.8b                      : tbx    %d27 %d29 $0x01 -> %d30
+4e033020 : tbx v0.16b, {v1.16b, v2.16b}, v3.16b                        : tbx    %q1 %q3 $0x01 -> %q0
+4e0830c5 : tbx v5.16b, {v6.16b, v7.16b}, v8.16b                        : tbx    %q6 %q8 $0x01 -> %q5
+4e0d316a : tbx v10.16b, {v11.16b, v12.16b}, v13.16b                    : tbx    %q11 %q13 $0x01 -> %q10
+4e12320f : tbx v15.16b, {v16.16b, v17.16b}, v18.16b                    : tbx    %q16 %q18 $0x01 -> %q15
+4e1732b4 : tbx v20.16b, {v21.16b, v22.16b}, v23.16b                    : tbx    %q21 %q23 $0x01 -> %q20
+4e1c3359 : tbx v25.16b, {v26.16b, v27.16b}, v28.16b                    : tbx    %q26 %q28 $0x01 -> %q25
+4e1d337e : tbx v30.16b, {v27.16b, v28.16b}, v29.16b                    : tbx    %q27 %q29 $0x01 -> %q30
+0e045020 : tbx v0.8b, {v1.16b, v2.16b, v3.16b}, v4.8b                  : tbx    %d1 %d4 $0x02 -> %d0
+0e0950c5 : tbx v5.8b, {v6.16b, v7.16b, v8.16b}, v9.8b                  : tbx    %d6 %d9 $0x02 -> %d5
+0e0e516a : tbx v10.8b, {v11.16b, v12.16b, v13.16b}, v14.8b             : tbx    %d11 %d14 $0x02 -> %d10
+0e12520f : tbx v15.8b, {v16.16b, v17.16b, v18.16b}, v18.8b             : tbx    %d16 %d18 $0x02 -> %d15
+0e1852b4 : tbx v20.8b, {v21.16b, v22.16b, v23.16b}, v24.8b             : tbx    %d21 %d24 $0x02 -> %d20
+0e1d5359 : tbx v25.8b, {v26.16b, v27.16b, v28.16b}, v29.8b             : tbx    %d26 %d29 $0x02 -> %d25
+4e045020 : tbx v0.16b, {v1.16b, v2.16b, v3.16b}, v4.16b                : tbx    %q1 %q4 $0x02 -> %q0
+4e0950c5 : tbx v5.16b, {v6.16b, v7.16b, v8.16b}, v9.16b                : tbx    %q6 %q9 $0x02 -> %q5
+4e0e516a : tbx v10.16b, {v11.16b, v12.16b, v13.16b}, v14.16b           : tbx    %q11 %q14 $0x02 -> %q10
+4e12520f : tbx v15.16b, {v16.16b, v17.16b, v18.16b}, v18.16b           : tbx    %q16 %q18 $0x02 -> %q15
+4e1852b4 : tbx v20.16b, {v21.16b, v22.16b, v23.16b}, v24.16b           : tbx    %q21 %q24 $0x02 -> %q20
+4e1d5359 : tbx v25.16b, {v26.16b, v27.16b, v28.16b}, v29.16b           : tbx    %q26 %q29 $0x02 -> %q25
+0e057020 : tbx v0.8b, {v1.16b, v2.16b, v3.16b, v4.16b}, v5.8b          : tbx    %d1 %d5 $0x03 -> %d0
+0e0a70c5 : tbx v5.8b, {v6.16b, v7.16b, v8.16b, v9.16b}, v10.8b         : tbx    %d6 %d10 $0x03 -> %d5
+0e0f716a : tbx v10.8b, {v11.16b, v12.16b, v13.16b, v14.16b}, v15.8b    : tbx    %d11 %d15 $0x03 -> %d10
+0e14720f : tbx v15.8b, {v16.16b, v17.16b, v18.16b, v19.16b}, v20.8b    : tbx    %d16 %d20 $0x03 -> %d15
+0e1972b4 : tbx v20.8b, {v21.16b, v22.16b, v23.16b, v24.16b}, v25.8b    : tbx    %d21 %d25 $0x03 -> %d20
+0e1e7359 : tbx v25.8b, {v26.16b, v27.16b, v28.16b, v29.16b}, v30.8b    : tbx    %d26 %d30 $0x03 -> %d25
+4e057020 : tbx v0.16b, {v1.16b, v2.16b, v3.16b, v4.16b}, v5.16b        : tbx    %q1 %q5 $0x03 -> %q0
+4e0a70c5 : tbx v5.16b, {v6.16b, v7.16b, v8.16b, v9.16b}, v10.16b       : tbx    %q6 %q10 $0x03 -> %q5
+4e0f716a : tbx v10.16b, {v11.16b, v12.16b, v13.16b, v14.16b}, v15.16b  : tbx    %q11 %q15 $0x03 -> %q10
+4e14720f : tbx v15.16b, {v16.16b, v17.16b, v18.16b, v19.16b}, v20.16b  : tbx    %q16 %q20 $0x03 -> %q15
+4e1972b4 : tbx v20.16b, {v21.16b, v22.16b, v23.16b, v24.16b}, v25.16b  : tbx    %q21 %q25 $0x03 -> %q20
+4e1e7359 : tbx v25.16b, {v26.16b, v27.16b, v28.16b, v29.16b}, v30.16b  : tbx    %q26 %q30 $0x03 -> %q25
 
 3603ffff : tbz    wzr, #0, 10007ffc       : tbz    $0x0000000010007ffc %xzr $0x00
 36081041 : tbz    w1, #1, 10000208        : tbz    $0x0000000010000208 %x1 $0x01
