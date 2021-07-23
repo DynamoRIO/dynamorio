@@ -109,6 +109,10 @@ DR_EXPORT
  *
  * \param[in]   pid            PID for process to attach.
  *
+ * \param[in]   appname        The path to the target executable.  The caller
+ *                             must ensure this data is valid until the
+ *                             inject data is disposed.
+ *
  * \param[out]  data           An opaque pointer that should be passed to
  *                             subsequent dr_inject_* routines to refer to
  *                             this process.

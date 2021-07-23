@@ -39,6 +39,7 @@
 #    define _UNICODE
 #    include <windows.h>
 #    include <io.h>
+#    include <Psapi.h>
 #    include "config.h"
 #    include "share.h"
 #endif
@@ -1125,6 +1126,7 @@ _tmain(int argc, TCHAR *targv[])
     char native_tool[MAXIMUM_PATH];
 #endif
 #ifdef DRRUN
+    char exe[MAXIMUM_PATH];
     void *tofree = NULL;
     bool configure = true;
 #endif
@@ -1254,12 +1256,7 @@ _tmain(int argc, TCHAR *targv[])
             continue;
         }
 #    endif
-#    ifdef UNIX
-        else if (strcmp(argv[i], "-use_ptrace") == 0) {
-            /* Undocumented option for using ptrace on a fresh process. */
-            use_ptrace = true;
-            continue;
-        } else if (strcmp(argv[i], "-attach") == 0) {
+        else if (strcmp(argv[i], "-attach") == 0) {
             const char *pid_str = argv[++i];
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
@@ -1270,7 +1267,6 @@ _tmain(int argc, TCHAR *targv[])
 #    ifdef UNIX
             use_ptrace = true;
 #    endif
-            /* FIXME: use pid below to attach. */
             continue;
         }
 #    ifdef UNIX
@@ -1279,7 +1275,6 @@ _tmain(int argc, TCHAR *targv[])
             use_ptrace = true;
             continue;
         }
-#    endif /* UNIX */
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
         else if (strcmp(argv[i], "-early") == 0) {
             /* Now the default: left here just for back-compat */
@@ -1547,14 +1542,29 @@ done_with_options:
     /* Support no app if the tool has its own frontend, under the assumption
      * it may have post-processing or other features.
      */
-#        ifdef UNIX
+
     if (attach_pid != 0) {
-        char exe[MAXIMUM_PATH];
         char exe_str[MAXIMUM_PATH];
-        ssize_t size;
+        ssize_t size = 0;
+#        ifdef UNIX
         _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
         NULL_TERMINATE_BUFFER(exe_str);
         size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
+#        else
+        /* PR#3328: move GetModuleFileNameExW out of core library */
+        TCHAR exe_path[MAXIMUM_PATH];
+        HANDLE attach_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, attach_pid);
+        if (attach_handle == NULL || !GetModuleFileNameExW(attach_handle, NULL, exe_path, MAXIMUM_PATH))
+            usage(false, "attach to invalid pid %d", attach_pid);
+        /* tchar_to_char substitute */
+        WideCharToMultiByte(CP_UTF8, 0, exe_path, -1 /*null-term*/, exe_str, MAXIMUM_PATH,
+                                  NULL, NULL);
+        NULL_TERMINATE_BUFFER(exe_str);
+        size = strlen(exe_str);
+        strncpy(exe, exe_str, size);
+        NULL_TERMINATE_BUFFER(exe);
+        CloseHandle(attach_handle);
+#        endif /* UNIX */
         if (size > 0) {
             if (size < BUFFER_SIZE_ELEMENTS(exe))
                 exe[size] = '\0';
@@ -1565,7 +1575,6 @@ done_with_options:
             usage(false, "attach to invalid pid %d", attach_pid);
         app_name = exe;
     }
-#        endif /* UNIX */
     if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
 #    endif
         if (i >= argc)
@@ -1774,7 +1783,7 @@ done_with_options:
     } else
 #    elif defined(WINDOWS)
     if (attach_pid != 0) {
-        errcode = dr_inject_process_attach(attach_pid, &inject_data);
+        errcode = dr_inject_process_attach(attach_pid, app_name, &inject_data);
     } else
 #    endif /* WINDOWS */
     {

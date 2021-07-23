@@ -789,7 +789,7 @@ dr_inject_wait_for_child(void *data, uint64 timeout_millis)
     else {
         int exit = 0;
         struct timespec t;
-        t.tv_sec  = 1;
+        t.tv_sec = 1;
         t.tv_nsec = 0L;
         do {
             /* At this point dr_inject_process_run has called PTRACE_DETACH

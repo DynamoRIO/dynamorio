@@ -59,7 +59,6 @@
 #include "../globals.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <Psapi.h>
 #include <commdlg.h>
 #include <imagehlp.h>
 #include <stdio.h>
@@ -754,7 +753,7 @@ append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg
 
 DYNAMORIO_EXPORT
 int
-dr_inject_process_attach(process_id_t pid, void **data OUT)
+dr_inject_process_attach(process_id_t pid, const char *appname, void **data OUT)
 {
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     memset(info, 0, sizeof(*info));
@@ -772,16 +771,8 @@ dr_inject_process_attach(process_id_t pid, void **data OUT)
                 break;
             }
         }
-        char szExePath[MAX_PATH];
-        char *pExeName = NULL;
-        GetModuleFileNameExA(dbgevt.u.CreateProcessInfo.hProcess, NULL, szExePath,
-                             MAX_PATH);
-        pExeName = strrchr(szExePath, '\\');
-        if (pExeName == NULL) {
-            return ERROR_INVALID_PARAMETER;
-        }
 
-        strcpy(info->image_name, pExeName + 1);
+        strncpy(info->image_name, appname, BUFFER_SIZE_ELEMENTS(appname));
         char_to_tchar(info->image_name, info->wimage_name,
                       BUFFER_SIZE_ELEMENTS(info->wimage_name));
 
