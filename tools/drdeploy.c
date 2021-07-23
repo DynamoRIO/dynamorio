@@ -1553,12 +1553,14 @@ done_with_options:
 #        else
         /* PR#3328: move GetModuleFileNameExW out of core library */
         TCHAR exe_path[MAXIMUM_PATH];
-        HANDLE attach_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, attach_pid);
-        if (attach_handle == NULL || !GetModuleFileNameExW(attach_handle, NULL, exe_path, MAXIMUM_PATH))
+        HANDLE attach_handle =
+            OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, attach_pid);
+        if (attach_handle == NULL ||
+            !GetModuleFileNameExW(attach_handle, NULL, exe_path, MAXIMUM_PATH))
             usage(false, "attach to invalid pid %d", attach_pid);
         /* tchar_to_char substitute */
         WideCharToMultiByte(CP_UTF8, 0, exe_path, -1 /*null-term*/, exe_str, MAXIMUM_PATH,
-                                  NULL, NULL);
+                            NULL, NULL);
         NULL_TERMINATE_BUFFER(exe_str);
         size = strlen(exe_str);
         strncpy(exe, exe_str, size);
@@ -1570,8 +1572,7 @@ done_with_options:
                 exe[size] = '\0';
             else
                 NULL_TERMINATE_BUFFER(exe);
-        }
-        else
+        } else
             usage(false, "attach to invalid pid %d", attach_pid);
         app_name = exe;
     }

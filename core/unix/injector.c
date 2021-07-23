@@ -782,11 +782,10 @@ dr_inject_wait_for_child(void *data, uint64 timeout_millis)
         do {
             res = waitpid(info->pid, &info->exitcode, 0);
         } while (res != info->pid && res != -1 &&
-                /* The signal handler sets this and makes waitpid return EINTR. */
-                !timeout_expired);
+                 /* The signal handler sets this and makes waitpid return EINTR. */
+                 !timeout_expired);
         info->exited = (res == info->pid);
-    }
-    else {
+    } else {
         int exit = 0;
         struct timespec t;
         t.tv_sec = 1;
