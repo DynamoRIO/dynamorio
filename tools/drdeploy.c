@@ -1261,8 +1261,9 @@ _tmain(int argc, TCHAR *targv[])
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
                 usage(false, "attach expects an integer pid");
-            if (pid == 0)
-                usage(false, "attach to invalid pid %d", pid);
+            if (pid == 0) {
+                usage(false, "attach to invalid pid");
+            }
             attach_pid = pid;
 #    ifdef UNIX
             use_ptrace = true;
@@ -1553,11 +1554,11 @@ done_with_options:
 #        else
         /* PR#3328: move GetModuleFileNameExW out of core library */
         TCHAR exe_path[MAXIMUM_PATH];
-        HANDLE attach_handle =
-            OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, attach_pid);
+        HANDLE attach_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                                           FALSE, (DWORD)attach_pid);
         if (attach_handle == NULL ||
             !GetModuleFileNameExW(attach_handle, NULL, exe_path, MAXIMUM_PATH))
-            usage(false, "attach to invalid pid %d", attach_pid);
+            usage(false, "attach to invalid pid");
         /* tchar_to_char substitute */
         WideCharToMultiByte(CP_UTF8, 0, exe_path, -1 /*null-term*/, exe_str, MAXIMUM_PATH,
                             NULL, NULL);
@@ -1572,8 +1573,9 @@ done_with_options:
                 exe[size] = '\0';
             else
                 NULL_TERMINATE_BUFFER(exe);
-        } else
-            usage(false, "attach to invalid pid %d", attach_pid);
+        } else {
+            usage(false, "attach to invalid pid");
+        }
         app_name = exe;
     }
     if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
