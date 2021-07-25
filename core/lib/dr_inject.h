@@ -119,7 +119,7 @@ DR_EXPORT
  * \return  Returns 0 on success.  On failure, returns a system error code.`
  */
 int
-dr_inject_process_attach(process_id_t pid, void **data);
+dr_inject_process_attach(process_id_t pid, const char *appname, void **data);
 #endif
 
 #ifdef UNIX
