@@ -3477,6 +3477,8 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
       # tracing is delayed (i#4893).
+      # This is also large enough to test the (non-triggering portion of) the
+      # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
 
