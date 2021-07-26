@@ -589,6 +589,10 @@ enum {
 #define INSTR_CREATE_brk(dc, imm) instr_create_0dst_1src((dc), OP_brk, (imm))
 #define INSTR_CREATE_cbnz(dc, pc, reg) instr_create_0dst_2src((dc), OP_cbnz, (pc), (reg))
 #define INSTR_CREATE_cbz(dc, pc, reg) instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
+#define INSTR_CREATE_tbz(dc, pc, reg, imm) \
+    instr_create_0dst_3src((dc), OP_tbz, (pc), (reg), (imm))
+#define INSTR_CREATE_tbnz(dc, pc, reg, imm) \
+    instr_create_0dst_3src((dc), OP_tbnz, (pc), (reg), (imm))
 #define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
     INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
