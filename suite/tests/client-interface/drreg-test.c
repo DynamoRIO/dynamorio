@@ -81,6 +81,22 @@ void
 test_asm_fault_restore_aflags_in_xax_store_xl8();
 void
 test_asm_fault_restore_aflags_xax_already_spilled();
+void
+test_asm_fault_restore_gpr_spilled_to_mcontext_later();
+void
+test_asm_fault_restore_aflags_spilled_to_mcontext_later();
+void
+test_asm_fault_restore_gpr_spilled_during_clean_call_later();
+void
+test_asm_fault_restore_aflags_spilled_during_clean_call_later();
+void
+test_asm_fault_restore_gpr_spilled_to_mcontext_between();
+void
+test_asm_fault_restore_aflags_spilled_to_mcontext_between();
+void
+test_asm_fault_restore_multi_phase_gpr_nested_spill_regions_insertion_outer();
+void
+test_asm_fault_restore_multi_phase_aflags_nested_spill_regions_insertion_outer();
 
 static SIGJMP_BUF mark;
 
@@ -268,6 +284,66 @@ handle_signal_aflags_xax_already_spilled(int signal, siginfo_t *siginfo, ucontex
     SIGLONGJMP(mark, 1);
 }
 
+static void
+handle_signal_spilled_to_mcontext_later(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_30_C)
+            print("ERROR: spilled register value was not preserved in test #30!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #31!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+handle_signal_spilled_during_clean_call_later(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_CLEAN_CALL_MCONTEXT_SIG != DRREG_TEST_32_C)
+            print("ERROR: spilled register value was not preserved in test #32!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #33!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+handle_signal_spilled_to_mcontext_between(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_34_C)
+            print("ERROR: spilled register value was not preserved in test #34!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #35!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static void
+handle_signal_nested_gpr_aflags_spill_insertion_outer(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+    if (signal == SIGILL) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (sc->TEST_REG_SIG != DRREG_TEST_36_C)
+            print("ERROR: spilled register value was not preserved in test #36!\n");
+    } else if (signal == SIGSEGV) {
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, sc->TEST_FLAGS_SIG))
+            print("ERROR: spilled flags value was not preserved in test #37!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
 #    elif defined(WINDOWS)
 #        include <windows.h>
 static LONG WINAPI
@@ -426,6 +502,58 @@ handle_exception_aflags_xax_already_spilled(struct _EXCEPTION_POINTERS *ep)
     }
     SIGLONGJMP(mark, 1);
 }
+
+static LONG WINAPI
+handle_exception_spilled_to_mcontext_later(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_30_C)
+            print("ERROR: spilled register value was not preserved in test #30!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #31!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception_spilled_during_clean_call_later(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CLEAN_CALL_MCONTEXT_CXT != DRREG_TEST_32_C)
+            print("ERROR: spilled register value was not preserved in test #32!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #33!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception_spilled_to_mcontext_between(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_34_C)
+            print("ERROR: spilled register value was not preserved in test #34!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #35!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
+
+static LONG WINAPI
+handle_exception_nested_gpr_aflags_spill_insertion_outer(struct _EXCEPTION_POINTERS *ep)
+{
+    if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (ep->ContextRecord->TEST_REG_CXT != DRREG_TEST_36_C)
+            print("ERROR: spilled register value was not preserved in test #36!\n");
+    } else if (ep->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (!TESTALL(DRREG_TEST_AFLAGS_C, ep->ContextRecord->CXT_XFLAGS))
+            print("ERROR: spilled flags value was not preserved in test #37!\n");
+    }
+    SIGLONGJMP(mark, 1);
+}
 #    endif
 
 int
@@ -507,7 +635,9 @@ main(int argc, const char *argv[])
     SetUnhandledExceptionFilter(&handle_exception_multi_phase_gpr);
 #    endif
 
-    /* Test fault reg restore for multi-phase nested reservation. */
+    /* Test restore on fault for aflags reserved in multiple phases, with
+     * nested spill regions, and the app2app phase spill being the outer one.
+     */
     if (SIGSETJMP(mark) == 0) {
         test_asm_fault_restore_multi_phase_gpr_nested_spill_regions();
     }
@@ -575,7 +705,7 @@ main(int argc, const char *argv[])
      */
 
     /* Test restore on fault for aflags reserved in multiple phases, with
-     * nested spill regions.
+     * nested spill regions, and the app2app phase spill being the outer one.
      */
     if (SIGSETJMP(mark) == 0) {
         test_asm_fault_restore_multi_phase_aflags_nested_spill_regions();
@@ -652,6 +782,78 @@ main(int argc, const char *argv[])
      */
     if (SIGSETJMP(mark) == 0) {
         test_asm_fault_restore_aflags_xax_already_spilled();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_spilled_to_mcontext_later, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_spilled_to_mcontext_later, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception_spilled_to_mcontext_later);
+#    endif
+
+    /* Test restore on fault for gpr spilled to mcontext later by non-drreg routines. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_gpr_spilled_to_mcontext_later();
+    }
+
+    /* Test restore on fault for aflags spilled to mcontext later by non-drreg routines. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_aflags_spilled_to_mcontext_later();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_spilled_during_clean_call_later, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_spilled_during_clean_call_later, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception_spilled_during_clean_call_later);
+#    endif
+
+    /* Test restore on fault for gpr spilled during clean call instrumentation later. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_gpr_spilled_during_clean_call_later();
+    }
+
+    /* Test restore on fault for aflags spilled during clean call instrumentation later. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_aflags_spilled_during_clean_call_later();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_spilled_to_mcontext_between, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_spilled_to_mcontext_between, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception_spilled_to_mcontext_between);
+#    endif
+
+    /* Test restore on fault for gpr spilled to mcontext in between its drreg spill region. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_gpr_spilled_to_mcontext_between();
+    }
+
+    /* Test restore on fault for aflags spilled to mcontext in between its drreg spill region. */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_aflags_spilled_to_mcontext_between();
+    }
+
+    #    if defined(UNIX)
+    intercept_signal(SIGSEGV, (handler_3_t)&handle_signal_nested_gpr_aflags_spill_insertion_outer, false);
+    intercept_signal(SIGILL, (handler_3_t)&handle_signal_nested_gpr_aflags_spill_insertion_outer, false);
+#    elif defined(WINDOWS)
+    SetUnhandledExceptionFilter(&handle_exception_nested_gpr_aflags_spill_insertion_outer);
+#    endif
+
+    /* Test restore on fault for gpr reserved in multiple phases, with
+     * nested spill regions, and the insertion phase spill being the outer one.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_multi_phase_gpr_nested_spill_regions_insertion_outer();
+    }
+
+    /* Test restore on fault for aflags reserved in multiple phases, with
+     * nested spill regions, and the insertion phase spill being the outer one.
+     */
+    if (SIGSETJMP(mark) == 0) {
+        test_asm_fault_restore_multi_phase_aflags_nested_spill_regions_insertion_outer();
     }
 
     /* XXX i#511: add more fault tests and other tricky corner cases */
@@ -1232,15 +1434,16 @@ GLOBAL_LABEL(FUNCNAME:)
      test14:
         mov      TEST_REG_ASM, DRREG_TEST_14_ASM
         mov      TEST_REG_ASM, DRREG_TEST_14_ASM
+
         /* app2app phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        ud2
         /* insertion phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* insertion phase will unreserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
-
-        ud2
         /* app2app phase will unreserve TEST_REG_ASM here. */
+
         jmp      epilog14
      epilog14:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1252,11 +1455,11 @@ GLOBAL_LABEL(FUNCNAME:)
      test14:
         movw     TEST_REG_ASM, DRREG_TEST_14_ASM
         movw     TEST_REG_ASM, DRREG_TEST_14_ASM
+
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .word 0xe7f000f0 /* udf */
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
-
-        .word 0xe7f000f0 /* udf */
 
         b        epilog14
     epilog14:
@@ -1267,11 +1470,11 @@ GLOBAL_LABEL(FUNCNAME:)
      test14:
         movz     TEST_REG_ASM, DRREG_TEST_14_ASM
         movz     TEST_REG_ASM, DRREG_TEST_14_ASM
+
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .inst 0xf36d19 /* udf */
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
-
-        .inst 0xf36d19 /* udf */
 
         b        epilog14
     epilog14:
@@ -1334,11 +1537,12 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_16_ASM
         mov      TEST_REG_ASM, DRREG_TEST_16_ASM
         nop
-        /* Read reg so that it is restored once. */
-        add      TEST_REG2_ASM, TEST_REG_ASM
 
         mov      REG_XCX, 0
         mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM
         jmp      epilog16
      epilog16:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1351,12 +1555,12 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_16_ASM
         movw     TEST_REG_ASM, DRREG_TEST_16_ASM
         nop
-        /* Read reg so that it is restored once. */
-        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
 
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
         b        epilog16
     epilog16:
         bx       lr
@@ -1367,12 +1571,12 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_16_ASM
         movz     TEST_REG_ASM, DRREG_TEST_16_ASM
         nop
-        /* Read reg so that it is restored once. */
-        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
+        /* Read reg so that it is restored once. */
+        add      TEST_REG2_ASM, TEST_REG_ASM, TEST_REG_ASM
         b        epilog16
     epilog16:
         ret
@@ -1399,14 +1603,16 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG_ASM, DRREG_TEST_17_ASM
         /* app2app phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+
         /* insertion phase will reserve TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* app2app phase will release TEST_REG_ASM here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
-
-        mov      REG_XCX, 0
-        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
         /* insertion phase will release TEST_REG_ASM here. */
+
         jmp      epilog17
      epilog17:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1419,12 +1625,12 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_17_ASM
         movw     TEST_REG_ASM, DRREG_TEST_17_ASM
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
 
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         b        epilog17
     epilog17:
         bx       lr
@@ -1435,12 +1641,12 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_17_ASM
         movz     TEST_REG_ASM, DRREG_TEST_17_ASM
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         b        epilog17
     epilog17:
         ret
@@ -1522,16 +1728,21 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_19_ASM
         /* TEST_REG_ASM is reserved here. */
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        adr      TEST_REG_STOLEN_ASM, some_data
-        /* A faux spill instr -- looks like a drreg spill but isn't.
-         * It will seem as if the spill slot used for TEST_REG_ASM
-         * is being overwritten.
-         */
-        str      TEST_REG2_ASM, PTRSZ [TEST_REG_STOLEN_ASM, #TEST_FAUX_SPILL_TLS_OFFS]
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
 
+        /* TEST_REG_ASM is un-reserved here. */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        /* Read TEST_REG_ASM just so that it isn't dead. */
+        add      TEST_REG_ASM, TEST_REG_ASM, TEST_REG_ASM
+        adr      TEST_REG_STOLEN_ASM, some_data
+        /* A faux restore instr -- looks like a drreg restore but isn't.
+         * It will prevent us from recognising the actual spill slot for
+         * TEST_REG_ASM.
+         */
+        ldr      TEST_REG_ASM, PTRSZ [TEST_REG_STOLEN_ASM, #TEST_FAUX_SPILL_TLS_OFFS]
         b        epilog19
     epilog19:
         ret
@@ -1563,6 +1774,9 @@ GLOBAL_LABEL(FUNCNAME:)
          *   TEST_REG_ASM as the new slot also has its native value.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        ud2
+
         /* - insertion phase unreserves TEST_REG_ASM and frees the spill
          *   slot.
          */
@@ -1575,8 +1789,7 @@ GLOBAL_LABEL(FUNCNAME:)
          *   restore it.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
-
-        ud2
+        /* app2app phase unreserves TEST_REG_ASM. */
 
         jmp      epilog20
      epilog20:
@@ -1590,10 +1803,11 @@ GLOBAL_LABEL(FUNCNAME:)
         movw     TEST_REG_ASM, DRREG_TEST_20_ASM
         movw     TEST_REG_ASM, DRREG_TEST_20_ASM
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         .word 0xe7f000f0 /* udf */
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog20
     epilog20:
@@ -1605,10 +1819,11 @@ GLOBAL_LABEL(FUNCNAME:)
         movz     TEST_REG_ASM, DRREG_TEST_20_ASM
         movz     TEST_REG_ASM, DRREG_TEST_20_ASM
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         .inst 0xf36d19 /* udf */
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog20
     epilog20:
@@ -1637,15 +1852,16 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* app2app phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        /* insertion phase will reserve aflags here. */
-        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        /* insertion phase will unreserve aflags here. */
-        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
+        /* insertion phase will reserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* insertion phase will unreserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
         /* app2app phase will unreserve aflags here. */
+
         jmp      epilog21
      epilog21:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1660,11 +1876,12 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog21
     epilog21:
@@ -1679,11 +1896,12 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      nzcv, TEST_REG2_ASM
 
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog21
     epilog21:
@@ -1719,13 +1937,14 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* app2app phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+
         /* insertion phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
         /* app2app phase will release aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
-
-        mov      REG_XAX, 0
-        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
         /* insertion phase will release aflags here. */
         jmp      epilog23
      epilog23:
@@ -1741,11 +1960,12 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog23
     epilog23:
@@ -1760,11 +1980,12 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      nzcv, TEST_REG2_ASM
 
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog23
     epilog23:
@@ -1794,12 +2015,14 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
 
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+
         /* Read aflags so that it is restored once. */
         seto     al
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
-        mov      REG_XAX, 0
-        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
         jmp      epilog24
      epilog24:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1814,12 +2037,13 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        /* Read aflags so that it is restored once. */
-        mrs      TEST_REG2_ASM, APSR
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
+
+        /* Read aflags so that it is restored once. */
+        mrs      TEST_REG2_ASM, APSR
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         b        epilog24
     epilog24:
@@ -1834,12 +2058,13 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      nzcv, TEST_REG2_ASM
 
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        /* Read aflags so that it is restored once. */
-        mrs      TEST_REG2_ASM, nzcv
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
+
+        /* Read aflags so that it is restored once. */
+        mrs      TEST_REG2_ASM, nzcv
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
 
         b        epilog24
     epilog24:
@@ -1875,6 +2100,10 @@ GLOBAL_LABEL(FUNCNAME:)
          *   aflags as the new slot also has its native value.
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+
         /* - insertion phase unreserves aflags and frees the spill
          *   slot.
          */
@@ -1888,9 +2117,7 @@ GLOBAL_LABEL(FUNCNAME:)
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
-        mov      REG_XAX, 0
-        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
-
+        /* app2app phase unreserves aflags. */
         jmp      epilog25
      epilog25:
         add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
@@ -1905,11 +2132,12 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
 
         movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      r0, HEX(0)
         ldr      r0, PTRSZ [r0] /* crash */
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog25
     epilog25:
@@ -1924,11 +2152,12 @@ GLOBAL_LABEL(FUNCNAME:)
         msr      nzcv, TEST_REG2_ASM
 
         movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
-        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         mov      x0, HEX(0)
         ldr      x0, PTRSZ [x0] /* crash */
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
 
         b        epilog25
     epilog25:
@@ -2071,6 +2300,550 @@ GLOBAL_LABEL(FUNCNAME:)
 #elif defined(ARM)
         bx       lr
 #elif defined(AARCH64)
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 30: Test restoration of gpr when it was spilled to mcontext
+         * later by non-drreg routines. This is to verify that drreg's state
+         * restoration works even in presence of non-drreg spills and restores.
+         */
+#define FUNCNAME test_asm_fault_restore_gpr_spilled_to_mcontext_later
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test30
+     test30:
+        mov      TEST_REG_ASM, DRREG_TEST_30_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_30_ASM
+
+        /* TEST_REG_ASM will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        ud2
+
+        /* TEST_REG_ASM will be restored using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* TEST_REG_ASM will be spilled and restored from mcontext here. */
+
+        jmp      epilog30
+     epilog30:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test30
+     test30:
+        movw     TEST_REG_ASM, DRREG_TEST_30_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_30_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .word 0xe7f000f0 /* udf */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog30
+    epilog30:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test30
+     test30:
+        movz     TEST_REG_ASM, DRREG_TEST_30_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_30_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .inst 0xf36d19 /* udf */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog30
+    epilog30:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 31: Test restoration of aflags when they were spilled to
+         * mcontext later by non-drreg routines. This is to verify that
+         * drreg's state restoration works even in presence of non-drreg
+         * spills and restores.
+         */
+#define FUNCNAME test_asm_fault_restore_aflags_spilled_to_mcontext_later
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test31
+     test31:
+        mov      TEST_REG_ASM, DRREG_TEST_31_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_31_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+
+        /* aflags will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+
+        /* aflags will be restored using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* aflags will be spilled and restored from mcontext here. */
+
+        jmp      epilog31
+     epilog31:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test31
+     test31:
+        movw     TEST_REG_ASM, DRREG_TEST_31_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_31_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      r1, HEX(0)
+        ldr      r1, PTRSZ [r1] /* crash */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog31
+    epilog31:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test31
+     test31:
+        movz     TEST_REG_ASM, DRREG_TEST_31_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_31_ASM
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        msr      nzcv, TEST_REG2_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      x1, HEX(0)
+        ldr      x1, PTRSZ [x1] /* crash */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog31
+    epilog31:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 32: Test restoration of mcontext reg that was reserved also
+         * using non-drreg routines during clean call instrumentation.
+         */
+#define FUNCNAME test_asm_fault_restore_gpr_spilled_during_clean_call_later
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test32
+     test32:
+        mov      TEST_REG_ASM, DRREG_TEST_32_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_32_ASM
+        mov      TEST_REG_CLEAN_CALL_MCONTEXT_ASM, DRREG_TEST_32_ASM
+
+        /* TEST_REG_CLEAN_CALL_MCONTEXT_ASM will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        ud2
+
+        /* TEST_REG_CLEAN_CALL_MCONTEXT_ASM will be restored using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* Clean call will be added here. */
+
+        jmp      epilog32
+     epilog32:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test32
+     test32:
+        movw     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movw     TEST_REG_CLEAN_CALL_MCONTEXT_ASM, DRREG_TEST_32_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .word 0xe7f000f0 /* udf */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog32
+    epilog32:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test32
+     test32:
+        movz     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_32_ASM
+        movz     TEST_REG_CLEAN_CALL_MCONTEXT_ASM, DRREG_TEST_32_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .inst 0xf36d19 /* udf */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog32
+    epilog32:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+
+        /* Test 33: Test restoration for aflags reserved also during clean call
+         * instrumentation.
+         */
+#define FUNCNAME test_asm_fault_restore_aflags_spilled_during_clean_call_later
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test33
+     test33:
+        mov      TEST_REG_ASM, DRREG_TEST_33_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_33_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+
+        /* aflags will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+
+        /* aflags will be restored using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* Clean call will be added here. */
+
+        jmp      epilog33
+     epilog33:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test33
+     test33:
+        movw     TEST_REG_ASM, DRREG_TEST_33_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_33_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      r1, HEX(0)
+        ldr      r1, PTRSZ [r1] /* crash */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog33
+    epilog33:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test33
+     test33:
+        movz     TEST_REG_ASM, DRREG_TEST_33_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_33_ASM
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        msr      nzcv, TEST_REG2_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      x1, HEX(0)
+        ldr      x1, PTRSZ [x1] /* crash */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog33
+    epilog33:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+
+        /* Test 34: Test restoration of gpr when it was spilled to mcontext
+         * during its drreg spill region. This is to verify that drreg's
+         * state restoration works even in presence of non-drreg spills
+         * and restores.
+         */
+#define FUNCNAME test_asm_fault_restore_gpr_spilled_to_mcontext_between
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test34
+     test34:
+        mov      TEST_REG_ASM, DRREG_TEST_34_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_34_ASM
+
+        /* TEST_REG_ASM will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+
+        ud2
+
+        /* TEST_REG_ASM will be spilled and restored to mcontext here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* TEST_REG_ASM will be restored using drreg here. */
+
+        jmp      epilog34
+     epilog34:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test34
+     test34:
+        movw     TEST_REG_ASM, DRREG_TEST_34_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_34_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .word 0xe7f000f0 /* udf */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog34
+    epilog34:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test34
+     test34:
+        movz     TEST_REG_ASM, DRREG_TEST_34_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_34_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .inst 0xf36d19 /* udf */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog34
+    epilog34:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 35: Test restoration of aflags when they were spilled to
+         * mcontext during its drreg spill region by non-drreg routines.
+         * This is to verify that drreg's state restoration works even
+         * in presence of non-drreg spills and restores.
+         */
+#define FUNCNAME test_asm_fault_restore_aflags_spilled_to_mcontext_between
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test35
+     test35:
+        mov      TEST_REG_ASM, DRREG_TEST_35_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_35_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+
+        /* aflags will be spilled using drreg here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      REG_XCX, 0
+        mov      REG_XCX, PTRSZ [REG_XCX] /* crash */
+        /* aflags will be spilled and restored to mcontext here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* aflags will be restored using drreg here. */
+
+        jmp      epilog35
+     epilog35:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test35
+     test35:
+        movw     TEST_REG_ASM, DRREG_TEST_35_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_35_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      r1, HEX(0)
+        ldr      r1, PTRSZ [r1] /* crash */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog35
+    epilog35:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test35
+     test35:
+        movz     TEST_REG_ASM, DRREG_TEST_35_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_35_ASM
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        msr      nzcv, TEST_REG2_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      x1, HEX(0)
+        ldr      x1, PTRSZ [x1] /* crash */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+
+        b        epilog35
+    epilog35:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 36: restore on fault for gpr reserved in multiple phases,
+         * where the two spill regions are nested, and the insertion phase
+         * spill region is the outer one.
+         */
+#define FUNCNAME test_asm_fault_restore_multi_phase_gpr_nested_spill_regions_insertion_outer
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test36
+     test36:
+        mov      TEST_REG_ASM, DRREG_TEST_36_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_36_ASM
+
+        /* insertion phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        ud2
+        /* app2app phase will reserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* app2app phase will unreserve TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* insertion phase will unreserve TEST_REG_ASM here. */
+
+        jmp      epilog36
+     epilog36:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test36
+     test36:
+        movw     TEST_REG_ASM, DRREG_TEST_36_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_36_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .word 0xe7f000f0 /* udf */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
+        b        epilog36
+    epilog36:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test36
+     test36:
+        movz     TEST_REG_ASM, DRREG_TEST_36_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_36_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        .inst 0xf36d19 /* udf */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
+        b        epilog36
+    epilog36:
+        ret
+#endif
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+        /* Test 37: restore on fault for aflags reserved in multiple phases,
+         * where the two spill regions are nested, and the insertion phase
+         * spill region is the outer one.
+         */
+#define FUNCNAME test_asm_fault_restore_multi_phase_aflags_nested_spill_regions_insertion_outer
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+#ifdef X86
+        PUSH_CALLEE_SAVED_REGS()
+        sub      REG_XSP, FRAME_PADDING /* align */
+        END_PROLOG
+
+        jmp      test37
+     test37:
+        mov      TEST_REG_ASM, DRREG_TEST_37_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_37_ASM
+        mov      ah, DRREG_TEST_AFLAGS_ASM
+        sahf
+
+        /* insertion phase will reserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      REG_XAX, 0
+        mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
+        /* app2app phase will reserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /* app2app phase will unreserve aflags here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* insertion phase will unreserve aflags here. */
+
+        jmp      epilog37
+     epilog37:
+        add      REG_XSP, FRAME_PADDING /* make a legal SEH64 epilog */
+        POP_CALLEE_SAVED_REGS()
+        ret
+#elif defined(ARM)
+        /* XXX i#3289: prologue missing */
+        b        test37
+     test37:
+        movw     TEST_REG_ASM, DRREG_TEST_37_ASM
+        movw     TEST_REG_ASM, DRREG_TEST_37_ASM
+        msr      APSR_nzcvq, DRREG_TEST_AFLAGS_ASM
+
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      r0, HEX(0)
+        ldr      r0, PTRSZ [r0] /* crash */
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movw     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
+        b        epilog37
+    epilog37:
+        bx       lr
+#elif defined(AARCH64)
+        /* XXX i#3289: prologue missing */
+        b        test37
+     test37:
+        movz     TEST_REG_ASM, DRREG_TEST_37_ASM
+        movz     TEST_REG_ASM, DRREG_TEST_37_ASM
+        movz     TEST_REG2_ASM, DRREG_TEST_AFLAGS_H_ASM, LSL 16
+        msr      nzcv, TEST_REG2_ASM
+
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        mov      x0, HEX(0)
+        ldr      x0, PTRSZ [x0] /* crash */
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        movz     TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+
+        b        epilog37
+    epilog37:
         ret
 #endif
         END_FUNC(FUNCNAME)

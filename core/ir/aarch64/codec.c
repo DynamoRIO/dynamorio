@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -1255,6 +1255,20 @@ encode_opnd_prfop(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_opnd_int(0, 5, false, 0, 0, opnd, enc_out);
 }
 
+/* op2: 3-bit immediate from bits 5-7 */
+
+static inline bool
+decode_opnd_op2(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(5, 3, false, 0, OPSZ_3b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_op2(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(5, 3, false, 0, 0, opnd, enc_out);
+}
+
 /* w5: W register or WZR at bit position 5 */
 
 static inline bool
@@ -1459,6 +1473,20 @@ encode_opnd_p10_low(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_p(10, 7, opnd, enc_out);
 }
 
+/* len: imm2 at bits 13 & 14 */
+
+static inline bool
+decode_opnd_len(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(13, 2, false, 0, OPSZ_2b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_len(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(13, 2, false, 0, 0, opnd, enc_out);
+}
+
 /* imm4 encoded in bits 11-14 */
 static inline bool
 decode_opnd_imm4idx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -1594,6 +1622,20 @@ encode_opnd_cmode3(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_int(13, 3, false, false, 0, opnd, enc_out);
 }
 
+/* crn: 4-bit immediate from bits 12-15*/
+
+static inline bool
+decode_opnd_crn(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(12, 4, false, 0, OPSZ_4b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_crn(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(12, 4, false, 0, 0, opnd, enc_out);
+}
+
 /* cond: condition operand for conditional compare */
 
 static inline bool
@@ -1635,6 +1677,20 @@ encode_opnd_scale(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     *enc_out = (64 - fbits) << 10; /* 'scale' bitfield in encoding */
 
     return true;
+}
+
+/* op1: 3-bit immediate from bits 16-18 */
+
+static inline bool
+decode_opnd_op1(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_opnd_int(16, 3, false, 0, OPSZ_3b, 0, enc, opnd);
+}
+
+static inline bool
+encode_opnd_op1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_opnd_int(16, 3, false, 0, 0, opnd, enc_out);
 }
 
 /* fpimm8: immediate operand for SIMD fmov */
@@ -3760,20 +3816,15 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
          opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_NZCV) ||
         opc == OP_bcond || opc == OP_adc || opc == OP_adcs || opc == OP_sbc ||
         opc == OP_sbcs || opc == OP_csel || opc == OP_csinc || opc == OP_csinv ||
-        opc == OP_csneg || opc == OP_ccmn || opc == OP_ccmp) {
-        /* FIXME i#2626: When handled by decoder, add:
-         * opc == OP_fcsel
-         */
+        opc == OP_csneg || opc == OP_ccmn || opc == OP_ccmp || opc == OP_fcsel) {
         eflags |= EFLAGS_READ_NZCV;
     }
     if ((opc == OP_msr && instr_num_dsts(instr) == 1 &&
          opnd_is_reg(instr_get_dst(instr, 0)) &&
          opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_NZCV) ||
         opc == OP_adcs || opc == OP_adds || opc == OP_sbcs || opc == OP_subs ||
-        opc == OP_ands || opc == OP_bics || opc == OP_ccmn || opc == OP_ccmp) {
-        /* FIXME i#2626: When handled by decoder, add:
-         * opc == OP_fccmp || opc == OP_fccmpe || opc == OP_fcmp || opc == OP_fcmpe
-         */
+        opc == OP_ands || opc == OP_bics || opc == OP_ccmn || opc == OP_ccmp ||
+        opc == OP_fccmp || opc == OP_fccmpe || opc == OP_fcmp || opc == OP_fcmpe) {
         eflags |= EFLAGS_WRITE_NZCV;
     }
 

@@ -1595,7 +1595,14 @@ OPTION_DEFAULT(uint_size, vmheap_size, IF_X64_ELSE(8192ULL, 128) * 1024 * 1024,
                 * for which we need more than 256MB.
                 */
                "capacity of virtual memory region reserved for unreachable heap")
-
+#ifdef WINDOWS
+OPTION_DEFAULT(uint_size, vmheap_size_wow64, 128 * 1024 * 1024,
+               /* XXX: default value is currently not good enough for 32-bit sqlserver,
+                * for which we need more than 256MB.
+                */
+               "capacity of virtual memory region reserved for unreachable heap "
+               "on WoW64 processes")
+#endif
 /* We hardcode an address in the mmap_text region here, but verify via
  * in vmk_init().
  * For Linux we start higher to avoid limiting the brk (i#766), but with our
