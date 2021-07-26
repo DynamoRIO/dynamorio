@@ -562,45 +562,152 @@ dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 6ea04b59 : clz v25.4s, v26.4s               : clz    %q26 $0x02 -> %q25
 6ea04bdd : clz v29.4s, v30.4s               : clz    %q30 $0x02 -> %q29
 
-2e378e2d : cmeq v13.8b, v17.8b, v23.8b              : cmeq   %d17 %d23 $0x00 -> %d13
-6e378e2d : cmeq v13.16b, v17.16b, v23.16b           : cmeq   %q17 %q23 $0x00 -> %q13
-2e778e2d : cmeq v13.4h, v17.4h, v23.4h              : cmeq   %d17 %d23 $0x01 -> %d13
-6e778e2d : cmeq v13.8h, v17.8h, v23.8h              : cmeq   %q17 %q23 $0x01 -> %q13
-2eb78e2d : cmeq v13.2s, v17.2s, v23.2s              : cmeq   %d17 %d23 $0x02 -> %d13
-6eb78e2d : cmeq v13.4s, v17.4s, v23.4s              : cmeq   %q17 %q23 $0x02 -> %q13
-6ef78e2d : cmeq v13.2d, v17.2d, v23.2d              : cmeq   %q17 %q23 $0x03 -> %q13
+# CMEQ <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+2e238c41 : cmeq  v1.8b, v2.8b, v3.8b        : cmeq   %d2 %d3 $0x00 -> %d1
+6e268ca4 : cmeq  v4.16b, v5.16b, v6.16b     : cmeq   %q5 %q6 $0x00 -> %q4
+2e698d07 : cmeq  v7.4h, v8.4h, v9.4h        : cmeq   %d8 %d9 $0x01 -> %d7
+6e6f8dcd : cmeq  v13.8h, v14.8h, v15.8h     : cmeq   %q14 %q15 $0x01 -> %q13
+2eb38e51 : cmeq  v17.2s, v18.2s, v19.2s     : cmeq   %d18 %d19 $0x02 -> %d17
+6ebc8f7a : cmeq  v26.4s, v27.4s, v28.4s     : cmeq   %q27 %q28 $0x02 -> %q26
+6eff8fdd : cmeq  v29.2d, v30.2d, v31.2d     : cmeq   %q30 %q31 $0x03 -> %q29
 
-0e3a3f16 : cmge v22.8b, v24.8b, v26.8b              : cmge   %d24 %d26 $0x00 -> %d22
-4e3a3f16 : cmge v22.16b, v24.16b, v26.16b           : cmge   %q24 %q26 $0x00 -> %q22
-0e7a3f16 : cmge v22.4h, v24.4h, v26.4h              : cmge   %d24 %d26 $0x01 -> %d22
-4e7a3f16 : cmge v22.8h, v24.8h, v26.8h              : cmge   %q24 %q26 $0x01 -> %q22
-0eba3f16 : cmge v22.2s, v24.2s, v26.2s              : cmge   %d24 %d26 $0x02 -> %d22
-4eba3f16 : cmge v22.4s, v24.4s, v26.4s              : cmge   %q24 %q26 $0x02 -> %q22
-4efa3f16 : cmge v22.2d, v24.2d, v26.2d              : cmge   %q24 %q26 $0x03 -> %q22
+# CMEQ <Vd>.<T>, <Vn>.<T>, #0
+0e209801 : cmeq  v1.8b, v0.8b, #0           : cmeq   %d0 $0x00 -> %d1
+4e209843 : cmeq  v3.16b, v2.16b, #0         : cmeq   %q2 $0x00 -> %q3
+0e609885 : cmeq  v5.4h, v4.4h, #0           : cmeq   %d4 $0x01 -> %d5
+4e6098c7 : cmeq  v7.8h, v6.8h, #0           : cmeq   %q6 $0x01 -> %q7
+0ea09909 : cmeq  v9.2s, v8.2s, #0           : cmeq   %d8 $0x02 -> %d9
+4ea0994b : cmeq  v11.4s, v10.4s, #0         : cmeq   %q10 $0x02 -> %q11
+4ee0998d : cmeq  v13.2d, v12.2d, #0         : cmeq   %q12 $0x03 -> %q13
 
-0e283742 : cmgt v2.8b, v26.8b, v8.8b                : cmgt   %d26 %d8 $0x00 -> %d2
-4e283742 : cmgt v2.16b, v26.16b, v8.16b             : cmgt   %q26 %q8 $0x00 -> %q2
-0e683742 : cmgt v2.4h, v26.4h, v8.4h                : cmgt   %d26 %d8 $0x01 -> %d2
-4e683742 : cmgt v2.8h, v26.8h, v8.8h                : cmgt   %q26 %q8 $0x01 -> %q2
-0ea83742 : cmgt v2.2s, v26.2s, v8.2s                : cmgt   %d26 %d8 $0x02 -> %d2
-4ea83742 : cmgt v2.4s, v26.4s, v8.4s                : cmgt   %q26 %q8 $0x02 -> %q2
-4ee83742 : cmgt v2.2d, v26.2d, v8.2d                : cmgt   %q26 %q8 $0x03 -> %q2
+# CMEQ <V><d>, <V><n>, #0
+5ee09801 : cmeq  d1, d0, #0                 : cmeq   %d0 -> %d1
+5ee09843 : cmeq  d3, d2, #0                 : cmeq   %d2 -> %d3
+5ee09885 : cmeq  d5, d4, #0                 : cmeq   %d4 -> %d5
+5ee098c7 : cmeq  d7, d6, #0                 : cmeq   %d6 -> %d7
+5ee09909 : cmeq  d9, d8, #0                 : cmeq   %d8 -> %d9
+5ee0994b : cmeq  d11, d10, #0               : cmeq   %d10 -> %d11
+5ee0998d : cmeq  d13, d12, #0               : cmeq   %d12 -> %d13
+5ee099cf : cmeq  d15, d14, #0               : cmeq   %d14 -> %d15
+5ee09a11 : cmeq  d17, d16, #0               : cmeq   %d16 -> %d17
+5ee09a53 : cmeq  d19, d18, #0               : cmeq   %d18 -> %d19
+5ee09a95 : cmeq  d21, d20, #0               : cmeq   %d20 -> %d21
+5ee09ad7 : cmeq  d23, d22, #0               : cmeq   %d22 -> %d23
+5ee09b19 : cmeq  d25, d24, #0               : cmeq   %d24 -> %d25
+5ee09b5b : cmeq  d27, d26, #0               : cmeq   %d26 -> %d27
+5ee09b9d : cmeq  d29, d28, #0               : cmeq   %d28 -> %d29
 
-2e3435e9 : cmhi v9.8b, v15.8b, v20.8b               : cmhi   %d15 %d20 $0x00 -> %d9
-6e3435e9 : cmhi v9.16b, v15.16b, v20.16b            : cmhi   %q15 %q20 $0x00 -> %q9
-2e7435e9 : cmhi v9.4h, v15.4h, v20.4h               : cmhi   %d15 %d20 $0x01 -> %d9
-6e7435e9 : cmhi v9.8h, v15.8h, v20.8h               : cmhi   %q15 %q20 $0x01 -> %q9
-2eb435e9 : cmhi v9.2s, v15.2s, v20.2s               : cmhi   %d15 %d20 $0x02 -> %d9
-6eb435e9 : cmhi v9.4s, v15.4s, v20.4s               : cmhi   %q15 %q20 $0x02 -> %q9
-6ef435e9 : cmhi v9.2d, v15.2d, v20.2d               : cmhi   %q15 %q20 $0x03 -> %q9
+# CMGE <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+0e3a3f16 : cmge v22.8b, v24.8b, v26.8b      : cmge   %d24 %d26 $0x00 -> %d22
+4e3a3f16 : cmge v22.16b, v24.16b, v26.16b   : cmge   %q24 %q26 $0x00 -> %q22
+0e7a3f16 : cmge v22.4h, v24.4h, v26.4h      : cmge   %d24 %d26 $0x01 -> %d22
+4e7a3f16 : cmge v22.8h, v24.8h, v26.8h      : cmge   %q24 %q26 $0x01 -> %q22
+0eba3f16 : cmge v22.2s, v24.2s, v26.2s      : cmge   %d24 %d26 $0x02 -> %d22
+4eba3f16 : cmge v22.4s, v24.4s, v26.4s      : cmge   %q24 %q26 $0x02 -> %q22
+4efa3f16 : cmge v22.2d, v24.2d, v26.2d      : cmge   %q24 %q26 $0x03 -> %q22
 
-2e3e3d82 : cmhs v2.8b, v12.8b, v30.8b               : cmhs   %d12 %d30 $0x00 -> %d2
-6e3e3d82 : cmhs v2.16b, v12.16b, v30.16b            : cmhs   %q12 %q30 $0x00 -> %q2
-2e7e3d82 : cmhs v2.4h, v12.4h, v30.4h               : cmhs   %d12 %d30 $0x01 -> %d2
-6e7e3d82 : cmhs v2.8h, v12.8h, v30.8h               : cmhs   %q12 %q30 $0x01 -> %q2
-2ebe3d82 : cmhs v2.2s, v12.2s, v30.2s               : cmhs   %d12 %d30 $0x02 -> %d2
-6ebe3d82 : cmhs v2.4s, v12.4s, v30.4s               : cmhs   %q12 %q30 $0x02 -> %q2
-6efe3d82 : cmhs v2.2d, v12.2d, v30.2d               : cmhs   %q12 %q30 $0x03 -> %q2
+# CMGE <Vd>.<T>, <Vn>.<T>, #0
+2e208801 : cmge  v1.8b, v0.8b, #0           : cmge   %d0 $0x00 -> %d1
+6e208843 : cmge  v3.16b, v2.16b, #0         : cmge   %q2 $0x00 -> %q3
+2e608885 : cmge  v5.4h, v4.4h, #0           : cmge   %d4 $0x01 -> %d5
+6e6088c7 : cmge  v7.8h, v6.8h, #0           : cmge   %q6 $0x01 -> %q7
+2ea08909 : cmge  v9.2s, v8.2s, #0           : cmge   %d8 $0x02 -> %d9
+6ea0894b : cmge  v11.4s, v10.4s, #0         : cmge   %q10 $0x02 -> %q11
+6ee0898d : cmge  v13.2d, v12.2d, #0         : cmge   %q12 $0x03 -> %q13
+
+# CMGE <V><d>, <V><n>, #0
+7ee08801 : cmge  d1, d0, #0                 : cmge   %d0 -> %d1
+7ee08843 : cmge  d3, d2, #0                 : cmge   %d2 -> %d3
+7ee08885 : cmge  d5, d4, #0                 : cmge   %d4 -> %d5
+7ee088c7 : cmge  d7, d6, #0                 : cmge   %d6 -> %d7
+7ee08909 : cmge  d9, d8, #0                 : cmge   %d8 -> %d9
+7ee0894b : cmge  d11, d10, #0               : cmge   %d10 -> %d11
+7ee0898d : cmge  d13, d12, #0               : cmge   %d12 -> %d13
+7ee089cf : cmge  d15, d14, #0               : cmge   %d14 -> %d15
+7ee08a11 : cmge  d17, d16, #0               : cmge   %d16 -> %d17
+7ee08a53 : cmge  d19, d18, #0               : cmge   %d18 -> %d19
+7ee08a95 : cmge  d21, d20, #0               : cmge   %d20 -> %d21
+7ee08ad7 : cmge  d23, d22, #0               : cmge   %d22 -> %d23
+7ee08b19 : cmge  d25, d24, #0               : cmge   %d24 -> %d25
+7ee08b5b : cmge  d27, d26, #0               : cmge   %d26 -> %d27
+7ee08b9d : cmge  d29, d28, #0               : cmge   %d28 -> %d29
+
+# CMGT <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+0e283742 : cmgt v2.8b, v26.8b, v8.8b        : cmgt   %d26 %d8 $0x00 -> %d2
+4e283742 : cmgt v2.16b, v26.16b, v8.16b     : cmgt   %q26 %q8 $0x00 -> %q2
+0e683742 : cmgt v2.4h, v26.4h, v8.4h        : cmgt   %d26 %d8 $0x01 -> %d2
+4e683742 : cmgt v2.8h, v26.8h, v8.8h        : cmgt   %q26 %q8 $0x01 -> %q2
+0ea83742 : cmgt v2.2s, v26.2s, v8.2s        : cmgt   %d26 %d8 $0x02 -> %d2
+4ea83742 : cmgt v2.4s, v26.4s, v8.4s        : cmgt   %q26 %q8 $0x02 -> %q2
+4ee83742 : cmgt v2.2d, v26.2d, v8.2d        : cmgt   %q26 %q8 $0x03 -> %q2
+
+# CMGT <Vd>.<T>, <Vn>.<T>, #0
+0e208801 : cmgt  v1.8b, v0.8b, #0           : cmgt   %d0 $0x00 -> %d1
+4e208843 : cmgt  v3.16b, v2.16b, #0         : cmgt   %q2 $0x00 -> %q3
+0e608885 : cmgt  v5.4h, v4.4h, #0           : cmgt   %d4 $0x01 -> %d5
+4e6088c7 : cmgt  v7.8h, v6.8h, #0           : cmgt   %q6 $0x01 -> %q7
+0ea08909 : cmgt  v9.2s, v8.2s, #0           : cmgt   %d8 $0x02 -> %d9
+4ea0894b : cmgt  v11.4s, v10.4s, #0         : cmgt   %q10 $0x02 -> %q11
+4ee0898d : cmgt  v13.2d, v12.2d, #0         : cmgt   %q12 $0x03 -> %q13
+
+# CMGT <V><d>, <V><n>, #0
+5ee08801 : cmgt  d1, d0, #0                 : cmgt   %d0 -> %d1
+5ee08843 : cmgt  d3, d2, #0                 : cmgt   %d2 -> %d3
+5ee08885 : cmgt  d5, d4, #0                 : cmgt   %d4 -> %d5
+5ee088c7 : cmgt  d7, d6, #0                 : cmgt   %d6 -> %d7
+5ee08909 : cmgt  d9, d8, #0                 : cmgt   %d8 -> %d9
+5ee0894b : cmgt  d11, d10, #0               : cmgt   %d10 -> %d11
+5ee0898d : cmgt  d13, d12, #0               : cmgt   %d12 -> %d13
+5ee089cf : cmgt  d15, d14, #0               : cmgt   %d14 -> %d15
+5ee08a11 : cmgt  d17, d16, #0               : cmgt   %d16 -> %d17
+5ee08a53 : cmgt  d19, d18, #0               : cmgt   %d18 -> %d19
+5ee08a95 : cmgt  d21, d20, #0               : cmgt   %d20 -> %d21
+5ee08ad7 : cmgt  d23, d22, #0               : cmgt   %d22 -> %d23
+5ee08b19 : cmgt  d25, d24, #0               : cmgt   %d24 -> %d25
+5ee08b5b : cmgt  d27, d26, #0               : cmgt   %d26 -> %d27
+5ee08b9d : cmgt  d29, d28, #0               : cmgt   %d28 -> %d29
+
+# CMLT <Vd>.<T>, <Vn>.<T>, #0
+0e20a801 : cmlt  v1.8b, v0.8b, #0           : cmlt   %d0 $0x00 -> %d1
+4e20a843 : cmlt  v3.16b, v2.16b, #0         : cmlt   %q2 $0x00 -> %q3
+0e60a885 : cmlt  v5.4h, v4.4h, #0           : cmlt   %d4 $0x01 -> %d5
+4e60a8c7 : cmlt  v7.8h, v6.8h, #0           : cmlt   %q6 $0x01 -> %q7
+0ea0a909 : cmlt  v9.2s, v8.2s, #0           : cmlt   %d8 $0x02 -> %d9
+4ea0a94b : cmlt  v11.4s, v10.4s, #0         : cmlt   %q10 $0x02 -> %q11
+4ee0a98d : cmlt  v13.2d, v12.2d, #0         : cmlt   %q12 $0x03 -> %q13
+
+# CMLT <V><d>, <V><n>, #0
+5ee0a801 : cmlt  d1, d0, #0                 : cmlt   %d0 -> %d1
+5ee0a843 : cmlt  d3, d2, #0                 : cmlt   %d2 -> %d3
+5ee0a885 : cmlt  d5, d4, #0                 : cmlt   %d4 -> %d5
+5ee0a8c7 : cmlt  d7, d6, #0                 : cmlt   %d6 -> %d7
+5ee0a909 : cmlt  d9, d8, #0                 : cmlt   %d8 -> %d9
+5ee0a94b : cmlt  d11, d10, #0               : cmlt   %d10 -> %d11
+5ee0a98d : cmlt  d13, d12, #0               : cmlt   %d12 -> %d13
+5ee0a9cf : cmlt  d15, d14, #0               : cmlt   %d14 -> %d15
+5ee0aa11 : cmlt  d17, d16, #0               : cmlt   %d16 -> %d17
+5ee0aa53 : cmlt  d19, d18, #0               : cmlt   %d18 -> %d19
+5ee0aa95 : cmlt  d21, d20, #0               : cmlt   %d20 -> %d21
+5ee0aad7 : cmlt  d23, d22, #0               : cmlt   %d22 -> %d23
+5ee0ab19 : cmlt  d25, d24, #0               : cmlt   %d24 -> %d25
+5ee0ab5b : cmlt  d27, d26, #0               : cmlt   %d26 -> %d27
+5ee0ab9d : cmlt  d29, d28, #0               : cmlt   %d28 -> %d29
+
+2e3435e9 : cmhi v9.8b, v15.8b, v20.8b       : cmhi   %d15 %d20 $0x00 -> %d9
+6e3435e9 : cmhi v9.16b, v15.16b, v20.16b    : cmhi   %q15 %q20 $0x00 -> %q9
+2e7435e9 : cmhi v9.4h, v15.4h, v20.4h       : cmhi   %d15 %d20 $0x01 -> %d9
+6e7435e9 : cmhi v9.8h, v15.8h, v20.8h       : cmhi   %q15 %q20 $0x01 -> %q9
+2eb435e9 : cmhi v9.2s, v15.2s, v20.2s       : cmhi   %d15 %d20 $0x02 -> %d9
+6eb435e9 : cmhi v9.4s, v15.4s, v20.4s       : cmhi   %q15 %q20 $0x02 -> %q9
+6ef435e9 : cmhi v9.2d, v15.2d, v20.2d       : cmhi   %q15 %q20 $0x03 -> %q9
+
+2e3e3d82 : cmhs v2.8b, v12.8b, v30.8b       : cmhs   %d12 %d30 $0x00 -> %d2
+6e3e3d82 : cmhs v2.16b, v12.16b, v30.16b    : cmhs   %q12 %q30 $0x00 -> %q2
+2e7e3d82 : cmhs v2.4h, v12.4h, v30.4h       : cmhs   %d12 %d30 $0x01 -> %d2
+6e7e3d82 : cmhs v2.8h, v12.8h, v30.8h       : cmhs   %q12 %q30 $0x01 -> %q2
+2ebe3d82 : cmhs v2.2s, v12.2s, v30.2s       : cmhs   %d12 %d30 $0x02 -> %d2
+6ebe3d82 : cmhs v2.4s, v12.4s, v30.4s       : cmhs   %q12 %q30 $0x02 -> %q2
+6efe3d82 : cmhs v2.2d, v12.2d, v30.2d       : cmhs   %q12 %q30 $0x03 -> %q2
 
 # CMLE <V><d>, <V><n>, #0
 7ee09820 : cmle d0, d1, #0                          : cmle   %d1 -> %d0

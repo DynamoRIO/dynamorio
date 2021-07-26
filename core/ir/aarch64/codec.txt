@@ -1054,7 +1054,13 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x001110xx1xxxxx001001xxxxxxxxxx     shsub     dq0 : dq5 dq16 bhs_sz
 0x001110xx1xxxxx001011xxxxxxxxxx     sqsub     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx001101xxxxxxxxxx     cmgt      dq0 : dq5 dq16 bhsd_sz
+0x001110xx100000100010xxxxxxxxxx     cmgt      dq0 : dq5 bhsd_sz
+0101111011100000100010xxxxxxxxxx     cmgt       d0 : d5
 0x001110xx1xxxxx001111xxxxxxxxxx     cmge      dq0 : dq5 dq16 bhsd_sz
+0x101110xx100000100010xxxxxxxxxx     cmge      dq0 : dq5 bhsd_sz
+0111111011100000100010xxxxxxxxxx     cmge       d0 : d5
+0x001110xx100000101010xxxxxxxxxx     cmlt      dq0 : dq5 bhsd_sz
+0101111011100000101010xxxxxxxxxx     cmlt       d0 : d5
 0x001110xx1xxxxx010001xxxxxxxxxx     sshl      dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx010011xxxxxxxxxx     sqshl     dq0 : dq5 dq16 bhsd_sz
 01011110001xxxxx010011xxxxxxxxxx     sqshl      b0 : b5 b16
@@ -1142,6 +1148,9 @@ x101101011000000000101xxxxxxxxxx  cls     wx0 : wx5
 0x101110xx1xxxxx011111xxxxxxxxxx     uaba      dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx100001xxxxxxxxxx     sub       dq0 : dq5 dq16 bhsd_sz
 0x101110xx1xxxxx100011xxxxxxxxxx     cmeq      dq0 : dq5 dq16 bhsd_sz
+0x001110xx100000100110xxxxxxxxxx     cmeq      dq0 : dq5 bhsd_sz
+0101111011100000100110xxxxxxxxxx     cmeq       d0 : d5
+
 0x101110xx1xxxxx100101xxxxxxxxxx     mls       dq0 : dq0 dq5 dq16 bhs_sz
 0x101111xxxxxxxx0100x0xxxxxxxxxx     mls       dq0 : dq5 dq16_idx_lhm bhsd_sz idx_lhm
 0x101110xx1xxxxx100111xxxxxxxxxx     pmul      dq0 : dq5 dq16 b_sz
@@ -1489,8 +1498,6 @@ x001111001100001000000xxxxxxxxxx     fcvtnu   wx0 : d5
 0111111000100001101010xxxxxxxxxx     fcvtnu    s0 : s5
 0111111001100001101010xxxxxxxxxx     fcvtnu    d0 : d5
 0x1011100x100001101010xxxxxxxxxx     fcvtnu   dq0 : dq5 sd_sz
-0101111011100000101010xxxxxxxxxx     cmlt      d0 : d5
-0x001110xx100000101010xxxxxxxxxx     cmlt     dq0 : dq5 bhsd_sz
 1101010100101xxxxxxxxxxxxxxxxxxx     sysl      x0 : op1 crn imm4 op2
 11010100101xxxxxxxxxxxxxxxx00001     dcps1        : imm16
 11010100101xxxxxxxxxxxxxxxx00010     dcps2        : imm16
