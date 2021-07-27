@@ -1467,8 +1467,8 @@ enable_delay_instrumentation()
         DR_ASSERT(false);
     schedule_tracing_lock = dr_mutex_create();
 #if defined(AARCH64) && defined(DELAYED_CHECK_INLINED)
-    /* By counting down we can avoid clobbering aflags in our comparison. */
-    instr_count = op_trace_after_instrs.get_value();
+    /* By counting down to < 0, we can avoid clobbering aflags in our comparison. */
+    instr_count = op_trace_after_instrs.get_value() - 1;
 #endif
 }
 
