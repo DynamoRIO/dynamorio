@@ -1466,6 +1466,10 @@ enable_delay_instrumentation()
             event_delay_bb_analysis, event_delay_app_instruction, &memtrace_pri))
         DR_ASSERT(false);
     schedule_tracing_lock = dr_mutex_create();
+#if defined(AARCH64) && defined(DELAYED_CHECK_INLINED)
+    /* By counting down to < 0, we can avoid clobbering aflags in our comparison. */
+    instr_count = op_trace_after_instrs.get_value() - 1;
+#endif
 }
 
 static void
@@ -1593,10 +1597,11 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     }
     MINSERT(bb, instr, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
 #        elif defined(AARCH64)
+    /* We're counting down for an aflags-free comparison. */
     if (!drx_insert_counter_update(drcontext, bb, instr,
                                    (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
                                    (dr_spill_slot_t)(SPILL_SLOT_MAX + 1), &instr_count,
-                                   num_instrs, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
+                                   -num_instrs, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
         DR_ASSERT(false);
 
     reg_id_t scratch1, scratch2;
@@ -1604,21 +1609,16 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
         FATAL("Fatal error: failed to reserve scratch register");
     if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) != DRREG_SUCCESS)
         FATAL("Fatal error: failed to reserve scratch register");
-    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve aflags");
 
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
                                      opnd_create_reg(scratch1), bb, instr, NULL, NULL);
     MINSERT(bb, instr,
             XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
                               OPND_CREATE_MEMPTR(scratch1, 0)));
-    instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
-                                     opnd_create_reg(scratch1), bb, instr, NULL, NULL);
     MINSERT(bb, instr,
-            XINST_CREATE_cmp(drcontext, opnd_create_reg(scratch2),
-                             opnd_create_reg(scratch1)));
-    MINSERT(bb, instr,
-            XINST_CREATE_jump_cond(drcontext, DR_PRED_LT, opnd_create_instr(skip_call)));
+            INSTR_CREATE_tbz(drcontext, opnd_create_instr(skip_call),
+                             /* If the top bit is still zero, skip the call. */
+                             opnd_create_reg(scratch2), OPND_CREATE_INT(63)));
 #        endif
 
     /* hit_instr_count_threshold does not always return. Restore scratch registers and
@@ -1643,8 +1643,6 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
                                         NULL);
     drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
                                         NULL);
-    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
-                                        NULL);
 #        endif
     dr_insert_clean_call(drcontext, bb, instr, (void *)hit_instr_count_threshold,
                          false /*fpstate */, 1,
@@ -1660,8 +1658,7 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     }
 #        elif defined(AARCH64)
     if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS ||
-        drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS)
         DR_ASSERT(false);
 #        endif
 #    else
