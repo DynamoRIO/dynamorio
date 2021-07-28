@@ -480,6 +480,13 @@ memtrace(void *drcontext, bool skip_size_cap)
                 int count = dr_atomic_add32_return_sum(&notify_beyond_global_max_once, 1);
                 if (count == 1) {
                     NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+                    // We're not detaching, so the app keeps running and we don't flush
+                    // thread buffers or emit thread exits until the app exits.  To avoid
+                    // huge time gaps we use the current timestamp for all future
+                    // entries.  (An alternative would be a suspsend-the-world now and
+                    // flush-and-exit all threads; a better solution for most use cases
+                    // is probably i#5022: -detach_after_tracing.)
+                    instru->set_frozen_timestamp(instru_t::get_timestamp());
                 }
             }
         }
@@ -1571,6 +1578,9 @@ hit_instr_count_threshold(app_pc next_pc)
 static void
 check_instr_count_threshold(uint incby, app_pc next_pc)
 {
+    /* XXX i#5030: This is racy.  We could make std::atomic, or, better, go and
+     * implement the inlining and i#5026's thread-private counting.
+     */
     instr_count += incby;
     if (instr_count > op_trace_after_instrs.get_value())
         hit_instr_count_threshold(next_pc);
