@@ -1578,6 +1578,9 @@ hit_instr_count_threshold(app_pc next_pc)
 static void
 check_instr_count_threshold(uint incby, app_pc next_pc)
 {
+    /* XXX i#5030: This is racy.  We could make std::atomic, or, better, go and
+     * implement the inlining and i#5026's thread-private counting.
+     */
     instr_count += incby;
     if (instr_count > op_trace_after_instrs.get_value())
         hit_instr_count_threshold(next_pc);

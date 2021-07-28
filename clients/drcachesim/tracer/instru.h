@@ -282,6 +282,8 @@ protected:
     bool memref_needs_full_info_;
     drvector_t *reg_vector_;
     bool disable_optimizations_;
+    // Stores a timestamp to use for all future unit headers.  This is meant for
+    // avoiding time gaps for max-limit scenarios (i#5021).
     uint64 frozen_timestamp_ = 0;
 
 private:
