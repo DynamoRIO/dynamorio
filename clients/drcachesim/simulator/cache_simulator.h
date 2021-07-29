@@ -43,6 +43,11 @@
 #include "cache.h"
 #include "snoop_filter.h"
 
+enum cache_split_t {
+    DATA,
+    INSTRUCTION
+};
+
 class cache_simulator_t : public simulator_t {
 public:
     // This constructor is used when the cache hierarchy is configured
@@ -61,11 +66,8 @@ public:
     print_results() override;
 
     int_least64_t
-    get_l1i_metric(metric_name_t metric, unsigned int core) const;
-    int_least64_t
-    get_l1d_metric(metric_name_t metric, unsigned int core) const;
-    int_least64_t
-    get_ll_metric(metric_name_t metric) const;
+    get_cache_metric(unsigned level, metric_name_t metric, unsigned core = 0,
+                     cache_split_t split = DATA) const;
 
     // Exposed to make it easy to test
     bool
@@ -73,12 +75,8 @@ public:
     uint64_t
     remaining_sim_refs() const;
 
-    unsigned int
-    get_core_num() const;
-    bool
-    is_prefetcher_used() const;
-    bool
-    is_cache_coherent() const;
+    const cache_simulator_knobs_t &
+    get_knobs() const;
 
 protected:
     // Create a cache_t object with a specific replacement policy.
@@ -106,14 +104,6 @@ protected:
     snoop_filter_t *snoop_filter_ = nullptr;
 
 private:
-    std::string
-    get_l1_icache_name(unsigned int core) const;
-    std::string
-    get_l1_dcache_name(unsigned int core) const;
-    const caching_device_stats_t *
-    get_cache_stats(const std::string &cache_type) const;
-
-    const std::string ll_cache_name = "LL";
     bool is_warmed_up_;
 };
 

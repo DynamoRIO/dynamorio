@@ -33,6 +33,7 @@
 // Unit tests for drcachesim
 #include <iostream>
 #include <cstdlib>
+#include <assert.h>
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
 
@@ -135,9 +136,71 @@ unit_test_sim_refs()
     }
 }
 
+void
+unit_test_metrics_API()
+{
+    cache_simulator_knobs_t knobs = make_test_knobs();
+    cache_simulator_t cache_sim(knobs);
+
+    memref_t ref;
+    ref.data.type = TRACE_TYPE_WRITE;
+    ref.data.addr = 0;
+    ref.data.size = 8;
+
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(1, MISSES, 0, DATA) == 1);
+    assert(cache_sim.get_cache_metric(1, HITS, 0, DATA) == 3);
+
+    ref.data.type = TRACE_TYPE_INSTR;
+
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(1, MISSES, 0, INSTRUCTION) == 1);
+    assert(cache_sim.get_cache_metric(1, HITS, 0, INSTRUCTION) == 3);
+
+    assert(cache_sim.get_cache_metric(2, MISSES) == 1);
+    assert(cache_sim.get_cache_metric(2, HITS) == 1);
+
+    ref.data.type = TRACE_TYPE_PREFETCH;
+    ref.data.addr += 64;
+
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(1, PREFETCH_MISSES, 0, DATA) == 1);
+    assert(cache_sim.get_cache_metric(1, PREFETCH_HITS, 0, DATA) == 3);
+
+    ref.data.type = TRACE_TYPE_DATA_FLUSH;
+
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(2, FLUSHES) == 4);
+}
+
 int
 main(int argc, const char *argv[])
 {
+    unit_test_metrics_API();
     unit_test_warmup_fraction();
     unit_test_warmup_refs();
     unit_test_sim_refs();
