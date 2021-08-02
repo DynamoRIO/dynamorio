@@ -595,8 +595,8 @@ cache_simulator_t::print_results()
 }
 
 int_least64_t
-cache_simulator_t::get_cache_metric(unsigned level, metric_name_t metric,
-                                    unsigned core, cache_split_t split) const
+cache_simulator_t::get_cache_metric(unsigned level, metric_name_t metric, unsigned core,
+                                    cache_split_t split) const
 {
     caching_device_t *curr_cache;
 
@@ -631,7 +631,8 @@ cache_simulator_t::get_cache_metric(unsigned level, metric_name_t metric,
 }
 
 const cache_simulator_knobs_t &
-cache_simulator_t::get_knobs() const {
+cache_simulator_t::get_knobs() const
+{
     return knobs_;
 }
 

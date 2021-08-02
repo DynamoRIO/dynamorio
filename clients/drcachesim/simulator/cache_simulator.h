@@ -43,10 +43,7 @@
 #include "cache.h"
 #include "snoop_filter.h"
 
-enum cache_split_t {
-    DATA,
-    INSTRUCTION
-};
+enum cache_split_t { DATA, INSTRUCTION };
 
 class cache_simulator_t : public simulator_t {
 public:
