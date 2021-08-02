@@ -1822,9 +1822,10 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     reg_id_t sysreg = reg_to_pointer_sized(DR_REG_SYSNUM);
     instr_t *walk, *tgt;
 
-    if (prev == NULL) {
+	if (prev == NULL) {
 #if defined(WINDOWS) && defined(X64)
-        if (get_os_version() >= WINDOWS_VERSION_10_1511 && !DYNAMO_OPTION(inject_x64)) {
+        if (get_os_version() >= WINDOWS_VERSION_10_1511 &&
+            !is_wow64_process(NT_CURRENT_PROCESS)) {
             /* Handle the branch added in 1511 that isolates OP_syscall:
              *   7ff9`13185630 4c8bd1          mov     r10,rcx
              *   7ff9`13185633 b843000000      mov     eax,43h
