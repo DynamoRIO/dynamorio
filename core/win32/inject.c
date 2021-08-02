@@ -1571,7 +1571,7 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
 #endif
         }
         if (hook_location == 0) {
-            bool target_64 = !x86_code IF_X64(|| !DYNAMO_OPTION(inject_x64));
+            bool target_64 = !x86_code IF_X64(|| DYNAMO_OPTION(inject_x64));
             uint64 ntdll_base = find_remote_ntdll_base(phandle, target_64);
             uint64 thread_start =
                 get_remote_proc_address(phandle, ntdll_base, "RtlUserThreadStart");
