@@ -183,7 +183,7 @@ foreach (deploytgt drconfig drrun drinject)
   copy_target_to_device(${deploytgt} "${location_suffix}")
   if (WINDOWS)
     target_link_libraries(${deploytgt}
-      policy_static user32 advapi32 pdh imagehlp shell32 Psapi)
+      policy_static user32 advapi32 pdh imagehlp shell32)
   endif ()
   target_link_libraries(${deploytgt} drconfiglib drfrontendlib)
   if (NOT ${deploytgt} MATCHES "drconfig")

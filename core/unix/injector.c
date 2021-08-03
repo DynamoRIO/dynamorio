@@ -146,6 +146,8 @@ typedef struct _dr_inject_info_t {
     int exitcode;
     bool no_emulate_brk; /* is -no_emulate_brk in the option string? */
 
+    bool wait_syscall; /* valid iff -attach, handlle blocking syscalls */
+
 #ifdef MACOS
     bool spawn_32bit;
 #endif
@@ -569,7 +571,7 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 
 DR_EXPORT
 int
-dr_inject_prepare_to_attach(process_id_t pid, const char *appname, void **data OUT)
+dr_inject_prepare_to_attach(process_id_t pid, const char *appname, bool wait_syscall, void **data OUT)
 {
     dr_inject_info_t *info = create_inject_info(appname, NULL);
     int errcode = 0;
@@ -578,6 +580,7 @@ dr_inject_prepare_to_attach(process_id_t pid, const char *appname, void **data O
     info->pipe_fd = 0; /* No pipe. */
     info->exec_self = false;
     info->method = INJECT_PTRACE;
+    info->wait_syscall = wait_syscall;
     return errcode;
 }
 
@@ -887,6 +890,7 @@ enum { MAX_SHELL_CODE = 4096 };
 enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 
 #    define APP instrlist_append
+#    define PRE instrlist_prepend
 
 static bool op_exec_gdb = false;
 
@@ -1181,8 +1185,23 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
         !ptrace_write_memory(info->pid, pc, shellcode, code_size))
         return failure;
 
-    /* Run it! */
-    our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc);
+    /* Run it! 
+     * While under Ptrace during blocking syscall, upon continuing
+     * execution, tracee PC will be set back to syscall instruction
+     * PC = PC - sizeof(syscall). We have to add offsets to compensate.
+     */
+    if (!info->wait_syscall){
+        uint offset = 0;
+#    ifdef X86
+        offset = 2;
+#    elif defined(ARM) || defined(AARCH64)
+        offset = 4;
+#    endif
+        our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc + offset);
+    }
+    else{
+        our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc);
+    }
     if (!continue_until_break(info->pid))
         return failure;
 
@@ -1478,11 +1497,13 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         if (!continue_until_break(info->pid))
             return false;
     } else {
+        if (info->wait_syscall) {
         /* We are attached to target process, singlestep to make sure not returning from
          * blocked syscall.
          */
-        if (!ptrace_singlestep(info->pid))
-            return false;
+            if (!ptrace_singlestep(info->pid))
+                return false;
+        }
     }
 
     /* Open libdynamorio.so as readonly in the child. */
@@ -1519,6 +1540,20 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      * XXX: Actually look up an export.
      */
     injected_dr_start = (app_pc)loader.ehdr->e_entry + loader.load_delta;
+
+    /* While under Ptrace during blocking syscall, upon continuing
+     * execution, tracee PC will be set back to syscall instruction
+     * PC = PC - sizeof(syscall). We have to add offsets to compensate.
+     */
+    if (!info->wait_syscall) {
+        uint offset = 0;
+#    ifdef X86
+        offset = 2;
+#    elif defined(ARM) || defined(AARCH64)
+        offset = 4;
+#    endif
+        injected_dr_start += offset;
+    }
     elf_loader_destroy(&loader);
 
     our_ptrace_getregs(info->pid, &regs);

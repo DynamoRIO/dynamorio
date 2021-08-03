@@ -39,7 +39,6 @@
 #    define _UNICODE
 #    include <windows.h>
 #    include <io.h>
-#    include <Psapi.h>
 #    include "config.h"
 #    include "share.h"
 #endif
@@ -299,9 +298,14 @@ const char *options_list_str =
 #        endif
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
 #    endif
+#    ifdef UNIX
     "       -attach <pid>      Attach to the process with the given pid.\n"
-#    ifdef WINDOWS
-    "                          (Experimental)\n"
+#    endif
+#    ifdef UNIX
+    "                          Can be used with -wait_syscall.\n"
+    "       -wait_syscall      Only work with -attach.\n"
+    "                          Attaching to a process will force blocking system calls\n"
+    "                          to fail. Use this to wait for them to finish first.\n"
 #    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
@@ -1103,6 +1107,7 @@ _tmain(int argc, TCHAR *targv[])
     time_t start_time, end_time;
 #    else
     bool use_ptrace = false;
+    bool wait_syscall = false;
     bool kill_group = false;
 #    endif
     process_id_t attach_pid = 0;
@@ -1257,6 +1262,7 @@ _tmain(int argc, TCHAR *targv[])
         }
 #    endif
         else if (strcmp(argv[i], "-attach") == 0) {
+#    ifdef UNIX
             const char *pid_str = argv[++i];
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
@@ -1265,11 +1271,21 @@ _tmain(int argc, TCHAR *targv[])
                 usage(false, "attach to invalid pid");
             }
             attach_pid = pid;
+#    endif
 #    ifdef UNIX
             use_ptrace = true;
 #    endif
+#    ifdef WINDOWS
+            usage(false, "attach in Windows not yet implemented");
+#    endif
             continue;
         }
+#    ifdef UNIX
+        else if (strcmp(argv[i], "-wait_syscall") == 0) {
+            wait_syscall = true;
+            continue;
+        }
+#    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {
             /* Undocumented option for using ptrace on a fresh process. */
@@ -1540,10 +1556,6 @@ done_with_options:
 
 #if defined(DRRUN) || defined(DRINJECT)
 #    ifdef DRRUN
-    /* Support no app if the tool has its own frontend, under the assumption
-     * it may have post-processing or other features.
-     */
-
     if (attach_pid != 0) {
         char exe_str[MAXIMUM_PATH];
         ssize_t size = 0;
@@ -1551,22 +1563,6 @@ done_with_options:
         _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
         NULL_TERMINATE_BUFFER(exe_str);
         size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
-#        else
-        /* PR#3328: move GetModuleFileNameExW out of core library */
-        TCHAR exe_path[MAXIMUM_PATH];
-        HANDLE attach_handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
-                                           FALSE, (DWORD)attach_pid);
-        if (attach_handle == NULL ||
-            !GetModuleFileNameExW(attach_handle, NULL, exe_path, MAXIMUM_PATH))
-            usage(false, "attach to invalid pid");
-        /* tchar_to_char substitute */
-        WideCharToMultiByte(CP_UTF8, 0, exe_path, -1 /*null-term*/, exe_str, MAXIMUM_PATH,
-                            NULL, NULL);
-        NULL_TERMINATE_BUFFER(exe_str);
-        size = strlen(exe_str);
-        strncpy(exe, exe_str, size);
-        NULL_TERMINATE_BUFFER(exe);
-        CloseHandle(attach_handle);
 #        endif /* UNIX */
         if (size > 0) {
             if (size < BUFFER_SIZE_ELEMENTS(exe))
@@ -1578,6 +1574,9 @@ done_with_options:
         }
         app_name = exe;
     }
+    /* Support no app if the tool has its own frontend, under the assumption
+     * it may have post-processing or other features.
+     */
     if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
 #    endif
         if (i >= argc)
@@ -1782,13 +1781,9 @@ done_with_options:
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else if (attach_pid != 0) {
-        errcode = dr_inject_prepare_to_attach(attach_pid, app_name, &inject_data);
+        errcode = dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
     } else
-#    elif defined(WINDOWS)
-    if (attach_pid != 0) {
-        errcode = dr_inject_process_attach(attach_pid, app_name, &inject_data);
-    } else
-#    endif /* WINDOWS */
+#    endif /* UNIX */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
         info("created child with pid " PIDFMT " for %s",
@@ -1894,7 +1889,7 @@ done_with_options:
     }
 
     IF_WINDOWS(start_time = time(NULL);)
-
+    
     if (!dr_inject_process_run(inject_data)) {
         error("unable to run");
         goto error;
