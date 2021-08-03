@@ -1498,8 +1498,8 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
             return false;
     } else {
         if (info->wait_syscall) {
-            /* We are attached to target process, singlestep to make sure not returning from
-             * blocked syscall.
+            /* We are attached to target process, singlestep to make sure not returning
+             * from blocked syscall.
              */
             if (!ptrace_singlestep(info->pid))
                 return false;
