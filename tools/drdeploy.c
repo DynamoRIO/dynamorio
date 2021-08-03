@@ -1557,9 +1557,9 @@ done_with_options:
 #if defined(DRRUN) || defined(DRINJECT)
 #    ifdef DRRUN
     if (attach_pid != 0) {
-        char exe_str[MAXIMUM_PATH];
         ssize_t size = 0;
 #        ifdef UNIX
+        char exe_str[MAXIMUM_PATH];
         _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
         NULL_TERMINATE_BUFFER(exe_str);
         size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
