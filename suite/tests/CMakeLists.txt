@@ -4511,6 +4511,71 @@ else (UNIX)
       PASS_REGULAR_EXPRESSION ".*${expect}[ \n]*$")
   endif (X86)
 
+
+  # Cross-arch injection x64 to x86 test using -inject_x64.
+  if(X64)
+    set(inject_x64_dir ${CMAKE_CURRENT_BINARY_DIR}/inject_x64)
+    set(test_bindir suite/tests/bin)
+    file(MAKE_DIRECTORY ${inject_x64_dir})
+    # Unfortunately, while CMake 3.13+ supports create_symlink on Windows, that
+    # only works if the user has the right privileges, so we can't set up
+    # lib dir symlinks like we do for unix cross-arch build-and-test.
+    # We have to make a copy in order to have parallel dirs with the two bitwidths.
+    file(MAKE_DIRECTORY "${inject_x64_dir}/${INSTALL_LIB}")
+    set(inject_x64_copy_stamp "${CMAKE_CURRENT_BINARY_DIR}/inject_64_copy.stamp")
+    add_custom_command(OUTPUT "${inject_x64_copy_stamp}"
+      DEPENDS dynamorio
+      COMMAND ${CMAKE_COMMAND} ARGS
+      -E touch "${inject_x64_copy_stamp}"
+      COMMAND ${CMAKE_COMMAND} ARGS
+      -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
+      "${inject_x64_dir}/${INSTALL_LIB}/dynamorio.dll"
+      VERBATIM)
+    add_custom_target(inject_64_copy DEPENDS "${inject_x64_copy_stamp}")
+    add_dependencies(drcopy inject_64_copy)
+    # We use a client that takes some options and prints something at
+    # init and at exit to test cross-arch injection with clients.
+    get_target_path_for_execution(cur_client_path client.large_options.dll
+      "${location_suffix}")
+    set(xarch_client_path ${inject_x64_dir}/${test_bindir}/client.large_options.dll.dll)
+    get_target_path_for_execution(drrun_path drrun "${location_suffix}")
+    set(client64_path ${cur_client_path})
+    if (DEBUG)
+      set(config_type -DDEBUG=ON)
+    else ()
+      set(config_type "")
+    endif ()
+    # I abandoned --build-generator-platform (3.13+ only; VS gen only) or explicitly
+    # setting the full generator (fails w/ Ninja) and went with the env var scheme we
+    # use in our test suite.
+    _DR_set_VS_bitwidth_env_vars(${other_is64} env_names)
+    foreach (env ${env_names})
+      # Escape internal ; since this goes into a CMake "var=value;..." list.
+      string(REPLACE ";" "\\;" value "${${env}_env_value}")
+      list(APPEND test_env_pairs "${env}=${value}")
+    endforeach ()
+    add_test(win32.inject_x64 ${CMAKE_CTEST_COMMAND} -V
+      --build-and-test ${PROJECT_SOURCE_DIR} ${inject_x64_dir}
+      --build-generator ${CMAKE_GENERATOR}
+      --build-target dynamorio
+      --build-target common.eflags
+      --build-target client.large_options.dll
+      --build-noclean # Else it tries to clean between each target!
+      --build-makeprogram ${CMAKE_MAKE_PROGRAM}
+      --build-options ${config_type} -DBUILD_TESTS=ON -DBUILD_DOCS=OFF
+      -DBUILD_SAMPLES=OFF -DBUILD_EXT=OFF -DBUILD_CLIENTS=OFF
+      --test-command ${drrun_path} -dr_home ${inject_x64_dir} ${dr_test_ops}
+      -inject_x64
+      -c ${client64_path} -paramA foo -paramB bar --
+      ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+      ${inject_x64_dir}/${test_bindir}/common.eflags.exe)
+    file(READ win32/inject_x64.templatex expect)
+    set_tests_properties(win32.inject_x64 PROPERTIES ENVIRONMENT
+      "${test_env_pairs}"
+      # We start with .* for all the config and build stuff.
+      PASS_REGULAR_EXPRESSION ".*${expect}[ \n]*$")
+  endif(X64)
+
   # Cross-arch mixedmode/x86_to_x64 test: can only be done via a suite of tests that
   # build both 32-bit and 64-bit.  We have 32-bit just build, and
   # 64-bit then builds and runs both directions.
