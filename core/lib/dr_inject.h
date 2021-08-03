@@ -162,7 +162,8 @@ DR_EXPORT
  *          future attach.
  */
 int
-dr_inject_prepare_to_attach(process_id_t pid, const char *app_name, bool wait_syscall, void **data);
+dr_inject_prepare_to_attach(process_id_t pid, const char *app_name, bool wait_syscall,
+                            void **data);
 
 DR_EXPORT
 /**

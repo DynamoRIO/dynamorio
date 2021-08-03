@@ -1781,7 +1781,8 @@ done_with_options:
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else if (attach_pid != 0) {
-        errcode = dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
+        errcode =
+            dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
     } else
 #    endif /* UNIX */
     {
@@ -1889,7 +1890,7 @@ done_with_options:
     }
 
     IF_WINDOWS(start_time = time(NULL);)
-    
+
     if (!dr_inject_process_run(inject_data)) {
         error("unable to run");
         goto error;

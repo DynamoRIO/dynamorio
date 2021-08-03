@@ -571,7 +571,8 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 
 DR_EXPORT
 int
-dr_inject_prepare_to_attach(process_id_t pid, const char *appname, bool wait_syscall, void **data OUT)
+dr_inject_prepare_to_attach(process_id_t pid, const char *appname, bool wait_syscall,
+                            void **data OUT)
 {
     dr_inject_info_t *info = create_inject_info(appname, NULL);
     int errcode = 0;
@@ -1185,12 +1186,12 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
         !ptrace_write_memory(info->pid, pc, shellcode, code_size))
         return failure;
 
-    /* Run it! 
+    /* Run it!
      * While under Ptrace during blocking syscall, upon continuing
      * execution, tracee PC will be set back to syscall instruction
      * PC = PC - sizeof(syscall). We have to add offsets to compensate.
      */
-    if (!info->wait_syscall){
+    if (!info->wait_syscall) {
         uint offset = 0;
 #    ifdef X86
         offset = 2;
@@ -1198,8 +1199,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
         offset = 4;
 #    endif
         our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc + offset);
-    }
-    else{
+    } else {
         our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc);
     }
     if (!continue_until_break(info->pid))
@@ -1498,9 +1498,9 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
             return false;
     } else {
         if (info->wait_syscall) {
-        /* We are attached to target process, singlestep to make sure not returning from
-         * blocked syscall.
-         */
+            /* We are attached to target process, singlestep to make sure not returning from
+             * blocked syscall.
+             */
             if (!ptrace_singlestep(info->pid))
                 return false;
         }
