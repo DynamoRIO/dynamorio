@@ -3806,25 +3806,22 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         instr->dsts[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
     }
 
-    /* XXX i#2374: This determination of flag usage should be separate from the decoding
-     * of operands. Also, we should perhaps add flag information in codec.txt instead of
-     * listing all the opcodes, although the list is short and unlikely to change.
+    /* XXX i#2374: This determination of flag usage should be separate from the
+     * decoding of operands.
+     *
+     * Apart from explicit read/write from/to flags register using MRS and MSR,
+     * a field in codec.txt specifies whether instructions read/write from/to
+     * flags register.
      */
     opc = instr_get_opcode(instr);
-    if ((opc == OP_mrs && instr_num_srcs(instr) == 1 &&
-         opnd_is_reg(instr_get_src(instr, 0)) &&
-         opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_NZCV) ||
-        opc == OP_bcond || opc == OP_adc || opc == OP_adcs || opc == OP_sbc ||
-        opc == OP_sbcs || opc == OP_csel || opc == OP_csinc || opc == OP_csinv ||
-        opc == OP_csneg || opc == OP_ccmn || opc == OP_ccmp || opc == OP_fcsel) {
+    if (opc == OP_mrs && instr_num_srcs(instr) == 1 &&
+        opnd_is_reg(instr_get_src(instr, 0)) &&
+        opnd_get_reg(instr_get_src(instr, 0)) == DR_REG_NZCV) {
         eflags |= EFLAGS_READ_NZCV;
     }
-    if ((opc == OP_msr && instr_num_dsts(instr) == 1 &&
-         opnd_is_reg(instr_get_dst(instr, 0)) &&
-         opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_NZCV) ||
-        opc == OP_adcs || opc == OP_adds || opc == OP_sbcs || opc == OP_subs ||
-        opc == OP_ands || opc == OP_bics || opc == OP_ccmn || opc == OP_ccmp ||
-        opc == OP_fccmp || opc == OP_fccmpe || opc == OP_fcmp || opc == OP_fcmpe) {
+    if (opc == OP_msr && instr_num_dsts(instr) == 1 &&
+        opnd_is_reg(instr_get_dst(instr, 0)) &&
+        opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_NZCV) {
         eflags |= EFLAGS_WRITE_NZCV;
     }
 
@@ -3837,7 +3834,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         eflags |= EFLAGS_WRITE_ARITH;
     }
 
-    instr->eflags = eflags;
+    instr->eflags |= eflags;
     instr_set_eflags_valid(instr, true);
 
     instr_set_operands_valid(instr, true);
