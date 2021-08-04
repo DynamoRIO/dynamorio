@@ -595,17 +595,16 @@ cache_simulator_t::print_results()
 }
 
 int_least64_t
-cache_simulator_t::get_cache_metric(unsigned level, metric_name_t metric, unsigned core,
+cache_simulator_t::get_cache_metric(metric_name_t metric, unsigned level, unsigned core,
                                     cache_split_t split) const
 {
     caching_device_t *curr_cache;
 
     if (core >= knobs_.num_cores) {
-        ERRMSG("Wrong core number: %u.\n", core);
-        return 0;
+        return STATS_ERROR_WRONG_CORE_NUMBER;
     }
 
-    if (split == DATA) {
+    if (split == cache_split_t::DATA) {
         curr_cache = l1_dcaches_[core];
     } else {
         curr_cache = l1_icaches_[core];
@@ -615,16 +614,14 @@ cache_simulator_t::get_cache_metric(unsigned level, metric_name_t metric, unsign
         caching_device_t *parent = curr_cache->get_parent();
 
         if (parent == NULL) {
-            ERRMSG("Wrong cache level: %u.\n", core);
-            return 0;
+            return STATS_ERROR_WRONG_CACHE_LEVEL;
         }
         curr_cache = parent;
     }
     caching_device_stats_t *stats = curr_cache->get_stats();
 
     if (stats == NULL) {
-        ERRMSG("Cache doesn't support statistics counting.");
-        return 0;
+        return STATS_ERROR_NO_CACHE_STATS;
     }
 
     return stats->get_metric(metric);

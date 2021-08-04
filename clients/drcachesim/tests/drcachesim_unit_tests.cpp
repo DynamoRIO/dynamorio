@@ -147,6 +147,9 @@ unit_test_metrics_API()
     ref.data.addr = 0;
     ref.data.size = 8;
 
+    // Currently invalidates are not counted properly in the configuration of
+    // cache_simulator_t with cache_simulator_knobs_t.
+    // TODO i#5031: Test invalidates metric when the issue is solved.
     for (int i = 0; i < 4; i++) {
         if (!cache_sim.process_memref(ref)) {
             std::cerr << "drcachesim unit_test_metrics_API failed: "

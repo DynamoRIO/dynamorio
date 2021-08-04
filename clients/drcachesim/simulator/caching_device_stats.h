@@ -50,7 +50,7 @@ enum invalidation_type_t {
     INVALIDATION_COHERENCE,
 };
 
-enum metric_name_t {
+enum class metric_name_t {
     HITS,
     MISSES,
     HITS_AT_RESET,
