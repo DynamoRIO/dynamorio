@@ -100,32 +100,31 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
             f, v, m, t = t
             return (m, t, f, v)
 
-        indent = "    " * depth
+        def indent_append(text):
+            c.append('{}{}'.format("    " * depth, text))
+
         if len(pats) < 4:
             for (f, v, m, t) in sorted(pats, key = reorder_key):
-                if opc_props[m] == 'n':
-                    c.append('%sif ((enc & 0x%08x) == 0x%08x)' %
-                             (indent, ((1 << N) - 1) & ~v, f))
-                    c.append('%s    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
-                             (indent, t, m))
-                else:
-                    c.append('%sif ((enc & 0x%08x) == 0x%08x) {' %
-                             (indent, ((1 << N) - 1) & ~v, f))
+                indent_append('if ((enc & 0x%08x) == 0x%08x)'  %
+                              (((1 << N) - 1) & ~v, f))
+                if opc_props[m] != 'n':
+                    c[-1] = c[-1] + ' {'
                     # Uncomment this for debug output in generated code:
-                    # c.append('%s    // %s->%s' % (indent, m, opc_props[m]))
+                    # indent_append('    // %s->%s' % (m, opc_props[m]))
                     if opc_props[m] == 'r':
-                        c.append('%s    instr->eflags |= EFLAGS_READ_NZCV;' % (indent))
+                        indent_append('    instr->eflags |= EFLAGS_READ_NZCV;')
                     elif opc_props[m] == 'w':
-                        c.append('%s    instr->eflags |= EFLAGS_WRITE_NZCV;' % (indent))
-                    elif opc_props[m] == 'rw' or opc_props[m] == 'wr':
-                        c.append('%s    instr->eflags |= (EFLAGS_READ_NZCV | EFLAGS_WRITE_NZCV);' % (indent))
-                    elif opc_props[m] == 'er' or opc_props[m] == 'ew':
-                        c.append('%s    // instr->eflags handling for %s is manually handled in codec.c\'s decode_common().' % (indent, m))
+                        indent_append('    instr->eflags |= EFLAGS_WRITE_NZCV;')
+                    elif opc_props[m] in ["rw", "wr"]:
+                        indent_append('    instr->eflags |= (EFLAGS_READ_NZCV | EFLAGS_WRITE_NZCV);')
+                    elif opc_props[m] in ["er", "ew"]:
+                        indent_append('    // instr->eflags handling for %s is manually handled in codec.c\'s decode_common().' % (m))
                     else:
-                        c.append('%s    ASSERT(0);' % (indent))
-                    c.append('%s    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
-                             (indent, t, m))
-                    c.append('%s}' % indent)
+                        indent_append('    ASSERT(0);')
+                indent_append('    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
+                              (t, m))
+                if opc_props[m] != 'n':
+                    indent_append('}')
             return
         # Look for best bit to test. We aim to reduce the number of patterns remaining.
         best_b = -1
@@ -142,7 +141,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
             if x < best_x:
                 best_b = b
                 best_x = x
-        c.append('%sif ((enc >> %d & 1) == 0) {' % (indent, best_b))
+        indent_append('if ((enc >> %d & 1) == 0) {' % (best_b))
         pats0 = []
         pats1 = []
         for p in pats:
@@ -152,9 +151,9 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
             if (1 << best_b) & (f | v):
                 pats1.append(p)
         gen(c, pats0, depth + 1)
-        c.append('%s} else {' % indent)
+        indent_append('} else {')
         gen(c, pats1, depth + 1)
-        c.append('%s}' % indent)
+        indent_append('}')
 
     c = []
     generate_opndset_decoders(c, opndsettab)

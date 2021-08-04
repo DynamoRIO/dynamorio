@@ -228,7 +228,8 @@ x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
 # rw or wr Read and write
 # er Explicit/direct read (currently only MRS instruction)
 # ew Explicit/direct write (currently only MSR instruction)
-
+#    Note that currently explicit/direct reads and writes to instr_t.eflags are
+#    handled in codec.c's decode_common() function.
 
 # Data Processing - Immediate
 
