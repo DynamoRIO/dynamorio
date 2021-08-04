@@ -157,8 +157,10 @@ unit_test_metrics_API()
             exit(1);
         }
     }
-    assert(cache_sim.get_cache_metric(1, MISSES, 0, DATA) == 1);
-    assert(cache_sim.get_cache_metric(1, HITS, 0, DATA) == 3);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0,
+                                      cache_split_t::DATA) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0,
+                                      cache_split_t::DATA) == 3);
 
     ref.data.type = TRACE_TYPE_INSTR;
 
@@ -169,11 +171,13 @@ unit_test_metrics_API()
             exit(1);
         }
     }
-    assert(cache_sim.get_cache_metric(1, MISSES, 0, INSTRUCTION) == 1);
-    assert(cache_sim.get_cache_metric(1, HITS, 0, INSTRUCTION) == 3);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0,
+                                      cache_split_t::INSTRUCTION) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0,
+                                      cache_split_t::INSTRUCTION) == 3);
 
-    assert(cache_sim.get_cache_metric(2, MISSES) == 1);
-    assert(cache_sim.get_cache_metric(2, HITS) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 2) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 2) == 1);
 
     ref.data.type = TRACE_TYPE_PREFETCH;
     ref.data.addr += 64;
@@ -185,8 +189,10 @@ unit_test_metrics_API()
             exit(1);
         }
     }
-    assert(cache_sim.get_cache_metric(1, PREFETCH_MISSES, 0, DATA) == 1);
-    assert(cache_sim.get_cache_metric(1, PREFETCH_HITS, 0, DATA) == 3);
+    assert(cache_sim.get_cache_metric(metric_name_t::PREFETCH_MISSES, 1, 0,
+                                      cache_split_t::DATA) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::PREFETCH_HITS, 1, 0,
+                                      cache_split_t::DATA) == 3);
 
     ref.data.type = TRACE_TYPE_DATA_FLUSH;
 
@@ -197,7 +203,7 @@ unit_test_metrics_API()
             exit(1);
         }
     }
-    assert(cache_sim.get_cache_metric(2, FLUSHES) == 4);
+    assert(cache_sim.get_cache_metric(metric_name_t::FLUSHES, 2) == 4);
 }
 
 int
