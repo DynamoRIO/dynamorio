@@ -157,10 +157,10 @@ unit_test_metrics_API()
             exit(1);
         }
     }
-    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0,
-                                      cache_split_t::DATA) == 1);
-    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0,
-                                      cache_split_t::DATA) == 3);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::DATA) ==
+           1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0, cache_split_t::DATA) ==
+           3);
 
     ref.data.type = TRACE_TYPE_INSTR;
 
