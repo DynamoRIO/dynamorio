@@ -241,8 +241,14 @@ droption_t<bytesize_t> op_trace_after_instrs(
     "Do not start tracing until N instructions",
     "If non-zero, this causes tracing to be suppressed until this many dynamic "
     "instruction "
-    "executions are observed.  At that point, regular tracing is put into place.  Use "
-    "-max_trace_size to set a limit on the subsequent trace length.");
+    "executions are observed.  At that point, regular tracing is put into place. "
+    "The threshold should be considered approximate, especially for larger values. "
+    "Switching to regular tracing takes some amount of time during which other "
+    "threads than the one that triggered the switch can continue to execute, "
+    "resulting in a larger count of executed instructions before tracing actually "
+    "starts than this given threshold. "
+    "Use -max_trace_size or -max_global_trace_refs to set a limit on the subsequent "
+    "trace length.");
 
 droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
