@@ -46,8 +46,8 @@
 
 enum class cache_split_t { DATA, INSTRUCTION };
 
-// Error codes returned when passing wrong parameters to the function for
-// accessing cache statistics.
+// Error codes returned when passing wrong parameters to the
+// get_cache_metric function.
 typedef enum {
     // Core number is larger then congifured number of cores.
     STATS_ERROR_WRONG_CORE_NUMBER = INT_MIN,
