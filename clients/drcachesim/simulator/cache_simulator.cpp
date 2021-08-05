@@ -594,6 +594,47 @@ cache_simulator_t::print_results()
     return true;
 }
 
+// All valid metrics are returned as a positive number.
+// Negative return value is an error and is of type stats_error_t.
+int_least64_t
+cache_simulator_t::get_cache_metric(metric_name_t metric, unsigned level, unsigned core,
+                                    cache_split_t split) const
+{
+    caching_device_t *curr_cache;
+
+    if (core >= knobs_.num_cores) {
+        return STATS_ERROR_WRONG_CORE_NUMBER;
+    }
+
+    if (split == cache_split_t::DATA) {
+        curr_cache = l1_dcaches_[core];
+    } else {
+        curr_cache = l1_icaches_[core];
+    }
+
+    for (size_t i = 1; i < level; i++) {
+        caching_device_t *parent = curr_cache->get_parent();
+
+        if (parent == NULL) {
+            return STATS_ERROR_WRONG_CACHE_LEVEL;
+        }
+        curr_cache = parent;
+    }
+    caching_device_stats_t *stats = curr_cache->get_stats();
+
+    if (stats == NULL) {
+        return STATS_ERROR_NO_CACHE_STATS;
+    }
+
+    return stats->get_metric(metric);
+}
+
+const cache_simulator_knobs_t &
+cache_simulator_t::get_knobs() const
+{
+    return knobs_;
+}
+
 cache_t *
 cache_simulator_t::create_cache(const std::string &policy)
 {
