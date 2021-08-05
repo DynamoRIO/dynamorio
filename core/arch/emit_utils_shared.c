@@ -5120,8 +5120,9 @@ update_syscalls(dcontext_t *dcontext)
     generated_code_t *code = THREAD_GENCODE(dcontext);
     protect_generated_code(code, WRITABLE);
     pc = get_do_syscall_entry(dcontext);
-    if (IF_X64_ELSE(true, !(get_syscall_method() == SYSCALL_METHOD_SYSCALL &&
-                            cpu_info.vendor == VENDOR_AMD))) {
+    if (IF_X64_ELSE(true,
+                    !(get_syscall_method() == SYSCALL_METHOD_SYSCALL &&
+                      cpu_info.vendor == VENDOR_AMD))) {
         update_syscall(dcontext, pc);
     }
 #    ifdef X64
