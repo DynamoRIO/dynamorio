@@ -1165,7 +1165,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     nop_times = 1;
 #    endif
     int i;
-    for (i = 0; i < nop_times; i++){
+    for (i = 0; i < nop_times; i++) {
         PRE(ilist, XINST_CREATE_nop(dc));
     }
 
