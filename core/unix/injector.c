@@ -1153,6 +1153,22 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     long r;
     ptr_int_t failure = -EUNATCH; /* Unlikely to be used by most syscalls. */
 
+    /* For cases where we are not actally getting blocked by a syscall
+     * and wait_syscall is not specified
+     * need to pad nop everytime we restart process with PTRACE_CONT variations
+     * number_of_null_bytes = sizeof(syscall_instr) / sizeof(nop_instr)
+     */
+    uint nop_times = 0;
+#    ifdef X86
+    nop_times = 2;
+#    elif defined(ARM) || defined(AARCH64)
+    nop_times = 1;
+#    endif
+    int i;
+    for (i = 0; i < nop_times; i++){
+        PRE(ilist, XINST_CREATE_nop(dc));
+    }
+
     /* Get register state before executing the shellcode. */
     r = our_ptrace_getregs(info->pid, &regs);
     if (r < 0)
