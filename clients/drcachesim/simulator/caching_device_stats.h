@@ -40,6 +40,8 @@
 #include <string>
 #include <map>
 #include <stdint.h>
+#include <vector>
+#include <limits>
 #ifdef HAS_ZLIB
 #    include <zlib.h>
 #endif
@@ -55,6 +57,7 @@ enum class metric_name_t {
     MISSES,
     HITS_AT_RESET,
     MISSES_AT_RESET,
+    COMPULSORY_MISSES,
     CHILD_HITS,
     CHILD_HITS_AT_RESET,
     INCLUSIVE_INVALIDATES,
@@ -64,10 +67,83 @@ enum class metric_name_t {
     FLUSHES
 };
 
+struct bound {
+    addr_t beg;
+    addr_t end;
+};
+
+class access_count_t {
+public:
+    access_count_t(int block_size) : block_size_(block_size) {
+        if (!IS_POWER_OF_2(block_size)) {
+            ERRMSG("Block size should be a power of 2.");
+            return;
+        }
+        int block_size_bits = compute_log2(block_size);
+        block_size_mask_ = ~((1 << block_size_bits) - 1);
+    }
+
+    // Takes non-alligned address and inserts bound consisting of the nearest multiples
+    // of the block_size.
+    void insert(addr_t addr_beg, size_t index) {
+        // Round the address down to the nearest multiple of the block_size.
+        addr_beg &= block_size_mask_;
+        addr_t addr_end = addr_beg + block_size_;
+
+        // Detect the overflow and assign maximum possible value to the addr_end.
+        if (addr_beg > addr_end) {
+            addr_end = std::numeric_limits<addr_t>::max();
+        }
+
+        if (index == bounds.size()) {
+            if (index > 0 && bounds[index - 1].end == addr_beg) {
+                bounds[index - 1].end = addr_end;
+            } else {
+                bounds.emplace_back(bound{addr_beg, addr_end});
+            }
+        // Current bound -> (addr_beg...addr_end) connects bound[index] and
+        // bound[index - 1]
+        } else if (index > 0 && bounds[index - 1].end == addr_beg &&
+                   bounds[index].beg == addr_end) {
+            bounds[index - 1].end =  bounds[index].end;
+            bounds.erase(bounds.begin() + index);
+        // Current bound extends bound[index - 1]
+        } else if (index > 0 && bounds[index - 1].end == addr_beg) {
+            bounds[index - 1].end = addr_end;
+        // Current bound extends bound[index]
+        } else if (bounds[index].beg == addr_end) {
+            bounds[index].beg = addr_beg;
+        } else {
+            bounds.insert(bounds.begin() + index, bound{addr_beg, addr_end});
+        }
+    }
+
+    // Takes non-aligned address. Returns:
+    // - boolean value indicating whether the address has ever been accessed
+    // - index of the bound where the address is located/should be inserted.
+    std::pair<bool, size_t> lookup(addr_t addr) {
+        size_t i = 0;
+        for(const auto &bound: bounds) {
+            if (addr < bound.beg) {
+                return std::make_pair(false, i);
+            } else if (addr >= bound.beg && addr < bound.end) {
+                return std::make_pair(true, i);
+            }
+            i++;
+        }
+        return std::make_pair(false, bounds.size());
+    }
+
+private:
+    std::vector<bound> bounds;
+    int block_size_mask_ = 0;
+    int block_size_;
+};
+
 class caching_device_stats_t {
 public:
     explicit caching_device_stats_t(const std::string &miss_file,
-                                    bool warmup_enabled = false,
+                                    int block_size, bool warmup_enabled = false,
                                     bool is_coherent = false);
     virtual ~caching_device_stats_t();
 
@@ -123,8 +199,12 @@ protected:
     virtual void
     dump_miss(const memref_t &memref);
 
+    void
+    check_compulsory_miss(addr_t addr);
+
     int_least64_t num_hits_;
     int_least64_t num_misses_;
+    int_least64_t num_compulsory_misses_;
     int_least64_t num_child_hits_;
 
     int_least64_t num_inclusive_invalidates_;
@@ -147,6 +227,8 @@ protected:
 
     // We provide a feature of dumping misses to a file.
     bool dump_misses_;
+
+    access_count_t access_count_;
 #ifdef HAS_ZLIB
     gzFile file_;
 #else
