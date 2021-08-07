@@ -895,18 +895,10 @@ enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 
 #    ifdef X86
 /* X86s are little endian */
-enum {
-    SYSCALL_AS_SHORT = 0x050f,
-    SYSENTER_AS_SHORT = 0x340f,
-    INT80_AS_SHORT = 0x80cd
-    };
+enum { SYSCALL_AS_SHORT = 0x050f, SYSENTER_AS_SHORT = 0x340f, INT80_AS_SHORT = 0x80cd };
 #    endif
 
-enum {
-    ERESTARTSYS = 512,
-    ERESTARTNOINTR = 513,
-    ERESTARTNOHAND = 514
-};
+enum { ERESTARTSYS = 512, ERESTARTNOINTR = 513, ERESTARTNOHAND = 514 };
 
 static bool op_exec_gdb = false;
 
@@ -1537,14 +1529,14 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         return false;
 
     our_ptrace_getregs(info->pid, &regs);
-    
+
     /* Hijacking errno value
      * After attaching with ptrace during blocking syscall,
      * Errno value is leaked from kernel handling
      * Mask that value into EINTR
      */
     if (!info->wait_syscall) {
-    #    ifdef X86
+#    ifdef X86
         if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD)) {
             /* prev bytes might can match by accident, so check return value */
             if (regs.REG_RETVAL_FIELD == -ERESTARTSYS ||
@@ -1552,7 +1544,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
                 regs.REG_RETVAL_FIELD == -ERESTARTNOHAND)
                 regs.REG_RETVAL_FIELD = -EINTR;
         }
-    #    endif
+#    endif
     }
 
     if (info->pipe_fd != 0) {
