@@ -893,6 +893,21 @@ enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 #    define APP instrlist_append
 #    define PRE instrlist_prepend
 
+#    ifdef X86
+/* X86s are little endian */
+enum {
+    SYSCALL_AS_SHORT = 0x050f,
+    SYSENTER_AS_SHORT = 0x340f,
+    INT80_AS_SHORT = 0x80cd
+    };
+#    endif
+
+enum {
+    ERESTARTSYS = 512,
+    ERESTARTNOINTR = 513,
+    ERESTARTNOHAND = 514
+};
+
 static bool op_exec_gdb = false;
 
 /* Used to pass data into the remote mapping routines. */
@@ -1160,9 +1175,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
      */
     uint nop_times = 0;
 #    ifdef X86
-    nop_times = 2;
-#    elif defined(ARM) || defined(AARCH64)
-    nop_times = 1;
+    nop_times = SYSCALL_LENGTH;
 #    endif
     int i;
     for (i = 0; i < nop_times; i++) {
@@ -1210,9 +1223,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     if (!info->wait_syscall) {
         uint offset = 0;
 #    ifdef X86
-        offset = 2;
-#    elif defined(ARM) || defined(AARCH64)
-        offset = 4;
+        offset = SYSCALL_LENGTH;
 #    endif
         our_ptrace(PTRACE_POKEUSER, info->pid, (void *)REG_PC_OFFSET, pc + offset);
     } else {
@@ -1478,6 +1489,29 @@ ptrace_singlestep(process_id_t pid)
     return true;
 }
 
+/* check if prev 2 bytes form a syscall
+ */
+bool
+is_prev_bytes_syscall(process_id_t pid, app_pc src_pc)
+{
+#    ifdef X86
+    /* for X86 is concerned, SYSCALL_LENGTH == INT_LENGTH == SYSENTER_LENGTH */
+    app_pc syscall_pc = src_pc - SYSCALL_LENGTH;
+    /* ptrace_read_memory reads by multiple of sizeof(ptr_int_t) */
+    byte instr_bytes[sizeof(ptr_int_t)];
+    ptrace_read_memory(pid, instr_bytes, syscall_pc, sizeof(ptr_int_t));
+#        ifdef X64
+    if (*(short *)instr_bytes == SYSCALL_AS_SHORT)
+        return true;
+#        else
+    if (*(short *)instr_bytes == SYSENTER_AS_SHORT ||
+        *(short *)instr_bytes == INT80_AS_SHORT)
+        return true;
+#        endif
+#    endif
+    return false;
+}
+
 bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path)
 {
@@ -1501,6 +1535,25 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     }
     if (!wait_until_signal(info->pid, SIGSTOP))
         return false;
+
+    our_ptrace_getregs(info->pid, &regs);
+    
+    /* Hijacking errno value
+     * After attaching with ptrace during blocking syscall,
+     * Errno value is leaked from kernel handling
+     * Mask that value into EINTR
+     */
+    if (!info->wait_syscall) {
+    #    ifdef X86
+        if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD)) {
+            /* prev bytes might can match by accident, so check return value */
+            if (regs.REG_RETVAL_FIELD == -ERESTARTSYS ||
+                regs.REG_RETVAL_FIELD == -ERESTARTNOINTR ||
+                regs.REG_RETVAL_FIELD == -ERESTARTNOHAND)
+                regs.REG_RETVAL_FIELD = -EINTR;
+        }
+    #    endif
+    }
 
     if (info->pipe_fd != 0) {
         /* For children we created, walk it across the execve call. */
@@ -1564,15 +1617,11 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     if (!info->wait_syscall) {
         uint offset = 0;
 #    ifdef X86
-        offset = 2;
-#    elif defined(ARM) || defined(AARCH64)
-        offset = 4;
+        offset = SYSCALL_LENGTH;
 #    endif
         injected_dr_start += offset;
     }
     elf_loader_destroy(&loader);
-
-    our_ptrace_getregs(info->pid, &regs);
 
     /* Create an injection context and "push" it onto the stack of the injectee.
      * If you need to pass more info to the injected child process, this is a

@@ -300,12 +300,15 @@ const char *options_list_str =
 #    endif
 #    ifdef UNIX
     "       -attach <pid>      Attach to the process with the given pid.\n"
-#    endif
-#    ifdef UNIX
-    "                          Can be used with -wait_syscall.\n"
-    "       -wait_syscall      Only work with -attach.\n"
+    "                          If attach to a process which is in middle of blocking\n"
+    "                          system call, dynamorio will wait until it returns.\n"
+#        ifdef X86
+    "                          Can be used with -skip_syscall.\n"
+    "       -skip_syscall      (Experimental)\n"
+    "                          Only work with -attach.\n"
     "                          Attaching to a process will force blocking system calls\n"
-    "                          to fail. Use this to wait for them to finish first.\n"
+    "                          to fail with EINTR.\n"
+#        endif
 #    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
@@ -1107,7 +1110,7 @@ _tmain(int argc, TCHAR *targv[])
     time_t start_time, end_time;
 #    else
     bool use_ptrace = false;
-    bool wait_syscall = false;
+    bool wait_syscall = true;
     bool kill_group = false;
 #    endif
     process_id_t attach_pid = 0;
@@ -1281,10 +1284,12 @@ _tmain(int argc, TCHAR *targv[])
             continue;
         }
 #    ifdef UNIX
-        else if (strcmp(argv[i], "-wait_syscall") == 0) {
-            wait_syscall = true;
+#        ifdef X86
+        else if (strcmp(argv[i], "-skip_syscall") == 0) {
+            wait_syscall = false;
             continue;
         }
+#        endif
 #    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {

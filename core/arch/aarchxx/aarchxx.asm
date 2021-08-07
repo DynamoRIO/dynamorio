@@ -43,7 +43,6 @@ START_FILE
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
         mov      FP, #0   /* clear frame ptr for stack trace bottom */
-        mov      FP, #0   /* act as dirty nop, see x86.asm _start */
         /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address.
          * We call this here to ensure it's safe to access globals once in C code
          * (xref i#1865).
