@@ -1528,25 +1528,6 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     if (!wait_until_signal(info->pid, SIGSTOP))
         return false;
 
-    our_ptrace_getregs(info->pid, &regs);
-
-    /* Hijacking errno value
-     * After attaching with ptrace during blocking syscall,
-     * Errno value is leaked from kernel handling
-     * Mask that value into EINTR
-     */
-    if (!info->wait_syscall) {
-#    ifdef X86
-        if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD)) {
-            /* prev bytes might can match by accident, so check return value */
-            if (regs.REG_RETVAL_FIELD == -ERESTARTSYS ||
-                regs.REG_RETVAL_FIELD == -ERESTARTNOINTR ||
-                regs.REG_RETVAL_FIELD == -ERESTARTNOHAND)
-                regs.REG_RETVAL_FIELD = -EINTR;
-        }
-#    endif
-    }
-
     if (info->pipe_fd != 0) {
         /* For children we created, walk it across the execve call. */
         write_pipe_cmd(info->pipe_fd, "ptrace");
@@ -1614,6 +1595,25 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
         injected_dr_start += offset;
     }
     elf_loader_destroy(&loader);
+
+    our_ptrace_getregs(info->pid, &regs);
+    
+    /* Hijacking errno value
+     * After attaching with ptrace during blocking syscall,
+     * Errno value is leaked from kernel handling
+     * Mask that value into EINTR
+     */
+    if (!info->wait_syscall) {
+#    ifdef X86
+        if (is_prev_bytes_syscall(info->pid, (app_pc)regs.REG_PC_FIELD)) {
+            /* prev bytes might can match by accident, so check return value */
+            if (regs.REG_RETVAL_FIELD == -ERESTARTSYS ||
+                regs.REG_RETVAL_FIELD == -ERESTARTNOINTR ||
+                regs.REG_RETVAL_FIELD == -ERESTARTNOHAND)
+                regs.REG_RETVAL_FIELD = -EINTR;
+        }
+#    endif
+    }
 
     /* Create an injection context and "push" it onto the stack of the injectee.
      * If you need to pass more info to the injected child process, this is a
