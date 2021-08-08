@@ -1597,7 +1597,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     elf_loader_destroy(&loader);
 
     our_ptrace_getregs(info->pid, &regs);
-    
+
     /* Hijacking errno value
      * After attaching with ptrace during blocking syscall,
      * Errno value is leaked from kernel handling
