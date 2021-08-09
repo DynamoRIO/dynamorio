@@ -38,6 +38,7 @@
 
 #include "caching_device_block.h"
 #include <string>
+#include <map>
 #include <stdint.h>
 #ifdef HAS_ZLIB
 #    include <zlib.h>
@@ -47,6 +48,20 @@
 enum invalidation_type_t {
     INVALIDATION_INCLUSIVE,
     INVALIDATION_COHERENCE,
+};
+
+enum class metric_name_t {
+    HITS,
+    MISSES,
+    HITS_AT_RESET,
+    MISSES_AT_RESET,
+    CHILD_HITS,
+    CHILD_HITS_AT_RESET,
+    INCLUSIVE_INVALIDATES,
+    COHERENCE_INVALIDATES,
+    PREFETCH_HITS,
+    PREFETCH_MISSES,
+    FLUSHES
 };
 
 class caching_device_stats_t {
@@ -81,6 +96,17 @@ public:
     virtual void
     invalidate(invalidation_type_t invalidation_type);
 
+    int_least64_t
+    get_metric(metric_name_t metric) const
+    {
+        if (stats_map_.find(metric) != stats_map_.end()) {
+            return stats_map_.at(metric);
+        } else {
+            ERRMSG("Wrong metric name.\n");
+            return 0;
+        }
+    }
+
 protected:
     bool success_;
 
@@ -114,6 +140,10 @@ protected:
 
     // Print out write invalidations if cache is coherent.
     bool is_coherent_;
+
+    // References to the properties with statistics are held in the map with the
+    // statistic name as the key. Sample map element: {HITS, num_hits_}
+    std::map<metric_name_t, int_least64_t &> stats_map_;
 
     // We provide a feature of dumping misses to a file.
     bool dump_misses_;
