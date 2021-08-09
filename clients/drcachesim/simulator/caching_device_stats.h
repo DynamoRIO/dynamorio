@@ -129,7 +129,7 @@ public:
     lookup(addr_t addr)
     {
         size_t i = 0;
-        for (const auto &bound: bounds) {
+        for (const auto &bound : bounds) {
             if (addr < bound.beg) {
                 return std::make_pair(false, i);
             } else if (addr >= bound.beg && addr < bound.end) {
