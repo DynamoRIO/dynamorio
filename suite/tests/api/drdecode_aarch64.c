@@ -82,7 +82,7 @@ test_mov_instr_addr(void)
     instrlist_encode(GD, ilist, generated_code, true);
     protect_mem(generated_code, gencode_max_size, ALLOW_EXEC | ALLOW_READ);
 
-    // Make sure to flush the cache so v8.0 versions of aarch64 avoid stale icache
+    // Make sure to flush the cache to avoid stale icache
     // values which can lead to SEGFAULTs or SIGILLS on the subsequent attempted
     // execution (i#5033)
     __builtin___clear_cache(generated_code, generated_code + gencode_max_size);
