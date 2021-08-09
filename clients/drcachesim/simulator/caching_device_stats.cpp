@@ -118,7 +118,8 @@ caching_device_stats_t::child_access(const memref_t &memref, bool hit,
 }
 
 void
-caching_device_stats_t::check_compulsory_miss(addr_t addr) {
+caching_device_stats_t::check_compulsory_miss(addr_t addr)
+{
     // Compulsory misses are counted only when proper option is enabled.
     if (op_compulsory_misses.get_value()) {
         auto lookup_pair = access_count_.lookup(addr);

@@ -74,7 +74,9 @@ struct bound {
 
 class access_count_t {
 public:
-    access_count_t(int block_size) : block_size_(block_size) {
+    access_count_t(int block_size)
+        : block_size_(block_size)
+    {
         if (!IS_POWER_OF_2(block_size)) {
             ERRMSG("Block size should be a power of 2.");
             return;
@@ -85,7 +87,9 @@ public:
 
     // Takes non-alligned address and inserts bound consisting of the nearest multiples
     // of the block_size.
-    void insert(addr_t addr_beg, size_t index) {
+    void
+    insert(addr_t addr_beg, size_t index)
+    {
         // Round the address down to the nearest multiple of the block_size.
         addr_beg &= block_size_mask_;
         addr_t addr_end = addr_beg + block_size_;
@@ -99,31 +103,33 @@ public:
             if (index > 0 && bounds[index - 1].end == addr_beg) {
                 bounds[index - 1].end = addr_end;
             } else {
-                bounds.emplace_back(bound{addr_beg, addr_end});
+                bounds.emplace_back(bound{ addr_beg, addr_end });
             }
-        // Current bound -> (addr_beg...addr_end) connects bound[index] and
-        // bound[index - 1]
+            // Current bound -> (addr_beg...addr_end) connects bound[index] and
+            // bound[index - 1]
         } else if (index > 0 && bounds[index - 1].end == addr_beg &&
                    bounds[index].beg == addr_end) {
-            bounds[index - 1].end =  bounds[index].end;
+            bounds[index - 1].end = bounds[index].end;
             bounds.erase(bounds.begin() + index);
-        // Current bound extends bound[index - 1]
+            // Current bound extends bound[index - 1]
         } else if (index > 0 && bounds[index - 1].end == addr_beg) {
             bounds[index - 1].end = addr_end;
-        // Current bound extends bound[index]
+            // Current bound extends bound[index]
         } else if (bounds[index].beg == addr_end) {
             bounds[index].beg = addr_beg;
         } else {
-            bounds.insert(bounds.begin() + index, bound{addr_beg, addr_end});
+            bounds.insert(bounds.begin() + index, bound{ addr_beg, addr_end });
         }
     }
 
     // Takes non-aligned address. Returns:
     // - boolean value indicating whether the address has ever been accessed
     // - index of the bound where the address is located/should be inserted.
-    std::pair<bool, size_t> lookup(addr_t addr) {
+    std::pair<bool, size_t>
+    lookup(addr_t addr)
+    {
         size_t i = 0;
-        for(const auto &bound: bounds) {
+        for (const auto &bound: bounds) {
             if (addr < bound.beg) {
                 return std::make_pair(false, i);
             } else if (addr >= bound.beg && addr < bound.end) {
@@ -142,8 +148,8 @@ private:
 
 class caching_device_stats_t {
 public:
-    explicit caching_device_stats_t(const std::string &miss_file,
-                                    int block_size, bool warmup_enabled = false,
+    explicit caching_device_stats_t(const std::string &miss_file, int block_size,
+                                    bool warmup_enabled = false,
                                     bool is_coherent = false);
     virtual ~caching_device_stats_t();
 
