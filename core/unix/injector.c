@@ -1493,11 +1493,11 @@ is_prev_bytes_syscall(process_id_t pid, app_pc src_pc)
     byte instr_bytes[sizeof(ptr_int_t)];
     ptrace_read_memory(pid, instr_bytes, syscall_pc, sizeof(ptr_int_t));
 #        ifdef X64
-    if (*(short *)instr_bytes == SYSCALL_AS_SHORT)
+    if (*(unsigned short *)instr_bytes == SYSCALL_AS_SHORT)
         return true;
 #        else
-    if (*(short *)instr_bytes == SYSENTER_AS_SHORT ||
-        *(short *)instr_bytes == INT80_AS_SHORT)
+    if (*(unsigned short *)instr_bytes == SYSENTER_AS_SHORT ||
+        *(unsigned short *)instr_bytes == INT80_AS_SHORT)
         return true;
 #        endif
 #    endif
