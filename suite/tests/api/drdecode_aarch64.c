@@ -82,6 +82,12 @@ test_mov_instr_addr(void)
     instrlist_encode(GD, ilist, generated_code, true);
     protect_mem(generated_code, gencode_max_size, ALLOW_EXEC | ALLOW_READ);
 
+    /* Make sure to flush the cache to avoid stale icache values which
+     * can lead to SEGFAULTs or SIGILLS on the subsequent attempted
+     * execution (i#5033)
+     */
+    __builtin___clear_cache(generated_code, generated_code + gencode_max_size);
+
     uint written = ((uint(*)(void))generated_code)();
     ASSERT(written == 0xdeadbeef);
 

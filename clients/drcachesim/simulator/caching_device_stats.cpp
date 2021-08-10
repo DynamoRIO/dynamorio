@@ -64,6 +64,15 @@ caching_device_stats_t::caching_device_stats_t(const std::string &miss_file,
         } else
             dump_misses_ = true;
     }
+
+    stats_map_.emplace(metric_name_t::HITS, num_hits_);
+    stats_map_.emplace(metric_name_t::MISSES, num_misses_);
+    stats_map_.emplace(metric_name_t::HITS_AT_RESET, num_hits_at_reset_);
+    stats_map_.emplace(metric_name_t::MISSES_AT_RESET, num_misses_at_reset_);
+    stats_map_.emplace(metric_name_t::CHILD_HITS_AT_RESET, num_child_hits_at_reset_);
+    stats_map_.emplace(metric_name_t::CHILD_HITS, num_child_hits_);
+    stats_map_.emplace(metric_name_t::INCLUSIVE_INVALIDATES, num_inclusive_invalidates_);
+    stats_map_.emplace(metric_name_t::COHERENCE_INVALIDATES, num_coherence_invalidates_);
 }
 
 caching_device_stats_t::~caching_device_stats_t()
