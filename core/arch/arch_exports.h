@@ -2196,6 +2196,11 @@ int
 append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
                                 app_pc speculate_next_tag, bool record_translation);
 
+#ifdef AARCH64
+int
+fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace);
+#endif
+
 uint
 forward_eflags_analysis(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 

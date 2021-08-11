@@ -1205,6 +1205,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         target = opnd_get_pc(instr_get_target(last));
         md->emitted_size -= local_exit_stub_size(dcontext, target, md->trace_flags);
     }
+    IF_AARCH64(md->emitted_size += fixup_indirect_trace_exit(dcontext, trace));
 
     if (DYNAMO_OPTION(speculate_last_exit)
 #ifdef HASHTABLE_STATISTICS
