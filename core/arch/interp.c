@@ -5631,9 +5631,8 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         ;
 #elif defined(AARCHXX)
     /* FIXME i#1668, i#2974: NYI on ARM/AArch64 */
-    // instr_disassemble(dcontext, inst, STDOUT);
-    return instr_get_opcode(inst) == OP_movz || instr_get_opcode(inst) == OP_movk ||
-        instr_get_opcode(inst) == OP_eor || instr_get_opcode(inst) == OP_cbnz;
+    ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
+    return false;
 #endif
 }
 
