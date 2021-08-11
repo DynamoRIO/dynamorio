@@ -790,7 +790,7 @@ dr_inject_wait_for_child(void *data, uint64 timeout_millis)
                  !timeout_expired);
         info->exited = (res == info->pid);
     } else {
-        int exit = 0;
+        bool exit = false;
         struct timespec t;
         t.tv_sec = 1;
         t.tv_nsec = 0L;
@@ -801,13 +801,13 @@ dr_inject_wait_for_child(void *data, uint64 timeout_millis)
              */
             if (kill(info->pid, 0) == -1) {
                 if (errno == ESRCH)
-                    exit = 1;
+                    exit = true;
             }
             /* sleep might not be implemented using nanosleep */
             nanosleep(&t, 0);
         } while (!exit && !timeout_expired);
         info->exitcode = 0;
-        info->exited = (exit != 0);
+        info->exited = (exit != false);
     }
     return info->exited;
 }
@@ -838,9 +838,13 @@ dr_inject_process_exit(void *data, bool terminate)
         }
         /* Do a blocking wait to get the real status code.  This shouldn't take
          * long since we just sent an unblockable SIGKILL.
+         * Return immidiately if we are under INJECT_PTRACE because we can't wait
+         * for detached non-child process.
          */
         if (info->method != INJECT_PTRACE)
             waitpid(info->pid, &status, 0);
+        else
+            status = WEXITSTATUS(info->exitcode);
     } else {
         /* Use WNOHANG to match our Windows semantics, which does not block if
          * the child hasn't exited.  The status returned is probably not useful,
@@ -1469,7 +1473,7 @@ detach_and_exec_gdb(process_id_t pid, const char *library_path)
 
 /* singlestep traced process
  */
-bool
+static bool
 ptrace_singlestep(process_id_t pid)
 {
     if (our_ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL) < 0)
@@ -1481,9 +1485,9 @@ ptrace_singlestep(process_id_t pid)
     return true;
 }
 
-/* check if prev 2 bytes form a syscall
+/* check if prev bytes form a syscall
  */
-bool
+static bool
 is_prev_bytes_syscall(process_id_t pid, app_pc src_pc)
 {
 #    ifdef X86

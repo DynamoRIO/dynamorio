@@ -151,15 +151,12 @@ DR_EXPORT
  *                             must ensure this data is valid until the
  *                             inject data is disposed.
  *
- * \param[in]   wait_syscall   Early inject syscall handling mode.  The caller
- *                             must ensure this data is valid until the
- *                             inject data is disposed.
+ * \param[in]   wait_syscall   Early inject syscall handling mode.
  *
  * \param[out]  data           An opaque pointer that should be passed to
  *                             subsequent dr_inject_* routines to refer to
  *                             this process.
- * \return  Always return true because we just prepare dr_inject_info_t for
- *          future attach.
+ * \return  Whether successful.
  */
 int
 dr_inject_prepare_to_attach(process_id_t pid, const char *app_name, bool wait_syscall,
@@ -275,9 +272,9 @@ DR_EXPORT
  *
  * \param[in]   terminate      If true, the process is forcibly terminated.
  *
- * \return  Returns the exit code of the process.  If the caller did not wait
- *          for the process to finish before calling this, the code will be
- *          STILL_ACTIVE.
+ * \return  Returns the exit code of the process, always returns 0 for ptraced process.
+ *          If the caller did not wait for the process to finish before calling this,
+ *          the code will be STILL_ACTIVE.
  */
 int
 dr_inject_process_exit(void *data, bool terminate);
