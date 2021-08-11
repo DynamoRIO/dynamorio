@@ -1485,28 +1485,36 @@ ptrace_singlestep(process_id_t pid)
     return true;
 }
 
-/* check if prev bytes form a syscall
+/* Check if prev bytes form a syscall.
+ * For X86, we can't be sure if previous bytes are actually a syscall due to
+ * variations in instruction size. Do additional checks if that is the case.
+ */
+#    ifdef X86
+/* Ptrace attach is only for X86 for now.
+ * ifdef above to statisfies compiler complains.
+ * These ifdef should be removed after we support new architecture.
  */
 static bool
 is_prev_bytes_syscall(process_id_t pid, app_pc src_pc)
 {
-#    ifdef X86
+#        ifdef X86
     /* for X86 is concerned, SYSCALL_LENGTH == INT_LENGTH == SYSENTER_LENGTH */
     app_pc syscall_pc = src_pc - SYSCALL_LENGTH;
     /* ptrace_read_memory reads by multiple of sizeof(ptr_int_t) */
     byte instr_bytes[sizeof(ptr_int_t)];
     ptrace_read_memory(pid, instr_bytes, syscall_pc, sizeof(ptr_int_t));
-#        ifdef X64
+#            ifdef X64
     if (*(unsigned short *)instr_bytes == SYSCALL_AS_SHORT)
         return true;
-#        else
+#            else
     if (*(unsigned short *)instr_bytes == SYSENTER_AS_SHORT ||
         *(unsigned short *)instr_bytes == INT80_AS_SHORT)
         return true;
+#            endif
 #        endif
-#    endif
     return false;
 }
+#    endif
 
 bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path)
