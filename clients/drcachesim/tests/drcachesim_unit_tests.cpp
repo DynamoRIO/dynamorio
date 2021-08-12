@@ -33,6 +33,7 @@
 // Unit tests for drcachesim
 #include <iostream>
 #include <cstdlib>
+#include <assert.h>
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
 
@@ -135,9 +136,80 @@ unit_test_sim_refs()
     }
 }
 
+void
+unit_test_metrics_API()
+{
+    cache_simulator_knobs_t knobs = make_test_knobs();
+    cache_simulator_t cache_sim(knobs);
+
+    memref_t ref;
+    ref.data.type = TRACE_TYPE_WRITE;
+    ref.data.addr = 0;
+    ref.data.size = 8;
+
+    // Currently invalidates are not counted properly in the configuration of
+    // cache_simulator_t with cache_simulator_knobs_t.
+    // TODO i#5031: Test invalidates metric when the issue is solved.
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::DATA) ==
+           1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0, cache_split_t::DATA) ==
+           3);
+
+    ref.data.type = TRACE_TYPE_INSTR;
+
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0,
+                                      cache_split_t::INSTRUCTION) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0,
+                                      cache_split_t::INSTRUCTION) == 3);
+
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 2) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 2) == 1);
+
+    ref.data.type = TRACE_TYPE_PREFETCH;
+    ref.data.addr += 64;
+
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(metric_name_t::PREFETCH_MISSES, 1, 0,
+                                      cache_split_t::DATA) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::PREFETCH_HITS, 1, 0,
+                                      cache_split_t::DATA) == 3);
+
+    ref.data.type = TRACE_TYPE_DATA_FLUSH;
+
+    for (int i = 0; i < 4; i++) {
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_metrics_API failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(metric_name_t::FLUSHES, 2) == 4);
+}
+
 int
 main(int argc, const char *argv[])
 {
+    unit_test_metrics_API();
     unit_test_warmup_fraction();
     unit_test_warmup_refs();
     unit_test_sim_refs();

@@ -35,6 +35,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drreg.h"
+#include "drx.h"
 #include "client_tools.h"
 #include "drreg-test-shared.h"
 #include <string.h> /* memset */
@@ -388,6 +389,14 @@ static dr_emit_flags_t
 event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                    bool translating, OUT void *user_data)
 {
+    for (instr_t *instr = instrlist_first(bb); instr != NULL;
+         instr = instr_get_next(instr)) {
+        bool dead;
+        CHECK(drreg_are_aflags_dead(drcontext, instr, &dead) == DRREG_SUCCESS,
+              "drreg_are_aflags_dead should always work");
+        CHECK(drx_aflags_are_dead(instr) == dead,
+              "aflags liveness estimation of drx and drreg should always be consistent");
+    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -1139,10 +1148,14 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static void
 event_exit(void)
 {
-    if (!drmgr_unregister_bb_insertion_event(event_app_instruction) ||
+    if (!drmgr_unregister_bb_instrumentation_ex_event(event_app2app, event_app_analysis,
+                                                      event_app_instruction,
+                                                      event_instru2instru) ||
         drreg_exit() != DRREG_SUCCESS)
         CHECK(false, "exit failed");
-
+    /* We skip drx_init/drx_exit because that will change the number of total drreg spill
+     * slots available for the drreg tests. Skipping drx_init is okay because we use only
+     * drx_are_aflags_dead which doesn't need any drx state to be initialised. */
     drmgr_exit();
 }
 

@@ -219,32 +219,11 @@ DR_EXPORT
 bool
 drx_aflags_are_dead(instr_t *where)
 {
-    instr_t *instr;
-    uint flags;
-    for (instr = where; instr != NULL; instr = instr_get_next(instr)) {
-        /* we treat syscall/interrupt as aflags read */
-        if (instr_is_syscall(instr) || instr_is_interrupt(instr))
-            return false;
-        flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
-        if (TESTANY(EFLAGS_READ_ARITH, flags))
-            return false;
-        if (TESTALL(EFLAGS_WRITE_ARITH, flags))
-            return true;
-        if (instr_is_cti(instr)) {
-            if (instr_is_app(instr) &&
-                (instr_is_ubr(instr) || instr_is_call_direct(instr))) {
-                instr_t *next = instr_get_next(instr);
-                opnd_t tgt = instr_get_target(instr);
-                /* continue on elision */
-                if (next != NULL && instr_is_app(next) && opnd_is_pc(tgt) &&
-                    opnd_get_pc(tgt) == instr_get_app_pc(next))
-                    continue;
-            }
-            /* unknown target, assume aflags is live */
-            return false;
-        }
-    }
-    return false;
+    bool dead = false;
+    IF_DEBUG(drreg_status_t res =)
+    drreg_are_aflags_dead(dr_get_current_drcontext(), where, &dead);
+    ASSERT(res == DRREG_SUCCESS, "drreg_are_aflags_dead failed!");
+    return dead;
 }
 
 /***************************************************************************
@@ -584,9 +563,15 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where,
                 INSTR_CREATE_ldar(drcontext, opnd_create_reg(reg2),
                                   OPND_CREATE_MEMPTR(reg1, 0)));
-        MINSERT(
-            ilist, where,
-            XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
+        if (value >= 0) {
+            MINSERT(ilist, where,
+                    XINST_CREATE_add(drcontext, opnd_create_reg(reg2),
+                                     OPND_CREATE_INT(value)));
+        } else {
+            MINSERT(ilist, where,
+                    XINST_CREATE_sub(drcontext, opnd_create_reg(reg2),
+                                     OPND_CREATE_INT(-value)));
+        }
         MINSERT(ilist, where,
                 INST_CREATE_stlr(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
                                  opnd_create_reg(reg2)));
@@ -596,9 +581,15 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                 XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
                                   OPND_CREATE_MEMPTR(reg1, 0)));
         MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
-        MINSERT(
-            ilist, where,
-            XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
+        if (value >= 0) {
+            MINSERT(ilist, where,
+                    XINST_CREATE_add(drcontext, opnd_create_reg(reg2),
+                                     OPND_CREATE_INT(value)));
+        } else {
+            MINSERT(ilist, where,
+                    XINST_CREATE_add(drcontext, opnd_create_reg(reg2),
+                                     OPND_CREATE_INT(-value)));
+        }
         MINSERT(ilist, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
         MINSERT(ilist, where,
                 XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
@@ -608,9 +599,15 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         MINSERT(ilist, where,
                 XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
                                   OPND_CREATE_MEMPTR(reg1, 0)));
-        MINSERT(
-            ilist, where,
-            XINST_CREATE_add(drcontext, opnd_create_reg(reg2), OPND_CREATE_INT(value)));
+        if (value >= 0) {
+            MINSERT(ilist, where,
+                    XINST_CREATE_add(drcontext, opnd_create_reg(reg2),
+                                     OPND_CREATE_INT(value)));
+        } else {
+            MINSERT(ilist, where,
+                    XINST_CREATE_sub(drcontext, opnd_create_reg(reg2),
+                                     OPND_CREATE_INT(-value)));
+        }
         MINSERT(ilist, where,
                 XINST_CREATE_store(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
                                    opnd_create_reg(reg2)));

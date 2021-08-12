@@ -751,7 +751,8 @@ instr_get_predicate(instr_t *instr)
 instr_t *
 instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
 {
-    instr->prefixes |= ((pred << PREFIX_PRED_BITPOS) & PREFIX_PRED_MASK);
+    instr->prefixes = ((instr->prefixes & ~PREFIX_PRED_MASK) |
+                       ((pred << PREFIX_PRED_BITPOS) & PREFIX_PRED_MASK));
     return instr;
 }
 
