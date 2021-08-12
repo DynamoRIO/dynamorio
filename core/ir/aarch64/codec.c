@@ -2378,9 +2378,9 @@ decode_opnd_vindex_H(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      * 10987654321098765432109876543210
      * 0Q00111100LMRm--0001H0Rn---Rd---
      */
-    int  H = 11;
-    int  L = 21;
-    int  M = 20;
+    int H = 11;
+    int L = 21;
+    int M = 20;
     // index=H:L:M
     uint bits = (enc >> H & 1) << 2 | (enc >> L & 1) << 1 | (enc >> M & 1);
     *opnd = opnd_create_immed_int(bits, OPSZ_3b);
@@ -2396,9 +2396,9 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
      * 10987654321098765432109876543210
      * 0Q00111100LMRm--0001H0Rn---Rd---
      */
-    int  H = 11;
-    int  L = 21;
-    int  M = 20;
+    int H = 11;
+    int L = 21;
+    int M = 20;
     ptr_int_t val;
     if (!opnd_is_immed_int(opnd))
         return false;
@@ -2494,16 +2494,16 @@ decode_opnd_vindex_SD(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      *          z
      */
     int sz = 22;
-    int  H = 11;
-    int  L = 21;
+    int H = 11;
+    int L = 21;
     uint bits;
-    if ((enc >> sz & 1) == 0) {                       // Single
-        bits = (enc >> H & 1) << 1 | (enc >> L & 1);  // index=H:L
-    } else {                                          // Double
+    if ((enc >> sz & 1) == 0) {                      // Single
+        bits = (enc >> H & 1) << 1 | (enc >> L & 1); // index=H:L
+    } else {                                         // Double
         if ((enc >> L & 1) != 0) {
             return false;
         }
-        bits = enc >> H & 1;                          // index=H
+        bits = enc >> H & 1; // index=H
     }
     *opnd = opnd_create_immed_int(bits, OPSZ_2b);
     return true;
@@ -2520,20 +2520,20 @@ encode_opnd_vindex_SD(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
      *          z
      */
     int sz = 22;
-    int  H = 11;
-    int  L = 21;
+    int H = 11;
+    int L = 21;
     ptr_int_t val;
     if (!opnd_is_immed_int(opnd))
         return false;
     val = opnd_get_immed_int(opnd);
-    if ((enc >> sz & 1) == 0) {                           // Single
+    if ((enc >> sz & 1) == 0) { // Single
         if (val < 0 || val >= 4)
             return false;
-        *enc_out = (val & 1) << L | (val >> 1 & 1) << H;  // index=H:L
-    } else {                                              // Double
+        *enc_out = (val & 1) << L | (val >> 1 & 1) << H; // index=H:L
+    } else {                                             // Double
         if (val < 0 || val >= 2)
             return false;
-        *enc_out = (val & 1) << H;                        // index=H
+        *enc_out = (val & 1) << H; // index=H
     }
     return true;
 }
