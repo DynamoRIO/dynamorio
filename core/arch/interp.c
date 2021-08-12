@@ -3908,7 +3908,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             BBPRINT(bb, 3, "reached end pc " PFX ", stopping\n", bb->stop_pc);
             break;
         }
-        if (total_instrs > DYNAMO_OPTION(max_bb_instrs)) {
+        if (total_instrs == DYNAMO_OPTION(max_bb_instrs) - 1) {
             /* this could be an enormous basic block, or it could
              * be some degenerate infinite-loop case like a call
              * to a function that calls exit() and then calls itself,
