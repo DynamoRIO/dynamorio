@@ -65,7 +65,7 @@ typedef struct {
      * When a state comparison fails, drstatecmp will call this callback and pass the
      * error message. If this callback is NULL, drstatecmp will call #DR_ASSERT_MSG.
      */
-    void (*error_callback)(const char *msg);
+    void (*error_callback)(const char *msg, void *tag);
 
 } drstatecmp_options_t;
 

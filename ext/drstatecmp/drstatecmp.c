@@ -357,136 +357,149 @@ drstatecmp_restore_state(void *drcontext, instrlist_t *bb, instr_t *instr)
 }
 
 static void
-drstatecmp_report_error(const char *msg)
+drstatecmp_report_error(const char *msg, void *tag)
 {
-    if (ops.error_callback != NULL)
-        (*ops.error_callback)(msg);
-    else
+    if (ops.error_callback != NULL) {
+        (*ops.error_callback)(msg, tag);
+    } else {
+        byte *bb_start_pc = dr_fragment_app_pc(tag);
+        void *drcontext = dr_get_current_drcontext();
+        instrlist_t *bb = decode_as_bb(drcontext, bb_start_pc);
+        dr_fprintf(STDERR, "Application basic block where mismatch detected: \n");
+        instrlist_disassemble(drcontext, bb_start_pc, bb, STDERR);
         DR_ASSERT_MSG(false, msg);
+    }
 }
 
 static void
-drstatecmp_check_gpr_value(const char *name, reg_t reg_value, reg_t reg_expected)
+drstatecmp_check_gpr_value(const char *name, void *tag, reg_t reg_value,
+                           reg_t reg_expected)
 {
     if (reg_value != reg_expected)
-        drstatecmp_report_error(name);
+        drstatecmp_report_error(name, tag);
 }
 
 #ifdef AARCHXX
 static void
-drstatecmp_check_xflags_value(const char *name, uint reg_value, uint reg_expected)
+drstatecmp_check_xflags_value(const char *name, void *tag, uint reg_value,
+                              uint reg_expected)
 {
     if (reg_value != reg_expected)
-        drstatecmp_report_error(name);
+        drstatecmp_report_error(name, tag);
 }
 #endif
 
 static void
 drstatecmp_check_simd_value
 #ifdef X86
-    (dr_zmm_t *value, dr_zmm_t *expected)
+    (void *tag, dr_zmm_t *value, dr_zmm_t *expected)
 {
     if (memcmp(value, expected, sizeof(dr_zmm_t)))
-        drstatecmp_report_error("SIMD mismatch");
+        drstatecmp_report_error("SIMD mismatch", tag);
 }
 #elif defined(AARCHXX)
-    (dr_simd_t *value, dr_simd_t *expected)
+    (void *tag, dr_simd_t *value, dr_simd_t *expected)
 {
     if (memcmp(value, expected, sizeof(dr_simd_t)))
-        drstatecmp_report_error("SIMD mismatch");
+        drstatecmp_report_error("SIMD mismatch", tag);
 }
 #endif
 
 #ifdef X86
 static void
-drstatecmp_check_opmask_value(dr_opmask_t opmask_value, dr_opmask_t opmask_expected)
+drstatecmp_check_opmask_value(void *tag, dr_opmask_t opmask_value,
+                              dr_opmask_t opmask_expected)
 {
     if (opmask_value != opmask_expected)
-        drstatecmp_report_error("opmask mismatch");
+        drstatecmp_report_error("opmask mismatch", tag);
 }
 #endif
 
 static void
 drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc_expected,
-                               int flags)
+                               int flags, void *tag)
 {
 #ifdef X86
-    drstatecmp_check_gpr_value("xdi", mc_instrumented->xdi, mc_expected->xdi);
-    drstatecmp_check_gpr_value("xsi", mc_instrumented->xsi, mc_expected->xsi);
-    drstatecmp_check_gpr_value("xbp", mc_instrumented->xbp, mc_expected->xbp);
+    drstatecmp_check_gpr_value("xdi", tag, mc_instrumented->xdi, mc_expected->xdi);
+    drstatecmp_check_gpr_value("xsi", tag, mc_instrumented->xsi, mc_expected->xsi);
+    drstatecmp_check_gpr_value("xbp", tag, mc_instrumented->xbp, mc_expected->xbp);
 
-    drstatecmp_check_gpr_value("xax", mc_instrumented->xax, mc_expected->xax);
-    drstatecmp_check_gpr_value("xbx", mc_instrumented->xbx, mc_expected->xbx);
-    drstatecmp_check_gpr_value("xcx", mc_instrumented->xcx, mc_expected->xcx);
-    drstatecmp_check_gpr_value("xdx", mc_instrumented->xdx, mc_expected->xdx);
+    drstatecmp_check_gpr_value("xax", tag, mc_instrumented->xax, mc_expected->xax);
+    drstatecmp_check_gpr_value("xbx", tag, mc_instrumented->xbx, mc_expected->xbx);
+    drstatecmp_check_gpr_value("xcx", tag, mc_instrumented->xcx, mc_expected->xcx);
+    drstatecmp_check_gpr_value("xdx", tag, mc_instrumented->xdx, mc_expected->xdx);
 
 #    ifdef X64
-    drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected->r8);
-    drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected->r9);
-    drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected->r10);
-    drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected->r11);
-    drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected->r12);
-    drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected->r13);
-    drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected->r14);
-    drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected->r15);
+    drstatecmp_check_gpr_value("r8", tag, mc_instrumented->r8, mc_expected->r8);
+    drstatecmp_check_gpr_value("r9", tag, mc_instrumented->r9, mc_expected->r9);
+    drstatecmp_check_gpr_value("r10", tag, mc_instrumented->r10, mc_expected->r10);
+    drstatecmp_check_gpr_value("r11", tag, mc_instrumented->r11, mc_expected->r11);
+    drstatecmp_check_gpr_value("r12", tag, mc_instrumented->r12, mc_expected->r12);
+    drstatecmp_check_gpr_value("r13", tag, mc_instrumented->r13, mc_expected->r13);
+    drstatecmp_check_gpr_value("r14", tag, mc_instrumented->r14, mc_expected->r14);
+    drstatecmp_check_gpr_value("r15", tag, mc_instrumented->r15, mc_expected->r15);
 #    endif
 
-    drstatecmp_check_gpr_value("xflags", mc_instrumented->xflags, mc_expected->xflags);
+    drstatecmp_check_gpr_value("xflags", tag, mc_instrumented->xflags,
+                               mc_expected->xflags);
     for (int i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
-        drstatecmp_check_opmask_value(mc_instrumented->opmask[i], mc_expected->opmask[i]);
+        drstatecmp_check_opmask_value(tag, mc_instrumented->opmask[i],
+                                      mc_expected->opmask[i]);
     }
 #elif defined(AARCHXX)
-    drstatecmp_check_gpr_value("r0", mc_instrumented->r0, mc_expected->r0);
-    drstatecmp_check_gpr_value("r1", mc_instrumented->r1, mc_expected->r1);
-    drstatecmp_check_gpr_value("r2", mc_instrumented->r2, mc_expected->r2);
-    drstatecmp_check_gpr_value("r3", mc_instrumented->r3, mc_expected->r3);
-    drstatecmp_check_gpr_value("r4", mc_instrumented->r4, mc_expected->r4);
-    drstatecmp_check_gpr_value("r5", mc_instrumented->r5, mc_expected->r5);
-    drstatecmp_check_gpr_value("r6", mc_instrumented->r6, mc_expected->r6);
-    drstatecmp_check_gpr_value("r7", mc_instrumented->r7, mc_expected->r7);
-    drstatecmp_check_gpr_value("r8", mc_instrumented->r8, mc_expected->r8);
-    drstatecmp_check_gpr_value("r9", mc_instrumented->r9, mc_expected->r9);
-    drstatecmp_check_gpr_value("r10", mc_instrumented->r10, mc_expected->r10);
-    drstatecmp_check_gpr_value("r11", mc_instrumented->r11, mc_expected->r11);
-    drstatecmp_check_gpr_value("r12", mc_instrumented->r12, mc_expected->r12);
+    drstatecmp_check_gpr_value("r0", tag, mc_instrumented->r0, mc_expected->r0);
+    drstatecmp_check_gpr_value("r1", tag, mc_instrumented->r1, mc_expected->r1);
+    drstatecmp_check_gpr_value("r2", tag, mc_instrumented->r2, mc_expected->r2);
+    drstatecmp_check_gpr_value("r3", tag, mc_instrumented->r3, mc_expected->r3);
+    drstatecmp_check_gpr_value("r4", tag, mc_instrumented->r4, mc_expected->r4);
+    drstatecmp_check_gpr_value("r5", tag, mc_instrumented->r5, mc_expected->r5);
+    drstatecmp_check_gpr_value("r6", tag, mc_instrumented->r6, mc_expected->r6);
+    drstatecmp_check_gpr_value("r7", tag, mc_instrumented->r7, mc_expected->r7);
+    drstatecmp_check_gpr_value("r8", tag, mc_instrumented->r8, mc_expected->r8);
+    drstatecmp_check_gpr_value("r9", tag, mc_instrumented->r9, mc_expected->r9);
+    drstatecmp_check_gpr_value("r10", tag, mc_instrumented->r10, mc_expected->r10);
+    drstatecmp_check_gpr_value("r11", tag, mc_instrumented->r11, mc_expected->r11);
+    drstatecmp_check_gpr_value("r12", tag, mc_instrumented->r12, mc_expected->r12);
 
 #    ifdef X64
-    drstatecmp_check_gpr_value("r13", mc_instrumented->r13, mc_expected->r13);
-    drstatecmp_check_gpr_value("r14", mc_instrumented->r14, mc_expected->r14);
-    drstatecmp_check_gpr_value("r15", mc_instrumented->r15, mc_expected->r15);
-    drstatecmp_check_gpr_value("r16", mc_instrumented->r16, mc_expected->r16);
-    drstatecmp_check_gpr_value("r17", mc_instrumented->r17, mc_expected->r17);
-    drstatecmp_check_gpr_value("r18", mc_instrumented->r18, mc_expected->r18);
-    drstatecmp_check_gpr_value("r19", mc_instrumented->r19, mc_expected->r19);
-    drstatecmp_check_gpr_value("r20", mc_instrumented->r20, mc_expected->r20);
-    drstatecmp_check_gpr_value("r21", mc_instrumented->r21, mc_expected->r21);
-    drstatecmp_check_gpr_value("r22", mc_instrumented->r22, mc_expected->r22);
-    drstatecmp_check_gpr_value("r23", mc_instrumented->r23, mc_expected->r23);
-    drstatecmp_check_gpr_value("r24", mc_instrumented->r24, mc_expected->r24);
-    drstatecmp_check_gpr_value("r25", mc_instrumented->r25, mc_expected->r25);
-    drstatecmp_check_gpr_value("r26", mc_instrumented->r26, mc_expected->r26);
-    drstatecmp_check_gpr_value("r27", mc_instrumented->r27, mc_expected->r27);
-    drstatecmp_check_gpr_value("r28", mc_instrumented->r28, mc_expected->r28);
-    drstatecmp_check_gpr_value("r29", mc_instrumented->r29, mc_expected->r29);
+    drstatecmp_check_gpr_value("r13", tag, mc_instrumented->r13, mc_expected->r13);
+    drstatecmp_check_gpr_value("r14", tag, mc_instrumented->r14, mc_expected->r14);
+    drstatecmp_check_gpr_value("r15", tag, mc_instrumented->r15, mc_expected->r15);
+    drstatecmp_check_gpr_value("r16", tag, mc_instrumented->r16, mc_expected->r16);
+    drstatecmp_check_gpr_value("r17", tag, mc_instrumented->r17, mc_expected->r17);
+    drstatecmp_check_gpr_value("r18", tag, mc_instrumented->r18, mc_expected->r18);
+    drstatecmp_check_gpr_value("r19", tag, mc_instrumented->r19, mc_expected->r19);
+    drstatecmp_check_gpr_value("r20", tag, mc_instrumented->r20, mc_expected->r20);
+    drstatecmp_check_gpr_value("r21", tag, mc_instrumented->r21, mc_expected->r21);
+    drstatecmp_check_gpr_value("r22", tag, mc_instrumented->r22, mc_expected->r22);
+    drstatecmp_check_gpr_value("r23", tag, mc_instrumented->r23, mc_expected->r23);
+    drstatecmp_check_gpr_value("r24", tag, mc_instrumented->r24, mc_expected->r24);
+    drstatecmp_check_gpr_value("r25", tag, mc_instrumented->r25, mc_expected->r25);
+    drstatecmp_check_gpr_value("r26", tag, mc_instrumented->r26, mc_expected->r26);
+    drstatecmp_check_gpr_value("r27", tag, mc_instrumented->r27, mc_expected->r27);
+    drstatecmp_check_gpr_value("r28", tag, mc_instrumented->r28, mc_expected->r28);
+    drstatecmp_check_gpr_value("r29", tag, mc_instrumented->r29, mc_expected->r29);
 #    endif
 
     if (!TEST(DRSTATECMP_SKIP_CHECK_LR, flags))
-        drstatecmp_check_gpr_value("lr", mc_instrumented->lr, mc_expected->lr);
+        drstatecmp_check_gpr_value("lr", tag, mc_instrumented->lr, mc_expected->lr);
 
-    drstatecmp_check_xflags_value("xflags", mc_instrumented->xflags, mc_expected->xflags);
+    drstatecmp_check_xflags_value("xflags", tag, mc_instrumented->xflags,
+                                  mc_expected->xflags);
 
 #else
 #    error NYI
 #endif
 
-    drstatecmp_check_gpr_value("xsp", mc_instrumented->xsp, mc_expected->xsp);
+    drstatecmp_check_gpr_value("xsp", tag, mc_instrumented->xsp, mc_expected->xsp);
     for (int i = 0; i < MCXT_NUM_SIMD_SLOTS; i++) {
-        drstatecmp_check_simd_value(&mc_instrumented->simd[i], &mc_expected->simd[i]);
+        drstatecmp_check_simd_value(tag, &mc_instrumented->simd[i],
+                                    &mc_expected->simd[i]);
     }
 }
 
 static void
-drstatecmp_compare_state_call(int flags)
+drstatecmp_compare_state_call(int flags, void *tag)
 {
     void *drcontext = dr_get_current_drcontext();
     drstatecmp_saved_states_t *pt =
@@ -498,11 +511,11 @@ drstatecmp_compare_state_call(int flags)
     mc_expected.flags = DR_MC_ALL;
     dr_get_mcontext(drcontext, &mc_expected);
 
-    drstatecmp_check_machine_state(mc_instrumented, &mc_expected, flags);
+    drstatecmp_check_machine_state(mc_instrumented, &mc_expected, flags, tag);
 }
 
 static void
-drstatecmp_compare_state(void *drcontext, instrlist_t *bb, instr_t *instr)
+drstatecmp_compare_state(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr)
 {
     int flags = 0;
 #ifdef AARCHXX
@@ -520,11 +533,12 @@ drstatecmp_compare_state(void *drcontext, instrlist_t *bb, instr_t *instr)
 #endif
 
     dr_insert_clean_call(drcontext, bb, instr, (void *)drstatecmp_compare_state_call,
-                         false /* fpstate */, 1, OPND_CREATE_INT32(flags));
+                         false /* fpstate */, 2, OPND_CREATE_INT32(flags),
+                         OPND_CREATE_INT(tag));
 }
 
 static void
-drstatecmp_check_reexecution(void *drcontext, instrlist_t *bb,
+drstatecmp_check_reexecution(void *drcontext, void *tag, instrlist_t *bb,
                              drstatecmp_dup_labels_t *labels)
 {
     /* Save state at the beginning of the original bb in order to restore it at the
@@ -542,7 +556,7 @@ drstatecmp_check_reexecution(void *drcontext, instrlist_t *bb,
      * at the end of the original (instrumented) bb to detect clobbering by the
      * instrumentation.
      */
-    drstatecmp_compare_state(drcontext, bb, labels->term);
+    drstatecmp_compare_state(drcontext, tag, bb, labels->term);
 }
 
 /* Duplicate the side-effect-free basic block for re-execution and add saving/restoring of
@@ -550,12 +564,12 @@ drstatecmp_check_reexecution(void *drcontext, instrlist_t *bb,
  * machine state.
  */
 static void
-drstatecmp_postprocess_side_effect_free_bb(void *drcontext, instrlist_t *bb,
+drstatecmp_postprocess_side_effect_free_bb(void *drcontext, void *tag, instrlist_t *bb,
                                            drstatecmp_user_data_t *data)
 {
     drstatecmp_dup_labels_t labels;
     drstatecmp_duplicate_bb(drcontext, bb, data, &labels);
-    drstatecmp_check_reexecution(drcontext, bb, &labels);
+    drstatecmp_check_reexecution(drcontext, tag, bb, &labels);
 }
 
 static void
@@ -571,7 +585,7 @@ drstatecmp_post_instru_phase(void *drcontext, void *tag, instrlist_t *bb, bool f
     drstatecmp_user_data_t *data = (drstatecmp_user_data_t *)user_data;
 
     if (data->side_effect_free_bb) {
-        drstatecmp_postprocess_side_effect_free_bb(drcontext, bb, data);
+        drstatecmp_postprocess_side_effect_free_bb(drcontext, tag, bb, data);
     } else {
         /* Basic blocks with side-effects not handled yet. */
         drstatecmp_postprocess_bb_with_side_effects();

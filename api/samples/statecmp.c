@@ -57,7 +57,7 @@ event_exit(void)
 
 /* Invoked by drstatecmp when a state comparison fails. */
 static void
-error_callback(const char *msg)
+error_callback(const char *msg, void *tag)
 {
     error_detected = 1;
     DR_ASSERT_MSG(!strcmp(msg, "xflags"), msg);
