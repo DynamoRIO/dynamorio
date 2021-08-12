@@ -5793,7 +5793,7 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace, instr_t *target
 #    define MOV_IBL_REG_ENC (0xaa0003e0 | (IBL_TARGET_REG - DR_REG_START_GPR))
 
 static reg_id_t
-check_and_remove_patched_ibl(dcontext_t *dcontext, instrlist_t *trace, instr_t *targeter)
+check_and_remove_patched_ibl(instrlist_t *trace, instr_t *targeter)
 {
     int i, j;
     instr_t *prev = instr_get_prev(targeter);
@@ -5930,11 +5930,6 @@ fixup_cbr_on_stolen_reg(dcontext_t *dcontext, instrlist_t *trace, instr_t *targe
     instr_t *prev_prev = instr_get_prev(prev);
     if (!instr_is_cbr_stolen(prev_prev))
         return prev;
-    // dr_printf("==============now we confirm ========================\n");
-    // monitor_data_t *md = (monitor_data_t *)dcontext->monitor_field;
-    // instr_disassemble(dcontext, targeter, STDOUT);
-    // dr_printf("\n");
-    // instrlist_disassemble(dcontext, md->trace_tag, trace, STDOUT);
     /* Now we confirm that this cbr stolen_reg was properly mangled. */
     instr_t *next = instr_get_next(targeter);
     if (!next)
@@ -5948,7 +5943,6 @@ fixup_cbr_on_stolen_reg(dcontext_t *dcontext, instrlist_t *trace, instr_t *targe
     ASSERT_CURIOSITY(instr_is_ubr(next_next));
     /* Set the cbz/cbnz target to "fall" path. */
     instr_set_target(prev_prev, instr_get_target(next_next));
-    // md->emitted_size += DIRECT_EXIT_STUB_SIZE(0);
     /* Then we can safely remove the "fall" path. */
     return prev;
 }
@@ -5964,18 +5958,10 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                                 instr_t **delete_after /*OUT*/, instr_t *end_instr)
 {
     int added_size = 0;
-
     instr_t *next = instr_get_next(targeter);
     /* all indirect branches should be ubrs */
     ASSERT(instr_is_ubr(targeter));
     /* expecting basic blocks only */
-    if (!((end_instr != NULL && targeter == end_instr) ||
-          targeter == instrlist_last(trace))) {
-        // dr_printf("end_instr!=NULL %d, targeter==end_instr %d, "
-        //           "targeter==instrlis_last(trace) %d\n",
-        //           end_instr != NULL, targeter == end_instr,
-        //           targeter == instrlist_last(trace));
-    }
     ASSERT((end_instr != NULL && targeter == end_instr) ||
            targeter == instrlist_last(trace));
 
@@ -6186,7 +6172,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
 
     /* Check and remove previous two patched instructions. */
     has_str_ldr = false;
-    jump_target_reg = check_and_remove_patched_ibl(dcontext, trace, targeter);
+    jump_target_reg = check_and_remove_patched_ibl(trace, targeter);
     if (jump_target_reg == DR_REG_NULL) {
         has_str_ldr = check_patched_ibl(dcontext, trace, targeter);
         if (!has_str_ldr) {
