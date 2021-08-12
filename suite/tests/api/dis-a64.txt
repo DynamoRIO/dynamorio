@@ -2465,6 +2465,61 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 4eb0fad5 : fminv h21, v22.8h                        : fminv  %q22 -> %h21
 4eb0fb9b : fminv h27, v28.8h                        : fminv  %q28 -> %h27
 
+# FRINTA <Vd>.<T>, <Vn>.<T>
+2e218841 : frinta  v1.2s, v2.2s                     : frinta %d2 $0x02 -> %d1
+6e618864 : frinta  v4.2d, v3.2d                     : frinta %q3 $0x03 -> %q4
+6e2188c5 : frinta  v5.4s, v6.4s                     : frinta %q6 $0x02 -> %q5
+6e6188e8 : frinta  v8.2d, v7.2d                     : frinta %q7 $0x03 -> %q8
+2e218949 : frinta  v9.2s, v10.2s                    : frinta %d10 $0x02 -> %d9
+6e61896c : frinta  v12.2d, v11.2d                   : frinta %q11 $0x03 -> %q12
+6e2189cd : frinta  v13.4s, v14.4s                   : frinta %q14 $0x02 -> %q13
+6e6189f0 : frinta  v16.2d, v15.2d                   : frinta %q15 $0x03 -> %q16
+2e218a51 : frinta  v17.2s, v18.2s                   : frinta %d18 $0x02 -> %d17
+6e618a74 : frinta  v20.2d, v19.2d                   : frinta %q19 $0x03 -> %q20
+6e218ad5 : frinta  v21.4s, v22.4s                   : frinta %q22 $0x02 -> %q21
+6e618af8 : frinta  v24.2d, v23.2d                   : frinta %q23 $0x03 -> %q24
+2e218b59 : frinta  v25.2s, v26.2s                   : frinta %d26 $0x02 -> %d25
+6e618b7c : frinta  v28.2d, v27.2d                   : frinta %q27 $0x03 -> %q28
+6e218bdd : frinta  v29.4s, v30.4s                   : frinta %q30 $0x02 -> %q29
+6e61883f : frinta  v31.2d, v1.2d                    : frinta %q1 $0x03 -> %q31
+
+# FRINTM <Vd>.<T>, <Vn>.<T>
+0e219841 : frintm  v1.2s, v2.2s                     : frintm %d2 $0x02 -> %d1
+4e619864 : frintm  v4.2d, v3.2d                     : frintm %q3 $0x03 -> %q4
+4e2198c5 : frintm  v5.4s, v6.4s                     : frintm %q6 $0x02 -> %q5
+4e6198e8 : frintm  v8.2d, v7.2d                     : frintm %q7 $0x03 -> %q8
+0e219949 : frintm  v9.2s, v10.2s                    : frintm %d10 $0x02 -> %d9
+4e61996c : frintm  v12.2d, v11.2d                   : frintm %q11 $0x03 -> %q12
+4e2199cd : frintm  v13.4s, v14.4s                   : frintm %q14 $0x02 -> %q13
+4e6199f0 : frintm  v16.2d, v15.2d                   : frintm %q15 $0x03 -> %q16
+0e219a51 : frintm  v17.2s, v18.2s                   : frintm %d18 $0x02 -> %d17
+4e619a74 : frintm  v20.2d, v19.2d                   : frintm %q19 $0x03 -> %q20
+4e219ad5 : frintm  v21.4s, v22.4s                   : frintm %q22 $0x02 -> %q21
+4e619af8 : frintm  v24.2d, v23.2d                   : frintm %q23 $0x03 -> %q24
+0e219b59 : frintm  v25.2s, v26.2s                   : frintm %d26 $0x02 -> %d25
+4e619b7c : frintm  v28.2d, v27.2d                   : frintm %q27 $0x03 -> %q28
+4e219bdd : frintm  v29.4s, v30.4s                   : frintm %q30 $0x02 -> %q29
+4e61983f : frintm  v31.2d, v1.2d                    : frintm %q1 $0x03 -> %q31
+
+# FRINTP <Vd>.<T>, <Vn>.<T>
+0ea18841 : frintp  v1.2s, v2.2s                     : frintp %d2 $0x02 -> %d1
+4ee18864 : frintp  v4.2d, v3.2d                     : frintp %q3 $0x03 -> %q4
+4ea188c5 : frintp  v5.4s, v6.4s                     : frintp %q6 $0x02 -> %q5
+4ee188e8 : frintp  v8.2d, v7.2d                     : frintp %q7 $0x03 -> %q8
+0ea18949 : frintp  v9.2s, v10.2s                    : frintp %d10 $0x02 -> %d9
+4ee1896c : frintp  v12.2d, v11.2d                   : frintp %q11 $0x03 -> %q12
+4ea189cd : frintp  v13.4s, v14.4s                   : frintp %q14 $0x02 -> %q13
+4ee189f0 : frintp  v16.2d, v15.2d                   : frintp %q15 $0x03 -> %q16
+0ea18a51 : frintp  v17.2s, v18.2s                   : frintp %d18 $0x02 -> %d17
+4ee18a74 : frintp  v20.2d, v19.2d                   : frintp %q19 $0x03 -> %q20
+4ea18ad5 : frintp  v21.4s, v22.4s                   : frintp %q22 $0x02 -> %q21
+4ee18af8 : frintp  v24.2d, v23.2d                   : frintp %q23 $0x03 -> %q24
+0ea18b59 : frintp  v25.2s, v26.2s                   : frintp %d26 $0x02 -> %d25
+4ee18b7c : frintp  v28.2d, v27.2d                   : frintp %q27 $0x03 -> %q28
+4ea18bdd : frintp  v29.4s, v30.4s                   : frintp %q30 $0x02 -> %q29
+4ee1883f : frintp  v31.2d, v1.2d                    : frintp %q1 $0x03 -> %q31
+
+
 0e5f0fa0 : fmla v0.4h, v29.4h, v31.4h               : fmla   %d0 %d29 %d31 $0x01 -> %d0
 4e5f0fa0 : fmla v0.8h, v29.8h, v31.8h               : fmla   %q0 %q29 %q31 $0x01 -> %q0
 0e33cfa7 : fmla v7.2s, v29.2s, v19.2s               : fmla   %d7 %d29 %d19 $0x02 -> %d7

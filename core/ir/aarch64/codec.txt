@@ -1243,6 +1243,11 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 0x10111010110000111110xxxxxxxxxx  n     fminv     s0 : dq5
 0x00111010110000111110xxxxxxxxxx  n     fminv     h0 : dq5
 
+# Floating-point data-processing (vector)
+0x1011100x100001100010xxxxxxxxxx  n     frinta    dq0 : dq5 sd_sz
+0x0011100x100001100110xxxxxxxxxx  n     frintm    dq0 : dq5 sd_sz
+0x0011101x100001100010xxxxxxxxxx  n     frintp    dq0 : dq5 sd_sz
+
 # Floating-point convert (scalar)
 0001111000100100000000xxxxxxxxxx  n     fcvtas    w0 : s5
 1001111000100100000000xxxxxxxxxx  n     fcvtas    x0 : s5
