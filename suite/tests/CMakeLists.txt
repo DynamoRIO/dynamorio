@@ -2659,6 +2659,11 @@ if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
   endif ()
 endif ()
 
+if (AARCH64)
+  # Create a fuzzing application for stress-testing via drstatecmp.
+  add_api_exe(drstatecmp-fuzz-app client-interface/drstatecmp-fuzz-app.c ON OFF)
+endif ()
+
 # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
 # but the system dbghelp pre-Vista is too old, so we copy one from VS.
 if ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
@@ -3668,6 +3673,11 @@ if (BUILD_CLIENTS)
         "-simulator_type basic_counts" "")
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
     endif (UNIX AND X86 AND X64)
+
+    if (AARCH64)
+      # Stress-test drcachesim with drstatecmp checks.
+      torunonly_drcacheoff(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 3G -enable_drstatecmp" "" "")
+    endif ()
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
