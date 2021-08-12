@@ -2688,9 +2688,54 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 1ef78a6b : fnmul h11, h19, h23                      : fnmul  %h19 %h23 -> %h11
 
 # FRECPE <Hd>, <Hn>
-5ef9d820 : frecpe h0, h1                            : frecpe %h1 -> %h0
-5ea1d820 : frecpe s0, s1                            : frecpe %s1 -> %s0
-5ee1d820 : frecpe d0, d1                            : frecpe %d1 -> %d0
+5ee1d820 : frecpe d0, d1                      : frecpe %d1 -> %d0
+5ee1d843 : frecpe d3, d2                      : frecpe %d2 -> %d3
+5ee1d8a4 : frecpe d4, d5                      : frecpe %d5 -> %d4
+5ee1d8c7 : frecpe d7, d6                      : frecpe %d6 -> %d7
+5ee1d928 : frecpe d8, d9                      : frecpe %d9 -> %d8
+5ee1d94b : frecpe d11, d10                    : frecpe %d10 -> %d11
+5ee1d9ac : frecpe d12, d13                    : frecpe %d13 -> %d12
+5ee1d9cf : frecpe d15, d14                    : frecpe %d14 -> %d15
+5ee1da30 : frecpe d16, d17                    : frecpe %d17 -> %d16
+5ee1da53 : frecpe d19, d18                    : frecpe %d18 -> %d19
+5ee1dab4 : frecpe d20, d21                    : frecpe %d21 -> %d20
+5ee1dad7 : frecpe d23, d22                    : frecpe %d22 -> %d23
+5ee1db38 : frecpe d24, d25                    : frecpe %d25 -> %d24
+5ee1db5b : frecpe d27, d26                    : frecpe %d26 -> %d27
+5ee1dbbc : frecpe d28, d29                    : frecpe %d29 -> %d28
+5ee1dbdf : frecpe d31, d30                    : frecpe %d30 -> %d31
+5ea1d820 : frecpe s0, s1                      : frecpe %s1 -> %s0
+5ea1d843 : frecpe s3, s2                      : frecpe %s2 -> %s3
+5ea1d8a4 : frecpe s4, s5                      : frecpe %s5 -> %s4
+5ea1d8c7 : frecpe s7, s6                      : frecpe %s6 -> %s7
+5ea1d928 : frecpe s8, s9                      : frecpe %s9 -> %s8
+5ea1d94b : frecpe s11, s10                    : frecpe %s10 -> %s11
+5ea1d9ac : frecpe s12, s13                    : frecpe %s13 -> %s12
+5ea1d9cf : frecpe s15, s14                    : frecpe %s14 -> %s15
+5ea1da30 : frecpe s16, s17                    : frecpe %s17 -> %s16
+5ea1da53 : frecpe s19, s18                    : frecpe %s18 -> %s19
+5ea1dab4 : frecpe s20, s21                    : frecpe %s21 -> %s20
+5ea1dad7 : frecpe s23, s22                    : frecpe %s22 -> %s23
+5ea1db38 : frecpe s24, s25                    : frecpe %s25 -> %s24
+5ea1db5b : frecpe s27, s26                    : frecpe %s26 -> %s27
+5ea1dbbc : frecpe s28, s29                    : frecpe %s29 -> %s28
+5ea1dbdf : frecpe s31, s30                    : frecpe %s30 -> %s31
+5ef9d820 : frecpe h0, h1                      : frecpe %h1 -> %h0
+5ef9d843 : frecpe h3, h2                      : frecpe %h2 -> %h3
+5ef9d8a4 : frecpe h4, h5                      : frecpe %h5 -> %h4
+5ef9d8c7 : frecpe h7, h6                      : frecpe %h6 -> %h7
+5ef9d928 : frecpe h8, h9                      : frecpe %h9 -> %h8
+5ef9d94b : frecpe h11, h10                    : frecpe %h10 -> %h11
+5ef9d9ac : frecpe h12, h13                    : frecpe %h13 -> %h12
+5ef9d9cf : frecpe h15, h14                    : frecpe %h14 -> %h15
+5ef9da30 : frecpe h16, h17                    : frecpe %h17 -> %h16
+5ef9da53 : frecpe h19, h18                    : frecpe %h18 -> %h19
+5ef9dab4 : frecpe h20, h21                    : frecpe %h21 -> %h20
+5ef9dad7 : frecpe h23, h22                    : frecpe %h22 -> %h23
+5ef9db38 : frecpe h24, h25                    : frecpe %h25 -> %h24
+5ef9db5b : frecpe h27, h26                    : frecpe %h26 -> %h27
+5ef9dbbc : frecpe h28, h29                    : frecpe %h29 -> %h28
+5ef9dbdf : frecpe h31, h30                    : frecpe %h30 -> %h31
 
 # FRECPE <Vd>.<T>, <Vn>.<T>
 0ea1d841 : frecpe  v1.2s, v2.2s                     : frecpe %d2 $0x02 -> %d1
