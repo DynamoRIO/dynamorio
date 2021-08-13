@@ -1009,7 +1009,12 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 1101101011000000000011xxxxxxxxxx  n  rev     x0 : x5
 
 # Data Processing - Scalar Floating-Point and Advanced SIMD
-
+0x10111001100000010110xxxxxxxxxx  n  rbit    dq0 : dq5
+0x001110xx100000000110xxxxxxxxxx  n  rev16   dq0 : dq5 bd_sz
+01011110001xxxxx000011xxxxxxxxxx  n  sqadd   b0 : b5 b16
+01011110011xxxxx000011xxxxxxxxxx  n  sqadd   h0 : h5 h16
+01011110101xxxxx000011xxxxxxxxxx  n  sqadd   s0 : s5 s16
+01011110111xxxxx000011xxxxxxxxxx  n  sqadd   d0 : d5 d16
 
 # FMOV immediate to scalar FP reg
 00011110111xxxxxxxx10000000xxxxx  n     fmov h0 : fpimm13 # Armv8.2
