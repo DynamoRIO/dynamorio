@@ -1878,19 +1878,6 @@ encode_opnd_sysops(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return encode_opnd_int(5, 14, false, 0, 0, opnd, enc_out);
 }
 
-/* dq16_idx_lhm: imm4 from bits 16-20, the lower 4 bits of register Rm with idx_lhm */
-static inline bool
-decode_opnd_dq16_idx_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_int(16, 4, false, 0, OPSZ_4b, 0, enc, opnd);
-}
-
-static inline bool
-encode_opnd_dq16_idx_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_int(16, 4, false, 0, 0, opnd, enc_out);
-}
-
 /* sysreg: system register, operand of MRS/MSR */
 
 static inline bool
@@ -2385,49 +2372,44 @@ encode_opnd_x16immvs(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
 static inline bool
 decode_opnd_vindex_H(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    uint bits = (enc >> 11 & 1) << 2 | (enc >> 21 & 1) << 1 | (enc >> 20 & 1);
-    *opnd = opnd_create_immed_int(bits, OPSZ_2b);
+    /* Example encoding:
+     * FMLA <Vd>.<T>, <Vn>.<T>, <Vm>.H[<index>]
+     * 3322222222221111111111
+     * 10987654321098765432109876543210
+     * 0Q00111100LMRm--0001H0Rn---Rd---
+     */
+    int H = 11;
+    int L = 21;
+    int M = 20;
+    // index=H:L:M
+    uint bits = (enc >> H & 1) << 2 | (enc >> L & 1) << 1 | (enc >> M & 1);
+    *opnd = opnd_create_immed_int(bits, OPSZ_3b);
     return true;
 }
 
 static inline bool
 encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
+    /* Example encoding:
+     * FMLA <Vd>.<T>, <Vn>.<T>, <Vm>.H[<index>]
+     * 3322222222221111111111
+     * 10987654321098765432109876543210
+     * 0Q00111100LMRm--0001H0Rn---Rd---
+     */
+    int H = 11;
+    int L = 21;
+    int M = 20;
     ptr_int_t val;
     if (!opnd_is_immed_int(opnd))
         return false;
     val = opnd_get_immed_int(opnd);
     if (val < 0 || val >= 8)
         return false;
-    *enc_out = (val >> 2 & 1) << 11 | (val >> 1 & 1) << 21 | (val & 1) << 20;
+    // index=H:L:M
+    *enc_out = (val >> 2 & 1) << H | (val >> 1 & 1) << L | (val & 1) << M;
     return true;
 }
 
-/* idx_lhm: imm3 from bits 21, 20 and 11 */
-
-static inline bool
-decode_opnd_idx_lhm(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    uint h = extract_uint(enc, 11, 1);
-    uint l = extract_uint(enc, 21, 1);
-    uint m = extract_uint(enc, 20, 1);
-    uint value = (h << 2) | (l << 1) | m;
-    *opnd = opnd_create_immed_uint(value, OPSZ_3b);
-    return true;
-}
-
-static inline bool
-encode_opnd_idx_lhm(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    uint val = opnd_get_immed_int(opnd);
-    if (val & (1 << 2))
-        *enc_out |= (1 << 11);
-    if (val & (1 << 1))
-        *enc_out |= (1 << 21);
-    if (val & 1)
-        *enc_out |= (1 << 20);
-    return true;
-}
 
 /* immhb: The vector encoding of #fbits operand. This is the number of bits
  * after the decimal point for fixed-point values.
@@ -2504,14 +2486,24 @@ encode_opnd_prf12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 static inline bool
 decode_opnd_vindex_SD(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
+    /* Example encoding:
+     * FMLA <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+     * 3322222222221111111111
+     * 10987654321098765432109876543210
+     * 0Q0011111sLMRm--0001H0Rn---Rd---
+     *          z
+     */
+    int sz = 22;
+    int H = 11;
+    int L = 21;
     uint bits;
-    if ((enc >> 22 & 1) == 0) {
-        bits = (enc >> 11 & 1) << 1 | (enc >> 21 & 1);
-    } else {
-        if ((enc >> 21 & 1) != 0) {
+    if ((enc >> sz & 1) == 0) {                      // Single
+        bits = (enc >> H & 1) << 1 | (enc >> L & 1); // index=H:L
+    } else {                                         // Double
+        if ((enc >> L & 1) != 0) {
             return false;
         }
-        bits = enc >> 11 & 1;
+        bits = enc >> H & 1; // index=H
     }
     *opnd = opnd_create_immed_int(bits, OPSZ_2b);
     return true;
@@ -2520,18 +2512,28 @@ decode_opnd_vindex_SD(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 static inline bool
 encode_opnd_vindex_SD(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
+    /* Example encoding:
+     * FMLA <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+     * 3322222222221111111111
+     * 10987654321098765432109876543210
+     * 0Q0011111sLMRm--0001H0Rn---Rd---
+     *          z
+     */
+    int sz = 22;
+    int H = 11;
+    int L = 21;
     ptr_int_t val;
     if (!opnd_is_immed_int(opnd))
         return false;
     val = opnd_get_immed_int(opnd);
-    if ((enc >> 22 & 1) == 0) {
+    if ((enc >> sz & 1) == 0) { // Single
         if (val < 0 || val >= 4)
             return false;
-        *enc_out = (val & 1) << 21 | (val >> 1 & 1) << 11;
-    } else {
+        *enc_out = (val & 1) << L | (val >> 1 & 1) << H; // index=H:L
+    } else {                                             // Double
         if (val < 0 || val >= 2)
             return false;
-        *enc_out = (val & 1) << 11;
+        *enc_out = (val & 1) << H; // index=H
     }
     return true;
 }

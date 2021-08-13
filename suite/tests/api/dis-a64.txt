@@ -2550,6 +2550,164 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 2ea0cd42 : fmlsl2 v2.2s, v10.2h, v0.2h              : fmlsl2 %d2 %d10 %d0 -> %d2
 6ea0cd42 : fmlsl2 v2.4s, v10.4h, v0.4h              : fmlsl2 %q2 %q10 %q0 -> %q2
 
+# FMLS <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+# FMLS <Vd>.<T>, <Vn>.<T>, <Vm>.H[<index>]
+0f025020 : fmls v0.4h, v1.4h, v2.h[0]               : fmls   %d1 %d2 $0x00 $0x01 -> %d0
+0f135041 : fmls v1.4h, v2.4h, v3.h[1]               : fmls   %d2 %d3 $0x01 $0x01 -> %d1
+0f245062 : fmls v2.4h, v3.4h, v4.h[2]               : fmls   %d3 %d4 $0x02 $0x01 -> %d2
+0f355083 : fmls v3.4h, v4.4h, v5.h[3]               : fmls   %d4 %d5 $0x03 $0x01 -> %d3
+0f0658a4 : fmls v4.4h, v5.4h, v6.h[4]               : fmls   %d5 %d6 $0x04 $0x01 -> %d4
+0f1758c5 : fmls v5.4h, v6.4h, v7.h[5]               : fmls   %d6 %d7 $0x05 $0x01 -> %d5
+0f2858e6 : fmls v6.4h, v7.4h, v8.h[6]               : fmls   %d7 %d8 $0x06 $0x01 -> %d6
+0f395907 : fmls v7.4h, v8.4h, v9.h[7]               : fmls   %d8 %d9 $0x07 $0x01 -> %d7
+0f0a5128 : fmls v8.4h, v9.4h, v10.h[0]              : fmls   %d9 %d10 $0x00 $0x01 -> %d8
+0f1b5149 : fmls v9.4h, v10.4h, v11.h[1]             : fmls   %d10 %d11 $0x01 $0x01 -> %d9
+0f2c516a : fmls v10.4h, v11.4h, v12.h[2]            : fmls   %d11 %d12 $0x02 $0x01 -> %d10
+0f3d518b : fmls v11.4h, v12.4h, v13.h[3]            : fmls   %d12 %d13 $0x03 $0x01 -> %d11
+0f0e59ac : fmls v12.4h, v13.4h, v14.h[4]            : fmls   %d13 %d14 $0x04 $0x01 -> %d12
+0f1f59cd : fmls v13.4h, v14.4h, v15.h[5]            : fmls   %d14 %d15 $0x05 $0x01 -> %d13
+0f2f59ee : fmls v14.4h, v15.4h, v15.h[6]            : fmls   %d15 %d15 $0x06 $0x01 -> %d14
+0f3e5a0f : fmls v15.4h, v16.4h, v14.h[7]            : fmls   %d16 %d14 $0x07 $0x01 -> %d15
+0f0d5230 : fmls v16.4h, v17.4h, v13.h[0]            : fmls   %d17 %d13 $0x00 $0x01 -> %d16
+0f1c5251 : fmls v17.4h, v18.4h, v12.h[1]            : fmls   %d18 %d12 $0x01 $0x01 -> %d17
+0f2b5272 : fmls v18.4h, v19.4h, v11.h[2]            : fmls   %d19 %d11 $0x02 $0x01 -> %d18
+0f3a5293 : fmls v19.4h, v20.4h, v10.h[3]            : fmls   %d20 %d10 $0x03 $0x01 -> %d19
+0f095ab4 : fmls v20.4h, v21.4h, v9.h[4]             : fmls   %d21 %d9 $0x04 $0x01 -> %d20
+0f185ad5 : fmls v21.4h, v22.4h, v8.h[5]             : fmls   %d22 %d8 $0x05 $0x01 -> %d21
+0f275af6 : fmls v22.4h, v23.4h, v7.h[6]             : fmls   %d23 %d7 $0x06 $0x01 -> %d22
+0f365b17 : fmls v23.4h, v24.4h, v6.h[7]             : fmls   %d24 %d6 $0x07 $0x01 -> %d23
+0f055338 : fmls v24.4h, v25.4h, v5.h[0]             : fmls   %d25 %d5 $0x00 $0x01 -> %d24
+0f145359 : fmls v25.4h, v26.4h, v4.h[1]             : fmls   %d26 %d4 $0x01 $0x01 -> %d25
+0f23537a : fmls v26.4h, v27.4h, v3.h[2]             : fmls   %d27 %d3 $0x02 $0x01 -> %d26
+0f32539b : fmls v27.4h, v28.4h, v2.h[3]             : fmls   %d28 %d2 $0x03 $0x01 -> %d27
+0f015bbc : fmls v28.4h, v29.4h, v1.h[4]             : fmls   %d29 %d1 $0x04 $0x01 -> %d28
+0f105bdd : fmls v29.4h, v30.4h, v0.h[5]             : fmls   %d30 %d0 $0x05 $0x01 -> %d29
+0f215bfe : fmls v30.4h, v31.4h, v1.h[6]             : fmls   %d31 %d1 $0x06 $0x01 -> %d30
+4f025020 : fmls v0.8h, v1.8h, v2.h[0]               : fmls   %q1 %q2 $0x00 $0x01 -> %q0
+4f135041 : fmls v1.8h, v2.8h, v3.h[1]               : fmls   %q2 %q3 $0x01 $0x01 -> %q1
+4f245062 : fmls v2.8h, v3.8h, v4.h[2]               : fmls   %q3 %q4 $0x02 $0x01 -> %q2
+4f355083 : fmls v3.8h, v4.8h, v5.h[3]               : fmls   %q4 %q5 $0x03 $0x01 -> %q3
+4f0658a4 : fmls v4.8h, v5.8h, v6.h[4]               : fmls   %q5 %q6 $0x04 $0x01 -> %q4
+4f1758c5 : fmls v5.8h, v6.8h, v7.h[5]               : fmls   %q6 %q7 $0x05 $0x01 -> %q5
+4f2858e6 : fmls v6.8h, v7.8h, v8.h[6]               : fmls   %q7 %q8 $0x06 $0x01 -> %q6
+4f395907 : fmls v7.8h, v8.8h, v9.h[7]               : fmls   %q8 %q9 $0x07 $0x01 -> %q7
+4f0a5128 : fmls v8.8h, v9.8h, v10.h[0]              : fmls   %q9 %q10 $0x00 $0x01 -> %q8
+4f1b5149 : fmls v9.8h, v10.8h, v11.h[1]             : fmls   %q10 %q11 $0x01 $0x01 -> %q9
+4f2c516a : fmls v10.8h, v11.8h, v12.h[2]            : fmls   %q11 %q12 $0x02 $0x01 -> %q10
+4f3d518b : fmls v11.8h, v12.8h, v13.h[3]            : fmls   %q12 %q13 $0x03 $0x01 -> %q11
+4f0e59ac : fmls v12.8h, v13.8h, v14.h[4]            : fmls   %q13 %q14 $0x04 $0x01 -> %q12
+4f1f59cd : fmls v13.8h, v14.8h, v15.h[5]            : fmls   %q14 %q15 $0x05 $0x01 -> %q13
+4f2f59ee : fmls v14.8h, v15.8h, v15.h[6]            : fmls   %q15 %q15 $0x06 $0x01 -> %q14
+4f3e5a0f : fmls v15.8h, v16.8h, v14.h[7]            : fmls   %q16 %q14 $0x07 $0x01 -> %q15
+4f0d5230 : fmls v16.8h, v17.8h, v13.h[0]            : fmls   %q17 %q13 $0x00 $0x01 -> %q16
+4f1c5251 : fmls v17.8h, v18.8h, v12.h[1]            : fmls   %q18 %q12 $0x01 $0x01 -> %q17
+4f2b5272 : fmls v18.8h, v19.8h, v11.h[2]            : fmls   %q19 %q11 $0x02 $0x01 -> %q18
+4f3a5293 : fmls v19.8h, v20.8h, v10.h[3]            : fmls   %q20 %q10 $0x03 $0x01 -> %q19
+4f095ab4 : fmls v20.8h, v21.8h, v9.h[4]             : fmls   %q21 %q9 $0x04 $0x01 -> %q20
+4f185ad5 : fmls v21.8h, v22.8h, v8.h[5]             : fmls   %q22 %q8 $0x05 $0x01 -> %q21
+4f275af6 : fmls v22.8h, v23.8h, v7.h[6]             : fmls   %q23 %q7 $0x06 $0x01 -> %q22
+4f365b17 : fmls v23.8h, v24.8h, v6.h[7]             : fmls   %q24 %q6 $0x07 $0x01 -> %q23
+4f055338 : fmls v24.8h, v25.8h, v5.h[0]             : fmls   %q25 %q5 $0x00 $0x01 -> %q24
+4f145359 : fmls v25.8h, v26.8h, v4.h[1]             : fmls   %q26 %q4 $0x01 $0x01 -> %q25
+4f23537a : fmls v26.8h, v27.8h, v3.h[2]             : fmls   %q27 %q3 $0x02 $0x01 -> %q26
+4f32539b : fmls v27.8h, v28.8h, v2.h[3]             : fmls   %q28 %q2 $0x03 $0x01 -> %q27
+4f015bbc : fmls v28.8h, v29.8h, v1.h[4]             : fmls   %q29 %q1 $0x04 $0x01 -> %q28
+4f105bdd : fmls v29.8h, v30.8h, v0.h[5]             : fmls   %q30 %q0 $0x05 $0x01 -> %q29
+4f215bfe : fmls v30.8h, v31.8h, v1.h[6]             : fmls   %q31 %q1 $0x06 $0x01 -> %q30
+0f825020 : fmls v0.2s, v1.2s, v2.s[0]               : fmls   %d1 %d2 $0x00 $0x02 -> %d0
+0fa35041 : fmls v1.2s, v2.2s, v3.s[1]               : fmls   %d2 %d3 $0x01 $0x02 -> %d1
+0f845862 : fmls v2.2s, v3.2s, v4.s[2]               : fmls   %d3 %d4 $0x02 $0x02 -> %d2
+0fa55883 : fmls v3.2s, v4.2s, v5.s[3]               : fmls   %d4 %d5 $0x03 $0x02 -> %d3
+0f8650a4 : fmls v4.2s, v5.2s, v6.s[0]               : fmls   %d5 %d6 $0x00 $0x02 -> %d4
+0fa750c5 : fmls v5.2s, v6.2s, v7.s[1]               : fmls   %d6 %d7 $0x01 $0x02 -> %d5
+0f8858e6 : fmls v6.2s, v7.2s, v8.s[2]               : fmls   %d7 %d8 $0x02 $0x02 -> %d6
+0fa95907 : fmls v7.2s, v8.2s, v9.s[3]               : fmls   %d8 %d9 $0x03 $0x02 -> %d7
+0f8a5128 : fmls v8.2s, v9.2s, v10.s[0]              : fmls   %d9 %d10 $0x00 $0x02 -> %d8
+0fab5149 : fmls v9.2s, v10.2s, v11.s[1]             : fmls   %d10 %d11 $0x01 $0x02 -> %d9
+0f8c596a : fmls v10.2s, v11.2s, v12.s[2]            : fmls   %d11 %d12 $0x02 $0x02 -> %d10
+0fad598b : fmls v11.2s, v12.2s, v13.s[3]            : fmls   %d12 %d13 $0x03 $0x02 -> %d11
+0f8e51ac : fmls v12.2s, v13.2s, v14.s[0]            : fmls   %d13 %d14 $0x00 $0x02 -> %d12
+0faf51cd : fmls v13.2s, v14.2s, v15.s[1]            : fmls   %d14 %d15 $0x01 $0x02 -> %d13
+0f9059ee : fmls v14.2s, v15.2s, v16.s[2]            : fmls   %d15 %d16 $0x02 $0x02 -> %d14
+0fb15a0f : fmls v15.2s, v16.2s, v17.s[3]            : fmls   %d16 %d17 $0x03 $0x02 -> %d15
+0f925230 : fmls v16.2s, v17.2s, v18.s[0]            : fmls   %d17 %d18 $0x00 $0x02 -> %d16
+0fb35251 : fmls v17.2s, v18.2s, v19.s[1]            : fmls   %d18 %d19 $0x01 $0x02 -> %d17
+0f945a72 : fmls v18.2s, v19.2s, v20.s[2]            : fmls   %d19 %d20 $0x02 $0x02 -> %d18
+0fb55a93 : fmls v19.2s, v20.2s, v21.s[3]            : fmls   %d20 %d21 $0x03 $0x02 -> %d19
+0f9652b4 : fmls v20.2s, v21.2s, v22.s[0]            : fmls   %d21 %d22 $0x00 $0x02 -> %d20
+0fb752d5 : fmls v21.2s, v22.2s, v23.s[1]            : fmls   %d22 %d23 $0x01 $0x02 -> %d21
+0f985af6 : fmls v22.2s, v23.2s, v24.s[2]            : fmls   %d23 %d24 $0x02 $0x02 -> %d22
+0fb95b17 : fmls v23.2s, v24.2s, v25.s[3]            : fmls   %d24 %d25 $0x03 $0x02 -> %d23
+0f9a5338 : fmls v24.2s, v25.2s, v26.s[0]            : fmls   %d25 %d26 $0x00 $0x02 -> %d24
+0fbb5359 : fmls v25.2s, v26.2s, v27.s[1]            : fmls   %d26 %d27 $0x01 $0x02 -> %d25
+0f9c5b7a : fmls v26.2s, v27.2s, v28.s[2]            : fmls   %d27 %d28 $0x02 $0x02 -> %d26
+0fbd5b9b : fmls v27.2s, v28.2s, v29.s[3]            : fmls   %d28 %d29 $0x03 $0x02 -> %d27
+0f9e53bc : fmls v28.2s, v29.2s, v30.s[0]            : fmls   %d29 %d30 $0x00 $0x02 -> %d28
+0fbf53dd : fmls v29.2s, v30.2s, v31.s[1]            : fmls   %d30 %d31 $0x01 $0x02 -> %d29
+0f805bfe : fmls v30.2s, v31.2s, v0.s[2]             : fmls   %d31 %d0 $0x02 $0x02 -> %d30
+4f825020 : fmls v0.4s, v1.4s, v2.s[0]               : fmls   %q1 %q2 $0x00 $0x02 -> %q0
+4fa35041 : fmls v1.4s, v2.4s, v3.s[1]               : fmls   %q2 %q3 $0x01 $0x02 -> %q1
+4f845862 : fmls v2.4s, v3.4s, v4.s[2]               : fmls   %q3 %q4 $0x02 $0x02 -> %q2
+4fa55883 : fmls v3.4s, v4.4s, v5.s[3]               : fmls   %q4 %q5 $0x03 $0x02 -> %q3
+4f8650a4 : fmls v4.4s, v5.4s, v6.s[0]               : fmls   %q5 %q6 $0x00 $0x02 -> %q4
+4fa750c5 : fmls v5.4s, v6.4s, v7.s[1]               : fmls   %q6 %q7 $0x01 $0x02 -> %q5
+4f8858e6 : fmls v6.4s, v7.4s, v8.s[2]               : fmls   %q7 %q8 $0x02 $0x02 -> %q6
+4fa95907 : fmls v7.4s, v8.4s, v9.s[3]               : fmls   %q8 %q9 $0x03 $0x02 -> %q7
+4f8a5128 : fmls v8.4s, v9.4s, v10.s[0]              : fmls   %q9 %q10 $0x00 $0x02 -> %q8
+4fab5149 : fmls v9.4s, v10.4s, v11.s[1]             : fmls   %q10 %q11 $0x01 $0x02 -> %q9
+4f8c596a : fmls v10.4s, v11.4s, v12.s[2]            : fmls   %q11 %q12 $0x02 $0x02 -> %q10
+4fad598b : fmls v11.4s, v12.4s, v13.s[3]            : fmls   %q12 %q13 $0x03 $0x02 -> %q11
+4f8e51ac : fmls v12.4s, v13.4s, v14.s[0]            : fmls   %q13 %q14 $0x00 $0x02 -> %q12
+4faf51cd : fmls v13.4s, v14.4s, v15.s[1]            : fmls   %q14 %q15 $0x01 $0x02 -> %q13
+4f9059ee : fmls v14.4s, v15.4s, v16.s[2]            : fmls   %q15 %q16 $0x02 $0x02 -> %q14
+4fb15a0f : fmls v15.4s, v16.4s, v17.s[3]            : fmls   %q16 %q17 $0x03 $0x02 -> %q15
+4f925230 : fmls v16.4s, v17.4s, v18.s[0]            : fmls   %q17 %q18 $0x00 $0x02 -> %q16
+4fb35251 : fmls v17.4s, v18.4s, v19.s[1]            : fmls   %q18 %q19 $0x01 $0x02 -> %q17
+4f945a72 : fmls v18.4s, v19.4s, v20.s[2]            : fmls   %q19 %q20 $0x02 $0x02 -> %q18
+4fb55a93 : fmls v19.4s, v20.4s, v21.s[3]            : fmls   %q20 %q21 $0x03 $0x02 -> %q19
+4f9652b4 : fmls v20.4s, v21.4s, v22.s[0]            : fmls   %q21 %q22 $0x00 $0x02 -> %q20
+4fb752d5 : fmls v21.4s, v22.4s, v23.s[1]            : fmls   %q22 %q23 $0x01 $0x02 -> %q21
+4f985af6 : fmls v22.4s, v23.4s, v24.s[2]            : fmls   %q23 %q24 $0x02 $0x02 -> %q22
+4fb95b17 : fmls v23.4s, v24.4s, v25.s[3]            : fmls   %q24 %q25 $0x03 $0x02 -> %q23
+4f9a5338 : fmls v24.4s, v25.4s, v26.s[0]            : fmls   %q25 %q26 $0x00 $0x02 -> %q24
+4fbb5359 : fmls v25.4s, v26.4s, v27.s[1]            : fmls   %q26 %q27 $0x01 $0x02 -> %q25
+4f9c5b7a : fmls v26.4s, v27.4s, v28.s[2]            : fmls   %q27 %q28 $0x02 $0x02 -> %q26
+4fbd5b9b : fmls v27.4s, v28.4s, v29.s[3]            : fmls   %q28 %q29 $0x03 $0x02 -> %q27
+4f9e53bc : fmls v28.4s, v29.4s, v30.s[0]            : fmls   %q29 %q30 $0x00 $0x02 -> %q28
+4fbf53dd : fmls v29.4s, v30.4s, v31.s[1]            : fmls   %q30 %q31 $0x01 $0x02 -> %q29
+4f805bfe : fmls v30.4s, v31.4s, v0.s[2]             : fmls   %q31 %q0 $0x02 $0x02 -> %q30
+4fc25020 : fmls v0.2d, v1.2d, v2.d[0]               : fmls   %q1 %q2 $0x00 $0x03 -> %q0
+4fc35841 : fmls v1.2d, v2.2d, v3.d[1]               : fmls   %q2 %q3 $0x01 $0x03 -> %q1
+4fc45062 : fmls v2.2d, v3.2d, v4.d[0]               : fmls   %q3 %q4 $0x00 $0x03 -> %q2
+4fc55883 : fmls v3.2d, v4.2d, v5.d[1]               : fmls   %q4 %q5 $0x01 $0x03 -> %q3
+4fc650a4 : fmls v4.2d, v5.2d, v6.d[0]               : fmls   %q5 %q6 $0x00 $0x03 -> %q4
+4fc758c5 : fmls v5.2d, v6.2d, v7.d[1]               : fmls   %q6 %q7 $0x01 $0x03 -> %q5
+4fc850e6 : fmls v6.2d, v7.2d, v8.d[0]               : fmls   %q7 %q8 $0x00 $0x03 -> %q6
+4fc95907 : fmls v7.2d, v8.2d, v9.d[1]               : fmls   %q8 %q9 $0x01 $0x03 -> %q7
+4fca5128 : fmls v8.2d, v9.2d, v10.d[0]              : fmls   %q9 %q10 $0x00 $0x03 -> %q8
+4fcb5949 : fmls v9.2d, v10.2d, v11.d[1]             : fmls   %q10 %q11 $0x01 $0x03 -> %q9
+4fcc516a : fmls v10.2d, v11.2d, v12.d[0]            : fmls   %q11 %q12 $0x00 $0x03 -> %q10
+4fcd598b : fmls v11.2d, v12.2d, v13.d[1]            : fmls   %q12 %q13 $0x01 $0x03 -> %q11
+4fce51ac : fmls v12.2d, v13.2d, v14.d[0]            : fmls   %q13 %q14 $0x00 $0x03 -> %q12
+4fcf59cd : fmls v13.2d, v14.2d, v15.d[1]            : fmls   %q14 %q15 $0x01 $0x03 -> %q13
+4fd051ee : fmls v14.2d, v15.2d, v16.d[0]            : fmls   %q15 %q16 $0x00 $0x03 -> %q14
+4fd15a0f : fmls v15.2d, v16.2d, v17.d[1]            : fmls   %q16 %q17 $0x01 $0x03 -> %q15
+4fd25230 : fmls v16.2d, v17.2d, v18.d[0]            : fmls   %q17 %q18 $0x00 $0x03 -> %q16
+4fd35a51 : fmls v17.2d, v18.2d, v19.d[1]            : fmls   %q18 %q19 $0x01 $0x03 -> %q17
+4fd45272 : fmls v18.2d, v19.2d, v20.d[0]            : fmls   %q19 %q20 $0x00 $0x03 -> %q18
+4fd55a93 : fmls v19.2d, v20.2d, v21.d[1]            : fmls   %q20 %q21 $0x01 $0x03 -> %q19
+4fd652b4 : fmls v20.2d, v21.2d, v22.d[0]            : fmls   %q21 %q22 $0x00 $0x03 -> %q20
+4fd75ad5 : fmls v21.2d, v22.2d, v23.d[1]            : fmls   %q22 %q23 $0x01 $0x03 -> %q21
+4fd852f6 : fmls v22.2d, v23.2d, v24.d[0]            : fmls   %q23 %q24 $0x00 $0x03 -> %q22
+4fd95b17 : fmls v23.2d, v24.2d, v25.d[1]            : fmls   %q24 %q25 $0x01 $0x03 -> %q23
+4fda5338 : fmls v24.2d, v25.2d, v26.d[0]            : fmls   %q25 %q26 $0x00 $0x03 -> %q24
+4fdb5b59 : fmls v25.2d, v26.2d, v27.d[1]            : fmls   %q26 %q27 $0x01 $0x03 -> %q25
+4fdc537a : fmls v26.2d, v27.2d, v28.d[0]            : fmls   %q27 %q28 $0x00 $0x03 -> %q26
+4fdd5b9b : fmls v27.2d, v28.2d, v29.d[1]            : fmls   %q28 %q29 $0x01 $0x03 -> %q27
+4fde53bc : fmls v28.2d, v29.2d, v30.d[0]            : fmls   %q29 %q30 $0x00 $0x03 -> %q28
+4fdf5bdd : fmls v29.2d, v30.2d, v31.d[1]            : fmls   %q30 %q31 $0x01 $0x03 -> %q29
+4fc053fe : fmls v30.2d, v31.2d, v0.d[0]             : fmls   %q31 %q0 $0x00 $0x03 -> %q30
+
 1e604362 : fmov d2, d27                             : fmov   %d27 -> %d2
 1e204362 : fmov s2, s27                             : fmov   %s27 -> %s2
 1ee04362 : fmov h2, h27                             : fmov   %h27 -> %h2
@@ -2636,6 +2794,260 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 1e7e0b62 : fmul d2, d27, d30                        : fmul   %d27 %d30 -> %d2
 1e3e0b62 : fmul s2, s27, s30                        : fmul   %s27 %s30 -> %s2
 1efe0b62 : fmul h2, h27, h30                        : fmul   %h27 %h30 -> %h2
+
+# FMUL <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+# FMUL <Vd>.<T>, <Vn>.<T>, <Vm>.H[<index>]
+0f029020 : fmul v0.4h, v1.4h, v2.h[0]               : fmul   %d1 %d2 $0x00 $0x01 -> %d0
+0f139041 : fmul v1.4h, v2.4h, v3.h[1]               : fmul   %d2 %d3 $0x01 $0x01 -> %d1
+0f249062 : fmul v2.4h, v3.4h, v4.h[2]               : fmul   %d3 %d4 $0x02 $0x01 -> %d2
+0f359083 : fmul v3.4h, v4.4h, v5.h[3]               : fmul   %d4 %d5 $0x03 $0x01 -> %d3
+0f0698a4 : fmul v4.4h, v5.4h, v6.h[4]               : fmul   %d5 %d6 $0x04 $0x01 -> %d4
+0f1798c5 : fmul v5.4h, v6.4h, v7.h[5]               : fmul   %d6 %d7 $0x05 $0x01 -> %d5
+0f2898e6 : fmul v6.4h, v7.4h, v8.h[6]               : fmul   %d7 %d8 $0x06 $0x01 -> %d6
+0f399907 : fmul v7.4h, v8.4h, v9.h[7]               : fmul   %d8 %d9 $0x07 $0x01 -> %d7
+0f0a9128 : fmul v8.4h, v9.4h, v10.h[0]              : fmul   %d9 %d10 $0x00 $0x01 -> %d8
+0f1b9149 : fmul v9.4h, v10.4h, v11.h[1]             : fmul   %d10 %d11 $0x01 $0x01 -> %d9
+0f2c916a : fmul v10.4h, v11.4h, v12.h[2]            : fmul   %d11 %d12 $0x02 $0x01 -> %d10
+0f3d918b : fmul v11.4h, v12.4h, v13.h[3]            : fmul   %d12 %d13 $0x03 $0x01 -> %d11
+0f0e99ac : fmul v12.4h, v13.4h, v14.h[4]            : fmul   %d13 %d14 $0x04 $0x01 -> %d12
+0f1f99cd : fmul v13.4h, v14.4h, v15.h[5]            : fmul   %d14 %d15 $0x05 $0x01 -> %d13
+0f2f99ee : fmul v14.4h, v15.4h, v15.h[6]            : fmul   %d15 %d15 $0x06 $0x01 -> %d14
+0f3e9a0f : fmul v15.4h, v16.4h, v14.h[7]            : fmul   %d16 %d14 $0x07 $0x01 -> %d15
+0f0d9230 : fmul v16.4h, v17.4h, v13.h[0]            : fmul   %d17 %d13 $0x00 $0x01 -> %d16
+0f1c9251 : fmul v17.4h, v18.4h, v12.h[1]            : fmul   %d18 %d12 $0x01 $0x01 -> %d17
+0f2b9272 : fmul v18.4h, v19.4h, v11.h[2]            : fmul   %d19 %d11 $0x02 $0x01 -> %d18
+0f3a9293 : fmul v19.4h, v20.4h, v10.h[3]            : fmul   %d20 %d10 $0x03 $0x01 -> %d19
+0f099ab4 : fmul v20.4h, v21.4h, v9.h[4]             : fmul   %d21 %d9 $0x04 $0x01 -> %d20
+0f189ad5 : fmul v21.4h, v22.4h, v8.h[5]             : fmul   %d22 %d8 $0x05 $0x01 -> %d21
+0f279af6 : fmul v22.4h, v23.4h, v7.h[6]             : fmul   %d23 %d7 $0x06 $0x01 -> %d22
+0f369b17 : fmul v23.4h, v24.4h, v6.h[7]             : fmul   %d24 %d6 $0x07 $0x01 -> %d23
+0f059338 : fmul v24.4h, v25.4h, v5.h[0]             : fmul   %d25 %d5 $0x00 $0x01 -> %d24
+0f149359 : fmul v25.4h, v26.4h, v4.h[1]             : fmul   %d26 %d4 $0x01 $0x01 -> %d25
+0f23937a : fmul v26.4h, v27.4h, v3.h[2]             : fmul   %d27 %d3 $0x02 $0x01 -> %d26
+0f32939b : fmul v27.4h, v28.4h, v2.h[3]             : fmul   %d28 %d2 $0x03 $0x01 -> %d27
+0f019bbc : fmul v28.4h, v29.4h, v1.h[4]             : fmul   %d29 %d1 $0x04 $0x01 -> %d28
+0f109bdd : fmul v29.4h, v30.4h, v0.h[5]             : fmul   %d30 %d0 $0x05 $0x01 -> %d29
+0f219bfe : fmul v30.4h, v31.4h, v1.h[6]             : fmul   %d31 %d1 $0x06 $0x01 -> %d30
+4f029020 : fmul v0.8h, v1.8h, v2.h[0]               : fmul   %q1 %q2 $0x00 $0x01 -> %q0
+4f139041 : fmul v1.8h, v2.8h, v3.h[1]               : fmul   %q2 %q3 $0x01 $0x01 -> %q1
+4f249062 : fmul v2.8h, v3.8h, v4.h[2]               : fmul   %q3 %q4 $0x02 $0x01 -> %q2
+4f359083 : fmul v3.8h, v4.8h, v5.h[3]               : fmul   %q4 %q5 $0x03 $0x01 -> %q3
+4f0698a4 : fmul v4.8h, v5.8h, v6.h[4]               : fmul   %q5 %q6 $0x04 $0x01 -> %q4
+4f1798c5 : fmul v5.8h, v6.8h, v7.h[5]               : fmul   %q6 %q7 $0x05 $0x01 -> %q5
+4f2898e6 : fmul v6.8h, v7.8h, v8.h[6]               : fmul   %q7 %q8 $0x06 $0x01 -> %q6
+4f399907 : fmul v7.8h, v8.8h, v9.h[7]               : fmul   %q8 %q9 $0x07 $0x01 -> %q7
+4f0a9128 : fmul v8.8h, v9.8h, v10.h[0]              : fmul   %q9 %q10 $0x00 $0x01 -> %q8
+4f1b9149 : fmul v9.8h, v10.8h, v11.h[1]             : fmul   %q10 %q11 $0x01 $0x01 -> %q9
+4f2c916a : fmul v10.8h, v11.8h, v12.h[2]            : fmul   %q11 %q12 $0x02 $0x01 -> %q10
+4f3d918b : fmul v11.8h, v12.8h, v13.h[3]            : fmul   %q12 %q13 $0x03 $0x01 -> %q11
+4f0e99ac : fmul v12.8h, v13.8h, v14.h[4]            : fmul   %q13 %q14 $0x04 $0x01 -> %q12
+4f1f99cd : fmul v13.8h, v14.8h, v15.h[5]            : fmul   %q14 %q15 $0x05 $0x01 -> %q13
+4f2f99ee : fmul v14.8h, v15.8h, v15.h[6]            : fmul   %q15 %q15 $0x06 $0x01 -> %q14
+4f3e9a0f : fmul v15.8h, v16.8h, v14.h[7]            : fmul   %q16 %q14 $0x07 $0x01 -> %q15
+4f0d9230 : fmul v16.8h, v17.8h, v13.h[0]            : fmul   %q17 %q13 $0x00 $0x01 -> %q16
+4f1c9251 : fmul v17.8h, v18.8h, v12.h[1]            : fmul   %q18 %q12 $0x01 $0x01 -> %q17
+4f2b9272 : fmul v18.8h, v19.8h, v11.h[2]            : fmul   %q19 %q11 $0x02 $0x01 -> %q18
+4f3a9293 : fmul v19.8h, v20.8h, v10.h[3]            : fmul   %q20 %q10 $0x03 $0x01 -> %q19
+4f099ab4 : fmul v20.8h, v21.8h, v9.h[4]             : fmul   %q21 %q9 $0x04 $0x01 -> %q20
+4f189ad5 : fmul v21.8h, v22.8h, v8.h[5]             : fmul   %q22 %q8 $0x05 $0x01 -> %q21
+4f279af6 : fmul v22.8h, v23.8h, v7.h[6]             : fmul   %q23 %q7 $0x06 $0x01 -> %q22
+4f369b17 : fmul v23.8h, v24.8h, v6.h[7]             : fmul   %q24 %q6 $0x07 $0x01 -> %q23
+4f059338 : fmul v24.8h, v25.8h, v5.h[0]             : fmul   %q25 %q5 $0x00 $0x01 -> %q24
+4f149359 : fmul v25.8h, v26.8h, v4.h[1]             : fmul   %q26 %q4 $0x01 $0x01 -> %q25
+4f23937a : fmul v26.8h, v27.8h, v3.h[2]             : fmul   %q27 %q3 $0x02 $0x01 -> %q26
+4f32939b : fmul v27.8h, v28.8h, v2.h[3]             : fmul   %q28 %q2 $0x03 $0x01 -> %q27
+4f019bbc : fmul v28.8h, v29.8h, v1.h[4]             : fmul   %q29 %q1 $0x04 $0x01 -> %q28
+4f109bdd : fmul v29.8h, v30.8h, v0.h[5]             : fmul   %q30 %q0 $0x05 $0x01 -> %q29
+4f219bfe : fmul v30.8h, v31.8h, v1.h[6]             : fmul   %q31 %q1 $0x06 $0x01 -> %q30
+0f829020 : fmul v0.2s, v1.2s, v2.s[0]               : fmul   %d1 %d2 $0x00 $0x02 -> %d0
+0fa39041 : fmul v1.2s, v2.2s, v3.s[1]               : fmul   %d2 %d3 $0x01 $0x02 -> %d1
+0f849862 : fmul v2.2s, v3.2s, v4.s[2]               : fmul   %d3 %d4 $0x02 $0x02 -> %d2
+0fa59883 : fmul v3.2s, v4.2s, v5.s[3]               : fmul   %d4 %d5 $0x03 $0x02 -> %d3
+0f8690a4 : fmul v4.2s, v5.2s, v6.s[0]               : fmul   %d5 %d6 $0x00 $0x02 -> %d4
+0fa790c5 : fmul v5.2s, v6.2s, v7.s[1]               : fmul   %d6 %d7 $0x01 $0x02 -> %d5
+0f8898e6 : fmul v6.2s, v7.2s, v8.s[2]               : fmul   %d7 %d8 $0x02 $0x02 -> %d6
+0fa99907 : fmul v7.2s, v8.2s, v9.s[3]               : fmul   %d8 %d9 $0x03 $0x02 -> %d7
+0f8a9128 : fmul v8.2s, v9.2s, v10.s[0]              : fmul   %d9 %d10 $0x00 $0x02 -> %d8
+0fab9149 : fmul v9.2s, v10.2s, v11.s[1]             : fmul   %d10 %d11 $0x01 $0x02 -> %d9
+0f8c996a : fmul v10.2s, v11.2s, v12.s[2]            : fmul   %d11 %d12 $0x02 $0x02 -> %d10
+0fad998b : fmul v11.2s, v12.2s, v13.s[3]            : fmul   %d12 %d13 $0x03 $0x02 -> %d11
+0f8e91ac : fmul v12.2s, v13.2s, v14.s[0]            : fmul   %d13 %d14 $0x00 $0x02 -> %d12
+0faf91cd : fmul v13.2s, v14.2s, v15.s[1]            : fmul   %d14 %d15 $0x01 $0x02 -> %d13
+0f9099ee : fmul v14.2s, v15.2s, v16.s[2]            : fmul   %d15 %d16 $0x02 $0x02 -> %d14
+0fb19a0f : fmul v15.2s, v16.2s, v17.s[3]            : fmul   %d16 %d17 $0x03 $0x02 -> %d15
+0f929230 : fmul v16.2s, v17.2s, v18.s[0]            : fmul   %d17 %d18 $0x00 $0x02 -> %d16
+0fb39251 : fmul v17.2s, v18.2s, v19.s[1]            : fmul   %d18 %d19 $0x01 $0x02 -> %d17
+0f949a72 : fmul v18.2s, v19.2s, v20.s[2]            : fmul   %d19 %d20 $0x02 $0x02 -> %d18
+0fb59a93 : fmul v19.2s, v20.2s, v21.s[3]            : fmul   %d20 %d21 $0x03 $0x02 -> %d19
+0f9692b4 : fmul v20.2s, v21.2s, v22.s[0]            : fmul   %d21 %d22 $0x00 $0x02 -> %d20
+0fb792d5 : fmul v21.2s, v22.2s, v23.s[1]            : fmul   %d22 %d23 $0x01 $0x02 -> %d21
+0f989af6 : fmul v22.2s, v23.2s, v24.s[2]            : fmul   %d23 %d24 $0x02 $0x02 -> %d22
+0fb99b17 : fmul v23.2s, v24.2s, v25.s[3]            : fmul   %d24 %d25 $0x03 $0x02 -> %d23
+0f9a9338 : fmul v24.2s, v25.2s, v26.s[0]            : fmul   %d25 %d26 $0x00 $0x02 -> %d24
+0fbb9359 : fmul v25.2s, v26.2s, v27.s[1]            : fmul   %d26 %d27 $0x01 $0x02 -> %d25
+0f9c9b7a : fmul v26.2s, v27.2s, v28.s[2]            : fmul   %d27 %d28 $0x02 $0x02 -> %d26
+0fbd9b9b : fmul v27.2s, v28.2s, v29.s[3]            : fmul   %d28 %d29 $0x03 $0x02 -> %d27
+0f9e93bc : fmul v28.2s, v29.2s, v30.s[0]            : fmul   %d29 %d30 $0x00 $0x02 -> %d28
+0fbf93dd : fmul v29.2s, v30.2s, v31.s[1]            : fmul   %d30 %d31 $0x01 $0x02 -> %d29
+0f809bfe : fmul v30.2s, v31.2s, v0.s[2]             : fmul   %d31 %d0 $0x02 $0x02 -> %d30
+4f829020 : fmul v0.4s, v1.4s, v2.s[0]               : fmul   %q1 %q2 $0x00 $0x02 -> %q0
+4fa39041 : fmul v1.4s, v2.4s, v3.s[1]               : fmul   %q2 %q3 $0x01 $0x02 -> %q1
+4f849862 : fmul v2.4s, v3.4s, v4.s[2]               : fmul   %q3 %q4 $0x02 $0x02 -> %q2
+4fa59883 : fmul v3.4s, v4.4s, v5.s[3]               : fmul   %q4 %q5 $0x03 $0x02 -> %q3
+4f8690a4 : fmul v4.4s, v5.4s, v6.s[0]               : fmul   %q5 %q6 $0x00 $0x02 -> %q4
+4fa790c5 : fmul v5.4s, v6.4s, v7.s[1]               : fmul   %q6 %q7 $0x01 $0x02 -> %q5
+4f8898e6 : fmul v6.4s, v7.4s, v8.s[2]               : fmul   %q7 %q8 $0x02 $0x02 -> %q6
+4fa99907 : fmul v7.4s, v8.4s, v9.s[3]               : fmul   %q8 %q9 $0x03 $0x02 -> %q7
+4f8a9128 : fmul v8.4s, v9.4s, v10.s[0]              : fmul   %q9 %q10 $0x00 $0x02 -> %q8
+4fab9149 : fmul v9.4s, v10.4s, v11.s[1]             : fmul   %q10 %q11 $0x01 $0x02 -> %q9
+4f8c996a : fmul v10.4s, v11.4s, v12.s[2]            : fmul   %q11 %q12 $0x02 $0x02 -> %q10
+4fad998b : fmul v11.4s, v12.4s, v13.s[3]            : fmul   %q12 %q13 $0x03 $0x02 -> %q11
+4f8e91ac : fmul v12.4s, v13.4s, v14.s[0]            : fmul   %q13 %q14 $0x00 $0x02 -> %q12
+4faf91cd : fmul v13.4s, v14.4s, v15.s[1]            : fmul   %q14 %q15 $0x01 $0x02 -> %q13
+4f9099ee : fmul v14.4s, v15.4s, v16.s[2]            : fmul   %q15 %q16 $0x02 $0x02 -> %q14
+4fb19a0f : fmul v15.4s, v16.4s, v17.s[3]            : fmul   %q16 %q17 $0x03 $0x02 -> %q15
+4f929230 : fmul v16.4s, v17.4s, v18.s[0]            : fmul   %q17 %q18 $0x00 $0x02 -> %q16
+4fb39251 : fmul v17.4s, v18.4s, v19.s[1]            : fmul   %q18 %q19 $0x01 $0x02 -> %q17
+4f949a72 : fmul v18.4s, v19.4s, v20.s[2]            : fmul   %q19 %q20 $0x02 $0x02 -> %q18
+4fb59a93 : fmul v19.4s, v20.4s, v21.s[3]            : fmul   %q20 %q21 $0x03 $0x02 -> %q19
+4f9692b4 : fmul v20.4s, v21.4s, v22.s[0]            : fmul   %q21 %q22 $0x00 $0x02 -> %q20
+4fb792d5 : fmul v21.4s, v22.4s, v23.s[1]            : fmul   %q22 %q23 $0x01 $0x02 -> %q21
+4f989af6 : fmul v22.4s, v23.4s, v24.s[2]            : fmul   %q23 %q24 $0x02 $0x02 -> %q22
+4fb99b17 : fmul v23.4s, v24.4s, v25.s[3]            : fmul   %q24 %q25 $0x03 $0x02 -> %q23
+4f9a9338 : fmul v24.4s, v25.4s, v26.s[0]            : fmul   %q25 %q26 $0x00 $0x02 -> %q24
+4fbb9359 : fmul v25.4s, v26.4s, v27.s[1]            : fmul   %q26 %q27 $0x01 $0x02 -> %q25
+4f9c9b7a : fmul v26.4s, v27.4s, v28.s[2]            : fmul   %q27 %q28 $0x02 $0x02 -> %q26
+4fbd9b9b : fmul v27.4s, v28.4s, v29.s[3]            : fmul   %q28 %q29 $0x03 $0x02 -> %q27
+4f9e93bc : fmul v28.4s, v29.4s, v30.s[0]            : fmul   %q29 %q30 $0x00 $0x02 -> %q28
+4fbf93dd : fmul v29.4s, v30.4s, v31.s[1]            : fmul   %q30 %q31 $0x01 $0x02 -> %q29
+4f809bfe : fmul v30.4s, v31.4s, v0.s[2]             : fmul   %q31 %q0 $0x02 $0x02 -> %q30
+4fc29020 : fmul v0.2d, v1.2d, v2.d[0]               : fmul   %q1 %q2 $0x00 $0x03 -> %q0
+4fc39841 : fmul v1.2d, v2.2d, v3.d[1]               : fmul   %q2 %q3 $0x01 $0x03 -> %q1
+4fc49062 : fmul v2.2d, v3.2d, v4.d[0]               : fmul   %q3 %q4 $0x00 $0x03 -> %q2
+4fc59883 : fmul v3.2d, v4.2d, v5.d[1]               : fmul   %q4 %q5 $0x01 $0x03 -> %q3
+4fc690a4 : fmul v4.2d, v5.2d, v6.d[0]               : fmul   %q5 %q6 $0x00 $0x03 -> %q4
+4fc798c5 : fmul v5.2d, v6.2d, v7.d[1]               : fmul   %q6 %q7 $0x01 $0x03 -> %q5
+4fc890e6 : fmul v6.2d, v7.2d, v8.d[0]               : fmul   %q7 %q8 $0x00 $0x03 -> %q6
+4fc99907 : fmul v7.2d, v8.2d, v9.d[1]               : fmul   %q8 %q9 $0x01 $0x03 -> %q7
+4fca9128 : fmul v8.2d, v9.2d, v10.d[0]              : fmul   %q9 %q10 $0x00 $0x03 -> %q8
+4fcb9949 : fmul v9.2d, v10.2d, v11.d[1]             : fmul   %q10 %q11 $0x01 $0x03 -> %q9
+4fcc916a : fmul v10.2d, v11.2d, v12.d[0]            : fmul   %q11 %q12 $0x00 $0x03 -> %q10
+4fcd998b : fmul v11.2d, v12.2d, v13.d[1]            : fmul   %q12 %q13 $0x01 $0x03 -> %q11
+4fce91ac : fmul v12.2d, v13.2d, v14.d[0]            : fmul   %q13 %q14 $0x00 $0x03 -> %q12
+4fcf99cd : fmul v13.2d, v14.2d, v15.d[1]            : fmul   %q14 %q15 $0x01 $0x03 -> %q13
+4fd091ee : fmul v14.2d, v15.2d, v16.d[0]            : fmul   %q15 %q16 $0x00 $0x03 -> %q14
+4fd19a0f : fmul v15.2d, v16.2d, v17.d[1]            : fmul   %q16 %q17 $0x01 $0x03 -> %q15
+4fd29230 : fmul v16.2d, v17.2d, v18.d[0]            : fmul   %q17 %q18 $0x00 $0x03 -> %q16
+4fd39a51 : fmul v17.2d, v18.2d, v19.d[1]            : fmul   %q18 %q19 $0x01 $0x03 -> %q17
+4fd49272 : fmul v18.2d, v19.2d, v20.d[0]            : fmul   %q19 %q20 $0x00 $0x03 -> %q18
+4fd59a93 : fmul v19.2d, v20.2d, v21.d[1]            : fmul   %q20 %q21 $0x01 $0x03 -> %q19
+4fd692b4 : fmul v20.2d, v21.2d, v22.d[0]            : fmul   %q21 %q22 $0x00 $0x03 -> %q20
+4fd79ad5 : fmul v21.2d, v22.2d, v23.d[1]            : fmul   %q22 %q23 $0x01 $0x03 -> %q21
+4fd892f6 : fmul v22.2d, v23.2d, v24.d[0]            : fmul   %q23 %q24 $0x00 $0x03 -> %q22
+4fd99b17 : fmul v23.2d, v24.2d, v25.d[1]            : fmul   %q24 %q25 $0x01 $0x03 -> %q23
+4fda9338 : fmul v24.2d, v25.2d, v26.d[0]            : fmul   %q25 %q26 $0x00 $0x03 -> %q24
+4fdb9b59 : fmul v25.2d, v26.2d, v27.d[1]            : fmul   %q26 %q27 $0x01 $0x03 -> %q25
+4fdc937a : fmul v26.2d, v27.2d, v28.d[0]            : fmul   %q27 %q28 $0x00 $0x03 -> %q26
+4fdd9b9b : fmul v27.2d, v28.2d, v29.d[1]            : fmul   %q28 %q29 $0x01 $0x03 -> %q27
+4fde93bc : fmul v28.2d, v29.2d, v30.d[0]            : fmul   %q29 %q30 $0x00 $0x03 -> %q28
+4fdf9bdd : fmul v29.2d, v30.2d, v31.d[1]            : fmul   %q30 %q31 $0x01 $0x03 -> %q29
+4fc093fe : fmul v30.2d, v31.2d, v0.d[0]             : fmul   %q31 %q0 $0x00 $0x03 -> %q30
+
+# FMUL <V><d>, <V><n>, <Vm>.<Ts>[<index>]
+# FMUL <Hd>, <Hn>, <Vm>.H[<index>]
+5f029020 : fmul h0, h1, v2.h[0]                     : fmul   %h1 %q2 $0x00 $0x01 -> %h0
+5f139041 : fmul h1, h2, v3.h[1]                     : fmul   %h2 %q3 $0x01 $0x01 -> %h1
+5f249062 : fmul h2, h3, v4.h[2]                     : fmul   %h3 %q4 $0x02 $0x01 -> %h2
+5f359083 : fmul h3, h4, v5.h[3]                     : fmul   %h4 %q5 $0x03 $0x01 -> %h3
+5f0698a4 : fmul h4, h5, v6.h[4]                     : fmul   %h5 %q6 $0x04 $0x01 -> %h4
+5f1798c5 : fmul h5, h6, v7.h[5]                     : fmul   %h6 %q7 $0x05 $0x01 -> %h5
+5f2898e6 : fmul h6, h7, v8.h[6]                     : fmul   %h7 %q8 $0x06 $0x01 -> %h6
+5f399907 : fmul h7, h8, v9.h[7]                     : fmul   %h8 %q9 $0x07 $0x01 -> %h7
+5f0a9128 : fmul h8, h9, v10.h[0]                    : fmul   %h9 %q10 $0x00 $0x01 -> %h8
+5f1b9149 : fmul h9, h10, v11.h[1]                   : fmul   %h10 %q11 $0x01 $0x01 -> %h9
+5f2c916a : fmul h10, h11, v12.h[2]                  : fmul   %h11 %q12 $0x02 $0x01 -> %h10
+5f3d918b : fmul h11, h12, v13.h[3]                  : fmul   %h12 %q13 $0x03 $0x01 -> %h11
+5f0e99ac : fmul h12, h13, v14.h[4]                  : fmul   %h13 %q14 $0x04 $0x01 -> %h12
+5f1f99cd : fmul h13, h14, v15.h[5]                  : fmul   %h14 %q15 $0x05 $0x01 -> %h13
+5f2f99ee : fmul h14, h15, v15.h[6]                  : fmul   %h15 %q15 $0x06 $0x01 -> %h14
+5f3e9a0f : fmul h15, h16, v14.h[7]                  : fmul   %h16 %q14 $0x07 $0x01 -> %h15
+5f0d9230 : fmul h16, h17, v13.h[0]                  : fmul   %h17 %q13 $0x00 $0x01 -> %h16
+5f1c9251 : fmul h17, h18, v12.h[1]                  : fmul   %h18 %q12 $0x01 $0x01 -> %h17
+5f2b9272 : fmul h18, h19, v11.h[2]                  : fmul   %h19 %q11 $0x02 $0x01 -> %h18
+5f3a9293 : fmul h19, h20, v10.h[3]                  : fmul   %h20 %q10 $0x03 $0x01 -> %h19
+5f099ab4 : fmul h20, h21, v9.h[4]                   : fmul   %h21 %q9 $0x04 $0x01 -> %h20
+5f189ad5 : fmul h21, h22, v8.h[5]                   : fmul   %h22 %q8 $0x05 $0x01 -> %h21
+5f279af6 : fmul h22, h23, v7.h[6]                   : fmul   %h23 %q7 $0x06 $0x01 -> %h22
+5f369b17 : fmul h23, h24, v6.h[7]                   : fmul   %h24 %q6 $0x07 $0x01 -> %h23
+5f059338 : fmul h24, h25, v5.h[0]                   : fmul   %h25 %q5 $0x00 $0x01 -> %h24
+5f149359 : fmul h25, h26, v4.h[1]                   : fmul   %h26 %q4 $0x01 $0x01 -> %h25
+5f23937a : fmul h26, h27, v3.h[2]                   : fmul   %h27 %q3 $0x02 $0x01 -> %h26
+5f32939b : fmul h27, h28, v2.h[3]                   : fmul   %h28 %q2 $0x03 $0x01 -> %h27
+5f019bbc : fmul h28, h29, v1.h[4]                   : fmul   %h29 %q1 $0x04 $0x01 -> %h28
+5f109bdd : fmul h29, h30, v0.h[5]                   : fmul   %h30 %q0 $0x05 $0x01 -> %h29
+5f219bfe : fmul h30, h31, v1.h[6]                   : fmul   %h31 %q1 $0x06 $0x01 -> %h30
+5f829020 : fmul s0, s1, v2.s[0]                     : fmul   %s1 %q2 $0x00 $0x02 -> %s0
+5fa39041 : fmul s1, s2, v3.s[1]                     : fmul   %s2 %q3 $0x01 $0x02 -> %s1
+5f849862 : fmul s2, s3, v4.s[2]                     : fmul   %s3 %q4 $0x02 $0x02 -> %s2
+5fa59883 : fmul s3, s4, v5.s[3]                     : fmul   %s4 %q5 $0x03 $0x02 -> %s3
+5f8690a4 : fmul s4, s5, v6.s[0]                     : fmul   %s5 %q6 $0x00 $0x02 -> %s4
+5fa790c5 : fmul s5, s6, v7.s[1]                     : fmul   %s6 %q7 $0x01 $0x02 -> %s5
+5f8898e6 : fmul s6, s7, v8.s[2]                     : fmul   %s7 %q8 $0x02 $0x02 -> %s6
+5fa99907 : fmul s7, s8, v9.s[3]                     : fmul   %s8 %q9 $0x03 $0x02 -> %s7
+5f8a9128 : fmul s8, s9, v10.s[0]                    : fmul   %s9 %q10 $0x00 $0x02 -> %s8
+5fab9149 : fmul s9, s10, v11.s[1]                   : fmul   %s10 %q11 $0x01 $0x02 -> %s9
+5f8c996a : fmul s10, s11, v12.s[2]                  : fmul   %s11 %q12 $0x02 $0x02 -> %s10
+5fad998b : fmul s11, s12, v13.s[3]                  : fmul   %s12 %q13 $0x03 $0x02 -> %s11
+5f8e91ac : fmul s12, s13, v14.s[0]                  : fmul   %s13 %q14 $0x00 $0x02 -> %s12
+5faf91cd : fmul s13, s14, v15.s[1]                  : fmul   %s14 %q15 $0x01 $0x02 -> %s13
+5f9099ee : fmul s14, s15, v16.s[2]                  : fmul   %s15 %q16 $0x02 $0x02 -> %s14
+5fb19a0f : fmul s15, s16, v17.s[3]                  : fmul   %s16 %q17 $0x03 $0x02 -> %s15
+5f929230 : fmul s16, s17, v18.s[0]                  : fmul   %s17 %q18 $0x00 $0x02 -> %s16
+5fb39251 : fmul s17, s18, v19.s[1]                  : fmul   %s18 %q19 $0x01 $0x02 -> %s17
+5f949a72 : fmul s18, s19, v20.s[2]                  : fmul   %s19 %q20 $0x02 $0x02 -> %s18
+5fb59a93 : fmul s19, s20, v21.s[3]                  : fmul   %s20 %q21 $0x03 $0x02 -> %s19
+5f9692b4 : fmul s20, s21, v22.s[0]                  : fmul   %s21 %q22 $0x00 $0x02 -> %s20
+5fb792d5 : fmul s21, s22, v23.s[1]                  : fmul   %s22 %q23 $0x01 $0x02 -> %s21
+5f989af6 : fmul s22, s23, v24.s[2]                  : fmul   %s23 %q24 $0x02 $0x02 -> %s22
+5fb99b17 : fmul s23, s24, v25.s[3]                  : fmul   %s24 %q25 $0x03 $0x02 -> %s23
+5f9a9338 : fmul s24, s25, v26.s[0]                  : fmul   %s25 %q26 $0x00 $0x02 -> %s24
+5fbb9359 : fmul s25, s26, v27.s[1]                  : fmul   %s26 %q27 $0x01 $0x02 -> %s25
+5f9c9b7a : fmul s26, s27, v28.s[2]                  : fmul   %s27 %q28 $0x02 $0x02 -> %s26
+5fbd9b9b : fmul s27, s28, v29.s[3]                  : fmul   %s28 %q29 $0x03 $0x02 -> %s27
+5f9e93bc : fmul s28, s29, v30.s[0]                  : fmul   %s29 %q30 $0x00 $0x02 -> %s28
+5fbf93dd : fmul s29, s30, v31.s[1]                  : fmul   %s30 %q31 $0x01 $0x02 -> %s29
+5f809bfe : fmul s30, s31, v0.s[2]                   : fmul   %s31 %q0 $0x02 $0x02 -> %s30
+5fc29020 : fmul d0, d1, v2.d[0]                     : fmul   %d1 %q2 $0x00 $0x03 -> %d0
+5fc39841 : fmul d1, d2, v3.d[1]                     : fmul   %d2 %q3 $0x01 $0x03 -> %d1
+5fc49062 : fmul d2, d3, v4.d[0]                     : fmul   %d3 %q4 $0x00 $0x03 -> %d2
+5fc59883 : fmul d3, d4, v5.d[1]                     : fmul   %d4 %q5 $0x01 $0x03 -> %d3
+5fc690a4 : fmul d4, d5, v6.d[0]                     : fmul   %d5 %q6 $0x00 $0x03 -> %d4
+5fc798c5 : fmul d5, d6, v7.d[1]                     : fmul   %d6 %q7 $0x01 $0x03 -> %d5
+5fc890e6 : fmul d6, d7, v8.d[0]                     : fmul   %d7 %q8 $0x00 $0x03 -> %d6
+5fc99907 : fmul d7, d8, v9.d[1]                     : fmul   %d8 %q9 $0x01 $0x03 -> %d7
+5fca9128 : fmul d8, d9, v10.d[0]                    : fmul   %d9 %q10 $0x00 $0x03 -> %d8
+5fcb9949 : fmul d9, d10, v11.d[1]                   : fmul   %d10 %q11 $0x01 $0x03 -> %d9
+5fcc916a : fmul d10, d11, v12.d[0]                  : fmul   %d11 %q12 $0x00 $0x03 -> %d10
+5fcd998b : fmul d11, d12, v13.d[1]                  : fmul   %d12 %q13 $0x01 $0x03 -> %d11
+5fce91ac : fmul d12, d13, v14.d[0]                  : fmul   %d13 %q14 $0x00 $0x03 -> %d12
+5fcf99cd : fmul d13, d14, v15.d[1]                  : fmul   %d14 %q15 $0x01 $0x03 -> %d13
+5fd091ee : fmul d14, d15, v16.d[0]                  : fmul   %d15 %q16 $0x00 $0x03 -> %d14
+5fd19a0f : fmul d15, d16, v17.d[1]                  : fmul   %d16 %q17 $0x01 $0x03 -> %d15
+5fd29230 : fmul d16, d17, v18.d[0]                  : fmul   %d17 %q18 $0x00 $0x03 -> %d16
+5fd39a51 : fmul d17, d18, v19.d[1]                  : fmul   %d18 %q19 $0x01 $0x03 -> %d17
+5fd49272 : fmul d18, d19, v20.d[0]                  : fmul   %d19 %q20 $0x00 $0x03 -> %d18
+5fd59a93 : fmul d19, d20, v21.d[1]                  : fmul   %d20 %q21 $0x01 $0x03 -> %d19
+5fd692b4 : fmul d20, d21, v22.d[0]                  : fmul   %d21 %q22 $0x00 $0x03 -> %d20
+5fd79ad5 : fmul d21, d22, v23.d[1]                  : fmul   %d22 %q23 $0x01 $0x03 -> %d21
+5fd892f6 : fmul d22, d23, v24.d[0]                  : fmul   %d23 %q24 $0x00 $0x03 -> %d22
+5fd99b17 : fmul d23, d24, v25.d[1]                  : fmul   %d24 %q25 $0x01 $0x03 -> %d23
+5fda9338 : fmul d24, d25, v26.d[0]                  : fmul   %d25 %q26 $0x00 $0x03 -> %d24
+5fdb9b59 : fmul d25, d26, v27.d[1]                  : fmul   %d26 %q27 $0x01 $0x03 -> %d25
+5fdc937a : fmul d26, d27, v28.d[0]                  : fmul   %d27 %q28 $0x00 $0x03 -> %d26
+5fdd9b9b : fmul d27, d28, v29.d[1]                  : fmul   %d28 %q29 $0x01 $0x03 -> %d27
+5fde93bc : fmul d28, d29, v30.d[0]                  : fmul   %d29 %q30 $0x00 $0x03 -> %d28
+5fdf9bdd : fmul d29, d30, v31.d[1]                  : fmul   %d30 %q31 $0x01 $0x03 -> %d29
+5fc093fe : fmul d30, d31, v0.d[0]                   : fmul   %d31 %q0 $0x00 $0x03 -> %d30
 
 0e441e9f : fmulx v31.4h, v20.4h, v4.4h              : fmulx  %d20 %d4 $0x01 -> %d31
 4e441e9f : fmulx v31.8h, v20.8h, v4.8h              : fmulx  %q20 %q4 $0x01 -> %q31
@@ -3830,50 +4242,50 @@ d37fffff : lsr    xzr, xzr, #63           : ubfm   %xzr $0x3f $0x3f -> %xzr
 
 # MLA <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 # MLA <Vd>.4h, <Vn>.4h, <Vm>.h[<index>]
-2f420020 : mla v0.4h, v1.4h, v2.h[0]                : mla    %d1 $0x02 $0x01 $0x00 -> %d0
-2f520020 : mla v0.4h, v1.4h, v2.h[1]                : mla    %d1 $0x02 $0x01 $0x01 -> %d0
-2f620020 : mla v0.4h, v1.4h, v2.h[2]                : mla    %d1 $0x02 $0x01 $0x02 -> %d0
-2f720020 : mla v0.4h, v1.4h, v2.h[3]                : mla    %d1 $0x02 $0x01 $0x03 -> %d0
-2f420820 : mla v0.4h, v1.4h, v2.h[4]                : mla    %d1 $0x02 $0x01 $0x04 -> %d0
-2f520820 : mla v0.4h, v1.4h, v2.h[5]                : mla    %d1 $0x02 $0x01 $0x05 -> %d0
-2f620820 : mla v0.4h, v1.4h, v2.h[6]                : mla    %d1 $0x02 $0x01 $0x06 -> %d0
-2f720820 : mla v0.4h, v1.4h, v2.h[7]                : mla    %d1 $0x02 $0x01 $0x07 -> %d0
-2f79090a : mla v10.4h, v8.4h, v9.h[7]               : mla    %d8 $0x09 $0x01 $0x07 -> %d10
-2f7e09af : mla v15.4h, v13.4h, v14.h[7]             : mla    %d13 $0x0e $0x01 $0x07 -> %d15
+2f420020 : mla v0.4h, v1.4h, v2.h[0]                : mla    %d1 %d2 $0x00 $0x01 -> %d0
+2f520020 : mla v0.4h, v1.4h, v2.h[1]                : mla    %d1 %d2 $0x01 $0x01 -> %d0
+2f620020 : mla v0.4h, v1.4h, v2.h[2]                : mla    %d1 %d2 $0x02 $0x01 -> %d0
+2f720020 : mla v0.4h, v1.4h, v2.h[3]                : mla    %d1 %d2 $0x03 $0x01 -> %d0
+2f420820 : mla v0.4h, v1.4h, v2.h[4]                : mla    %d1 %d2 $0x04 $0x01 -> %d0
+2f520820 : mla v0.4h, v1.4h, v2.h[5]                : mla    %d1 %d2 $0x05 $0x01 -> %d0
+2f620820 : mla v0.4h, v1.4h, v2.h[6]                : mla    %d1 %d2 $0x06 $0x01 -> %d0
+2f720820 : mla v0.4h, v1.4h, v2.h[7]                : mla    %d1 %d2 $0x07 $0x01 -> %d0
+2f79090a : mla v10.4h, v8.4h, v9.h[7]               : mla    %d8 %d9 $0x07 $0x01 -> %d10
+2f7e09af : mla v15.4h, v13.4h, v14.h[7]             : mla    %d13 %d14 $0x07 $0x01 -> %d15
 
 # MLA <Vd>.8h, <Vn>.8h, <Vm>.h[<index>]
-6f420020 : mla v0.8h, v1.8h, v2.h[0]                : mla    %q1 $0x02 $0x01 $0x00 -> %q0
-6f520020 : mla v0.8h, v1.8h, v2.h[1]                : mla    %q1 $0x02 $0x01 $0x01 -> %q0
-6f620020 : mla v0.8h, v1.8h, v2.h[2]                : mla    %q1 $0x02 $0x01 $0x02 -> %q0
-6f720020 : mla v0.8h, v1.8h, v2.h[3]                : mla    %q1 $0x02 $0x01 $0x03 -> %q0
-6f420820 : mla v0.8h, v1.8h, v2.h[4]                : mla    %q1 $0x02 $0x01 $0x04 -> %q0
-6f520820 : mla v0.8h, v1.8h, v2.h[5]                : mla    %q1 $0x02 $0x01 $0x05 -> %q0
-6f620820 : mla v0.8h, v1.8h, v2.h[6]                : mla    %q1 $0x02 $0x01 $0x06 -> %q0
-6f720820 : mla v0.8h, v1.8h, v2.h[7]                : mla    %q1 $0x02 $0x01 $0x07 -> %q0
-6f79090a : mla v10.8h, v8.8h, v9.h[7]               : mla    %q8 $0x09 $0x01 $0x07 -> %q10
-6f7e09af : mla v15.8h, v13.8h, v14.h[7]             : mla    %q13 $0x0e $0x01 $0x07 -> %q15
+6f420020 : mla v0.8h, v1.8h, v2.h[0]                : mla    %q1 %q2 $0x00 $0x01 -> %q0
+6f520020 : mla v0.8h, v1.8h, v2.h[1]                : mla    %q1 %q2 $0x01 $0x01 -> %q0
+6f620020 : mla v0.8h, v1.8h, v2.h[2]                : mla    %q1 %q2 $0x02 $0x01 -> %q0
+6f720020 : mla v0.8h, v1.8h, v2.h[3]                : mla    %q1 %q2 $0x03 $0x01 -> %q0
+6f420820 : mla v0.8h, v1.8h, v2.h[4]                : mla    %q1 %q2 $0x04 $0x01 -> %q0
+6f520820 : mla v0.8h, v1.8h, v2.h[5]                : mla    %q1 %q2 $0x05 $0x01 -> %q0
+6f620820 : mla v0.8h, v1.8h, v2.h[6]                : mla    %q1 %q2 $0x06 $0x01 -> %q0
+6f720820 : mla v0.8h, v1.8h, v2.h[7]                : mla    %q1 %q2 $0x07 $0x01 -> %q0
+6f79090a : mla v10.8h, v8.8h, v9.h[7]               : mla    %q8 %q9 $0x07 $0x01 -> %q10
+6f7e09af : mla v15.8h, v13.8h, v14.h[7]             : mla    %q13 %q14 $0x07 $0x01 -> %q15
 
 # MLA <Vd>.2s, <Vn>.2s, <Vm>.s[<index>]
-2f820020 : mla v0.2s, v1.2s, v2.s[0]                : mla    %d1 $0x02 $0x02 $0x00 -> %d0
-2fa20020 : mla v0.2s, v1.2s, v2.s[1]                : mla    %d1 $0x02 $0x02 $0x02 -> %d0
-2f820820 : mla v0.2s, v1.2s, v2.s[2]                : mla    %d1 $0x02 $0x02 $0x04 -> %d0
-2fa20820 : mla v0.2s, v1.2s, v2.s[3]                : mla    %d1 $0x02 $0x02 $0x06 -> %d0
-2fa9090a : mla v10.2s, v8.2s, v9.s[3]               : mla    %d8 $0x09 $0x02 $0x06 -> %d10
-2fae09af : mla v15.2s, v13.2s, v14.s[3]             : mla    %d13 $0x0e $0x02 $0x06 -> %d15
-2fb30a54 : mla v20.2s, v18.2s, v19.s[3]             : mla    %d18 $0x03 $0x02 $0x07 -> %d20
-2fb80af9 : mla v25.2s, v23.2s, v24.s[3]             : mla    %d23 $0x08 $0x02 $0x07 -> %d25
-2fbd0b9e : mla v30.2s, v28.2s, v29.s[3]             : mla    %d28 $0x0d $0x02 $0x07 -> %d30
+2f820020 : mla v0.2s, v1.2s, v2.s[0]                : mla    %d1 %d2 $0x00 $0x02 -> %d0
+2fa20020 : mla v0.2s, v1.2s, v2.s[1]                : mla    %d1 %d2 $0x01 $0x02 -> %d0
+2f820820 : mla v0.2s, v1.2s, v2.s[2]                : mla    %d1 %d2 $0x02 $0x02 -> %d0
+2fa20820 : mla v0.2s, v1.2s, v2.s[3]                : mla    %d1 %d2 $0x03 $0x02 -> %d0
+2fa9090a : mla v10.2s, v8.2s, v9.s[3]               : mla    %d8 %d9 $0x03 $0x02 -> %d10
+2fae09af : mla v15.2s, v13.2s, v14.s[3]             : mla    %d13 %d14 $0x03 $0x02 -> %d15
+2fb30a54 : mla v20.2s, v18.2s, v19.s[3]             : mla    %d18 %d19 $0x03 $0x02 -> %d20
+2fb80af9 : mla v25.2s, v23.2s, v24.s[3]             : mla    %d23 %d24 $0x03 $0x02 -> %d25
+2fbd0b9e : mla v30.2s, v28.2s, v29.s[3]             : mla    %d28 %d29 $0x03 $0x02 -> %d30
 
 # MLA <Vd>.4s, <Vn>.4s, <Vm>.s[<index>]
-6f820020 : mla v0.4s, v1.4s, v2.s[0]                : mla    %q1 $0x02 $0x02 $0x00 -> %q0
-6fa20020 : mla v0.4s, v1.4s, v2.s[1]                : mla    %q1 $0x02 $0x02 $0x02 -> %q0
-6f820820 : mla v0.4s, v1.4s, v2.s[2]                : mla    %q1 $0x02 $0x02 $0x04 -> %q0
-6fa20820 : mla v0.4s, v1.4s, v2.s[3]                : mla    %q1 $0x02 $0x02 $0x06 -> %q0
-6fa9090a : mla v10.4s, v8.4s, v9.s[3]               : mla    %q8 $0x09 $0x02 $0x06 -> %q10
-6fae09af : mla v15.4s, v13.4s, v14.s[3]             : mla    %q13 $0x0e $0x02 $0x06 -> %q15
-6fb30a54 : mla v20.4s, v18.4s, v19.s[3]             : mla    %q18 $0x03 $0x02 $0x07 -> %q20
-6fb80af9 : mla v25.4s, v23.4s, v24.s[3]             : mla    %q23 $0x08 $0x02 $0x07 -> %q25
-6fbd0b9e : mla v30.4s, v28.4s, v29.s[3]             : mla    %q28 $0x0d $0x02 $0x07 -> %q30
+6f820020 : mla v0.4s, v1.4s, v2.s[0]                : mla    %q1 %q2 $0x00 $0x02 -> %q0
+6fa20020 : mla v0.4s, v1.4s, v2.s[1]                : mla    %q1 %q2 $0x01 $0x02 -> %q0
+6f820820 : mla v0.4s, v1.4s, v2.s[2]                : mla    %q1 %q2 $0x02 $0x02 -> %q0
+6fa20820 : mla v0.4s, v1.4s, v2.s[3]                : mla    %q1 %q2 $0x03 $0x02 -> %q0
+6fa9090a : mla v10.4s, v8.4s, v9.s[3]               : mla    %q8 %q9 $0x03 $0x02 -> %q10
+6fae09af : mla v15.4s, v13.4s, v14.s[3]             : mla    %q13 %q14 $0x03 $0x02 -> %q15
+6fb30a54 : mla v20.4s, v18.4s, v19.s[3]             : mla    %q18 %q19 $0x03 $0x02 -> %q20
+6fb80af9 : mla v25.4s, v23.4s, v24.s[3]             : mla    %q23 %q24 $0x03 $0x02 -> %q25
+6fbd0b9e : mla v30.4s, v28.4s, v29.s[3]             : mla    %q28 %q29 $0x03 $0x02 -> %q30
 
 2e3b95a7 : mls v7.8b, v13.8b, v27.8b                : mls    %d7 %d13 %d27 $0x00 -> %d7
 6e3b95a7 : mls v7.16b, v13.16b, v27.16b             : mls    %q7 %q13 %q27 $0x00 -> %q7
@@ -3884,50 +4296,50 @@ d37fffff : lsr    xzr, xzr, #63           : ubfm   %xzr $0x3f $0x3f -> %xzr
 
 # MLS <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 # MLS <Vd>.4h, <Vn>.4h, <Vm>.h[<index>]
-2f424020 : mls v0.4h, v1.4h, v2.h[0]                : mls    %d1 $0x02 $0x01 $0x00 -> %d0
-2f524020 : mls v0.4h, v1.4h, v2.h[1]                : mls    %d1 $0x02 $0x01 $0x01 -> %d0
-2f624020 : mls v0.4h, v1.4h, v2.h[2]                : mls    %d1 $0x02 $0x01 $0x02 -> %d0
-2f724020 : mls v0.4h, v1.4h, v2.h[3]                : mls    %d1 $0x02 $0x01 $0x03 -> %d0
-2f424820 : mls v0.4h, v1.4h, v2.h[4]                : mls    %d1 $0x02 $0x01 $0x04 -> %d0
-2f524820 : mls v0.4h, v1.4h, v2.h[5]                : mls    %d1 $0x02 $0x01 $0x05 -> %d0
-2f624820 : mls v0.4h, v1.4h, v2.h[6]                : mls    %d1 $0x02 $0x01 $0x06 -> %d0
-2f724820 : mls v0.4h, v1.4h, v2.h[7]                : mls    %d1 $0x02 $0x01 $0x07 -> %d0
-2f79490a : mls v10.4h, v8.4h, v9.h[7]               : mls    %d8 $0x09 $0x01 $0x07 -> %d10
-2f7e49af : mls v15.4h, v13.4h, v14.h[7]             : mls    %d13 $0x0e $0x01 $0x07 -> %d15
+2f424020 : mls v0.4h, v1.4h, v2.h[0]                : mls    %d1 %d2 $0x00 $0x01 -> %d0
+2f524020 : mls v0.4h, v1.4h, v2.h[1]                : mls    %d1 %d2 $0x01 $0x01 -> %d0
+2f624020 : mls v0.4h, v1.4h, v2.h[2]                : mls    %d1 %d2 $0x02 $0x01 -> %d0
+2f724020 : mls v0.4h, v1.4h, v2.h[3]                : mls    %d1 %d2 $0x03 $0x01 -> %d0
+2f424820 : mls v0.4h, v1.4h, v2.h[4]                : mls    %d1 %d2 $0x04 $0x01 -> %d0
+2f524820 : mls v0.4h, v1.4h, v2.h[5]                : mls    %d1 %d2 $0x05 $0x01 -> %d0
+2f624820 : mls v0.4h, v1.4h, v2.h[6]                : mls    %d1 %d2 $0x06 $0x01 -> %d0
+2f724820 : mls v0.4h, v1.4h, v2.h[7]                : mls    %d1 %d2 $0x07 $0x01 -> %d0
+2f79490a : mls v10.4h, v8.4h, v9.h[7]               : mls    %d8 %d9 $0x07 $0x01 -> %d10
+2f7e49af : mls v15.4h, v13.4h, v14.h[7]             : mls    %d13 %d14 $0x07 $0x01 -> %d15
 
 ## MLS <Vd>.8h, <Vn>.8h, <Vm>.h[<index>]
-6f424020 : mls v0.8h, v1.8h, v2.h[0]                : mls    %q1 $0x02 $0x01 $0x00 -> %q0
-6f524020 : mls v0.8h, v1.8h, v2.h[1]                : mls    %q1 $0x02 $0x01 $0x01 -> %q0
-6f624020 : mls v0.8h, v1.8h, v2.h[2]                : mls    %q1 $0x02 $0x01 $0x02 -> %q0
-6f724020 : mls v0.8h, v1.8h, v2.h[3]                : mls    %q1 $0x02 $0x01 $0x03 -> %q0
-6f424820 : mls v0.8h, v1.8h, v2.h[4]                : mls    %q1 $0x02 $0x01 $0x04 -> %q0
-6f524820 : mls v0.8h, v1.8h, v2.h[5]                : mls    %q1 $0x02 $0x01 $0x05 -> %q0
-6f624820 : mls v0.8h, v1.8h, v2.h[6]                : mls    %q1 $0x02 $0x01 $0x06 -> %q0
-6f724820 : mls v0.8h, v1.8h, v2.h[7]                : mls    %q1 $0x02 $0x01 $0x07 -> %q0
-6f79490a : mls v10.8h, v8.8h, v9.h[7]               : mls    %q8 $0x09 $0x01 $0x07 -> %q10
-6f7e49af : mls v15.8h, v13.8h, v14.h[7]             : mls    %q13 $0x0e $0x01 $0x07 -> %q15
+6f424020 : mls v0.8h, v1.8h, v2.h[0]                : mls    %q1 %q2 $0x00 $0x01 -> %q0
+6f524020 : mls v0.8h, v1.8h, v2.h[1]                : mls    %q1 %q2 $0x01 $0x01 -> %q0
+6f624020 : mls v0.8h, v1.8h, v2.h[2]                : mls    %q1 %q2 $0x02 $0x01 -> %q0
+6f724020 : mls v0.8h, v1.8h, v2.h[3]                : mls    %q1 %q2 $0x03 $0x01 -> %q0
+6f424820 : mls v0.8h, v1.8h, v2.h[4]                : mls    %q1 %q2 $0x04 $0x01 -> %q0
+6f524820 : mls v0.8h, v1.8h, v2.h[5]                : mls    %q1 %q2 $0x05 $0x01 -> %q0
+6f624820 : mls v0.8h, v1.8h, v2.h[6]                : mls    %q1 %q2 $0x06 $0x01 -> %q0
+6f724820 : mls v0.8h, v1.8h, v2.h[7]                : mls    %q1 %q2 $0x07 $0x01 -> %q0
+6f79490a : mls v10.8h, v8.8h, v9.h[7]               : mls    %q8 %q9 $0x07 $0x01 -> %q10
+6f7e49af : mls v15.8h, v13.8h, v14.h[7]             : mls    %q13 %q14 $0x07 $0x01 -> %q15
 
 # MLS <Vd>.2s, <Vn>.2s, <Vm>.s[<index>]
-2f824020 : mls v0.2s, v1.2s, v2.s[0]                : mls    %d1 $0x02 $0x02 $0x00 -> %d0
-2fa24020 : mls v0.2s, v1.2s, v2.s[1]                : mls    %d1 $0x02 $0x02 $0x02 -> %d0
-2f824820 : mls v0.2s, v1.2s, v2.s[2]                : mls    %d1 $0x02 $0x02 $0x04 -> %d0
-2fa24820 : mls v0.2s, v1.2s, v2.s[3]                : mls    %d1 $0x02 $0x02 $0x06 -> %d0
-2fa9490a : mls v10.2s, v8.2s, v9.s[3]               : mls    %d8 $0x09 $0x02 $0x06 -> %d10
-2fae49af : mls v15.2s, v13.2s, v14.s[3]             : mls    %d13 $0x0e $0x02 $0x06 -> %d15
-2fb34a54 : mls v20.2s, v18.2s, v19.s[3]             : mls    %d18 $0x03 $0x02 $0x07 -> %d20
-2fb84af9 : mls v25.2s, v23.2s, v24.s[3]             : mls    %d23 $0x08 $0x02 $0x07 -> %d25
-2fbd4b9e : mls v30.2s, v28.2s, v29.s[3]             : mls    %d28 $0x0d $0x02 $0x07 -> %d30
+2f824020 : mls v0.2s, v1.2s, v2.s[0]                : mls    %d1 %d2 $0x00 $0x02 -> %d0
+2fa24020 : mls v0.2s, v1.2s, v2.s[1]                : mls    %d1 %d2 $0x01 $0x02 -> %d0
+2f824820 : mls v0.2s, v1.2s, v2.s[2]                : mls    %d1 %d2 $0x02 $0x02 -> %d0
+2fa24820 : mls v0.2s, v1.2s, v2.s[3]                : mls    %d1 %d2 $0x03 $0x02 -> %d0
+2fa9490a : mls v10.2s, v8.2s, v9.s[3]               : mls    %d8 %d9 $0x03 $0x02 -> %d10
+2fae49af : mls v15.2s, v13.2s, v14.s[3]             : mls    %d13 %d14 $0x03 $0x02 -> %d15
+2fb34a54 : mls v20.2s, v18.2s, v19.s[3]             : mls    %d18 %d19 $0x03 $0x02 -> %d20
+2fb84af9 : mls v25.2s, v23.2s, v24.s[3]             : mls    %d23 %d24 $0x03 $0x02 -> %d25
+2fbd4b9e : mls v30.2s, v28.2s, v29.s[3]             : mls    %d28 %d29 $0x03 $0x02 -> %d30
 
 # MLS <Vd>.4s, <Vn>.4s, <Vm>.s[<index>]
-6f824020 : mls v0.4s, v1.4s, v2.s[0]                : mls    %q1 $0x02 $0x02 $0x00 -> %q0
-6fa24020 : mls v0.4s, v1.4s, v2.s[1]                : mls    %q1 $0x02 $0x02 $0x02 -> %q0
-6f824820 : mls v0.4s, v1.4s, v2.s[2]                : mls    %q1 $0x02 $0x02 $0x04 -> %q0
-6fa24820 : mls v0.4s, v1.4s, v2.s[3]                : mls    %q1 $0x02 $0x02 $0x06 -> %q0
-6fa9490a : mls v10.4s, v8.4s, v9.s[3]               : mls    %q8 $0x09 $0x02 $0x06 -> %q10
-6fae49af : mls v15.4s, v13.4s, v14.s[3]             : mls    %q13 $0x0e $0x02 $0x06 -> %q15
-6fb34a54 : mls v20.4s, v18.4s, v19.s[3]             : mls    %q18 $0x03 $0x02 $0x07 -> %q20
-6fb84af9 : mls v25.4s, v23.4s, v24.s[3]             : mls    %q23 $0x08 $0x02 $0x07 -> %q25
-6fbd4b9e : mls v30.4s, v28.4s, v29.s[3]             : mls    %q28 $0x0d $0x02 $0x07 -> %q30
+6f824020 : mls v0.4s, v1.4s, v2.s[0]                : mls    %q1 %q2 $0x00 $0x02 -> %q0
+6fa24020 : mls v0.4s, v1.4s, v2.s[1]                : mls    %q1 %q2 $0x01 $0x02 -> %q0
+6f824820 : mls v0.4s, v1.4s, v2.s[2]                : mls    %q1 %q2 $0x02 $0x02 -> %q0
+6fa24820 : mls v0.4s, v1.4s, v2.s[3]                : mls    %q1 %q2 $0x03 $0x02 -> %q0
+6fa9490a : mls v10.4s, v8.4s, v9.s[3]               : mls    %q8 %q9 $0x03 $0x02 -> %q10
+6fae49af : mls v15.4s, v13.4s, v14.s[3]             : mls    %q13 %q14 $0x03 $0x02 -> %q15
+6fb34a54 : mls v20.4s, v18.4s, v19.s[3]             : mls    %q18 %q19 $0x03 $0x02 -> %q20
+6fb84af9 : mls v25.4s, v23.4s, v24.s[3]             : mls    %q23 %q24 $0x03 $0x02 -> %q25
+6fbd4b9e : mls v30.4s, v28.4s, v29.s[3]             : mls    %q28 %q29 $0x03 $0x02 -> %q30
 
 1b03fc41 : mneg   w1, w2, w3              : msub   %w2 %w3 %wzr -> %w1
 
@@ -5000,47 +5412,47 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 0e72809b : smlal v27.4s, v4.4h, v18.4h              : smlal  %d4 %d18 $0x01 -> %q27
 0eb2809b : smlal v27.2d, v4.2s, v18.2s              : smlal  %d4 %d18 $0x02 -> %q27
 
-0f422020 : smlal v0.4s, v1.4h, v2.h[0]              : smlal  %d1 $0x02 $0x01 $0x00 -> %d0
-0f522020 : smlal v0.4s, v1.4h, v2.h[1]              : smlal  %d1 $0x02 $0x01 $0x01 -> %d0
-0f622020 : smlal v0.4s, v1.4h, v2.h[2]              : smlal  %d1 $0x02 $0x01 $0x02 -> %d0
-0f722020 : smlal v0.4s, v1.4h, v2.h[3]              : smlal  %d1 $0x02 $0x01 $0x03 -> %d0
-0f422820 : smlal v0.4s, v1.4h, v2.h[4]              : smlal  %d1 $0x02 $0x01 $0x04 -> %d0
-0f522820 : smlal v0.4s, v1.4h, v2.h[5]              : smlal  %d1 $0x02 $0x01 $0x05 -> %d0
-0f622820 : smlal v0.4s, v1.4h, v2.h[6]              : smlal  %d1 $0x02 $0x01 $0x06 -> %d0
-0f722820 : smlal v0.4s, v1.4h, v2.h[7]              : smlal  %d1 $0x02 $0x01 $0x07 -> %d0
-0f742865 : smlal v5.4s, v3.4h, v4.h[7]              : smlal  %d3 $0x04 $0x01 $0x07 -> %d5
-0f79290a : smlal v10.4s, v8.4h, v9.h[7]             : smlal  %d8 $0x09 $0x01 $0x07 -> %d10
-0f7e29af : smlal v15.4s, v13.4h, v14.h[7]           : smlal  %d13 $0x0e $0x01 $0x07 -> %d15
-0f822020 : smlal v0.2d, v1.2s, v2.s[0]              : smlal  %d1 $0x02 $0x02 $0x00 -> %d0
-0fa22020 : smlal v0.2d, v1.2s, v2.s[1]              : smlal  %d1 $0x02 $0x02 $0x02 -> %d0
-0f822820 : smlal v0.2d, v1.2s, v2.s[2]              : smlal  %d1 $0x02 $0x02 $0x04 -> %d0
-0fa22820 : smlal v0.2d, v1.2s, v2.s[3]              : smlal  %d1 $0x02 $0x02 $0x06 -> %d0
-0fa9290a : smlal v10.2d, v8.2s, v9.s[3]             : smlal  %d8 $0x09 $0x02 $0x06 -> %d10
-0fb32a54 : smlal v20.2d, v18.2s, v19.s[3]           : smlal  %d18 $0x03 $0x02 $0x07 -> %d20
-0fbd2b9e : smlal v30.2d, v28.2s, v29.s[3]           : smlal  %d28 $0x0d $0x02 $0x07 -> %d30
+0f422020 : smlal v0.4s, v1.4h, v2.h[0]              : smlal  %d1 %d2 $0x00 $0x01 -> %d0
+0f522020 : smlal v0.4s, v1.4h, v2.h[1]              : smlal  %d1 %d2 $0x01 $0x01 -> %d0
+0f622020 : smlal v0.4s, v1.4h, v2.h[2]              : smlal  %d1 %d2 $0x02 $0x01 -> %d0
+0f722020 : smlal v0.4s, v1.4h, v2.h[3]              : smlal  %d1 %d2 $0x03 $0x01 -> %d0
+0f422820 : smlal v0.4s, v1.4h, v2.h[4]              : smlal  %d1 %d2 $0x04 $0x01 -> %d0
+0f522820 : smlal v0.4s, v1.4h, v2.h[5]              : smlal  %d1 %d2 $0x05 $0x01 -> %d0
+0f622820 : smlal v0.4s, v1.4h, v2.h[6]              : smlal  %d1 %d2 $0x06 $0x01 -> %d0
+0f722820 : smlal v0.4s, v1.4h, v2.h[7]              : smlal  %d1 %d2 $0x07 $0x01 -> %d0
+0f742865 : smlal v5.4s, v3.4h, v4.h[7]              : smlal  %d3 %d4 $0x07 $0x01 -> %d5
+0f79290a : smlal v10.4s, v8.4h, v9.h[7]             : smlal  %d8 %d9 $0x07 $0x01 -> %d10
+0f7e29af : smlal v15.4s, v13.4h, v14.h[7]           : smlal  %d13 %d14 $0x07 $0x01 -> %d15
+0f822020 : smlal v0.2d, v1.2s, v2.s[0]              : smlal  %d1 %d2 $0x00 $0x02 -> %d0
+0fa22020 : smlal v0.2d, v1.2s, v2.s[1]              : smlal  %d1 %d2 $0x01 $0x02 -> %d0
+0f822820 : smlal v0.2d, v1.2s, v2.s[2]              : smlal  %d1 %d2 $0x02 $0x02 -> %d0
+0fa22820 : smlal v0.2d, v1.2s, v2.s[3]              : smlal  %d1 %d2 $0x03 $0x02 -> %d0
+0fa9290a : smlal v10.2d, v8.2s, v9.s[3]             : smlal  %d8 %d9 $0x03 $0x02 -> %d10
+0fb32a54 : smlal v20.2d, v18.2s, v19.s[3]           : smlal  %d18 %d19 $0x03 $0x02 -> %d20
+0fbd2b9e : smlal v30.2d, v28.2s, v29.s[3]           : smlal  %d28 %d29 $0x03 $0x02 -> %d30
 
 4e23826b : smlal2 v11.8h, v19.16b, v3.16b           : smlal2 %q19 %q3 $0x00 -> %q11
 4e63826b : smlal2 v11.4s, v19.8h, v3.8h             : smlal2 %q19 %q3 $0x01 -> %q11
 4ea3826b : smlal2 v11.2d, v19.4s, v3.4s             : smlal2 %q19 %q3 $0x02 -> %q11
 
-4f422020 : smlal2 v0.4s, v1.8h, v2.h[0]             : smlal2 %q1 $0x02 $0x01 $0x00 -> %q0
-4f522020 : smlal2 v0.4s, v1.8h, v2.h[1]             : smlal2 %q1 $0x02 $0x01 $0x01 -> %q0
-4f622020 : smlal2 v0.4s, v1.8h, v2.h[2]             : smlal2 %q1 $0x02 $0x01 $0x02 -> %q0
-4f722020 : smlal2 v0.4s, v1.8h, v2.h[3]             : smlal2 %q1 $0x02 $0x01 $0x03 -> %q0
-4f422820 : smlal2 v0.4s, v1.8h, v2.h[4]             : smlal2 %q1 $0x02 $0x01 $0x04 -> %q0
-4f522820 : smlal2 v0.4s, v1.8h, v2.h[5]             : smlal2 %q1 $0x02 $0x01 $0x05 -> %q0
-4f622820 : smlal2 v0.4s, v1.8h, v2.h[6]             : smlal2 %q1 $0x02 $0x01 $0x06 -> %q0
-4f722820 : smlal2 v0.4s, v1.8h, v2.h[7]             : smlal2 %q1 $0x02 $0x01 $0x07 -> %q0
-4f742865 : smlal2 v5.4s, v3.8h, v4.h[7]             : smlal2 %q3 $0x04 $0x01 $0x07 -> %q5
-4f79290a : smlal2 v10.4s, v8.8h, v9.h[7]            : smlal2 %q8 $0x09 $0x01 $0x07 -> %q10
-4f7e29af : smlal2 v15.4s, v13.8h, v14.h[7]          : smlal2 %q13 $0x0e $0x01 $0x07 -> %q15
-4f822020 : smlal2 v0.2d, v1.4s, v2.s[0]             : smlal2 %q1 $0x02 $0x02 $0x00 -> %q0
-4fa22020 : smlal2 v0.2d, v1.4s, v2.s[1]             : smlal2 %q1 $0x02 $0x02 $0x02 -> %q0
-4f822820 : smlal2 v0.2d, v1.4s, v2.s[2]             : smlal2 %q1 $0x02 $0x02 $0x04 -> %q0
-4fa22820 : smlal2 v0.2d, v1.4s, v2.s[3]             : smlal2 %q1 $0x02 $0x02 $0x06 -> %q0
-4fa9290a : smlal2 v10.2d, v8.4s, v9.s[3]            : smlal2 %q8 $0x09 $0x02 $0x06 -> %q10
-4fb32a54 : smlal2 v20.2d, v18.4s, v19.s[3]          : smlal2 %q18 $0x03 $0x02 $0x07 -> %q20
-4fbd2b9e : smlal2 v30.2d, v28.4s, v29.s[3]          : smlal2 %q28 $0x0d $0x02 $0x07 -> %q30
+4f422020 : smlal2 v0.4s, v1.8h, v2.h[0]             : smlal2 %q1 %q2 $0x00 $0x01 -> %q0
+4f522020 : smlal2 v0.4s, v1.8h, v2.h[1]             : smlal2 %q1 %q2 $0x01 $0x01 -> %q0
+4f622020 : smlal2 v0.4s, v1.8h, v2.h[2]             : smlal2 %q1 %q2 $0x02 $0x01 -> %q0
+4f722020 : smlal2 v0.4s, v1.8h, v2.h[3]             : smlal2 %q1 %q2 $0x03 $0x01 -> %q0
+4f422820 : smlal2 v0.4s, v1.8h, v2.h[4]             : smlal2 %q1 %q2 $0x04 $0x01 -> %q0
+4f522820 : smlal2 v0.4s, v1.8h, v2.h[5]             : smlal2 %q1 %q2 $0x05 $0x01 -> %q0
+4f622820 : smlal2 v0.4s, v1.8h, v2.h[6]             : smlal2 %q1 %q2 $0x06 $0x01 -> %q0
+4f722820 : smlal2 v0.4s, v1.8h, v2.h[7]             : smlal2 %q1 %q2 $0x07 $0x01 -> %q0
+4f742865 : smlal2 v5.4s, v3.8h, v4.h[7]             : smlal2 %q3 %q4 $0x07 $0x01 -> %q5
+4f79290a : smlal2 v10.4s, v8.8h, v9.h[7]            : smlal2 %q8 %q9 $0x07 $0x01 -> %q10
+4f7e29af : smlal2 v15.4s, v13.8h, v14.h[7]          : smlal2 %q13 %q14 $0x07 $0x01 -> %q15
+4f822020 : smlal2 v0.2d, v1.4s, v2.s[0]             : smlal2 %q1 %q2 $0x00 $0x02 -> %q0
+4fa22020 : smlal2 v0.2d, v1.4s, v2.s[1]             : smlal2 %q1 %q2 $0x01 $0x02 -> %q0
+4f822820 : smlal2 v0.2d, v1.4s, v2.s[2]             : smlal2 %q1 %q2 $0x02 $0x02 -> %q0
+4fa22820 : smlal2 v0.2d, v1.4s, v2.s[3]             : smlal2 %q1 %q2 $0x03 $0x02 -> %q0
+4fa9290a : smlal2 v10.2d, v8.4s, v9.s[3]            : smlal2 %q8 %q9 $0x03 $0x02 -> %q10
+4fb32a54 : smlal2 v20.2d, v18.4s, v19.s[3]          : smlal2 %q18 %q19 $0x03 $0x02 -> %q20
+4fbd2b9e : smlal2 v30.2d, v28.4s, v29.s[3]          : smlal2 %q28 %q29 $0x03 $0x02 -> %q30
 
 0e28a0ed : smlsl v13.8h, v7.8b, v8.8b               : smlsl  %d7 %d8 $0x00 -> %q13
 0e68a0ed : smlsl v13.4s, v7.4h, v8.4h               : smlsl  %d7 %d8 $0x01 -> %q13
@@ -5123,54 +5535,54 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4ebbb6cc : sqdmulh v12.4s, v22.4s, v27.4s           : sqdmulh %q22 %q27 $0x02 -> %q12
 
 # SQDMULH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
-0f42c020 : sqdmulh v0.4h, v1.4h, v2.h[0]             : sqdmulh %d1 $0x02 $0x01 $0x00 -> %d0
-0f52c020 : sqdmulh v0.4h, v1.4h, v2.h[1]             : sqdmulh %d1 $0x02 $0x01 $0x01 -> %d0
-0f62c020 : sqdmulh v0.4h, v1.4h, v2.h[2]             : sqdmulh %d1 $0x02 $0x01 $0x02 -> %d0
-0f72c020 : sqdmulh v0.4h, v1.4h, v2.h[3]             : sqdmulh %d1 $0x02 $0x01 $0x03 -> %d0
-0f42c820 : sqdmulh v0.4h, v1.4h, v2.h[4]             : sqdmulh %d1 $0x02 $0x01 $0x04 -> %d0
-0f52c820 : sqdmulh v0.4h, v1.4h, v2.h[5]             : sqdmulh %d1 $0x02 $0x01 $0x05 -> %d0
-0f62c820 : sqdmulh v0.4h, v1.4h, v2.h[6]             : sqdmulh %d1 $0x02 $0x01 $0x06 -> %d0
-0f72c820 : sqdmulh v0.4h, v1.4h, v2.h[7]             : sqdmulh %d1 $0x02 $0x01 $0x07 -> %d0
-0f79c90a : sqdmulh v10.4h, v8.4h, v9.h[7]            : sqdmulh %d8 $0x09 $0x01 $0x07 -> %d10
-0f7ec9af : sqdmulh v15.4h, v13.4h, v14.h[7]          : sqdmulh %d13 $0x0e $0x01 $0x07 -> %d15
-4f42c020 : sqdmulh v0.8h, v1.8h, v2.h[0]             : sqdmulh %q1 $0x02 $0x01 $0x00 -> %q0
-4f52c020 : sqdmulh v0.8h, v1.8h, v2.h[1]             : sqdmulh %q1 $0x02 $0x01 $0x01 -> %q0
-4f62c020 : sqdmulh v0.8h, v1.8h, v2.h[2]             : sqdmulh %q1 $0x02 $0x01 $0x02 -> %q0
-4f72c020 : sqdmulh v0.8h, v1.8h, v2.h[3]             : sqdmulh %q1 $0x02 $0x01 $0x03 -> %q0
-4f42c820 : sqdmulh v0.8h, v1.8h, v2.h[4]             : sqdmulh %q1 $0x02 $0x01 $0x04 -> %q0
-4f52c820 : sqdmulh v0.8h, v1.8h, v2.h[5]             : sqdmulh %q1 $0x02 $0x01 $0x05 -> %q0
-4f62c820 : sqdmulh v0.8h, v1.8h, v2.h[6]             : sqdmulh %q1 $0x02 $0x01 $0x06 -> %q0
-4f72c820 : sqdmulh v0.8h, v1.8h, v2.h[7]             : sqdmulh %q1 $0x02 $0x01 $0x07 -> %q0
-4f79c90a : sqdmulh v10.8h, v8.8h, v9.h[7]            : sqdmulh %q8 $0x09 $0x01 $0x07 -> %q10
-4f7ec9af : sqdmulh v15.8h, v13.8h, v14.h[7]          : sqdmulh %q13 $0x0e $0x01 $0x07 -> %q15
-0f82c020 : sqdmulh v0.2s, v1.2s, v2.s[0]             : sqdmulh %d1 $0x02 $0x02 $0x00 -> %d0
-0fa2c020 : sqdmulh v0.2s, v1.2s, v2.s[1]             : sqdmulh %d1 $0x02 $0x02 $0x02 -> %d0
-0f82c820 : sqdmulh v0.2s, v1.2s, v2.s[2]             : sqdmulh %d1 $0x02 $0x02 $0x04 -> %d0
-0fa2c820 : sqdmulh v0.2s, v1.2s, v2.s[3]             : sqdmulh %d1 $0x02 $0x02 $0x06 -> %d0
-0fa9c90a : sqdmulh v10.2s, v8.2s, v9.s[3]            : sqdmulh %d8 $0x09 $0x02 $0x06 -> %d10
-0fb3ca54 : sqdmulh v20.2s, v18.2s, v19.s[3]          : sqdmulh %d18 $0x03 $0x02 $0x07 -> %d20
-0fbdcb9e : sqdmulh v30.2s, v28.2s, v29.s[3]          : sqdmulh %d28 $0x0d $0x02 $0x07 -> %d30
-4f82c020 : sqdmulh v0.4s, v1.4s, v2.s[0]             : sqdmulh %q1 $0x02 $0x02 $0x00 -> %q0
-4fa2c020 : sqdmulh v0.4s, v1.4s, v2.s[1]             : sqdmulh %q1 $0x02 $0x02 $0x02 -> %q0
-4f82c820 : sqdmulh v0.4s, v1.4s, v2.s[2]             : sqdmulh %q1 $0x02 $0x02 $0x04 -> %q0
-4fa2c820 : sqdmulh v0.4s, v1.4s, v2.s[3]             : sqdmulh %q1 $0x02 $0x02 $0x06 -> %q0
-4fa9c90a : sqdmulh v10.4s, v8.4s, v9.s[3]            : sqdmulh %q8 $0x09 $0x02 $0x06 -> %q10
-4fb3ca54 : sqdmulh v20.4s, v18.4s, v19.s[3]          : sqdmulh %q18 $0x03 $0x02 $0x07 -> %q20
-4fbdcb9e : sqdmulh v30.4s, v28.4s, v29.s[3]          : sqdmulh %q28 $0x0d $0x02 $0x07 -> %q30
+0f42c020 : sqdmulh v0.4h, v1.4h, v2.h[0]             : sqdmulh %d1 %d2 $0x00 $0x01 -> %d0
+0f52c020 : sqdmulh v0.4h, v1.4h, v2.h[1]             : sqdmulh %d1 %d2 $0x01 $0x01 -> %d0
+0f62c020 : sqdmulh v0.4h, v1.4h, v2.h[2]             : sqdmulh %d1 %d2 $0x02 $0x01 -> %d0
+0f72c020 : sqdmulh v0.4h, v1.4h, v2.h[3]             : sqdmulh %d1 %d2 $0x03 $0x01 -> %d0
+0f42c820 : sqdmulh v0.4h, v1.4h, v2.h[4]             : sqdmulh %d1 %d2 $0x04 $0x01 -> %d0
+0f52c820 : sqdmulh v0.4h, v1.4h, v2.h[5]             : sqdmulh %d1 %d2 $0x05 $0x01 -> %d0
+0f62c820 : sqdmulh v0.4h, v1.4h, v2.h[6]             : sqdmulh %d1 %d2 $0x06 $0x01 -> %d0
+0f72c820 : sqdmulh v0.4h, v1.4h, v2.h[7]             : sqdmulh %d1 %d2 $0x07 $0x01 -> %d0
+0f79c90a : sqdmulh v10.4h, v8.4h, v9.h[7]            : sqdmulh %d8 %d9 $0x07 $0x01 -> %d10
+0f7ec9af : sqdmulh v15.4h, v13.4h, v14.h[7]          : sqdmulh %d13 %d14 $0x07 $0x01 -> %d15
+4f42c020 : sqdmulh v0.8h, v1.8h, v2.h[0]             : sqdmulh %q1 %q2 $0x00 $0x01 -> %q0
+4f52c020 : sqdmulh v0.8h, v1.8h, v2.h[1]             : sqdmulh %q1 %q2 $0x01 $0x01 -> %q0
+4f62c020 : sqdmulh v0.8h, v1.8h, v2.h[2]             : sqdmulh %q1 %q2 $0x02 $0x01 -> %q0
+4f72c020 : sqdmulh v0.8h, v1.8h, v2.h[3]             : sqdmulh %q1 %q2 $0x03 $0x01 -> %q0
+4f42c820 : sqdmulh v0.8h, v1.8h, v2.h[4]             : sqdmulh %q1 %q2 $0x04 $0x01 -> %q0
+4f52c820 : sqdmulh v0.8h, v1.8h, v2.h[5]             : sqdmulh %q1 %q2 $0x05 $0x01 -> %q0
+4f62c820 : sqdmulh v0.8h, v1.8h, v2.h[6]             : sqdmulh %q1 %q2 $0x06 $0x01 -> %q0
+4f72c820 : sqdmulh v0.8h, v1.8h, v2.h[7]             : sqdmulh %q1 %q2 $0x07 $0x01 -> %q0
+4f79c90a : sqdmulh v10.8h, v8.8h, v9.h[7]            : sqdmulh %q8 %q9 $0x07 $0x01 -> %q10
+4f7ec9af : sqdmulh v15.8h, v13.8h, v14.h[7]          : sqdmulh %q13 %q14 $0x07 $0x01 -> %q15
+0f82c020 : sqdmulh v0.2s, v1.2s, v2.s[0]             : sqdmulh %d1 %d2 $0x00 $0x02 -> %d0
+0fa2c020 : sqdmulh v0.2s, v1.2s, v2.s[1]             : sqdmulh %d1 %d2 $0x01 $0x02 -> %d0
+0f82c820 : sqdmulh v0.2s, v1.2s, v2.s[2]             : sqdmulh %d1 %d2 $0x02 $0x02 -> %d0
+0fa2c820 : sqdmulh v0.2s, v1.2s, v2.s[3]             : sqdmulh %d1 %d2 $0x03 $0x02 -> %d0
+0fa9c90a : sqdmulh v10.2s, v8.2s, v9.s[3]            : sqdmulh %d8 %d9 $0x03 $0x02 -> %d10
+0fb3ca54 : sqdmulh v20.2s, v18.2s, v19.s[3]          : sqdmulh %d18 %d19 $0x03 $0x02 -> %d20
+0fbdcb9e : sqdmulh v30.2s, v28.2s, v29.s[3]          : sqdmulh %d28 %d29 $0x03 $0x02 -> %d30
+4f82c020 : sqdmulh v0.4s, v1.4s, v2.s[0]             : sqdmulh %q1 %q2 $0x00 $0x02 -> %q0
+4fa2c020 : sqdmulh v0.4s, v1.4s, v2.s[1]             : sqdmulh %q1 %q2 $0x01 $0x02 -> %q0
+4f82c820 : sqdmulh v0.4s, v1.4s, v2.s[2]             : sqdmulh %q1 %q2 $0x02 $0x02 -> %q0
+4fa2c820 : sqdmulh v0.4s, v1.4s, v2.s[3]             : sqdmulh %q1 %q2 $0x03 $0x02 -> %q0
+4fa9c90a : sqdmulh v10.4s, v8.4s, v9.s[3]            : sqdmulh %q8 %q9 $0x03 $0x02 -> %q10
+4fb3ca54 : sqdmulh v20.4s, v18.4s, v19.s[3]          : sqdmulh %q18 %q19 $0x03 $0x02 -> %q20
+4fbdcb9e : sqdmulh v30.4s, v28.4s, v29.s[3]          : sqdmulh %q28 %q29 $0x03 $0x02 -> %q30
 
 # SQDMULH <V><d>, <V><n>, <Vm>.<Ts>[<index>]
-5f42c020 : sqdmulh h0, h1, v2.h[0]                   : sqdmulh %h1 $0x02 $0x00 -> %h0
-5f52c020 : sqdmulh h0, h1, v2.h[1]                   : sqdmulh %h1 $0x02 $0x01 -> %h0
-5f62c020 : sqdmulh h0, h1, v2.h[2]                   : sqdmulh %h1 $0x02 $0x02 -> %h0
-5f72c020 : sqdmulh h0, h1, v2.h[3]                   : sqdmulh %h1 $0x02 $0x03 -> %h0
-5f42c820 : sqdmulh h0, h1, v2.h[4]                   : sqdmulh %h1 $0x02 $0x04 -> %h0
-5f52c820 : sqdmulh h0, h1, v2.h[5]                   : sqdmulh %h1 $0x02 $0x05 -> %h0
-5f62c820 : sqdmulh h0, h1, v2.h[6]                   : sqdmulh %h1 $0x02 $0x06 -> %h0
-5f72c820 : sqdmulh h0, h1, v2.h[7]                   : sqdmulh %h1 $0x02 $0x07 -> %h0
-5f82c020 : sqdmulh s0, s1, v2.s[0]                   : sqdmulh %s1 $0x02 $0x00 -> %s0
-5fa2c020 : sqdmulh s0, s1, v2.s[1]                   : sqdmulh %s1 $0x02 $0x02 -> %s0
-5f82c820 : sqdmulh s0, s1, v2.s[2]                   : sqdmulh %s1 $0x02 $0x04 -> %s0
-5fa2c820 : sqdmulh s0, s1, v2.s[3]                   : sqdmulh %s1 $0x02 $0x06 -> %s0
+5f42c020 : sqdmulh h0, h1, v2.h[0]                   : sqdmulh %h1 %q2 $0x00 $0x01 -> %h0
+5f52c020 : sqdmulh h0, h1, v2.h[1]                   : sqdmulh %h1 %q2 $0x01 $0x01 -> %h0
+5f62c020 : sqdmulh h0, h1, v2.h[2]                   : sqdmulh %h1 %q2 $0x02 $0x01 -> %h0
+5f72c020 : sqdmulh h0, h1, v2.h[3]                   : sqdmulh %h1 %q2 $0x03 $0x01 -> %h0
+5f42c820 : sqdmulh h0, h1, v2.h[4]                   : sqdmulh %h1 %q2 $0x04 $0x01 -> %h0
+5f52c820 : sqdmulh h0, h1, v2.h[5]                   : sqdmulh %h1 %q2 $0x05 $0x01 -> %h0
+5f62c820 : sqdmulh h0, h1, v2.h[6]                   : sqdmulh %h1 %q2 $0x06 $0x01 -> %h0
+5f72c820 : sqdmulh h0, h1, v2.h[7]                   : sqdmulh %h1 %q2 $0x07 $0x01 -> %h0
+5f82c020 : sqdmulh s0, s1, v2.s[0]                   : sqdmulh %s1 %q2 $0x00 $0x02 -> %s0
+5fa2c020 : sqdmulh s0, s1, v2.s[1]                   : sqdmulh %s1 %q2 $0x01 $0x02 -> %s0
+5f82c820 : sqdmulh s0, s1, v2.s[2]                   : sqdmulh %s1 %q2 $0x02 $0x02 -> %s0
+5fa2c820 : sqdmulh s0, s1, v2.s[3]                   : sqdmulh %s1 %q2 $0x03 $0x02 -> %s0
 
 0e72d1c2 : sqdmull v2.4s, v14.4h, v18.4h            : sqdmull %d14 %d18 $0x01 -> %q2
 0eb2d1c2 : sqdmull v2.2d, v14.2s, v18.2s            : sqdmull %d14 %d18 $0x02 -> %q2
@@ -5200,54 +5612,54 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6ebbb7b7 : sqrdmulh v23.4s, v29.4s, v27.4s          : sqrdmulh %q29 %q27 $0x02 -> %q23
 
 # SQRDMULH <V><d>, <V><n>, <Vm>.<Ts>[<index>]
-5f42d020 : sqrdmulh h0, h1, v2.h[0]                  : sqrdmulh %h1 $0x02 $0x00 -> %h0
-5f52d020 : sqrdmulh h0, h1, v2.h[1]                  : sqrdmulh %h1 $0x02 $0x01 -> %h0
-5f62d020 : sqrdmulh h0, h1, v2.h[2]                  : sqrdmulh %h1 $0x02 $0x02 -> %h0
-5f72d020 : sqrdmulh h0, h1, v2.h[3]                  : sqrdmulh %h1 $0x02 $0x03 -> %h0
-5f42d820 : sqrdmulh h0, h1, v2.h[4]                  : sqrdmulh %h1 $0x02 $0x04 -> %h0
-5f52d820 : sqrdmulh h0, h1, v2.h[5]                  : sqrdmulh %h1 $0x02 $0x05 -> %h0
-5f62d820 : sqrdmulh h0, h1, v2.h[6]                  : sqrdmulh %h1 $0x02 $0x06 -> %h0
-5f72d820 : sqrdmulh h0, h1, v2.h[7]                  : sqrdmulh %h1 $0x02 $0x07 -> %h0
-5f82d020 : sqrdmulh s0, s1, v2.s[0]                  : sqrdmulh %s1 $0x02 $0x00 -> %s0
-5fa2d020 : sqrdmulh s0, s1, v2.s[1]                  : sqrdmulh %s1 $0x02 $0x02 -> %s0
-5f82d820 : sqrdmulh s0, s1, v2.s[2]                  : sqrdmulh %s1 $0x02 $0x04 -> %s0
-5fa2d820 : sqrdmulh s0, s1, v2.s[3]                  : sqrdmulh %s1 $0x02 $0x06 -> %s0
+5f42d020 : sqrdmulh h0, h1, v2.h[0]                  : sqrdmulh %h1 %q2 $0x00 $0x01 -> %h0
+5f52d020 : sqrdmulh h0, h1, v2.h[1]                  : sqrdmulh %h1 %q2 $0x01 $0x01 -> %h0
+5f62d020 : sqrdmulh h0, h1, v2.h[2]                  : sqrdmulh %h1 %q2 $0x02 $0x01 -> %h0
+5f72d020 : sqrdmulh h0, h1, v2.h[3]                  : sqrdmulh %h1 %q2 $0x03 $0x01 -> %h0
+5f42d820 : sqrdmulh h0, h1, v2.h[4]                  : sqrdmulh %h1 %q2 $0x04 $0x01 -> %h0
+5f52d820 : sqrdmulh h0, h1, v2.h[5]                  : sqrdmulh %h1 %q2 $0x05 $0x01 -> %h0
+5f62d820 : sqrdmulh h0, h1, v2.h[6]                  : sqrdmulh %h1 %q2 $0x06 $0x01 -> %h0
+5f72d820 : sqrdmulh h0, h1, v2.h[7]                  : sqrdmulh %h1 %q2 $0x07 $0x01 -> %h0
+5f82d020 : sqrdmulh s0, s1, v2.s[0]                  : sqrdmulh %s1 %q2 $0x00 $0x02 -> %s0
+5fa2d020 : sqrdmulh s0, s1, v2.s[1]                  : sqrdmulh %s1 %q2 $0x01 $0x02 -> %s0
+5f82d820 : sqrdmulh s0, s1, v2.s[2]                  : sqrdmulh %s1 %q2 $0x02 $0x02 -> %s0
+5fa2d820 : sqrdmulh s0, s1, v2.s[3]                  : sqrdmulh %s1 %q2 $0x03 $0x02 -> %s0
 
 # SQRDMULH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
-0f42d020 : sqrdmulh v0.4h, v1.4h, v2.h[0]            : sqrdmulh %d1 $0x02 $0x01 $0x00 -> %d0
-0f52d020 : sqrdmulh v0.4h, v1.4h, v2.h[1]            : sqrdmulh %d1 $0x02 $0x01 $0x01 -> %d0
-0f62d020 : sqrdmulh v0.4h, v1.4h, v2.h[2]            : sqrdmulh %d1 $0x02 $0x01 $0x02 -> %d0
-0f72d020 : sqrdmulh v0.4h, v1.4h, v2.h[3]            : sqrdmulh %d1 $0x02 $0x01 $0x03 -> %d0
-0f42d820 : sqrdmulh v0.4h, v1.4h, v2.h[4]            : sqrdmulh %d1 $0x02 $0x01 $0x04 -> %d0
-0f52d820 : sqrdmulh v0.4h, v1.4h, v2.h[5]            : sqrdmulh %d1 $0x02 $0x01 $0x05 -> %d0
-0f62d820 : sqrdmulh v0.4h, v1.4h, v2.h[6]            : sqrdmulh %d1 $0x02 $0x01 $0x06 -> %d0
-0f72d820 : sqrdmulh v0.4h, v1.4h, v2.h[7]            : sqrdmulh %d1 $0x02 $0x01 $0x07 -> %d0
-0f79d90a : sqrdmulh v10.4h, v8.4h, v9.h[7]           : sqrdmulh %d8 $0x09 $0x01 $0x07 -> %d10
-0f7ed9af : sqrdmulh v15.4h, v13.4h, v14.h[7]         : sqrdmulh %d13 $0x0e $0x01 $0x07 -> %d15
-4f42d020 : sqrdmulh v0.8h, v1.8h, v2.h[0]            : sqrdmulh %q1 $0x02 $0x01 $0x00 -> %q0
-4f52d020 : sqrdmulh v0.8h, v1.8h, v2.h[1]            : sqrdmulh %q1 $0x02 $0x01 $0x01 -> %q0
-4f62d020 : sqrdmulh v0.8h, v1.8h, v2.h[2]            : sqrdmulh %q1 $0x02 $0x01 $0x02 -> %q0
-4f72d020 : sqrdmulh v0.8h, v1.8h, v2.h[3]            : sqrdmulh %q1 $0x02 $0x01 $0x03 -> %q0
-4f42d820 : sqrdmulh v0.8h, v1.8h, v2.h[4]            : sqrdmulh %q1 $0x02 $0x01 $0x04 -> %q0
-4f52d820 : sqrdmulh v0.8h, v1.8h, v2.h[5]            : sqrdmulh %q1 $0x02 $0x01 $0x05 -> %q0
-4f62d820 : sqrdmulh v0.8h, v1.8h, v2.h[6]            : sqrdmulh %q1 $0x02 $0x01 $0x06 -> %q0
-4f72d820 : sqrdmulh v0.8h, v1.8h, v2.h[7]            : sqrdmulh %q1 $0x02 $0x01 $0x07 -> %q0
-4f79d90a : sqrdmulh v10.8h, v8.8h, v9.h[7]           : sqrdmulh %q8 $0x09 $0x01 $0x07 -> %q10
-4f7ed9af : sqrdmulh v15.8h, v13.8h, v14.h[7]         : sqrdmulh %q13 $0x0e $0x01 $0x07 -> %q15
-0f82d020 : sqrdmulh v0.2s, v1.2s, v2.s[0]            : sqrdmulh %d1 $0x02 $0x02 $0x00 -> %d0
-0fa2d020 : sqrdmulh v0.2s, v1.2s, v2.s[1]            : sqrdmulh %d1 $0x02 $0x02 $0x02 -> %d0
-0f82d820 : sqrdmulh v0.2s, v1.2s, v2.s[2]            : sqrdmulh %d1 $0x02 $0x02 $0x04 -> %d0
-0fa2d820 : sqrdmulh v0.2s, v1.2s, v2.s[3]            : sqrdmulh %d1 $0x02 $0x02 $0x06 -> %d0
-0fa9d90a : sqrdmulh v10.2s, v8.2s, v9.s[3]           : sqrdmulh %d8 $0x09 $0x02 $0x06 -> %d10
-0fb3da54 : sqrdmulh v20.2s, v18.2s, v19.s[3]         : sqrdmulh %d18 $0x03 $0x02 $0x07 -> %d20
-0fbddb9e : sqrdmulh v30.2s, v28.2s, v29.s[3]         : sqrdmulh %d28 $0x0d $0x02 $0x07 -> %d30
-4f82d020 : sqrdmulh v0.4s, v1.4s, v2.s[0]            : sqrdmulh %q1 $0x02 $0x02 $0x00 -> %q0
-4fa2d020 : sqrdmulh v0.4s, v1.4s, v2.s[1]            : sqrdmulh %q1 $0x02 $0x02 $0x02 -> %q0
-4f82d820 : sqrdmulh v0.4s, v1.4s, v2.s[2]            : sqrdmulh %q1 $0x02 $0x02 $0x04 -> %q0
-4fa2d820 : sqrdmulh v0.4s, v1.4s, v2.s[3]            : sqrdmulh %q1 $0x02 $0x02 $0x06 -> %q0
-4fa9d90a : sqrdmulh v10.4s, v8.4s, v9.s[3]           : sqrdmulh %q8 $0x09 $0x02 $0x06 -> %q10
-4fb3da54 : sqrdmulh v20.4s, v18.4s, v19.s[3]         : sqrdmulh %q18 $0x03 $0x02 $0x07 -> %q20
-4fbddb9e : sqrdmulh v30.4s, v28.4s, v29.s[3]         : sqrdmulh %q28 $0x0d $0x02 $0x07 -> %q30
+0f42d020 : sqrdmulh v0.4h, v1.4h, v2.h[0]            : sqrdmulh %d1 %d2 $0x00 $0x01 -> %d0
+0f52d020 : sqrdmulh v0.4h, v1.4h, v2.h[1]            : sqrdmulh %d1 %d2 $0x01 $0x01 -> %d0
+0f62d020 : sqrdmulh v0.4h, v1.4h, v2.h[2]            : sqrdmulh %d1 %d2 $0x02 $0x01 -> %d0
+0f72d020 : sqrdmulh v0.4h, v1.4h, v2.h[3]            : sqrdmulh %d1 %d2 $0x03 $0x01 -> %d0
+0f42d820 : sqrdmulh v0.4h, v1.4h, v2.h[4]            : sqrdmulh %d1 %d2 $0x04 $0x01 -> %d0
+0f52d820 : sqrdmulh v0.4h, v1.4h, v2.h[5]            : sqrdmulh %d1 %d2 $0x05 $0x01 -> %d0
+0f62d820 : sqrdmulh v0.4h, v1.4h, v2.h[6]            : sqrdmulh %d1 %d2 $0x06 $0x01 -> %d0
+0f72d820 : sqrdmulh v0.4h, v1.4h, v2.h[7]            : sqrdmulh %d1 %d2 $0x07 $0x01 -> %d0
+0f79d90a : sqrdmulh v10.4h, v8.4h, v9.h[7]           : sqrdmulh %d8 %d9 $0x07 $0x01 -> %d10
+0f7ed9af : sqrdmulh v15.4h, v13.4h, v14.h[7]         : sqrdmulh %d13 %d14 $0x07 $0x01 -> %d15
+4f42d020 : sqrdmulh v0.8h, v1.8h, v2.h[0]            : sqrdmulh %q1 %q2 $0x00 $0x01 -> %q0
+4f52d020 : sqrdmulh v0.8h, v1.8h, v2.h[1]            : sqrdmulh %q1 %q2 $0x01 $0x01 -> %q0
+4f62d020 : sqrdmulh v0.8h, v1.8h, v2.h[2]            : sqrdmulh %q1 %q2 $0x02 $0x01 -> %q0
+4f72d020 : sqrdmulh v0.8h, v1.8h, v2.h[3]            : sqrdmulh %q1 %q2 $0x03 $0x01 -> %q0
+4f42d820 : sqrdmulh v0.8h, v1.8h, v2.h[4]            : sqrdmulh %q1 %q2 $0x04 $0x01 -> %q0
+4f52d820 : sqrdmulh v0.8h, v1.8h, v2.h[5]            : sqrdmulh %q1 %q2 $0x05 $0x01 -> %q0
+4f62d820 : sqrdmulh v0.8h, v1.8h, v2.h[6]            : sqrdmulh %q1 %q2 $0x06 $0x01 -> %q0
+4f72d820 : sqrdmulh v0.8h, v1.8h, v2.h[7]            : sqrdmulh %q1 %q2 $0x07 $0x01 -> %q0
+4f79d90a : sqrdmulh v10.8h, v8.8h, v9.h[7]           : sqrdmulh %q8 %q9 $0x07 $0x01 -> %q10
+4f7ed9af : sqrdmulh v15.8h, v13.8h, v14.h[7]         : sqrdmulh %q13 %q14 $0x07 $0x01 -> %q15
+0f82d020 : sqrdmulh v0.2s, v1.2s, v2.s[0]            : sqrdmulh %d1 %d2 $0x00 $0x02 -> %d0
+0fa2d020 : sqrdmulh v0.2s, v1.2s, v2.s[1]            : sqrdmulh %d1 %d2 $0x01 $0x02 -> %d0
+0f82d820 : sqrdmulh v0.2s, v1.2s, v2.s[2]            : sqrdmulh %d1 %d2 $0x02 $0x02 -> %d0
+0fa2d820 : sqrdmulh v0.2s, v1.2s, v2.s[3]            : sqrdmulh %d1 %d2 $0x03 $0x02 -> %d0
+0fa9d90a : sqrdmulh v10.2s, v8.2s, v9.s[3]           : sqrdmulh %d8 %d9 $0x03 $0x02 -> %d10
+0fb3da54 : sqrdmulh v20.2s, v18.2s, v19.s[3]         : sqrdmulh %d18 %d19 $0x03 $0x02 -> %d20
+0fbddb9e : sqrdmulh v30.2s, v28.2s, v29.s[3]         : sqrdmulh %d28 %d29 $0x03 $0x02 -> %d30
+4f82d020 : sqrdmulh v0.4s, v1.4s, v2.s[0]            : sqrdmulh %q1 %q2 $0x00 $0x02 -> %q0
+4fa2d020 : sqrdmulh v0.4s, v1.4s, v2.s[1]            : sqrdmulh %q1 %q2 $0x01 $0x02 -> %q0
+4f82d820 : sqrdmulh v0.4s, v1.4s, v2.s[2]            : sqrdmulh %q1 %q2 $0x02 $0x02 -> %q0
+4fa2d820 : sqrdmulh v0.4s, v1.4s, v2.s[3]            : sqrdmulh %q1 %q2 $0x03 $0x02 -> %q0
+4fa9d90a : sqrdmulh v10.4s, v8.4s, v9.s[3]           : sqrdmulh %q8 %q9 $0x03 $0x02 -> %q10
+4fb3da54 : sqrdmulh v20.4s, v18.4s, v19.s[3]         : sqrdmulh %q18 %q19 $0x03 $0x02 -> %q20
+4fbddb9e : sqrdmulh v30.4s, v28.4s, v29.s[3]         : sqrdmulh %q28 %q29 $0x03 $0x02 -> %q30
 
 # SQRDMLAH <V><d>, <V><n>, <V><m>
 7e428420 : sqrdmlah h0, h1, h2                       : sqrdmlah %h1 %h2 -> %h0
@@ -5296,54 +5708,54 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6e9d879e : sqrdmlah v30.4s, v28.4s, v29.4s           : sqrdmlah %q28 %q29 $0x02 -> %q30
 
 # SQRDMLAH <V><d>, <V><n>, <Vm>.<Ts>[<index>]
-7f42d020 : sqrdmlah h0, h1, v2.h[0]                  : sqrdmlah %h1 $0x02 $0x00 -> %h0
-7f52d020 : sqrdmlah h0, h1, v2.h[1]                  : sqrdmlah %h1 $0x02 $0x01 -> %h0
-7f62d020 : sqrdmlah h0, h1, v2.h[2]                  : sqrdmlah %h1 $0x02 $0x02 -> %h0
-7f72d020 : sqrdmlah h0, h1, v2.h[3]                  : sqrdmlah %h1 $0x02 $0x03 -> %h0
-7f42d820 : sqrdmlah h0, h1, v2.h[4]                  : sqrdmlah %h1 $0x02 $0x04 -> %h0
-7f52d820 : sqrdmlah h0, h1, v2.h[5]                  : sqrdmlah %h1 $0x02 $0x05 -> %h0
-7f62d820 : sqrdmlah h0, h1, v2.h[6]                  : sqrdmlah %h1 $0x02 $0x06 -> %h0
-7f72d820 : sqrdmlah h0, h1, v2.h[7]                  : sqrdmlah %h1 $0x02 $0x07 -> %h0
-7f82d020 : sqrdmlah s0, s1, v2.s[0]                  : sqrdmlah %s1 $0x02 $0x00 -> %s0
-7fa2d020 : sqrdmlah s0, s1, v2.s[1]                  : sqrdmlah %s1 $0x02 $0x02 -> %s0
-7f82d820 : sqrdmlah s0, s1, v2.s[2]                  : sqrdmlah %s1 $0x02 $0x04 -> %s0
-7fa2d820 : sqrdmlah s0, s1, v2.s[3]                  : sqrdmlah %s1 $0x02 $0x06 -> %s0
+7f42d020 : sqrdmlah h0, h1, v2.h[0]                  : sqrdmlah %h1 %q2 $0x00 $0x01 -> %h0
+7f52d020 : sqrdmlah h0, h1, v2.h[1]                  : sqrdmlah %h1 %q2 $0x01 $0x01 -> %h0
+7f62d020 : sqrdmlah h0, h1, v2.h[2]                  : sqrdmlah %h1 %q2 $0x02 $0x01 -> %h0
+7f72d020 : sqrdmlah h0, h1, v2.h[3]                  : sqrdmlah %h1 %q2 $0x03 $0x01 -> %h0
+7f42d820 : sqrdmlah h0, h1, v2.h[4]                  : sqrdmlah %h1 %q2 $0x04 $0x01 -> %h0
+7f52d820 : sqrdmlah h0, h1, v2.h[5]                  : sqrdmlah %h1 %q2 $0x05 $0x01 -> %h0
+7f62d820 : sqrdmlah h0, h1, v2.h[6]                  : sqrdmlah %h1 %q2 $0x06 $0x01 -> %h0
+7f72d820 : sqrdmlah h0, h1, v2.h[7]                  : sqrdmlah %h1 %q2 $0x07 $0x01 -> %h0
+7f82d020 : sqrdmlah s0, s1, v2.s[0]                  : sqrdmlah %s1 %q2 $0x00 $0x02 -> %s0
+7fa2d020 : sqrdmlah s0, s1, v2.s[1]                  : sqrdmlah %s1 %q2 $0x01 $0x02 -> %s0
+7f82d820 : sqrdmlah s0, s1, v2.s[2]                  : sqrdmlah %s1 %q2 $0x02 $0x02 -> %s0
+7fa2d820 : sqrdmlah s0, s1, v2.s[3]                  : sqrdmlah %s1 %q2 $0x03 $0x02 -> %s0
 
 # SQRDMLAH <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
-2f42d020 : sqrdmlah v0.4h, v1.4h, v2.h[0]            : sqrdmlah %d1 $0x02 $0x01 $0x00 -> %d0
-2f52d020 : sqrdmlah v0.4h, v1.4h, v2.h[1]            : sqrdmlah %d1 $0x02 $0x01 $0x01 -> %d0
-2f62d020 : sqrdmlah v0.4h, v1.4h, v2.h[2]            : sqrdmlah %d1 $0x02 $0x01 $0x02 -> %d0
-2f72d020 : sqrdmlah v0.4h, v1.4h, v2.h[3]            : sqrdmlah %d1 $0x02 $0x01 $0x03 -> %d0
-2f42d820 : sqrdmlah v0.4h, v1.4h, v2.h[4]            : sqrdmlah %d1 $0x02 $0x01 $0x04 -> %d0
-2f52d820 : sqrdmlah v0.4h, v1.4h, v2.h[5]            : sqrdmlah %d1 $0x02 $0x01 $0x05 -> %d0
-2f62d820 : sqrdmlah v0.4h, v1.4h, v2.h[6]            : sqrdmlah %d1 $0x02 $0x01 $0x06 -> %d0
-2f72d820 : sqrdmlah v0.4h, v1.4h, v2.h[7]            : sqrdmlah %d1 $0x02 $0x01 $0x07 -> %d0
-2f79d90a : sqrdmlah v10.4h, v8.4h, v9.h[7]           : sqrdmlah %d8 $0x09 $0x01 $0x07 -> %d10
-2f7ed9af : sqrdmlah v15.4h, v13.4h, v14.h[7]         : sqrdmlah %d13 $0x0e $0x01 $0x07 -> %d15
-6f42d020 : sqrdmlah v0.8h, v1.8h, v2.h[0]            : sqrdmlah %q1 $0x02 $0x01 $0x00 -> %q0
-6f52d020 : sqrdmlah v0.8h, v1.8h, v2.h[1]            : sqrdmlah %q1 $0x02 $0x01 $0x01 -> %q0
-6f62d020 : sqrdmlah v0.8h, v1.8h, v2.h[2]            : sqrdmlah %q1 $0x02 $0x01 $0x02 -> %q0
-6f72d020 : sqrdmlah v0.8h, v1.8h, v2.h[3]            : sqrdmlah %q1 $0x02 $0x01 $0x03 -> %q0
-6f42d820 : sqrdmlah v0.8h, v1.8h, v2.h[4]            : sqrdmlah %q1 $0x02 $0x01 $0x04 -> %q0
-6f52d820 : sqrdmlah v0.8h, v1.8h, v2.h[5]            : sqrdmlah %q1 $0x02 $0x01 $0x05 -> %q0
-6f62d820 : sqrdmlah v0.8h, v1.8h, v2.h[6]            : sqrdmlah %q1 $0x02 $0x01 $0x06 -> %q0
-6f72d820 : sqrdmlah v0.8h, v1.8h, v2.h[7]            : sqrdmlah %q1 $0x02 $0x01 $0x07 -> %q0
-6f79d90a : sqrdmlah v10.8h, v8.8h, v9.h[7]           : sqrdmlah %q8 $0x09 $0x01 $0x07 -> %q10
-6f7ed9af : sqrdmlah v15.8h, v13.8h, v14.h[7]         : sqrdmlah %q13 $0x0e $0x01 $0x07 -> %q15
-2f82d020 : sqrdmlah v0.2s, v1.2s, v2.s[0]            : sqrdmlah %d1 $0x02 $0x02 $0x00 -> %d0
-2fa2d020 : sqrdmlah v0.2s, v1.2s, v2.s[1]            : sqrdmlah %d1 $0x02 $0x02 $0x02 -> %d0
-2f82d820 : sqrdmlah v0.2s, v1.2s, v2.s[2]            : sqrdmlah %d1 $0x02 $0x02 $0x04 -> %d0
-2fa2d820 : sqrdmlah v0.2s, v1.2s, v2.s[3]            : sqrdmlah %d1 $0x02 $0x02 $0x06 -> %d0
-2fa9d90a : sqrdmlah v10.2s, v8.2s, v9.s[3]           : sqrdmlah %d8 $0x09 $0x02 $0x06 -> %d10
-2fb3da54 : sqrdmlah v20.2s, v18.2s, v19.s[3]         : sqrdmlah %d18 $0x03 $0x02 $0x07 -> %d20
-2fbddb9e : sqrdmlah v30.2s, v28.2s, v29.s[3]         : sqrdmlah %d28 $0x0d $0x02 $0x07 -> %d30
-6f82d020 : sqrdmlah v0.4s, v1.4s, v2.s[0]            : sqrdmlah %q1 $0x02 $0x02 $0x00 -> %q0
-6fa2d020 : sqrdmlah v0.4s, v1.4s, v2.s[1]            : sqrdmlah %q1 $0x02 $0x02 $0x02 -> %q0
-6f82d820 : sqrdmlah v0.4s, v1.4s, v2.s[2]            : sqrdmlah %q1 $0x02 $0x02 $0x04 -> %q0
-6fa2d820 : sqrdmlah v0.4s, v1.4s, v2.s[3]            : sqrdmlah %q1 $0x02 $0x02 $0x06 -> %q0
-6fa9d90a : sqrdmlah v10.4s, v8.4s, v9.s[3]           : sqrdmlah %q8 $0x09 $0x02 $0x06 -> %q10
-6fb3da54 : sqrdmlah v20.4s, v18.4s, v19.s[3]         : sqrdmlah %q18 $0x03 $0x02 $0x07 -> %q20
-6fbddb9e : sqrdmlah v30.4s, v28.4s, v29.s[3]         : sqrdmlah %q28 $0x0d $0x02 $0x07 -> %q30
+2f42d020 : sqrdmlah v0.4h, v1.4h, v2.h[0]            : sqrdmlah %d1 %d2 $0x00 $0x01 -> %d0
+2f52d020 : sqrdmlah v0.4h, v1.4h, v2.h[1]            : sqrdmlah %d1 %d2 $0x01 $0x01 -> %d0
+2f62d020 : sqrdmlah v0.4h, v1.4h, v2.h[2]            : sqrdmlah %d1 %d2 $0x02 $0x01 -> %d0
+2f72d020 : sqrdmlah v0.4h, v1.4h, v2.h[3]            : sqrdmlah %d1 %d2 $0x03 $0x01 -> %d0
+2f42d820 : sqrdmlah v0.4h, v1.4h, v2.h[4]            : sqrdmlah %d1 %d2 $0x04 $0x01 -> %d0
+2f52d820 : sqrdmlah v0.4h, v1.4h, v2.h[5]            : sqrdmlah %d1 %d2 $0x05 $0x01 -> %d0
+2f62d820 : sqrdmlah v0.4h, v1.4h, v2.h[6]            : sqrdmlah %d1 %d2 $0x06 $0x01 -> %d0
+2f72d820 : sqrdmlah v0.4h, v1.4h, v2.h[7]            : sqrdmlah %d1 %d2 $0x07 $0x01 -> %d0
+2f79d90a : sqrdmlah v10.4h, v8.4h, v9.h[7]           : sqrdmlah %d8 %d9 $0x07 $0x01 -> %d10
+2f7ed9af : sqrdmlah v15.4h, v13.4h, v14.h[7]         : sqrdmlah %d13 %d14 $0x07 $0x01 -> %d15
+6f42d020 : sqrdmlah v0.8h, v1.8h, v2.h[0]            : sqrdmlah %q1 %q2 $0x00 $0x01 -> %q0
+6f52d020 : sqrdmlah v0.8h, v1.8h, v2.h[1]            : sqrdmlah %q1 %q2 $0x01 $0x01 -> %q0
+6f62d020 : sqrdmlah v0.8h, v1.8h, v2.h[2]            : sqrdmlah %q1 %q2 $0x02 $0x01 -> %q0
+6f72d020 : sqrdmlah v0.8h, v1.8h, v2.h[3]            : sqrdmlah %q1 %q2 $0x03 $0x01 -> %q0
+6f42d820 : sqrdmlah v0.8h, v1.8h, v2.h[4]            : sqrdmlah %q1 %q2 $0x04 $0x01 -> %q0
+6f52d820 : sqrdmlah v0.8h, v1.8h, v2.h[5]            : sqrdmlah %q1 %q2 $0x05 $0x01 -> %q0
+6f62d820 : sqrdmlah v0.8h, v1.8h, v2.h[6]            : sqrdmlah %q1 %q2 $0x06 $0x01 -> %q0
+6f72d820 : sqrdmlah v0.8h, v1.8h, v2.h[7]            : sqrdmlah %q1 %q2 $0x07 $0x01 -> %q0
+6f79d90a : sqrdmlah v10.8h, v8.8h, v9.h[7]           : sqrdmlah %q8 %q9 $0x07 $0x01 -> %q10
+6f7ed9af : sqrdmlah v15.8h, v13.8h, v14.h[7]         : sqrdmlah %q13 %q14 $0x07 $0x01 -> %q15
+2f82d020 : sqrdmlah v0.2s, v1.2s, v2.s[0]            : sqrdmlah %d1 %d2 $0x00 $0x02 -> %d0
+2fa2d020 : sqrdmlah v0.2s, v1.2s, v2.s[1]            : sqrdmlah %d1 %d2 $0x01 $0x02 -> %d0
+2f82d820 : sqrdmlah v0.2s, v1.2s, v2.s[2]            : sqrdmlah %d1 %d2 $0x02 $0x02 -> %d0
+2fa2d820 : sqrdmlah v0.2s, v1.2s, v2.s[3]            : sqrdmlah %d1 %d2 $0x03 $0x02 -> %d0
+2fa9d90a : sqrdmlah v10.2s, v8.2s, v9.s[3]           : sqrdmlah %d8 %d9 $0x03 $0x02 -> %d10
+2fb3da54 : sqrdmlah v20.2s, v18.2s, v19.s[3]         : sqrdmlah %d18 %d19 $0x03 $0x02 -> %d20
+2fbddb9e : sqrdmlah v30.2s, v28.2s, v29.s[3]         : sqrdmlah %d28 %d29 $0x03 $0x02 -> %d30
+6f82d020 : sqrdmlah v0.4s, v1.4s, v2.s[0]            : sqrdmlah %q1 %q2 $0x00 $0x02 -> %q0
+6fa2d020 : sqrdmlah v0.4s, v1.4s, v2.s[1]            : sqrdmlah %q1 %q2 $0x01 $0x02 -> %q0
+6f82d820 : sqrdmlah v0.4s, v1.4s, v2.s[2]            : sqrdmlah %q1 %q2 $0x02 $0x02 -> %q0
+6fa2d820 : sqrdmlah v0.4s, v1.4s, v2.s[3]            : sqrdmlah %q1 %q2 $0x03 $0x02 -> %q0
+6fa9d90a : sqrdmlah v10.4s, v8.4s, v9.s[3]           : sqrdmlah %q8 %q9 $0x03 $0x02 -> %q10
+6fb3da54 : sqrdmlah v20.4s, v18.4s, v19.s[3]         : sqrdmlah %q18 %q19 $0x03 $0x02 -> %q20
+6fbddb9e : sqrdmlah v30.4s, v28.4s, v29.s[3]         : sqrdmlah %q28 %q29 $0x03 $0x02 -> %q30
 
 # SQNEG <V><d>, <V><n>
 7e207820 : sqneg b0, b1                              : sqneg  %b1 -> %b0
