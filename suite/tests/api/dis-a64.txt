@@ -2591,6 +2591,38 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 1e75100a : fmov d10, #-12.0000000                   : fmov   $-12.000000 -> %d10
 1e75301e : fmov d30, #-12.5000000                   : fmov   $-12.500000 -> %d30
 1e61301f : fmov d31, #3.125000000                   : fmov   $3.125000 -> %d31
+1e260001 : fmov w1, s0                              : fmov   %s0 -> %w1
+1e260043 : fmov w3, s2                              : fmov   %s2 -> %w3
+1e260085 : fmov w5, s4                              : fmov   %s4 -> %w5
+1e2600c7 : fmov w7, s6                              : fmov   %s6 -> %w7
+1e260109 : fmov w9, s8                              : fmov   %s8 -> %w9
+1e26014b : fmov w11, s10                            : fmov   %s10 -> %w11
+1e26018d : fmov w13, s12                            : fmov   %s12 -> %w13
+1e2601cf : fmov w15, s14                            : fmov   %s14 -> %w15
+1e260211 : fmov w17, s16                            : fmov   %s16 -> %w17
+1e260253 : fmov w19, s18                            : fmov   %s18 -> %w19
+1e260295 : fmov w21, s20                            : fmov   %s20 -> %w21
+1e2602d7 : fmov w23, s22                            : fmov   %s22 -> %w23
+1e260319 : fmov w25, s24                            : fmov   %s24 -> %w25
+1e26035b : fmov w27, s26                            : fmov   %s26 -> %w27
+1e26039d : fmov w29, s28                            : fmov   %s28 -> %w29
+1e2603c1 : fmov w1, s30                             : fmov   %s30 -> %w1
+9e660001 : fmov x1, d0                              : fmov   %d0 -> %x1
+9e660043 : fmov x3, d2                              : fmov   %d2 -> %x3
+9e660085 : fmov x5, d4                              : fmov   %d4 -> %x5
+9e6600c7 : fmov x7, d6                              : fmov   %d6 -> %x7
+9e660109 : fmov x9, d8                              : fmov   %d8 -> %x9
+9e66014b : fmov x11, d10                            : fmov   %d10 -> %x11
+9e66018d : fmov x13, d12                            : fmov   %d12 -> %x13
+9e6601cf : fmov x15, d14                            : fmov   %d14 -> %x15
+9e660211 : fmov x17, d16                            : fmov   %d16 -> %x17
+9e660253 : fmov x19, d18                            : fmov   %d18 -> %x19
+9e660295 : fmov x21, d20                            : fmov   %d20 -> %x21
+9e6602d7 : fmov x23, d22                            : fmov   %d22 -> %x23
+9e660319 : fmov x25, d24                            : fmov   %d24 -> %x25
+9e66035b : fmov x27, d26                            : fmov   %d26 -> %x27
+9e66039d : fmov x29, d28                            : fmov   %d28 -> %x29
+9e6603c1 : fmov x1, d30                             : fmov   %d30 -> %x1
 
 1f5fc7ad : fmsub d13, d29, d31, d17                 : fmsub  %d29 %d31 %d17 -> %d13
 1f1fc7ad : fmsub s13, s29, s31, s17                 : fmsub  %s29 %s31 %s17 -> %s13
@@ -2656,9 +2688,72 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 1ef78a6b : fnmul h11, h19, h23                      : fnmul  %h19 %h23 -> %h11
 
 # FRECPE <Hd>, <Hn>
-5ef9d820 : frecpe h0, h1                            : frecpe %h1 -> %h0
-5ea1d820 : frecpe s0, s1                            : frecpe %s1 -> %s0
-5ee1d820 : frecpe d0, d1                            : frecpe %d1 -> %d0
+5ee1d820 : frecpe d0, d1                      : frecpe %d1 -> %d0
+5ee1d843 : frecpe d3, d2                      : frecpe %d2 -> %d3
+5ee1d8a4 : frecpe d4, d5                      : frecpe %d5 -> %d4
+5ee1d8c7 : frecpe d7, d6                      : frecpe %d6 -> %d7
+5ee1d928 : frecpe d8, d9                      : frecpe %d9 -> %d8
+5ee1d94b : frecpe d11, d10                    : frecpe %d10 -> %d11
+5ee1d9ac : frecpe d12, d13                    : frecpe %d13 -> %d12
+5ee1d9cf : frecpe d15, d14                    : frecpe %d14 -> %d15
+5ee1da30 : frecpe d16, d17                    : frecpe %d17 -> %d16
+5ee1da53 : frecpe d19, d18                    : frecpe %d18 -> %d19
+5ee1dab4 : frecpe d20, d21                    : frecpe %d21 -> %d20
+5ee1dad7 : frecpe d23, d22                    : frecpe %d22 -> %d23
+5ee1db38 : frecpe d24, d25                    : frecpe %d25 -> %d24
+5ee1db5b : frecpe d27, d26                    : frecpe %d26 -> %d27
+5ee1dbbc : frecpe d28, d29                    : frecpe %d29 -> %d28
+5ee1dbdf : frecpe d31, d30                    : frecpe %d30 -> %d31
+5ea1d820 : frecpe s0, s1                      : frecpe %s1 -> %s0
+5ea1d843 : frecpe s3, s2                      : frecpe %s2 -> %s3
+5ea1d8a4 : frecpe s4, s5                      : frecpe %s5 -> %s4
+5ea1d8c7 : frecpe s7, s6                      : frecpe %s6 -> %s7
+5ea1d928 : frecpe s8, s9                      : frecpe %s9 -> %s8
+5ea1d94b : frecpe s11, s10                    : frecpe %s10 -> %s11
+5ea1d9ac : frecpe s12, s13                    : frecpe %s13 -> %s12
+5ea1d9cf : frecpe s15, s14                    : frecpe %s14 -> %s15
+5ea1da30 : frecpe s16, s17                    : frecpe %s17 -> %s16
+5ea1da53 : frecpe s19, s18                    : frecpe %s18 -> %s19
+5ea1dab4 : frecpe s20, s21                    : frecpe %s21 -> %s20
+5ea1dad7 : frecpe s23, s22                    : frecpe %s22 -> %s23
+5ea1db38 : frecpe s24, s25                    : frecpe %s25 -> %s24
+5ea1db5b : frecpe s27, s26                    : frecpe %s26 -> %s27
+5ea1dbbc : frecpe s28, s29                    : frecpe %s29 -> %s28
+5ea1dbdf : frecpe s31, s30                    : frecpe %s30 -> %s31
+5ef9d820 : frecpe h0, h1                      : frecpe %h1 -> %h0
+5ef9d843 : frecpe h3, h2                      : frecpe %h2 -> %h3
+5ef9d8a4 : frecpe h4, h5                      : frecpe %h5 -> %h4
+5ef9d8c7 : frecpe h7, h6                      : frecpe %h6 -> %h7
+5ef9d928 : frecpe h8, h9                      : frecpe %h9 -> %h8
+5ef9d94b : frecpe h11, h10                    : frecpe %h10 -> %h11
+5ef9d9ac : frecpe h12, h13                    : frecpe %h13 -> %h12
+5ef9d9cf : frecpe h15, h14                    : frecpe %h14 -> %h15
+5ef9da30 : frecpe h16, h17                    : frecpe %h17 -> %h16
+5ef9da53 : frecpe h19, h18                    : frecpe %h18 -> %h19
+5ef9dab4 : frecpe h20, h21                    : frecpe %h21 -> %h20
+5ef9dad7 : frecpe h23, h22                    : frecpe %h22 -> %h23
+5ef9db38 : frecpe h24, h25                    : frecpe %h25 -> %h24
+5ef9db5b : frecpe h27, h26                    : frecpe %h26 -> %h27
+5ef9dbbc : frecpe h28, h29                    : frecpe %h29 -> %h28
+5ef9dbdf : frecpe h31, h30                    : frecpe %h30 -> %h31
+
+# FRECPE <Vd>.<T>, <Vn>.<T>
+0ea1d841 : frecpe  v1.2s, v2.2s                     : frecpe %d2 $0x02 -> %d1
+4ee1d864 : frecpe  v4.2d, v3.2d                     : frecpe %q3 $0x03 -> %q4
+4ea1d8c5 : frecpe  v5.4s, v6.4s                     : frecpe %q6 $0x02 -> %q5
+4ee1d8e8 : frecpe  v8.2d, v7.2d                     : frecpe %q7 $0x03 -> %q8
+0ea1d949 : frecpe  v9.2s, v10.2s                    : frecpe %d10 $0x02 -> %d9
+4ee1d96c : frecpe  v12.2d, v11.2d                   : frecpe %q11 $0x03 -> %q12
+4ea1d9cd : frecpe  v13.4s, v14.4s                   : frecpe %q14 $0x02 -> %q13
+4ee1d9f0 : frecpe  v16.2d, v15.2d                   : frecpe %q15 $0x03 -> %q16
+0ea1da51 : frecpe  v17.2s, v18.2s                   : frecpe %d18 $0x02 -> %d17
+4ee1da74 : frecpe  v20.2d, v19.2d                   : frecpe %q19 $0x03 -> %q20
+4ea1dad5 : frecpe  v21.4s, v22.4s                   : frecpe %q22 $0x02 -> %q21
+4ee1daf8 : frecpe  v24.2d, v23.2d                   : frecpe %q23 $0x03 -> %q24
+0ea1db59 : frecpe  v25.2s, v26.2s                   : frecpe %d26 $0x02 -> %d25
+4ee1db7c : frecpe  v28.2d, v27.2d                   : frecpe %q27 $0x03 -> %q28
+4ea1dbdd : frecpe  v29.4s, v30.4s                   : frecpe %q30 $0x02 -> %q29
+4ee1d83f : frecpe  v31.2d, v1.2d                    : frecpe %q1 $0x03 -> %q31
 
 0e523f58 : frecps v24.4h, v26.4h, v18.4h            : frecps %d26 %d18 $0x01 -> %d24
 4e523f58 : frecps v24.8h, v26.8h, v18.8h            : frecps %q26 %q18 $0x01 -> %q24
@@ -2710,9 +2805,72 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 4ea6ff8a : frsqrts v10.4s, v28.4s, v6.4s            : frsqrts %q28 %q6 $0x02 -> %q10
 4ee6ff8a : frsqrts v10.2d, v28.2d, v6.2d            : frsqrts %q28 %q6 $0x03 -> %q10
 
-1e61c23f : fsqrt d31, d17                           : fsqrt  %d17 -> %d31
-1e21c23f : fsqrt s31, s17                           : fsqrt  %s17 -> %s31
-1ee1c23f : fsqrt h31, h17                           : fsqrt  %h17 -> %h31
+1e61c020 : fsqrt d0, d1                      : fsqrt  %d1 -> %d0
+1e61c043 : fsqrt d3, d2                      : fsqrt  %d2 -> %d3
+1e61c0a4 : fsqrt d4, d5                      : fsqrt  %d5 -> %d4
+1e61c0c7 : fsqrt d7, d6                      : fsqrt  %d6 -> %d7
+1e61c128 : fsqrt d8, d9                      : fsqrt  %d9 -> %d8
+1e61c14b : fsqrt d11, d10                    : fsqrt  %d10 -> %d11
+1e61c1ac : fsqrt d12, d13                    : fsqrt  %d13 -> %d12
+1e61c1cf : fsqrt d15, d14                    : fsqrt  %d14 -> %d15
+1e61c230 : fsqrt d16, d17                    : fsqrt  %d17 -> %d16
+1e61c253 : fsqrt d19, d18                    : fsqrt  %d18 -> %d19
+1e61c2b4 : fsqrt d20, d21                    : fsqrt  %d21 -> %d20
+1e61c2d7 : fsqrt d23, d22                    : fsqrt  %d22 -> %d23
+1e61c338 : fsqrt d24, d25                    : fsqrt  %d25 -> %d24
+1e61c35b : fsqrt d27, d26                    : fsqrt  %d26 -> %d27
+1e61c3bc : fsqrt d28, d29                    : fsqrt  %d29 -> %d28
+1e61c3df : fsqrt d31, d30                    : fsqrt  %d30 -> %d31
+1e21c020 : fsqrt s0, s1                      : fsqrt  %s1 -> %s0
+1e21c043 : fsqrt s3, s2                      : fsqrt  %s2 -> %s3
+1e21c0a4 : fsqrt s4, s5                      : fsqrt  %s5 -> %s4
+1e21c0c7 : fsqrt s7, s6                      : fsqrt  %s6 -> %s7
+1e21c128 : fsqrt s8, s9                      : fsqrt  %s9 -> %s8
+1e21c14b : fsqrt s11, s10                    : fsqrt  %s10 -> %s11
+1e21c1ac : fsqrt s12, s13                    : fsqrt  %s13 -> %s12
+1e21c1cf : fsqrt s15, s14                    : fsqrt  %s14 -> %s15
+1e21c230 : fsqrt s16, s17                    : fsqrt  %s17 -> %s16
+1e21c253 : fsqrt s19, s18                    : fsqrt  %s18 -> %s19
+1e21c2b4 : fsqrt s20, s21                    : fsqrt  %s21 -> %s20
+1e21c2d7 : fsqrt s23, s22                    : fsqrt  %s22 -> %s23
+1e21c338 : fsqrt s24, s25                    : fsqrt  %s25 -> %s24
+1e21c35b : fsqrt s27, s26                    : fsqrt  %s26 -> %s27
+1e21c3bc : fsqrt s28, s29                    : fsqrt  %s29 -> %s28
+1e21c3df : fsqrt s31, s30                    : fsqrt  %s30 -> %s31
+1ee1c020 : fsqrt h0, h1                      : fsqrt  %h1 -> %h0
+1ee1c043 : fsqrt h3, h2                      : fsqrt  %h2 -> %h3
+1ee1c0a4 : fsqrt h4, h5                      : fsqrt  %h5 -> %h4
+1ee1c0c7 : fsqrt h7, h6                      : fsqrt  %h6 -> %h7
+1ee1c128 : fsqrt h8, h9                      : fsqrt  %h9 -> %h8
+1ee1c14b : fsqrt h11, h10                    : fsqrt  %h10 -> %h11
+1ee1c1ac : fsqrt h12, h13                    : fsqrt  %h13 -> %h12
+1ee1c1cf : fsqrt h15, h14                    : fsqrt  %h14 -> %h15
+1ee1c230 : fsqrt h16, h17                    : fsqrt  %h17 -> %h16
+1ee1c253 : fsqrt h19, h18                    : fsqrt  %h18 -> %h19
+1ee1c2b4 : fsqrt h20, h21                    : fsqrt  %h21 -> %h20
+1ee1c2d7 : fsqrt h23, h22                    : fsqrt  %h22 -> %h23
+1ee1c338 : fsqrt h24, h25                    : fsqrt  %h25 -> %h24
+1ee1c35b : fsqrt h27, h26                    : fsqrt  %h26 -> %h27
+1ee1c3bc : fsqrt h28, h29                    : fsqrt  %h29 -> %h28
+1ee1c3df : fsqrt h31, h30                    : fsqrt  %h30 -> %h31
+
+# FSQRT <Vd>.<T>, <Vn>.<T>
+2ea1f841 : fsqrt v1.2s, v2.2s                       : fsqrt  %d2 $0x02 -> %d1
+6ee1f864 : fsqrt v4.2d, v3.2d                       : fsqrt  %q3 $0x03 -> %q4
+6ea1f8c5 : fsqrt v5.4s, v6.4s                       : fsqrt  %q6 $0x02 -> %q5
+6ee1f8e8 : fsqrt v8.2d, v7.2d                       : fsqrt  %q7 $0x03 -> %q8
+2ea1f949 : fsqrt v9.2s, v10.2s                      : fsqrt  %d10 $0x02 -> %d9
+6ee1f96c : fsqrt v12.2d, v11.2d                     : fsqrt  %q11 $0x03 -> %q12
+6ea1f9cd : fsqrt v13.4s, v14.4s                     : fsqrt  %q14 $0x02 -> %q13
+6ee1f9f0 : fsqrt v16.2d, v15.2d                     : fsqrt  %q15 $0x03 -> %q16
+2ea1fa51 : fsqrt v17.2s, v18.2s                     : fsqrt  %d18 $0x02 -> %d17
+6ee1fa74 : fsqrt v20.2d, v19.2d                     : fsqrt  %q19 $0x03 -> %q20
+6ea1fad5 : fsqrt v21.4s, v22.4s                     : fsqrt  %q22 $0x02 -> %q21
+6ee1faf8 : fsqrt v24.2d, v23.2d                     : fsqrt  %q23 $0x03 -> %q24
+2ea1fb59 : fsqrt v25.2s, v26.2s                     : fsqrt  %d26 $0x02 -> %d25
+6ee1fb7c : fsqrt v28.2d, v27.2d                     : fsqrt  %q27 $0x03 -> %q28
+6ea1fbdd : fsqrt v29.4s, v30.4s                     : fsqrt  %q30 $0x02 -> %q29
+6ee1f83f : fsqrt v31.2d, v1.2d                      : fsqrt  %q1 $0x03 -> %q31
 
 0ed8178f : fsub v15.4h, v28.4h, v24.4h              : fsub   %d28 %d24 $0x01 -> %d15
 4ed8178f : fsub v15.8h, v28.8h, v24.8h              : fsub   %q28 %q24 $0x01 -> %q15
