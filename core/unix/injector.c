@@ -850,8 +850,13 @@ dr_inject_process_exit(void *data, bool terminate)
          * the child hasn't exited.  The status returned is probably not useful,
          * but the caller shouldn't look at it if they haven't waited for the
          * app to terminate.
+         * Return immidiately if we are under INJECT_PTRACE because we can't wait
+         * for detached non-child process.
          */
-        waitpid(info->pid, &status, WNOHANG);
+        if (info->method != INJECT_PTRACE)
+            waitpid(info->pid, &status, WNOHANG);
+        else
+            status = WEXITSTATUS(info->exitcode);
     }
     if (info->pipe_fd != 0)
         close(info->pipe_fd);
@@ -1511,11 +1516,24 @@ is_prev_bytes_syscall(process_id_t pid, app_pc src_pc)
         *(unsigned short *)instr_bytes == INT80_AS_SHORT)
         return true;
 #            endif
-#        endif
+#        endif /* X86 */
     return false;
 }
-#    endif
+#    endif /* X86 */
 
+/* i#38: Quick explaination for PC offsetting and NOP sleds:
+ * If ptrace happens in middle of blocking syscalls, tracer will get PC address at
+ * the next instruction after syscall, but will set it back to previous syscall
+ * instruction by subtracting PC (PC -= (byte)sizeof(syscall)).
+ * We can then issue PTRACE_SINGLESTEP to wait for syscall completion and
+ * get out of syscall context to get normal ptrace PC behaviours (wait_syscall flag).
+ * Else we start injection immidiately. This cause PC to subtract sizeof(syscall) bytes
+ * every time we continue for the rest of ptrace session until PTRACE_DETACH.
+ * To compensate we set PC += (byte)sizeof(syscall) before PTRACE_CONTs
+ * and add nop sleds before our shellcodes and DR entry point.
+ * Errno masking also required to minimize app breakage.
+ * Detailed infomations in issue page.
+ */
 bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path)
 {
