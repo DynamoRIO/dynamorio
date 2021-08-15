@@ -97,14 +97,14 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
     # Recursive function to generate nested conditionals in main decoder.
     def gen(c, pats, depth):
         def reorder_key(t):
-            f, v, m, t = t
-            return (m, t, f, v)
+            f, v, m, t, p = t
+            return (m, t, f, v, p)
 
         def indent_append(text):
             c.append('{}{}'.format("    " * depth, text))
 
         if len(pats) < 4:
-            for (f, v, m, t) in sorted(pats, key = reorder_key):
+            for (f, v, m, t, p) in sorted(pats, key = reorder_key):
                 indent_append('if ((enc & 0x%08x) == 0x%08x)'  %
                               (((1 << N) - 1) & ~v, f))
                 if opc_props[m] != 'n':
@@ -132,7 +132,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
         for b in range(N):
             x0 = 0
             x1 = 0
-            for (f, v, _, _) in pats:
+            for (f, v, _, _, _) in pats:
                 if (1 << b) & (~f | v):
                     x0 += 1
                 if (1 << b) & (f | v):
@@ -145,7 +145,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
         pats0 = []
         pats1 = []
         for p in pats:
-            (f, v, _, _) = p
+            (f, v, _, _, _) = p
             if (1 << best_b) & (~f | v):
                 pats0.append(p)
             if (1 << best_b) & (f | v):
@@ -232,7 +232,7 @@ def generate_encoder(patterns, opndsettab, opndtab):
         c.append('')
     case = dict()
     for p in patterns:
-        (b, m, mn, f) = p
+        (b, m, mn, f, _) = p
         if not mn in case:
             case[mn] = []
         case[mn].append(p)
@@ -244,19 +244,19 @@ def generate_encoder(patterns, opndsettab, opndtab):
           '    switch (instr->opcode) {']
 
     def reorder_key(t):
-        b, m, mn, f = t
-        return (mn, f, b, m)
+        b, m, mn, f, p = t
+        return (mn, f, b, m, p)
 
     for mn in sorted(case):
         c.append('    case OP_%s:' % mn)
         pats = sorted(case[mn], key = reorder_key)
         pat1 = pats.pop()
         for p in pats:
-            (b, m, mn, f) = p
+            (b, m, mn, f, _) = p
             c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
             c.append('        if (enc != ENCFAIL)')
             c.append('            return enc;')
-        (b, m, mn, f) = pat1
+        (b, m, mn, f, _) = pat1
         c.append('        return encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
     c += ['    }',
           '    return ENCFAIL;',
@@ -338,6 +338,39 @@ def generate_opcode_names(patterns):
           '#endif /* OPCODE_NAMES_H */']
     return '\n'.join(c) + '\n'
 
+def generate_opcode_opnd_pairs(patterns):
+    c = ['#ifndef OPCODE_OPND_PAIRS_H',
+         '#define OPCODE_OPND_PAIRS_H 1',
+         '',
+         '#include <stdint.h>',
+         '',
+         'typedef struct {',
+         '  uint32_t opcode;',
+         '  uint32_t opnd;',
+         '} opcode_opnd_pair;',
+         '',
+         'const opcode_opnd_pair fuzz_opcode_opnd_pairs[] = {']
+    # Exclude instructions with side-effects and branch instructions.
+    # Particularly,  exclude: i) Load/Stores (opcode: x1x0);
+    # ii) Branches, Exception Generating and System instructions (opcode: 101x);
+    # iii) SVE memory (opcode: 0010 and 1 for the most significant bit).
+    # The allowed instructions include all the Data Processing instructions (including
+    # the FP and SIMD ones) and the non-memory SVE instructions.
+    excluded_opcodes = re.compile('^....1.0.*|^...101..*|^1..0010.*')
+    cnt = 0;
+    for p in patterns:
+        pattern = p[4]
+        if excluded_opcodes.fullmatch(pattern):
+            continue;
+        cnt += 1;
+        c.append('/* %s */ {%s, %s},' % (p[2], bin(p[0]), bin(p[1])))
+    c += ['};',
+          '']
+    c.append('#define FUZZ_INST_CNT %d' % (cnt))
+    c += ['',
+          '#endif /* OPCODE_OPND_PAIRS_H */']
+    return '\n'.join(c) + '\n'
+
 def write_if_changed(file, data):
     try:
         if open(file, 'r').read() == data:
@@ -371,7 +404,7 @@ def read_file(path):
             (pattern, nzcv_rw_flag, opcode, dsts) = (words[0], words[1], words[2], words[3:])
             opcode_bits = int(re.sub("x", "0", pattern), 2)
             opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
-            patterns.append((opcode_bits, opnd_bits, opcode, (dsts, srcs)))
+            patterns.append((opcode_bits, opnd_bits, opcode, (dsts, srcs), pattern))
             opc_props[opcode] = nzcv_rw_flag
             continue
         if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+", line):
@@ -379,7 +412,7 @@ def read_file(path):
             (pattern, nzcv_rw_flag, opcode, opndset) = line.split()
             opcode_bits = int(re.sub("x", "0", pattern), 2)
             opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
-            patterns.append((opcode_bits, opnd_bits, opcode, opndset))
+            patterns.append((opcode_bits, opnd_bits, opcode, opndset, pattern))
             opc_props[opcode] = nzcv_rw_flag
             continue
         raise Exception('Cannot parse line: %s' % line)
@@ -397,7 +430,7 @@ def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset):
 
 def consistency_check(patterns, opndtab):
     for p in patterns:
-        (opcode_bits, opnd_bits, opcode, opndset) = p
+        (opcode_bits, opnd_bits, opcode, opndset, _) = p
         if not type(opndset) is str:
             (dsts, srcs) = opndset
             bits = opnd_bits
@@ -446,7 +479,7 @@ def reorder_opnds(fixed, dsts, srcs, opndtab):
 # smallest matching instruction word.
 def opndset_naming(patterns, opndtab):
     opndsets = dict() # maps (dst, src, opnd_bits) to smallest pattern seen so far
-    for (opcode_bits, opnd_bits, opcode, opndset) in patterns:
+    for (opcode_bits, opnd_bits, opcode, opndset, _) in patterns:
         if not type(opndset) is str:
             (dsts, srcs) = opndset
             h = (' '.join(dsts), ' '.join(srcs), opnd_bits)
@@ -455,7 +488,7 @@ def opndset_naming(patterns, opndtab):
 
     opndsettab = dict() # maps generated name to original opndsets
     new_patterns = []
-    for (opcode_bits, opnd_bits, opcode, opndset) in patterns:
+    for (opcode_bits, opnd_bits, opcode, opndset, pat) in patterns:
         if type(opndset) is str:
             new_opndset = '_' + opndset
         else:
@@ -465,7 +498,7 @@ def opndset_naming(patterns, opndtab):
             reordered = reorder_opnds(ONES & ~opnd_bits, dsts, srcs, opndtab)
             if not new_opndset in opndsettab:
                 opndsettab[new_opndset] = reordered
-        new_patterns.append((opcode_bits, opnd_bits, opcode, new_opndset))
+        new_patterns.append((opcode_bits, opnd_bits, opcode, new_opndset, pat))
     return (new_patterns, opndsettab)
 
 def main():
@@ -484,6 +517,8 @@ def main():
                      header + generate_opcodes(patterns))
     write_if_changed(os.path.join(sys.argv[2], 'opcode_names.h'),
                      header + generate_opcode_names(patterns))
+    write_if_changed(os.path.join(sys.argv[2], 'opcode_opnd_pairs.h'),
+                     header + generate_opcode_opnd_pairs(patterns))
 
 if __name__ == "__main__":
     main()

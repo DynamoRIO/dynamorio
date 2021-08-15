@@ -36,6 +36,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+#include "opcode_opnd_pairs.h"
 #include "tools.h"
 #include <assert.h>
 #include <setjmp.h>
