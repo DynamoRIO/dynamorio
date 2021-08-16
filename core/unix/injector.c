@@ -838,7 +838,7 @@ dr_inject_process_exit(void *data, bool terminate)
         }
         /* Do a blocking wait to get the real status code.  This shouldn't take
          * long since we just sent an unblockable SIGKILL.
-         * Return immidiately if we are under INJECT_PTRACE because we can't wait
+         * Return immediately if we are under INJECT_PTRACE because we can't wait
          * for detached non-child process.
          */
         if (info->method != INJECT_PTRACE)
@@ -850,7 +850,7 @@ dr_inject_process_exit(void *data, bool terminate)
          * the child hasn't exited.  The status returned is probably not useful,
          * but the caller shouldn't look at it if they haven't waited for the
          * app to terminate.
-         * Return immidiately if we are under INJECT_PTRACE because we can't wait
+         * Return immediately if we are under INJECT_PTRACE because we can't wait
          * for detached non-child process.
          */
         if (info->method != INJECT_PTRACE)
