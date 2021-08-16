@@ -60,7 +60,7 @@ class Opndset:
         self.srcs = srcs
         self.enc_order = enc_order
 
-def generate_decoder(patterns, opndsettab, opndtab):
+def generate_decoder(patterns, opndsettab, opndtab, opc_props):
 
     def generate_opndset_decoders(c, opndsettab):
         for name in sorted(opndsettab):
@@ -100,13 +100,31 @@ def generate_decoder(patterns, opndsettab, opndtab):
             f, v, m, t = t
             return (m, t, f, v)
 
-        indent = "    " * depth
+        def indent_append(text):
+            c.append('{}{}'.format("    " * depth, text))
+
         if len(pats) < 4:
             for (f, v, m, t) in sorted(pats, key = reorder_key):
-                c.append('%sif ((enc & 0x%08x) == 0x%08x)' %
-                         (indent, ((1 << N) - 1) & ~v, f))
-                c.append('%s    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
-                         (indent, t, m))
+                indent_append('if ((enc & 0x%08x) == 0x%08x)'  %
+                              (((1 << N) - 1) & ~v, f))
+                if opc_props[m] != 'n':
+                    c[-1] = c[-1] + ' {'
+                    # Uncomment this for debug output in generated code:
+                    # indent_append('    // %s->%s' % (m, opc_props[m]))
+                    if opc_props[m] == 'r':
+                        indent_append('    instr->eflags |= EFLAGS_READ_NZCV;')
+                    elif opc_props[m] == 'w':
+                        indent_append('    instr->eflags |= EFLAGS_WRITE_NZCV;')
+                    elif opc_props[m] in ["rw", "wr"]:
+                        indent_append('    instr->eflags |= (EFLAGS_READ_NZCV | EFLAGS_WRITE_NZCV);')
+                    elif opc_props[m] in ["er", "ew"]:
+                        indent_append('    // instr->eflags handling for %s is manually handled in codec.c\'s decode_common().' % (m))
+                    else:
+                        indent_append('    ASSERT(0);')
+                indent_append('    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
+                              (t, m))
+                if opc_props[m] != 'n':
+                    indent_append('}')
             return
         # Look for best bit to test. We aim to reduce the number of patterns remaining.
         best_b = -1
@@ -123,7 +141,7 @@ def generate_decoder(patterns, opndsettab, opndtab):
             if x < best_x:
                 best_b = b
                 best_x = x
-        c.append('%sif ((enc >> %d & 1) == 0) {' % (indent, best_b))
+        indent_append('if ((enc >> %d & 1) == 0) {' % (best_b))
         pats0 = []
         pats1 = []
         for p in pats:
@@ -133,9 +151,9 @@ def generate_decoder(patterns, opndsettab, opndtab):
             if (1 << best_b) & (f | v):
                 pats1.append(p)
         gen(c, pats0, depth + 1)
-        c.append('%s} else {' % indent)
+        indent_append('} else {')
         gen(c, pats1, depth + 1)
-        c.append('%s}' % indent)
+        indent_append('}')
 
     c = []
     generate_opndset_decoders(c, opndsettab)
@@ -331,6 +349,7 @@ def write_if_changed(file, data):
 def read_file(path):
     file = open(path, 'r')
     opndtab = dict()
+    opc_props = dict()
     patterns = []
     for line in file:
         # Remove comment and trailing spaces.
@@ -345,24 +364,26 @@ def read_file(path):
             opndtab[opndtype] = Opnd(int(re.sub("x", "1", re.sub("[^x]", "0", mask)), 2),
                                      int(re.sub("\?", "1", re.sub("[^\?]", "0", mask)), 2))
             continue
-        if re.match("^[01x]{32} +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$", line):
+        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$", line):
             # Syntax: pattern opcode opndtype* : opndtype*
             (str1, str2) = line.split(":")
             (words, srcs) = (str1.split(), str2.split())
-            (pattern, opcode, dsts) = (words[0], words[1], words[2:])
+            (pattern, nzcv_rw_flag, opcode, dsts) = (words[0], words[1], words[2], words[3:])
             opcode_bits = int(re.sub("x", "0", pattern), 2)
             opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
             patterns.append((opcode_bits, opnd_bits, opcode, (dsts, srcs)))
+            opc_props[opcode] = nzcv_rw_flag
             continue
-        if re.match("^[01x]{32} +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+", line):
+        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+", line):
             # Syntax: pattern opcode opndset
-            (pattern, opcode, opndset) = line.split()
+            (pattern, nzcv_rw_flag, opcode, opndset) = line.split()
             opcode_bits = int(re.sub("x", "0", pattern), 2)
             opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
             patterns.append((opcode_bits, opnd_bits, opcode, opndset))
+            opc_props[opcode] = nzcv_rw_flag
             continue
         raise Exception('Cannot parse line: %s' % line)
-    return (patterns, opndtab)
+    return (patterns, opndtab, opc_props)
 
 def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset):
     p = ''
@@ -452,11 +473,11 @@ def main():
         print('Usage: codec.py path/to/codec.txt path/to/output_dir')
         sys.exit(1)
 
-    (patterns, opndtab) = read_file(sys.argv[1])
+    (patterns, opndtab, opc_props) = read_file(sys.argv[1])
     consistency_check(patterns, opndtab)
     (patterns, opndsettab) = opndset_naming(patterns, opndtab)
     write_if_changed(os.path.join(sys.argv[2], 'decode_gen.h'),
-                     header + generate_decoder(patterns, opndsettab, opndtab))
+                     header + generate_decoder(patterns, opndsettab, opndtab, opc_props))
     write_if_changed(os.path.join(sys.argv[2], 'encode_gen.h'),
                      header + generate_encoder(patterns, opndsettab, opndtab))
     write_if_changed(os.path.join(sys.argv[2], 'opcode_api.h'),
