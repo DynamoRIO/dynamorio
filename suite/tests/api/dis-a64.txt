@@ -4895,8 +4895,56 @@ f89ff3ff : prfum  #0x1f, [sp,#-1]         : prfum  $0x1f -0x01(%sp)
 6e6e420d : raddhn2 v13.8h, v16.4s, v14.4s           : raddhn2 %q16 %q14 $0x01 -> %q13
 6eae420d : raddhn2 v13.4s, v16.2d, v14.2d           : raddhn2 %q16 %q14 $0x02 -> %q13
 
-5ac00041 : rbit   w1, w2                  : rbit   %w2 -> %w1
-dac00041 : rbit   x1, x2                  : rbit   %x2 -> %x1
+5ac00020 : rbit w0, w1                               : rbit   %w1 -> %w0
+5ac00062 : rbit w2, w3                               : rbit   %w3 -> %w2
+5ac000a4 : rbit w4, w5                               : rbit   %w5 -> %w4
+5ac000e6 : rbit w6, w7                               : rbit   %w7 -> %w6
+5ac00128 : rbit w8, w9                               : rbit   %w9 -> %w8
+5ac0016a : rbit w10, w11                             : rbit   %w11 -> %w10
+5ac001ac : rbit w12, w13                             : rbit   %w13 -> %w12
+5ac001ee : rbit w14, w15                             : rbit   %w15 -> %w14
+5ac00230 : rbit w16, w17                             : rbit   %w17 -> %w16
+5ac00272 : rbit w18, w19                             : rbit   %w19 -> %w18
+5ac002b4 : rbit w20, w21                             : rbit   %w21 -> %w20
+5ac002f6 : rbit w22, w23                             : rbit   %w23 -> %w22
+5ac00338 : rbit w24, w25                             : rbit   %w25 -> %w24
+5ac0037a : rbit w26, w27                             : rbit   %w27 -> %w26
+5ac003bc : rbit w28, w29                             : rbit   %w29 -> %w28
+5ac0001e : rbit w30, w0                              : rbit   %w0 -> %w30
+dac00020 : rbit x0, x1                               : rbit   %x1 -> %x0
+dac00062 : rbit x2, x3                               : rbit   %x3 -> %x2
+dac000a4 : rbit x4, x5                               : rbit   %x5 -> %x4
+dac000e6 : rbit x6, x7                               : rbit   %x7 -> %x6
+dac00128 : rbit x8, x9                               : rbit   %x9 -> %x8
+dac0016a : rbit x10, x11                             : rbit   %x11 -> %x10
+dac001ac : rbit x12, x13                             : rbit   %x13 -> %x12
+dac001ee : rbit x14, x15                             : rbit   %x15 -> %x14
+dac00230 : rbit x16, x17                             : rbit   %x17 -> %x16
+dac00272 : rbit x18, x19                             : rbit   %x19 -> %x18
+dac002b4 : rbit x20, x21                             : rbit   %x21 -> %x20
+dac002f6 : rbit x22, x23                             : rbit   %x23 -> %x22
+dac00338 : rbit x24, x25                             : rbit   %x25 -> %x24
+dac0037a : rbit x26, x27                             : rbit   %x27 -> %x26
+dac003bc : rbit x28, x29                             : rbit   %x29 -> %x28
+dac0001e : rbit x30, x0                              : rbit   %x0 -> %x30
+
+# RBIT <Vd>.<T>, <Vn>.<T>
+2e605820 : rbit v0.8b, v1.8b                         : rbit   %d1 -> %d0
+6e605862 : rbit v2.16b, v3.16b                       : rbit   %q3 -> %q2
+2e6058a4 : rbit v4.8b, v5.8b                         : rbit   %d5 -> %d4
+6e6058e6 : rbit v6.16b, v7.16b                       : rbit   %q7 -> %q6
+2e605928 : rbit v8.8b, v9.8b                         : rbit   %d9 -> %d8
+6e60596a : rbit v10.16b, v11.16b                     : rbit   %q11 -> %q10
+2e6059ac : rbit v12.8b, v13.8b                       : rbit   %d13 -> %d12
+6e6059ee : rbit v14.16b, v15.16b                     : rbit   %q15 -> %q14
+2e605a30 : rbit v16.8b, v17.8b                       : rbit   %d17 -> %d16
+6e605a72 : rbit v18.16b, v19.16b                     : rbit   %q19 -> %q18
+2e605ab4 : rbit v20.8b, v21.8b                       : rbit   %d21 -> %d20
+6e605af6 : rbit v22.16b, v23.16b                     : rbit   %q23 -> %q22
+2e605b38 : rbit v24.8b, v25.8b                       : rbit   %d25 -> %d24
+6e605b7a : rbit v26.16b, v27.16b                     : rbit   %q27 -> %q26
+2e605bbc : rbit v28.8b, v29.8b                       : rbit   %d29 -> %d28
+6e605bfe : rbit v30.16b, v31.16b                     : rbit   %q31 -> %q30
 
 d65f0000 : ret    x0                      : ret    %x0
 d65f0040 : ret    x2                      : ret    %x2
@@ -4905,8 +4953,57 @@ d65f03e0 : ret    xzr                     : ret    %xzr
 5ac00841 : rev    w1, w2                  : rev    %w2 -> %w1
 dac00c41 : rev    x1, x2                  : rev    %x2 -> %x1
 
-5ac00441 : rev16  w1, w2                  : rev16  %w2 -> %w1
-dac00441 : rev16  x1, x2                  : rev16  %x2 -> %x1
+
+5ac00420 : rev16 w0, w1                              : rev16  %w1 -> %w0
+5ac00462 : rev16 w2, w3                              : rev16  %w3 -> %w2
+5ac004a4 : rev16 w4, w5                              : rev16  %w5 -> %w4
+5ac004e6 : rev16 w6, w7                              : rev16  %w7 -> %w6
+5ac00528 : rev16 w8, w9                              : rev16  %w9 -> %w8
+5ac0056a : rev16 w10, w11                            : rev16  %w11 -> %w10
+5ac005ac : rev16 w12, w13                            : rev16  %w13 -> %w12
+5ac005ee : rev16 w14, w15                            : rev16  %w15 -> %w14
+5ac00630 : rev16 w16, w17                            : rev16  %w17 -> %w16
+5ac00672 : rev16 w18, w19                            : rev16  %w19 -> %w18
+5ac006b4 : rev16 w20, w21                            : rev16  %w21 -> %w20
+5ac006f6 : rev16 w22, w23                            : rev16  %w23 -> %w22
+5ac00738 : rev16 w24, w25                            : rev16  %w25 -> %w24
+5ac0077a : rev16 w26, w27                            : rev16  %w27 -> %w26
+5ac007bc : rev16 w28, w29                            : rev16  %w29 -> %w28
+5ac0041e : rev16 w30, w0                             : rev16  %w0 -> %w30
+dac00420 : rev16 x0, x1                              : rev16  %x1 -> %x0
+dac00462 : rev16 x2, x3                              : rev16  %x3 -> %x2
+dac004a4 : rev16 x4, x5                              : rev16  %x5 -> %x4
+dac004e6 : rev16 x6, x7                              : rev16  %x7 -> %x6
+dac00528 : rev16 x8, x9                              : rev16  %x9 -> %x8
+dac0056a : rev16 x10, x11                            : rev16  %x11 -> %x10
+dac005ac : rev16 x12, x13                            : rev16  %x13 -> %x12
+dac005ee : rev16 x14, x15                            : rev16  %x15 -> %x14
+dac00630 : rev16 x16, x17                            : rev16  %x17 -> %x16
+dac00672 : rev16 x18, x19                            : rev16  %x19 -> %x18
+dac006b4 : rev16 x20, x21                            : rev16  %x21 -> %x20
+dac006f6 : rev16 x22, x23                            : rev16  %x23 -> %x22
+dac00738 : rev16 x24, x25                            : rev16  %x25 -> %x24
+dac0077a : rev16 x26, x27                            : rev16  %x27 -> %x26
+dac007bc : rev16 x28, x29                            : rev16  %x29 -> %x28
+dac0041e : rev16 x30, x0                             : rev16  %x0 -> %x30
+
+# REV16 <Vd>.<T>, <Vn>.<T>
+0e201820 : rev16 v0.8b, v1.8b                        : rev16  %d1 $0x00 -> %d0
+4e201862 : rev16 v2.16b, v3.16b                      : rev16  %q3 $0x00 -> %q2
+0e2018a4 : rev16 v4.8b, v5.8b                        : rev16  %d5 $0x00 -> %d4
+4e2018e6 : rev16 v6.16b, v7.16b                      : rev16  %q7 $0x00 -> %q6
+0e201928 : rev16 v8.8b, v9.8b                        : rev16  %d9 $0x00 -> %d8
+4e20196a : rev16 v10.16b, v11.16b                    : rev16  %q11 $0x00 -> %q10
+0e2019ac : rev16 v12.8b, v13.8b                      : rev16  %d13 $0x00 -> %d12
+4e2019ee : rev16 v14.16b, v15.16b                    : rev16  %q15 $0x00 -> %q14
+0e201a30 : rev16 v16.8b, v17.8b                      : rev16  %d17 $0x00 -> %d16
+4e201a72 : rev16 v18.16b, v19.16b                    : rev16  %q19 $0x00 -> %q18
+0e201ab4 : rev16 v20.8b, v21.8b                      : rev16  %d21 $0x00 -> %d20
+4e201af6 : rev16 v22.16b, v23.16b                    : rev16  %q23 $0x00 -> %q22
+0e201b38 : rev16 v24.8b, v25.8b                      : rev16  %d25 $0x00 -> %d24
+4e201b7a : rev16 v26.16b, v27.16b                    : rev16  %q27 $0x00 -> %q26
+0e201bbc : rev16 v28.8b, v29.8b                      : rev16  %d29 $0x00 -> %d28
+4e201bfe : rev16 v30.16b, v31.16b                    : rev16  %q31 $0x00 -> %q30
 
 dac00841 : rev32  x1, x2                  : rev32  %x2 -> %x1
 
@@ -5489,17 +5586,130 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4ea07820 : sqabs v0.4s, v1.4s                       : sqabs  %q1 $0x02 -> %q0
 4ee07820 : sqabs v0.2d, v1.2d                       : sqabs  %q1 $0x03 -> %q0
 
-0e3d0da0 : sqadd v0.8b, v13.8b, v29.8b              : sqadd  %d13 %d29 $0x00 -> %d0
-4e3d0da0 : sqadd v0.16b, v13.16b, v29.16b           : sqadd  %q13 %q29 $0x00 -> %q0
-0e7d0da0 : sqadd v0.4h, v13.4h, v29.4h              : sqadd  %d13 %d29 $0x01 -> %d0
-4e7d0da0 : sqadd v0.8h, v13.8h, v29.8h              : sqadd  %q13 %q29 $0x01 -> %q0
-0ebd0da0 : sqadd v0.2s, v13.2s, v29.2s              : sqadd  %d13 %d29 $0x02 -> %d0
-4ebd0da0 : sqadd v0.4s, v13.4s, v29.4s              : sqadd  %q13 %q29 $0x02 -> %q0
-4efd0da0 : sqadd v0.2d, v13.2d, v29.2d              : sqadd  %q13 %q29 $0x03 -> %q0
-042a123f : sqadd z31.b, z17.b, z10.b                : sqadd  %z17 %z10 $0x00 -> %z31
-046a123f : sqadd z31.h, z17.h, z10.h                : sqadd  %z17 %z10 $0x01 -> %z31
-04aa123f : sqadd z31.s, z17.s, z10.s                : sqadd  %z17 %z10 $0x02 -> %z31
-04ea123f : sqadd z31.d, z17.d, z10.d                : sqadd  %z17 %z10 $0x03 -> %z31
+
+0e220c20 : sqadd v0.8b, v1.8b, v2.8b                 : sqadd  %d1 %d2 $0x00 -> %d0
+0e250c83 : sqadd v3.8b, v4.8b, v5.8b                 : sqadd  %d4 %d5 $0x00 -> %d3
+0e280ce6 : sqadd v6.8b, v7.8b, v8.8b                 : sqadd  %d7 %d8 $0x00 -> %d6
+0e2b0d49 : sqadd v9.8b, v10.8b, v11.8b               : sqadd  %d10 %d11 $0x00 -> %d9
+0e2e0dac : sqadd v12.8b, v13.8b, v14.8b              : sqadd  %d13 %d14 $0x00 -> %d12
+0e310e0f : sqadd v15.8b, v16.8b, v17.8b              : sqadd  %d16 %d17 $0x00 -> %d15
+0e340e72 : sqadd v18.8b, v19.8b, v20.8b              : sqadd  %d19 %d20 $0x00 -> %d18
+0e370ed5 : sqadd v21.8b, v22.8b, v23.8b              : sqadd  %d22 %d23 $0x00 -> %d21
+0e3a0f38 : sqadd v24.8b, v25.8b, v26.8b              : sqadd  %d25 %d26 $0x00 -> %d24
+0e3d0f9b : sqadd v27.8b, v28.8b, v29.8b              : sqadd  %d28 %d29 $0x00 -> %d27
+0e200ffe : sqadd v30.8b, v31.8b, v0.8b               : sqadd  %d31 %d0 $0x00 -> %d30
+4e230c41 : sqadd v1.16b, v2.16b, v3.16b              : sqadd  %q2 %q3 $0x00 -> %q1
+4e260ca4 : sqadd v4.16b, v5.16b, v6.16b              : sqadd  %q5 %q6 $0x00 -> %q4
+4e290d07 : sqadd v7.16b, v8.16b, v9.16b              : sqadd  %q8 %q9 $0x00 -> %q7
+4e2c0d6a : sqadd v10.16b, v11.16b, v12.16b           : sqadd  %q11 %q12 $0x00 -> %q10
+4e2f0dcd : sqadd v13.16b, v14.16b, v15.16b           : sqadd  %q14 %q15 $0x00 -> %q13
+4e320e30 : sqadd v16.16b, v17.16b, v18.16b           : sqadd  %q17 %q18 $0x00 -> %q16
+4e350e93 : sqadd v19.16b, v20.16b, v21.16b           : sqadd  %q20 %q21 $0x00 -> %q19
+4e380ef6 : sqadd v22.16b, v23.16b, v24.16b           : sqadd  %q23 %q24 $0x00 -> %q22
+4e3b0f59 : sqadd v25.16b, v26.16b, v27.16b           : sqadd  %q26 %q27 $0x00 -> %q25
+4e3e0fbc : sqadd v28.16b, v29.16b, v30.16b           : sqadd  %q29 %q30 $0x00 -> %q28
+4e210c1f : sqadd v31.16b, v0.16b, v1.16b             : sqadd  %q0 %q1 $0x00 -> %q31
+0e640c62 : sqadd v2.4h, v3.4h, v4.4h                 : sqadd  %d3 %d4 $0x01 -> %d2
+0e670cc5 : sqadd v5.4h, v6.4h, v7.4h                 : sqadd  %d6 %d7 $0x01 -> %d5
+0e6a0d28 : sqadd v8.4h, v9.4h, v10.4h                : sqadd  %d9 %d10 $0x01 -> %d8
+0e6d0d8b : sqadd v11.4h, v12.4h, v13.4h              : sqadd  %d12 %d13 $0x01 -> %d11
+0e700dee : sqadd v14.4h, v15.4h, v16.4h              : sqadd  %d15 %d16 $0x01 -> %d14
+0e730e51 : sqadd v17.4h, v18.4h, v19.4h              : sqadd  %d18 %d19 $0x01 -> %d17
+0e760eb4 : sqadd v20.4h, v21.4h, v22.4h              : sqadd  %d21 %d22 $0x01 -> %d20
+0e790f17 : sqadd v23.4h, v24.4h, v25.4h              : sqadd  %d24 %d25 $0x01 -> %d23
+0e7c0f7a : sqadd v26.4h, v27.4h, v28.4h              : sqadd  %d27 %d28 $0x01 -> %d26
+0e7f0fdd : sqadd v29.4h, v30.4h, v31.4h              : sqadd  %d30 %d31 $0x01 -> %d29
+0e620c20 : sqadd v0.4h, v1.4h, v2.4h                 : sqadd  %d1 %d2 $0x01 -> %d0
+4e650c83 : sqadd v3.8h, v4.8h, v5.8h                 : sqadd  %q4 %q5 $0x01 -> %q3
+4e680ce6 : sqadd v6.8h, v7.8h, v8.8h                 : sqadd  %q7 %q8 $0x01 -> %q6
+4e6b0d49 : sqadd v9.8h, v10.8h, v11.8h               : sqadd  %q10 %q11 $0x01 -> %q9
+4e6e0dac : sqadd v12.8h, v13.8h, v14.8h              : sqadd  %q13 %q14 $0x01 -> %q12
+4e710e0f : sqadd v15.8h, v16.8h, v17.8h              : sqadd  %q16 %q17 $0x01 -> %q15
+4e740e72 : sqadd v18.8h, v19.8h, v20.8h              : sqadd  %q19 %q20 $0x01 -> %q18
+4e770ed5 : sqadd v21.8h, v22.8h, v23.8h              : sqadd  %q22 %q23 $0x01 -> %q21
+4e7a0f38 : sqadd v24.8h, v25.8h, v26.8h              : sqadd  %q25 %q26 $0x01 -> %q24
+4e7d0f9b : sqadd v27.8h, v28.8h, v29.8h              : sqadd  %q28 %q29 $0x01 -> %q27
+4e600ffe : sqadd v30.8h, v31.8h, v0.8h               : sqadd  %q31 %q0 $0x01 -> %q30
+4e630c41 : sqadd v1.8h, v2.8h, v3.8h                 : sqadd  %q2 %q3 $0x01 -> %q1
+0ea60ca4 : sqadd v4.2s, v5.2s, v6.2s                 : sqadd  %d5 %d6 $0x02 -> %d4
+0ea90d07 : sqadd v7.2s, v8.2s, v9.2s                 : sqadd  %d8 %d9 $0x02 -> %d7
+0eac0d6a : sqadd v10.2s, v11.2s, v12.2s              : sqadd  %d11 %d12 $0x02 -> %d10
+0eaf0dcd : sqadd v13.2s, v14.2s, v15.2s              : sqadd  %d14 %d15 $0x02 -> %d13
+0eb20e30 : sqadd v16.2s, v17.2s, v18.2s              : sqadd  %d17 %d18 $0x02 -> %d16
+0eb50e93 : sqadd v19.2s, v20.2s, v21.2s              : sqadd  %d20 %d21 $0x02 -> %d19
+0eb80ef6 : sqadd v22.2s, v23.2s, v24.2s              : sqadd  %d23 %d24 $0x02 -> %d22
+0ebb0f59 : sqadd v25.2s, v26.2s, v27.2s              : sqadd  %d26 %d27 $0x02 -> %d25
+0ebe0fbc : sqadd v28.2s, v29.2s, v30.2s              : sqadd  %d29 %d30 $0x02 -> %d28
+0ea10c1f : sqadd v31.2s, v0.2s, v1.2s                : sqadd  %d0 %d1 $0x02 -> %d31
+0ea40c62 : sqadd v2.2s, v3.2s, v4.2s                 : sqadd  %d3 %d4 $0x02 -> %d2
+4ea70cc5 : sqadd v5.4s, v6.4s, v7.4s                 : sqadd  %q6 %q7 $0x02 -> %q5
+4eaa0d28 : sqadd v8.4s, v9.4s, v10.4s                : sqadd  %q9 %q10 $0x02 -> %q8
+4ead0d8b : sqadd v11.4s, v12.4s, v13.4s              : sqadd  %q12 %q13 $0x02 -> %q11
+4eb00dee : sqadd v14.4s, v15.4s, v16.4s              : sqadd  %q15 %q16 $0x02 -> %q14
+4eb30e51 : sqadd v17.4s, v18.4s, v19.4s              : sqadd  %q18 %q19 $0x02 -> %q17
+4eb60eb4 : sqadd v20.4s, v21.4s, v22.4s              : sqadd  %q21 %q22 $0x02 -> %q20
+4eb90f17 : sqadd v23.4s, v24.4s, v25.4s              : sqadd  %q24 %q25 $0x02 -> %q23
+4ebc0f7a : sqadd v26.4s, v27.4s, v28.4s              : sqadd  %q27 %q28 $0x02 -> %q26
+4ebf0fdd : sqadd v29.4s, v30.4s, v31.4s              : sqadd  %q30 %q31 $0x02 -> %q29
+4ea20c20 : sqadd v0.4s, v1.4s, v2.4s                 : sqadd  %q1 %q2 $0x02 -> %q0
+4ea50c83 : sqadd v3.4s, v4.4s, v5.4s                 : sqadd  %q4 %q5 $0x02 -> %q3
+4ee80ce6 : sqadd v6.2d, v7.2d, v8.2d                 : sqadd  %q7 %q8 $0x03 -> %q6
+4eeb0d49 : sqadd v9.2d, v10.2d, v11.2d               : sqadd  %q10 %q11 $0x03 -> %q9
+4eee0dac : sqadd v12.2d, v13.2d, v14.2d              : sqadd  %q13 %q14 $0x03 -> %q12
+4ef10e0f : sqadd v15.2d, v16.2d, v17.2d              : sqadd  %q16 %q17 $0x03 -> %q15
+4ef40e72 : sqadd v18.2d, v19.2d, v20.2d              : sqadd  %q19 %q20 $0x03 -> %q18
+4ef70ed5 : sqadd v21.2d, v22.2d, v23.2d              : sqadd  %q22 %q23 $0x03 -> %q21
+4efa0f38 : sqadd v24.2d, v25.2d, v26.2d              : sqadd  %q25 %q26 $0x03 -> %q24
+4efd0f9b : sqadd v27.2d, v28.2d, v29.2d              : sqadd  %q28 %q29 $0x03 -> %q27
+4ee00ffe : sqadd v30.2d, v31.2d, v0.2d               : sqadd  %q31 %q0 $0x03 -> %q30
+4ee30c41 : sqadd v1.2d, v2.2d, v3.2d                 : sqadd  %q2 %q3 $0x03 -> %q1
+4ee60ca4 : sqadd v4.2d, v5.2d, v6.2d                 : sqadd  %q5 %q6 $0x03 -> %q4
+
+# SQADD <V><d>, <V><n>, <V><m>
+5e220c20 : sqadd b0, b1, b2                          : sqadd  %b1 %b2 -> %b0
+5e250c83 : sqadd b3, b4, b5                          : sqadd  %b4 %b5 -> %b3
+5e280ce6 : sqadd b6, b7, b8                          : sqadd  %b7 %b8 -> %b6
+5e2b0d49 : sqadd b9, b10, b11                        : sqadd  %b10 %b11 -> %b9
+5e2e0dac : sqadd b12, b13, b14                       : sqadd  %b13 %b14 -> %b12
+5e310e0f : sqadd b15, b16, b17                       : sqadd  %b16 %b17 -> %b15
+5e340e72 : sqadd b18, b19, b20                       : sqadd  %b19 %b20 -> %b18
+5e370ed5 : sqadd b21, b22, b23                       : sqadd  %b22 %b23 -> %b21
+5e3a0f38 : sqadd b24, b25, b26                       : sqadd  %b25 %b26 -> %b24
+5e3d0f9b : sqadd b27, b28, b29                       : sqadd  %b28 %b29 -> %b27
+5e200ffe : sqadd b30, b31, b0                        : sqadd  %b31 %b0 -> %b30
+5e630c41 : sqadd h1, h2, h3                          : sqadd  %h2 %h3 -> %h1
+5e660ca4 : sqadd h4, h5, h6                          : sqadd  %h5 %h6 -> %h4
+5e690d07 : sqadd h7, h8, h9                          : sqadd  %h8 %h9 -> %h7
+5e6c0d6a : sqadd h10, h11, h12                       : sqadd  %h11 %h12 -> %h10
+5e6f0dcd : sqadd h13, h14, h15                       : sqadd  %h14 %h15 -> %h13
+5e720e30 : sqadd h16, h17, h18                       : sqadd  %h17 %h18 -> %h16
+5e750e93 : sqadd h19, h20, h21                       : sqadd  %h20 %h21 -> %h19
+5e780ef6 : sqadd h22, h23, h24                       : sqadd  %h23 %h24 -> %h22
+5e7b0f59 : sqadd h25, h26, h27                       : sqadd  %h26 %h27 -> %h25
+5e7e0fbc : sqadd h28, h29, h30                       : sqadd  %h29 %h30 -> %h28
+5e610c1f : sqadd h31, h0, h1                         : sqadd  %h0 %h1 -> %h31
+5ea40c62 : sqadd s2, s3, s4                          : sqadd  %s3 %s4 -> %s2
+5ea70cc5 : sqadd s5, s6, s7                          : sqadd  %s6 %s7 -> %s5
+5eaa0d28 : sqadd s8, s9, s10                         : sqadd  %s9 %s10 -> %s8
+5ead0d8b : sqadd s11, s12, s13                       : sqadd  %s12 %s13 -> %s11
+5eb00dee : sqadd s14, s15, s16                       : sqadd  %s15 %s16 -> %s14
+5eb30e51 : sqadd s17, s18, s19                       : sqadd  %s18 %s19 -> %s17
+5eb60eb4 : sqadd s20, s21, s22                       : sqadd  %s21 %s22 -> %s20
+5eb90f17 : sqadd s23, s24, s25                       : sqadd  %s24 %s25 -> %s23
+5ebc0f7a : sqadd s26, s27, s28                       : sqadd  %s27 %s28 -> %s26
+5ebf0fdd : sqadd s29, s30, s31                       : sqadd  %s30 %s31 -> %s29
+5ea20c20 : sqadd s0, s1, s2                          : sqadd  %s1 %s2 -> %s0
+5ee50c83 : sqadd d3, d4, d5                          : sqadd  %d4 %d5 -> %d3
+5ee80ce6 : sqadd d6, d7, d8                          : sqadd  %d7 %d8 -> %d6
+5eeb0d49 : sqadd d9, d10, d11                        : sqadd  %d10 %d11 -> %d9
+5eee0dac : sqadd d12, d13, d14                       : sqadd  %d13 %d14 -> %d12
+5ef10e0f : sqadd d15, d16, d17                       : sqadd  %d16 %d17 -> %d15
+5ef40e72 : sqadd d18, d19, d20                       : sqadd  %d19 %d20 -> %d18
+5ef70ed5 : sqadd d21, d22, d23                       : sqadd  %d22 %d23 -> %d21
+5efa0f38 : sqadd d24, d25, d26                       : sqadd  %d25 %d26 -> %d24
+5efd0f9b : sqadd d27, d28, d29                       : sqadd  %d28 %d29 -> %d27
+5ee00ffe : sqadd d30, d31, d0                        : sqadd  %d31 %d0 -> %d30
+5ee30c41 : sqadd d1, d2, d3                          : sqadd  %d2 %d3 -> %d1
 
 0e659078 : sqdmlal v24.4s, v3.4h, v5.4h             : sqdmlal %d3 %d5 $0x01 -> %q24
 0ea59078 : sqdmlal v24.2d, v3.2s, v5.2s             : sqdmlal %d3 %d5 $0x02 -> %q24
