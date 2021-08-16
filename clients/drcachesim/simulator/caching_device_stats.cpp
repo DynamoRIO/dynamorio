@@ -120,16 +120,13 @@ caching_device_stats_t::child_access(const memref_t &memref, bool hit,
 void
 caching_device_stats_t::check_compulsory_miss(addr_t addr)
 {
-    // Compulsory misses are counted only when proper option is enabled.
-    if (op_compulsory_misses.get_value()) {
-        auto lookup_pair = access_count_.lookup(addr);
+    auto lookup_pair = access_count_.lookup(addr);
 
-        // If the address has never been accessed insert proper bound into access_count_
-        // and count it as a compulsory miss.
-        if (!lookup_pair.first) {
-            num_compulsory_misses_++;
-            access_count_.insert(addr, lookup_pair.second);
-        }
+    // If the address has never been accessed insert proper bound into access_count_
+    // and count it as a compulsory miss.
+    if (!lookup_pair.first) {
+        num_compulsory_misses_++;
+        access_count_.insert(addr, lookup_pair.second);
     }
 }
 
@@ -169,6 +166,8 @@ caching_device_stats_t::print_counts(std::string prefix)
               << std::right << num_hits_ << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Misses:" << std::setw(20)
               << std::right << num_misses_ << std::endl;
+    std::cerr << prefix << std::setw(18) << std::left << "Compulsory misses:"
+              << std::setw(20) << std::right << num_compulsory_misses_ << std::endl;
     if (is_coherent_) {
         std::cerr << prefix << std::setw(21) << std::left
                   << "Parent invalidations:" << std::setw(17) << std::right

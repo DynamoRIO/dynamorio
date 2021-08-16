@@ -194,11 +194,6 @@ droption_t<bool> op_coherence(
     DROPTION_SCOPE_FRONTEND, "coherence", false, "Model coherence for private caches",
     "Writes to cache lines will invalidate other private caches that hold that line.");
 
-droption_t<bool> op_compulsory_misses(
-    DROPTION_SCOPE_FRONTEND, "compulsory_misses", false, "Compulsory misses counting",
-    "Enables counting compulsory misses and printing it as a separate metric."
-    "This option may add additional overhead to the execution time.");
-
 droption_t<bool> op_use_physical(
     DROPTION_SCOPE_CLIENT, "use_physical", false, "Use physical addresses if possible",
     "If available, the default virtual addresses will be translated to physical.  "

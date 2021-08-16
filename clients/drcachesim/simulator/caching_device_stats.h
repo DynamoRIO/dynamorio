@@ -40,7 +40,6 @@
 #include <string>
 #include <map>
 #include <stdint.h>
-#include <vector>
 #include <limits>
 #ifdef HAS_ZLIB
 #    include <zlib.h>
@@ -85,10 +84,10 @@ public:
         block_size_mask_ = ~((1 << block_size_bits) - 1);
     }
 
-    // Takes non-alligned address and inserts bound consisting of the nearest multiples
+    // Takes non-aligned address and inserts bound consisting of the nearest multiples
     // of the block_size.
     void
-    insert(addr_t addr_beg, size_t index)
+    insert(addr_t addr_beg, std::map<addr_t, addr_t>::iterator next_it)
     {
         // Round the address down to the nearest multiple of the block_size.
         addr_beg &= block_size_mask_;
@@ -99,49 +98,55 @@ public:
             addr_end = std::numeric_limits<addr_t>::max();
         }
 
-        if (index == bounds.size()) {
-            if (index > 0 && bounds[index - 1].end == addr_beg) {
-                bounds[index - 1].end = addr_end;
-            } else {
-                bounds.emplace_back(bound{ addr_beg, addr_end });
-            }
-            // Current bound -> (addr_beg...addr_end) connects bound[index] and
-            // bound[index - 1]
-        } else if (index > 0 && bounds[index - 1].end == addr_beg &&
-                   bounds[index].beg == addr_end) {
-            bounds[index - 1].end = bounds[index].end;
-            bounds.erase(bounds.begin() + index);
-            // Current bound extends bound[index - 1]
-        } else if (index > 0 && bounds[index - 1].end == addr_beg) {
-            bounds[index - 1].end = addr_end;
-            // Current bound extends bound[index]
-        } else if (bounds[index].beg == addr_end) {
-            bounds[index].beg = addr_beg;
+        std::map<addr_t, addr_t>::reverse_iterator prev_it (next_it);
+        std::prev(prev_it);
+
+        // Current bound -> (addr_beg...addr_end) connects previous and
+        // next bound
+        if (prev_it != bounds.rend() && prev_it->second == addr_beg &&
+            next_it != bounds.end() && next_it->first == addr_end) {
+            prev_it->second = next_it->second;
+            bounds.erase(next_it);
+            // Current bound extends previous bound
+        } else if (prev_it != bounds.rend() && prev_it->second == addr_beg) {
+            prev_it->second = addr_end;
+            // Current bound extends next bound
+        } else if (next_it != bounds.end() && next_it->first == addr_end) {
+            addr_t bound_end = next_it->second;
+            // We need to reinsert the element when changing key value.
+            // Iterator hint should provide costant complexity of this operation.
+            bounds.erase(next_it++);
+            bounds.emplace_hint(next_it, addr_beg, bound_end);
         } else {
-            bounds.insert(bounds.begin() + index, bound{ addr_beg, addr_end });
+            bounds.emplace_hint(next_it, addr_beg, addr_end);
         }
     }
 
     // Takes non-aligned address. Returns:
     // - boolean value indicating whether the address has ever been accessed
-    // - index of the bound where the address is located/should be inserted.
-    std::pair<bool, size_t>
+    // - iterator to the bound where the address is located or the element which should
+    //   be provided as a hint when inserting new bound with given address.
+    std::pair<bool, std::map<addr_t, addr_t>::iterator>
     lookup(addr_t addr)
     {
-        size_t i = 0;
-        for (const auto &bound : bounds) {
-            if (addr < bound.beg) {
-                return std::make_pair(false, i);
-            } else if (addr >= bound.beg && addr < bound.end) {
-                return std::make_pair(true, i);
-            }
-            i++;
+        // Function upper_bound returns bound which beginning is larger
+        // then the addr.
+        auto next_it = bounds.upper_bound(addr);
+        std::map<addr_t, addr_t>::reverse_iterator prev_it (next_it);
+        std::prev(prev_it);
+
+        if (prev_it != bounds.rend() && addr >= prev_it->first &&
+            addr < prev_it->second) {
+            return std::make_pair(true, prev_it.base());
+        } else {
+            return std::make_pair(false, next_it);
         }
-        return std::make_pair(false, bounds.size());
     }
 
 private:
-    std::vector<bound> bounds;
+    // Bounds are members of the the std::map. The beginning of the bound is stored
+    // as a key and the end as a value.
+    std::map<addr_t, addr_t> bounds;
     int block_size_mask_ = 0;
     int block_size_;
 };
