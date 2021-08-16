@@ -166,8 +166,9 @@ caching_device_stats_t::print_counts(std::string prefix)
               << std::right << num_hits_ << std::endl;
     std::cerr << prefix << std::setw(18) << std::left << "Misses:" << std::setw(20)
               << std::right << num_misses_ << std::endl;
-    std::cerr << prefix << std::setw(18) << std::left << "Compulsory misses:"
-              << std::setw(20) << std::right << num_compulsory_misses_ << std::endl;
+    std::cerr << prefix << std::setw(18) << std::left
+              << "Compulsory misses:" << std::setw(20) << std::right
+              << num_compulsory_misses_ << std::endl;
     if (is_coherent_) {
         std::cerr << prefix << std::setw(21) << std::left
                   << "Parent invalidations:" << std::setw(17) << std::right

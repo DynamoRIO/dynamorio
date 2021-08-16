@@ -206,7 +206,8 @@ unit_test_metrics_API()
     assert(cache_sim.get_cache_metric(metric_name_t::FLUSHES, 2) == 4);
 }
 
-void unit_test_compulsory_misses()
+void
+unit_test_compulsory_misses()
 {
     cache_simulator_knobs_t knobs = make_test_knobs();
     knobs.L1I_size = 4 * 64;
@@ -218,7 +219,7 @@ void unit_test_compulsory_misses()
     ref.data.size = 8;
 
     for (int i = 0; i < 5; i++) {
-        ref.data.addr = i*64;
+        ref.data.addr = i * 64;
         if (!cache_sim.process_memref(ref)) {
             std::cerr << "drcachesim unit_test_compulsory_misses failed: "
                       << cache_sim.get_error_string() << "\n";

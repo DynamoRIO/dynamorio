@@ -59,7 +59,6 @@ EXPORT void
 jacobi_init(int matrix_size, bool enable_annotations)
 {
     invoke_annotations = enable_annotations;
-
     x_temp = (double *)malloc(matrix_size * sizeof(double));
     if (invoke_annotations)
         TEST_ANNOTATION_EIGHT_ARGS(matrix_size, 102, 103, 104, 105, 106, 107, 108);

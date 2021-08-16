@@ -98,7 +98,7 @@ public:
             addr_end = std::numeric_limits<addr_t>::max();
         }
 
-        std::map<addr_t, addr_t>::reverse_iterator prev_it (next_it);
+        std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);
         std::prev(prev_it);
 
         // Current bound -> (addr_beg...addr_end) connects previous and
@@ -132,7 +132,7 @@ public:
         // Function upper_bound returns bound which beginning is larger
         // then the addr.
         auto next_it = bounds.upper_bound(addr);
-        std::map<addr_t, addr_t>::reverse_iterator prev_it (next_it);
+        std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);
         std::prev(prev_it);
 
         if (prev_it != bounds.rend() && addr >= prev_it->first &&
