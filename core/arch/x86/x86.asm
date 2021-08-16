@@ -1138,9 +1138,9 @@ GLOBAL_LABEL(client_int_syscall:)
  */
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
-        /* i#38: Attaching while in middle of blocking syscall require padded null bytes
-         * with number_of_nop_instr = sizeof(syscall_instr) / sizeof(nop_instr)
-         * For detailed explaination see issue page.
+        /* i#38: Attaching while in middle of blocking syscall requires padded null bytes
+         * with number_of_nop_instr = sizeof(syscall_instr) / sizeof(nop_instr).
+         * For detailed explanation see issue page.
          */
         nop
         nop
