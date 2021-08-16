@@ -1138,6 +1138,12 @@ GLOBAL_LABEL(client_int_syscall:)
  */
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
+        /* i#38: Attaching while in middle of blocking syscall requires padded null bytes
+         * with number_of_nop_instr = sizeof(syscall_instr) / sizeof(nop_instr).
+         * For detailed explanation see issue page.
+         */
+        nop
+        nop
         /* i#1676, i#1708: relocate dynamorio if it is not loaded to preferred address.
          * We call this here to ensure it's safe to access globals once in C code
          * (xref i#1865).
