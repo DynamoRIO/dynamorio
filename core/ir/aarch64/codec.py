@@ -347,9 +347,9 @@ def generate_opcode_opnd_pairs(patterns):
          'typedef struct {',
          '  uint32_t opcode;',
          '  uint32_t opnd;',
-         '} opcode_opnd_pair;',
+         '} opcode_opnd_pair_t;',
          '',
-         'const opcode_opnd_pair fuzz_opcode_opnd_pairs[] = {']
+         'const opcode_opnd_pair_t fuzz_opcode_opnd_pairs[] = {']
     # Exclude instructions with side-effects and branch instructions.
     # Particularly,  exclude: i) Load/Stores (opcode: x1x0);
     # ii) Branches, Exception Generating and System instructions (opcode: 101x);
