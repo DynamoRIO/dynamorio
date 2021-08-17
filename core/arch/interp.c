@@ -3564,9 +3564,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                  */
                 bb->follow_direct = false;
                 DOSTATS({
-                    if
-                        TEST(FRAG_HAS_DIRECT_CTI, bb->flags)
-                    STATS_INC(hotp_num_frag_direct_cti);
+                    if (TEST(FRAG_HAS_DIRECT_CTI, bb->flags))
+                        STATS_INC(hotp_num_frag_direct_cti);
                 });
             }
         }
@@ -5792,8 +5791,14 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace, instr_t *target
 #    define MOV_IBL_REG_MASK 0x001f0000
 #    define MOV_IBL_REG_ENC (0xaa0003e0 | (IBL_TARGET_REG - DR_REG_START_GPR))
 
+#    define LDR_IMM_ENC 0xf9000000
+#    define RESTORE_IBL_REG_ENC                                                       \
+        ((STR_IMM_ENC | 16 >> 3 << 10) | (1 << 22) /* ld */ | (1 << 12) /* shift */ | \
+         (dr_reg_stolen - DR_REG_START_GPR) << 5 | (IBL_TARGET_REG - DR_REG_START_GPR))
+
 static reg_id_t
-check_and_remove_patched_ibl(instrlist_t *trace, instr_t *targeter)
+check_patched_ibl(instrlist_t *trace, instr_t *targeter, int *added_size,
+                  bool *has_str_ldr)
 {
     int i, j;
     instr_t *prev = instr_get_prev(targeter);
@@ -5819,52 +5824,33 @@ check_and_remove_patched_ibl(instrlist_t *trace, instr_t *targeter)
             for (j = i; j < num_instr - 2; j++)
                 ((uint *)prev->bytes)[j] = ((uint *)prev->bytes)[j + 2];
             /* Return jump target register id. */
+            *added_size -= 2 * AARCH64_INSTR_SIZE;
             return ((prev_enc & MOV_IBL_REG_MASK) >> 16) + DR_REG_START_GPR;
+        }
+        /*
+         * checking for the special case where there isn't a str/mov being patched
+         * rather there is an str/ldr which could happen when for example, the following
+         * basic block is being patched
+         *
+         *  ....
+         *  blr    dr_stolen_reg -> %x30
+         *  b      ibl_routine
+         * into
+         *
+         *  ...
+         *  str tgt_reg, TLS_REG2_SLOT
+         *  ldr tgt_reg, TLS_REG_STOLEN_SLOT
+         *  b ibl_routine
+         *
+         *  This means that we should not remove the str/ldr, rather, we can compare the
+         *  trace_next_exit with tgt_reg directly
+         */
+        else if (prev_prev_enc == SAVE_IBL_REG_ENC && prev_enc == RESTORE_IBL_REG_ENC) {
+            *has_str_ldr = true;
+            return IBL_TARGET_REG;
         }
     }
     return DR_REG_NULL;
-}
-
-/*
- * checking for the special case where there isn't a str/mov being patched
- * rather there is a ldr/mov which could happen when for example, the following
- * basic block is being patched
- *
- *  ....
- *  blr    dr_stolen_reg -> %x30
- *  b      ibl_routine
- * into
- *
- *  ...
- *  str tgt_reg, TLS_REG2_SLOT
- *  ldr tgt_reg, TLS_REG_STOLEN_SLOT
- *  b ibl_routine
- *
- *  This means that we should not remove the str/ldr, rather, we can compare the
- *  trace_next_exit with tgt_reg directly
- */
-
-#    define LDR_IMM_ENC 0xf9000000
-#    define RESTORE_IBL_REG_ENC                                                       \
-        ((STR_IMM_ENC | 16 >> 3 << 10) | (1 << 22) /* ld */ | (1 << 12) /* shift */ | \
-         (dr_reg_stolen - DR_REG_START_GPR) << 5 | (IBL_TARGET_REG - DR_REG_START_GPR))
-
-static bool
-check_patched_ibl(dcontext_t *dcontext, instrlist_t *trace, instr_t *targeter)
-{
-    int i;
-    instr_t *prev = instr_get_prev(targeter);
-    uint num_instr = prev->length / AARCH64_INSTR_SIZE;
-    /* We start from last instruction to scan for str/ldr pattern. */
-    for (i = num_instr - 2; i >= 0; i--) {
-        uint prev_prev_enc = ((uint *)prev->bytes)[i];
-        uint prev_enc = ((uint *)prev->bytes)[i + 1];
-        /* We bypass the decoder and ompare the raw bytes directly. */
-        if (prev_prev_enc == SAVE_IBL_REG_ENC && prev_enc == RESTORE_IBL_REG_ENC) {
-            return true;
-        }
-    }
-    return false;
 }
 
 /* For AArch64 we have a special case if we cannot remove all code after
@@ -6172,18 +6158,11 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
 
     /* Check and remove previous two patched instructions. */
     has_str_ldr = false;
-    jump_target_reg = check_and_remove_patched_ibl(trace, targeter);
+    jump_target_reg = check_patched_ibl(trace, targeter, &added_size, &has_str_ldr);
     if (jump_target_reg == DR_REG_NULL) {
-        has_str_ldr = check_patched_ibl(dcontext, trace, targeter);
-        if (!has_str_ldr) {
-            ASSERT_MESSAGE(2, "Failed to get branch target register in creating trace",
-                           false);
-            return added_size;
-        } else {
-            jump_target_reg = IBL_TARGET_REG;
-        }
-    } else {
-        added_size -= (2 * AARCH64_INSTR_SIZE);
+        ASSERT_MESSAGE(2, "Failed to get branch target register in creating trace",
+                       false);
+        return added_size;
     }
     LOG(THREAD, LOG_MONITOR, 4, "fixup_last_cti: jump target reg is %s\n",
         reg_names[jump_target_reg]);
@@ -6219,14 +6198,18 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     added_size += tracelist_add(dcontext, trace, next, instr);
     /* If we do stay on the trace, restore x0 and x1. */
     /* ldr scratch, TLS_REG0_SLOT */
+    ASSERT(TLS_REG0_SLOT != IBL_TARGET_SLOT);
     added_size +=
         tracelist_add(dcontext, trace, next,
                       instr_create_restore_from_tls(dcontext, scratch, TLS_REG0_SLOT));
     if (has_str_ldr) {
-        /* we need to restore app's x2 in case the branch to trace_exit is not taken */
+        /* we need to restore app's x2 in case the branch to trace_exit is not taken.
+         * This is not needed in the str/mov case as we removed the instruction to
+         * spill the value of IBL_TARGET_REG (str tgt_reg, TLS_REG2_SLOT)
+         */
         added_size += tracelist_add(
             dcontext, trace, next,
-            instr_create_restore_from_tls(dcontext, DR_REG_X2, TLS_REG2_SLOT));
+            instr_create_restore_from_tls(dcontext, IBL_TARGET_REG, IBL_TARGET_SLOT));
     }
     /* Remove the branch. */
     instrlist_remove(trace, targeter);
