@@ -356,11 +356,11 @@ def generate_opcode_opnd_pairs(patterns):
     # iii) SVE memory (opcode: 0010 and 1 for the most significant bit).
     # The allowed instructions include all the Data Processing instructions (including
     # the FP and SIMD ones) and the non-memory SVE instructions.
-    excluded_opcodes = re.compile('^....1.0.*|^...101..*|^1..0010.*')
+    excluded_opcodes = re.compile('....1.0|...101.|1..0010')
     cnt = 0;
     for p in patterns:
         pattern = p[4]
-        if excluded_opcodes.fullmatch(pattern):
+        if excluded_opcodes.match(pattern):
             continue;
         cnt += 1;
         c.append('/* %s */ {%s, %s},' % (p[2], bin(p[0]), bin(p[1])))
