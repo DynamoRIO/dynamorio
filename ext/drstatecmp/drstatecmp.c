@@ -233,6 +233,21 @@ drstatecmp_insert_phase(void *drcontext, void *tag, instrlist_t *bb, instr_t *in
 }
 
 /****************************************************************************
+ * INSTRU2INSTRU PHASE
+ *
+ * Instru2instru pass is used to maintain the user_data (created in the
+ * app2app phase) for the post-instrumentation phase.
+ *
+ */
+
+static dr_emit_flags_t
+drstatecmp_instru2instru_phase(void *drcontext, void *tag, instrlist_t *bb,
+                               bool for_trace, bool translating, void *user_data)
+{
+    return DR_EMIT_DEFAULT;
+}
+
+/****************************************************************************
  * POST-INSTRUMENTATION PHASE
  *
  * In this phase, drstatecmp inserts all the necessary state comparisons.
@@ -637,7 +652,6 @@ drstatecmp_init(drstatecmp_options_t *ops_in)
     drmgr_priority_t priority = { sizeof(drmgr_priority_t),
                                   DRMGR_PRIORITY_NAME_DRSTATECMP, NULL, NULL,
                                   DRMGR_PRIORITY_DRSTATECMP };
-
     drmgr_init();
 
     tls_idx = drmgr_register_tls_field();
@@ -650,7 +664,7 @@ drstatecmp_init(drstatecmp_options_t *ops_in)
         !drmgr_register_thread_exit_event(drstatecmp_thread_exit) ||
         !drmgr_register_bb_post_instru_ex_event(
             drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
-            NULL, drstatecmp_post_instru_phase, &priority))
+            drstatecmp_instru2instru_phase, drstatecmp_post_instru_phase, &priority))
         return DRSTATECMP_ERROR;
 
     return DRSTATECMP_SUCCESS;
@@ -668,7 +682,7 @@ drstatecmp_exit(void)
         !drmgr_unregister_tls_field(tls_idx) ||
         !drmgr_unregister_bb_post_instru_ex_event(
             drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
-            NULL, drstatecmp_post_instru_phase))
+            drstatecmp_instru2instru_phase, drstatecmp_post_instru_phase))
         return DRSTATECMP_ERROR;
 
     drmgr_exit();
