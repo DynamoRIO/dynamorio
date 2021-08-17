@@ -1998,9 +1998,11 @@ event_exit(void)
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
         drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
-    if (op_enable_drstatecmp.get_value())
-        if (drstatecmp_exit() != DRSTATECMP_SUCCESS)
+    if (op_enable_drstatecmp.get_value()) {
+        if (drstatecmp_exit() != DRSTATECMP_SUCCESS) {
             DR_ASSERT(false);
+        }
+    }
     dr_unregister_exit_event(event_exit);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
@@ -2208,8 +2210,9 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
         DR_ASSERT(false);
     if (op_enable_drstatecmp.get_value()) {
         drstatecmp_options_t drstatecmp_ops = { NULL };
-        if (drstatecmp_init(&drstatecmp_ops) != DRSTATECMP_SUCCESS)
+        if (drstatecmp_init(&drstatecmp_ops) != DRSTATECMP_SUCCESS) {
             DR_ASSERT(false);
+        }
     }
 
     /* register events */
