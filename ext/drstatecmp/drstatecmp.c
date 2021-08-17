@@ -549,7 +549,7 @@ drstatecmp_compare_state(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 
     dr_insert_clean_call(drcontext, bb, instr, (void *)drstatecmp_compare_state_call,
                          false /* fpstate */, 2, OPND_CREATE_INT32(flags),
-                         OPND_CREATE_INT(tag));
+                         OPND_CREATE_INTPTR(tag));
 }
 
 static void
