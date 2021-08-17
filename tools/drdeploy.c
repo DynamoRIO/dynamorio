@@ -296,9 +296,19 @@ const char *options_list_str =
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
 #        endif
-    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
-    "                          for pid to launch and inject into a new process.\n"
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
+#    endif
+#    ifdef UNIX
+    "       -attach <pid>      Attach to the process with the given pid.\n"
+    "                          If attach to a process which is in middle of blocking\n"
+    "                          system call, dynamorio will wait until it returns.\n"
+#        ifdef X86
+    "                          Can be used with -skip_syscall.\n"
+    "       -skip_syscall      (Experimental)\n"
+    "                          Only work with -attach.\n"
+    "                          Attaching to a process will force blocking system calls\n"
+    "                          to fail with EINTR.\n"
+#        endif
 #    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
@@ -1100,8 +1110,10 @@ _tmain(int argc, TCHAR *targv[])
     time_t start_time, end_time;
 #    else
     bool use_ptrace = false;
+    bool wait_syscall = true;
     bool kill_group = false;
 #    endif
+    process_id_t attach_pid = 0;
     char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
@@ -1122,6 +1134,7 @@ _tmain(int argc, TCHAR *targv[])
     char native_tool[MAXIMUM_PATH];
 #endif
 #ifdef DRRUN
+    char exe[MAXIMUM_PATH];
     void *tofree = NULL;
     bool configure = true;
 #endif
@@ -1251,20 +1264,37 @@ _tmain(int argc, TCHAR *targv[])
             continue;
         }
 #    endif
+        else if (strcmp(argv[i], "-attach") == 0) {
+#    ifdef UNIX
+            const char *pid_str = argv[++i];
+            process_id_t pid = strtoul(pid_str, NULL, 10);
+            if (pid == ULONG_MAX)
+                usage(false, "attach expects an integer pid");
+            if (pid == 0) {
+                usage(false, "attach to invalid pid");
+            }
+            attach_pid = pid;
+#    endif
+#    ifdef UNIX
+            use_ptrace = true;
+#    endif
+#    ifdef WINDOWS
+            usage(false, "attach in Windows not yet implemented");
+#    endif
+            continue;
+        }
+#    ifdef UNIX
+#        ifdef X86
+        else if (strcmp(argv[i], "-skip_syscall") == 0) {
+            wait_syscall = false;
+            continue;
+        }
+#        endif
+#    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {
             /* Undocumented option for using ptrace on a fresh process. */
             use_ptrace = true;
-            continue;
-        } else if (strcmp(argv[i], "-attach") == 0) {
-            const char *pid_str = argv[++i];
-            process_id_t pid = strtoul(pid_str, NULL, 10);
-            if (pid == ULONG_MAX)
-                usage(false, "-attach expects an integer pid");
-            if (pid != 0)
-                usage(false, "attaching to running processes is not yet implemented");
-            use_ptrace = true;
-            /* FIXME: use pid below to attach. */
             continue;
         }
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
@@ -1531,10 +1561,28 @@ done_with_options:
 
 #if defined(DRRUN) || defined(DRINJECT)
 #    ifdef DRRUN
+    if (attach_pid != 0) {
+        ssize_t size = 0;
+#        ifdef UNIX
+        char exe_str[MAXIMUM_PATH];
+        _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
+        NULL_TERMINATE_BUFFER(exe_str);
+        size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
+#        endif /* UNIX */
+        if (size > 0) {
+            if (size < BUFFER_SIZE_ELEMENTS(exe))
+                exe[size] = '\0';
+            else
+                NULL_TERMINATE_BUFFER(exe);
+        } else {
+            usage(false, "attach to invalid pid");
+        }
+        app_name = exe;
+    }
     /* Support no app if the tool has its own frontend, under the assumption
      * it may have post-processing or other features.
      */
-    if (i < argc || native_tool[0] == '\0') {
+    if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
 #    endif
         if (i >= argc)
             usage(false, "%s", "no app specified");
@@ -1737,6 +1785,9 @@ done_with_options:
     if (limit == 0 && !use_ptrace && !kill_group) {
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
+    } else if (attach_pid != 0) {
+        errcode =
+            dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
     } else
 #    endif /* UNIX */
     {
