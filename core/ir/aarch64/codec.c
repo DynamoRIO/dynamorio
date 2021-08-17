@@ -1922,7 +1922,6 @@ get_imm5_offset(int val)
             return i;
         }
     }
-    ASSERT(false);
     return -1;
 }
 
