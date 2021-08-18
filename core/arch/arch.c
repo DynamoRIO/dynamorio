@@ -3254,7 +3254,9 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         ASSERT(get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED ||
                get_syscall_method() == SYSCALL_METHOD_INT);
 #    ifdef LINUX
-        if (new_method == SYSCALL_METHOD_SYSENTER) {
+        if (new_method == SYSCALL_METHOD_SYSENTER
+            IF_X86_32(|| (new_method == SYSCALL_METHOD_SYSCALL &&
+                      cpu_info.vendor == VENDOR_AMD))) {
 #        ifndef HAVE_TLS
             if (DYNAMO_OPTION(hook_vsyscall)) {
                 /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */

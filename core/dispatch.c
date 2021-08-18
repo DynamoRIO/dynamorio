@@ -1780,6 +1780,9 @@ adjust_syscall_continuation(dcontext_t *dcontext)
      * continuation pc, we have no work to do here either (except for
      * 4.4.8+ kernels: i#1939)!
      */
+
+    bool syscall_method_is_syscall = get_syscall_method() == SYSCALL_METHOD_SYSCALL;
+
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
 #    ifdef MACOS
         if (!dcontext->sys_was_int) {
@@ -1803,20 +1806,23 @@ adjust_syscall_continuation(dcontext_t *dcontext)
                 dcontext->asynch_target);
         }
 #    endif
-    } else if (vsyscall_syscall_end_pc != NULL &&
-               /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
-                * OP_syscall in a vsyscall page
-                */
-               get_syscall_method() != SYSCALL_METHOD_SYSCALL) {
+    } else if (vsyscall_syscall_end_pc != NULL) {
+        /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
+         * OP_syscall in a vsyscall page
+         */
+
         /* If we fail to hook we currently bail out to int; but we then
          * need to manually jump to the sysenter return point.
          * Once we have PR 288330 we can remove this.
          */
-        if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
-            ASSERT(vsyscall_sysenter_return_pc != NULL);
-            dcontext->asynch_target = vsyscall_sysenter_return_pc;
-            LOG(THREAD, LOG_SYSCALLS, 3, "%s: asynch_target => " PFX "\n", __FUNCTION__,
-                dcontext->asynch_target);
+        if (IF_X86_32((syscall_method_is_syscall && cpu_info.vendor == VENDOR_AMD) ||)
+            !syscall_method_is_syscall) {
+            if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
+                ASSERT(vsyscall_sysenter_return_pc != NULL);
+                dcontext->asynch_target = vsyscall_sysenter_return_pc;
+                LOG(THREAD, LOG_SYSCALLS, 3, "%s: asynch_target => " PFX "\n",
+                    __FUNCTION__, dcontext->asynch_target);
+            }
         }
     }
 }
