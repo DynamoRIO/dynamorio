@@ -1111,6 +1111,7 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 0x001110xx1xxxxx011101xxxxxxxxxx  n     sabd      dq0 : dq5 dq16 bhs_sz
 0x001110xx1xxxxx011111xxxxxxxxxx  n     saba      dq0 : dq5 dq16 bhs_sz
 0x001110xx1xxxxx100001xxxxxxxxxx  n     add       dq0 : dq5 dq16 bhsd_sz
+01011110111xxxxx100001xxxxxxxxxx  n     add        d0 : d5 d16
 0x001110xx1xxxxx100011xxxxxxxxxx  n     cmtst     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx100101xxxxxxxxxx  n     mla       dq0 : dq0 dq5 dq16 bhs_sz
 0x1011111xxxxxxx0000x0xxxxxxxxxx  n     mla       dq0 : dq5 dq16 vindex_SD sd_sz
@@ -1211,6 +1212,9 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 0x1011100x1xxxxx110001xxxxxxxxxx  n     fmaxnmp   dq0 : dq5 dq16 sd_sz
 0x101110001xxxxx110011xxxxxxxxxx  n     fmlal2    dq0 : dq0 dq5 dq16
 0x1011100x1xxxxx110101xxxxxxxxxx  n     faddp     dq0 : dq5 dq16 sd_sz
+0111111000110000110110xxxxxxxxxx  n     faddp      s0 : q5 sd_sz
+0111111001110000110110xxxxxxxxxx  n     faddp      d0 : q5 sd_sz
+0101111000110000110110xxxxxxxxxx  n     faddp      h0 : q5 h_sz
 0x1011100x1xxxxx110111xxxxxxxxxx  n     fmul      dq0 : dq5 dq16 sd_sz
 0x1011100x1xxxxx111001xxxxxxxxxx  n     fcmge     dq0 : dq5 dq16 sd_sz
 0x1011101x100000110010xxxxxxxxxx  n     fcmge     dq0 : dq5 sd_sz
@@ -1226,6 +1230,9 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 0x1011101x1xxxxx110001xxxxxxxxxx  n     fminnmp   dq0 : dq5 dq16 sd_sz
 0x101110101xxxxx110011xxxxxxxxxx  n     fmlsl2    dq0 : dq0 dq5 dq16
 0x1011101x1xxxxx110101xxxxxxxxxx  n     fabd      dq0 : dq5 dq16 sd_sz
+01111110101xxxxx110101xxxxxxxxxx  n     fabd       s0 : s5 s16
+01111110111xxxxx110101xxxxxxxxxx  n     fabd       d0 : d5 d16
+01111110110xxxxx000101xxxxxxxxxx  n     fabd       h0 : h5 h16
 0x1011101x1xxxxx111001xxxxxxxxxx  n     fcmgt     dq0 : dq5 dq16 sd_sz
 0x0011101x100000110010xxxxxxxxxx  n     fcmgt     dq0 : dq5 sd_sz
 0x00111011111000110010xxxxxxxxxx  n     fcmgt     dq0 : dq5 h_sz
@@ -1240,7 +1247,11 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 # Floating-point data-processing (1 source)
 00011110xx100000010000xxxxxxxxxx  n     fmov      float_reg0 : float_reg5
 00011110xx100000110000xxxxxxxxxx  n     fabs      float_reg0 : float_reg5
+0x0011101x100000111110xxxxxxxxxx  n     fabs             dq0 : dq5 sd_sz
+0x00111011111000111110xxxxxxxxxx  n     fabs             dq0 : dq5 h_sz
 00011110xx100001010000xxxxxxxxxx  n     fneg      float_reg0 : float_reg5
+0x1011101x100000111110xxxxxxxxxx  n     fneg             dq0 : dq5 sd_sz
+0x10111011111000111110xxxxxxxxxx  n     fneg             dq0 : dq5 h_sz
 00011110xx100001110000xxxxxxxxxx  n     fsqrt     float_reg0 : float_reg5
 0001111000100010110000xxxxxxxxxx  n     fcvt      d0 : s5
 0001111000100011110000xxxxxxxxxx  n     fcvt      h0 : s5
