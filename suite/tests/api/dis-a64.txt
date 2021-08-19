@@ -789,6 +789,19 @@ dac01041 : clz    x1, x2                  : clz    %x2 -> %x1
 5ee08b5b : cmgt  d27, d26, #0               : cmgt   %d26 -> %d27
 5ee08b9d : cmgt  d29, d28, #0               : cmgt   %d28 -> %d29
 
+# CMGT <V><d>, <V><n> <V><m>
+5ee23420 : cmgt d0, d1, d2                           : cmgt   %d1 %d2 -> %d0
+5ee53483 : cmgt d3, d4, d5                           : cmgt   %d4 %d5 -> %d3
+5ee834e6 : cmgt d6, d7, d8                           : cmgt   %d7 %d8 -> %d6
+5eeb3549 : cmgt d9, d10, d11                         : cmgt   %d10 %d11 -> %d9
+5eee35ac : cmgt d12, d13, d14                        : cmgt   %d13 %d14 -> %d12
+5ef1360f : cmgt d15, d16, d17                        : cmgt   %d16 %d17 -> %d15
+5ef43672 : cmgt d18, d19, d20                        : cmgt   %d19 %d20 -> %d18
+5ef736d5 : cmgt d21, d22, d23                        : cmgt   %d22 %d23 -> %d21
+5efa3738 : cmgt d24, d25, d26                        : cmgt   %d25 %d26 -> %d24
+5efd379b : cmgt d27, d28, d29                        : cmgt   %d28 %d29 -> %d27
+5ee037fe : cmgt d30, d31, d0                         : cmgt   %d31 %d0 -> %d30
+
 # CMLT <Vd>.<T>, <Vn>.<T>, #0
 0e20a801 : cmlt  v1.8b, v0.8b, #0           : cmlt   %d0 $0x00 -> %d1
 4e20a843 : cmlt  v3.16b, v2.16b, #0         : cmlt   %q2 $0x00 -> %q3
@@ -2998,6 +3011,55 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 4ea18bdd : frintp  v29.4s, v30.4s                   : frintp %q30 $0x02 -> %q29
 4ee1883f : frintp  v31.2d, v1.2d                    : frintp %q1 $0x03 -> %q31
 
+# FRINTZ <Vd>.<T>, <Vn>.<T>
+0ea19820 : frintz V0.2s, V1.2s                       : frintz %d1 $0x02 -> %d0
+0ea19862 : frintz V2.2s, V3.2s                       : frintz %d3 $0x02 -> %d2
+0ea198a4 : frintz V4.2s, V5.2s                       : frintz %d5 $0x02 -> %d4
+0ea198e6 : frintz V6.2s, V7.2s                       : frintz %d7 $0x02 -> %d6
+0ea19928 : frintz V8.2s, V9.2s                       : frintz %d9 $0x02 -> %d8
+0ea1996a : frintz V10.2s, V11.2s                     : frintz %d11 $0x02 -> %d10
+0ea199ac : frintz V12.2s, V13.2s                     : frintz %d13 $0x02 -> %d12
+0ea199ee : frintz V14.2s, V15.2s                     : frintz %d15 $0x02 -> %d14
+0ea19a30 : frintz V16.2s, V17.2s                     : frintz %d17 $0x02 -> %d16
+0ea19a72 : frintz V18.2s, V19.2s                     : frintz %d19 $0x02 -> %d18
+0ea19ab4 : frintz V20.2s, V21.2s                     : frintz %d21 $0x02 -> %d20
+0ea19af6 : frintz V22.2s, V23.2s                     : frintz %d23 $0x02 -> %d22
+0ea19b38 : frintz V24.2s, V25.2s                     : frintz %d25 $0x02 -> %d24
+0ea19b7a : frintz V26.2s, V27.2s                     : frintz %d27 $0x02 -> %d26
+0ea19bbc : frintz V28.2s, V29.2s                     : frintz %d29 $0x02 -> %d28
+0ea19bfe : frintz V30.2s, V31.2s                     : frintz %d31 $0x02 -> %d30
+4ea19820 : frintz V0.4s, V1.4s                       : frintz %q1 $0x02 -> %q0
+4ea19862 : frintz V2.4s, V3.4s                       : frintz %q3 $0x02 -> %q2
+4ea198a4 : frintz V4.4s, V5.4s                       : frintz %q5 $0x02 -> %q4
+4ea198e6 : frintz V6.4s, V7.4s                       : frintz %q7 $0x02 -> %q6
+4ea19928 : frintz V8.4s, V9.4s                       : frintz %q9 $0x02 -> %q8
+4ea1996a : frintz V10.4s, V11.4s                     : frintz %q11 $0x02 -> %q10
+4ea199ac : frintz V12.4s, V13.4s                     : frintz %q13 $0x02 -> %q12
+4ea199ee : frintz V14.4s, V15.4s                     : frintz %q15 $0x02 -> %q14
+4ea19a30 : frintz V16.4s, V17.4s                     : frintz %q17 $0x02 -> %q16
+4ea19a72 : frintz V18.4s, V19.4s                     : frintz %q19 $0x02 -> %q18
+4ea19ab4 : frintz V20.4s, V21.4s                     : frintz %q21 $0x02 -> %q20
+4ea19af6 : frintz V22.4s, V23.4s                     : frintz %q23 $0x02 -> %q22
+4ea19b38 : frintz V24.4s, V25.4s                     : frintz %q25 $0x02 -> %q24
+4ea19b7a : frintz V26.4s, V27.4s                     : frintz %q27 $0x02 -> %q26
+4ea19bbc : frintz V28.4s, V29.4s                     : frintz %q29 $0x02 -> %q28
+4ea19bfe : frintz V30.4s, V31.4s                     : frintz %q31 $0x02 -> %q30
+4ee19820 : frintz V0.2d, V1.2d                       : frintz %q1 $0x03 -> %q0
+4ee19862 : frintz V2.2d, V3.2d                       : frintz %q3 $0x03 -> %q2
+4ee198a4 : frintz V4.2d, V5.2d                       : frintz %q5 $0x03 -> %q4
+4ee198e6 : frintz V6.2d, V7.2d                       : frintz %q7 $0x03 -> %q6
+4ee19928 : frintz V8.2d, V9.2d                       : frintz %q9 $0x03 -> %q8
+4ee1996a : frintz V10.2d, V11.2d                     : frintz %q11 $0x03 -> %q10
+4ee199ac : frintz V12.2d, V13.2d                     : frintz %q13 $0x03 -> %q12
+4ee199ee : frintz V14.2d, V15.2d                     : frintz %q15 $0x03 -> %q14
+4ee19a30 : frintz V16.2d, V17.2d                     : frintz %q17 $0x03 -> %q16
+4ee19a72 : frintz V18.2d, V19.2d                     : frintz %q19 $0x03 -> %q18
+4ee19ab4 : frintz V20.2d, V21.2d                     : frintz %q21 $0x03 -> %q20
+4ee19af6 : frintz V22.2d, V23.2d                     : frintz %q23 $0x03 -> %q22
+4ee19b38 : frintz V24.2d, V25.2d                     : frintz %q25 $0x03 -> %q24
+4ee19b7a : frintz V26.2d, V27.2d                     : frintz %q27 $0x03 -> %q26
+4ee19bbc : frintz V28.2d, V29.2d                     : frintz %q29 $0x03 -> %q28
+4ee19bfe : frintz V30.2d, V31.2d                     : frintz %q31 $0x03 -> %q30
 
 0e5f0fa0 : fmla v0.4h, v29.4h, v31.4h               : fmla   %d0 %d29 %d31 $0x01 -> %d0
 4e5f0fa0 : fmla v0.8h, v29.8h, v31.8h               : fmla   %q0 %q29 %q31 $0x01 -> %q0

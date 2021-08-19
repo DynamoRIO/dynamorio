@@ -1091,6 +1091,7 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 0x001110xx1xxxxx001101xxxxxxxxxx  n     cmgt      dq0 : dq5 dq16 bhsd_sz
 0x001110xx100000100010xxxxxxxxxx  n     cmgt      dq0 : dq5 bhsd_sz
 0101111011100000100010xxxxxxxxxx  n     cmgt       d0 : d5
+01011110111xxxxx001101xxxxxxxxxx  n     cmgt       d0 : d5 d16
 0x001110xx1xxxxx001111xxxxxxxxxx  n     cmge      dq0 : dq5 dq16 bhsd_sz
 0x101110xx100000100010xxxxxxxxxx  n     cmge      dq0 : dq5 bhsd_sz
 0111111011100000100010xxxxxxxxxx  n     cmge       d0 : d5
@@ -1279,6 +1280,7 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 0x1011100x100001100010xxxxxxxxxx  n     frinta    dq0 : dq5 sd_sz
 0x0011100x100001100110xxxxxxxxxx  n     frintm    dq0 : dq5 sd_sz
 0x0011101x100001100010xxxxxxxxxx  n     frintp    dq0 : dq5 sd_sz
+0x0011101x100001100110xxxxxxxxxx  n     frintz    dq0 : dq5 sd_sz
 0x1011101x100001111110xxxxxxxxxx  n     fsqrt     dq0 : dq5 sd_sz
 
 # Floating-point convert (scalar)
