@@ -1815,8 +1815,8 @@ adjust_syscall_continuation(dcontext_t *dcontext)
          * need to manually jump to the sysenter return point.
          * Once we have PR 288330 we can remove this.
          */
-        if (IF_X86_32((syscall_method_is_syscall && cpu_info.vendor == VENDOR_AMD) ||)
-            !syscall_method_is_syscall) {
+        if (IF_X86_32((syscall_method_is_syscall &&
+                       cpu_info.vendor == VENDOR_AMD) ||) !syscall_method_is_syscall) {
             if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
                 ASSERT(vsyscall_sysenter_return_pc != NULL);
                 dcontext->asynch_target = vsyscall_sysenter_return_pc;
