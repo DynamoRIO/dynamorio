@@ -99,7 +99,6 @@ public:
         }
 
         std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);
-        std::prev(prev_it);
 
         // Current bound -> (addr_beg...addr_end) connects previous and
         // next bound
@@ -133,7 +132,6 @@ public:
         // then the addr.
         auto next_it = bounds.upper_bound(addr);
         std::map<addr_t, addr_t>::reverse_iterator prev_it(next_it);
-        std::prev(prev_it);
 
         if (prev_it != bounds.rend() && addr >= prev_it->first &&
             addr < prev_it->second) {
@@ -144,7 +142,7 @@ public:
     }
 
 private:
-    // Bounds are members of the the std::map. The beginning of the bound is stored
+    // Bounds are members of the std::map. The beginning of the bound is stored
     // as a key and the end as a value.
     std::map<addr_t, addr_t> bounds;
     int block_size_mask_ = 0;

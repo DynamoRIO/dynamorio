@@ -234,6 +234,7 @@ caching_device_stats_t::reset()
     num_child_hits_at_reset_ = num_child_hits_;
     num_hits_ = 0;
     num_misses_ = 0;
+    num_compulsory_misses_ = 0;
     num_child_hits_ = 0;
     num_inclusive_invalidates_ = 0;
     num_coherence_invalidates_ = 0;
