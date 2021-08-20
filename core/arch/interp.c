@@ -8296,7 +8296,6 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
     uint indirect_type = 0;
     int added_size = 0;
     trace_exit_label = NULL;
-    instr_t *delete_after = NULL;
     /* We record the original trace end */
     instr_t *trace_end = instrlist_last(trace);
 
@@ -8309,15 +8308,8 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
             /* Check for indirect exit. */
             if (is_indirect_branch_lookup_routine(dcontext, (cache_pc)target)) {
                 /* This branch must be a cbnz, or the last_cti was not fixed up. */
-                if (instr->opcode != OP_cbnz) {
-                    prev = instr_get_prev(instr);
-                    added_size += mangle_indirect_branch_in_trace(
-                        dcontext, trace, instr, target, 0, &delete_after,
-                        instrlist_last(trace));
-                    /* re-check */
-                    instr = prev;
-                    continue;
-                }
+                ASSERT(instr->opcode == OP_cbnz);
+
                 trace_exit_label = INSTR_CREATE_label(dcontext);
                 ind_target = target;
                 /* Modify the target of the cbnz. */
@@ -8329,14 +8321,13 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
 
                 /* Retrieve jump target reg from the xor instruction. */
                 prev = instr_get_prev(instr);
-                if (prev->opcode != OP_eor)
-                    return 0;
+                ASSERT(prev->opcode == OP_eor);
 
                 ASSERT(instr_num_srcs(prev) == 4 && opnd_is_reg(instr_get_src(prev, 1)));
                 jump_target_reg = opnd_get_reg(instr_get_src(prev, 1));
 
-                if (!ind_target || jump_target_reg == DR_REG_NULL)
-                    return 0;
+                ASSERT(ind_target && jump_target_reg != DR_REG_NULL);
+
                 /* Choose any scratch register except the target reg. */
                 scratch = (jump_target_reg == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
                 /* Add the trace exit label. */
@@ -8369,9 +8360,12 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
                 instrlist_append(trace, branch);
                 added_size += AARCH64_INSTR_SIZE;
             }
-            /* Don't invoke the decoder; only mangled instruction reached here. */
         } else if (instr->opcode == OP_cbz || instr->opcode == OP_cbnz ||
                    instr->opcode == OP_tbz || instr->opcode == OP_tbnz) {
+            /* Don't invoke the decoder;
+             * only mangled instruction (by mangle_cbr_stolen_reg) reached here.
+             */
+
             /* Next instruction should be a LDR_TLS_slot. */
             instr_t *next = instr_get_next(instr);
             if (!instr_is_load_tls(next))
