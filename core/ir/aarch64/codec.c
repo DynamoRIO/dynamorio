@@ -992,6 +992,41 @@ encode_opnd_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return false;
 }
 
+/* b_const_sz: Operand size for byte elements
+ */
+static inline bool
+decode_opnd_b_const_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_BYTE, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_b_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_BYTE)
+        return true;
+    return false;
+}
+
+/* s_const_sz: Operand size for single (32-bit) element
+ */
+static inline bool
+decode_opnd_s_const_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
+    return true;
+}
+
+static inline bool
+encode_opnd_s_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_SINGLE)
+        return true;
+    return false;
+}
+
+
 /* nzcv: flag bit specifier for conditional compare */
 
 static inline bool
@@ -2786,6 +2821,7 @@ encode_opnd_bhs_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     *enc_out = val << 22;
     return true;
 }
+
 
 /* bhsd_sz: Vector element width for SIMD instructions. */
 
