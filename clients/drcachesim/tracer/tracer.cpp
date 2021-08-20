@@ -1047,7 +1047,7 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
                                    reg_ptr);
             MINSERT(ilist, where,
                     XINST_CREATE_add(drcontext, opnd_create_reg(reg_ptr),
-                                     OPND_CREATE_INT8(ud->bb_instr_count)));
+                                     OPND_CREATE_INT16(ud->bb_instr_count)));
             dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                                     tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNT,
                                     reg_ptr);
