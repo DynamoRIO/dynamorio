@@ -1726,12 +1726,12 @@ drmgr_unregister_bb_post_instru_event(drmgr_xform_cb_t func)
 
 DR_EXPORT
 bool
-drmgr_register_bb_post_instru_ex_event(drmgr_app2app_ex_cb_t app2app_func,
-                                       drmgr_ilist_ex_cb_t analysis_func,
-                                       drmgr_insertion_cb_t insertion_func,
-                                       drmgr_ilist_ex_cb_t instru2instru_func,
-                                       drmgr_ilist_ex_cb_t post_instru_func,
-                                       drmgr_priority_t *priority)
+drmgr_register_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
+                                             drmgr_ilist_ex_cb_t analysis_func,
+                                             drmgr_insertion_cb_t insertion_func,
+                                             drmgr_ilist_ex_cb_t instru2instru_func,
+                                             drmgr_ilist_ex_cb_t post_instru_func,
+                                             drmgr_priority_t *priority)
 {
     if (!drmgr_register_bb_instrumentation_ex_event(
             app2app_func, analysis_func, insertion_func, instru2instru_func, priority))
@@ -1752,11 +1752,11 @@ drmgr_register_bb_post_instru_ex_event(drmgr_app2app_ex_cb_t app2app_func,
 
 DR_EXPORT
 bool
-drmgr_unregister_bb_post_instru_ex_event(drmgr_app2app_ex_cb_t app2app_func,
-                                         drmgr_ilist_ex_cb_t analysis_func,
-                                         drmgr_insertion_cb_t insertion_func,
-                                         drmgr_ilist_ex_cb_t instru2instru_func,
-                                         drmgr_ilist_ex_cb_t post_instru_func)
+drmgr_unregister_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
+                                               drmgr_ilist_ex_cb_t analysis_func,
+                                               drmgr_insertion_cb_t insertion_func,
+                                               drmgr_ilist_ex_cb_t instru2instru_func,
+                                               drmgr_ilist_ex_cb_t post_instru_func)
 {
     if (!drmgr_unregister_bb_instrumentation_ex_event(app2app_func, analysis_func,
                                                       insertion_func, instru2instru_func))

@@ -564,17 +564,17 @@ DR_EXPORT
  * default priority is used.
  */
 bool
-drmgr_register_bb_post_instru_ex_event(drmgr_app2app_ex_cb_t app2app_func,
-                                       drmgr_ilist_ex_cb_t analysis_func,
-                                       drmgr_insertion_cb_t insertion_func,
-                                       drmgr_ilist_ex_cb_t instru2instru_func,
-                                       drmgr_ilist_ex_cb_t post_instru_func,
-                                       drmgr_priority_t *priority);
+drmgr_register_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
+                                             drmgr_ilist_ex_cb_t analysis_func,
+                                             drmgr_insertion_cb_t insertion_func,
+                                             drmgr_ilist_ex_cb_t instru2instru_func,
+                                             drmgr_ilist_ex_cb_t post_instru_func,
+                                             drmgr_priority_t *priority);
 
 DR_EXPORT
 /**
  * Unregisters the five given callbacks that
- * were registered via drmgr_register_bb_post_instru_ex_event().
+ * were registered via drmgr_register_bb_instrumentation_all_events().
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  *
@@ -582,11 +582,11 @@ DR_EXPORT
  * is safe to unregister apply here as well.
  */
 bool
-drmgr_unregister_bb_post_instru_ex_event(drmgr_app2app_ex_cb_t app2app_func,
-                                         drmgr_ilist_ex_cb_t analysis_func,
-                                         drmgr_insertion_cb_t insertion_func,
-                                         drmgr_ilist_ex_cb_t instru2instru_func,
-                                         drmgr_ilist_ex_cb_t post_instru_func);
+drmgr_unregister_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
+                                               drmgr_ilist_ex_cb_t analysis_func,
+                                               drmgr_insertion_cb_t insertion_func,
+                                               drmgr_ilist_ex_cb_t instru2instru_func,
+                                               drmgr_ilist_ex_cb_t post_instru_func);
 
 DR_EXPORT
 /**

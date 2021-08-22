@@ -84,6 +84,13 @@ typedef struct {
 
 DR_EXPORT
 /**
+ * Determines whether a given basic block can be checked by the drstatecmp extension.
+ */
+bool
+drstatecmp_bb_checks_enabled(instrlist_t *bb);
+
+DR_EXPORT
+/**
  * Initializes the drstatecmp extension.  Must be called prior to any of the other
  * routines.  Can be called only once and must be paired with a corresponding call to
  * drstatecmp_exit().

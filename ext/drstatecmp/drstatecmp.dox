@@ -90,7 +90,7 @@ later comparison and then restore the machine state to the state before executin
 instrumented basic block. At the end of the instrumentation-free copy of the basic block,
 a clean call is inserted that compares the current machine state of the
 instrumentation-free basic block with the machine state that was saved at the end of the
-instrumented basic block. An user-supplied callback is invoked in case of any state
+instrumented basic block. A user-supplied callback is invoked in case of any state
 mismatch. If the user provides no such callback, \p DR_ASSERT_MSG is triggered on
 mismatches.
 

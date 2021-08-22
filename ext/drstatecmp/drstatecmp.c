@@ -131,6 +131,25 @@ drstatecmp_may_have_side_effects_instr(instr_t *instr)
     return false;
 }
 
+/* Returns whether a basic block can be checked by drstatecmp. */
+bool
+drstatecmp_bb_checks_enabled(instrlist_t *bb)
+{
+    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
+         inst = instr_get_next_app(inst)) {
+
+        /* Ignore the last instruction if it is a control transfer instruction,
+         * because it will not be re-executed.
+         */
+        if (inst == instrlist_last_app(bb) && instr_is_cti(inst))
+            continue;
+
+        if (drstatecmp_may_have_side_effects_instr(inst))
+            return false;
+    }
+    return true;
+}
+
 /****************************************************************************
  * APPLICATION-TO-APPLICATION PHASE
  *
@@ -149,21 +168,14 @@ drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
     memset(data, 0, sizeof(*data));
     *user_data = (void *)data;
 
-    /* Determine whether the basic block is free of side effects. */
+    /* Determine whether this basic block can be checked by drstatecmp.
+     * In the current implementation, a basic block needs to be side-effect-free
+     * (except for the last instruction if it is a control transfer instruction).
+     */
     data->side_effect_free_bb = true;
-    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
-         inst = instr_get_next_app(inst)) {
-
-        /* Ignore the last instruction if it is a control transfer instruction,
-         * because it will not be re-executed.
-         */
-        if (inst == instrlist_last_app(bb) && instr_is_cti(inst))
-            continue;
-
-        if (drstatecmp_may_have_side_effects_instr(inst)) {
-            data->side_effect_free_bb = false;
-            return DR_EMIT_DEFAULT;
-        }
+    if (!drstatecmp_bb_checks_enabled(bb)) {
+        data->side_effect_free_bb = false;
+        return DR_EMIT_DEFAULT;
     }
 
     /* Current bb is side-effect free. Save a copy of this pre-app2app bb. */
@@ -178,7 +190,7 @@ drstatecmp_app2app_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
  * golden copy for comparison. There are two options: i) pre-app2app-phase copy, where
  * the code just contains the original app instructions, and ii) post-app2app-phase copy.
  * The first option can catch bugs in app2app passes and it is selected unless any of
- * original app instructions requires emulation (true emulation). In that case, the
+ * the original app instructions requires emulation (true emulation). In that case, the
  * pre-app2app code is not executable, whereas the post-app2app code contains emulation
  * code and thus can be used for state checks with re-execution. Cases that do
  * not require the emulation sequence for re-execution include instruction
@@ -380,6 +392,7 @@ drstatecmp_report_error(const char *msg, void *tag)
         byte *bb_start_pc = dr_fragment_app_pc(tag);
         void *drcontext = dr_get_current_drcontext();
         instrlist_t *bb = decode_as_bb(drcontext, bb_start_pc);
+        /* XXX: would also be useful to emit the mcontext values. */
         dr_fprintf(STDERR, "Application basic block where mismatch detected: \n");
         instrlist_disassemble(drcontext, bb_start_pc, bb, STDERR);
         DR_ASSERT_MSG(false, msg);
@@ -662,7 +675,7 @@ drstatecmp_init(drstatecmp_options_t *ops_in)
 
     if (!drmgr_register_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_register_thread_exit_event(drstatecmp_thread_exit) ||
-        !drmgr_register_bb_post_instru_ex_event(
+        !drmgr_register_bb_instrumentation_all_events(
             drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
             drstatecmp_instru2instru_phase, drstatecmp_post_instru_phase, &priority))
         return DRSTATECMP_ERROR;
@@ -680,7 +693,7 @@ drstatecmp_exit(void)
     if (!drmgr_unregister_thread_init_event(drstatecmp_thread_init) ||
         !drmgr_unregister_thread_exit_event(drstatecmp_thread_exit) ||
         !drmgr_unregister_tls_field(tls_idx) ||
-        !drmgr_unregister_bb_post_instru_ex_event(
+        !drmgr_unregister_bb_instrumentation_all_events(
             drstatecmp_app2app_phase, drstatecmp_analyze_phase, drstatecmp_insert_phase,
             drstatecmp_instru2instru_phase, drstatecmp_post_instru_phase))
         return DRSTATECMP_ERROR;

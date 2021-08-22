@@ -36,6 +36,7 @@
 
 #include "configure.h"
 #include "dr_api.h"
+/* The opcode_opnd_pairs.h is generated for this fuzzer by codec.py from codec.txt. */
 #include "opcode_opnd_pairs.h"
 #include "tools.h"
 #include <assert.h>
@@ -49,6 +50,8 @@
 #define NUM_INSTS 10000
 
 #define VERBOSE 0
+
+#ifdef AARCH64
 
 static byte *generated_code;
 static size_t code_size;
@@ -74,20 +77,20 @@ sigill_handler(int signal, siginfo_t *siginfo, void *uctx)
 static void
 print_instr_pc(instr_t *instr, byte *encode_pc)
 {
-#if VERBOSE > 0
     fprintf(stderr, "%p: ", encode_pc);
     instr_disassemble(GLOBAL_DCONTEXT, instr, STDERR);
     fprintf(stderr, "\n");
-#endif
 }
 
 static byte *
 append_instr(instr_t *instr, byte *encode_pc)
 {
+#    if VERBOSE > 0
     print_instr_pc(instr, encode_pc);
+#    endif
     byte *nxt_pc = instr_encode(GLOBAL_DCONTEXT, instr, encode_pc);
-    instr_destroy(GLOBAL_DCONTEXT, instr);
     assert(nxt_pc);
+    instr_destroy(GLOBAL_DCONTEXT, instr);
     return nxt_pc;
 }
 
@@ -111,7 +114,15 @@ generate_encoded_inst(void)
     const opcode_opnd_pair_t opcode_opnd_pair = fuzz_opcode_opnd_pairs[opcode_pick];
 
     uint32_t opnd_mask = opcode_opnd_pair.opnd;
-    /* Avoid registers 16-31 for Rd (special registers and callee-saved registers). */
+    /* Avoid registers 16-31 for Rd (special registers and callee-saved registers) to
+     * avoid causing segmentation faults and skipping checks.
+     * XXX: Could relax this constraint by pushing all callee-saved registers in a new
+     * preceding basic block and popping them in a succeeding basic block (need
+     * to be separate basic blocks since drstatecmp does not support memory operations).
+     * Encoding for register 31 for Rd should still be avoided since this encoding is used
+     * for special purposes and sometimes refers to the stack pointer or the zero
+     * register.
+     */
     opnd_mask &= 0b01111;
     /* Fuzz the operand bits. */
     uint32_t fuzzed_opnd = rand_32b() & opnd_mask;
@@ -177,8 +188,12 @@ generate_code()
 int
 main(void)
 {
-    /* Produce fuzzing application code. */
+    /* XXX: this app should take in the rand seed as a parameter and print it
+     * out on an error to allow reproducibility of the exact same instruction
+     * sequence in subsequent runs.
+     */
     srand(time(NULL));
+    /* Produce fuzzing application code. */
     fprintf(stderr, "Generate code\n");
     generate_code();
 
@@ -216,3 +231,8 @@ main(void)
     fprintf(stderr, "All done\n");
     return 0;
 }
+
+#else
+/* XXX: only AArch64 supported. */
+#    error NYI
+#endif

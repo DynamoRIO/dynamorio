@@ -338,6 +338,9 @@ def generate_opcode_names(patterns):
           '#endif /* OPCODE_NAMES_H */']
     return '\n'.join(c) + '\n'
 
+# Generates pairs of opcodes and masks for their operands for all the
+# side-effect-free and non-branch instructions suppported by the decoder.
+# The generated file is used by the drstatecmp-fuzz-app.
 def generate_opcode_opnd_pairs(patterns):
     c = ['#ifndef OPCODE_OPND_PAIRS_H',
          '#define OPCODE_OPND_PAIRS_H 1',
