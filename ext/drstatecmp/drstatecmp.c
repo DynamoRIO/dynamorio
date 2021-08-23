@@ -44,6 +44,9 @@
 
 typedef struct {
     bool side_effect_free_bb; /* Denotes whether the bb has side-effects. */
+#ifdef X86
+    bool dead_aflags; /* Denotes that the aflags must be dead on bb entry. */
+#endif
     union {
         instrlist_t *pre_app2app_bb; /* Copy of the pre-app2app bb. */
         instrlist_t *golden_bb_copy; /* Golden copy of the bb (either pre- or post-app2app
@@ -106,7 +109,10 @@ typedef struct {
     instr_t *term;
 } drstatecmp_dup_labels_t;
 
-typedef enum { DRSTATECMP_SKIP_CHECK_LR = 0x01 } drstatecmp_check_flags_t;
+typedef enum {
+    DRSTATECMP_SKIP_CHECK_LR = 0x01,
+    DRSTATECMP_SKIP_CHECK_AFLAGS = 0x02
+} drstatecmp_check_flags_t;
 
 /* Returns whether or not instr may have side effects. */
 static bool
@@ -149,6 +155,28 @@ drstatecmp_bb_checks_enabled(instrlist_t *bb)
     }
     return true;
 }
+
+#ifdef X86
+/* Returns whether the aflags must be dead on bb entry.
+ * Returns true if aflags are first written before read.
+ */
+bool
+drstatecmp_aflags_must_be_dead(instrlist_t *bb)
+{
+    for (instr_t *inst = instrlist_first_app(bb); inst != NULL;
+         inst = instr_get_next_app(inst)) {
+        uint aflags = instr_get_arith_flags(inst, DR_QUERY_INCLUDE_COND_SRCS);
+        if (aflags & EFLAGS_READ_ARITH)
+            return false;
+        if (aflags & EFLAGS_WRITE_ARITH)
+            return true;
+    }
+    /* Cannot determine aflags liveness. Neither read nor written in this basic
+     * block.
+     */
+    return false;
+}
+#endif
 
 /****************************************************************************
  * APPLICATION-TO-APPLICATION PHASE
@@ -207,6 +235,10 @@ drstatecmp_analyze_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
     if (!data->side_effect_free_bb)
         return DR_EMIT_DEFAULT;
+
+#ifdef X86
+    data->dead_aflags = drstatecmp_aflags_must_be_dead(bb);
+#endif
 
     for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
         if (drmgr_is_emulation_start(inst)) {
@@ -468,8 +500,10 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
     drstatecmp_check_gpr_value("r15", tag, mc_instrumented->r15, mc_expected->r15);
 #    endif
 
-    drstatecmp_check_gpr_value("xflags", tag, mc_instrumented->xflags,
-                               mc_expected->xflags);
+    if (!TEST(DRSTATECMP_SKIP_CHECK_AFLAGS, flags))
+        drstatecmp_check_gpr_value("xflags", tag, mc_instrumented->xflags,
+                                   mc_expected->xflags);
+
     for (int i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
         drstatecmp_check_opmask_value(tag, mc_instrumented->opmask[i],
                                       mc_expected->opmask[i]);
@@ -514,7 +548,6 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
 
     drstatecmp_check_xflags_value("xflags", tag, mc_instrumented->xflags,
                                   mc_expected->xflags);
-
 #else
 #    error NYI
 #endif
@@ -543,7 +576,8 @@ drstatecmp_compare_state_call(int flags, void *tag)
 }
 
 static void
-drstatecmp_compare_state(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr)
+drstatecmp_compare_state(void *drcontext, void *tag, instrlist_t *bb,
+                         drstatecmp_user_data_t *data, instr_t *instr)
 {
     int flags = 0;
 #ifdef AARCHXX
@@ -560,6 +594,19 @@ drstatecmp_compare_state(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
         flags |= DRSTATECMP_SKIP_CHECK_LR;
 #endif
 
+#ifdef X86
+    /* Avoid false positives due to mismatches for undefined effect on flags by
+     * some x86 instructions. In DR undefined effect on flags is considered a
+     * write to the flags to render the flags dead in more occasions and thus
+     * allow for less saving/restoration. However, drstatecmp may detect mismatches on
+     * those cases.
+     * XXX: limit this constraint to only cases with partial overwriting of flags
+     * and undefined behavior instead of all cases of considered-dead-by-DR flags.
+     */
+    if (data->dead_aflags)
+        flags |= DRSTATECMP_SKIP_CHECK_AFLAGS;
+#endif
+
     dr_insert_clean_call(drcontext, bb, instr, (void *)drstatecmp_compare_state_call,
                          false /* fpstate */, 2, OPND_CREATE_INT32(flags),
                          OPND_CREATE_INTPTR(tag));
@@ -567,6 +614,7 @@ drstatecmp_compare_state(void *drcontext, void *tag, instrlist_t *bb, instr_t *i
 
 static void
 drstatecmp_check_reexecution(void *drcontext, void *tag, instrlist_t *bb,
+                             drstatecmp_user_data_t *data,
                              drstatecmp_dup_labels_t *labels)
 {
     /* Save state at the beginning of the original bb in order to restore it at the
@@ -584,7 +632,7 @@ drstatecmp_check_reexecution(void *drcontext, void *tag, instrlist_t *bb,
      * at the end of the original (instrumented) bb to detect clobbering by the
      * instrumentation.
      */
-    drstatecmp_compare_state(drcontext, tag, bb, labels->term);
+    drstatecmp_compare_state(drcontext, tag, bb, data, labels->term);
 }
 
 /* Duplicate the side-effect-free basic block for re-execution and add saving/restoring of
@@ -597,7 +645,7 @@ drstatecmp_postprocess_side_effect_free_bb(void *drcontext, void *tag, instrlist
 {
     drstatecmp_dup_labels_t labels;
     drstatecmp_duplicate_bb(drcontext, bb, data, &labels);
-    drstatecmp_check_reexecution(drcontext, tag, bb, &labels);
+    drstatecmp_check_reexecution(drcontext, tag, bb, data, &labels);
 }
 
 static void
