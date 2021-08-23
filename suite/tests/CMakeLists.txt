@@ -3311,7 +3311,7 @@ if (BUILD_CLIENTS)
     if (AARCH64)
       torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
     endif ()
-    torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 1000 -enable_drstatecmp" "")
+    torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
 
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
