@@ -500,9 +500,10 @@ drstatecmp_check_machine_state(dr_mcontext_t *mc_instrumented, dr_mcontext_t *mc
     drstatecmp_check_gpr_value("r15", tag, mc_instrumented->r15, mc_expected->r15);
 #    endif
 
-    if (!TEST(DRSTATECMP_SKIP_CHECK_AFLAGS, flags))
+    if (!TEST(DRSTATECMP_SKIP_CHECK_AFLAGS, flags)) {
         drstatecmp_check_gpr_value("xflags", tag, mc_instrumented->xflags,
                                    mc_expected->xflags);
+    }
 
     for (int i = 0; i < MCXT_NUM_OPMASK_SLOTS; i++) {
         drstatecmp_check_opmask_value(tag, mc_instrumented->opmask[i],
