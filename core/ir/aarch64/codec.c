@@ -1026,7 +1026,6 @@ encode_opnd_s_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return false;
 }
 
-
 /* nzcv: flag bit specifier for conditional compare */
 
 static inline bool
@@ -2821,7 +2820,6 @@ encode_opnd_bhs_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     *enc_out = val << 22;
     return true;
 }
-
 
 /* bhsd_sz: Vector element width for SIMD instructions. */
 
