@@ -166,6 +166,12 @@ static dr_emit_flags_t
 event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                         bool translating, void *user_data);
 static dr_emit_flags_t
+event_bb5_post_instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                      bool translating, void *user_data);
+static dr_emit_flags_t
+event_bb_post_instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                     bool translating);
+static dr_emit_flags_t
 event_bb4_insert2(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
                   bool for_trace, bool translating, void *user_data);
 
@@ -199,6 +205,7 @@ dr_init(client_id_t id)
 {
     drmgr_priority_t priority = { sizeof(priority), "drmgr-test", NULL, NULL, 0 };
     drmgr_priority_t priority4 = { sizeof(priority), "drmgr-test4", NULL, NULL, 0 };
+    drmgr_priority_t priority5 = { sizeof(priority), "drmgr-test5", NULL, NULL, 0 };
     drmgr_priority_t sys_pri_A = { sizeof(priority), "drmgr-test-A", NULL, NULL, 10 };
     drmgr_priority_t sys_pri_A_user_data = { sizeof(priority),
                                              "drmgr-test-A-usr-data-test", "drmgr-test-A",
@@ -293,10 +300,26 @@ dr_init(client_id_t id)
         event_bb4_instru2instru);
     CHECK(ok, "drmgr_unregister_bb_instrumentation_ex_event failed");
 
-    /* test data passing among all 4 phases */
+    /* check register/unregister instrumentation_all_events */
+    ok = drmgr_register_bb_instrumentation_all_events(
+        event_bb4_app2app, event_bb4_analysis, event_bb4_insert2, event_bb4_instru2instru,
+        event_bb5_post_instru, NULL);
+    CHECK(ok, "drmgr_register_bb_instrumentation_all_events failed");
+    ok = drmgr_unregister_bb_instrumentation_all_events(
+        event_bb4_app2app, event_bb4_analysis, event_bb4_insert2, event_bb4_instru2instru,
+        event_bb5_post_instru);
+    CHECK(ok, "drmgr_unregister_bb_instrumentation_all_events failed");
+
+    /* test data passing among four first phases */
     ok = drmgr_register_bb_instrumentation_ex_event(event_bb4_app2app, event_bb4_analysis,
                                                     event_bb4_insert,
                                                     event_bb4_instru2instru, &priority4);
+
+    /* test data passing among all five phases */
+    ok = drmgr_register_bb_instrumentation_all_events(
+        event_bb4_app2app, event_bb4_analysis, event_bb4_insert, event_bb4_instru2instru,
+        event_bb5_post_instru, &priority5);
+    CHECK(ok, "drmgr_register_bb_instrumentation_all_events failed");
 
     drmgr_register_module_load_event_user_data(event_mod_load, NULL,
                                                (void *)mod_user_data_test);
@@ -336,6 +359,9 @@ dr_init(client_id_t id)
 
     ok = drmgr_register_bb_app2app_event(one_time_bb_event, NULL);
     CHECK(ok, "drmgr app2app registration failed");
+
+    ok = drmgr_register_bb_post_instru_event(event_bb_post_instru, &priority);
+    CHECK(ok, "drmgr post_instru registration failed");
 
     ok = drmgr_register_kernel_xfer_event(event_kernel_xfer);
     CHECK(ok, "drmgr_register_kernel_xfer_event failed");
@@ -386,6 +412,11 @@ event_exit(void)
             event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
 
+    if (!drmgr_unregister_bb_instrumentation_all_events(
+            event_bb4_app2app, event_bb4_analysis, event_bb4_insert2,
+            event_bb4_instru2instru, event_bb5_post_instru))
+        CHECK(false, "drmgr_unregister_bb_instrumentation_all_events failed");
+
     if (!drmgr_unregister_opcode_instrumentation_event(event_opcode_add_insert_A, OP_add))
         CHECK(false, "drmgr opcode unregistration failed");
 
@@ -406,6 +437,9 @@ event_exit(void)
         CHECK(false, "drmgr unregistration failed");
     if (!drmgr_unregister_kernel_xfer_event(event_kernel_xfer))
         CHECK(false, "drmgr_unregister_kernel_xfer_event failed");
+
+    if (!drmgr_unregister_bb_post_instru_event(event_bb_post_instru))
+        CHECK(false, "drmgr post_instru unregistration failed");
 
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
@@ -720,7 +754,7 @@ event_opcode_add_insert_C(void *drcontext, void *tag, instrlist_t *bb, instr_t *
     return DR_EMIT_DEFAULT;
 }
 
-/* test data passed among all 4 phases */
+/* test data passed among four first phases */
 static dr_emit_flags_t
 event_bb4_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                   bool translating, OUT void **user_data)
@@ -758,6 +792,21 @@ event_bb4_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
                         bool translating, void *user_data)
 {
     CHECK(user_data == (void *)((ptr_uint_t)tag + 1), "user data not preserved");
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb5_post_instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                      bool translating, void *user_data)
+{
+    CHECK(user_data == (void *)((ptr_uint_t)tag + 1), "user data not preserved");
+    return DR_EMIT_DEFAULT;
+}
+
+static dr_emit_flags_t
+event_bb_post_instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                     bool translating)
+{
     return DR_EMIT_DEFAULT;
 }
 
