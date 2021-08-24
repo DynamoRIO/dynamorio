@@ -8301,6 +8301,10 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
 
     LOG(THREAD, LOG_MONITOR, 4, "fixup the indirect trace exit\n");
 
+    /* It is possible that we have multiple indirect trace exits to fix up
+     * when more than one basic blocks are added as the trace.
+     * And so we iterate over the entire trace to look for indirect exits.
+     */
     for (instr = instrlist_first(trace); instr != trace_end;
          instr = instr_get_next(instr)) {
         if (instr_is_exit_cti(instr)) {
@@ -8360,16 +8364,15 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
                 instrlist_append(trace, branch);
                 added_size += AARCH64_INSTR_SIZE;
             }
-        } else if (instr->opcode == OP_cbz || instr->opcode == OP_cbnz ||
-                   instr->opcode == OP_tbz || instr->opcode == OP_tbnz) {
+        } else if ((instr->opcode == OP_cbz || instr->opcode == OP_cbnz ||
+                    instr->opcode == OP_tbz || instr->opcode == OP_tbnz) &&
+                   instr_is_load_tls(instr_get_next(instr))) {
             /* Don't invoke the decoder;
              * only mangled instruction (by mangle_cbr_stolen_reg) reached here.
              */
 
             /* Next instruction should be a LDR_TLS_slot. */
             instr_t *next = instr_get_next(instr);
-            if (!instr_is_load_tls(next))
-                continue;
 
             /* Get the actual target of the cbz/cbnz. */
             opnd_t fall_target = instr_get_target(instr);
