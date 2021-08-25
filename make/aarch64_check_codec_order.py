@@ -55,7 +55,16 @@ def filter_lines(path, regex, ignore_until=''):
 
 
 def check(l1, l2):
-    assert len(l1) == len(l2)
+    if len(l1) != len(l2):
+        raise Exception(
+            "Lists of different length.\n"
+            "In source 1, but not 2:\n"
+            "{} \n"
+            "In source 2, but not 1:\n"
+            "{} \n".format(
+                ", ".join(set(l1) - set(l2)),
+                ", ".join(set(l2) - set(l1))))
+
     mismatches = [(i, a, b)
                   for (i, (a, b)) in enumerate(zip(l1, l2)) if a != b]
 

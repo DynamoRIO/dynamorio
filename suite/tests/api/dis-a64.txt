@@ -5985,6 +5985,30 @@ da030041 : sbc    x1, x2, x3              : sbc    %x2 %x3 -> %x1
 
 1ac30c5f : sdiv   wzr, w2, w3             : sdiv   %w2 %w3 -> %wzr
 
+# SDOT <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+0e829420 : sdot V0.2s, V1.8b, V2.8b                  : sdot   %d1 %d2 $0x02 $0x00 -> %d0
+0e859483 : sdot V3.2s, V4.8b, V5.8b                  : sdot   %d4 %d5 $0x02 $0x00 -> %d3
+0e8894e6 : sdot V6.2s, V7.8b, V8.8b                  : sdot   %d7 %d8 $0x02 $0x00 -> %d6
+0e8b9549 : sdot V9.2s, V10.8b, V11.8b                : sdot   %d10 %d11 $0x02 $0x00 -> %d9
+0e8e95ac : sdot V12.2s, V13.8b, V14.8b               : sdot   %d13 %d14 $0x02 $0x00 -> %d12
+0e91960f : sdot V15.2s, V16.8b, V17.8b               : sdot   %d16 %d17 $0x02 $0x00 -> %d15
+0e949672 : sdot V18.2s, V19.8b, V20.8b               : sdot   %d19 %d20 $0x02 $0x00 -> %d18
+0e9796d5 : sdot V21.2s, V22.8b, V23.8b               : sdot   %d22 %d23 $0x02 $0x00 -> %d21
+0e9a9738 : sdot V24.2s, V25.8b, V26.8b               : sdot   %d25 %d26 $0x02 $0x00 -> %d24
+0e9d979b : sdot V27.2s, V28.8b, V29.8b               : sdot   %d28 %d29 $0x02 $0x00 -> %d27
+0e8097fe : sdot V30.2s, V31.8b, V0.8b                : sdot   %d31 %d0 $0x02 $0x00 -> %d30
+4e839441 : sdot V1.4s, V2.16b, V3.16b                : sdot   %q2 %q3 $0x02 $0x00 -> %q1
+4e8694a4 : sdot V4.4s, V5.16b, V6.16b                : sdot   %q5 %q6 $0x02 $0x00 -> %q4
+4e899507 : sdot V7.4s, V8.16b, V9.16b                : sdot   %q8 %q9 $0x02 $0x00 -> %q7
+4e8c956a : sdot V10.4s, V11.16b, V12.16b             : sdot   %q11 %q12 $0x02 $0x00 -> %q10
+4e8f95cd : sdot V13.4s, V14.16b, V15.16b             : sdot   %q14 %q15 $0x02 $0x00 -> %q13
+4e929630 : sdot V16.4s, V17.16b, V18.16b             : sdot   %q17 %q18 $0x02 $0x00 -> %q16
+4e959693 : sdot V19.4s, V20.16b, V21.16b             : sdot   %q20 %q21 $0x02 $0x00 -> %q19
+4e9896f6 : sdot V22.4s, V23.16b, V24.16b             : sdot   %q23 %q24 $0x02 $0x00 -> %q22
+4e9b9759 : sdot V25.4s, V26.16b, V27.16b             : sdot   %q26 %q27 $0x02 $0x00 -> %q25
+4e9e97bc : sdot V28.4s, V29.16b, V30.16b             : sdot   %q29 %q30 $0x02 $0x00 -> %q28
+4e81941f : sdot V31.4s, V0.16b, V1.16b               : sdot   %q0 %q1 $0x02 $0x00 -> %q31
+
 d503209f : sev                            : sev
 
 d50320bf : sevl                           : sevl
@@ -11357,6 +11381,30 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 2f21e7fe : ucvtf v30.2s, v31.2s, #31                : ucvtf  %d31 $0x02 $0x1f -> %d30
 
 9ac30841 : udiv   x1, x2, x3              : udiv   %x2 %x3 -> %x1
+
+# UDOT <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+2e829420 : udot V0.2s, V1.8b, V2.8b                  : udot   %d1 %d2 $0x02 $0x00 -> %d0
+2e859483 : udot V3.2s, V4.8b, V5.8b                  : udot   %d4 %d5 $0x02 $0x00 -> %d3
+2e8894e6 : udot V6.2s, V7.8b, V8.8b                  : udot   %d7 %d8 $0x02 $0x00 -> %d6
+2e8b9549 : udot V9.2s, V10.8b, V11.8b                : udot   %d10 %d11 $0x02 $0x00 -> %d9
+2e8e95ac : udot V12.2s, V13.8b, V14.8b               : udot   %d13 %d14 $0x02 $0x00 -> %d12
+2e91960f : udot V15.2s, V16.8b, V17.8b               : udot   %d16 %d17 $0x02 $0x00 -> %d15
+2e949672 : udot V18.2s, V19.8b, V20.8b               : udot   %d19 %d20 $0x02 $0x00 -> %d18
+2e9796d5 : udot V21.2s, V22.8b, V23.8b               : udot   %d22 %d23 $0x02 $0x00 -> %d21
+2e9a9738 : udot V24.2s, V25.8b, V26.8b               : udot   %d25 %d26 $0x02 $0x00 -> %d24
+2e9d979b : udot V27.2s, V28.8b, V29.8b               : udot   %d28 %d29 $0x02 $0x00 -> %d27
+2e8097fe : udot V30.2s, V31.8b, V0.8b                : udot   %d31 %d0 $0x02 $0x00 -> %d30
+6e839441 : udot V1.4s, V2.16b, V3.16b                : udot   %q2 %q3 $0x02 $0x00 -> %q1
+6e8694a4 : udot V4.4s, V5.16b, V6.16b                : udot   %q5 %q6 $0x02 $0x00 -> %q4
+6e899507 : udot V7.4s, V8.16b, V9.16b                : udot   %q8 %q9 $0x02 $0x00 -> %q7
+6e8c956a : udot V10.4s, V11.16b, V12.16b             : udot   %q11 %q12 $0x02 $0x00 -> %q10
+6e8f95cd : udot V13.4s, V14.16b, V15.16b             : udot   %q14 %q15 $0x02 $0x00 -> %q13
+6e929630 : udot V16.4s, V17.16b, V18.16b             : udot   %q17 %q18 $0x02 $0x00 -> %q16
+6e959693 : udot V19.4s, V20.16b, V21.16b             : udot   %q20 %q21 $0x02 $0x00 -> %q19
+6e9896f6 : udot V22.4s, V23.16b, V24.16b             : udot   %q23 %q24 $0x02 $0x00 -> %q22
+6e9b9759 : udot V25.4s, V26.16b, V27.16b             : udot   %q26 %q27 $0x02 $0x00 -> %q25
+6e9e97bc : udot V28.4s, V29.16b, V30.16b             : udot   %q29 %q30 $0x02 $0x00 -> %q28
+6e81941f : udot V31.4s, V0.16b, V1.16b               : udot   %q0 %q1 $0x02 $0x00 -> %q31
 
 2e2904b6 : uhadd v22.8b, v5.8b, v9.8b               : uhadd  %d5 %d9 $0x00 -> %d22
 6e2904b6 : uhadd v22.16b, v5.16b, v9.16b            : uhadd  %q5 %q9 $0x00 -> %q22

@@ -57,6 +57,8 @@
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 --------------------------------  h_sz       # element width of FP vector reg, used to
                                              # distinguish FP16 and float/double encs
+--------------------------------  b_const_sz # as above, but for byte width
+--------------------------------  s_const_sz # as above, but for single width
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
@@ -1402,6 +1404,10 @@ x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
 00011111xx0xxxxx1xxxxxxxxxxxxxxx  n     fmsub     float_reg0 : float_reg5 float_reg16 float_reg10
 00011111xx1xxxxx0xxxxxxxxxxxxxxx  n     fnmadd    float_reg0 : float_reg5 float_reg16 float_reg10
 00011111xx1xxxxx1xxxxxxxxxxxxxxx  n     fnmsub    float_reg0 : float_reg5 float_reg16 float_reg10
+
+# Dot product instructions
+0x101110100xxxxx100101xxxxxxxxxx  n     udot      dq0: dq5 dq16 s_const_sz b_const_sz # v8.2
+0x001110100xxxxx100101xxxxxxxxxx  n     sdot      dq0: dq5 dq16 s_const_sz b_const_sz # v8.2
 
 # SVE bitwise logical operations (predicated)
 00000100xx011000000xxxxxxxxxxxxx  n     orr       z0 : p10_low z0 z5 bhsd_sz
