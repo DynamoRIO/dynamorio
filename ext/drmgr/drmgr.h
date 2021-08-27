@@ -108,7 +108,7 @@ extern "C" {
 
 /**
  * Callback function for the first, fourth, and fifth stages: app2app, instru2instru, and
- * post_instru transformations on the whole instruction list.
+ * meta_instru transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
  * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
@@ -139,7 +139,7 @@ typedef drmgr_analysis_cb_t drmgr_app2app_ex_cb_t;
 
 /**
  * Callback function for the second, fourth, and fifth stages when using a user
- * data parameter for all five: analysis, instru2instru, and post_instru
+ * data parameter for all five: analysis, instru2instru, and meta_instru
  * transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
@@ -216,7 +216,7 @@ typedef enum {
     DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase. */
     DRMGR_PHASE_INSERTION,     /**< Currently in the instrumentation insertion phase. */
     DRMGR_PHASE_INSTRU2INSTRU, /**< Currently in the instru2instru phase. */
-    DRMGR_PHASE_POST_INSTRU,   /**< Currently in the post instrumentation phase. */
+    DRMGR_PHASE_META_INSTRU,   /**< Currently in the post instrumentation phase. */
 } drmgr_bb_phase_t;
 
 /***************************************************************************
@@ -518,7 +518,7 @@ drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
 DR_EXPORT
 /**
  * Registers a callback function for the fifth instrumentation stage:
- * post-instrumentation analysis and transformations on each
+ * meta-instrumentation analysis and transformations on each
  * basic block.  drmgr will call \p func as the fifth of five
  * instrumentation stages for each dynamic application basic block.
  * Post-instrumentation passes are allowed to insert both meta and
@@ -537,7 +537,7 @@ DR_EXPORT
  *                         Can be NULL, in which case a default priority is used.
  */
 bool
-drmgr_register_bb_post_instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
+drmgr_register_bb_meta_instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
 
 DR_EXPORT
 /**
@@ -549,7 +549,7 @@ DR_EXPORT
  * is safe to unregister apply here as well.
  */
 bool
-drmgr_unregister_bb_post_instru_event(drmgr_xform_cb_t func);
+drmgr_unregister_bb_meta_instru_event(drmgr_xform_cb_t func);
 
 DR_EXPORT
 /**
@@ -557,7 +557,7 @@ DR_EXPORT
  * user_data parameter passed among them all, enabling data sharing for all
  * five of them.  See the documentation for drmgr_register_bb_app2app_event(),
  * drmgr_register_bb_instrumentation_event(), drmgr_register_bb_instru2instru_event(), and
- * drmgr_register_bb_post_instru_event() for further details of each pass. The
+ * drmgr_register_bb_meta_instru_event() for further details of each pass. The
  * aforementioned routines are identical to this with the exception of the extra \p
  * user_data parameter, which is an OUT parameter to the \p app2app_func and passed in to
  * the four subsequent callbacks. The \p priority param can be NULL, in which case a
@@ -568,7 +568,7 @@ drmgr_register_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
                                              drmgr_ilist_ex_cb_t analysis_func,
                                              drmgr_insertion_cb_t insertion_func,
                                              drmgr_ilist_ex_cb_t instru2instru_func,
-                                             drmgr_ilist_ex_cb_t post_instru_func,
+                                             drmgr_ilist_ex_cb_t meta_instru_func,
                                              drmgr_priority_t *priority);
 
 DR_EXPORT
@@ -586,7 +586,7 @@ drmgr_unregister_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_fun
                                                drmgr_ilist_ex_cb_t analysis_func,
                                                drmgr_insertion_cb_t insertion_func,
                                                drmgr_ilist_ex_cb_t instru2instru_func,
-                                               drmgr_ilist_ex_cb_t post_instru_func);
+                                               drmgr_ilist_ex_cb_t meta_instru_func);
 
 DR_EXPORT
 /**

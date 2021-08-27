@@ -85,7 +85,7 @@ stages of instrumentation.
     application instructions
  -# Instrumentation-to-instrumentation transformations: typically,
     optimizations applied to the full set of inserted instrumentation
- -# Post-instrumentation transformations: typically, debugging of the
+ -# Meta-instrumentation transformations: typically, debugging of the
     full set of inserted instrumentation
 
 Instrumentation insertion is split into two pieces: analysis of the full
@@ -97,7 +97,7 @@ five separate, sequential stages:
  -# Application code analysis
  -# Instrumentation insertion, one instruction at a time
  -# Instrumentation-to-instrumentation transformations
- -# Post-instrumentation transformations
+ -# Meta-instrumentation transformations
 
 Each component that registers with \p drmgr can register for some or all of
 the five stages.  In each stage, each registered compoment's callback is
