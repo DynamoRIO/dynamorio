@@ -216,7 +216,7 @@ typedef enum {
     DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase. */
     DRMGR_PHASE_INSERTION,     /**< Currently in the instrumentation insertion phase. */
     DRMGR_PHASE_INSTRU2INSTRU, /**< Currently in the instru2instru phase. */
-    DRMGR_PHASE_META_INSTRU,   /**< Currently in the post instrumentation phase. */
+    DRMGR_PHASE_META_INSTRU,   /**< Currently in the meta-instrumentation phase. */
 } drmgr_bb_phase_t;
 
 /***************************************************************************
@@ -521,7 +521,7 @@ DR_EXPORT
  * meta-instrumentation analysis and transformations on each
  * basic block.  drmgr will call \p func as the fifth of five
  * instrumentation stages for each dynamic application basic block.
- * Post-instrumentation passes are allowed to insert both meta and
+ * Meta-instrumentation passes are allowed to insert both meta and
  * non-meta instructions, and are primarily intended for debugging prior
  * instrumentation passes.
  *
