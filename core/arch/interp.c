@@ -5780,73 +5780,81 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace, instr_t *target
  *    mov IBL_TARGET_REG, jump_target_reg
  *    b ibl_routine or indirect_stub
  * This function is used by mangle_indirect_branch_in_trace;
- * it removes the two mangled instructions
- * and returns the jump_target_reg id.
+ * it removes the two mangled instructions and returns the jump_target_reg id.
+ *
+ * This function is an optimisation in that we can avoid the spill of
+ * IBL_TARGET_REG as we know that the actual target is always in a register
+ * (or the stolen register slot, see below) on AArch64 and we can compare this
+ * value in the register directly with the actual target.
+ * And we delay the loading of the target into IBL_TARGET_REG
+ * (done in fixup_indirect_trace_exit) until we are on the miss path.
+ *
+ * However, there is a special case where there isn't a str/mov being patched
+ * rather there is an str/ldr which could happen when the jump target is stored
+ * in the stolen register. For example:
+ *
+ *  ....
+ *  blr    stolen_reg -> %x30
+ *  b      ibl_routine
+ *
+ *  is mangled into
+ *
+ *  ...
+ *  str tgt_reg, TLS_REG2_SLOT
+ *  ldr tgt_reg, TLS_REG_STOLEN_SLOT
+ *  b ibl_routine
+ *
+ * This means that we should not remove the str/ldr, rather we need to compare the
+ * trace_next_exit with tgt_reg directly and remember to restore the value of tgt_reg
+ * in the case when the branch is not taken.
+ *
  */
-#    define STR_IMM_ENC 0xf9000000
-#    define SAVE_IBL_REG_ENC                                                       \
-        ((STR_IMM_ENC | 16 >> 3 << 10) | (dr_reg_stolen - DR_REG_START_GPR) << 5 | \
-         (IBL_TARGET_REG - DR_REG_START_GPR))
-#    define MOV_IBL_REG_ENC_MASK 0xff00ffff
-#    define MOV_IBL_REG_MASK 0x001f0000
-#    define MOV_IBL_REG_ENC (0xaa0003e0 | (IBL_TARGET_REG - DR_REG_START_GPR))
-
-#    define LDR_IMM_ENC 0xf9000000
-#    define RESTORE_IBL_REG_ENC                                                       \
-        ((STR_IMM_ENC | 16 >> 3 << 10) | (1 << 22) /* ld */ | (1 << 12) /* shift */ | \
-         (dr_reg_stolen - DR_REG_START_GPR) << 5 | (IBL_TARGET_REG - DR_REG_START_GPR))
 
 static reg_id_t
-check_patched_ibl(instrlist_t *trace, instr_t *targeter, int *added_size,
-                  bool *has_str_ldr)
+check_patched_ibl(dcontext_t *dcontext, instrlist_t *trace, instr_t *targeter,
+                  int *added_size, bool *tgt_in_stolen_reg)
 {
-    int i, j;
     instr_t *prev = instr_get_prev(targeter);
-    /* XXX: Currently we assume the previous instruction is undecoded. */
-    if (!instr_raw_bits_valid(prev)) {
-        ASSERT_CURIOSITY(false);
-        return DR_REG_NULL;
-    }
-    uint num_instr = prev->length / AARCH64_INSTR_SIZE;
-    if (num_instr < 2)
-        return DR_REG_NULL;
 
-    /* We start from last instruction to scan for str/mov pattern. */
-    for (i = num_instr - 2; i >= 0; i--) {
-        uint prev_prev_enc = ((uint *)prev->bytes)[i];
-        uint prev_enc = ((uint *)prev->bytes)[i + 1];
-        /* We bypass the decoder and compare the raw bytes directly. */
-        if (prev_prev_enc == SAVE_IBL_REG_ENC &&
-            (prev_enc & MOV_IBL_REG_ENC_MASK) == MOV_IBL_REG_ENC) {
-            /* If found, remove these two instructions. */
-            prev->length -= 2 * AARCH64_INSTR_SIZE;
-            /* Concatenate the rest of bytes. */
-            for (j = i; j < num_instr - 2; j++)
-                ((uint *)prev->bytes)[j] = ((uint *)prev->bytes)[j + 2];
-            /* Return jump target register id. */
-            *added_size -= 2 * AARCH64_INSTR_SIZE;
-            return ((prev_enc & MOV_IBL_REG_MASK) >> 16) + DR_REG_START_GPR;
-        }
-        /*
-         * checking for the special case where there isn't a str/mov being patched
-         * rather there is an str/ldr which could happen when for example, the following
-         * basic block is being patched
-         *
-         *  ....
-         *  blr    dr_stolen_reg -> %x30
-         *  b      ibl_routine
-         * into
-         *
-         *  ...
-         *  str tgt_reg, TLS_REG2_SLOT
-         *  ldr tgt_reg, TLS_REG_STOLEN_SLOT
-         *  b ibl_routine
-         *
-         *  This means that we should not remove the str/ldr, rather, we can compare the
-         *  trace_next_exit with tgt_reg directly
+    for (prev = instr_get_prev_expanded(dcontext, trace, targeter); prev;
+         prev = instr_get_prev(prev)) {
+
+        instr_t *prev_prev = instr_get_prev(prev);
+        if (prev_prev == NULL)
+            break;
+
+        /* we expect
+         * prev_prev   str IBL_TARGET_REG, TLS_REG2_SLOT
+         * prev        mov IBL_TARGET_REG, jump_target_reg
          */
-        else if (prev_prev_enc == SAVE_IBL_REG_ENC && prev_enc == RESTORE_IBL_REG_ENC) {
-            *has_str_ldr = true;
+
+        if (instr_get_opcode(prev_prev) == OP_str && instr_get_opcode(prev) == OP_orr &&
+            opnd_get_reg(instr_get_src(prev_prev, 0)) == IBL_TARGET_REG &&
+            opnd_get_base(instr_get_dst(prev_prev, 0)) == dr_reg_stolen &&
+            opnd_get_reg(instr_get_dst(prev, 0)) == IBL_TARGET_REG) {
+
+            reg_id_t jp_tg_reg = opnd_get_reg(instr_get_src(prev, 1));
+
+            instrlist_remove(trace, prev_prev);
+            instr_destroy(dcontext, prev_prev);
+            instrlist_remove(trace, prev);
+            instr_destroy(dcontext, prev);
+
+            LOG(THREAD, LOG_INTERP, 4, "found and removed str/mov\n");
+            *added_size -= 2 * AARCH64_INSTR_SIZE;
+            return jp_tg_reg;
+
+            /* Here we expect
+             * prev_prev  str   IBL_TARGET_REG, TLS_REG2_SLOT
+             * prev       ldr   IBL_TARGET_REG, TLS_REG_STOLEN_SLOT
+             */
+        } else if (instr_get_opcode(prev_prev) == OP_str &&
+                   instr_get_opcode(prev) == OP_ldr &&
+                   opnd_get_reg(instr_get_src(prev_prev, 0)) == IBL_TARGET_REG &&
+                   opnd_get_base(instr_get_src(prev, 0)) == dr_reg_stolen &&
+                   opnd_get_reg(instr_get_dst(prev, 0)) == IBL_TARGET_REG) {
+            *tgt_in_stolen_reg = true;
+            LOG(THREAD, LOG_INTERP, 4, "jump target is in stolen register slot\n");
             return IBL_TARGET_REG;
         }
     }
@@ -5872,12 +5880,6 @@ check_patched_ibl(instrlist_t *trace, instr_t *targeter, int *added_size,
  * the trace as a fake exit stub. Swapping them might be dangerous since
  * a stub trace may be created on both paths.
  */
-#    define LDR_TLS_SLOT_MASK 0xffc003e0
-#    define LDR_TLS_SLOT_ENC 0xf9400380
-#    define CBZ_STOLEN_MASK 0x7e000000
-#    define CBZ_STOLEN_ENC 0x34000000
-#    define TBZ_STOLEN_MASK 0x7e000000
-#    define TBZ_STOLEN_ENC 0x36000000
 
 static bool
 instr_is_cbr_stolen(instr_t *instr)
@@ -5885,9 +5887,9 @@ instr_is_cbr_stolen(instr_t *instr)
     if (!instr)
         return false;
     else {
-        uint enc = *(uint *)instr->bytes;
-        return ((enc & CBZ_STOLEN_MASK) == CBZ_STOLEN_ENC ||
-                (enc & TBZ_STOLEN_MASK) == TBZ_STOLEN_ENC);
+        instr_get_opcode(instr);
+        return instr->opcode == OP_cbz || instr->opcode == OP_cbnz ||
+            instr->opcode == OP_tbz || instr->opcode == OP_tbnz;
     }
 }
 
@@ -5897,8 +5899,8 @@ instr_is_load_tls(instr_t *instr)
     if (!instr || !instr_raw_bits_valid(instr))
         return false;
     else {
-        uint enc = *(uint *)instr->bytes;
-        return ((enc & LDR_TLS_SLOT_MASK) == LDR_TLS_SLOT_ENC);
+        return instr_get_opcode(instr) == OP_ldr &&
+            opnd_get_base(instr_get_src(instr, 0)) == dr_reg_stolen;
     }
 }
 
@@ -5910,19 +5912,19 @@ fixup_cbr_on_stolen_reg(dcontext_t *dcontext, instrlist_t *trace, instr_t *targe
      *    ldr reg, [x28, #SLOT]
      * Otherwise, just return the previous instruction.
      */
-    instr_t *prev = instr_get_prev(targeter);
+    instr_t *prev = instr_get_prev_expanded(dcontext, trace, targeter);
     if (!instr_is_load_tls(prev))
         return prev;
-    instr_t *prev_prev = instr_get_prev(prev);
+    instr_t *prev_prev = instr_get_prev_expanded(dcontext, trace, prev);
     if (!instr_is_cbr_stolen(prev_prev))
         return prev;
     /* Now we confirm that this cbr stolen_reg was properly mangled. */
-    instr_t *next = instr_get_next(targeter);
+    instr_t *next = instr_get_next_expanded(dcontext, trace, targeter);
     if (!next)
         return prev;
     /* Next instruction must be a LDR TLS slot. */
     ASSERT_CURIOSITY(instr_is_load_tls(next));
-    instr_t *next_next = instr_get_next(next);
+    instr_t *next_next = instr_get_next_expanded(dcontext, trace, next);
     if (!next_next)
         return prev;
     /* Next next instruction must be direct branch. */
@@ -6141,7 +6143,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     instr_t *instr;
     reg_id_t jump_target_reg;
     reg_id_t scratch;
-    bool has_str_ldr;
+    bool tgt_in_stolen_reg;
     /* Mangle jump to indirect branch lookup routine,
      * based on indirect target not being equal to next block in trace.
      * Original ibl lookup:
@@ -6156,9 +6158,10 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
      *      ldr x0, TLS_REG0_SLOT
      */
 
-    /* Check and remove previous two patched instructions. */
-    has_str_ldr = false;
-    jump_target_reg = check_patched_ibl(trace, targeter, &added_size, &has_str_ldr);
+    /* Check and remove previous two patched instructions if we have. */
+    tgt_in_stolen_reg = false;
+    jump_target_reg =
+        check_patched_ibl(dcontext, trace, targeter, &added_size, &tgt_in_stolen_reg);
     if (jump_target_reg == DR_REG_NULL) {
         ASSERT_MESSAGE(2, "Failed to get branch target register in creating trace",
                        false);
@@ -6202,10 +6205,12 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     added_size +=
         tracelist_add(dcontext, trace, next,
                       instr_create_restore_from_tls(dcontext, scratch, TLS_REG0_SLOT));
-    if (has_str_ldr) {
+    if (tgt_in_stolen_reg) {
         /* we need to restore app's x2 in case the branch to trace_exit is not taken.
          * This is not needed in the str/mov case as we removed the instruction to
          * spill the value of IBL_TARGET_REG (str tgt_reg, TLS_REG2_SLOT)
+         *
+         * ldr x2 TLS_REG2_SLOT
          */
         added_size += tracelist_add(
             dcontext, trace, next,
