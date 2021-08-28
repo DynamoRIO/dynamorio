@@ -1726,52 +1726,47 @@ drmgr_unregister_bb_meta_instru_event(drmgr_xform_cb_t func)
 
 DR_EXPORT
 bool
-drmgr_register_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
-                                             drmgr_ilist_ex_cb_t analysis_func,
-                                             drmgr_insertion_cb_t insertion_func,
-                                             drmgr_ilist_ex_cb_t instru2instru_func,
-                                             drmgr_ilist_ex_cb_t meta_instru_func,
+drmgr_register_bb_instrumentation_all_events(drmgr_events_t *events,
                                              drmgr_priority_t *priority)
 {
+    if (events->struct_size < offsetof(drmgr_events_t, instru2instru_func))
+        return false;
+
     if (!drmgr_register_bb_instrumentation_ex_event(
-            app2app_func, analysis_func, insertion_func, instru2instru_func, priority))
+            events->app2app_func, events->analysis_func, events->insertion_func,
+            events->instru2instru_func, priority))
         return false;
 
-    if (meta_instru_func == NULL)
-        return false;
-
-    bool ok = true;
-    if (meta_instru_func != NULL) {
-        ok = drmgr_bb_cb_add(&cblist_meta_instru, (void *)meta_instru_func, NULL,
+    if (events->struct_size >= offsetof(drmgr_events_t, meta_instru_func) &&
+        events->meta_instru_func != NULL) {
+        if (!drmgr_bb_cb_add(&cblist_meta_instru, (void *)events->meta_instru_func, NULL,
                              priority, NULL /* no user data */,
-                             cb_entry_set_fields_meta_instru_ex) &&
-            ok;
+                             cb_entry_set_fields_meta_instru_ex))
+            return false;
     }
-    return ok;
+
+    return true;
 }
 
 DR_EXPORT
 bool
-drmgr_unregister_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
-                                               drmgr_ilist_ex_cb_t analysis_func,
-                                               drmgr_insertion_cb_t insertion_func,
-                                               drmgr_ilist_ex_cb_t instru2instru_func,
-                                               drmgr_ilist_ex_cb_t meta_instru_func)
+drmgr_unregister_bb_instrumentation_all_events(drmgr_events_t *events)
 {
-    if (!drmgr_unregister_bb_instrumentation_ex_event(app2app_func, analysis_func,
-                                                      insertion_func, instru2instru_func))
+    if (events->struct_size < offsetof(drmgr_events_t, instru2instru_func))
         return false;
 
-    if (meta_instru_func == NULL)
+    if (!drmgr_unregister_bb_instrumentation_ex_event(
+            events->app2app_func, events->analysis_func, events->insertion_func,
+            events->instru2instru_func))
         return false;
 
-    bool ok = true;
-    if (meta_instru_func != NULL) {
-        ok = drmgr_bb_cb_remove(&cblist_meta_instru, (void *)meta_instru_func,
-                                cb_entry_matches_meta_instru_ex) &&
-            ok;
+    if (events->struct_size >= offsetof(drmgr_events_t, meta_instru_func) &&
+        events->meta_instru_func != NULL) {
+        if (!drmgr_bb_cb_remove(&cblist_meta_instru, (void *)events->meta_instru_func,
+                                cb_entry_matches_meta_instru_ex))
+            return false;
     }
-    return ok;
+    return true;
 }
 
 DR_EXPORT

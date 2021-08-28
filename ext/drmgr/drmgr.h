@@ -209,6 +209,22 @@ typedef struct _drmgr_priority_t {
     int priority;
 } drmgr_priority_t;
 
+/** Specifies the callbacks when registering all \p drmgr's events */
+typedef struct _drmgr_events_t {
+    /** The size of the drmgr_events_t struct */
+    size_t struct_size;
+    /** Callback for the app2app event */
+    drmgr_app2app_ex_cb_t app2app_func;
+    /** Callback for the analysis event */
+    drmgr_ilist_ex_cb_t analysis_func;
+    /** Callback for the insertion event */
+    drmgr_insertion_cb_t insertion_func;
+    /** Callback for the instru2instru event */
+    drmgr_ilist_ex_cb_t instru2instru_func;
+    /** Callback for the meta_instru event */
+    drmgr_ilist_ex_cb_t meta_instru_func;
+} drmgr_events_t;
+
 /** Labels the current bb building phase */
 typedef enum {
     DRMGR_PHASE_NONE,          /**< Not currently in a bb building event. */
@@ -564,17 +580,13 @@ DR_EXPORT
  * default priority is used.
  */
 bool
-drmgr_register_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
-                                             drmgr_ilist_ex_cb_t analysis_func,
-                                             drmgr_insertion_cb_t insertion_func,
-                                             drmgr_ilist_ex_cb_t instru2instru_func,
-                                             drmgr_ilist_ex_cb_t meta_instru_func,
+drmgr_register_bb_instrumentation_all_events(drmgr_events_t *events,
                                              drmgr_priority_t *priority);
 
 DR_EXPORT
 /**
- * Unregisters the five given callbacks that
- * were registered via drmgr_register_bb_instrumentation_all_events().
+ * Unregisters the callbacks that were registered via
+ * drmgr_register_bb_instrumentation_all_events().
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
  *
@@ -582,11 +594,7 @@ DR_EXPORT
  * is safe to unregister apply here as well.
  */
 bool
-drmgr_unregister_bb_instrumentation_all_events(drmgr_app2app_ex_cb_t app2app_func,
-                                               drmgr_ilist_ex_cb_t analysis_func,
-                                               drmgr_insertion_cb_t insertion_func,
-                                               drmgr_ilist_ex_cb_t instru2instru_func,
-                                               drmgr_ilist_ex_cb_t meta_instru_func);
+drmgr_unregister_bb_instrumentation_all_events(drmgr_events_t *events);
 
 DR_EXPORT
 /**

@@ -313,13 +313,12 @@ dr_init(client_id_t id)
     CHECK(ok, "drmgr_unregister_bb_instrumentation_ex_event failed");
 
     /* check register/unregister instrumentation_all_events */
-    ok = drmgr_register_bb_instrumentation_all_events(
-        event_bb5_app2app, event_bb5_analysis, event_bb5_insert, event_bb5_instru2instru,
-        event_bb5_meta_instru, NULL);
+    drmgr_events_t events = { sizeof(events),          event_bb5_app2app,
+                              event_bb5_analysis,      event_bb5_insert,
+                              event_bb5_instru2instru, event_bb5_meta_instru };
+    ok = drmgr_register_bb_instrumentation_all_events(&events, NULL);
     CHECK(ok, "drmgr_register_bb_instrumentation_all_events failed");
-    ok = drmgr_unregister_bb_instrumentation_all_events(
-        event_bb5_app2app, event_bb5_analysis, event_bb5_insert, event_bb5_instru2instru,
-        event_bb5_meta_instru);
+    ok = drmgr_unregister_bb_instrumentation_all_events(&events);
     CHECK(ok, "drmgr_unregister_bb_instrumentation_all_events failed");
 
     /* test data passing among four first phases */
@@ -328,9 +327,7 @@ dr_init(client_id_t id)
                                                     event_bb4_instru2instru, &priority4);
 
     /* test data passing among all five phases */
-    ok = drmgr_register_bb_instrumentation_all_events(
-        event_bb5_app2app, event_bb5_analysis, event_bb5_insert, event_bb5_instru2instru,
-        event_bb5_meta_instru, &priority5);
+    ok = drmgr_register_bb_instrumentation_all_events(&events, &priority5);
     CHECK(ok, "drmgr_register_bb_instrumentation_all_events failed");
 
     drmgr_register_module_load_event_user_data(event_mod_load, NULL,
@@ -424,9 +421,10 @@ event_exit(void)
             event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
 
-    if (!drmgr_unregister_bb_instrumentation_all_events(
-            event_bb5_app2app, event_bb5_analysis, event_bb5_insert,
-            event_bb5_instru2instru, event_bb5_meta_instru))
+    drmgr_events_t events = { sizeof(events),          event_bb5_app2app,
+                              event_bb5_analysis,      event_bb5_insert,
+                              event_bb5_instru2instru, event_bb5_meta_instru };
+    if (!drmgr_unregister_bb_instrumentation_all_events(&events))
         CHECK(false, "drmgr_unregister_bb_instrumentation_all_events failed");
 
     if (!drmgr_unregister_opcode_instrumentation_event(event_opcode_add_insert_A, OP_add))
