@@ -2416,7 +2416,8 @@ mangle_gpr_list_read(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 static void
 normalize_ldm_instr(dcontext_t *dcontext, instr_t *instr, /* ldm */
                     instr_t **pre_ldm_adjust, instr_t **pre_ldm_ldr,
-                    instr_t **post_ldm_adjust, instr_t **ldr_pc)
+                    instr_t **post_ldm_adjust, instr_t **ldr_pc, int *pc_base_offset,
+                    bool *base_and_pc_in_dst)
 {
     int opcode = instr_get_opcode(instr);
     reg_id_t base = opnd_get_base(instr_get_src(instr, 0));
@@ -2429,14 +2430,11 @@ normalize_ldm_instr(dcontext_t *dcontext, instr_t *instr, /* ldm */
     dr_pred_type_t pred = instr_get_predicate(instr);
     app_pc pc = get_app_instr_xl8(instr);
 
-    /* FIXME i#1551: NYI on case like "ldm r10, {r10, pc}": if base reg
-     * is clobbered, "ldr pc [base, disp]" will use wrong base value.
-     * It seems the only solution is load the target value first and store
-     * it into some TLS slot for later "ldr pc".
-     */
-    ASSERT_NOT_IMPLEMENTED(!(write_pc && !writeback &&
-                             /* base reg is in the reglist */
-                             instr_writes_to_reg(instr, base, DR_QUERY_INCLUDE_ALL)));
+    /* Here we are handling case like "ldm r10, {r10, pc}": if base reg
+     * is clobbered, "ldr pc [base, disp]" will use wrong base value. */
+    base_and_pc_in_dst = (write_pc && !writeback &&
+                          /* base reg is in the reglist */
+                          instr_writes_to_reg(instr, base, DR_QUERY_INCLUDE_ALL));
 
     ASSERT(pre_ldm_adjust != NULL && pre_ldm_ldr != NULL && post_ldm_adjust != NULL &&
            ldr_pc != NULL);
@@ -2629,12 +2627,15 @@ normalize_ldm_instr(dcontext_t *dcontext, instr_t *instr, /* ldm */
         instr_set_predicate(*post_ldm_adjust, pred);
         instr_set_translation(*post_ldm_adjust, pc);
     }
+    *pc_base_offset = ldr_pc_disp;
 
     /* post ldm load-pc */
     if (write_pc) {
         if (use_pop_pc) {
             ASSERT(ldr_pc_disp == 0 && base == DR_REG_SP && writeback);
             /* we use pop_list to generate A32.T16 (2-byte) code in Thumb mode */
+            *ldr_pc = INSTR_CREATE_pop_list(dcontext, 1, opnd_create_reg(DR_REG_PC));
+        } else if (base_and_pc_in_dst) {
             *ldr_pc = INSTR_CREATE_pop_list(dcontext, 1, opnd_create_reg(DR_REG_PC));
         } else {
             *ldr_pc = XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_PC),
@@ -2673,12 +2674,13 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                       instr_t *next_instr)
 {
     instr_t *pre_ldm_adjust, *pre_ldm_ldr, *post_ldm_adjust, *ldr_pc;
-
+    int pc_base_offset = 0;
+    bool base_and_pc_in_dst = false;
     ASSERT(!instr_is_meta(instr) && instr_writes_gpr_list(instr));
 
     /* convert ldm{*} instr to a sequence of instructions */
     normalize_ldm_instr(dcontext, instr, &pre_ldm_adjust, &pre_ldm_ldr, &post_ldm_adjust,
-                        &ldr_pc);
+                        &ldr_pc, &pc_base_offset, &base_and_pc_in_dst);
 
     /* pc cannot be used as the base in ldm, so now we only care dr_reg_stolen */
     if (pre_ldm_adjust != NULL) {
@@ -2733,6 +2735,37 @@ mangle_gpr_list_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                               /* dr_reg_stolen must be restored right after */
                               instr_get_next(post_ldm_adjust), false);
         }
+    }
+
+    if (base_and_pc_in_dst) {
+        /*
+          Right before ldm:
+          1. spill r1 to slot 1
+          2. load right pc value from base + pc_base_offset to r1
+          3. spill r1 to slot 2
+          Right before ldr_pc:
+          1. restore r1 from slot 2
+          2. push r1 to stack
+          3. restore r1 from slot 1
+
+          then load pc from stack in the next if. ldr_pc will be already changed to
+          pop_list instr
+          */
+
+        reg_id_t base = opnd_get_base(instr_get_src(instr, 0));
+
+        dr_save_reg(dcontext, ilist, instr, DR_REG_R1, SPILL_SLOT_1);
+        instr_t *load_to_reg =
+            XINST_CREATE_load(dcontext, opnd_create_reg(DR_REG_R1),
+                              OPND_CREATE_MEMPTR(base, pc_base_offset));
+        instrlist_preinsert(ilist, where, load_to_reg);
+        dr_save_reg(dcontext, ilist, where, DR_REG_R1, SPILL_SLOT_2);
+
+        instr_t *where = instrlist_last(ilist);
+        dr_restore_reg(dcontext, ilist, where, DR_REG_R1, SPILL_SLOT_2);
+        instr_t *push_reg = INSTR_CREATE_push(dcontext, opnd_create_reg(DR_REG_R1));
+        instrlist_preinsert(ilist, where, push_reg);
+        dr_restore_reg(dcontext, ilist, where, DR_REG_R1, SPILL_SLOT_1);
     }
 
     if (ldr_pc != NULL) {
