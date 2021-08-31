@@ -8369,7 +8369,7 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
                     instrlist_append(
                         trace,
                         INSTR_XL8(XINST_CREATE_move(dcontext,
-                                                opnd_create_reg(IBL_TARGET_REG),
+                                                    opnd_create_reg(IBL_TARGET_REG),
                                                     opnd_create_reg(jump_target_reg)),
                                   instr_trans));
                     added_size += AARCH64_INSTR_SIZE;
