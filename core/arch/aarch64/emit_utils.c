@@ -370,14 +370,14 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
     ASSERT(ALIGNED(branch_pc, 4) && ALIGNED(target_pc, 4));
     if ((enc & 0xfc000000) == 0x14000000) { /* B */
         ASSERT(off + 0x8000000 < 0x10000000);
-        *pc_writable = (0x14000000 | (0x03ffffff & off >> 2));
+        *pc_writable = (0x14000000 | (0x03ffffff & (off >> 2)));
     } else if ((enc & 0xff000010) == 0x54000000 ||
                (enc & 0x7e000000) == 0x34000000) { /* B.cond, CBNZ, CBZ */
-        ASSERT(off + 0x40000 < 0x80000);
-        *pc_writable = (enc & 0xff00001f) | (0x00ffffe0 & off >> 2 << 5);
+        ASSERT(off + 0x100000 < 0x200000);
+        *pc_writable = (enc & 0xff00001f) | (0x00ffffe0 & (off >> 2 << 5));
     } else if ((enc & 0x7e000000) == 0x36000000) { /* TBNZ, TBZ */
-        ASSERT(off + 0x2000 < 0x4000);
-        *pc_writable = (enc & 0xfff8001f) | (0x0007ffe0 & off >> 2 << 5);
+        ASSERT(off + 0x8000 < 0x10000);
+        *pc_writable = (enc & 0xfff8001f) | (0x0007ffe0 & (off >> 2 << 5));
     } else
         ASSERT(false);
     if (hot_patch)
