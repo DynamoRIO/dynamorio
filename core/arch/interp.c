@@ -5421,6 +5421,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
         }
 
         IF_AARCH64(fixup_indirect_trace_exit(dcontext, ilist));
+
         /* PR 214962: re-apply client changes, this time storing translation
          * info for modified instrs
          */
@@ -5880,6 +5881,8 @@ check_patched_ibl(dcontext_t *dcontext, instrlist_t *trace, instr_t *targeter,
  * be lost. Therefore we need to append the fall path at the end of
  * the trace as a fake exit stub. Swapping them might be dangerous since
  * a stub trace may be created on both paths.
+ *
+ * XXX i#5062 This special case is not needed when we elimiate decoding from code cache
  */
 
 static bool
@@ -8293,10 +8296,11 @@ emulate_failure:
 int
 fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
 {
-    instr_t *instr, *prev, *new_instr;
+    instr_t *instr, *prev, *branch;
     instr_t *trace_exit_label;
     app_pc target = 0;
     app_pc ind_target = 0;
+    app_pc instr_trans;
     reg_id_t scratch;
     reg_id_t jump_target_reg = DR_REG_NULL;
     uint indirect_type = 0;
@@ -8342,37 +8346,39 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
                 scratch = (jump_target_reg == DR_REG_X0) ? DR_REG_X1 : DR_REG_X0;
                 /* Add the trace exit label. */
                 instrlist_append(trace, trace_exit_label);
+                instr_trans = instr_get_translation(instr);
                 /* ldr x0, TLS_REG0_SLOT */
-                new_instr =
-                    instr_create_restore_from_tls(dcontext, scratch, TLS_REG0_SLOT);
-                instr_set_translation(new_instr, instr_get_translation(instr));
-                instrlist_append(trace, new_instr);
+                instrlist_append(trace,
+                                 INSTR_XL8(instr_create_restore_from_tls(
+                                               dcontext, scratch, TLS_REG0_SLOT),
+                                           instr_trans));
                 added_size += AARCH64_INSTR_SIZE;
                 /* if x2 alerady contains the jump_target, then there is no need to store
                  * it away and load value of jump target into it
                  */
                 if (jump_target_reg != IBL_TARGET_REG) {
                     /* str x2, TLS_REG2_SLOT */
-                    new_instr =
-                        instr_create_save_to_tls(dcontext, IBL_TARGET_REG, TLS_REG2_SLOT);
-
-                    instr_set_translation(new_instr, instr_get_translation(instr));
-                    instrlist_append(trace, new_instr);
+                    instrlist_append(
+                        trace,
+                        INSTR_XL8(instr_create_save_to_tls(dcontext, IBL_TARGET_REG,
+                                                           TLS_REG2_SLOT),
+                                  instr_trans));
                     added_size += AARCH64_INSTR_SIZE;
                     /* mov IBL_TARGET_REG, jump_target */
                     ASSERT(jump_target_reg != DR_REG_NULL);
-                    new_instr =
-                        XINST_CREATE_move(dcontext, opnd_create_reg(IBL_TARGET_REG),
-                                          opnd_create_reg(jump_target_reg));
-                    instr_set_translation(new_instr, instr_get_translation(instr));
-                    instrlist_append(trace, new_instr);
+                    instrlist_append(
+                        trace,
+                        INSTR_XL8(XINST_CREATE_move(dcontext,
+                                                opnd_create_reg(IBL_TARGET_REG),
+                                                    opnd_create_reg(jump_target_reg)),
+                                  instr_trans));
                     added_size += AARCH64_INSTR_SIZE;
                 }
                 /* b ibl_target */
-                new_instr = XINST_CREATE_jump(dcontext, opnd_create_pc(ind_target));
-                instr_set_translation(new_instr, instr_get_translation(instr));
-                instr_exit_branch_set_type(new_instr, indirect_type);
-                instrlist_append(trace, new_instr);
+                branch = XINST_CREATE_jump(dcontext, opnd_create_pc(ind_target));
+                instr_exit_branch_set_type(branch, indirect_type);
+                instr_set_translation(branch, instr_trans);
+                instrlist_append(trace, instr);
                 added_size += AARCH64_INSTR_SIZE;
             }
         } else if ((instr->opcode == OP_cbz || instr->opcode == OP_cbnz ||
@@ -8391,23 +8397,24 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
             instr_set_target(instr, opnd_create_instr(trace_exit_label));
             /* Insert restore at end of trace. */
             instrlist_append(trace, trace_exit_label);
+            instr_trans = instr_get_translation(instr);
             /* ldr cbz_reg, TLS_REG0_SLOT */
             reg_id_t mangled_reg = ((*(uint *)next->bytes) & 31) + DR_REG_START_GPR;
-            new_instr =
-                instr_create_restore_from_tls(dcontext, mangled_reg, TLS_REG0_SLOT);
-            instr_set_translation(new_instr, instr_get_translation(instr));
-            instrlist_append(trace, new_instr);
+            instrlist_append(trace,
+                             INSTR_XL8(instr_create_restore_from_tls(
+                                           dcontext, mangled_reg, TLS_REG0_SLOT),
+                                       instr_trans));
             added_size += AARCH64_INSTR_SIZE;
             /* b fall_target */
-            new_instr = XINST_CREATE_jump(dcontext, fall_target);
-            instr_set_translation(new_instr, instr_get_translation(instr));
-            instrlist_append(trace, new_instr);
+            branch = XINST_CREATE_jump(dcontext, fall_target);
+            instr_set_translation(branch, instr_trans);
+            instrlist_append(trace, branch);
             added_size += AARCH64_INSTR_SIZE;
             /* Because of the jump, a new stub was created.
              * and it is possible that this jump is leaving the fragment
              * in which case we should not increase the size of the fragment
              */
-            if (instr_is_exit_cti(new_instr)) {
+            if (instr_is_exit_cti(branch)) {
                 added_size += DIRECT_EXIT_STUB_SIZE(0);
             }
         }
