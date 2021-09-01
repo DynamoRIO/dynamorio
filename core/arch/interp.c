@@ -5420,6 +5420,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
             instrlist_destroy(dcontext, bb);
         }
 
+        /* XXX i#5062 In the future this call should be placed inside mangle_trace() */
         IF_AARCH64(fixup_indirect_trace_exit(dcontext, ilist));
 
         /* PR 214962: re-apply client changes, this time storing translation
