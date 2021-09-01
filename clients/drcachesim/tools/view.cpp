@@ -103,31 +103,8 @@ view_t::initialize()
 bool
 view_t::process_memref(const memref_t &memref)
 {
-    if (instr_count_ < knob_skip_refs_ ||
-        instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
-        if (type_is_instr(memref.instr.type) ||
-            memref.data.type == TRACE_TYPE_INSTR_NO_FETCH)
-            ++instr_count_;
-        return true;
-    }
-
-    if (memref.instr.tid != 0) {
-        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
-            std::cerr << "------------------------------------------------------------\n";
-        prev_tid_ = memref.instr.tid;
-        std::cerr << "T" << memref.instr.tid << " ";
-    }
-
+    // Even for -skip_refs we need to process the up-front version and type.
     if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (memref.marker.tid != 0 &&
-            printed_header_.find(memref.marker.tid) == printed_header_.end()) {
-            printed_header_.insert(memref.marker.tid);
-            std::cerr << "<marker: version " << trace_version_ << ">\n";
-            std::cerr << "T" << memref.instr.tid << " ";
-            std::cerr << "<marker: filetype 0x" << std::hex << prev_filetype_ << std::dec
-                      << ">\n";
-            std::cerr << "T" << memref.instr.tid << " ";
-        }
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_VERSION:
             // We delay printing until we know the tid.
@@ -149,6 +126,46 @@ view_t::process_memref(const memref_t &memref)
                     " but tool built for " + trace_arch_string(build_target_arch_type());
                 return false;
             }
+            break;
+        default: break;
+        }
+    }
+
+    if (instr_count_ < knob_skip_refs_ ||
+        instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
+        if (type_is_instr(memref.instr.type) ||
+            memref.data.type == TRACE_TYPE_INSTR_NO_FETCH)
+            ++instr_count_;
+        return true;
+    }
+
+    if (memref.instr.tid != 0) {
+        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
+            std::cerr << "------------------------------------------------------------\n";
+        prev_tid_ = memref.instr.tid;
+        std::cerr << "T" << memref.instr.tid << " ";
+    }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER ||
+        (knob_sim_refs_ > 0 && instr_count_ == knob_skip_refs_)) {
+        if (memref.instr.tid != 0 &&
+            printed_header_.find(memref.instr.tid) == printed_header_.end()) {
+            printed_header_.insert(memref.instr.tid);
+            std::cerr << "<marker: version " << trace_version_ << ">\n";
+            std::cerr << "T" << memref.instr.tid << " ";
+            std::cerr << "<marker: filetype 0x" << std::hex << prev_filetype_ << std::dec
+                      << ">\n";
+            std::cerr << "T" << memref.instr.tid << " ";
+        }
+    }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_VERSION:
+            // Handled above.
+            break;
+        case TRACE_MARKER_TYPE_FILETYPE:
+            // Handled above.
             break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
             std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
