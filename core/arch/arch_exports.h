@@ -2196,7 +2196,6 @@ int
 append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
                                 app_pc speculate_next_tag, bool record_translation);
 
-
 /* XXX i#5062 In the long term we should have this only called in mangle_trace()
  * and it should be removed from here.
  */
