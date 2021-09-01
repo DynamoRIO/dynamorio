@@ -2196,6 +2196,15 @@ int
 append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
                                 app_pc speculate_next_tag, bool record_translation);
 
+/* XXX i#5062 In the long term we should have this only called in mangle_trace()
+ * and this function would be removed from end_and_emit_trace and
+ * recreate_fragment_ilist, which are where it is currently called.
+ */
+#ifdef AARCH64
+int
+fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace);
+#endif
+
 uint
 forward_eflags_analysis(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 

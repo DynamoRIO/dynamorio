@@ -542,6 +542,9 @@ translate_walk_track_post_instr(dcontext_t *tdcontext, instr_t *inst,
             /* XXX: Maybe this should be a full SYSLOG since it can lead to
              * translation failure.
              */
+            /* TODO i#5069 There are unsupported mangle instrs on AArch64
+             * that this function is yet not able to recognise.
+             */
             DOLOG(2, LOG_INTERP,
                   d_r_loginst(get_thread_private_dcontext(), 2, inst,
                               "unsupported mangle instr"););
