@@ -1456,11 +1456,19 @@ x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
 00001110xx1xxxxx100100xxxxxxxxxx  n     sqdmlal   q0 : d5 d16 hs_sz
 01001110xx1xxxxx100100xxxxxxxxxx  n     sqdmlal2  q0 : q5 q16 hs_sz
 00001110xx1xxxxx101000xxxxxxxxxx  n     smlsl     q0 : d5 d16 bhs_sz
+0000111110xxxxxx0110x0xxxxxxxxxx  n     smlsl     q0 : dq5 dq16 vindex_SD sd_sz
+0000111101xxxxxx0110x0xxxxxxxxxx  n     smlsl     q0 : dq5 dq16_h_sz vindex_H h_sz
 01001110xx1xxxxx101000xxxxxxxxxx  n     smlsl2    q0 : q5 q16 bhs_sz
+0100111110xxxxxx0110x0xxxxxxxxxx  n     smlsl2    q0 : dq5 dq16 vindex_SD sd_sz
+0100111101xxxxxx0110x0xxxxxxxxxx  n     smlsl2    q0 : dq5 dq16_h_sz vindex_H h_sz
 00001110xx1xxxxx101100xxxxxxxxxx  n     sqdmlsl   q0 : d5 d16 hs_sz
 01001110xx1xxxxx101100xxxxxxxxxx  n     sqdmlsl2  q0 : q5 q16 hs_sz
 00001110xx1xxxxx110000xxxxxxxxxx  n     smull     q0 : d5 d16 bhs_sz
+0000111110xxxxxx1010x0xxxxxxxxxx  n     smull     q0 : dq5 dq16 vindex_SD sd_sz
+0000111101xxxxxx1010x0xxxxxxxxxx  n     smull     q0 : dq5 dq16_h_sz vindex_H h_sz
 01001110xx1xxxxx110000xxxxxxxxxx  n     smull2    q0 : q5 q16 bhs_sz
+0100111110xxxxxx1010x0xxxxxxxxxx  n     smull2    q0 : dq5 dq16 vindex_SD sd_sz
+0100111101xxxxxx1010x0xxxxxxxxxx  n     smull2    q0 : dq5 dq16_h_sz vindex_H h_sz
 00001110xx1xxxxx110100xxxxxxxxxx  n     sqdmull   q0 : d5 d16 hs_sz
 01001110xx1xxxxx110100xxxxxxxxxx  n     sqdmull2  q0 : q5 q16 hs_sz
 00001110xx1xxxxx111000xxxxxxxxxx  n     pmull     q0 : d5 d16 bd_sz
