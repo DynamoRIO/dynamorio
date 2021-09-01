@@ -8378,7 +8378,7 @@ fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
                 branch = XINST_CREATE_jump(dcontext, opnd_create_pc(ind_target));
                 instr_exit_branch_set_type(branch, indirect_type);
                 instr_set_translation(branch, instr_trans);
-                instrlist_append(trace, instr);
+                instrlist_append(trace, branch);
                 added_size += AARCH64_INSTR_SIZE;
             }
         } else if ((instr->opcode == OP_cbz || instr->opcode == OP_cbnz ||
