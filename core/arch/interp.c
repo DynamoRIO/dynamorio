@@ -5638,7 +5638,6 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
     /* FIXME i#1668: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(DYNAMO_OPTION(disable_traces));
     return false;
-
 #endif
 }
 
