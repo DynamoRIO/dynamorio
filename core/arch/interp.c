@@ -8296,6 +8296,13 @@ emulate_failure:
  *      str x2, TLS_REG2_SLOT
  *      mov x2, jump_target
  *      b ibl_routine
+ *
+ * XXX i#2974 This way of having a trace_exit_label at the end of a trace
+ * breaks the linear requirement which is assumed by a lot of code, including
+ * translation. Currently recreation of instruction list is fixed by including
+ * a special call to this function. We might need to consider add special
+ * support in translate.c or use an alternative linear control flow.
+ *
  */
 int
 fixup_indirect_trace_exit(dcontext_t *dcontext, instrlist_t *trace)
