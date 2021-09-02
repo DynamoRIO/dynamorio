@@ -168,7 +168,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
             if x < best_x:
                 best_b = b
                 best_x = x
-        indent_append('if ((enc >> %d & 1) == 0) {' % (best_b))
+        indent_append('if ((enc >> %d & 1) == 0) {' % (best_b,))
         pats0 = []
         pats1 = []
         for p in pats:
