@@ -1437,6 +1437,9 @@ NTSTATUS
 nt_set_context(HANDLE hthread, CONTEXT *cxt);
 
 bool
+nt_is_thread_terminating(HANDLE hthread);
+
+bool
 nt_thread_suspend(HANDLE hthread, int *previous_suspend_count);
 
 bool
