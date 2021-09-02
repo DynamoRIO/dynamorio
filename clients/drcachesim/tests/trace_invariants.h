@@ -36,8 +36,8 @@
 #ifndef _TRACE_INVARIANTS_H_
 #define _TRACE_INVARIANTS_H_ 1
 
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 #include <stack>
 #include <unordered_map>
 
@@ -52,6 +52,11 @@ public:
     print_results() override;
 
 protected:
+    // We provide this for subclasses to run these invariants with custom
+    // failure reporting.
+    virtual void
+    report_if_false(bool condition, const std::string &message);
+
     bool knob_offline_;
     unsigned int knob_verbose_;
     std::string knob_test_name_;
