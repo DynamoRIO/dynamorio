@@ -74,15 +74,16 @@ class FallthroughDecode:
 def generate_decoder(patterns, opndsettab, opndtab, opc_props):
 
     def generate_opndset_decoders(c, opndsettab):
-        c += ["bool {} = false;".format(opcode.flag_name) for opcode in FALLTHROUGH.values()]
+        c += ["bool {} = false;".format(opcode.flag_name) for opcode in
+              FALLTHROUGH.values()]
         c += ['\n']
         for name in sorted(opndsettab):
             os = opndsettab[name]
             (dsts, srcs) = (os.dsts, os.srcs)
             c += ['/* %s <- %s */' % (os.dsts, os.srcs)]
             c += ['static bool',
-                  'decode_opnds%s(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)' % name,
-                  '{']
+                  'decode_opnds%s(uint enc, dcontext_t *dcontext, byte *pc, '
+                  'instr_t *instr, int opcode)' % name, '{']
             if dsts + srcs != []:
                 vars = (['dst%d' % i for i in range(len(dsts))] +
                         ['src%d' % i for i in range(len(srcs))])
@@ -129,22 +130,30 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
                     elif opc_props[m] == 'w':
                         indent_append('    instr->eflags |= EFLAGS_WRITE_NZCV;')
                     elif opc_props[m] in ["rw", "wr"]:
-                        indent_append('    instr->eflags |= (EFLAGS_READ_NZCV | EFLAGS_WRITE_NZCV);')
+                        indent_append('    instr->eflags |= (EFLAGS_READ_NZCV | '
+                                      'EFLAGS_WRITE_NZCV);')
                     elif opc_props[m] in ["er", "ew"]:
-                        indent_append('    // instr->eflags handling for %s is manually handled in codec.c\'s decode_common().' % (m))
+                        indent_append('    // instr->eflags handling for %s is '
+                                      'manually handled in codec.c\'s decode_common().' % (m))
                     else:
                         indent_append('    ASSERT(0);')
                 if m in FALLTHROUGH and t == FALLTHROUGH[m].opndset:
                     indent_append('    %s = true;' % FALLTHROUGH[m].flag_name)
-                    FALLTHROUGH[m].decode_clause = 'if ((enc & 0x%08x) == 0x%08x && %s == true)' % (((1 << N) - 1) & ~opnd_bits, opcode_bits, FALLTHROUGH[m].flag_name)
-                    FALLTHROUGH[m].decode_function = 'return decode_opnds%s(enc, dc, pc, instr, OP_%s);' % (t, m)
+                    FALLTHROUGH[m].decode_clause = \
+                        'if ((enc & 0x%08x) == 0x%08x && %s == true)' % \
+                        (((1 << N) - 1) & ~opnd_bits, opcode_bits, \
+                        FALLTHROUGH[m].flag_name)
+                    FALLTHROUGH[m].decode_function = \
+                        'return decode_opnds%s(enc, dc, pc, instr, OP_%s);' % \
+                        (t, m)
                 else:
-                    indent_append('    return decode_opnds%s(enc, dc, pc, instr, OP_%s);' %
-                              (t, m))
+                    indent_append('    return decode_opnds%s(enc, dc, pc, '
+                                  'instr, OP_%s);' % (t, m))
                 if opc_props[m] != 'n':
                     indent_append('}')
             return
-        # Look for best bit to test. We aim to reduce the number of patterns remaining.
+	# Look for best bit to test. We aim to reduce the number of patterns
+	# remaining.
         best_b = -1
         best_x = len(pats)
         for b in range(N):
@@ -441,9 +450,12 @@ def consistency_check(patterns, opndtab):
             if ((patterns[j][0] ^ patterns[i][0]) &
                 ~patterns[j][1] & ~patterns[i][1] == 0):
                 opcode_bits_i, opnd_bits_i, opcode_i, opndset_i = patterns[i]
-                print('Overlap found between:\n%s\nand\n%s' % (pattern_to_str(*patterns[j]), pattern_to_str(*patterns[i])))
+                print('Overlap found between:\n%s\nand\n%s' %
+                      (pattern_to_str(*patterns[j]),
+                      pattern_to_str(*patterns[i])))
                 if opcode_i in FALLTHROUGH:
-                    raise Exception('Error: multiple overlaps detected for %s. Unable to resolve.\n' % opcode_i)
+                    raise Exception('Error: multiple overlaps detected for '
+                                    '%s. Unable to resolve.\n' % opcode_i)
                 print('Resolving overlap.')
                 FALLTHROUGH[opcode_i] = FallthroughDecode(opcode_i)
 
