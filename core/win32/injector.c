@@ -231,6 +231,7 @@ typedef struct _dr_inject_info_t {
     PROCESS_INFORMATION pi;
     bool using_debugger_injection;
     bool using_thread_injection;
+    bool attached;
     TCHAR wimage_name[MAXIMUM_PATH];
     /* We need something to point at for dr_inject_get_image_name so we just
      * keep a utf8 buffer as well.
@@ -844,6 +845,81 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
 }
 
 DYNAMORIO_EXPORT
+int
+dr_inject_process_attach(process_id_t pid, void **data OUT)
+{
+    dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
+    memset(info, 0, sizeof(*info));
+    int errcode = ERROR_SUCCESS;
+    bool received_initial_debug_event = false;
+
+    if (DebugActiveProcess((DWORD)pid)) {
+        DebugSetProcessKillOnExit(false);
+
+        info->using_debugger_injection = false;
+        info->attached = true;
+
+        DEBUG_EVENT dbgevt = { 0 };
+        do {
+            dbgevt.dwProcessId = (DWORD)pid;
+            WaitForDebugEvent(&dbgevt, INFINITE);
+            ContinueDebugEvent(dbgevt.dwProcessId, dbgevt.dwThreadId, DBG_CONTINUE);
+
+            if (dbgevt.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT) {
+                received_initial_debug_event = true;
+            }
+        } while (received_initial_debug_event == false);
+
+        wchar_t exe_path[MAX_PATH];
+        DWORD exe_path_size = MAX_PATH;
+
+        HANDLE process_handle = OpenProcess(PROCESS_ALL_ACCESS, false, (DWORD)pid);
+        if (process_handle != NULL) {
+            BOOL(*query_full_process_image_name_w)
+            (HANDLE, DWORD, LPWSTR, PDWORD) =
+                (BOOL(*)(HANDLE, DWORD, LPWSTR, PDWORD))(GetProcAddress(
+                    GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
+
+            if (query_full_process_image_name_w(process_handle, 0, exe_path,
+                                                &exe_path_size) != 0) {
+                wchar_t *exe_name = wcsrchr(exe_path, '\\');
+                if (exe_name != NULL) {
+                    wcsncpy(info->wimage_name, exe_name + 1,
+                            BUFFER_SIZE_ELEMENTS(info->wimage_name));
+                    NULL_TERMINATE_BUFFER(info->wimage_name);
+
+                    tchar_to_char(info->wimage_name, info->image_name,
+                                  BUFFER_SIZE_ELEMENTS(info->image_name));
+
+                    info->pi.dwProcessId = dbgevt.dwProcessId;
+                    info->pi.dwThreadId = dbgevt.dwThreadId;
+
+                    DuplicateHandle(GetCurrentProcess(),
+                                    dbgevt.u.CreateProcessInfo.hProcess,
+                                    GetCurrentProcess(), &info->pi.hProcess, 0, FALSE,
+                                    DUPLICATE_SAME_ACCESS);
+
+                    DuplicateHandle(GetCurrentProcess(),
+                                    dbgevt.u.CreateProcessInfo.hThread,
+                                    GetCurrentProcess(), &info->pi.hThread, 0, FALSE,
+                                    DUPLICATE_SAME_ACCESS);
+                } else {
+                    errcode = ERROR_INVALID_PARAMETER;
+                }
+            } else {
+                errcode = GetLastError();
+            }
+        } else {
+            errcode = GetLastError();
+        }
+    } else {
+        errcode = GetLastError();
+    }
+    *data = info;
+    return errcode;
+}
+
+DYNAMORIO_EXPORT
 bool
 dr_inject_use_late_injection(void *data)
 {
@@ -954,9 +1030,14 @@ bool
 dr_inject_process_run(void *data)
 {
     dr_inject_info_t *info = (dr_inject_info_t *)data;
-    /* resume the suspended app process so its main thread can run */
-    ResumeThread(info->pi.hThread);
-    close_handle(info->pi.hThread);
+    if (info->attached == true) {
+        /* detach the debugger */
+        DebugActiveProcessStop(info->pi.dwProcessId);
+    } else {
+        /* resume the suspended app process so its main thread can run */
+        ResumeThread(info->pi.hThread);
+        close_handle(info->pi.hThread);
+    }
 
     return true;
 }
