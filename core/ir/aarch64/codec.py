@@ -152,8 +152,8 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
                 if opc_props[m] != 'n':
                     indent_append('}')
             return
-	# Look for best bit to test. We aim to reduce the number of patterns
-	# remaining.
+        # Look for best bit to test. We aim to reduce the number of patterns
+        # remaining.
         best_b = -1
         best_x = len(pats)
         for b in range(N):
