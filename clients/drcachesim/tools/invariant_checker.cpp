@@ -30,12 +30,12 @@
  * DAMAGE.
  */
 
-#include "trace_invariants.h"
+#include "invariant_checker.h"
 #include <iostream>
 #include <string.h>
 
-trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose,
-                                       std::string test_name)
+invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
+                                         std::string test_name)
     : knob_offline_(offline)
     , knob_verbose_(verbose)
     , knob_test_name_(test_name)
@@ -44,12 +44,12 @@ trace_invariants_t::trace_invariants_t(bool offline, unsigned int verbose,
     memset(&prev_interleaved_instr_, 0, sizeof(prev_interleaved_instr_));
 }
 
-trace_invariants_t::~trace_invariants_t()
+invariant_checker_t::~invariant_checker_t()
 {
 }
 
 void
-trace_invariants_t::report_if_false(bool condition, const std::string &message)
+invariant_checker_t::report_if_false(bool condition, const std::string &message)
 {
     if (!condition) {
         std::cerr << "Trace invariant failure: " << message << "\n";
@@ -58,7 +58,7 @@ trace_invariants_t::report_if_false(bool condition, const std::string &message)
 }
 
 bool
-trace_invariants_t::process_memref(const memref_t &memref)
+invariant_checker_t::process_memref(const memref_t &memref)
 {
     if (prev_instr_.find(memref.data.tid) == prev_instr_.end()) {
 #ifdef UNIX
@@ -306,7 +306,7 @@ trace_invariants_t::process_memref(const memref_t &memref)
 }
 
 bool
-trace_invariants_t::print_results()
+invariant_checker_t::print_results()
 {
     std::cerr << "Trace invariant checks passed\n";
     return true;
