@@ -153,8 +153,8 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* Test a restart in the middle of the sequence via ud2a SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
-        /* For -test_mode trace_invariants: expect a signal after ud2a.
-         * (An alternative is to add decoding to trace_invariants but with
+        /* For -test_mode invariant_checker: expect a signal after ud2a.
+         * (An alternative is to add decoding to invariant_checker but with
          * i#2007 and other problems that liimts the test.)
          */
         "prefetcht2 1\n\t"
@@ -170,7 +170,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "jmp 42f\n\t"
         "42:\n\t"
         "addl $1, %[restarts]\n\t"
@@ -218,7 +218,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
-        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
+        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for invariant_checker. */
         ".word 0\n\t"              /* udf */
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
@@ -233,7 +233,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to udf. */
+        /* Start with jmp to avoid invariant_checker assert on return to udf. */
         "b 42f\n\t"
         "42:\n\t"
         "ldr x1, %[restarts]\n\t"
@@ -312,7 +312,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* Test a restart via ud2a SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
-        "prefetcht2 1\n\t" /* See above: annotation for trace_invariants. */
+        "prefetcht2 1\n\t" /* See above: annotation for invariant_checker. */
         "ud2a\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
@@ -325,7 +325,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "jmp 42f\n\t"
         "42:\n\t"
         "addl $1, %[restarts]\n\t"
@@ -378,7 +378,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
-        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
+        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for invariant_checker. */
         ".word 0\n\t"              /* udf */
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
@@ -393,7 +393,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to udf. */
+        /* Start with jmp to avoid invariant_checker assert on return to udf. */
         "b 42f\n\t"
         "42:\n\t"
         "ldr x1, %[restarts]\n\t"
@@ -481,7 +481,7 @@ test_rseq_native_fault(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "jmp 42f\n\t"
         "42:\n\t"
         "addl $1, %[restarts]\n\t"
@@ -533,7 +533,7 @@ test_rseq_native_fault(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "b 42f\n\t"
         "42:\n\t"
         "ldr x1, %[restarts]\n\t"
