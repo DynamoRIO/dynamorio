@@ -3344,7 +3344,7 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    # We run an app w/ kernel xfers to test trace_invariants online.
+    # We run an app w/ kernel xfers to test invariant_checker online.
     # Offline invariants are tested in the tool.histogram.offline test below.
     if (UNIX)
       # The signal_invariants asm is x86-only.  The extra checks are cross-arch
@@ -3671,7 +3671,7 @@ if (BUILD_CLIENTS)
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
-    # for variety and to include threads and signals for trace_invariants.
+    # for variety and to include threads and signals for invariant_checker.
     set(histo_app ${kernel_xfer_app})
     if (WIN32)
       # winxfer produces a 500M+ trace and test taking >3mins so we narrow
