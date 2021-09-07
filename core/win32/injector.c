@@ -882,14 +882,13 @@ dr_inject_process_attach(process_id_t pid, void **data OUT)
     if (process_handle == NULL) {
         return GetLastError();
     }
-    
-    BOOL(*query_full_process_image_name_w)
-    (HANDLE, DWORD, LPWSTR, PDWORD) =
-        (BOOL(*)(HANDLE, DWORD, LPWSTR, PDWORD))(GetProcAddress(
-            GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
 
-    if (query_full_process_image_name_w(process_handle, 0, exe_path,
-                                        &exe_path_size) == 0) {
+    BOOL(*query_full_process_image_name_w)
+    (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(*)(HANDLE, DWORD, LPWSTR, PDWORD))(
+        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
+
+    if (query_full_process_image_name_w(process_handle, 0, exe_path, &exe_path_size) ==
+        0) {
         return GetLastError();
     }
 
@@ -898,23 +897,20 @@ dr_inject_process_attach(process_id_t pid, void **data OUT)
         return ERROR_INVALID_PARAMETER;
     }
 
-    wcsncpy(info->wimage_name, exe_name + 1,
-            BUFFER_SIZE_ELEMENTS(info->wimage_name));
+    wcsncpy(info->wimage_name, exe_name + 1, BUFFER_SIZE_ELEMENTS(info->wimage_name));
     NULL_TERMINATE_BUFFER(info->wimage_name);
 
     tchar_to_char(info->wimage_name, info->image_name,
-                    BUFFER_SIZE_ELEMENTS(info->image_name));
+                  BUFFER_SIZE_ELEMENTS(info->image_name));
 
     info->pi.dwProcessId = dbgevt.dwProcessId;
     info->pi.dwThreadId = dbgevt.dwThreadId;
 
-    DuplicateHandle(GetCurrentProcess(),
-                    dbgevt.u.CreateProcessInfo.hProcess,
+    DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hProcess,
                     GetCurrentProcess(), &info->pi.hProcess, 0, FALSE,
                     DUPLICATE_SAME_ACCESS);
 
-    DuplicateHandle(GetCurrentProcess(),
-                    dbgevt.u.CreateProcessInfo.hThread,
+    DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hThread,
                     GetCurrentProcess(), &info->pi.hThread, 0, FALSE,
                     DUPLICATE_SAME_ACCESS);
 
