@@ -316,7 +316,7 @@ const char *options_list_str =
     "                          Attach to the process with the given pid.\n"
     "                          If attach to a process which is in middle of blocking\n"
     "                          system call, attach could fail.\n"
-    "                          try takeover_sleep and larger takeovers to increase\n"
+    "                          Try takeover_sleep and larger takeovers to increase\n"
     "                          the chances of success:\n"
     "       -takeover_sleep    Sleep 1 millisecond between takeover attempts.\n"
     "       -takeovers <num>   Number of takeover attempts. Defaults to 8.\n"

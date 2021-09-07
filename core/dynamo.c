@@ -2912,7 +2912,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         if (found_threads && !bb_lock_start)
             bb_lock_start = true;
         if (DYNAMO_OPTION(sleep_between_takeovers))
-            dr_sleep(1);
+            os_thread_sleep(1);
     } while (found_threads && attempts < max_takeover_attempts);
     os_process_under_dynamorio_complete(dcontext);
     /* End the barrier to new threads. */
