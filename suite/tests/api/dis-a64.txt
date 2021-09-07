@@ -5781,12 +5781,102 @@ dac00841 : rev32  x1, x2                  : rev32  %x2 -> %x1
 6eb26295 : rsubhn2 v21.4s, v20.2d, v18.2d           : rsubhn2 %q20 %q18 $0x02 -> %q21
 
 # RSHRN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
-0f0f8c20 : rshrn v0.8b, v1.8h, #1                   : rshrn  %d1 $0x31 -> %d0
-0f1f8c20 : rshrn v0.4h, v1.4s, #1                   : rshrn  %d1 $0x21 -> %d0
-0f3f8c20 : rshrn v0.2s, v1.2d, #1                   : rshrn  %d1 $0x01 -> %d0
-4f0f8c20 : rshrn2 v0.16b, v1.8h, #1                 : rshrn2 %q1 $0x31 -> %q0
-4f1f8c20 : rshrn2 v0.8h, v1.4s, #1                  : rshrn2 %q1 $0x21 -> %q0
-4f3f8c20 : rshrn2 v0.4s, v1.2d, #1                  : rshrn2 %q1 $0x01 -> %q0
+0f0f8c20 : rshrn v0.8b, v1.8h, #1                    : rshrn  %q1 $0x01 $0x01 -> %d0
+0f0f8c62 : rshrn v2.8b, v3.8h, #1                    : rshrn  %q3 $0x01 $0x01 -> %d2
+0f0e8ca4 : rshrn v4.8b, v5.8h, #2                    : rshrn  %q5 $0x01 $0x02 -> %d4
+0f0e8ce6 : rshrn v6.8b, v7.8h, #2                    : rshrn  %q7 $0x01 $0x02 -> %d6
+0f0d8d28 : rshrn v8.8b, v9.8h, #3                    : rshrn  %q9 $0x01 $0x03 -> %d8
+0f0d8d6a : rshrn v10.8b, v11.8h, #3                  : rshrn  %q11 $0x01 $0x03 -> %d10
+0f0c8dac : rshrn v12.8b, v13.8h, #4                  : rshrn  %q13 $0x01 $0x04 -> %d12
+0f0c8dee : rshrn v14.8b, v15.8h, #4                  : rshrn  %q15 $0x01 $0x04 -> %d14
+0f0b8e30 : rshrn v16.8b, v17.8h, #5                  : rshrn  %q17 $0x01 $0x05 -> %d16
+0f0b8e72 : rshrn v18.8b, v19.8h, #5                  : rshrn  %q19 $0x01 $0x05 -> %d18
+0f0a8eb4 : rshrn v20.8b, v21.8h, #6                  : rshrn  %q21 $0x01 $0x06 -> %d20
+0f0a8ef6 : rshrn v22.8b, v23.8h, #6                  : rshrn  %q23 $0x01 $0x06 -> %d22
+0f098f38 : rshrn v24.8b, v25.8h, #7                  : rshrn  %q25 $0x01 $0x07 -> %d24
+0f098f7a : rshrn v26.8b, v27.8h, #7                  : rshrn  %q27 $0x01 $0x07 -> %d26
+0f088fbc : rshrn v28.8b, v29.8h, #8                  : rshrn  %q29 $0x01 $0x08 -> %d28
+0f088ffe : rshrn v30.8b, v31.8h, #8                  : rshrn  %q31 $0x01 $0x08 -> %d30
+0f1f8c20 : rshrn v0.4h, v1.4s, #1                    : rshrn  %q1 $0x02 $0x01 -> %d0
+0f1e8c62 : rshrn v2.4h, v3.4s, #2                    : rshrn  %q3 $0x02 $0x02 -> %d2
+0f1d8ca4 : rshrn v4.4h, v5.4s, #3                    : rshrn  %q5 $0x02 $0x03 -> %d4
+0f1c8ce6 : rshrn v6.4h, v7.4s, #4                    : rshrn  %q7 $0x02 $0x04 -> %d6
+0f1b8d28 : rshrn v8.4h, v9.4s, #5                    : rshrn  %q9 $0x02 $0x05 -> %d8
+0f1a8d6a : rshrn v10.4h, v11.4s, #6                  : rshrn  %q11 $0x02 $0x06 -> %d10
+0f198dac : rshrn v12.4h, v13.4s, #7                  : rshrn  %q13 $0x02 $0x07 -> %d12
+0f188dee : rshrn v14.4h, v15.4s, #8                  : rshrn  %q15 $0x02 $0x08 -> %d14
+0f178e30 : rshrn v16.4h, v17.4s, #9                  : rshrn  %q17 $0x02 $0x09 -> %d16
+0f168e72 : rshrn v18.4h, v19.4s, #10                 : rshrn  %q19 $0x02 $0x0a -> %d18
+0f158eb4 : rshrn v20.4h, v21.4s, #11                 : rshrn  %q21 $0x02 $0x0b -> %d20
+0f148ef6 : rshrn v22.4h, v23.4s, #12                 : rshrn  %q23 $0x02 $0x0c -> %d22
+0f138f38 : rshrn v24.4h, v25.4s, #13                 : rshrn  %q25 $0x02 $0x0d -> %d24
+0f128f7a : rshrn v26.4h, v27.4s, #14                 : rshrn  %q27 $0x02 $0x0e -> %d26
+0f118fbc : rshrn v28.4h, v29.4s, #15                 : rshrn  %q29 $0x02 $0x0f -> %d28
+0f108ffe : rshrn v30.4h, v31.4s, #16                 : rshrn  %q31 $0x02 $0x10 -> %d30
+0f3f8c20 : rshrn v0.2s, v1.2d, #1                    : rshrn  %q1 $0x03 $0x01 -> %d0
+0f3d8c62 : rshrn v2.2s, v3.2d, #3                    : rshrn  %q3 $0x03 $0x03 -> %d2
+0f3b8ca4 : rshrn v4.2s, v5.2d, #5                    : rshrn  %q5 $0x03 $0x05 -> %d4
+0f398ce6 : rshrn v6.2s, v7.2d, #7                    : rshrn  %q7 $0x03 $0x07 -> %d6
+0f378d28 : rshrn v8.2s, v9.2d, #9                    : rshrn  %q9 $0x03 $0x09 -> %d8
+0f358d6a : rshrn v10.2s, v11.2d, #11                 : rshrn  %q11 $0x03 $0x0b -> %d10
+0f338dac : rshrn v12.2s, v13.2d, #13                 : rshrn  %q13 $0x03 $0x0d -> %d12
+0f318dee : rshrn v14.2s, v15.2d, #15                 : rshrn  %q15 $0x03 $0x0f -> %d14
+0f2e8e30 : rshrn v16.2s, v17.2d, #18                 : rshrn  %q17 $0x03 $0x12 -> %d16
+0f2c8e72 : rshrn v18.2s, v19.2d, #20                 : rshrn  %q19 $0x03 $0x14 -> %d18
+0f2a8eb4 : rshrn v20.2s, v21.2d, #22                 : rshrn  %q21 $0x03 $0x16 -> %d20
+0f288ef6 : rshrn v22.2s, v23.2d, #24                 : rshrn  %q23 $0x03 $0x18 -> %d22
+0f268f38 : rshrn v24.2s, v25.2d, #26                 : rshrn  %q25 $0x03 $0x1a -> %d24
+0f248f7a : rshrn v26.2s, v27.2d, #28                 : rshrn  %q27 $0x03 $0x1c -> %d26
+0f228fbc : rshrn v28.2s, v29.2d, #30                 : rshrn  %q29 $0x03 $0x1e -> %d28
+0f208ffe : rshrn v30.2s, v31.2d, #32                 : rshrn  %q31 $0x03 $0x20 -> %d30
+4f0f8c20 : rshrn2 v0.16b, v1.8h, #1                  : rshrn2 %q1 $0x01 $0x01 -> %q0
+4f0f8c62 : rshrn2 v2.16b, v3.8h, #1                  : rshrn2 %q3 $0x01 $0x01 -> %q2
+4f0e8ca4 : rshrn2 v4.16b, v5.8h, #2                  : rshrn2 %q5 $0x01 $0x02 -> %q4
+4f0e8ce6 : rshrn2 v6.16b, v7.8h, #2                  : rshrn2 %q7 $0x01 $0x02 -> %q6
+4f0d8d28 : rshrn2 v8.16b, v9.8h, #3                  : rshrn2 %q9 $0x01 $0x03 -> %q8
+4f0d8d6a : rshrn2 v10.16b, v11.8h, #3                : rshrn2 %q11 $0x01 $0x03 -> %q10
+4f0c8dac : rshrn2 v12.16b, v13.8h, #4                : rshrn2 %q13 $0x01 $0x04 -> %q12
+4f0c8dee : rshrn2 v14.16b, v15.8h, #4                : rshrn2 %q15 $0x01 $0x04 -> %q14
+4f0b8e30 : rshrn2 v16.16b, v17.8h, #5                : rshrn2 %q17 $0x01 $0x05 -> %q16
+4f0b8e72 : rshrn2 v18.16b, v19.8h, #5                : rshrn2 %q19 $0x01 $0x05 -> %q18
+4f0a8eb4 : rshrn2 v20.16b, v21.8h, #6                : rshrn2 %q21 $0x01 $0x06 -> %q20
+4f0a8ef6 : rshrn2 v22.16b, v23.8h, #6                : rshrn2 %q23 $0x01 $0x06 -> %q22
+4f098f38 : rshrn2 v24.16b, v25.8h, #7                : rshrn2 %q25 $0x01 $0x07 -> %q24
+4f098f7a : rshrn2 v26.16b, v27.8h, #7                : rshrn2 %q27 $0x01 $0x07 -> %q26
+4f088fbc : rshrn2 v28.16b, v29.8h, #8                : rshrn2 %q29 $0x01 $0x08 -> %q28
+4f088ffe : rshrn2 v30.16b, v31.8h, #8                : rshrn2 %q31 $0x01 $0x08 -> %q30
+4f1f8c20 : rshrn2 v0.8h, v1.4s, #1                   : rshrn2 %q1 $0x02 $0x01 -> %q0
+4f1e8c62 : rshrn2 v2.8h, v3.4s, #2                   : rshrn2 %q3 $0x02 $0x02 -> %q2
+4f1d8ca4 : rshrn2 v4.8h, v5.4s, #3                   : rshrn2 %q5 $0x02 $0x03 -> %q4
+4f1c8ce6 : rshrn2 v6.8h, v7.4s, #4                   : rshrn2 %q7 $0x02 $0x04 -> %q6
+4f1b8d28 : rshrn2 v8.8h, v9.4s, #5                   : rshrn2 %q9 $0x02 $0x05 -> %q8
+4f1a8d6a : rshrn2 v10.8h, v11.4s, #6                 : rshrn2 %q11 $0x02 $0x06 -> %q10
+4f198dac : rshrn2 v12.8h, v13.4s, #7                 : rshrn2 %q13 $0x02 $0x07 -> %q12
+4f188dee : rshrn2 v14.8h, v15.4s, #8                 : rshrn2 %q15 $0x02 $0x08 -> %q14
+4f178e30 : rshrn2 v16.8h, v17.4s, #9                 : rshrn2 %q17 $0x02 $0x09 -> %q16
+4f168e72 : rshrn2 v18.8h, v19.4s, #10                : rshrn2 %q19 $0x02 $0x0a -> %q18
+4f158eb4 : rshrn2 v20.8h, v21.4s, #11                : rshrn2 %q21 $0x02 $0x0b -> %q20
+4f148ef6 : rshrn2 v22.8h, v23.4s, #12                : rshrn2 %q23 $0x02 $0x0c -> %q22
+4f138f38 : rshrn2 v24.8h, v25.4s, #13                : rshrn2 %q25 $0x02 $0x0d -> %q24
+4f128f7a : rshrn2 v26.8h, v27.4s, #14                : rshrn2 %q27 $0x02 $0x0e -> %q26
+4f118fbc : rshrn2 v28.8h, v29.4s, #15                : rshrn2 %q29 $0x02 $0x0f -> %q28
+4f108ffe : rshrn2 v30.8h, v31.4s, #16                : rshrn2 %q31 $0x02 $0x10 -> %q30
+4f3f8c20 : rshrn2 v0.4s, v1.2d, #1                   : rshrn2 %q1 $0x03 $0x01 -> %q0
+4f3d8c62 : rshrn2 v2.4s, v3.2d, #3                   : rshrn2 %q3 $0x03 $0x03 -> %q2
+4f3b8ca4 : rshrn2 v4.4s, v5.2d, #5                   : rshrn2 %q5 $0x03 $0x05 -> %q4
+4f398ce6 : rshrn2 v6.4s, v7.2d, #7                   : rshrn2 %q7 $0x03 $0x07 -> %q6
+4f378d28 : rshrn2 v8.4s, v9.2d, #9                   : rshrn2 %q9 $0x03 $0x09 -> %q8
+4f358d6a : rshrn2 v10.4s, v11.2d, #11                : rshrn2 %q11 $0x03 $0x0b -> %q10
+4f338dac : rshrn2 v12.4s, v13.2d, #13                : rshrn2 %q13 $0x03 $0x0d -> %q12
+4f318dee : rshrn2 v14.4s, v15.2d, #15                : rshrn2 %q15 $0x03 $0x0f -> %q14
+4f2e8e30 : rshrn2 v16.4s, v17.2d, #18                : rshrn2 %q17 $0x03 $0x12 -> %q16
+4f2c8e72 : rshrn2 v18.4s, v19.2d, #20                : rshrn2 %q19 $0x03 $0x14 -> %q18
+4f2a8eb4 : rshrn2 v20.4s, v21.2d, #22                : rshrn2 %q21 $0x03 $0x16 -> %q20
+4f288ef6 : rshrn2 v22.4s, v23.2d, #24                : rshrn2 %q23 $0x03 $0x18 -> %q22
+4f268f38 : rshrn2 v24.4s, v25.2d, #26                : rshrn2 %q25 $0x03 $0x1a -> %q24
+4f248f7a : rshrn2 v26.4s, v27.2d, #28                : rshrn2 %q27 $0x03 $0x1c -> %q26
+4f228fbc : rshrn2 v28.4s, v29.2d, #30                : rshrn2 %q29 $0x03 $0x1e -> %q28
+4f208ffe : rshrn2 v30.4s, v31.2d, #32                : rshrn2 %q31 $0x03 $0x20 -> %q30
 
 0e247fdb : saba v27.8b, v30.8b, v4.8b               : saba   %d30 %d4 $0x00 -> %d27
 4e247fdb : saba v27.16b, v30.16b, v4.16b            : saba   %q30 %q4 $0x00 -> %q27
@@ -6924,14 +7014,135 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 
 # SRI <V><d>, <V><n>, #<shift>
 7f7f4420 : sri d0, d1, #1                            : sri    %d1 $0x01 -> %d0
+7f7b4462 : sri d2, d3, #5                            : sri    %d3 $0x05 -> %d2
+7f7744a4 : sri d4, d5, #9                            : sri    %d5 $0x09 -> %d4
+7f7344e6 : sri d6, d7, #13                           : sri    %d7 $0x0d -> %d6
+7f6e4528 : sri d8, d9, #18                           : sri    %d9 $0x12 -> %d8
+7f6a456a : sri d10, d11, #22                         : sri    %d11 $0x16 -> %d10
+7f6645ac : sri d12, d13, #26                         : sri    %d13 $0x1a -> %d12
+7f6245ee : sri d14, d15, #30                         : sri    %d15 $0x1e -> %d14
+7f5d4630 : sri d16, d17, #35                         : sri    %d17 $0x23 -> %d16
+7f594672 : sri d18, d19, #39                         : sri    %d19 $0x27 -> %d18
+7f5546b4 : sri d20, d21, #43                         : sri    %d21 $0x2b -> %d20
+7f5146f6 : sri d22, d23, #47                         : sri    %d23 $0x2f -> %d22
+7f4c4738 : sri d24, d25, #52                         : sri    %d25 $0x34 -> %d24
+7f48477a : sri d26, d27, #56                         : sri    %d27 $0x38 -> %d26
+7f4447bc : sri d28, d29, #60                         : sri    %d29 $0x3c -> %d28
+7f4047fe : sri d30, d31, #64                         : sri    %d31 $0x40 -> %d30
 
 # SRI <Vd>.<T>, <Vn>.<T>, #<shift>
-2f0f4420 : sri v0.8b, v1.8b, #1                      : sri    %d1 $0x02 $0x31 -> %d0
-6f0f4420 : sri v0.16b, v1.16b, #1                    : sri    %q1 $0x02 $0x31 -> %q0
-2f1f4420 : sri v0.4h, v1.4h, #1                      : sri    %d1 $0x02 $0x21 -> %d0
-6f1f4420 : sri v0.8h, v1.8h, #1                      : sri    %q1 $0x02 $0x21 -> %q0
+2f0f4420 : sri v0.8b, v1.8b, #1                      : sri    %d1 $0x00 $0x01 -> %d0
+2f0f4462 : sri v2.8b, v3.8b, #1                      : sri    %d3 $0x00 $0x01 -> %d2
+2f0e44a4 : sri v4.8b, v5.8b, #2                      : sri    %d5 $0x00 $0x02 -> %d4
+2f0e44e6 : sri v6.8b, v7.8b, #2                      : sri    %d7 $0x00 $0x02 -> %d6
+2f0d4528 : sri v8.8b, v9.8b, #3                      : sri    %d9 $0x00 $0x03 -> %d8
+2f0d456a : sri v10.8b, v11.8b, #3                    : sri    %d11 $0x00 $0x03 -> %d10
+2f0c45ac : sri v12.8b, v13.8b, #4                    : sri    %d13 $0x00 $0x04 -> %d12
+2f0c45ee : sri v14.8b, v15.8b, #4                    : sri    %d15 $0x00 $0x04 -> %d14
+2f0b4630 : sri v16.8b, v17.8b, #5                    : sri    %d17 $0x00 $0x05 -> %d16
+2f0b4672 : sri v18.8b, v19.8b, #5                    : sri    %d19 $0x00 $0x05 -> %d18
+2f0a46b4 : sri v20.8b, v21.8b, #6                    : sri    %d21 $0x00 $0x06 -> %d20
+2f0a46f6 : sri v22.8b, v23.8b, #6                    : sri    %d23 $0x00 $0x06 -> %d22
+2f094738 : sri v24.8b, v25.8b, #7                    : sri    %d25 $0x00 $0x07 -> %d24
+2f09477a : sri v26.8b, v27.8b, #7                    : sri    %d27 $0x00 $0x07 -> %d26
+2f0847bc : sri v28.8b, v29.8b, #8                    : sri    %d29 $0x00 $0x08 -> %d28
+2f0847fe : sri v30.8b, v31.8b, #8                    : sri    %d31 $0x00 $0x08 -> %d30
+6f0f4420 : sri v0.16b, v1.16b, #1                    : sri    %q1 $0x00 $0x01 -> %q0
+6f0f4462 : sri v2.16b, v3.16b, #1                    : sri    %q3 $0x00 $0x01 -> %q2
+6f0e44a4 : sri v4.16b, v5.16b, #2                    : sri    %q5 $0x00 $0x02 -> %q4
+6f0e44e6 : sri v6.16b, v7.16b, #2                    : sri    %q7 $0x00 $0x02 -> %q6
+6f0d4528 : sri v8.16b, v9.16b, #3                    : sri    %q9 $0x00 $0x03 -> %q8
+6f0d456a : sri v10.16b, v11.16b, #3                  : sri    %q11 $0x00 $0x03 -> %q10
+6f0c45ac : sri v12.16b, v13.16b, #4                  : sri    %q13 $0x00 $0x04 -> %q12
+6f0c45ee : sri v14.16b, v15.16b, #4                  : sri    %q15 $0x00 $0x04 -> %q14
+6f0b4630 : sri v16.16b, v17.16b, #5                  : sri    %q17 $0x00 $0x05 -> %q16
+6f0b4672 : sri v18.16b, v19.16b, #5                  : sri    %q19 $0x00 $0x05 -> %q18
+6f0a46b4 : sri v20.16b, v21.16b, #6                  : sri    %q21 $0x00 $0x06 -> %q20
+6f0a46f6 : sri v22.16b, v23.16b, #6                  : sri    %q23 $0x00 $0x06 -> %q22
+6f094738 : sri v24.16b, v25.16b, #7                  : sri    %q25 $0x00 $0x07 -> %q24
+6f09477a : sri v26.16b, v27.16b, #7                  : sri    %q27 $0x00 $0x07 -> %q26
+6f0847bc : sri v28.16b, v29.16b, #8                  : sri    %q29 $0x00 $0x08 -> %q28
+6f0847fe : sri v30.16b, v31.16b, #8                  : sri    %q31 $0x00 $0x08 -> %q30
+2f1f4420 : sri v0.4h, v1.4h, #1                      : sri    %d1 $0x01 $0x01 -> %d0
+2f1e4462 : sri v2.4h, v3.4h, #2                      : sri    %d3 $0x01 $0x02 -> %d2
+2f1d44a4 : sri v4.4h, v5.4h, #3                      : sri    %d5 $0x01 $0x03 -> %d4
+2f1c44e6 : sri v6.4h, v7.4h, #4                      : sri    %d7 $0x01 $0x04 -> %d6
+2f1b4528 : sri v8.4h, v9.4h, #5                      : sri    %d9 $0x01 $0x05 -> %d8
+2f1a456a : sri v10.4h, v11.4h, #6                    : sri    %d11 $0x01 $0x06 -> %d10
+2f1945ac : sri v12.4h, v13.4h, #7                    : sri    %d13 $0x01 $0x07 -> %d12
+2f1845ee : sri v14.4h, v15.4h, #8                    : sri    %d15 $0x01 $0x08 -> %d14
+2f174630 : sri v16.4h, v17.4h, #9                    : sri    %d17 $0x01 $0x09 -> %d16
+2f164672 : sri v18.4h, v19.4h, #10                   : sri    %d19 $0x01 $0x0a -> %d18
+2f1546b4 : sri v20.4h, v21.4h, #11                   : sri    %d21 $0x01 $0x0b -> %d20
+2f1446f6 : sri v22.4h, v23.4h, #12                   : sri    %d23 $0x01 $0x0c -> %d22
+2f134738 : sri v24.4h, v25.4h, #13                   : sri    %d25 $0x01 $0x0d -> %d24
+2f12477a : sri v26.4h, v27.4h, #14                   : sri    %d27 $0x01 $0x0e -> %d26
+2f1147bc : sri v28.4h, v29.4h, #15                   : sri    %d29 $0x01 $0x0f -> %d28
+2f1047fe : sri v30.4h, v31.4h, #16                   : sri    %d31 $0x01 $0x10 -> %d30
+6f1f4420 : sri v0.8h, v1.8h, #1                      : sri    %q1 $0x01 $0x01 -> %q0
+6f1e4462 : sri v2.8h, v3.8h, #2                      : sri    %q3 $0x01 $0x02 -> %q2
+6f1d44a4 : sri v4.8h, v5.8h, #3                      : sri    %q5 $0x01 $0x03 -> %q4
+6f1c44e6 : sri v6.8h, v7.8h, #4                      : sri    %q7 $0x01 $0x04 -> %q6
+6f1b4528 : sri v8.8h, v9.8h, #5                      : sri    %q9 $0x01 $0x05 -> %q8
+6f1a456a : sri v10.8h, v11.8h, #6                    : sri    %q11 $0x01 $0x06 -> %q10
+6f1945ac : sri v12.8h, v13.8h, #7                    : sri    %q13 $0x01 $0x07 -> %q12
+6f1845ee : sri v14.8h, v15.8h, #8                    : sri    %q15 $0x01 $0x08 -> %q14
+6f174630 : sri v16.8h, v17.8h, #9                    : sri    %q17 $0x01 $0x09 -> %q16
+6f164672 : sri v18.8h, v19.8h, #10                   : sri    %q19 $0x01 $0x0a -> %q18
+6f1546b4 : sri v20.8h, v21.8h, #11                   : sri    %q21 $0x01 $0x0b -> %q20
+6f1446f6 : sri v22.8h, v23.8h, #12                   : sri    %q23 $0x01 $0x0c -> %q22
+6f134738 : sri v24.8h, v25.8h, #13                   : sri    %q25 $0x01 $0x0d -> %q24
+6f12477a : sri v26.8h, v27.8h, #14                   : sri    %q27 $0x01 $0x0e -> %q26
+6f1147bc : sri v28.8h, v29.8h, #15                   : sri    %q29 $0x01 $0x0f -> %q28
+6f1047fe : sri v30.8h, v31.8h, #16                   : sri    %q31 $0x01 $0x10 -> %q30
 2f3f4420 : sri v0.2s, v1.2s, #1                      : sri    %d1 $0x02 $0x01 -> %d0
+2f3d4462 : sri v2.2s, v3.2s, #3                      : sri    %d3 $0x02 $0x03 -> %d2
+2f3b44a4 : sri v4.2s, v5.2s, #5                      : sri    %d5 $0x02 $0x05 -> %d4
+2f3944e6 : sri v6.2s, v7.2s, #7                      : sri    %d7 $0x02 $0x07 -> %d6
+2f374528 : sri v8.2s, v9.2s, #9                      : sri    %d9 $0x02 $0x09 -> %d8
+2f35456a : sri v10.2s, v11.2s, #11                   : sri    %d11 $0x02 $0x0b -> %d10
+2f3345ac : sri v12.2s, v13.2s, #13                   : sri    %d13 $0x02 $0x0d -> %d12
+2f3145ee : sri v14.2s, v15.2s, #15                   : sri    %d15 $0x02 $0x0f -> %d14
+2f2e4630 : sri v16.2s, v17.2s, #18                   : sri    %d17 $0x02 $0x12 -> %d16
+2f2c4672 : sri v18.2s, v19.2s, #20                   : sri    %d19 $0x02 $0x14 -> %d18
+2f2a46b4 : sri v20.2s, v21.2s, #22                   : sri    %d21 $0x02 $0x16 -> %d20
+2f2846f6 : sri v22.2s, v23.2s, #24                   : sri    %d23 $0x02 $0x18 -> %d22
+2f264738 : sri v24.2s, v25.2s, #26                   : sri    %d25 $0x02 $0x1a -> %d24
+2f24477a : sri v26.2s, v27.2s, #28                   : sri    %d27 $0x02 $0x1c -> %d26
+2f2247bc : sri v28.2s, v29.2s, #30                   : sri    %d29 $0x02 $0x1e -> %d28
+2f2047fe : sri v30.2s, v31.2s, #32                   : sri    %d31 $0x02 $0x20 -> %d30
 6f3f4420 : sri v0.4s, v1.4s, #1                      : sri    %q1 $0x02 $0x01 -> %q0
+6f3d4462 : sri v2.4s, v3.4s, #3                      : sri    %q3 $0x02 $0x03 -> %q2
+6f3b44a4 : sri v4.4s, v5.4s, #5                      : sri    %q5 $0x02 $0x05 -> %q4
+6f3944e6 : sri v6.4s, v7.4s, #7                      : sri    %q7 $0x02 $0x07 -> %q6
+6f374528 : sri v8.4s, v9.4s, #9                      : sri    %q9 $0x02 $0x09 -> %q8
+6f35456a : sri v10.4s, v11.4s, #11                   : sri    %q11 $0x02 $0x0b -> %q10
+6f3345ac : sri v12.4s, v13.4s, #13                   : sri    %q13 $0x02 $0x0d -> %q12
+6f3145ee : sri v14.4s, v15.4s, #15                   : sri    %q15 $0x02 $0x0f -> %q14
+6f2e4630 : sri v16.4s, v17.4s, #18                   : sri    %q17 $0x02 $0x12 -> %q16
+6f2c4672 : sri v18.4s, v19.4s, #20                   : sri    %q19 $0x02 $0x14 -> %q18
+6f2a46b4 : sri v20.4s, v21.4s, #22                   : sri    %q21 $0x02 $0x16 -> %q20
+6f2846f6 : sri v22.4s, v23.4s, #24                   : sri    %q23 $0x02 $0x18 -> %q22
+6f264738 : sri v24.4s, v25.4s, #26                   : sri    %q25 $0x02 $0x1a -> %q24
+6f24477a : sri v26.4s, v27.4s, #28                   : sri    %q27 $0x02 $0x1c -> %q26
+6f2247bc : sri v28.4s, v29.4s, #30                   : sri    %q29 $0x02 $0x1e -> %q28
+6f2047fe : sri v30.4s, v31.4s, #32                   : sri    %q31 $0x02 $0x20 -> %q30
+6f7f4420 : sri v0.2d, v1.2d, #1                      : sri    %q1 $0x03 $0x01 -> %q0
+6f7b4462 : sri v2.2d, v3.2d, #5                      : sri    %q3 $0x03 $0x05 -> %q2
+6f7744a4 : sri v4.2d, v5.2d, #9                      : sri    %q5 $0x03 $0x09 -> %q4
+6f7344e6 : sri v6.2d, v7.2d, #13                     : sri    %q7 $0x03 $0x0d -> %q6
+6f6e4528 : sri v8.2d, v9.2d, #18                     : sri    %q9 $0x03 $0x12 -> %q8
+6f6a456a : sri v10.2d, v11.2d, #22                   : sri    %q11 $0x03 $0x16 -> %q10
+6f6645ac : sri v12.2d, v13.2d, #26                   : sri    %q13 $0x03 $0x1a -> %q12
+6f6245ee : sri v14.2d, v15.2d, #30                   : sri    %q15 $0x03 $0x1e -> %q14
+6f5d4630 : sri v16.2d, v17.2d, #35                   : sri    %q17 $0x03 $0x23 -> %q16
+6f594672 : sri v18.2d, v19.2d, #39                   : sri    %q19 $0x03 $0x27 -> %q18
+6f5546b4 : sri v20.2d, v21.2d, #43                   : sri    %q21 $0x03 $0x2b -> %q20
+6f5146f6 : sri v22.2d, v23.2d, #47                   : sri    %q23 $0x03 $0x2f -> %q22
+6f4c4738 : sri v24.2d, v25.2d, #52                   : sri    %q25 $0x03 $0x34 -> %q24
+6f48477a : sri v26.2d, v27.2d, #56                   : sri    %q27 $0x03 $0x38 -> %q26
+6f4447bc : sri v28.2d, v29.2d, #60                   : sri    %q29 $0x03 $0x3c -> %q28
+6f4047fe : sri v30.2d, v31.2d, #64                   : sri    %q31 $0x03 $0x40 -> %q30
 
 # SMOV <Wd>, <Vn>.<B>[<index>]
 0e012c00 : smov w0, v0.b[0]              : smov   %d0 $0x01 -> %w0
@@ -7206,32 +7417,380 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4f209ffe : sqrshrn2 v30.4s, v31.2d, #32              : sqrshrn2 %q31 $0x03 $0x20 -> %q30
 
 # SQRSHRUN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
-2f0f8c20 : sqrshrun v0.8b, v1.8h, #1                : sqrshrun %d1 $0x31 -> %d0
-2f1f8c20 : sqrshrun v0.4h, v1.4s, #1                : sqrshrun %d1 $0x21 -> %d0
-2f3f8c20 : sqrshrun v0.2s, v1.2d, #1                : sqrshrun %d1 $0x01 -> %d0
-6f0f8c20 : sqrshrun2 v0.16b, v1.8h, #1              : sqrshrun2 %q1 $0x31 -> %q0
-6f1f8c20 : sqrshrun2 v0.8h, v1.4s, #1               : sqrshrun2 %q1 $0x21 -> %q0
-6f3f8c20 : sqrshrun2 v0.4s, v1.2d, #1               : sqrshrun2 %q1 $0x01 -> %q0
+2f0f8c20 : sqrshrun v0.8b, v1.8h, #1                 : sqrshrun %q1 $0x01 $0x01 -> %d0
+2f0f8c62 : sqrshrun v2.8b, v3.8h, #1                 : sqrshrun %q3 $0x01 $0x01 -> %d2
+2f0e8ca4 : sqrshrun v4.8b, v5.8h, #2                 : sqrshrun %q5 $0x01 $0x02 -> %d4
+2f0e8ce6 : sqrshrun v6.8b, v7.8h, #2                 : sqrshrun %q7 $0x01 $0x02 -> %d6
+2f0d8d28 : sqrshrun v8.8b, v9.8h, #3                 : sqrshrun %q9 $0x01 $0x03 -> %d8
+2f0d8d6a : sqrshrun v10.8b, v11.8h, #3               : sqrshrun %q11 $0x01 $0x03 -> %d10
+2f0c8dac : sqrshrun v12.8b, v13.8h, #4               : sqrshrun %q13 $0x01 $0x04 -> %d12
+2f0c8dee : sqrshrun v14.8b, v15.8h, #4               : sqrshrun %q15 $0x01 $0x04 -> %d14
+2f0b8e30 : sqrshrun v16.8b, v17.8h, #5               : sqrshrun %q17 $0x01 $0x05 -> %d16
+2f0b8e72 : sqrshrun v18.8b, v19.8h, #5               : sqrshrun %q19 $0x01 $0x05 -> %d18
+2f0a8eb4 : sqrshrun v20.8b, v21.8h, #6               : sqrshrun %q21 $0x01 $0x06 -> %d20
+2f0a8ef6 : sqrshrun v22.8b, v23.8h, #6               : sqrshrun %q23 $0x01 $0x06 -> %d22
+2f098f38 : sqrshrun v24.8b, v25.8h, #7               : sqrshrun %q25 $0x01 $0x07 -> %d24
+2f098f7a : sqrshrun v26.8b, v27.8h, #7               : sqrshrun %q27 $0x01 $0x07 -> %d26
+2f088fbc : sqrshrun v28.8b, v29.8h, #8               : sqrshrun %q29 $0x01 $0x08 -> %d28
+2f088ffe : sqrshrun v30.8b, v31.8h, #8               : sqrshrun %q31 $0x01 $0x08 -> %d30
+2f1f8c20 : sqrshrun v0.4h, v1.4s, #1                 : sqrshrun %q1 $0x02 $0x01 -> %d0
+2f1e8c62 : sqrshrun v2.4h, v3.4s, #2                 : sqrshrun %q3 $0x02 $0x02 -> %d2
+2f1d8ca4 : sqrshrun v4.4h, v5.4s, #3                 : sqrshrun %q5 $0x02 $0x03 -> %d4
+2f1c8ce6 : sqrshrun v6.4h, v7.4s, #4                 : sqrshrun %q7 $0x02 $0x04 -> %d6
+2f1b8d28 : sqrshrun v8.4h, v9.4s, #5                 : sqrshrun %q9 $0x02 $0x05 -> %d8
+2f1a8d6a : sqrshrun v10.4h, v11.4s, #6               : sqrshrun %q11 $0x02 $0x06 -> %d10
+2f198dac : sqrshrun v12.4h, v13.4s, #7               : sqrshrun %q13 $0x02 $0x07 -> %d12
+2f188dee : sqrshrun v14.4h, v15.4s, #8               : sqrshrun %q15 $0x02 $0x08 -> %d14
+2f178e30 : sqrshrun v16.4h, v17.4s, #9               : sqrshrun %q17 $0x02 $0x09 -> %d16
+2f168e72 : sqrshrun v18.4h, v19.4s, #10              : sqrshrun %q19 $0x02 $0x0a -> %d18
+2f158eb4 : sqrshrun v20.4h, v21.4s, #11              : sqrshrun %q21 $0x02 $0x0b -> %d20
+2f148ef6 : sqrshrun v22.4h, v23.4s, #12              : sqrshrun %q23 $0x02 $0x0c -> %d22
+2f138f38 : sqrshrun v24.4h, v25.4s, #13              : sqrshrun %q25 $0x02 $0x0d -> %d24
+2f128f7a : sqrshrun v26.4h, v27.4s, #14              : sqrshrun %q27 $0x02 $0x0e -> %d26
+2f118fbc : sqrshrun v28.4h, v29.4s, #15              : sqrshrun %q29 $0x02 $0x0f -> %d28
+2f108ffe : sqrshrun v30.4h, v31.4s, #16              : sqrshrun %q31 $0x02 $0x10 -> %d30
+2f3f8c20 : sqrshrun v0.2s, v1.2d, #1                 : sqrshrun %q1 $0x03 $0x01 -> %d0
+2f3d8c62 : sqrshrun v2.2s, v3.2d, #3                 : sqrshrun %q3 $0x03 $0x03 -> %d2
+2f3b8ca4 : sqrshrun v4.2s, v5.2d, #5                 : sqrshrun %q5 $0x03 $0x05 -> %d4
+2f398ce6 : sqrshrun v6.2s, v7.2d, #7                 : sqrshrun %q7 $0x03 $0x07 -> %d6
+2f378d28 : sqrshrun v8.2s, v9.2d, #9                 : sqrshrun %q9 $0x03 $0x09 -> %d8
+2f358d6a : sqrshrun v10.2s, v11.2d, #11              : sqrshrun %q11 $0x03 $0x0b -> %d10
+2f338dac : sqrshrun v12.2s, v13.2d, #13              : sqrshrun %q13 $0x03 $0x0d -> %d12
+2f318dee : sqrshrun v14.2s, v15.2d, #15              : sqrshrun %q15 $0x03 $0x0f -> %d14
+2f2e8e30 : sqrshrun v16.2s, v17.2d, #18              : sqrshrun %q17 $0x03 $0x12 -> %d16
+2f2c8e72 : sqrshrun v18.2s, v19.2d, #20              : sqrshrun %q19 $0x03 $0x14 -> %d18
+2f2a8eb4 : sqrshrun v20.2s, v21.2d, #22              : sqrshrun %q21 $0x03 $0x16 -> %d20
+2f288ef6 : sqrshrun v22.2s, v23.2d, #24              : sqrshrun %q23 $0x03 $0x18 -> %d22
+2f268f38 : sqrshrun v24.2s, v25.2d, #26              : sqrshrun %q25 $0x03 $0x1a -> %d24
+2f248f7a : sqrshrun v26.2s, v27.2d, #28              : sqrshrun %q27 $0x03 $0x1c -> %d26
+2f228fbc : sqrshrun v28.2s, v29.2d, #30              : sqrshrun %q29 $0x03 $0x1e -> %d28
+2f208ffe : sqrshrun v30.2s, v31.2d, #32              : sqrshrun %q31 $0x03 $0x20 -> %d30
+6f0f8c20 : sqrshrun2 v0.16b, v1.8h, #1               : sqrshrun2 %q1 $0x01 $0x01 -> %q0
+6f0f8c62 : sqrshrun2 v2.16b, v3.8h, #1               : sqrshrun2 %q3 $0x01 $0x01 -> %q2
+6f0e8ca4 : sqrshrun2 v4.16b, v5.8h, #2               : sqrshrun2 %q5 $0x01 $0x02 -> %q4
+6f0e8ce6 : sqrshrun2 v6.16b, v7.8h, #2               : sqrshrun2 %q7 $0x01 $0x02 -> %q6
+6f0d8d28 : sqrshrun2 v8.16b, v9.8h, #3               : sqrshrun2 %q9 $0x01 $0x03 -> %q8
+6f0d8d6a : sqrshrun2 v10.16b, v11.8h, #3             : sqrshrun2 %q11 $0x01 $0x03 -> %q10
+6f0c8dac : sqrshrun2 v12.16b, v13.8h, #4             : sqrshrun2 %q13 $0x01 $0x04 -> %q12
+6f0c8dee : sqrshrun2 v14.16b, v15.8h, #4             : sqrshrun2 %q15 $0x01 $0x04 -> %q14
+6f0b8e30 : sqrshrun2 v16.16b, v17.8h, #5             : sqrshrun2 %q17 $0x01 $0x05 -> %q16
+6f0b8e72 : sqrshrun2 v18.16b, v19.8h, #5             : sqrshrun2 %q19 $0x01 $0x05 -> %q18
+6f0a8eb4 : sqrshrun2 v20.16b, v21.8h, #6             : sqrshrun2 %q21 $0x01 $0x06 -> %q20
+6f0a8ef6 : sqrshrun2 v22.16b, v23.8h, #6             : sqrshrun2 %q23 $0x01 $0x06 -> %q22
+6f098f38 : sqrshrun2 v24.16b, v25.8h, #7             : sqrshrun2 %q25 $0x01 $0x07 -> %q24
+6f098f7a : sqrshrun2 v26.16b, v27.8h, #7             : sqrshrun2 %q27 $0x01 $0x07 -> %q26
+6f088fbc : sqrshrun2 v28.16b, v29.8h, #8             : sqrshrun2 %q29 $0x01 $0x08 -> %q28
+6f088ffe : sqrshrun2 v30.16b, v31.8h, #8             : sqrshrun2 %q31 $0x01 $0x08 -> %q30
+6f1f8c20 : sqrshrun2 v0.8h, v1.4s, #1                : sqrshrun2 %q1 $0x02 $0x01 -> %q0
+6f1e8c62 : sqrshrun2 v2.8h, v3.4s, #2                : sqrshrun2 %q3 $0x02 $0x02 -> %q2
+6f1d8ca4 : sqrshrun2 v4.8h, v5.4s, #3                : sqrshrun2 %q5 $0x02 $0x03 -> %q4
+6f1c8ce6 : sqrshrun2 v6.8h, v7.4s, #4                : sqrshrun2 %q7 $0x02 $0x04 -> %q6
+6f1b8d28 : sqrshrun2 v8.8h, v9.4s, #5                : sqrshrun2 %q9 $0x02 $0x05 -> %q8
+6f1a8d6a : sqrshrun2 v10.8h, v11.4s, #6              : sqrshrun2 %q11 $0x02 $0x06 -> %q10
+6f198dac : sqrshrun2 v12.8h, v13.4s, #7              : sqrshrun2 %q13 $0x02 $0x07 -> %q12
+6f188dee : sqrshrun2 v14.8h, v15.4s, #8              : sqrshrun2 %q15 $0x02 $0x08 -> %q14
+6f178e30 : sqrshrun2 v16.8h, v17.4s, #9              : sqrshrun2 %q17 $0x02 $0x09 -> %q16
+6f168e72 : sqrshrun2 v18.8h, v19.4s, #10             : sqrshrun2 %q19 $0x02 $0x0a -> %q18
+6f158eb4 : sqrshrun2 v20.8h, v21.4s, #11             : sqrshrun2 %q21 $0x02 $0x0b -> %q20
+6f148ef6 : sqrshrun2 v22.8h, v23.4s, #12             : sqrshrun2 %q23 $0x02 $0x0c -> %q22
+6f138f38 : sqrshrun2 v24.8h, v25.4s, #13             : sqrshrun2 %q25 $0x02 $0x0d -> %q24
+6f128f7a : sqrshrun2 v26.8h, v27.4s, #14             : sqrshrun2 %q27 $0x02 $0x0e -> %q26
+6f118fbc : sqrshrun2 v28.8h, v29.4s, #15             : sqrshrun2 %q29 $0x02 $0x0f -> %q28
+6f108ffe : sqrshrun2 v30.8h, v31.4s, #16             : sqrshrun2 %q31 $0x02 $0x10 -> %q30
+6f3f8c20 : sqrshrun2 v0.4s, v1.2d, #1                : sqrshrun2 %q1 $0x03 $0x01 -> %q0
+6f3d8c62 : sqrshrun2 v2.4s, v3.2d, #3                : sqrshrun2 %q3 $0x03 $0x03 -> %q2
+6f3b8ca4 : sqrshrun2 v4.4s, v5.2d, #5                : sqrshrun2 %q5 $0x03 $0x05 -> %q4
+6f398ce6 : sqrshrun2 v6.4s, v7.2d, #7                : sqrshrun2 %q7 $0x03 $0x07 -> %q6
+6f378d28 : sqrshrun2 v8.4s, v9.2d, #9                : sqrshrun2 %q9 $0x03 $0x09 -> %q8
+6f358d6a : sqrshrun2 v10.4s, v11.2d, #11             : sqrshrun2 %q11 $0x03 $0x0b -> %q10
+6f338dac : sqrshrun2 v12.4s, v13.2d, #13             : sqrshrun2 %q13 $0x03 $0x0d -> %q12
+6f318dee : sqrshrun2 v14.4s, v15.2d, #15             : sqrshrun2 %q15 $0x03 $0x0f -> %q14
+6f2e8e30 : sqrshrun2 v16.4s, v17.2d, #18             : sqrshrun2 %q17 $0x03 $0x12 -> %q16
+6f2c8e72 : sqrshrun2 v18.4s, v19.2d, #20             : sqrshrun2 %q19 $0x03 $0x14 -> %q18
+6f2a8eb4 : sqrshrun2 v20.4s, v21.2d, #22             : sqrshrun2 %q21 $0x03 $0x16 -> %q20
+6f288ef6 : sqrshrun2 v22.4s, v23.2d, #24             : sqrshrun2 %q23 $0x03 $0x18 -> %q22
+6f268f38 : sqrshrun2 v24.4s, v25.2d, #26             : sqrshrun2 %q25 $0x03 $0x1a -> %q24
+6f248f7a : sqrshrun2 v26.4s, v27.2d, #28             : sqrshrun2 %q27 $0x03 $0x1c -> %q26
+6f228fbc : sqrshrun2 v28.4s, v29.2d, #30             : sqrshrun2 %q29 $0x03 $0x1e -> %q28
+6f208ffe : sqrshrun2 v30.4s, v31.2d, #32             : sqrshrun2 %q31 $0x03 $0x20 -> %q30
 
 # SQSHLU <V><d>, <V><n>, #<shift>
-7f216420 : sqshlu s0, s1                            : sqshlu %s1 $0x1f -> %s0
-7f416420 : sqshlu d0, d1                            : sqshlu %d1 $0x3f -> %d0
+7f086420 : sqshlu b0, b1, #0                         : sqshlu %b1 $0x00 -> %b0
+7f086462 : sqshlu b2, b3, #0                         : sqshlu %b3 $0x00 -> %b2
+7f0964a4 : sqshlu b4, b5, #1                         : sqshlu %b5 $0x01 -> %b4
+7f0964e6 : sqshlu b6, b7, #1                         : sqshlu %b7 $0x01 -> %b6
+7f0a6528 : sqshlu b8, b9, #2                         : sqshlu %b9 $0x02 -> %b8
+7f0a656a : sqshlu b10, b11, #2                       : sqshlu %b11 $0x02 -> %b10
+7f0b65ac : sqshlu b12, b13, #3                       : sqshlu %b13 $0x03 -> %b12
+7f0b65ee : sqshlu b14, b15, #3                       : sqshlu %b15 $0x03 -> %b14
+7f0c6630 : sqshlu b16, b17, #4                       : sqshlu %b17 $0x04 -> %b16
+7f0c6672 : sqshlu b18, b19, #4                       : sqshlu %b19 $0x04 -> %b18
+7f0d66b4 : sqshlu b20, b21, #5                       : sqshlu %b21 $0x05 -> %b20
+7f0d66f6 : sqshlu b22, b23, #5                       : sqshlu %b23 $0x05 -> %b22
+7f0e6738 : sqshlu b24, b25, #6                       : sqshlu %b25 $0x06 -> %b24
+7f0e677a : sqshlu b26, b27, #6                       : sqshlu %b27 $0x06 -> %b26
+7f0f67bc : sqshlu b28, b29, #7                       : sqshlu %b29 $0x07 -> %b28
+7f0f67fe : sqshlu b30, b31, #7                       : sqshlu %b31 $0x07 -> %b30
+7f106420 : sqshlu h0, h1, #0                         : sqshlu %h1 $0x00 -> %h0
+7f116462 : sqshlu h2, h3, #1                         : sqshlu %h3 $0x01 -> %h2
+7f1264a4 : sqshlu h4, h5, #2                         : sqshlu %h5 $0x02 -> %h4
+7f1364e6 : sqshlu h6, h7, #3                         : sqshlu %h7 $0x03 -> %h6
+7f146528 : sqshlu h8, h9, #4                         : sqshlu %h9 $0x04 -> %h8
+7f15656a : sqshlu h10, h11, #5                       : sqshlu %h11 $0x05 -> %h10
+7f1665ac : sqshlu h12, h13, #6                       : sqshlu %h13 $0x06 -> %h12
+7f1765ee : sqshlu h14, h15, #7                       : sqshlu %h15 $0x07 -> %h14
+7f186630 : sqshlu h16, h17, #8                       : sqshlu %h17 $0x08 -> %h16
+7f196672 : sqshlu h18, h19, #9                       : sqshlu %h19 $0x09 -> %h18
+7f1a66b4 : sqshlu h20, h21, #10                      : sqshlu %h21 $0x0a -> %h20
+7f1b66f6 : sqshlu h22, h23, #11                      : sqshlu %h23 $0x0b -> %h22
+7f1c6738 : sqshlu h24, h25, #12                      : sqshlu %h25 $0x0c -> %h24
+7f1d677a : sqshlu h26, h27, #13                      : sqshlu %h27 $0x0d -> %h26
+7f1e67bc : sqshlu h28, h29, #14                      : sqshlu %h29 $0x0e -> %h28
+7f1f67fe : sqshlu h30, h31, #15                      : sqshlu %h31 $0x0f -> %h30
+7f206420 : sqshlu s0, s1, #0                         : sqshlu %s1 $0x00 -> %s0
+7f226462 : sqshlu s2, s3, #2                         : sqshlu %s3 $0x02 -> %s2
+7f2464a4 : sqshlu s4, s5, #4                         : sqshlu %s5 $0x04 -> %s4
+7f2664e6 : sqshlu s6, s7, #6                         : sqshlu %s7 $0x06 -> %s6
+7f286528 : sqshlu s8, s9, #8                         : sqshlu %s9 $0x08 -> %s8
+7f2a656a : sqshlu s10, s11, #10                      : sqshlu %s11 $0x0a -> %s10
+7f2c65ac : sqshlu s12, s13, #12                      : sqshlu %s13 $0x0c -> %s12
+7f2e65ee : sqshlu s14, s15, #14                      : sqshlu %s15 $0x0e -> %s14
+7f316630 : sqshlu s16, s17, #17                      : sqshlu %s17 $0x11 -> %s16
+7f336672 : sqshlu s18, s19, #19                      : sqshlu %s19 $0x13 -> %s18
+7f3566b4 : sqshlu s20, s21, #21                      : sqshlu %s21 $0x15 -> %s20
+7f3766f6 : sqshlu s22, s23, #23                      : sqshlu %s23 $0x17 -> %s22
+7f396738 : sqshlu s24, s25, #25                      : sqshlu %s25 $0x19 -> %s24
+7f3b677a : sqshlu s26, s27, #27                      : sqshlu %s27 $0x1b -> %s26
+7f3d67bc : sqshlu s28, s29, #29                      : sqshlu %s29 $0x1d -> %s28
+7f3f67fe : sqshlu s30, s31, #31                      : sqshlu %s31 $0x1f -> %s30
+7f406420 : sqshlu d0, d1, #0                         : sqshlu %d1 $0x00 -> %d0
+7f446462 : sqshlu d2, d3, #4                         : sqshlu %d3 $0x04 -> %d2
+7f4864a4 : sqshlu d4, d5, #8                         : sqshlu %d5 $0x08 -> %d4
+7f4c64e6 : sqshlu d6, d7, #12                        : sqshlu %d7 $0x0c -> %d6
+7f516528 : sqshlu d8, d9, #17                        : sqshlu %d9 $0x11 -> %d8
+7f55656a : sqshlu d10, d11, #21                      : sqshlu %d11 $0x15 -> %d10
+7f5965ac : sqshlu d12, d13, #25                      : sqshlu %d13 $0x19 -> %d12
+7f5d65ee : sqshlu d14, d15, #29                      : sqshlu %d15 $0x1d -> %d14
+7f626630 : sqshlu d16, d17, #34                      : sqshlu %d17 $0x22 -> %d16
+7f666672 : sqshlu d18, d19, #38                      : sqshlu %d19 $0x26 -> %d18
+7f6a66b4 : sqshlu d20, d21, #42                      : sqshlu %d21 $0x2a -> %d20
+7f6e66f6 : sqshlu d22, d23, #46                      : sqshlu %d23 $0x2e -> %d22
+7f736738 : sqshlu d24, d25, #51                      : sqshlu %d25 $0x33 -> %d24
+7f77677a : sqshlu d26, d27, #55                      : sqshlu %d27 $0x37 -> %d26
+7f7b67bc : sqshlu d28, d29, #59                      : sqshlu %d29 $0x3b -> %d28
+7f7f67fe : sqshlu d30, d31, #63                      : sqshlu %d31 $0x3f -> %d30
 
 # SQSHLU <Vd>.<T>, <Vn>.<T>, #<shift>
-2f096420 : sqshlu v0.8b, v1.8b, #1                  : sqshlu %d1 $0x02 $0x37 -> %d0
-6f096420 : sqshlu v0.16b, v1.16b, #1                : sqshlu %q1 $0x02 $0x37 -> %q0
-2f116420 : sqshlu v0.4h, v1.4h, #1                  : sqshlu %d1 $0x02 $0x2f -> %d0
-6f116420 : sqshlu v0.8h, v1.8h, #1                  : sqshlu %q1 $0x02 $0x2f -> %q0
-2f216420 : sqshlu v0.2s, v1.2s, #1                  : sqshlu %d1 $0x02 $0x1f -> %d0
-6f216420 : sqshlu v0.4s, v1.4s, #1                  : sqshlu %q1 $0x02 $0x1f -> %q0
+2f086420 : sqshlu v0.8b, v1.8b, #0                   : sqshlu %d1 $0x00 $0x00 -> %d0
+2f086462 : sqshlu v2.8b, v3.8b, #0                   : sqshlu %d3 $0x00 $0x00 -> %d2
+2f0964a4 : sqshlu v4.8b, v5.8b, #1                   : sqshlu %d5 $0x00 $0x01 -> %d4
+2f0964e6 : sqshlu v6.8b, v7.8b, #1                   : sqshlu %d7 $0x00 $0x01 -> %d6
+2f0a6528 : sqshlu v8.8b, v9.8b, #2                   : sqshlu %d9 $0x00 $0x02 -> %d8
+2f0a656a : sqshlu v10.8b, v11.8b, #2                 : sqshlu %d11 $0x00 $0x02 -> %d10
+2f0b65ac : sqshlu v12.8b, v13.8b, #3                 : sqshlu %d13 $0x00 $0x03 -> %d12
+2f0b65ee : sqshlu v14.8b, v15.8b, #3                 : sqshlu %d15 $0x00 $0x03 -> %d14
+2f0c6630 : sqshlu v16.8b, v17.8b, #4                 : sqshlu %d17 $0x00 $0x04 -> %d16
+2f0c6672 : sqshlu v18.8b, v19.8b, #4                 : sqshlu %d19 $0x00 $0x04 -> %d18
+2f0d66b4 : sqshlu v20.8b, v21.8b, #5                 : sqshlu %d21 $0x00 $0x05 -> %d20
+2f0d66f6 : sqshlu v22.8b, v23.8b, #5                 : sqshlu %d23 $0x00 $0x05 -> %d22
+2f0e6738 : sqshlu v24.8b, v25.8b, #6                 : sqshlu %d25 $0x00 $0x06 -> %d24
+2f0e677a : sqshlu v26.8b, v27.8b, #6                 : sqshlu %d27 $0x00 $0x06 -> %d26
+2f0f67bc : sqshlu v28.8b, v29.8b, #7                 : sqshlu %d29 $0x00 $0x07 -> %d28
+2f0f67fe : sqshlu v30.8b, v31.8b, #7                 : sqshlu %d31 $0x00 $0x07 -> %d30
+6f086420 : sqshlu v0.16b, v1.16b, #0                 : sqshlu %q1 $0x00 $0x00 -> %q0
+6f086462 : sqshlu v2.16b, v3.16b, #0                 : sqshlu %q3 $0x00 $0x00 -> %q2
+6f0964a4 : sqshlu v4.16b, v5.16b, #1                 : sqshlu %q5 $0x00 $0x01 -> %q4
+6f0964e6 : sqshlu v6.16b, v7.16b, #1                 : sqshlu %q7 $0x00 $0x01 -> %q6
+6f0a6528 : sqshlu v8.16b, v9.16b, #2                 : sqshlu %q9 $0x00 $0x02 -> %q8
+6f0a656a : sqshlu v10.16b, v11.16b, #2               : sqshlu %q11 $0x00 $0x02 -> %q10
+6f0b65ac : sqshlu v12.16b, v13.16b, #3               : sqshlu %q13 $0x00 $0x03 -> %q12
+6f0b65ee : sqshlu v14.16b, v15.16b, #3               : sqshlu %q15 $0x00 $0x03 -> %q14
+6f0c6630 : sqshlu v16.16b, v17.16b, #4               : sqshlu %q17 $0x00 $0x04 -> %q16
+6f0c6672 : sqshlu v18.16b, v19.16b, #4               : sqshlu %q19 $0x00 $0x04 -> %q18
+6f0d66b4 : sqshlu v20.16b, v21.16b, #5               : sqshlu %q21 $0x00 $0x05 -> %q20
+6f0d66f6 : sqshlu v22.16b, v23.16b, #5               : sqshlu %q23 $0x00 $0x05 -> %q22
+6f0e6738 : sqshlu v24.16b, v25.16b, #6               : sqshlu %q25 $0x00 $0x06 -> %q24
+6f0e677a : sqshlu v26.16b, v27.16b, #6               : sqshlu %q27 $0x00 $0x06 -> %q26
+6f0f67bc : sqshlu v28.16b, v29.16b, #7               : sqshlu %q29 $0x00 $0x07 -> %q28
+6f0f67fe : sqshlu v30.16b, v31.16b, #7               : sqshlu %q31 $0x00 $0x07 -> %q30
+2f106420 : sqshlu v0.4h, v1.4h, #0                   : sqshlu %d1 $0x01 $0x00 -> %d0
+2f116462 : sqshlu v2.4h, v3.4h, #1                   : sqshlu %d3 $0x01 $0x01 -> %d2
+2f1264a4 : sqshlu v4.4h, v5.4h, #2                   : sqshlu %d5 $0x01 $0x02 -> %d4
+2f1364e6 : sqshlu v6.4h, v7.4h, #3                   : sqshlu %d7 $0x01 $0x03 -> %d6
+2f146528 : sqshlu v8.4h, v9.4h, #4                   : sqshlu %d9 $0x01 $0x04 -> %d8
+2f15656a : sqshlu v10.4h, v11.4h, #5                 : sqshlu %d11 $0x01 $0x05 -> %d10
+2f1665ac : sqshlu v12.4h, v13.4h, #6                 : sqshlu %d13 $0x01 $0x06 -> %d12
+2f1765ee : sqshlu v14.4h, v15.4h, #7                 : sqshlu %d15 $0x01 $0x07 -> %d14
+2f186630 : sqshlu v16.4h, v17.4h, #8                 : sqshlu %d17 $0x01 $0x08 -> %d16
+2f196672 : sqshlu v18.4h, v19.4h, #9                 : sqshlu %d19 $0x01 $0x09 -> %d18
+2f1a66b4 : sqshlu v20.4h, v21.4h, #10                : sqshlu %d21 $0x01 $0x0a -> %d20
+2f1b66f6 : sqshlu v22.4h, v23.4h, #11                : sqshlu %d23 $0x01 $0x0b -> %d22
+2f1c6738 : sqshlu v24.4h, v25.4h, #12                : sqshlu %d25 $0x01 $0x0c -> %d24
+2f1d677a : sqshlu v26.4h, v27.4h, #13                : sqshlu %d27 $0x01 $0x0d -> %d26
+2f1e67bc : sqshlu v28.4h, v29.4h, #14                : sqshlu %d29 $0x01 $0x0e -> %d28
+2f1f67fe : sqshlu v30.4h, v31.4h, #15                : sqshlu %d31 $0x01 $0x0f -> %d30
+6f106420 : sqshlu v0.8h, v1.8h, #0                   : sqshlu %q1 $0x01 $0x00 -> %q0
+6f116462 : sqshlu v2.8h, v3.8h, #1                   : sqshlu %q3 $0x01 $0x01 -> %q2
+6f1264a4 : sqshlu v4.8h, v5.8h, #2                   : sqshlu %q5 $0x01 $0x02 -> %q4
+6f1364e6 : sqshlu v6.8h, v7.8h, #3                   : sqshlu %q7 $0x01 $0x03 -> %q6
+6f146528 : sqshlu v8.8h, v9.8h, #4                   : sqshlu %q9 $0x01 $0x04 -> %q8
+6f15656a : sqshlu v10.8h, v11.8h, #5                 : sqshlu %q11 $0x01 $0x05 -> %q10
+6f1665ac : sqshlu v12.8h, v13.8h, #6                 : sqshlu %q13 $0x01 $0x06 -> %q12
+6f1765ee : sqshlu v14.8h, v15.8h, #7                 : sqshlu %q15 $0x01 $0x07 -> %q14
+6f186630 : sqshlu v16.8h, v17.8h, #8                 : sqshlu %q17 $0x01 $0x08 -> %q16
+6f196672 : sqshlu v18.8h, v19.8h, #9                 : sqshlu %q19 $0x01 $0x09 -> %q18
+6f1a66b4 : sqshlu v20.8h, v21.8h, #10                : sqshlu %q21 $0x01 $0x0a -> %q20
+6f1b66f6 : sqshlu v22.8h, v23.8h, #11                : sqshlu %q23 $0x01 $0x0b -> %q22
+6f1c6738 : sqshlu v24.8h, v25.8h, #12                : sqshlu %q25 $0x01 $0x0c -> %q24
+6f1d677a : sqshlu v26.8h, v27.8h, #13                : sqshlu %q27 $0x01 $0x0d -> %q26
+6f1e67bc : sqshlu v28.8h, v29.8h, #14                : sqshlu %q29 $0x01 $0x0e -> %q28
+6f1f67fe : sqshlu v30.8h, v31.8h, #15                : sqshlu %q31 $0x01 $0x0f -> %q30
+2f206420 : sqshlu v0.2s, v1.2s, #0                   : sqshlu %d1 $0x02 $0x00 -> %d0
+2f226462 : sqshlu v2.2s, v3.2s, #2                   : sqshlu %d3 $0x02 $0x02 -> %d2
+2f2464a4 : sqshlu v4.2s, v5.2s, #4                   : sqshlu %d5 $0x02 $0x04 -> %d4
+2f2664e6 : sqshlu v6.2s, v7.2s, #6                   : sqshlu %d7 $0x02 $0x06 -> %d6
+2f286528 : sqshlu v8.2s, v9.2s, #8                   : sqshlu %d9 $0x02 $0x08 -> %d8
+2f2a656a : sqshlu v10.2s, v11.2s, #10                : sqshlu %d11 $0x02 $0x0a -> %d10
+2f2c65ac : sqshlu v12.2s, v13.2s, #12                : sqshlu %d13 $0x02 $0x0c -> %d12
+2f2e65ee : sqshlu v14.2s, v15.2s, #14                : sqshlu %d15 $0x02 $0x0e -> %d14
+2f316630 : sqshlu v16.2s, v17.2s, #17                : sqshlu %d17 $0x02 $0x11 -> %d16
+2f336672 : sqshlu v18.2s, v19.2s, #19                : sqshlu %d19 $0x02 $0x13 -> %d18
+2f3566b4 : sqshlu v20.2s, v21.2s, #21                : sqshlu %d21 $0x02 $0x15 -> %d20
+2f3766f6 : sqshlu v22.2s, v23.2s, #23                : sqshlu %d23 $0x02 $0x17 -> %d22
+2f396738 : sqshlu v24.2s, v25.2s, #25                : sqshlu %d25 $0x02 $0x19 -> %d24
+2f3b677a : sqshlu v26.2s, v27.2s, #27                : sqshlu %d27 $0x02 $0x1b -> %d26
+2f3d67bc : sqshlu v28.2s, v29.2s, #29                : sqshlu %d29 $0x02 $0x1d -> %d28
+2f3f67fe : sqshlu v30.2s, v31.2s, #31                : sqshlu %d31 $0x02 $0x1f -> %d30
+6f206420 : sqshlu v0.4s, v1.4s, #0                   : sqshlu %q1 $0x02 $0x00 -> %q0
+6f226462 : sqshlu v2.4s, v3.4s, #2                   : sqshlu %q3 $0x02 $0x02 -> %q2
+6f2464a4 : sqshlu v4.4s, v5.4s, #4                   : sqshlu %q5 $0x02 $0x04 -> %q4
+6f2664e6 : sqshlu v6.4s, v7.4s, #6                   : sqshlu %q7 $0x02 $0x06 -> %q6
+6f286528 : sqshlu v8.4s, v9.4s, #8                   : sqshlu %q9 $0x02 $0x08 -> %q8
+6f2a656a : sqshlu v10.4s, v11.4s, #10                : sqshlu %q11 $0x02 $0x0a -> %q10
+6f2c65ac : sqshlu v12.4s, v13.4s, #12                : sqshlu %q13 $0x02 $0x0c -> %q12
+6f2e65ee : sqshlu v14.4s, v15.4s, #14                : sqshlu %q15 $0x02 $0x0e -> %q14
+6f316630 : sqshlu v16.4s, v17.4s, #17                : sqshlu %q17 $0x02 $0x11 -> %q16
+6f336672 : sqshlu v18.4s, v19.4s, #19                : sqshlu %q19 $0x02 $0x13 -> %q18
+6f3566b4 : sqshlu v20.4s, v21.4s, #21                : sqshlu %q21 $0x02 $0x15 -> %q20
+6f3766f6 : sqshlu v22.4s, v23.4s, #23                : sqshlu %q23 $0x02 $0x17 -> %q22
+6f396738 : sqshlu v24.4s, v25.4s, #25                : sqshlu %q25 $0x02 $0x19 -> %q24
+6f3b677a : sqshlu v26.4s, v27.4s, #27                : sqshlu %q27 $0x02 $0x1b -> %q26
+6f3d67bc : sqshlu v28.4s, v29.4s, #29                : sqshlu %q29 $0x02 $0x1d -> %q28
+6f3f67fe : sqshlu v30.4s, v31.4s, #31                : sqshlu %q31 $0x02 $0x1f -> %q30
+6f406420 : sqshlu v0.2d, v1.2d, #0                   : sqshlu %q1 $0x03 $0x00 -> %q0
+6f446462 : sqshlu v2.2d, v3.2d, #4                   : sqshlu %q3 $0x03 $0x04 -> %q2
+6f4864a4 : sqshlu v4.2d, v5.2d, #8                   : sqshlu %q5 $0x03 $0x08 -> %q4
+6f4c64e6 : sqshlu v6.2d, v7.2d, #12                  : sqshlu %q7 $0x03 $0x0c -> %q6
+6f516528 : sqshlu v8.2d, v9.2d, #17                  : sqshlu %q9 $0x03 $0x11 -> %q8
+6f55656a : sqshlu v10.2d, v11.2d, #21                : sqshlu %q11 $0x03 $0x15 -> %q10
+6f5965ac : sqshlu v12.2d, v13.2d, #25                : sqshlu %q13 $0x03 $0x19 -> %q12
+6f5d65ee : sqshlu v14.2d, v15.2d, #29                : sqshlu %q15 $0x03 $0x1d -> %q14
+6f626630 : sqshlu v16.2d, v17.2d, #34                : sqshlu %q17 $0x03 $0x22 -> %q16
+6f666672 : sqshlu v18.2d, v19.2d, #38                : sqshlu %q19 $0x03 $0x26 -> %q18
+6f6a66b4 : sqshlu v20.2d, v21.2d, #42                : sqshlu %q21 $0x03 $0x2a -> %q20
+6f6e66f6 : sqshlu v22.2d, v23.2d, #46                : sqshlu %q23 $0x03 $0x2e -> %q22
+6f736738 : sqshlu v24.2d, v25.2d, #51                : sqshlu %q25 $0x03 $0x33 -> %q24
+6f77677a : sqshlu v26.2d, v27.2d, #55                : sqshlu %q27 $0x03 $0x37 -> %q26
+6f7b67bc : sqshlu v28.2d, v29.2d, #59                : sqshlu %q29 $0x03 $0x3b -> %q28
+6f7f67fe : sqshlu v30.2d, v31.2d, #63                : sqshlu %q31 $0x03 $0x3f -> %q30
 
 # SQSHRUN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
-2f0f8420 : sqshrun v0.8b, v1.8h, #1                 : sqshrun %d1 $0x31 -> %d0
-2f1f8420 : sqshrun v0.4h, v1.4s, #1                 : sqshrun %d1 $0x21 -> %d0
-2f3f8420 : sqshrun v0.2s, v1.2d, #1                 : sqshrun %d1 $0x01 -> %d0
-6f0f8420 : sqshrun2 v0.16b, v1.8h, #1               : sqshrun2 %q1 $0x31 -> %q0
-6f1f8420 : sqshrun2 v0.8h, v1.4s, #1                : sqshrun2 %q1 $0x21 -> %q0
-6f3f8420 : sqshrun2 v0.4s, v1.2d, #1                : sqshrun2 %q1 $0x01 -> %q0
+2f0f8420 : sqshrun v0.8b, v1.8h, #1                  : sqshrun %q1 $0x01 $0x01 -> %d0
+2f0f8462 : sqshrun v2.8b, v3.8h, #1                  : sqshrun %q3 $0x01 $0x01 -> %d2
+2f0e84a4 : sqshrun v4.8b, v5.8h, #2                  : sqshrun %q5 $0x01 $0x02 -> %d4
+2f0e84e6 : sqshrun v6.8b, v7.8h, #2                  : sqshrun %q7 $0x01 $0x02 -> %d6
+2f0d8528 : sqshrun v8.8b, v9.8h, #3                  : sqshrun %q9 $0x01 $0x03 -> %d8
+2f0d856a : sqshrun v10.8b, v11.8h, #3                : sqshrun %q11 $0x01 $0x03 -> %d10
+2f0c85ac : sqshrun v12.8b, v13.8h, #4                : sqshrun %q13 $0x01 $0x04 -> %d12
+2f0c85ee : sqshrun v14.8b, v15.8h, #4                : sqshrun %q15 $0x01 $0x04 -> %d14
+2f0b8630 : sqshrun v16.8b, v17.8h, #5                : sqshrun %q17 $0x01 $0x05 -> %d16
+2f0b8672 : sqshrun v18.8b, v19.8h, #5                : sqshrun %q19 $0x01 $0x05 -> %d18
+2f0a86b4 : sqshrun v20.8b, v21.8h, #6                : sqshrun %q21 $0x01 $0x06 -> %d20
+2f0a86f6 : sqshrun v22.8b, v23.8h, #6                : sqshrun %q23 $0x01 $0x06 -> %d22
+2f098738 : sqshrun v24.8b, v25.8h, #7                : sqshrun %q25 $0x01 $0x07 -> %d24
+2f09877a : sqshrun v26.8b, v27.8h, #7                : sqshrun %q27 $0x01 $0x07 -> %d26
+2f0887bc : sqshrun v28.8b, v29.8h, #8                : sqshrun %q29 $0x01 $0x08 -> %d28
+2f0887fe : sqshrun v30.8b, v31.8h, #8                : sqshrun %q31 $0x01 $0x08 -> %d30
+2f1f8420 : sqshrun v0.4h, v1.4s, #1                  : sqshrun %q1 $0x02 $0x01 -> %d0
+2f1e8462 : sqshrun v2.4h, v3.4s, #2                  : sqshrun %q3 $0x02 $0x02 -> %d2
+2f1d84a4 : sqshrun v4.4h, v5.4s, #3                  : sqshrun %q5 $0x02 $0x03 -> %d4
+2f1c84e6 : sqshrun v6.4h, v7.4s, #4                  : sqshrun %q7 $0x02 $0x04 -> %d6
+2f1b8528 : sqshrun v8.4h, v9.4s, #5                  : sqshrun %q9 $0x02 $0x05 -> %d8
+2f1a856a : sqshrun v10.4h, v11.4s, #6                : sqshrun %q11 $0x02 $0x06 -> %d10
+2f1985ac : sqshrun v12.4h, v13.4s, #7                : sqshrun %q13 $0x02 $0x07 -> %d12
+2f1885ee : sqshrun v14.4h, v15.4s, #8                : sqshrun %q15 $0x02 $0x08 -> %d14
+2f178630 : sqshrun v16.4h, v17.4s, #9                : sqshrun %q17 $0x02 $0x09 -> %d16
+2f168672 : sqshrun v18.4h, v19.4s, #10               : sqshrun %q19 $0x02 $0x0a -> %d18
+2f1586b4 : sqshrun v20.4h, v21.4s, #11               : sqshrun %q21 $0x02 $0x0b -> %d20
+2f1486f6 : sqshrun v22.4h, v23.4s, #12               : sqshrun %q23 $0x02 $0x0c -> %d22
+2f138738 : sqshrun v24.4h, v25.4s, #13               : sqshrun %q25 $0x02 $0x0d -> %d24
+2f12877a : sqshrun v26.4h, v27.4s, #14               : sqshrun %q27 $0x02 $0x0e -> %d26
+2f1187bc : sqshrun v28.4h, v29.4s, #15               : sqshrun %q29 $0x02 $0x0f -> %d28
+2f1087fe : sqshrun v30.4h, v31.4s, #16               : sqshrun %q31 $0x02 $0x10 -> %d30
+2f3f8420 : sqshrun v0.2s, v1.2d, #1                  : sqshrun %q1 $0x03 $0x01 -> %d0
+2f3d8462 : sqshrun v2.2s, v3.2d, #3                  : sqshrun %q3 $0x03 $0x03 -> %d2
+2f3b84a4 : sqshrun v4.2s, v5.2d, #5                  : sqshrun %q5 $0x03 $0x05 -> %d4
+2f3984e6 : sqshrun v6.2s, v7.2d, #7                  : sqshrun %q7 $0x03 $0x07 -> %d6
+2f378528 : sqshrun v8.2s, v9.2d, #9                  : sqshrun %q9 $0x03 $0x09 -> %d8
+2f35856a : sqshrun v10.2s, v11.2d, #11               : sqshrun %q11 $0x03 $0x0b -> %d10
+2f3385ac : sqshrun v12.2s, v13.2d, #13               : sqshrun %q13 $0x03 $0x0d -> %d12
+2f3185ee : sqshrun v14.2s, v15.2d, #15               : sqshrun %q15 $0x03 $0x0f -> %d14
+2f2e8630 : sqshrun v16.2s, v17.2d, #18               : sqshrun %q17 $0x03 $0x12 -> %d16
+2f2c8672 : sqshrun v18.2s, v19.2d, #20               : sqshrun %q19 $0x03 $0x14 -> %d18
+2f2a86b4 : sqshrun v20.2s, v21.2d, #22               : sqshrun %q21 $0x03 $0x16 -> %d20
+2f2886f6 : sqshrun v22.2s, v23.2d, #24               : sqshrun %q23 $0x03 $0x18 -> %d22
+2f268738 : sqshrun v24.2s, v25.2d, #26               : sqshrun %q25 $0x03 $0x1a -> %d24
+2f24877a : sqshrun v26.2s, v27.2d, #28               : sqshrun %q27 $0x03 $0x1c -> %d26
+2f2287bc : sqshrun v28.2s, v29.2d, #30               : sqshrun %q29 $0x03 $0x1e -> %d28
+2f2087fe : sqshrun v30.2s, v31.2d, #32               : sqshrun %q31 $0x03 $0x20 -> %d30
+6f0f8420 : sqshrun2 v0.16b, v1.8h, #1                : sqshrun2 %q1 $0x01 $0x01 -> %q0
+6f0f8462 : sqshrun2 v2.16b, v3.8h, #1                : sqshrun2 %q3 $0x01 $0x01 -> %q2
+6f0e84a4 : sqshrun2 v4.16b, v5.8h, #2                : sqshrun2 %q5 $0x01 $0x02 -> %q4
+6f0e84e6 : sqshrun2 v6.16b, v7.8h, #2                : sqshrun2 %q7 $0x01 $0x02 -> %q6
+6f0d8528 : sqshrun2 v8.16b, v9.8h, #3                : sqshrun2 %q9 $0x01 $0x03 -> %q8
+6f0d856a : sqshrun2 v10.16b, v11.8h, #3              : sqshrun2 %q11 $0x01 $0x03 -> %q10
+6f0c85ac : sqshrun2 v12.16b, v13.8h, #4              : sqshrun2 %q13 $0x01 $0x04 -> %q12
+6f0c85ee : sqshrun2 v14.16b, v15.8h, #4              : sqshrun2 %q15 $0x01 $0x04 -> %q14
+6f0b8630 : sqshrun2 v16.16b, v17.8h, #5              : sqshrun2 %q17 $0x01 $0x05 -> %q16
+6f0b8672 : sqshrun2 v18.16b, v19.8h, #5              : sqshrun2 %q19 $0x01 $0x05 -> %q18
+6f0a86b4 : sqshrun2 v20.16b, v21.8h, #6              : sqshrun2 %q21 $0x01 $0x06 -> %q20
+6f0a86f6 : sqshrun2 v22.16b, v23.8h, #6              : sqshrun2 %q23 $0x01 $0x06 -> %q22
+6f098738 : sqshrun2 v24.16b, v25.8h, #7              : sqshrun2 %q25 $0x01 $0x07 -> %q24
+6f09877a : sqshrun2 v26.16b, v27.8h, #7              : sqshrun2 %q27 $0x01 $0x07 -> %q26
+6f0887bc : sqshrun2 v28.16b, v29.8h, #8              : sqshrun2 %q29 $0x01 $0x08 -> %q28
+6f0887fe : sqshrun2 v30.16b, v31.8h, #8              : sqshrun2 %q31 $0x01 $0x08 -> %q30
+6f1f8420 : sqshrun2 v0.8h, v1.4s, #1                 : sqshrun2 %q1 $0x02 $0x01 -> %q0
+6f1e8462 : sqshrun2 v2.8h, v3.4s, #2                 : sqshrun2 %q3 $0x02 $0x02 -> %q2
+6f1d84a4 : sqshrun2 v4.8h, v5.4s, #3                 : sqshrun2 %q5 $0x02 $0x03 -> %q4
+6f1c84e6 : sqshrun2 v6.8h, v7.4s, #4                 : sqshrun2 %q7 $0x02 $0x04 -> %q6
+6f1b8528 : sqshrun2 v8.8h, v9.4s, #5                 : sqshrun2 %q9 $0x02 $0x05 -> %q8
+6f1a856a : sqshrun2 v10.8h, v11.4s, #6               : sqshrun2 %q11 $0x02 $0x06 -> %q10
+6f1985ac : sqshrun2 v12.8h, v13.4s, #7               : sqshrun2 %q13 $0x02 $0x07 -> %q12
+6f1885ee : sqshrun2 v14.8h, v15.4s, #8               : sqshrun2 %q15 $0x02 $0x08 -> %q14
+6f178630 : sqshrun2 v16.8h, v17.4s, #9               : sqshrun2 %q17 $0x02 $0x09 -> %q16
+6f168672 : sqshrun2 v18.8h, v19.4s, #10              : sqshrun2 %q19 $0x02 $0x0a -> %q18
+6f1586b4 : sqshrun2 v20.8h, v21.4s, #11              : sqshrun2 %q21 $0x02 $0x0b -> %q20
+6f1486f6 : sqshrun2 v22.8h, v23.4s, #12              : sqshrun2 %q23 $0x02 $0x0c -> %q22
+6f138738 : sqshrun2 v24.8h, v25.4s, #13              : sqshrun2 %q25 $0x02 $0x0d -> %q24
+6f12877a : sqshrun2 v26.8h, v27.4s, #14              : sqshrun2 %q27 $0x02 $0x0e -> %q26
+6f1187bc : sqshrun2 v28.8h, v29.4s, #15              : sqshrun2 %q29 $0x02 $0x0f -> %q28
+6f1087fe : sqshrun2 v30.8h, v31.4s, #16              : sqshrun2 %q31 $0x02 $0x10 -> %q30
+6f3f8420 : sqshrun2 v0.4s, v1.2d, #1                 : sqshrun2 %q1 $0x03 $0x01 -> %q0
+6f3d8462 : sqshrun2 v2.4s, v3.2d, #3                 : sqshrun2 %q3 $0x03 $0x03 -> %q2
+6f3b84a4 : sqshrun2 v4.4s, v5.2d, #5                 : sqshrun2 %q5 $0x03 $0x05 -> %q4
+6f3984e6 : sqshrun2 v6.4s, v7.2d, #7                 : sqshrun2 %q7 $0x03 $0x07 -> %q6
+6f378528 : sqshrun2 v8.4s, v9.2d, #9                 : sqshrun2 %q9 $0x03 $0x09 -> %q8
+6f35856a : sqshrun2 v10.4s, v11.2d, #11              : sqshrun2 %q11 $0x03 $0x0b -> %q10
+6f3385ac : sqshrun2 v12.4s, v13.2d, #13              : sqshrun2 %q13 $0x03 $0x0d -> %q12
+6f3185ee : sqshrun2 v14.4s, v15.2d, #15              : sqshrun2 %q15 $0x03 $0x0f -> %q14
+6f2e8630 : sqshrun2 v16.4s, v17.2d, #18              : sqshrun2 %q17 $0x03 $0x12 -> %q16
+6f2c8672 : sqshrun2 v18.4s, v19.2d, #20              : sqshrun2 %q19 $0x03 $0x14 -> %q18
+6f2a86b4 : sqshrun2 v20.4s, v21.2d, #22              : sqshrun2 %q21 $0x03 $0x16 -> %q20
+6f2886f6 : sqshrun2 v22.4s, v23.2d, #24              : sqshrun2 %q23 $0x03 $0x18 -> %q22
+6f268738 : sqshrun2 v24.4s, v25.2d, #26              : sqshrun2 %q25 $0x03 $0x1a -> %q24
+6f24877a : sqshrun2 v26.4s, v27.2d, #28              : sqshrun2 %q27 $0x03 $0x1c -> %q26
+6f2287bc : sqshrun2 v28.4s, v29.2d, #30              : sqshrun2 %q29 $0x03 $0x1e -> %q28
+6f2087fe : sqshrun2 v30.4s, v31.2d, #32              : sqshrun2 %q31 $0x03 $0x20 -> %q30
 
 # SQSHL <V><d>, <V><n>, <V><m>
 5e224c20 : sqshl b0, b1, b2                         : sqshl  %b1 %b2 -> %b0
@@ -7720,7 +8279,22 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4ea1c820 : urecpe v0.4s, v1.4s                      : urecpe %q1 $0x02 -> %q0
 
 # URSRA <V><d>, <V><n>, #<shift>
-7f7f3420 : ursra d0, d1, #1                         : ursra  %d1 $0x01 -> %d0
+7f7f3420 : ursra d0, d1, #1                          : ursra  %d1 $0x01 -> %d0
+7f7b3462 : ursra d2, d3, #5                          : ursra  %d3 $0x05 -> %d2
+7f7734a4 : ursra d4, d5, #9                          : ursra  %d5 $0x09 -> %d4
+7f7334e6 : ursra d6, d7, #13                         : ursra  %d7 $0x0d -> %d6
+7f6e3528 : ursra d8, d9, #18                         : ursra  %d9 $0x12 -> %d8
+7f6a356a : ursra d10, d11, #22                       : ursra  %d11 $0x16 -> %d10
+7f6635ac : ursra d12, d13, #26                       : ursra  %d13 $0x1a -> %d12
+7f6235ee : ursra d14, d15, #30                       : ursra  %d15 $0x1e -> %d14
+7f5d3630 : ursra d16, d17, #35                       : ursra  %d17 $0x23 -> %d16
+7f593672 : ursra d18, d19, #39                       : ursra  %d19 $0x27 -> %d18
+7f5536b4 : ursra d20, d21, #43                       : ursra  %d21 $0x2b -> %d20
+7f5136f6 : ursra d22, d23, #47                       : ursra  %d23 $0x2f -> %d22
+7f4c3738 : ursra d24, d25, #52                       : ursra  %d25 $0x34 -> %d24
+7f48377a : ursra d26, d27, #56                       : ursra  %d27 $0x38 -> %d26
+7f4437bc : ursra d28, d29, #60                       : ursra  %d29 $0x3c -> %d28
+7f4037fe : ursra d30, d31, #64                       : ursra  %d31 $0x40 -> %d30
 
 # URSRA <Vd>.<T>, <Vn>.<T>, #<shift>
 2f0f3420 : ursra v0.8b, v1.8b, #1                    : ursra  %d1 $0x00 $0x01 -> %d0
@@ -8230,51 +8804,103 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6f7b57bc : sli v28.2d, v29.2d, #59                   : sli    %q29 $0x03 $0x3b -> %q28
 6f7f57fe : sli v30.2d, v31.2d, #63                   : sli    %q31 $0x03 $0x3f -> %q30
 
-# SHRN <Vd>.<Tb>, <Vn>.<Ta>
-0f088401 : shrn v1.8b, v0.8h, #8                    : shrn   %d0 $0x38 -> %d1
-0f088485 : shrn v5.8b, v4.8h, #8                    : shrn   %d4 $0x38 -> %d5
-0f08852a : shrn v10.8b, v9.8h, #8                   : shrn   %d9 $0x38 -> %d10
-0f0885cf : shrn v15.8b, v14.8h, #8                  : shrn   %d14 $0x38 -> %d15
-0f088674 : shrn v20.8b, v19.8h, #8                  : shrn   %d19 $0x38 -> %d20
-0f088719 : shrn v25.8b, v24.8h, #8                  : shrn   %d24 $0x38 -> %d25
-0f0887be : shrn v30.8b, v29.8h, #8                  : shrn   %d29 $0x38 -> %d30
-0f108401 : shrn v1.4h, v0.4s, #16                   : shrn   %d0 $0x30 -> %d1
-0f108485 : shrn v5.4h, v4.4s, #16                   : shrn   %d4 $0x30 -> %d5
-0f10852a : shrn v10.4h, v9.4s, #16                  : shrn   %d9 $0x30 -> %d10
-0f1085cf : shrn v15.4h, v14.4s, #16                 : shrn   %d14 $0x30 -> %d15
-0f108674 : shrn v20.4h, v19.4s, #16                 : shrn   %d19 $0x30 -> %d20
-0f108719 : shrn v25.4h, v24.4s, #16                 : shrn   %d24 $0x30 -> %d25
-0f1087be : shrn v30.4h, v29.4s, #16                 : shrn   %d29 $0x30 -> %d30
-0f208401 : shrn v1.2s, v0.2d, #32                   : shrn   %d0 $0x20 -> %d1
-0f208485 : shrn v5.2s, v4.2d, #32                   : shrn   %d4 $0x20 -> %d5
-0f20852a : shrn v10.2s, v9.2d, #32                  : shrn   %d9 $0x20 -> %d10
-0f2085cf : shrn v15.2s, v14.2d, #32                 : shrn   %d14 $0x20 -> %d15
-0f208674 : shrn v20.2s, v19.2d, #32                 : shrn   %d19 $0x20 -> %d20
-0f208719 : shrn v25.2s, v24.2d, #32                 : shrn   %d24 $0x20 -> %d25
-0f2087be : shrn v30.2s, v29.2d, #32                 : shrn   %d29 $0x20 -> %d30
-
-# SHRN2 <Vd>.<Tb>, <Vn>.<Ta>
-4f088401 : shrn2 v1.16b, v0.8h, #8                  : shrn2  %q0 $0x38 -> %q1
-4f088485 : shrn2 v5.16b, v4.8h, #8                  : shrn2  %q4 $0x38 -> %q5
-4f08852a : shrn2 v10.16b, v9.8h, #8                 : shrn2  %q9 $0x38 -> %q10
-4f0885cf : shrn2 v15.16b, v14.8h, #8                : shrn2  %q14 $0x38 -> %q15
-4f088674 : shrn2 v20.16b, v19.8h, #8                : shrn2  %q19 $0x38 -> %q20
-4f088719 : shrn2 v25.16b, v24.8h, #8                : shrn2  %q24 $0x38 -> %q25
-4f0887be : shrn2 v30.16b, v29.8h, #8                : shrn2  %q29 $0x38 -> %q30
-4f108401 : shrn2 v1.8h, v0.4s, #16                  : shrn2  %q0 $0x30 -> %q1
-4f108485 : shrn2 v5.8h, v4.4s, #16                  : shrn2  %q4 $0x30 -> %q5
-4f10852a : shrn2 v10.8h, v9.4s, #16                 : shrn2  %q9 $0x30 -> %q10
-4f1085cf : shrn2 v15.8h, v14.4s, #16                : shrn2  %q14 $0x30 -> %q15
-4f108674 : shrn2 v20.8h, v19.4s, #16                : shrn2  %q19 $0x30 -> %q20
-4f108719 : shrn2 v25.8h, v24.4s, #16                : shrn2  %q24 $0x30 -> %q25
-4f1087be : shrn2 v30.8h, v29.4s, #16                : shrn2  %q29 $0x30 -> %q30
-4f208401 : shrn2 v1.4s, v0.2d, #32                  : shrn2  %q0 $0x20 -> %q1
-4f208485 : shrn2 v5.4s, v4.2d, #32                  : shrn2  %q4 $0x20 -> %q5
-4f20852a : shrn2 v10.4s, v9.2d, #32                 : shrn2  %q9 $0x20 -> %q10
-4f2085cf : shrn2 v15.4s, v14.2d, #32                : shrn2  %q14 $0x20 -> %q15
-4f208674 : shrn2 v20.4s, v19.2d, #32                : shrn2  %q19 $0x20 -> %q20
-4f208719 : shrn2 v25.4s, v24.2d, #32                : shrn2  %q24 $0x20 -> %q25
-4f2087be : shrn2 v30.4s, v29.2d, #32                : shrn2  %q29 $0x20 -> %q30
+# SHRN{2} <Vd>.<Tb>, <Vn>.<Ta>
+0f0f8420 : shrn v0.8b, v1.8h, #1                     : shrn   %q1 $0x01 $0x01 -> %d0
+0f0f8462 : shrn v2.8b, v3.8h, #1                     : shrn   %q3 $0x01 $0x01 -> %d2
+0f0e84a4 : shrn v4.8b, v5.8h, #2                     : shrn   %q5 $0x01 $0x02 -> %d4
+0f0e84e6 : shrn v6.8b, v7.8h, #2                     : shrn   %q7 $0x01 $0x02 -> %d6
+0f0d8528 : shrn v8.8b, v9.8h, #3                     : shrn   %q9 $0x01 $0x03 -> %d8
+0f0d856a : shrn v10.8b, v11.8h, #3                   : shrn   %q11 $0x01 $0x03 -> %d10
+0f0c85ac : shrn v12.8b, v13.8h, #4                   : shrn   %q13 $0x01 $0x04 -> %d12
+0f0c85ee : shrn v14.8b, v15.8h, #4                   : shrn   %q15 $0x01 $0x04 -> %d14
+0f0b8630 : shrn v16.8b, v17.8h, #5                   : shrn   %q17 $0x01 $0x05 -> %d16
+0f0b8672 : shrn v18.8b, v19.8h, #5                   : shrn   %q19 $0x01 $0x05 -> %d18
+0f0a86b4 : shrn v20.8b, v21.8h, #6                   : shrn   %q21 $0x01 $0x06 -> %d20
+0f0a86f6 : shrn v22.8b, v23.8h, #6                   : shrn   %q23 $0x01 $0x06 -> %d22
+0f098738 : shrn v24.8b, v25.8h, #7                   : shrn   %q25 $0x01 $0x07 -> %d24
+0f09877a : shrn v26.8b, v27.8h, #7                   : shrn   %q27 $0x01 $0x07 -> %d26
+0f0887bc : shrn v28.8b, v29.8h, #8                   : shrn   %q29 $0x01 $0x08 -> %d28
+0f0887fe : shrn v30.8b, v31.8h, #8                   : shrn   %q31 $0x01 $0x08 -> %d30
+0f1f8420 : shrn v0.4h, v1.4s, #1                     : shrn   %q1 $0x02 $0x01 -> %d0
+0f1e8462 : shrn v2.4h, v3.4s, #2                     : shrn   %q3 $0x02 $0x02 -> %d2
+0f1d84a4 : shrn v4.4h, v5.4s, #3                     : shrn   %q5 $0x02 $0x03 -> %d4
+0f1c84e6 : shrn v6.4h, v7.4s, #4                     : shrn   %q7 $0x02 $0x04 -> %d6
+0f1b8528 : shrn v8.4h, v9.4s, #5                     : shrn   %q9 $0x02 $0x05 -> %d8
+0f1a856a : shrn v10.4h, v11.4s, #6                   : shrn   %q11 $0x02 $0x06 -> %d10
+0f1985ac : shrn v12.4h, v13.4s, #7                   : shrn   %q13 $0x02 $0x07 -> %d12
+0f1885ee : shrn v14.4h, v15.4s, #8                   : shrn   %q15 $0x02 $0x08 -> %d14
+0f178630 : shrn v16.4h, v17.4s, #9                   : shrn   %q17 $0x02 $0x09 -> %d16
+0f168672 : shrn v18.4h, v19.4s, #10                  : shrn   %q19 $0x02 $0x0a -> %d18
+0f1586b4 : shrn v20.4h, v21.4s, #11                  : shrn   %q21 $0x02 $0x0b -> %d20
+0f1486f6 : shrn v22.4h, v23.4s, #12                  : shrn   %q23 $0x02 $0x0c -> %d22
+0f138738 : shrn v24.4h, v25.4s, #13                  : shrn   %q25 $0x02 $0x0d -> %d24
+0f12877a : shrn v26.4h, v27.4s, #14                  : shrn   %q27 $0x02 $0x0e -> %d26
+0f1187bc : shrn v28.4h, v29.4s, #15                  : shrn   %q29 $0x02 $0x0f -> %d28
+0f1087fe : shrn v30.4h, v31.4s, #16                  : shrn   %q31 $0x02 $0x10 -> %d30
+0f3f8420 : shrn v0.2s, v1.2d, #1                     : shrn   %q1 $0x03 $0x01 -> %d0
+0f3d8462 : shrn v2.2s, v3.2d, #3                     : shrn   %q3 $0x03 $0x03 -> %d2
+0f3b84a4 : shrn v4.2s, v5.2d, #5                     : shrn   %q5 $0x03 $0x05 -> %d4
+0f3984e6 : shrn v6.2s, v7.2d, #7                     : shrn   %q7 $0x03 $0x07 -> %d6
+0f378528 : shrn v8.2s, v9.2d, #9                     : shrn   %q9 $0x03 $0x09 -> %d8
+0f35856a : shrn v10.2s, v11.2d, #11                  : shrn   %q11 $0x03 $0x0b -> %d10
+0f3385ac : shrn v12.2s, v13.2d, #13                  : shrn   %q13 $0x03 $0x0d -> %d12
+0f3185ee : shrn v14.2s, v15.2d, #15                  : shrn   %q15 $0x03 $0x0f -> %d14
+0f2e8630 : shrn v16.2s, v17.2d, #18                  : shrn   %q17 $0x03 $0x12 -> %d16
+0f2c8672 : shrn v18.2s, v19.2d, #20                  : shrn   %q19 $0x03 $0x14 -> %d18
+0f2a86b4 : shrn v20.2s, v21.2d, #22                  : shrn   %q21 $0x03 $0x16 -> %d20
+0f2886f6 : shrn v22.2s, v23.2d, #24                  : shrn   %q23 $0x03 $0x18 -> %d22
+0f268738 : shrn v24.2s, v25.2d, #26                  : shrn   %q25 $0x03 $0x1a -> %d24
+0f24877a : shrn v26.2s, v27.2d, #28                  : shrn   %q27 $0x03 $0x1c -> %d26
+0f2287bc : shrn v28.2s, v29.2d, #30                  : shrn   %q29 $0x03 $0x1e -> %d28
+0f2087fe : shrn v30.2s, v31.2d, #32                  : shrn   %q31 $0x03 $0x20 -> %d30
+4f0f8420 : shrn2 v0.16b, v1.8h, #1                   : shrn2  %q1 $0x01 $0x01 -> %q0
+4f0f8462 : shrn2 v2.16b, v3.8h, #1                   : shrn2  %q3 $0x01 $0x01 -> %q2
+4f0e84a4 : shrn2 v4.16b, v5.8h, #2                   : shrn2  %q5 $0x01 $0x02 -> %q4
+4f0e84e6 : shrn2 v6.16b, v7.8h, #2                   : shrn2  %q7 $0x01 $0x02 -> %q6
+4f0d8528 : shrn2 v8.16b, v9.8h, #3                   : shrn2  %q9 $0x01 $0x03 -> %q8
+4f0d856a : shrn2 v10.16b, v11.8h, #3                 : shrn2  %q11 $0x01 $0x03 -> %q10
+4f0c85ac : shrn2 v12.16b, v13.8h, #4                 : shrn2  %q13 $0x01 $0x04 -> %q12
+4f0c85ee : shrn2 v14.16b, v15.8h, #4                 : shrn2  %q15 $0x01 $0x04 -> %q14
+4f0b8630 : shrn2 v16.16b, v17.8h, #5                 : shrn2  %q17 $0x01 $0x05 -> %q16
+4f0b8672 : shrn2 v18.16b, v19.8h, #5                 : shrn2  %q19 $0x01 $0x05 -> %q18
+4f0a86b4 : shrn2 v20.16b, v21.8h, #6                 : shrn2  %q21 $0x01 $0x06 -> %q20
+4f0a86f6 : shrn2 v22.16b, v23.8h, #6                 : shrn2  %q23 $0x01 $0x06 -> %q22
+4f098738 : shrn2 v24.16b, v25.8h, #7                 : shrn2  %q25 $0x01 $0x07 -> %q24
+4f09877a : shrn2 v26.16b, v27.8h, #7                 : shrn2  %q27 $0x01 $0x07 -> %q26
+4f0887bc : shrn2 v28.16b, v29.8h, #8                 : shrn2  %q29 $0x01 $0x08 -> %q28
+4f0887fe : shrn2 v30.16b, v31.8h, #8                 : shrn2  %q31 $0x01 $0x08 -> %q30
+4f1f8420 : shrn2 v0.8h, v1.4s, #1                    : shrn2  %q1 $0x02 $0x01 -> %q0
+4f1e8462 : shrn2 v2.8h, v3.4s, #2                    : shrn2  %q3 $0x02 $0x02 -> %q2
+4f1d84a4 : shrn2 v4.8h, v5.4s, #3                    : shrn2  %q5 $0x02 $0x03 -> %q4
+4f1c84e6 : shrn2 v6.8h, v7.4s, #4                    : shrn2  %q7 $0x02 $0x04 -> %q6
+4f1b8528 : shrn2 v8.8h, v9.4s, #5                    : shrn2  %q9 $0x02 $0x05 -> %q8
+4f1a856a : shrn2 v10.8h, v11.4s, #6                  : shrn2  %q11 $0x02 $0x06 -> %q10
+4f1985ac : shrn2 v12.8h, v13.4s, #7                  : shrn2  %q13 $0x02 $0x07 -> %q12
+4f1885ee : shrn2 v14.8h, v15.4s, #8                  : shrn2  %q15 $0x02 $0x08 -> %q14
+4f178630 : shrn2 v16.8h, v17.4s, #9                  : shrn2  %q17 $0x02 $0x09 -> %q16
+4f168672 : shrn2 v18.8h, v19.4s, #10                 : shrn2  %q19 $0x02 $0x0a -> %q18
+4f1586b4 : shrn2 v20.8h, v21.4s, #11                 : shrn2  %q21 $0x02 $0x0b -> %q20
+4f1486f6 : shrn2 v22.8h, v23.4s, #12                 : shrn2  %q23 $0x02 $0x0c -> %q22
+4f138738 : shrn2 v24.8h, v25.4s, #13                 : shrn2  %q25 $0x02 $0x0d -> %q24
+4f12877a : shrn2 v26.8h, v27.4s, #14                 : shrn2  %q27 $0x02 $0x0e -> %q26
+4f1187bc : shrn2 v28.8h, v29.4s, #15                 : shrn2  %q29 $0x02 $0x0f -> %q28
+4f1087fe : shrn2 v30.8h, v31.4s, #16                 : shrn2  %q31 $0x02 $0x10 -> %q30
+4f3f8420 : shrn2 v0.4s, v1.2d, #1                    : shrn2  %q1 $0x03 $0x01 -> %q0
+4f3d8462 : shrn2 v2.4s, v3.2d, #3                    : shrn2  %q3 $0x03 $0x03 -> %q2
+4f3b84a4 : shrn2 v4.4s, v5.2d, #5                    : shrn2  %q5 $0x03 $0x05 -> %q4
+4f3984e6 : shrn2 v6.4s, v7.2d, #7                    : shrn2  %q7 $0x03 $0x07 -> %q6
+4f378528 : shrn2 v8.4s, v9.2d, #9                    : shrn2  %q9 $0x03 $0x09 -> %q8
+4f35856a : shrn2 v10.4s, v11.2d, #11                 : shrn2  %q11 $0x03 $0x0b -> %q10
+4f3385ac : shrn2 v12.4s, v13.2d, #13                 : shrn2  %q13 $0x03 $0x0d -> %q12
+4f3185ee : shrn2 v14.4s, v15.2d, #15                 : shrn2  %q15 $0x03 $0x0f -> %q14
+4f2e8630 : shrn2 v16.4s, v17.2d, #18                 : shrn2  %q17 $0x03 $0x12 -> %q16
+4f2c8672 : shrn2 v18.4s, v19.2d, #20                 : shrn2  %q19 $0x03 $0x14 -> %q18
+4f2a86b4 : shrn2 v20.4s, v21.2d, #22                 : shrn2  %q21 $0x03 $0x16 -> %q20
+4f2886f6 : shrn2 v22.4s, v23.2d, #24                 : shrn2  %q23 $0x03 $0x18 -> %q22
+4f268738 : shrn2 v24.4s, v25.2d, #26                 : shrn2  %q25 $0x03 $0x1a -> %q24
+4f24877a : shrn2 v26.4s, v27.2d, #28                 : shrn2  %q27 $0x03 $0x1c -> %q26
+4f2287bc : shrn2 v28.4s, v29.2d, #30                 : shrn2  %q29 $0x03 $0x1e -> %q28
+4f2087fe : shrn2 v30.4s, v31.2d, #32                 : shrn2  %q31 $0x03 $0x20 -> %q30
 
 0e2a163f : srhadd v31.8b, v17.8b, v10.8b            : srhadd %d17 %d10 $0x00 -> %d31
 4e2a163f : srhadd v31.16b, v17.16b, v10.16b         : srhadd %q17 %q10 $0x00 -> %q31
@@ -8284,111 +8910,154 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4eaa163f : srhadd v31.4s, v17.4s, v10.4s            : srhadd %q17 %q10 $0x02 -> %q31
 
 # SRSHR <V><d>, <V><n>, #<shift>
-5f7f2420 : srshr d0, d1, #1                         : srshr  %d1 $0x01 -> %d0
-5f782420 : srshr d0, d1, #8                         : srshr  %d1 $0x08 -> %d0
-5f702420 : srshr d0, d1, #16                        : srshr  %d1 $0x10 -> %d0
-5f682420 : srshr d0, d1, #24                        : srshr  %d1 $0x18 -> %d0
-5f602420 : srshr d0, d1, #32                        : srshr  %d1 $0x20 -> %d0
-5f582420 : srshr d0, d1, #40                        : srshr  %d1 $0x28 -> %d0
-5f502420 : srshr d0, d1, #48                        : srshr  %d1 $0x30 -> %d0
-5f482420 : srshr d0, d1, #56                        : srshr  %d1 $0x38 -> %d0
-5f402420 : srshr d0, d1, #64                        : srshr  %d1 $0x40 -> %d0
-5f40252a : srshr d10, d9, #64                       : srshr  %d9 $0x40 -> %d10
-5f402674 : srshr d20, d19, #64                      : srshr  %d19 $0x40 -> %d20
-5f4027be : srshr d30, d29, #64                      : srshr  %d29 $0x40 -> %d30
+5f7f2420 : srshr d0, d1, #1                          : srshr  %d1 $0x01 -> %d0
+5f7b2462 : srshr d2, d3, #5                          : srshr  %d3 $0x05 -> %d2
+5f7724a4 : srshr d4, d5, #9                          : srshr  %d5 $0x09 -> %d4
+5f7324e6 : srshr d6, d7, #13                         : srshr  %d7 $0x0d -> %d6
+5f6e2528 : srshr d8, d9, #18                         : srshr  %d9 $0x12 -> %d8
+5f6a256a : srshr d10, d11, #22                       : srshr  %d11 $0x16 -> %d10
+5f6625ac : srshr d12, d13, #26                       : srshr  %d13 $0x1a -> %d12
+5f6225ee : srshr d14, d15, #30                       : srshr  %d15 $0x1e -> %d14
+5f5d2630 : srshr d16, d17, #35                       : srshr  %d17 $0x23 -> %d16
+5f592672 : srshr d18, d19, #39                       : srshr  %d19 $0x27 -> %d18
+5f5526b4 : srshr d20, d21, #43                       : srshr  %d21 $0x2b -> %d20
+5f5126f6 : srshr d22, d23, #47                       : srshr  %d23 $0x2f -> %d22
+5f4c2738 : srshr d24, d25, #52                       : srshr  %d25 $0x34 -> %d24
+5f48277a : srshr d26, d27, #56                       : srshr  %d27 $0x38 -> %d26
+5f4427bc : srshr d28, d29, #60                       : srshr  %d29 $0x3c -> %d28
+5f4027fe : srshr d30, d31, #64                       : srshr  %d31 $0x40 -> %d30
 
 # SRSHR <Vd>.<T>, <Vn>.<T>, #<shift>
-0f0f2420 : srshr v0.8b, v1.8b, #1                   : srshr  %d1 $0x02 $0x31 -> %d0
-0f0e2420 : srshr v0.8b, v1.8b, #2                   : srshr  %d1 $0x02 $0x32 -> %d0
-0f0d2420 : srshr v0.8b, v1.8b, #3                   : srshr  %d1 $0x02 $0x33 -> %d0
-0f0c2420 : srshr v0.8b, v1.8b, #4                   : srshr  %d1 $0x02 $0x34 -> %d0
-0f0b2420 : srshr v0.8b, v1.8b, #5                   : srshr  %d1 $0x02 $0x35 -> %d0
-0f0a2420 : srshr v0.8b, v1.8b, #6                   : srshr  %d1 $0x02 $0x36 -> %d0
-0f092420 : srshr v0.8b, v1.8b, #7                   : srshr  %d1 $0x02 $0x37 -> %d0
-0f082420 : srshr v0.8b, v1.8b, #8                   : srshr  %d1 $0x02 $0x38 -> %d0
-0f08252a : srshr v10.8b, v9.8b, #8                  : srshr  %d9 $0x02 $0x38 -> %d10
-0f082674 : srshr v20.8b, v19.8b, #8                 : srshr  %d19 $0x02 $0x38 -> %d20
-0f0827be : srshr v30.8b, v29.8b, #8                 : srshr  %d29 $0x02 $0x38 -> %d30
-4f0f2420 : srshr v0.16b, v1.16b, #1                 : srshr  %q1 $0x02 $0x31 -> %q0
-4f0e2420 : srshr v0.16b, v1.16b, #2                 : srshr  %q1 $0x02 $0x32 -> %q0
-4f0d2420 : srshr v0.16b, v1.16b, #3                 : srshr  %q1 $0x02 $0x33 -> %q0
-4f0c2420 : srshr v0.16b, v1.16b, #4                 : srshr  %q1 $0x02 $0x34 -> %q0
-4f0b2420 : srshr v0.16b, v1.16b, #5                 : srshr  %q1 $0x02 $0x35 -> %q0
-4f0a2420 : srshr v0.16b, v1.16b, #6                 : srshr  %q1 $0x02 $0x36 -> %q0
-4f092420 : srshr v0.16b, v1.16b, #7                 : srshr  %q1 $0x02 $0x37 -> %q0
-4f082420 : srshr v0.16b, v1.16b, #8                 : srshr  %q1 $0x02 $0x38 -> %q0
-4f08252a : srshr v10.16b, v9.16b, #8                : srshr  %q9 $0x02 $0x38 -> %q10
-4f082674 : srshr v20.16b, v19.16b, #8               : srshr  %q19 $0x02 $0x38 -> %q20
-4f0827be : srshr v30.16b, v29.16b, #8               : srshr  %q29 $0x02 $0x38 -> %q30
-0f1f2420 : srshr v0.4h, v1.4h, #1                   : srshr  %d1 $0x02 $0x21 -> %d0
-0f1c2420 : srshr v0.4h, v1.4h, #4                   : srshr  %d1 $0x02 $0x24 -> %d0
-0f1a2420 : srshr v0.4h, v1.4h, #6                   : srshr  %d1 $0x02 $0x26 -> %d0
-0f182420 : srshr v0.4h, v1.4h, #8                   : srshr  %d1 $0x02 $0x28 -> %d0
-0f162420 : srshr v0.4h, v1.4h, #10                  : srshr  %d1 $0x02 $0x2a -> %d0
-0f142420 : srshr v0.4h, v1.4h, #12                  : srshr  %d1 $0x02 $0x2c -> %d0
-0f122420 : srshr v0.4h, v1.4h, #14                  : srshr  %d1 $0x02 $0x2e -> %d0
-0f102420 : srshr v0.4h, v1.4h, #16                  : srshr  %d1 $0x02 $0x30 -> %d0
-0f10252a : srshr v10.4h, v9.4h, #16                 : srshr  %d9 $0x02 $0x30 -> %d10
-0f102674 : srshr v20.4h, v19.4h, #16                : srshr  %d19 $0x02 $0x30 -> %d20
-0f1027be : srshr v30.4h, v29.4h, #16                : srshr  %d29 $0x02 $0x30 -> %d30
-4f1f2420 : srshr v0.8h, v1.8h, #1                   : srshr  %q1 $0x02 $0x21 -> %q0
-4f1c2420 : srshr v0.8h, v1.8h, #4                   : srshr  %q1 $0x02 $0x24 -> %q0
-4f1a2420 : srshr v0.8h, v1.8h, #6                   : srshr  %q1 $0x02 $0x26 -> %q0
-4f182420 : srshr v0.8h, v1.8h, #8                   : srshr  %q1 $0x02 $0x28 -> %q0
-4f162420 : srshr v0.8h, v1.8h, #10                  : srshr  %q1 $0x02 $0x2a -> %q0
-4f142420 : srshr v0.8h, v1.8h, #12                  : srshr  %q1 $0x02 $0x2c -> %q0
-4f122420 : srshr v0.8h, v1.8h, #14                  : srshr  %q1 $0x02 $0x2e -> %q0
-4f102420 : srshr v0.8h, v1.8h, #16                  : srshr  %q1 $0x02 $0x30 -> %q0
-4f10252a : srshr v10.8h, v9.8h, #16                 : srshr  %q9 $0x02 $0x30 -> %q10
-4f102674 : srshr v20.8h, v19.8h, #16                : srshr  %q19 $0x02 $0x30 -> %q20
-4f1027be : srshr v30.8h, v29.8h, #16                : srshr  %q29 $0x02 $0x30 -> %q30
-0f3f2420 : srshr v0.2s, v1.2s, #1                   : srshr  %d1 $0x02 $0x01 -> %d0
-0f3c2420 : srshr v0.2s, v1.2s, #4                   : srshr  %d1 $0x02 $0x04 -> %d0
-0f382420 : srshr v0.2s, v1.2s, #8                   : srshr  %d1 $0x02 $0x08 -> %d0
-0f342420 : srshr v0.2s, v1.2s, #12                  : srshr  %d1 $0x02 $0x0c -> %d0
-0f302420 : srshr v0.2s, v1.2s, #16                  : srshr  %d1 $0x02 $0x10 -> %d0
-0f2c2420 : srshr v0.2s, v1.2s, #20                  : srshr  %d1 $0x02 $0x14 -> %d0
-0f282420 : srshr v0.2s, v1.2s, #24                  : srshr  %d1 $0x02 $0x18 -> %d0
-0f242420 : srshr v0.2s, v1.2s, #28                  : srshr  %d1 $0x02 $0x1c -> %d0
-0f202420 : srshr v0.2s, v1.2s, #32                  : srshr  %d1 $0x02 $0x20 -> %d0
-4f3f2420 : srshr v0.4s, v1.4s, #1                   : srshr  %q1 $0x02 $0x01 -> %q0
-4f3c2420 : srshr v0.4s, v1.4s, #4                   : srshr  %q1 $0x02 $0x04 -> %q0
-4f382420 : srshr v0.4s, v1.4s, #8                   : srshr  %q1 $0x02 $0x08 -> %q0
-4f342420 : srshr v0.4s, v1.4s, #12                  : srshr  %q1 $0x02 $0x0c -> %q0
-4f302420 : srshr v0.4s, v1.4s, #16                  : srshr  %q1 $0x02 $0x10 -> %q0
-4f2c2420 : srshr v0.4s, v1.4s, #20                  : srshr  %q1 $0x02 $0x14 -> %q0
-4f282420 : srshr v0.4s, v1.4s, #24                  : srshr  %q1 $0x02 $0x18 -> %q0
-4f242420 : srshr v0.4s, v1.4s, #28                  : srshr  %q1 $0x02 $0x1c -> %q0
-4f202420 : srshr v0.4s, v1.4s, #32                  : srshr  %q1 $0x02 $0x20 -> %q0
-4f20252a : srshr v10.4s, v9.4s, #32                 : srshr  %q9 $0x02 $0x20 -> %q10
-4f202674 : srshr v20.4s, v19.4s, #32                : srshr  %q19 $0x02 $0x20 -> %q20
-4f2027be : srshr v30.4s, v29.4s, #32                : srshr  %q29 $0x02 $0x20 -> %q30
-4f7f2420 : srshr v0.2d, v1.2d, #1                   : srshr  %q1 $0x03 $0x01 -> %q0
-4f782420 : srshr v0.2d, v1.2d, #8                   : srshr  %q1 $0x03 $0x08 -> %q0
-4f702420 : srshr v0.2d, v1.2d, #16                  : srshr  %q1 $0x03 $0x10 -> %q0
-4f682420 : srshr v0.2d, v1.2d, #24                  : srshr  %q1 $0x03 $0x18 -> %q0
-4f602420 : srshr v0.2d, v1.2d, #32                  : srshr  %q1 $0x03 $0x20 -> %q0
-4f582420 : srshr v0.2d, v1.2d, #40                  : srshr  %q1 $0x03 $0x28 -> %q0
-4f502420 : srshr v0.2d, v1.2d, #48                  : srshr  %q1 $0x03 $0x30 -> %q0
-4f482420 : srshr v0.2d, v1.2d, #56                  : srshr  %q1 $0x03 $0x38 -> %q0
-4f402420 : srshr v0.2d, v1.2d, #64                  : srshr  %q1 $0x03 $0x40 -> %q0
-4f40252a : srshr v10.2d, v9.2d, #64                 : srshr  %q9 $0x03 $0x40 -> %q10
-4f402674 : srshr v20.2d, v19.2d, #64                : srshr  %q19 $0x03 $0x40 -> %q20
-4f4027be : srshr v30.2d, v29.2d, #64                : srshr  %q29 $0x03 $0x40 -> %q30
+0f0f2420 : srshr v0.8b, v1.8b, #1                    : srshr  %d1 $0x00 $0x01 -> %d0
+0f0f2462 : srshr v2.8b, v3.8b, #1                    : srshr  %d3 $0x00 $0x01 -> %d2
+0f0e24a4 : srshr v4.8b, v5.8b, #2                    : srshr  %d5 $0x00 $0x02 -> %d4
+0f0e24e6 : srshr v6.8b, v7.8b, #2                    : srshr  %d7 $0x00 $0x02 -> %d6
+0f0d2528 : srshr v8.8b, v9.8b, #3                    : srshr  %d9 $0x00 $0x03 -> %d8
+0f0d256a : srshr v10.8b, v11.8b, #3                  : srshr  %d11 $0x00 $0x03 -> %d10
+0f0c25ac : srshr v12.8b, v13.8b, #4                  : srshr  %d13 $0x00 $0x04 -> %d12
+0f0c25ee : srshr v14.8b, v15.8b, #4                  : srshr  %d15 $0x00 $0x04 -> %d14
+0f0b2630 : srshr v16.8b, v17.8b, #5                  : srshr  %d17 $0x00 $0x05 -> %d16
+0f0b2672 : srshr v18.8b, v19.8b, #5                  : srshr  %d19 $0x00 $0x05 -> %d18
+0f0a26b4 : srshr v20.8b, v21.8b, #6                  : srshr  %d21 $0x00 $0x06 -> %d20
+0f0a26f6 : srshr v22.8b, v23.8b, #6                  : srshr  %d23 $0x00 $0x06 -> %d22
+0f092738 : srshr v24.8b, v25.8b, #7                  : srshr  %d25 $0x00 $0x07 -> %d24
+0f09277a : srshr v26.8b, v27.8b, #7                  : srshr  %d27 $0x00 $0x07 -> %d26
+0f0827bc : srshr v28.8b, v29.8b, #8                  : srshr  %d29 $0x00 $0x08 -> %d28
+0f0827fe : srshr v30.8b, v31.8b, #8                  : srshr  %d31 $0x00 $0x08 -> %d30
+4f0f2420 : srshr v0.16b, v1.16b, #1                  : srshr  %q1 $0x00 $0x01 -> %q0
+4f0f2462 : srshr v2.16b, v3.16b, #1                  : srshr  %q3 $0x00 $0x01 -> %q2
+4f0e24a4 : srshr v4.16b, v5.16b, #2                  : srshr  %q5 $0x00 $0x02 -> %q4
+4f0e24e6 : srshr v6.16b, v7.16b, #2                  : srshr  %q7 $0x00 $0x02 -> %q6
+4f0d2528 : srshr v8.16b, v9.16b, #3                  : srshr  %q9 $0x00 $0x03 -> %q8
+4f0d256a : srshr v10.16b, v11.16b, #3                : srshr  %q11 $0x00 $0x03 -> %q10
+4f0c25ac : srshr v12.16b, v13.16b, #4                : srshr  %q13 $0x00 $0x04 -> %q12
+4f0c25ee : srshr v14.16b, v15.16b, #4                : srshr  %q15 $0x00 $0x04 -> %q14
+4f0b2630 : srshr v16.16b, v17.16b, #5                : srshr  %q17 $0x00 $0x05 -> %q16
+4f0b2672 : srshr v18.16b, v19.16b, #5                : srshr  %q19 $0x00 $0x05 -> %q18
+4f0a26b4 : srshr v20.16b, v21.16b, #6                : srshr  %q21 $0x00 $0x06 -> %q20
+4f0a26f6 : srshr v22.16b, v23.16b, #6                : srshr  %q23 $0x00 $0x06 -> %q22
+4f092738 : srshr v24.16b, v25.16b, #7                : srshr  %q25 $0x00 $0x07 -> %q24
+4f09277a : srshr v26.16b, v27.16b, #7                : srshr  %q27 $0x00 $0x07 -> %q26
+4f0827bc : srshr v28.16b, v29.16b, #8                : srshr  %q29 $0x00 $0x08 -> %q28
+4f0827fe : srshr v30.16b, v31.16b, #8                : srshr  %q31 $0x00 $0x08 -> %q30
+0f1f2420 : srshr v0.4h, v1.4h, #1                    : srshr  %d1 $0x01 $0x01 -> %d0
+0f1e2462 : srshr v2.4h, v3.4h, #2                    : srshr  %d3 $0x01 $0x02 -> %d2
+0f1d24a4 : srshr v4.4h, v5.4h, #3                    : srshr  %d5 $0x01 $0x03 -> %d4
+0f1c24e6 : srshr v6.4h, v7.4h, #4                    : srshr  %d7 $0x01 $0x04 -> %d6
+0f1b2528 : srshr v8.4h, v9.4h, #5                    : srshr  %d9 $0x01 $0x05 -> %d8
+0f1a256a : srshr v10.4h, v11.4h, #6                  : srshr  %d11 $0x01 $0x06 -> %d10
+0f1925ac : srshr v12.4h, v13.4h, #7                  : srshr  %d13 $0x01 $0x07 -> %d12
+0f1825ee : srshr v14.4h, v15.4h, #8                  : srshr  %d15 $0x01 $0x08 -> %d14
+0f172630 : srshr v16.4h, v17.4h, #9                  : srshr  %d17 $0x01 $0x09 -> %d16
+0f162672 : srshr v18.4h, v19.4h, #10                 : srshr  %d19 $0x01 $0x0a -> %d18
+0f1526b4 : srshr v20.4h, v21.4h, #11                 : srshr  %d21 $0x01 $0x0b -> %d20
+0f1426f6 : srshr v22.4h, v23.4h, #12                 : srshr  %d23 $0x01 $0x0c -> %d22
+0f132738 : srshr v24.4h, v25.4h, #13                 : srshr  %d25 $0x01 $0x0d -> %d24
+0f12277a : srshr v26.4h, v27.4h, #14                 : srshr  %d27 $0x01 $0x0e -> %d26
+0f1127bc : srshr v28.4h, v29.4h, #15                 : srshr  %d29 $0x01 $0x0f -> %d28
+0f1027fe : srshr v30.4h, v31.4h, #16                 : srshr  %d31 $0x01 $0x10 -> %d30
+4f1f2420 : srshr v0.8h, v1.8h, #1                    : srshr  %q1 $0x01 $0x01 -> %q0
+4f1e2462 : srshr v2.8h, v3.8h, #2                    : srshr  %q3 $0x01 $0x02 -> %q2
+4f1d24a4 : srshr v4.8h, v5.8h, #3                    : srshr  %q5 $0x01 $0x03 -> %q4
+4f1c24e6 : srshr v6.8h, v7.8h, #4                    : srshr  %q7 $0x01 $0x04 -> %q6
+4f1b2528 : srshr v8.8h, v9.8h, #5                    : srshr  %q9 $0x01 $0x05 -> %q8
+4f1a256a : srshr v10.8h, v11.8h, #6                  : srshr  %q11 $0x01 $0x06 -> %q10
+4f1925ac : srshr v12.8h, v13.8h, #7                  : srshr  %q13 $0x01 $0x07 -> %q12
+4f1825ee : srshr v14.8h, v15.8h, #8                  : srshr  %q15 $0x01 $0x08 -> %q14
+4f172630 : srshr v16.8h, v17.8h, #9                  : srshr  %q17 $0x01 $0x09 -> %q16
+4f162672 : srshr v18.8h, v19.8h, #10                 : srshr  %q19 $0x01 $0x0a -> %q18
+4f1526b4 : srshr v20.8h, v21.8h, #11                 : srshr  %q21 $0x01 $0x0b -> %q20
+4f1426f6 : srshr v22.8h, v23.8h, #12                 : srshr  %q23 $0x01 $0x0c -> %q22
+4f132738 : srshr v24.8h, v25.8h, #13                 : srshr  %q25 $0x01 $0x0d -> %q24
+4f12277a : srshr v26.8h, v27.8h, #14                 : srshr  %q27 $0x01 $0x0e -> %q26
+4f1127bc : srshr v28.8h, v29.8h, #15                 : srshr  %q29 $0x01 $0x0f -> %q28
+4f1027fe : srshr v30.8h, v31.8h, #16                 : srshr  %q31 $0x01 $0x10 -> %q30
+0f3f2420 : srshr v0.2s, v1.2s, #1                    : srshr  %d1 $0x02 $0x01 -> %d0
+0f3d2462 : srshr v2.2s, v3.2s, #3                    : srshr  %d3 $0x02 $0x03 -> %d2
+0f3b24a4 : srshr v4.2s, v5.2s, #5                    : srshr  %d5 $0x02 $0x05 -> %d4
+0f3924e6 : srshr v6.2s, v7.2s, #7                    : srshr  %d7 $0x02 $0x07 -> %d6
+0f372528 : srshr v8.2s, v9.2s, #9                    : srshr  %d9 $0x02 $0x09 -> %d8
+0f35256a : srshr v10.2s, v11.2s, #11                 : srshr  %d11 $0x02 $0x0b -> %d10
+0f3325ac : srshr v12.2s, v13.2s, #13                 : srshr  %d13 $0x02 $0x0d -> %d12
+0f3125ee : srshr v14.2s, v15.2s, #15                 : srshr  %d15 $0x02 $0x0f -> %d14
+0f2e2630 : srshr v16.2s, v17.2s, #18                 : srshr  %d17 $0x02 $0x12 -> %d16
+0f2c2672 : srshr v18.2s, v19.2s, #20                 : srshr  %d19 $0x02 $0x14 -> %d18
+0f2a26b4 : srshr v20.2s, v21.2s, #22                 : srshr  %d21 $0x02 $0x16 -> %d20
+0f2826f6 : srshr v22.2s, v23.2s, #24                 : srshr  %d23 $0x02 $0x18 -> %d22
+0f262738 : srshr v24.2s, v25.2s, #26                 : srshr  %d25 $0x02 $0x1a -> %d24
+0f24277a : srshr v26.2s, v27.2s, #28                 : srshr  %d27 $0x02 $0x1c -> %d26
+0f2227bc : srshr v28.2s, v29.2s, #30                 : srshr  %d29 $0x02 $0x1e -> %d28
+0f2027fe : srshr v30.2s, v31.2s, #32                 : srshr  %d31 $0x02 $0x20 -> %d30
+4f3f2420 : srshr v0.4s, v1.4s, #1                    : srshr  %q1 $0x02 $0x01 -> %q0
+4f3d2462 : srshr v2.4s, v3.4s, #3                    : srshr  %q3 $0x02 $0x03 -> %q2
+4f3b24a4 : srshr v4.4s, v5.4s, #5                    : srshr  %q5 $0x02 $0x05 -> %q4
+4f3924e6 : srshr v6.4s, v7.4s, #7                    : srshr  %q7 $0x02 $0x07 -> %q6
+4f372528 : srshr v8.4s, v9.4s, #9                    : srshr  %q9 $0x02 $0x09 -> %q8
+4f35256a : srshr v10.4s, v11.4s, #11                 : srshr  %q11 $0x02 $0x0b -> %q10
+4f3325ac : srshr v12.4s, v13.4s, #13                 : srshr  %q13 $0x02 $0x0d -> %q12
+4f3125ee : srshr v14.4s, v15.4s, #15                 : srshr  %q15 $0x02 $0x0f -> %q14
+4f2e2630 : srshr v16.4s, v17.4s, #18                 : srshr  %q17 $0x02 $0x12 -> %q16
+4f2c2672 : srshr v18.4s, v19.4s, #20                 : srshr  %q19 $0x02 $0x14 -> %q18
+4f2a26b4 : srshr v20.4s, v21.4s, #22                 : srshr  %q21 $0x02 $0x16 -> %q20
+4f2826f6 : srshr v22.4s, v23.4s, #24                 : srshr  %q23 $0x02 $0x18 -> %q22
+4f262738 : srshr v24.4s, v25.4s, #26                 : srshr  %q25 $0x02 $0x1a -> %q24
+4f24277a : srshr v26.4s, v27.4s, #28                 : srshr  %q27 $0x02 $0x1c -> %q26
+4f2227bc : srshr v28.4s, v29.4s, #30                 : srshr  %q29 $0x02 $0x1e -> %q28
+4f2027fe : srshr v30.4s, v31.4s, #32                 : srshr  %q31 $0x02 $0x20 -> %q30
+4f7f2420 : srshr v0.2d, v1.2d, #1                    : srshr  %q1 $0x03 $0x01 -> %q0
+4f7b2462 : srshr v2.2d, v3.2d, #5                    : srshr  %q3 $0x03 $0x05 -> %q2
+4f7724a4 : srshr v4.2d, v5.2d, #9                    : srshr  %q5 $0x03 $0x09 -> %q4
+4f7324e6 : srshr v6.2d, v7.2d, #13                   : srshr  %q7 $0x03 $0x0d -> %q6
+4f6e2528 : srshr v8.2d, v9.2d, #18                   : srshr  %q9 $0x03 $0x12 -> %q8
+4f6a256a : srshr v10.2d, v11.2d, #22                 : srshr  %q11 $0x03 $0x16 -> %q10
+4f6625ac : srshr v12.2d, v13.2d, #26                 : srshr  %q13 $0x03 $0x1a -> %q12
+4f6225ee : srshr v14.2d, v15.2d, #30                 : srshr  %q15 $0x03 $0x1e -> %q14
+4f5d2630 : srshr v16.2d, v17.2d, #35                 : srshr  %q17 $0x03 $0x23 -> %q16
+4f592672 : srshr v18.2d, v19.2d, #39                 : srshr  %q19 $0x03 $0x27 -> %q18
+4f5526b4 : srshr v20.2d, v21.2d, #43                 : srshr  %q21 $0x03 $0x2b -> %q20
+4f5126f6 : srshr v22.2d, v23.2d, #47                 : srshr  %q23 $0x03 $0x2f -> %q22
+4f4c2738 : srshr v24.2d, v25.2d, #52                 : srshr  %q25 $0x03 $0x34 -> %q24
+4f48277a : srshr v26.2d, v27.2d, #56                 : srshr  %q27 $0x03 $0x38 -> %q26
+4f4427bc : srshr v28.2d, v29.2d, #60                 : srshr  %q29 $0x03 $0x3c -> %q28
+4f4027fe : srshr v30.2d, v31.2d, #64                 : srshr  %q31 $0x03 $0x40 -> %q30
 
 # SRSRA <V><d>, <V><n>, #<shift>
-5f7f3420 : srsra d0, d1, #1                         : srsra  %d1 $0x01 -> %d0
-5f783420 : srsra d0, d1, #8                         : srsra  %d1 $0x08 -> %d0
-5f703420 : srsra d0, d1, #16                        : srsra  %d1 $0x10 -> %d0
-5f683420 : srsra d0, d1, #24                        : srsra  %d1 $0x18 -> %d0
-5f603420 : srsra d0, d1, #32                        : srsra  %d1 $0x20 -> %d0
-5f583420 : srsra d0, d1, #40                        : srsra  %d1 $0x28 -> %d0
-5f503420 : srsra d0, d1, #48                        : srsra  %d1 $0x30 -> %d0
-5f483420 : srsra d0, d1, #56                        : srsra  %d1 $0x38 -> %d0
-5f403420 : srsra d0, d1, #64                        : srsra  %d1 $0x40 -> %d0
-5f40352a : srsra d10, d9, #64                       : srsra  %d9 $0x40 -> %d10
-5f403674 : srsra d20, d19, #64                      : srsra  %d19 $0x40 -> %d20
-5f4037be : srsra d30, d29, #64                      : srsra  %d29 $0x40 -> %d30
+5f7f3420 : srsra d0, d1, #1                          : srsra  %d1 $0x01 -> %d0
+5f7b3462 : srsra d2, d3, #5                          : srsra  %d3 $0x05 -> %d2
+5f7734a4 : srsra d4, d5, #9                          : srsra  %d5 $0x09 -> %d4
+5f7334e6 : srsra d6, d7, #13                         : srsra  %d7 $0x0d -> %d6
+5f6e3528 : srsra d8, d9, #18                         : srsra  %d9 $0x12 -> %d8
+5f6a356a : srsra d10, d11, #22                       : srsra  %d11 $0x16 -> %d10
+5f6635ac : srsra d12, d13, #26                       : srsra  %d13 $0x1a -> %d12
+5f6235ee : srsra d14, d15, #30                       : srsra  %d15 $0x1e -> %d14
+5f5d3630 : srsra d16, d17, #35                       : srsra  %d17 $0x23 -> %d16
+5f593672 : srsra d18, d19, #39                       : srsra  %d19 $0x27 -> %d18
+5f5536b4 : srsra d20, d21, #43                       : srsra  %d21 $0x2b -> %d20
+5f5136f6 : srsra d22, d23, #47                       : srsra  %d23 $0x2f -> %d22
+5f4c3738 : srsra d24, d25, #52                       : srsra  %d25 $0x34 -> %d24
+5f48377a : srsra d26, d27, #56                       : srsra  %d27 $0x38 -> %d26
+5f4437bc : srsra d28, d29, #60                       : srsra  %d29 $0x3c -> %d28
+5f4037fe : srsra d30, d31, #64                       : srsra  %d31 $0x40 -> %d30
 
 # SRSRA <Vd>.<T>, <Vn>.<T>, #<shift>
 0f0f3420 : srsra v0.8b, v1.8b, #1                    : srsra  %d1 $0x00 $0x01 -> %d0
@@ -8513,111 +9182,154 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4eef57a8 : srshl v8.2d, v29.2d, v15.2d              : srshl  %q29 %q15 $0x03 -> %q8
 
 # SSHR <V><d>, <V><n>, #<shift>
-5f7f0420 : sshr d0, d1, #1                          : sshr   %d1 $0x01 -> %d0
-5f780420 : sshr d0, d1, #8                          : sshr   %d1 $0x08 -> %d0
-5f700420 : sshr d0, d1, #16                         : sshr   %d1 $0x10 -> %d0
-5f680420 : sshr d0, d1, #24                         : sshr   %d1 $0x18 -> %d0
-5f600420 : sshr d0, d1, #32                         : sshr   %d1 $0x20 -> %d0
-5f580420 : sshr d0, d1, #40                         : sshr   %d1 $0x28 -> %d0
-5f500420 : sshr d0, d1, #48                         : sshr   %d1 $0x30 -> %d0
-5f480420 : sshr d0, d1, #56                         : sshr   %d1 $0x38 -> %d0
-5f400420 : sshr d0, d1, #64                         : sshr   %d1 $0x40 -> %d0
-5f40052a : sshr d10, d9, #64                        : sshr   %d9 $0x40 -> %d10
-5f400674 : sshr d20, d19, #64                       : sshr   %d19 $0x40 -> %d20
-5f4007be : sshr d30, d29, #64                       : sshr   %d29 $0x40 -> %d30
+5f7f0420 : sshr d0, d1, #1                           : sshr   %d1 $0x01 -> %d0
+5f7b0462 : sshr d2, d3, #5                           : sshr   %d3 $0x05 -> %d2
+5f7704a4 : sshr d4, d5, #9                           : sshr   %d5 $0x09 -> %d4
+5f7304e6 : sshr d6, d7, #13                          : sshr   %d7 $0x0d -> %d6
+5f6e0528 : sshr d8, d9, #18                          : sshr   %d9 $0x12 -> %d8
+5f6a056a : sshr d10, d11, #22                        : sshr   %d11 $0x16 -> %d10
+5f6605ac : sshr d12, d13, #26                        : sshr   %d13 $0x1a -> %d12
+5f6205ee : sshr d14, d15, #30                        : sshr   %d15 $0x1e -> %d14
+5f5d0630 : sshr d16, d17, #35                        : sshr   %d17 $0x23 -> %d16
+5f590672 : sshr d18, d19, #39                        : sshr   %d19 $0x27 -> %d18
+5f5506b4 : sshr d20, d21, #43                        : sshr   %d21 $0x2b -> %d20
+5f5106f6 : sshr d22, d23, #47                        : sshr   %d23 $0x2f -> %d22
+5f4c0738 : sshr d24, d25, #52                        : sshr   %d25 $0x34 -> %d24
+5f48077a : sshr d26, d27, #56                        : sshr   %d27 $0x38 -> %d26
+5f4407bc : sshr d28, d29, #60                        : sshr   %d29 $0x3c -> %d28
+5f4007fe : sshr d30, d31, #64                        : sshr   %d31 $0x40 -> %d30
 
 # SSHR <Vd>.<T>, <Vn>.<T>, #<shift>
-0f0f0420 : sshr v0.8b, v1.8b, #1                    : sshr   %d1 $0x02 $0x31 -> %d0
-0f0e0420 : sshr v0.8b, v1.8b, #2                    : sshr   %d1 $0x02 $0x32 -> %d0
-0f0d0420 : sshr v0.8b, v1.8b, #3                    : sshr   %d1 $0x02 $0x33 -> %d0
-0f0c0420 : sshr v0.8b, v1.8b, #4                    : sshr   %d1 $0x02 $0x34 -> %d0
-0f0b0420 : sshr v0.8b, v1.8b, #5                    : sshr   %d1 $0x02 $0x35 -> %d0
-0f0a0420 : sshr v0.8b, v1.8b, #6                    : sshr   %d1 $0x02 $0x36 -> %d0
-0f090420 : sshr v0.8b, v1.8b, #7                    : sshr   %d1 $0x02 $0x37 -> %d0
-0f080420 : sshr v0.8b, v1.8b, #8                    : sshr   %d1 $0x02 $0x38 -> %d0
-0f08052a : sshr v10.8b, v9.8b, #8                   : sshr   %d9 $0x02 $0x38 -> %d10
-0f080674 : sshr v20.8b, v19.8b, #8                  : sshr   %d19 $0x02 $0x38 -> %d20
-0f0807be : sshr v30.8b, v29.8b, #8                  : sshr   %d29 $0x02 $0x38 -> %d30
-4f0f0420 : sshr v0.16b, v1.16b, #1                  : sshr   %q1 $0x02 $0x31 -> %q0
-4f0e0420 : sshr v0.16b, v1.16b, #2                  : sshr   %q1 $0x02 $0x32 -> %q0
-4f0d0420 : sshr v0.16b, v1.16b, #3                  : sshr   %q1 $0x02 $0x33 -> %q0
-4f0c0420 : sshr v0.16b, v1.16b, #4                  : sshr   %q1 $0x02 $0x34 -> %q0
-4f0b0420 : sshr v0.16b, v1.16b, #5                  : sshr   %q1 $0x02 $0x35 -> %q0
-4f0a0420 : sshr v0.16b, v1.16b, #6                  : sshr   %q1 $0x02 $0x36 -> %q0
-4f090420 : sshr v0.16b, v1.16b, #7                  : sshr   %q1 $0x02 $0x37 -> %q0
-4f080420 : sshr v0.16b, v1.16b, #8                  : sshr   %q1 $0x02 $0x38 -> %q0
-4f08052a : sshr v10.16b, v9.16b, #8                 : sshr   %q9 $0x02 $0x38 -> %q10
-4f080674 : sshr v20.16b, v19.16b, #8                : sshr   %q19 $0x02 $0x38 -> %q20
-4f0807be : sshr v30.16b, v29.16b, #8                : sshr   %q29 $0x02 $0x38 -> %q30
-0f1f0420 : sshr v0.4h, v1.4h, #1                    : sshr   %d1 $0x02 $0x21 -> %d0
-0f1c0420 : sshr v0.4h, v1.4h, #4                    : sshr   %d1 $0x02 $0x24 -> %d0
-0f1a0420 : sshr v0.4h, v1.4h, #6                    : sshr   %d1 $0x02 $0x26 -> %d0
-0f180420 : sshr v0.4h, v1.4h, #8                    : sshr   %d1 $0x02 $0x28 -> %d0
-0f160420 : sshr v0.4h, v1.4h, #10                   : sshr   %d1 $0x02 $0x2a -> %d0
-0f140420 : sshr v0.4h, v1.4h, #12                   : sshr   %d1 $0x02 $0x2c -> %d0
-0f120420 : sshr v0.4h, v1.4h, #14                   : sshr   %d1 $0x02 $0x2e -> %d0
-0f100420 : sshr v0.4h, v1.4h, #16                   : sshr   %d1 $0x02 $0x30 -> %d0
-0f10052a : sshr v10.4h, v9.4h, #16                  : sshr   %d9 $0x02 $0x30 -> %d10
-0f100674 : sshr v20.4h, v19.4h, #16                 : sshr   %d19 $0x02 $0x30 -> %d20
-0f1007be : sshr v30.4h, v29.4h, #16                 : sshr   %d29 $0x02 $0x30 -> %d30
-4f1f0420 : sshr v0.8h, v1.8h, #1                    : sshr   %q1 $0x02 $0x21 -> %q0
-4f1c0420 : sshr v0.8h, v1.8h, #4                    : sshr   %q1 $0x02 $0x24 -> %q0
-4f1a0420 : sshr v0.8h, v1.8h, #6                    : sshr   %q1 $0x02 $0x26 -> %q0
-4f180420 : sshr v0.8h, v1.8h, #8                    : sshr   %q1 $0x02 $0x28 -> %q0
-4f160420 : sshr v0.8h, v1.8h, #10                   : sshr   %q1 $0x02 $0x2a -> %q0
-4f140420 : sshr v0.8h, v1.8h, #12                   : sshr   %q1 $0x02 $0x2c -> %q0
-4f120420 : sshr v0.8h, v1.8h, #14                   : sshr   %q1 $0x02 $0x2e -> %q0
-4f100420 : sshr v0.8h, v1.8h, #16                   : sshr   %q1 $0x02 $0x30 -> %q0
-4f10052a : sshr v10.8h, v9.8h, #16                  : sshr   %q9 $0x02 $0x30 -> %q10
-4f100674 : sshr v20.8h, v19.8h, #16                 : sshr   %q19 $0x02 $0x30 -> %q20
-4f1007be : sshr v30.8h, v29.8h, #16                 : sshr   %q29 $0x02 $0x30 -> %q30
-0f3f0420 : sshr v0.2s, v1.2s, #1                    : sshr   %d1 $0x02 $0x01 -> %d0
-0f3c0420 : sshr v0.2s, v1.2s, #4                    : sshr   %d1 $0x02 $0x04 -> %d0
-0f380420 : sshr v0.2s, v1.2s, #8                    : sshr   %d1 $0x02 $0x08 -> %d0
-0f340420 : sshr v0.2s, v1.2s, #12                   : sshr   %d1 $0x02 $0x0c -> %d0
-0f300420 : sshr v0.2s, v1.2s, #16                   : sshr   %d1 $0x02 $0x10 -> %d0
-0f2c0420 : sshr v0.2s, v1.2s, #20                   : sshr   %d1 $0x02 $0x14 -> %d0
-0f280420 : sshr v0.2s, v1.2s, #24                   : sshr   %d1 $0x02 $0x18 -> %d0
-0f240420 : sshr v0.2s, v1.2s, #28                   : sshr   %d1 $0x02 $0x1c -> %d0
-0f200420 : sshr v0.2s, v1.2s, #32                   : sshr   %d1 $0x02 $0x20 -> %d0
-4f3f0420 : sshr v0.4s, v1.4s, #1                    : sshr   %q1 $0x02 $0x01 -> %q0
-4f3c0420 : sshr v0.4s, v1.4s, #4                    : sshr   %q1 $0x02 $0x04 -> %q0
-4f380420 : sshr v0.4s, v1.4s, #8                    : sshr   %q1 $0x02 $0x08 -> %q0
-4f340420 : sshr v0.4s, v1.4s, #12                   : sshr   %q1 $0x02 $0x0c -> %q0
-4f300420 : sshr v0.4s, v1.4s, #16                   : sshr   %q1 $0x02 $0x10 -> %q0
-4f2c0420 : sshr v0.4s, v1.4s, #20                   : sshr   %q1 $0x02 $0x14 -> %q0
-4f280420 : sshr v0.4s, v1.4s, #24                   : sshr   %q1 $0x02 $0x18 -> %q0
-4f240420 : sshr v0.4s, v1.4s, #28                   : sshr   %q1 $0x02 $0x1c -> %q0
-4f200420 : sshr v0.4s, v1.4s, #32                   : sshr   %q1 $0x02 $0x20 -> %q0
-4f20052a : sshr v10.4s, v9.4s, #32                  : sshr   %q9 $0x02 $0x20 -> %q10
-4f200674 : sshr v20.4s, v19.4s, #32                 : sshr   %q19 $0x02 $0x20 -> %q20
-4f2007be : sshr v30.4s, v29.4s, #32                 : sshr   %q29 $0x02 $0x20 -> %q30
-4f7f0420 : sshr v0.2d, v1.2d, #1                    : sshr   %q1 $0x03 $0x01 -> %q0
-4f780420 : sshr v0.2d, v1.2d, #8                    : sshr   %q1 $0x03 $0x08 -> %q0
-4f700420 : sshr v0.2d, v1.2d, #16                   : sshr   %q1 $0x03 $0x10 -> %q0
-4f680420 : sshr v0.2d, v1.2d, #24                   : sshr   %q1 $0x03 $0x18 -> %q0
-4f600420 : sshr v0.2d, v1.2d, #32                   : sshr   %q1 $0x03 $0x20 -> %q0
-4f580420 : sshr v0.2d, v1.2d, #40                   : sshr   %q1 $0x03 $0x28 -> %q0
-4f500420 : sshr v0.2d, v1.2d, #48                   : sshr   %q1 $0x03 $0x30 -> %q0
-4f480420 : sshr v0.2d, v1.2d, #56                   : sshr   %q1 $0x03 $0x38 -> %q0
-4f400420 : sshr v0.2d, v1.2d, #64                   : sshr   %q1 $0x03 $0x40 -> %q0
-4f40052a : sshr v10.2d, v9.2d, #64                  : sshr   %q9 $0x03 $0x40 -> %q10
-4f400674 : sshr v20.2d, v19.2d, #64                 : sshr   %q19 $0x03 $0x40 -> %q20
-4f4007be : sshr v30.2d, v29.2d, #64                 : sshr   %q29 $0x03 $0x40 -> %q30
+0f0f0420 : sshr v0.8b, v1.8b, #1                     : sshr   %d1 $0x00 $0x01 -> %d0
+0f0f0462 : sshr v2.8b, v3.8b, #1                     : sshr   %d3 $0x00 $0x01 -> %d2
+0f0e04a4 : sshr v4.8b, v5.8b, #2                     : sshr   %d5 $0x00 $0x02 -> %d4
+0f0e04e6 : sshr v6.8b, v7.8b, #2                     : sshr   %d7 $0x00 $0x02 -> %d6
+0f0d0528 : sshr v8.8b, v9.8b, #3                     : sshr   %d9 $0x00 $0x03 -> %d8
+0f0d056a : sshr v10.8b, v11.8b, #3                   : sshr   %d11 $0x00 $0x03 -> %d10
+0f0c05ac : sshr v12.8b, v13.8b, #4                   : sshr   %d13 $0x00 $0x04 -> %d12
+0f0c05ee : sshr v14.8b, v15.8b, #4                   : sshr   %d15 $0x00 $0x04 -> %d14
+0f0b0630 : sshr v16.8b, v17.8b, #5                   : sshr   %d17 $0x00 $0x05 -> %d16
+0f0b0672 : sshr v18.8b, v19.8b, #5                   : sshr   %d19 $0x00 $0x05 -> %d18
+0f0a06b4 : sshr v20.8b, v21.8b, #6                   : sshr   %d21 $0x00 $0x06 -> %d20
+0f0a06f6 : sshr v22.8b, v23.8b, #6                   : sshr   %d23 $0x00 $0x06 -> %d22
+0f090738 : sshr v24.8b, v25.8b, #7                   : sshr   %d25 $0x00 $0x07 -> %d24
+0f09077a : sshr v26.8b, v27.8b, #7                   : sshr   %d27 $0x00 $0x07 -> %d26
+0f0807bc : sshr v28.8b, v29.8b, #8                   : sshr   %d29 $0x00 $0x08 -> %d28
+0f0807fe : sshr v30.8b, v31.8b, #8                   : sshr   %d31 $0x00 $0x08 -> %d30
+4f0f0420 : sshr v0.16b, v1.16b, #1                   : sshr   %q1 $0x00 $0x01 -> %q0
+4f0f0462 : sshr v2.16b, v3.16b, #1                   : sshr   %q3 $0x00 $0x01 -> %q2
+4f0e04a4 : sshr v4.16b, v5.16b, #2                   : sshr   %q5 $0x00 $0x02 -> %q4
+4f0e04e6 : sshr v6.16b, v7.16b, #2                   : sshr   %q7 $0x00 $0x02 -> %q6
+4f0d0528 : sshr v8.16b, v9.16b, #3                   : sshr   %q9 $0x00 $0x03 -> %q8
+4f0d056a : sshr v10.16b, v11.16b, #3                 : sshr   %q11 $0x00 $0x03 -> %q10
+4f0c05ac : sshr v12.16b, v13.16b, #4                 : sshr   %q13 $0x00 $0x04 -> %q12
+4f0c05ee : sshr v14.16b, v15.16b, #4                 : sshr   %q15 $0x00 $0x04 -> %q14
+4f0b0630 : sshr v16.16b, v17.16b, #5                 : sshr   %q17 $0x00 $0x05 -> %q16
+4f0b0672 : sshr v18.16b, v19.16b, #5                 : sshr   %q19 $0x00 $0x05 -> %q18
+4f0a06b4 : sshr v20.16b, v21.16b, #6                 : sshr   %q21 $0x00 $0x06 -> %q20
+4f0a06f6 : sshr v22.16b, v23.16b, #6                 : sshr   %q23 $0x00 $0x06 -> %q22
+4f090738 : sshr v24.16b, v25.16b, #7                 : sshr   %q25 $0x00 $0x07 -> %q24
+4f09077a : sshr v26.16b, v27.16b, #7                 : sshr   %q27 $0x00 $0x07 -> %q26
+4f0807bc : sshr v28.16b, v29.16b, #8                 : sshr   %q29 $0x00 $0x08 -> %q28
+4f0807fe : sshr v30.16b, v31.16b, #8                 : sshr   %q31 $0x00 $0x08 -> %q30
+0f1f0420 : sshr v0.4h, v1.4h, #1                     : sshr   %d1 $0x01 $0x01 -> %d0
+0f1e0462 : sshr v2.4h, v3.4h, #2                     : sshr   %d3 $0x01 $0x02 -> %d2
+0f1d04a4 : sshr v4.4h, v5.4h, #3                     : sshr   %d5 $0x01 $0x03 -> %d4
+0f1c04e6 : sshr v6.4h, v7.4h, #4                     : sshr   %d7 $0x01 $0x04 -> %d6
+0f1b0528 : sshr v8.4h, v9.4h, #5                     : sshr   %d9 $0x01 $0x05 -> %d8
+0f1a056a : sshr v10.4h, v11.4h, #6                   : sshr   %d11 $0x01 $0x06 -> %d10
+0f1905ac : sshr v12.4h, v13.4h, #7                   : sshr   %d13 $0x01 $0x07 -> %d12
+0f1805ee : sshr v14.4h, v15.4h, #8                   : sshr   %d15 $0x01 $0x08 -> %d14
+0f170630 : sshr v16.4h, v17.4h, #9                   : sshr   %d17 $0x01 $0x09 -> %d16
+0f160672 : sshr v18.4h, v19.4h, #10                  : sshr   %d19 $0x01 $0x0a -> %d18
+0f1506b4 : sshr v20.4h, v21.4h, #11                  : sshr   %d21 $0x01 $0x0b -> %d20
+0f1406f6 : sshr v22.4h, v23.4h, #12                  : sshr   %d23 $0x01 $0x0c -> %d22
+0f130738 : sshr v24.4h, v25.4h, #13                  : sshr   %d25 $0x01 $0x0d -> %d24
+0f12077a : sshr v26.4h, v27.4h, #14                  : sshr   %d27 $0x01 $0x0e -> %d26
+0f1107bc : sshr v28.4h, v29.4h, #15                  : sshr   %d29 $0x01 $0x0f -> %d28
+0f1007fe : sshr v30.4h, v31.4h, #16                  : sshr   %d31 $0x01 $0x10 -> %d30
+4f1f0420 : sshr v0.8h, v1.8h, #1                     : sshr   %q1 $0x01 $0x01 -> %q0
+4f1e0462 : sshr v2.8h, v3.8h, #2                     : sshr   %q3 $0x01 $0x02 -> %q2
+4f1d04a4 : sshr v4.8h, v5.8h, #3                     : sshr   %q5 $0x01 $0x03 -> %q4
+4f1c04e6 : sshr v6.8h, v7.8h, #4                     : sshr   %q7 $0x01 $0x04 -> %q6
+4f1b0528 : sshr v8.8h, v9.8h, #5                     : sshr   %q9 $0x01 $0x05 -> %q8
+4f1a056a : sshr v10.8h, v11.8h, #6                   : sshr   %q11 $0x01 $0x06 -> %q10
+4f1905ac : sshr v12.8h, v13.8h, #7                   : sshr   %q13 $0x01 $0x07 -> %q12
+4f1805ee : sshr v14.8h, v15.8h, #8                   : sshr   %q15 $0x01 $0x08 -> %q14
+4f170630 : sshr v16.8h, v17.8h, #9                   : sshr   %q17 $0x01 $0x09 -> %q16
+4f160672 : sshr v18.8h, v19.8h, #10                  : sshr   %q19 $0x01 $0x0a -> %q18
+4f1506b4 : sshr v20.8h, v21.8h, #11                  : sshr   %q21 $0x01 $0x0b -> %q20
+4f1406f6 : sshr v22.8h, v23.8h, #12                  : sshr   %q23 $0x01 $0x0c -> %q22
+4f130738 : sshr v24.8h, v25.8h, #13                  : sshr   %q25 $0x01 $0x0d -> %q24
+4f12077a : sshr v26.8h, v27.8h, #14                  : sshr   %q27 $0x01 $0x0e -> %q26
+4f1107bc : sshr v28.8h, v29.8h, #15                  : sshr   %q29 $0x01 $0x0f -> %q28
+4f1007fe : sshr v30.8h, v31.8h, #16                  : sshr   %q31 $0x01 $0x10 -> %q30
+0f3f0420 : sshr v0.2s, v1.2s, #1                     : sshr   %d1 $0x02 $0x01 -> %d0
+0f3d0462 : sshr v2.2s, v3.2s, #3                     : sshr   %d3 $0x02 $0x03 -> %d2
+0f3b04a4 : sshr v4.2s, v5.2s, #5                     : sshr   %d5 $0x02 $0x05 -> %d4
+0f3904e6 : sshr v6.2s, v7.2s, #7                     : sshr   %d7 $0x02 $0x07 -> %d6
+0f370528 : sshr v8.2s, v9.2s, #9                     : sshr   %d9 $0x02 $0x09 -> %d8
+0f35056a : sshr v10.2s, v11.2s, #11                  : sshr   %d11 $0x02 $0x0b -> %d10
+0f3305ac : sshr v12.2s, v13.2s, #13                  : sshr   %d13 $0x02 $0x0d -> %d12
+0f3105ee : sshr v14.2s, v15.2s, #15                  : sshr   %d15 $0x02 $0x0f -> %d14
+0f2e0630 : sshr v16.2s, v17.2s, #18                  : sshr   %d17 $0x02 $0x12 -> %d16
+0f2c0672 : sshr v18.2s, v19.2s, #20                  : sshr   %d19 $0x02 $0x14 -> %d18
+0f2a06b4 : sshr v20.2s, v21.2s, #22                  : sshr   %d21 $0x02 $0x16 -> %d20
+0f2806f6 : sshr v22.2s, v23.2s, #24                  : sshr   %d23 $0x02 $0x18 -> %d22
+0f260738 : sshr v24.2s, v25.2s, #26                  : sshr   %d25 $0x02 $0x1a -> %d24
+0f24077a : sshr v26.2s, v27.2s, #28                  : sshr   %d27 $0x02 $0x1c -> %d26
+0f2207bc : sshr v28.2s, v29.2s, #30                  : sshr   %d29 $0x02 $0x1e -> %d28
+0f2007fe : sshr v30.2s, v31.2s, #32                  : sshr   %d31 $0x02 $0x20 -> %d30
+4f3f0420 : sshr v0.4s, v1.4s, #1                     : sshr   %q1 $0x02 $0x01 -> %q0
+4f3d0462 : sshr v2.4s, v3.4s, #3                     : sshr   %q3 $0x02 $0x03 -> %q2
+4f3b04a4 : sshr v4.4s, v5.4s, #5                     : sshr   %q5 $0x02 $0x05 -> %q4
+4f3904e6 : sshr v6.4s, v7.4s, #7                     : sshr   %q7 $0x02 $0x07 -> %q6
+4f370528 : sshr v8.4s, v9.4s, #9                     : sshr   %q9 $0x02 $0x09 -> %q8
+4f35056a : sshr v10.4s, v11.4s, #11                  : sshr   %q11 $0x02 $0x0b -> %q10
+4f3305ac : sshr v12.4s, v13.4s, #13                  : sshr   %q13 $0x02 $0x0d -> %q12
+4f3105ee : sshr v14.4s, v15.4s, #15                  : sshr   %q15 $0x02 $0x0f -> %q14
+4f2e0630 : sshr v16.4s, v17.4s, #18                  : sshr   %q17 $0x02 $0x12 -> %q16
+4f2c0672 : sshr v18.4s, v19.4s, #20                  : sshr   %q19 $0x02 $0x14 -> %q18
+4f2a06b4 : sshr v20.4s, v21.4s, #22                  : sshr   %q21 $0x02 $0x16 -> %q20
+4f2806f6 : sshr v22.4s, v23.4s, #24                  : sshr   %q23 $0x02 $0x18 -> %q22
+4f260738 : sshr v24.4s, v25.4s, #26                  : sshr   %q25 $0x02 $0x1a -> %q24
+4f24077a : sshr v26.4s, v27.4s, #28                  : sshr   %q27 $0x02 $0x1c -> %q26
+4f2207bc : sshr v28.4s, v29.4s, #30                  : sshr   %q29 $0x02 $0x1e -> %q28
+4f2007fe : sshr v30.4s, v31.4s, #32                  : sshr   %q31 $0x02 $0x20 -> %q30
+4f7f0420 : sshr v0.2d, v1.2d, #1                     : sshr   %q1 $0x03 $0x01 -> %q0
+4f7b0462 : sshr v2.2d, v3.2d, #5                     : sshr   %q3 $0x03 $0x05 -> %q2
+4f7704a4 : sshr v4.2d, v5.2d, #9                     : sshr   %q5 $0x03 $0x09 -> %q4
+4f7304e6 : sshr v6.2d, v7.2d, #13                    : sshr   %q7 $0x03 $0x0d -> %q6
+4f6e0528 : sshr v8.2d, v9.2d, #18                    : sshr   %q9 $0x03 $0x12 -> %q8
+4f6a056a : sshr v10.2d, v11.2d, #22                  : sshr   %q11 $0x03 $0x16 -> %q10
+4f6605ac : sshr v12.2d, v13.2d, #26                  : sshr   %q13 $0x03 $0x1a -> %q12
+4f6205ee : sshr v14.2d, v15.2d, #30                  : sshr   %q15 $0x03 $0x1e -> %q14
+4f5d0630 : sshr v16.2d, v17.2d, #35                  : sshr   %q17 $0x03 $0x23 -> %q16
+4f590672 : sshr v18.2d, v19.2d, #39                  : sshr   %q19 $0x03 $0x27 -> %q18
+4f5506b4 : sshr v20.2d, v21.2d, #43                  : sshr   %q21 $0x03 $0x2b -> %q20
+4f5106f6 : sshr v22.2d, v23.2d, #47                  : sshr   %q23 $0x03 $0x2f -> %q22
+4f4c0738 : sshr v24.2d, v25.2d, #52                  : sshr   %q25 $0x03 $0x34 -> %q24
+4f48077a : sshr v26.2d, v27.2d, #56                  : sshr   %q27 $0x03 $0x38 -> %q26
+4f4407bc : sshr v28.2d, v29.2d, #60                  : sshr   %q29 $0x03 $0x3c -> %q28
+4f4007fe : sshr v30.2d, v31.2d, #64                  : sshr   %q31 $0x03 $0x40 -> %q30
 
 # SSRA <V><d>, <V><n>, #<shift>
-5f7f1420 : ssra d0, d1, #1                          : ssra   %d1 $0x01 -> %d0
-5f781420 : ssra d0, d1, #8                          : ssra   %d1 $0x08 -> %d0
-5f701420 : ssra d0, d1, #16                         : ssra   %d1 $0x10 -> %d0
-5f681420 : ssra d0, d1, #24                         : ssra   %d1 $0x18 -> %d0
-5f601420 : ssra d0, d1, #32                         : ssra   %d1 $0x20 -> %d0
-5f581420 : ssra d0, d1, #40                         : ssra   %d1 $0x28 -> %d0
-5f501420 : ssra d0, d1, #48                         : ssra   %d1 $0x30 -> %d0
-5f481420 : ssra d0, d1, #56                         : ssra   %d1 $0x38 -> %d0
-5f401420 : ssra d0, d1, #64                         : ssra   %d1 $0x40 -> %d0
-5f40152a : ssra d10, d9, #64                        : ssra   %d9 $0x40 -> %d10
-5f401674 : ssra d20, d19, #64                       : ssra   %d19 $0x40 -> %d20
-5f4017be : ssra d30, d29, #64                       : ssra   %d29 $0x40 -> %d30
+5f7f1420 : ssra d0, d1, #1                           : ssra   %d1 $0x01 -> %d0
+5f7b1462 : ssra d2, d3, #5                           : ssra   %d3 $0x05 -> %d2
+5f7714a4 : ssra d4, d5, #9                           : ssra   %d5 $0x09 -> %d4
+5f7314e6 : ssra d6, d7, #13                          : ssra   %d7 $0x0d -> %d6
+5f6e1528 : ssra d8, d9, #18                          : ssra   %d9 $0x12 -> %d8
+5f6a156a : ssra d10, d11, #22                        : ssra   %d11 $0x16 -> %d10
+5f6615ac : ssra d12, d13, #26                        : ssra   %d13 $0x1a -> %d12
+5f6215ee : ssra d14, d15, #30                        : ssra   %d15 $0x1e -> %d14
+5f5d1630 : ssra d16, d17, #35                        : ssra   %d17 $0x23 -> %d16
+5f591672 : ssra d18, d19, #39                        : ssra   %d19 $0x27 -> %d18
+5f5516b4 : ssra d20, d21, #43                        : ssra   %d21 $0x2b -> %d20
+5f5116f6 : ssra d22, d23, #47                        : ssra   %d23 $0x2f -> %d22
+5f4c1738 : ssra d24, d25, #52                        : ssra   %d25 $0x34 -> %d24
+5f48177a : ssra d26, d27, #56                        : ssra   %d27 $0x38 -> %d26
+5f4417bc : ssra d28, d29, #60                        : ssra   %d29 $0x3c -> %d28
+5f4017fe : ssra d30, d31, #64                        : ssra   %d31 $0x40 -> %d30
 
 # SSRA <Vd>.<T>, <Vn>.<T>, #<shift>
 0f0f1420 : ssra v0.8b, v1.8b, #1                     : ssra   %d1 $0x00 $0x01 -> %d0
@@ -11899,51 +12611,148 @@ d52fff9e : sysl x30, #7, C15, C15, #4     : sysl   $0x07 $0x0f $0x0f $0x04 -> %x
 d52fffde : sysl x30, #7, C15, C15, #6     : sysl   $0x07 $0x0f $0x0f $0x06 -> %x30
 d52ffffe : sysl x30, #7, C15, C15, #7     : sysl   $0x07 $0x0f $0x0f $0x07 -> %x30
 
-# SSHLL <V><d>, <Vn>.<T>
-0f08a420 : sxtl v0.8h, v1.8b                          : sshll  %d1 $0x38 -> %d0
-0f08a485 : sxtl v5.8h, v4.8b                          : sshll  %d4 $0x38 -> %d5
-0f08a52a : sxtl v10.8h, v9.8b                         : sshll  %d9 $0x38 -> %d10
-0f08a5cf : sxtl v15.8h, v14.8b                        : sshll  %d14 $0x38 -> %d15
-0f08a674 : sxtl v20.8h, v19.8b                        : sshll  %d19 $0x38 -> %d20
-0f08a719 : sxtl v25.8h, v24.8b                        : sshll  %d24 $0x38 -> %d25
-0f08a7be : sxtl v30.8h, v29.8b                        : sshll  %d29 $0x38 -> %d30
-0f10a420 : sxtl v0.4s, v1.4h                          : sshll  %d1 $0x30 -> %d0
-0f10a485 : sxtl v5.4s, v4.4h                          : sshll  %d4 $0x30 -> %d5
-0f10a52a : sxtl v10.4s, v9.4h                         : sshll  %d9 $0x30 -> %d10
-0f10a5cf : sxtl v15.4s, v14.4h                        : sshll  %d14 $0x30 -> %d15
-0f10a674 : sxtl v20.4s, v19.4h                        : sshll  %d19 $0x30 -> %d20
-0f10a719 : sxtl v25.4s, v24.4h                        : sshll  %d24 $0x30 -> %d25
-0f10a7be : sxtl v30.4s, v29.4h                        : sshll  %d29 $0x30 -> %d30
-0f20a420 : sxtl v0.2d, v1.2s                          : sshll  %d1 $0x20 -> %d0
-0f20a485 : sxtl v5.2d, v4.2s                          : sshll  %d4 $0x20 -> %d5
-0f20a52a : sxtl v10.2d, v9.2s                         : sshll  %d9 $0x20 -> %d10
-0f20a5cf : sxtl v15.2d, v14.2s                        : sshll  %d14 $0x20 -> %d15
-0f20a674 : sxtl v20.2d, v19.2s                        : sshll  %d19 $0x20 -> %d20
-0f20a719 : sxtl v25.2d, v24.2s                        : sshll  %d24 $0x20 -> %d25
-0f20a7be : sxtl v30.2d, v29.2s                        : sshll  %d29 $0x20 -> %d30
+# SSHLL{2} <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+0f08a420 : sshll v0.8h, v1.8b, #0                    : sshll  %d1 $0x00 $0x00 -> %q0
+0f08a462 : sshll v2.8h, v3.8b, #0                    : sshll  %d3 $0x00 $0x00 -> %q2
+0f09a4a4 : sshll v4.8h, v5.8b, #1                    : sshll  %d5 $0x00 $0x01 -> %q4
+0f09a4e6 : sshll v6.8h, v7.8b, #1                    : sshll  %d7 $0x00 $0x01 -> %q6
+0f0aa528 : sshll v8.8h, v9.8b, #2                    : sshll  %d9 $0x00 $0x02 -> %q8
+0f0aa56a : sshll v10.8h, v11.8b, #2                  : sshll  %d11 $0x00 $0x02 -> %q10
+0f0ba5ac : sshll v12.8h, v13.8b, #3                  : sshll  %d13 $0x00 $0x03 -> %q12
+0f0ba5ee : sshll v14.8h, v15.8b, #3                  : sshll  %d15 $0x00 $0x03 -> %q14
+0f0ca630 : sshll v16.8h, v17.8b, #4                  : sshll  %d17 $0x00 $0x04 -> %q16
+0f0ca672 : sshll v18.8h, v19.8b, #4                  : sshll  %d19 $0x00 $0x04 -> %q18
+0f0da6b4 : sshll v20.8h, v21.8b, #5                  : sshll  %d21 $0x00 $0x05 -> %q20
+0f0da6f6 : sshll v22.8h, v23.8b, #5                  : sshll  %d23 $0x00 $0x05 -> %q22
+0f0ea738 : sshll v24.8h, v25.8b, #6                  : sshll  %d25 $0x00 $0x06 -> %q24
+0f0ea77a : sshll v26.8h, v27.8b, #6                  : sshll  %d27 $0x00 $0x06 -> %q26
+0f0fa7bc : sshll v28.8h, v29.8b, #7                  : sshll  %d29 $0x00 $0x07 -> %q28
+0f0fa7fe : sshll v30.8h, v31.8b, #7                  : sshll  %d31 $0x00 $0x07 -> %q30
+0f10a420 : sshll v0.4s, v1.4h, #0                    : sshll  %d1 $0x01 $0x00 -> %q0
+0f11a462 : sshll v2.4s, v3.4h, #1                    : sshll  %d3 $0x01 $0x01 -> %q2
+0f12a4a4 : sshll v4.4s, v5.4h, #2                    : sshll  %d5 $0x01 $0x02 -> %q4
+0f13a4e6 : sshll v6.4s, v7.4h, #3                    : sshll  %d7 $0x01 $0x03 -> %q6
+0f14a528 : sshll v8.4s, v9.4h, #4                    : sshll  %d9 $0x01 $0x04 -> %q8
+0f15a56a : sshll v10.4s, v11.4h, #5                  : sshll  %d11 $0x01 $0x05 -> %q10
+0f16a5ac : sshll v12.4s, v13.4h, #6                  : sshll  %d13 $0x01 $0x06 -> %q12
+0f17a5ee : sshll v14.4s, v15.4h, #7                  : sshll  %d15 $0x01 $0x07 -> %q14
+0f18a630 : sshll v16.4s, v17.4h, #8                  : sshll  %d17 $0x01 $0x08 -> %q16
+0f19a672 : sshll v18.4s, v19.4h, #9                  : sshll  %d19 $0x01 $0x09 -> %q18
+0f1aa6b4 : sshll v20.4s, v21.4h, #10                 : sshll  %d21 $0x01 $0x0a -> %q20
+0f1ba6f6 : sshll v22.4s, v23.4h, #11                 : sshll  %d23 $0x01 $0x0b -> %q22
+0f1ca738 : sshll v24.4s, v25.4h, #12                 : sshll  %d25 $0x01 $0x0c -> %q24
+0f1da77a : sshll v26.4s, v27.4h, #13                 : sshll  %d27 $0x01 $0x0d -> %q26
+0f1ea7bc : sshll v28.4s, v29.4h, #14                 : sshll  %d29 $0x01 $0x0e -> %q28
+0f1fa7fe : sshll v30.4s, v31.4h, #15                 : sshll  %d31 $0x01 $0x0f -> %q30
+0f20a420 : sshll v0.2d, v1.2s, #0                    : sshll  %d1 $0x02 $0x00 -> %q0
+0f22a462 : sshll v2.2d, v3.2s, #2                    : sshll  %d3 $0x02 $0x02 -> %q2
+0f24a4a4 : sshll v4.2d, v5.2s, #4                    : sshll  %d5 $0x02 $0x04 -> %q4
+0f26a4e6 : sshll v6.2d, v7.2s, #6                    : sshll  %d7 $0x02 $0x06 -> %q6
+0f28a528 : sshll v8.2d, v9.2s, #8                    : sshll  %d9 $0x02 $0x08 -> %q8
+0f2aa56a : sshll v10.2d, v11.2s, #10                 : sshll  %d11 $0x02 $0x0a -> %q10
+0f2ca5ac : sshll v12.2d, v13.2s, #12                 : sshll  %d13 $0x02 $0x0c -> %q12
+0f2ea5ee : sshll v14.2d, v15.2s, #14                 : sshll  %d15 $0x02 $0x0e -> %q14
+0f31a630 : sshll v16.2d, v17.2s, #17                 : sshll  %d17 $0x02 $0x11 -> %q16
+0f33a672 : sshll v18.2d, v19.2s, #19                 : sshll  %d19 $0x02 $0x13 -> %q18
+0f35a6b4 : sshll v20.2d, v21.2s, #21                 : sshll  %d21 $0x02 $0x15 -> %q20
+0f37a6f6 : sshll v22.2d, v23.2s, #23                 : sshll  %d23 $0x02 $0x17 -> %q22
+0f39a738 : sshll v24.2d, v25.2s, #25                 : sshll  %d25 $0x02 $0x19 -> %q24
+0f3ba77a : sshll v26.2d, v27.2s, #27                 : sshll  %d27 $0x02 $0x1b -> %q26
+0f3da7bc : sshll v28.2d, v29.2s, #29                 : sshll  %d29 $0x02 $0x1d -> %q28
+0f3fa7fe : sshll v30.2d, v31.2s, #31                 : sshll  %d31 $0x02 $0x1f -> %q30
+4f08a420 : sshll2 v0.8h, v1.16b, #0                  : sshll2 %q1 $0x00 $0x00 -> %q0
+4f08a462 : sshll2 v2.8h, v3.16b, #0                  : sshll2 %q3 $0x00 $0x00 -> %q2
+4f09a4a4 : sshll2 v4.8h, v5.16b, #1                  : sshll2 %q5 $0x00 $0x01 -> %q4
+4f09a4e6 : sshll2 v6.8h, v7.16b, #1                  : sshll2 %q7 $0x00 $0x01 -> %q6
+4f0aa528 : sshll2 v8.8h, v9.16b, #2                  : sshll2 %q9 $0x00 $0x02 -> %q8
+4f0aa56a : sshll2 v10.8h, v11.16b, #2                : sshll2 %q11 $0x00 $0x02 -> %q10
+4f0ba5ac : sshll2 v12.8h, v13.16b, #3                : sshll2 %q13 $0x00 $0x03 -> %q12
+4f0ba5ee : sshll2 v14.8h, v15.16b, #3                : sshll2 %q15 $0x00 $0x03 -> %q14
+4f0ca630 : sshll2 v16.8h, v17.16b, #4                : sshll2 %q17 $0x00 $0x04 -> %q16
+4f0ca672 : sshll2 v18.8h, v19.16b, #4                : sshll2 %q19 $0x00 $0x04 -> %q18
+4f0da6b4 : sshll2 v20.8h, v21.16b, #5                : sshll2 %q21 $0x00 $0x05 -> %q20
+4f0da6f6 : sshll2 v22.8h, v23.16b, #5                : sshll2 %q23 $0x00 $0x05 -> %q22
+4f0ea738 : sshll2 v24.8h, v25.16b, #6                : sshll2 %q25 $0x00 $0x06 -> %q24
+4f0ea77a : sshll2 v26.8h, v27.16b, #6                : sshll2 %q27 $0x00 $0x06 -> %q26
+4f0fa7bc : sshll2 v28.8h, v29.16b, #7                : sshll2 %q29 $0x00 $0x07 -> %q28
+4f0fa7fe : sshll2 v30.8h, v31.16b, #7                : sshll2 %q31 $0x00 $0x07 -> %q30
+4f10a420 : sshll2 v0.4s, v1.8h, #0                   : sshll2 %q1 $0x01 $0x00 -> %q0
+4f11a462 : sshll2 v2.4s, v3.8h, #1                   : sshll2 %q3 $0x01 $0x01 -> %q2
+4f12a4a4 : sshll2 v4.4s, v5.8h, #2                   : sshll2 %q5 $0x01 $0x02 -> %q4
+4f13a4e6 : sshll2 v6.4s, v7.8h, #3                   : sshll2 %q7 $0x01 $0x03 -> %q6
+4f14a528 : sshll2 v8.4s, v9.8h, #4                   : sshll2 %q9 $0x01 $0x04 -> %q8
+4f15a56a : sshll2 v10.4s, v11.8h, #5                 : sshll2 %q11 $0x01 $0x05 -> %q10
+4f16a5ac : sshll2 v12.4s, v13.8h, #6                 : sshll2 %q13 $0x01 $0x06 -> %q12
+4f17a5ee : sshll2 v14.4s, v15.8h, #7                 : sshll2 %q15 $0x01 $0x07 -> %q14
+4f18a630 : sshll2 v16.4s, v17.8h, #8                 : sshll2 %q17 $0x01 $0x08 -> %q16
+4f19a672 : sshll2 v18.4s, v19.8h, #9                 : sshll2 %q19 $0x01 $0x09 -> %q18
+4f1aa6b4 : sshll2 v20.4s, v21.8h, #10                : sshll2 %q21 $0x01 $0x0a -> %q20
+4f1ba6f6 : sshll2 v22.4s, v23.8h, #11                : sshll2 %q23 $0x01 $0x0b -> %q22
+4f1ca738 : sshll2 v24.4s, v25.8h, #12                : sshll2 %q25 $0x01 $0x0c -> %q24
+4f1da77a : sshll2 v26.4s, v27.8h, #13                : sshll2 %q27 $0x01 $0x0d -> %q26
+4f1ea7bc : sshll2 v28.4s, v29.8h, #14                : sshll2 %q29 $0x01 $0x0e -> %q28
+4f1fa7fe : sshll2 v30.4s, v31.8h, #15                : sshll2 %q31 $0x01 $0x0f -> %q30
+4f20a420 : sshll2 v0.2d, v1.4s, #0                   : sshll2 %q1 $0x02 $0x00 -> %q0
+4f22a462 : sshll2 v2.2d, v3.4s, #2                   : sshll2 %q3 $0x02 $0x02 -> %q2
+4f24a4a4 : sshll2 v4.2d, v5.4s, #4                   : sshll2 %q5 $0x02 $0x04 -> %q4
+4f26a4e6 : sshll2 v6.2d, v7.4s, #6                   : sshll2 %q7 $0x02 $0x06 -> %q6
+4f28a528 : sshll2 v8.2d, v9.4s, #8                   : sshll2 %q9 $0x02 $0x08 -> %q8
+4f2aa56a : sshll2 v10.2d, v11.4s, #10                : sshll2 %q11 $0x02 $0x0a -> %q10
+4f2ca5ac : sshll2 v12.2d, v13.4s, #12                : sshll2 %q13 $0x02 $0x0c -> %q12
+4f2ea5ee : sshll2 v14.2d, v15.4s, #14                : sshll2 %q15 $0x02 $0x0e -> %q14
+4f31a630 : sshll2 v16.2d, v17.4s, #17                : sshll2 %q17 $0x02 $0x11 -> %q16
+4f33a672 : sshll2 v18.2d, v19.4s, #19                : sshll2 %q19 $0x02 $0x13 -> %q18
+4f35a6b4 : sshll2 v20.2d, v21.4s, #21                : sshll2 %q21 $0x02 $0x15 -> %q20
+4f37a6f6 : sshll2 v22.2d, v23.4s, #23                : sshll2 %q23 $0x02 $0x17 -> %q22
+4f39a738 : sshll2 v24.2d, v25.4s, #25                : sshll2 %q25 $0x02 $0x19 -> %q24
+4f3ba77a : sshll2 v26.2d, v27.4s, #27                : sshll2 %q27 $0x02 $0x1b -> %q26
+4f3da7bc : sshll2 v28.2d, v29.4s, #29                : sshll2 %q29 $0x02 $0x1d -> %q28
+4f3fa7fe : sshll2 v30.2d, v31.4s, #31                : sshll2 %q31 $0x02 $0x1f -> %q30
 
-# SSHLL2 <V><d>, <Vn>.<T>
-4f08a420 : sxtl2 v0.8h, v1.16b                        : sshll2 %q1 $0x38 -> %q0
-4f08a485 : sxtl2 v5.8h, v4.16b                        : sshll2 %q4 $0x38 -> %q5
-4f08a52a : sxtl2 v10.8h, v9.16b                       : sshll2 %q9 $0x38 -> %q10
-4f08a5cf : sxtl2 v15.8h, v14.16b                      : sshll2 %q14 $0x38 -> %q15
-4f08a674 : sxtl2 v20.8h, v19.16b                      : sshll2 %q19 $0x38 -> %q20
-4f08a719 : sxtl2 v25.8h, v24.16b                      : sshll2 %q24 $0x38 -> %q25
-4f08a7be : sxtl2 v30.8h, v29.16b                      : sshll2 %q29 $0x38 -> %q30
-4f10a420 : sxtl2 v0.4s, v1.8h                         : sshll2 %q1 $0x30 -> %q0
-4f10a485 : sxtl2 v5.4s, v4.8h                         : sshll2 %q4 $0x30 -> %q5
-4f10a52a : sxtl2 v10.4s, v9.8h                        : sshll2 %q9 $0x30 -> %q10
-4f10a5cf : sxtl2 v15.4s, v14.8h                       : sshll2 %q14 $0x30 -> %q15
-4f10a674 : sxtl2 v20.4s, v19.8h                       : sshll2 %q19 $0x30 -> %q20
-4f10a719 : sxtl2 v25.4s, v24.8h                       : sshll2 %q24 $0x30 -> %q25
-4f10a7be : sxtl2 v30.4s, v29.8h                       : sshll2 %q29 $0x30 -> %q30
-4f20a420 : sxtl2 v0.2d, v1.4s                         : sshll2 %q1 $0x20 -> %q0
-4f20a485 : sxtl2 v5.2d, v4.4s                         : sshll2 %q4 $0x20 -> %q5
-4f20a52a : sxtl2 v10.2d, v9.4s                        : sshll2 %q9 $0x20 -> %q10
-4f20a5cf : sxtl2 v15.2d, v14.4s                       : sshll2 %q14 $0x20 -> %q15
-4f20a674 : sxtl2 v20.2d, v19.4s                       : sshll2 %q19 $0x20 -> %q20
-4f20a719 : sxtl2 v25.2d, v24.4s                       : sshll2 %q24 $0x20 -> %q25
-4f20a7be : sxtl2 v30.2d, v29.4s                       : sshll2 %q29 $0x20 -> %q30
+# SXTL{2} <Vd>.<Ta>, <Vn>.<Tb>
+# SXTL{2} is an alias for SSHLL{2} with an shift of 0
+0f08a420 : sxtl v0.8h, v1.8b                          : sshll  %d1 $0x00 $0x00 -> %q0
+0f08a485 : sxtl v5.8h, v4.8b                          : sshll  %d4 $0x00 $0x00 -> %q5
+0f08a52a : sxtl v10.8h, v9.8b                         : sshll  %d9 $0x00 $0x00 -> %q10
+0f08a5cf : sxtl v15.8h, v14.8b                        : sshll  %d14 $0x00 $0x00 -> %q15
+0f08a674 : sxtl v20.8h, v19.8b                        : sshll  %d19 $0x00 $0x00 -> %q20
+0f08a719 : sxtl v25.8h, v24.8b                        : sshll  %d24 $0x00 $0x00 -> %q25
+0f08a7be : sxtl v30.8h, v29.8b                        : sshll  %d29 $0x00 $0x00 -> %q30
+0f10a420 : sxtl v0.4s, v1.4h                          : sshll  %d1 $0x01 $0x00 -> %q0
+0f10a485 : sxtl v5.4s, v4.4h                          : sshll  %d4 $0x01 $0x00 -> %q5
+0f10a52a : sxtl v10.4s, v9.4h                         : sshll  %d9 $0x01 $0x00 -> %q10
+0f10a5cf : sxtl v15.4s, v14.4h                        : sshll  %d14 $0x01 $0x00 -> %q15
+0f10a674 : sxtl v20.4s, v19.4h                        : sshll  %d19 $0x01 $0x00 -> %q20
+0f10a719 : sxtl v25.4s, v24.4h                        : sshll  %d24 $0x01 $0x00 -> %q25
+0f10a7be : sxtl v30.4s, v29.4h                        : sshll  %d29 $0x01 $0x00 -> %q30
+0f20a420 : sxtl v0.2d, v1.2s                          : sshll  %d1 $0x02 $0x00 -> %q0
+0f20a485 : sxtl v5.2d, v4.2s                          : sshll  %d4 $0x02 $0x00 -> %q5
+0f20a52a : sxtl v10.2d, v9.2s                         : sshll  %d9 $0x02 $0x00 -> %q10
+0f20a5cf : sxtl v15.2d, v14.2s                        : sshll  %d14 $0x02 $0x00 -> %q15
+0f20a674 : sxtl v20.2d, v19.2s                        : sshll  %d19 $0x02 $0x00 -> %q20
+0f20a719 : sxtl v25.2d, v24.2s                        : sshll  %d24 $0x02 $0x00 -> %q25
+0f20a7be : sxtl v30.2d, v29.2s                        : sshll  %d29 $0x02 $0x00 -> %q30
+4f08a420 : sxtl2 v0.8h, v1.16b                        : sshll2 %q1 $0x00 $0x00 -> %q0
+4f08a485 : sxtl2 v5.8h, v4.16b                        : sshll2 %q4 $0x00 $0x00 -> %q5
+4f08a52a : sxtl2 v10.8h, v9.16b                       : sshll2 %q9 $0x00 $0x00 -> %q10
+4f08a5cf : sxtl2 v15.8h, v14.16b                      : sshll2 %q14 $0x00 $0x00 -> %q15
+4f08a674 : sxtl2 v20.8h, v19.16b                      : sshll2 %q19 $0x00 $0x00 -> %q20
+4f08a719 : sxtl2 v25.8h, v24.16b                      : sshll2 %q24 $0x00 $0x00 -> %q25
+4f08a7be : sxtl2 v30.8h, v29.16b                      : sshll2 %q29 $0x00 $0x00 -> %q30
+4f10a420 : sxtl2 v0.4s, v1.8h                         : sshll2 %q1 $0x01 $0x00 -> %q0
+4f10a485 : sxtl2 v5.4s, v4.8h                         : sshll2 %q4 $0x01 $0x00 -> %q5
+4f10a52a : sxtl2 v10.4s, v9.8h                        : sshll2 %q9 $0x01 $0x00 -> %q10
+4f10a5cf : sxtl2 v15.4s, v14.8h                       : sshll2 %q14 $0x01 $0x00 -> %q15
+4f10a674 : sxtl2 v20.4s, v19.8h                       : sshll2 %q19 $0x01 $0x00 -> %q20
+4f10a719 : sxtl2 v25.4s, v24.8h                       : sshll2 %q24 $0x01 $0x00 -> %q25
+4f10a7be : sxtl2 v30.4s, v29.8h                       : sshll2 %q29 $0x01 $0x00 -> %q30
+4f20a420 : sxtl2 v0.2d, v1.4s                         : sshll2 %q1 $0x02 $0x00 -> %q0
+4f20a485 : sxtl2 v5.2d, v4.4s                         : sshll2 %q4 $0x02 $0x00 -> %q5
+4f20a52a : sxtl2 v10.2d, v9.4s                        : sshll2 %q9 $0x02 $0x00 -> %q10
+4f20a5cf : sxtl2 v15.2d, v14.4s                       : sshll2 %q14 $0x02 $0x00 -> %q15
+4f20a674 : sxtl2 v20.2d, v19.4s                       : sshll2 %q19 $0x02 $0x00 -> %q20
+4f20a719 : sxtl2 v25.2d, v24.4s                       : sshll2 %q24 $0x02 $0x00 -> %q25
+4f20a7be : sxtl2 v30.2d, v29.4s                       : sshll2 %q29 $0x02 $0x00 -> %q30
 
 37081041 : tbnz   w1, #1, 10000208        : tbnz   $0x0000000010000208 %x1 $0x01
 b7fc0000 : tbnz   x0, #63, fff8000        : tbnz   $0x000000000fff8000 %x0 $0x3f
@@ -12630,18 +13439,22 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 6ef244e1 : ushl v1.2d, v7.2d, v18.2d                : ushl   %q7 %q18 $0x03 -> %q1
 
 # USRA <V><d>, <V><n>, #<shift>
-7f7f1420 : usra d0, d1, #1                          : usra   %d1 $0x01 -> %d0
-7f781420 : usra d0, d1, #8                          : usra   %d1 $0x08 -> %d0
-7f701420 : usra d0, d1, #16                         : usra   %d1 $0x10 -> %d0
-7f681420 : usra d0, d1, #24                         : usra   %d1 $0x18 -> %d0
-7f601420 : usra d0, d1, #32                         : usra   %d1 $0x20 -> %d0
-7f581420 : usra d0, d1, #40                         : usra   %d1 $0x28 -> %d0
-7f501420 : usra d0, d1, #48                         : usra   %d1 $0x30 -> %d0
-7f481420 : usra d0, d1, #56                         : usra   %d1 $0x38 -> %d0
-7f401420 : usra d0, d1, #64                         : usra   %d1 $0x40 -> %d0
-7f40152a : usra d10, d9, #64                        : usra   %d9 $0x40 -> %d10
-7f401674 : usra d20, d19, #64                       : usra   %d19 $0x40 -> %d20
-7f4017be : usra d30, d29, #64                       : usra   %d29 $0x40 -> %d30
+7f7f1420 : usra d0, d1, #1                           : usra   %d1 $0x01 -> %d0
+7f7b1462 : usra d2, d3, #5                           : usra   %d3 $0x05 -> %d2
+7f7714a4 : usra d4, d5, #9                           : usra   %d5 $0x09 -> %d4
+7f7314e6 : usra d6, d7, #13                          : usra   %d7 $0x0d -> %d6
+7f6e1528 : usra d8, d9, #18                          : usra   %d9 $0x12 -> %d8
+7f6a156a : usra d10, d11, #22                        : usra   %d11 $0x16 -> %d10
+7f6615ac : usra d12, d13, #26                        : usra   %d13 $0x1a -> %d12
+7f6215ee : usra d14, d15, #30                        : usra   %d15 $0x1e -> %d14
+7f5d1630 : usra d16, d17, #35                        : usra   %d17 $0x23 -> %d16
+7f591672 : usra d18, d19, #39                        : usra   %d19 $0x27 -> %d18
+7f5516b4 : usra d20, d21, #43                        : usra   %d21 $0x2b -> %d20
+7f5116f6 : usra d22, d23, #47                        : usra   %d23 $0x2f -> %d22
+7f4c1738 : usra d24, d25, #52                        : usra   %d25 $0x34 -> %d24
+7f48177a : usra d26, d27, #56                        : usra   %d27 $0x38 -> %d26
+7f4417bc : usra d28, d29, #60                        : usra   %d29 $0x3c -> %d28
+7f4017fe : usra d30, d31, #64                        : usra   %d31 $0x40 -> %d30
 
 # USRA <Vd>.<T>, <Vn>.<T>, #<shift>
 2f0f1420 : usra v0.8b, v1.8b, #1                     : usra   %d1 $0x00 $0x01 -> %d0
@@ -13113,51 +13926,148 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 6f4427bc : urshr v28.2d, v29.2d, #60                 : urshr  %q29 $0x03 $0x3c -> %q28
 6f4027fe : urshr v30.2d, v31.2d, #64                 : urshr  %q31 $0x03 $0x40 -> %q30
 
-# UXTL <Vd>.<Ta>, <Vn>.<Tb>
-2f08a401 : uxtl v1.8h, v0.8b                 : ushll  %d0 $0x38 -> %d1
-2f08a485 : uxtl v5.8h, v4.8b                 : ushll  %d4 $0x38 -> %d5
-2f08a52a : uxtl v10.8h, v9.8b                : ushll  %d9 $0x38 -> %d10
-2f08a5cf : uxtl v15.8h, v14.8b               : ushll  %d14 $0x38 -> %d15
-2f08a674 : uxtl v20.8h, v19.8b               : ushll  %d19 $0x38 -> %d20
-2f08a719 : uxtl v25.8h, v24.8b               : ushll  %d24 $0x38 -> %d25
-2f08a7be : uxtl v30.8h, v29.8b               : ushll  %d29 $0x38 -> %d30
-2f10a401 : uxtl v1.4s, v0.4h                 : ushll  %d0 $0x30 -> %d1
-2f10a485 : uxtl v5.4s, v4.4h                 : ushll  %d4 $0x30 -> %d5
-2f10a52a : uxtl v10.4s, v9.4h                : ushll  %d9 $0x30 -> %d10
-2f10a5cf : uxtl v15.4s, v14.4h               : ushll  %d14 $0x30 -> %d15
-2f10a674 : uxtl v20.4s, v19.4h               : ushll  %d19 $0x30 -> %d20
-2f10a719 : uxtl v25.4s, v24.4h               : ushll  %d24 $0x30 -> %d25
-2f10a7be : uxtl v30.4s, v29.4h               : ushll  %d29 $0x30 -> %d30
-2f20a401 : uxtl v1.2d, v0.2s                 : ushll  %d0 $0x20 -> %d1
-2f20a485 : uxtl v5.2d, v4.2s                 : ushll  %d4 $0x20 -> %d5
-2f20a52a : uxtl v10.2d, v9.2s                : ushll  %d9 $0x20 -> %d10
-2f20a5cf : uxtl v15.2d, v14.2s               : ushll  %d14 $0x20 -> %d15
-2f20a674 : uxtl v20.2d, v19.2s               : ushll  %d19 $0x20 -> %d20
-2f20a719 : uxtl v25.2d, v24.2s               : ushll  %d24 $0x20 -> %d25
-2f20a7be : uxtl v30.2d, v29.2s               : ushll  %d29 $0x20 -> %d30
+# USHLL{2} <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+2f08a420 : ushll v0.8h, v1.8b, #0                    : ushll  %d1 $0x00 $0x00 -> %q0
+2f08a462 : ushll v2.8h, v3.8b, #0                    : ushll  %d3 $0x00 $0x00 -> %q2
+2f09a4a4 : ushll v4.8h, v5.8b, #1                    : ushll  %d5 $0x00 $0x01 -> %q4
+2f09a4e6 : ushll v6.8h, v7.8b, #1                    : ushll  %d7 $0x00 $0x01 -> %q6
+2f0aa528 : ushll v8.8h, v9.8b, #2                    : ushll  %d9 $0x00 $0x02 -> %q8
+2f0aa56a : ushll v10.8h, v11.8b, #2                  : ushll  %d11 $0x00 $0x02 -> %q10
+2f0ba5ac : ushll v12.8h, v13.8b, #3                  : ushll  %d13 $0x00 $0x03 -> %q12
+2f0ba5ee : ushll v14.8h, v15.8b, #3                  : ushll  %d15 $0x00 $0x03 -> %q14
+2f0ca630 : ushll v16.8h, v17.8b, #4                  : ushll  %d17 $0x00 $0x04 -> %q16
+2f0ca672 : ushll v18.8h, v19.8b, #4                  : ushll  %d19 $0x00 $0x04 -> %q18
+2f0da6b4 : ushll v20.8h, v21.8b, #5                  : ushll  %d21 $0x00 $0x05 -> %q20
+2f0da6f6 : ushll v22.8h, v23.8b, #5                  : ushll  %d23 $0x00 $0x05 -> %q22
+2f0ea738 : ushll v24.8h, v25.8b, #6                  : ushll  %d25 $0x00 $0x06 -> %q24
+2f0ea77a : ushll v26.8h, v27.8b, #6                  : ushll  %d27 $0x00 $0x06 -> %q26
+2f0fa7bc : ushll v28.8h, v29.8b, #7                  : ushll  %d29 $0x00 $0x07 -> %q28
+2f0fa7fe : ushll v30.8h, v31.8b, #7                  : ushll  %d31 $0x00 $0x07 -> %q30
+2f10a420 : ushll v0.4s, v1.4h, #0                    : ushll  %d1 $0x01 $0x00 -> %q0
+2f11a462 : ushll v2.4s, v3.4h, #1                    : ushll  %d3 $0x01 $0x01 -> %q2
+2f12a4a4 : ushll v4.4s, v5.4h, #2                    : ushll  %d5 $0x01 $0x02 -> %q4
+2f13a4e6 : ushll v6.4s, v7.4h, #3                    : ushll  %d7 $0x01 $0x03 -> %q6
+2f14a528 : ushll v8.4s, v9.4h, #4                    : ushll  %d9 $0x01 $0x04 -> %q8
+2f15a56a : ushll v10.4s, v11.4h, #5                  : ushll  %d11 $0x01 $0x05 -> %q10
+2f16a5ac : ushll v12.4s, v13.4h, #6                  : ushll  %d13 $0x01 $0x06 -> %q12
+2f17a5ee : ushll v14.4s, v15.4h, #7                  : ushll  %d15 $0x01 $0x07 -> %q14
+2f18a630 : ushll v16.4s, v17.4h, #8                  : ushll  %d17 $0x01 $0x08 -> %q16
+2f19a672 : ushll v18.4s, v19.4h, #9                  : ushll  %d19 $0x01 $0x09 -> %q18
+2f1aa6b4 : ushll v20.4s, v21.4h, #10                 : ushll  %d21 $0x01 $0x0a -> %q20
+2f1ba6f6 : ushll v22.4s, v23.4h, #11                 : ushll  %d23 $0x01 $0x0b -> %q22
+2f1ca738 : ushll v24.4s, v25.4h, #12                 : ushll  %d25 $0x01 $0x0c -> %q24
+2f1da77a : ushll v26.4s, v27.4h, #13                 : ushll  %d27 $0x01 $0x0d -> %q26
+2f1ea7bc : ushll v28.4s, v29.4h, #14                 : ushll  %d29 $0x01 $0x0e -> %q28
+2f1fa7fe : ushll v30.4s, v31.4h, #15                 : ushll  %d31 $0x01 $0x0f -> %q30
+2f20a420 : ushll v0.2d, v1.2s, #0                    : ushll  %d1 $0x02 $0x00 -> %q0
+2f22a462 : ushll v2.2d, v3.2s, #2                    : ushll  %d3 $0x02 $0x02 -> %q2
+2f24a4a4 : ushll v4.2d, v5.2s, #4                    : ushll  %d5 $0x02 $0x04 -> %q4
+2f26a4e6 : ushll v6.2d, v7.2s, #6                    : ushll  %d7 $0x02 $0x06 -> %q6
+2f28a528 : ushll v8.2d, v9.2s, #8                    : ushll  %d9 $0x02 $0x08 -> %q8
+2f2aa56a : ushll v10.2d, v11.2s, #10                 : ushll  %d11 $0x02 $0x0a -> %q10
+2f2ca5ac : ushll v12.2d, v13.2s, #12                 : ushll  %d13 $0x02 $0x0c -> %q12
+2f2ea5ee : ushll v14.2d, v15.2s, #14                 : ushll  %d15 $0x02 $0x0e -> %q14
+2f31a630 : ushll v16.2d, v17.2s, #17                 : ushll  %d17 $0x02 $0x11 -> %q16
+2f33a672 : ushll v18.2d, v19.2s, #19                 : ushll  %d19 $0x02 $0x13 -> %q18
+2f35a6b4 : ushll v20.2d, v21.2s, #21                 : ushll  %d21 $0x02 $0x15 -> %q20
+2f37a6f6 : ushll v22.2d, v23.2s, #23                 : ushll  %d23 $0x02 $0x17 -> %q22
+2f39a738 : ushll v24.2d, v25.2s, #25                 : ushll  %d25 $0x02 $0x19 -> %q24
+2f3ba77a : ushll v26.2d, v27.2s, #27                 : ushll  %d27 $0x02 $0x1b -> %q26
+2f3da7bc : ushll v28.2d, v29.2s, #29                 : ushll  %d29 $0x02 $0x1d -> %q28
+2f3fa7fe : ushll v30.2d, v31.2s, #31                 : ushll  %d31 $0x02 $0x1f -> %q30
+6f08a420 : ushll2 v0.8h, v1.16b, #0                  : ushll2 %q1 $0x00 $0x00 -> %q0
+6f08a462 : ushll2 v2.8h, v3.16b, #0                  : ushll2 %q3 $0x00 $0x00 -> %q2
+6f09a4a4 : ushll2 v4.8h, v5.16b, #1                  : ushll2 %q5 $0x00 $0x01 -> %q4
+6f09a4e6 : ushll2 v6.8h, v7.16b, #1                  : ushll2 %q7 $0x00 $0x01 -> %q6
+6f0aa528 : ushll2 v8.8h, v9.16b, #2                  : ushll2 %q9 $0x00 $0x02 -> %q8
+6f0aa56a : ushll2 v10.8h, v11.16b, #2                : ushll2 %q11 $0x00 $0x02 -> %q10
+6f0ba5ac : ushll2 v12.8h, v13.16b, #3                : ushll2 %q13 $0x00 $0x03 -> %q12
+6f0ba5ee : ushll2 v14.8h, v15.16b, #3                : ushll2 %q15 $0x00 $0x03 -> %q14
+6f0ca630 : ushll2 v16.8h, v17.16b, #4                : ushll2 %q17 $0x00 $0x04 -> %q16
+6f0ca672 : ushll2 v18.8h, v19.16b, #4                : ushll2 %q19 $0x00 $0x04 -> %q18
+6f0da6b4 : ushll2 v20.8h, v21.16b, #5                : ushll2 %q21 $0x00 $0x05 -> %q20
+6f0da6f6 : ushll2 v22.8h, v23.16b, #5                : ushll2 %q23 $0x00 $0x05 -> %q22
+6f0ea738 : ushll2 v24.8h, v25.16b, #6                : ushll2 %q25 $0x00 $0x06 -> %q24
+6f0ea77a : ushll2 v26.8h, v27.16b, #6                : ushll2 %q27 $0x00 $0x06 -> %q26
+6f0fa7bc : ushll2 v28.8h, v29.16b, #7                : ushll2 %q29 $0x00 $0x07 -> %q28
+6f0fa7fe : ushll2 v30.8h, v31.16b, #7                : ushll2 %q31 $0x00 $0x07 -> %q30
+6f10a420 : ushll2 v0.4s, v1.8h, #0                   : ushll2 %q1 $0x01 $0x00 -> %q0
+6f11a462 : ushll2 v2.4s, v3.8h, #1                   : ushll2 %q3 $0x01 $0x01 -> %q2
+6f12a4a4 : ushll2 v4.4s, v5.8h, #2                   : ushll2 %q5 $0x01 $0x02 -> %q4
+6f13a4e6 : ushll2 v6.4s, v7.8h, #3                   : ushll2 %q7 $0x01 $0x03 -> %q6
+6f14a528 : ushll2 v8.4s, v9.8h, #4                   : ushll2 %q9 $0x01 $0x04 -> %q8
+6f15a56a : ushll2 v10.4s, v11.8h, #5                 : ushll2 %q11 $0x01 $0x05 -> %q10
+6f16a5ac : ushll2 v12.4s, v13.8h, #6                 : ushll2 %q13 $0x01 $0x06 -> %q12
+6f17a5ee : ushll2 v14.4s, v15.8h, #7                 : ushll2 %q15 $0x01 $0x07 -> %q14
+6f18a630 : ushll2 v16.4s, v17.8h, #8                 : ushll2 %q17 $0x01 $0x08 -> %q16
+6f19a672 : ushll2 v18.4s, v19.8h, #9                 : ushll2 %q19 $0x01 $0x09 -> %q18
+6f1aa6b4 : ushll2 v20.4s, v21.8h, #10                : ushll2 %q21 $0x01 $0x0a -> %q20
+6f1ba6f6 : ushll2 v22.4s, v23.8h, #11                : ushll2 %q23 $0x01 $0x0b -> %q22
+6f1ca738 : ushll2 v24.4s, v25.8h, #12                : ushll2 %q25 $0x01 $0x0c -> %q24
+6f1da77a : ushll2 v26.4s, v27.8h, #13                : ushll2 %q27 $0x01 $0x0d -> %q26
+6f1ea7bc : ushll2 v28.4s, v29.8h, #14                : ushll2 %q29 $0x01 $0x0e -> %q28
+6f1fa7fe : ushll2 v30.4s, v31.8h, #15                : ushll2 %q31 $0x01 $0x0f -> %q30
+6f20a420 : ushll2 v0.2d, v1.4s, #0                   : ushll2 %q1 $0x02 $0x00 -> %q0
+6f22a462 : ushll2 v2.2d, v3.4s, #2                   : ushll2 %q3 $0x02 $0x02 -> %q2
+6f24a4a4 : ushll2 v4.2d, v5.4s, #4                   : ushll2 %q5 $0x02 $0x04 -> %q4
+6f26a4e6 : ushll2 v6.2d, v7.4s, #6                   : ushll2 %q7 $0x02 $0x06 -> %q6
+6f28a528 : ushll2 v8.2d, v9.4s, #8                   : ushll2 %q9 $0x02 $0x08 -> %q8
+6f2aa56a : ushll2 v10.2d, v11.4s, #10                : ushll2 %q11 $0x02 $0x0a -> %q10
+6f2ca5ac : ushll2 v12.2d, v13.4s, #12                : ushll2 %q13 $0x02 $0x0c -> %q12
+6f2ea5ee : ushll2 v14.2d, v15.4s, #14                : ushll2 %q15 $0x02 $0x0e -> %q14
+6f31a630 : ushll2 v16.2d, v17.4s, #17                : ushll2 %q17 $0x02 $0x11 -> %q16
+6f33a672 : ushll2 v18.2d, v19.4s, #19                : ushll2 %q19 $0x02 $0x13 -> %q18
+6f35a6b4 : ushll2 v20.2d, v21.4s, #21                : ushll2 %q21 $0x02 $0x15 -> %q20
+6f37a6f6 : ushll2 v22.2d, v23.4s, #23                : ushll2 %q23 $0x02 $0x17 -> %q22
+6f39a738 : ushll2 v24.2d, v25.4s, #25                : ushll2 %q25 $0x02 $0x19 -> %q24
+6f3ba77a : ushll2 v26.2d, v27.4s, #27                : ushll2 %q27 $0x02 $0x1b -> %q26
+6f3da7bc : ushll2 v28.2d, v29.4s, #29                : ushll2 %q29 $0x02 $0x1d -> %q28
+6f3fa7fe : ushll2 v30.2d, v31.4s, #31                : ushll2 %q31 $0x02 $0x1f -> %q30
 
-# UXTL2 <Vd>.<Ta>, <Vn>.<Tb>
-6f08a401 : uxtl2 v1.8h, v0.16b               : ushll2 %q0 $0x38 -> %q1
-6f08a485 : uxtl2 v5.8h, v4.16b               : ushll2 %q4 $0x38 -> %q5
-6f08a52a : uxtl2 v10.8h, v9.16b              : ushll2 %q9 $0x38 -> %q10
-6f08a5cf : uxtl2 v15.8h, v14.16b             : ushll2 %q14 $0x38 -> %q15
-6f08a674 : uxtl2 v20.8h, v19.16b             : ushll2 %q19 $0x38 -> %q20
-6f08a719 : uxtl2 v25.8h, v24.16b             : ushll2 %q24 $0x38 -> %q25
-6f08a7be : uxtl2 v30.8h, v29.16b             : ushll2 %q29 $0x38 -> %q30
-6f10a401 : uxtl2 v1.4s, v0.8h                : ushll2 %q0 $0x30 -> %q1
-6f10a485 : uxtl2 v5.4s, v4.8h                : ushll2 %q4 $0x30 -> %q5
-6f10a52a : uxtl2 v10.4s, v9.8h               : ushll2 %q9 $0x30 -> %q10
-6f10a5cf : uxtl2 v15.4s, v14.8h              : ushll2 %q14 $0x30 -> %q15
-6f10a674 : uxtl2 v20.4s, v19.8h              : ushll2 %q19 $0x30 -> %q20
-6f10a719 : uxtl2 v25.4s, v24.8h              : ushll2 %q24 $0x30 -> %q25
-6f10a7be : uxtl2 v30.4s, v29.8h              : ushll2 %q29 $0x30 -> %q30
-6f20a401 : uxtl2 v1.2d, v0.4s                : ushll2 %q0 $0x20 -> %q1
-6f20a485 : uxtl2 v5.2d, v4.4s                : ushll2 %q4 $0x20 -> %q5
-6f20a52a : uxtl2 v10.2d, v9.4s               : ushll2 %q9 $0x20 -> %q10
-6f20a5cf : uxtl2 v15.2d, v14.4s              : ushll2 %q14 $0x20 -> %q15
-6f20a674 : uxtl2 v20.2d, v19.4s              : ushll2 %q19 $0x20 -> %q20
-6f20a719 : uxtl2 v25.2d, v24.4s              : ushll2 %q24 $0x20 -> %q25
-6f20a7be : uxtl2 v30.2d, v29.4s              : ushll2 %q29 $0x20 -> %q30
+# UXTL <Vd>.<Ta>, <Vn>.<Tb>
+# UXTL{2} is an alias for USHLL{2} with an shift of 0
+2f08a401 : uxtl v1.8h, v0.8b                 : ushll  %d0 $0x00 $0x00 -> %q1
+2f08a485 : uxtl v5.8h, v4.8b                 : ushll  %d4 $0x00 $0x00 -> %q5
+2f08a52a : uxtl v10.8h, v9.8b                : ushll  %d9 $0x00 $0x00 -> %q10
+2f08a5cf : uxtl v15.8h, v14.8b               : ushll  %d14 $0x00 $0x00 -> %q15
+2f08a674 : uxtl v20.8h, v19.8b               : ushll  %d19 $0x00 $0x00 -> %q20
+2f08a719 : uxtl v25.8h, v24.8b               : ushll  %d24 $0x00 $0x00 -> %q25
+2f08a7be : uxtl v30.8h, v29.8b               : ushll  %d29 $0x00 $0x00 -> %q30
+2f10a401 : uxtl v1.4s, v0.4h                 : ushll  %d0 $0x01 $0x00 -> %q1
+2f10a485 : uxtl v5.4s, v4.4h                 : ushll  %d4 $0x01 $0x00 -> %q5
+2f10a52a : uxtl v10.4s, v9.4h                : ushll  %d9 $0x01 $0x00 -> %q10
+2f10a5cf : uxtl v15.4s, v14.4h               : ushll  %d14 $0x01 $0x00 -> %q15
+2f10a674 : uxtl v20.4s, v19.4h               : ushll  %d19 $0x01 $0x00 -> %q20
+2f10a719 : uxtl v25.4s, v24.4h               : ushll  %d24 $0x01 $0x00 -> %q25
+2f10a7be : uxtl v30.4s, v29.4h               : ushll  %d29 $0x01 $0x00 -> %q30
+2f20a401 : uxtl v1.2d, v0.2s                 : ushll  %d0 $0x02 $0x00 -> %q1
+2f20a485 : uxtl v5.2d, v4.2s                 : ushll  %d4 $0x02 $0x00 -> %q5
+2f20a52a : uxtl v10.2d, v9.2s                : ushll  %d9 $0x02 $0x00 -> %q10
+2f20a5cf : uxtl v15.2d, v14.2s               : ushll  %d14 $0x02 $0x00 -> %q15
+2f20a674 : uxtl v20.2d, v19.2s               : ushll  %d19 $0x02 $0x00 -> %q20
+2f20a719 : uxtl v25.2d, v24.2s               : ushll  %d24 $0x02 $0x00 -> %q25
+2f20a7be : uxtl v30.2d, v29.2s               : ushll  %d29 $0x02 $0x00 -> %q30
+6f08a401 : uxtl2 v1.8h, v0.16b               : ushll2 %q0 $0x00 $0x00 -> %q1
+6f08a485 : uxtl2 v5.8h, v4.16b               : ushll2 %q4 $0x00 $0x00 -> %q5
+6f08a52a : uxtl2 v10.8h, v9.16b              : ushll2 %q9 $0x00 $0x00 -> %q10
+6f08a5cf : uxtl2 v15.8h, v14.16b             : ushll2 %q14 $0x00 $0x00 -> %q15
+6f08a674 : uxtl2 v20.8h, v19.16b             : ushll2 %q19 $0x00 $0x00 -> %q20
+6f08a719 : uxtl2 v25.8h, v24.16b             : ushll2 %q24 $0x00 $0x00 -> %q25
+6f08a7be : uxtl2 v30.8h, v29.16b             : ushll2 %q29 $0x00 $0x00 -> %q30
+6f10a401 : uxtl2 v1.4s, v0.8h                : ushll2 %q0 $0x01 $0x00 -> %q1
+6f10a485 : uxtl2 v5.4s, v4.8h                : ushll2 %q4 $0x01 $0x00 -> %q5
+6f10a52a : uxtl2 v10.4s, v9.8h               : ushll2 %q9 $0x01 $0x00 -> %q10
+6f10a5cf : uxtl2 v15.4s, v14.8h              : ushll2 %q14 $0x01 $0x00 -> %q15
+6f10a674 : uxtl2 v20.4s, v19.8h              : ushll2 %q19 $0x01 $0x00 -> %q20
+6f10a719 : uxtl2 v25.4s, v24.8h              : ushll2 %q24 $0x01 $0x00 -> %q25
+6f10a7be : uxtl2 v30.4s, v29.8h              : ushll2 %q29 $0x01 $0x00 -> %q30
+6f20a401 : uxtl2 v1.2d, v0.4s                : ushll2 %q0 $0x02 $0x00 -> %q1
+6f20a485 : uxtl2 v5.2d, v4.4s                : ushll2 %q4 $0x02 $0x00 -> %q5
+6f20a52a : uxtl2 v10.2d, v9.4s               : ushll2 %q9 $0x02 $0x00 -> %q10
+6f20a5cf : uxtl2 v15.2d, v14.4s              : ushll2 %q14 $0x02 $0x00 -> %q15
+6f20a674 : uxtl2 v20.2d, v19.4s              : ushll2 %q19 $0x02 $0x00 -> %q20
+6f20a719 : uxtl2 v25.2d, v24.4s              : ushll2 %q24 $0x02 $0x00 -> %q25
+6f20a7be : uxtl2 v30.2d, v29.4s              : ushll2 %q29 $0x02 $0x00 -> %q30
 
 # UZP1 <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 0e001822 : uzp1 v2.8b, v1.8b, v0.8b          : uzp1   %d1 %d0 $0x00 -> %d2
