@@ -6432,8 +6432,8 @@ test_uqshrn_vector(void *dc)
     for (uint shift_amount = 1; shift_amount <= 16; shift_amount++) {
         instr = INSTR_CREATE_uqshrn_vector(
             dc, opnd_create_reg(D_registers[(2 * shift_amount - 1) % 30]),
-            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]), OPND_CREATE_SINGLE(),
-            opnd_create_immed_int(shift_amount, OPSZ_4b));
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]),
+            OPND_CREATE_SINGLE(), opnd_create_immed_int(shift_amount, OPSZ_4b));
         test_instr_encoding(dc, OP_uqshrn, instr);
     }
 
@@ -6441,8 +6441,8 @@ test_uqshrn_vector(void *dc)
     for (uint shift_amount = 1; shift_amount <= 32; shift_amount++) {
         instr = INSTR_CREATE_uqshrn_vector(
             dc, opnd_create_reg(D_registers[(2 * shift_amount - 1) % 30]),
-            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]), OPND_CREATE_DOUBLE(),
-            opnd_create_immed_int(shift_amount, OPSZ_5b));
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]),
+            OPND_CREATE_DOUBLE(), opnd_create_immed_int(shift_amount, OPSZ_5b));
         test_instr_encoding(dc, OP_uqshrn, instr);
     }
 }
