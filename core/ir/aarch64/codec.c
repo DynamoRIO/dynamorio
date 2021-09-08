@@ -163,6 +163,7 @@ highest_bit_set(uint enc, int pos, int len, int *highest_bit)
             *highest_bit = i - pos;
             return true;
         }
+    }
     return false;
 }
 
