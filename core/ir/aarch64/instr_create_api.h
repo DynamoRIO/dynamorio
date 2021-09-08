@@ -1785,6 +1785,19 @@ enum {
     instr_create_1dst_3src(dc, OP_fcvtzu, Rd, Rm, width, fbits)
 
 /**
+ * Creates an UQSHRN vector unsigned saturating shift right narrow (immediate)
+ * instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param width   The output vector element width. Use OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param shift   The number of bits to shift the result by.
+ */
+#define INSTR_CREATE_uqshrn_vector(dc, Rd, Rn, width, shift) \
+    instr_create_1dst_3src(dc, OP_uqshrn, Rd, Rn, width, shift)
+
+/**
  * Creates a UCVTF vector instruction.
  * \param dc      The void * dcontext used to allocate memory for the #instr_t.
  * \param Rd      The output register.

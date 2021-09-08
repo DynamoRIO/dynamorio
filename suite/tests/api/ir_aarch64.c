@@ -111,7 +111,12 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
     pc = instr_encode(dc, instr, buf);
     decin = instr_create(dc);
     decode(dc, buf, decin);
-    ASSERT(instr_same(instr, decin));
+    if (!instr_same(instr, decin)) {
+        print("Dissassembled as:\n");
+        instr_disassemble(dc, decin, STDERR);
+        print("\n");
+        ASSERT(instr_same(instr, decin));
+    }
 
     instr_destroy(dc, instr);
     instr_destroy(dc, decin);
@@ -6393,6 +6398,56 @@ test_fcvtzu_vector_fixed(void *dc)
 }
 
 static void
+test_uqshrn_vector(void *dc)
+{
+    instr_t *instr;
+    reg_id_t Q_registers[31] = {
+        DR_REG_Q1,  DR_REG_Q2,  DR_REG_Q3,  DR_REG_Q4,  DR_REG_Q5,  DR_REG_Q6,
+        DR_REG_Q7,  DR_REG_Q8,  DR_REG_Q9,  DR_REG_Q10, DR_REG_Q11, DR_REG_Q12,
+        DR_REG_Q13, DR_REG_Q14, DR_REG_Q15, DR_REG_Q16, DR_REG_Q17, DR_REG_Q18,
+        DR_REG_Q19, DR_REG_Q21, DR_REG_Q22, DR_REG_Q23, DR_REG_Q24, DR_REG_Q25,
+        DR_REG_Q26, DR_REG_Q27, DR_REG_Q28, DR_REG_Q29, DR_REG_Q30, DR_REG_Q31
+    };
+
+    reg_id_t D_registers[31] = {
+        DR_REG_D1,  DR_REG_D2,  DR_REG_D3,  DR_REG_D4,  DR_REG_D5,  DR_REG_D6,
+        DR_REG_D7,  DR_REG_D8,  DR_REG_D9,  DR_REG_D10, DR_REG_D11, DR_REG_D12,
+        DR_REG_D13, DR_REG_D14, DR_REG_D15, DR_REG_D16, DR_REG_D17, DR_REG_D18,
+        DR_REG_D19, DR_REG_D21, DR_REG_D22, DR_REG_D23, DR_REG_D24, DR_REG_D25,
+        DR_REG_D26, DR_REG_D27, DR_REG_D28, DR_REG_D29, DR_REG_D30, DR_REG_D31
+    };
+
+    /* UQSHRN{2} <Vd>.<Tb>, <Vn>.<Ta>, #<shift> */
+
+    /* UQSHRN <Vd>.8b, <Vn>.8h, #<shift> */
+    for (uint shift_amount = 1; shift_amount <= 8; shift_amount++) {
+        instr = INSTR_CREATE_uqshrn_vector(
+            dc, opnd_create_reg(D_registers[(2 * shift_amount - 1) % 30]),
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]), OPND_CREATE_HALF(),
+            opnd_create_immed_int(shift_amount, OPSZ_3b));
+        test_instr_encoding(dc, OP_uqshrn, instr);
+    }
+
+    /* UQSHRN <Vd>.4h, <Vn>.4s, #<shift> */
+    for (uint shift_amount = 1; shift_amount <= 16; shift_amount++) {
+        instr = INSTR_CREATE_uqshrn_vector(
+            dc, opnd_create_reg(D_registers[(2 * shift_amount - 1) % 30]),
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]),
+            OPND_CREATE_SINGLE(), opnd_create_immed_int(shift_amount, OPSZ_4b));
+        test_instr_encoding(dc, OP_uqshrn, instr);
+    }
+
+    /* UQSHRN <Vd>.2s, <Vn>.2d, #<shift> */
+    for (uint shift_amount = 1; shift_amount <= 32; shift_amount++) {
+        instr = INSTR_CREATE_uqshrn_vector(
+            dc, opnd_create_reg(D_registers[(2 * shift_amount - 1) % 30]),
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]),
+            OPND_CREATE_DOUBLE(), opnd_create_immed_int(shift_amount, OPSZ_5b));
+        test_instr_encoding(dc, OP_uqshrn, instr);
+    }
+}
+
+static void
 test_ucvtf_scalar(void *dc)
 {
     instr_t *instr;
@@ -7143,6 +7198,9 @@ main(int argc, char *argv[])
 
     test_fcvtzu_vector_fixed(dcontext);
     print("test_fcvtzu_vector_fixed complete\n");
+
+    test_uqshrn_vector(dcontext);
+    print("test_uqshrn_vector_fixed complete\n");
 
     test_ucvtf_scalar(dcontext);
     print("test_ucvtf_scalar complete\n");

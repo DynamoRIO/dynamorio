@@ -136,14 +136,17 @@
 ----------?xxxxx--?-??----------  x16immvr   # computes immed from 21, 13 and 11:10
 ----------?xxxxx???-??----------  x16immvs   # computes immed from 21, 15:13 and 11:10
 ----------xx--------x-----------  vindex_H   # Index for vector with half elements (0-7)
-----------xxxxxx----------------  immhb      # encoding of #fbits value in immh:immb fields
+----------xxxxxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
 ----------xxxxxxxxxxxx----------  imm12      # immediate for ADD/SUB
 ----------xxxxxxxxxxxxxxxxx-----  mem12q     # size is 16 bytes
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
+---------????-------------------  hsd_immh_sz  # encoding of vector element size in immh field
+---------????-------------------  bhsd_immh_sz # encoding of vector element size in immh field
 ---------?x---------x-----------  vindex_SD  # Index for vector with single or double
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
+---------xxxxxxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
@@ -1105,8 +1108,8 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 01011110011xxxxx010011xxxxxxxxxx  n     sqshl      h0 : h5 h16
 01011110101xxxxx010011xxxxxxxxxx  n     sqshl      s0 : s5 s16
 01011110111xxxxx010011xxxxxxxxxx  n     sqshl      d0 : d5 d16
-0101111100xxxxxx011101xxxxxxxxxx  n     sqshl      s0 : s5 immhb
-0101111101xxxxxx011101xxxxxxxxxx  n     sqshl      d0 : d5 immhb
+0101111100xxxxxx011101xxxxxxxxxx  n     sqshl      s0 : s5 immhb_fxp
+0101111101xxxxxx011101xxxxxxxxxx  n     sqshl      d0 : d5 immhb_fxp
 0x001110xx1xxxxx010101xxxxxxxxxx  n     srshl     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx010111xxxxxxxxxx  n     sqrshl    dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx011001xxxxxxxxxx  n     smax      dq0 : dq5 dq16 bhs_sz
@@ -1374,19 +1377,19 @@ x001111000000010xxxxxxxxxxxxxxxx  n     scvtf     s0 : wx5 scale
 x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
 
 # Floating-point convert (vector, fixed-point) (scalar)
-0101111100xxxxxx111111xxxxxxxxxx  n     fcvtzs    s0 : s5 immhb
-0101111101xxxxxx111111xxxxxxxxxx  n     fcvtzs    d0 : d5 immhb
-0111111100xxxxxx111111xxxxxxxxxx  n     fcvtzu    s0 : s5 immhb
-0111111101xxxxxx111111xxxxxxxxxx  n     fcvtzu    d0 : d5 immhb
-0111111000xxxxxx111001xxxxxxxxxx  n     ucvtf     s0 : s5 immhb
-0111111001xxxxxx111001xxxxxxxxxx  n     ucvtf     d0 : d5 immhb
-0101111100xxxxxx111001xxxxxxxxxx  n     scvtf     s0 : s5 immhb
-0101111101xxxxxx111001xxxxxxxxxx  n     scvtf     d0 : d5 immhb
+0101111100xxxxxx111111xxxxxxxxxx  n     fcvtzs    s0 : s5 immhb_fxp
+0101111101xxxxxx111111xxxxxxxxxx  n     fcvtzs    d0 : d5 immhb_fxp
+0111111100xxxxxx111111xxxxxxxxxx  n     fcvtzu    s0 : s5 immhb_fxp
+0111111101xxxxxx111111xxxxxxxxxx  n     fcvtzu    d0 : d5 immhb_fxp
+0111111000xxxxxx111001xxxxxxxxxx  n     ucvtf     s0 : s5 immhb_fxp
+0111111001xxxxxx111001xxxxxxxxxx  n     ucvtf     d0 : d5 immhb_fxp
+0101111100xxxxxx111001xxxxxxxxxx  n     scvtf     s0 : s5 immhb_fxp
+0101111101xxxxxx111001xxxxxxxxxx  n     scvtf     d0 : d5 immhb_fxp
 
 # Floating-point convert (vector, fixed-point) (vector)
-0x1011110xxxxxxx111111xxxxxxxxxx  n     fcvtzu    dq0 : dq5 sd_sz immhb
-0x1011110xxxxxxx111001xxxxxxxxxx  n     ucvtf     dq0 : dq5 sd_sz immhb
-0x0011110xxxxxxx111001xxxxxxxxxx  n     scvtf     dq0 : dq5 sd_sz immhb
+0x1011110xxxxxxx111111xxxxxxxxxx  n     fcvtzu    dq0 : dq5 sd_sz immhb_fxp
+0x1011110xxxxxxx111001xxxxxxxxxx  n     ucvtf     dq0 : dq5 sd_sz immhb_fxp
+0x0011110xxxxxxx111001xxxxxxxxxx  n     scvtf     dq0 : dq5 sd_sz immhb_fxp
 
 # Floating-point data-processing (2 source)
 00011110xx1xxxxx000010xxxxxxxxxx  n     fmul      float_reg0 : float_reg5 float_reg16
@@ -1534,8 +1537,8 @@ x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
 0x101110xx110001101010xxxxxxxxxx  n     uminv     dq0 : dq5 bhsd_sz
 0x001110xx100000011010xxxxxxxxxx  n     sadalp    dq0 : dq5 bhsd_sz
 0x001110xx100000001010xxxxxxxxxx  n     saddlp    dq0 : dq5 bhsd_sz
-0000111100xxxxxx101001xxxxxxxxxx  n     sshll      d0 : d5 immhb
-0100111100xxxxxx101001xxxxxxxxxx  n     sshll2     q0 : q5 immhb
+0000111100xxxxxx101001xxxxxxxxxx  n     sshll      d0 : d5 immhb_fxp
+0100111100xxxxxx101001xxxxxxxxxx  n     sshll2     q0 : q5 immhb_fxp
 01011110000xxxxx000000xxxxxxxxxx  n     sha1c     q0 : s5 d16
 0101111000101000000010xxxxxxxxxx  n     sha1h     s0 : s5
 01011110000xxxxx001000xxxxxxxxxx  n     sha1m     q0 : s5 d16
@@ -1554,25 +1557,25 @@ x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
 0x101110000xxxxx0xxxx0xxxxxxxxxx  n     ext      dq0 : dq5 dq16 imm4idx
 0x001110xx0xxxxx001010xxxxxxxxxx  n     trn1     dq0 : dq5 dq16 bhsd_sz
 0x001110xx0xxxxx011010xxxxxxxxxx  n     trn2     dq0 : dq5 dq16 bhsd_sz
-0010111100xxxxxx101001xxxxxxxxxx  n     ushll    d0  : d5 immhb
-0110111100xxxxxx101001xxxxxxxxxx  n     ushll2   q0  : q5 immhb
+0010111100xxxxxx101001xxxxxxxxxx  n     ushll    d0  : d5 immhb_fxp
+0110111100xxxxxx101001xxxxxxxxxx  n     ushll2   q0  : q5 immhb_fxp
 0x001110xx0xxxxx000110xxxxxxxxxx  n     uzp1     dq0 : dq5 dq16 bhsd_sz
 0x001110xx0xxxxx010110xxxxxxxxxx  n     uzp2     dq0 : dq5 dq16 bhsd_sz
 00001110xx100001001010xxxxxxxxxx  n     xtn       d0 : d5 bhsd_sz
 01001110xx100001001010xxxxxxxxxx  n     xtn2      q0 : q5 bhsd_sz
-0101111101xxxxxx001001xxxxxxxxxx  n     srshr      d0 : d5 immhb
-0x0011110xxxxxxx001001xxxxxxxxxx  n     srshr     dq0 : dq5 sd_sz immhb
-0101111101xxxxxx001101xxxxxxxxxx  n     srsra      d0 : d5 immhb
-0101111101xxxxxx000001xxxxxxxxxx  n     sshr       d0 : d5 immhb
-0x0011110xxxxxxx000001xxxxxxxxxx  n     sshr      dq0 : dq5 sd_sz immhb
-0101111101xxxxxx000101xxxxxxxxxx  n     ssra       d0 : d5 immhb
-0101111101xxxxxx010101xxxxxxxxxx  n     shl        d0 : d5 immhb
-0111111101xxxxxx010101xxxxxxxxxx  n     sli        d0 : d5 immhb
-0111111101xxxxxx000001xxxxxxxxxx  n     ushr       d0 : d5 immhb
-0x1011110xxxxxxx000001xxxxxxxxxx  n     ushr      dq0 : dq5 sd_sz immhb
-0111111101xxxxxx000101xxxxxxxxxx  n     usra       d0 : d5 immhb
-0000111100xxxxxx100001xxxxxxxxxx  n     shrn       d0 : d5 immhb
-0100111100xxxxxx100001xxxxxxxxxx  n     shrn2      q0 : q5 immhb
+0101111101xxxxxx001001xxxxxxxxxx  n     srshr      d0 : d5 immhb_fxp
+0x0011110xxxxxxx001001xxxxxxxxxx  n     srshr     dq0 : dq5 sd_sz immhb_fxp
+0101111101xxxxxx001101xxxxxxxxxx  n     srsra      d0 : d5 immhb_fxp
+0101111101xxxxxx000001xxxxxxxxxx  n     sshr       d0 : d5 immhb_fxp
+0x0011110xxxxxxx000001xxxxxxxxxx  n     sshr      dq0 : dq5 sd_sz immhb_fxp
+0101111101xxxxxx000101xxxxxxxxxx  n     ssra       d0 : d5 immhb_fxp
+0101111101xxxxxx010101xxxxxxxxxx  n     shl        d0 : d5 immhb_fxp
+0111111101xxxxxx010101xxxxxxxxxx  n     sli        d0 : d5 immhb_fxp
+0111111101xxxxxx000001xxxxxxxxxx  n     ushr       d0 : d5 immhb_shf
+0x1011110xxxxxxx000001xxxxxxxxxx  n     ushr      dq0 : dq5 bhsd_immh_sz immhb_shf
+0111111101xxxxxx000101xxxxxxxxxx  n     usra       d0 : d5 immhb_fxp
+0000111100xxxxxx100001xxxxxxxxxx  n     shrn       d0 : d5 immhb_fxp
+0100111100xxxxxx100001xxxxxxxxxx  n     shrn2      q0 : q5 immhb_fxp
 00101110xx100001001110xxxxxxxxxx  n     shll       d0 : d5 bhs_sz
 01101110xx100001001110xxxxxxxxxx  n     shll2      q0 : q5 bhs_sz
 x001111011110001000000xxxxxxxxxx  n     fcvtmu   wx0 : h5
@@ -1601,10 +1604,10 @@ x001111001100001000000xxxxxxxxxx  n     fcvtnu   wx0 : d5
 0101111011100000001110xxxxxxxxxx  n     suqadd    d0 : d5
 0x001110xx100000001110xxxxxxxxxx  n     suqadd   dq0 : dq5 bhsd_sz
 0x001110000xxxxx0xx100xxxxxxxxxx  n     tbx      dq0 : dq5 dq16 len
-0010111100xxxxxx100111xxxxxxxxxx  n     uqrshrn   d0 : d5 immhb
-0110111100xxxxxx100111xxxxxxxxxx  n     uqrshrn2  q0 : q5 immhb
+0010111100xxxxxx100111xxxxxxxxxx  n     uqrshrn   d0 : q5 hsd_immh_sz immhb_shf
+0110111100xxxxxx100111xxxxxxxxxx  n     uqrshrn2  q0 : q5 hsd_immh_sz immhb_shf
 0x0011101x100001110010xxxxxxxxxx  n     urecpe   dq0 : dq5 sd_sz
-0111111101xxxxxx001101xxxxxxxxxx  n     ursra     d0 : d5 immhb
+0111111101xxxxxx001101xxxxxxxxxx  n     ursra     d0 : d5 immhb_fxp
 0111111000100000001110xxxxxxxxxx  n     usqadd    b0 : b5
 0111111001100000001110xxxxxxxxxx  n     usqadd    h0 : h5
 0111111010100000001110xxxxxxxxxx  n     usqadd    s0 : s5
@@ -1615,17 +1618,20 @@ x001111001100001000000xxxxxxxxxx  n     fcvtnu   wx0 : d5
 0111111010100000011110xxxxxxxxxx  n     sqneg     s0 : s5
 0111111011100000011110xxxxxxxxxx  n     sqneg     d0 : d5
 0x101110xx100000011110xxxxxxxxxx  n     sqneg    dq0 : dq5 bhsd_sz
-0000111100xxxxxx100111xxxxxxxxxx  n     sqrshrn   d0 : d5 immhb
-0100111100xxxxxx100111xxxxxxxxxx  n     sqrshrn2  q0 : q5 immhb
-0010111100xxxxxx100011xxxxxxxxxx  n     sqrshrun  d0 : d5 immhb
-0110111100xxxxxx100011xxxxxxxxxx  n     sqrshrun2 q0 : q5 immhb
-0111111100xxxxxx011001xxxxxxxxxx  n     sqshlu    s0 : s5 immhb
-0111111101xxxxxx011001xxxxxxxxxx  n     sqshlu    d0 : d5 immhb
-0x1011110xxxxxxx011001xxxxxxxxxx  n     sqshlu   dq0 : dq5 sd_sz immhb
-0010111100xxxxxx100001xxxxxxxxxx  n     sqshrun   d0 : d5 immhb
-0110111100xxxxxx100001xxxxxxxxxx  n     sqshrun2  q0 : q5 immhb
-0111111101xxxxxx010001xxxxxxxxxx  n     sri       d0 : d5 immhb
-0x1011110xxxxxxx010001xxxxxxxxxx  n     sri      dq0 : dq5 sd_sz immhb
+000011110xxxxxxx100111xxxxxxxxxx  n     sqrshrn   d0 : q5 hsd_immh_sz immhb_shf
+010011110xxxxxxx100111xxxxxxxxxx  n     sqrshrn2  q0 : q5 hsd_immh_sz immhb_shf
+0010111100xxxxxx100011xxxxxxxxxx  n     sqrshrun  d0 : d5 immhb_fxp
+0110111100xxxxxx100011xxxxxxxxxx  n     sqrshrun2 q0 : q5 immhb_fxp
+0111111100xxxxxx011001xxxxxxxxxx  n     sqshlu    s0 : s5 immhb_fxp
+0111111101xxxxxx011001xxxxxxxxxx  n     sqshlu    d0 : d5 immhb_fxp
+0x1011110xxxxxxx011001xxxxxxxxxx  n     sqshlu   dq0 : dq5 sd_sz immhb_fxp
+0010111100xxxxxx100001xxxxxxxxxx  n     sqshrun   d0 : d5 immhb_fxp
+0110111100xxxxxx100001xxxxxxxxxx  n     sqshrun2  q0 : q5 immhb_fxp
+0111111101xxxxxx010001xxxxxxxxxx  n     sri       d0 : d5 immhb_fxp
+0x1011110xxxxxxx010001xxxxxxxxxx  n     sri      dq0 : dq5 sd_sz immhb_fxp
+001011110xxxxxxx100101xxxxxxxxxx  n     uqshrn    d0 : q5 hsd_immh_sz immhb_shf
+011011110xxxxxxx100101xxxxxxxxxx  n     uqshrn2   q0 : q5 hsd_immh_sz immhb_shf
+0x1011110xxxxxxx001001xxxxxxxxxx  n     urshr    dq0 : dq5 bhsd_immh_sz immhb_shf
 0000111000110000110010xxxxxxxxxx  n     fmaxnmv   h0 : d5
 0100111000110000110010xxxxxxxxxx  n     fmaxnmv   h0 : q5
 0110111000110000110010xxxxxxxxxx  n     fmaxnmv   s0 : q5
@@ -1643,8 +1649,8 @@ x001111001100001000000xxxxxxxxxx  n     fcvtnu   wx0 : d5
 0111111010100001110110xxxxxxxxxx  n     frsqrte    s0 : s5
 0111111011100001110110xxxxxxxxxx  n     frsqrte    d0 : d5
 0x1011101x100001110110xxxxxxxxxx  n     frsqrte   dq0 : dq5 bd_sz
-0000111100xxxxxx100011xxxxxxxxxx  n     rshrn      d0 : d5 immhb
-0100111100xxxxxx100011xxxxxxxxxx  n     rshrn2     q0 : q5 immhb
+0000111100xxxxxx100011xxxxxxxxxx  n     rshrn      d0 : d5 immhb_fxp
+0100111100xxxxxx100011xxxxxxxxxx  n     rshrn2     q0 : q5 immhb_fxp
 0x001110xx110000001110xxxxxxxxxx  n     saddlv    dq0 : dq5 bhsd_sz
 0101111000100000011110xxxxxxxxxx  n     sqabs     b0 : b5
 0101111001100000011110xxxxxxxxxx  n     sqabs     h0 : h5
