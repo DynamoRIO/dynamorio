@@ -158,7 +158,7 @@ extract_uint(uint enc, int pos, int len)
 static inline uint
 highest_bit_set(uint enc, int pos, int len, int *highest_bit)
 {
-    for (int i = pos + len - 1; i >= pos; i--)
+    for (int i = pos + len - 1; i >= pos; i--) {
         if (enc & (1 << i)) {
             *highest_bit = i - pos;
             return true;
