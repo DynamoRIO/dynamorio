@@ -217,7 +217,7 @@ bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 Alternatively, you can first run \c notepad.exe, and then use \c drrun
 to attach to it:
 \code
-bin32/drrun.exe -late -attach <notepad_pid> -c samples/bin32/bbsize.dll
+bin32/drrun.exe -attach <notepad_pid> -c samples/bin32/bbsize.dll
 \endcode
 
 To use system-wide injection, allowing for an application to be run

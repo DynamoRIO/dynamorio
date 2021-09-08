@@ -312,7 +312,6 @@ const char *options_list_str =
 #    endif
 #    ifdef WINDOWS
     "       -attach <pid>      (Experimental)\n"
-    "                          Must be used with -late.\n"
     "                          Attach to the process with the given pid.\n"
     "                          If attach to a process which is in middle of blocking\n"
     "                          system call, attach could fail.\n"
@@ -1290,6 +1289,7 @@ _tmain(int argc, TCHAR *targv[])
             use_ptrace = true;
 #    endif
 #    ifdef WINDOWS
+            use_late_injection = true;
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
                              "-skip_terminating_threads");
 #    endif
