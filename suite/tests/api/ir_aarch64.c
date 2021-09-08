@@ -6398,6 +6398,57 @@ test_fcvtzu_vector_fixed(void *dc)
 }
 
 static void
+test_sli_vector(void *dc)
+{
+    instr_t *instr;
+    reg_id_t Q_registers[31] = {
+        DR_REG_Q1,  DR_REG_Q2,  DR_REG_Q3,  DR_REG_Q4,  DR_REG_Q5,  DR_REG_Q6,
+        DR_REG_Q7,  DR_REG_Q8,  DR_REG_Q9,  DR_REG_Q10, DR_REG_Q11, DR_REG_Q12,
+        DR_REG_Q13, DR_REG_Q14, DR_REG_Q15, DR_REG_Q16, DR_REG_Q17, DR_REG_Q18,
+        DR_REG_Q19, DR_REG_Q21, DR_REG_Q22, DR_REG_Q23, DR_REG_Q24, DR_REG_Q25,
+        DR_REG_Q26, DR_REG_Q27, DR_REG_Q28, DR_REG_Q29, DR_REG_Q30, DR_REG_Q31
+    };
+
+    /* SLI <Vd>.<T>, <Vn>.<T>, #<shift> */
+
+    /* SLI <Vd>.16b, <Vn>.16b, #<shift> */
+    for (uint shift_amount = 0; shift_amount <= 7; shift_amount++) {
+        instr = INSTR_CREATE_sli_vector(
+            dc, opnd_create_reg(Q_registers[(2 * shift_amount - 1) % 30]),
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]), OPND_CREATE_BYTE(),
+            opnd_create_immed_int(shift_amount, OPSZ_3b));
+        test_instr_encoding(dc, OP_sli, instr);
+    }
+
+    /* SLI <Vd>.8h, <Vn>.8h, #<shift> */
+    for (uint shift_amount = 0; shift_amount <= 15; shift_amount++) {
+        instr = INSTR_CREATE_sli_vector(
+            dc, opnd_create_reg(Q_registers[(2 * shift_amount - 1) % 30]),
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]), OPND_CREATE_HALF(),
+            opnd_create_immed_int(shift_amount, OPSZ_4b));
+        test_instr_encoding(dc, OP_sli, instr);
+    }
+
+    /* SLI <Vd>.4s, <Vn>.4s, #<shift> */
+    for (uint shift_amount = 0; shift_amount <= 31; shift_amount++) {
+        instr = INSTR_CREATE_sli_vector(
+            dc, opnd_create_reg(Q_registers[(2 * shift_amount - 1) % 30]),
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]),
+            OPND_CREATE_SINGLE(), opnd_create_immed_int(shift_amount, OPSZ_5b));
+        test_instr_encoding(dc, OP_sli, instr);
+    }
+
+    /* SLI <Vd>.2d, <Vn>.2d, #<shift> */
+    for (uint shift_amount = 0; shift_amount <= 63; shift_amount++) {
+        instr = INSTR_CREATE_sli_vector(
+            dc, opnd_create_reg(Q_registers[(2 * shift_amount - 1) % 30]),
+            opnd_create_reg(Q_registers[(2 * shift_amount - 2) % 30]),
+            OPND_CREATE_DOUBLE(), opnd_create_immed_int(shift_amount, OPSZ_6b));
+        test_instr_encoding(dc, OP_sli, instr);
+    }
+}
+
+static void
 test_uqshrn_vector(void *dc)
 {
     instr_t *instr;
@@ -7198,6 +7249,9 @@ main(int argc, char *argv[])
 
     test_fcvtzu_vector_fixed(dcontext);
     print("test_fcvtzu_vector_fixed complete\n");
+
+    test_sli_vector(dcontext);
+    print("test_sli_vector_fixed complete\n");
 
     test_uqshrn_vector(dcontext);
     print("test_uqshrn_vector_fixed complete\n");
