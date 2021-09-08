@@ -156,9 +156,9 @@ extract_uint(uint enc, int pos, int len)
 
 /* Find the highest bit set in subfield, relative to the starting position. */
 static inline uint
-highest_bit_set(uint enc, int pos, int len, int* highest_bit)
+highest_bit_set(uint enc, int pos, int len, int *highest_bit)
 {
-    for (int i = pos + len -1; i >= pos; i--)
+    for (int i = pos + len - 1; i >= pos; i--)
         if (enc & (1 << i)) {
             *highest_bit = i - pos;
             return true;
@@ -2456,7 +2456,6 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-
 /* immhb_fxp: The vector encoding of #fbits operand. This is the number of bits
  * after the decimal point for fixed-point values.
  */
@@ -2527,7 +2526,8 @@ encode_opnd_prf12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return encode_opnd_mem12_scale(3, true, opnd, enc_out);
 }
 
-/* hsd_immh_sz: The element size of a vector mediated by immh with possible values h, s and d
+/* hsd_immh_sz: The element size of a vector mediated by immh with possible values h, s
+ * and d
  */
 static inline bool
 decode_opnd_hsd_immh_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -2537,17 +2537,10 @@ decode_opnd_hsd_immh_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         return false;
 
     switch (highest_bit) {
-        case 0:
-            *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
-            break;
-        case 1:
-            *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
-            break;
-        case 2:
-            *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b);
-            break;
-        default:
-            return false;
+    case 0: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);break;
+    case 1: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b); break;
+    case 2: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b); break;
+    default:return false;
     }
     return true;
 }
@@ -2558,7 +2551,8 @@ encode_opnd_hsd_immh_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *e
     return true;
 }
 
-/* bhsd_immh_sz: The element size of a vector mediated by immh with possible values b, h, s and d
+/* bhsd_immh_sz: The element size of a vector mediated by immh with possible values b, h,
+ * s and d
  */
 static inline bool
 decode_opnd_bhsd_immh_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
@@ -2568,20 +2562,11 @@ decode_opnd_bhsd_immh_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         return false;
 
     switch (highest_bit) {
-        case 0:
-            *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_BYTE, OPSZ_2b);
-            break;
-        case 1:
-            *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
-            break;
-        case 2:
-            *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
-            break;
-        case 3:
-            *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b);
-            break;
-        default:
-            return false;
+    case 0: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_BYTE, OPSZ_2b); break;
+    case 1: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b); break;
+    case 2: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b); break;
+    case 3: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b); break;
+    default: return false;
     }
     return true;
 }
@@ -2703,16 +2688,18 @@ decode_opnd_immhb_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     int highest_bit;
     if (!highest_bit_set(enc, 19, 4, &highest_bit))
         return false;
+
     uint esize = 8 << highest_bit;
-    uint immhb_shf = extract_uint(enc, 16, 4+highest_bit);
+    uint immhb_shf = extract_uint(enc, 16, 4 + highest_bit);
     opnd_size_t shift_size;
-    switch(highest_bit){
-        case 0: shift_size = OPSZ_3b; break;
-        case 1: shift_size = OPSZ_4b; break;
-        case 2: shift_size = OPSZ_5b; break;
-        case 3: shift_size = OPSZ_6b; break;
-        default: return false;
+    switch(highest_bit) {
+    case 0: shift_size = OPSZ_3b; break;
+    case 1: shift_size = OPSZ_4b; break;
+    case 2: shift_size = OPSZ_5b; break;
+    case 3: shift_size = OPSZ_6b; break;
+    default: return false;
     }
+
     *opnd = opnd_create_immed_int((2 * esize) - immhb_shf, shift_size);
     opnd_add_flags(*opnd, DR_OPND_IS_SHIFT);
     return true;
@@ -2723,24 +2710,22 @@ encode_opnd_immhb_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
 {
     opnd_size_t shift_size = opnd_get_size(opnd);
     uint highest_bit;
-    switch(shift_size){
-        case OPSZ_3b: highest_bit = 0; break;
-        case OPSZ_4b: highest_bit = 1; break;
-        case OPSZ_5b: highest_bit = 2; break;
-        case OPSZ_6b: highest_bit = 3; break;
-        default: return false;
+    switch(shift_size) {
+    case OPSZ_3b: highest_bit = 0; break;
+    case OPSZ_4b: highest_bit = 1; break;
+    case OPSZ_5b: highest_bit = 2; break;
+    case OPSZ_6b: highest_bit = 3; break;
+    default: return false;
     }
     ptr_int_t shift_amount;
     uint esize = 8 << highest_bit;
 
-    if (!opnd_is_immed_int(opnd)){
+    if (!opnd_is_immed_int(opnd))
         return false;
-    }
 
     shift_amount = opnd_get_immed_int(opnd);
-    if (shift_amount < 1 || shift_amount > esize){
+    if (shift_amount < 1 || shift_amount > esize)
         return false;
-    }
 
     *enc_out = ((esize * 2 - shift_amount) << 16);
 
