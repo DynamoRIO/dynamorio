@@ -214,6 +214,12 @@ bbsize sample client using the following configure-and-run command:
 bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 \endcode
 
+Alternatively, you can first run \c notepad.exe, and then use \c drrun
+to attach to it:
+\code
+bin32/drrun.exe -late -attach <notepad_pid> -c samples/bin32/bbsize.dll
+\endcode
+
 To use system-wide injection, allowing for an application to be run
 under DynamoRIO regardless of how it is invoked, configure the application
 first (-syswide_on requires administrative privileges):
