@@ -2681,11 +2681,8 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return false;
 }
 
-/* immhb_shf: The vector encoding of #shift operand.
- */
 static inline bool
-decode_opnd_immhb_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
+immhb_shf_decode(uint enc, int opcode, byte *pc, OUT opnd_t *opnd, uint min_shift) {
     int highest_bit;
     if (!highest_bit_set(enc, 19, 4, &highest_bit))
         return false;
@@ -2701,13 +2698,19 @@ decode_opnd_immhb_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     default: return false;
     }
 
-    *opnd = opnd_create_immed_int((2 * esize) - immhb_shf, shift_size);
+    if (min_shift == 1)
+        *opnd = opnd_create_immed_int((2 * esize) - immhb_shf, shift_size);
+    else if (min_shift == 0)
+        *opnd = opnd_create_immed_int(immhb_shf - esize, shift_size);
+    else
+        return false;
+
     opnd_add_flags(*opnd, DR_OPND_IS_SHIFT);
     return true;
 }
 
 static inline bool
-encode_opnd_immhb_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out, uint min_shift)
 {
     opnd_size_t shift_size = opnd_get_size(opnd);
     uint highest_bit;
@@ -2725,12 +2728,38 @@ encode_opnd_immhb_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
         return false;
 
     shift_amount = opnd_get_immed_int(opnd);
-    if (shift_amount < 1 || shift_amount > esize)
+
+    uint shift_encoding, max_shift;
+    if (min_shift == 0) {
+        shift_encoding = shift_amount + esize;
+        max_shift = esize - 1;
+    } else if (min_shift == 1) {
+        shift_encoding = esize * 2 - shift_amount;
+        max_shift = esize;
+    } else
         return false;
 
-    *enc_out = ((esize * 2 - shift_amount) << 16);
+    if (shift_amount < min_shift || shift_amount > max_shift)
+        return false;
+
+    *enc_out = (shift_encoding << 16);
 
     return true;
+}
+
+
+/* immhb_shf: The vector encoding of #shift operand.
+ */
+static inline bool
+decode_opnd_immhb_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return immhb_shf_decode(enc, opcode, pc, opnd, 1);
+}
+
+static inline bool
+encode_opnd_immhb_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
 }
 
 /* immhb_shf2: The vector encoding of #shift operand.
@@ -2738,51 +2767,13 @@ encode_opnd_immhb_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
 static inline bool
 decode_opnd_immhb_0shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    int highest_bit;
-    if (!highest_bit_set(enc, 19, 4, &highest_bit))
-        return false;
-
-    uint esize = 8 << highest_bit;
-    uint immhb_shf = extract_uint(enc, 16, 4 + highest_bit);
-    opnd_size_t shift_size;
-    switch (highest_bit) {
-    case 0: shift_size = OPSZ_3b; break;
-    case 1: shift_size = OPSZ_4b; break;
-    case 2: shift_size = OPSZ_5b; break;
-    case 3: shift_size = OPSZ_6b; break;
-    default: return false;
-    }
-
-    *opnd = opnd_create_immed_int(immhb_shf - esize, shift_size);
-    opnd_add_flags(*opnd, DR_OPND_IS_SHIFT);
-    return true;
+    return immhb_shf_decode(enc, opcode, pc, opnd, 0);
 }
 
 static inline bool
 encode_opnd_immhb_0shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    opnd_size_t shift_size = opnd_get_size(opnd);
-    uint highest_bit;
-    switch (shift_size) {
-    case OPSZ_3b: highest_bit = 0; break;
-    case OPSZ_4b: highest_bit = 1; break;
-    case OPSZ_5b: highest_bit = 2; break;
-    case OPSZ_6b: highest_bit = 3; break;
-    default: return false;
-    }
-    ptr_int_t shift_amount;
-    uint esize = 8 << highest_bit;
-
-    if (!opnd_is_immed_int(opnd))
-        return false;
-
-    shift_amount = opnd_get_immed_int(opnd);
-    if (shift_amount < 0 || shift_amount > (esize - 1))
-        return false;
-
-    *enc_out = ((shift_amount + esize) << 16);
-
-    return true;
+    return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 0);
 }
 
 /* fpimm13: floating-point immediate for scalar fmov */
