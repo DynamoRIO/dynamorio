@@ -7273,66 +7273,184 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 4ef74e6b : sqshl v11.2d, v19.2d, v23.2d             : sqshl  %q19 %q23 $0x03 -> %q11
 
 # SQSHL <V><d>, <V><n>, #<shift>
-5f087420 : sqshl b0, b1, #0                         : sqshl  %s1 $0x38 -> %s0
-5f097420 : sqshl b0, b1, #1                         : sqshl  %s1 $0x37 -> %s0
-5f0a7420 : sqshl b0, b1, #2                         : sqshl  %s1 $0x36 -> %s0
-5f0b7420 : sqshl b0, b1, #3                         : sqshl  %s1 $0x35 -> %s0
-5f0c7420 : sqshl b0, b1, #4                         : sqshl  %s1 $0x34 -> %s0
-5f0d7420 : sqshl b0, b1, #5                         : sqshl  %s1 $0x33 -> %s0
-5f0e7420 : sqshl b0, b1, #6                         : sqshl  %s1 $0x32 -> %s0
-5f0f7420 : sqshl b0, b1, #7                         : sqshl  %s1 $0x31 -> %s0
-5f107420 : sqshl h0, h1, #0                         : sqshl  %s1 $0x30 -> %s0
-5f117420 : sqshl h0, h1, #1                         : sqshl  %s1 $0x2f -> %s0
-5f127420 : sqshl h0, h1, #2                         : sqshl  %s1 $0x2e -> %s0
-5f137420 : sqshl h0, h1, #3                         : sqshl  %s1 $0x2d -> %s0
-5f147420 : sqshl h0, h1, #4                         : sqshl  %s1 $0x2c -> %s0
-5f157420 : sqshl h0, h1, #5                         : sqshl  %s1 $0x2b -> %s0
-5f167420 : sqshl h0, h1, #6                         : sqshl  %s1 $0x2a -> %s0
-5f177420 : sqshl h0, h1, #7                         : sqshl  %s1 $0x29 -> %s0
-5f187420 : sqshl h0, h1, #8                         : sqshl  %s1 $0x28 -> %s0
-5f197420 : sqshl h0, h1, #9                         : sqshl  %s1 $0x27 -> %s0
-5f1a7420 : sqshl h0, h1, #10                        : sqshl  %s1 $0x26 -> %s0
-5f1b7420 : sqshl h0, h1, #11                        : sqshl  %s1 $0x25 -> %s0
-5f1c7420 : sqshl h0, h1, #12                        : sqshl  %s1 $0x24 -> %s0
-5f1d7420 : sqshl h0, h1, #13                        : sqshl  %s1 $0x23 -> %s0
-5f1e7420 : sqshl h0, h1, #14                        : sqshl  %s1 $0x22 -> %s0
-5f1f7420 : sqshl h0, h1, #15                        : sqshl  %s1 $0x21 -> %s0
-5f207420 : sqshl s0, s1, #0                         : sqshl  %s1 $0x20 -> %s0
-5f217420 : sqshl s0, s1, #1                         : sqshl  %s1 $0x1f -> %s0
-5f227420 : sqshl s0, s1, #2                         : sqshl  %s1 $0x1e -> %s0
-5f237420 : sqshl s0, s1, #3                         : sqshl  %s1 $0x1d -> %s0
-5f247420 : sqshl s0, s1, #4                         : sqshl  %s1 $0x1c -> %s0
-5f257420 : sqshl s0, s1, #5                         : sqshl  %s1 $0x1b -> %s0
-5f267420 : sqshl s0, s1, #6                         : sqshl  %s1 $0x1a -> %s0
-5f277420 : sqshl s0, s1, #7                         : sqshl  %s1 $0x19 -> %s0
-5f287420 : sqshl s0, s1, #8                         : sqshl  %s1 $0x18 -> %s0
-5f297420 : sqshl s0, s1, #9                         : sqshl  %s1 $0x17 -> %s0
-5f2a7420 : sqshl s0, s1, #10                        : sqshl  %s1 $0x16 -> %s0
-5f2b7420 : sqshl s0, s1, #11                        : sqshl  %s1 $0x15 -> %s0
-5f2c7420 : sqshl s0, s1, #12                        : sqshl  %s1 $0x14 -> %s0
-5f2d7420 : sqshl s0, s1, #13                        : sqshl  %s1 $0x13 -> %s0
-5f2e7420 : sqshl s0, s1, #14                        : sqshl  %s1 $0x12 -> %s0
-5f2f7420 : sqshl s0, s1, #15                        : sqshl  %s1 $0x11 -> %s0
-5f307420 : sqshl s0, s1, #16                        : sqshl  %s1 $0x10 -> %s0
-5f317420 : sqshl s0, s1, #17                        : sqshl  %s1 $0x0f -> %s0
-5f327420 : sqshl s0, s1, #18                        : sqshl  %s1 $0x0e -> %s0
-5f337420 : sqshl s0, s1, #19                        : sqshl  %s1 $0x0d -> %s0
-5f347420 : sqshl s0, s1, #20                        : sqshl  %s1 $0x0c -> %s0
-5f357420 : sqshl s0, s1, #21                        : sqshl  %s1 $0x0b -> %s0
-5f367420 : sqshl s0, s1, #22                        : sqshl  %s1 $0x0a -> %s0
-5f377420 : sqshl s0, s1, #23                        : sqshl  %s1 $0x09 -> %s0
-5f387420 : sqshl s0, s1, #24                        : sqshl  %s1 $0x08 -> %s0
-5f397420 : sqshl s0, s1, #25                        : sqshl  %s1 $0x07 -> %s0
-5f3a7420 : sqshl s0, s1, #26                        : sqshl  %s1 $0x06 -> %s0
-5f3b7420 : sqshl s0, s1, #27                        : sqshl  %s1 $0x05 -> %s0
-5f3c7420 : sqshl s0, s1, #28                        : sqshl  %s1 $0x04 -> %s0
-5f3d7420 : sqshl s0, s1, #29                        : sqshl  %s1 $0x03 -> %s0
-5f3e7420 : sqshl s0, s1, #30                        : sqshl  %s1 $0x02 -> %s0
-5f3f7420 : sqshl s0, s1, #31                        : sqshl  %s1 $0x01 -> %s0
-5f407420 : sqshl d0, d1, #0                         : sqshl  %d1 $0x40 -> %d0
-5f6a7420 : sqshl d0, d1, #42                        : sqshl  %d1 $0x16 -> %d0
-5f757420 : sqshl d0, d1, #53                        : sqshl  %d1 $0x0b -> %d0
-5f7f7420 : sqshl d0, d1, #63                        : sqshl  %d1 $0x01 -> %d0
+5f087420 : sqshl b0, b1, #0                          : sqshl  %b1 $0x00 -> %b0
+5f087462 : sqshl b2, b3, #0                          : sqshl  %b3 $0x00 -> %b2
+5f0974a4 : sqshl b4, b5, #1                          : sqshl  %b5 $0x01 -> %b4
+5f0974e6 : sqshl b6, b7, #1                          : sqshl  %b7 $0x01 -> %b6
+5f0a7528 : sqshl b8, b9, #2                          : sqshl  %b9 $0x02 -> %b8
+5f0a756a : sqshl b10, b11, #2                        : sqshl  %b11 $0x02 -> %b10
+5f0b75ac : sqshl b12, b13, #3                        : sqshl  %b13 $0x03 -> %b12
+5f0b75ee : sqshl b14, b15, #3                        : sqshl  %b15 $0x03 -> %b14
+5f0c7630 : sqshl b16, b17, #4                        : sqshl  %b17 $0x04 -> %b16
+5f0c7672 : sqshl b18, b19, #4                        : sqshl  %b19 $0x04 -> %b18
+5f0d76b4 : sqshl b20, b21, #5                        : sqshl  %b21 $0x05 -> %b20
+5f0d76f6 : sqshl b22, b23, #5                        : sqshl  %b23 $0x05 -> %b22
+5f0e7738 : sqshl b24, b25, #6                        : sqshl  %b25 $0x06 -> %b24
+5f0e777a : sqshl b26, b27, #6                        : sqshl  %b27 $0x06 -> %b26
+5f0f77bc : sqshl b28, b29, #7                        : sqshl  %b29 $0x07 -> %b28
+5f0f77fe : sqshl b30, b31, #7                        : sqshl  %b31 $0x07 -> %b30
+5f107420 : sqshl h0, h1, #0                          : sqshl  %h1 $0x00 -> %h0
+5f117462 : sqshl h2, h3, #1                          : sqshl  %h3 $0x01 -> %h2
+5f1274a4 : sqshl h4, h5, #2                          : sqshl  %h5 $0x02 -> %h4
+5f1374e6 : sqshl h6, h7, #3                          : sqshl  %h7 $0x03 -> %h6
+5f147528 : sqshl h8, h9, #4                          : sqshl  %h9 $0x04 -> %h8
+5f15756a : sqshl h10, h11, #5                        : sqshl  %h11 $0x05 -> %h10
+5f1675ac : sqshl h12, h13, #6                        : sqshl  %h13 $0x06 -> %h12
+5f1775ee : sqshl h14, h15, #7                        : sqshl  %h15 $0x07 -> %h14
+5f187630 : sqshl h16, h17, #8                        : sqshl  %h17 $0x08 -> %h16
+5f197672 : sqshl h18, h19, #9                        : sqshl  %h19 $0x09 -> %h18
+5f1a76b4 : sqshl h20, h21, #10                       : sqshl  %h21 $0x0a -> %h20
+5f1b76f6 : sqshl h22, h23, #11                       : sqshl  %h23 $0x0b -> %h22
+5f1c7738 : sqshl h24, h25, #12                       : sqshl  %h25 $0x0c -> %h24
+5f1d777a : sqshl h26, h27, #13                       : sqshl  %h27 $0x0d -> %h26
+5f1e77bc : sqshl h28, h29, #14                       : sqshl  %h29 $0x0e -> %h28
+5f1f77fe : sqshl h30, h31, #15                       : sqshl  %h31 $0x0f -> %h30
+5f207420 : sqshl s0, s1, #0                          : sqshl  %s1 $0x00 -> %s0
+5f227462 : sqshl s2, s3, #2                          : sqshl  %s3 $0x02 -> %s2
+5f2474a4 : sqshl s4, s5, #4                          : sqshl  %s5 $0x04 -> %s4
+5f2674e6 : sqshl s6, s7, #6                          : sqshl  %s7 $0x06 -> %s6
+5f287528 : sqshl s8, s9, #8                          : sqshl  %s9 $0x08 -> %s8
+5f2a756a : sqshl s10, s11, #10                       : sqshl  %s11 $0x0a -> %s10
+5f2c75ac : sqshl s12, s13, #12                       : sqshl  %s13 $0x0c -> %s12
+5f2e75ee : sqshl s14, s15, #14                       : sqshl  %s15 $0x0e -> %s14
+5f317630 : sqshl s16, s17, #17                       : sqshl  %s17 $0x11 -> %s16
+5f337672 : sqshl s18, s19, #19                       : sqshl  %s19 $0x13 -> %s18
+5f3576b4 : sqshl s20, s21, #21                       : sqshl  %s21 $0x15 -> %s20
+5f3776f6 : sqshl s22, s23, #23                       : sqshl  %s23 $0x17 -> %s22
+5f397738 : sqshl s24, s25, #25                       : sqshl  %s25 $0x19 -> %s24
+5f3b777a : sqshl s26, s27, #27                       : sqshl  %s27 $0x1b -> %s26
+5f3d77bc : sqshl s28, s29, #29                       : sqshl  %s29 $0x1d -> %s28
+5f3f77fe : sqshl s30, s31, #31                       : sqshl  %s31 $0x1f -> %s30
+5f407420 : sqshl d0, d1, #0                          : sqshl  %d1 $0x00 -> %d0
+5f447462 : sqshl d2, d3, #4                          : sqshl  %d3 $0x04 -> %d2
+5f4874a4 : sqshl d4, d5, #8                          : sqshl  %d5 $0x08 -> %d4
+5f4c74e6 : sqshl d6, d7, #12                         : sqshl  %d7 $0x0c -> %d6
+5f517528 : sqshl d8, d9, #17                         : sqshl  %d9 $0x11 -> %d8
+5f55756a : sqshl d10, d11, #21                       : sqshl  %d11 $0x15 -> %d10
+5f5975ac : sqshl d12, d13, #25                       : sqshl  %d13 $0x19 -> %d12
+5f5d75ee : sqshl d14, d15, #29                       : sqshl  %d15 $0x1d -> %d14
+5f627630 : sqshl d16, d17, #34                       : sqshl  %d17 $0x22 -> %d16
+5f667672 : sqshl d18, d19, #38                       : sqshl  %d19 $0x26 -> %d18
+5f6a76b4 : sqshl d20, d21, #42                       : sqshl  %d21 $0x2a -> %d20
+5f6e76f6 : sqshl d22, d23, #46                       : sqshl  %d23 $0x2e -> %d22
+5f737738 : sqshl d24, d25, #51                       : sqshl  %d25 $0x33 -> %d24
+5f77777a : sqshl d26, d27, #55                       : sqshl  %d27 $0x37 -> %d26
+5f7b77bc : sqshl d28, d29, #59                       : sqshl  %d29 $0x3b -> %d28
+5f7f77fe : sqshl d30, d31, #63                       : sqshl  %d31 $0x3f -> %d30
+
+# SQSHL <Vd>.<T>, <Vn>.<T>, #<shift>
+0f087420 : sqshl v0.8b, v1.8b, #0                    : sqshl  %d1 $0x00 $0x00 -> %d0
+0f087462 : sqshl v2.8b, v3.8b, #0                    : sqshl  %d3 $0x00 $0x00 -> %d2
+0f0974a4 : sqshl v4.8b, v5.8b, #1                    : sqshl  %d5 $0x00 $0x01 -> %d4
+0f0974e6 : sqshl v6.8b, v7.8b, #1                    : sqshl  %d7 $0x00 $0x01 -> %d6
+0f0a7528 : sqshl v8.8b, v9.8b, #2                    : sqshl  %d9 $0x00 $0x02 -> %d8
+0f0a756a : sqshl v10.8b, v11.8b, #2                  : sqshl  %d11 $0x00 $0x02 -> %d10
+0f0b75ac : sqshl v12.8b, v13.8b, #3                  : sqshl  %d13 $0x00 $0x03 -> %d12
+0f0b75ee : sqshl v14.8b, v15.8b, #3                  : sqshl  %d15 $0x00 $0x03 -> %d14
+0f0c7630 : sqshl v16.8b, v17.8b, #4                  : sqshl  %d17 $0x00 $0x04 -> %d16
+0f0c7672 : sqshl v18.8b, v19.8b, #4                  : sqshl  %d19 $0x00 $0x04 -> %d18
+0f0d76b4 : sqshl v20.8b, v21.8b, #5                  : sqshl  %d21 $0x00 $0x05 -> %d20
+0f0d76f6 : sqshl v22.8b, v23.8b, #5                  : sqshl  %d23 $0x00 $0x05 -> %d22
+0f0e7738 : sqshl v24.8b, v25.8b, #6                  : sqshl  %d25 $0x00 $0x06 -> %d24
+0f0e777a : sqshl v26.8b, v27.8b, #6                  : sqshl  %d27 $0x00 $0x06 -> %d26
+0f0f77bc : sqshl v28.8b, v29.8b, #7                  : sqshl  %d29 $0x00 $0x07 -> %d28
+0f0f77fe : sqshl v30.8b, v31.8b, #7                  : sqshl  %d31 $0x00 $0x07 -> %d30
+4f087420 : sqshl v0.16b, v1.16b, #0                  : sqshl  %q1 $0x00 $0x00 -> %q0
+4f087462 : sqshl v2.16b, v3.16b, #0                  : sqshl  %q3 $0x00 $0x00 -> %q2
+4f0974a4 : sqshl v4.16b, v5.16b, #1                  : sqshl  %q5 $0x00 $0x01 -> %q4
+4f0974e6 : sqshl v6.16b, v7.16b, #1                  : sqshl  %q7 $0x00 $0x01 -> %q6
+4f0a7528 : sqshl v8.16b, v9.16b, #2                  : sqshl  %q9 $0x00 $0x02 -> %q8
+4f0a756a : sqshl v10.16b, v11.16b, #2                : sqshl  %q11 $0x00 $0x02 -> %q10
+4f0b75ac : sqshl v12.16b, v13.16b, #3                : sqshl  %q13 $0x00 $0x03 -> %q12
+4f0b75ee : sqshl v14.16b, v15.16b, #3                : sqshl  %q15 $0x00 $0x03 -> %q14
+4f0c7630 : sqshl v16.16b, v17.16b, #4                : sqshl  %q17 $0x00 $0x04 -> %q16
+4f0c7672 : sqshl v18.16b, v19.16b, #4                : sqshl  %q19 $0x00 $0x04 -> %q18
+4f0d76b4 : sqshl v20.16b, v21.16b, #5                : sqshl  %q21 $0x00 $0x05 -> %q20
+4f0d76f6 : sqshl v22.16b, v23.16b, #5                : sqshl  %q23 $0x00 $0x05 -> %q22
+4f0e7738 : sqshl v24.16b, v25.16b, #6                : sqshl  %q25 $0x00 $0x06 -> %q24
+4f0e777a : sqshl v26.16b, v27.16b, #6                : sqshl  %q27 $0x00 $0x06 -> %q26
+4f0f77bc : sqshl v28.16b, v29.16b, #7                : sqshl  %q29 $0x00 $0x07 -> %q28
+4f0f77fe : sqshl v30.16b, v31.16b, #7                : sqshl  %q31 $0x00 $0x07 -> %q30
+0f107420 : sqshl v0.4h, v1.4h, #0                    : sqshl  %d1 $0x01 $0x00 -> %d0
+0f117462 : sqshl v2.4h, v3.4h, #1                    : sqshl  %d3 $0x01 $0x01 -> %d2
+0f1274a4 : sqshl v4.4h, v5.4h, #2                    : sqshl  %d5 $0x01 $0x02 -> %d4
+0f1374e6 : sqshl v6.4h, v7.4h, #3                    : sqshl  %d7 $0x01 $0x03 -> %d6
+0f147528 : sqshl v8.4h, v9.4h, #4                    : sqshl  %d9 $0x01 $0x04 -> %d8
+0f15756a : sqshl v10.4h, v11.4h, #5                  : sqshl  %d11 $0x01 $0x05 -> %d10
+0f1675ac : sqshl v12.4h, v13.4h, #6                  : sqshl  %d13 $0x01 $0x06 -> %d12
+0f1775ee : sqshl v14.4h, v15.4h, #7                  : sqshl  %d15 $0x01 $0x07 -> %d14
+0f187630 : sqshl v16.4h, v17.4h, #8                  : sqshl  %d17 $0x01 $0x08 -> %d16
+0f197672 : sqshl v18.4h, v19.4h, #9                  : sqshl  %d19 $0x01 $0x09 -> %d18
+0f1a76b4 : sqshl v20.4h, v21.4h, #10                 : sqshl  %d21 $0x01 $0x0a -> %d20
+0f1b76f6 : sqshl v22.4h, v23.4h, #11                 : sqshl  %d23 $0x01 $0x0b -> %d22
+0f1c7738 : sqshl v24.4h, v25.4h, #12                 : sqshl  %d25 $0x01 $0x0c -> %d24
+0f1d777a : sqshl v26.4h, v27.4h, #13                 : sqshl  %d27 $0x01 $0x0d -> %d26
+0f1e77bc : sqshl v28.4h, v29.4h, #14                 : sqshl  %d29 $0x01 $0x0e -> %d28
+0f1f77fe : sqshl v30.4h, v31.4h, #15                 : sqshl  %d31 $0x01 $0x0f -> %d30
+4f107420 : sqshl v0.8h, v1.8h, #0                    : sqshl  %q1 $0x01 $0x00 -> %q0
+4f117462 : sqshl v2.8h, v3.8h, #1                    : sqshl  %q3 $0x01 $0x01 -> %q2
+4f1274a4 : sqshl v4.8h, v5.8h, #2                    : sqshl  %q5 $0x01 $0x02 -> %q4
+4f1374e6 : sqshl v6.8h, v7.8h, #3                    : sqshl  %q7 $0x01 $0x03 -> %q6
+4f147528 : sqshl v8.8h, v9.8h, #4                    : sqshl  %q9 $0x01 $0x04 -> %q8
+4f15756a : sqshl v10.8h, v11.8h, #5                  : sqshl  %q11 $0x01 $0x05 -> %q10
+4f1675ac : sqshl v12.8h, v13.8h, #6                  : sqshl  %q13 $0x01 $0x06 -> %q12
+4f1775ee : sqshl v14.8h, v15.8h, #7                  : sqshl  %q15 $0x01 $0x07 -> %q14
+4f187630 : sqshl v16.8h, v17.8h, #8                  : sqshl  %q17 $0x01 $0x08 -> %q16
+4f197672 : sqshl v18.8h, v19.8h, #9                  : sqshl  %q19 $0x01 $0x09 -> %q18
+4f1a76b4 : sqshl v20.8h, v21.8h, #10                 : sqshl  %q21 $0x01 $0x0a -> %q20
+4f1b76f6 : sqshl v22.8h, v23.8h, #11                 : sqshl  %q23 $0x01 $0x0b -> %q22
+4f1c7738 : sqshl v24.8h, v25.8h, #12                 : sqshl  %q25 $0x01 $0x0c -> %q24
+4f1d777a : sqshl v26.8h, v27.8h, #13                 : sqshl  %q27 $0x01 $0x0d -> %q26
+4f1e77bc : sqshl v28.8h, v29.8h, #14                 : sqshl  %q29 $0x01 $0x0e -> %q28
+4f1f77fe : sqshl v30.8h, v31.8h, #15                 : sqshl  %q31 $0x01 $0x0f -> %q30
+0f207420 : sqshl v0.2s, v1.2s, #0                    : sqshl  %d1 $0x02 $0x00 -> %d0
+0f227462 : sqshl v2.2s, v3.2s, #2                    : sqshl  %d3 $0x02 $0x02 -> %d2
+0f2474a4 : sqshl v4.2s, v5.2s, #4                    : sqshl  %d5 $0x02 $0x04 -> %d4
+0f2674e6 : sqshl v6.2s, v7.2s, #6                    : sqshl  %d7 $0x02 $0x06 -> %d6
+0f287528 : sqshl v8.2s, v9.2s, #8                    : sqshl  %d9 $0x02 $0x08 -> %d8
+0f2a756a : sqshl v10.2s, v11.2s, #10                 : sqshl  %d11 $0x02 $0x0a -> %d10
+0f2c75ac : sqshl v12.2s, v13.2s, #12                 : sqshl  %d13 $0x02 $0x0c -> %d12
+0f2e75ee : sqshl v14.2s, v15.2s, #14                 : sqshl  %d15 $0x02 $0x0e -> %d14
+0f317630 : sqshl v16.2s, v17.2s, #17                 : sqshl  %d17 $0x02 $0x11 -> %d16
+0f337672 : sqshl v18.2s, v19.2s, #19                 : sqshl  %d19 $0x02 $0x13 -> %d18
+0f3576b4 : sqshl v20.2s, v21.2s, #21                 : sqshl  %d21 $0x02 $0x15 -> %d20
+0f3776f6 : sqshl v22.2s, v23.2s, #23                 : sqshl  %d23 $0x02 $0x17 -> %d22
+0f397738 : sqshl v24.2s, v25.2s, #25                 : sqshl  %d25 $0x02 $0x19 -> %d24
+0f3b777a : sqshl v26.2s, v27.2s, #27                 : sqshl  %d27 $0x02 $0x1b -> %d26
+0f3d77bc : sqshl v28.2s, v29.2s, #29                 : sqshl  %d29 $0x02 $0x1d -> %d28
+0f3f77fe : sqshl v30.2s, v31.2s, #31                 : sqshl  %d31 $0x02 $0x1f -> %d30
+4f207420 : sqshl v0.4s, v1.4s, #0                    : sqshl  %q1 $0x02 $0x00 -> %q0
+4f227462 : sqshl v2.4s, v3.4s, #2                    : sqshl  %q3 $0x02 $0x02 -> %q2
+4f2474a4 : sqshl v4.4s, v5.4s, #4                    : sqshl  %q5 $0x02 $0x04 -> %q4
+4f2674e6 : sqshl v6.4s, v7.4s, #6                    : sqshl  %q7 $0x02 $0x06 -> %q6
+4f287528 : sqshl v8.4s, v9.4s, #8                    : sqshl  %q9 $0x02 $0x08 -> %q8
+4f2a756a : sqshl v10.4s, v11.4s, #10                 : sqshl  %q11 $0x02 $0x0a -> %q10
+4f2c75ac : sqshl v12.4s, v13.4s, #12                 : sqshl  %q13 $0x02 $0x0c -> %q12
+4f2e75ee : sqshl v14.4s, v15.4s, #14                 : sqshl  %q15 $0x02 $0x0e -> %q14
+4f317630 : sqshl v16.4s, v17.4s, #17                 : sqshl  %q17 $0x02 $0x11 -> %q16
+4f337672 : sqshl v18.4s, v19.4s, #19                 : sqshl  %q19 $0x02 $0x13 -> %q18
+4f3576b4 : sqshl v20.4s, v21.4s, #21                 : sqshl  %q21 $0x02 $0x15 -> %q20
+4f3776f6 : sqshl v22.4s, v23.4s, #23                 : sqshl  %q23 $0x02 $0x17 -> %q22
+4f397738 : sqshl v24.4s, v25.4s, #25                 : sqshl  %q25 $0x02 $0x19 -> %q24
+4f3b777a : sqshl v26.4s, v27.4s, #27                 : sqshl  %q27 $0x02 $0x1b -> %q26
+4f3d77bc : sqshl v28.4s, v29.4s, #29                 : sqshl  %q29 $0x02 $0x1d -> %q28
+4f3f77fe : sqshl v30.4s, v31.4s, #31                 : sqshl  %q31 $0x02 $0x1f -> %q30
+4f407420 : sqshl v0.2d, v1.2d, #0                    : sqshl  %q1 $0x03 $0x00 -> %q0
+4f447462 : sqshl v2.2d, v3.2d, #4                    : sqshl  %q3 $0x03 $0x04 -> %q2
+4f4874a4 : sqshl v4.2d, v5.2d, #8                    : sqshl  %q5 $0x03 $0x08 -> %q4
+4f4c74e6 : sqshl v6.2d, v7.2d, #12                   : sqshl  %q7 $0x03 $0x0c -> %q6
+4f517528 : sqshl v8.2d, v9.2d, #17                   : sqshl  %q9 $0x03 $0x11 -> %q8
+4f55756a : sqshl v10.2d, v11.2d, #21                 : sqshl  %q11 $0x03 $0x15 -> %q10
+4f5975ac : sqshl v12.2d, v13.2d, #25                 : sqshl  %q13 $0x03 $0x19 -> %q12
+4f5d75ee : sqshl v14.2d, v15.2d, #29                 : sqshl  %q15 $0x03 $0x1d -> %q14
+4f627630 : sqshl v16.2d, v17.2d, #34                 : sqshl  %q17 $0x03 $0x22 -> %q16
+4f667672 : sqshl v18.2d, v19.2d, #38                 : sqshl  %q19 $0x03 $0x26 -> %q18
+4f6a76b4 : sqshl v20.2d, v21.2d, #42                 : sqshl  %q21 $0x03 $0x2a -> %q20
+4f6e76f6 : sqshl v22.2d, v23.2d, #46                 : sqshl  %q23 $0x03 $0x2e -> %q22
+4f737738 : sqshl v24.2d, v25.2d, #51                 : sqshl  %q25 $0x03 $0x33 -> %q24
+4f77777a : sqshl v26.2d, v27.2d, #55                 : sqshl  %q27 $0x03 $0x37 -> %q26
+4f7b77bc : sqshl v28.2d, v29.2d, #59                 : sqshl  %q29 $0x03 $0x3b -> %q28
+4f7f77fe : sqshl v30.2d, v31.2d, #63                 : sqshl  %q31 $0x03 $0x3f -> %q30
 
 0e372de4 : sqsub v4.8b, v15.8b, v23.8b              : sqsub  %d15 %d23 $0x00 -> %d4
 4e372de4 : sqsub v4.16b, v15.16b, v23.16b           : sqsub  %q15 %q23 $0x00 -> %q4
@@ -7803,18 +7921,136 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6ea14bbe : uqxtn2 v30.4s, v29.2d                    : uqxtn2 %q29 $0x02 -> %q30
 
 # SHL <V><d>, <V><n>, #<shift>
-5f405420 : shl d0, d1, #0                           : shl    %d1 $0x40 -> %d0
-5f475420 : shl d0, d1, #7                           : shl    %d1 $0x39 -> %d0
-5f4f5420 : shl d0, d1, #15                          : shl    %d1 $0x31 -> %d0
-5f575420 : shl d0, d1, #23                          : shl    %d1 $0x29 -> %d0
-5f5f5420 : shl d0, d1, #31                          : shl    %d1 $0x21 -> %d0
-5f675420 : shl d0, d1, #39                          : shl    %d1 $0x19 -> %d0
-5f6f5420 : shl d0, d1, #47                          : shl    %d1 $0x11 -> %d0
-5f775420 : shl d0, d1, #55                          : shl    %d1 $0x09 -> %d0
-5f7f5420 : shl d0, d1, #63                          : shl    %d1 $0x01 -> %d0
-5f7f552a : shl d10, d9, #63                         : shl    %d9 $0x01 -> %d10
-5f7f5674 : shl d20, d19, #63                        : shl    %d19 $0x01 -> %d20
-5f7f57be : shl d30, d29, #63                        : shl    %d29 $0x01 -> %d30
+5f405420 : shl d0, d1, #0                            : shl    %d1 $0x00 -> %d0
+5f445462 : shl d2, d3, #4                            : shl    %d3 $0x04 -> %d2
+5f4854a4 : shl d4, d5, #8                            : shl    %d5 $0x08 -> %d4
+5f4c54e6 : shl d6, d7, #12                           : shl    %d7 $0x0c -> %d6
+5f515528 : shl d8, d9, #17                           : shl    %d9 $0x11 -> %d8
+5f55556a : shl d10, d11, #21                         : shl    %d11 $0x15 -> %d10
+5f5955ac : shl d12, d13, #25                         : shl    %d13 $0x19 -> %d12
+5f5d55ee : shl d14, d15, #29                         : shl    %d15 $0x1d -> %d14
+5f625630 : shl d16, d17, #34                         : shl    %d17 $0x22 -> %d16
+5f665672 : shl d18, d19, #38                         : shl    %d19 $0x26 -> %d18
+5f6a56b4 : shl d20, d21, #42                         : shl    %d21 $0x2a -> %d20
+5f6e56f6 : shl d22, d23, #46                         : shl    %d23 $0x2e -> %d22
+5f735738 : shl d24, d25, #51                         : shl    %d25 $0x33 -> %d24
+5f77577a : shl d26, d27, #55                         : shl    %d27 $0x37 -> %d26
+5f7b57bc : shl d28, d29, #59                         : shl    %d29 $0x3b -> %d28
+5f7f57fe : shl d30, d31, #63                         : shl    %d31 $0x3f -> %d30
+
+# SHL <Vd>.<T>, <Vn>.<T>, #<shift>
+0f085420 : shl v0.8b, v1.8b, #0                      : shl    %d1 $0x00 $0x00 -> %d0
+0f085462 : shl v2.8b, v3.8b, #0                      : shl    %d3 $0x00 $0x00 -> %d2
+0f0954a4 : shl v4.8b, v5.8b, #1                      : shl    %d5 $0x00 $0x01 -> %d4
+0f0954e6 : shl v6.8b, v7.8b, #1                      : shl    %d7 $0x00 $0x01 -> %d6
+0f0a5528 : shl v8.8b, v9.8b, #2                      : shl    %d9 $0x00 $0x02 -> %d8
+0f0a556a : shl v10.8b, v11.8b, #2                    : shl    %d11 $0x00 $0x02 -> %d10
+0f0b55ac : shl v12.8b, v13.8b, #3                    : shl    %d13 $0x00 $0x03 -> %d12
+0f0b55ee : shl v14.8b, v15.8b, #3                    : shl    %d15 $0x00 $0x03 -> %d14
+0f0c5630 : shl v16.8b, v17.8b, #4                    : shl    %d17 $0x00 $0x04 -> %d16
+0f0c5672 : shl v18.8b, v19.8b, #4                    : shl    %d19 $0x00 $0x04 -> %d18
+0f0d56b4 : shl v20.8b, v21.8b, #5                    : shl    %d21 $0x00 $0x05 -> %d20
+0f0d56f6 : shl v22.8b, v23.8b, #5                    : shl    %d23 $0x00 $0x05 -> %d22
+0f0e5738 : shl v24.8b, v25.8b, #6                    : shl    %d25 $0x00 $0x06 -> %d24
+0f0e577a : shl v26.8b, v27.8b, #6                    : shl    %d27 $0x00 $0x06 -> %d26
+0f0f57bc : shl v28.8b, v29.8b, #7                    : shl    %d29 $0x00 $0x07 -> %d28
+0f0f57fe : shl v30.8b, v31.8b, #7                    : shl    %d31 $0x00 $0x07 -> %d30
+4f085420 : shl v0.16b, v1.16b, #0                    : shl    %q1 $0x00 $0x00 -> %q0
+4f085462 : shl v2.16b, v3.16b, #0                    : shl    %q3 $0x00 $0x00 -> %q2
+4f0954a4 : shl v4.16b, v5.16b, #1                    : shl    %q5 $0x00 $0x01 -> %q4
+4f0954e6 : shl v6.16b, v7.16b, #1                    : shl    %q7 $0x00 $0x01 -> %q6
+4f0a5528 : shl v8.16b, v9.16b, #2                    : shl    %q9 $0x00 $0x02 -> %q8
+4f0a556a : shl v10.16b, v11.16b, #2                  : shl    %q11 $0x00 $0x02 -> %q10
+4f0b55ac : shl v12.16b, v13.16b, #3                  : shl    %q13 $0x00 $0x03 -> %q12
+4f0b55ee : shl v14.16b, v15.16b, #3                  : shl    %q15 $0x00 $0x03 -> %q14
+4f0c5630 : shl v16.16b, v17.16b, #4                  : shl    %q17 $0x00 $0x04 -> %q16
+4f0c5672 : shl v18.16b, v19.16b, #4                  : shl    %q19 $0x00 $0x04 -> %q18
+4f0d56b4 : shl v20.16b, v21.16b, #5                  : shl    %q21 $0x00 $0x05 -> %q20
+4f0d56f6 : shl v22.16b, v23.16b, #5                  : shl    %q23 $0x00 $0x05 -> %q22
+4f0e5738 : shl v24.16b, v25.16b, #6                  : shl    %q25 $0x00 $0x06 -> %q24
+4f0e577a : shl v26.16b, v27.16b, #6                  : shl    %q27 $0x00 $0x06 -> %q26
+4f0f57bc : shl v28.16b, v29.16b, #7                  : shl    %q29 $0x00 $0x07 -> %q28
+4f0f57fe : shl v30.16b, v31.16b, #7                  : shl    %q31 $0x00 $0x07 -> %q30
+0f105420 : shl v0.4h, v1.4h, #0                      : shl    %d1 $0x01 $0x00 -> %d0
+0f115462 : shl v2.4h, v3.4h, #1                      : shl    %d3 $0x01 $0x01 -> %d2
+0f1254a4 : shl v4.4h, v5.4h, #2                      : shl    %d5 $0x01 $0x02 -> %d4
+0f1354e6 : shl v6.4h, v7.4h, #3                      : shl    %d7 $0x01 $0x03 -> %d6
+0f145528 : shl v8.4h, v9.4h, #4                      : shl    %d9 $0x01 $0x04 -> %d8
+0f15556a : shl v10.4h, v11.4h, #5                    : shl    %d11 $0x01 $0x05 -> %d10
+0f1655ac : shl v12.4h, v13.4h, #6                    : shl    %d13 $0x01 $0x06 -> %d12
+0f1755ee : shl v14.4h, v15.4h, #7                    : shl    %d15 $0x01 $0x07 -> %d14
+0f185630 : shl v16.4h, v17.4h, #8                    : shl    %d17 $0x01 $0x08 -> %d16
+0f195672 : shl v18.4h, v19.4h, #9                    : shl    %d19 $0x01 $0x09 -> %d18
+0f1a56b4 : shl v20.4h, v21.4h, #10                   : shl    %d21 $0x01 $0x0a -> %d20
+0f1b56f6 : shl v22.4h, v23.4h, #11                   : shl    %d23 $0x01 $0x0b -> %d22
+0f1c5738 : shl v24.4h, v25.4h, #12                   : shl    %d25 $0x01 $0x0c -> %d24
+0f1d577a : shl v26.4h, v27.4h, #13                   : shl    %d27 $0x01 $0x0d -> %d26
+0f1e57bc : shl v28.4h, v29.4h, #14                   : shl    %d29 $0x01 $0x0e -> %d28
+0f1f57fe : shl v30.4h, v31.4h, #15                   : shl    %d31 $0x01 $0x0f -> %d30
+4f105420 : shl v0.8h, v1.8h, #0                      : shl    %q1 $0x01 $0x00 -> %q0
+4f115462 : shl v2.8h, v3.8h, #1                      : shl    %q3 $0x01 $0x01 -> %q2
+4f1254a4 : shl v4.8h, v5.8h, #2                      : shl    %q5 $0x01 $0x02 -> %q4
+4f1354e6 : shl v6.8h, v7.8h, #3                      : shl    %q7 $0x01 $0x03 -> %q6
+4f145528 : shl v8.8h, v9.8h, #4                      : shl    %q9 $0x01 $0x04 -> %q8
+4f15556a : shl v10.8h, v11.8h, #5                    : shl    %q11 $0x01 $0x05 -> %q10
+4f1655ac : shl v12.8h, v13.8h, #6                    : shl    %q13 $0x01 $0x06 -> %q12
+4f1755ee : shl v14.8h, v15.8h, #7                    : shl    %q15 $0x01 $0x07 -> %q14
+4f185630 : shl v16.8h, v17.8h, #8                    : shl    %q17 $0x01 $0x08 -> %q16
+4f195672 : shl v18.8h, v19.8h, #9                    : shl    %q19 $0x01 $0x09 -> %q18
+4f1a56b4 : shl v20.8h, v21.8h, #10                   : shl    %q21 $0x01 $0x0a -> %q20
+4f1b56f6 : shl v22.8h, v23.8h, #11                   : shl    %q23 $0x01 $0x0b -> %q22
+4f1c5738 : shl v24.8h, v25.8h, #12                   : shl    %q25 $0x01 $0x0c -> %q24
+4f1d577a : shl v26.8h, v27.8h, #13                   : shl    %q27 $0x01 $0x0d -> %q26
+4f1e57bc : shl v28.8h, v29.8h, #14                   : shl    %q29 $0x01 $0x0e -> %q28
+4f1f57fe : shl v30.8h, v31.8h, #15                   : shl    %q31 $0x01 $0x0f -> %q30
+0f205420 : shl v0.2s, v1.2s, #0                      : shl    %d1 $0x02 $0x00 -> %d0
+0f225462 : shl v2.2s, v3.2s, #2                      : shl    %d3 $0x02 $0x02 -> %d2
+0f2454a4 : shl v4.2s, v5.2s, #4                      : shl    %d5 $0x02 $0x04 -> %d4
+0f2654e6 : shl v6.2s, v7.2s, #6                      : shl    %d7 $0x02 $0x06 -> %d6
+0f285528 : shl v8.2s, v9.2s, #8                      : shl    %d9 $0x02 $0x08 -> %d8
+0f2a556a : shl v10.2s, v11.2s, #10                   : shl    %d11 $0x02 $0x0a -> %d10
+0f2c55ac : shl v12.2s, v13.2s, #12                   : shl    %d13 $0x02 $0x0c -> %d12
+0f2e55ee : shl v14.2s, v15.2s, #14                   : shl    %d15 $0x02 $0x0e -> %d14
+0f315630 : shl v16.2s, v17.2s, #17                   : shl    %d17 $0x02 $0x11 -> %d16
+0f335672 : shl v18.2s, v19.2s, #19                   : shl    %d19 $0x02 $0x13 -> %d18
+0f3556b4 : shl v20.2s, v21.2s, #21                   : shl    %d21 $0x02 $0x15 -> %d20
+0f3756f6 : shl v22.2s, v23.2s, #23                   : shl    %d23 $0x02 $0x17 -> %d22
+0f395738 : shl v24.2s, v25.2s, #25                   : shl    %d25 $0x02 $0x19 -> %d24
+0f3b577a : shl v26.2s, v27.2s, #27                   : shl    %d27 $0x02 $0x1b -> %d26
+0f3d57bc : shl v28.2s, v29.2s, #29                   : shl    %d29 $0x02 $0x1d -> %d28
+0f3f57fe : shl v30.2s, v31.2s, #31                   : shl    %d31 $0x02 $0x1f -> %d30
+4f205420 : shl v0.4s, v1.4s, #0                      : shl    %q1 $0x02 $0x00 -> %q0
+4f225462 : shl v2.4s, v3.4s, #2                      : shl    %q3 $0x02 $0x02 -> %q2
+4f2454a4 : shl v4.4s, v5.4s, #4                      : shl    %q5 $0x02 $0x04 -> %q4
+4f2654e6 : shl v6.4s, v7.4s, #6                      : shl    %q7 $0x02 $0x06 -> %q6
+4f285528 : shl v8.4s, v9.4s, #8                      : shl    %q9 $0x02 $0x08 -> %q8
+4f2a556a : shl v10.4s, v11.4s, #10                   : shl    %q11 $0x02 $0x0a -> %q10
+4f2c55ac : shl v12.4s, v13.4s, #12                   : shl    %q13 $0x02 $0x0c -> %q12
+4f2e55ee : shl v14.4s, v15.4s, #14                   : shl    %q15 $0x02 $0x0e -> %q14
+4f315630 : shl v16.4s, v17.4s, #17                   : shl    %q17 $0x02 $0x11 -> %q16
+4f335672 : shl v18.4s, v19.4s, #19                   : shl    %q19 $0x02 $0x13 -> %q18
+4f3556b4 : shl v20.4s, v21.4s, #21                   : shl    %q21 $0x02 $0x15 -> %q20
+4f3756f6 : shl v22.4s, v23.4s, #23                   : shl    %q23 $0x02 $0x17 -> %q22
+4f395738 : shl v24.4s, v25.4s, #25                   : shl    %q25 $0x02 $0x19 -> %q24
+4f3b577a : shl v26.4s, v27.4s, #27                   : shl    %q27 $0x02 $0x1b -> %q26
+4f3d57bc : shl v28.4s, v29.4s, #29                   : shl    %q29 $0x02 $0x1d -> %q28
+4f3f57fe : shl v30.4s, v31.4s, #31                   : shl    %q31 $0x02 $0x1f -> %q30
+4f405420 : shl v0.2d, v1.2d, #0                      : shl    %q1 $0x03 $0x00 -> %q0
+4f445462 : shl v2.2d, v3.2d, #4                      : shl    %q3 $0x03 $0x04 -> %q2
+4f4854a4 : shl v4.2d, v5.2d, #8                      : shl    %q5 $0x03 $0x08 -> %q4
+4f4c54e6 : shl v6.2d, v7.2d, #12                     : shl    %q7 $0x03 $0x0c -> %q6
+4f515528 : shl v8.2d, v9.2d, #17                     : shl    %q9 $0x03 $0x11 -> %q8
+4f55556a : shl v10.2d, v11.2d, #21                   : shl    %q11 $0x03 $0x15 -> %q10
+4f5955ac : shl v12.2d, v13.2d, #25                   : shl    %q13 $0x03 $0x19 -> %q12
+4f5d55ee : shl v14.2d, v15.2d, #29                   : shl    %q15 $0x03 $0x1d -> %q14
+4f625630 : shl v16.2d, v17.2d, #34                   : shl    %q17 $0x03 $0x22 -> %q16
+4f665672 : shl v18.2d, v19.2d, #38                   : shl    %q19 $0x03 $0x26 -> %q18
+4f6a56b4 : shl v20.2d, v21.2d, #42                   : shl    %q21 $0x03 $0x2a -> %q20
+4f6e56f6 : shl v22.2d, v23.2d, #46                   : shl    %q23 $0x03 $0x2e -> %q22
+4f735738 : shl v24.2d, v25.2d, #51                   : shl    %q25 $0x03 $0x33 -> %q24
+4f77577a : shl v26.2d, v27.2d, #55                   : shl    %q27 $0x03 $0x37 -> %q26
+4f7b57bc : shl v28.2d, v29.2d, #59                   : shl    %q29 $0x03 $0x3b -> %q28
+4f7f57fe : shl v30.2d, v31.2d, #63                   : shl    %q31 $0x03 $0x3f -> %q30
 
 # SHLL <Vd>.<Tb>, <Vn>.<Ta>
 2e213801 : shll v1.8h, v0.8b, #8                    : shll   %d0 $0x00 -> %d1
@@ -7863,18 +8099,136 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6ea13bbe : shll2 v30.2d, v29.4s, #32                : shll2  %q29 $0x02 -> %q30
 
 # SLI <V><d>, <V><n>, #<shift>
-7f405420 : sli d0, d1, #0                           : sli    %d1 $0x40 -> %d0
-7f475420 : sli d0, d1, #7                           : sli    %d1 $0x39 -> %d0
-7f4f5420 : sli d0, d1, #15                          : sli    %d1 $0x31 -> %d0
-7f575420 : sli d0, d1, #23                          : sli    %d1 $0x29 -> %d0
-7f5f5420 : sli d0, d1, #31                          : sli    %d1 $0x21 -> %d0
-7f675420 : sli d0, d1, #39                          : sli    %d1 $0x19 -> %d0
-7f6f5420 : sli d0, d1, #47                          : sli    %d1 $0x11 -> %d0
-7f775420 : sli d0, d1, #55                          : sli    %d1 $0x09 -> %d0
-7f7f5420 : sli d0, d1, #63                          : sli    %d1 $0x01 -> %d0
-7f7f552a : sli d10, d9, #63                         : sli    %d9 $0x01 -> %d10
-7f7f5674 : sli d20, d19, #63                        : sli    %d19 $0x01 -> %d20
-7f7f57be : sli d30, d29, #63                        : sli    %d29 $0x01 -> %d30
+7f405420 : sli d0, d1, #0                            : sli    %d1 $0x00 -> %d0
+7f445462 : sli d2, d3, #4                            : sli    %d3 $0x04 -> %d2
+7f4854a4 : sli d4, d5, #8                            : sli    %d5 $0x08 -> %d4
+7f4c54e6 : sli d6, d7, #12                           : sli    %d7 $0x0c -> %d6
+7f515528 : sli d8, d9, #17                           : sli    %d9 $0x11 -> %d8
+7f55556a : sli d10, d11, #21                         : sli    %d11 $0x15 -> %d10
+7f5955ac : sli d12, d13, #25                         : sli    %d13 $0x19 -> %d12
+7f5d55ee : sli d14, d15, #29                         : sli    %d15 $0x1d -> %d14
+7f625630 : sli d16, d17, #34                         : sli    %d17 $0x22 -> %d16
+7f665672 : sli d18, d19, #38                         : sli    %d19 $0x26 -> %d18
+7f6a56b4 : sli d20, d21, #42                         : sli    %d21 $0x2a -> %d20
+7f6e56f6 : sli d22, d23, #46                         : sli    %d23 $0x2e -> %d22
+7f735738 : sli d24, d25, #51                         : sli    %d25 $0x33 -> %d24
+7f77577a : sli d26, d27, #55                         : sli    %d27 $0x37 -> %d26
+7f7b57bc : sli d28, d29, #59                         : sli    %d29 $0x3b -> %d28
+7f7f57fe : sli d30, d31, #63                         : sli    %d31 $0x3f -> %d30
+
+# SLI <Vd>.<T>, <Vn>.<T>, #<shift>
+2f085420 : sli v0.8b, v1.8b, #0                      : sli    %d1 $0x00 $0x00 -> %d0
+2f085462 : sli v2.8b, v3.8b, #0                      : sli    %d3 $0x00 $0x00 -> %d2
+2f0954a4 : sli v4.8b, v5.8b, #1                      : sli    %d5 $0x00 $0x01 -> %d4
+2f0954e6 : sli v6.8b, v7.8b, #1                      : sli    %d7 $0x00 $0x01 -> %d6
+2f0a5528 : sli v8.8b, v9.8b, #2                      : sli    %d9 $0x00 $0x02 -> %d8
+2f0a556a : sli v10.8b, v11.8b, #2                    : sli    %d11 $0x00 $0x02 -> %d10
+2f0b55ac : sli v12.8b, v13.8b, #3                    : sli    %d13 $0x00 $0x03 -> %d12
+2f0b55ee : sli v14.8b, v15.8b, #3                    : sli    %d15 $0x00 $0x03 -> %d14
+2f0c5630 : sli v16.8b, v17.8b, #4                    : sli    %d17 $0x00 $0x04 -> %d16
+2f0c5672 : sli v18.8b, v19.8b, #4                    : sli    %d19 $0x00 $0x04 -> %d18
+2f0d56b4 : sli v20.8b, v21.8b, #5                    : sli    %d21 $0x00 $0x05 -> %d20
+2f0d56f6 : sli v22.8b, v23.8b, #5                    : sli    %d23 $0x00 $0x05 -> %d22
+2f0e5738 : sli v24.8b, v25.8b, #6                    : sli    %d25 $0x00 $0x06 -> %d24
+2f0e577a : sli v26.8b, v27.8b, #6                    : sli    %d27 $0x00 $0x06 -> %d26
+2f0f57bc : sli v28.8b, v29.8b, #7                    : sli    %d29 $0x00 $0x07 -> %d28
+2f0f57fe : sli v30.8b, v31.8b, #7                    : sli    %d31 $0x00 $0x07 -> %d30
+6f085420 : sli v0.16b, v1.16b, #0                    : sli    %q1 $0x00 $0x00 -> %q0
+6f085462 : sli v2.16b, v3.16b, #0                    : sli    %q3 $0x00 $0x00 -> %q2
+6f0954a4 : sli v4.16b, v5.16b, #1                    : sli    %q5 $0x00 $0x01 -> %q4
+6f0954e6 : sli v6.16b, v7.16b, #1                    : sli    %q7 $0x00 $0x01 -> %q6
+6f0a5528 : sli v8.16b, v9.16b, #2                    : sli    %q9 $0x00 $0x02 -> %q8
+6f0a556a : sli v10.16b, v11.16b, #2                  : sli    %q11 $0x00 $0x02 -> %q10
+6f0b55ac : sli v12.16b, v13.16b, #3                  : sli    %q13 $0x00 $0x03 -> %q12
+6f0b55ee : sli v14.16b, v15.16b, #3                  : sli    %q15 $0x00 $0x03 -> %q14
+6f0c5630 : sli v16.16b, v17.16b, #4                  : sli    %q17 $0x00 $0x04 -> %q16
+6f0c5672 : sli v18.16b, v19.16b, #4                  : sli    %q19 $0x00 $0x04 -> %q18
+6f0d56b4 : sli v20.16b, v21.16b, #5                  : sli    %q21 $0x00 $0x05 -> %q20
+6f0d56f6 : sli v22.16b, v23.16b, #5                  : sli    %q23 $0x00 $0x05 -> %q22
+6f0e5738 : sli v24.16b, v25.16b, #6                  : sli    %q25 $0x00 $0x06 -> %q24
+6f0e577a : sli v26.16b, v27.16b, #6                  : sli    %q27 $0x00 $0x06 -> %q26
+6f0f57bc : sli v28.16b, v29.16b, #7                  : sli    %q29 $0x00 $0x07 -> %q28
+6f0f57fe : sli v30.16b, v31.16b, #7                  : sli    %q31 $0x00 $0x07 -> %q30
+2f105420 : sli v0.4h, v1.4h, #0                      : sli    %d1 $0x01 $0x00 -> %d0
+2f115462 : sli v2.4h, v3.4h, #1                      : sli    %d3 $0x01 $0x01 -> %d2
+2f1254a4 : sli v4.4h, v5.4h, #2                      : sli    %d5 $0x01 $0x02 -> %d4
+2f1354e6 : sli v6.4h, v7.4h, #3                      : sli    %d7 $0x01 $0x03 -> %d6
+2f145528 : sli v8.4h, v9.4h, #4                      : sli    %d9 $0x01 $0x04 -> %d8
+2f15556a : sli v10.4h, v11.4h, #5                    : sli    %d11 $0x01 $0x05 -> %d10
+2f1655ac : sli v12.4h, v13.4h, #6                    : sli    %d13 $0x01 $0x06 -> %d12
+2f1755ee : sli v14.4h, v15.4h, #7                    : sli    %d15 $0x01 $0x07 -> %d14
+2f185630 : sli v16.4h, v17.4h, #8                    : sli    %d17 $0x01 $0x08 -> %d16
+2f195672 : sli v18.4h, v19.4h, #9                    : sli    %d19 $0x01 $0x09 -> %d18
+2f1a56b4 : sli v20.4h, v21.4h, #10                   : sli    %d21 $0x01 $0x0a -> %d20
+2f1b56f6 : sli v22.4h, v23.4h, #11                   : sli    %d23 $0x01 $0x0b -> %d22
+2f1c5738 : sli v24.4h, v25.4h, #12                   : sli    %d25 $0x01 $0x0c -> %d24
+2f1d577a : sli v26.4h, v27.4h, #13                   : sli    %d27 $0x01 $0x0d -> %d26
+2f1e57bc : sli v28.4h, v29.4h, #14                   : sli    %d29 $0x01 $0x0e -> %d28
+2f1f57fe : sli v30.4h, v31.4h, #15                   : sli    %d31 $0x01 $0x0f -> %d30
+6f105420 : sli v0.8h, v1.8h, #0                      : sli    %q1 $0x01 $0x00 -> %q0
+6f115462 : sli v2.8h, v3.8h, #1                      : sli    %q3 $0x01 $0x01 -> %q2
+6f1254a4 : sli v4.8h, v5.8h, #2                      : sli    %q5 $0x01 $0x02 -> %q4
+6f1354e6 : sli v6.8h, v7.8h, #3                      : sli    %q7 $0x01 $0x03 -> %q6
+6f145528 : sli v8.8h, v9.8h, #4                      : sli    %q9 $0x01 $0x04 -> %q8
+6f15556a : sli v10.8h, v11.8h, #5                    : sli    %q11 $0x01 $0x05 -> %q10
+6f1655ac : sli v12.8h, v13.8h, #6                    : sli    %q13 $0x01 $0x06 -> %q12
+6f1755ee : sli v14.8h, v15.8h, #7                    : sli    %q15 $0x01 $0x07 -> %q14
+6f185630 : sli v16.8h, v17.8h, #8                    : sli    %q17 $0x01 $0x08 -> %q16
+6f195672 : sli v18.8h, v19.8h, #9                    : sli    %q19 $0x01 $0x09 -> %q18
+6f1a56b4 : sli v20.8h, v21.8h, #10                   : sli    %q21 $0x01 $0x0a -> %q20
+6f1b56f6 : sli v22.8h, v23.8h, #11                   : sli    %q23 $0x01 $0x0b -> %q22
+6f1c5738 : sli v24.8h, v25.8h, #12                   : sli    %q25 $0x01 $0x0c -> %q24
+6f1d577a : sli v26.8h, v27.8h, #13                   : sli    %q27 $0x01 $0x0d -> %q26
+6f1e57bc : sli v28.8h, v29.8h, #14                   : sli    %q29 $0x01 $0x0e -> %q28
+6f1f57fe : sli v30.8h, v31.8h, #15                   : sli    %q31 $0x01 $0x0f -> %q30
+2f205420 : sli v0.2s, v1.2s, #0                      : sli    %d1 $0x02 $0x00 -> %d0
+2f225462 : sli v2.2s, v3.2s, #2                      : sli    %d3 $0x02 $0x02 -> %d2
+2f2454a4 : sli v4.2s, v5.2s, #4                      : sli    %d5 $0x02 $0x04 -> %d4
+2f2654e6 : sli v6.2s, v7.2s, #6                      : sli    %d7 $0x02 $0x06 -> %d6
+2f285528 : sli v8.2s, v9.2s, #8                      : sli    %d9 $0x02 $0x08 -> %d8
+2f2a556a : sli v10.2s, v11.2s, #10                   : sli    %d11 $0x02 $0x0a -> %d10
+2f2c55ac : sli v12.2s, v13.2s, #12                   : sli    %d13 $0x02 $0x0c -> %d12
+2f2e55ee : sli v14.2s, v15.2s, #14                   : sli    %d15 $0x02 $0x0e -> %d14
+2f315630 : sli v16.2s, v17.2s, #17                   : sli    %d17 $0x02 $0x11 -> %d16
+2f335672 : sli v18.2s, v19.2s, #19                   : sli    %d19 $0x02 $0x13 -> %d18
+2f3556b4 : sli v20.2s, v21.2s, #21                   : sli    %d21 $0x02 $0x15 -> %d20
+2f3756f6 : sli v22.2s, v23.2s, #23                   : sli    %d23 $0x02 $0x17 -> %d22
+2f395738 : sli v24.2s, v25.2s, #25                   : sli    %d25 $0x02 $0x19 -> %d24
+2f3b577a : sli v26.2s, v27.2s, #27                   : sli    %d27 $0x02 $0x1b -> %d26
+2f3d57bc : sli v28.2s, v29.2s, #29                   : sli    %d29 $0x02 $0x1d -> %d28
+2f3f57fe : sli v30.2s, v31.2s, #31                   : sli    %d31 $0x02 $0x1f -> %d30
+6f205420 : sli v0.4s, v1.4s, #0                      : sli    %q1 $0x02 $0x00 -> %q0
+6f225462 : sli v2.4s, v3.4s, #2                      : sli    %q3 $0x02 $0x02 -> %q2
+6f2454a4 : sli v4.4s, v5.4s, #4                      : sli    %q5 $0x02 $0x04 -> %q4
+6f2654e6 : sli v6.4s, v7.4s, #6                      : sli    %q7 $0x02 $0x06 -> %q6
+6f285528 : sli v8.4s, v9.4s, #8                      : sli    %q9 $0x02 $0x08 -> %q8
+6f2a556a : sli v10.4s, v11.4s, #10                   : sli    %q11 $0x02 $0x0a -> %q10
+6f2c55ac : sli v12.4s, v13.4s, #12                   : sli    %q13 $0x02 $0x0c -> %q12
+6f2e55ee : sli v14.4s, v15.4s, #14                   : sli    %q15 $0x02 $0x0e -> %q14
+6f315630 : sli v16.4s, v17.4s, #17                   : sli    %q17 $0x02 $0x11 -> %q16
+6f335672 : sli v18.4s, v19.4s, #19                   : sli    %q19 $0x02 $0x13 -> %q18
+6f3556b4 : sli v20.4s, v21.4s, #21                   : sli    %q21 $0x02 $0x15 -> %q20
+6f3756f6 : sli v22.4s, v23.4s, #23                   : sli    %q23 $0x02 $0x17 -> %q22
+6f395738 : sli v24.4s, v25.4s, #25                   : sli    %q25 $0x02 $0x19 -> %q24
+6f3b577a : sli v26.4s, v27.4s, #27                   : sli    %q27 $0x02 $0x1b -> %q26
+6f3d57bc : sli v28.4s, v29.4s, #29                   : sli    %q29 $0x02 $0x1d -> %q28
+6f3f57fe : sli v30.4s, v31.4s, #31                   : sli    %q31 $0x02 $0x1f -> %q30
+6f405420 : sli v0.2d, v1.2d, #0                      : sli    %q1 $0x03 $0x00 -> %q0
+6f445462 : sli v2.2d, v3.2d, #4                      : sli    %q3 $0x03 $0x04 -> %q2
+6f4854a4 : sli v4.2d, v5.2d, #8                      : sli    %q5 $0x03 $0x08 -> %q4
+6f4c54e6 : sli v6.2d, v7.2d, #12                     : sli    %q7 $0x03 $0x0c -> %q6
+6f515528 : sli v8.2d, v9.2d, #17                     : sli    %q9 $0x03 $0x11 -> %q8
+6f55556a : sli v10.2d, v11.2d, #21                   : sli    %q11 $0x03 $0x15 -> %q10
+6f5955ac : sli v12.2d, v13.2d, #25                   : sli    %q13 $0x03 $0x19 -> %q12
+6f5d55ee : sli v14.2d, v15.2d, #29                   : sli    %q15 $0x03 $0x1d -> %q14
+6f625630 : sli v16.2d, v17.2d, #34                   : sli    %q17 $0x03 $0x22 -> %q16
+6f665672 : sli v18.2d, v19.2d, #38                   : sli    %q19 $0x03 $0x26 -> %q18
+6f6a56b4 : sli v20.2d, v21.2d, #42                   : sli    %q21 $0x03 $0x2a -> %q20
+6f6e56f6 : sli v22.2d, v23.2d, #46                   : sli    %q23 $0x03 $0x2e -> %q22
+6f735738 : sli v24.2d, v25.2d, #51                   : sli    %q25 $0x03 $0x33 -> %q24
+6f77577a : sli v26.2d, v27.2d, #55                   : sli    %q27 $0x03 $0x37 -> %q26
+6f7b57bc : sli v28.2d, v29.2d, #59                   : sli    %q29 $0x03 $0x3b -> %q28
+6f7f57fe : sli v30.2d, v31.2d, #63                   : sli    %q31 $0x03 $0x3f -> %q30
 
 # SHRN <Vd>.<Tb>, <Vn>.<Ta>
 0f088401 : shrn v1.8b, v0.8h, #8                    : shrn   %d0 $0x38 -> %d1

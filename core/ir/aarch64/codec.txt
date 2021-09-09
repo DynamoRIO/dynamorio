@@ -147,6 +147,7 @@
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
 ---------xxxxxxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
+---------xxxxxxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 --------??-xxxxxxxx-------------  fpimm13    # floating-point immediate for scalar fmov
 --------xx----------------------  b_sz       # element width of a vector (8<<b_sz)
 --------xx----------------------  hs_sz      # element width of a vector (8<<hs_sz)
@@ -1108,8 +1109,11 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 01011110011xxxxx010011xxxxxxxxxx  n     sqshl      h0 : h5 h16
 01011110101xxxxx010011xxxxxxxxxx  n     sqshl      s0 : s5 s16
 01011110111xxxxx010011xxxxxxxxxx  n     sqshl      d0 : d5 d16
-0101111100xxxxxx011101xxxxxxxxxx  n     sqshl      s0 : s5 immhb_fxp
-0101111101xxxxxx011101xxxxxxxxxx  n     sqshl      d0 : d5 immhb_fxp
+0101111100001xxx011101xxxxxxxxxx  n     sqshl      b0 : b5 immhb_0shf
+010111110001xxxx011101xxxxxxxxxx  n     sqshl      h0 : h5 immhb_0shf
+01011111001xxxxx011101xxxxxxxxxx  n     sqshl      s0 : s5 immhb_0shf
+0101111101xxxxxx011101xxxxxxxxxx  n     sqshl      d0 : d5 immhb_0shf
+0x0011110xxxxxxx011101xxxxxxxxxx  n     sqshl     dq0 : dq5 bhsd_immh_sz immhb_0shf
 0x001110xx1xxxxx010101xxxxxxxxxx  n     srshl     dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx010111xxxxxxxxxx  n     sqrshl    dq0 : dq5 dq16 bhsd_sz
 0x001110xx1xxxxx011001xxxxxxxxxx  n     smax      dq0 : dq5 dq16 bhs_sz
@@ -1571,8 +1575,10 @@ x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
 0x0011110xxxxxxx000001xxxxxxxxxx  n     sshr      dq0 : dq5 sd_sz immhb_fxp
 0101111101xxxxxx000101xxxxxxxxxx  n     ssra       d0 : d5 immhb_shf
 0x0011110xxxxxxx000101xxxxxxxxxx  n     ssra      dq0 : dq5 bhsd_immh_sz immhb_shf
-0101111101xxxxxx010101xxxxxxxxxx  n     shl        d0 : d5 immhb_fxp
-0111111101xxxxxx010101xxxxxxxxxx  n     sli        d0 : d5 immhb_fxp
+0101111101xxxxxx010101xxxxxxxxxx  n     shl        d0 : d5 immhb_0shf
+0x0011110xxxxxxx010101xxxxxxxxxx  n     shl       dq0 : dq5 bhsd_immh_sz immhb_0shf
+0111111101xxxxxx010101xxxxxxxxxx  n     sli        d0 : d5 immhb_0shf
+0x1011110xxxxxxx010101xxxxxxxxxx  n     sli       dq0 : dq5 bhsd_immh_sz immhb_0shf
 0111111101xxxxxx000001xxxxxxxxxx  n     ushr       d0 : d5 immhb_shf
 0x1011110xxxxxxx000001xxxxxxxxxx  n     ushr      dq0 : dq5 bhsd_immh_sz immhb_shf
 0111111101xxxxxx000101xxxxxxxxxx  n     usra       d0 : d5 immhb_shf
