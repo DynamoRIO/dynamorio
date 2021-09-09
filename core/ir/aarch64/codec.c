@@ -2682,7 +2682,8 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
 }
 
 static inline bool
-immhb_shf_decode(uint enc, int opcode, byte *pc, OUT opnd_t *opnd, uint min_shift) {
+immhb_shf_decode(uint enc, int opcode, byte *pc, OUT opnd_t *opnd, uint min_shift)
+{
     int highest_bit;
     if (!highest_bit_set(enc, 19, 4, &highest_bit))
         return false;
@@ -2710,7 +2711,8 @@ immhb_shf_decode(uint enc, int opcode, byte *pc, OUT opnd_t *opnd, uint min_shif
 }
 
 static inline bool
-immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out, uint min_shift)
+immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
+                 uint min_shift)
 {
     opnd_size_t shift_size = opnd_get_size(opnd);
     uint highest_bit;
@@ -2746,7 +2748,6 @@ immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
 
     return true;
 }
-
 
 /* immhb_shf: The vector encoding of #shift operand.
  */
