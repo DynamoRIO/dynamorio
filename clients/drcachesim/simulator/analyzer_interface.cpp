@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -47,6 +47,7 @@
 #include "../tools/opcode_mix_create.h"
 #include "../tools/view_create.h"
 #include "../tools/func_view_create.h"
+#include "../tools/invariant_checker_create.h"
 #include "../tracer/raw2trace.h"
 #include <fstream>
 
@@ -199,6 +200,8 @@ drmemtrace_analysis_tool_create()
         }
         return func_view_tool_create(funclist_file_path, op_show_func_trace.get_value(),
                                      op_verbose.get_value());
+    } else if (op_simulator_type.get_value() == INVARIANT_CHECKER) {
+        return invariant_checker_create(op_offline.get_value(), op_verbose.get_value());
     } else {
         ERRMSG("Usage error: unsupported analyzer type. "
                "Please choose " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " HISTOGRAM

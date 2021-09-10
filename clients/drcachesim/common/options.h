@@ -51,6 +51,7 @@
 #define OPCODE_MIX "opcode_mix"
 #define VIEW "view"
 #define FUNC_VIEW "func_view"
+#define INVARIANT_CHECKER "invariant_checker"
 #define CACHE_TYPE_INSTRUCTION "instruction"
 #define CACHE_TYPE_DATA "data"
 #define CACHE_TYPE_UNIFIED "unified"
