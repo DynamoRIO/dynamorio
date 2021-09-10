@@ -1346,6 +1346,13 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
       string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
       string(REGEX REPLACE " " "\\\\;" nudge_arg "${nudge_arg}")
+    elseif ("${runall}" MATCHES "<attach>")
+      # move client to nudge
+      string(REGEX MATCH ";-c;(.*);--" nudge_arg "${rundr}")
+      string(PREPEND nudge_arg "<attach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # clear client from dr command
+      string(REGEX REPLACE ";-c;(.*);--" ";--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
@@ -2405,6 +2412,7 @@ else (UNIX)
   # I reworked Windows .runall support to run the new win32.infloop but have not yet
   # looked at other tests:
   tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
   if (NOT X64)
     # FIXME i#16, does not work in Win-X64 because of inline assembly code.
