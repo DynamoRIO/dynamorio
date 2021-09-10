@@ -189,12 +189,13 @@ if ("${nudge}" MATCHES "<use-persisted>")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd drrun)
-  string(REGEX REPLACE "<attach>" "-attach;${pid};" nudge "${nudge}")
+  string(REGEX REPLACE "<attach>" "-attach@${pid}" nudge "${nudge}")
+  string(REGEX REPLACE "@" ";" nudge "${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
-    RESULT_VARIABLE nudge_result
-    ERROR_VARIABLE nudge_err
-    OUTPUT_VARIABLE nudge_out
-    )
+   RESULT_VARIABLE nudge_result
+   ERROR_VARIABLE nudge_err
+   OUTPUT_VARIABLE nudge_out
+   )
   # combine out and err
   set(nudge_err "${nudge_out}${nudge_err}")
   if (nudge_result)
