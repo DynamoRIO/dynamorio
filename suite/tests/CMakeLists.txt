@@ -1351,8 +1351,8 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       string(REGEX MATCH ";-c;(.*);--" nudge_arg "${rundr}")
       string(PREPEND nudge_arg "<attach>")
       string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
-      # clear client from dr command
-      string(REGEX REPLACE ";-c;(.*);--" ";--;" rundr "${rundr}")
+      # clear client from dr command and run native
+      string(REGEX REPLACE ";-c;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
