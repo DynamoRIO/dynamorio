@@ -595,6 +595,14 @@ enum {
     instr_create_0dst_3src((dc), OP_tbnz, (pc), (reg), (imm))
 #define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
     INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
+#define INSTR_CREATE_eor(dc, d, s)                                      \
+    INSTR_CREATE_eor_shift(dc, d, d, s, OPND_CREATE_INT8(DR_SHIFT_LSL), \
+                           OPND_CREATE_INT8(0))
+#define INSTR_CREATE_eor_shift(dc, rd, rn, rm, sht, sha)                             \
+    instr_create_1dst_4src(dc, OP_eor, rd, rn,                                       \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
+                           opnd_add_flags(sht, DR_OPND_IS_SHIFT), sha)
+
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
@@ -1775,6 +1783,31 @@ enum {
  */
 #define INSTR_CREATE_fcvtzu_vector_fixed(dc, Rd, Rm, width, fbits) \
     instr_create_1dst_3src(dc, OP_fcvtzu, Rd, Rm, width, fbits)
+
+/**
+ * Creates an SLI shift left and insert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param width   The output vector element width. Use OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param shift   The number of bits to shift the result by.
+ */
+#define INSTR_CREATE_sli_vector(dc, Rd, Rn, width, shift) \
+    instr_create_1dst_3src(dc, OP_sli, Rd, Rn, width, shift)
+
+/**
+ * Creates an UQSHRN vector unsigned saturating shift right narrow (immediate)
+ * instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param width   The output vector element width. Use OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param shift   The number of bits to shift the result by.
+ */
+#define INSTR_CREATE_uqshrn_vector(dc, Rd, Rn, width, shift) \
+    instr_create_1dst_3src(dc, OP_uqshrn, Rd, Rn, width, shift)
 
 /**
  * Creates a UCVTF vector instruction.

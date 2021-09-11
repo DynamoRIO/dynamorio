@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,7 +43,7 @@
 #include "dr_frontend.h"
 #include "analyzer.h"
 #include "histogram_create.h"
-#include "../tests/trace_invariants.h"
+#include "../tools/invariant_checker.h"
 
 #define FATAL_ERROR(msg, ...)                               \
     do {                                                    \
@@ -100,7 +100,7 @@ _tmain(int argc, const TCHAR *targv[])
         op_line_size.get_value(), op_report_top.get_value(), op_verbose.get_value());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool1);
-    trace_invariants_t tool2(true /*offline*/, op_verbose.get_value());
+    invariant_checker_t tool2(true /*offline*/, op_verbose.get_value());
     if (op_test_mode.get_value()) {
         // We use this launcher to run tests as well:
         tools.push_back(&tool2);

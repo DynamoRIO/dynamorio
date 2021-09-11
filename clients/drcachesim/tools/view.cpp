@@ -67,7 +67,7 @@ view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t
     , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
     , prev_tid_(-1)
-    , prev_filetype_(0)
+    , filetype_(-1)
 {
 }
 
@@ -103,6 +103,39 @@ view_t::initialize()
 bool
 view_t::process_memref(const memref_t &memref)
 {
+    // Even for -skip_refs we need to process the up-front version and type.
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_VERSION:
+            // We delay printing until we know the tid.
+            if (trace_version_ == -1)
+                trace_version_ = static_cast<int>(memref.marker.marker_value);
+            else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
+                error_string_ = std::string("Version mismatch across files");
+                return false;
+            }
+            break;
+        case TRACE_MARKER_TYPE_FILETYPE:
+            // We delay printing until we know the tid.
+            if (filetype_ == -1)
+                filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
+            else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
+                error_string_ = std::string("Filetype mismatch across files");
+                return false;
+            }
+            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
+                !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
+                error_string_ = std::string("Architecture mismatch: trace recorded on ") +
+                    trace_arch_string(static_cast<offline_file_type_t>(
+                        memref.marker.marker_value)) +
+                    " but tool built for " + trace_arch_string(build_target_arch_type());
+                return false;
+            }
+            break;
+        default: break;
+        }
+    }
+
     if (instr_count_ < knob_skip_refs_ ||
         instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
         if (type_is_instr(memref.instr.type) ||
@@ -118,37 +151,28 @@ view_t::process_memref(const memref_t &memref)
         std::cerr << "T" << memref.instr.tid << " ";
     }
 
-    if (memref.marker.type == TRACE_TYPE_MARKER) {
+    if (memref.marker.type == TRACE_TYPE_MARKER ||
+        // When skipping there may not be a marker and we want to print out the version.
+        // We keep the marker
+        (knob_sim_refs_ > 0 && instr_count_ == knob_skip_refs_)) {
         if (memref.marker.tid != 0 &&
             printed_header_.find(memref.marker.tid) == printed_header_.end()) {
             printed_header_.insert(memref.marker.tid);
             std::cerr << "<marker: version " << trace_version_ << ">\n";
-            std::cerr << "T" << memref.instr.tid << " ";
-            std::cerr << "<marker: filetype 0x" << std::hex << prev_filetype_ << std::dec
+            std::cerr << "T" << memref.marker.tid << " ";
+            std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                       << ">\n";
-            std::cerr << "T" << memref.instr.tid << " ";
+            std::cerr << "T" << memref.marker.tid << " ";
         }
+    }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_VERSION:
-            // We delay printing until we know the tid.
-            if (trace_version_ == -1)
-                trace_version_ = static_cast<int>(memref.marker.marker_value);
-            else if (trace_version_ != static_cast<int>(memref.marker.marker_value)) {
-                error_string_ = std::string("Version mismatch across files");
-                return false;
-            }
+            // Handled above.
             break;
         case TRACE_MARKER_TYPE_FILETYPE:
-            // We delay printing until we know the tid.
-            prev_filetype_ = memref.marker.marker_value;
-            if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
-                !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
-                error_string_ = std::string("Architecture mismatch: trace recorded on ") +
-                    trace_arch_string(static_cast<offline_file_type_t>(
-                        memref.marker.marker_value)) +
-                    " but tool built for " + trace_arch_string(build_target_arch_type());
-                return false;
-            }
+            // Handled above.
             break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
             std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
