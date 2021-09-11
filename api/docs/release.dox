@@ -228,6 +228,10 @@ Further non-compatibility-affecting changes include:
  - Augmented drmemtrace #TRACE_MARKER_TYPE_KERNEL_EVENT entries with the absolute
    PC of the interruption point, including for restartable sequence aborts, which
    now also have an additional #TRACE_MARKER_TYPE_RSEQ_ABORT identifier.
+ - Added a fifth instrumentation phase (meta_instru) that executes after the
+   insertion of instrumentation and instrumentation optimizations. Its primary purpose
+   is to enable debugging of instrumentation sequences and detection of
+   instrumentation-induced bugs.
 
 **************************************************
 <hr>

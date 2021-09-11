@@ -501,7 +501,7 @@ def opndset_naming(patterns, opndtab):
         else:
             (dsts, srcs) = opndset
             h = (' '.join(dsts), ' '.join(srcs), opnd_bits)
-            new_opndset = 'gen_%08x' % opndsets[h]
+            new_opndset = 'gen_%08x_%08x' % (opndsets[h], opnd_bits)
             reordered = reorder_opnds(ONES & ~opnd_bits, dsts, srcs, opndtab)
             if not new_opndset in opndsettab:
                 opndsettab[new_opndset] = reordered

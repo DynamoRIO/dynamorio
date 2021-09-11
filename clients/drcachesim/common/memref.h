@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -120,7 +120,7 @@ typedef union _memref_t {
     // addr and size fields of data, instr, or flush generically if known to be one
     // of those types, due to the shared fields in our union of structs.
     struct _memref_data_t data;        /**< A data load or store. */
-    struct _memref_instr_t instr;      /**< An insruction fetch. */
+    struct _memref_instr_t instr;      /**< An instruction fetch. */
     struct _memref_flush_t flush;      /**< A software-initiated cache flush. */
     struct _memref_thread_exit_t exit; /**< A thread exit. */
     struct _memref_marker_t marker;    /**< A marker holding metadata. */

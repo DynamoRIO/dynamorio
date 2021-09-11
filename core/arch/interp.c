@@ -244,8 +244,14 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
      * whose fall-through hits our hook.  We avoid interpreting our own hook
      * by shifting it to the displaced pc.
      */
-    if (DYNAMO_OPTION(hook_vsyscall) && start_pc == vsyscall_sysenter_return_pc)
-        start_pc = vsyscall_sysenter_displaced_pc;
+    if (DYNAMO_OPTION(hook_vsyscall) && start_pc == vsyscall_sysenter_return_pc) {
+        if (vsyscall_sysenter_displaced_pc != NULL)
+            start_pc = vsyscall_sysenter_displaced_pc;
+        else {
+            /* Our hook must have failed. */
+            ASSERT(should_syscall_method_be_sysenter());
+        }
+    }
 #endif
     bb->check_vm_area = true;
     bb->start_pc = start_pc;
