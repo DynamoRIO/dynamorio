@@ -79,6 +79,7 @@ static int thread_exit_user_data_events;
 static int thread_exit_null_user_data_events;
 static int mod_load_events;
 static int mod_unload_events;
+static int meta_instru_events;
 
 static void *opcodelock;
 static void *syslock;
@@ -313,9 +314,9 @@ dr_init(client_id_t id)
     CHECK(ok, "drmgr_unregister_bb_instrumentation_ex_event failed");
 
     /* check register/unregister instrumentation_all_events */
-    drmgr_events_t events = { sizeof(events),          event_bb5_app2app,
-                              event_bb5_analysis,      event_bb5_insert,
-                              event_bb5_instru2instru, event_bb5_meta_instru };
+    drmgr_instru_events_t events = { sizeof(events),          event_bb5_app2app,
+                                     event_bb5_analysis,      event_bb5_insert,
+                                     event_bb5_instru2instru, event_bb5_meta_instru };
     ok = drmgr_register_bb_instrumentation_all_events(&events, NULL);
     CHECK(ok, "drmgr_register_bb_instrumentation_all_events failed");
     ok = drmgr_unregister_bb_instrumentation_all_events(&events);
@@ -406,6 +407,9 @@ event_exit(void)
     if (mod_unload_events > 0)
         dr_fprintf(STDERR, "saw event_mod_unload\n");
 
+    if (meta_instru_events > 0)
+        dr_fprintf(STDERR, "saw event_meta_instru\n");
+
     if (!drmgr_unregister_bb_instrumentation_event(event_bb_analysis))
         CHECK(false, "drmgr unregistration failed");
 
@@ -421,9 +425,9 @@ event_exit(void)
             event_bb4_instru2instru))
         CHECK(false, "drmgr unregistration failed");
 
-    drmgr_events_t events = { sizeof(events),          event_bb5_app2app,
-                              event_bb5_analysis,      event_bb5_insert,
-                              event_bb5_instru2instru, event_bb5_meta_instru };
+    drmgr_instru_events_t events = { sizeof(events),          event_bb5_app2app,
+                                     event_bb5_analysis,      event_bb5_insert,
+                                     event_bb5_instru2instru, event_bb5_meta_instru };
     if (!drmgr_unregister_bb_instrumentation_all_events(&events))
         CHECK(false, "drmgr_unregister_bb_instrumentation_all_events failed");
 
@@ -853,6 +857,7 @@ static dr_emit_flags_t
 event_bb5_meta_instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       bool translating, void *user_data)
 {
+    meta_instru_events++;
     int *phase_cnt = (int *)user_data;
     (*phase_cnt)++;
     CHECK(*phase_cnt == 5, "user data not preserved");

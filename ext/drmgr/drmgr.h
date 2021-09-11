@@ -209,21 +209,21 @@ typedef struct _drmgr_priority_t {
     int priority;
 } drmgr_priority_t;
 
-/** Specifies the callbacks when registering all \p drmgr's events */
-typedef struct _drmgr_events_t {
-    /** The size of the drmgr_events_t struct */
+/** Specifies the callbacks when registering all \p drmgr's bb instrumentation events */
+typedef struct _drmgr_instru_events_t {
+    /** The size of the drmgr_instru_events_t struct. */
     size_t struct_size;
-    /** Callback for the app2app event */
+    /** Callback for the app2app event. */
     drmgr_app2app_ex_cb_t app2app_func;
-    /** Callback for the analysis event */
+    /** Callback for the analysis event. */
     drmgr_ilist_ex_cb_t analysis_func;
-    /** Callback for the insertion event */
+    /** Callback for the insertion event. */
     drmgr_insertion_cb_t insertion_func;
-    /** Callback for the instru2instru event */
+    /** Callback for the instru2instru event. */
     drmgr_ilist_ex_cb_t instru2instru_func;
-    /** Callback for the meta_instru event */
+    /** Callback for the meta_instru event. */
     drmgr_ilist_ex_cb_t meta_instru_func;
-} drmgr_events_t;
+} drmgr_instru_events_t;
 
 /** Labels the current bb building phase */
 typedef enum {
@@ -580,7 +580,7 @@ DR_EXPORT
  * default priority is used.
  */
 bool
-drmgr_register_bb_instrumentation_all_events(drmgr_events_t *events,
+drmgr_register_bb_instrumentation_all_events(drmgr_instru_events_t *events,
                                              drmgr_priority_t *priority);
 
 DR_EXPORT
@@ -594,7 +594,7 @@ DR_EXPORT
  * is safe to unregister apply here as well.
  */
 bool
-drmgr_unregister_bb_instrumentation_all_events(drmgr_events_t *events);
+drmgr_unregister_bb_instrumentation_all_events(drmgr_instru_events_t *events);
 
 DR_EXPORT
 /**

@@ -1726,10 +1726,10 @@ drmgr_unregister_bb_meta_instru_event(drmgr_xform_cb_t func)
 
 DR_EXPORT
 bool
-drmgr_register_bb_instrumentation_all_events(drmgr_events_t *events,
+drmgr_register_bb_instrumentation_all_events(drmgr_instru_events_t *events,
                                              drmgr_priority_t *priority)
 {
-    if (events->struct_size < offsetof(drmgr_events_t, instru2instru_func))
+    if (events->struct_size < offsetof(drmgr_instru_events_t, instru2instru_func))
         return false;
 
     if (!drmgr_register_bb_instrumentation_ex_event(
@@ -1737,7 +1737,7 @@ drmgr_register_bb_instrumentation_all_events(drmgr_events_t *events,
             events->instru2instru_func, priority))
         return false;
 
-    if (events->struct_size >= offsetof(drmgr_events_t, meta_instru_func) &&
+    if (events->struct_size >= offsetof(drmgr_instru_events_t, meta_instru_func) &&
         events->meta_instru_func != NULL) {
         if (!drmgr_bb_cb_add(&cblist_meta_instru, (void *)events->meta_instru_func, NULL,
                              priority, NULL /* no user data */,
@@ -1750,9 +1750,9 @@ drmgr_register_bb_instrumentation_all_events(drmgr_events_t *events,
 
 DR_EXPORT
 bool
-drmgr_unregister_bb_instrumentation_all_events(drmgr_events_t *events)
+drmgr_unregister_bb_instrumentation_all_events(drmgr_instru_events_t *events)
 {
-    if (events->struct_size < offsetof(drmgr_events_t, instru2instru_func))
+    if (events->struct_size < offsetof(drmgr_instru_events_t, instru2instru_func))
         return false;
 
     if (!drmgr_unregister_bb_instrumentation_ex_event(
@@ -1760,7 +1760,7 @@ drmgr_unregister_bb_instrumentation_all_events(drmgr_events_t *events)
             events->instru2instru_func))
         return false;
 
-    if (events->struct_size >= offsetof(drmgr_events_t, meta_instru_func) &&
+    if (events->struct_size >= offsetof(drmgr_instru_events_t, meta_instru_func) &&
         events->meta_instru_func != NULL) {
         if (!drmgr_bb_cb_remove(&cblist_meta_instru, (void *)events->meta_instru_func,
                                 cb_entry_matches_meta_instru_ex))
