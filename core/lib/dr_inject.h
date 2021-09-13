@@ -112,10 +112,11 @@ DR_EXPORT
  * \param[out]  data           An opaque pointer that should be passed to
  *                             subsequent dr_inject_* routines to refer to
  *                             this process.
+ * \param[out]  app_name       pointer to the name of the target process
  * \return  Returns 0 on success.  On failure, returns a system error code.`
  */
 int
-dr_inject_process_attach(process_id_t pid, void **data);
+dr_inject_process_attach(process_id_t pid, void **data, char **app_name);
 #endif
 
 #ifdef UNIX

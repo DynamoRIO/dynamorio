@@ -1812,7 +1812,7 @@ done_with_options:
     } else
 #    elif defined(WINDOWS)
     if (attach_pid != 0) {
-        errcode = dr_inject_process_attach(attach_pid, &inject_data);
+        errcode = dr_inject_process_attach(attach_pid, &inject_data, &app_name);
     } else
 #    endif /* WINDOWS */
     {
