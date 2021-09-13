@@ -1308,7 +1308,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       # We always run infloop.
       get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
     else ()
-	    if ("${runall}" MATCHES "<attach>")
+      if ("${runall}" MATCHES "<attach>")
 	      get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
 	    else ()
         # It's easier to run our own infloop, which prints so we know when it's up,
