@@ -883,11 +883,9 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
         return GetLastError();
     }
 
-    BOOL(__stdcall *query_full_process_image_name_w)
-        (HANDLE, DWORD, LPWSTR, PDWORD) =
-            (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
-                GetProcAddress(GetModuleHandle(TEXT("Kernel32")),
-                               "QueryFullProcessImageNameW"));
+    BOOL(__stdcall * query_full_process_image_name_w)
+    (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
+        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
 
     if (query_full_process_image_name_w(process_handle, 0, exe_path, &exe_path_size) ==
         0) {

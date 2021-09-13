@@ -33,7 +33,6 @@
 /* An app that stays up long enough without blocking for testing attach. */
 #include <windows.h>
 
-
 int
 main(int argc, const char *argv[])
 {
