@@ -1,5 +1,2 @@
 thank you for testing attach
-#ifdef WINDOWS
-MessageBox closed
-#endif
 done
