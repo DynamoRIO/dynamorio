@@ -903,7 +903,7 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
     char_to_tchar(info->image_name, info->wimage_name,
                   BUFFER_SIZE_ELEMENTS(info->image_name));
 
-    app_name = info->image_name;
+    *app_name = info->image_name;
 
     info->pi.dwProcessId = dbgevt.dwProcessId;
     info->pi.dwThreadId = dbgevt.dwThreadId;
