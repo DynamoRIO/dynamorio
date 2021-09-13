@@ -1310,11 +1310,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     else ()
       if ("${runall}" MATCHES "<attach>")
         get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
-	    else ()
+      else ()
         # It's easier to run our own infloop, which prints so we know when it's up,
         # than to run notepad or sthg.
         get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
-	    endif ()
+      endif ()
     endif ()
     # Swap from drrun to run_in_bg to run the test in the background and print the pid.
     # XXX i#1874: add support for running on Android
