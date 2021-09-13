@@ -121,9 +121,11 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
             c.append('{}{}'.format("    " * depth, text))
 
         if len(pats) < 4:
+            first = True
             for opcode_bits, opnd_bits, m, t in sorted(pats, key=reorder_key):
-                indent_append('if ((enc & 0x%08x) == 0x%08x)'  %
-                              (((1 << N) - 1) & ~opnd_bits, opcode_bits))
+                indent_append('%sif ((enc & 0x%08x) == 0x%08x)'  %
+                              ("" if first else "else ", ((1 << N) - 1) & ~opnd_bits, opcode_bits))
+                first = False
                 if opc_props[m] != 'n':
                     c[-1] = c[-1] + ' {'
                     # Uncomment this for debug output in generated code:
