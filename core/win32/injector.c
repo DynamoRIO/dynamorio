@@ -846,7 +846,7 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
 
 DYNAMORIO_EXPORT
 int
-dr_inject_process_attach(process_id_t pid, void **data OUT)
+dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
 {
     dr_inject_info_t *info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     memset(info, 0, sizeof(*info));
@@ -883,9 +883,11 @@ dr_inject_process_attach(process_id_t pid, void **data OUT)
         return GetLastError();
     }
 
-    BOOL(*query_full_process_image_name_w)
-    (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(*)(HANDLE, DWORD, LPWSTR, PDWORD))(
-        GetProcAddress(GetModuleHandle(TEXT("Kernel32")), "QueryFullProcessImageNameW"));
+    BOOL(__stdcall *query_full_process_image_name_w)
+        (HANDLE, DWORD, LPWSTR, PDWORD) =
+            (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
+                GetProcAddress(GetModuleHandle(TEXT("Kernel32")),
+                               "QueryFullProcessImageNameW"));
 
     if (query_full_process_image_name_w(process_handle, 0, exe_path, &exe_path_size) ==
         0) {
@@ -897,11 +899,13 @@ dr_inject_process_attach(process_id_t pid, void **data OUT)
         return ERROR_INVALID_PARAMETER;
     }
 
-    wcsncpy(info->wimage_name, exe_name + 1, BUFFER_SIZE_ELEMENTS(info->wimage_name));
-    NULL_TERMINATE_BUFFER(info->wimage_name);
+    wchar_to_char(info->image_name, BUFFER_SIZE_ELEMENTS(info->image_name), exe_name,
+                  wcslen(exe_name) * sizeof(wchar_t));
 
-    tchar_to_char(info->wimage_name, info->image_name,
+    char_to_tchar(info->image_name, info->wimage_name,
                   BUFFER_SIZE_ELEMENTS(info->image_name));
+
+    app_name = info->image_name;
 
     info->pi.dwProcessId = dbgevt.dwProcessId;
     info->pi.dwThreadId = dbgevt.dwThreadId;
