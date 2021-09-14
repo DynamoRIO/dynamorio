@@ -888,7 +888,7 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
 
     info->pi.hThread =
         CreateRemoteThread(process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)Sleep,
-                           (LPVOID)INFINITE, CREATE_SUSPENDED, &info->pi.dwThreadId);
+                           (LPVOID)(SIZE_T)INFINITE, CREATE_SUSPENDED, &info->pi.dwThreadId);
 
     BOOL(__stdcall * query_full_process_image_name_w)
     (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
