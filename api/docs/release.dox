@@ -232,6 +232,8 @@ Further non-compatibility-affecting changes include:
    insertion of instrumentation and instrumentation optimizations. Its primary purpose
    is to enable debugging of instrumentation sequences and detection of
    instrumentation-induced bugs.
+ - Added \p drstatecmp Extension which provides mechanisms to enable systematic
+   and exhaustive machine state comparisons across instrumentation sequences.
 
 **************************************************
 <hr>
