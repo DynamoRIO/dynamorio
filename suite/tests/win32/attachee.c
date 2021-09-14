@@ -36,9 +36,7 @@
 int
 main(int argc, const char *argv[])
 {
-    for (int i = 0; i < 60; i++) {
-        Sleep(1000);
-    }
+    Sleep(60000);
 
     return 0;
 }

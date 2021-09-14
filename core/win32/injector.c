@@ -878,10 +878,17 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
         }
     } while (received_initial_debug_event == false);
 
-    process_handle = OpenProcess(PROCESS_ALL_ACCESS, false, (DWORD)pid);
-    if (process_handle == NULL) {
-        return GetLastError();
-    }
+    info->pi.dwProcessId = dbgevt.dwProcessId;
+
+    DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hProcess,
+                    GetCurrentProcess(), &info->pi.hProcess, 0, FALSE,
+                    DUPLICATE_SAME_ACCESS);
+
+    process_handle = info->pi.hProcess;
+
+    info->pi.hThread =
+        CreateRemoteThread(process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)Sleep,
+                           (LPVOID)INFINITE, CREATE_SUSPENDED, &info->pi.dwThreadId);
 
     BOOL(__stdcall * query_full_process_image_name_w)
     (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(
@@ -904,17 +911,6 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
                   BUFFER_SIZE_ELEMENTS(info->image_name));
 
     *app_name = info->image_name;
-
-    info->pi.dwProcessId = dbgevt.dwProcessId;
-    info->pi.dwThreadId = dbgevt.dwThreadId;
-
-    DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hProcess,
-                    GetCurrentProcess(), &info->pi.hProcess, 0, FALSE,
-                    DUPLICATE_SAME_ACCESS);
-
-    DuplicateHandle(GetCurrentProcess(), dbgevt.u.CreateProcessInfo.hThread,
-                    GetCurrentProcess(), &info->pi.hThread, 0, FALSE,
-                    DUPLICATE_SAME_ACCESS);
 
     return ERROR_SUCCESS;
 }
@@ -1033,11 +1029,10 @@ dr_inject_process_run(void *data)
     if (info->attached == true) {
         /* detach the debugger */
         DebugActiveProcessStop(info->pi.dwProcessId);
-    } else {
-        /* resume the suspended app process so its main thread can run */
-        ResumeThread(info->pi.hThread);
-        close_handle(info->pi.hThread);
     }
+    /* resume the suspended app process so its main thread can run */
+    ResumeThread(info->pi.hThread);
+    close_handle(info->pi.hThread);
 
     return true;
 }
