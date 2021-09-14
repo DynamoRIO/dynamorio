@@ -32,7 +32,7 @@
 
 #include "dr_api.h"
 
-static client_id_t client_id = 0;
+static client_id_t client_id;
 
 static void
 dr_exit(void)
