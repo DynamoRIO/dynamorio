@@ -65,6 +65,10 @@ if (pidfile)
 endif ()
 file(REMOVE ${out})
 
+if ("${nudge}" MATCHES "<attach>")
+  message("running cmd:${cmd}\n")
+endif ()
+
 # Run the target in the background.
 execute_process(COMMAND ${cmd}
   RESULT_VARIABLE cmd_result
@@ -156,6 +160,10 @@ if (pidfile)
   string(REGEX REPLACE "\n" "" pid ${pid})
 endif ()
 
+if ("${nudge}" MATCHES "<attach>")
+  message("found pid: ${pid}\n")
+endif ()
+
 set(iters 0)
 while (NOT EXISTS "${out}")
   do_sleep(0.1)
@@ -166,6 +174,11 @@ while (NOT EXISTS "${out}")
   endif ()
 endwhile ()
 file(READ "${out}" output)
+
+if ("${nudge}" MATCHES "<attach>")
+  message("${out} exists\n")
+endif ()
+
 # we require that all runall tests write at least one line up front
 set(iters 0)
 if ("${nudge}" MATCHES "<attach>")
@@ -182,6 +195,10 @@ else ()
   endwhile()
 endif ()
 
+if ("${nudge}" MATCHES "<attach>")
+  message("after sleep\n")
+endif ()
+
 set(orig_nudge "${nudge}")
 if ("${nudge}" MATCHES "<use-persisted>")
   # ensure using pcaches, instead of nudging
@@ -194,6 +211,11 @@ elseif ("${nudge}" MATCHES "<attach>")
   string(REGEX REPLACE "<attach>" "-out@${out}@${toolbindir}/drrun@-verbose@-attach@${pid}" nudge "${nudge}")
   string(REGEX REPLACE "@-stderr_mask@0xC@" "@-stderr_mask@0xF@" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
+
+  if ("${orig_nudge}" MATCHES "<attach>")
+    message("running nudge: ${nudge_cmd} ${nudge}\n")
+  endif ()
+
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result
    ERROR_VARIABLE nudge_err
@@ -246,10 +268,19 @@ if (("${orig_nudge}" MATCHES "-client") OR
     endif ()
   endwhile()
 else ()
+
+if ("${orig_nudge}" MATCHES "<attach>")
+  message("has more input\n")
+endif ()
+
   # for reset or other DR tests there won't be further output
   # so we have to guess how long to wait.
   # FIXME: should we instead turn on stderr_mask?
   do_sleep(0.5)
+endif ()
+
+if ("${orig_nudge}" MATCHES "<attach>")
+  message("killing target\n")
 endif ()
 
 kill_background_process(OFF)
@@ -273,6 +304,10 @@ while (NOT "${output}" MATCHES "\ndone\n")
     message(FATAL_ERROR "Timed out waiting for \"done\"\n${output}")
   endif ()
 endwhile()
+
+if ("${orig_nudge}" MATCHES "<attach>")
+  message("has \"done\""\n)
+endif ()
 
 # message() adds a newline so removing any trailing newline
 string(REGEX REPLACE "[ \n]+$" "" output "${output}")
