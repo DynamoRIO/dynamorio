@@ -208,8 +208,7 @@ if ("${nudge}" MATCHES "<use-persisted>")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd run_in_bg)
-  string(REGEX REPLACE "<attach>" "-out@${out}@${toolbindir}/drrun@-verbose@-attach@${pid}" nudge "${nudge}")
-  string(REGEX REPLACE "@-stderr_mask@0xC@" "@-stderr_mask@0xF@" nudge "${nudge}")
+  string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
 
   if ("${orig_nudge}" MATCHES "<attach>")
@@ -269,10 +268,6 @@ if (("${orig_nudge}" MATCHES "-client") OR
   endwhile()
 else ()
 
-if ("${orig_nudge}" MATCHES "<attach>")
-  message("has more input\n")
-endif ()
-
   # for reset or other DR tests there won't be further output
   # so we have to guess how long to wait.
   # FIXME: should we instead turn on stderr_mask?
@@ -306,7 +301,7 @@ while (NOT "${output}" MATCHES "\ndone\n")
 endwhile()
 
 if ("${orig_nudge}" MATCHES "<attach>")
-  message("has \"done\""\n)
+  message("has \"done\"\n")
 endif ()
 
 # message() adds a newline so removing any trailing newline
