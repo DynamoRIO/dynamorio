@@ -199,6 +199,7 @@ elseif ("${nudge}" MATCHES "<attach>")
    )
   # combine out and err
   set(nudge_err "${nudge_out}${nudge_err}")
+  message("nudge_output:\n${nudge_err}\n")
   if (nudge_result)
     kill_background_process(ON)
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")
