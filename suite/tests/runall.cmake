@@ -263,6 +263,9 @@ if (("${orig_nudge}" MATCHES "-client") OR
       message(FATAL_ERROR "Timed out waiting for more output")
     endif ()
   endwhile()
+  if ("${orig_nudge}" MATCHES "<attach>")
+    message("more output: ${output}\n")
+  endif () 
 else ()
 
   # for reset or other DR tests there won't be further output
@@ -293,7 +296,7 @@ while (NOT "${output}" MATCHES "\ndone\n")
   endif ()
   math(EXPR iters "${iters}+1")
   if (${iters} GREATER ${MAX_ITERS})
-    message(FATAL_ERROR "Timed out waiting for \"done\"\n")
+    message(FATAL_ERROR "Timed out waiting for \"done\" ${output}\n")
   endif ()
 endwhile()
 
