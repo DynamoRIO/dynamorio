@@ -2457,34 +2457,6 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-/* immhb_fxp: The vector encoding of #fbits operand. This is the number of bits
- * after the decimal point for fixed-point values.
- */
-static inline bool
-decode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    uint immhb_fxp = extract_uint(enc, 16, 6);
-    *opnd = opnd_create_immed_int(64 - immhb_fxp, OPSZ_6b);
-    return true;
-}
-
-static inline bool
-encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    ptr_int_t fbits;
-
-    if (!opnd_is_immed_int(opnd))
-        return false;
-
-    fbits = opnd_get_immed_int(opnd);
-    if (fbits < 1 || fbits > 64)
-        return false;
-
-    *enc_out = (64 - fbits) << 16;
-
-    return true;
-}
-
 /* imm12: 12-bit immediate operand of ADD/SUB */
 
 static inline bool
@@ -2775,6 +2747,21 @@ static inline bool
 encode_opnd_immhb_0shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 0);
+}
+
+/* immhb_fxp: The vector encoding of #fbits operand. This is the number of bits
+ * after the decimal point for fixed-point values.
+ */
+static inline bool
+decode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return immhb_shf_decode(enc, opcode, pc, opnd, 1);
+}
+
+static inline bool
+encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
 }
 
 /* fpimm13: floating-point immediate for scalar fmov */
