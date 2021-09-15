@@ -265,7 +265,7 @@ if (("${orig_nudge}" MATCHES "-client") OR
   endwhile()
   if ("${orig_nudge}" MATCHES "<attach>")
     message("more output: ${output}\n")
-  endif () 
+  endif ()
 else ()
 
   # for reset or other DR tests there won't be further output
