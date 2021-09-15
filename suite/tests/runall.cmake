@@ -66,7 +66,7 @@ endif ()
 file(REMOVE ${out})
 
 if ("${nudge}" MATCHES "<attach>")
-  message("running cmd:${cmd}\n")
+  message("running cmd\n")
 endif ()
 
 # Run the target in the background.
@@ -181,9 +181,7 @@ endif ()
 
 # we require that all runall tests write at least one line up front
 set(iters 0)
-if ("${nudge}" MATCHES "<attach>")
-  do_sleep(0.5)
-else ()
+if (NOT "${nudge}" MATCHES "<attach>")
   while (NOT "${output}" MATCHES "\n")
     do_sleep(0.1)
     file(READ "${out}" output)
@@ -193,10 +191,6 @@ else ()
       message(FATAL_ERROR "Timed out waiting for newline")
     endif ()
   endwhile()
-endif ()
-
-if ("${nudge}" MATCHES "<attach>")
-  message("after sleep\n")
 endif ()
 
 set(orig_nudge "${nudge}")
@@ -212,7 +206,7 @@ elseif ("${nudge}" MATCHES "<attach>")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
 
   if ("${orig_nudge}" MATCHES "<attach>")
-    message("running nudge: ${nudge_cmd} ${nudge}\n")
+    message("running nudge (attach)\n")
   endif ()
 
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
@@ -255,6 +249,9 @@ if (("${orig_nudge}" MATCHES "-client") OR
   string(LENGTH "${output}" prev_outlen)
   file(READ "${out}" output)
   string(LENGTH "${output}" new_outlen)
+  if ("${orig_nudge}" MATCHES "<attach>")
+    message("waiting for more output prev_outlen=${prev_outlen}\n")
+  endif ()
   set(iters 0)
   while (NOT ${new_outlen} GREATER ${prev_outlen})
     do_sleep(0.1)
@@ -296,7 +293,7 @@ while (NOT "${output}" MATCHES "\ndone\n")
   endif ()
   math(EXPR iters "${iters}+1")
   if (${iters} GREATER ${MAX_ITERS})
-    message(FATAL_ERROR "Timed out waiting for \"done\"\n${output}")
+    message(FATAL_ERROR "Timed out waiting for \"done\"\n")
   endif ()
 endwhile()
 
