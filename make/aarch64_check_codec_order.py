@@ -73,7 +73,7 @@ def check(l1, l2):
             print('Lines {} differ: \n  >  {}\n  <  {}'.format(i, a, b))
         sys.exit(1)
 
-def normilise_plus(string):
+def normalise_plus(string):
     return string.replace("+", "x")
 
 def main():
@@ -84,7 +84,7 @@ def main():
         os.path.join(src_dir, 'codec.txt'),
         re.compile(r'^([x\-\?\+]+)  [a-z0-9A-Z_]+.+#.+'))
     print('Checking if operand patterns in codec.txt are ordered by pattern')
-    check(patterns, sorted(patterns, key=normilise_plus))
+    check(patterns, sorted(patterns, key=normalise_plus))
     print('  OK!')
 
     # Check if operand order in codec.txt and codec.c matches.
