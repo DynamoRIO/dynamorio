@@ -2764,7 +2764,6 @@ encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
 }
 
-
 /* fpimm13: floating-point immediate for scalar fmov */
 
 static inline bool
