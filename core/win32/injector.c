@@ -886,6 +886,12 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
 
     process_handle = info->pi.hProcess;
 
+    /* XXX i#725: Attach does not begin as long as the injected thread is blocking.
+     * To overcome it, We create a new thread in the target process that will live
+     * as long as the target lives, and inject into it.
+     * For better transparency we should exit the thread immediately after injection.
+     * Would require changing termination assumptions in win32/syscall.c.
+     */
     info->pi.hThread = CreateRemoteThread(
         process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)Sleep, (LPVOID)(SIZE_T)INFINITE,
         CREATE_SUSPENDED, &info->pi.dwThreadId);
