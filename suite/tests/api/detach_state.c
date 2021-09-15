@@ -689,6 +689,8 @@ START_FILE
         ldp      x26, x27, [sp], #16 @N@\
         ldp      x28, x29, [sp], #16 @N@\
         ldp      x30, x0, [sp], #16
+#    define ALIGN_STACK_ON_FUNC_ENTRY /* Nothing. */
+#    define UNALIGN_STACK_ON_FUNC_EXIT /* Nothing. */
 #    define POPALL \
         POP_GPRS
         /* TODO i#4698: Pop SIMD regs. */
