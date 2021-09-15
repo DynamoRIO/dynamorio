@@ -267,7 +267,7 @@ while (NOT "${output}" MATCHES "\ndone\n")
   endif ()
   math(EXPR iters "${iters}+1")
   if (${iters} GREATER ${MAX_ITERS})
-    message(FATAL_ERROR "Timed out waiting for \"done\"")
+    message(FATAL_ERROR "Timed out waiting for \"done\"\n${output}")
   endif ()
 endwhile()
 
