@@ -850,14 +850,15 @@ uintptr_t GetProcAddressEx(HANDLE hProcess, DWORD pid, const char* module, const
     if (!module || !function || !pid || !hProcess)
         return 0;
 
-    uintptr_t moduleBase = GetModuleBaseEx(module, pid); //toolhelp32snapshot method
+    uintptr_t moduleBase = GetModuleBaseEx(module, pid); // toolhelp32snapshot method
 
     if (!moduleBase)
         return 0;
 
     IMAGE_DOS_HEADER Image_Dos_Header = { 0 };
 
-    if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase), &Image_Dos_Header, sizeof(IMAGE_DOS_HEADER), NULL))
+    if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase), &Image_Dos_Header,
+                           sizeof(IMAGE_DOS_HEADER), NULL))
         return 0;
 
     if (Image_Dos_Header.e_magic != IMAGE_DOS_SIGNATURE)
@@ -865,7 +866,8 @@ uintptr_t GetProcAddressEx(HANDLE hProcess, DWORD pid, const char* module, const
 
     IMAGE_NT_HEADERS Image_Nt_Headers = { 0 };
 
-    if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase + Image_Dos_Header.e_lfanew), &Image_Nt_Headers, sizeof(IMAGE_NT_HEADERS), NULL))
+    if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase + Image_Dos_Header.e_lfanew),
+                           &Image_Nt_Headers, sizeof(IMAGE_NT_HEADERS), NULL))
         return 0;
 
     if (Image_Nt_Headers.Signature != IMAGE_NT_SIGNATURE)
@@ -874,10 +876,13 @@ uintptr_t GetProcAddressEx(HANDLE hProcess, DWORD pid, const char* module, const
     IMAGE_EXPORT_DIRECTORY Image_Export_Directory = { 0 };
     uintptr_t img_exp_dir_rva = 0;
 
-    if (!(img_exp_dir_rva = Image_Nt_Headers.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress))
+    if (!(img_exp_dir_rva =
+              Image_Nt_Headers.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT]
+                  .VirtualAddress))
         return 0;
 
-    if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase + img_exp_dir_rva), &Image_Export_Directory, sizeof(IMAGE_EXPORT_DIRECTORY), NULL))
+    if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase + img_exp_dir_rva),
+                           &Image_Export_Directory, sizeof(IMAGE_EXPORT_DIRECTORY), NULL))
         return 0;
 
     uintptr_t EAT = moduleBase + Image_Export_Directory.AddressOfFunctions;
@@ -886,26 +891,29 @@ uintptr_t GetProcAddressEx(HANDLE hProcess, DWORD pid, const char* module, const
 
     WORD ordinal = 0;
     SIZE_T len_buf = strlen(function) + 1;
-    char* temp_buf = HeapAlloc(GetProcessHeap(), 0, len_buf);
+    char *temp_buf = HeapAlloc(GetProcessHeap(), 0, len_buf);
 
-    for (size_t i = 0; i < Image_Export_Directory.NumberOfNames; i++)
-    {
+    for (size_t i = 0; i < Image_Export_Directory.NumberOfNames; i++) {
         uintptr_t tempRvaString = 0;
 
-        if (!ReadProcessMemory(hProcess, (LPCVOID)(ENT + (i * sizeof(uintptr_t))), &tempRvaString, sizeof(uintptr_t), NULL))
+        if (!ReadProcessMemory(hProcess, (LPCVOID)(ENT + (i * sizeof(uintptr_t))),
+                               &tempRvaString, sizeof(uintptr_t), NULL))
             return 0;
 
-        if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase + tempRvaString), temp_buf, len_buf, NULL))
+        if (!ReadProcessMemory(hProcess, (LPCVOID)(moduleBase + tempRvaString), temp_buf,
+                               len_buf, NULL))
             return 0;
 
-        if (!lstrcmpi(function, temp_buf))
-        {
-            if (!ReadProcessMemory(hProcess, (LPCVOID)(EOT + (i * sizeof(WORD))), &ordinal, sizeof(WORD), NULL))
+        if (!lstrcmpi(function, temp_buf)) {
+            if (!ReadProcessMemory(hProcess, (LPCVOID)(EOT + (i * sizeof(WORD))),
+                                   &ordinal, sizeof(WORD), NULL))
                 return 0;
 
             uintptr_t temp_rva_func = 0;
 
-            if (!ReadProcessMemory(hProcess, (LPCVOID)(EAT + (ordinal * sizeof(uintptr_t))), &temp_rva_func, sizeof(uintptr_t), NULL))
+            if (!ReadProcessMemory(hProcess,
+                                   (LPCVOID)(EAT + (ordinal * sizeof(uintptr_t))),
+                                   &temp_rva_func, sizeof(uintptr_t), NULL))
                 return 0;
 
             HeapFree(GetProcessHeap(), 0, temp_buf);
@@ -990,8 +998,10 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
 
     *app_name = info->image_name;
 
-    uintptr_t sleep_address = GetProcAddressEx(process_handle, pid, "Kernel32.dll", "Sleep");
-    fprintf(stdout, "DEBUG: address of sleep:\ndrrun:%p\ninfloop:%p\n", (PVOID)Sleep, sleep_address);
+    uintptr_t sleep_address =
+        GetProcAddressEx(process_handle, pid, "Kernel32.dll", "Sleep");
+    fprintf(stdout, "DEBUG: address of sleep:\ndrrun:%p\ninfloop:%p\n", (PVOID)Sleep,
+            sleep_address);
     fflush(stdout);
 
     return ERROR_SUCCESS;
