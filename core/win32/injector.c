@@ -856,6 +856,8 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
     DWORD exe_path_size = MAX_PATH;
     wchar_t *exe_name;
     HANDLE process_handle;
+    uint64 kernel32;
+    uint64 sleep_address;
 
     *data = info;
 
@@ -892,9 +894,20 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
      * For better transparency we should exit the thread immediately after injection.
      * Would require changing termination assumptions in win32/syscall.c.
      */
+    kernel32 = find_remote_dll_base(process_handle, IF_X64_ELSE(true, false), 
+                                    "kernel32.dll");
+    if (kernel32 == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    sleep_address = get_remote_proc_address(process_handle, kernel32, "Sleep");
+    if (sleep_address == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+     
     info->pi.hThread = CreateRemoteThread(
-        process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)Sleep, (LPVOID)(SIZE_T)INFINITE,
-        CREATE_SUSPENDED, &info->pi.dwThreadId);
+        process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address, 
+        (LPVOID)(SIZE_T)INFINITE, CREATE_SUSPENDED, &info->pi.dwThreadId);
 
     BOOL(__stdcall * query_full_process_image_name_w)
     (HANDLE, DWORD, LPWSTR, PDWORD) = (BOOL(__stdcall *)(HANDLE, DWORD, LPWSTR, PDWORD))(

@@ -188,8 +188,8 @@ if ("${nudge}" MATCHES "<use-persisted>")
     set(fail_msg "no .dpc files found in ${maps}: not using pcaches!")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
-  set(nudge_cmd drrun)
-  string(REGEX REPLACE "<attach>" "-attach@${pid}" nudge "${nudge}")
+  set(nudge_cmd run_in_bg)
+  string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result
@@ -198,7 +198,6 @@ elseif ("${nudge}" MATCHES "<attach>")
    )
   # combine out and err
   set(nudge_err "${nudge_out}${nudge_err}")
-  message("${nudge_err}")
   if (nudge_result)
     kill_background_process(ON)
     message(FATAL_ERROR "*** ${nudge_cmd} failed (${nudge_result}): ${nudge_err}***\n")

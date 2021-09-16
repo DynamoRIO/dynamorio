@@ -49,7 +49,6 @@ main(int argc, const char *argv[])
      * uniquely when run in a parallel test suite.
      * runall.cmake assumes this precise title.
      */
-    print("DEBUG: infloop address of sleep:%p", (PVOID)Sleep);
     char title[64];
     _snprintf_s(title, BUFFER_SIZE_BYTES(title), BUFFER_SIZE_ELEMENTS(title),
                 "Infloop pid=%d", GetProcessId(GetCurrentProcess()));
