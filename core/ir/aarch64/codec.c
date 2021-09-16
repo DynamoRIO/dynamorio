@@ -1531,7 +1531,8 @@ decode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 }
 
 static inline bool
-encode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+encode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, opnd_t opnd,
+                            OUT uint *enc_out)
 {
     if (!opnd_is_immed_int64(opnd))
         return false;
@@ -1655,16 +1656,11 @@ decode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     int esize = 32;
     int shift;
     switch (cmode) {
-        case 0: shift = 0;
-                break;
-        case 1: shift = 8;
-                break;
-        case 2: shift = 16;
-                break;
-        case 3: shift = 24;
-                break;
-        default:
-                return false;
+    case 0: shift = 0; break;
+    case 1: shift = 8; break;
+    case 2: shift = 16; break;
+    case 3: shift = 24; break;
+    default: return false;
     }
     uint64 sz_shft = ((uint64)esize << 32) | shift;
     *opnd = opnd_create_immed_int64(sz_shft, OPSZ_8);
@@ -1688,16 +1684,11 @@ encode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
 
     int cmode;
     switch (shift) {
-        case 0: cmode = 0;
-                break;
-        case 8: cmode = 1;
-                break;
-        case 16: cmode = 2;
-                break;
-        case 24: cmode = 3;
-                break;
-        default:
-                return false;
+    case 0: cmode = 0; break;
+    case 8: cmode = 1; break;
+    case 16: cmode = 2; break;
+    case 24: cmode = 3; break;
+    default: return false;
     }
 
     opnd = opnd_create_immed_uint(cmode, OPSZ_2b);
