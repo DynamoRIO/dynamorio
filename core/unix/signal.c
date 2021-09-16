@@ -3253,7 +3253,17 @@ fixup_rtframe_pointers(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     if (f_old->uc.uc_mcontext.fpstate != NULL) {
         uint frame_size = get_app_frame_size(info, sig);
         byte *frame_end = ((byte *)f_new) + frame_size;
+#    ifdef X64
         byte *tgt = (byte *)ALIGN_FORWARD(frame_end, XSTATE_ALIGNMENT);
+#    else
+        uint offset_fpstate_xsave = offsetof(kernel_fpstate_t, _fxsr_env);
+        /* i#5079: The kernel requires the xsave area to be 64-byte aligned, which
+         * starts at _fxsr_env in kernel_fpstate_t.
+         */
+        byte *tgt =
+            (byte *)ALIGN_FORWARD(frame_end + offset_fpstate_xsave, XSTATE_ALIGNMENT) -
+            offset_fpstate_xsave;
+#    endif
         size_t extra_size = signal_frame_extra_size(false);
         ASSERT(extra_size == f_new->uc.uc_mcontext.fpstate->sw_reserved.extended_size);
         /* XXX: It may be better to move this into memcpy_rt_frame (or another
@@ -3280,6 +3290,8 @@ fixup_rtframe_pointers(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 *(int *)((byte *)f_new->uc.uc_mcontext.fpstate +
                          f_new->uc.uc_mcontext.fpstate->sw_reserved.extended_size -
                          FP_XSTATE_MAGIC2_SIZE) == FP_XSTATE_MAGIC2));
+        IF_NOT_X64(
+            ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate->_fxsr_env, XSTATE_ALIGNMENT)));
     } else {
         /* if fpstate is not set up, we're delivering signal immediately,
          * and we shouldn't need an fpstate since DR code won't modify it;
