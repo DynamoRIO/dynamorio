@@ -2221,7 +2221,7 @@ remote_protect_virtual_memory_64(HANDLE process, uint64 base, size_t size, uint 
                                  uint *old_prot);
 #endif /* !X64 */
 
-static uint64
+uint64
 find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name);
 
 uint64

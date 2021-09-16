@@ -1326,7 +1326,7 @@ read_remote_maybe64(HANDLE process, uint64 addr, size_t bufsz, void *buf)
         num_read == bufsz;
 }
 
-static uint64
+uint64
 find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
 {
     MEMORY_BASIC_INFORMATION64 mbi;
