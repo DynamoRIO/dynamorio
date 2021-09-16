@@ -845,7 +845,8 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
 }
 
 #define ReCa reinterpret_cast
-uintptr_t GetProcAddressEx(HANDLE hProcess, DWORD pid, const char* module, const char* function)
+uintptr_t
+GetProcAddressEx(HANDLE hProcess, DWORD pid, const char *module, const char *function)
 {
     if (!module || !function || !pid || !hProcess)
         return 0;
