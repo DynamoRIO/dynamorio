@@ -918,12 +918,6 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
 
     *app_name = info->image_name;
 
-    uintptr_t sleep_address =
-        GetProcAddressEx(process_handle, pid, "Kernel32.dll", "Sleep");
-    fprintf(stdout, "DEBUG: address of sleep:\ndrrun:%p\ninfloop:%p\n", (PVOID)Sleep,
-            sleep_address);
-    fflush(stdout);
-
     return ERROR_SUCCESS;
 }
 
