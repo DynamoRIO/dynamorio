@@ -225,11 +225,12 @@ endif ()
 if (NOT CLANG_FORMAT_DIFF)
   find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
 endif ()
-if (CLANG_FORMAT_DIFF)
+find_package(Python2)
+if (CLANG_FORMAT_DIFF AND Python2_FOUND)
   get_filename_component(CUR_DIR "." ABSOLUTE)
   set(diff_file "${CUR_DIR}/runsuite_diff.patch")
   file(WRITE ${diff_file} "${diff_contents}")
-  execute_process(COMMAND ${CLANG_FORMAT_DIFF} -p1
+  execute_process(COMMAND ${Python2_EXECUTABLE} ${CLANG_FORMAT_DIFF} -p1
     WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
     INPUT_FILE ${diff_file}
     RESULT_VARIABLE format_result
