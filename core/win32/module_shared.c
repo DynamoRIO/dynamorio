@@ -1338,18 +1338,18 @@ find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
         res = remote_query_virtual_memory_maybe64(phandle, addr, &mbi, sizeof(mbi), &got);
         if (got != sizeof(mbi) || !NT_SUCCESS(res))
             break;
-#if VERBOSE
+#    if VERBOSE
         print_file(STDERR, "0x%I64x-0x%I64x type=0x%x state=0x%x\n", mbi.BaseAddress,
                    mbi.BaseAddress + mbi.RegionSize, mbi.Type, mbi.State);
-#endif
+#    endif
         if (mbi.Type == MEM_IMAGE && mbi.BaseAddress == mbi.AllocationBase) {
             bool is_64;
             if (get_remote_dll_short_name(phandle, mbi.BaseAddress, name,
                                           BUFFER_SIZE_ELEMENTS(name), &is_64)) {
-#if VERBOSE
+#    if VERBOSE
                 print_file(STDERR, "found |%s| @ 0x%I64x 64=%d\n", name, mbi.BaseAddress,
                            is_64);
-#endif
+#    endif
                 if (strcmp(name, dll_name) == 0 && BOOLS_MATCH(find64bit, is_64))
                     return mbi.BaseAddress;
             }

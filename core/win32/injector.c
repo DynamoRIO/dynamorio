@@ -894,8 +894,8 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
      * For better transparency we should exit the thread immediately after injection.
      * Would require changing termination assumptions in win32/syscall.c.
      */
-    kernel32 = find_remote_dll_base(process_handle, IF_X64_ELSE(true, false), 
-                                    "kernel32.dll");
+    kernel32 =
+        find_remote_dll_base(process_handle, IF_X64_ELSE(true, false), "kernel32.dll");
     if (kernel32 == 0) {
         return ERROR_INVALID_PARAMETER;
     }
@@ -904,9 +904,9 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
     if (sleep_address == 0) {
         return ERROR_INVALID_PARAMETER;
     }
-     
+
     info->pi.hThread = CreateRemoteThread(
-        process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address, 
+        process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
         (LPVOID)(SIZE_T)INFINITE, CREATE_SUSPENDED, &info->pi.dwThreadId);
 
     BOOL(__stdcall * query_full_process_image_name_w)
