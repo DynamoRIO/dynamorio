@@ -529,7 +529,7 @@ enum {
 
 typedef struct _module_table_t {
     char *path;
-    uint64 seg_start;
+    uintptr_t seg_start;
     size_t seg_offs;
     size_t size;
     union {
@@ -723,7 +723,7 @@ module_table_search_testcase(const char *module, module_table_t *table)
 }
 
 static module_table_t *
-module_table_create(const char *module, uint64 seg_start, size_t seg_offs, size_t size)
+module_table_create(const char *module, uintptr_t seg_start, size_t seg_offs, size_t size)
 {
     module_table_t *table;
     ASSERT(ALIGNED(size, dr_page_size()), "Module size is not aligned");
@@ -818,14 +818,14 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
                     }
                 }
             }
-            uint64 seg_offs = 0;
+            size_t seg_offs = 0;
             if (info.containing_index != i) {
                 ASSERT(info.containing_index <= i, "invalid containing index");
-                seg_offs = (uint64)(uintptr_t)info.start -
-                    (*tables)[info.containing_index]->seg_start;
+                seg_offs =
+                    (uintptr_t)info.start - (*tables)[info.containing_index]->seg_start;
             }
-            mod_table = module_table_create(modpath, (uint64)(uintptr_t)info.start,
-                                            seg_offs, info.size);
+            mod_table =
+                module_table_create(modpath, (uintptr_t)info.start, seg_offs, info.size);
         }
         PRINT(4, "Create module table " PFX " for module %s\n", mod_table, modpath);
         module_vec.push_back(mod_table);
