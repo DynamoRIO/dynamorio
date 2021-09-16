@@ -144,11 +144,8 @@ set(drcachesim_srcs
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
-  )
-if (DEBUG)
-  # We include the invariants analyzer for testing.
-  set(drcachesim_srcs ${drcachesim_srcs} tools/invariant_checker.cpp)
-endif ()
+  # We include the invariants analyzer for sanity checks.
+  tools/invariant_checker.cpp)
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)

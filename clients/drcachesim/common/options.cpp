@@ -331,13 +331,11 @@ droption_t<bool>
                        "Show every traced call in the func_trace tool",
                        "In the func_trace tool, this controls whether every traced call "
                        "is shown or instead only aggregate statistics are shown.");
-#ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
 droption_t<std::string> op_test_mode_name(
     DROPTION_SCOPE_ALL, "test_mode_name", "", "Run custom sanity tests",
     "Run extra analyses for specific sanity checks by name on the trace.");
-#endif
 droption_t<bool> op_disable_optimizations(
     DROPTION_SCOPE_ALL, "disable_optimizations", false,
     "Disable offline trace optimizations for testing",
