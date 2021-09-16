@@ -673,15 +673,24 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
         return bb_bitmap_add(table, entry);
 }
 
+static char *
+my_strdup(const char *src)
+{
+    /* strdup is deprecated on Windows */
+    size_t alloc_sz = strlen(src) + 1;
+    char *res = (char *)malloc(alloc_sz);
+    strncpy(res, src, alloc_sz);
+    res[alloc_sz - 1] = '\0';
+    return res;
+}
+
 static bool
 search_cb(drsym_info_t *info, drsym_error_t status, void *data)
 {
     module_table_t *table = (module_table_t *)data;
     if (info != NULL && info->name != NULL &&
         strstr(info->name, op_test_pattern.get_value().c_str()) != NULL) {
-        char *name = (char *)malloc(strlen(info->name) + 1);
-        /* strdup is deprecated on Windows */
-        strncpy(name, info->name, strlen(info->name) + 1);
+        char *name = my_strdup(info->name);
         PRINT(5, "function %s: 0x%zx-0x%zx\n", name, info->start_offs, info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
@@ -721,7 +730,7 @@ module_table_create(const char *module, uint64 seg_start, size_t seg_offs, size_
 
     table = (module_table_t *)calloc(1, sizeof(*table));
     ASSERT(table != NULL, "Failed to allocate module table");
-    table->path = strdup(module);
+    table->path = my_strdup(module);
     table->seg_start = seg_start;
     table->seg_offs = seg_offs;
     table->size = size;
