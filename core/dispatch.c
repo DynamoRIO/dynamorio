@@ -2274,8 +2274,7 @@ handle_callback_return(dcontext_t *dcontext)
  * caller must set up mcontext with proper system call number and arguments
  */
 void
-issue_last_system_call_from_app(dcontext_t *dcontext)
-{
+issue_last_system_call_from_app(dcontext_t *dcontext){
     LOG(THREAD, LOG_SYSCALLS, 2, "issue_last_system_call_from_app(" PIFX ")\n",
         MCXT_SYSNUM_REG(get_mcontext(dcontext)));
 
