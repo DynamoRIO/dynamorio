@@ -189,7 +189,7 @@ if ("${nudge}" MATCHES "<use-persisted>")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd run_in_bg)
-  string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}" nudge "${nudge}")
+  string(REGEX REPLACE "<attach>" "-out@${out}@${toolbindir}/drrun@-attach@${pid}" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result
