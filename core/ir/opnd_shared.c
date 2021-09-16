@@ -365,7 +365,6 @@ opnd_create_immed_int64(int64 i, opnd_size_t size)
 {
     opnd_t opnd;
     opnd.kind = IMMED_INTEGER_kind;
-    IF_X64(CLIENT_ASSERT(false, "32-bit only"));
     CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_uint: invalid size");
     opnd.size = size;
     opnd.value.immed_int_multi_part.low = (uint)i;
@@ -443,7 +442,6 @@ opnd_get_immed_int(opnd_t opnd)
 int64
 opnd_get_immed_int64(opnd_t opnd)
 {
-    IF_X64(CLIENT_ASSERT(false, "32-bit only"));
     CLIENT_ASSERT(opnd_is_immed_int64(opnd),
                   "opnd_get_immed_int64 called on non-multi-part-immed-int");
     return (((uint64)(uint)opnd.value.immed_int_multi_part.high) << 32) |
