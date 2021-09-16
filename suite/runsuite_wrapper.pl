@@ -315,7 +315,6 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|linux.fib-conflict-early' => 1,
                                    'code_api|linux.mangle_asynch' => 1,
                                    'code_api|tool.drcachesim.phys' => 1, # i#4922
-                                   'code_api|tool.drcacheoff.rseq' => 1, # i#4924
                                    'code_api|api.rseq' => 1, # i#4923
                                    'code_api|tool.drcachesim.TLB-threads' => 1, # i#4928
                                    'code_api|tool.drcachesim.threads' => 1, # i#4928
