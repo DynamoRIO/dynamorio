@@ -77,6 +77,7 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only require_format
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
+        DYNAMORIO_CLANG: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 
