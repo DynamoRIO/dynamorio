@@ -3169,7 +3169,7 @@ convert_rt_mask_to_nonrt(sigframe_plain_t *f_plain, kernel_sigset_t *sigmask)
 
 static void
 convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
-                       sigframe_plain_t *f_new)
+                       sigframe_plain_t *f_new, size_t f_new_alloc_size)
 {
 #    ifdef X86
     sigcontext_t *sc_old = get_sigcontext_from_rt_frame(f_old);
@@ -3188,6 +3188,8 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
             offset_fpstate_xsave;
         memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
         f_new->sc.fpstate = (kernel_fpstate_t *)new_fpstate;
+        ASSERT(new_fpstate + signal_frame_extra_size(false) <=
+               (byte *)f_new + f_new_alloc_size);
     }
     convert_rt_mask_to_nonrt(f_new, &f_old->uc.uc_sigmask);
     memcpy(&f_new->retcode, &f_old->retcode, RETCODE_SIZE);
@@ -3416,18 +3418,19 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
         /* We have no safe-read mechanism so we do the best we can: blindly copy. */
         if (rtframe)
             memcpy_rt_frame(frame, sp, from_pending);
-        IF_NOT_X64(IF_LINUX(
-            else convert_frame_to_nonrt(dcontext, sig, frame, (sigframe_plain_t *)sp);));
+        IF_NOT_X64(IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
+                                                        (sigframe_plain_t *)sp, size);));
     } else {
-        TRY_EXCEPT(dcontext, /* try */
-                   {
-                       if (rtframe)
-                           memcpy_rt_frame(frame, sp, from_pending);
-                       IF_NOT_X64(
-                           IF_LINUX(else convert_frame_to_nonrt(
-                                        dcontext, sig, frame, (sigframe_plain_t *)sp);));
-                   },
-                   /* except */ { stack_unwritable = true; });
+        TRY_EXCEPT(
+            dcontext, /* try */
+            {
+                if (rtframe)
+                    memcpy_rt_frame(frame, sp, from_pending);
+                IF_NOT_X64(
+                    IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
+                                                         (sigframe_plain_t *)sp, size);));
+            },
+            /* except */ { stack_unwritable = true; });
     }
     if (stack_unwritable) {
         /* Override the no-nested check in record_pending_signal(): it's ok b/c
