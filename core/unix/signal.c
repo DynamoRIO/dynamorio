@@ -3169,7 +3169,7 @@ convert_rt_mask_to_nonrt(sigframe_plain_t *f_plain, kernel_sigset_t *sigmask)
 
 static void
 convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
-                       sigframe_plain_t *f_new)
+                       sigframe_plain_t *f_new, size_t f_new_alloc_size)
 {
 #    ifdef X86
     sigcontext_t *sc_old = get_sigcontext_from_rt_frame(f_old);
@@ -3178,9 +3178,17 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
     memcpy(&f_new->sc, get_sigcontext_from_rt_frame(f_old), sizeof(sigcontext_t));
     if (sc_old->fpstate != NULL) {
         /* up to caller to include enough space for fpstate at end */
+        uint offset_fpstate_xsave = offsetof(kernel_fpstate_t, _fxsr_env);
+        /* i#5079: The kernel requires the xsave area to be 64-byte aligned, which
+         * starts at _fxsr_env in kernel_fpstate_t.
+         */
         byte *new_fpstate =
-            (byte *)ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new), XSTATE_ALIGNMENT);
-        memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
+            (byte *)ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new) + offset_fpstate_xsave,
+                                  XSTATE_ALIGNMENT) -
+            offset_fpstate_xsave;
+        size_t extra_size = signal_frame_extra_size(false);
+        ASSERT(new_fpstate + extra_size <= (byte *)f_new + f_new_alloc_size);
+        memcpy(new_fpstate, sc_old->fpstate, extra_size);
         f_new->sc.fpstate = (kernel_fpstate_t *)new_fpstate;
     }
     convert_rt_mask_to_nonrt(f_new, &f_old->uc.uc_sigmask);
@@ -3253,7 +3261,17 @@ fixup_rtframe_pointers(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
     if (f_old->uc.uc_mcontext.fpstate != NULL) {
         uint frame_size = get_app_frame_size(info, sig);
         byte *frame_end = ((byte *)f_new) + frame_size;
+#    ifdef X64
         byte *tgt = (byte *)ALIGN_FORWARD(frame_end, XSTATE_ALIGNMENT);
+#    else
+        uint offset_fpstate_xsave = offsetof(kernel_fpstate_t, _fxsr_env);
+        /* i#5079: The kernel requires the xsave area to be 64-byte aligned, which
+         * starts at _fxsr_env in kernel_fpstate_t.
+         */
+        byte *tgt =
+            (byte *)ALIGN_FORWARD(frame_end + offset_fpstate_xsave, XSTATE_ALIGNMENT) -
+            offset_fpstate_xsave;
+#    endif
         size_t extra_size = signal_frame_extra_size(false);
         ASSERT(extra_size == f_new->uc.uc_mcontext.fpstate->sw_reserved.extended_size);
         /* XXX: It may be better to move this into memcpy_rt_frame (or another
@@ -3400,16 +3418,16 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
         /* We have no safe-read mechanism so we do the best we can: blindly copy. */
         if (rtframe)
             memcpy_rt_frame(frame, sp, from_pending);
-        IF_NOT_X64(IF_LINUX(
-            else convert_frame_to_nonrt(dcontext, sig, frame, (sigframe_plain_t *)sp);));
+        IF_NOT_X64(IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
+                                                        (sigframe_plain_t *)sp, size);));
     } else {
         TRY_EXCEPT(dcontext, /* try */
                    {
                        if (rtframe)
                            memcpy_rt_frame(frame, sp, from_pending);
-                       IF_NOT_X64(
-                           IF_LINUX(else convert_frame_to_nonrt(
-                                        dcontext, sig, frame, (sigframe_plain_t *)sp);));
+                       IF_NOT_X64(IF_LINUX(
+                           else convert_frame_to_nonrt(dcontext, sig, frame,
+                                                       (sigframe_plain_t *)sp, size);));
                    },
                    /* except */ { stack_unwritable = true; });
     }
