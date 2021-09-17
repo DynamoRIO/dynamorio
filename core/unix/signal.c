@@ -3178,8 +3178,14 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
     memcpy(&f_new->sc, get_sigcontext_from_rt_frame(f_old), sizeof(sigcontext_t));
     if (sc_old->fpstate != NULL) {
         /* up to caller to include enough space for fpstate at end */
+        uint offset_fpstate_xsave = offsetof(kernel_fpstate_t, _fxsr_env);
+        /* i#5079: The kernel requires the xsave area to be 64-byte aligned, which
+         * starts at _fxsr_env in kernel_fpstate_t.
+         */
         byte *new_fpstate =
-            (byte *)ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new), XSTATE_ALIGNMENT);
+            (byte *)ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new) + offset_fpstate_xsave,
+                                  XSTATE_ALIGNMENT) -
+            offset_fpstate_xsave;
         memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
         f_new->sc.fpstate = (kernel_fpstate_t *)new_fpstate;
     }
