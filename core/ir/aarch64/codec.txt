@@ -68,7 +68,6 @@
                                              # distinguish FP16 and float/double encs
 --------------------------------  b_const_sz # as above, but for byte width
 --------------------------------  s_const_sz # as above, but for single width
---------------------------------  cmode4_b_sz # Implicit vector shift for byte elements
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
@@ -113,6 +112,7 @@
 -----------------xxxxx----------  s10        # S register
 -----------------xxxxx----------  d10        # D register
 -----------------xxxxx----------  q10        # Q register
+----------------????------------  cmode4_b_sz # Vector shift for byte elements
 ----------------xxx-------------  ext        # extend type
 ----------------xxxx------------  crn        # 4 bit immediate from 12-15
 ----------------xxxx------------  cond       # condition for CCMN, CCMP

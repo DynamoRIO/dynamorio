@@ -1039,33 +1039,6 @@ encode_opnd_s_const_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
     return false;
 }
 
-/* cmode4_b_sz : Operand for byte elements' shift amount
- */
-static inline bool
-decode_opnd_cmode4_b_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    /* cmode size amounts
-     * 1110  8    0
-     * 10x0  16   0,8
-     * 0xx0  32   0,8,16,24
-     * 110x  32   8,16 (MSL, shifting ones)
-     */
-    int esize = 8;
-    int shift = 0;
-    uint64 sz_shft = ((uint64)esize << 32) | shift;
-    *opnd = opnd_create_immed_int64(sz_shft, OPSZ_8);
-    return true;
-}
-
-static inline bool
-encode_opnd_cmode4_b_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    int esize = 8;
-    if (opnd_is_immed_int64(opnd) && opnd_get_immed_int64(opnd) == ((uint64)esize << 32))
-        return true;
-    return false;
-}
-
 /* nzcv: flag bit specifier for conditional compare */
 
 static inline bool
@@ -1516,17 +1489,17 @@ encode_opnd_imm4(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    /* cmode size amounts
-     * 1110  8    0
-     * 10x0  16   0,8
-     * 0xx0  32   0,8,16,24
-     * 110x  32   8,16 (MSL, shifting ones)
+    /* cmode size shift amounts
+     * 110x  32   8,16
+     * This is an MSL (Modified Shift Left). Unlike an LSL (Logical Shift
+     * Left), this left shift shifts ones instead of zeros into the low order
+     * bits.
      */
-    int cmode4 = extract_uint(enc, 12, 1);
-    int esize = 32;
-    int shift = ((cmode4 == 0) ? 8 : 16) | (1 << 28);
-    uint64 sz_shft = ((uint64)esize << 32) | shift;
-    *opnd = opnd_create_immed_int64(sz_shft, OPSZ_8);
+    const int cmode4 = extract_uint(enc, 12, 1);
+    const int size = 32;
+    const int shift = ((cmode4 == 0) ? 8 : 16) | (1 << 28);
+    uint64 sz_shft = ((uint64)size << 32) | shift;
+    *opnd = opnd_create_immed_int(sz_shft, OPSZ_8);
     return true;
 }
 
@@ -1534,17 +1507,17 @@ static inline bool
 encode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, opnd_t opnd,
                             OUT uint *enc_out)
 {
-    if (!opnd_is_immed_int64(opnd))
+    if (!opnd_is_immed_int(opnd))
         return false;
 
-    int64 sz_shft = opnd_get_immed_int64(opnd);
-    int shift = (int)(sz_shft & 0xFFFFFFFF);
-    if ((shift & 0x10000000) == 0) // MSL bit
+    int64 sz_shft = opnd_get_immed_int(opnd);
+    int shift = (int)(sz_shft & 0xffffffff);
+    if (!TEST(1U << 28, shift)) // MSL bit should be set
         return false;
-    shift = shift & 0xFF;
-    int esize = (int)(sz_shft >> 32);
+    shift &= 0xff;
+    const int size = (int)(sz_shft >> 32);
 
-    if (esize != 32)
+    if (size != 32)
         return false;
 
     int cmode4;
@@ -1587,30 +1560,27 @@ static inline bool
 decode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     /* cmode size amounts
-     * 1110  8    0
      * 10x0  16   0,8
-     * 0xx0  32   0,8,16,24
-     * 110x  32   8,16 (MSL, shifting ones)
      */
-    int cmode = extract_uint(enc, 13, 1);
-    int esize = 16;
-    int shift = (cmode == 0) ? 0 : 8;
-    uint64 sz_shft = ((uint64)esize << 32) | shift;
-    *opnd = opnd_create_immed_int64(sz_shft, OPSZ_8);
+    const int cmode = extract_uint(enc, 13, 1);
+    int size = 16;
+    const int shift = (cmode == 0) ? 0 : 8;
+    const uint64 sz_shft = ((uint64)size << 32) | shift;
+    *opnd = opnd_create_immed_int(sz_shft, OPSZ_8);
     return true;
 }
 
 static inline bool
 encode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (!opnd_is_immed_int64(opnd))
+    if (!opnd_is_immed_int(opnd))
         return false;
 
-    int64 sz_shft = opnd_get_immed_int64(opnd);
-    int shift = (int)(sz_shft & 0xFF);
-    int esize = (int)(sz_shft >> 32);
+    const int64 sz_shft = opnd_get_immed_int(opnd);
+    const int shift = (int)(sz_shft & 0xFF);
+    int size = (int)(sz_shft >> 32);
 
-    if (esize != 16)
+    if (size != 16)
         return false;
 
     int cmode;
@@ -1647,13 +1617,10 @@ static inline bool
 decode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     /* cmode size amounts
-     * 1110  8    0
-     * 10x0  16   0,8
      * 0xx0  32   0,8,16,24
-     * 110x  32   8,16 (MSL, shifting ones)
      */
-    int cmode = extract_uint(enc, 13, 2);
-    int esize = 32;
+    const int cmode = extract_uint(enc, 13, 2);
+    const int size = 32;
     int shift;
     switch (cmode) {
     case 0: shift = 0; break;
@@ -1662,24 +1629,24 @@ decode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     case 3: shift = 24; break;
     default: return false;
     }
-    uint64 sz_shft = ((uint64)esize << 32) | shift;
-    *opnd = opnd_create_immed_int64(sz_shft, OPSZ_8);
+    const uint64 sz_shft = ((uint64)size << 32) | shift;
+    *opnd = opnd_create_immed_int(sz_shft, OPSZ_8);
     return true;
 }
 
 static inline bool
 encode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    if (!opnd_is_immed_int64(opnd))
+    if (!opnd_is_immed_int(opnd))
         return false;
 
-    int64 sz_shft = opnd_get_immed_int64(opnd);
-    int shift = (int)(sz_shft & 0xFFFFFFFF);
-    if ((shift & 0x10000000) == 0x10000000) // MSL bit
+    const int64 sz_shft = opnd_get_immed_int(opnd);
+    const int shift = (int)(sz_shft & 0xffffffff);
+    if (TEST(1U << 28, shift)) // MSL bit should not be set as this is LSL
         return false;
-    int esize = (int)(sz_shft >> 32);
+    const int size = (int)(sz_shft >> 32);
 
-    if (esize != 32)
+    if (size != 32)
         return false;
 
     int cmode;
@@ -1809,6 +1776,31 @@ static inline bool
 encode_opnd_q10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_vector_reg(10, 4, opnd, enc_out);
+}
+
+/* cmode4_b_sz : Operand for byte elements' shift amount
+ */
+static inline bool
+decode_opnd_cmode4_b_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    /* cmode size shift amount
+     * 1110  8    0
+     */
+    if ((enc & 0xf000) != 0xe000)
+        return false;
+    const int size = 8;
+    const uint64 sz_shft = (uint64)size << 32;
+    *opnd = opnd_create_immed_int(sz_shft, OPSZ_8);
+    return true;
+}
+
+static inline bool
+encode_opnd_cmode4_b_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    const int size = 8;
+    if (opnd_is_immed_int(opnd) && opnd_get_immed_int(opnd) == ((uint64)size << 32))
+        return true;
+    return false;
 }
 
 /* ext: extend type, dr_extend_type_t */
