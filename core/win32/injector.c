@@ -844,6 +844,38 @@ dr_inject_process_create(const char *app_name, const char **argv, void **data OU
     return errcode;
 }
 
+static int
+create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD tid OUT)
+{
+    uint64 kernel32;
+    uint64 sleep_address;
+    bool target_is_32;
+    void *param_address;
+
+    *thread_handle = NULL;
+    *tid = 0;
+
+    target_is_32 = is_32bit_process(process_handle);
+    kernel32 = find_remote_dll_base(process_handle, !target_is_32, "kernel32.dll");
+    if (kernel32 == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    sleep_address = get_remote_proc_address(process_handle, kernel32, "SleepEx");
+    if (sleep_address == 0) {
+        return ERROR_INVALID_PARAMETER;
+    }
+
+    *thread_handle = CreateRemoteThread(
+        process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
+        (LPVOID)(SIZE_T)0, CREATE_SUSPENDED, &tid);
+    if (*thread_handle == NULL) {
+        return GetLastError();
+    }
+
+    return ERROR_SUCCESS;
+}
+
 DYNAMORIO_EXPORT
 int
 dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
@@ -856,9 +888,7 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
     DWORD exe_path_size = MAX_PATH;
     wchar_t *exe_name;
     HANDLE process_handle;
-    uint64 kernel32;
-    uint64 sleep_address;
-    bool target_is_32;
+    int res;
 
     *data = info;
 
@@ -895,22 +925,9 @@ dr_inject_process_attach(process_id_t pid, void **data OUT, char **app_name OUT)
      * For better transparency we should exit the thread immediately after injection.
      * Would require changing termination assumptions in win32/syscall.c.
      */
-    target_is_32 = is_32bit_process(process_handle);
-    kernel32 = find_remote_dll_base(process_handle, !target_is_32, "kernel32.dll");
-    if (kernel32 == 0) {
-        return ERROR_INVALID_PARAMETER;
-    }
-
-    sleep_address = get_remote_proc_address(process_handle, kernel32, "Sleep");
-    if (sleep_address == 0) {
-        return ERROR_INVALID_PARAMETER;
-    }
-
-    info->pi.hThread = CreateRemoteThread(
-        process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
-        (LPVOID)(SIZE_T)INFINITE, CREATE_SUSPENDED, &info->pi.dwThreadId);
-    if (info->pi.hThread == NULL) {
-        return GetLastError();
+    res = create_attach_thread(process_handle, &info->pi.hThread, &info->pi.dwThreadId);
+    if (res != ERROR_SUCCESS) {
+        return res;
     }
 
     BOOL(__stdcall * query_full_process_image_name_w)
