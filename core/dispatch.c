@@ -867,10 +867,12 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                     coarse_info_t *info = dcontext->coarse_exit.dir_exit;
                     ASSERT(info != NULL);
                     if (info->mod_shift != 0 &&
-                        dcontext->next_tag >= info->persist_base &&
-                        dcontext->next_tag <
-                            info->persist_base + (info->end_pc - info->base_pc))
+                        dcontext->next_tag >= info->base_pc + info->mod_shift &&
+                        dcontext->next_tag < info->end_pc + info->mod_shift) {
                         dcontext->next_tag -= info->mod_shift;
+                        LOG(THREAD, LOG_INTERP, 3, "adjusted shifted-coarse tag to %p\n",
+                            dcontext->next_tag);
+                    }
                 }
             }
         }
