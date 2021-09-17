@@ -30,7 +30,6 @@
  * DAMAGE.
  */
 
-#include <Windows.h>
 #include "dr_api.h"
 
 static void
