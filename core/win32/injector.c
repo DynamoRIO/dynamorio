@@ -850,7 +850,6 @@ create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD
     uint64 kernel32;
     uint64 sleep_address;
     bool target_is_32;
-    void *param_address;
 
     *thread_handle = NULL;
     *tid = 0;
@@ -868,7 +867,7 @@ create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD
 
     *thread_handle = CreateRemoteThread(process_handle, NULL, 0,
                                         (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
-                                        (LPVOID)(SIZE_T)0, CREATE_SUSPENDED, &tid);
+                                        (LPVOID)(SIZE_T)0, CREATE_SUSPENDED, tid);
     if (*thread_handle == NULL) {
         return GetLastError();
     }
