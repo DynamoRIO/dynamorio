@@ -1350,7 +1350,7 @@ find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
                 print_file(STDERR, "found |%s| @ 0x%I64x 64=%d\n", name, mbi.BaseAddress,
                            is_64);
 #    endif
-                if (strcmp(name, dll_name) == 0 && BOOLS_MATCH(find64bit, is_64))
+                if (_strcmpi(name, dll_name) == 0 && BOOLS_MATCH(find64bit, is_64))
                     return mbi.BaseAddress;
             }
         }
