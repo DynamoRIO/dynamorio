@@ -1808,13 +1808,14 @@ adjust_syscall_continuation(dcontext_t *dcontext)
 #    endif
     } else if (vsyscall_syscall_end_pc != NULL) {
         /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
-         * OP_syscall in a vsyscall page
-         */
-
-        /* If we fail to hook we currently bail out to int; but we then
-         * need to manually jump to the sysenter return point.
-         * Once we have PR 288330 we can remove this.
-         */
+         * OP_syscall and OP_sysenter on Intel hardware in a vsyscall page.
+	 *
+	 * We added hook on vsyscall page, through that we manually jump to
+	 * sysenter/syscall return point and go to dispatch.
+	 *
+	 * We should adjust target when hardware is AMD, app is 32-bit (LOL64)
+	 * and system call instruction is OP_syscall.
+	 */
         if (IF_X86_32((syscall_method_is_syscall &&
                        cpu_info.vendor == VENDOR_AMD) ||) !syscall_method_is_syscall) {
             if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
