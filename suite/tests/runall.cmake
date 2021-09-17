@@ -248,6 +248,11 @@ else ()
   do_sleep(0.5)
 endif ()
 
+file(READ "${out}" output)
+if ("${output}" MATCHES "\ndone\n")
+  message(FATAL_ERROR "\"done\" before kill")
+endif ()
+
 kill_background_process(OFF)
 
 if (NOT "${fail_msg}" STREQUAL "")
