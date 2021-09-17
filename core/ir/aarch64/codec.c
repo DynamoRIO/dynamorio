@@ -1817,8 +1817,7 @@ encode_opnd_ext(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(13, 3, false, 0, DR_OPND_IS_EXTEND, opnd, enc_out);
 }
 
-
-/* crn: 4-bit immediate from bits 12-15*/
+/* crn: 4-bit immediate from bits 12-15 */
 
 static inline bool
 decode_opnd_crn(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
