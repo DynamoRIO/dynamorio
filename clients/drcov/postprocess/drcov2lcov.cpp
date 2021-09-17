@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,6 +46,7 @@
 #include "hashtable.h"
 #include "dr_frontend.h"
 #include <iostream>
+#include <vector>
 
 #include "../../common/utils.h"
 #undef ASSERT /* we're standalone, so no client assert */
@@ -496,10 +497,6 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
 
 #define TEST_HASH_TABLE_BITS 10
 
-#define MODULE_HASH_TABLE_BITS 6
-static hashtable_t module_htable;
-static uint num_module_htable_entries;
-
 #define MODULE_TABLE_IGNORE ((void *)(ptr_int_t)(-1))
 #define MIN_LOG_FILE_SIZE 20
 
@@ -531,6 +528,9 @@ enum {
 };
 
 typedef struct _module_table_t {
+    char *path;
+    uintptr_t seg_start;
+    size_t seg_offs;
     size_t size;
     union {
         byte *bitmap;        /* store exec info (bit) for each app byte */
@@ -539,16 +539,21 @@ typedef struct _module_table_t {
     hashtable_t test_htable; /* hashtable for test functions found in the module */
 } module_table_t;
 
+#define MODULE_HASH_TABLE_BITS 6
+static std::vector<module_table_t *> module_vec;
+
 static void
-module_table_delete(void *p)
+module_vec_delete()
 {
-    module_table_t *table = (module_table_t *)p;
-    PRINT(3, "Delete module table " PFX "\n", table);
-    if (table != MODULE_TABLE_IGNORE) {
-        free(table->bb_table.bitmap);
-        if (op_test_pattern.specified())
-            hashtable_delete(&table->test_htable);
-        free(table);
+    for (auto *table : module_vec) {
+        PRINT(3, "Delete module table " PFX "\n", table);
+        if (table != MODULE_TABLE_IGNORE) {
+            free(table->path);
+            free(table->bb_table.bitmap);
+            if (op_test_pattern.specified())
+                hashtable_delete(&table->test_htable);
+            free(table);
+        }
     }
 }
 
@@ -634,8 +639,12 @@ bb_array_add(module_table_t *table, bb_entry_t *entry)
 }
 
 static int
-module_table_bb_lookup(module_table_t *table, uint addr, const char **info)
+module_table_bb_lookup(module_table_t *table, uint64 addr_from_abs_base,
+                       const char **info)
 {
+    if (addr_from_abs_base - table->seg_offs > UINT_MAX)
+        return BB_TABLE_ENTRY_INVALID;
+    uint addr = (uint)(addr_from_abs_base - table->seg_offs);
     PRINT(5, "lookup 0x%x in module table " PFX "\n", addr, table);
     /* We see this and it seems to be erroneous data from the pdb,
      * xref drsym_enumerate_lines() from drsyms.
@@ -664,15 +673,24 @@ module_table_bb_add(module_table_t *table, bb_entry_t *entry)
         return bb_bitmap_add(table, entry);
 }
 
+static char *
+my_strdup(const char *src)
+{
+    /* strdup is deprecated on Windows */
+    size_t alloc_sz = strlen(src) + 1;
+    char *res = (char *)malloc(alloc_sz);
+    strncpy(res, src, alloc_sz);
+    res[alloc_sz - 1] = '\0';
+    return res;
+}
+
 static bool
 search_cb(drsym_info_t *info, drsym_error_t status, void *data)
 {
     module_table_t *table = (module_table_t *)data;
     if (info != NULL && info->name != NULL &&
         strstr(info->name, op_test_pattern.get_value().c_str()) != NULL) {
-        char *name = (char *)malloc(strlen(info->name) + 1);
-        /* strdup is deprecated on Windows */
-        strncpy(name, info->name, strlen(info->name) + 1);
+        char *name = my_strdup(info->name);
         PRINT(5, "function %s: 0x%zx-0x%zx\n", name, info->start_offs, info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
@@ -705,14 +723,17 @@ module_table_search_testcase(const char *module, module_table_t *table)
 }
 
 static module_table_t *
-module_table_create(const char *module, size_t size)
+module_table_create(const char *module, uintptr_t seg_start, size_t seg_offs, size_t size)
 {
     module_table_t *table;
     ASSERT(ALIGNED(size, dr_page_size()), "Module size is not aligned");
 
     table = (module_table_t *)calloc(1, sizeof(*table));
     ASSERT(table != NULL, "Failed to allocate module table");
-    table->size = (size_t)size;
+    table->path = my_strdup(module);
+    table->seg_start = seg_start;
+    table->seg_offs = seg_offs;
+    table->size = size;
     PRINT(3, "module table %p, %u\n", table, (uint)size);
     if (op_test_pattern.specified()) {
         /* i#1465: add unittest case coverage information in drcov.
@@ -767,45 +788,50 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
         if (drmodtrack_offline_lookup(handle, i, &info) != DRCOVLIB_SUCCESS)
             ASSERT(false, "Failed to read module table");
         PRINT(5, "Module: %u, 0x%zx, %s\n", i, info.size, info.path);
-        mod_table = (module_table_t *)hashtable_lookup(&module_htable, (void *)info.path);
-        if (mod_table == NULL) {
-            modpath = info.path;
-            if (info.size >= UINT_MAX)
-                ASSERT(false, "module size is too large");
-            /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
-             * so these should be case-insensitive on Windows.
-             */
-            if (strstr(info.path, "<unknown>") != NULL ||
-                (op_mod_filter.specified() &&
-                 strstr(info.path, op_mod_filter.get_value().c_str()) == NULL) ||
-                (op_mod_skip_filter.specified() &&
-                 strstr(info.path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
-                (!op_include_tool.get_value() && module_is_from_tool(info.path)))
-                mod_table = (module_table_t *)MODULE_TABLE_IGNORE;
-            else {
-                if (op_pathmap.specified()) {
-                    const char *tofind = op_pathmap.get_value().first.c_str();
-                    const char *match = strstr(info.path, tofind);
-                    if (match != NULL) {
-                        if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst), "%.*s%s%s",
-                                        match - info.path, info.path,
-                                        op_pathmap.get_value().second.c_str(),
-                                        match + strlen(tofind)) <= 0) {
-                            WARN(1, "Failed to replace %s in %s\n", tofind, info.path);
-                        } else {
-                            NULL_TERMINATE_BUFFER(subst);
-                            PRINT(2, "Substituting |%s| for |%s|\n", subst, info.path);
-                            modpath = subst;
-                        }
+        modpath = info.path;
+        if (info.size >= UINT_MAX)
+            ASSERT(false, "module size is too large");
+        /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+         * so these should be case-insensitive on Windows.
+         */
+        if (strstr(info.path, "<unknown>") != NULL ||
+            (op_mod_filter.specified() &&
+             strstr(info.path, op_mod_filter.get_value().c_str()) == NULL) ||
+            (op_mod_skip_filter.specified() &&
+             strstr(info.path, op_mod_skip_filter.get_value().c_str()) != NULL) ||
+            (!op_include_tool.get_value() && module_is_from_tool(info.path)))
+            mod_table = (module_table_t *)MODULE_TABLE_IGNORE;
+        else {
+            if (op_pathmap.specified()) {
+                const char *tofind = op_pathmap.get_value().first.c_str();
+                const char *match = strstr(info.path, tofind);
+                if (match != NULL) {
+                    if (dr_snprintf(subst, BUFFER_SIZE_ELEMENTS(subst), "%.*s%s%s",
+                                    match - info.path, info.path,
+                                    op_pathmap.get_value().second.c_str(),
+                                    match + strlen(tofind)) <= 0) {
+                        WARN(1, "Failed to replace %s in %s\n", tofind, info.path);
+                    } else {
+                        NULL_TERMINATE_BUFFER(subst);
+                        PRINT(2, "Substituting |%s| for |%s|\n", subst, info.path);
+                        modpath = subst;
                     }
                 }
-                mod_table = module_table_create(modpath, info.size);
             }
-            PRINT(4, "Create module table " PFX " for module %s\n", mod_table, modpath);
-            num_module_htable_entries++;
-            if (!hashtable_add(&module_htable, (void *)modpath, mod_table))
-                ASSERT(false, "Failed to add new module");
+            size_t seg_offs = 0;
+            if (info.containing_index != i) {
+                ASSERT(info.containing_index <= i, "invalid containing index");
+                seg_offs =
+                    (uintptr_t)info.start - (*tables)[info.containing_index]->seg_start;
+            }
+            mod_table =
+                module_table_create(modpath, (uintptr_t)info.start, seg_offs, info.size);
         }
+        PRINT(4, "Create module table " PFX " for module %s\n", mod_table, modpath);
+        module_vec.push_back(mod_table);
+        /* XXX: We could just use module_vec in the caller instead of this extra
+         * array, now that module_vec is a vector instead of a hashtable.
+         */
         (*tables)[i] = mod_table;
     }
     if (drmodtrack_offline_exit(handle) != DRCOVLIB_SUCCESS)
@@ -1120,7 +1146,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         if (!hashtable_add(&line_htable, (void *)info->file, line_table))
             ASSERT(false, "Failed to add new source line table");
     }
-    status = module_table_bb_lookup(table, (uint)info->line_addr, &test_info);
+    status = module_table_bb_lookup(table, info->line_addr, &test_info);
     /* info->line is uint64 */
     ASSERT((uint)info->line == info->line, "info->line is too large");
     if (status == BB_TABLE_ENTRY_SET) {
@@ -1143,31 +1169,25 @@ enum_line_cb(drsym_line_info_t *info, void *data)
 static bool
 enumerate_line_info(void)
 {
-    uint i, num_entries = 0;
     /* iterate module table */
-    for (i = 0; i < HASHTABLE_SIZE(module_htable.table_bits); i++) {
-        hash_entry_t *e;
-        drsym_error_t res;
-        for (e = module_htable.table[i]; e != NULL; e = e->next) {
-            bool has_lines = true;
-            num_entries++;
-            PRINT(3, "Enumerate line info for %s\n", (char *)e->key);
-            if (strcmp((char *)e->key, "<unknown>") == 0)
-                continue;
-            if (e->payload == MODULE_TABLE_IGNORE)
-                continue;
-            res = drsym_enumerate_lines((const char *)e->key, enum_line_cb, e->payload);
-            if (res != DRSYM_SUCCESS) {
-                WARN(1, "Failed to enumerate lines for %s\n", (char *)e->key);
-                has_lines = false;
-            }
-            res = drsym_free_resources((char *)e->key);
-            /* I'm using has_lines to avoid warning on vdso. */
-            if (res != DRSYM_SUCCESS && has_lines)
-                WARN(1, "Failed to free resource for %s\n", (char *)e->key);
+    for (const auto *mod_table : module_vec) {
+        if (mod_table == MODULE_TABLE_IGNORE)
+            continue;
+        if (strcmp(mod_table->path, "<unknown>") == 0)
+            continue;
+        bool has_lines = true;
+        PRINT(3, "Enumerate line info for %s\n", mod_table->path);
+        drsym_error_t res =
+            drsym_enumerate_lines(mod_table->path, enum_line_cb, (void *)mod_table);
+        if (res != DRSYM_SUCCESS) {
+            WARN(1, "Failed to enumerate lines for %s\n", mod_table->path);
+            has_lines = false;
         }
+        res = drsym_free_resources(mod_table->path);
+        /* I'm using has_lines to avoid warning on vdso. */
+        if (res != DRSYM_SUCCESS && has_lines)
+            WARN(1, "Failed to free resource for %s\n", mod_table->path);
     }
-    ASSERT(num_entries == num_module_htable_entries, "Wrong number of hashtable entries");
     return true;
 }
 
@@ -1356,9 +1376,6 @@ main(int argc, const char *argv[])
         ASSERT(false, "Unable to initialize symbol translation");
         return 1;
     }
-    hashtable_init_ex(&module_htable, MODULE_HASH_TABLE_BITS, HASH_STRING,
-                      true /* strdup */, false /* !synch */,
-                      module_table_delete /* free */, NULL /* hash */, NULL /* cmp */);
     hashtable_init_ex(&line_htable, LINE_HASH_TABLE_BITS, HASH_STRING, true /* strdup */,
                       false /* !synch */, line_table_delete /* free */, NULL /* hash */,
                       NULL /* cmp */);
@@ -1381,7 +1398,7 @@ main(int argc, const char *argv[])
         return 1;
     }
 
-    hashtable_delete(&module_htable);
+    module_vec_delete();
     hashtable_delete(&line_htable);
     if (drsym_exit() != DRSYM_SUCCESS) {
         ASSERT(false, "Failed to clean up symbol library\n");
