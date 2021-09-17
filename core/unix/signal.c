@@ -3296,8 +3296,6 @@ fixup_rtframe_pointers(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
                 *(int *)((byte *)f_new->uc.uc_mcontext.fpstate +
                          f_new->uc.uc_mcontext.fpstate->sw_reserved.extended_size -
                          FP_XSTATE_MAGIC2_SIZE) == FP_XSTATE_MAGIC2));
-        IF_NOT_X64(
-            ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate->_fxsr_env, XSTATE_ALIGNMENT)));
     } else {
         /* if fpstate is not set up, we're delivering signal immediately,
          * and we shouldn't need an fpstate since DR code won't modify it;
