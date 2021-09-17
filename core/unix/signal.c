@@ -3186,10 +3186,10 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
             (byte *)ALIGN_FORWARD(((byte *)f_new) + sizeof(*f_new) + offset_fpstate_xsave,
                                   XSTATE_ALIGNMENT) -
             offset_fpstate_xsave;
-        memcpy(new_fpstate, sc_old->fpstate, signal_frame_extra_size(false));
+        size_t extra_size = signal_frame_extra_size(false);
+        ASSERT(new_fpstate + extra_size <= (byte *)f_new + f_new_alloc_size);
+        memcpy(new_fpstate, sc_old->fpstate, extra_size);
         f_new->sc.fpstate = (kernel_fpstate_t *)new_fpstate;
-        ASSERT(new_fpstate + signal_frame_extra_size(false) <=
-               (byte *)f_new + f_new_alloc_size);
     }
     convert_rt_mask_to_nonrt(f_new, &f_old->uc.uc_sigmask);
     memcpy(&f_new->retcode, &f_old->retcode, RETCODE_SIZE);
