@@ -866,9 +866,9 @@ create_attach_thread(HANDLE process_handle IN, PHANDLE thread_handle OUT, PDWORD
         return ERROR_INVALID_PARAMETER;
     }
 
-    *thread_handle = CreateRemoteThread(
-        process_handle, NULL, 0, (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
-        (LPVOID)(SIZE_T)0, CREATE_SUSPENDED, &tid);
+    *thread_handle = CreateRemoteThread(process_handle, NULL, 0,
+                                        (LPTHREAD_START_ROUTINE)(SIZE_T)sleep_address,
+                                        (LPVOID)(SIZE_T)0, CREATE_SUSPENDED, &tid);
     if (*thread_handle == NULL) {
         return GetLastError();
     }
