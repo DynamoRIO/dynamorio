@@ -86,6 +86,7 @@ jobs:
         echo ------ Running suite ------
         echo PATH is "%PATH%"
         echo Running in directory "%CD%"
+        perl suite/runsuite_wrapper.pl automated_ci use_ninja 32_only debug_only
       env:
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
