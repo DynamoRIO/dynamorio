@@ -54,7 +54,7 @@ jobs:
   # the CI resources: 64-bit hits most clang-only warnings and 64-bit
   # is the primary target these days.
   clang-format:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -77,8 +77,7 @@ jobs:
       run: ./suite/runsuite_wrapper.pl automated_ci 64_only require_format
       env:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
-        CC: clang-9
-        CXX: clang++-9
+        DYNAMORIO_CLANG: yes
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
 

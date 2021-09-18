@@ -169,6 +169,9 @@ compatibility changes:
    drmgr_in_emulation_region(): #DR_EMULATE_IS_FIRST_INSTR.  This flag addition preserves
    binary compatibility, but source code that did not zero the structure could end
    up with an uninitialized flags field when calling drmgr_insert_emulation_start().
+ - drcov's output now uses a module segment offset, rather than a module base offset.
+   This better supports modules with code beyond the first segment and with
+   gaps between segments.
 
 Further non-compatibility-affecting changes include:
 
@@ -234,6 +237,7 @@ Further non-compatibility-affecting changes include:
    instrumentation-induced bugs.
  - Added \p drstatecmp Extension which provides mechanisms to enable systematic
    and exhaustive machine state comparisons across instrumentation sequences.
+ - Added drmodtrack_lookup_segment().
 
 **************************************************
 <hr>

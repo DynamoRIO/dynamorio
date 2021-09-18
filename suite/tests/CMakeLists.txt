@@ -3199,9 +3199,6 @@ if (BUILD_CLIENTS)
     endif ()
 
     set(test_mode_flag "-test_mode")
-    if (NOT DEBUG)
-      set(test_mode_flag "")
-    endif ()
     torunonly_drcachesim(filter-simple ${ci_shared_app}
       "-L0_filter ${test_mode_flag}" "")
     if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
