@@ -2398,7 +2398,6 @@ if (UNIX)
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
   endif ()
 else (UNIX)
-  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
   tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
@@ -2414,6 +2413,7 @@ else (UNIX)
   # I reworked Windows .runall support to run the new win32.infloop but have not yet
   # looked at other tests:
   tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
   if (NOT X64)
     # FIXME i#16, does not work in Win-X64 because of inline assembly code.
