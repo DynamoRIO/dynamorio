@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2021 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -32,51 +32,23 @@ cmake_minimum_required(VERSION 3.7)
 
 include(../../make/policies.cmake NO_POLICY_SCOPE)
 
-# DynamoRIO Multi-Instrumentation Manager: a mediator for combining
-# and coordinating multiple instrumentation passes.
+# DynamoRIO Machine State Comparison Library
 
-# We do not need libc, and we avoid a 10x size increase in both our
-# dll and pdb (plus we avoid stressing private library isolation) by
-# not using it (i#714).
+# Avoiding libc reduces lib size (i#714)
 set(DynamoRIO_USE_LIBC OFF)
 
-set(srcs
-  drmgr.c
-  # add more here
-  )
+set(srcs drstatecmp.c)
 
-# i#1491#2: VS generators fail if static lib has resources
 set(srcs_static ${srcs})
 
-if (WIN32)
-  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
-endif ()
+add_library(drstatecmp SHARED ${srcs})
+configure_extension(drstatecmp OFF)
+use_DynamoRIO_extension(drstatecmp drmgr)
+use_DynamoRIO_extension(drstatecmp drreg)
 
-macro(configure_drmgr_target target)
-  if (WIN32)
-    # Avoid link errors about missing __chkstk.
-    append_property_string(TARGET ${target} COMPILE_FLAGS "/Gs65536")
-  endif ()
-  use_DynamoRIO_extension(${target} drcontainers)
-endmacro(configure_drmgr_target)
+add_library(drstatecmp_static STATIC ${srcs_static})
+configure_extension(drstatecmp_static ON)
+use_DynamoRIO_extension(drstatecmp_static drmgr_static)
+use_DynamoRIO_extension(drstatecmp_static drreg_static)
 
-
-add_library(drmgr SHARED ${srcs})
-# while private loader means preferred base is not required, more efficient
-# to avoid rebase so we avoid conflict w/ client and other exts
-set(PREFERRED_BASE 0x73000000)
-configure_extension(drmgr OFF)
-configure_drmgr_target(drmgr)
-
-# Must be shared to ensure only one copy, since can be used by
-# the client and by multiple other libraries, some of which may
-# be shared: the whole point is to have one master drmgr.
-# But, we do want to support projects using drmgr statically for
-# an end tool, for performance.
-# To support simultaneously exporting components for use with other clients,
-# we build drmgr both shared and static (i#1342).
-add_library(drmgr_static STATIC ${srcs_static})
-configure_extension(drmgr_static ON)
-configure_drmgr_target(drmgr_static)
-
-install_ext_header(drmgr.h)
+install_ext_header(drstatecmp.h)

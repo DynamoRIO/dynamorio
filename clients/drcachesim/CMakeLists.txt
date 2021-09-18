@@ -144,11 +144,8 @@ set(drcachesim_srcs
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
-  )
-if (DEBUG)
-  # We include the invariants analyzer for testing.
-  set(drcachesim_srcs ${drcachesim_srcs} tests/trace_invariants.cpp)
-endif ()
+  # We include the invariants analyzer for sanity checks.
+  tools/invariant_checker.cpp)
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
@@ -211,10 +208,10 @@ install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
-# We also use this to link in our trace_invariants sanity checker.
+# We also use this to link in our invariant_checker sanity checker.
 add_executable(histogram_launcher
   tools/histogram_launcher.cpp
-  tests/trace_invariants.cpp
+  tools/invariant_checker.cpp
   )
 target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogram
   drfrontendlib)

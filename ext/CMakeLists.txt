@@ -119,6 +119,7 @@ add_subdirectory(drsyms)
 add_subdirectory(drutil)
 add_subdirectory(droption)
 add_subdirectory(drcovlib)
+add_subdirectory(drstatecmp)
 
 # documentation is put into main DR docs/ dir
 

@@ -683,8 +683,8 @@ entrance_stub_target_tag(cache_pc stub, coarse_info_t *info)
      */
     if (info == NULL)
         info = get_stub_coarse_info(stub);
-    if (info->mod_shift != 0 && tag >= info->persist_base &&
-        tag < info->persist_base + (info->end_pc - info->base_pc))
+    if (info->mod_shift != 0 && tag >= info->base_pc + info->mod_shift &&
+        tag < info->end_pc + info->mod_shift)
         tag -= info->mod_shift;
     return tag;
 }
