@@ -3308,6 +3308,10 @@ get_syscall_method(void)
 bool
 does_syscall_ret_to_callsite(void)
 {
+    /* We hook vsyscall page in AMD 32-bit (LOL64) */
+    if (syscall_method == SYSCALL_METHOD_SYSCALL && cpu_info.vendor == VENDOR_AMD)
+      return IF_X86_64_ELSE(true, false);
+
     return (syscall_method == SYSCALL_METHOD_INT ||
             syscall_method == SYSCALL_METHOD_SYSCALL ||
             syscall_method ==
