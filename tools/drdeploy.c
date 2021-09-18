@@ -1293,7 +1293,7 @@ _tmain(int argc, TCHAR *targv[])
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
                              "-skip_terminating_threads");
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
-                             "-skip_thread_exit_at_exit");
+                             "-multi_thread_exit");
 #    endif
             continue;
         } else if (strcmp(argv[i], "-takeovers") == 0) {
