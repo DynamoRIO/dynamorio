@@ -225,7 +225,7 @@ else ()
 endif ()
 
 if (("${orig_nudge}" MATCHES "-client") OR
-    ("${orig_nudge}" MATCHES "<attach>" AND "${orig_nudge}" MATCHES "@-c@"))
+    (("${orig_nudge}" MATCHES "<attach>") AND ("${orig_nudge}" MATCHES "@-c@")))
   # wait for more output to file
   string(LENGTH "${output}" prev_outlen)
   file(READ "${out}" output)
