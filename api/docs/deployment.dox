@@ -317,7 +317,7 @@ under DynamoRIO with the bbsize sample client:
 Alternatively, you can first run the target, and then use \c drrun
 to attach to it:
 \code
-bin32/drrun -attach <target_pid> -c samples/bin32/libbbsize.so
+% bin32/drrun -attach <target_pid> -c samples/bin32/libbbsize.so
 \endcode
 
 Run \c drrun with no options to get a list of the options and
