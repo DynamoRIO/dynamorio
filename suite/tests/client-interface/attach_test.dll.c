@@ -42,6 +42,6 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    dr_fprintf(STDERR, "thank you for testing attach\n");
     dr_register_exit_event(dr_exit);
+    dr_fprintf(STDERR, "thank you for testing attach\n");
 }
