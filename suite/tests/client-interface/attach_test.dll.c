@@ -53,7 +53,7 @@ dr_thread_init(void *drcontext)
 }
 
 static void
-dr_module_load(void *drcontext)
+dr_module_load(void *drcontext, module_data_t *info, bool loaded)
 {
     if (first_module) {
         first_module = false;
