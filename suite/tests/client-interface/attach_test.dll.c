@@ -32,6 +32,8 @@
 
 #include "dr_api.h"
 
+static client_id_t injection_tid;
+
 static void
 dr_exit(void)
 {
@@ -42,25 +44,18 @@ static void
 dr_thread_init(void *drcontext)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "thread %p start\n", tid);
-}
-
-static void
-dr_thread_exit(void *drcontext)
-{
-    thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "thread %p exit\n", tid);
+    if (tid != injection_tid) {
+        dr_fprintf(STDERR, "takeover thread\n");
+    }
 }
 
 DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    void *drcontext = dr_get_current_drcontext();
-    thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "injection thread %p start\n", tid);
-    dr_register_thread_init_event(dr_thread_init);
-    dr_register_thread_exit_event(dr_thread_exit);
-    dr_register_exit_event(dr_exit);
     dr_fprintf(STDERR, "thank you for testing attach\n");
+    void *drcontext = dr_get_current_drcontext();
+    injection_tid = dr_get_thread_id(drcontext);
+    dr_register_thread_init_event(dr_thread_init);
+    dr_register_exit_event(dr_exit);
 }

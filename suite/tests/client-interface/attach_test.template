@@ -1,4 +1,5 @@
 thank you for testing attach
+takeover thread
 #ifdef WINDOWS
 MessageBox closed
 #endif
