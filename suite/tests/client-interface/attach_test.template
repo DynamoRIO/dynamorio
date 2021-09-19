@@ -1,5 +1,6 @@
 thank you for testing attach
-takeover thread
+init thread
+load module
 #ifdef WINDOWS
 MessageBox closed
 #endif

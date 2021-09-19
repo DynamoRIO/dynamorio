@@ -1292,8 +1292,6 @@ _tmain(int argc, TCHAR *targv[])
             use_late_injection = true;
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
                              "-skip_terminating_threads");
-            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
-                             "-multi_thread_exit");
 #    endif
             continue;
         } else if (strcmp(argv[i], "-takeovers") == 0) {
