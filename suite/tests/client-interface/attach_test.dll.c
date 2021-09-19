@@ -32,7 +32,7 @@
 
 #include "dr_api.h"
 
-static client_id_t injection_tid;
+static thread_id_t injection_tid;
 
 static void
 dr_exit(void)
