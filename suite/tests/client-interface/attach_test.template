@@ -1,6 +1,5 @@
 thank you for testing attach
 init thread
-load module
 #ifdef WINDOWS
 MessageBox closed
 #endif
