@@ -243,7 +243,7 @@ if ("${orig_nudge}" MATCHES "-client")
 elseif ("${orig_nudge}" MATCHES "<attach>")
   # wait until the threads were initialized
   set(iters 0)
-  while (NOT "${output}" MATCHES "init thread\n")
+  while (NOT "${output}" MATCHES "\ninit thread")
     do_sleep(0.1)
     file(READ "${out}" output)
     math(EXPR iters "${iters}+1")
