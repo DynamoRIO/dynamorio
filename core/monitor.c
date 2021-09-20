@@ -1991,6 +1991,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
                      * to last_copy, must re-clear!
                      */
                     md->last_fragment = NULL;
+                    KSTOP(trace_building);
                     return f;
                 }
                 f = md->last_fragment;
