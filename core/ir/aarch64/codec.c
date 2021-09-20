@@ -1484,6 +1484,8 @@ encode_opnd_imm4(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     return encode_opnd_int(8, 4, false, 0, 0, opnd, enc_out);
 }
 
+#define CMODE_MSL_BIT 28
+
 /* cmode4_s_sz_msl: Operand for 32 bit elements' shift amount (shifting ones) */
 
 static inline bool
@@ -1496,11 +1498,11 @@ decode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      * bits.
      *
      * The element size and shift amount are stored as two 32 bit numbers in
-     * sz_shft. This is a workaround until issue #4393 is addressed.
+     * sz_shft. This is a workaround until issue i#4393 is addressed.
      */
     const int cmode4 = extract_uint(enc, 12, 1);
     const int size = 32;
-    const int shift = ((cmode4 == 0) ? 8 : 16) | (1 << 28);
+    const int shift = ((cmode4 == 0) ? 8 : 16) | (1U << CMODE_MSL_BIT);
     uint64 sz_shft = ((uint64)size << 32) | shift;
     *opnd = opnd_create_immed_int(sz_shft, OPSZ_8);
     return true;
@@ -1515,7 +1517,7 @@ encode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, opnd_t opnd,
 
     int64 sz_shft = opnd_get_immed_int(opnd);
     int shift = (int)(sz_shft & 0xffffffff);
-    if (!TEST(1U << 28, shift)) // MSL bit should be set
+    if (!TEST(1U << CMODE_MSL_BIT, shift)) // MSL bit should be set
         return false;
     shift &= 0xff;
     const int size = (int)(sz_shft >> 32);
@@ -1566,7 +1568,7 @@ decode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      * 10x0  16   0,8
      *
      * The element size and shift amount are stored as two 32 bit numbers in
-     * sz_shft. This is a workaround until issue #4393 is addressed.
+     * sz_shft. This is a workaround until issue i#4393 is addressed.
      */
     const int cmode = extract_uint(enc, 13, 1);
     int size = 16;
@@ -1626,7 +1628,7 @@ decode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      * 0xx0  32   0,8,16,24
      *
      * The element size and shift amount are stored as two 32 bit numbers in
-     * sz_shft. This is a workaround until issue #4393 is addressed.
+     * sz_shft. This is a workaround until issue i#4393 is addressed.
      */
     const int cmode = extract_uint(enc, 13, 2);
     const int size = 32;
@@ -1651,7 +1653,7 @@ encode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
 
     const int64 sz_shft = opnd_get_immed_int(opnd);
     const int shift = (int)(sz_shft & 0xffffffff);
-    if (TEST(1U << 28, shift)) // MSL bit should not be set as this is LSL
+    if (TEST(1U << CMODE_MSL_BIT, shift)) // MSL bit should not be set as this is LSL
         return false;
     const int size = (int)(sz_shft >> 32);
 
@@ -1796,7 +1798,7 @@ decode_opnd_cmode4_b_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      * 1110  8    0
      *
      * The element size and shift amount are stored as two 32 bit numbers in
-     * sz_shft. This is a workaround until issue #4393 is addressed.
+     * sz_shft. This is a workaround until issue i#4393 is addressed.
      */
     if ((enc & 0xf000) != 0xe000)
         return false;
