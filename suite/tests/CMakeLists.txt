@@ -3858,10 +3858,11 @@ if (BUILD_CLIENTS)
       set(tool.drcpusim.cpuid-${model}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
     endmacro ()
-    # Not running earlier than Klamath b/c the app likely will have bad opcodes
+    # Not running earlier than Klamath b/c the app likely will have bad opcodes.
     if (NOT X64)
-      add_cpusim_cpuid_test(Klamath)
-      add_cpusim_cpuid_test(Deschutes)
+      # i#5109: We do not run Klamath or Deschutes since gcc on Ubuntu20 includes
+      # CET instructions which cannot be avoided.  DR currently thinks they're
+      # SSE-added multi-byte nops; we'll have more trouble when i#4040 is implemented.
       add_cpusim_cpuid_test(Pentium3)
       add_cpusim_cpuid_test(Banias)
     endif ()
