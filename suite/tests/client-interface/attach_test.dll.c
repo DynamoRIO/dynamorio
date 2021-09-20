@@ -56,8 +56,8 @@ void
 dr_init(client_id_t id)
 {
     dr_fprintf(STDERR, "thank you for testing attach\n");
+    dr_register_exit_event(dr_exit);
     void *drcontext = dr_get_current_drcontext();
     injection_tid = dr_get_thread_id(drcontext);
     dr_register_thread_init_event(dr_thread_init);
-    dr_register_exit_event(dr_exit);
 }
