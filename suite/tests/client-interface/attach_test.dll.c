@@ -38,6 +38,10 @@ static bool first_thread = true;
 static void
 dr_exit(void)
 {
+    void *drcontext = dr_get_current_drcontext();
+    thread_id_t tid = dr_get_thread_id(drcontext);
+    dr_fprintf(STDERR, "termination from thread %p\ninjection from thread %p\n", 
+               tid, injection_tid);
     dr_fprintf(STDERR, "done\n");
 }
 
@@ -47,8 +51,15 @@ dr_thread_init(void *drcontext)
     thread_id_t tid = dr_get_thread_id(drcontext);
     if (tid != injection_tid && first_thread) {
         first_thread = false;
-        dr_fprintf(STDERR, "init thread\n");
+        dr_fprintf(STDERR, "init thread %p\n", tid);
     }
+}
+
+static void
+dr_thread_exit(void *drcontext)
+{
+    thread_id_t tid = dr_get_thread_id(drcontext);
+    dr_fprintf(STDERR, "exit thread %p\n", tid);
 }
 
 DR_EXPORT
@@ -60,4 +71,5 @@ dr_init(client_id_t id)
     void *drcontext = dr_get_current_drcontext();
     injection_tid = dr_get_thread_id(drcontext);
     dr_register_thread_init_event(dr_thread_init);
+    dr_register_thread_exit_event(dr_thread_exit);
 }
