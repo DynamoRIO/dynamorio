@@ -121,8 +121,9 @@ decode_sizeof(void *drcontext, byte *pc, int *num_prefixes)
 byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1569 */
-    return NULL;
+    instr_set_opcode(instr, OP_UNDECODED);
+    instr_set_raw_bits(instr, pc, AARCH64_INSTR_SIZE);
+    return (pc + AARCH64_INSTR_SIZE);
 }
 
 bool
@@ -137,6 +138,20 @@ decode_raw_jmp_target(dcontext_t *dcontext, byte *pc)
 {
     uint enc = *(uint *)pc;
     return pc + ((enc & 0x1ffffff) << 2) - ((enc & 0x2000000) << 2);
+}
+
+bool
+decode_raw_is_cond_branch_zero(dcontext_t *dcontext, byte *pc)
+{
+    uint enc = *(uint *)pc;
+    return ((enc & 0x7e000000) == 0x34000000); /* CBZ or CBNZ */
+}
+
+byte *
+decode_raw_cond_branch_zero_target(dcontext_t *dcontext, byte *pc)
+{
+    uint enc = *(uint *)pc;
+    return pc + ((enc & 0xffffe0) >> 5 << 2);
 }
 
 const instr_info_t *

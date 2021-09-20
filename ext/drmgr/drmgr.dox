@@ -76,7 +76,7 @@ stages of instrumentation.
 
 \section sec_drmgr_stages Instrumentation Stages
 
-\p drmgr divides code changes into three types:
+\p drmgr divides code changes into four types:
 
  -# Application-to-application transformations: changes to the application
     code itself that are meant to affect application behavior or
@@ -85,19 +85,22 @@ stages of instrumentation.
     application instructions
  -# Instrumentation-to-instrumentation transformations: typically,
     optimizations applied to the full set of inserted instrumentation
+ -# Meta-instrumentation transformations: typically, debugging of the
+    full set of inserted instrumentation
 
 Instrumentation insertion is split into two pieces: analysis of the full
 application code (after any changes from its original form), followed by
 insertion of instrumentation, one instruction at a time.  The result is
-four separate, sequential stages:
+five separate, sequential stages:
 
  -# Application-to-application transformations
  -# Application code analysis
  -# Instrumentation insertion, one instruction at a time
  -# Instrumentation-to-instrumentation transformations
+ -# Meta-instrumentation transformations
 
 Each component that registers with \p drmgr can register for some or all of
-the four stages.  In each stage, each registered compoment's callback is
+the five stages.  In each stage, each registered compoment's callback is
 invoked.  This groups the different types of changes together and allows
 them to assume that no later change will invalidate their analysis or
 actions.  The instrumentation insertion is performed in one forward pass:

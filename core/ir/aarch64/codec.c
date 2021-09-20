@@ -154,6 +154,19 @@ extract_uint(uint enc, int pos, int len)
     return enc >> pos & (((uint)1 << len) - 1);
 }
 
+/* Find the highest bit set in subfield, relative to the starting position. */
+static inline uint
+highest_bit_set(uint enc, int pos, int len, int *highest_bit)
+{
+    for (int i = pos + len - 1; i >= pos; i--) {
+        if (enc & (1 << i)) {
+            *highest_bit = i - pos;
+            return true;
+        }
+    }
+    return false;
+}
+
 static inline bool
 try_encode_int(OUT uint *bits, int len, int scale, ptr_int_t val)
 {
@@ -2444,35 +2457,6 @@ encode_opnd_vindex_H(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
     return true;
 }
 
-
-/* immhb: The vector encoding of #fbits operand. This is the number of bits
- * after the decimal point for fixed-point values.
- */
-static inline bool
-decode_opnd_immhb(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    uint immhb = extract_uint(enc, 16, 6);
-    *opnd = opnd_create_immed_int(64 - immhb, OPSZ_6b);
-    return true;
-}
-
-static inline bool
-encode_opnd_immhb(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    ptr_int_t fbits;
-
-    if (!opnd_is_immed_int(opnd))
-        return false;
-
-    fbits = opnd_get_immed_int(opnd);
-    if (fbits < 1 || fbits > 64)
-        return false;
-
-    *enc_out = (64 - fbits) << 16;
-
-    return true;
-}
-
 /* imm12: 12-bit immediate operand of ADD/SUB */
 
 static inline bool
@@ -2513,6 +2497,57 @@ static inline bool
 encode_opnd_prf12(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_mem12_scale(3, true, opnd, enc_out);
+}
+
+/* hsd_immh_sz: The element size of a vector mediated by immh with possible values h, s
+ * and d
+ */
+static inline bool
+decode_opnd_hsd_immh_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int highest_bit;
+    if (!highest_bit_set(enc, 19, 4, &highest_bit))
+        return false;
+
+    switch (highest_bit) {
+    case 0: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b); break;
+    case 1: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b); break;
+    case 2: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b); break;
+    default: return false;
+    }
+    return true;
+}
+
+static inline bool
+encode_opnd_hsd_immh_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return true;
+}
+
+/* bhsd_immh_sz: The element size of a vector mediated by immh with possible values b, h,
+ * s and d
+ */
+static inline bool
+decode_opnd_bhsd_immh_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int highest_bit;
+    if (!highest_bit_set(enc, 19, 4, &highest_bit))
+        return false;
+
+    switch (highest_bit) {
+    case 0: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_BYTE, OPSZ_2b); break;
+    case 1: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b); break;
+    case 2: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b); break;
+    case 3: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b); break;
+    default: return false;
+    }
+    return true;
+}
+
+static inline bool
+encode_opnd_bhsd_immh_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return true;
 }
 
 /* vindex_SD: Index for vector with single or double elements. */
@@ -2616,6 +2651,117 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
         return true;
     }
     return false;
+}
+
+static inline bool
+immhb_shf_decode(uint enc, int opcode, byte *pc, OUT opnd_t *opnd, uint min_shift)
+{
+    int highest_bit;
+    if (!highest_bit_set(enc, 19, 4, &highest_bit))
+        return false;
+
+    uint esize = 8 << highest_bit;
+    uint immhb_shf = extract_uint(enc, 16, 4 + highest_bit);
+    opnd_size_t shift_size;
+    switch (highest_bit) {
+    case 0: shift_size = OPSZ_3b; break;
+    case 1: shift_size = OPSZ_4b; break;
+    case 2: shift_size = OPSZ_5b; break;
+    case 3: shift_size = OPSZ_6b; break;
+    default: return false;
+    }
+
+    if (min_shift == 1)
+        *opnd = opnd_create_immed_int((2 * esize) - immhb_shf, shift_size);
+    else if (min_shift == 0)
+        *opnd = opnd_create_immed_int(immhb_shf - esize, shift_size);
+    else
+        return false;
+
+    opnd_add_flags(*opnd, DR_OPND_IS_SHIFT);
+    return true;
+}
+
+static inline bool
+immhb_shf_encode(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out,
+                 uint min_shift)
+{
+    opnd_size_t shift_size = opnd_get_size(opnd);
+    uint highest_bit;
+    switch (shift_size) {
+    case OPSZ_3b: highest_bit = 0; break;
+    case OPSZ_4b: highest_bit = 1; break;
+    case OPSZ_5b: highest_bit = 2; break;
+    case OPSZ_6b: highest_bit = 3; break;
+    default: return false;
+    }
+    ptr_int_t shift_amount;
+    uint esize = 8 << highest_bit;
+
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    shift_amount = opnd_get_immed_int(opnd);
+
+    uint shift_encoding, max_shift;
+    if (min_shift == 0) {
+        shift_encoding = shift_amount + esize;
+        max_shift = esize - 1;
+    } else if (min_shift == 1) {
+        shift_encoding = esize * 2 - shift_amount;
+        max_shift = esize;
+    } else
+        return false;
+
+    if (shift_amount < min_shift || shift_amount > max_shift)
+        return false;
+
+    *enc_out = (shift_encoding << 16);
+
+    return true;
+}
+
+/* immhb_shf: The vector encoding of #shift operand.
+ */
+static inline bool
+decode_opnd_immhb_shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return immhb_shf_decode(enc, opcode, pc, opnd, 1);
+}
+
+static inline bool
+encode_opnd_immhb_shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
+}
+
+/* immhb_shf2: The vector encoding of #shift operand.
+ */
+static inline bool
+decode_opnd_immhb_0shf(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return immhb_shf_decode(enc, opcode, pc, opnd, 0);
+}
+
+static inline bool
+encode_opnd_immhb_0shf(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 0);
+}
+
+/* immhb_fxp: The vector encoding of #fbits operand. This is the number of bits
+ * after the decimal point for fixed-point values.
+ */
+static inline bool
+decode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return immhb_shf_decode(enc, opcode, pc, opnd, 1);
+}
+
+static inline bool
+encode_opnd_immhb_fxp(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return immhb_shf_encode(enc, opcode, pc, opnd, enc_out, 1);
 }
 
 /* fpimm13: floating-point immediate for scalar fmov */

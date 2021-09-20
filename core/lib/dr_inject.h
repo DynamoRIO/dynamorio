@@ -153,7 +153,7 @@ DR_EXPORT
  *
  * \param[in]   wait_syscall   Syscall handling mode in inject stage.
  *                             If true, will wait for completion of ongoing syscall.
- *                             Else start inject immidiately.
+ *                             Else start inject immediately.
  *
  * \param[out]  data           An opaque pointer that should be passed to
  *                             subsequent dr_inject_* routines to refer to

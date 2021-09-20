@@ -30,28 +30,33 @@
  * DAMAGE.
  */
 
-/* trace_invariants: a memory trace invariants checker.
+/* invariant_checker: a memory trace invariants checker.
  */
 
-#ifndef _TRACE_INVARIANTS_H_
-#define _TRACE_INVARIANTS_H_ 1
+#ifndef _INVARIANT_CHECKER_H_
+#define _INVARIANT_CHECKER_H_ 1
 
-#include "../analysis_tool.h"
-#include "../common/memref.h"
+#include "analysis_tool.h"
+#include "memref.h"
 #include <stack>
 #include <unordered_map>
 
-class trace_invariants_t : public analysis_tool_t {
+class invariant_checker_t : public analysis_tool_t {
 public:
-    trace_invariants_t(bool offline = true, unsigned int verbose = 0,
-                       std::string test_name = "");
-    virtual ~trace_invariants_t();
+    invariant_checker_t(bool offline = true, unsigned int verbose = 0,
+                        std::string test_name = "");
+    virtual ~invariant_checker_t();
     bool
     process_memref(const memref_t &memref) override;
     bool
     print_results() override;
 
 protected:
+    // We provide this for subclasses to run these invariants with custom
+    // failure reporting.
+    virtual void
+    report_if_false(bool condition, const std::string &message);
+
     bool knob_offline_;
     unsigned int knob_verbose_;
     std::string knob_test_name_;
@@ -76,4 +81,4 @@ protected:
     std::unordered_map<memref_tid_t, uint64_t> last_instr_count_marker_;
 };
 
-#endif /* _TRACE_INVARIANTS_H_ */
+#endif /* _INVARIANT_CHECKER_H_ */
