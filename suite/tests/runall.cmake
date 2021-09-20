@@ -241,9 +241,9 @@ if ("${orig_nudge}" MATCHES "-client")
     endif ()
   endwhile()
 elseif ("${orig_nudge}" MATCHES "<attach>")
-  # wait until a thread was initialized and a module was loaded
+  # wait until the threads were initialized
   set(iters 0)
-  while (NOT "${output}" MATCHES "init thread\n")
+  while (NOT "${output}" MATCHES "init thread\ninit thread\n")
     do_sleep(0.1)
     file(READ "${out}" output)
     math(EXPR iters "${iters}+1")
