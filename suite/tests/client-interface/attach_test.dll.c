@@ -33,6 +33,7 @@
 #include "dr_api.h"
 
 static thread_id_t injection_tid;
+static bool first_thread = true;
 
 static void
 dr_exit(void)
@@ -44,7 +45,8 @@ static void
 dr_thread_init(void *drcontext)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
-    if (tid != injection_tid) {
+    if (tid != injection_tid && first_thread) {
+        first_thread = false;
         dr_fprintf(STDERR, "init thread\n");
     }
 }
