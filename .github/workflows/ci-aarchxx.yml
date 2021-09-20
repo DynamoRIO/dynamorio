@@ -160,7 +160,7 @@ jobs:
 
   # Android ARM cross-compile with gcc, no tests:
   android-arm-cross-compile:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -224,7 +224,7 @@ jobs:
 
   # AArch64 drdecode and drmemtrace on x86:
   a64-on-x86:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2

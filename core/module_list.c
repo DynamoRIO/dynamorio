@@ -654,7 +654,13 @@ ensure_section_readable(app_pc module_base, app_pc seg_start, size_t seg_len,
 
     /* on X86-32 as long as any of RWX is set the contents is readable */
     if (TESTANY(OS_IMAGE_EXECUTE | OS_IMAGE_READ | OS_IMAGE_WRITE, seg_chars)) {
-        ASSERT(is_readable_without_exception(intersection_start, intersection_len));
+        /* We're mid-load and on recent ld.so segments spanning a gap are mprotected
+         * to noaccess *before* their contents are mapped.  The text segment of
+         * interest should be mapped but we haven't yet updated allmem.
+         * Thus we must query the OS.
+         */
+        ASSERT(
+            is_readable_without_exception_query_os(intersection_start, intersection_len));
         return true;
     }
     /* such a mapping could potentially be used for some protection
