@@ -54,6 +54,14 @@
 # In register operands (e.g. w10) the number refers to the position of the lowest bit.
 # In memory operands (e.g. mem7) the number refers to the number of offset bits.
 
+# Notes on specific operands:
+# - cmode_* implements both cmode3 and cmode4 as defined in the specification.
+#   cmode size  amounts
+#   1110  8(b)  0
+#   10x0  16(h) 0,8
+#   0xx0  32(s) 0,8,16,24
+#   110x  32(s) 8,16 (MSL, shifting ones)
+
 --------------------------------  impx30     # implicit X30 operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 --------------------------------  h_sz       # element width of FP vector reg, used to
@@ -91,8 +99,11 @@
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
 --------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB
+-------------------x------------  cmode4_s_sz_msl # MSL bit for 32 bit element shifts
 -------------------xxx----------  extam      # extend amount
+------------------x-------------  cmode_h_sz # Vector shift for 16 bit elements
 ------------------xxxx----------  p10_low    # SVE predicate registers p0-p7
+-----------------xx-------------  cmode_s_sz # Vector shift for 32 bit elements
 -----------------xx-------------  len        # imm2 len
 -----------------xxxx-----------  imm4idx    # imm4 from 11-14
 -----------------xxxxx----------  ign10      # ignored reg field in load/store exclusive
@@ -101,8 +112,8 @@
 -----------------xxxxx----------  s10        # S register
 -----------------xxxxx----------  d10        # D register
 -----------------xxxxx----------  q10        # Q register
+----------------????------------  cmode4_b_sz # Vector shift for byte elements
 ----------------xxx-------------  ext        # extend type
-----------------xxx-------------  cmode3     # immediate from 13-15
 ----------------xxxx------------  crn        # 4 bit immediate from 12-15
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
@@ -1049,6 +1060,17 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 # UMOV
 0x001110000xxxxx001111xxxxxxxxxx  n     umov      wx0_imm5_q : q5 imm5
 
+# MOVI
+0x00111100000xxx111001xxxxxxxxxx  n     movi     dq0 : imm8 cmode4_b_sz
+0x00111100000xxx10x001xxxxxxxxxx  n     movi     dq0 : imm8 cmode_h_sz
+0x00111100000xxx0xx001xxxxxxxxxx  n     movi     dq0 : imm8 cmode_s_sz
+0x00111100000xxx110x01xxxxxxxxxx  n     movi     dq0 : imm8 cmode4_s_sz_msl
+
+# MVNI
+0x10111100000xxx10x001xxxxxxxxxx  n     mvni     dq0 : imm8 cmode_h_sz
+0x10111100000xxx0xx001xxxxxxxxxx  n     mvni     dq0 : imm8 cmode_s_sz
+0x10111100000xxx110x01xxxxxxxxxx  n     mvni     dq0 : imm8 cmode4_s_sz_msl
+
 # INS (element)
 01101110000xxxxx0xxxx1xxxxxxxxxx  n     ins       q0 imm5 : q5 imm4idx
 
@@ -1184,7 +1206,9 @@ x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
 0x0011101x1xxxxx111101xxxxxxxxxx  n     fmin      dq0 : dq5 dq16 sd_sz
 0x0011101x1xxxxx111111xxxxxxxxxx  n     frsqrts   dq0 : dq5 dq16 sd_sz
 0x001110101xxxxx000111xxxxxxxxxx  n     orr       dq0 : dq5 dq16
-0x00111100000xxxxxx101xxxxxxxxxx  n     orr       dq0 : imm8 cmode3
+0x00111100000xxx10x101xxxxxxxxxx  n     orr       dq0 : imm8 cmode_h_sz
+0x00111100000xxx0xx101xxxxxxxxxx  n     orr       dq0 : imm8 cmode_s_sz
+
 0x001110111xxxxx000111xxxxxxxxxx  n     orn       dq0 : dq5 dq16
 0x101110xx1xxxxx000001xxxxxxxxxx  n     uhadd     dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx000011xxxxxxxxxx  n     uqadd     dq0 : dq5 dq16 bhsd_sz
@@ -1535,7 +1559,8 @@ x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
 11010101000000110010000011111111  n     xpaclri   :
 0x10111000100000010110xxxxxxxxxx  n     not       dq0 : dq5
 0x001110000xxxxx0xx000xxxxxxxxxx  n     tbl       dq0 : dq5 dq16 len
-0x10111100000xxxxxx101xxxxxxxxxx  n     bic       dq0 : imm8 cmode3
+0x10111100000xxx10x101xxxxxxxxxx  n     bic       dq0 : imm8 cmode_h_sz
+0x10111100000xxx0xx101xxxxxxxxxx  n     bic       dq0 : imm8 cmode_s_sz
 0x101110xx100000011010xxxxxxxxxx  n     uadalp    dq0 : dq5 bhsd_sz
 0x101110xx100000001010xxxxxxxxxx  n     uaddlp    dq0 : dq5 bhsd_sz
 0x101110xx110000001110xxxxxxxxxx  n     uaddlv    dq0 : dq5 bhsd_sz
