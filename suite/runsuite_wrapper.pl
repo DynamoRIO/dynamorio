@@ -346,6 +346,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|linux.thread-reset' => 1, # i#4604
                 'code_api|linux.clone-reset' => 1, # i#4604
                 'code_api|tool.histogram.offline' => 1, # i#4953
+                'code_api|common.decode' => 1, # i#4953
                 # These are from the long suite.
                 'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 );
