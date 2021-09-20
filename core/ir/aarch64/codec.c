@@ -1494,6 +1494,9 @@ decode_opnd_cmode4_s_sz_msl(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
      * This is an MSL (Modified Shift Left). Unlike an LSL (Logical Shift
      * Left), this left shift shifts ones instead of zeros into the low order
      * bits.
+     *
+     * The element size and shift amount are stored as two 32 bit numbers in
+     * sz_shft. This is a workaround until issue #4393 is addressed.
      */
     const int cmode4 = extract_uint(enc, 12, 1);
     const int size = 32;
@@ -1561,6 +1564,9 @@ decode_opnd_cmode_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     /* cmode size amounts
      * 10x0  16   0,8
+     *
+     * The element size and shift amount are stored as two 32 bit numbers in
+     * sz_shft. This is a workaround until issue #4393 is addressed.
      */
     const int cmode = extract_uint(enc, 13, 1);
     int size = 16;
@@ -1618,6 +1624,9 @@ decode_opnd_cmode_s_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     /* cmode size amounts
      * 0xx0  32   0,8,16,24
+     *
+     * The element size and shift amount are stored as two 32 bit numbers in
+     * sz_shft. This is a workaround until issue #4393 is addressed.
      */
     const int cmode = extract_uint(enc, 13, 2);
     const int size = 32;
@@ -1785,6 +1794,9 @@ decode_opnd_cmode4_b_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     /* cmode size shift amount
      * 1110  8    0
+     *
+     * The element size and shift amount are stored as two 32 bit numbers in
+     * sz_shft. This is a workaround until issue #4393 is addressed.
      */
     if ((enc & 0xf000) != 0xe000)
         return false;
