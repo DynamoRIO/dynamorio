@@ -40,8 +40,8 @@ dr_exit(void)
 {
     void *drcontext = dr_get_current_drcontext();
     thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "termination from thread %p\ninjection from thread %p\n", 
-               tid, injection_tid);
+    dr_fprintf(STDERR, "termination from thread %p\ninjection from thread %p\n", tid,
+               injection_tid);
     dr_fprintf(STDERR, "done\n");
 }
 
