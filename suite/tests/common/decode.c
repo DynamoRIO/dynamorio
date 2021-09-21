@@ -315,6 +315,10 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, ARG1
         PUSH_CALLEE_SAVED_REGS()
         PUSH_NONCALLEE_SEH(REG_XAX)
+        /* As xsp will be clobbered by the routine below, we want to
+         * preserve it now and restore later.
+         */
+        mov      REG_XSP, sp_slot
         END_PROLOG
         mov      ax, 4
         mov      bx, 8
@@ -324,6 +328,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      di, 8
         mov      bp, 8
         CALLC0(PTRSZ [REG_XSP] /* ARG1 */)
+        mov      sp_slot, REG_XSP
         pop      REG_XAX /* arg1 */
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
@@ -381,6 +386,9 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         mov    REG_XAX, ARG1
+        PUSH_CALLEE_SAVED_REGS()
+        END_PROLOG
+
         RAW(c5) RAW(f8) RAW(90) RAW(c8)                 /* kmovw  %k0,%k1 */
         RAW(c5) RAW(f9) RAW(90) RAW(da)                 /* kmovb  %k2,%k3 */
         RAW(c4) RAW(e1) RAW(f8) RAW(90) RAW(ec)         /* kmovq  %k4,%k5 */
@@ -448,6 +456,8 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(c4) RAW(e3) RAW(79) RAW(30) RAW(da) RAW(65) /* kshiftrb $0x65,%k2,%k3 */
         RAW(c4) RAW(e3) RAW(f9) RAW(31) RAW(ec) RAW(05) /* kshiftrq $0x5,%k4,%k5 */
         RAW(c4) RAW(e3) RAW(79) RAW(31) RAW(fe) RAW(2f) /* kshiftrd $0x2f,%k6,%k7 */
+
+        POP_CALLEE_SAVED_REGS();
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
@@ -829,7 +839,10 @@ jecxz_zero:
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         ret
         END_FUNC(FUNCNAME)
-
+#undef FUNCNAME
+START_DATA
+    /* Allocate enough size to hold sp reg on 32- and 64-bit. */
+    BYTES_ARR(sp_slot, 8)
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */
