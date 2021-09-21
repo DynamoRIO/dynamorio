@@ -2118,16 +2118,16 @@ configure_file(
 include_directories("${PROJECT_BINARY_DIR}/include/annotations")
 include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
-tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
-tobuild_ci(client.int64_overrides client-interface/int64_overrides.c "" "" "")
+#tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
+#tobuild_ci(client.int64_overrides client-interface/int64_overrides.c "" "" "")
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   set(client.abort_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runcode.cmake")
   set(client.abort_code "8")
-  tobuild_ci(client.abort client-interface/abort.c "" "" "")
+  #tobuild_ci(client.abort client-interface/abort.c "" "" "")
 endif (X86)
-tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
+#tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
 if (UNIX) # XXX i#2595: NYI on Windows
-  tobuild_ci(client.stack-overflow client-interface/stack-overflow.c ""
+  #tobuild_ci(client.stack-overflow client-interface/stack-overflow.c ""
     # To avoid flakiness on different systems we nail down the stack size:
     "-stack_size 64K" "")
 endif ()
@@ -2136,20 +2136,20 @@ endif ()
 if (NOT MACOS AND NOT ANDROID)
   tobuild_appdll(client.modules client-interface/modules.c)
   DynamoRIO_get_full_path(modules_libname client.modules.appdll "${location_suffix}")
-  tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
+  #tobuild_ci(client.modules client-interface/modules.c "" "" "${modules_libname}")
 endif ()
 if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
-  tobuild_ci(client.alloc client-interface/alloc.c ""
+  #tobuild_ci(client.alloc client-interface/alloc.c ""
     # For the subtest "targeting upper 2GB of low 4GB" we move -vm_base out of the
     # way.  We also raise the checklevel so we get memory filling for client allocs.
     # We keep vmheap_size at 2G to more easily trigger OOM.
     "-no_vm_base_near_app -vm_base 0x120000000 -vmheap_size 2G -checklevel 3" "")
   # A second test for i#4335's OOM despite a reset.  We leave checklevel for CI speed.
-  tobuild_ci(client.alloc-noreset client-interface/alloc.c ""
+  #tobuild_ci(client.alloc-noreset client-interface/alloc.c ""
     "-no_enable_reset -no_vm_base_near_app -vm_base 0x120000000 -vmheap_size 2G" "")
   # XXX i#1312, i#3504: The test doesn't currently compile with CFLAGS_AVX512 but
   # attempts to test features based on it. The compile flag needs to be added.
-  tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
+  #tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")
   if (proc_supports_avx512)
     append_property_string(TARGET client.cleancall.dll COMPILE_FLAGS "${CFLAGS_AVX512}")
   endif ()
@@ -2162,18 +2162,18 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
         client-interface/cleancall.c "" "-thread_private -prof_pcs -opt_cleancall 0" "")
     endif (NOT X64)
   endif (UNIX)
-  tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
+  #tobuild_ci(client.count-ctis client-interface/count-ctis.c "" "" "")
   # check dr_insert_cbr_instrumentation with out-of-line clean call
   torunonly_ci(client.count-ctis-noopt client.count-ctis client.count-ctis.dll
     client-interface/count-ctis.c "" "-opt_cleancall 0" "")
-  tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
-  tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
+  #tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
+  #tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
 endif (X86)
-tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
-tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
+#tobuild_ci(client.cleancallparams client-interface/cleancallparams.c "" "" "")
+#tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
 if (NOT WIN32) # FIXME i#1717: add Windows client C++ EH support
   if (NOT ANDROID) # XXX i#1874: get working on Android
-    tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
+    #tobuild_ci(client.exception client-interface/exception.cpp "" "" "")
   endif ()
 endif ()
 
@@ -2189,7 +2189,7 @@ endif (UNIX)
 # FIXME i#1799: clang does not support "asm goto"
 if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
   set(DynamoRIO_USE_LIBC OFF)
-  tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
+  #tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
     "" "" "${annotation_test_args}")
   tobuild_appdll(client.annotation-concurrency
     client-interface/annotation-concurrency.c)
@@ -2249,7 +2249,7 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
   else (UNIX)
     set(annotation_opt_args "client.annotation-concurrency-opt.appdll.dll" "A" "4")
   endif (UNIX)
-  tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
+  #tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
     "" "" "${annotation_opt_args}")
   optimize(client.annotation-concurrency-opt)
   tobuild_appdll(client.annotation-concurrency-opt
@@ -2266,7 +2266,7 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
   # i#1681: on a many-core machine this test can hit the 1-min timeout
   set(client.annotation-concurrency-opt.full-decode_timeout 120)
 
-  tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
+  #tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
     "" "" "")
   set(client.annotation-detection.full-decode_expectbase
     "annotation-detection.full-decode")
@@ -2292,7 +2292,7 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
     annotation-detection.native client-interface/annotation-detection.c "")
 
   set(client.annotation-detection-opt_expectbase "annotation-detection")
-  tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp
+  #tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp
     "" "" "")
   optimize(client.annotation-detection-opt)
   torunonly_native(client.annotation-detection-opt.native
@@ -2315,24 +2315,24 @@ endif (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
 
 if (UNIX)
   # XXX i#1246: Make partial_module_map work for Windows as well.
-  tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
+  #tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
 endif ()
 if (LINUX AND X86)
   # XXX i#1833: once i#1833 is fixed, enable code in mbr_instrumentation_segment.dll.c
-  tobuild_ci(client.mbr_instrumentation_segment
+  #tobuild_ci(client.mbr_instrumentation_segment
     client-interface/mbr_instrumentation_segment.c "" "" "")
   use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drsyms)
   use_DynamoRIO_extension(client.mbr_instrumentation_segment.dll drmgr)
 endif()
 if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
-  tobuild_ci(client.execfault client-interface/execfault.c "" "" "")
+  #tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
+  #tobuild_ci(client.execfault client-interface/execfault.c "" "" "")
   tobuild_appdll(client.events client-interface/events.c)
   DynamoRIO_get_full_path(events_appdll_path client.events.appdll "${location_suffix}")
 endif (NOT ARM)
 if (ANNOTATIONS AND NOT ARM)
   if (UNIX OR NOT X64) # the Valgrind annotation structure cannot support Windows x64
-    tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
+    #tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
     set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
     torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "full-decode" "" "")
@@ -2345,7 +2345,7 @@ if (ANNOTATIONS AND NOT ARM)
     set(client.vg-annot.bb-truncate-2_expectbase "vg-annot.bb-truncate")
     torunonly_ci(client.vg-annot.bb-truncate-2 client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "truncate@2" "" "")
-    tobuild_ci(client.vg-annot-opt client-interface/vg-annot.c "" "" "")
+    #tobuild_ci(client.vg-annot-opt client-interface/vg-annot.c "" "" "")
     optimize(client.vg-annot-opt)
     set(client.vg-annot-opt.full-decode_expectbase "vg-annot.full-decode")
     torunonly_ci(client.vg-annot-opt.full-decode client.vg-annot-opt client.vg-annot.dll
@@ -2368,15 +2368,15 @@ if (UNIX)
       # Just happens to not make as many traces.
       set(trace_arg "-trace_threshold 5")
     endif ()
-    tobuild_ci(client.events client-interface/events.c
+    #tobuild_ci(client.events client-interface/events.c
       "" "${trace_arg}" "${events_appdll_path}")
-    tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
+    #tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
       "" "${trace_arg}" "${events_appdll_path}")
-    tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
+    #tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
     # We disable traces to get bb prefixes for testing i#4669.
-    tobuild_ci(client.timer client-interface/timer.c "" "-disable_traces" "")
+    #tobuild_ci(client.timer client-interface/timer.c "" "-disable_traces" "")
     if (X64)
-      tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
+      #tobuild_ci(client.mangle_suspend client-interface/mangle_suspend.c ""
         "-vm_base 0x100000000 -no_vm_base_near_app" "")
       use_DynamoRIO_extension(client.mangle_suspend.dll drmgr)
       target_include_directories(client.mangle_suspend PRIVATE
@@ -2385,40 +2385,40 @@ if (UNIX)
     endif ()
   endif (NOT ARM)
   if (X86 OR AARCH64) # FIXME i#1551: port asm to AArch32
-    tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
+    #tobuild_ci(client.syscall-mod client-interface/syscall-mod.c "" "" "")
   endif (X86 OR AARCH64)
-  tobuild_ci(client.signal client-interface/signal.c "" "" "")
+  #tobuild_ci(client.signal client-interface/signal.c "" "" "")
   link_with_pthread(client.signal)
   if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-    tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
+    #tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   endif (X86)
-  tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
+  #tobuild_ci(client.cleancallsig client-interface/cleancallsig.c "" "" "")
   if (X64) # XXX i#3173 Improve testing of emulation API functions
-    tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c
+    #tobuild_ci(client.emulation_api_simple client-interface/emulation_api_simple.c
       "" "" "")
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
   endif ()
 else (UNIX)
   tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
-  tobuild_ci(client.events client-interface/events.c
+  #tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
-  tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
+  #tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
     "" "" "${events_appdll_path}")
-  tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
-  tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
+  #tobuild_ci(client.cbr3 client-interface/cbr3.c "" "" "")
+  #tobuild_ci(client.cbr4 client-interface/cbr4.c "" "-thread_private" "")
   # FIXME i#120: enable these .runall tests once have .runall support
-  #tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
-  #tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")
-  #tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall
+  ##tobuild_ci_runall(client.cbr2 client-interface/cbr2.runall "" "" "")
+  ##tobuild_ci_runall(client.cbr client-interface/cbr.runall "" "" "")
+  ##tobuild_ci_runall(client.custom_traces client-interface/custom_traces.runall
   #  "" "" "")
-  #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
+  ##tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
   # I reworked Windows .runall support to run the new win32.infloop but have not yet
   # looked at other tests:
-  tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
-  #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
+  #tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
+  ##tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
   if (NOT X64)
     # FIXME i#16, does not work in Win-X64 because of inline assembly code.
-    tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
+    #tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
   endif (NOT X64)
 
   add_exe(client.fibers client-interface/fibers.c)
@@ -2426,30 +2426,30 @@ else (UNIX)
     client-interface/fibers.c "" "" "")
 
   # i#1866: stress our private loader
-  tobuild_ci(client.loader client-interface/loader.c "" "" "")
+  #tobuild_ci(client.loader client-interface/loader.c "" "" "")
   target_link_libraries(client.loader.dll "shlwapi")
 
-  tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
+  #tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  tobuild_ci(client.file_io client-interface/file_io.c
+  #tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
-    tobuild_ci(client.flush client-interface/flush.c "" "" "")
+    #tobuild_ci(client.flush client-interface/flush.c "" "" "")
   endif ()
-  tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
+  #tobuild_ci(client.thread client-interface/thread.c "-paramx -paramy" "" "")
   tobuild_appdll(client.thread client-interface/thread.c)
-  tobuild_ci(client.strace client-interface/strace.c "" "" "")
+  #tobuild_ci(client.strace client-interface/strace.c "" "" "")
   use_DynamoRIO_extension(client.strace.dll drmgr)
 endif (X86)
 # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
-#tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
+##tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
 if (PROGRAM_SHEPHERDING)
-  tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
+  #tobuild_ci(client.security client-interface/security.c "" "-security_api" "")
 endif (PROGRAM_SHEPHERDING)
 if (NOT ARM) # FIXME i#1551: fix bugs on ARM
-  tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
+  #tobuild_ci(client.truncate client-interface/truncate.c "" "" "")
   if (WIN32)
     set(client.truncate.thread-churn-1_expectbase "truncate.thread-churn")
     torunonly_ci(client.truncate.thread-churn-1 win32.threadchurn client.truncate.dll
@@ -2459,17 +2459,17 @@ if (NOT ARM) # FIXME i#1551: fix bugs on ARM
       client-interface/truncate.c "2" "" "")
   endif (WIN32)
   if (NOT AARCH64) # FIXME i#1569: get working on AArch64
-    tobuild_ci(client.dr_options client-interface/dr_options.c
+    #tobuild_ci(client.dr_options client-interface/dr_options.c
       "" "-native_exec_list foo.dll,bar.dll -opt_cleancall 3 -thread_private" "")
   endif (NOT AARCH64)
 endif (NOT ARM)
-tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
+#tobuild_ci(client.unregister client-interface/unregister.c "" "" "")
 if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
-  tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c ""
+  #tobuild_ci(client.cleancall-opt-1 client-interface/cleancall-opt-1.c ""
     "-opt_cleancall 1" "")
   if (proc_supports_avx512)
     # XXX i#1312: This is untested on Windows.
-    tobuild_ci(client.avx512cleancall-opt-1 client-interface/cleancall-opt-1.c ""
+    #tobuild_ci(client.avx512cleancall-opt-1 client-interface/cleancall-opt-1.c ""
       "-opt_cleancall 1" "")
     append_property_string(TARGET client.avx512cleancall-opt-1 COMPILE_FLAGS
       "${CFLAGS_AVX512}")
@@ -2477,13 +2477,13 @@ if (NOT ARM) # FIXME i#2094: implement cleancall optimizations on ARM
       "${CFLAGS_AVX512}")
   endif ()
 
-  tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
+  #tobuild_ci(client.inline client-interface/inline.c "" "-opt_cleancall 3" "")
   if (CMAKE_COMPILER_IS_CLANG)
     optimize(client.inline.dll)
   endif ()
 endif (NOT ARM)
 if (NOT ANDROID) # XXX i#1874: get working on Android
-  tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
+  #tobuild_ci(client.null_instrument client-interface/null_instrument.c "" "" "")
   tobuild_appdll(client.null_instrument client-interface/null_instrument.c)
   target_link_libraries(client.null_instrument client.null_instrument.appdll)
   # We want rpath on Linux so we can load the appdll.
@@ -2492,7 +2492,7 @@ endif ()
 
 if (NOT ARM) # FIXME i#1551: fix bugs on ARM
   # Test passing a really long (600 chars) client option string.
-  tobuild_ci(client.large_options client-interface/large_options.c
+  #tobuild_ci(client.large_options client-interface/large_options.c
     "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     "" "")
 endif (NOT ARM)
@@ -2506,16 +2506,16 @@ torunonly_ci(client.blackbox ${ci_shared_app} client.blackbox.dll.A
   client-interface/${ci_shared_app} # for .expect
   "" "" "")
 
-tobuild_ci(client.option_parse client-interface/option_parse.cpp
+#tobuild_ci(client.option_parse client-interface/option_parse.cpp
   "-l;-4;-ll;-3220721071790640321;-ul;4;-ull;1384772493926445887;-x;4;-y;quoted string;-z;first;-z;single quotes -dash --dashes;-front;value;-y;accum;-front2;value2;-no_flag;-takes2;1_of_4;2_of_4;-takes2;3_of_4;4_of_4;-val_sep;v1.1 v1.2;-val_sep;v2.1 v2.2;-val_sep2;v1;v2;-val_sep2;v3;v4;-large_bytesize;9999999999"
   "" "")
 use_DynamoRIO_extension(client.option_parse.dll droption)
 set(client.option_parse_client_ops_islist ON)
 
-tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
+#tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
 
 if (UNIX) # The test uses signals.
-  tobuild_ci(client.gonative client-interface/gonative.c "" "" "")
+  #tobuild_ci(client.gonative client-interface/gonative.c "" "" "")
   link_with_pthread(client.gonative)
   # Configure for dr_app_running_under_dynamorio().
   configure_app_api_build_flags(client.gonative OFF OFF)
@@ -2523,14 +2523,14 @@ if (UNIX) # The test uses signals.
   set_target_properties(client.gonative PROPERTIES SKIP_BUILD_RPATH OFF)
 endif ()
 
-tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
+#tobuild_ci(client.drcontainers-test client-interface/drcontainers-test.c "" "" "")
 use_DynamoRIO_extension(client.drcontainers-test.dll drcontainers)
 
-tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdll_path}")
+#tobuild_ci(client.drmgr-test client-interface/drmgr-test.c "" "" "${events_appdll_path}")
 use_DynamoRIO_extension(client.drmgr-test.dll drmgr)
 link_with_pthread(client.drmgr-test)
 
-tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
+#tobuild_ci(client.drx_buf-test client-interface/drx_buf-test.c "" "" "")
 use_DynamoRIO_extension(client.drx_buf-test.dll drmgr)
 use_DynamoRIO_extension(client.drx_buf-test.dll drx)
 link_with_pthread(client.drx_buf-test)
@@ -2539,24 +2539,24 @@ target_include_directories(client.drx_buf-test PRIVATE
 
 # TODO i#4134: ARM not yet supported.
 if (X86)
-  tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
+  #tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
   use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
   use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
   use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
 
-  tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
+  #tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
   use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
   use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
   use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
-  tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
+  #tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
   use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
   use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
   use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
 endif (X86)
 
 if (ARM)
-  tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
+  #tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
   use_DynamoRIO_extension(client.predicate-test.dll drmgr)
   use_DynamoRIO_extension(client.predicate-test.dll drutil)
   use_DynamoRIO_extension(client.predicate-test.dll drreg)
@@ -2565,53 +2565,53 @@ if (ARM)
 endif (ARM)
 
 if (UNIX)
-  tobuild_ci(client.process-id client-interface/process-id.c "" "" "")
+  #tobuild_ci(client.process-id client-interface/process-id.c "" "" "")
   link_with_pthread(client.process-id)
 endif (UNIX)
 
-tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
+#tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
 use_DynamoRIO_extension(client.drreg-test.dll drmgr)
 use_DynamoRIO_extension(client.drreg-test.dll drreg)
 use_DynamoRIO_extension(client.drreg-test.dll drx)
 target_include_directories(client.drreg-test PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
-tobuild_ci(client.drreg-end-restore client-interface/drreg-end-restore.c "" "" "")
+#tobuild_ci(client.drreg-end-restore client-interface/drreg-end-restore.c "" "" "")
 use_DynamoRIO_extension(client.drreg-end-restore.dll drmgr)
 use_DynamoRIO_extension(client.drreg-end-restore.dll drreg)
 
-tobuild_ci(client.drreg-flow client-interface/drreg-flow.c "" "" "")
+#tobuild_ci(client.drreg-flow client-interface/drreg-flow.c "" "" "")
 use_DynamoRIO_extension(client.drreg-flow.dll drmgr)
 use_DynamoRIO_extension(client.drreg-flow.dll drreg)
 use_DynamoRIO_extension(client.drreg-flow.dll drutil)
 
-tobuild_ci(client.drreg-cross client-interface/drreg-cross.c "" "" "")
+#tobuild_ci(client.drreg-cross client-interface/drreg-cross.c "" "" "")
 use_DynamoRIO_extension(client.drreg-cross.dll drmgr)
 use_DynamoRIO_extension(client.drreg-cross.dll drreg)
 use_DynamoRIO_extension(client.drreg-cross.dll drutil)
 
-tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+#tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
 use_DynamoRIO_extension(client.drx-test.dll drx)
 
-tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
+#tobuild_ci(client.drxmgr-test client-interface/drxmgr-test.c "" "" "")
 use_DynamoRIO_extension(client.drxmgr-test.dll drmgr)
 use_DynamoRIO_extension(client.drxmgr-test.dll drx)
 use_DynamoRIO_extension(client.drxmgr-test.dll drreg)
 
 # Declare reset params due to i#1674 and i#3912
-tobuild_ci(client.low_on_memory client-interface/low_on_memory.c ""
+#tobuild_ci(client.low_on_memory client-interface/low_on_memory.c ""
     "-enable_reset -reset_at_vmm_percent_free_limit 10 -vm_size 4M" "")
 use_DynamoRIO_extension(client.low_on_memory.dll drmgr)
 use_DynamoRIO_extension(client.low_on_memory.dll drwrap)
 
-tobuild_ci(client.tls client-interface/tls.c "" "" "")
+#tobuild_ci(client.tls client-interface/tls.c "" "" "")
 link_with_pthread(client.tls)
 use_DynamoRIO_extension(client.tls.dll drmgr)
 
 if (X86)
   if (NOT MACOS)
     # XXX i#2985: The test's asm doesn't build with MacOS's clang.
-    tobuild_ci(client.drx-scattergather client-interface/drx-scattergather.c "" "" "")
+    #tobuild_ci(client.drx-scattergather client-interface/drx-scattergather.c "" "" "")
     target_include_directories(client.drx-scattergather PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
     use_DynamoRIO_extension(client.drx-scattergather.dll drmgr)
@@ -2646,7 +2646,7 @@ endif ()
 
 tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
 get_target_path_for_execution(drwrap_libpath client.drwrap-test.appdll "${location_suffix}")
-tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
+#tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")
 use_DynamoRIO_extension(client.drwrap-test.dll drwrap)
 tochcon(client.drwrap-test.appdll textrel_shlib_t)
 if (WIN32)
@@ -2655,7 +2655,7 @@ if (WIN32)
     "/export:makes_tailcall /export:tailcall_test2 /export:tailcall_tail")
 endif (WIN32)
 if (NOT ANDROID) # XXX i#1874: get working on Android
-  tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
+  #tobuild_ci(client.drwrap-test-callconv client-interface/drwrap-test-callconv.cpp
     "" "" "")
   use_DynamoRIO_extension(client.drwrap-test-callconv.dll drwrap)
 endif ()
@@ -2690,7 +2690,7 @@ if (NOT ANDROID)
   # XXX i#1874: get working on Android
   tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
   get_target_path_for_execution(drsyms_libpath client.drsyms-test.appdll "${location_suffix}")
-  tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
+  #tobuild_ci(client.drsyms-test client-interface/drsyms-test.cpp ""
     "" "${drsyms_libpath}")
   # Disable optimizations for the exe and appdll to allow stack tracing.
   disable_optimizations_for_file(client-interface/drsyms-test.cpp)
@@ -2721,12 +2721,12 @@ if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
   endif()
 endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
 
-tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
+#tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
 use_DynamoRIO_extension(client.drutil-test.dll drutil)
 use_DynamoRIO_extension(client.drutil-test.dll drmgr)
 link_with_pthread(client.drutil-test)
 
-tobuild_ci(client.drmodtrack-test client-interface/drmodtrack-test.cpp "" "" "")
+#tobuild_ci(client.drmodtrack-test client-interface/drmodtrack-test.cpp "" "" "")
 use_DynamoRIO_extension(client.drmodtrack-test.dll drcovlib)
 use_DynamoRIO_extension(client.drmodtrack-test.dll drx)
 
@@ -2741,7 +2741,7 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
   endif ()
   # Pass extra options to first run so this will pass when run repeatedly in local
   # build dir w/o loading any pcache
-  tobuild_ci(client.pcache client-interface/pcache.c ""
+  #tobuild_ci(client.pcache client-interface/pcache.c ""
     "-persist -no_use_persisted -no_coarse_disk_merge -no_coarse_lone_merge" "")
   use_DynamoRIO_extension(client.pcache.dll drcontainers)
   if (WIN32)
@@ -2764,10 +2764,10 @@ if (X86) # FIXME i#1551, i#1569: port to ARM and AArch64
 endif (X86)
 
 if (AARCHXX)
-  tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
+  #tobuild_ci(client.stolen-reg client-interface/stolen-reg.c "" "" "")
   link_with_pthread(client.stolen-reg)
 
-  tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
+  #tobuild_ci(client.ldstex client-interface/ldstex.c "" "" "")
   link_with_pthread(client.ldstex)
 endif ()
 
@@ -2979,49 +2979,49 @@ if (NOT X64 AND NOT ARM) # FIXME i#1551: port to ARM
   # i#696: Use -thread_private and small fcache units to trigger shifts.  x64
   # does not support fcache unit resizing and won't allow 4k unit sizes, so
   # skip it.
-  tobuild_ci(client.fcache_shift client-interface/fcache_shift.c
+  #tobuild_ci(client.fcache_shift client-interface/fcache_shift.c
     "" "-thread_private -cache_bb_unit_init 4K" "")
 endif ()
 
 if (X86)
   if (X64) # Tests x86 reachability.
-    tobuild_ci(client.reachability client-interface/reachability.c ""
+    #tobuild_ci(client.reachability client-interface/reachability.c ""
       # The vm_base options were added in order to expose bugs that fail to xl8 reachable
       # addresses to the executable view within the scheme of satisfy_w_xor_x.
       "-no_vm_base_near_app -vm_base 0x100000000" "")
   else ()
-    tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
+    #tobuild_ci(client.reachability client-interface/reachability.c "" "" "")
   endif ()
 endif ()
 
 if (X86) # FIXME i#1551, i#1569: fix bugs on ARM and AArch64
-  tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
+  #tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
   use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
 endif (X86)
 
-tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
+#tobuild_ci(client.app_args client-interface/app_args.c "" "" "Test;Test2;Test3")
 
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
+  #tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
   # Debug libc seems to mess up the test.
   use_MT_not_MTd(client-interface/retaddr.c)
 endif (X86)
 
 if (X86 AND WIN32) # FIXME port test application to other systems
-  tobuild_ci(client.translate_sandbox client-interface/translate_sandbox.c "" "" "")
+  #tobuild_ci(client.translate_sandbox client-interface/translate_sandbox.c "" "" "")
 endif ()
 
 if (NOT ANDROID) # XXX i#1874: get working on Android
-  tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
+  #tobuild_ci(client.destructor client-interface/destructor.cpp "" "" "")
 endif ()
 
 if (proc_supports_avx512)
   # XXX i#1312: This is untested on Windows.
-  tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
+  #tobuild_ci(client.avx512lazy client-interface/avx512lazy.c "" "" "")
   set_target_properties(client.avx512lazy PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
 
   # XXX i#1312: This is untested on Windows.
-  tobuild_ci(client.avx512lazy-initial client-interface/avx512lazy.c "" "" "")
+  #tobuild_ci(client.avx512lazy-initial client-interface/avx512lazy.c "" "" "")
   set_target_properties(client.avx512lazy-initial PROPERTIES COMPILE_FLAGS
     "${CFLAGS_AVX512}")
   append_property_string(TARGET client.avx512lazy-initial.dll COMPILE_FLAGS
@@ -3029,7 +3029,7 @@ if (proc_supports_avx512)
 
   if (UNIX)
     # XXX i#1312: we do not yet support AVX-512 Windows context switching.
-    tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
+    #tobuild_ci(client.avx512ctx client-interface/avx512ctx.c "" "" "")
     set_target_properties(client.avx512ctx PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
     append_property_string(TARGET client.avx512ctx.dll COMPILE_FLAGS
       "${CFLAGS_AVX512}")
