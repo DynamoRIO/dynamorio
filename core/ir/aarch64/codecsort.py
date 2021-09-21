@@ -95,7 +95,7 @@ def main():
                     opndtypes.split(":")[0].strip(),
                     opndtypes.split(":")[1].strip()) if ":" in opndtypes
                 else opndtypes
-                ) for pattern, nzcv_flag, opcode, opndtypes in instr_list]
+                ).strip() for pattern, nzcv_flag, opcode, opndtypes in instr_list]
 
     header = []
     with open(CODEC_FILE, "r") as lines:
