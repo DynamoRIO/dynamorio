@@ -318,7 +318,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* As xsp will be clobbered by the routine below, we want to
          * preserve it now and restore later.
          */
-        mov      REG_XSP, sp_slot
+        mov      REG_XSP, [sp_slot]
         END_PROLOG
         mov      ax, 4
         mov      bx, 8
@@ -328,7 +328,7 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      di, 8
         mov      bp, 8
         CALLC0(PTRSZ [REG_XSP] /* ARG1 */)
-        mov      sp_slot, REG_XSP
+        mov      [sp_slot], REG_XSP
         pop      REG_XAX /* arg1 */
         add      REG_XSP, 0 /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()

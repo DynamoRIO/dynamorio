@@ -234,14 +234,14 @@ ASSUME fs:_DATA @N@\
         ADD_STACK_ALIGNMENT_NOSEH @N@\
         .allocstack FRAME_ALIGNMENT - ARG_SZ
 #  define END_PROLOG .endprolog
-#  define DECL_REG_SPILL_SLOT(sym) sym dword 0
+#  define DECL_REG_SPILL_SLOT(sym) sym qword 0
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 #  define PUSH_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
 #  define END_PROLOG /* nothing */
-#  define DECL_REG_SPILL_SLOT(sym) sym word 0
+#  define DECL_REG_SPILL_SLOT(sym) sym dword 0
 # endif
 /****************************************************/
 #elif defined(ASSEMBLE_WITH_NASM)
