@@ -31,6 +31,7 @@
  */
 
 #include "dr_api.h"
+#include <Windows.h>
 
 static thread_id_t injection_tid;
 static bool first_thread = true;
@@ -40,8 +41,8 @@ dr_exit(void)
 {
     void *drcontext = dr_get_current_drcontext();
     thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "termination from thread %p\ninjection from thread %p\n", tid,
-               injection_tid);
+    dr_fprintf(STDERR, "%ld: termination from thread %p\ninjection from thread %p\n",
+               GetTickCount(), tid, injection_tid);
     dr_fprintf(STDERR, "done\n");
 }
 
@@ -50,7 +51,7 @@ dr_thread_init(void *drcontext)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
     if (tid != injection_tid) {
-        dr_fprintf(STDERR, "init thread %p\n", tid);
+        dr_fprintf(STDERR, "%ld: init thread %p\n", GetTickCount(), tid);
     }
 }
 
@@ -58,14 +59,14 @@ static void
 dr_thread_exit(void *drcontext)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "exit thread %p\n", tid);
+    dr_fprintf(STDERR, "%ld: exit thread %p\n", GetTickCount(), tid);
 }
 
 DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    dr_fprintf(STDERR, "thank you for testing attach\n");
+    dr_fprintf(STDERR, "%ld: thank you for testing attach\n", GetTickCount());
     dr_register_exit_event(dr_exit);
     void *drcontext = dr_get_current_drcontext();
     injection_tid = dr_get_thread_id(drcontext);
