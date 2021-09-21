@@ -66,6 +66,7 @@ endif ()
 file(REMOVE ${out})
 
 # Run the target in the background.
+message("cmd: ${cmd}")
 execute_process(COMMAND ${cmd}
   RESULT_VARIABLE cmd_result
   ERROR_VARIABLE cmd_err
@@ -126,6 +127,7 @@ function (kill_background_process force)
   else (UNIX)
     # win32.infloop has a title with the pid in it so we can uniquely target it
     # for a cleaner exit than using drkill.
+    message("killer: ${toolbindir}/closewnd.exe Infloop pid=${pid} 10")
     execute_process(COMMAND "${toolbindir}/closewnd.exe" "Infloop pid=${pid}" 10
       RESULT_VARIABLE kill_result
       ERROR_VARIABLE kill_err
@@ -189,14 +191,10 @@ if ("${nudge}" MATCHES "<use-persisted>")
     set(fail_msg "no .dpc files found in ${maps}: not using pcaches!")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
-  do_sleep(1.0)
-  do_sleep(1.0)
-  do_sleep(1.0)
-  do_sleep(1.0)
-  do_sleep(1.0)
   set(nudge_cmd run_in_bg)
   string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@100" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
+  message("attach: ${toolbindir}/${nudge_cmd ${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result
    ERROR_VARIABLE nudge_err
