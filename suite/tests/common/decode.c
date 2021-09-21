@@ -841,8 +841,7 @@ jecxz_zero:
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 START_DATA
-    /* Allocate enough size to hold sp reg on 32- and 64-bit. */
-    BYTES_ARR(sp_slot, 8)
+    BYTES_ARR(sp_slot, IF_X64_ELSE(8, 4))
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */

@@ -1924,6 +1924,8 @@ if (X86) # TODO i#1551, i#1569: port asm to ARM and AArch64
   if (proc_supports_avx512)
     set_target_properties(common.decode PROPERTIES COMPILE_FLAGS "${CFLAGS_AVX512}")
   endif ()
+  # Cannot create PIE if we have a .data section in asm code.
+  append_link_flags(common.decode "-no-pie")
 endif (X86)
 if (X86)
   torunonly(common.decode-stress common.decode common/decode.c
