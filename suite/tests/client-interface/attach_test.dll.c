@@ -51,7 +51,7 @@ dr_thread_init(void *drcontext)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
     if (tid != injection_tid) {
-        dr_fprintf(STDERR, "%ld: init thread %p\n", GetTickCount(), tid);
+        dr_fprintf(STDERR, "init thread %p %ld\n", tid, GetTickCount());
     }
 }
 
