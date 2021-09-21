@@ -131,7 +131,6 @@ function (kill_background_process force)
       ERROR_VARIABLE kill_err
       OUTPUT_VARIABLE kill_out)
     set(kill_err "${kill_out}${kill_err}")
-    message("(${kill_result}): ${kill_err}\n")
     if (kill_result)
       message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
     endif (kill_result)
@@ -190,7 +189,7 @@ if ("${nudge}" MATCHES "<use-persisted>")
   endif ()
 elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd run_in_bg)
-  string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}" nudge "${nudge}")
+  string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@100" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result
