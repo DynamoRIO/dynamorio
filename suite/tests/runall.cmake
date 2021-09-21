@@ -194,7 +194,7 @@ elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd run_in_bg)
   string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@100" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
-  message("attach: ${toolbindir}/${nudge_cmd ${nudge}")
+  message("attach: ${toolbindir}/${nudge_cmd} ${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result
    ERROR_VARIABLE nudge_err
