@@ -120,6 +120,7 @@ function (kill_background_process force)
       )
     # combine out and err
     set(kill_err "${kill_out}${kill_err}")
+    message("(${kill_result}): ${kill_err}\n")
     if (kill_result)
       message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
     endif (kill_result)
