@@ -315,11 +315,11 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, ARG1
         PUSH_CALLEE_SAVED_REGS()
         PUSH_NONCALLEE_SEH(REG_XAX)
+        END_PROLOG
         /* As xsp will be clobbered by the routine below, we want to
          * preserve it now and restore later.
          */
         mov      REG_XSP, [sp_slot]
-        END_PROLOG
         mov      ax, 4
         mov      bx, 8
         mov      cx, 4
