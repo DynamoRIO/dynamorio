@@ -128,8 +128,10 @@
 #  ifdef X64
 /* w/o the rip, gas won't use rip-rel and adds relocs that ld trips over */
 #   define SYMREF(sym) [rip + sym]
+#   define DECL_REG_SPILL_SLOT(sym) sym: .quad 0
 #  else
 #   define SYMREF(sym) [sym]
+#   define DECL_REG_SPILL_SLOT(sym) sym: .word 0
 #  endif
 # elif defined(AARCHXX)
 #  define BYTE /* nothing */
@@ -232,12 +234,14 @@ ASSUME fs:_DATA @N@\
         ADD_STACK_ALIGNMENT_NOSEH @N@\
         .allocstack FRAME_ALIGNMENT - ARG_SZ
 #  define END_PROLOG .endprolog
+#  define DECL_REG_SPILL_SLOT(sym) sym dword 0
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 #  define PUSH_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define ADD_STACK_ALIGNMENT ADD_STACK_ALIGNMENT_NOSEH
 #  define END_PROLOG /* nothing */
+#  define DECL_REG_SPILL_SLOT(sym) sym word 0
 # endif
 /****************************************************/
 #elif defined(ASSEMBLE_WITH_NASM)
@@ -263,8 +267,10 @@ ASSUME fs:_DATA @N@\
 # define ZMMWORD zword
 # ifdef X64
 #  define SYMREF(sym) [rel GLOBAL_REF(sym)]
+#  define DECL_REG_SPILL_SLOT(sym) sym: dq 0
 # else
 #  define SYMREF(sym) [GLOBAL_REF(sym)]
+#  define DECL_REG_SPILL_SLOT(sym) sym: dd 0
 # endif
 # define HEX(n) 0x##n
 # define SEGMEM(seg,mem) [seg:mem]

@@ -841,7 +841,7 @@ jecxz_zero:
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 START_DATA
-    BYTES_ARR(sp_slot, IF_X64_ELSE(8, 4))
+    DECL_REG_SPILL_SLOT(sp_slot)
 END_FILE
 /* clang-format on */
 #endif /* ASM_CODE_ONLY */
