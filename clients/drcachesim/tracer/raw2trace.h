@@ -1030,8 +1030,9 @@ private:
             TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
-        uint64_t cur_pc =
-            reinterpret_cast<uint64_t>(modvec_()[in_entry->pc.modidx].orig_seg_base) +
+        // Cast to unsigned pointer-sized int first to avoid sign-extending.
+        uint64_t cur_pc = static_cast<uint64_t>(reinterpret_cast<ptr_uint_t>(
+                              modvec_()[in_entry->pc.modidx].orig_seg_base)) +
             (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
         // Legacy traces need the offset, not the pc.
         uint64_t cur_offs = in_entry->pc.modoffs;
@@ -1252,7 +1253,9 @@ private:
                     // assert or check that here or in the tracer.)
                     rseq_rollback = true;
                 }
-                impl()->log(4, "Checking whether reached signal/exception %p vs cur %p\n",
+                impl()->log(4,
+                            "Checking whether reached signal/exception %p vs "
+                            "cur 0x" HEX64_FORMAT_STRING "\n",
                             marker_val, cur_pc);
                 if (marker_val == 0 || at_interrupted_pc || rseq_rollback) {
                     impl()->log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
