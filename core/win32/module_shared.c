@@ -1334,6 +1334,10 @@ find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
     NTSTATUS res;
     uint64 addr = 0;
     char name[MAXIMUM_PATH];
+    /* FIXME - this loop doesn't return when the dll is not loaded, on 
+     * 32-bit processes on a 64 bit machine.  
+     * When addr passes 0x800000000000 remote_query_virtual_memory_maybe64
+     * returns the previous mbi (ending at 0x7FFFFFFF0000) */
     do {
         res = remote_query_virtual_memory_maybe64(phandle, addr, &mbi, sizeof(mbi), &got);
         if (got != sizeof(mbi) || !NT_SUCCESS(res))
