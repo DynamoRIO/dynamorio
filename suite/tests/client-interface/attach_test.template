@@ -1,5 +1,4 @@
 thank you for testing attach
-init thread
 #ifdef WINDOWS
 MessageBox closed
 #endif
