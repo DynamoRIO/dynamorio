@@ -188,15 +188,11 @@ main(int argc, char *argv[])
 #        endif
         buf[j * 7 + 1] = 0x67; /* addr16 */
         buf[j * 7 + 2] = 0x8b; /* load */
-#        ifdef WINDOWS
-        /* Windows can't handle stack pointer being off */
+        /* Can't handle the stack pointer being off */
         if (reg == 4) { /* xsp */
-            buf[j * 7 + 3] = j | 0x8;
+            buf[j * 7 + 3] = j | 0x8; /* Make it ebp */
         } else
             buf[j * 7 + 3] = j; /* nearly every single modrm byte */
-#        else
-        buf[j * 7 + 3] = j;    /* every single modrm byte */
-#        endif
         if (mod == 1) {
             buf[j * 7 + 4] = 0x03; /* disp */
             buf[j * 7 + 5] = 0xc3;
@@ -381,6 +377,9 @@ GLOBAL_LABEL(FUNCNAME:)
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
         mov    REG_XAX, ARG1
+        PUSH_CALLEE_SAVED_REGS()
+        END_PROLOG
+
         RAW(c5) RAW(f8) RAW(90) RAW(c8)                 /* kmovw  %k0,%k1 */
         RAW(c5) RAW(f9) RAW(90) RAW(da)                 /* kmovb  %k2,%k3 */
         RAW(c4) RAW(e1) RAW(f8) RAW(90) RAW(ec)         /* kmovq  %k4,%k5 */
@@ -448,6 +447,8 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(c4) RAW(e3) RAW(79) RAW(30) RAW(da) RAW(65) /* kshiftrb $0x65,%k2,%k3 */
         RAW(c4) RAW(e3) RAW(f9) RAW(31) RAW(ec) RAW(05) /* kshiftrq $0x5,%k4,%k5 */
         RAW(c4) RAW(e3) RAW(79) RAW(31) RAW(fe) RAW(2f) /* kshiftrd $0x2f,%k6,%k7 */
+
+        POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
