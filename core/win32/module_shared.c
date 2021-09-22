@@ -1334,10 +1334,6 @@ find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
     NTSTATUS res;
     uint64 addr = 0;
     char name[MAXIMUM_PATH];
-    /* FIXME - for 32-bit targets on a 64 bit machine, this loop doesn't return,
-     * if the dll is not loaded.
-     * When addr passes 0x800000000000 remote_query_virtual_memory_maybe64
-     * returns the previous mbi (ending at 0x7FFFFFFF0000) */
     do {
         res = remote_query_virtual_memory_maybe64(phandle, addr, &mbi, sizeof(mbi), &got);
         if (got != sizeof(mbi) || !NT_SUCCESS(res))
@@ -1359,6 +1355,13 @@ find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
             }
         }
         if (addr + mbi.RegionSize < addr)
+            break;
+        /* XXX - this check is needed because otherwise, for 32-bit targets on a 64
+         * bit machine, this loop doesn't return if the dll is not loaded.
+         * When addr passes 0x800000000000 remote_query_virtual_memory_maybe64
+         * returns the previous mbi (ending at 0x7FFFFFFF0000).
+         * For now just return if the addr is not inside the mbi region. */
+        if (mbi.BaseAddress + mbi.RegionSize < addr)
             break;
         addr += mbi.RegionSize;
     } while (true);
