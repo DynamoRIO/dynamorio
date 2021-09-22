@@ -1350,6 +1350,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       # move params to nudge
       string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
       string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<attach>")
       string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
       # clear client from dr command and run native
       string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
