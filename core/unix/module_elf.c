@@ -1445,6 +1445,9 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
                       (byte *)r_addr >= (byte *)pd->dyn + pd->dynsz) &&
                      ".so has relocation inside PT_DYNAMIC section");
     r_type = (uint)ELF_R_TYPE(rel->r_info);
+
+    LOG(GLOBAL, LOG_LOADER, 5, "%s: reloc @ %p type=%d\n", r_addr, r_type);
+
     /* handle the most common case, i.e. ELF_R_RELATIVE */
     if (r_type == ELF_R_RELATIVE) {
         if (is_rela)
@@ -1569,6 +1572,7 @@ module_relocate_rel(app_pc modbase, os_privmod_data_t *pd, ELF_REL_TYPE *start,
 {
     ELF_REL_TYPE *rel;
 
+    LOG(GLOBAL, LOG_LOADER, 4, "%s walking rel %p-%p\n", start, end);
     for (rel = start; rel < end; rel++)
         module_relocate_symbol(rel, pd, false);
 }
@@ -1583,6 +1587,7 @@ module_relocate_rela(app_pc modbase, os_privmod_data_t *pd, ELF_RELA_TYPE *start
 {
     ELF_RELA_TYPE *rela;
 
+    LOG(GLOBAL, LOG_LOADER, 4, "%s walking rela %p-%p\n", start, end);
     for (rela = start; rela < end; rela++)
         module_relocate_symbol((ELF_REL_TYPE *)rela, pd, true);
 }

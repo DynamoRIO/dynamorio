@@ -49,6 +49,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drx.h"
+#include "drstatecmp.h"
 #include "droption.h"
 #include "instru.h"
 #include "raw2trace.h"
@@ -1997,6 +1998,11 @@ event_exit(void)
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
         drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
+    if (op_enable_drstatecmp.get_value()) {
+        if (drstatecmp_exit() != DRSTATECMP_SUCCESS) {
+            DR_ASSERT(false);
+        }
+    }
     dr_unregister_exit_event(event_exit);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
@@ -2202,6 +2208,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS ||
         !drx_init())
         DR_ASSERT(false);
+    if (op_enable_drstatecmp.get_value()) {
+        drstatecmp_options_t drstatecmp_ops = { NULL };
+        if (drstatecmp_init(&drstatecmp_ops) != DRSTATECMP_SUCCESS) {
+            DR_ASSERT(false);
+        }
+    }
 
     /* register events */
     dr_register_exit_event(event_exit);
