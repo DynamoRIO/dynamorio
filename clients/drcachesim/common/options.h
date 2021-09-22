@@ -104,10 +104,8 @@ extern droption_t<std::string> op_simulator_type;
 extern droption_t<unsigned int> op_verbose;
 extern droption_t<bool> op_show_func_trace;
 extern droption_t<int> op_jobs;
-#ifdef DEBUG
 extern droption_t<bool> op_test_mode;
 extern droption_t<std::string> op_test_mode_name;
-#endif
 extern droption_t<bool> op_disable_optimizations;
 extern droption_t<std::string> op_dr_root;
 extern droption_t<bool> op_dr_debug;
@@ -134,4 +132,5 @@ extern droption_t<bool> op_record_replace_retaddr;
 extern droption_t<unsigned int> op_miss_count_threshold;
 extern droption_t<double> op_miss_frac_threshold;
 extern droption_t<double> op_confidence_threshold;
+extern droption_t<bool> op_enable_drstatecmp;
 #endif /* _OPTIONS_H_ */

@@ -55,7 +55,16 @@ def filter_lines(path, regex, ignore_until=''):
 
 
 def check(l1, l2):
-    assert len(l1) == len(l2)
+    if len(l1) != len(l2):
+        raise Exception(
+            "Lists of different length.\n"
+            "In source 1, but not 2:\n"
+            "{} \n"
+            "In source 2, but not 1:\n"
+            "{} \n".format(
+                ", ".join(set(l1) - set(l2)),
+                ", ".join(set(l2) - set(l1))))
+
     mismatches = [(i, a, b)
                   for (i, (a, b)) in enumerate(zip(l1, l2)) if a != b]
 
@@ -64,6 +73,8 @@ def check(l1, l2):
             print('Lines {} differ: \n  >  {}\n  <  {}'.format(i, a, b))
         sys.exit(1)
 
+def normalise_plus(string):
+    return string.replace("+", "x")
 
 def main():
     src_dir = sys.argv[1]
@@ -71,15 +82,15 @@ def main():
     # Check if operand patterns in codec.txt are ordered by pattern.
     patterns = filter_lines(
         os.path.join(src_dir, 'codec.txt'),
-        re.compile(r'^([x\-\?]+)  [a-z0-9A-Z_]+.+#.+'))
+        re.compile(r'^([x\-\?\+]+)  [a-z0-9A-Z_]+.+#.+'))
     print('Checking if operand patterns in codec.txt are ordered by pattern')
-    check(patterns, sorted(patterns))
+    check(patterns, sorted(patterns, key=normalise_plus))
     print('  OK!')
 
     # Check if operand order in codec.txt and codec.c matches.
     op_names_txt = filter_lines(
         os.path.join( src_dir, 'codec.txt'),
-        re.compile(r'^[x\-\?]+  ([a-z0-9A-Z_]+).+#.+'))
+        re.compile(r'^[x\-\?\+]+  ([a-z0-9A-Z_]+).+#.+'))
     op_names_c = filter_lines(os.path.join(src_dir, 'codec.c'), re.compile(
         r'^decode_opnd_([^\(]+).+'), ignore_until='each type of operand')
     print('Checking if operand order in codec.txt matches codec.c')

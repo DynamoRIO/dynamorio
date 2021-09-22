@@ -53,7 +53,21 @@
 
 typedef uintptr_t addr_t; /**< The type of a memory address. */
 
-#define TRACE_ENTRY_VERSION 2 /**< The version of the trace format. */
+/**
+ * The version number of the trace format.
+ * This is presented to analysis tools as a marker of type
+ * #TRACE_MARKER_TYPE_VERSION.
+ */
+typedef enum {
+    /**
+     * A prior version where #TRACE_MARKER_TYPE_KERNEL_EVENT provided the module
+     * offset (and nothing for restartable sequence aborts) rather than the absolute
+     * PC of the interruption point provided today.
+     */
+    TRACE_ENTRY_VERSION_NO_KERNEL_PC = 2,
+    /** The latest version of the trace format. */
+    TRACE_ENTRY_VERSION,
+} trace_version_t;
 
 /** The type of a trace entry in a #memref_t structure. */
 // The type identifier for trace entries in the raw trace_entry_t passed to
@@ -201,10 +215,21 @@ typedef enum {
      * The subsequent instruction is the start of a handler for a kernel-initiated
      * event: a signal handler or restartable sequence abort handler on UNIX, or an
      * APC, exception, or callback dispatcher on Windows.
-     * The value holds the module offset of the interruption point PC,
-     * which is used in post-processing.  The value is 0 for some types, namely
-     * Windows callbacks and Linux rseq aborts, but these can be assumed to target
-     * the start of a block and so there is no loss of accuracy when post-processing.
+     * The value of this marker contains the program counter at the kernel
+     * interruption point.  If the interruption point is just after a branch, this
+     * value is the target of that branch.
+     * (For trace version #TRACE_ENTRY_VERSION_NO_KERNEL_PC or below, the value is
+     * the module offset rather than the absolute program counter.)
+     * The value is 0 for some types where this information is not available, namely
+     * Windows callbacks.
+     * A restartable sequence abort handler is further identified by a prior
+     * marker of type #TRACE_MARKER_TYPE_RSEQ_ABORT.
+     */
+    /* Non-exported information since limited to raw offline traces:
+     * For raw offline traces, the value is in the form of the module index and offset
+     * (from the base, not the indexed segment) of type kernel_interrupted_raw_pc_t.
+     * For raw offline traces, a value of 0 can be assumed to target the start of a
+     * block and so there is no loss of accuracy when post-processing.
      */
     TRACE_MARKER_TYPE_KERNEL_EVENT,
     /**
@@ -286,6 +311,20 @@ typedef enum {
      * present in online-cache-filtered traces and is placed at thread exit.
      */
     TRACE_MARKER_TYPE_INSTRUCTION_COUNT,
+
+    /**
+     * The marker value contains the version of the trace format: a value
+     * of type #trace_version_t.  The marker is present in the first few entries
+     * of a trace file.
+     */
+    TRACE_MARKER_TYPE_VERSION,
+
+    /**
+     * Serves to further identify #TRACE_MARKER_TYPE_KERNEL_EVENT as a
+     * restartable sequence abort handler.  This will always be immediately followed
+     * by #TRACE_MARKER_TYPE_KERNEL_EVENT.
+     */
+    TRACE_MARKER_TYPE_RSEQ_ABORT,
 
     // ...
     // These values are reserved for future built-in marker types.
@@ -406,7 +445,8 @@ typedef enum {
 #define OFFLINE_FILE_VERSION_NO_ELISION 2
 #define OFFLINE_FILE_VERSION_OLDEST_SUPPORTED OFFLINE_FILE_VERSION_NO_ELISION
 #define OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE 3
-#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_ELIDE_UNMOD_BASE
+#define OFFLINE_FILE_VERSION_KERNEL_INT_PC 4
+#define OFFLINE_FILE_VERSION OFFLINE_FILE_VERSION_KERNEL_INT_PC
 
 /**
  * Bitfields used to describe the high-level characteristics of both an
@@ -498,6 +538,16 @@ struct _offline_entry_t {
     };
 } END_PACKED_STRUCTURE;
 typedef struct _offline_entry_t offline_entry_t;
+
+// This is the raw marker value for TRACE_MARKER_TYPE_KERNEL_*.
+// It occupies 49 bits and so may require two raw entries.
+typedef union {
+    struct {
+        uint64_t modoffs : PC_MODOFFS_BITS;
+        uint64_t modidx : PC_MODIDX_BITS;
+    } pc;
+    uint64_t combined_value;
+} kernel_interrupted_raw_pc_t;
 
 /**
  * The name of the file in -offline mode where module data is written.

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -380,6 +380,10 @@ handle_post_extended_syscall_sigmasks(dcontext_t *dcontext, bool success)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     ASSERT(info->pre_syscall_app_sigprocmask_valid);
+    /* We restore the mask here *before* we make it back to dispatch for
+     * receive_pending_signal().  We rely on sigpending_t.unblocked_at_receipt
+     * to deliver the signal ignoring the now-restored mask.
+     */
     info->pre_syscall_app_sigprocmask_valid = false;
     signal_set_mask(dcontext, &info->pre_syscall_app_sigprocmask);
 }

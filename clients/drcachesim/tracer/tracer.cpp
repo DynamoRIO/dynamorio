@@ -49,6 +49,7 @@
 #include "drreg.h"
 #include "drutil.h"
 #include "drx.h"
+#include "drstatecmp.h"
 #include "droption.h"
 #include "instru.h"
 #include "raw2trace.h"
@@ -180,7 +181,13 @@ enum {
     /* XXX: we could make these dynamic to save slots when there's no -L0_filter. */
     MEMTRACE_TLS_OFFS_DCACHE,
     MEMTRACE_TLS_OFFS_ICACHE,
+    /* The instruction count for -L0_filter. */
     MEMTRACE_TLS_OFFS_ICOUNT,
+    /* The decrementing instruction count for -trace_after_instrs.
+     * We could share with MEMTRACE_TLS_OFFS_ICOUNT if we cleared in each thread
+     * on the transition.
+     */
+    MEMTRACE_TLS_OFFS_ICOUNTDOWN,
     MEMTRACE_TLS_COUNT, /* total number of TLS slots allocated */
 };
 static reg_id_t tls_seg;
@@ -474,6 +481,13 @@ memtrace(void *drcontext, bool skip_size_cap)
                 int count = dr_atomic_add32_return_sum(&notify_beyond_global_max_once, 1);
                 if (count == 1) {
                     NOTIFY(0, "Hit -max_global_trace_refs: disabling tracing.\n");
+                    // We're not detaching, so the app keeps running and we don't flush
+                    // thread buffers or emit thread exits until the app exits.  To avoid
+                    // huge time gaps we use the current timestamp for all future
+                    // entries.  (An alternative would be a suspsend-the-world now and
+                    // flush-and-exit all threads; a better solution for most use cases
+                    // is probably i#5022: -detach_after_tracing.)
+                    instru->set_frozen_timestamp(instru_t::get_timestamp());
                 }
             }
         }
@@ -1034,7 +1048,7 @@ instrument_instr(void *drcontext, void *tag, user_data_t *ud, instrlist_t *ilist
                                    reg_ptr);
             MINSERT(ilist, where,
                     XINST_CREATE_add(drcontext, opnd_create_reg(reg_ptr),
-                                     OPND_CREATE_INT8(ud->bb_instr_count)));
+                                     OPND_CREATE_INT16(ud->bb_instr_count)));
             dr_insert_write_raw_tls(drcontext, ilist, where, tls_seg,
                                     tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNT,
                                     reg_ptr);
@@ -1379,18 +1393,46 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
     default: DR_ASSERT(false && "unknown kernel xfer type"); return;
     }
     NOTIFY(2, "%s: type %d, sig %d\n", __FUNCTION__, info->type, info->sig);
-    /* TODO i3937: We need something similar to this for online too, to place signals
-     * inside instr bundles.
+    /* TODO i#3937: We need something similar to what raw2trace does with this info
+     * for online too, to place signals inside instr bundles.
      */
-    if (op_offline.get_value() && info->source_mcontext != nullptr) {
+    /* XXX i#4041: For rseq abort, offline post-processing rolls back the committing
+     * store so the abort happens at a reasonable point.  We don't have a solution
+     * for online though.
+     */
+    if (info->source_mcontext != nullptr) {
         /* Enable post-processing to figure out the ordering of this xfer vs
-         * non-memref instrs in the bb.
+         * non-memref instrs in the bb, and also to give core simulators the
+         * interrupted PC -- primarily for a kernel event arriving right
+         * after a branch to give a core simulator the branch target.
          */
-        uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
-            drcontext, info->source_mcontext->pc);
-        marker_val = static_cast<uintptr_t>(modoffs);
+#ifdef X64 /* For 32-bit we can fit the abs pc but not modix:modoffs. */
+        if (op_offline.get_value()) {
+            uint modidx;
+            /* Just like PC entries, this is the offset from the base, not from
+             * the indexed segment.
+             */
+            uint64_t modoffs = reinterpret_cast<offline_instru_t *>(instru)->get_modoffs(
+                drcontext, info->source_mcontext->pc, &modidx);
+            /* We save space by using the modidx,modoffs format instead of a raw PC.
+             * These 49 bits will always fit into the 48-bit value field unless the
+             * module index is very large, when it will take two entries, while using
+             * an absolute PC here might always take two entries for some modules.
+             * We'll turn this into an absolute PC in the final trace.
+             */
+            kernel_interrupted_raw_pc_t raw_pc = {};
+            raw_pc.pc.modidx = modidx;
+            raw_pc.pc.modoffs = modoffs;
+            marker_val = raw_pc.combined_value;
+        } else
+#endif
+            marker_val = reinterpret_cast<uintptr_t>(info->source_mcontext->pc);
         NOTIFY(3, "%s: source pc " PFX " => modoffs " PIFX "\n", __FUNCTION__,
                info->source_mcontext->pc, marker_val);
+    }
+    if (info->type == DR_XFER_RSEQ_ABORT) {
+        BUF_PTR(data->seg_base) += instru->append_marker(
+            BUF_PTR(data->seg_base), TRACE_MARKER_TYPE_RSEQ_ABORT, marker_val);
     }
     BUF_PTR(data->seg_base) +=
         instru->append_marker(BUF_PTR(data->seg_base), marker_type, marker_val);
@@ -1405,6 +1447,13 @@ event_kernel_xfer(void *drcontext, const dr_kernel_xfer_info_t *info)
 static uint64 instr_count;
 static volatile bool tracing_scheduled;
 static void *schedule_tracing_lock;
+/* For performance, we only increment the global instr_count exactly for
+ * small thresholds.  If -trace_after_instrs is larger than this value, we
+ * instead use thread-private counters and add to the global every
+ * ~DELAY_COUNTDOWN_UNIT instructions.
+ */
+#define DELAY_EXACT_THRESHOLD (10 * 1024 * 1024)
+#define DELAY_COUNTDOWN_UNIT 10000
 
 #if defined(X86_64) || defined(AARCH64)
 #    define DELAYED_CHECK_INLINED 1
@@ -1438,6 +1487,11 @@ enable_delay_instrumentation()
             event_delay_bb_analysis, event_delay_app_instruction, &memtrace_pri))
         DR_ASSERT(false);
     schedule_tracing_lock = dr_mutex_create();
+#if defined(AARCH64) && defined(DELAYED_CHECK_INLINED)
+    if (op_trace_after_instrs.get_value() <= DELAY_EXACT_THRESHOLD) {
+        instr_count = op_trace_after_instrs.get_value() - 1;
+    }
+#endif
 }
 
 static void
@@ -1482,6 +1536,22 @@ static void
 hit_instr_count_threshold(app_pc next_pc)
 {
     bool do_flush = false;
+#ifdef DELAYED_CHECK_INLINED
+    /* XXX: We could do the same thread-local counters for non-inlined.
+     * We'd then switch to std::atomic or something for 32-bit.
+     */
+    if (op_trace_after_instrs.get_value() > DELAY_EXACT_THRESHOLD) {
+        void *drcontext = dr_get_current_drcontext();
+        per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+        int64 myval = *(int64 *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNTDOWN);
+        uint64 newval = (uint64)dr_atomic_add64_return_sum((volatile int64 *)&instr_count,
+                                                           DELAY_COUNTDOWN_UNIT - myval);
+        *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNTDOWN) =
+            DELAY_COUNTDOWN_UNIT;
+        if (newval < op_trace_after_instrs.get_value())
+            return;
+    }
+#endif
     dr_mutex_lock(schedule_tracing_lock);
     if (!tracing_scheduled) {
         do_flush = true;
@@ -1509,6 +1579,9 @@ hit_instr_count_threshold(app_pc next_pc)
 static void
 check_instr_count_threshold(uint incby, app_pc next_pc)
 {
+    /* XXX i#5030: This is racy.  We could make std::atomic, or, better, go and
+     * implement the inlining and i#5026's thread-private counting.
+     */
     instr_count += incby;
     if (instr_count > op_trace_after_instrs.get_value())
         hit_instr_count_threshold(next_pc);
@@ -1542,55 +1615,97 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
 #    if defined(X86_64) || defined(AARCH64)
     instr_t *skip_call = INSTR_CREATE_label(drcontext);
 #        ifdef X86_64
-    if (!drx_insert_counter_update(drcontext, bb, instr,
-                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
-                                   &instr_count, num_instrs, DRX_COUNTER_64BIT))
-        DR_ASSERT(false);
-
-    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve aflags");
     reg_id_t scratch = DR_REG_NULL;
-    if (op_trace_after_instrs.get_value() < INT_MAX) {
+    if (op_trace_after_instrs.get_value() > DELAY_EXACT_THRESHOLD) {
+        /* Contention on a global counter causes high overheads.  We approximate the
+         * count by using thread-local counters and only merging into the global
+         * every so often.
+         */
+        if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve aflags");
+        MINSERT(
+            bb, instr,
+            INSTR_CREATE_sub(
+                drcontext,
+                dr_raw_tls_opnd(drcontext, tls_seg,
+                                tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNTDOWN),
+                OPND_CREATE_INT32(num_instrs)));
         MINSERT(bb, instr,
+                INSTR_CREATE_jcc(drcontext, OP_jns, opnd_create_instr(skip_call)));
+    } else {
+        if (!drx_insert_counter_update(
+                drcontext, bb, instr, (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
+                &instr_count, num_instrs, DRX_COUNTER_64BIT))
+            DR_ASSERT(false);
+
+        if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve aflags");
+        if (op_trace_after_instrs.get_value() < INT_MAX) {
+            MINSERT(
+                bb, instr,
                 XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
                                  OPND_CREATE_INT32(op_trace_after_instrs.get_value())));
-    } else {
-        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch) != DRREG_SUCCESS)
-            FATAL("Fatal error: failed to reserve scratch register");
-        instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
-                                         opnd_create_reg(scratch), bb, instr, NULL, NULL);
+        } else {
+            if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch) !=
+                DRREG_SUCCESS)
+                FATAL("Fatal error: failed to reserve scratch register");
+            instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
+                                             opnd_create_reg(scratch), bb, instr, NULL,
+                                             NULL);
+            MINSERT(bb, instr,
+                    XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
+                                     opnd_create_reg(scratch)));
+        }
         MINSERT(bb, instr,
-                XINST_CREATE_cmp(drcontext, OPND_CREATE_ABSMEM(&instr_count, OPSZ_8),
-                                 opnd_create_reg(scratch)));
+                INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
     }
-    MINSERT(bb, instr, INSTR_CREATE_jcc(drcontext, OP_jl, opnd_create_instr(skip_call)));
 #        elif defined(AARCH64)
-    if (!drx_insert_counter_update(drcontext, bb, instr,
-                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
-                                   (dr_spill_slot_t)(SPILL_SLOT_MAX + 1), &instr_count,
-                                   num_instrs, DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
-        DR_ASSERT(false);
+    reg_id_t scratch1, scratch2 = DR_REG_NULL;
+    if (op_trace_after_instrs.get_value() > DELAY_EXACT_THRESHOLD) {
+        /* See the x86_64 comment on using thread-local counters to avoid contention. */
+        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) !=
+            DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve scratch register");
+        dr_insert_read_raw_tls(drcontext, bb, instr, tls_seg,
+                               tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNTDOWN,
+                               scratch1);
+        /* We're counting down for an aflags-free comparison. */
+        MINSERT(bb, instr,
+                XINST_CREATE_sub(drcontext, opnd_create_reg(scratch1),
+                                 OPND_CREATE_INT(num_instrs)));
+        dr_insert_write_raw_tls(drcontext, bb, instr, tls_seg,
+                                tls_offs + sizeof(void *) * MEMTRACE_TLS_OFFS_ICOUNTDOWN,
+                                scratch1);
+        MINSERT(bb, instr,
+                INSTR_CREATE_tbz(drcontext, opnd_create_instr(skip_call),
+                                 /* If the top bit is still zero, skip the call. */
+                                 opnd_create_reg(scratch1), OPND_CREATE_INT(63)));
+    } else {
+        /* We're counting down for an aflags-free comparison. */
+        if (!drx_insert_counter_update(
+                drcontext, bb, instr, (dr_spill_slot_t)(SPILL_SLOT_MAX + 1) /*use drmgr*/,
+                (dr_spill_slot_t)(SPILL_SLOT_MAX + 1), &instr_count, -num_instrs,
+                DRX_COUNTER_64BIT | DRX_COUNTER_REL_ACQ))
+            DR_ASSERT(false);
 
-    reg_id_t scratch1, scratch2;
-    if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve scratch register");
-    if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve scratch register");
-    if (drreg_reserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
-        FATAL("Fatal error: failed to reserve aflags");
+        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch1) !=
+            DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve scratch register");
+        if (drreg_reserve_register(drcontext, bb, instr, NULL, &scratch2) !=
+            DRREG_SUCCESS)
+            FATAL("Fatal error: failed to reserve scratch register");
 
-    instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
-                                     opnd_create_reg(scratch1), bb, instr, NULL, NULL);
-    MINSERT(bb, instr,
-            XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
-                              OPND_CREATE_MEMPTR(scratch1, 0)));
-    instrlist_insert_mov_immed_ptrsz(drcontext, op_trace_after_instrs.get_value(),
-                                     opnd_create_reg(scratch1), bb, instr, NULL, NULL);
-    MINSERT(bb, instr,
-            XINST_CREATE_cmp(drcontext, opnd_create_reg(scratch2),
-                             opnd_create_reg(scratch1)));
-    MINSERT(bb, instr,
-            XINST_CREATE_jump_cond(drcontext, DR_PRED_LT, opnd_create_instr(skip_call)));
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)&instr_count,
+                                         opnd_create_reg(scratch1), bb, instr, NULL,
+                                         NULL);
+        MINSERT(bb, instr,
+                XINST_CREATE_load(drcontext, opnd_create_reg(scratch2),
+                                  OPND_CREATE_MEMPTR(scratch1, 0)));
+        MINSERT(bb, instr,
+                INSTR_CREATE_tbz(drcontext, opnd_create_instr(skip_call),
+                                 /* If the top bit is still zero, skip the call. */
+                                 opnd_create_reg(scratch2), OPND_CREATE_INT(63)));
+    }
 #        endif
 
     /* hit_instr_count_threshold does not always return. Restore scratch registers and
@@ -1598,9 +1713,9 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
      */
 #        ifdef X86_64
     /* FIXME i#4711: Need to restore for x86 the arithmetic flags and (if used) the
-     * scratch register before the call to hit_instr_count_threshold. However, this fix
-     * seems to cause instability. So, we're leaving x86 as technically broken
-     * to keep our tests green until the source of instability is found.
+     * scratch register before the call to hit_instr_count_threshold. However, this
+     * fix seems to cause instability. So, we're leaving x86 as technically broken to
+     * keep our tests green until the source of instability is found.
      */
 #            ifndef DISABLED_FOR_BUG_4711
     drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
@@ -1613,10 +1728,10 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
 #        elif defined(AARCH64)
     drreg_statelessly_restore_app_value(drcontext, bb, scratch1, instr, instr, NULL,
                                         NULL);
-    drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
-                                        NULL);
-    drreg_statelessly_restore_app_value(drcontext, bb, DR_REG_NULL, instr, instr, NULL,
-                                        NULL);
+    if (scratch2 != DR_REG_NULL) {
+        drreg_statelessly_restore_app_value(drcontext, bb, scratch2, instr, instr, NULL,
+                                            NULL);
+    }
 #        endif
     dr_insert_clean_call(drcontext, bb, instr, (void *)hit_instr_count_threshold,
                          false /*fpstate */, 1,
@@ -1632,8 +1747,8 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
     }
 #        elif defined(AARCH64)
     if (drreg_unreserve_register(drcontext, bb, instr, scratch1) != DRREG_SUCCESS ||
-        drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS ||
-        drreg_unreserve_aflags(drcontext, bb, instr) != DRREG_SUCCESS)
+        (scratch2 != DR_REG_NULL &&
+         drreg_unreserve_register(drcontext, bb, instr, scratch2) != DRREG_SUCCESS))
         DR_ASSERT(false);
 #        endif
 #    else
@@ -1763,6 +1878,9 @@ event_thread_init(void *drcontext)
     data->seg_base = (byte *)dr_get_dr_segment_base(tls_seg);
     DR_ASSERT(data->seg_base != NULL);
 
+    *(uintptr_t *)TLS_SLOT(data->seg_base, MEMTRACE_TLS_OFFS_ICOUNTDOWN) =
+        DELAY_COUNTDOWN_UNIT;
+
     if ((should_trace_thread_cb != NULL &&
          !(*should_trace_thread_cb)(dr_get_thread_id(drcontext),
                                     trace_thread_cb_user_data)) ||
@@ -1880,6 +1998,11 @@ event_exit(void)
         !drmgr_unregister_thread_exit_event(event_thread_exit) ||
         drreg_exit() != DRREG_SUCCESS)
         DR_ASSERT(false);
+    if (op_enable_drstatecmp.get_value()) {
+        if (drstatecmp_exit() != DRSTATECMP_SUCCESS) {
+            DR_ASSERT(false);
+        }
+    }
     dr_unregister_exit_event(event_exit);
 
     /* Clear callbacks and globals to support re-attach when linked statically. */
@@ -2085,6 +2208,12 @@ drmemtrace_client_main(client_id_t id, int argc, const char *argv[])
     if (!drmgr_init() || !drutil_init() || drreg_init(&ops) != DRREG_SUCCESS ||
         !drx_init())
         DR_ASSERT(false);
+    if (op_enable_drstatecmp.get_value()) {
+        drstatecmp_options_t drstatecmp_ops = { NULL };
+        if (drstatecmp_init(&drstatecmp_ops) != DRSTATECMP_SUCCESS) {
+            DR_ASSERT(false);
+        }
+    }
 
     /* register events */
     dr_register_exit_event(event_exit);

@@ -683,8 +683,8 @@ entrance_stub_target_tag(cache_pc stub, coarse_info_t *info)
      */
     if (info == NULL)
         info = get_stub_coarse_info(stub);
-    if (info->mod_shift != 0 && tag >= info->persist_base &&
-        tag < info->persist_base + (info->end_pc - info->base_pc))
+    if (info->mod_shift != 0 && tag >= info->base_pc + info->mod_shift &&
+        tag < info->end_pc + info->mod_shift)
         tag -= info->mod_shift;
     return tag;
 }
@@ -1294,6 +1294,11 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 int
 fragment_prefix_size(uint flags)
 {
+#ifdef AARCH64
+    /* For AArch64, there is no need to save the flags
+     * so we always have the same ibt prefix. */
+    return fragment_ibt_prefix_size(flags);
+#else
     if (use_ibt_prefix(flags)) {
         return fragment_ibt_prefix_size(flags);
     } else {
@@ -1302,6 +1307,7 @@ fragment_prefix_size(uint flags)
         else
             return 0;
     }
+#endif
 }
 
 #ifdef PROFILE_RDTSC

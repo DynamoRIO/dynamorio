@@ -145,6 +145,7 @@ online_instru_t::append_thread_header(byte *buf_ptr, thread_id_t tid,
     new_buf += append_tid(new_buf, tid);
     new_buf += append_pid(new_buf, dr_get_process_id());
 
+    new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_VERSION, TRACE_ENTRY_VERSION);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_FILETYPE, file_type);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CACHE_LINE_SIZE,
                              proc_get_cache_line_size());
@@ -164,7 +165,9 @@ online_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
     new_buf += append_tid(new_buf, tid);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_TIMESTAMP,
                              // Truncated to 32 bits for 32-bit: we live with it.
-                             (uintptr_t)instru_t::get_timestamp());
+                             static_cast<uintptr_t>(frozen_timestamp_ != 0
+                                                        ? frozen_timestamp_
+                                                        : instru_t::get_timestamp()));
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
 }

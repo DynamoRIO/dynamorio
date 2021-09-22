@@ -2562,6 +2562,7 @@ endif (UNIX)
 tobuild_ci(client.drreg-test client-interface/drreg-test.c "" "" "")
 use_DynamoRIO_extension(client.drreg-test.dll drmgr)
 use_DynamoRIO_extension(client.drreg-test.dll drreg)
+use_DynamoRIO_extension(client.drreg-test.dll drx)
 target_include_directories(client.drreg-test PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
@@ -3198,9 +3199,6 @@ if (BUILD_CLIENTS)
     endif ()
 
     set(test_mode_flag "-test_mode")
-    if (NOT DEBUG)
-      set(test_mode_flag "")
-    endif ()
     torunonly_drcachesim(filter-simple ${ci_shared_app}
       "-L0_filter ${test_mode_flag}" "")
     if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
@@ -3301,6 +3299,10 @@ if (BUILD_CLIENTS)
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+    endif (NOT WIN32)
+
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
       torunonly_ci(tool.${testname} ${exetgt} drcachesim
@@ -3343,7 +3345,7 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    # We run an app w/ kernel xfers to test trace_invariants online.
+    # We run an app w/ kernel xfers to test invariant_checker online.
     # Offline invariants are tested in the tool.histogram.offline test below.
     if (UNIX)
       # The signal_invariants asm is x86-only.  The extra checks are cross-arch
@@ -3476,6 +3478,8 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
       # tracing is delayed (i#4893).
+      # This is also large enough to test the (non-triggering portion of) the
+      # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
 
@@ -3668,7 +3672,7 @@ if (BUILD_CLIENTS)
 
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
-    # for variety and to include threads and signals for trace_invariants.
+    # for variety and to include threads and signals for invariant_checker.
     set(histo_app ${kernel_xfer_app})
     if (WIN32)
       # winxfer produces a 500M+ trace and test taking >3mins so we narrow
@@ -3788,6 +3792,22 @@ if (BUILD_CLIENTS)
       OFF)
     set(tool.drcacheoff.altbindir_basedir
       "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
+
+    # Test the legacy trace versions OFFLINE_FILE_VERSION_KERNEL_INT_PC-1 and
+    # TRACE_ENTRY_VERSION_NO_KERNEL_PC.  This requires a checked-in trace and thus
+    # -alt_module_dir; it has gzipped .raw files; hence here next to the altbindir test.
+    set(srcdir
+      ${PROJECT_SOURCE_DIR}/clients/drcachesim/tests/drmemtrace.legacy-int-offs.raw)
+    set(locdir ${PROJECT_BINARY_DIR}/drmemtrace.legacy-int-offs)
+    file(REMOVE_RECURSE ${locdir})
+    file(MAKE_DIRECTORY ${locdir})
+    file(COPY ${srcdir}/raw DESTINATION ${locdir}/)
+    torunonly_api(tool.drcacheoff.legacy-int-offs "${drcachesim_path}"
+      "offline-legacy-int-offs.c" ""
+      "-indir;${locdir};-simulator_type;basic_counts;-alt_module_dir;${srcdir};-module_file;${locdir}/raw/modules.log"
+      OFF)
+    set(tool.drcacheoff.legacy-int-offs_basedir
+      "${PROJECT_SOURCE_DIR}/clients/drcachesim/tests")
   endif ()
 
   ###########################################################################
@@ -3842,10 +3862,11 @@ if (BUILD_CLIENTS)
       set(tool.drcpusim.cpuid-${model}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
     endmacro ()
-    # Not running earlier than Klamath b/c the app likely will have bad opcodes
+    # Not running earlier than Klamath b/c the app likely will have bad opcodes.
     if (NOT X64)
-      add_cpusim_cpuid_test(Klamath)
-      add_cpusim_cpuid_test(Deschutes)
+      # i#5109: We do not run Klamath or Deschutes since gcc on Ubuntu20 includes
+      # CET instructions which cannot be avoided.  DR currently thinks they're
+      # SSE-added multi-byte nops; we'll have more trouble when i#4040 is implemented.
       add_cpusim_cpuid_test(Pentium3)
       add_cpusim_cpuid_test(Banias)
     endif ()

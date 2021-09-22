@@ -373,10 +373,10 @@ patch_branch(dr_isa_mode_t isa_mode, cache_pc branch_pc, cache_pc target_pc,
         *pc_writable = (0x14000000 | (0x03ffffff & off >> 2));
     } else if ((enc & 0xff000010) == 0x54000000 ||
                (enc & 0x7e000000) == 0x34000000) { /* B.cond, CBNZ, CBZ */
-        ASSERT(off + 0x40000 < 0x80000);
+        ASSERT(off + 0x100000 < 0x200000);
         *pc_writable = (enc & 0xff00001f) | (0x00ffffe0 & off >> 2 << 5);
     } else if ((enc & 0x7e000000) == 0x36000000) { /* TBNZ, TBZ */
-        ASSERT(off + 0x2000 < 0x4000);
+        ASSERT(off + 0x8000 < 0x10000);
         *pc_writable = (enc & 0xfff8001f) | (0x0007ffe0 & off >> 2 << 5);
     } else
         ASSERT(false);
@@ -446,8 +446,14 @@ indirect_linkstub_stub_pc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     cache_pc cti = EXIT_CTI_PC(f, l);
     if (!EXIT_HAS_STUB(l->flags, f->flags))
         return NULL;
-    ASSERT(decode_raw_is_jmp(dcontext, cti));
-    return decode_raw_jmp_target(dcontext, cti);
+    if (decode_raw_is_jmp(dcontext, cti))
+        return decode_raw_jmp_target(dcontext, cti);
+    /* In trace, we might have cbz/cbnz to indirect linkstubs. */
+    if (decode_raw_is_cond_branch_zero(dcontext, cti))
+        return decode_raw_cond_branch_zero_target(dcontext, cti);
+    /* There should be no other types of branch to linkstubs. */
+    ASSERT_NOT_REACHED();
+    return NULL;
 }
 
 cache_pc
@@ -528,7 +534,7 @@ insert_fragment_prefix(dcontext_t *dcontext, fragment_t *f)
     /* ldp x0, x1, [x(stolen), #(off)] */
     *(uint *)pc = (0xa9400000 | (DR_REG_X0 - DR_REG_X0) | (DR_REG_X1 - DR_REG_X0) << 10 |
                    (dr_reg_stolen - DR_REG_X0) << 5 | TLS_REG0_SLOT >> 3 << 10);
-    pc += 4;
+    pc += AARCH64_INSTR_SIZE;
     f->prefix_size = (byte)(((cache_pc)pc) - write_start);
     ASSERT(f->prefix_size == fragment_prefix_size(f->flags));
 }

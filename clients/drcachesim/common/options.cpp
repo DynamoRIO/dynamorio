@@ -241,8 +241,14 @@ droption_t<bytesize_t> op_trace_after_instrs(
     "Do not start tracing until N instructions",
     "If non-zero, this causes tracing to be suppressed until this many dynamic "
     "instruction "
-    "executions are observed.  At that point, regular tracing is put into place.  Use "
-    "-max_trace_size to set a limit on the subsequent trace length.");
+    "executions are observed.  At that point, regular tracing is put into place. "
+    "The threshold should be considered approximate, especially for larger values. "
+    "Switching to regular tracing takes some amount of time during which other "
+    "threads than the one that triggered the switch can continue to execute, "
+    "resulting in a larger count of executed instructions before tracing actually "
+    "starts than this given threshold. "
+    "Use -max_trace_size or -max_global_trace_refs to set a limit on the subsequent "
+    "trace length.");
 
 droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
@@ -325,13 +331,11 @@ droption_t<bool>
                        "Show every traced call in the func_trace tool",
                        "In the func_trace tool, this controls whether every traced call "
                        "is shown or instead only aggregate statistics are shown.");
-#ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
 droption_t<std::string> op_test_mode_name(
     DROPTION_SCOPE_ALL, "test_mode_name", "", "Run custom sanity tests",
     "Run extra analyses for specific sanity checks by name on the trace.");
-#endif
 droption_t<bool> op_disable_optimizations(
     DROPTION_SCOPE_ALL, "disable_optimizations", false,
     "Disable offline trace optimizations for testing",
@@ -558,3 +562,7 @@ droption_t<double> op_confidence_threshold(
     "results. Confidence in a discovered pattern for a load instruction is calculated "
     "as the fraction of the load's misses with the discovered pattern over all the "
     "load's misses.");
+droption_t<bool> op_enable_drstatecmp(
+    DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
+    "When true, this option enables the drstatecmp library that performs state "
+    "comparisons to detect instrumentation-induced bugs due to state clobbering.");

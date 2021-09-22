@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "analysis_tool.h"
 #include "raw2trace.h"
@@ -71,6 +72,7 @@ protected:
     std::unique_ptr<module_mapper_t> module_mapper_;
     raw2trace_directory_t directory_;
     unsigned int knob_verbose_;
+    int trace_version_;
     uint64_t instr_count_;
     static const std::string TOOL_NAME;
     uint64_t knob_skip_refs_;
@@ -79,6 +81,9 @@ protected:
     std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;
     std::unordered_map<app_pc, std::string> disasm_cache_;
+    memref_tid_t prev_tid_;
+    intptr_t filetype_;
+    std::unordered_set<memref_tid_t> printed_header_;
 };
 
 #endif /* _VIEW_H_ */

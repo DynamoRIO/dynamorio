@@ -349,7 +349,8 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
     byte *new_buf = buf_ptr;
     offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    entry->timestamp.usec = instru_t::get_timestamp();
+    entry->timestamp.usec =
+        frozen_timestamp_ != 0 ? frozen_timestamp_ : instru_t::get_timestamp();
     new_buf += sizeof(*entry);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
@@ -383,10 +384,10 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
 }
 
 uint64_t
-offline_instru_t::get_modoffs(void *drcontext, app_pc pc)
+offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
 {
     app_pc modbase;
-    if (drmodtrack_lookup(drcontext, pc, NULL, &modbase) != DRCOVLIB_SUCCESS)
+    if (drmodtrack_lookup(drcontext, pc, modidx, &modbase) != DRCOVLIB_SUCCESS)
         return 0;
     return pc - modbase;
 }
