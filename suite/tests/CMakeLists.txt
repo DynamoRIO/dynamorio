@@ -1309,6 +1309,9 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
     else ()
       if ("${runall}" MATCHES "<attach>")
+        # For attach we use attachee, which is identical to infloop, aside for writing
+        # a starting message to the output file. This allows us to detect when it is
+        # up and running and we can start the attach process.
         get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
       else ()
         # It's easier to run our own infloop, which prints so we know when it's up,
