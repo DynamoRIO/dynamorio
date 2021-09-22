@@ -1126,12 +1126,23 @@ privload_relocate_os_privmod_data(os_privmod_data_t *opd, byte *mod_base)
                              opd->rela + opd->relasz / opd->relaent);
     }
     if (opd->jmprel != NULL) {
+        app_pc jmprel_start = opd->jmprel;
+        app_pc jmprel_end = opd->jmprel + opd->pltrelsz;
+        /* i#5080: Some libs list JMPREL as overlapping with REL{,A} and it's implied
+         * that really JMPREL comes after.
+         */
+        if (opd->rel != NULL && jmprel_start >= (app_pc)opd->rel &&
+            jmprel_start < (app_pc)(opd->rel + opd->relsz / opd->relent))
+            jmprel_start = (app_pc)(opd->rel + opd->relsz / opd->relent);
+        if (opd->rela != NULL && jmprel_start >= (app_pc)opd->rela &&
+            jmprel_start < (app_pc)(opd->rela + opd->relasz / opd->relaent))
+            jmprel_start = (app_pc)(opd->rela + opd->relasz / opd->relaent);
         if (opd->pltrel == DT_REL) {
-            module_relocate_rel(mod_base, opd, (ELF_REL_TYPE *)opd->jmprel,
-                                (ELF_REL_TYPE *)(opd->jmprel + opd->pltrelsz));
+            module_relocate_rel(mod_base, opd, (ELF_REL_TYPE *)jmprel_start,
+                                (ELF_REL_TYPE *)jmprel_end);
         } else if (opd->pltrel == DT_RELA) {
-            module_relocate_rela(mod_base, opd, (ELF_RELA_TYPE *)opd->jmprel,
-                                 (ELF_RELA_TYPE *)(opd->jmprel + opd->pltrelsz));
+            module_relocate_rela(mod_base, opd, (ELF_RELA_TYPE *)jmprel_start,
+                                 (ELF_RELA_TYPE *)jmprel_end);
         } else {
             ASSERT(false);
         }
