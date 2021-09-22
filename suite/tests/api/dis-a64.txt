@@ -410,90 +410,90 @@ b37fffff : bfxil  xzr, xzr, #63, #1       : bfm    %xzr %xzr $0x3f $0x3f -> %xzr
 04db0b02 : bic z2.d, p2/m, z2.d, z24.d              : bic    %p2 %z2 %z24 $0x03 -> %z2
 
 # BIC <Vd>.<T>, #<imm8>{, LSL #<amount>}
-2f009400 : bic v0.4h, #0, lsl #0                    : bic    $0x00 $0x04 -> %d0
-2f0296a0 : bic v0.4h, #85, lsl #0                   : bic    $0x55 $0x04 -> %d0
-2f059540 : bic v0.4h, #170, lsl #0                  : bic    $0xaa $0x04 -> %d0
-2f0797e0 : bic v0.4h, #255, lsl #0                  : bic    $0xff $0x04 -> %d0
-2f04940a : bic v10.4h, #128, lsl #0                 : bic    $0x80 $0x04 -> %d10
-2f049414 : bic v20.4h, #128, lsl #0                 : bic    $0x80 $0x04 -> %d20
-2f04941e : bic v30.4h, #128, lsl #0                 : bic    $0x80 $0x04 -> %d30
-2f00b400 : bic v0.4h, #0, lsl #8                    : bic    $0x00 $0x05 -> %d0
-2f02b6a0 : bic v0.4h, #85, lsl #8                   : bic    $0x55 $0x05 -> %d0
-2f05b540 : bic v0.4h, #170, lsl #8                  : bic    $0xaa $0x05 -> %d0
-2f07b7e0 : bic v0.4h, #255, lsl #8                  : bic    $0xff $0x05 -> %d0
-2f04b40a : bic v10.4h, #128, lsl #8                 : bic    $0x80 $0x05 -> %d10
-2f04b414 : bic v20.4h, #128, lsl #8                 : bic    $0x80 $0x05 -> %d20
-2f04b41e : bic v30.4h, #128, lsl #8                 : bic    $0x80 $0x05 -> %d30
-6f009400 : bic v0.8h, #0, lsl #0                    : bic    $0x00 $0x04 -> %q0
-6f0296a0 : bic v0.8h, #85, lsl #0                   : bic    $0x55 $0x04 -> %q0
-6f059540 : bic v0.8h, #170, lsl #0                  : bic    $0xaa $0x04 -> %q0
-6f0797e0 : bic v0.8h, #255, lsl #0                  : bic    $0xff $0x04 -> %q0
-6f04940a : bic v10.8h, #128, lsl #0                 : bic    $0x80 $0x04 -> %q10
-6f049414 : bic v20.8h, #128, lsl #0                 : bic    $0x80 $0x04 -> %q20
-6f04941e : bic v30.8h, #128, lsl #0                 : bic    $0x80 $0x04 -> %q30
-6f00b400 : bic v0.8h, #0, lsl #8                    : bic    $0x00 $0x05 -> %q0
-6f02b6a0 : bic v0.8h, #85, lsl #8                   : bic    $0x55 $0x05 -> %q0
-6f05b540 : bic v0.8h, #170, lsl #8                  : bic    $0xaa $0x05 -> %q0
-6f07b7e0 : bic v0.8h, #255, lsl #8                  : bic    $0xff $0x05 -> %q0
-6f04b40a : bic v10.8h, #128, lsl #8                 : bic    $0x80 $0x05 -> %q10
-6f04b414 : bic v20.8h, #128, lsl #8                 : bic    $0x80 $0x05 -> %q20
-6f04b41e : bic v30.8h, #128, lsl #8                 : bic    $0x80 $0x05 -> %q30
-2f001400 : bic v0.2s, #0, lsl #0                    : bic    $0x00 $0x00 -> %d0
-2f0216a0 : bic v0.2s, #85, lsl #0                   : bic    $0x55 $0x00 -> %d0
-2f051540 : bic v0.2s, #170, lsl #0                  : bic    $0xaa $0x00 -> %d0
-2f0717e0 : bic v0.2s, #255, lsl #0                  : bic    $0xff $0x00 -> %d0
-2f04140a : bic v10.2s, #128, lsl #0                 : bic    $0x80 $0x00 -> %d10
-2f041414 : bic v20.2s, #128, lsl #0                 : bic    $0x80 $0x00 -> %d20
-2f04141e : bic v30.2s, #128, lsl #0                 : bic    $0x80 $0x00 -> %d30
-2f003400 : bic v0.2s, #0, lsl #8                    : bic    $0x00 $0x01 -> %d0
-2f0236a0 : bic v0.2s, #85, lsl #8                   : bic    $0x55 $0x01 -> %d0
-2f053540 : bic v0.2s, #170, lsl #8                  : bic    $0xaa $0x01 -> %d0
-2f0737e0 : bic v0.2s, #255, lsl #8                  : bic    $0xff $0x01 -> %d0
-2f04340a : bic v10.2s, #128, lsl #8                 : bic    $0x80 $0x01 -> %d10
-2f043414 : bic v20.2s, #128, lsl #8                 : bic    $0x80 $0x01 -> %d20
-2f04341e : bic v30.2s, #128, lsl #8                 : bic    $0x80 $0x01 -> %d30
-2f005400 : bic v0.2s, #0, lsl #16                   : bic    $0x00 $0x02 -> %d0
-2f0256a0 : bic v0.2s, #85, lsl #16                  : bic    $0x55 $0x02 -> %d0
-2f055540 : bic v0.2s, #170, lsl #16                 : bic    $0xaa $0x02 -> %d0
-2f0757e0 : bic v0.2s, #255, lsl #16                 : bic    $0xff $0x02 -> %d0
-2f04540a : bic v10.2s, #128, lsl #16                : bic    $0x80 $0x02 -> %d10
-2f045414 : bic v20.2s, #128, lsl #16                : bic    $0x80 $0x02 -> %d20
-2f04541e : bic v30.2s, #128, lsl #16                : bic    $0x80 $0x02 -> %d30
-2f007400 : bic v0.2s, #0, lsl #24                   : bic    $0x00 $0x03 -> %d0
-2f0276a0 : bic v0.2s, #85, lsl #24                  : bic    $0x55 $0x03 -> %d0
-2f057540 : bic v0.2s, #170, lsl #24                 : bic    $0xaa $0x03 -> %d0
-2f0777e0 : bic v0.2s, #255, lsl #24                 : bic    $0xff $0x03 -> %d0
-2f04740a : bic v10.2s, #128, lsl #24                : bic    $0x80 $0x03 -> %d10
-2f047414 : bic v20.2s, #128, lsl #24                : bic    $0x80 $0x03 -> %d20
-2f04741e : bic v30.2s, #128, lsl #24                : bic    $0x80 $0x03 -> %d30
-6f001400 : bic v0.4s, #0, lsl #0                    : bic    $0x00 $0x00 -> %q0
-6f0216a0 : bic v0.4s, #85, lsl #0                   : bic    $0x55 $0x00 -> %q0
-6f051540 : bic v0.4s, #170, lsl #0                  : bic    $0xaa $0x00 -> %q0
-6f0717e0 : bic v0.4s, #255, lsl #0                  : bic    $0xff $0x00 -> %q0
-6f04140a : bic v10.4s, #128, lsl #0                 : bic    $0x80 $0x00 -> %q10
-6f041414 : bic v20.4s, #128, lsl #0                 : bic    $0x80 $0x00 -> %q20
-6f04141e : bic v30.4s, #128, lsl #0                 : bic    $0x80 $0x00 -> %q30
-6f003400 : bic v0.4s, #0, lsl #8                    : bic    $0x00 $0x01 -> %q0
-6f0236a0 : bic v0.4s, #85, lsl #8                   : bic    $0x55 $0x01 -> %q0
-6f053540 : bic v0.4s, #170, lsl #8                  : bic    $0xaa $0x01 -> %q0
-6f0737e0 : bic v0.4s, #255, lsl #8                  : bic    $0xff $0x01 -> %q0
-6f04340a : bic v10.4s, #128, lsl #8                 : bic    $0x80 $0x01 -> %q10
-6f043414 : bic v20.4s, #128, lsl #8                 : bic    $0x80 $0x01 -> %q20
-6f04341e : bic v30.4s, #128, lsl #8                 : bic    $0x80 $0x01 -> %q30
-6f005400 : bic v0.4s, #0, lsl #16                   : bic    $0x00 $0x02 -> %q0
-6f0256a0 : bic v0.4s, #85, lsl #16                  : bic    $0x55 $0x02 -> %q0
-6f055540 : bic v0.4s, #170, lsl #16                 : bic    $0xaa $0x02 -> %q0
-6f0757e0 : bic v0.4s, #255, lsl #16                 : bic    $0xff $0x02 -> %q0
-6f04540a : bic v10.4s, #128, lsl #16                : bic    $0x80 $0x02 -> %q10
-6f045414 : bic v20.4s, #128, lsl #16                : bic    $0x80 $0x02 -> %q20
-6f04541e : bic v30.4s, #128, lsl #16                : bic    $0x80 $0x02 -> %q30
-6f007400 : bic v0.4s, #0, lsl #24                   : bic    $0x00 $0x03 -> %q0
-6f0276a0 : bic v0.4s, #85, lsl #24                  : bic    $0x55 $0x03 -> %q0
-6f057540 : bic v0.4s, #170, lsl #24                 : bic    $0xaa $0x03 -> %q0
-6f0777e0 : bic v0.4s, #255, lsl #24                 : bic    $0xff $0x03 -> %q0
-6f04740a : bic v10.4s, #128, lsl #24                : bic    $0x80 $0x03 -> %q10
-6f047414 : bic v20.4s, #128, lsl #24                : bic    $0x80 $0x03 -> %q20
-6f04741e : bic v30.4s, #128, lsl #24                : bic    $0x80 $0x03 -> %q30
+2f009400 : bic v0.4h, #0, lsl #0          : bic    $0x00 $0x0000001000000000 -> %d0
+2f0296a0 : bic v0.4h, #85, lsl #0         : bic    $0x55 $0x0000001000000000 -> %d0
+2f059540 : bic v0.4h, #170, lsl #0        : bic    $0xaa $0x0000001000000000 -> %d0
+2f0797e0 : bic v0.4h, #255, lsl #0        : bic    $0xff $0x0000001000000000 -> %d0
+2f04940a : bic v10.4h, #128, lsl #0       : bic    $0x80 $0x0000001000000000 -> %d10
+2f049414 : bic v20.4h, #128, lsl #0       : bic    $0x80 $0x0000001000000000 -> %d20
+2f04941e : bic v30.4h, #128, lsl #0       : bic    $0x80 $0x0000001000000000 -> %d30
+2f00b400 : bic v0.4h, #0, lsl #8          : bic    $0x00 $0x0000001000000008 -> %d0
+2f02b6a0 : bic v0.4h, #85, lsl #8         : bic    $0x55 $0x0000001000000008 -> %d0
+2f05b540 : bic v0.4h, #170, lsl #8        : bic    $0xaa $0x0000001000000008 -> %d0
+2f07b7e0 : bic v0.4h, #255, lsl #8        : bic    $0xff $0x0000001000000008 -> %d0
+2f04b40a : bic v10.4h, #128, lsl #8       : bic    $0x80 $0x0000001000000008 -> %d10
+2f04b414 : bic v20.4h, #128, lsl #8       : bic    $0x80 $0x0000001000000008 -> %d20
+2f04b41e : bic v30.4h, #128, lsl #8       : bic    $0x80 $0x0000001000000008 -> %d30
+6f009400 : bic v0.8h, #0, lsl #0          : bic    $0x00 $0x0000001000000000 -> %q0
+6f0296a0 : bic v0.8h, #85, lsl #0         : bic    $0x55 $0x0000001000000000 -> %q0
+6f059540 : bic v0.8h, #170, lsl #0        : bic    $0xaa $0x0000001000000000 -> %q0
+6f0797e0 : bic v0.8h, #255, lsl #0        : bic    $0xff $0x0000001000000000 -> %q0
+6f04940a : bic v10.8h, #128, lsl #0       : bic    $0x80 $0x0000001000000000 -> %q10
+6f049414 : bic v20.8h, #128, lsl #0       : bic    $0x80 $0x0000001000000000 -> %q20
+6f04941e : bic v30.8h, #128, lsl #0       : bic    $0x80 $0x0000001000000000 -> %q30
+6f00b400 : bic v0.8h, #0, lsl #8          : bic    $0x00 $0x0000001000000008 -> %q0
+6f02b6a0 : bic v0.8h, #85, lsl #8         : bic    $0x55 $0x0000001000000008 -> %q0
+6f05b540 : bic v0.8h, #170, lsl #8        : bic    $0xaa $0x0000001000000008 -> %q0
+6f07b7e0 : bic v0.8h, #255, lsl #8        : bic    $0xff $0x0000001000000008 -> %q0
+6f04b40a : bic v10.8h, #128, lsl #8       : bic    $0x80 $0x0000001000000008 -> %q10
+6f04b414 : bic v20.8h, #128, lsl #8       : bic    $0x80 $0x0000001000000008 -> %q20
+6f04b41e : bic v30.8h, #128, lsl #8       : bic    $0x80 $0x0000001000000008 -> %q30
+2f001400 : bic v0.2s, #0, lsl #0          : bic    $0x00 $0x0000002000000000 -> %d0
+2f0216a0 : bic v0.2s, #85, lsl #0         : bic    $0x55 $0x0000002000000000 -> %d0
+2f051540 : bic v0.2s, #170, lsl #0        : bic    $0xaa $0x0000002000000000 -> %d0
+2f0717e0 : bic v0.2s, #255, lsl #0        : bic    $0xff $0x0000002000000000 -> %d0
+2f04140a : bic v10.2s, #128, lsl #0       : bic    $0x80 $0x0000002000000000 -> %d10
+2f041414 : bic v20.2s, #128, lsl #0       : bic    $0x80 $0x0000002000000000 -> %d20
+2f04141e : bic v30.2s, #128, lsl #0       : bic    $0x80 $0x0000002000000000 -> %d30
+2f003400 : bic v0.2s, #0, lsl #8          : bic    $0x00 $0x0000002000000008 -> %d0
+2f0236a0 : bic v0.2s, #85, lsl #8         : bic    $0x55 $0x0000002000000008 -> %d0
+2f053540 : bic v0.2s, #170, lsl #8        : bic    $0xaa $0x0000002000000008 -> %d0
+2f0737e0 : bic v0.2s, #255, lsl #8        : bic    $0xff $0x0000002000000008 -> %d0
+2f04340a : bic v10.2s, #128, lsl #8       : bic    $0x80 $0x0000002000000008 -> %d10
+2f043414 : bic v20.2s, #128, lsl #8       : bic    $0x80 $0x0000002000000008 -> %d20
+2f04341e : bic v30.2s, #128, lsl #8       : bic    $0x80 $0x0000002000000008 -> %d30
+2f005400 : bic v0.2s, #0, lsl #16         : bic    $0x00 $0x0000002000000010 -> %d0
+2f0256a0 : bic v0.2s, #85, lsl #16        : bic    $0x55 $0x0000002000000010 -> %d0
+2f055540 : bic v0.2s, #170, lsl #16       : bic    $0xaa $0x0000002000000010 -> %d0
+2f0757e0 : bic v0.2s, #255, lsl #16       : bic    $0xff $0x0000002000000010 -> %d0
+2f04540a : bic v10.2s, #128, lsl #16      : bic    $0x80 $0x0000002000000010 -> %d10
+2f045414 : bic v20.2s, #128, lsl #16      : bic    $0x80 $0x0000002000000010 -> %d20
+2f04541e : bic v30.2s, #128, lsl #16      : bic    $0x80 $0x0000002000000010 -> %d30
+2f007400 : bic v0.2s, #0, lsl #24         : bic    $0x00 $0x0000002000000018 -> %d0
+2f0276a0 : bic v0.2s, #85, lsl #24        : bic    $0x55 $0x0000002000000018 -> %d0
+2f057540 : bic v0.2s, #170, lsl #24       : bic    $0xaa $0x0000002000000018 -> %d0
+2f0777e0 : bic v0.2s, #255, lsl #24       : bic    $0xff $0x0000002000000018 -> %d0
+2f04740a : bic v10.2s, #128, lsl #24      : bic    $0x80 $0x0000002000000018 -> %d10
+2f047414 : bic v20.2s, #128, lsl #24      : bic    $0x80 $0x0000002000000018 -> %d20
+2f04741e : bic v30.2s, #128, lsl #24      : bic    $0x80 $0x0000002000000018 -> %d30
+6f001400 : bic v0.4s, #0, lsl #0          : bic    $0x00 $0x0000002000000000 -> %q0
+6f0216a0 : bic v0.4s, #85, lsl #0         : bic    $0x55 $0x0000002000000000 -> %q0
+6f051540 : bic v0.4s, #170, lsl #0        : bic    $0xaa $0x0000002000000000 -> %q0
+6f0717e0 : bic v0.4s, #255, lsl #0        : bic    $0xff $0x0000002000000000 -> %q0
+6f04140a : bic v10.4s, #128, lsl #0       : bic    $0x80 $0x0000002000000000 -> %q10
+6f041414 : bic v20.4s, #128, lsl #0       : bic    $0x80 $0x0000002000000000 -> %q20
+6f04141e : bic v30.4s, #128, lsl #0       : bic    $0x80 $0x0000002000000000 -> %q30
+6f003400 : bic v0.4s, #0, lsl #8          : bic    $0x00 $0x0000002000000008 -> %q0
+6f0236a0 : bic v0.4s, #85, lsl #8         : bic    $0x55 $0x0000002000000008 -> %q0
+6f053540 : bic v0.4s, #170, lsl #8        : bic    $0xaa $0x0000002000000008 -> %q0
+6f0737e0 : bic v0.4s, #255, lsl #8        : bic    $0xff $0x0000002000000008 -> %q0
+6f04340a : bic v10.4s, #128, lsl #8       : bic    $0x80 $0x0000002000000008 -> %q10
+6f043414 : bic v20.4s, #128, lsl #8       : bic    $0x80 $0x0000002000000008 -> %q20
+6f04341e : bic v30.4s, #128, lsl #8       : bic    $0x80 $0x0000002000000008 -> %q30
+6f005400 : bic v0.4s, #0, lsl #16         : bic    $0x00 $0x0000002000000010 -> %q0
+6f0256a0 : bic v0.4s, #85, lsl #16        : bic    $0x55 $0x0000002000000010 -> %q0
+6f055540 : bic v0.4s, #170, lsl #16       : bic    $0xaa $0x0000002000000010 -> %q0
+6f0757e0 : bic v0.4s, #255, lsl #16       : bic    $0xff $0x0000002000000010 -> %q0
+6f04540a : bic v10.4s, #128, lsl #16      : bic    $0x80 $0x0000002000000010 -> %q10
+6f045414 : bic v20.4s, #128, lsl #16      : bic    $0x80 $0x0000002000000010 -> %q20
+6f04541e : bic v30.4s, #128, lsl #16      : bic    $0x80 $0x0000002000000010 -> %q30
+6f007400 : bic v0.4s, #0, lsl #24         : bic    $0x00 $0x0000002000000018 -> %q0
+6f0276a0 : bic v0.4s, #85, lsl #24        : bic    $0x55 $0x0000002000000018 -> %q0
+6f057540 : bic v0.4s, #170, lsl #24       : bic    $0xaa $0x0000002000000018 -> %q0
+6f0777e0 : bic v0.4s, #255, lsl #24       : bic    $0xff $0x0000002000000018 -> %q0
+6f04740a : bic v10.4s, #128, lsl #24      : bic    $0x80 $0x0000002000000018 -> %q10
+6f047414 : bic v20.4s, #128, lsl #24      : bic    $0x80 $0x0000002000000018 -> %q20
+6f04741e : bic v30.4s, #128, lsl #24      : bic    $0x80 $0x0000002000000018 -> %q30
 
 6a231041 : bics   w1, w2, w3, lsl #4      : bics   %w2 %w3 lsl $0x04 -> %w1
 6abf13ff : bics   wzr, wzr, wzr, asr #4   : bics   %wzr %wzr asr $0x04 -> %wzr
@@ -5236,6 +5236,204 @@ d2ffffff : mov    xzr, #0xffff000000000000: movz   $0xffff lsl $0x30 -> %xzr
 72881041 : movk   w1, #0x4082             : movk   %w1 $0x4082 lsl $0x00 -> %w1
 f2ffffff : movk   xzr, #0xffff, lsl #48   : movk   %xzr $0xffff lsl $0x30 -> %xzr
 
+# MOVI <Vd>.<T>, #<imm8>{, LSL #<amount>}
+# MOVI <Vd>.<T>, #<imm8>, MSL #<amount>                element size  amount
+0f01e6a0 : movi v0.8b, #0x35             : movi   $0x35 $0x0000000800000000 -> %d0
+0f06e421 : movi v1.8b, #0xc1             : movi   $0xc1 $0x0000000800000000 -> %d1
+0f01e542 : movi v2.8b, #0x2a             : movi   $0x2a $0x0000000800000000 -> %d2
+0f01e6a3 : movi v3.8b, #0x35             : movi   $0x35 $0x0000000800000000 -> %d3
+0f06e584 : movi v4.8b, #0xcc             : movi   $0xcc $0x0000000800000000 -> %d4
+0f07e4c5 : movi v5.8b, #0xe6             : movi   $0xe6 $0x0000000800000000 -> %d5
+0f03e786 : movi v6.8b, #0x7c             : movi   $0x7c $0x0000000800000000 -> %d6
+0f06e407 : movi v7.8b, #0xc0             : movi   $0xc0 $0x0000000800000000 -> %d7
+0f01e400 : movi v0.8b, #0x20             : movi   $0x20 $0x0000000800000000 -> %d0
+0f01e541 : movi v1.8b, #0x2a             : movi   $0x2a $0x0000000800000000 -> %d1
+0f06e642 : movi v2.8b, #0xd2             : movi   $0xd2 $0x0000000800000000 -> %d2
+0f06e6a3 : movi v3.8b, #0xd5             : movi   $0xd5 $0x0000000800000000 -> %d3
+0f03e7a4 : movi v4.8b, #0x7d             : movi   $0x7d $0x0000000800000000 -> %d4
+0f05e665 : movi v5.8b, #0xb3             : movi   $0xb3 $0x0000000800000000 -> %d5
+0f03e726 : movi v6.8b, #0x79             : movi   $0x79 $0x0000000800000000 -> %d6
+0f04e427 : movi v7.8b, #0x81             : movi   $0x81 $0x0000000800000000 -> %d7
+0f07e700 : movi v0.8b, #0xf8             : movi   $0xf8 $0x0000000800000000 -> %d0
+0f02e7e1 : movi v1.8b, #0x5f             : movi   $0x5f $0x0000000800000000 -> %d1
+0f03e482 : movi v2.8b, #0x64             : movi   $0x64 $0x0000000800000000 -> %d2
+0f00e4c3 : movi v3.8b, #0x6              : movi   $0x06 $0x0000000800000000 -> %d3
+0f00e624 : movi v4.8b, #0x11             : movi   $0x11 $0x0000000800000000 -> %d4
+0f05e485 : movi v5.8b, #0xa4             : movi   $0xa4 $0x0000000800000000 -> %d5
+0f00e546 : movi v6.8b, #0xa              : movi   $0x0a $0x0000000800000000 -> %d6
+0f02e707 : movi v7.8b, #0x58             : movi   $0x58 $0x0000000800000000 -> %d7
+4f06e640 : movi v0.16b, #0xd2            : movi   $0xd2 $0x0000000800000000 -> %q0
+4f02e581 : movi v1.16b, #0x4c            : movi   $0x4c $0x0000000800000000 -> %q1
+4f07e762 : movi v2.16b, #0xfb            : movi   $0xfb $0x0000000800000000 -> %q2
+4f07e6a3 : movi v3.16b, #0xf5            : movi   $0xf5 $0x0000000800000000 -> %q3
+4f04e684 : movi v4.16b, #0x94            : movi   $0x94 $0x0000000800000000 -> %q4
+4f07e605 : movi v5.16b, #0xf0            : movi   $0xf0 $0x0000000800000000 -> %q5
+4f04e586 : movi v6.16b, #0x8c            : movi   $0x8c $0x0000000800000000 -> %q6
+4f03e727 : movi v7.16b, #0x79            : movi   $0x79 $0x0000000800000000 -> %q7
+4f07e600 : movi v0.16b, #0xf0            : movi   $0xf0 $0x0000000800000000 -> %q0
+4f05e401 : movi v1.16b, #0xa0            : movi   $0xa0 $0x0000000800000000 -> %q1
+4f06e5a2 : movi v2.16b, #0xcd            : movi   $0xcd $0x0000000800000000 -> %q2
+4f07e5e3 : movi v3.16b, #0xef            : movi   $0xef $0x0000000800000000 -> %q3
+4f07e5c4 : movi v4.16b, #0xee            : movi   $0xee $0x0000000800000000 -> %q4
+4f07e6e5 : movi v5.16b, #0xf7            : movi   $0xf7 $0x0000000800000000 -> %q5
+4f04e506 : movi v6.16b, #0x88            : movi   $0x88 $0x0000000800000000 -> %q6
+4f06e4a7 : movi v7.16b, #0xc5            : movi   $0xc5 $0x0000000800000000 -> %q7
+4f05e760 : movi v0.16b, #0xbb            : movi   $0xbb $0x0000000800000000 -> %q0
+4f02e7e1 : movi v1.16b, #0x5f            : movi   $0x5f $0x0000000800000000 -> %q1
+4f07e5a2 : movi v2.16b, #0xed            : movi   $0xed $0x0000000800000000 -> %q2
+4f07e4c3 : movi v3.16b, #0xe6            : movi   $0xe6 $0x0000000800000000 -> %q3
+4f07e4a4 : movi v4.16b, #0xe5            : movi   $0xe5 $0x0000000800000000 -> %q4
+4f06e505 : movi v5.16b, #0xc8            : movi   $0xc8 $0x0000000800000000 -> %q5
+4f03e526 : movi v6.16b, #0x69            : movi   $0x69 $0x0000000800000000 -> %q6
+4f04e6e7 : movi v7.16b, #0x97            : movi   $0x97 $0x0000000800000000 -> %q7
+0f04a6e0 : movi v0.4h, #0x97, lsl #8     : movi   $0x97 $0x0000001000000008 -> %d0
+0f02a441 : movi v1.4h, #0x42, lsl #8     : movi   $0x42 $0x0000001000000008 -> %d1
+0f03a662 : movi v2.4h, #0x73, lsl #8     : movi   $0x73 $0x0000001000000008 -> %d2
+0f05a6e3 : movi v3.4h, #0xb7, lsl #8     : movi   $0xb7 $0x0000001000000008 -> %d3
+0f03a7a4 : movi v4.4h, #0x7d, lsl #8     : movi   $0x7d $0x0000001000000008 -> %d4
+0f05a6e5 : movi v5.4h, #0xb7, lsl #8     : movi   $0xb7 $0x0000001000000008 -> %d5
+0f06a646 : movi v6.4h, #0xd2, lsl #8     : movi   $0xd2 $0x0000001000000008 -> %d6
+0f07a6c7 : movi v7.4h, #0xf6, lsl #8     : movi   $0xf6 $0x0000001000000008 -> %d7
+4f01a500 : movi v0.8h, #0x28, lsl #8     : movi   $0x28 $0x0000001000000008 -> %q0
+4f05a6a1 : movi v1.8h, #0xb5, lsl #8     : movi   $0xb5 $0x0000001000000008 -> %q1
+4f06a6e2 : movi v2.8h, #0xd7, lsl #8     : movi   $0xd7 $0x0000001000000008 -> %q2
+4f00a403 : movi v3.8h, #0x0, lsl #8      : movi   $0x00 $0x0000001000000008 -> %q3
+4f00a404 : movi v4.8h, #0x0, lsl #8      : movi   $0x00 $0x0000001000000008 -> %q4
+4f03a7e5 : movi v5.8h, #0x7f, lsl #8     : movi   $0x7f $0x0000001000000008 -> %q5
+4f02a506 : movi v6.8h, #0x48, lsl #8     : movi   $0x48 $0x0000001000000008 -> %q6
+4f07a7e7 : movi v7.8h, #0xff, lsl #8     : movi   $0xff $0x0000001000000008 -> %q7
+0f072760 : movi v0.2s, #0xfb, lsl #8     : movi   $0xfb $0x0000002000000008 -> %d0
+0f0426a1 : movi v1.2s, #0x95, lsl #8     : movi   $0x95 $0x0000002000000008 -> %d1
+0f0324a2 : movi v2.2s, #0x65, lsl #8     : movi   $0x65 $0x0000002000000008 -> %d2
+0f0426e3 : movi v3.2s, #0x97, lsl #8     : movi   $0x97 $0x0000002000000008 -> %d3
+0f072524 : movi v4.2s, #0xe9, lsl #8     : movi   $0xe9 $0x0000002000000008 -> %d4
+0f012445 : movi v5.2s, #0x22, lsl #8     : movi   $0x22 $0x0000002000000008 -> %d5
+0f062646 : movi v6.2s, #0xd2, lsl #8     : movi   $0xd2 $0x0000002000000008 -> %d6
+0f012487 : movi v7.2s, #0x24, lsl #8     : movi   $0x24 $0x0000002000000008 -> %d7
+0f074600 : movi v0.2s, #0xf0, lsl #16    : movi   $0xf0 $0x0000002000000010 -> %d0
+0f014581 : movi v1.2s, #0x2c, lsl #16    : movi   $0x2c $0x0000002000000010 -> %d1
+0f054782 : movi v2.2s, #0xbc, lsl #16    : movi   $0xbc $0x0000002000000010 -> %d2
+0f044683 : movi v3.2s, #0x94, lsl #16    : movi   $0x94 $0x0000002000000010 -> %d3
+0f0546a4 : movi v4.2s, #0xb5, lsl #16    : movi   $0xb5 $0x0000002000000010 -> %d4
+0f004765 : movi v5.2s, #0x1b, lsl #16    : movi   $0x1b $0x0000002000000010 -> %d5
+0f074486 : movi v6.2s, #0xe4, lsl #16    : movi   $0xe4 $0x0000002000000010 -> %d6
+0f0244c7 : movi v7.2s, #0x46, lsl #16    : movi   $0x46 $0x0000002000000010 -> %d7
+0f0666a0 : movi v0.2s, #0xd5, lsl #24    : movi   $0xd5 $0x0000002000000018 -> %d0
+0f0167c1 : movi v1.2s, #0x3e, lsl #24    : movi   $0x3e $0x0000002000000018 -> %d1
+0f0166a2 : movi v2.2s, #0x35, lsl #24    : movi   $0x35 $0x0000002000000018 -> %d2
+0f0764c3 : movi v3.2s, #0xe6, lsl #24    : movi   $0xe6 $0x0000002000000018 -> %d3
+0f016764 : movi v4.2s, #0x3b, lsl #24    : movi   $0x3b $0x0000002000000018 -> %d4
+0f056745 : movi v5.2s, #0xba, lsl #24    : movi   $0xba $0x0000002000000018 -> %d5
+0f076486 : movi v6.2s, #0xe4, lsl #24    : movi   $0xe4 $0x0000002000000018 -> %d6
+0f0267a7 : movi v7.2s, #0x5d, lsl #24    : movi   $0x5d $0x0000002000000018 -> %d7
+4f062660 : movi v0.4s, #0xd3, lsl #8     : movi   $0xd3 $0x0000002000000008 -> %q0
+4f0725a1 : movi v1.4s, #0xed, lsl #8     : movi   $0xed $0x0000002000000008 -> %q1
+4f0627a2 : movi v2.4s, #0xdd, lsl #8     : movi   $0xdd $0x0000002000000008 -> %q2
+4f0426a3 : movi v3.4s, #0x95, lsl #8     : movi   $0x95 $0x0000002000000008 -> %q3
+4f0525c4 : movi v4.4s, #0xae, lsl #8     : movi   $0xae $0x0000002000000008 -> %q4
+4f052665 : movi v5.4s, #0xb3, lsl #8     : movi   $0xb3 $0x0000002000000008 -> %q5
+4f022426 : movi v6.4s, #0x41, lsl #8     : movi   $0x41 $0x0000002000000008 -> %q6
+4f0727e7 : movi v7.4s, #0xff, lsl #8     : movi   $0xff $0x0000002000000008 -> %q7
+4f034720 : movi v0.4s, #0x79, lsl #16    : movi   $0x79 $0x0000002000000010 -> %q0
+4f034621 : movi v1.4s, #0x71, lsl #16    : movi   $0x71 $0x0000002000000010 -> %q1
+4f014622 : movi v2.4s, #0x31, lsl #16    : movi   $0x31 $0x0000002000000010 -> %q2
+4f054423 : movi v3.4s, #0xa1, lsl #16    : movi   $0xa1 $0x0000002000000010 -> %q3
+4f074664 : movi v4.4s, #0xf3, lsl #16    : movi   $0xf3 $0x0000002000000010 -> %q4
+4f0046e5 : movi v5.4s, #0x17, lsl #16    : movi   $0x17 $0x0000002000000010 -> %q5
+4f0445e6 : movi v6.4s, #0x8f, lsl #16    : movi   $0x8f $0x0000002000000010 -> %q6
+4f0146a7 : movi v7.4s, #0x35, lsl #16    : movi   $0x35 $0x0000002000000010 -> %q7
+4f0566e0 : movi v0.4s, #0xb7, lsl #24    : movi   $0xb7 $0x0000002000000018 -> %q0
+4f076681 : movi v1.4s, #0xf4, lsl #24    : movi   $0xf4 $0x0000002000000018 -> %q1
+4f0367c2 : movi v2.4s, #0x7e, lsl #24    : movi   $0x7e $0x0000002000000018 -> %q2
+4f066603 : movi v3.4s, #0xd0, lsl #24    : movi   $0xd0 $0x0000002000000018 -> %q3
+4f076604 : movi v4.4s, #0xf0, lsl #24    : movi   $0xf0 $0x0000002000000018 -> %q4
+4f0265a5 : movi v5.4s, #0x4d, lsl #24    : movi   $0x4d $0x0000002000000018 -> %q5
+4f0266e6 : movi v6.4s, #0x57, lsl #24    : movi   $0x57 $0x0000002000000018 -> %q6
+4f0666a7 : movi v7.4s, #0xd5, lsl #24    : movi   $0xd5 $0x0000002000000018 -> %q7
+0f00c400 : movi v0.2s, #0x0, msl #8      : movi   $0x00 $0x0000002010000008 -> %d0
+0f00c421 : movi v1.2s, #0x1, msl #8      : movi   $0x01 $0x0000002010000008 -> %d1
+0f00c442 : movi v2.2s, #0x2, msl #8      : movi   $0x02 $0x0000002010000008 -> %d2
+0f00c463 : movi v3.2s, #0x3, msl #8      : movi   $0x03 $0x0000002010000008 -> %d3
+0f00d400 : movi v0.2s, #0x0, msl #16     : movi   $0x00 $0x0000002010000010 -> %d0
+0f00d421 : movi v1.2s, #0x1, msl #16     : movi   $0x01 $0x0000002010000010 -> %d1
+0f00d442 : movi v2.2s, #0x2, msl #16     : movi   $0x02 $0x0000002010000010 -> %d2
+0f00d463 : movi v3.2s, #0x3, msl #16     : movi   $0x03 $0x0000002010000010 -> %d3
+4f00c400 : movi v0.4s, #0x0, msl #8      : movi   $0x00 $0x0000002010000008 -> %q0
+4f00c421 : movi v1.4s, #0x1, msl #8      : movi   $0x01 $0x0000002010000008 -> %q1
+4f00c442 : movi v2.4s, #0x2, msl #8      : movi   $0x02 $0x0000002010000008 -> %q2
+4f00c463 : movi v3.4s, #0x3, msl #8      : movi   $0x03 $0x0000002010000008 -> %q3
+4f00d400 : movi v0.4s, #0x0, msl #16     : movi   $0x00 $0x0000002010000010 -> %q0
+4f00d421 : movi v1.4s, #0x1, msl #16     : movi   $0x01 $0x0000002010000010 -> %q1
+4f00d442 : movi v2.4s, #0x2, msl #16     : movi   $0x02 $0x0000002010000010 -> %q2
+4f00d463 : movi v3.4s, #0x3, msl #16     : movi   $0x03 $0x0000002010000010 -> %q3
+
+# MVNI <Vd>.<T>, #<imm8>{, LSL #<amount>}
+# MVNI <Vd>.<T>, #<imm8>, MSL #<amount>
+2f07a5c0 : mvni v0.4h, #0xee, lsl #8     : mvni   $0xee $0x0000001000000008 -> %d0
+2f03a441 : mvni v1.4h, #0x62, lsl #8     : mvni   $0x62 $0x0000001000000008 -> %d1
+2f01a682 : mvni v2.4h, #0x34, lsl #8     : mvni   $0x34 $0x0000001000000008 -> %d2
+2f07a6a3 : mvni v3.4h, #0xf5, lsl #8     : mvni   $0xf5 $0x0000001000000008 -> %d3
+2f01a464 : mvni v4.4h, #0x23, lsl #8     : mvni   $0x23 $0x0000001000000008 -> %d4
+2f03a6e5 : mvni v5.4h, #0x77, lsl #8     : mvni   $0x77 $0x0000001000000008 -> %d5
+2f05a446 : mvni v6.4h, #0xa2, lsl #8     : mvni   $0xa2 $0x0000001000000008 -> %d6
+2f01a407 : mvni v7.4h, #0x20, lsl #8     : mvni   $0x20 $0x0000001000000008 -> %d7
+6f04a400 : mvni v0.8h, #0x80, lsl #8     : mvni   $0x80 $0x0000001000000008 -> %q0
+6f05a661 : mvni v1.8h, #0xb3, lsl #8     : mvni   $0xb3 $0x0000001000000008 -> %q1
+6f00a422 : mvni v2.8h, #0x1, lsl #8      : mvni   $0x01 $0x0000001000000008 -> %q2
+6f07a543 : mvni v3.8h, #0xea, lsl #8     : mvni   $0xea $0x0000001000000008 -> %q3
+6f04a4c4 : mvni v4.8h, #0x86, lsl #8     : mvni   $0x86 $0x0000001000000008 -> %q4
+6f07a7e5 : mvni v5.8h, #0xff, lsl #8     : mvni   $0xff $0x0000001000000008 -> %q5
+6f02a506 : mvni v6.8h, #0x48, lsl #8     : mvni   $0x48 $0x0000001000000008 -> %q6
+6f07a647 : mvni v7.8h, #0xf2, lsl #8     : mvni   $0xf2 $0x0000001000000008 -> %q7
+2f072740 : mvni v0.2s, #0xfa, lsl #8     : mvni   $0xfa $0x0000002000000008 -> %d0
+2f0626e1 : mvni v1.2s, #0xd7, lsl #8     : mvni   $0xd7 $0x0000002000000008 -> %d1
+2f022582 : mvni v2.2s, #0x4c, lsl #8     : mvni   $0x4c $0x0000002000000008 -> %d2
+2f072643 : mvni v3.2s, #0xf2, lsl #8     : mvni   $0xf2 $0x0000002000000008 -> %d3
+2f0526c4 : mvni v4.2s, #0xb6, lsl #8     : mvni   $0xb6 $0x0000002000000008 -> %d4
+2f0625c5 : mvni v5.2s, #0xce, lsl #8     : mvni   $0xce $0x0000002000000008 -> %d5
+2f0524c6 : mvni v6.2s, #0xa6, lsl #8     : mvni   $0xa6 $0x0000002000000008 -> %d6
+2f0627a7 : mvni v7.2s, #0xdd, lsl #8     : mvni   $0xdd $0x0000002000000008 -> %d7
+2f0046a0 : mvni v0.2s, #0x15, lsl #16    : mvni   $0x15 $0x0000002000000010 -> %d0
+2f0744a1 : mvni v1.2s, #0xe5, lsl #16    : mvni   $0xe5 $0x0000002000000010 -> %d1
+2f014562 : mvni v2.2s, #0x2b, lsl #16    : mvni   $0x2b $0x0000002000000010 -> %d2
+2f014683 : mvni v3.2s, #0x34, lsl #16    : mvni   $0x34 $0x0000002000000010 -> %d3
+2f034524 : mvni v4.2s, #0x69, lsl #16    : mvni   $0x69 $0x0000002000000010 -> %d4
+2f0644c5 : mvni v5.2s, #0xc6, lsl #16    : mvni   $0xc6 $0x0000002000000010 -> %d5
+2f0746a6 : mvni v6.2s, #0xf5, lsl #16    : mvni   $0xf5 $0x0000002000000010 -> %d6
+2f044727 : mvni v7.2s, #0x99, lsl #16    : mvni   $0x99 $0x0000002000000010 -> %d7
+2f066660 : mvni v0.2s, #0xd3, lsl #24    : mvni   $0xd3 $0x0000002000000018 -> %d0
+2f056721 : mvni v1.2s, #0xb9, lsl #24    : mvni   $0xb9 $0x0000002000000018 -> %d1
+2f026622 : mvni v2.2s, #0x51, lsl #24    : mvni   $0x51 $0x0000002000000018 -> %d2
+2f046643 : mvni v3.2s, #0x92, lsl #24    : mvni   $0x92 $0x0000002000000018 -> %d3
+2f056604 : mvni v4.2s, #0xb0, lsl #24    : mvni   $0xb0 $0x0000002000000018 -> %d4
+2f016745 : mvni v5.2s, #0x3a, lsl #24    : mvni   $0x3a $0x0000002000000018 -> %d5
+2f036486 : mvni v6.2s, #0x64, lsl #24    : mvni   $0x64 $0x0000002000000018 -> %d6
+2f0065a7 : mvni v7.2s, #0xd, lsl #24     : mvni   $0x0d $0x0000002000000018 -> %d7
+6f022500 : mvni v0.4s, #0x48, lsl #8     : mvni   $0x48 $0x0000002000000008 -> %q0
+6f062521 : mvni v1.4s, #0xc9, lsl #8     : mvni   $0xc9 $0x0000002000000008 -> %q1
+6f002582 : mvni v2.4s, #0xc, lsl #8      : mvni   $0x0c $0x0000002000000008 -> %q2
+6f072483 : mvni v3.4s, #0xe4, lsl #8     : mvni   $0xe4 $0x0000002000000008 -> %q3
+6f052764 : mvni v4.4s, #0xbb, lsl #8     : mvni   $0xbb $0x0000002000000008 -> %q4
+6f0625e5 : mvni v5.4s, #0xcf, lsl #8     : mvni   $0xcf $0x0000002000000008 -> %q5
+6f0426a6 : mvni v6.4s, #0x95, lsl #8     : mvni   $0x95 $0x0000002000000008 -> %q6
+6f0324c7 : mvni v7.4s, #0x66, lsl #8     : mvni   $0x66 $0x0000002000000008 -> %q7
+6f0445e0 : mvni v0.4s, #0x8f, lsl #16    : mvni   $0x8f $0x0000002000000010 -> %q0
+6f014701 : mvni v1.4s, #0x38, lsl #16    : mvni   $0x38 $0x0000002000000010 -> %q1
+6f0044c2 : mvni v2.4s, #0x6, lsl #16     : mvni   $0x06 $0x0000002000000010 -> %q2
+6f0446e3 : mvni v3.4s, #0x97, lsl #16    : mvni   $0x97 $0x0000002000000010 -> %q3
+6f0146e4 : mvni v4.4s, #0x37, lsl #16    : mvni   $0x37 $0x0000002000000010 -> %q4
+6f034665 : mvni v5.4s, #0x73, lsl #16    : mvni   $0x73 $0x0000002000000010 -> %q5
+6f0044a6 : mvni v6.4s, #0x5, lsl #16     : mvni   $0x05 $0x0000002000000010 -> %q6
+6f064447 : mvni v7.4s, #0xc2, lsl #16    : mvni   $0xc2 $0x0000002000000010 -> %q7
+6f0166a0 : mvni v0.4s, #0x35, lsl #24    : mvni   $0x35 $0x0000002000000018 -> %q0
+6f0564e1 : mvni v1.4s, #0xa7, lsl #24    : mvni   $0xa7 $0x0000002000000018 -> %q1
+6f0664c2 : mvni v2.4s, #0xc6, lsl #24    : mvni   $0xc6 $0x0000002000000018 -> %q2
+6f0267a3 : mvni v3.4s, #0x5d, lsl #24    : mvni   $0x5d $0x0000002000000018 -> %q3
+6f076664 : mvni v4.4s, #0xf3, lsl #24    : mvni   $0xf3 $0x0000002000000018 -> %q4
+6f0664a5 : mvni v5.4s, #0xc5, lsl #24    : mvni   $0xc5 $0x0000002000000018 -> %q5
+6f0764c6 : mvni v6.4s, #0xe6, lsl #24    : mvni   $0xe6 $0x0000002000000018 -> %q6
+6f0166e7 : mvni v7.4s, #0x37, lsl #24    : mvni   $0x37 $0x0000002000000018 -> %q7
+
 d5300000 : mrs    x0, s2_0_c0_c0_0        : mrs    $0x0000 -> %x0
 d53b4201 : mrs    x1, nzcv                : mrs    %nzcv -> %x1
 d53b4402 : mrs    x2, fpcr                : mrs    %fpcr -> %x2
@@ -5512,112 +5710,112 @@ b2400441 : orr    x1, x2, #0x3                      : orr    %x2 $0x000000000000
 04d81da2 : orr z2.d, p7/m, z2.d, z13.d              : orr    %p7 %z2 %z13 $0x03 -> %z2
 
 # ORR (vector, immediate): <Vd>.4h, #<imm8>{, LSL #0}
-0f009400 : orr v0.4h, #0, lsl #0                    : orr    $0x00 $0x04 -> %d0
-0f0296a0 : orr v0.4h, #85, lsl #0                   : orr    $0x55 $0x04 -> %d0
-0f059540 : orr v0.4h, #170, lsl #0                  : orr    $0xaa $0x04 -> %d0
-0f0797e0 : orr v0.4h, #255, lsl #0                  : orr    $0xff $0x04 -> %d0
-0f04940a : orr v10.4h, #128, lsl #0                 : orr    $0x80 $0x04 -> %d10
-0f049414 : orr v20.4h, #128, lsl #0                 : orr    $0x80 $0x04 -> %d20
-0f04941e : orr v30.4h, #128, lsl #0                 : orr    $0x80 $0x04 -> %d30
+0f009400 : orr v0.4h, #0, lsl #0            : orr    $0x00 $0x0000001000000000 -> %d0
+0f0296a0 : orr v0.4h, #85, lsl #0           : orr    $0x55 $0x0000001000000000 -> %d0
+0f059540 : orr v0.4h, #170, lsl #0          : orr    $0xaa $0x0000001000000000 -> %d0
+0f0797e0 : orr v0.4h, #255, lsl #0          : orr    $0xff $0x0000001000000000 -> %d0
+0f04940a : orr v10.4h, #128, lsl #0         : orr    $0x80 $0x0000001000000000 -> %d10
+0f049414 : orr v20.4h, #128, lsl #0         : orr    $0x80 $0x0000001000000000 -> %d20
+0f04941e : orr v30.4h, #128, lsl #0         : orr    $0x80 $0x0000001000000000 -> %d30
 
 # ORR (vector, immediate): <Vd>.4h, #<imm8>{, LSL #8}
-0f00b400 : orr v0.4h, #0, lsl #8                    : orr    $0x00 $0x05 -> %d0
-0f02b6a0 : orr v0.4h, #85, lsl #8                   : orr    $0x55 $0x05 -> %d0
-0f05b540 : orr v0.4h, #170, lsl #8                  : orr    $0xaa $0x05 -> %d0
-0f07b7e0 : orr v0.4h, #255, lsl #8                  : orr    $0xff $0x05 -> %d0
-0f04b40a : orr v10.4h, #128, lsl #8                 : orr    $0x80 $0x05 -> %d10
-0f04b414 : orr v20.4h, #128, lsl #8                 : orr    $0x80 $0x05 -> %d20
-0f04b41e : orr v30.4h, #128, lsl #8                 : orr    $0x80 $0x05 -> %d30
+0f00b400 : orr v0.4h, #0, lsl #8            : orr    $0x00 $0x0000001000000008 -> %d0
+0f02b6a0 : orr v0.4h, #85, lsl #8           : orr    $0x55 $0x0000001000000008 -> %d0
+0f05b540 : orr v0.4h, #170, lsl #8          : orr    $0xaa $0x0000001000000008 -> %d0
+0f07b7e0 : orr v0.4h, #255, lsl #8          : orr    $0xff $0x0000001000000008 -> %d0
+0f04b40a : orr v10.4h, #128, lsl #8         : orr    $0x80 $0x0000001000000008 -> %d10
+0f04b414 : orr v20.4h, #128, lsl #8         : orr    $0x80 $0x0000001000000008 -> %d20
+0f04b41e : orr v30.4h, #128, lsl #8         : orr    $0x80 $0x0000001000000008 -> %d30
 
 # ORR (vector, immediate): <Vd>.8h, #<imm8>{, LSL #0}
-4f009400 : orr v0.8h, #0, lsl #0                    : orr    $0x00 $0x04 -> %q0
-4f0296a0 : orr v0.8h, #85, lsl #0                   : orr    $0x55 $0x04 -> %q0
-4f059540 : orr v0.8h, #170, lsl #0                  : orr    $0xaa $0x04 -> %q0
-4f0797e0 : orr v0.8h, #255, lsl #0                  : orr    $0xff $0x04 -> %q0
-4f04940a : orr v10.8h, #128, lsl #0                 : orr    $0x80 $0x04 -> %q10
-4f049414 : orr v20.8h, #128, lsl #0                 : orr    $0x80 $0x04 -> %q20
-4f04941e : orr v30.8h, #128, lsl #0                 : orr    $0x80 $0x04 -> %q30
+4f009400 : orr v0.8h, #0, lsl #0            : orr    $0x00 $0x0000001000000000 -> %q0
+4f0296a0 : orr v0.8h, #85, lsl #0           : orr    $0x55 $0x0000001000000000 -> %q0
+4f059540 : orr v0.8h, #170, lsl #0          : orr    $0xaa $0x0000001000000000 -> %q0
+4f0797e0 : orr v0.8h, #255, lsl #0          : orr    $0xff $0x0000001000000000 -> %q0
+4f04940a : orr v10.8h, #128, lsl #0         : orr    $0x80 $0x0000001000000000 -> %q10
+4f049414 : orr v20.8h, #128, lsl #0         : orr    $0x80 $0x0000001000000000 -> %q20
+4f04941e : orr v30.8h, #128, lsl #0         : orr    $0x80 $0x0000001000000000 -> %q30
 
 # ORR (vector, immediate): <Vd>.8h, #<imm8>{, LSL #8}
-4f00b400 : orr v0.8h, #0, lsl #8                    : orr    $0x00 $0x05 -> %q0
-4f02b6a0 : orr v0.8h, #85, lsl #8                   : orr    $0x55 $0x05 -> %q0
-4f05b540 : orr v0.8h, #170, lsl #8                  : orr    $0xaa $0x05 -> %q0
-4f07b7e0 : orr v0.8h, #255, lsl #8                  : orr    $0xff $0x05 -> %q0
-4f04b40a : orr v10.8h, #128, lsl #8                 : orr    $0x80 $0x05 -> %q10
-4f04b414 : orr v20.8h, #128, lsl #8                 : orr    $0x80 $0x05 -> %q20
-4f04b41e : orr v30.8h, #128, lsl #8                 : orr    $0x80 $0x05 -> %q30
+4f00b400 : orr v0.8h, #0, lsl #8            : orr    $0x00 $0x0000001000000008 -> %q0
+4f02b6a0 : orr v0.8h, #85, lsl #8           : orr    $0x55 $0x0000001000000008 -> %q0
+4f05b540 : orr v0.8h, #170, lsl #8          : orr    $0xaa $0x0000001000000008 -> %q0
+4f07b7e0 : orr v0.8h, #255, lsl #8          : orr    $0xff $0x0000001000000008 -> %q0
+4f04b40a : orr v10.8h, #128, lsl #8         : orr    $0x80 $0x0000001000000008 -> %q10
+4f04b414 : orr v20.8h, #128, lsl #8         : orr    $0x80 $0x0000001000000008 -> %q20
+4f04b41e : orr v30.8h, #128, lsl #8         : orr    $0x80 $0x0000001000000008 -> %q30
 
 # ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #0}
-0f001400 : orr v0.2s, #0, lsl #0                    : orr    $0x00 $0x00 -> %d0
-0f0216a0 : orr v0.2s, #85, lsl #0                   : orr    $0x55 $0x00 -> %d0
-0f051540 : orr v0.2s, #170, lsl #0                  : orr    $0xaa $0x00 -> %d0
-0f0717e0 : orr v0.2s, #255, lsl #0                  : orr    $0xff $0x00 -> %d0
-0f04140a : orr v10.2s, #128, lsl #0                 : orr    $0x80 $0x00 -> %d10
-0f041414 : orr v20.2s, #128, lsl #0                 : orr    $0x80 $0x00 -> %d20
-0f04141e : orr v30.2s, #128, lsl #0                 : orr    $0x80 $0x00 -> %d30
+0f001400 : orr v0.2s, #0, lsl #0            : orr    $0x00 $0x0000002000000000 -> %d0
+0f0216a0 : orr v0.2s, #85, lsl #0           : orr    $0x55 $0x0000002000000000 -> %d0
+0f051540 : orr v0.2s, #170, lsl #0          : orr    $0xaa $0x0000002000000000 -> %d0
+0f0717e0 : orr v0.2s, #255, lsl #0          : orr    $0xff $0x0000002000000000 -> %d0
+0f04140a : orr v10.2s, #128, lsl #0         : orr    $0x80 $0x0000002000000000 -> %d10
+0f041414 : orr v20.2s, #128, lsl #0         : orr    $0x80 $0x0000002000000000 -> %d20
+0f04141e : orr v30.2s, #128, lsl #0         : orr    $0x80 $0x0000002000000000 -> %d30
 
 # ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #8}
-0f003400 : orr v0.2s, #0, lsl #8                    : orr    $0x00 $0x01 -> %d0
-0f0236a0 : orr v0.2s, #85, lsl #8                   : orr    $0x55 $0x01 -> %d0
-0f053540 : orr v0.2s, #170, lsl #8                  : orr    $0xaa $0x01 -> %d0
-0f0737e0 : orr v0.2s, #255, lsl #8                  : orr    $0xff $0x01 -> %d0
-0f04340a : orr v10.2s, #128, lsl #8                 : orr    $0x80 $0x01 -> %d10
-0f043414 : orr v20.2s, #128, lsl #8                 : orr    $0x80 $0x01 -> %d20
-0f04341e : orr v30.2s, #128, lsl #8                 : orr    $0x80 $0x01 -> %d30
+0f003400 : orr v0.2s, #0, lsl #8            : orr    $0x00 $0x0000002000000008 -> %d0
+0f0236a0 : orr v0.2s, #85, lsl #8           : orr    $0x55 $0x0000002000000008 -> %d0
+0f053540 : orr v0.2s, #170, lsl #8          : orr    $0xaa $0x0000002000000008 -> %d0
+0f0737e0 : orr v0.2s, #255, lsl #8          : orr    $0xff $0x0000002000000008 -> %d0
+0f04340a : orr v10.2s, #128, lsl #8         : orr    $0x80 $0x0000002000000008 -> %d10
+0f043414 : orr v20.2s, #128, lsl #8         : orr    $0x80 $0x0000002000000008 -> %d20
+0f04341e : orr v30.2s, #128, lsl #8         : orr    $0x80 $0x0000002000000008 -> %d30
 
 # ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #16}
-0f005400 : orr v0.2s, #0, lsl #16                  : orr    $0x00 $0x02 -> %d0
-0f0256a0 : orr v0.2s, #85, lsl #16                 : orr    $0x55 $0x02 -> %d0
-0f055540 : orr v0.2s, #170, lsl #16                : orr    $0xaa $0x02 -> %d0
-0f0757e0 : orr v0.2s, #255, lsl #16                : orr    $0xff $0x02 -> %d0
-0f04540a : orr v10.2s, #128, lsl #16               : orr    $0x80 $0x02 -> %d10
-0f045414 : orr v20.2s, #128, lsl #16               : orr    $0x80 $0x02 -> %d20
-0f04541e : orr v30.2s, #128, lsl #16               : orr    $0x80 $0x02 -> %d30
+0f005400 : orr v0.2s, #0, lsl #16            : orr    $0x00 $0x0000002000000010 -> %d0
+0f0256a0 : orr v0.2s, #85, lsl #16           : orr    $0x55 $0x0000002000000010 -> %d0
+0f055540 : orr v0.2s, #170, lsl #16          : orr    $0xaa $0x0000002000000010 -> %d0
+0f0757e0 : orr v0.2s, #255, lsl #16          : orr    $0xff $0x0000002000000010 -> %d0
+0f04540a : orr v10.2s, #128, lsl #16         : orr    $0x80 $0x0000002000000010 -> %d10
+0f045414 : orr v20.2s, #128, lsl #16         : orr    $0x80 $0x0000002000000010 -> %d20
+0f04541e : orr v30.2s, #128, lsl #16         : orr    $0x80 $0x0000002000000010 -> %d30
 
 # ORR (vector, immediate): <Vd>.2s, #<imm8>{, LSL #24}
-0f007400 : orr v0.2s, #0, lsl #24                  : orr    $0x00 $0x03 -> %d0
-0f0276a0 : orr v0.2s, #85, lsl #24                 : orr    $0x55 $0x03 -> %d0
-0f057540 : orr v0.2s, #170, lsl #24                : orr    $0xaa $0x03 -> %d0
-0f0777e0 : orr v0.2s, #255, lsl #24                : orr    $0xff $0x03 -> %d0
-0f04740a : orr v10.2s, #128, lsl #24               : orr    $0x80 $0x03 -> %d10
-0f047414 : orr v20.2s, #128, lsl #24               : orr    $0x80 $0x03 -> %d20
-0f04741e : orr v30.2s, #128, lsl #24               : orr    $0x80 $0x03 -> %d30
+0f007400 : orr v0.2s, #0, lsl #24            : orr    $0x00 $0x0000002000000018 -> %d0
+0f0276a0 : orr v0.2s, #85, lsl #24           : orr    $0x55 $0x0000002000000018 -> %d0
+0f057540 : orr v0.2s, #170, lsl #24          : orr    $0xaa $0x0000002000000018 -> %d0
+0f0777e0 : orr v0.2s, #255, lsl #24          : orr    $0xff $0x0000002000000018 -> %d0
+0f04740a : orr v10.2s, #128, lsl #24         : orr    $0x80 $0x0000002000000018 -> %d10
+0f047414 : orr v20.2s, #128, lsl #24         : orr    $0x80 $0x0000002000000018 -> %d20
+0f04741e : orr v30.2s, #128, lsl #24         : orr    $0x80 $0x0000002000000018 -> %d30
 
 # ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #0}
-4f001400 : orr v0.4s, #0, lsl #0                   : orr    $0x00 $0x00 -> %q0
-4f0216a0 : orr v0.4s, #85, lsl #0                  : orr    $0x55 $0x00 -> %q0
-4f051540 : orr v0.4s, #170, lsl #0                 : orr    $0xaa $0x00 -> %q0
-4f0717e0 : orr v0.4s, #255, lsl #0                 : orr    $0xff $0x00 -> %q0
-4f04140a : orr v10.4s, #128, lsl #0                : orr    $0x80 $0x00 -> %q10
-4f041414 : orr v20.4s, #128, lsl #0                : orr    $0x80 $0x00 -> %q20
-4f04141e : orr v30.4s, #128, lsl #0                : orr    $0x80 $0x00 -> %q30
+4f001400 : orr v0.4s, #0, lsl #0              : orr    $0x00 $0x0000002000000000 -> %q0
+4f0216a0 : orr v0.4s, #85, lsl #0             : orr    $0x55 $0x0000002000000000 -> %q0
+4f051540 : orr v0.4s, #170, lsl #0            : orr    $0xaa $0x0000002000000000 -> %q0
+4f0717e0 : orr v0.4s, #255, lsl #0            : orr    $0xff $0x0000002000000000 -> %q0
+4f04140a : orr v10.4s, #128, lsl #0           : orr    $0x80 $0x0000002000000000 -> %q10
+4f041414 : orr v20.4s, #128, lsl #0           : orr    $0x80 $0x0000002000000000 -> %q20
+4f04141e : orr v30.4s, #128, lsl #0           : orr    $0x80 $0x0000002000000000 -> %q30
 
 # ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #8}
-4f003400 : orr v0.4s, #0, lsl #8                   : orr    $0x00 $0x01 -> %q0
-4f0236a0 : orr v0.4s, #85, lsl #8                  : orr    $0x55 $0x01 -> %q0
-4f053540 : orr v0.4s, #170, lsl #8                 : orr    $0xaa $0x01 -> %q0
-4f0737e0 : orr v0.4s, #255, lsl #8                 : orr    $0xff $0x01 -> %q0
-4f04340a : orr v10.4s, #128, lsl #8                : orr    $0x80 $0x01 -> %q10
-4f043414 : orr v20.4s, #128, lsl #8                : orr    $0x80 $0x01 -> %q20
-4f04341e : orr v30.4s, #128, lsl #8                : orr    $0x80 $0x01 -> %q30
+4f003400 : orr v0.4s, #0, lsl #8              : orr    $0x00 $0x0000002000000008 -> %q0
+4f0236a0 : orr v0.4s, #85, lsl #8             : orr    $0x55 $0x0000002000000008 -> %q0
+4f053540 : orr v0.4s, #170, lsl #8            : orr    $0xaa $0x0000002000000008 -> %q0
+4f0737e0 : orr v0.4s, #255, lsl #8            : orr    $0xff $0x0000002000000008 -> %q0
+4f04340a : orr v10.4s, #128, lsl #8           : orr    $0x80 $0x0000002000000008 -> %q10
+4f043414 : orr v20.4s, #128, lsl #8           : orr    $0x80 $0x0000002000000008 -> %q20
+4f04341e : orr v30.4s, #128, lsl #8           : orr    $0x80 $0x0000002000000008 -> %q30
 
 # ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #16}
-4f005400 : orr v0.4s, #0, lsl #16                  : orr    $0x00 $0x02 -> %q0
-4f0256a0 : orr v0.4s, #85, lsl #16                 : orr    $0x55 $0x02 -> %q0
-4f055540 : orr v0.4s, #170, lsl #16                : orr    $0xaa $0x02 -> %q0
-4f0757e0 : orr v0.4s, #255, lsl #16                : orr    $0xff $0x02 -> %q0
-4f04540a : orr v10.4s, #128, lsl #16               : orr    $0x80 $0x02 -> %q10
-4f045414 : orr v20.4s, #128, lsl #16               : orr    $0x80 $0x02 -> %q20
-4f04541e : orr v30.4s, #128, lsl #16               : orr    $0x80 $0x02 -> %q30
+4f005400 : orr v0.4s, #0, lsl #16             : orr    $0x00 $0x0000002000000010 -> %q0
+4f0256a0 : orr v0.4s, #85, lsl #16            : orr    $0x55 $0x0000002000000010 -> %q0
+4f055540 : orr v0.4s, #170, lsl #16           : orr    $0xaa $0x0000002000000010 -> %q0
+4f0757e0 : orr v0.4s, #255, lsl #16           : orr    $0xff $0x0000002000000010 -> %q0
+4f04540a : orr v10.4s, #128, lsl #16          : orr    $0x80 $0x0000002000000010 -> %q10
+4f045414 : orr v20.4s, #128, lsl #16          : orr    $0x80 $0x0000002000000010 -> %q20
+4f04541e : orr v30.4s, #128, lsl #16          : orr    $0x80 $0x0000002000000010 -> %q30
 
 # ORR (vector, immediate): <Vd>.4s, #<imm8>{, LSL #24}
-4f007400 : orr v0.4s, #0, lsl #24                  : orr    $0x00 $0x03 -> %q0
-4f0276a0 : orr v0.4s, #85, lsl #24                 : orr    $0x55 $0x03 -> %q0
-4f057540 : orr v0.4s, #170, lsl #24                : orr    $0xaa $0x03 -> %q0
-4f0777e0 : orr v0.4s, #255, lsl #24                : orr    $0xff $0x03 -> %q0
-4f04740a : orr v10.4s, #128, lsl #24               : orr    $0x80 $0x03 -> %q10
-4f047414 : orr v20.4s, #128, lsl #24               : orr    $0x80 $0x03 -> %q20
-4f04741e : orr v30.4s, #128, lsl #24               : orr    $0x80 $0x03 -> %q30
+4f007400 : orr v0.4s, #0, lsl #24             : orr    $0x00 $0x0000002000000018 -> %q0
+4f0276a0 : orr v0.4s, #85, lsl #24            : orr    $0x55 $0x0000002000000018 -> %q0
+4f057540 : orr v0.4s, #170, lsl #24           : orr    $0xaa $0x0000002000000018 -> %q0
+4f0777e0 : orr v0.4s, #255, lsl #24           : orr    $0xff $0x0000002000000018 -> %q0
+4f04740a : orr v10.4s, #128, lsl #24          : orr    $0x80 $0x0000002000000018 -> %q10
+4f047414 : orr v20.4s, #128, lsl #24          : orr    $0x80 $0x0000002000000018 -> %q20
+4f04741e : orr v30.4s, #128, lsl #24          : orr    $0x80 $0x0000002000000018 -> %q30
 
 2e2c9f1a : pmul v26.8b, v24.8b, v12.8b              : pmul   %d24 %d12 $0x00 -> %d26
 6e2c9f1a : pmul v26.16b, v24.16b, v12.16b           : pmul   %q24 %q12 $0x00 -> %q26

@@ -562,3 +562,7 @@ droption_t<double> op_confidence_threshold(
     "results. Confidence in a discovered pattern for a load instruction is calculated "
     "as the fraction of the load's misses with the discovered pattern over all the "
     "load's misses.");
+droption_t<bool> op_enable_drstatecmp(
+    DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
+    "When true, this option enables the drstatecmp library that performs state "
+    "comparisons to detect instrumentation-induced bugs due to state clobbering.");

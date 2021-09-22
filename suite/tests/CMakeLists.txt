@@ -3299,6 +3299,10 @@ if (BUILD_CLIENTS)
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+    endif (NOT WIN32)
+
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
       torunonly_ci(tool.${testname} ${exetgt} drcachesim
@@ -3858,10 +3862,11 @@ if (BUILD_CLIENTS)
       set(tool.drcpusim.cpuid-${model}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
     endmacro ()
-    # Not running earlier than Klamath b/c the app likely will have bad opcodes
+    # Not running earlier than Klamath b/c the app likely will have bad opcodes.
     if (NOT X64)
-      add_cpusim_cpuid_test(Klamath)
-      add_cpusim_cpuid_test(Deschutes)
+      # i#5109: We do not run Klamath or Deschutes since gcc on Ubuntu20 includes
+      # CET instructions which cannot be avoided.  DR currently thinks they're
+      # SSE-added multi-byte nops; we'll have more trouble when i#4040 is implemented.
       add_cpusim_cpuid_test(Pentium3)
       add_cpusim_cpuid_test(Banias)
     endif ()
