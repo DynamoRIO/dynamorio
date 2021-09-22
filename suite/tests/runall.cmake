@@ -66,7 +66,6 @@ endif ()
 file(REMOVE ${out})
 
 # Run the target in the background.
-message("cmd: ${cmd}")
 execute_process(COMMAND ${cmd}
   RESULT_VARIABLE cmd_result
   ERROR_VARIABLE cmd_err
@@ -104,7 +103,7 @@ function (do_sleep ms)
   else ()
     # XXX: ping's units are secs.  For now we always do 1 sec.
     # We could try to use cygwin bash or perl.
-    execute_process(COMMAND ${PING} 127.0.0.1 -n 1 OUTPUT_QUIET)
+    execute_process(COMMAND ${PING} 127.0.0.1 -n 2 OUTPUT_QUIET)
   endif ()
 endfunction (do_sleep)
 
@@ -127,13 +126,11 @@ function (kill_background_process force)
   else (UNIX)
     # win32.infloop has a title with the pid in it so we can uniquely target it
     # for a cleaner exit than using drkill.
-    message("killer: ${toolbindir}/closewnd.exe Infloop pid=${pid} 10")
     execute_process(COMMAND "${toolbindir}/closewnd.exe" "Infloop pid=${pid}" 10
       RESULT_VARIABLE kill_result
       ERROR_VARIABLE kill_err
       OUTPUT_VARIABLE kill_out)
     set(kill_err "${kill_out}${kill_err}")
-    message("(${kill_result}): ${kill_err}\n")
     if (kill_result)
       message(FATAL_ERROR "*** kill failed (${kill_result}): ${kill_err}***\n")
     endif (kill_result)
@@ -194,7 +191,6 @@ elseif ("${nudge}" MATCHES "<attach>")
   set(nudge_cmd run_in_bg)
   string(REGEX REPLACE "<attach>" "${toolbindir}/drrun@-attach@${pid}@-takeover_sleep@-takeovers@100" nudge "${nudge}")
   string(REGEX REPLACE "@" ";" nudge "${nudge}")
-  message("attach: ${toolbindir}/${nudge_cmd} ${nudge}")
   execute_process(COMMAND "${toolbindir}/${nudge_cmd}" ${nudge}
    RESULT_VARIABLE nudge_result
    ERROR_VARIABLE nudge_err
@@ -248,7 +244,7 @@ elseif ("${orig_nudge}" MATCHES "<attach>")
   # wait until attached
   set(iters 0)
   while (NOT "${output}" MATCHES "attach\n")
-    execute_process(COMMAND ${PING} 127.0.0.1 -n 2 OUTPUT_QUIET)
+    do_sleep(0.1)
     file(READ "${out}" output)
     math(EXPR iters "${iters}+1")
     if (${iters} GREATER ${MAX_ITERS})
