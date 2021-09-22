@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* An app that announces when it's up, and stays up long enough for testing 
+/* An app that announces when it's up, and stays up long enough for testing
  * attach. */
 #include "tools.h"
 #include <windows.h>
