@@ -166,9 +166,8 @@ while (NOT EXISTS "${out}")
   endif ()
 endwhile ()
 file(READ "${out}" output)
-
-set(iters 0)
 # we require that all runall tests write at least one line up front
+set(iters 0)
 while (NOT "${output}" MATCHES "\n")
   do_sleep(0.1)
   file(READ "${out}" output)
