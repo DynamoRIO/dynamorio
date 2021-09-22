@@ -3299,6 +3299,10 @@ if (BUILD_CLIENTS)
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+    endif (NOT WIN32)
+
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
       torunonly_ci(tool.${testname} ${exetgt} drcachesim
