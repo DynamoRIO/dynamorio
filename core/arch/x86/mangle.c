@@ -1391,7 +1391,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         reg_id_t scratch2;
         for (scratch2 = REG_XAX; scratch2 <= REG_XBX; scratch2++) {
-            if (!instr_uses_reg(instr, scratch2))
+            if (!instr_uses_reg(instr, scratch2) && scratch2 != reg)
                 break;
         }
         ASSERT(scratch2 <= REG_XBX);
