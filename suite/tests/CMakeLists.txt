@@ -2259,6 +2259,8 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
 
   tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
     "" "" "")
+  use_DynamoRIO_extension(client.annotation-detection.dll drmgr)
+  use_DynamoRIO_extension(client.annotation-detection.dll drreg)
   set(client.annotation-detection.full-decode_expectbase
     "annotation-detection.full-decode")
   torunonly_ci(client.annotation-detection.full-decode client.annotation-detection

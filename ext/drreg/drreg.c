@@ -503,6 +503,11 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
             regs_restored[GPR_IDX(reg)] = false;
         if (!pt->reg[GPR_IDX(reg)].native) {
             if (force_restore || instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
+                /* Restore all app values prior to an annotation to ensure the
+                 * arguments passed to the handler are correct.
+                 */
+                (instr_is_label(inst) &&
+                 (ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION) ||
                 /* Treat a partial write as a read, to restore rest of reg */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) ||
