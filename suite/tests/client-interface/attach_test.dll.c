@@ -32,6 +32,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
+#include "Windows.h"
 
 static thread_id_t injection_tid;
 static bool first_thread = true;
@@ -51,13 +52,53 @@ dr_thread_init(void *drcontext)
         dr_fprintf(STDERR, "thread init\n");
     }
 }
+typedef struct _dr_exception_t {
+    /**
+     * Machine context at exception point.  The client should not
+     * change \p mcontext->flags: it should remain DR_MC_ALL.
+     */
+    dr_mcontext_t *mcontext;
+    EXCEPTION_RECORD *record; /**< Win32 exception record. */
+    /**
+     * The raw pre-translated machine state at the exception interruption
+     * point inside the code cache.  Clients are cautioned when examining
+     * code cache instructions to not rely on any details of code inserted
+     * other than their own.
+     * The client should not change \p raw_mcontext.flags: it should
+     * remain DR_MC_ALL.
+     */
+    dr_mcontext_t *raw_mcontext;
+    /**
+     * Information about the code fragment inside the code cache at
+     * the exception interruption point.
+     */
+    dr_fault_fragment_info_t fault_fragment_info;
+} dr_exception_t;
 
+
+typedef struct _EXCEPTION_RECORD {
+    DWORD    ExceptionCode;
+    DWORD ExceptionFlags;
+    struct _EXCEPTION_RECORD *ExceptionRecord;
+    PVOID ExceptionAddress;
+    DWORD NumberParameters;
+    ULONG_PTR ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS];
+    } EXCEPTION_RECORD;
 static bool
+
 dr_exception_event(void *drcontext, dr_exception_t *excpt)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "exception in thread %p\ninjection thread %p", tid, injection_tid);
+    dr_fprintf(STDERR, "exception in thread %p\ninjection thread %p\n", tid, injection_tid);
 
+    dr_fprintf(STDERR, "ExceptionCode=%08x\n", excpt->record->ExceptionCode);
+    dr_fprintf(STDERR, "ExceptionFlags=%08x\n", excpt->record->ExceptionFlags);
+    dr_fprintf(STDERR, "ExceptionAddress=%p\n", excpt->record->ExceptionAddress);
+    dr_fprintf(STDERR, "parameters:\n");
+    for (DWORD i = 0; i < excpt->record->NumberParameters; i++) {
+        dr_fprintf(STDERR, "parameters[%ld]:%p\n", i, excpt->record->ExceptionInformation[i]);
+    }
+    
     return true;
 }
 
