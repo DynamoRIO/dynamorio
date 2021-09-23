@@ -57,6 +57,8 @@ dr_exception_event(void *drcontext, dr_exception_t *excpt)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
     dr_fprintf(STDERR, "exception in thread %p\n", tid);
+
+    return true;
 }
 
 DR_EXPORT
