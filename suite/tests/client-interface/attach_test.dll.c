@@ -53,6 +53,7 @@ dr_thread_init(void *drcontext)
     }
 }
 
+static bool
 dr_exception_event(void *drcontext, dr_exception_t *excpt)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
