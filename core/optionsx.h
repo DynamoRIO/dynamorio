@@ -2633,6 +2633,16 @@ OPTION_COMMAND(bool, native_exec_opt, false, "native_exec_opt",
                "optimize control flow transition between native and non-native modules",
                STATIC, OP_PCACHE_GLOBAL)
 
+#ifdef WINDOWS
+OPTION_DEFAULT(bool, skip_terminating_threads, false,
+               "do not takeover threads that are terminating")
+#endif
+
+OPTION_DEFAULT(bool, sleep_between_takeovers, false,
+               "sleep between takeover attempts to allow threads to exit syscalls")
+
+OPTION_DEFAULT(uint, takeover_attempts, 8, "number of takeover attempts")
+
 /* vestiges from our previous life as a dynamic optimizer */
 OPTION_DEFAULT_INTERNAL(bool, inline_calls, true, "inline calls in traces")
 

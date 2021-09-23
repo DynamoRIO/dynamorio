@@ -102,6 +102,24 @@ DR_EXPORT
 int
 dr_inject_process_create(const char *app_name, const char **app_cmdline, void **data);
 
+#ifdef WINDOWS
+DR_EXPORT
+/**
+ * Attach to an existing process.
+ *
+ * \param[in]   pid            PID for process to attach.
+ *
+ * \param[out]  data           An opaque pointer that should be passed to
+ *                             subsequent dr_inject_* routines to refer to
+ *                             this process.
+ * \param[out]  app_name       Pointer to the name of the target process.
+ *                             Only valid until dr_inject_process_exit.
+ * \return  Returns 0 on success.  On failure, returns a system error code.`
+ */
+int
+dr_inject_process_attach(process_id_t pid, void **data, char **app_name);
+#endif
+
 #ifdef UNIX
 
 DR_EXPORT

@@ -214,6 +214,12 @@ bbsize sample client using the following configure-and-run command:
 bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 \endcode
 
+Alternatively, you can first run \c notepad.exe, and then use \c drrun
+to attach to it:
+\code
+bin32/drrun.exe -attach <notepad_pid> -c samples/bin32/bbsize.dll
+\endcode
+
 To use system-wide injection, allowing for an application to be run
 under DynamoRIO regardless of how it is invoked, configure the application
 first (-syswide_on requires administrative privileges):
@@ -307,6 +313,13 @@ under DynamoRIO with the bbsize sample client:
 \code
 % bin32/drrun -c samples/bin32/libbbsize.so -- ls
 \endcode
+
+Alternatively, you can first run the target, and then use \c drrun
+to attach to it:
+\code
+% bin32/drrun -attach <target_pid> -c samples/bin32/libbbsize.so
+\endcode
+
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across
 child execve calls, use the \ref op_children "-no_follow_children" runtime

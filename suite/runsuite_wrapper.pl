@@ -220,6 +220,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
                 'code_api|win32.hookerfirst' => 1, # i#4870
+                'code_api|client.attach_test' => 1, # i#725
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972
@@ -254,6 +255,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.histogram.offline' => 1, # i#4621
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
                 'code_api|tool.drcacheoff.burst_replace' => 1, # i#4486
+                'code_api|client.attach_test' => 1, # i#725
                 # i#4617: These need build-and-test to build
                 # the 32-bit test app in our separate 64-bit job.
                 'code_api|win32.mixedmode_late' => 1, # i#4617
