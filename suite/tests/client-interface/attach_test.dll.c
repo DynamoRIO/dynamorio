@@ -56,16 +56,18 @@ dr_thread_init(void *drcontext)
 dr_exception_event(void *drcontext, dr_exception_t *excpt)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
-    dr_fprintf(STDERR, "exception in thread %p\ninjection thread %p\n", tid, injection_tid);
+    dr_fprintf(STDERR, "exception in thread %p\ninjection thread %p\n", tid,
+               injection_tid);
 
     dr_fprintf(STDERR, "ExceptionCode=%08x\n", excpt->record->ExceptionCode);
     dr_fprintf(STDERR, "ExceptionFlags=%08x\n", excpt->record->ExceptionFlags);
     dr_fprintf(STDERR, "ExceptionAddress=%p\n", excpt->record->ExceptionAddress);
     dr_fprintf(STDERR, "parameters:\n");
     for (DWORD i = 0; i < excpt->record->NumberParameters; i++) {
-        dr_fprintf(STDERR, "parameters[%ld]:%p\n", i, excpt->record->ExceptionInformation[i]);
+        dr_fprintf(STDERR, "parameters[%ld]:%p\n", i,
+                   excpt->record->ExceptionInformation[i]);
     }
-    
+
     return true;
 }
 
