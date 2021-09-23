@@ -35,8 +35,10 @@
 
 
 import sys
+import subprocess
 import os
 import re
+import difflib
 
 
 def filter_lines(path, regex, ignore_until=''):
@@ -96,6 +98,16 @@ def main():
     print('Checking if operand order in codec.txt matches codec.c')
     check(op_names_txt, op_names_c)
     print('  OK!')
+
+    print("Checking if instructions are in the correct order and format in codec.txt")
+    reordered_codec = subprocess.check_output(os.path.join(src_dir, "codecsort.py"))
+    with open(os.path.join(src_dir, 'codec.txt')) as f:
+
+        if f.read().strip() != reordered_codec.decode().strip():
+            print("codec.txt instructions are out of order, run {} --rewrite".format(
+                os.path.join(src_dir, "codecsort.py")))
+            sys.exit(1)
+        print(" OK!")
 
 
 if __name__ == '__main__':

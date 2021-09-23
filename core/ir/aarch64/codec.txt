@@ -247,1471 +247,1213 @@ x----------xxxxx----------------  wx16       # W/X register (or WZR/XZR)
 #    Note that currently explicit/direct reads and writes to instr_t.eflags are
 #    handled in codec.c's decode_common() function.
 
-# Data Processing - Immediate
-
-## PC-relative addressing
-
-0xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n  adr    adr
-1xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n  adrp   adr
-
-## Add/subtract (immediate)
-
-x00100010xxxxxxxxxxxxxxxxxxxxxxx  n  add    wx0sp : wx5sp imm12 lsl imm12sh
-x01100010xxxxxxxxxxxxxxxxxxxxxxx  w  adds   wx0   : wx5sp imm12 lsl imm12sh
-x10100010xxxxxxxxxxxxxxxxxxxxxxx  n  sub    wx0sp : wx5sp imm12 lsl imm12sh
-x11100010xxxxxxxxxxxxxxxxxxxxxxx  w  subs   wx0   : wx5sp imm12 lsl imm12sh
-
-## Logical (immediate)
-
-x00100100xxxxxxxxxxxxxxxxxxxxxxx  n  and    logic_imm
-x01100100xxxxxxxxxxxxxxxxxxxxxxx  n  orr    logic_imm
-x10100100xxxxxxxxxxxxxxxxxxxxxxx  n  eor    logic_imm
-x11100100xxxxxxxxxxxxxxxxxxxxxxx  w  ands   logic_imm
-
-## Move wide (immediate)
-
-000100101xxxxxxxxxxxxxxxxxxxxxxx  n  movn   w0 : imm16 lsl imm16sh
-010100101xxxxxxxxxxxxxxxxxxxxxxx  n  movz   w0 : imm16 lsl imm16sh
-011100101xxxxxxxxxxxxxxxxxxxxxxx  n  movk   w0 : w0 imm16 lsl imm16sh
-100100101xxxxxxxxxxxxxxxxxxxxxxx  n  movn   x0 : imm16 lsl imm16sh
-110100101xxxxxxxxxxxxxxxxxxxxxxx  n  movz   x0 : imm16 lsl imm16sh
-111100101xxxxxxxxxxxxxxxxxxxxxxx  n  movk   x0 : x0 imm16 lsl imm16sh
-
-## Bitfield
-
-0001001100xxxxxxxxxxxxxxxxxxxxxx  n  sbfm   w0 : w5 immr imms
-0011001100xxxxxxxxxxxxxxxxxxxxxx  n  bfm    w0 : w0 w5 immr imms
-0101001100xxxxxxxxxxxxxxxxxxxxxx  n  ubfm   w0 : w5 immr imms
-1001001101xxxxxxxxxxxxxxxxxxxxxx  n  sbfm   x0 : x5 immr imms
-1011001101xxxxxxxxxxxxxxxxxxxxxx  n  bfm    x0 : x0 x5 immr imms
-1101001101xxxxxxxxxxxxxxxxxxxxxx  n  ubfm   x0 : x5 immr imms
-
-## Extract
-
-00010011100xxxxxxxxxxxxxxxxxxxxx  n  extr   w0 : w5 w16 imms
-10010011110xxxxxxxxxxxxxxxxxxxxx  n  extr   x0 : x5 x16 imms
-
-# Branches, Exception Generating and System instructions
-
-## Unconditional branch (immediate)
-
-000101xxxxxxxxxxxxxxxxxxxxxxxxxx  n  b      b
-100101xxxxxxxxxxxxxxxxxxxxxxxxxx  n  bl     b
-
-## Compare and branch (immediate)
-
-x0110100xxxxxxxxxxxxxxxxxxxxxxxx  n  cbz    cbz
-x0110101xxxxxxxxxxxxxxxxxxxxxxxx  n  cbnz   cbz
-
-## Test and branch (immediate)
-
-x0110110xxxxxxxxxxxxxxxxxxxxxxxx  n  tbz    tbz
-x0110111xxxxxxxxxxxxxxxxxxxxxxxx  n  tbnz   tbz
-
-## Conditional branch (immediate)
-
-01010100xxxxxxxxxxxxxxxxxxx0xxxx  r  bcond  bcond
-
-## Exception generation
-
-11010100000xxxxxxxxxxxxxxxx00001  n  svc    : imm16
-11010100000xxxxxxxxxxxxxxxx00010  n  hvc    : imm16
-11010100000xxxxxxxxxxxxxxxx00011  n  smc    : imm16
-11010100001xxxxxxxxxxxxxxxx00000  n  brk    : imm16
-11010100010xxxxxxxxxxxxxxxx00000  n  hlt    : imm16
-
-## System
-
-# FIXME i#1569: Add: MSR (immediate), HINT
-11010101000000110010000000011111  n  nop    :
-11010101000000110010000000111111  n  yield  :
-11010101000000110010000001011111  n  wfe    :
-11010101000000110010000001111111  n  wfi    :
-11010101000000110010000010011111  n  sev    :
-11010101000000110010000010111111  n  sevl   :
-11010101000000110011xxxx01011111  n  clrex  : imm4
-11010101000000110011xxxx10011111  n  dsb    : imm4
-11010101000000110011xxxx10111111  n  dmb    : imm4
-11010101000000110011xxxx11011111  n  isb    : imm4
-1101010100001xxxxxxxxxxxxxxxxxxx  n  sys    : sysops memx0
-110101010001xxxxxxxxxxxxxxxxxxxx  ew msr    msr
-# FIXME i#1569: Add: SYSL
-110101010011xxxxxxxxxxxxxxxxxxxx  er mrs    x0 : sysreg
-
-## Unconditional branch (register)
-
-1101011000011111000000xxxxx00000  n  br     : x5
-1101011000111111000000xxxxx00000  n  blr    impx30 : x5
-1101011001011111000000xxxxx00000  n  ret    : x5
-
-# Loads and Stores
-
-## Load/store exclusive
-
-00001000000xxxxx0xxxxxxxxxxxxxxx  n  stxrb  mem0 w16 : w0 ign10
-00001000000xxxxx1xxxxxxxxxxxxxxx  n  stlxrb mem0 w16 : w0 ign10
-00001000010xxxxx0xxxxxxxxxxxxxxx  n  ldxrb  w0 : mem0 ign10 ign16
-00001000010xxxxx1xxxxxxxxxxxxxxx  n  ldaxrb w0 : mem0 ign10 ign16
-00001000100xxxxx1xxxxxxxxxxxxxxx  n  stlrb  mem0 : w0 ign10 ign16
-0000100011011111111111xxxxxxxxxx  n  ldarb  w0 : mem0
-
-01001000000xxxxx0xxxxxxxxxxxxxxx  n  stxrh  mem0 w16 : w0 ign10
-01001000000xxxxx1xxxxxxxxxxxxxxx  n  stlxrh mem0 w16 : w0 ign10
-01001000010xxxxx0xxxxxxxxxxxxxxx  n  ldxrh  w0 : mem0 ign10 ign16
-01001000010xxxxx1xxxxxxxxxxxxxxx  n  ldaxrh w0 : mem0 ign10 ign16
-01001000100xxxxx1xxxxxxxxxxxxxxx  n  stlrh  mem0 : w0 ign10 ign16
-0100100011011111111111xxxxxxxxxx  n  ldarh  w0 : mem0
-
-10001000000xxxxx0xxxxxxxxxxxxxxx  n  stxr   mem0 w16 : w0 ign10
-10001000000xxxxx1xxxxxxxxxxxxxxx  n  stlxr  mem0 w16 : w0 ign10
-10001000001xxxxx0xxxxxxxxxxxxxxx  n  stxp   mem0p w16 : w0 w10
-10001000001xxxxx1xxxxxxxxxxxxxxx  n  stlxp  mem0p w16 : w0 w10
-10001000010xxxxx0xxxxxxxxxxxxxxx  n  ldxr   w0 : mem0 ign10 ign16
-10001000010xxxxx1xxxxxxxxxxxxxxx  n  ldaxr  w0 : mem0 ign10 ign16
-10001000011xxxxx0xxxxxxxxxxxxxxx  n  ldxp   w0 w10 : mem0p ign16
-10001000011xxxxx1xxxxxxxxxxxxxxx  n  ldaxp  w0 w10 : mem0p ign16
-10001000100xxxxx1xxxxxxxxxxxxxxx  n  stlr   mem0 : w0 ign10 ign16
-1000100011011111111111xxxxxxxxxx  n  ldar   w0 : mem0
-
-11001000000xxxxx0xxxxxxxxxxxxxxx  n  stxr   mem0 w16 : x0 ign10
-11001000000xxxxx1xxxxxxxxxxxxxxx  n  stlxr  mem0 w16 : x0 ign10
-11001000001xxxxx0xxxxxxxxxxxxxxx  n  stxp   mem0p w16 : x0 x10
-11001000001xxxxx1xxxxxxxxxxxxxxx  n  stlxp  mem0p w16 : x0 x10
-11001000010xxxxx0xxxxxxxxxxxxxxx  n  ldxr   x0 : mem0 ign10 ign16
-11001000010xxxxx1xxxxxxxxxxxxxxx  n  ldaxr  x0 : mem0 ign10 ign16
-11001000011xxxxx0xxxxxxxxxxxxxxx  n  ldxp   x0 x10 : mem0p ign16
-11001000011xxxxx1xxxxxxxxxxxxxxx  n  ldaxp  x0 x10 : mem0p ign16
-11001000100xxxxx1xxxxxxxxxxxxxxx  n  stlr   mem0 : x0 ign10 ign16
-1100100011011111111111xxxxxxxxxx  n  ldar   x0 : mem0
-
-### ARMv8.1 atomic instructions
-
-00001000101xxxxx011111xxxxxxxxxx  n  casb    w16 mem0 : w16 w0 mem0
-00001000101xxxxx111111xxxxxxxxxx  n  caslb   w16 mem0 : w16 w0 mem0
-00001000111xxxxx011111xxxxxxxxxx  n  casab   w16 mem0 : w16 w0 mem0
-00001000111xxxxx111111xxxxxxxxxx  n  casalb  w16 mem0 : w16 w0 mem0
-01001000101xxxxx011111xxxxxxxxxx  n  cash    w16 mem0 : w16 w0 mem0
-01001000101xxxxx111111xxxxxxxxxx  n  caslh   w16 mem0 : w16 w0 mem0
-01001000111xxxxx011111xxxxxxxxxx  n  casah   w16 mem0 : w16 w0 mem0
-01001000111xxxxx111111xxxxxxxxxx  n  casalh  w16 mem0 : w16 w0 mem0
-10001000101xxxxx011111xxxxxxxxxx  n  cas     w16 mem0 : w16 w0 mem0
-10001000101xxxxx111111xxxxxxxxxx  n  casl    w16 mem0 : w16 w0 mem0
-10001000111xxxxx011111xxxxxxxxxx  n  casa    w16 mem0 : w16 w0 mem0
-10001000111xxxxx111111xxxxxxxxxx  n  casal   w16 mem0 : w16 w0 mem0
-11001000101xxxxx011111xxxxxxxxxx  n  cas     x16 mem0 : x16 x0 mem0
-11001000101xxxxx111111xxxxxxxxxx  n  casl    x16 mem0 : x16 x0 mem0
-11001000111xxxxx011111xxxxxxxxxx  n  casa    x16 mem0 : x16 x0 mem0
-11001000111xxxxx111111xxxxxxxxxx  n  casal   x16 mem0 : x16 x0 mem0
-
-00001000001xxxxx011111xxxxxxxxxx  n  casp    w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
-00001000001xxxxx111111xxxxxxxxxx  n  caspl   w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
-00001000011xxxxx011111xxxxxxxxxx  n  caspa   w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
-00001000011xxxxx111111xxxxxxxxxx  n  caspal  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
-01001000001xxxxx011111xxxxxxxxxx  n  casp    x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
-01001000001xxxxx111111xxxxxxxxxx  n  caspl   x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
-01001000011xxxxx011111xxxxxxxxxx  n  caspa   x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
-01001000011xxxxx111111xxxxxxxxxx  n  caspal  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
-
-## Load register (literal)
-
-00011000xxxxxxxxxxxxxxxxxxxxxxxx  n  ldr    w0 : memlit
-00011100xxxxxxxxxxxxxxxxxxxxxxxx  n  ldr    s0 : memlit
-01011000xxxxxxxxxxxxxxxxxxxxxxxx  n  ldr    x0 : memlit
-01011100xxxxxxxxxxxxxxxxxxxxxxxx  n  ldr    d0 : memlit
-10011000xxxxxxxxxxxxxxxxxxxxxxxx  n  ldrsw  x0 : memlit
-10011100xxxxxxxxxxxxxxxxxxxxxxxx  n  ldr    q0 : memlit
-11011000xxxxxxxxxxxxxxxxxxxxxxxx  n  prfm   : prfop memlit
-
-## Load/store no-allocate pair (offset)
-
-0010100000xxxxxxxxxxxxxxxxxxxxxx  n  stnp   mem7 : w0 w10
-0010100001xxxxxxxxxxxxxxxxxxxxxx  n  ldnp   w0 w10 : mem7
-0010110000xxxxxxxxxxxxxxxxxxxxxx  n  stnp   mem7 : s0 s10
-0010110001xxxxxxxxxxxxxxxxxxxxxx  n  ldnp   s0 s10 : mem7
-0110110000xxxxxxxxxxxxxxxxxxxxxx  n  stnp   mem7 : d0 d10
-0110110001xxxxxxxxxxxxxxxxxxxxxx  n  ldnp   d0 d10 : mem7
-1010100000xxxxxxxxxxxxxxxxxxxxxx  n  stnp   mem7 : x0 x10
-1010100001xxxxxxxxxxxxxxxxxxxxxx  n  ldnp   x0 x10 : mem7
-1010110000xxxxxxxxxxxxxxxxxxxxxx  n  stnp   mem7 : q0 q10
-1010110001xxxxxxxxxxxxxxxxxxxxxx  n  ldnp   q0 q10 : mem7
-
-## Load/store register pair (post-indexed)
-
-0010100010xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7post x5sp : w0 w10 x5sp mem7off
-0010100011xxxxxxxxxxxxxxxxxxxxxx  n  ldp    w0 w10 x5sp : mem7post x5sp mem7off
-0010110010xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7post x5sp : s0 s10 x5sp mem7off
-0010110011xxxxxxxxxxxxxxxxxxxxxx  n  ldp    s0 s10 x5sp : mem7post x5sp mem7off
-0110100011xxxxxxxxxxxxxxxxxxxxxx  n  ldpsw  x0 x10 x5sp : mem7post x5sp mem7off
-0110110010xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7post x5sp : d0 d10 x5sp mem7off
-0110110011xxxxxxxxxxxxxxxxxxxxxx  n  ldp    d0 d10 x5sp : mem7post x5sp mem7off
-1010100010xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7post x5sp : x0 x10 x5sp mem7off
-1010100011xxxxxxxxxxxxxxxxxxxxxx  n  ldp    x0 x10 x5sp : mem7post x5sp mem7off
-1010110010xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7post x5sp : q0 q10 x5sp mem7off
-1010110011xxxxxxxxxxxxxxxxxxxxxx  n  ldp    q0 q10 x5sp : mem7post x5sp mem7off
-
-## Load/store register pair (offset)
-
-0010100100xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 : w0 w10
-0010100101xxxxxxxxxxxxxxxxxxxxxx  n  ldp    w0 w10 : mem7
-0010110100xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 : s0 s10
-0010110101xxxxxxxxxxxxxxxxxxxxxx  n  ldp    s0 s10 : mem7
-0110100101xxxxxxxxxxxxxxxxxxxxxx  n  ldpsw  x0 x10 : mem7
-0110110100xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 : d0 d10
-0110110101xxxxxxxxxxxxxxxxxxxxxx  n  ldp    d0 d10 : mem7
-1010100100xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 : x0 x10
-1010100101xxxxxxxxxxxxxxxxxxxxxx  n  ldp    x0 x10 : mem7
-1010110100xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 : q0 q10
-1010110101xxxxxxxxxxxxxxxxxxxxxx  n  ldp    q0 q10 : mem7
-
-## Load/store register pair (pre-indexed)
-
-0010100110xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 x5sp : w0 w10 x5sp mem7off
-0010100111xxxxxxxxxxxxxxxxxxxxxx  n  ldp    w0 w10 x5sp : mem7 x5sp mem7off
-0010110110xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 x5sp : s0 s10 x5sp mem7off
-0010110111xxxxxxxxxxxxxxxxxxxxxx  n  ldp    s0 s10 x5sp : mem7 x5sp mem7off
-0110100111xxxxxxxxxxxxxxxxxxxxxx  n  ldpsw  x0 x10 x5sp : mem7 x5sp mem7off
-0110110110xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 x5sp : d0 d10 x5sp mem7off
-0110110111xxxxxxxxxxxxxxxxxxxxxx  n  ldp    d0 d10 x5sp : mem7 x5sp mem7off
-1010100110xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 x5sp : x0 x10 x5sp mem7off
-1010100111xxxxxxxxxxxxxxxxxxxxxx  n  ldp    x0 x10 x5sp : mem7 x5sp mem7off
-1010110110xxxxxxxxxxxxxxxxxxxxxx  n  stp    mem7 x5sp : q0 q10 x5sp mem7off
-1010110111xxxxxxxxxxxxxxxxxxxxxx  n  ldp    q0 q10 x5sp : mem7 x5sp mem7off
-
-## Load/store register (unscaled immediate)
-
-# Base
-10111000000xxxxxxxxx00xxxxxxxxxx  n  stur   mem9 : w0
-11111000000xxxxxxxxx00xxxxxxxxxx  n  stur   mem9 : x0
-00111000000xxxxxxxxx00xxxxxxxxxx  n  sturb  mem9 : w0
-01111000000xxxxxxxxx00xxxxxxxxxx  n  sturh  mem9 : w0
-
-# SIMD
-00111100000xxxxxxxxx00xxxxxxxxxx  n  stur   mem9 : b0
-01111100000xxxxxxxxx00xxxxxxxxxx  n  stur   mem9 : h0
-10111100000xxxxxxxxx00xxxxxxxxxx  n  stur   mem9 : s0
-11111100000xxxxxxxxx00xxxxxxxxxx  n  stur   mem9 : d0
-00111100100xxxxxxxxx00xxxxxxxxxx  n  stur   mem9q : q0
-
-# Base
-10111000010xxxxxxxxx00xxxxxxxxxx  n  ldur   w0 : mem9
-11111000010xxxxxxxxx00xxxxxxxxxx  n  ldur   x0 : mem9
-00111000010xxxxxxxxx00xxxxxxxxxx  n  ldurb  w0 : mem9
-01111000010xxxxxxxxx00xxxxxxxxxx  n  ldurh  w0 : mem9
-00111000100xxxxxxxxx00xxxxxxxxxx  n  ldursb x0 : mem9
-00111000110xxxxxxxxx00xxxxxxxxxx  n  ldursb w0 : mem9
-01111000100xxxxxxxxx00xxxxxxxxxx  n  ldursh x0 : mem9
-01111000110xxxxxxxxx00xxxxxxxxxx  n  ldursh w0 : mem9
-10111000100xxxxxxxxx00xxxxxxxxxx  n  ldursw x0 : mem9
-
-# SIMD
-00111100010xxxxxxxxx00xxxxxxxxxx  n  ldur   b0 : mem9
-01111100010xxxxxxxxx00xxxxxxxxxx  n  ldur   h0 : mem9
-10111100010xxxxxxxxx00xxxxxxxxxx  n  ldur   s0 : mem9
-11111100010xxxxxxxxx00xxxxxxxxxx  n  ldur   d0 : mem9
-00111100110xxxxxxxxx00xxxxxxxxxx  n  ldur   q0 : mem9q
-
-11111000100xxxxxxxxx00xxxxxxxxxx  n  prfum  : prfop prf9  # PRFUM #imm5,[Xn,#simm]
-
-## Load/store register (immediate post-indexed)
-
-00111000000xxxxxxxxx01xxxxxxxxxx  n  strb  mem9post x5sp : w0 x5sp mem9off  # STRB Wt,[Xn],#simm
-00111000010xxxxxxxxx01xxxxxxxxxx  n  ldrb  w0 x5sp : mem9post x5sp mem9off
-00111000100xxxxxxxxx01xxxxxxxxxx  n  ldrsb x0 x5sp : mem9post x5sp mem9off
-00111000110xxxxxxxxx01xxxxxxxxxx  n  ldrsb w0 x5sp : mem9post x5sp mem9off
-00111100000xxxxxxxxx01xxxxxxxxxx  n  str   mem9post x5sp : b0 x5sp mem9off
-00111100010xxxxxxxxx01xxxxxxxxxx  n  ldr   b0 x5sp : mem9post x5sp mem9off
-00111100100xxxxxxxxx01xxxxxxxxxx  n  str   mem9qpost x5sp : q0 x5sp mem9off
-00111100110xxxxxxxxx01xxxxxxxxxx  n  ldr   q0 x5sp : mem9qpost x5sp mem9off
-
-01111000000xxxxxxxxx01xxxxxxxxxx  n  strh  mem9post x5sp : w0 x5sp mem9off
-01111000010xxxxxxxxx01xxxxxxxxxx  n  ldrh  w0 x5sp : mem9post x5sp mem9off
-01111000100xxxxxxxxx01xxxxxxxxxx  n  ldrsh x0 x5sp : mem9post x5sp mem9off
-01111000110xxxxxxxxx01xxxxxxxxxx  n  ldrsh w0 x5sp : mem9post x5sp mem9off
-01111100000xxxxxxxxx01xxxxxxxxxx  n  str   mem9post x5sp : h0 x5sp mem9off
-01111100010xxxxxxxxx01xxxxxxxxxx  n  ldr   h0 x5sp : mem9post x5sp mem9off
-
-10111000000xxxxxxxxx01xxxxxxxxxx  n  str   mem9post x5sp : w0 x5sp mem9off
-10111000010xxxxxxxxx01xxxxxxxxxx  n  ldr   w0 x5sp : mem9post x5sp mem9off
-10111000100xxxxxxxxx01xxxxxxxxxx  n  ldrsw x0 x5sp : mem9post x5sp mem9off
-10111100000xxxxxxxxx01xxxxxxxxxx  n  str   mem9post x5sp : s0 x5sp mem9off
-10111100010xxxxxxxxx01xxxxxxxxxx  n  ldr   s0 x5sp : mem9post x5sp mem9off
-
-11111000000xxxxxxxxx01xxxxxxxxxx  n  str   mem9post x5sp : x0 x5sp mem9off
-11111000010xxxxxxxxx01xxxxxxxxxx  n  ldr   x0 x5sp : mem9post x5sp mem9off
-11111100000xxxxxxxxx01xxxxxxxxxx  n  str   mem9post x5sp : d0 x5sp mem9off
-11111100010xxxxxxxxx01xxxxxxxxxx  n  ldr   d0 x5sp : mem9post x5sp mem9off
-
-## Load/store register (unprivileged)
-
-00111000000xxxxxxxxx10xxxxxxxxxx  n  sttrb  mem9 : w0
-00111000010xxxxxxxxx10xxxxxxxxxx  n  ldtrb  w0 : mem9
-00111000100xxxxxxxxx10xxxxxxxxxx  n  ldtrsb x0 : mem9
-00111000110xxxxxxxxx10xxxxxxxxxx  n  ldtrsb w0 : mem9
-01111000000xxxxxxxxx10xxxxxxxxxx  n  sttrh  mem9 : w0
-01111000010xxxxxxxxx10xxxxxxxxxx  n  ldtrh  w0 : mem9
-01111000100xxxxxxxxx10xxxxxxxxxx  n  ldtrsh x0 : mem9
-01111000110xxxxxxxxx10xxxxxxxxxx  n  ldtrsh w0 : mem9
-10111000000xxxxxxxxx10xxxxxxxxxx  n  sttr   mem9 : w0
-10111000010xxxxxxxxx10xxxxxxxxxx  n  ldtr   w0 : mem9
-10111000100xxxxxxxxx10xxxxxxxxxx  n  ldtrsw x0 : mem9
-11111000000xxxxxxxxx10xxxxxxxxxx  n  sttr   mem9 : x0
-11111000010xxxxxxxxx10xxxxxxxxxx  n  ldtr   x0 : mem9
-
-## Load/store register (immediate pre-indexed)
-
-00111000000xxxxxxxxx11xxxxxxxxxx  n  strb   mem9 x5sp : w0 x5sp mem9off  # STRB Wt,[Xn,#simm]!
-00111000010xxxxxxxxx11xxxxxxxxxx  n  ldrb   w0 x5sp : mem9 x5sp mem9off
-00111000100xxxxxxxxx11xxxxxxxxxx  n  ldrsb  x0 x5sp : mem9 x5sp mem9off
-00111000110xxxxxxxxx11xxxxxxxxxx  n  ldrsb  w0 x5sp : mem9 x5sp mem9off
-00111100000xxxxxxxxx11xxxxxxxxxx  n  str    mem9 x5sp : b0 x5sp mem9off
-00111100010xxxxxxxxx11xxxxxxxxxx  n  ldr    b0 x5sp : mem9 x5sp mem9off
-00111100100xxxxxxxxx11xxxxxxxxxx  n  str    mem9q x5sp : q0 x5sp mem9off
-00111100110xxxxxxxxx11xxxxxxxxxx  n  ldr    q0 x5sp : mem9q x5sp mem9off
-
-01111000000xxxxxxxxx11xxxxxxxxxx  n  strh   mem9 x5sp : w0 x5sp mem9off
-01111000010xxxxxxxxx11xxxxxxxxxx  n  ldrh   w0 x5sp : mem9 x5sp mem9off
-01111000100xxxxxxxxx11xxxxxxxxxx  n  ldrsh  x0 x5sp : mem9 x5sp mem9off
-01111000110xxxxxxxxx11xxxxxxxxxx  n  ldrsh  w0 x5sp : mem9 x5sp mem9off
-01111100000xxxxxxxxx11xxxxxxxxxx  n  str    mem9 x5sp : h0 x5sp mem9off
-01111100010xxxxxxxxx11xxxxxxxxxx  n  ldr    h0 x5sp : mem9 x5sp mem9off
-
-10111000000xxxxxxxxx11xxxxxxxxxx  n  str    mem9 x5sp : w0 x5sp mem9off
-10111000010xxxxxxxxx11xxxxxxxxxx  n  ldr    w0 x5sp : mem9 x5sp mem9off
-10111000100xxxxxxxxx11xxxxxxxxxx  n  ldrsw  x0 x5sp : mem9 x5sp mem9off
-10111100000xxxxxxxxx11xxxxxxxxxx  n  str    mem9 x5sp : s0 x5sp mem9off
-10111100010xxxxxxxxx11xxxxxxxxxx  n  ldr    s0 x5sp : mem9 x5sp mem9off
-
-11111000000xxxxxxxxx11xxxxxxxxxx  n  str    mem9 x5sp : x0 x5sp mem9off
-11111000010xxxxxxxxx11xxxxxxxxxx  n  ldr    x0 x5sp : mem9 x5sp mem9off
-11111100000xxxxxxxxx11xxxxxxxxxx  n  str    mem9 x5sp : d0 x5sp mem9off
-11111100010xxxxxxxxx11xxxxxxxxxx  n  ldr    d0 x5sp : mem9 x5sp mem9off
-
-## Atomic memory operations (ARMv8.1)
-
-00111000001xxxxx000000xxxxxxxxxx  n  ldaddb    w0 mem0 : w16 mem0
-00111000001xxxxx000100xxxxxxxxxx  n  ldclrb    w0 mem0 : w16 mem0
-00111000001xxxxx001000xxxxxxxxxx  n  ldeorb    w0 mem0 : w16 mem0
-00111000001xxxxx001100xxxxxxxxxx  n  ldsetb    w0 mem0 : w16 mem0
-00111000001xxxxx010000xxxxxxxxxx  n  ldsmaxb   w0 mem0 : w16 mem0
-00111000001xxxxx010100xxxxxxxxxx  n  ldsminb   w0 mem0 : w16 mem0
-00111000001xxxxx011000xxxxxxxxxx  n  ldumaxb   w0 mem0 : w16 mem0
-00111000001xxxxx011100xxxxxxxxxx  n  lduminb   w0 mem0 : w16 mem0
-
-00111000011xxxxx000000xxxxxxxxxx  n  ldaddlb   w0 mem0 : w16 mem0
-00111000011xxxxx000100xxxxxxxxxx  n  ldclrlb   w0 mem0 : w16 mem0
-00111000011xxxxx001000xxxxxxxxxx  n  ldeorlb   w0 mem0 : w16 mem0
-00111000011xxxxx001100xxxxxxxxxx  n  ldsetlb   w0 mem0 : w16 mem0
-00111000011xxxxx010000xxxxxxxxxx  n  ldsmaxlb  w0 mem0 : w16 mem0
-00111000011xxxxx010100xxxxxxxxxx  n  ldsminlb  w0 mem0 : w16 mem0
-00111000011xxxxx011000xxxxxxxxxx  n  ldumaxlb  w0 mem0 : w16 mem0
-00111000011xxxxx011100xxxxxxxxxx  n  lduminlb  w0 mem0 : w16 mem0
-
-00111000101xxxxx000000xxxxxxxxxx  n  ldaddab   w0 mem0 : w16 mem0
-00111000101xxxxx000100xxxxxxxxxx  n  ldclrab   w0 mem0 : w16 mem0
-00111000101xxxxx001000xxxxxxxxxx  n  ldeorab   w0 mem0 : w16 mem0
-00111000101xxxxx001100xxxxxxxxxx  n  ldsetab   w0 mem0 : w16 mem0
-00111000101xxxxx010000xxxxxxxxxx  n  ldsmaxab  w0 mem0 : w16 mem0
-00111000101xxxxx010100xxxxxxxxxx  n  ldsminab  w0 mem0 : w16 mem0
-00111000101xxxxx011000xxxxxxxxxx  n  ldumaxab  w0 mem0 : w16 mem0
-00111000101xxxxx011100xxxxxxxxxx  n  lduminab  w0 mem0 : w16 mem0
-
-00111000111xxxxx000000xxxxxxxxxx  n  ldaddalb  w0 mem0 : w16 mem0
-00111000111xxxxx000100xxxxxxxxxx  n  ldclralb  w0 mem0 : w16 mem0
-00111000111xxxxx001000xxxxxxxxxx  n  ldeoralb  w0 mem0 : w16 mem0
-00111000111xxxxx001100xxxxxxxxxx  n  ldsetalb  w0 mem0 : w16 mem0
-00111000111xxxxx010000xxxxxxxxxx  n  ldsmaxalb w0 mem0 : w16 mem0
-00111000111xxxxx010100xxxxxxxxxx  n  ldsminalb w0 mem0 : w16 mem0
-00111000111xxxxx011000xxxxxxxxxx  n  ldumaxalb w0 mem0 : w16 mem0
-00111000111xxxxx011100xxxxxxxxxx  n  lduminalb w0 mem0 : w16 mem0
-
-01111000001xxxxx000000xxxxxxxxxx  n  ldaddh    w0 mem0 : w16 mem0
-01111000001xxxxx000100xxxxxxxxxx  n  ldclrh    w0 mem0 : w16 mem0
-01111000001xxxxx001000xxxxxxxxxx  n  ldeorh    w0 mem0 : w16 mem0
-01111000001xxxxx001100xxxxxxxxxx  n  ldseth    w0 mem0 : w16 mem0
-01111000001xxxxx010000xxxxxxxxxx  n  ldsmaxh   w0 mem0 : w16 mem0
-01111000001xxxxx010100xxxxxxxxxx  n  ldsminh   w0 mem0 : w16 mem0
-01111000001xxxxx011000xxxxxxxxxx  n  ldumaxh   w0 mem0 : w16 mem0
-01111000001xxxxx011100xxxxxxxxxx  n  lduminh   w0 mem0 : w16 mem0
-
-01111000011xxxxx000000xxxxxxxxxx  n  ldaddlh   w0 mem0 : w16 mem0
-01111000011xxxxx000100xxxxxxxxxx  n  ldclrlh   w0 mem0 : w16 mem0
-01111000011xxxxx001000xxxxxxxxxx  n  ldeorlh   w0 mem0 : w16 mem0
-01111000011xxxxx001100xxxxxxxxxx  n  ldsetlh   w0 mem0 : w16 mem0
-01111000011xxxxx010000xxxxxxxxxx  n  ldsmaxlh  w0 mem0 : w16 mem0
-01111000011xxxxx010100xxxxxxxxxx  n  ldsminlh  w0 mem0 : w16 mem0
-01111000011xxxxx011000xxxxxxxxxx  n  ldumaxlh  w0 mem0 : w16 mem0
-01111000011xxxxx011100xxxxxxxxxx  n  lduminlh  w0 mem0 : w16 mem0
-
-01111000101xxxxx000000xxxxxxxxxx  n  ldaddah   w0 mem0 : w16 mem0
-01111000101xxxxx000100xxxxxxxxxx  n  ldclrah   w0 mem0 : w16 mem0
-01111000101xxxxx001000xxxxxxxxxx  n  ldeorah   w0 mem0 : w16 mem0
-01111000101xxxxx001100xxxxxxxxxx  n  ldsetah   w0 mem0 : w16 mem0
-01111000101xxxxx010000xxxxxxxxxx  n  ldsmaxah  w0 mem0 : w16 mem0
-01111000101xxxxx010100xxxxxxxxxx  n  ldsminah  w0 mem0 : w16 mem0
-01111000101xxxxx011000xxxxxxxxxx  n  ldumaxah  w0 mem0 : w16 mem0
-01111000101xxxxx011100xxxxxxxxxx  n  lduminah  w0 mem0 : w16 mem0
-
-01111000111xxxxx000000xxxxxxxxxx  n  ldaddalh  w0 mem0 : w16 mem0
-01111000111xxxxx000100xxxxxxxxxx  n  ldclralh  w0 mem0 : w16 mem0
-01111000111xxxxx001000xxxxxxxxxx  n  ldeoralh  w0 mem0 : w16 mem0
-01111000111xxxxx001100xxxxxxxxxx  n  ldsetalh  w0 mem0 : w16 mem0
-01111000111xxxxx010000xxxxxxxxxx  n  ldsmaxalh w0 mem0 : w16 mem0
-01111000111xxxxx010100xxxxxxxxxx  n  ldsminalh w0 mem0 : w16 mem0
-01111000111xxxxx011000xxxxxxxxxx  n  ldumaxalh w0 mem0 : w16 mem0
-01111000111xxxxx011100xxxxxxxxxx  n  lduminalh w0 mem0 : w16 mem0
-
-10111000001xxxxx000000xxxxxxxxxx  n  ldadd     w0 mem0 : w16 mem0
-10111000001xxxxx000100xxxxxxxxxx  n  ldclr     w0 mem0 : w16 mem0
-10111000001xxxxx001000xxxxxxxxxx  n  ldeor     w0 mem0 : w16 mem0
-10111000001xxxxx001100xxxxxxxxxx  n  ldset     w0 mem0 : w16 mem0
-10111000001xxxxx010000xxxxxxxxxx  n  ldsmax    w0 mem0 : w16 mem0
-10111000001xxxxx010100xxxxxxxxxx  n  ldsmin    w0 mem0 : w16 mem0
-10111000001xxxxx011000xxxxxxxxxx  n  ldumax    w0 mem0 : w16 mem0
-10111000001xxxxx011100xxxxxxxxxx  n  ldumin    w0 mem0 : w16 mem0
-
-10111000011xxxxx000000xxxxxxxxxx  n  ldaddl    w0 mem0 : w16 mem0
-10111000011xxxxx000100xxxxxxxxxx  n  ldclrl    w0 mem0 : w16 mem0
-10111000011xxxxx001000xxxxxxxxxx  n  ldeorl    w0 mem0 : w16 mem0
-10111000011xxxxx001100xxxxxxxxxx  n  ldsetl    w0 mem0 : w16 mem0
-10111000011xxxxx010000xxxxxxxxxx  n  ldsmaxl   w0 mem0 : w16 mem0
-10111000011xxxxx010100xxxxxxxxxx  n  ldsminl   w0 mem0 : w16 mem0
-10111000011xxxxx011000xxxxxxxxxx  n  ldumaxl   w0 mem0 : w16 mem0
-10111000011xxxxx011100xxxxxxxxxx  n  lduminl   w0 mem0 : w16 mem0
-
-10111000101xxxxx000000xxxxxxxxxx  n  ldadda    w0 mem0 : w16 mem0
-10111000101xxxxx000100xxxxxxxxxx  n  ldclra    w0 mem0 : w16 mem0
-10111000101xxxxx001000xxxxxxxxxx  n  ldeora    w0 mem0 : w16 mem0
-10111000101xxxxx001100xxxxxxxxxx  n  ldseta    w0 mem0 : w16 mem0
-10111000101xxxxx010000xxxxxxxxxx  n  ldsmaxa   w0 mem0 : w16 mem0
-10111000101xxxxx010100xxxxxxxxxx  n  ldsmina   w0 mem0 : w16 mem0
-10111000101xxxxx011000xxxxxxxxxx  n  ldumaxa   w0 mem0 : w16 mem0
-10111000101xxxxx011100xxxxxxxxxx  n  ldumina   w0 mem0 : w16 mem0
-
-10111000111xxxxx000000xxxxxxxxxx  n  ldaddal   w0 mem0 : w16 mem0
-10111000111xxxxx000100xxxxxxxxxx  n  ldclral   w0 mem0 : w16 mem0
-10111000111xxxxx001000xxxxxxxxxx  n  ldeoral   w0 mem0 : w16 mem0
-10111000111xxxxx001100xxxxxxxxxx  n  ldsetal   w0 mem0 : w16 mem0
-10111000111xxxxx010000xxxxxxxxxx  n  ldsmaxal  w0 mem0 : w16 mem0
-10111000111xxxxx010100xxxxxxxxxx  n  ldsminal  w0 mem0 : w16 mem0
-10111000111xxxxx011000xxxxxxxxxx  n  ldumaxal  w0 mem0 : w16 mem0
-10111000111xxxxx011100xxxxxxxxxx  n  lduminal  w0 mem0 : w16 mem0
-
-11111000001xxxxx000000xxxxxxxxxx  n  ldadd     x0 mem0 : x16 mem0
-11111000001xxxxx000100xxxxxxxxxx  n  ldclr     x0 mem0 : x16 mem0
-11111000001xxxxx001000xxxxxxxxxx  n  ldeor     x0 mem0 : x16 mem0
-11111000001xxxxx001100xxxxxxxxxx  n  ldset     x0 mem0 : x16 mem0
-11111000001xxxxx010000xxxxxxxxxx  n  ldsmax    x0 mem0 : x16 mem0
-11111000001xxxxx010100xxxxxxxxxx  n  ldsmin    x0 mem0 : x16 mem0
-11111000001xxxxx011000xxxxxxxxxx  n  ldumax    x0 mem0 : x16 mem0
-11111000001xxxxx011100xxxxxxxxxx  n  ldumin    x0 mem0 : x16 mem0
-
-11111000011xxxxx000000xxxxxxxxxx  n  ldaddl    x0 mem0 : x16 mem0
-11111000011xxxxx000100xxxxxxxxxx  n  ldclrl    x0 mem0 : x16 mem0
-11111000011xxxxx001000xxxxxxxxxx  n  ldeorl    x0 mem0 : x16 mem0
-11111000011xxxxx001100xxxxxxxxxx  n  ldsetl    x0 mem0 : x16 mem0
-11111000011xxxxx010000xxxxxxxxxx  n  ldsmaxl   x0 mem0 : x16 mem0
-11111000011xxxxx010100xxxxxxxxxx  n  ldsminl   x0 mem0 : x16 mem0
-11111000011xxxxx011000xxxxxxxxxx  n  ldumaxl   x0 mem0 : x16 mem0
-11111000011xxxxx011100xxxxxxxxxx  n  lduminl   x0 mem0 : x16 mem0
-
-11111000101xxxxx000000xxxxxxxxxx  n  ldadda    x0 mem0 : x16 mem0
-11111000101xxxxx000100xxxxxxxxxx  n  ldclra    x0 mem0 : x16 mem0
-11111000101xxxxx001000xxxxxxxxxx  n  ldeora    x0 mem0 : x16 mem0
-11111000101xxxxx001100xxxxxxxxxx  n  ldseta    x0 mem0 : x16 mem0
-11111000101xxxxx010000xxxxxxxxxx  n  ldsmaxa   x0 mem0 : x16 mem0
-11111000101xxxxx010100xxxxxxxxxx  n  ldsmina   x0 mem0 : x16 mem0
-11111000101xxxxx011000xxxxxxxxxx  n  ldumaxa   x0 mem0 : x16 mem0
-11111000101xxxxx011100xxxxxxxxxx  n  ldumina   x0 mem0 : x16 mem0
-
-11111000111xxxxx000000xxxxxxxxxx  n  ldaddal   x0 mem0 : x16 mem0
-11111000111xxxxx000100xxxxxxxxxx  n  ldclral   x0 mem0 : x16 mem0
-11111000111xxxxx001000xxxxxxxxxx  n  ldeoral   x0 mem0 : x16 mem0
-11111000111xxxxx001100xxxxxxxxxx  n  ldsetal   x0 mem0 : x16 mem0
-11111000111xxxxx010000xxxxxxxxxx  n  ldsmaxal  x0 mem0 : x16 mem0
-11111000111xxxxx010100xxxxxxxxxx  n  ldsminal  x0 mem0 : x16 mem0
-11111000111xxxxx011000xxxxxxxxxx  n  ldumaxal  x0 mem0 : x16 mem0
-11111000111xxxxx011100xxxxxxxxxx  n  lduminal  x0 mem0 : x16 mem0
-
-00111000001xxxxx100000xxxxxxxxxx  n  swpb   w0 mem0 : w16 mem0
-00111000011xxxxx100000xxxxxxxxxx  n  swplb  w0 mem0 : w16 mem0
-00111000101xxxxx100000xxxxxxxxxx  n  swpab  w0 mem0 : w16 mem0
-00111000111xxxxx100000xxxxxxxxxx  n  swpalb w0 mem0 : w16 mem0
-01111000001xxxxx100000xxxxxxxxxx  n  swph   w0 mem0 : w16 mem0
-01111000011xxxxx100000xxxxxxxxxx  n  swplh  w0 mem0 : w16 mem0
-01111000101xxxxx100000xxxxxxxxxx  n  swpah  w0 mem0 : w16 mem0
-01111000111xxxxx100000xxxxxxxxxx  n  swpalh w0 mem0 : w16 mem0
-10111000001xxxxx100000xxxxxxxxxx  n  swp    w0 mem0 : w16 mem0
-10111000011xxxxx100000xxxxxxxxxx  n  swpl   w0 mem0 : w16 mem0
-10111000101xxxxx100000xxxxxxxxxx  n  swpa   w0 mem0 : w16 mem0
-10111000111xxxxx100000xxxxxxxxxx  n  swpal  w0 mem0 : w16 mem0
-11111000001xxxxx100000xxxxxxxxxx  n  swp    x0 mem0 : x16 mem0
-11111000011xxxxx100000xxxxxxxxxx  n  swpl   x0 mem0 : x16 mem0
-11111000101xxxxx100000xxxxxxxxxx  n  swpa   x0 mem0 : x16 mem0
-11111000111xxxxx100000xxxxxxxxxx  n  swpal  x0 mem0 : x16 mem0
-
-## Load/store register (register offset)
-
-00111000001xxxxxxxxx10xxxxxxxxxx  n  strb   memreg : w0
-00111000011xxxxxxxxx10xxxxxxxxxx  n  ldrb   w0 : memreg
-00111000101xxxxxxxxx10xxxxxxxxxx  n  ldrsb  x0 : memreg
-00111000111xxxxxxxxx10xxxxxxxxxx  n  ldrsb  w0 : memreg
-00111100001xxxxxxxxx10xxxxxxxxxx  n  str    memreg : b0
-00111100011xxxxxxxxx10xxxxxxxxxx  n  ldr    b0 : memreg
-00111100101xxxxxxxxx10xxxxxxxxxx  n  str    memregq : b0
-00111100111xxxxxxxxx10xxxxxxxxxx  n  ldr    q0 : memregq
-
-01111000001xxxxxxxxx10xxxxxxxxxx  n  strh   memreg : w0
-01111000011xxxxxxxxx10xxxxxxxxxx  n  ldrh   w0 : memreg
-01111000101xxxxxxxxx10xxxxxxxxxx  n  ldrsh  x0 : memreg
-01111000111xxxxxxxxx10xxxxxxxxxx  n  ldrsh  w0 : memreg
-01111100001xxxxxxxxx10xxxxxxxxxx  n  str    memreg : h0
-01111100011xxxxxxxxx10xxxxxxxxxx  n  ldr    h0 : memreg
-
-10111000001xxxxxxxxx10xxxxxxxxxx  n  str    memreg : w0
-10111000011xxxxxxxxx10xxxxxxxxxx  n  ldr    w0 : memreg
-10111000101xxxxxxxxx10xxxxxxxxxx  n  ldrsw  x0 : memreg
-10111100001xxxxxxxxx10xxxxxxxxxx  n  str    memreg : s0
-10111100011xxxxxxxxx10xxxxxxxxxx  n  ldr    s0 : memreg
-
-11111000001xxxxxxxxx10xxxxxxxxxx  n  str    memreg : x0
-11111000011xxxxxxxxx10xxxxxxxxxx  n  ldr    x0 : memreg
-11111000101xxxxxxxxx10xxxxxxxxxx  n  prfm   : prfop prfreg
-11111100001xxxxxxxxx10xxxxxxxxxx  n  str    memreg : d0
-11111100011xxxxxxxxx10xxxxxxxxxx  n  ldr    d0 : memreg
-
-## Load/store register (unsigned immediate)
-
-0011100100xxxxxxxxxxxxxxxxxxxxxx  n  strb   mem12 : w0  # STRB Wt,[Xn,#simm]
-0011100101xxxxxxxxxxxxxxxxxxxxxx  n  ldrb   w0 : mem12
-0011100110xxxxxxxxxxxxxxxxxxxxxx  n  ldrsb  x0 : mem12
-0011100111xxxxxxxxxxxxxxxxxxxxxx  n  ldrsb  w0 : mem12
-0011110100xxxxxxxxxxxxxxxxxxxxxx  n  str    mem12 : b0
-0011110101xxxxxxxxxxxxxxxxxxxxxx  n  ldr    b0 : mem12
-0011110110xxxxxxxxxxxxxxxxxxxxxx  n  str    mem12q : q0
-0011110111xxxxxxxxxxxxxxxxxxxxxx  n  ldr    q0 : mem12q
-
-0111100100xxxxxxxxxxxxxxxxxxxxxx  n  strh   mem12 : w0
-0111100101xxxxxxxxxxxxxxxxxxxxxx  n  ldrh   w0 : mem12
-0111100110xxxxxxxxxxxxxxxxxxxxxx  n  ldrsh  x0 : mem12
-0111100111xxxxxxxxxxxxxxxxxxxxxx  n  ldrsh  w0 : mem12
-0111110100xxxxxxxxxxxxxxxxxxxxxx  n  str    mem12 : h0
-0111110101xxxxxxxxxxxxxxxxxxxxxx  n  ldr    h0 : mem12
-
-1011100100xxxxxxxxxxxxxxxxxxxxxx  n  str    mem12 : w0
-1011100101xxxxxxxxxxxxxxxxxxxxxx  n  ldr    w0 : mem12
-1011100110xxxxxxxxxxxxxxxxxxxxxx  n  ldrsw  x0 : mem12
-1011110100xxxxxxxxxxxxxxxxxxxxxx  n  str    mem12 : s0
-1011110101xxxxxxxxxxxxxxxxxxxxxx  n  ldr    s0 : mem12
-
-1111100100xxxxxxxxxxxxxxxxxxxxxx  n  str    mem12 : x0
-1111100101xxxxxxxxxxxxxxxxxxxxxx  n  ldr    x0 : mem12
-1111100110xxxxxxxxxxxxxxxxxxxxxx  n  prfm   : prfop prf12  # PRFM #imm5,[Xn,#simm]
-1111110100xxxxxxxxxxxxxxxxxxxxxx  n  str    mem12 : d0
-1111110101xxxxxxxxxxxxxxxxxxxxxx  n  ldr    d0 : mem12
-
-## Advanced SIMD load/store multiple structures
-
-0x001100000000000000xxxxxxxxxxxx  n  st4    memvm : vmsz vt0 vt1 vt2 vt3
-0x001100000000000010xxxxxxxxxxxx  n  st1    memvm : vmsz vt0 vt1 vt2 vt3
-0x001100000000000100xxxxxxxxxxxx  n  st3    memvm : vmsz vt0 vt1 vt2
-0x001100000000000110xxxxxxxxxxxx  n  st1    memvm : vmsz vt0 vt1 vt2
-0x001100000000000111xxxxxxxxxxxx  n  st1    memvm : vt0 vmsz
-0x001100000000001000xxxxxxxxxxxx  n  st2    memvm : vmsz vt0 vt1
-0x001100000000001010xxxxxxxxxxxx  n  st1    memvm : vmsz vt0 vt1
-
-0x001100010000000000xxxxxxxxxxxx  n  ld4    vt0 vt1 vt2 vt3 : memvm vmsz
-0x001100010000000010xxxxxxxxxxxx  n  ld1    vt0 vt1 vt2 vt3 : memvm vmsz
-0x001100010000000100xxxxxxxxxxxx  n  ld3    vt0 vt1 vt2 : memvm vmsz
-0x001100010000000110xxxxxxxxxxxx  n  ld1    vt0 vt1 vt2 : memvm vmsz
-0x001100010000000111xxxxxxxxxxxx  n  ld1    vt0 : memvm vmsz
-0x001100010000001000xxxxxxxxxxxx  n  ld2    vt0 vt1 : memvm vmsz
-0x001100010000001010xxxxxxxxxxxx  n  ld1    vt0 vt1 : memvm vmsz
-
-## Advanced SIMD load/store multiple structures (post-indexed)
-
-0x001100100xxxxx0000xxxxxxxxxxxx  n  st4    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
-0x001100100xxxxx0010xxxxxxxxxxxx  n  st1    memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
-0x001100100xxxxx0100xxxxxxxxxxxx  n  st3    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
-0x001100100xxxxx0110xxxxxxxxxxxx  n  st1    memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
-0x001100100xxxxx0111xxxxxxxxxxxx  n  st1    memvm x5sp : vmsz vt0 x5sp x16imm
-0x001100100xxxxx1000xxxxxxxxxxxx  n  st2    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
-0x001100100xxxxx1010xxxxxxxxxxxx  n  st1    memvm x5sp : vmsz vt0 vt1 x5sp x16imm
-
-0x001100110xxxxx0000xxxxxxxxxxxx  n  ld4    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0010xxxxxxxxxxxx  n  ld1    vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0100xxxxxxxxxxxx  n  ld3    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0110xxxxxxxxxxxx  n  ld1    vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx0111xxxxxxxxxxxx  n  ld1    vt0 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx1000xxxxxxxxxxxx  n  ld2    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
-0x001100110xxxxx1010xxxxxxxxxxxx  n  ld1    vt0 vt1 x5sp : memvm vmsz x5sp x16imm
-
-## Advanced SIMD load/store single structure
-
-0x00110100000000000xxxxxxxxxxxxx  n  st1    memvs : q0 index0
-0x00110100000000001xxxxxxxxxxxxx  n  st3    memvs : q0 q0p1 q0p2 index0
-0x00110100000000010xx0xxxxxxxxxx  n  st1    memvs : q0 index1
-0x00110100000000011xx0xxxxxxxxxx  n  st3    memvs : q0 q0p1 q0p2 index1
-0x00110100000000100x00xxxxxxxxxx  n  st1    memvs : q0 index2
-0x00110100000000100001xxxxxxxxxx  n  st1    memvs : q0 index3
-0x00110100000000101x00xxxxxxxxxx  n  st3    memvs : q0 q0p1 q0p2 index2
-0x00110100000000101001xxxxxxxxxx  n  st3    memvs : q0 q0p1 q0p2 index3
-
-0x00110100100000000xxxxxxxxxxxxx  n  st2    memvs : q0 q0p1 index0
-0x00110100100000001xxxxxxxxxxxxx  n  st4    memvs : q0 q0p1 q0p2 q0p3 index0
-0x00110100100000010xx0xxxxxxxxxx  n  st2    memvs : q0 q0p1 index1
-0x00110100100000011xx0xxxxxxxxxx  n  st4    memvs : q0 q0p1 q0p2 q0p3 index1
-0x00110100100000100x00xxxxxxxxxx  n  st2    memvs : q0 q0p1 index2
-0x00110100100000100001xxxxxxxxxx  n  st2    memvs : q0 q0p1 index3
-0x00110100100000101x00xxxxxxxxxx  n  st4    memvs : q0 q0p1 q0p2 q0p3 index2
-0x00110100100000101001xxxxxxxxxx  n  st4    memvs : q0 q0p1 q0p2 q0p3 index3
-
-0x00110101000000000xxxxxxxxxxxxx  n  ld1    q0 : memvs index0
-0x00110101000000001xxxxxxxxxxxxx  n  ld3    q0 q0p1 q0p2 : memvs index0
-0x00110101000000010xx0xxxxxxxxxx  n  ld1    q0 : memvs index1
-0x00110101000000011xx0xxxxxxxxxx  n  ld3    q0 q0p1 q0p2 : memvs index1
-0x00110101000000100x00xxxxxxxxxx  n  ld1    q0 : memvs index2
-0x00110101000000100001xxxxxxxxxx  n  ld1    q0 : memvs index3
-0x00110101000000101x00xxxxxxxxxx  n  ld3    q0 q0p1 q0p2 : memvs index2
-0x00110101000000101001xxxxxxxxxx  n  ld3    q0 q0p1 q0p2 : memvs index3
-
-0x001101010000001100xxxxxxxxxxxx  n  ld1r   dq0 : memvr
-0x001101010000001110xxxxxxxxxxxx  n  ld3r   dq0 dq0p1 dq0p2 : memvr
-
-0x00110101100000000xxxxxxxxxxxxx  n  ld2    q0 q0p1 : memvs index0
-0x00110101100000001xxxxxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 : memvs index0
-0x00110101100000010xx0xxxxxxxxxx  n  ld2    q0 q0p1 : memvs index1
-0x00110101100000011xx0xxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 : memvs index1
-0x00110101100000100x00xxxxxxxxxx  n  ld2    q0 q0p1 : memvs index2
-0x00110101100000100001xxxxxxxxxx  n  ld2    q0 q0p1 : memvs index3
-0x00110101100000101x00xxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 : memvs index2
-0x00110101100000101001xxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 : memvs index3
-
-0x001101011000001100xxxxxxxxxxxx  n  ld2r   dq0 dq0p1 : memvr
-0x001101011000001110xxxxxxxxxxxx  n  ld4r   dq0 dq0p1 dq0p2 dq0p3 : memvr
-
-## Advanced SIMD load/store single structure (post-indexed)
-
-0x001101100xxxxx000xxxxxxxxxxxxx  n  st1    memvs x5sp : q0 index0 x5sp x16immvs
-0x001101100xxxxx001xxxxxxxxxxxxx  n  st3    memvs x5sp : q0 q0p1 q0p2 index0 x5sp x16immvs
-0x001101100xxxxx010xx0xxxxxxxxxx  n  st1    memvs x5sp : q0 index1 x5sp x16immvs
-0x001101100xxxxx011xx0xxxxxxxxxx  n  st3    memvs x5sp : q0 q0p1 q0p2 index1 x5sp x16immvs
-0x001101100xxxxx100x00xxxxxxxxxx  n  st1    memvs x5sp : q0 index2 x5sp x16immvs
-0x001101100xxxxx100001xxxxxxxxxx  n  st1    memvs x5sp : q0 index3 x5sp x16immvs
-0x001101100xxxxx101x00xxxxxxxxxx  n  st3    memvs x5sp : q0 q0p1 q0p2 index2 x5sp x16immvs
-0x001101100xxxxx101001xxxxxxxxxx  n  st3    memvs x5sp : q0 q0p1 q0p2 index3 x5sp x16immvs
-
-0x001101101xxxxx000xxxxxxxxxxxxx  n  st2    memvs x5sp : q0 q0p1 index0 x5sp x16immvs
-0x001101101xxxxx001xxxxxxxxxxxxx  n  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index0 x5sp x16immvs
-0x001101101xxxxx010xx0xxxxxxxxxx  n  st2    memvs x5sp : q0 q0p1 index1 x5sp x16immvs
-0x001101101xxxxx011xx0xxxxxxxxxx  n  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index1 x5sp x16immvs
-0x001101101xxxxx100x00xxxxxxxxxx  n  st2    memvs x5sp : q0 q0p1 index2 x5sp x16immvs
-0x001101101xxxxx100001xxxxxxxxxx  n  st2    memvs x5sp : q0 q0p1 index3 x5sp x16immvs
-0x001101101xxxxx101x00xxxxxxxxxx  n  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index2 x5sp x16immvs
-0x001101101xxxxx101001xxxxxxxxxx  n  st4    memvs x5sp : q0 q0p1 q0p2 q0p3 index3 x5sp x16immvs
-
-0x001101110xxxxx000xxxxxxxxxxxxx  n  ld1    q0 x5sp : q0 memvs index0 x5sp x16immvs
-0x001101110xxxxx001xxxxxxxxxxxxx  n  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index0 x5sp x16immvs
-0x001101110xxxxx010xx0xxxxxxxxxx  n  ld1    q0 x5sp : q0 memvs index1 x5sp x16immvs
-0x001101110xxxxx011xx0xxxxxxxxxx  n  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index1 x5sp x16immvs
-0x001101110xxxxx100x00xxxxxxxxxx  n  ld1    q0 x5sp : q0 memvs index2 x5sp x16immvs
-0x001101110xxxxx100001xxxxxxxxxx  n  ld1    q0 x5sp : q0 memvs index3 x5sp x16immvs
-0x001101110xxxxx101x00xxxxxxxxxx  n  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index2 x5sp x16immvs
-0x001101110xxxxx101001xxxxxxxxxx  n  ld3    q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index3 x5sp x16immvs
-
-0x001101110xxxxx1100xxxxxxxxxxxx  n  ld1r   dq0 x5sp : memvr x5sp x16immvr
-0x001101110xxxxx1110xxxxxxxxxxxx  n  ld3r   dq0 dq0p1 dq0p2 x5sp : memvr x5sp x16immvr
-
-0x001101111xxxxx000xxxxxxxxxxxxx  n  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index0 x5sp x16immvs
-0x001101111xxxxx001xxxxxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index0 x5sp x16immvs
-0x001101111xxxxx010xx0xxxxxxxxxx  n  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index1 x5sp x16immvs
-0x001101111xxxxx011xx0xxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index1 x5sp x16immvs
-0x001101111xxxxx100x00xxxxxxxxxx  n  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index2 x5sp x16immvs
-0x001101111xxxxx100001xxxxxxxxxx  n  ld2    q0 q0p1 x5sp : q0 q0p1 memvs index3 x5sp x16immvs
-0x001101111xxxxx101x00xxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index2 x5sp x16immvs
-0x001101111xxxxx101001xxxxxxxxxx  n  ld4    q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index3 x5sp x16immvs
-
-0x001101111xxxxx1100xxxxxxxxxxxx  n  ld2r   dq0 dq0p1 x5sp : memvr x5sp x16immvr
-0x001101111xxxxx1110xxxxxxxxxxxx  n  ld4r   dq0 dq0p1 dq0p2 dq0p3 x5sp : memvr x5sp x16immvr
-
-# Data Processing - Register
-
-## Logical (shifted register)
-
-x0001010xx0xxxxxxxxxxxxxxxxxxxxx  n  and    wx0 : wx5 wx16 shift4 imm6
-x0001010xx1xxxxxxxxxxxxxxxxxxxxx  n  bic    wx0 : wx5 wx16 shift4 imm6
-x0101010xx0xxxxxxxxxxxxxxxxxxxxx  n  orr    wx0 : wx5 wx16 shift4 imm6
-x0101010xx1xxxxxxxxxxxxxxxxxxxxx  n  orn    wx0 : wx5 wx16 shift4 imm6
-x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n  eor    wx0 : wx5 wx16 shift4 imm6
-x1001010xx1xxxxxxxxxxxxxxxxxxxxx  n  eon    wx0 : wx5 wx16 shift4 imm6
-x1101010xx0xxxxxxxxxxxxxxxxxxxxx  w  ands   wx0 : wx5 wx16 shift4 imm6
-x1101010xx1xxxxxxxxxxxxxxxxxxxxx  w  bics   wx0 : wx5 wx16 shift4 imm6
-
-## Add/subtract (shifted register)
-
-x0001011xx0xxxxxxxxxxxxxxxxxxxxx  n  add    wx0 : wx5 wx16 shift3 imm6
-x0101011xx0xxxxxxxxxxxxxxxxxxxxx  w  adds   wx0 : wx5 wx16 shift3 imm6
-x1001011xx0xxxxxxxxxxxxxxxxxxxxx  n  sub    wx0 : wx5 wx16 shift3 imm6
-x1101011xx0xxxxxxxxxxxxxxxxxxxxx  w  subs   wx0 : wx5 wx16 shift3 imm6
-
-## Add/subtract (extended register)
-
-x0001011001xxxxxxxxxxxxxxxxxxxxx  n  add    wx0sp : wx5sp wx16 ext extam
-x0101011001xxxxxxxxxxxxxxxxxxxxx  w  adds   wx0   : wx5sp wx16 ext extam
-x1001011001xxxxxxxxxxxxxxxxxxxxx  n  sub    wx0sp : wx5sp wx16 ext extam
-x1101011001xxxxxxxxxxxxxxxxxxxxx  w  subs   wx0   : wx5sp wx16 ext extam
-
-## Add/subtract (with carry)
-
-x0011010000xxxxx000000xxxxxxxxxx  r  adc    wx0 : wx5 wx16
-x0111010000xxxxx000000xxxxxxxxxx  rw adcs   wx0 : wx5 wx16
-x1011010000xxxxx000000xxxxxxxxxx  r  sbc    wx0 : wx5 wx16
-x1111010000xxxxx000000xxxxxxxxxx  rw sbcs   wx0 : wx5 wx16
-
-## Conditional compare (register)
-
-x0111010010xxxxxxxxx00xxxxx0xxxx  rw ccmn   : wx5 wx16 nzcv cond
-x1111010010xxxxxxxxx00xxxxx0xxxx  rw ccmp   : wx5 wx16 nzcv cond
-
-## Conditional compare (immediate)
-
-x0111010010xxxxxxxxx10xxxxx0xxxx  rw ccmn   : wx5 imm5 nzcv cond
-x1111010010xxxxxxxxx10xxxxx0xxxx  rw ccmp   : wx5 imm5 nzcv cond
-
-## Conditional select
-
-x0011010100xxxxxxxxx00xxxxxxxxxx  r  csel   wx0 : wx5 wx16 cond
-x0011010100xxxxxxxxx01xxxxxxxxxx  r  csinc  wx0 : wx5 wx16 cond
-x1011010100xxxxxxxxx00xxxxxxxxxx  r  csinv  wx0 : wx5 wx16 cond
-x1011010100xxxxxxxxx01xxxxxxxxxx  r  csneg  wx0 : wx5 wx16 cond
-00011110xx1xxxxxxxxx11xxxxxxxxxx  r  fcsel  float_reg0 : float_reg5 float_reg16 cond
-
-# Data-processing (3 source)
-
-x0011011000xxxxx0xxxxxxxxxxxxxxx  n  madd   wx0 : wx5 wx16 wx10
-x0011011000xxxxx1xxxxxxxxxxxxxxx  n  msub   wx0 : wx5 wx16 wx10
-
-10011011001xxxxx0xxxxxxxxxxxxxxx  n  smaddl x0 : w5 w16 x10
-10011011001xxxxx1xxxxxxxxxxxxxxx  n  smsubl x0 : w5 w16 x10
-10011011010xxxxx0xxxxxxxxxxxxxxx  n  smulh  x0 : x5 x16 ign10
-10011011101xxxxx0xxxxxxxxxxxxxxx  n  umaddl x0 : w5 w16 x10
-10011011101xxxxx1xxxxxxxxxxxxxxx  n  umsubl x0 : w5 w16 x10
-10011011110xxxxx0xxxxxxxxxxxxxxx  n  umulh  x0 : x5 x16 ign10
-
-# Data-processing (2 source)
-
-x0011010110xxxxx000010xxxxxxxxxx  n  udiv   wx0 : wx5 wx16
-x0011010110xxxxx000011xxxxxxxxxx  n  sdiv   wx0 : wx5 wx16
-x0011010110xxxxx001000xxxxxxxxxx  n  lslv   wx0 : wx5 wx16
-x0011010110xxxxx001001xxxxxxxxxx  n  lsrv   wx0 : wx5 wx16
-x0011010110xxxxx001010xxxxxxxxxx  n  asrv   wx0 : wx5 wx16
-x0011010110xxxxx001011xxxxxxxxxx  n  rorv   wx0 : wx5 wx16
-
-00011010110xxxxx010000xxxxxxxxxx  n  crc32b  w0 : w5 w16
-00011010110xxxxx010001xxxxxxxxxx  n  crc32h  w0 : w5 w16
-00011010110xxxxx010010xxxxxxxxxx  n  crc32w  w0 : w5 w16
-00011010110xxxxx010100xxxxxxxxxx  n  crc32cb w0 : w5 w16
-00011010110xxxxx010101xxxxxxxxxx  n  crc32ch w0 : w5 w16
-00011010110xxxxx010110xxxxxxxxxx  n  crc32cw w0 : w5 w16
-10011010110xxxxx010011xxxxxxxxxx  n  crc32x  w0 : w5 x16
-10011010110xxxxx010111xxxxxxxxxx  n  crc32cx w0 : w5 x16
-
-# Data-processing (1 source)
-
-x101101011000000000000xxxxxxxxxx  n  rbit    wx0 : wx5
-x101101011000000000001xxxxxxxxxx  n  rev16   wx0 : wx5
-0101101011000000000010xxxxxxxxxx  n  rev     w0  : w5
-x101101011000000000100xxxxxxxxxx  n  clz     wx0 : wx5
-0x101110xx100000010010xxxxxxxxxx  n  clz     dq0 : dq5 bhs_sz
-x101101011000000000101xxxxxxxxxx  n  cls     wx0 : wx5
-1101101011000000000010xxxxxxxxxx  n  rev32   x0 : x5
-1101101011000000000011xxxxxxxxxx  n  rev     x0 : x5
-
-# Data Processing - Scalar Floating-Point and Advanced SIMD
-0x10111001100000010110xxxxxxxxxx  n  rbit    dq0 : dq5
-0x001110xx100000000110xxxxxxxxxx  n  rev16   dq0 : dq5 bd_sz
-01011110001xxxxx000011xxxxxxxxxx  n  sqadd   b0 : b5 b16
-01011110011xxxxx000011xxxxxxxxxx  n  sqadd   h0 : h5 h16
-01011110101xxxxx000011xxxxxxxxxx  n  sqadd   s0 : s5 s16
-01011110111xxxxx000011xxxxxxxxxx  n  sqadd   d0 : d5 d16
-
-# FMOV immediate to scalar FP reg
-00011110111xxxxxxxx10000000xxxxx  n     fmov h0 : fpimm13 # Armv8.2
-00011110001xxxxxxxx10000000xxxxx  n     fmov s0 : fpimm13
-00011110011xxxxxxxx10000000xxxxx  n     fmov d0 : fpimm13
-
-# FMOV (general) GPR to FP reg
-0001111011100111000000xxxxxxxxxx  n     fmov h0 : w5 # Armv8.2
-0001111000100111000000xxxxxxxxxx  n     fmov s0 : w5
-1001111011100111000000xxxxxxxxxx  n     fmov h0 : x5 # Armv8.2
-1001111001100111000000xxxxxxxxxx  n     fmov d0 : x5
-1001111010101111000000xxxxxxxxxx  n     fmov q0 : x5 # only sets the bit top half of q0
-
-# FMOV (general) FP reg to GPR
-0001111000100110000000xxxxxxxxxx  n     fmov w0 : s5
-1001111001100110000000xxxxxxxxxx  n     fmov x0 : d5
-
-# FMOV immediate to vector reg
-0x00111100000xxx111111xxxxxxxxxx  n     fmov dq0 : fpimm8 h_sz # Armv8.2
-
-# SMOV
-00001110000xxxxx001011xxxxxxxxxx  n     smov      w0 : d5 imm5
-01001110000xxxxx001011xxxxxxxxxx  n     smov      x0 : q5 imm5
-
-# UMOV
-0x001110000xxxxx001111xxxxxxxxxx  n     umov      wx0_imm5_q : q5 imm5
-
-# MOVI
-0x00111100000xxx111001xxxxxxxxxx  n     movi     dq0 : imm8 cmode4_b_sz
-0x00111100000xxx10x001xxxxxxxxxx  n     movi     dq0 : imm8 cmode_h_sz
-0x00111100000xxx0xx001xxxxxxxxxx  n     movi     dq0 : imm8 cmode_s_sz
-0x00111100000xxx110x01xxxxxxxxxx  n     movi     dq0 : imm8 cmode4_s_sz_msl
-
-# MVNI
-0x10111100000xxx10x001xxxxxxxxxx  n     mvni     dq0 : imm8 cmode_h_sz
-0x10111100000xxx0xx001xxxxxxxxxx  n     mvni     dq0 : imm8 cmode_s_sz
-0x10111100000xxx110x01xxxxxxxxxx  n     mvni     dq0 : imm8 cmode4_s_sz_msl
-
-# INS (element)
-01101110000xxxxx0xxxx1xxxxxxxxxx  n     ins       q0 imm5 : q5 imm4idx
-
-# INS (general)
-01001110000xxxxx000111xxxxxxxxxx  n     ins       q0 imm5 : wx5_imm5
-
-# Advanced SIMD three same (FP16)
-0x001110010xxxxx000001xxxxxxxxxx  n     fmaxnm    dq0 : dq5 dq16 h_sz
-0x001110010xxxxx000011xxxxxxxxxx  n     fmla      dq0 : dq0 dq5 dq16 h_sz
-0x001110010xxxxx000101xxxxxxxxxx  n     fadd      dq0 : dq5 dq16 h_sz
-0x001110010xxxxx000111xxxxxxxxxx  n     fmulx     dq0 : dq5 dq16 h_sz
-0x001110010xxxxx001001xxxxxxxxxx  n     fcmeq     dq0 : dq5 dq16 h_sz
-0x001110010xxxxx001101xxxxxxxxxx  n     fmax      dq0 : dq5 dq16 h_sz
-0x001110010xxxxx001111xxxxxxxxxx  n     frecps    dq0 : dq5 dq16 h_sz
-0x001110110xxxxx000001xxxxxxxxxx  n     fminnm    dq0 : dq5 dq16 h_sz
-0x001110110xxxxx000011xxxxxxxxxx  n     fmls      dq0 : dq0 dq5 dq16 h_sz
-0x0011111xxxxxxx0101x0xxxxxxxxxx  n     fmls      dq0 : dq5 dq16 vindex_SD sd_sz
-0x00111100xxxxxx0101x0xxxxxxxxxx  n     fmls      dq0 : dq5 dq16_h_sz vindex_H h_sz
-
-0x0011111xxxxxxx1001x0xxxxxxxxxx  n     fmul      dq0 : dq5 dq16 vindex_SD sd_sz
-0x00111100xxxxxx1001x0xxxxxxxxxx  n     fmul      dq0 : dq5 dq16_h_sz vindex_H h_sz
-0101111110xxxxxx1001x0xxxxxxxxxx  n     fmul       s0 : s5 dq16 vindex_SD sd_sz
-0101111111xxxxxx1001x0xxxxxxxxxx  n     fmul       d0 : d5 dq16 vindex_SD sd_sz
-0101111100xxxxxx1001x0xxxxxxxxxx  n     fmul       h0 : h5 dq16_h_sz vindex_H h_sz
-
-0x001110110xxxxx000101xxxxxxxxxx  n     fsub      dq0 : dq5 dq16 h_sz
-0x001110110xxxxx001101xxxxxxxxxx  n     fmin      dq0 : dq5 dq16 h_sz
-0x001110110xxxxx001111xxxxxxxxxx  n     frsqrts   dq0 : dq5 dq16 h_sz
-0x101110010xxxxx000001xxxxxxxxxx  n     fmaxnmp   dq0 : dq5 dq16 h_sz
-0x101110010xxxxx000101xxxxxxxxxx  n     faddp     dq0 : dq5 dq16 h_sz
-0x101110010xxxxx000111xxxxxxxxxx  n     fmul      dq0 : dq5 dq16 h_sz
-0x101110010xxxxx001001xxxxxxxxxx  n     fcmge     dq0 : dq5 dq16 h_sz
-0x101110010xxxxx001011xxxxxxxxxx  n     facge     dq0 : dq5 dq16 h_sz
-0x101110010xxxxx001101xxxxxxxxxx  n     fmaxp     dq0 : dq5 dq16 h_sz
-0x101110010xxxxx001111xxxxxxxxxx  n     fdiv      dq0 : dq5 dq16 h_sz
-0x101110110xxxxx000001xxxxxxxxxx  n     fminnmp   dq0 : dq5 dq16 h_sz
-0x101110110xxxxx000101xxxxxxxxxx  n     fabd      dq0 : dq5 dq16 h_sz
-0x101110110xxxxx001001xxxxxxxxxx  n     fcmgt     dq0 : dq5 dq16 h_sz
-0x101110110xxxxx001011xxxxxxxxxx  n     facgt     dq0 : dq5 dq16 h_sz
-0x101110110xxxxx001101xxxxxxxxxx  n     fminp     dq0 : dq5 dq16 h_sz
-# Advanced SIMD three same
-0x001110xx1xxxxx000001xxxxxxxxxx  n     shadd     dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx000011xxxxxxxxxx  n     sqadd     dq0 : dq5 dq16 bhsd_sz
-0x001110xx1xxxxx000101xxxxxxxxxx  n     srhadd    dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx001001xxxxxxxxxx  n     shsub     dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx001011xxxxxxxxxx  n     sqsub     dq0 : dq5 dq16 bhsd_sz
-0x001110xx1xxxxx001101xxxxxxxxxx  n     cmgt      dq0 : dq5 dq16 bhsd_sz
-0x001110xx100000100010xxxxxxxxxx  n     cmgt      dq0 : dq5 bhsd_sz
-0101111011100000100010xxxxxxxxxx  n     cmgt       d0 : d5
-01011110111xxxxx001101xxxxxxxxxx  n     cmgt       d0 : d5 d16
-0x001110xx1xxxxx001111xxxxxxxxxx  n     cmge      dq0 : dq5 dq16 bhsd_sz
-0x101110xx100000100010xxxxxxxxxx  n     cmge      dq0 : dq5 bhsd_sz
-0111111011100000100010xxxxxxxxxx  n     cmge       d0 : d5
-0x001110xx100000101010xxxxxxxxxx  n     cmlt      dq0 : dq5 bhsd_sz
-0101111011100000101010xxxxxxxxxx  n     cmlt       d0 : d5
-0x001110xx1xxxxx010001xxxxxxxxxx  n     sshl      dq0 : dq5 dq16 bhsd_sz
-0x001110xx1xxxxx010011xxxxxxxxxx  n     sqshl     dq0 : dq5 dq16 bhsd_sz
-01011110001xxxxx010011xxxxxxxxxx  n     sqshl      b0 : b5 b16
-01011110011xxxxx010011xxxxxxxxxx  n     sqshl      h0 : h5 h16
-01011110101xxxxx010011xxxxxxxxxx  n     sqshl      s0 : s5 s16
-01011110111xxxxx010011xxxxxxxxxx  n     sqshl      d0 : d5 d16
-0101111100001xxx011101xxxxxxxxxx  n     sqshl      b0 : b5 immhb_0shf
-010111110001xxxx011101xxxxxxxxxx  n     sqshl      h0 : h5 immhb_0shf
-01011111001xxxxx011101xxxxxxxxxx  n     sqshl      s0 : s5 immhb_0shf
-0101111101xxxxxx011101xxxxxxxxxx  n     sqshl      d0 : d5 immhb_0shf
-0x0011110xxxxxxx011101xxxxxxxxxx  n     sqshl     dq0 : dq5 bhsd_immh_sz immhb_0shf
-0x001110xx1xxxxx010101xxxxxxxxxx  n     srshl     dq0 : dq5 dq16 bhsd_sz
-0x001110xx1xxxxx010111xxxxxxxxxx  n     sqrshl    dq0 : dq5 dq16 bhsd_sz
-0x001110xx1xxxxx011001xxxxxxxxxx  n     smax      dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx011011xxxxxxxxxx  n     smin      dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx011101xxxxxxxxxx  n     sabd      dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx011111xxxxxxxxxx  n     saba      dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx100001xxxxxxxxxx  n     add       dq0 : dq5 dq16 bhsd_sz
-01011110111xxxxx100001xxxxxxxxxx  n     add        d0 : d5 d16
-0x001110xx1xxxxx100011xxxxxxxxxx  n     cmtst     dq0 : dq5 dq16 bhsd_sz
-0x001110xx1xxxxx100101xxxxxxxxxx  n     mla       dq0 : dq0 dq5 dq16 bhs_sz
-0x1011111xxxxxxx0000x0xxxxxxxxxx  n     mla       dq0 : dq5 dq16 vindex_SD sd_sz
-0x10111101xxxxxx0000x0xxxxxxxxxx  n     mla       dq0 : dq5 dq16_h_sz vindex_H h_sz
-0x001110xx1xxxxx100111xxxxxxxxxx  n     mul       dq0 : dq5 dq16 bhs_sz
-0x001111xxxxxxxx1000x0xxxxxxxxxx  n     mul       dq0 : dq5 dq16_h_sz vindex_H hs_sz
-0x001110xx1xxxxx101001xxxxxxxxxx  n     smaxp     dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx101011xxxxxxxxxx  n     sminp     dq0 : dq5 dq16 bhs_sz
-0x001110xx1xxxxx101101xxxxxxxxxx  n     sqdmulh   dq0 : dq5 dq16 hs_sz
-01011110011xxxxx101101xxxxxxxxxx  n     sqdmulh    h0 : h5 h16
-01011110101xxxxx101101xxxxxxxxxx  n     sqdmulh    s0 : s5 s16
-0x0011111xxxxxxx1100x0xxxxxxxxxx  n     sqdmulh   dq0 : dq5 dq16 vindex_SD sd_sz
-0x00111101xxxxxx1100x0xxxxxxxxxx  n     sqdmulh   dq0 : dq5 dq16_h_sz vindex_H h_sz
-0101111101xxxxxx1100x0xxxxxxxxxx  n     sqdmulh    h0 : h5 dq16_h_sz vindex_H h_sz
-010111111xxxxxxx1100x0xxxxxxxxxx  n     sqdmulh    s0 : s5 dq16 vindex_SD sd_sz
-0x1011111xxxxxxx1101x0xxxxxxxxxx  n     sqrdmlah  dq0 : dq5 dq16 vindex_SD sd_sz
-0x10111101xxxxxx1101x0xxxxxxxxxx  n     sqrdmlah  dq0 : dq5 dq16_h_sz vindex_H h_sz
-0111111101xxxxxx1101x0xxxxxxxxxx  n     sqrdmlah   h0 : h5 dq16_h_sz vindex_H h_sz
-0111111110xxxxxx1101x0xxxxxxxxxx  n     sqrdmlah   s0 : s5 dq16 vindex_SD sd_sz
-0x101110xx0xxxxx100001xxxxxxxxxx  n     sqrdmlah  dq0 : dq5 dq16 hs_sz
-01111110010xxxxx100001xxxxxxxxxx  n     sqrdmlah   h0 : h5 h16
-01111110100xxxxx100001xxxxxxxxxx  n     sqrdmlah   s0 : s5 s16
-0101111000100001010010xxxxxxxxxx  n     sqxtn      b0 : h5
-0101111001100001010010xxxxxxxxxx  n     sqxtn      h0 : s5
-0101111010100001010010xxxxxxxxxx  n     sqxtn      s0 : d5
-00001110xx100001010010xxxxxxxxxx  n     sqxtn      d0 : d5 bhs_sz
-01001110xx100001010010xxxxxxxxxx  n     sqxtn2     q0 : q5 bhs_sz
-0111111000100001001010xxxxxxxxxx  n     sqxtun     b0 : h5
-0111111001100001001010xxxxxxxxxx  n     sqxtun     h0 : s5
-0111111010100001001010xxxxxxxxxx  n     sqxtun     s0 : d5
-00101110xx100001001010xxxxxxxxxx  n     sqxtun     d0 : d5 bhs_sz
-01101110xx100001001010xxxxxxxxxx  n     sqxtun2    q0 : q5 bhs_sz
-0111111000100001010010xxxxxxxxxx  n     uqxtn      b0 : h5
-0111111001100001010010xxxxxxxxxx  n     uqxtn      h0 : s5
-0111111010100001010010xxxxxxxxxx  n     uqxtn      s0 : d5
-00101110xx100001010010xxxxxxxxxx  n     uqxtn      d0 : d5 bhs_sz
-01101110xx100001010010xxxxxxxxxx  n     uqxtn2     q0 : q5 bhs_sz
-0x001110xx1xxxxx101111xxxxxxxxxx  n     addp      dq0 : dq5 dq16 bhsd_sz
-0x0011100x1xxxxx110001xxxxxxxxxx  n     fmaxnm    dq0 : dq5 dq16 sd_sz
-0x0011100x1xxxxx110011xxxxxxxxxx  n     fmla      dq0 : dq0 dq5 dq16 sd_sz
-0x0011111xxxxxxx0001x0xxxxxxxxxx  n     fmla      dq0 : dq0 dq5 dq16 vindex_SD sd_sz
-0x0011100x1xxxxx110101xxxxxxxxxx  n     fadd      dq0 : dq5 dq16 sd_sz
-0x0011100x1xxxxx110111xxxxxxxxxx  n     fmulx     dq0 : dq5 dq16 sd_sz
-0x0011100x1xxxxx111001xxxxxxxxxx  n     fcmeq     dq0 : dq5 dq16 sd_sz
-0x0011101x100000110110xxxxxxxxxx  n     fcmeq     dq0 : dq5 sd_sz
-0x00111011111000110110xxxxxxxxxx  n     fcmeq     dq0 : dq5 h_sz
-0101111010100000110110xxxxxxxxxx  n     fcmeq      s0 : s5
-0101111011100000110110xxxxxxxxxx  n     fcmeq      d0 : d5
-0101111011111000110110xxxxxxxxxx  n     fcmeq      h0 : h5
-0x001110001xxxxx111011xxxxxxxxxx  n     fmlal     dq0 : dq0 dq5 dq16
-0x0011100x1xxxxx111101xxxxxxxxxx  n     fmax      dq0 : dq5 dq16 sd_sz
-0x0011100x1xxxxx111111xxxxxxxxxx  n     frecps    dq0 : dq5 dq16 sd_sz
-0x001110001xxxxx000111xxxxxxxxxx  n     and       dq0 : dq5 dq16
-0x001110011xxxxx000111xxxxxxxxxx  n     bic       dq0 : dq5 dq16
-0x0011101x1xxxxx110001xxxxxxxxxx  n     fminnm    dq0 : dq5 dq16 sd_sz
-0x0011101x1xxxxx110011xxxxxxxxxx  n     fmls      dq0 : dq0 dq5 dq16 sd_sz
-0x0011101x1xxxxx110101xxxxxxxxxx  n     fsub      dq0 : dq5 dq16 sd_sz
-0x001110101xxxxx111011xxxxxxxxxx  n     fmlsl     dq0 : dq0 dq5 dq16
-0x0011101x1xxxxx111101xxxxxxxxxx  n     fmin      dq0 : dq5 dq16 sd_sz
-0x0011101x1xxxxx111111xxxxxxxxxx  n     frsqrts   dq0 : dq5 dq16 sd_sz
-0x001110101xxxxx000111xxxxxxxxxx  n     orr       dq0 : dq5 dq16
-0x00111100000xxx10x101xxxxxxxxxx  n     orr       dq0 : imm8 cmode_h_sz
-0x00111100000xxx0xx101xxxxxxxxxx  n     orr       dq0 : imm8 cmode_s_sz
-
-0x001110111xxxxx000111xxxxxxxxxx  n     orn       dq0 : dq5 dq16
-0x101110xx1xxxxx000001xxxxxxxxxx  n     uhadd     dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx000011xxxxxxxxxx  n     uqadd     dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx000101xxxxxxxxxx  n     urhadd    dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx001001xxxxxxxxxx  n     uhsub     dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx001011xxxxxxxxxx  n     uqsub     dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx001101xxxxxxxxxx  n     cmhi      dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx001111xxxxxxxxxx  n     cmhs      dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx010001xxxxxxxxxx  n     ushl      dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx010011xxxxxxxxxx  n     uqshl     dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx010101xxxxxxxxxx  n     urshl     dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx010111xxxxxxxxxx  n     uqrshl    dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx011001xxxxxxxxxx  n     umax      dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx011011xxxxxxxxxx  n     umin      dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx011101xxxxxxxxxx  n     uabd      dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx011111xxxxxxxxxx  n     uaba      dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx100001xxxxxxxxxx  n     sub       dq0 : dq5 dq16 bhsd_sz
-0x101110xx1xxxxx100011xxxxxxxxxx  n     cmeq      dq0 : dq5 dq16 bhsd_sz
-0x001110xx100000100110xxxxxxxxxx  n     cmeq      dq0 : dq5 bhsd_sz
-0101111011100000100110xxxxxxxxxx  n     cmeq       d0 : d5
-01111110111xxxxx100011xxxxxxxxxx  n     cmeq       d0 : d5 d16
-
-0x101110xx1xxxxx100101xxxxxxxxxx  n     mls       dq0 : dq0 dq5 dq16 bhs_sz
-0x1011111xxxxxxx0100x0xxxxxxxxxx  n     mls       dq0 : dq5 dq16 vindex_SD sd_sz
-0x10111101xxxxxx0100x0xxxxxxxxxx  n     mls       dq0 : dq5 dq16_h_sz vindex_H h_sz
-0x101110xx1xxxxx100111xxxxxxxxxx  n     pmul      dq0 : dq5 dq16 b_sz
-0x101110xx1xxxxx101001xxxxxxxxxx  n     umaxp     dq0 : dq5 dq16 bhs_sz
-0x101110xx1xxxxx101011xxxxxxxxxx  n     uminp     dq0 : dq5 dq16 bhs_sz
-01111110011xxxxx101101xxxxxxxxxx  n     sqrdmulh   h0 : h5 h16
-01111110101xxxxx101101xxxxxxxxxx  n     sqrdmulh   s0 : s5 s16
-0x101110xx1xxxxx101101xxxxxxxxxx  n     sqrdmulh  dq0 : dq5 dq16 hs_sz
-0x0011111xxxxxxx1101x0xxxxxxxxxx  n     sqrdmulh  dq0 : dq5 dq16 vindex_SD sd_sz
-0x00111101xxxxxx1101x0xxxxxxxxxx  n     sqrdmulh  dq0 : dq5 dq16_h_sz vindex_H h_sz
-0101111101xxxxxx1101x0xxxxxxxxxx  n     sqrdmulh   h0 : h5 dq16_h_sz vindex_H h_sz
-010111111xxxxxxx1101x0xxxxxxxxxx  n     sqrdmulh   s0 : s5 dq16 vindex_SD sd_sz
-0x1011100x1xxxxx110001xxxxxxxxxx  n     fmaxnmp   dq0 : dq5 dq16 sd_sz
-0x101110001xxxxx110011xxxxxxxxxx  n     fmlal2    dq0 : dq0 dq5 dq16
-0x1011100x1xxxxx110101xxxxxxxxxx  n     faddp     dq0 : dq5 dq16 sd_sz
-0111111000110000110110xxxxxxxxxx  n     faddp      s0 : q5 sd_sz
-0111111001110000110110xxxxxxxxxx  n     faddp      d0 : q5 sd_sz
-0101111000110000110110xxxxxxxxxx  n     faddp      h0 : q5 h_sz
-0x1011100x1xxxxx110111xxxxxxxxxx  n     fmul      dq0 : dq5 dq16 sd_sz
-0x1011100x1xxxxx111001xxxxxxxxxx  n     fcmge     dq0 : dq5 dq16 sd_sz
-0x1011101x100000110010xxxxxxxxxx  n     fcmge     dq0 : dq5 sd_sz
-0x10111011111000110010xxxxxxxxxx  n     fcmge     dq0 : dq5 h_sz
-0111111010100000110010xxxxxxxxxx  n     fcmge      s0 : s5
-0111111011100000110010xxxxxxxxxx  n     fcmge      d0 : d5
-0111111011111000110010xxxxxxxxxx  n     fcmge      h0 : h5
-0x1011100x1xxxxx111011xxxxxxxxxx  n     facge     dq0 : dq5 dq16 sd_sz
-0x1011100x1xxxxx111101xxxxxxxxxx  n     fmaxp     dq0 : dq5 dq16 sd_sz
-0x1011100x1xxxxx111111xxxxxxxxxx  n     fdiv      dq0 : dq5 dq16 sd_sz
-0x101110001xxxxx000111xxxxxxxxxx  n     eor       dq0 : dq5 dq16
-0x101110011xxxxx000111xxxxxxxxxx  n     bsl       dq0 : dq5 dq16
-0x1011101x1xxxxx110001xxxxxxxxxx  n     fminnmp   dq0 : dq5 dq16 sd_sz
-0x101110101xxxxx110011xxxxxxxxxx  n     fmlsl2    dq0 : dq0 dq5 dq16
-0x1011101x1xxxxx110101xxxxxxxxxx  n     fabd      dq0 : dq5 dq16 sd_sz
-01111110101xxxxx110101xxxxxxxxxx  n     fabd       s0 : s5 s16
-01111110111xxxxx110101xxxxxxxxxx  n     fabd       d0 : d5 d16
-01111110110xxxxx000101xxxxxxxxxx  n     fabd       h0 : h5 h16
-0x1011101x1xxxxx111001xxxxxxxxxx  n     fcmgt     dq0 : dq5 dq16 sd_sz
-0x0011101x100000110010xxxxxxxxxx  n     fcmgt     dq0 : dq5 sd_sz
-0x00111011111000110010xxxxxxxxxx  n     fcmgt     dq0 : dq5 h_sz
-0101111010100000110010xxxxxxxxxx  n     fcmgt      s0 : s5
-0101111011100000110010xxxxxxxxxx  n     fcmgt      d0 : d5
-0101111011111000110010xxxxxxxxxx  n     fcmgt      h0 : h5
-0x1011101x1xxxxx111011xxxxxxxxxx  n     facgt     dq0 : dq5 dq16 sd_sz
-0x1011101x1xxxxx111101xxxxxxxxxx  n     fminp     dq0 : dq5 dq16 sd_sz
-0x101110101xxxxx000111xxxxxxxxxx  n     bit       dq0 : dq5 dq16
-0x101110111xxxxx000111xxxxxxxxxx  n     bif       dq0 : dq5 dq16
-
-# Floating-point data-processing (1 source)
-00011110xx100000010000xxxxxxxxxx  n     fmov      float_reg0 : float_reg5
-00011110xx100000110000xxxxxxxxxx  n     fabs      float_reg0 : float_reg5
-0x0011101x100000111110xxxxxxxxxx  n     fabs             dq0 : dq5 sd_sz
-0x00111011111000111110xxxxxxxxxx  n     fabs             dq0 : dq5 h_sz
-00011110xx100001010000xxxxxxxxxx  n     fneg      float_reg0 : float_reg5
-0x1011101x100000111110xxxxxxxxxx  n     fneg             dq0 : dq5 sd_sz
-0x10111011111000111110xxxxxxxxxx  n     fneg             dq0 : dq5 h_sz
-00011110xx100001110000xxxxxxxxxx  n     fsqrt     float_reg0 : float_reg5
-0001111000100010110000xxxxxxxxxx  n     fcvt      d0 : s5
-0001111000100011110000xxxxxxxxxx  n     fcvt      h0 : s5
-00011110xx100100010000xxxxxxxxxx  n     frintn    float_reg0 : float_reg5
-00011110xx100100110000xxxxxxxxxx  n     frintp    float_reg0 : float_reg5
-00011110xx100101010000xxxxxxxxxx  n     frintm    float_reg0 : float_reg5
-00011110xx100101110000xxxxxxxxxx  n     frintz    float_reg0 : float_reg5
-00011110xx100110010000xxxxxxxxxx  n     frinta    float_reg0 : float_reg5
-00011110xx100111010000xxxxxxxxxx  n     frintx    float_reg0 : float_reg5
-00011110xx100111110000xxxxxxxxxx  n     frinti    float_reg0 : float_reg5
-0001111001100010010000xxxxxxxxxx  n     fcvt      s0 : d5
-0001111001100011110000xxxxxxxxxx  n     fcvt      h0 : d5
-0001111011100010010000xxxxxxxxxx  n     fcvt      s0 : h5
-0001111011100010110000xxxxxxxxxx  n     fcvt      d0 : h5
-00011110xx1xxxxx001000xxxxx00000  w     fcmp      float_reg5 : float_reg16
-00011110xx100000001000xxxxx01000  w     fcmp      float_reg5 : bhsd_sz
-00011110xx1xxxxxxxxx01xxxxx0xxxx  w     fccmp     float_reg5 : float_reg16 cond nzcv
-00011110xx1xxxxxxxxx01xxxxx1xxxx  w     fccmpe    float_reg5 : float_reg16 cond nzcv
-0x10111000110000111110xxxxxxxxxx  n     fmaxv     s0 : dq5
-0x00111000110000111110xxxxxxxxxx  n     fmaxv     h0 : dq5
-0x10111010110000111110xxxxxxxxxx  n     fminv     s0 : dq5
-0x00111010110000111110xxxxxxxxxx  n     fminv     h0 : dq5
-
-# Floating-point data-processing (vector)
-0x1011100x100001100010xxxxxxxxxx  n     frinta    dq0 : dq5 sd_sz
-0x0011100x100001100110xxxxxxxxxx  n     frintm    dq0 : dq5 sd_sz
-0x0011101x100001100010xxxxxxxxxx  n     frintp    dq0 : dq5 sd_sz
-0x0011101x100001100110xxxxxxxxxx  n     frintz    dq0 : dq5 sd_sz
-0x1011101x100001111110xxxxxxxxxx  n     fsqrt     dq0 : dq5 sd_sz
-
-# Floating-point convert (scalar)
-0001111000100100000000xxxxxxxxxx  n     fcvtas    w0 : s5
-1001111000100100000000xxxxxxxxxx  n     fcvtas    x0 : s5
-0001111001100100000000xxxxxxxxxx  n     fcvtas    w0 : d5
-1001111001100100000000xxxxxxxxxx  n     fcvtas    x0 : d5
-0001111000100101000000xxxxxxxxxx  n     fcvtau    w0 : s5
-1001111000100101000000xxxxxxxxxx  n     fcvtau    x0 : s5
-0001111001100101000000xxxxxxxxxx  n     fcvtau    w0 : d5
-1001111001100101000000xxxxxxxxxx  n     fcvtau    x0 : d5
-0001111000110000000000xxxxxxxxxx  n     fcvtms    w0 : s5
-1001111000110000000000xxxxxxxxxx  n     fcvtms    x0 : s5
-0001111001110000000000xxxxxxxxxx  n     fcvtms    w0 : d5
-1001111001110000000000xxxxxxxxxx  n     fcvtms    x0 : d5
-0001111000100000000000xxxxxxxxxx  n     fcvtns    w0 : s5
-1001111000100000000000xxxxxxxxxx  n     fcvtns    x0 : s5
-0001111001100000000000xxxxxxxxxx  n     fcvtns    w0 : d5
-1001111001100000000000xxxxxxxxxx  n     fcvtns    x0 : d5
-0001111000101000000000xxxxxxxxxx  n     fcvtps    w0 : s5
-1001111000101000000000xxxxxxxxxx  n     fcvtps    x0 : s5
-0001111001101000000000xxxxxxxxxx  n     fcvtps    w0 : d5
-1001111001101000000000xxxxxxxxxx  n     fcvtps    x0 : d5
-0001111000101001000000xxxxxxxxxx  n     fcvtpu    w0 : s5
-1001111000101001000000xxxxxxxxxx  n     fcvtpu    x0 : s5
-0001111001101001000000xxxxxxxxxx  n     fcvtpu    w0 : d5
-1001111001101001000000xxxxxxxxxx  n     fcvtpu    x0 : d5
-
-# Floating-point convert (vector) (scalar single-precision and double-precision)
-0101111000100001110010xxxxxxxxxx  n     fcvtas    s0 : s5
-0101111001100001110010xxxxxxxxxx  n     fcvtas    d0 : d5
-0111111000100001110010xxxxxxxxxx  n     fcvtau    s0 : s5
-0111111001100001110010xxxxxxxxxx  n     fcvtau    d0 : d5
-0101111000100001101110xxxxxxxxxx  n     fcvtms    s0 : s5
-0101111001100001101110xxxxxxxxxx  n     fcvtms    d0 : d5
-0101111000100001101010xxxxxxxxxx  n     fcvtns    s0 : s5
-0101111001100001101010xxxxxxxxxx  n     fcvtns    d0 : d5
-0101111010100001101010xxxxxxxxxx  n     fcvtps    s0 : s5
-0101111011100001101010xxxxxxxxxx  n     fcvtps    d0 : d5
-0111111010100001101010xxxxxxxxxx  n     fcvtpu    s0 : s5
-0111111011100001101010xxxxxxxxxx  n     fcvtpu    d0 : d5
-
-# Floating-point convert (vector) (vector single-precision and double-precision)
-0x0011100x100001110010xxxxxxxxxx  n     fcvtas    dq0 : dq5 sd_sz
-0x1011100x100001110010xxxxxxxxxx  n     fcvtau    dq0 : dq5 sd_sz
-0x0011100x100001101110xxxxxxxxxx  n     fcvtms    dq0 : dq5 sd_sz
-0x0011100x100001101010xxxxxxxxxx  n     fcvtns    dq0 : dq5 sd_sz
-0x0011101x100001101010xxxxxxxxxx  n     fcvtps    dq0 : dq5 sd_sz
-0x1011101x100001101010xxxxxxxxxx  n     fcvtpu    dq0 : dq5 sd_sz
-000011100x100001011110xxxxxxxxxx  n     fcvtl     dq0 : dq5 sd_sz
-010011100x100001011110xxxxxxxxxx  n     fcvtl2    dq0 : dq5 sd_sz
-000011100x100001011010xxxxxxxxxx  n     fcvtn     dq0 : dq5 sd_sz
-010011100x100001011010xxxxxxxxxx  n     fcvtn2    dq0 : dq5 sd_sz
-
-# Floating-point convert (scalar, integer)
-x001111000111000000000xxxxxxxxxx  n     fcvtzs    wx0 : s5
-x001111001111000000000xxxxxxxxxx  n     fcvtzs    wx0 : d5
-x001111000111001000000xxxxxxxxxx  n     fcvtzu    wx0 : s5
-x001111001111001000000xxxxxxxxxx  n     fcvtzu    wx0 : d5
-x001111000100011000000xxxxxxxxxx  n     ucvtf     s0 : wx5
-x001111001100011000000xxxxxxxxxx  n     ucvtf     d0 : wx5
-x001111000100010000000xxxxxxxxxx  n     scvtf     s0 : wx5
-x001111001100010000000xxxxxxxxxx  n     scvtf     d0 : wx5
-
-# Floating-point convert (vector, integer) (scalar single-precision and double-precision)
-0101111010100001101110xxxxxxxxxx  n     fcvtzs    s0 : s5
-0101111011100001101110xxxxxxxxxx  n     fcvtzs    d0 : d5
-0111111010100001101110xxxxxxxxxx  n     fcvtzu    s0 : s5
-0111111011100001101110xxxxxxxxxx  n     fcvtzu    d0 : d5
-0111111000100001110110xxxxxxxxxx  n     ucvtf     s0  : s5
-0111111001100001110110xxxxxxxxxx  n     ucvtf     d0  : d5
-0101111000100001110110xxxxxxxxxx  n     scvtf     s0  : s5
-0101111001100001110110xxxxxxxxxx  n     scvtf     d0  : d5
-
-# Floating-point convert (vector, integer) (vector single-precision and double-precision)
-0x0011101x100001101110xxxxxxxxxx  n     fcvtzs    dq0 : dq5 sd_sz
-0x1011101x100001101110xxxxxxxxxx  n     fcvtzu    dq0 : dq5 sd_sz
-0x1011100x100001110110xxxxxxxxxx  n     ucvtf     dq0 : dq5 sd_sz
-0x0011100x100001110110xxxxxxxxxx  n     scvtf     dq0 : dq5 sd_sz
-
-# Floating-point convert (scalar, fixed-point)
-x001111000011000xxxxxxxxxxxxxxxx  n     fcvtzs    wx0 : s5 scale
-x001111001011000xxxxxxxxxxxxxxxx  n     fcvtzs    wx0 : d5 scale
-x001111000011001xxxxxxxxxxxxxxxx  n     fcvtzu    wx0 : s5 scale
-x001111001011001xxxxxxxxxxxxxxxx  n     fcvtzu    wx0 : d5 scale
-x001111000000011xxxxxxxxxxxxxxxx  n     ucvtf     s0 : wx5 scale
-x001111001000011xxxxxxxxxxxxxxxx  n     ucvtf     d0 : wx5 scale
-x001111000000010xxxxxxxxxxxxxxxx  n     scvtf     s0 : wx5 scale
-x001111001000010xxxxxxxxxxxxxxxx  n     scvtf     d0 : wx5 scale
-
-# Floating-point convert (vector, fixed-point) (scalar)
-0101111100xxxxxx111111xxxxxxxxxx  n     fcvtzs    s0 : s5 immhb_fxp
-0101111101xxxxxx111111xxxxxxxxxx  n     fcvtzs    d0 : d5 immhb_fxp
-0111111100xxxxxx111111xxxxxxxxxx  n     fcvtzu    s0 : s5 immhb_fxp
-0111111101xxxxxx111111xxxxxxxxxx  n     fcvtzu    d0 : d5 immhb_fxp
-0111111000xxxxxx111001xxxxxxxxxx  n     ucvtf     s0 : s5 immhb_fxp
-0111111001xxxxxx111001xxxxxxxxxx  n     ucvtf     d0 : d5 immhb_fxp
-0101111100xxxxxx111001xxxxxxxxxx  n     scvtf     s0 : s5 immhb_fxp
-0101111101xxxxxx111001xxxxxxxxxx  n     scvtf     d0 : d5 immhb_fxp
-
-# Floating-point convert (vector, fixed-point) (vector)
-0x1011110xxxxxxx111111xxxxxxxxxx  n     fcvtzu    dq0 : dq5 bhsd_immh_sz immhb_fxp
-0x0011110xxxxxxx111111xxxxxxxxxx  n     fcvtzs    dq0 : dq5 bhsd_immh_sz immhb_fxp
-0x1011110xxxxxxx111001xxxxxxxxxx  n     ucvtf     dq0 : dq5 bhsd_immh_sz immhb_fxp
-0x0011110xxxxxxx111001xxxxxxxxxx  n     scvtf     dq0 : dq5 bhsd_immh_sz immhb_fxp
-
-# Floating-point data-processing (2 source)
-00011110xx1xxxxx000010xxxxxxxxxx  n     fmul      float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx000110xxxxxxxxxx  n     fdiv      float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx001010xxxxxxxxxx  n     fadd      float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx001110xxxxxxxxxx  n     fsub      float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx010010xxxxxxxxxx  n     fmax      float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx010110xxxxxxxxxx  n     fmin      float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx011010xxxxxxxxxx  n     fmaxnm    float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx011110xxxxxxxxxx  n     fminnm    float_reg0 : float_reg5 float_reg16
-00011110xx1xxxxx100010xxxxxxxxxx  n     fnmul     float_reg0 : float_reg5 float_reg16
-
-# Floating-point data-processing (3 source)
-00011111xx0xxxxx0xxxxxxxxxxxxxxx  n     fmadd     float_reg0 : float_reg5 float_reg16 float_reg10
-00011111xx0xxxxx1xxxxxxxxxxxxxxx  n     fmsub     float_reg0 : float_reg5 float_reg16 float_reg10
-00011111xx1xxxxx0xxxxxxxxxxxxxxx  n     fnmadd    float_reg0 : float_reg5 float_reg16 float_reg10
-00011111xx1xxxxx1xxxxxxxxxxxxxxx  n     fnmsub    float_reg0 : float_reg5 float_reg16 float_reg10
-
-# Dot product instructions
-0x101110100xxxxx100101xxxxxxxxxx  n     udot      dq0: dq5 dq16 s_const_sz b_const_sz # v8.2
-0x001110100xxxxx100101xxxxxxxxxx  n     sdot      dq0: dq5 dq16 s_const_sz b_const_sz # v8.2
-
-# SVE bitwise logical operations (predicated)
-00000100xx011000000xxxxxxxxxxxxx  n     orr       z0 : p10_low z0 z5 bhsd_sz
-00000100xx011001000xxxxxxxxxxxxx  n     eor       z0 : p10_low z0 z5 bhsd_sz
-00000100xx011010000xxxxxxxxxxxxx  n     and       z0 : p10_low z0 z5 bhsd_sz
-00000100xx011011000xxxxxxxxxxxxx  n     bic       z0 : p10_low z0 z5 bhsd_sz
-
-# SVE integer add/subtract vectors (unpredicated)
-00000100xx1xxxxx000000xxxxxxxxxx  n     add       z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000001xxxxxxxxxx  n     sub       z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000100xxxxxxxxxx  n     sqadd     z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000101xxxxxxxxxx  n     uqadd     z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000110xxxxxxxxxx  n     sqsub     z0 : z5 z16 bhsd_sz
-00000100xx1xxxxx000111xxxxxxxxxx  n     uqsub     z0 : z5 z16 bhsd_sz
-
-# Advanced SIMD three different
-
-# For these instructions, the sizes of the inputs and outputs can differ.
-# The width operand is used to show the sizes of the inputs, with the size
-# of the output being implied. For example, in the *L instructions, the
-# input width can by byte, half, and single, which will produce outputs
-# of size half, single, and double, respectively.
-
-00001110xx1xxxxx000000xxxxxxxxxx  n     saddl     q0 : d5 d16 bhs_sz
-01001110xx1xxxxx000000xxxxxxxxxx  n     saddl2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx000100xxxxxxxxxx  n     saddw     q0 : q5 d16 bhs_sz
-01001110xx1xxxxx000100xxxxxxxxxx  n     saddw2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx001000xxxxxxxxxx  n     ssubl     q0 : d5 d16 bhs_sz
-01001110xx1xxxxx001000xxxxxxxxxx  n     ssubl2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx001100xxxxxxxxxx  n     ssubw     q0 : q5 d16 bhs_sz
-01001110xx1xxxxx001100xxxxxxxxxx  n     ssubw2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx010000xxxxxxxxxx  n     addhn     d0 : q5 q16 bhs_sz
-01001110xx1xxxxx010000xxxxxxxxxx  n     addhn2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx010100xxxxxxxxxx  n     sabal     q0 : d5 d16 bhs_sz
-01001110xx1xxxxx010100xxxxxxxxxx  n     sabal2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx011000xxxxxxxxxx  n     subhn     d0 : q5 q16 bhs_sz
-01001110xx1xxxxx011000xxxxxxxxxx  n     subhn2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx011100xxxxxxxxxx  n     sabdl     q0 : d5 d16 bhs_sz
-01001110xx1xxxxx011100xxxxxxxxxx  n     sabdl2    q0 : q5 q16 bhs_sz
-00001110xx1xxxxx100000xxxxxxxxxx  n     smlal     q0 : d5 d16 bhs_sz
-000011111xxxxxxx0010x0xxxxxxxxxx  n     smlal    dq0 : dq5 dq16 vindex_SD sd_sz
-0000111101xxxxxx0010x0xxxxxxxxxx  n     smlal    dq0 : dq5 dq16_h_sz vindex_H h_sz
-01001110xx1xxxxx100000xxxxxxxxxx  n     smlal2    q0 : q5 q16 bhs_sz
-010011111xxxxxxx0010x0xxxxxxxxxx  n     smlal2   dq0 : dq5 dq16 vindex_SD sd_sz
-0100111101xxxxxx0010x0xxxxxxxxxx  n     smlal2   dq0 : dq5 dq16_h_sz vindex_H h_sz
-00001110xx1xxxxx100100xxxxxxxxxx  n     sqdmlal   q0 : d5 d16 hs_sz
-01001110xx1xxxxx100100xxxxxxxxxx  n     sqdmlal2  q0 : q5 q16 hs_sz
-00001110xx1xxxxx101000xxxxxxxxxx  n     smlsl     q0 : d5 d16 bhs_sz
-0000111110xxxxxx0110x0xxxxxxxxxx  n     smlsl     q0 : dq5 dq16 vindex_SD sd_sz
-0000111101xxxxxx0110x0xxxxxxxxxx  n     smlsl     q0 : dq5 dq16_h_sz vindex_H h_sz
-01001110xx1xxxxx101000xxxxxxxxxx  n     smlsl2    q0 : q5 q16 bhs_sz
-0100111110xxxxxx0110x0xxxxxxxxxx  n     smlsl2    q0 : dq5 dq16 vindex_SD sd_sz
-0100111101xxxxxx0110x0xxxxxxxxxx  n     smlsl2    q0 : dq5 dq16_h_sz vindex_H h_sz
-00001110xx1xxxxx101100xxxxxxxxxx  n     sqdmlsl   q0 : d5 d16 hs_sz
-01001110xx1xxxxx101100xxxxxxxxxx  n     sqdmlsl2  q0 : q5 q16 hs_sz
-00001110xx1xxxxx110000xxxxxxxxxx  n     smull     q0 : d5 d16 bhs_sz
-0000111110xxxxxx1010x0xxxxxxxxxx  n     smull     q0 : dq5 dq16 vindex_SD sd_sz
-0000111101xxxxxx1010x0xxxxxxxxxx  n     smull     q0 : dq5 dq16_h_sz vindex_H h_sz
-01001110xx1xxxxx110000xxxxxxxxxx  n     smull2    q0 : q5 q16 bhs_sz
-0100111110xxxxxx1010x0xxxxxxxxxx  n     smull2    q0 : dq5 dq16 vindex_SD sd_sz
-0100111101xxxxxx1010x0xxxxxxxxxx  n     smull2    q0 : dq5 dq16_h_sz vindex_H h_sz
-00001110xx1xxxxx110100xxxxxxxxxx  n     sqdmull   q0 : d5 d16 hs_sz
-01001110xx1xxxxx110100xxxxxxxxxx  n     sqdmull2  q0 : q5 q16 hs_sz
-00001110xx1xxxxx111000xxxxxxxxxx  n     pmull     q0 : d5 d16 bd_sz
-01001110xx1xxxxx111000xxxxxxxxxx  n     pmull2    q0 : q5 q16 bd_sz
-00101110xx1xxxxx000000xxxxxxxxxx  n     uaddl     q0 : d5 d16 bhs_sz
-01101110xx1xxxxx000000xxxxxxxxxx  n     uaddl2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx000100xxxxxxxxxx  n     uaddw     q0 : q5 d16 bhs_sz
-01101110xx1xxxxx000100xxxxxxxxxx  n     uaddw2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx001000xxxxxxxxxx  n     usubl     q0 : d5 d16 bhs_sz
-01101110xx1xxxxx001000xxxxxxxxxx  n     usubl2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx001100xxxxxxxxxx  n     usubw     q0 : q5 d16 bhs_sz
-01101110xx1xxxxx001100xxxxxxxxxx  n     usubw2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx010000xxxxxxxxxx  n     raddhn    d0 : q5 q16 bhs_sz
-01101110xx1xxxxx010000xxxxxxxxxx  n     raddhn2   q0 : q5 q16 bhs_sz
-00101110xx1xxxxx010100xxxxxxxxxx  n     uabal     q0 : d5 d16 bhs_sz
-01101110xx1xxxxx010100xxxxxxxxxx  n     uabal2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx011000xxxxxxxxxx  n     rsubhn    d0 : q5 q16 bhs_sz
-01101110xx1xxxxx011000xxxxxxxxxx  n     rsubhn2   q0 : q5 q16 bhs_sz
-00101110xx1xxxxx011100xxxxxxxxxx  n     uabdl     q0 : d5 d16 bhs_sz
-01101110xx1xxxxx011100xxxxxxxxxx  n     uabdl2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx100000xxxxxxxxxx  n     umlal     q0 : d5 d16 bhs_sz
-01101110xx1xxxxx100000xxxxxxxxxx  n     umlal2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx101000xxxxxxxxxx  n     umlsl     q0 : d5 d16 bhs_sz
-01101110xx1xxxxx101000xxxxxxxxxx  n     umlsl2    q0 : q5 q16 bhs_sz
-00101110xx1xxxxx110000xxxxxxxxxx  n     umull     q0 : d5 d16 bhs_sz
-01101110xx1xxxxx110000xxxxxxxxxx  n     umull2    q0 : q5 q16 bhs_sz
-
-0x101110xx100000000010xxxxxxxxxx  n     rev32     dq0 : dq5 bhs_sz
-0x001110xx100000000010xxxxxxxxxx  n     rev64     dq0 : dq5 bhs_sz
-
-# DUP (element) Scalar
-01011110000xxxxx000001xxxxxxxxxx  n     dup       dq0 : dq5 imm5
-
-# DUP (element) Vector
-00001110000xxxxx000001xxxxxxxxxx  n     dup       d0 : d5 imm5
-01001110000xxxxx000001xxxxxxxxxx  n     dup       q0 : q5 imm5
-
-# DUP (general)
-00001110000xxxxx000011xxxxxxxxxx  n     dup       d0 : w5 imm5
-01001110000xxxxx000011xxxxxxxxxx  n     dup       q0 : x5 imm5
-
-0x001110xx110001101110xxxxxxxxxx  n     addv      dq0 : dq5 bhsd_sz
-0111111011100000101110xxxxxxxxxx  n     neg        q0 : q5
-0x101110xx100000101110xxxxxxxxxx  n     neg       dq0 : dq5 bhsd_sz
-
-0101111011100000101110xxxxxxxxxx  n     abs        d0 : d5
-0x001110xx100000101110xxxxxxxxxx  n     abs       dq0 : dq5 bhsd_sz
-0101111011110001101110xxxxxxxxxx  n     addp       d0 : q5
-0x001110xx110000101010xxxxxxxxxx  n     smaxv     dq0 : dq5 bhsd_sz
-0x001110xx110001101010xxxxxxxxxx  n     sminv     dq0 : dq5 bhsd_sz
-0x001110xx0xxxxx001110xxxxxxxxxx  n     zip1      dq0 : dq5 dq16 bhsd_sz
-0x001110xx0xxxxx011110xxxxxxxxxx  n     zip2      dq0 : dq5 dq16 bhsd_sz
-11010101000000110010000110011111  n     autia1716 :
-11010101000000110010000111011111  n     autib1716 :
-11010101000000110010000011111111  n     xpaclri   :
-0x10111000100000010110xxxxxxxxxx  n     not       dq0 : dq5
-0x001110000xxxxx0xx000xxxxxxxxxx  n     tbl       dq0 : dq5 dq16 len
-0x10111100000xxx10x101xxxxxxxxxx  n     bic       dq0 : imm8 cmode_h_sz
-0x10111100000xxx0xx101xxxxxxxxxx  n     bic       dq0 : imm8 cmode_s_sz
-0x101110xx100000011010xxxxxxxxxx  n     uadalp    dq0 : dq5 bhsd_sz
-0x101110xx100000001010xxxxxxxxxx  n     uaddlp    dq0 : dq5 bhsd_sz
-0x101110xx110000001110xxxxxxxxxx  n     uaddlv    dq0 : dq5 bhsd_sz
-0x101110xx110000101010xxxxxxxxxx  n     umaxv     dq0 : dq5 bhsd_sz
-0x101110xx110001101010xxxxxxxxxx  n     uminv     dq0 : dq5 bhsd_sz
-0x001110xx100000011010xxxxxxxxxx  n     sadalp    dq0 : dq5 bhsd_sz
-0x001110xx100000001010xxxxxxxxxx  n     saddlp    dq0 : dq5 bhsd_sz
-000011110xxxxxxx101001xxxxxxxxxx  n     sshll      q0 : d5 bhsd_immh_sz immhb_0shf
-010011110xxxxxxx101001xxxxxxxxxx  n     sshll2     q0 : q5 bhsd_immh_sz immhb_0shf
-01011110000xxxxx000000xxxxxxxxxx  n     sha1c     q0 : s5 d16
-0101111000101000000010xxxxxxxxxx  n     sha1h     s0 : s5
-01011110000xxxxx001000xxxxxxxxxx  n     sha1m     q0 : s5 d16
-01011110000xxxxx000100xxxxxxxxxx  n     sha1p     q0 : s5 d16
-01011110000xxxxx001100xxxxxxxxxx  n     sha1su0   d0 : d5 d16
-0101111000101000000110xxxxxxxxxx  n     sha1su1   d0 : d5
-01011110000xxxxx010000xxxxxxxxxx  n     sha256h   q0 : q5 d16
-01011110000xxxxx010100xxxxxxxxxx  n     sha256h2  q0 : q5 d16
-0101111000101000001010xxxxxxxxxx  n     sha256su0 d0 : d5
-01011110000xxxxx011000xxxxxxxxxx  n     sha256su1 d0 : d5 d16
-0100111000101000010110xxxxxxxxxx  n     aesd      q0 : q5
-0100111000101000010010xxxxxxxxxx  n     aese      q0 : q5
-0100111000101000011110xxxxxxxxxx  n     aesimc    q0 : q5
-0100111000101000011010xxxxxxxxxx  n     aesmc     q0 : q5
-0x00111000100000010110xxxxxxxxxx  n     cnt      dq0 : dq5
-0x101110000xxxxx0xxxx0xxxxxxxxxx  n     ext      dq0 : dq5 dq16 imm4idx
-0x001110xx0xxxxx001010xxxxxxxxxx  n     trn1     dq0 : dq5 dq16 bhsd_sz
-0x001110xx0xxxxx011010xxxxxxxxxx  n     trn2     dq0 : dq5 dq16 bhsd_sz
-0010111100xxxxxx101001xxxxxxxxxx  n     ushll    q0  : d5 bhsd_immh_sz immhb_0shf
-0110111100xxxxxx101001xxxxxxxxxx  n     ushll2   q0  : q5 bhsd_immh_sz immhb_0shf
-0x001110xx0xxxxx000110xxxxxxxxxx  n     uzp1     dq0 : dq5 dq16 bhsd_sz
-0x001110xx0xxxxx010110xxxxxxxxxx  n     uzp2     dq0 : dq5 dq16 bhsd_sz
-00001110xx100001001010xxxxxxxxxx  n     xtn       d0 : d5 bhsd_sz
-01001110xx100001001010xxxxxxxxxx  n     xtn2      q0 : q5 bhsd_sz
-0101111101xxxxxx001001xxxxxxxxxx  n     srshr      d0 : d5 immhb_shf
-0x0011110xxxxxxx001001xxxxxxxxxx  n     srshr     dq0 : dq5 bhsd_immh_sz immhb_shf
-0101111101xxxxxx001101xxxxxxxxxx  n     srsra      d0 : d5 immhb_shf
-0x0011110xxxxxxx001101xxxxxxxxxx  n     srsra     dq0 : dq5 bhsd_immh_sz immhb_shf
-0101111101xxxxxx000001xxxxxxxxxx  n     sshr       d0 : d5 immhb_shf
-0x0011110xxxxxxx000001xxxxxxxxxx  n     sshr      dq0 : dq5 bhsd_immh_sz immhb_shf
-0101111101xxxxxx000101xxxxxxxxxx  n     ssra       d0 : d5 immhb_shf
-0x0011110xxxxxxx000101xxxxxxxxxx  n     ssra      dq0 : dq5 bhsd_immh_sz immhb_shf
-0101111101xxxxxx010101xxxxxxxxxx  n     shl        d0 : d5 immhb_0shf
-0x0011110xxxxxxx010101xxxxxxxxxx  n     shl       dq0 : dq5 bhsd_immh_sz immhb_0shf
-0111111101xxxxxx010101xxxxxxxxxx  n     sli        d0 : d5 immhb_0shf
-0x1011110xxxxxxx010101xxxxxxxxxx  n     sli       dq0 : dq5 bhsd_immh_sz immhb_0shf
-0111111101xxxxxx000001xxxxxxxxxx  n     ushr       d0 : d5 immhb_shf
-0x1011110xxxxxxx000001xxxxxxxxxx  n     ushr      dq0 : dq5 bhsd_immh_sz immhb_shf
-0111111101xxxxxx000101xxxxxxxxxx  n     usra       d0 : d5 immhb_shf
-0x1011110xxxxxxx000101xxxxxxxxxx  n     usra      dq0 : dq5 bhsd_immh_sz immhb_shf
-0000111100xxxxxx100001xxxxxxxxxx  n     shrn       d0 : q5 hsd_immh_sz immhb_shf
-0100111100xxxxxx100001xxxxxxxxxx  n     shrn2      q0 : q5 hsd_immh_sz immhb_shf
-00101110xx100001001110xxxxxxxxxx  n     shll       d0 : d5 bhs_sz
-01101110xx100001001110xxxxxxxxxx  n     shll2      q0 : q5 bhs_sz
-x001111011110001000000xxxxxxxxxx  n     fcvtmu   wx0 : h5
-x001111000110001000000xxxxxxxxxx  n     fcvtmu   wx0 : s5
-x001111001110001000000xxxxxxxxxx  n     fcvtmu   wx0 : d5
-0111111001111001101110xxxxxxxxxx  n     fcvtmu    h0 : h5
-0111111000100001101110xxxxxxxxxx  n     fcvtmu    s0 : s5
-0111111001100001101110xxxxxxxxxx  n     fcvtmu    d0 : d5
-0x1011100x100001101110xxxxxxxxxx  n     fcvtmu   dq0 : dq5 sd_sz
-x001111011100001000000xxxxxxxxxx  n     fcvtnu   wx0 : h5
-x001111000100001000000xxxxxxxxxx  n     fcvtnu   wx0 : s5
-x001111001100001000000xxxxxxxxxx  n     fcvtnu   wx0 : d5
-0111111001111001101010xxxxxxxxxx  n     fcvtnu    h0 : h5
-0111111000100001101010xxxxxxxxxx  n     fcvtnu    s0 : s5
-0111111001100001101010xxxxxxxxxx  n     fcvtnu    d0 : d5
-0x1011100x100001101010xxxxxxxxxx  n     fcvtnu   dq0 : dq5 sd_sz
-1101010100101xxxxxxxxxxxxxxxxxxx  n     sysl      x0 : op1 crn imm4 op2
-11010100101xxxxxxxxxxxxxxxx00001  n     dcps1        : imm16
-11010100101xxxxxxxxxxxxxxxx00010  n     dcps2        : imm16
-11010100101xxxxxxxxxxxxxxxx00011  n     dcps3        : imm16
-11010110101111110000001111100000  n     drps         :
-11010110100111110000001111100000  n     eret         :
-0101111000100000001110xxxxxxxxxx  n     suqadd    b0 : b5
-0101111001100000001110xxxxxxxxxx  n     suqadd    h0 : h5
-0101111010100000001110xxxxxxxxxx  n     suqadd    s0 : s5
-0101111011100000001110xxxxxxxxxx  n     suqadd    d0 : d5
-0x001110xx100000001110xxxxxxxxxx  n     suqadd   dq0 : dq5 bhsd_sz
-0x001110000xxxxx0xx100xxxxxxxxxx  n     tbx      dq0 : dq5 dq16 len
-0010111100xxxxxx100111xxxxxxxxxx  n     uqrshrn   d0 : q5 hsd_immh_sz immhb_shf
-0110111100xxxxxx100111xxxxxxxxxx  n     uqrshrn2  q0 : q5 hsd_immh_sz immhb_shf
-0x0011101x100001110010xxxxxxxxxx  n     urecpe   dq0 : dq5 sd_sz
-0111111101xxxxxx001101xxxxxxxxxx  n     ursra     d0 : d5 immhb_shf
-0x1011110xxxxxxx001101xxxxxxxxxx  n     ursra    dq0 : dq5 bhsd_immh_sz immhb_shf
-0111111000100000001110xxxxxxxxxx  n     usqadd    b0 : b5
-0111111001100000001110xxxxxxxxxx  n     usqadd    h0 : h5
-0111111010100000001110xxxxxxxxxx  n     usqadd    s0 : s5
-0111111011100000001110xxxxxxxxxx  n     usqadd    d0 : d5
-0x101110xx100000001110xxxxxxxxxx  n     usqadd   dq0 : dq5 bhsd_sz
-0111111000100000011110xxxxxxxxxx  n     sqneg     b0 : b5
-0111111001100000011110xxxxxxxxxx  n     sqneg     h0 : h5
-0111111010100000011110xxxxxxxxxx  n     sqneg     s0 : s5
-0111111011100000011110xxxxxxxxxx  n     sqneg     d0 : d5
-0x101110xx100000011110xxxxxxxxxx  n     sqneg    dq0 : dq5 bhsd_sz
-000011110xxxxxxx100111xxxxxxxxxx  n     sqrshrn   d0 : q5 hsd_immh_sz immhb_shf
-010011110xxxxxxx100111xxxxxxxxxx  n     sqrshrn2  q0 : q5 hsd_immh_sz immhb_shf
-0010111100xxxxxx100011xxxxxxxxxx  n     sqrshrun  d0 : q5 hsd_immh_sz immhb_shf
-0110111100xxxxxx100011xxxxxxxxxx  n     sqrshrun2 q0 : q5 hsd_immh_sz immhb_shf
-0111111100001xxx011001xxxxxxxxxx  n     sqshlu    b0 : b5 immhb_0shf
-011111110001xxxx011001xxxxxxxxxx  n     sqshlu    h0 : h5 immhb_0shf
-01111111001xxxxx011001xxxxxxxxxx  n     sqshlu    s0 : s5 immhb_0shf
-0111111101xxxxxx011001xxxxxxxxxx  n     sqshlu    d0 : d5 immhb_0shf
-0x1011110xxxxxxx011001xxxxxxxxxx  n     sqshlu   dq0 : dq5 bhsd_immh_sz immhb_0shf
-0010111100xxxxxx100001xxxxxxxxxx  n     sqshrun   d0 : q5 hsd_immh_sz immhb_shf
-0110111100xxxxxx100001xxxxxxxxxx  n     sqshrun2  q0 : q5 hsd_immh_sz immhb_shf
-0111111101xxxxxx010001xxxxxxxxxx  n     sri       d0 : d5 immhb_shf
-0x1011110xxxxxxx010001xxxxxxxxxx  n     sri      dq0 : dq5 bhsd_immh_sz immhb_shf
-001011110xxxxxxx100101xxxxxxxxxx  n     uqshrn    d0 : q5 hsd_immh_sz immhb_shf
-011011110xxxxxxx100101xxxxxxxxxx  n     uqshrn2   q0 : q5 hsd_immh_sz immhb_shf
-0x1011110xxxxxxx001001xxxxxxxxxx  n     urshr    dq0 : dq5 bhsd_immh_sz immhb_shf
-0000111000110000110010xxxxxxxxxx  n     fmaxnmv   h0 : d5
-0100111000110000110010xxxxxxxxxx  n     fmaxnmv   h0 : q5
-0110111000110000110010xxxxxxxxxx  n     fmaxnmv   s0 : q5
-0000111010110000110010xxxxxxxxxx  n     fminnmv   h0 : d5
-0100111010110000110010xxxxxxxxxx  n     fminnmv   h0 : q5
-0110111010110000110010xxxxxxxxxx  n     fminnmv   s0 : q5
-0101111011111001110110xxxxxxxxxx  n     frecpe     h0 : h5
-0101111010100001110110xxxxxxxxxx  n     frecpe     s0 : s5
-0101111011100001110110xxxxxxxxxx  n     frecpe     d0 : d5
-0x0011101x100001110110xxxxxxxxxx  n     frecpe    dq0 : dq5 sd_sz
-0101111011111001111110xxxxxxxxxx  n     frecpx     h0 : h5
-0101111010100001111110xxxxxxxxxx  n     frecpx     s0 : s5
-0101111011100001111110xxxxxxxxxx  n     frecpx     d0 : d5
-0111111011111001110110xxxxxxxxxx  n     frsqrte    h0 : h5
-0111111010100001110110xxxxxxxxxx  n     frsqrte    s0 : s5
-0111111011100001110110xxxxxxxxxx  n     frsqrte    d0 : d5
-0x1011101x100001110110xxxxxxxxxx  n     frsqrte   dq0 : dq5 bd_sz
-0000111100xxxxxx100011xxxxxxxxxx  n     rshrn      d0 : q5 hsd_immh_sz immhb_shf
-0100111100xxxxxx100011xxxxxxxxxx  n     rshrn2     q0 : q5 hsd_immh_sz immhb_shf
-0x001110xx110000001110xxxxxxxxxx  n     saddlv    dq0 : dq5 bhsd_sz
-0101111000100000011110xxxxxxxxxx  n     sqabs     b0 : b5
-0101111001100000011110xxxxxxxxxx  n     sqabs     h0 : h5
-0101111010100000011110xxxxxxxxxx  n     sqabs     s0 : s5
-0101111011100000011110xxxxxxxxxx  n     sqabs     d0 : d5
-0x001110xx100000011110xxxxxxxxxx  n     sqabs     dq0 : dq5 bhsd_sz
-0111111011100000100110xxxxxxxxxx  n     cmle       d0 : d5
-0x101110xx100000100110xxxxxxxxxx  n     cmle      dq0 : dq5 bhsd_sz
-0111111011111000110110xxxxxxxxxx  n     fcmle      h0 : h5
-0111111010100000110110xxxxxxxxxx  n     fcmle      s0 : s5
-0111111011100000110110xxxxxxxxxx  n     fcmle      d0 : d5
-0x1011101x100000110110xxxxxxxxxx  n     fcmle     dq0 : dq5 sd_sz
-0101111011111000111010xxxxxxxxxx  n     fcmlt      h0 : h5
-0101111010100000111010xxxxxxxxxx  n     fcmlt      s0 : s5
-0101111011100000111010xxxxxxxxxx  n     fcmlt      d0 : d5
-0x0011101x100000111010xxxxxxxxxx  n     fcmlt     dq0 : dq5 sd_sz
-00011110111xxxxx001000xxxxx10000  w     fcmpe         : h5 h16
-0001111011100000001000xxxxx11000  w     fcmpe         : h5
-00011110001xxxxx001000xxxxx10000  w     fcmpe         : s5 s16
-0001111000100000001000xxxxx11000  w     fcmpe         : s5
-00011110011xxxxx001000xxxxx10000  w     fcmpe         : d5 d16
-0001111001100000001000xxxxx11000  w     fcmpe         : d5
-0111111001100001011010xxxxxxxxxx  n     fcvtxn     s0 : d5
-0010111001100001011010xxxxxxxxxx  n     fcvtxn     d0 : q5
-0110111001100001011010xxxxxxxxxx  n     fcvtxn2    q0 : q5
+# The file below this point is managed by the codecorder.py script. If you want
+# to add a new instruction, add it anywhere in the list and then run
+# codecorder.py --rewrite and it will be inserted in the correct location
+# Instructions:
+
+0101111011100000101110xxxxxxxxxx  n         abs             d0 : d5
+0x001110xx100000101110xxxxxxxxxx  n         abs            dq0 : dq5 bhsd_sz
+x0011010000xxxxx000000xxxxxxxxxx  r         adc            wx0 : wx5 wx16
+x0111010000xxxxx000000xxxxxxxxxx  rw       adcs            wx0 : wx5 wx16
+x00100010xxxxxxxxxxxxxxxxxxxxxxx  n         add          wx0sp : wx5sp imm12 lsl imm12sh
+x0001011xx0xxxxxxxxxxxxxxxxxxxxx  n         add            wx0 : wx5 wx16 shift3 imm6
+x0001011001xxxxxxxxxxxxxxxxxxxxx  n         add          wx0sp : wx5sp wx16 ext extam
+0x001110xx1xxxxx100001xxxxxxxxxx  n         add            dq0 : dq5 dq16 bhsd_sz
+01011110111xxxxx100001xxxxxxxxxx  n         add             d0 : d5 d16
+00001110xx1xxxxx010000xxxxxxxxxx  n       addhn             d0 : q5 q16 bhs_sz
+01001110xx1xxxxx010000xxxxxxxxxx  n      addhn2             q0 : q5 q16 bhs_sz
+0x001110xx1xxxxx101111xxxxxxxxxx  n        addp            dq0 : dq5 dq16 bhsd_sz
+0101111011110001101110xxxxxxxxxx  n        addp             d0 : q5
+x01100010xxxxxxxxxxxxxxxxxxxxxxx  w        adds            wx0 : wx5sp imm12 lsl imm12sh
+x0101011xx0xxxxxxxxxxxxxxxxxxxxx  w        adds            wx0 : wx5 wx16 shift3 imm6
+x0101011001xxxxxxxxxxxxxxxxxxxxx  w        adds            wx0 : wx5sp wx16 ext extam
+0x001110xx110001101110xxxxxxxxxx  n        addv            dq0 : dq5 bhsd_sz
+0xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n         adr            adr
+1xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n        adrp            adr
+0100111000101000010110xxxxxxxxxx  n        aesd             q0 : q5
+0100111000101000010010xxxxxxxxxx  n        aese             q0 : q5
+0100111000101000011110xxxxxxxxxx  n      aesimc             q0 : q5
+0100111000101000011010xxxxxxxxxx  n       aesmc             q0 : q5
+x00100100xxxxxxxxxxxxxxxxxxxxxxx  n         and      logic_imm
+x0001010xx0xxxxxxxxxxxxxxxxxxxxx  n         and            wx0 : wx5 wx16 shift4 imm6
+0x001110001xxxxx000111xxxxxxxxxx  n         and            dq0 : dq5 dq16
+x11100100xxxxxxxxxxxxxxxxxxxxxxx  w        ands      logic_imm
+x1101010xx0xxxxxxxxxxxxxxxxxxxxx  w        ands            wx0 : wx5 wx16 shift4 imm6
+x0011010110xxxxx001010xxxxxxxxxx  n        asrv            wx0 : wx5 wx16
+11010101000000110010000110011111  n   autia1716                :
+11010101000000110010000111011111  n   autib1716                :
+000101xxxxxxxxxxxxxxxxxxxxxxxxxx  n           b              b
+01010100xxxxxxxxxxxxxxxxxxx0xxxx  r       bcond          bcond
+0011001100xxxxxxxxxxxxxxxxxxxxxx  n         bfm             w0 : w0 w5 immr imms
+1011001101xxxxxxxxxxxxxxxxxxxxxx  n         bfm             x0 : x0 x5 immr imms
+x0001010xx1xxxxxxxxxxxxxxxxxxxxx  n         bic            wx0 : wx5 wx16 shift4 imm6
+0x001110011xxxxx000111xxxxxxxxxx  n         bic            dq0 : dq5 dq16
+0x10111100000xxx10x101xxxxxxxxxx  n         bic            dq0 : imm8 cmode_h_sz
+0x10111100000xxx0xx101xxxxxxxxxx  n         bic            dq0 : imm8 cmode_s_sz
+x1101010xx1xxxxxxxxxxxxxxxxxxxxx  w        bics            wx0 : wx5 wx16 shift4 imm6
+0x101110111xxxxx000111xxxxxxxxxx  n         bif            dq0 : dq5 dq16
+0x101110101xxxxx000111xxxxxxxxxx  n         bit            dq0 : dq5 dq16
+100101xxxxxxxxxxxxxxxxxxxxxxxxxx  n          bl              b
+1101011000111111000000xxxxx00000  n         blr         impx30 : x5
+1101011000011111000000xxxxx00000  n          br                : x5
+11010100001xxxxxxxxxxxxxxxx00000  n         brk                : imm16
+0x101110011xxxxx000111xxxxxxxxxx  n         bsl            dq0 : dq5 dq16
+10001000101xxxxx011111xxxxxxxxxx  n         cas       w16 mem0 : w16 w0 mem0
+11001000101xxxxx011111xxxxxxxxxx  n         cas       x16 mem0 : x16 x0 mem0
+10001000111xxxxx011111xxxxxxxxxx  n        casa       w16 mem0 : w16 w0 mem0
+11001000111xxxxx011111xxxxxxxxxx  n        casa       x16 mem0 : x16 x0 mem0
+00001000111xxxxx011111xxxxxxxxxx  n       casab       w16 mem0 : w16 w0 mem0
+01001000111xxxxx011111xxxxxxxxxx  n       casah       w16 mem0 : w16 w0 mem0
+10001000111xxxxx111111xxxxxxxxxx  n       casal       w16 mem0 : w16 w0 mem0
+11001000111xxxxx111111xxxxxxxxxx  n       casal       x16 mem0 : x16 x0 mem0
+00001000111xxxxx111111xxxxxxxxxx  n      casalb       w16 mem0 : w16 w0 mem0
+01001000111xxxxx111111xxxxxxxxxx  n      casalh       w16 mem0 : w16 w0 mem0
+00001000101xxxxx011111xxxxxxxxxx  n        casb       w16 mem0 : w16 w0 mem0
+01001000101xxxxx011111xxxxxxxxxx  n        cash       w16 mem0 : w16 w0 mem0
+10001000101xxxxx111111xxxxxxxxxx  n        casl       w16 mem0 : w16 w0 mem0
+11001000101xxxxx111111xxxxxxxxxx  n        casl       x16 mem0 : x16 x0 mem0
+00001000101xxxxx111111xxxxxxxxxx  n       caslb       w16 mem0 : w16 w0 mem0
+01001000101xxxxx111111xxxxxxxxxx  n       caslh       w16 mem0 : w16 w0 mem0
+00001000001xxxxx011111xxxxxxxxxx  n        casp  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000001xxxxx011111xxxxxxxxxx  n        casp  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+00001000011xxxxx011111xxxxxxxxxx  n       caspa  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000011xxxxx011111xxxxxxxxxx  n       caspa  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+00001000011xxxxx111111xxxxxxxxxx  n      caspal  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000011xxxxx111111xxxxxxxxxx  n      caspal  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+00001000001xxxxx111111xxxxxxxxxx  n       caspl  w16p0 w16p1 mem0p : w16p0 w16p1 w0p0 w0p1 mem0p
+01001000001xxxxx111111xxxxxxxxxx  n       caspl  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
+x0110101xxxxxxxxxxxxxxxxxxxxxxxx  n        cbnz            cbz
+x0110100xxxxxxxxxxxxxxxxxxxxxxxx  n         cbz            cbz
+x0111010010xxxxxxxxx00xxxxx0xxxx  rw       ccmn                : wx5 wx16 nzcv cond
+x0111010010xxxxxxxxx10xxxxx0xxxx  rw       ccmn                : wx5 imm5 nzcv cond
+x1111010010xxxxxxxxx00xxxxx0xxxx  rw       ccmp                : wx5 wx16 nzcv cond
+x1111010010xxxxxxxxx10xxxxx0xxxx  rw       ccmp                : wx5 imm5 nzcv cond
+11010101000000110011xxxx01011111  n       clrex                : imm4
+x101101011000000000101xxxxxxxxxx  n         cls            wx0 : wx5
+x101101011000000000100xxxxxxxxxx  n         clz            wx0 : wx5
+0x101110xx100000010010xxxxxxxxxx  n         clz            dq0 : dq5 bhs_sz
+0x101110xx1xxxxx100011xxxxxxxxxx  n        cmeq            dq0 : dq5 dq16 bhsd_sz
+0x001110xx100000100110xxxxxxxxxx  n        cmeq            dq0 : dq5 bhsd_sz
+0101111011100000100110xxxxxxxxxx  n        cmeq             d0 : d5
+01111110111xxxxx100011xxxxxxxxxx  n        cmeq             d0 : d5 d16
+0x001110xx1xxxxx001111xxxxxxxxxx  n        cmge            dq0 : dq5 dq16 bhsd_sz
+0x101110xx100000100010xxxxxxxxxx  n        cmge            dq0 : dq5 bhsd_sz
+0111111011100000100010xxxxxxxxxx  n        cmge             d0 : d5
+0x001110xx1xxxxx001101xxxxxxxxxx  n        cmgt            dq0 : dq5 dq16 bhsd_sz
+0x001110xx100000100010xxxxxxxxxx  n        cmgt            dq0 : dq5 bhsd_sz
+0101111011100000100010xxxxxxxxxx  n        cmgt             d0 : d5
+01011110111xxxxx001101xxxxxxxxxx  n        cmgt             d0 : d5 d16
+0x101110xx1xxxxx001101xxxxxxxxxx  n        cmhi            dq0 : dq5 dq16 bhsd_sz
+0x101110xx1xxxxx001111xxxxxxxxxx  n        cmhs            dq0 : dq5 dq16 bhsd_sz
+0111111011100000100110xxxxxxxxxx  n        cmle             d0 : d5
+0x101110xx100000100110xxxxxxxxxx  n        cmle            dq0 : dq5 bhsd_sz
+0x001110xx100000101010xxxxxxxxxx  n        cmlt            dq0 : dq5 bhsd_sz
+0101111011100000101010xxxxxxxxxx  n        cmlt             d0 : d5
+0x001110xx1xxxxx100011xxxxxxxxxx  n       cmtst            dq0 : dq5 dq16 bhsd_sz
+0x00111000100000010110xxxxxxxxxx  n         cnt            dq0 : dq5
+00011010110xxxxx010000xxxxxxxxxx  n      crc32b             w0 : w5 w16
+00011010110xxxxx010100xxxxxxxxxx  n     crc32cb             w0 : w5 w16
+00011010110xxxxx010101xxxxxxxxxx  n     crc32ch             w0 : w5 w16
+00011010110xxxxx010110xxxxxxxxxx  n     crc32cw             w0 : w5 w16
+10011010110xxxxx010111xxxxxxxxxx  n     crc32cx             w0 : w5 x16
+00011010110xxxxx010001xxxxxxxxxx  n      crc32h             w0 : w5 w16
+00011010110xxxxx010010xxxxxxxxxx  n      crc32w             w0 : w5 w16
+10011010110xxxxx010011xxxxxxxxxx  n      crc32x             w0 : w5 x16
+x0011010100xxxxxxxxx00xxxxxxxxxx  r        csel            wx0 : wx5 wx16 cond
+x0011010100xxxxxxxxx01xxxxxxxxxx  r       csinc            wx0 : wx5 wx16 cond
+x1011010100xxxxxxxxx00xxxxxxxxxx  r       csinv            wx0 : wx5 wx16 cond
+x1011010100xxxxxxxxx01xxxxxxxxxx  r       csneg            wx0 : wx5 wx16 cond
+11010100101xxxxxxxxxxxxxxxx00001  n       dcps1                : imm16
+11010100101xxxxxxxxxxxxxxxx00010  n       dcps2                : imm16
+11010100101xxxxxxxxxxxxxxxx00011  n       dcps3                : imm16
+11010101000000110011xxxx10111111  n         dmb                : imm4
+11010110101111110000001111100000  n        drps                :
+11010101000000110011xxxx10011111  n         dsb                : imm4
+01011110000xxxxx000001xxxxxxxxxx  n         dup            dq0 : dq5 imm5
+00001110000xxxxx000001xxxxxxxxxx  n         dup             d0 : d5 imm5
+01001110000xxxxx000001xxxxxxxxxx  n         dup             q0 : q5 imm5
+00001110000xxxxx000011xxxxxxxxxx  n         dup             d0 : w5 imm5
+01001110000xxxxx000011xxxxxxxxxx  n         dup             q0 : x5 imm5
+x1001010xx1xxxxxxxxxxxxxxxxxxxxx  n         eon            wx0 : wx5 wx16 shift4 imm6
+x10100100xxxxxxxxxxxxxxxxxxxxxxx  n         eor      logic_imm
+x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n         eor            wx0 : wx5 wx16 shift4 imm6
+0x101110001xxxxx000111xxxxxxxxxx  n         eor            dq0 : dq5 dq16
+11010110100111110000001111100000  n        eret                :
+0x101110000xxxxx0xxxx0xxxxxxxxxx  n         ext            dq0 : dq5 dq16 imm4idx
+00010011100xxxxxxxxxxxxxxxxxxxxx  n        extr             w0 : w5 w16 imms
+10010011110xxxxxxxxxxxxxxxxxxxxx  n        extr             x0 : x5 x16 imms
+0x101110110xxxxx000101xxxxxxxxxx  n        fabd            dq0 : dq5 dq16 h_sz
+0x1011101x1xxxxx110101xxxxxxxxxx  n        fabd            dq0 : dq5 dq16 sd_sz
+01111110101xxxxx110101xxxxxxxxxx  n        fabd             s0 : s5 s16
+01111110111xxxxx110101xxxxxxxxxx  n        fabd             d0 : d5 d16
+01111110110xxxxx000101xxxxxxxxxx  n        fabd             h0 : h5 h16
+00011110xx100000110000xxxxxxxxxx  n        fabs     float_reg0 : float_reg5
+0x0011101x100000111110xxxxxxxxxx  n        fabs            dq0 : dq5 sd_sz
+0x00111011111000111110xxxxxxxxxx  n        fabs            dq0 : dq5 h_sz
+0x101110010xxxxx001011xxxxxxxxxx  n       facge            dq0 : dq5 dq16 h_sz
+0x1011100x1xxxxx111011xxxxxxxxxx  n       facge            dq0 : dq5 dq16 sd_sz
+0x101110110xxxxx001011xxxxxxxxxx  n       facgt            dq0 : dq5 dq16 h_sz
+0x1011101x1xxxxx111011xxxxxxxxxx  n       facgt            dq0 : dq5 dq16 sd_sz
+0x001110010xxxxx000101xxxxxxxxxx  n        fadd            dq0 : dq5 dq16 h_sz
+0x0011100x1xxxxx110101xxxxxxxxxx  n        fadd            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx001010xxxxxxxxxx  n        fadd     float_reg0 : float_reg5 float_reg16
+0x101110010xxxxx000101xxxxxxxxxx  n       faddp            dq0 : dq5 dq16 h_sz
+0x1011100x1xxxxx110101xxxxxxxxxx  n       faddp            dq0 : dq5 dq16 sd_sz
+0111111000110000110110xxxxxxxxxx  n       faddp             s0 : q5 sd_sz
+0111111001110000110110xxxxxxxxxx  n       faddp             d0 : q5 sd_sz
+0101111000110000110110xxxxxxxxxx  n       faddp             h0 : q5 h_sz
+00011110xx1xxxxxxxxx01xxxxx0xxxx  w       fccmp     float_reg5 : float_reg16 cond nzcv
+00011110xx1xxxxxxxxx01xxxxx1xxxx  w      fccmpe     float_reg5 : float_reg16 cond nzcv
+0x001110010xxxxx001001xxxxxxxxxx  n       fcmeq            dq0 : dq5 dq16 h_sz
+0x0011100x1xxxxx111001xxxxxxxxxx  n       fcmeq            dq0 : dq5 dq16 sd_sz
+0x0011101x100000110110xxxxxxxxxx  n       fcmeq            dq0 : dq5 sd_sz
+0x00111011111000110110xxxxxxxxxx  n       fcmeq            dq0 : dq5 h_sz
+0101111010100000110110xxxxxxxxxx  n       fcmeq             s0 : s5
+0101111011100000110110xxxxxxxxxx  n       fcmeq             d0 : d5
+0101111011111000110110xxxxxxxxxx  n       fcmeq             h0 : h5
+0x101110010xxxxx001001xxxxxxxxxx  n       fcmge            dq0 : dq5 dq16 h_sz
+0x1011100x1xxxxx111001xxxxxxxxxx  n       fcmge            dq0 : dq5 dq16 sd_sz
+0x1011101x100000110010xxxxxxxxxx  n       fcmge            dq0 : dq5 sd_sz
+0x10111011111000110010xxxxxxxxxx  n       fcmge            dq0 : dq5 h_sz
+0111111010100000110010xxxxxxxxxx  n       fcmge             s0 : s5
+0111111011100000110010xxxxxxxxxx  n       fcmge             d0 : d5
+0111111011111000110010xxxxxxxxxx  n       fcmge             h0 : h5
+0x101110110xxxxx001001xxxxxxxxxx  n       fcmgt            dq0 : dq5 dq16 h_sz
+0x1011101x1xxxxx111001xxxxxxxxxx  n       fcmgt            dq0 : dq5 dq16 sd_sz
+0x0011101x100000110010xxxxxxxxxx  n       fcmgt            dq0 : dq5 sd_sz
+0x00111011111000110010xxxxxxxxxx  n       fcmgt            dq0 : dq5 h_sz
+0101111010100000110010xxxxxxxxxx  n       fcmgt             s0 : s5
+0101111011100000110010xxxxxxxxxx  n       fcmgt             d0 : d5
+0101111011111000110010xxxxxxxxxx  n       fcmgt             h0 : h5
+0111111011111000110110xxxxxxxxxx  n       fcmle             h0 : h5
+0111111010100000110110xxxxxxxxxx  n       fcmle             s0 : s5
+0111111011100000110110xxxxxxxxxx  n       fcmle             d0 : d5
+0x1011101x100000110110xxxxxxxxxx  n       fcmle            dq0 : dq5 sd_sz
+0101111011111000111010xxxxxxxxxx  n       fcmlt             h0 : h5
+0101111010100000111010xxxxxxxxxx  n       fcmlt             s0 : s5
+0101111011100000111010xxxxxxxxxx  n       fcmlt             d0 : d5
+0x0011101x100000111010xxxxxxxxxx  n       fcmlt            dq0 : dq5 sd_sz
+00011110xx1xxxxx001000xxxxx00000  w        fcmp     float_reg5 : float_reg16
+00011110xx100000001000xxxxx01000  w        fcmp     float_reg5 : bhsd_sz
+00011110111xxxxx001000xxxxx10000  w       fcmpe                : h5 h16
+0001111011100000001000xxxxx11000  w       fcmpe                : h5
+00011110001xxxxx001000xxxxx10000  w       fcmpe                : s5 s16
+0001111000100000001000xxxxx11000  w       fcmpe                : s5
+00011110011xxxxx001000xxxxx10000  w       fcmpe                : d5 d16
+0001111001100000001000xxxxx11000  w       fcmpe                : d5
+00011110xx1xxxxxxxxx11xxxxxxxxxx  r       fcsel     float_reg0 : float_reg5 float_reg16 cond
+0001111000100010110000xxxxxxxxxx  n        fcvt             d0 : s5
+0001111000100011110000xxxxxxxxxx  n        fcvt             h0 : s5
+0001111001100010010000xxxxxxxxxx  n        fcvt             s0 : d5
+0001111001100011110000xxxxxxxxxx  n        fcvt             h0 : d5
+0001111011100010010000xxxxxxxxxx  n        fcvt             s0 : h5
+0001111011100010110000xxxxxxxxxx  n        fcvt             d0 : h5
+0001111000100100000000xxxxxxxxxx  n      fcvtas             w0 : s5
+1001111000100100000000xxxxxxxxxx  n      fcvtas             x0 : s5
+0001111001100100000000xxxxxxxxxx  n      fcvtas             w0 : d5
+1001111001100100000000xxxxxxxxxx  n      fcvtas             x0 : d5
+0101111000100001110010xxxxxxxxxx  n      fcvtas             s0 : s5
+0101111001100001110010xxxxxxxxxx  n      fcvtas             d0 : d5
+0x0011100x100001110010xxxxxxxxxx  n      fcvtas            dq0 : dq5 sd_sz
+0001111000100101000000xxxxxxxxxx  n      fcvtau             w0 : s5
+1001111000100101000000xxxxxxxxxx  n      fcvtau             x0 : s5
+0001111001100101000000xxxxxxxxxx  n      fcvtau             w0 : d5
+1001111001100101000000xxxxxxxxxx  n      fcvtau             x0 : d5
+0111111000100001110010xxxxxxxxxx  n      fcvtau             s0 : s5
+0111111001100001110010xxxxxxxxxx  n      fcvtau             d0 : d5
+0x1011100x100001110010xxxxxxxxxx  n      fcvtau            dq0 : dq5 sd_sz
+000011100x100001011110xxxxxxxxxx  n       fcvtl            dq0 : dq5 sd_sz
+010011100x100001011110xxxxxxxxxx  n      fcvtl2            dq0 : dq5 sd_sz
+0001111000110000000000xxxxxxxxxx  n      fcvtms             w0 : s5
+1001111000110000000000xxxxxxxxxx  n      fcvtms             x0 : s5
+0001111001110000000000xxxxxxxxxx  n      fcvtms             w0 : d5
+1001111001110000000000xxxxxxxxxx  n      fcvtms             x0 : d5
+0101111000100001101110xxxxxxxxxx  n      fcvtms             s0 : s5
+0101111001100001101110xxxxxxxxxx  n      fcvtms             d0 : d5
+0x0011100x100001101110xxxxxxxxxx  n      fcvtms            dq0 : dq5 sd_sz
+x001111011110001000000xxxxxxxxxx  n      fcvtmu            wx0 : h5
+x001111000110001000000xxxxxxxxxx  n      fcvtmu            wx0 : s5
+x001111001110001000000xxxxxxxxxx  n      fcvtmu            wx0 : d5
+0111111001111001101110xxxxxxxxxx  n      fcvtmu             h0 : h5
+0111111000100001101110xxxxxxxxxx  n      fcvtmu             s0 : s5
+0111111001100001101110xxxxxxxxxx  n      fcvtmu             d0 : d5
+0x1011100x100001101110xxxxxxxxxx  n      fcvtmu            dq0 : dq5 sd_sz
+000011100x100001011010xxxxxxxxxx  n       fcvtn            dq0 : dq5 sd_sz
+010011100x100001011010xxxxxxxxxx  n      fcvtn2            dq0 : dq5 sd_sz
+0001111000100000000000xxxxxxxxxx  n      fcvtns             w0 : s5
+1001111000100000000000xxxxxxxxxx  n      fcvtns             x0 : s5
+0001111001100000000000xxxxxxxxxx  n      fcvtns             w0 : d5
+1001111001100000000000xxxxxxxxxx  n      fcvtns             x0 : d5
+0101111000100001101010xxxxxxxxxx  n      fcvtns             s0 : s5
+0101111001100001101010xxxxxxxxxx  n      fcvtns             d0 : d5
+0x0011100x100001101010xxxxxxxxxx  n      fcvtns            dq0 : dq5 sd_sz
+x001111011100001000000xxxxxxxxxx  n      fcvtnu            wx0 : h5
+x001111000100001000000xxxxxxxxxx  n      fcvtnu            wx0 : s5
+x001111001100001000000xxxxxxxxxx  n      fcvtnu            wx0 : d5
+0111111001111001101010xxxxxxxxxx  n      fcvtnu             h0 : h5
+0111111000100001101010xxxxxxxxxx  n      fcvtnu             s0 : s5
+0111111001100001101010xxxxxxxxxx  n      fcvtnu             d0 : d5
+0x1011100x100001101010xxxxxxxxxx  n      fcvtnu            dq0 : dq5 sd_sz
+0001111000101000000000xxxxxxxxxx  n      fcvtps             w0 : s5
+1001111000101000000000xxxxxxxxxx  n      fcvtps             x0 : s5
+0001111001101000000000xxxxxxxxxx  n      fcvtps             w0 : d5
+1001111001101000000000xxxxxxxxxx  n      fcvtps             x0 : d5
+0101111010100001101010xxxxxxxxxx  n      fcvtps             s0 : s5
+0101111011100001101010xxxxxxxxxx  n      fcvtps             d0 : d5
+0x0011101x100001101010xxxxxxxxxx  n      fcvtps            dq0 : dq5 sd_sz
+0001111000101001000000xxxxxxxxxx  n      fcvtpu             w0 : s5
+1001111000101001000000xxxxxxxxxx  n      fcvtpu             x0 : s5
+0001111001101001000000xxxxxxxxxx  n      fcvtpu             w0 : d5
+1001111001101001000000xxxxxxxxxx  n      fcvtpu             x0 : d5
+0111111010100001101010xxxxxxxxxx  n      fcvtpu             s0 : s5
+0111111011100001101010xxxxxxxxxx  n      fcvtpu             d0 : d5
+0x1011101x100001101010xxxxxxxxxx  n      fcvtpu            dq0 : dq5 sd_sz
+0111111001100001011010xxxxxxxxxx  n      fcvtxn             s0 : d5
+0010111001100001011010xxxxxxxxxx  n      fcvtxn             d0 : q5
+0110111001100001011010xxxxxxxxxx  n     fcvtxn2             q0 : q5
+x001111000111000000000xxxxxxxxxx  n      fcvtzs            wx0 : s5
+x001111001111000000000xxxxxxxxxx  n      fcvtzs            wx0 : d5
+0101111010100001101110xxxxxxxxxx  n      fcvtzs             s0 : s5
+0101111011100001101110xxxxxxxxxx  n      fcvtzs             d0 : d5
+0x0011101x100001101110xxxxxxxxxx  n      fcvtzs            dq0 : dq5 sd_sz
+x001111000011000xxxxxxxxxxxxxxxx  n      fcvtzs            wx0 : s5 scale
+x001111001011000xxxxxxxxxxxxxxxx  n      fcvtzs            wx0 : d5 scale
+0101111100xxxxxx111111xxxxxxxxxx  n      fcvtzs             s0 : s5 immhb_fxp
+0101111101xxxxxx111111xxxxxxxxxx  n      fcvtzs             d0 : d5 immhb_fxp
+0x0011110xxxxxxx111111xxxxxxxxxx  n      fcvtzs            dq0 : dq5 bhsd_immh_sz immhb_fxp
+x001111000111001000000xxxxxxxxxx  n      fcvtzu            wx0 : s5
+x001111001111001000000xxxxxxxxxx  n      fcvtzu            wx0 : d5
+0111111010100001101110xxxxxxxxxx  n      fcvtzu             s0 : s5
+0111111011100001101110xxxxxxxxxx  n      fcvtzu             d0 : d5
+0x1011101x100001101110xxxxxxxxxx  n      fcvtzu            dq0 : dq5 sd_sz
+x001111000011001xxxxxxxxxxxxxxxx  n      fcvtzu            wx0 : s5 scale
+x001111001011001xxxxxxxxxxxxxxxx  n      fcvtzu            wx0 : d5 scale
+0111111100xxxxxx111111xxxxxxxxxx  n      fcvtzu             s0 : s5 immhb_fxp
+0111111101xxxxxx111111xxxxxxxxxx  n      fcvtzu             d0 : d5 immhb_fxp
+0x1011110xxxxxxx111111xxxxxxxxxx  n      fcvtzu            dq0 : dq5 bhsd_immh_sz immhb_fxp
+0x101110010xxxxx001111xxxxxxxxxx  n        fdiv            dq0 : dq5 dq16 h_sz
+0x1011100x1xxxxx111111xxxxxxxxxx  n        fdiv            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx000110xxxxxxxxxx  n        fdiv     float_reg0 : float_reg5 float_reg16
+00011111xx0xxxxx0xxxxxxxxxxxxxxx  n       fmadd     float_reg0 : float_reg5 float_reg16 float_reg10
+0x001110010xxxxx001101xxxxxxxxxx  n        fmax            dq0 : dq5 dq16 h_sz
+0x0011100x1xxxxx111101xxxxxxxxxx  n        fmax            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx010010xxxxxxxxxx  n        fmax     float_reg0 : float_reg5 float_reg16
+0x001110010xxxxx000001xxxxxxxxxx  n      fmaxnm            dq0 : dq5 dq16 h_sz
+0x0011100x1xxxxx110001xxxxxxxxxx  n      fmaxnm            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx011010xxxxxxxxxx  n      fmaxnm     float_reg0 : float_reg5 float_reg16
+0x101110010xxxxx000001xxxxxxxxxx  n     fmaxnmp            dq0 : dq5 dq16 h_sz
+0x1011100x1xxxxx110001xxxxxxxxxx  n     fmaxnmp            dq0 : dq5 dq16 sd_sz
+0000111000110000110010xxxxxxxxxx  n     fmaxnmv             h0 : d5
+0100111000110000110010xxxxxxxxxx  n     fmaxnmv             h0 : q5
+0110111000110000110010xxxxxxxxxx  n     fmaxnmv             s0 : q5
+0x101110010xxxxx001101xxxxxxxxxx  n       fmaxp            dq0 : dq5 dq16 h_sz
+0x1011100x1xxxxx111101xxxxxxxxxx  n       fmaxp            dq0 : dq5 dq16 sd_sz
+0x10111000110000111110xxxxxxxxxx  n       fmaxv             s0 : dq5
+0x00111000110000111110xxxxxxxxxx  n       fmaxv             h0 : dq5
+0x001110110xxxxx001101xxxxxxxxxx  n        fmin            dq0 : dq5 dq16 h_sz
+0x0011101x1xxxxx111101xxxxxxxxxx  n        fmin            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx010110xxxxxxxxxx  n        fmin     float_reg0 : float_reg5 float_reg16
+0x001110110xxxxx000001xxxxxxxxxx  n      fminnm            dq0 : dq5 dq16 h_sz
+0x0011101x1xxxxx110001xxxxxxxxxx  n      fminnm            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx011110xxxxxxxxxx  n      fminnm     float_reg0 : float_reg5 float_reg16
+0x101110110xxxxx000001xxxxxxxxxx  n     fminnmp            dq0 : dq5 dq16 h_sz
+0x1011101x1xxxxx110001xxxxxxxxxx  n     fminnmp            dq0 : dq5 dq16 sd_sz
+0000111010110000110010xxxxxxxxxx  n     fminnmv             h0 : d5
+0100111010110000110010xxxxxxxxxx  n     fminnmv             h0 : q5
+0110111010110000110010xxxxxxxxxx  n     fminnmv             s0 : q5
+0x101110110xxxxx001101xxxxxxxxxx  n       fminp            dq0 : dq5 dq16 h_sz
+0x1011101x1xxxxx111101xxxxxxxxxx  n       fminp            dq0 : dq5 dq16 sd_sz
+0x10111010110000111110xxxxxxxxxx  n       fminv             s0 : dq5
+0x00111010110000111110xxxxxxxxxx  n       fminv             h0 : dq5
+0x001110010xxxxx000011xxxxxxxxxx  n        fmla            dq0 : dq0 dq5 dq16 h_sz
+0x0011100x1xxxxx110011xxxxxxxxxx  n        fmla            dq0 : dq0 dq5 dq16 sd_sz
+0x0011111xxxxxxx0001x0xxxxxxxxxx  n        fmla            dq0 : dq0 dq5 dq16 vindex_SD sd_sz
+0x001110001xxxxx111011xxxxxxxxxx  n       fmlal            dq0 : dq0 dq5 dq16
+0x101110001xxxxx110011xxxxxxxxxx  n      fmlal2            dq0 : dq0 dq5 dq16
+0x001110110xxxxx000011xxxxxxxxxx  n        fmls            dq0 : dq0 dq5 dq16 h_sz
+0x0011111xxxxxxx0101x0xxxxxxxxxx  n        fmls            dq0 : dq5 dq16 vindex_SD sd_sz
+0x00111100xxxxxx0101x0xxxxxxxxxx  n        fmls            dq0 : dq5 dq16_h_sz vindex_H h_sz
+0x0011101x1xxxxx110011xxxxxxxxxx  n        fmls            dq0 : dq0 dq5 dq16 sd_sz
+0x001110101xxxxx111011xxxxxxxxxx  n       fmlsl            dq0 : dq0 dq5 dq16
+0x101110101xxxxx110011xxxxxxxxxx  n      fmlsl2            dq0 : dq0 dq5 dq16
+00011110111xxxxxxxx10000000xxxxx  n        fmov             h0 : fpimm13 # Armv8.2
+00011110001xxxxxxxx10000000xxxxx  n        fmov             s0 : fpimm13
+00011110011xxxxxxxx10000000xxxxx  n        fmov             d0 : fpimm13
+0001111011100111000000xxxxxxxxxx  n        fmov             h0 : w5 # Armv8.2
+0001111000100111000000xxxxxxxxxx  n        fmov             s0 : w5
+1001111011100111000000xxxxxxxxxx  n        fmov             h0 : x5 # Armv8.2
+1001111001100111000000xxxxxxxxxx  n        fmov             d0 : x5
+1001111010101111000000xxxxxxxxxx  n        fmov             q0 : x5 # only sets the bit top half of q0
+0001111000100110000000xxxxxxxxxx  n        fmov             w0 : s5
+1001111001100110000000xxxxxxxxxx  n        fmov             x0 : d5
+0x00111100000xxx111111xxxxxxxxxx  n        fmov            dq0 : fpimm8 h_sz # Armv8.2
+00011110xx100000010000xxxxxxxxxx  n        fmov     float_reg0 : float_reg5
+00011111xx0xxxxx1xxxxxxxxxxxxxxx  n       fmsub     float_reg0 : float_reg5 float_reg16 float_reg10
+0x0011111xxxxxxx1001x0xxxxxxxxxx  n        fmul            dq0 : dq5 dq16 vindex_SD sd_sz
+0x00111100xxxxxx1001x0xxxxxxxxxx  n        fmul            dq0 : dq5 dq16_h_sz vindex_H h_sz
+0101111110xxxxxx1001x0xxxxxxxxxx  n        fmul             s0 : s5 dq16 vindex_SD sd_sz
+0101111111xxxxxx1001x0xxxxxxxxxx  n        fmul             d0 : d5 dq16 vindex_SD sd_sz
+0101111100xxxxxx1001x0xxxxxxxxxx  n        fmul             h0 : h5 dq16_h_sz vindex_H h_sz
+0x101110010xxxxx000111xxxxxxxxxx  n        fmul            dq0 : dq5 dq16 h_sz
+0x1011100x1xxxxx110111xxxxxxxxxx  n        fmul            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx000010xxxxxxxxxx  n        fmul     float_reg0 : float_reg5 float_reg16
+0x001110010xxxxx000111xxxxxxxxxx  n       fmulx            dq0 : dq5 dq16 h_sz
+0x0011100x1xxxxx110111xxxxxxxxxx  n       fmulx            dq0 : dq5 dq16 sd_sz
+00011110xx100001010000xxxxxxxxxx  n        fneg     float_reg0 : float_reg5
+0x1011101x100000111110xxxxxxxxxx  n        fneg            dq0 : dq5 sd_sz
+0x10111011111000111110xxxxxxxxxx  n        fneg            dq0 : dq5 h_sz
+00011111xx1xxxxx0xxxxxxxxxxxxxxx  n      fnmadd     float_reg0 : float_reg5 float_reg16 float_reg10
+00011111xx1xxxxx1xxxxxxxxxxxxxxx  n      fnmsub     float_reg0 : float_reg5 float_reg16 float_reg10
+00011110xx1xxxxx100010xxxxxxxxxx  n       fnmul     float_reg0 : float_reg5 float_reg16
+0101111011111001110110xxxxxxxxxx  n      frecpe             h0 : h5
+0101111010100001110110xxxxxxxxxx  n      frecpe             s0 : s5
+0101111011100001110110xxxxxxxxxx  n      frecpe             d0 : d5
+0x0011101x100001110110xxxxxxxxxx  n      frecpe            dq0 : dq5 sd_sz
+0x001110010xxxxx001111xxxxxxxxxx  n      frecps            dq0 : dq5 dq16 h_sz
+0x0011100x1xxxxx111111xxxxxxxxxx  n      frecps            dq0 : dq5 dq16 sd_sz
+0101111011111001111110xxxxxxxxxx  n      frecpx             h0 : h5
+0101111010100001111110xxxxxxxxxx  n      frecpx             s0 : s5
+0101111011100001111110xxxxxxxxxx  n      frecpx             d0 : d5
+00011110xx100110010000xxxxxxxxxx  n      frinta     float_reg0 : float_reg5
+0x1011100x100001100010xxxxxxxxxx  n      frinta            dq0 : dq5 sd_sz
+00011110xx100111110000xxxxxxxxxx  n      frinti     float_reg0 : float_reg5
+00011110xx100101010000xxxxxxxxxx  n      frintm     float_reg0 : float_reg5
+0x0011100x100001100110xxxxxxxxxx  n      frintm            dq0 : dq5 sd_sz
+00011110xx100100010000xxxxxxxxxx  n      frintn     float_reg0 : float_reg5
+00011110xx100100110000xxxxxxxxxx  n      frintp     float_reg0 : float_reg5
+0x0011101x100001100010xxxxxxxxxx  n      frintp            dq0 : dq5 sd_sz
+00011110xx100111010000xxxxxxxxxx  n      frintx     float_reg0 : float_reg5
+00011110xx100101110000xxxxxxxxxx  n      frintz     float_reg0 : float_reg5
+0x0011101x100001100110xxxxxxxxxx  n      frintz            dq0 : dq5 sd_sz
+0111111011111001110110xxxxxxxxxx  n     frsqrte             h0 : h5
+0111111010100001110110xxxxxxxxxx  n     frsqrte             s0 : s5
+0111111011100001110110xxxxxxxxxx  n     frsqrte             d0 : d5
+0x1011101x100001110110xxxxxxxxxx  n     frsqrte            dq0 : dq5 bd_sz
+0x001110110xxxxx001111xxxxxxxxxx  n     frsqrts            dq0 : dq5 dq16 h_sz
+0x0011101x1xxxxx111111xxxxxxxxxx  n     frsqrts            dq0 : dq5 dq16 sd_sz
+00011110xx100001110000xxxxxxxxxx  n       fsqrt     float_reg0 : float_reg5
+0x1011101x100001111110xxxxxxxxxx  n       fsqrt            dq0 : dq5 sd_sz
+0x001110110xxxxx000101xxxxxxxxxx  n        fsub            dq0 : dq5 dq16 h_sz
+0x0011101x1xxxxx110101xxxxxxxxxx  n        fsub            dq0 : dq5 dq16 sd_sz
+00011110xx1xxxxx001110xxxxxxxxxx  n        fsub     float_reg0 : float_reg5 float_reg16
+11010100010xxxxxxxxxxxxxxxx00000  n         hlt                : imm16
+11010100000xxxxxxxxxxxxxxxx00010  n         hvc                : imm16
+01101110000xxxxx0xxxx1xxxxxxxxxx  n         ins        q0 imm5 : q5 imm4idx
+01001110000xxxxx000111xxxxxxxxxx  n         ins        q0 imm5 : wx5_imm5
+11010101000000110011xxxx11011111  n         isb                : imm4
+0x001100010000000010xxxxxxxxxxxx  n         ld1  vt0 vt1 vt2 vt3 : memvm vmsz
+0x001100010000000110xxxxxxxxxxxx  n         ld1    vt0 vt1 vt2 : memvm vmsz
+0x001100010000000111xxxxxxxxxxxx  n         ld1            vt0 : memvm vmsz
+0x001100010000001010xxxxxxxxxxxx  n         ld1        vt0 vt1 : memvm vmsz
+0x001100110xxxxx0010xxxxxxxxxxxx  n         ld1  vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx0110xxxxxxxxxxxx  n         ld1  vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx0111xxxxxxxxxxxx  n         ld1       vt0 x5sp : memvm vmsz x5sp x16imm
+0x001100110xxxxx1010xxxxxxxxxxxx  n         ld1   vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+0x00110101000000000xxxxxxxxxxxxx  n         ld1             q0 : memvs index0
+0x00110101000000010xx0xxxxxxxxxx  n         ld1             q0 : memvs index1
+0x00110101000000100x00xxxxxxxxxx  n         ld1             q0 : memvs index2
+0x00110101000000100001xxxxxxxxxx  n         ld1             q0 : memvs index3
+0x001101110xxxxx000xxxxxxxxxxxxx  n         ld1        q0 x5sp : q0 memvs index0 x5sp x16immvs
+0x001101110xxxxx010xx0xxxxxxxxxx  n         ld1        q0 x5sp : q0 memvs index1 x5sp x16immvs
+0x001101110xxxxx100x00xxxxxxxxxx  n         ld1        q0 x5sp : q0 memvs index2 x5sp x16immvs
+0x001101110xxxxx100001xxxxxxxxxx  n         ld1        q0 x5sp : q0 memvs index3 x5sp x16immvs
+0x001101010000001100xxxxxxxxxxxx  n        ld1r            dq0 : memvr
+0x001101110xxxxx1100xxxxxxxxxxxx  n        ld1r       dq0 x5sp : memvr x5sp x16immvr
+0x001100010000001000xxxxxxxxxxxx  n         ld2        vt0 vt1 : memvm vmsz
+0x001100110xxxxx1000xxxxxxxxxxxx  n         ld2   vt0 vt1 x5sp : memvm vmsz x5sp x16imm
+0x00110101100000000xxxxxxxxxxxxx  n         ld2        q0 q0p1 : memvs index0
+0x00110101100000010xx0xxxxxxxxxx  n         ld2        q0 q0p1 : memvs index1
+0x00110101100000100x00xxxxxxxxxx  n         ld2        q0 q0p1 : memvs index2
+0x00110101100000100001xxxxxxxxxx  n         ld2        q0 q0p1 : memvs index3
+0x001101111xxxxx000xxxxxxxxxxxxx  n         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index0 x5sp x16immvs
+0x001101111xxxxx010xx0xxxxxxxxxx  n         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index1 x5sp x16immvs
+0x001101111xxxxx100x00xxxxxxxxxx  n         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index2 x5sp x16immvs
+0x001101111xxxxx100001xxxxxxxxxx  n         ld2   q0 q0p1 x5sp : q0 q0p1 memvs index3 x5sp x16immvs
+0x001101011000001100xxxxxxxxxxxx  n        ld2r      dq0 dq0p1 : memvr
+0x001101111xxxxx1100xxxxxxxxxxxx  n        ld2r  dq0 dq0p1 x5sp : memvr x5sp x16immvr
+0x001100010000000100xxxxxxxxxxxx  n         ld3    vt0 vt1 vt2 : memvm vmsz
+0x001100110xxxxx0100xxxxxxxxxxxx  n         ld3  vt0 vt1 vt2 x5sp : memvm vmsz x5sp x16imm
+0x00110101000000001xxxxxxxxxxxxx  n         ld3   q0 q0p1 q0p2 : memvs index0
+0x00110101000000011xx0xxxxxxxxxx  n         ld3   q0 q0p1 q0p2 : memvs index1
+0x00110101000000101x00xxxxxxxxxx  n         ld3   q0 q0p1 q0p2 : memvs index2
+0x00110101000000101001xxxxxxxxxx  n         ld3   q0 q0p1 q0p2 : memvs index3
+0x001101110xxxxx001xxxxxxxxxxxxx  n         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index0 x5sp x16immvs
+0x001101110xxxxx011xx0xxxxxxxxxx  n         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index1 x5sp x16immvs
+0x001101110xxxxx101x00xxxxxxxxxx  n         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index2 x5sp x16immvs
+0x001101110xxxxx101001xxxxxxxxxx  n         ld3  q0 q0p1 q0p2 x5sp : q0 q0p1 q0p2 memvs index3 x5sp x16immvs
+0x001101010000001110xxxxxxxxxxxx  n        ld3r  dq0 dq0p1 dq0p2 : memvr
+0x001101110xxxxx1110xxxxxxxxxxxx  n        ld3r  dq0 dq0p1 dq0p2 x5sp : memvr x5sp x16immvr
+0x001100010000000000xxxxxxxxxxxx  n         ld4  vt0 vt1 vt2 vt3 : memvm vmsz
+0x001100110xxxxx0000xxxxxxxxxxxx  n         ld4  vt0 vt1 vt2 vt3 x5sp : memvm vmsz x5sp x16imm
+0x00110101100000001xxxxxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 : memvs index0
+0x00110101100000011xx0xxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 : memvs index1
+0x00110101100000101x00xxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 : memvs index2
+0x00110101100000101001xxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 : memvs index3
+0x001101111xxxxx001xxxxxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index0 x5sp x16immvs
+0x001101111xxxxx011xx0xxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index1 x5sp x16immvs
+0x001101111xxxxx101x00xxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index2 x5sp x16immvs
+0x001101111xxxxx101001xxxxxxxxxx  n         ld4  q0 q0p1 q0p2 q0p3 x5sp : q0 q0p1 q0p2 q0p3 memvs index3 x5sp x16immvs
+0x001101011000001110xxxxxxxxxxxx  n        ld4r  dq0 dq0p1 dq0p2 dq0p3 : memvr
+0x001101111xxxxx1110xxxxxxxxxxxx  n        ld4r  dq0 dq0p1 dq0p2 dq0p3 x5sp : memvr x5sp x16immvr
+10111000001xxxxx000000xxxxxxxxxx  n       ldadd        w0 mem0 : w16 mem0
+11111000001xxxxx000000xxxxxxxxxx  n       ldadd        x0 mem0 : x16 mem0
+10111000101xxxxx000000xxxxxxxxxx  n      ldadda        w0 mem0 : w16 mem0
+11111000101xxxxx000000xxxxxxxxxx  n      ldadda        x0 mem0 : x16 mem0
+00111000101xxxxx000000xxxxxxxxxx  n     ldaddab        w0 mem0 : w16 mem0
+01111000101xxxxx000000xxxxxxxxxx  n     ldaddah        w0 mem0 : w16 mem0
+10111000111xxxxx000000xxxxxxxxxx  n     ldaddal        w0 mem0 : w16 mem0
+11111000111xxxxx000000xxxxxxxxxx  n     ldaddal        x0 mem0 : x16 mem0
+00111000111xxxxx000000xxxxxxxxxx  n    ldaddalb        w0 mem0 : w16 mem0
+01111000111xxxxx000000xxxxxxxxxx  n    ldaddalh        w0 mem0 : w16 mem0
+00111000001xxxxx000000xxxxxxxxxx  n      ldaddb        w0 mem0 : w16 mem0
+01111000001xxxxx000000xxxxxxxxxx  n      ldaddh        w0 mem0 : w16 mem0
+10111000011xxxxx000000xxxxxxxxxx  n      ldaddl        w0 mem0 : w16 mem0
+11111000011xxxxx000000xxxxxxxxxx  n      ldaddl        x0 mem0 : x16 mem0
+00111000011xxxxx000000xxxxxxxxxx  n     ldaddlb        w0 mem0 : w16 mem0
+01111000011xxxxx000000xxxxxxxxxx  n     ldaddlh        w0 mem0 : w16 mem0
+1000100011011111111111xxxxxxxxxx  n        ldar             w0 : mem0
+1100100011011111111111xxxxxxxxxx  n        ldar             x0 : mem0
+0000100011011111111111xxxxxxxxxx  n       ldarb             w0 : mem0
+0100100011011111111111xxxxxxxxxx  n       ldarh             w0 : mem0
+10001000011xxxxx1xxxxxxxxxxxxxxx  n       ldaxp         w0 w10 : mem0p ign16
+11001000011xxxxx1xxxxxxxxxxxxxxx  n       ldaxp         x0 x10 : mem0p ign16
+10001000010xxxxx1xxxxxxxxxxxxxxx  n       ldaxr             w0 : mem0 ign10 ign16
+11001000010xxxxx1xxxxxxxxxxxxxxx  n       ldaxr             x0 : mem0 ign10 ign16
+00001000010xxxxx1xxxxxxxxxxxxxxx  n      ldaxrb             w0 : mem0 ign10 ign16
+01001000010xxxxx1xxxxxxxxxxxxxxx  n      ldaxrh             w0 : mem0 ign10 ign16
+10111000001xxxxx000100xxxxxxxxxx  n       ldclr        w0 mem0 : w16 mem0
+11111000001xxxxx000100xxxxxxxxxx  n       ldclr        x0 mem0 : x16 mem0
+10111000101xxxxx000100xxxxxxxxxx  n      ldclra        w0 mem0 : w16 mem0
+11111000101xxxxx000100xxxxxxxxxx  n      ldclra        x0 mem0 : x16 mem0
+00111000101xxxxx000100xxxxxxxxxx  n     ldclrab        w0 mem0 : w16 mem0
+01111000101xxxxx000100xxxxxxxxxx  n     ldclrah        w0 mem0 : w16 mem0
+10111000111xxxxx000100xxxxxxxxxx  n     ldclral        w0 mem0 : w16 mem0
+11111000111xxxxx000100xxxxxxxxxx  n     ldclral        x0 mem0 : x16 mem0
+00111000111xxxxx000100xxxxxxxxxx  n    ldclralb        w0 mem0 : w16 mem0
+01111000111xxxxx000100xxxxxxxxxx  n    ldclralh        w0 mem0 : w16 mem0
+00111000001xxxxx000100xxxxxxxxxx  n      ldclrb        w0 mem0 : w16 mem0
+01111000001xxxxx000100xxxxxxxxxx  n      ldclrh        w0 mem0 : w16 mem0
+10111000011xxxxx000100xxxxxxxxxx  n      ldclrl        w0 mem0 : w16 mem0
+11111000011xxxxx000100xxxxxxxxxx  n      ldclrl        x0 mem0 : x16 mem0
+00111000011xxxxx000100xxxxxxxxxx  n     ldclrlb        w0 mem0 : w16 mem0
+01111000011xxxxx000100xxxxxxxxxx  n     ldclrlh        w0 mem0 : w16 mem0
+10111000001xxxxx001000xxxxxxxxxx  n       ldeor        w0 mem0 : w16 mem0
+11111000001xxxxx001000xxxxxxxxxx  n       ldeor        x0 mem0 : x16 mem0
+10111000101xxxxx001000xxxxxxxxxx  n      ldeora        w0 mem0 : w16 mem0
+11111000101xxxxx001000xxxxxxxxxx  n      ldeora        x0 mem0 : x16 mem0
+00111000101xxxxx001000xxxxxxxxxx  n     ldeorab        w0 mem0 : w16 mem0
+01111000101xxxxx001000xxxxxxxxxx  n     ldeorah        w0 mem0 : w16 mem0
+10111000111xxxxx001000xxxxxxxxxx  n     ldeoral        w0 mem0 : w16 mem0
+11111000111xxxxx001000xxxxxxxxxx  n     ldeoral        x0 mem0 : x16 mem0
+00111000111xxxxx001000xxxxxxxxxx  n    ldeoralb        w0 mem0 : w16 mem0
+01111000111xxxxx001000xxxxxxxxxx  n    ldeoralh        w0 mem0 : w16 mem0
+00111000001xxxxx001000xxxxxxxxxx  n      ldeorb        w0 mem0 : w16 mem0
+01111000001xxxxx001000xxxxxxxxxx  n      ldeorh        w0 mem0 : w16 mem0
+10111000011xxxxx001000xxxxxxxxxx  n      ldeorl        w0 mem0 : w16 mem0
+11111000011xxxxx001000xxxxxxxxxx  n      ldeorl        x0 mem0 : x16 mem0
+00111000011xxxxx001000xxxxxxxxxx  n     ldeorlb        w0 mem0 : w16 mem0
+01111000011xxxxx001000xxxxxxxxxx  n     ldeorlh        w0 mem0 : w16 mem0
+0010100001xxxxxxxxxxxxxxxxxxxxxx  n        ldnp         w0 w10 : mem7
+0010110001xxxxxxxxxxxxxxxxxxxxxx  n        ldnp         s0 s10 : mem7
+0110110001xxxxxxxxxxxxxxxxxxxxxx  n        ldnp         d0 d10 : mem7
+1010100001xxxxxxxxxxxxxxxxxxxxxx  n        ldnp         x0 x10 : mem7
+1010110001xxxxxxxxxxxxxxxxxxxxxx  n        ldnp         q0 q10 : mem7
+0010100011xxxxxxxxxxxxxxxxxxxxxx  n         ldp    w0 w10 x5sp : mem7post x5sp mem7off
+0010110011xxxxxxxxxxxxxxxxxxxxxx  n         ldp    s0 s10 x5sp : mem7post x5sp mem7off
+0110110011xxxxxxxxxxxxxxxxxxxxxx  n         ldp    d0 d10 x5sp : mem7post x5sp mem7off
+1010100011xxxxxxxxxxxxxxxxxxxxxx  n         ldp    x0 x10 x5sp : mem7post x5sp mem7off
+1010110011xxxxxxxxxxxxxxxxxxxxxx  n         ldp    q0 q10 x5sp : mem7post x5sp mem7off
+0010100101xxxxxxxxxxxxxxxxxxxxxx  n         ldp         w0 w10 : mem7
+0010110101xxxxxxxxxxxxxxxxxxxxxx  n         ldp         s0 s10 : mem7
+0110110101xxxxxxxxxxxxxxxxxxxxxx  n         ldp         d0 d10 : mem7
+1010100101xxxxxxxxxxxxxxxxxxxxxx  n         ldp         x0 x10 : mem7
+1010110101xxxxxxxxxxxxxxxxxxxxxx  n         ldp         q0 q10 : mem7
+0010100111xxxxxxxxxxxxxxxxxxxxxx  n         ldp    w0 w10 x5sp : mem7 x5sp mem7off
+0010110111xxxxxxxxxxxxxxxxxxxxxx  n         ldp    s0 s10 x5sp : mem7 x5sp mem7off
+0110110111xxxxxxxxxxxxxxxxxxxxxx  n         ldp    d0 d10 x5sp : mem7 x5sp mem7off
+1010100111xxxxxxxxxxxxxxxxxxxxxx  n         ldp    x0 x10 x5sp : mem7 x5sp mem7off
+1010110111xxxxxxxxxxxxxxxxxxxxxx  n         ldp    q0 q10 x5sp : mem7 x5sp mem7off
+0110100011xxxxxxxxxxxxxxxxxxxxxx  n       ldpsw    x0 x10 x5sp : mem7post x5sp mem7off
+0110100101xxxxxxxxxxxxxxxxxxxxxx  n       ldpsw         x0 x10 : mem7
+0110100111xxxxxxxxxxxxxxxxxxxxxx  n       ldpsw    x0 x10 x5sp : mem7 x5sp mem7off
+00011000xxxxxxxxxxxxxxxxxxxxxxxx  n         ldr             w0 : memlit
+00011100xxxxxxxxxxxxxxxxxxxxxxxx  n         ldr             s0 : memlit
+01011000xxxxxxxxxxxxxxxxxxxxxxxx  n         ldr             x0 : memlit
+01011100xxxxxxxxxxxxxxxxxxxxxxxx  n         ldr             d0 : memlit
+10011100xxxxxxxxxxxxxxxxxxxxxxxx  n         ldr             q0 : memlit
+00111100010xxxxxxxxx01xxxxxxxxxx  n         ldr        b0 x5sp : mem9post x5sp mem9off
+00111100110xxxxxxxxx01xxxxxxxxxx  n         ldr        q0 x5sp : mem9qpost x5sp mem9off
+01111100010xxxxxxxxx01xxxxxxxxxx  n         ldr        h0 x5sp : mem9post x5sp mem9off
+10111000010xxxxxxxxx01xxxxxxxxxx  n         ldr        w0 x5sp : mem9post x5sp mem9off
+10111100010xxxxxxxxx01xxxxxxxxxx  n         ldr        s0 x5sp : mem9post x5sp mem9off
+11111000010xxxxxxxxx01xxxxxxxxxx  n         ldr        x0 x5sp : mem9post x5sp mem9off
+11111100010xxxxxxxxx01xxxxxxxxxx  n         ldr        d0 x5sp : mem9post x5sp mem9off
+00111100010xxxxxxxxx11xxxxxxxxxx  n         ldr        b0 x5sp : mem9 x5sp mem9off
+00111100110xxxxxxxxx11xxxxxxxxxx  n         ldr        q0 x5sp : mem9q x5sp mem9off
+01111100010xxxxxxxxx11xxxxxxxxxx  n         ldr        h0 x5sp : mem9 x5sp mem9off
+10111000010xxxxxxxxx11xxxxxxxxxx  n         ldr        w0 x5sp : mem9 x5sp mem9off
+10111100010xxxxxxxxx11xxxxxxxxxx  n         ldr        s0 x5sp : mem9 x5sp mem9off
+11111000010xxxxxxxxx11xxxxxxxxxx  n         ldr        x0 x5sp : mem9 x5sp mem9off
+11111100010xxxxxxxxx11xxxxxxxxxx  n         ldr        d0 x5sp : mem9 x5sp mem9off
+00111100011xxxxxxxxx10xxxxxxxxxx  n         ldr             b0 : memreg
+00111100111xxxxxxxxx10xxxxxxxxxx  n         ldr             q0 : memregq
+01111100011xxxxxxxxx10xxxxxxxxxx  n         ldr             h0 : memreg
+10111000011xxxxxxxxx10xxxxxxxxxx  n         ldr             w0 : memreg
+10111100011xxxxxxxxx10xxxxxxxxxx  n         ldr             s0 : memreg
+11111000011xxxxxxxxx10xxxxxxxxxx  n         ldr             x0 : memreg
+11111100011xxxxxxxxx10xxxxxxxxxx  n         ldr             d0 : memreg
+0011110101xxxxxxxxxxxxxxxxxxxxxx  n         ldr             b0 : mem12
+0011110111xxxxxxxxxxxxxxxxxxxxxx  n         ldr             q0 : mem12q
+0111110101xxxxxxxxxxxxxxxxxxxxxx  n         ldr             h0 : mem12
+1011100101xxxxxxxxxxxxxxxxxxxxxx  n         ldr             w0 : mem12
+1011110101xxxxxxxxxxxxxxxxxxxxxx  n         ldr             s0 : mem12
+1111100101xxxxxxxxxxxxxxxxxxxxxx  n         ldr             x0 : mem12
+1111110101xxxxxxxxxxxxxxxxxxxxxx  n         ldr             d0 : mem12
+00111000010xxxxxxxxx01xxxxxxxxxx  n        ldrb        w0 x5sp : mem9post x5sp mem9off
+00111000010xxxxxxxxx11xxxxxxxxxx  n        ldrb        w0 x5sp : mem9 x5sp mem9off
+00111000011xxxxxxxxx10xxxxxxxxxx  n        ldrb             w0 : memreg
+0011100101xxxxxxxxxxxxxxxxxxxxxx  n        ldrb             w0 : mem12
+01111000010xxxxxxxxx01xxxxxxxxxx  n        ldrh        w0 x5sp : mem9post x5sp mem9off
+01111000010xxxxxxxxx11xxxxxxxxxx  n        ldrh        w0 x5sp : mem9 x5sp mem9off
+01111000011xxxxxxxxx10xxxxxxxxxx  n        ldrh             w0 : memreg
+0111100101xxxxxxxxxxxxxxxxxxxxxx  n        ldrh             w0 : mem12
+00111000100xxxxxxxxx01xxxxxxxxxx  n       ldrsb        x0 x5sp : mem9post x5sp mem9off
+00111000110xxxxxxxxx01xxxxxxxxxx  n       ldrsb        w0 x5sp : mem9post x5sp mem9off
+00111000100xxxxxxxxx11xxxxxxxxxx  n       ldrsb        x0 x5sp : mem9 x5sp mem9off
+00111000110xxxxxxxxx11xxxxxxxxxx  n       ldrsb        w0 x5sp : mem9 x5sp mem9off
+00111000101xxxxxxxxx10xxxxxxxxxx  n       ldrsb             x0 : memreg
+00111000111xxxxxxxxx10xxxxxxxxxx  n       ldrsb             w0 : memreg
+0011100110xxxxxxxxxxxxxxxxxxxxxx  n       ldrsb             x0 : mem12
+0011100111xxxxxxxxxxxxxxxxxxxxxx  n       ldrsb             w0 : mem12
+01111000100xxxxxxxxx01xxxxxxxxxx  n       ldrsh        x0 x5sp : mem9post x5sp mem9off
+01111000110xxxxxxxxx01xxxxxxxxxx  n       ldrsh        w0 x5sp : mem9post x5sp mem9off
+01111000100xxxxxxxxx11xxxxxxxxxx  n       ldrsh        x0 x5sp : mem9 x5sp mem9off
+01111000110xxxxxxxxx11xxxxxxxxxx  n       ldrsh        w0 x5sp : mem9 x5sp mem9off
+01111000101xxxxxxxxx10xxxxxxxxxx  n       ldrsh             x0 : memreg
+01111000111xxxxxxxxx10xxxxxxxxxx  n       ldrsh             w0 : memreg
+0111100110xxxxxxxxxxxxxxxxxxxxxx  n       ldrsh             x0 : mem12
+0111100111xxxxxxxxxxxxxxxxxxxxxx  n       ldrsh             w0 : mem12
+10011000xxxxxxxxxxxxxxxxxxxxxxxx  n       ldrsw             x0 : memlit
+10111000100xxxxxxxxx01xxxxxxxxxx  n       ldrsw        x0 x5sp : mem9post x5sp mem9off
+10111000100xxxxxxxxx11xxxxxxxxxx  n       ldrsw        x0 x5sp : mem9 x5sp mem9off
+10111000101xxxxxxxxx10xxxxxxxxxx  n       ldrsw             x0 : memreg
+1011100110xxxxxxxxxxxxxxxxxxxxxx  n       ldrsw             x0 : mem12
+10111000001xxxxx001100xxxxxxxxxx  n       ldset        w0 mem0 : w16 mem0
+11111000001xxxxx001100xxxxxxxxxx  n       ldset        x0 mem0 : x16 mem0
+10111000101xxxxx001100xxxxxxxxxx  n      ldseta        w0 mem0 : w16 mem0
+11111000101xxxxx001100xxxxxxxxxx  n      ldseta        x0 mem0 : x16 mem0
+00111000101xxxxx001100xxxxxxxxxx  n     ldsetab        w0 mem0 : w16 mem0
+01111000101xxxxx001100xxxxxxxxxx  n     ldsetah        w0 mem0 : w16 mem0
+10111000111xxxxx001100xxxxxxxxxx  n     ldsetal        w0 mem0 : w16 mem0
+11111000111xxxxx001100xxxxxxxxxx  n     ldsetal        x0 mem0 : x16 mem0
+00111000111xxxxx001100xxxxxxxxxx  n    ldsetalb        w0 mem0 : w16 mem0
+01111000111xxxxx001100xxxxxxxxxx  n    ldsetalh        w0 mem0 : w16 mem0
+00111000001xxxxx001100xxxxxxxxxx  n      ldsetb        w0 mem0 : w16 mem0
+01111000001xxxxx001100xxxxxxxxxx  n      ldseth        w0 mem0 : w16 mem0
+10111000011xxxxx001100xxxxxxxxxx  n      ldsetl        w0 mem0 : w16 mem0
+11111000011xxxxx001100xxxxxxxxxx  n      ldsetl        x0 mem0 : x16 mem0
+00111000011xxxxx001100xxxxxxxxxx  n     ldsetlb        w0 mem0 : w16 mem0
+01111000011xxxxx001100xxxxxxxxxx  n     ldsetlh        w0 mem0 : w16 mem0
+10111000001xxxxx010000xxxxxxxxxx  n      ldsmax        w0 mem0 : w16 mem0
+11111000001xxxxx010000xxxxxxxxxx  n      ldsmax        x0 mem0 : x16 mem0
+10111000101xxxxx010000xxxxxxxxxx  n     ldsmaxa        w0 mem0 : w16 mem0
+11111000101xxxxx010000xxxxxxxxxx  n     ldsmaxa        x0 mem0 : x16 mem0
+00111000101xxxxx010000xxxxxxxxxx  n    ldsmaxab        w0 mem0 : w16 mem0
+01111000101xxxxx010000xxxxxxxxxx  n    ldsmaxah        w0 mem0 : w16 mem0
+10111000111xxxxx010000xxxxxxxxxx  n    ldsmaxal        w0 mem0 : w16 mem0
+11111000111xxxxx010000xxxxxxxxxx  n    ldsmaxal        x0 mem0 : x16 mem0
+00111000111xxxxx010000xxxxxxxxxx  n   ldsmaxalb        w0 mem0 : w16 mem0
+01111000111xxxxx010000xxxxxxxxxx  n   ldsmaxalh        w0 mem0 : w16 mem0
+00111000001xxxxx010000xxxxxxxxxx  n     ldsmaxb        w0 mem0 : w16 mem0
+01111000001xxxxx010000xxxxxxxxxx  n     ldsmaxh        w0 mem0 : w16 mem0
+10111000011xxxxx010000xxxxxxxxxx  n     ldsmaxl        w0 mem0 : w16 mem0
+11111000011xxxxx010000xxxxxxxxxx  n     ldsmaxl        x0 mem0 : x16 mem0
+00111000011xxxxx010000xxxxxxxxxx  n    ldsmaxlb        w0 mem0 : w16 mem0
+01111000011xxxxx010000xxxxxxxxxx  n    ldsmaxlh        w0 mem0 : w16 mem0
+10111000001xxxxx010100xxxxxxxxxx  n      ldsmin        w0 mem0 : w16 mem0
+11111000001xxxxx010100xxxxxxxxxx  n      ldsmin        x0 mem0 : x16 mem0
+10111000101xxxxx010100xxxxxxxxxx  n     ldsmina        w0 mem0 : w16 mem0
+11111000101xxxxx010100xxxxxxxxxx  n     ldsmina        x0 mem0 : x16 mem0
+00111000101xxxxx010100xxxxxxxxxx  n    ldsminab        w0 mem0 : w16 mem0
+01111000101xxxxx010100xxxxxxxxxx  n    ldsminah        w0 mem0 : w16 mem0
+10111000111xxxxx010100xxxxxxxxxx  n    ldsminal        w0 mem0 : w16 mem0
+11111000111xxxxx010100xxxxxxxxxx  n    ldsminal        x0 mem0 : x16 mem0
+00111000111xxxxx010100xxxxxxxxxx  n   ldsminalb        w0 mem0 : w16 mem0
+01111000111xxxxx010100xxxxxxxxxx  n   ldsminalh        w0 mem0 : w16 mem0
+00111000001xxxxx010100xxxxxxxxxx  n     ldsminb        w0 mem0 : w16 mem0
+01111000001xxxxx010100xxxxxxxxxx  n     ldsminh        w0 mem0 : w16 mem0
+10111000011xxxxx010100xxxxxxxxxx  n     ldsminl        w0 mem0 : w16 mem0
+11111000011xxxxx010100xxxxxxxxxx  n     ldsminl        x0 mem0 : x16 mem0
+00111000011xxxxx010100xxxxxxxxxx  n    ldsminlb        w0 mem0 : w16 mem0
+01111000011xxxxx010100xxxxxxxxxx  n    ldsminlh        w0 mem0 : w16 mem0
+10111000010xxxxxxxxx10xxxxxxxxxx  n        ldtr             w0 : mem9
+11111000010xxxxxxxxx10xxxxxxxxxx  n        ldtr             x0 : mem9
+00111000010xxxxxxxxx10xxxxxxxxxx  n       ldtrb             w0 : mem9
+01111000010xxxxxxxxx10xxxxxxxxxx  n       ldtrh             w0 : mem9
+00111000100xxxxxxxxx10xxxxxxxxxx  n      ldtrsb             x0 : mem9
+00111000110xxxxxxxxx10xxxxxxxxxx  n      ldtrsb             w0 : mem9
+01111000100xxxxxxxxx10xxxxxxxxxx  n      ldtrsh             x0 : mem9
+01111000110xxxxxxxxx10xxxxxxxxxx  n      ldtrsh             w0 : mem9
+10111000100xxxxxxxxx10xxxxxxxxxx  n      ldtrsw             x0 : mem9
+10111000001xxxxx011000xxxxxxxxxx  n      ldumax        w0 mem0 : w16 mem0
+11111000001xxxxx011000xxxxxxxxxx  n      ldumax        x0 mem0 : x16 mem0
+10111000101xxxxx011000xxxxxxxxxx  n     ldumaxa        w0 mem0 : w16 mem0
+11111000101xxxxx011000xxxxxxxxxx  n     ldumaxa        x0 mem0 : x16 mem0
+00111000101xxxxx011000xxxxxxxxxx  n    ldumaxab        w0 mem0 : w16 mem0
+01111000101xxxxx011000xxxxxxxxxx  n    ldumaxah        w0 mem0 : w16 mem0
+10111000111xxxxx011000xxxxxxxxxx  n    ldumaxal        w0 mem0 : w16 mem0
+11111000111xxxxx011000xxxxxxxxxx  n    ldumaxal        x0 mem0 : x16 mem0
+00111000111xxxxx011000xxxxxxxxxx  n   ldumaxalb        w0 mem0 : w16 mem0
+01111000111xxxxx011000xxxxxxxxxx  n   ldumaxalh        w0 mem0 : w16 mem0
+00111000001xxxxx011000xxxxxxxxxx  n     ldumaxb        w0 mem0 : w16 mem0
+01111000001xxxxx011000xxxxxxxxxx  n     ldumaxh        w0 mem0 : w16 mem0
+10111000011xxxxx011000xxxxxxxxxx  n     ldumaxl        w0 mem0 : w16 mem0
+11111000011xxxxx011000xxxxxxxxxx  n     ldumaxl        x0 mem0 : x16 mem0
+00111000011xxxxx011000xxxxxxxxxx  n    ldumaxlb        w0 mem0 : w16 mem0
+01111000011xxxxx011000xxxxxxxxxx  n    ldumaxlh        w0 mem0 : w16 mem0
+10111000001xxxxx011100xxxxxxxxxx  n      ldumin        w0 mem0 : w16 mem0
+11111000001xxxxx011100xxxxxxxxxx  n      ldumin        x0 mem0 : x16 mem0
+10111000101xxxxx011100xxxxxxxxxx  n     ldumina        w0 mem0 : w16 mem0
+11111000101xxxxx011100xxxxxxxxxx  n     ldumina        x0 mem0 : x16 mem0
+00111000101xxxxx011100xxxxxxxxxx  n    lduminab        w0 mem0 : w16 mem0
+01111000101xxxxx011100xxxxxxxxxx  n    lduminah        w0 mem0 : w16 mem0
+10111000111xxxxx011100xxxxxxxxxx  n    lduminal        w0 mem0 : w16 mem0
+11111000111xxxxx011100xxxxxxxxxx  n    lduminal        x0 mem0 : x16 mem0
+00111000111xxxxx011100xxxxxxxxxx  n   lduminalb        w0 mem0 : w16 mem0
+01111000111xxxxx011100xxxxxxxxxx  n   lduminalh        w0 mem0 : w16 mem0
+00111000001xxxxx011100xxxxxxxxxx  n     lduminb        w0 mem0 : w16 mem0
+01111000001xxxxx011100xxxxxxxxxx  n     lduminh        w0 mem0 : w16 mem0
+10111000011xxxxx011100xxxxxxxxxx  n     lduminl        w0 mem0 : w16 mem0
+11111000011xxxxx011100xxxxxxxxxx  n     lduminl        x0 mem0 : x16 mem0
+00111000011xxxxx011100xxxxxxxxxx  n    lduminlb        w0 mem0 : w16 mem0
+01111000011xxxxx011100xxxxxxxxxx  n    lduminlh        w0 mem0 : w16 mem0
+10111000010xxxxxxxxx00xxxxxxxxxx  n        ldur             w0 : mem9
+11111000010xxxxxxxxx00xxxxxxxxxx  n        ldur             x0 : mem9
+00111100010xxxxxxxxx00xxxxxxxxxx  n        ldur             b0 : mem9
+01111100010xxxxxxxxx00xxxxxxxxxx  n        ldur             h0 : mem9
+10111100010xxxxxxxxx00xxxxxxxxxx  n        ldur             s0 : mem9
+11111100010xxxxxxxxx00xxxxxxxxxx  n        ldur             d0 : mem9
+00111100110xxxxxxxxx00xxxxxxxxxx  n        ldur             q0 : mem9q
+00111000010xxxxxxxxx00xxxxxxxxxx  n       ldurb             w0 : mem9
+01111000010xxxxxxxxx00xxxxxxxxxx  n       ldurh             w0 : mem9
+00111000100xxxxxxxxx00xxxxxxxxxx  n      ldursb             x0 : mem9
+00111000110xxxxxxxxx00xxxxxxxxxx  n      ldursb             w0 : mem9
+01111000100xxxxxxxxx00xxxxxxxxxx  n      ldursh             x0 : mem9
+01111000110xxxxxxxxx00xxxxxxxxxx  n      ldursh             w0 : mem9
+10111000100xxxxxxxxx00xxxxxxxxxx  n      ldursw             x0 : mem9
+10001000011xxxxx0xxxxxxxxxxxxxxx  n        ldxp         w0 w10 : mem0p ign16
+11001000011xxxxx0xxxxxxxxxxxxxxx  n        ldxp         x0 x10 : mem0p ign16
+10001000010xxxxx0xxxxxxxxxxxxxxx  n        ldxr             w0 : mem0 ign10 ign16
+11001000010xxxxx0xxxxxxxxxxxxxxx  n        ldxr             x0 : mem0 ign10 ign16
+00001000010xxxxx0xxxxxxxxxxxxxxx  n       ldxrb             w0 : mem0 ign10 ign16
+01001000010xxxxx0xxxxxxxxxxxxxxx  n       ldxrh             w0 : mem0 ign10 ign16
+x0011010110xxxxx001000xxxxxxxxxx  n        lslv            wx0 : wx5 wx16
+x0011010110xxxxx001001xxxxxxxxxx  n        lsrv            wx0 : wx5 wx16
+x0011011000xxxxx0xxxxxxxxxxxxxxx  n        madd            wx0 : wx5 wx16 wx10
+0x001110xx1xxxxx100101xxxxxxxxxx  n         mla            dq0 : dq0 dq5 dq16 bhs_sz
+0x1011111xxxxxxx0000x0xxxxxxxxxx  n         mla            dq0 : dq5 dq16 vindex_SD sd_sz
+0x10111101xxxxxx0000x0xxxxxxxxxx  n         mla            dq0 : dq5 dq16_h_sz vindex_H h_sz
+0x101110xx1xxxxx100101xxxxxxxxxx  n         mls            dq0 : dq0 dq5 dq16 bhs_sz
+0x1011111xxxxxxx0100x0xxxxxxxxxx  n         mls            dq0 : dq5 dq16 vindex_SD sd_sz
+0x10111101xxxxxx0100x0xxxxxxxxxx  n         mls            dq0 : dq5 dq16_h_sz vindex_H h_sz
+0x00111100000xxx111001xxxxxxxxxx  n        movi            dq0 : imm8 cmode4_b_sz
+0x00111100000xxx10x001xxxxxxxxxx  n        movi            dq0 : imm8 cmode_h_sz
+0x00111100000xxx0xx001xxxxxxxxxx  n        movi            dq0 : imm8 cmode_s_sz
+0x00111100000xxx110x01xxxxxxxxxx  n        movi            dq0 : imm8 cmode4_s_sz_msl
+011100101xxxxxxxxxxxxxxxxxxxxxxx  n        movk             w0 : w0 imm16 lsl imm16sh
+111100101xxxxxxxxxxxxxxxxxxxxxxx  n        movk             x0 : x0 imm16 lsl imm16sh
+000100101xxxxxxxxxxxxxxxxxxxxxxx  n        movn             w0 : imm16 lsl imm16sh
+100100101xxxxxxxxxxxxxxxxxxxxxxx  n        movn             x0 : imm16 lsl imm16sh
+010100101xxxxxxxxxxxxxxxxxxxxxxx  n        movz             w0 : imm16 lsl imm16sh
+110100101xxxxxxxxxxxxxxxxxxxxxxx  n        movz             x0 : imm16 lsl imm16sh
+110101010011xxxxxxxxxxxxxxxxxxxx  er        mrs             x0 : sysreg
+110101010001xxxxxxxxxxxxxxxxxxxx  ew        msr            msr
+x0011011000xxxxx1xxxxxxxxxxxxxxx  n        msub            wx0 : wx5 wx16 wx10
+0x001110xx1xxxxx100111xxxxxxxxxx  n         mul            dq0 : dq5 dq16 bhs_sz
+0x001111xxxxxxxx1000x0xxxxxxxxxx  n         mul            dq0 : dq5 dq16_h_sz vindex_H hs_sz
+0x10111100000xxx10x001xxxxxxxxxx  n        mvni            dq0 : imm8 cmode_h_sz
+0x10111100000xxx0xx001xxxxxxxxxx  n        mvni            dq0 : imm8 cmode_s_sz
+0x10111100000xxx110x01xxxxxxxxxx  n        mvni            dq0 : imm8 cmode4_s_sz_msl
+0111111011100000101110xxxxxxxxxx  n         neg             q0 : q5
+0x101110xx100000101110xxxxxxxxxx  n         neg            dq0 : dq5 bhsd_sz
+11010101000000110010000000011111  n         nop                :
+0x10111000100000010110xxxxxxxxxx  n         not            dq0 : dq5
+x0101010xx1xxxxxxxxxxxxxxxxxxxxx  n         orn            wx0 : wx5 wx16 shift4 imm6
+0x001110111xxxxx000111xxxxxxxxxx  n         orn            dq0 : dq5 dq16
+x01100100xxxxxxxxxxxxxxxxxxxxxxx  n         orr      logic_imm
+x0101010xx0xxxxxxxxxxxxxxxxxxxxx  n         orr            wx0 : wx5 wx16 shift4 imm6
+0x001110101xxxxx000111xxxxxxxxxx  n         orr            dq0 : dq5 dq16
+0x00111100000xxx10x101xxxxxxxxxx  n         orr            dq0 : imm8 cmode_h_sz
+0x00111100000xxx0xx101xxxxxxxxxx  n         orr            dq0 : imm8 cmode_s_sz
+0x101110xx1xxxxx100111xxxxxxxxxx  n        pmul            dq0 : dq5 dq16 b_sz
+00001110xx1xxxxx111000xxxxxxxxxx  n       pmull             q0 : d5 d16 bd_sz
+01001110xx1xxxxx111000xxxxxxxxxx  n      pmull2             q0 : q5 q16 bd_sz
+11011000xxxxxxxxxxxxxxxxxxxxxxxx  n        prfm                : prfop memlit
+11111000101xxxxxxxxx10xxxxxxxxxx  n        prfm                : prfop prfreg
+1111100110xxxxxxxxxxxxxxxxxxxxxx  n        prfm                : prfop prf12  # PRFM #imm5,[Xn,#simm]
+11111000100xxxxxxxxx00xxxxxxxxxx  n       prfum                : prfop prf9  # PRFUM #imm5,[Xn,#simm]
+00101110xx1xxxxx010000xxxxxxxxxx  n      raddhn             d0 : q5 q16 bhs_sz
+01101110xx1xxxxx010000xxxxxxxxxx  n     raddhn2             q0 : q5 q16 bhs_sz
+x101101011000000000000xxxxxxxxxx  n        rbit            wx0 : wx5
+0x10111001100000010110xxxxxxxxxx  n        rbit            dq0 : dq5
+1101011001011111000000xxxxx00000  n         ret                : x5
+0101101011000000000010xxxxxxxxxx  n         rev             w0 : w5
+1101101011000000000011xxxxxxxxxx  n         rev             x0 : x5
+x101101011000000000001xxxxxxxxxx  n       rev16            wx0 : wx5
+0x001110xx100000000110xxxxxxxxxx  n       rev16            dq0 : dq5 bd_sz
+1101101011000000000010xxxxxxxxxx  n       rev32             x0 : x5
+0x101110xx100000000010xxxxxxxxxx  n       rev32            dq0 : dq5 bhs_sz
+0x001110xx100000000010xxxxxxxxxx  n       rev64            dq0 : dq5 bhs_sz
+x0011010110xxxxx001011xxxxxxxxxx  n        rorv            wx0 : wx5 wx16
+0000111100xxxxxx100011xxxxxxxxxx  n       rshrn             d0 : q5 hsd_immh_sz immhb_shf
+0100111100xxxxxx100011xxxxxxxxxx  n      rshrn2             q0 : q5 hsd_immh_sz immhb_shf
+00101110xx1xxxxx011000xxxxxxxxxx  n      rsubhn             d0 : q5 q16 bhs_sz
+01101110xx1xxxxx011000xxxxxxxxxx  n     rsubhn2             q0 : q5 q16 bhs_sz
+0x001110xx1xxxxx011111xxxxxxxxxx  n        saba            dq0 : dq5 dq16 bhs_sz
+00001110xx1xxxxx010100xxxxxxxxxx  n       sabal             q0 : d5 d16 bhs_sz
+01001110xx1xxxxx010100xxxxxxxxxx  n      sabal2             q0 : q5 q16 bhs_sz
+0x001110xx1xxxxx011101xxxxxxxxxx  n        sabd            dq0 : dq5 dq16 bhs_sz
+00001110xx1xxxxx011100xxxxxxxxxx  n       sabdl             q0 : d5 d16 bhs_sz
+01001110xx1xxxxx011100xxxxxxxxxx  n      sabdl2             q0 : q5 q16 bhs_sz
+0x001110xx100000011010xxxxxxxxxx  n      sadalp            dq0 : dq5 bhsd_sz
+00001110xx1xxxxx000000xxxxxxxxxx  n       saddl             q0 : d5 d16 bhs_sz
+01001110xx1xxxxx000000xxxxxxxxxx  n      saddl2             q0 : q5 q16 bhs_sz
+0x001110xx100000001010xxxxxxxxxx  n      saddlp            dq0 : dq5 bhsd_sz
+0x001110xx110000001110xxxxxxxxxx  n      saddlv            dq0 : dq5 bhsd_sz
+00001110xx1xxxxx000100xxxxxxxxxx  n       saddw             q0 : q5 d16 bhs_sz
+01001110xx1xxxxx000100xxxxxxxxxx  n      saddw2             q0 : q5 q16 bhs_sz
+x1011010000xxxxx000000xxxxxxxxxx  r         sbc            wx0 : wx5 wx16
+x1111010000xxxxx000000xxxxxxxxxx  rw       sbcs            wx0 : wx5 wx16
+0001001100xxxxxxxxxxxxxxxxxxxxxx  n        sbfm             w0 : w5 immr imms
+1001001101xxxxxxxxxxxxxxxxxxxxxx  n        sbfm             x0 : x5 immr imms
+x001111000100010000000xxxxxxxxxx  n       scvtf             s0 : wx5
+x001111001100010000000xxxxxxxxxx  n       scvtf             d0 : wx5
+0101111000100001110110xxxxxxxxxx  n       scvtf             s0 : s5
+0101111001100001110110xxxxxxxxxx  n       scvtf             d0 : d5
+0x0011100x100001110110xxxxxxxxxx  n       scvtf            dq0 : dq5 sd_sz
+x001111000000010xxxxxxxxxxxxxxxx  n       scvtf             s0 : wx5 scale
+x001111001000010xxxxxxxxxxxxxxxx  n       scvtf             d0 : wx5 scale
+0101111100xxxxxx111001xxxxxxxxxx  n       scvtf             s0 : s5 immhb_fxp
+0101111101xxxxxx111001xxxxxxxxxx  n       scvtf             d0 : d5 immhb_fxp
+0x0011110xxxxxxx111001xxxxxxxxxx  n       scvtf            dq0 : dq5 bhsd_immh_sz immhb_fxp
+x0011010110xxxxx000011xxxxxxxxxx  n        sdiv            wx0 : wx5 wx16
+0x001110100xxxxx100101xxxxxxxxxx  n        sdot            dq0 : dq5 dq16 s_const_sz b_const_sz # v8.2
+11010101000000110010000010011111  n         sev                :
+11010101000000110010000010111111  n        sevl                :
+01011110000xxxxx000000xxxxxxxxxx  n       sha1c             q0 : s5 d16
+0101111000101000000010xxxxxxxxxx  n       sha1h             s0 : s5
+01011110000xxxxx001000xxxxxxxxxx  n       sha1m             q0 : s5 d16
+01011110000xxxxx000100xxxxxxxxxx  n       sha1p             q0 : s5 d16
+01011110000xxxxx001100xxxxxxxxxx  n     sha1su0             d0 : d5 d16
+0101111000101000000110xxxxxxxxxx  n     sha1su1             d0 : d5
+01011110000xxxxx010000xxxxxxxxxx  n     sha256h             q0 : q5 d16
+01011110000xxxxx010100xxxxxxxxxx  n    sha256h2             q0 : q5 d16
+0101111000101000001010xxxxxxxxxx  n   sha256su0             d0 : d5
+01011110000xxxxx011000xxxxxxxxxx  n   sha256su1             d0 : d5 d16
+0x001110xx1xxxxx000001xxxxxxxxxx  n       shadd            dq0 : dq5 dq16 bhs_sz
+0101111101xxxxxx010101xxxxxxxxxx  n         shl             d0 : d5 immhb_0shf
+0x0011110xxxxxxx010101xxxxxxxxxx  n         shl            dq0 : dq5 bhsd_immh_sz immhb_0shf
+00101110xx100001001110xxxxxxxxxx  n        shll             d0 : d5 bhs_sz
+01101110xx100001001110xxxxxxxxxx  n       shll2             q0 : q5 bhs_sz
+0000111100xxxxxx100001xxxxxxxxxx  n        shrn             d0 : q5 hsd_immh_sz immhb_shf
+0100111100xxxxxx100001xxxxxxxxxx  n       shrn2             q0 : q5 hsd_immh_sz immhb_shf
+0x001110xx1xxxxx001001xxxxxxxxxx  n       shsub            dq0 : dq5 dq16 bhs_sz
+0111111101xxxxxx010101xxxxxxxxxx  n         sli             d0 : d5 immhb_0shf
+0x1011110xxxxxxx010101xxxxxxxxxx  n         sli            dq0 : dq5 bhsd_immh_sz immhb_0shf
+10011011001xxxxx0xxxxxxxxxxxxxxx  n      smaddl             x0 : w5 w16 x10
+0x001110xx1xxxxx011001xxxxxxxxxx  n        smax            dq0 : dq5 dq16 bhs_sz
+0x001110xx1xxxxx101001xxxxxxxxxx  n       smaxp            dq0 : dq5 dq16 bhs_sz
+0x001110xx110000101010xxxxxxxxxx  n       smaxv            dq0 : dq5 bhsd_sz
+11010100000xxxxxxxxxxxxxxxx00011  n         smc                : imm16
+0x001110xx1xxxxx011011xxxxxxxxxx  n        smin            dq0 : dq5 dq16 bhs_sz
+0x001110xx1xxxxx101011xxxxxxxxxx  n       sminp            dq0 : dq5 dq16 bhs_sz
+0x001110xx110001101010xxxxxxxxxx  n       sminv            dq0 : dq5 bhsd_sz
+00001110xx1xxxxx100000xxxxxxxxxx  n       smlal             q0 : d5 d16 bhs_sz
+000011111xxxxxxx0010x0xxxxxxxxxx  n       smlal            dq0 : dq5 dq16 vindex_SD sd_sz
+0000111101xxxxxx0010x0xxxxxxxxxx  n       smlal            dq0 : dq5 dq16_h_sz vindex_H h_sz
+01001110xx1xxxxx100000xxxxxxxxxx  n      smlal2             q0 : q5 q16 bhs_sz
+010011111xxxxxxx0010x0xxxxxxxxxx  n      smlal2            dq0 : dq5 dq16 vindex_SD sd_sz
+0100111101xxxxxx0010x0xxxxxxxxxx  n      smlal2            dq0 : dq5 dq16_h_sz vindex_H h_sz
+00001110xx1xxxxx101000xxxxxxxxxx  n       smlsl             q0 : d5 d16 bhs_sz
+0000111110xxxxxx0110x0xxxxxxxxxx  n       smlsl             q0 : dq5 dq16 vindex_SD sd_sz
+0000111101xxxxxx0110x0xxxxxxxxxx  n       smlsl             q0 : dq5 dq16_h_sz vindex_H h_sz
+01001110xx1xxxxx101000xxxxxxxxxx  n      smlsl2             q0 : q5 q16 bhs_sz
+0100111110xxxxxx0110x0xxxxxxxxxx  n      smlsl2             q0 : dq5 dq16 vindex_SD sd_sz
+0100111101xxxxxx0110x0xxxxxxxxxx  n      smlsl2             q0 : dq5 dq16_h_sz vindex_H h_sz
+00001110000xxxxx001011xxxxxxxxxx  n        smov             w0 : d5 imm5
+01001110000xxxxx001011xxxxxxxxxx  n        smov             x0 : q5 imm5
+10011011001xxxxx1xxxxxxxxxxxxxxx  n      smsubl             x0 : w5 w16 x10
+10011011010xxxxx0xxxxxxxxxxxxxxx  n       smulh             x0 : x5 x16 ign10
+00001110xx1xxxxx110000xxxxxxxxxx  n       smull             q0 : d5 d16 bhs_sz
+0000111110xxxxxx1010x0xxxxxxxxxx  n       smull             q0 : dq5 dq16 vindex_SD sd_sz
+0000111101xxxxxx1010x0xxxxxxxxxx  n       smull             q0 : dq5 dq16_h_sz vindex_H h_sz
+01001110xx1xxxxx110000xxxxxxxxxx  n      smull2             q0 : q5 q16 bhs_sz
+0100111110xxxxxx1010x0xxxxxxxxxx  n      smull2             q0 : dq5 dq16 vindex_SD sd_sz
+0100111101xxxxxx1010x0xxxxxxxxxx  n      smull2             q0 : dq5 dq16_h_sz vindex_H h_sz
+0101111000100000011110xxxxxxxxxx  n       sqabs             b0 : b5
+0101111001100000011110xxxxxxxxxx  n       sqabs             h0 : h5
+0101111010100000011110xxxxxxxxxx  n       sqabs             s0 : s5
+0101111011100000011110xxxxxxxxxx  n       sqabs             d0 : d5
+0x001110xx100000011110xxxxxxxxxx  n       sqabs            dq0 : dq5 bhsd_sz
+01011110001xxxxx000011xxxxxxxxxx  n       sqadd             b0 : b5 b16
+01011110011xxxxx000011xxxxxxxxxx  n       sqadd             h0 : h5 h16
+01011110101xxxxx000011xxxxxxxxxx  n       sqadd             s0 : s5 s16
+01011110111xxxxx000011xxxxxxxxxx  n       sqadd             d0 : d5 d16
+0x001110xx1xxxxx000011xxxxxxxxxx  n       sqadd            dq0 : dq5 dq16 bhsd_sz
+00001110xx1xxxxx100100xxxxxxxxxx  n     sqdmlal             q0 : d5 d16 hs_sz
+01001110xx1xxxxx100100xxxxxxxxxx  n    sqdmlal2             q0 : q5 q16 hs_sz
+00001110xx1xxxxx101100xxxxxxxxxx  n     sqdmlsl             q0 : d5 d16 hs_sz
+01001110xx1xxxxx101100xxxxxxxxxx  n    sqdmlsl2             q0 : q5 q16 hs_sz
+0x001110xx1xxxxx101101xxxxxxxxxx  n     sqdmulh            dq0 : dq5 dq16 hs_sz
+01011110011xxxxx101101xxxxxxxxxx  n     sqdmulh             h0 : h5 h16
+01011110101xxxxx101101xxxxxxxxxx  n     sqdmulh             s0 : s5 s16
+0x0011111xxxxxxx1100x0xxxxxxxxxx  n     sqdmulh            dq0 : dq5 dq16 vindex_SD sd_sz
+0x00111101xxxxxx1100x0xxxxxxxxxx  n     sqdmulh            dq0 : dq5 dq16_h_sz vindex_H h_sz
+0101111101xxxxxx1100x0xxxxxxxxxx  n     sqdmulh             h0 : h5 dq16_h_sz vindex_H h_sz
+010111111xxxxxxx1100x0xxxxxxxxxx  n     sqdmulh             s0 : s5 dq16 vindex_SD sd_sz
+00001110xx1xxxxx110100xxxxxxxxxx  n     sqdmull             q0 : d5 d16 hs_sz
+01001110xx1xxxxx110100xxxxxxxxxx  n    sqdmull2             q0 : q5 q16 hs_sz
+0111111000100000011110xxxxxxxxxx  n       sqneg             b0 : b5
+0111111001100000011110xxxxxxxxxx  n       sqneg             h0 : h5
+0111111010100000011110xxxxxxxxxx  n       sqneg             s0 : s5
+0111111011100000011110xxxxxxxxxx  n       sqneg             d0 : d5
+0x101110xx100000011110xxxxxxxxxx  n       sqneg            dq0 : dq5 bhsd_sz
+0x1011111xxxxxxx1101x0xxxxxxxxxx  n    sqrdmlah            dq0 : dq5 dq16 vindex_SD sd_sz
+0x10111101xxxxxx1101x0xxxxxxxxxx  n    sqrdmlah            dq0 : dq5 dq16_h_sz vindex_H h_sz
+0111111101xxxxxx1101x0xxxxxxxxxx  n    sqrdmlah             h0 : h5 dq16_h_sz vindex_H h_sz
+0111111110xxxxxx1101x0xxxxxxxxxx  n    sqrdmlah             s0 : s5 dq16 vindex_SD sd_sz
+0x101110xx0xxxxx100001xxxxxxxxxx  n    sqrdmlah            dq0 : dq5 dq16 hs_sz
+01111110010xxxxx100001xxxxxxxxxx  n    sqrdmlah             h0 : h5 h16
+01111110100xxxxx100001xxxxxxxxxx  n    sqrdmlah             s0 : s5 s16
+01111110011xxxxx101101xxxxxxxxxx  n    sqrdmulh             h0 : h5 h16
+01111110101xxxxx101101xxxxxxxxxx  n    sqrdmulh             s0 : s5 s16
+0x101110xx1xxxxx101101xxxxxxxxxx  n    sqrdmulh            dq0 : dq5 dq16 hs_sz
+0x0011111xxxxxxx1101x0xxxxxxxxxx  n    sqrdmulh            dq0 : dq5 dq16 vindex_SD sd_sz
+0x00111101xxxxxx1101x0xxxxxxxxxx  n    sqrdmulh            dq0 : dq5 dq16_h_sz vindex_H h_sz
+0101111101xxxxxx1101x0xxxxxxxxxx  n    sqrdmulh             h0 : h5 dq16_h_sz vindex_H h_sz
+010111111xxxxxxx1101x0xxxxxxxxxx  n    sqrdmulh             s0 : s5 dq16 vindex_SD sd_sz
+0x001110xx1xxxxx010111xxxxxxxxxx  n      sqrshl            dq0 : dq5 dq16 bhsd_sz
+000011110xxxxxxx100111xxxxxxxxxx  n     sqrshrn             d0 : q5 hsd_immh_sz immhb_shf
+010011110xxxxxxx100111xxxxxxxxxx  n    sqrshrn2             q0 : q5 hsd_immh_sz immhb_shf
+0010111100xxxxxx100011xxxxxxxxxx  n    sqrshrun             d0 : q5 hsd_immh_sz immhb_shf
+0110111100xxxxxx100011xxxxxxxxxx  n   sqrshrun2             q0 : q5 hsd_immh_sz immhb_shf
+0x001110xx1xxxxx010011xxxxxxxxxx  n       sqshl            dq0 : dq5 dq16 bhsd_sz
+01011110001xxxxx010011xxxxxxxxxx  n       sqshl             b0 : b5 b16
+01011110011xxxxx010011xxxxxxxxxx  n       sqshl             h0 : h5 h16
+01011110101xxxxx010011xxxxxxxxxx  n       sqshl             s0 : s5 s16
+01011110111xxxxx010011xxxxxxxxxx  n       sqshl             d0 : d5 d16
+0101111100001xxx011101xxxxxxxxxx  n       sqshl             b0 : b5 immhb_0shf
+010111110001xxxx011101xxxxxxxxxx  n       sqshl             h0 : h5 immhb_0shf
+01011111001xxxxx011101xxxxxxxxxx  n       sqshl             s0 : s5 immhb_0shf
+0101111101xxxxxx011101xxxxxxxxxx  n       sqshl             d0 : d5 immhb_0shf
+0x0011110xxxxxxx011101xxxxxxxxxx  n       sqshl            dq0 : dq5 bhsd_immh_sz immhb_0shf
+0111111100001xxx011001xxxxxxxxxx  n      sqshlu             b0 : b5 immhb_0shf
+011111110001xxxx011001xxxxxxxxxx  n      sqshlu             h0 : h5 immhb_0shf
+01111111001xxxxx011001xxxxxxxxxx  n      sqshlu             s0 : s5 immhb_0shf
+0111111101xxxxxx011001xxxxxxxxxx  n      sqshlu             d0 : d5 immhb_0shf
+0x1011110xxxxxxx011001xxxxxxxxxx  n      sqshlu            dq0 : dq5 bhsd_immh_sz immhb_0shf
+0010111100xxxxxx100001xxxxxxxxxx  n     sqshrun             d0 : q5 hsd_immh_sz immhb_shf
+0110111100xxxxxx100001xxxxxxxxxx  n    sqshrun2             q0 : q5 hsd_immh_sz immhb_shf
+0x001110xx1xxxxx001011xxxxxxxxxx  n       sqsub            dq0 : dq5 dq16 bhsd_sz
+0101111000100001010010xxxxxxxxxx  n       sqxtn             b0 : h5
+0101111001100001010010xxxxxxxxxx  n       sqxtn             h0 : s5
+0101111010100001010010xxxxxxxxxx  n       sqxtn             s0 : d5
+00001110xx100001010010xxxxxxxxxx  n       sqxtn             d0 : d5 bhs_sz
+01001110xx100001010010xxxxxxxxxx  n      sqxtn2             q0 : q5 bhs_sz
+0111111000100001001010xxxxxxxxxx  n      sqxtun             b0 : h5
+0111111001100001001010xxxxxxxxxx  n      sqxtun             h0 : s5
+0111111010100001001010xxxxxxxxxx  n      sqxtun             s0 : d5
+00101110xx100001001010xxxxxxxxxx  n      sqxtun             d0 : d5 bhs_sz
+01101110xx100001001010xxxxxxxxxx  n     sqxtun2             q0 : q5 bhs_sz
+0x001110xx1xxxxx000101xxxxxxxxxx  n      srhadd            dq0 : dq5 dq16 bhs_sz
+0111111101xxxxxx010001xxxxxxxxxx  n         sri             d0 : d5 immhb_shf
+0x1011110xxxxxxx010001xxxxxxxxxx  n         sri            dq0 : dq5 bhsd_immh_sz immhb_shf
+0x001110xx1xxxxx010101xxxxxxxxxx  n       srshl            dq0 : dq5 dq16 bhsd_sz
+0101111101xxxxxx001001xxxxxxxxxx  n       srshr             d0 : d5 immhb_shf
+0x0011110xxxxxxx001001xxxxxxxxxx  n       srshr            dq0 : dq5 bhsd_immh_sz immhb_shf
+0101111101xxxxxx001101xxxxxxxxxx  n       srsra             d0 : d5 immhb_shf
+0x0011110xxxxxxx001101xxxxxxxxxx  n       srsra            dq0 : dq5 bhsd_immh_sz immhb_shf
+0x001110xx1xxxxx010001xxxxxxxxxx  n        sshl            dq0 : dq5 dq16 bhsd_sz
+000011110xxxxxxx101001xxxxxxxxxx  n       sshll             q0 : d5 bhsd_immh_sz immhb_0shf
+010011110xxxxxxx101001xxxxxxxxxx  n      sshll2             q0 : q5 bhsd_immh_sz immhb_0shf
+0101111101xxxxxx000001xxxxxxxxxx  n        sshr             d0 : d5 immhb_shf
+0x0011110xxxxxxx000001xxxxxxxxxx  n        sshr            dq0 : dq5 bhsd_immh_sz immhb_shf
+0101111101xxxxxx000101xxxxxxxxxx  n        ssra             d0 : d5 immhb_shf
+0x0011110xxxxxxx000101xxxxxxxxxx  n        ssra            dq0 : dq5 bhsd_immh_sz immhb_shf
+00001110xx1xxxxx001000xxxxxxxxxx  n       ssubl             q0 : d5 d16 bhs_sz
+01001110xx1xxxxx001000xxxxxxxxxx  n      ssubl2             q0 : q5 q16 bhs_sz
+00001110xx1xxxxx001100xxxxxxxxxx  n       ssubw             q0 : q5 d16 bhs_sz
+01001110xx1xxxxx001100xxxxxxxxxx  n      ssubw2             q0 : q5 q16 bhs_sz
+0x001100000000000010xxxxxxxxxxxx  n         st1          memvm : vmsz vt0 vt1 vt2 vt3
+0x001100000000000110xxxxxxxxxxxx  n         st1          memvm : vmsz vt0 vt1 vt2
+0x001100000000000111xxxxxxxxxxxx  n         st1          memvm : vt0 vmsz
+0x001100000000001010xxxxxxxxxxxx  n         st1          memvm : vmsz vt0 vt1
+0x001100100xxxxx0010xxxxxxxxxxxx  n         st1     memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+0x001100100xxxxx0110xxxxxxxxxxxx  n         st1     memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+0x001100100xxxxx0111xxxxxxxxxxxx  n         st1     memvm x5sp : vmsz vt0 x5sp x16imm
+0x001100100xxxxx1010xxxxxxxxxxxx  n         st1     memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+0x00110100000000000xxxxxxxxxxxxx  n         st1          memvs : q0 index0
+0x00110100000000010xx0xxxxxxxxxx  n         st1          memvs : q0 index1
+0x00110100000000100x00xxxxxxxxxx  n         st1          memvs : q0 index2
+0x00110100000000100001xxxxxxxxxx  n         st1          memvs : q0 index3
+0x001101100xxxxx000xxxxxxxxxxxxx  n         st1     memvs x5sp : q0 index0 x5sp x16immvs
+0x001101100xxxxx010xx0xxxxxxxxxx  n         st1     memvs x5sp : q0 index1 x5sp x16immvs
+0x001101100xxxxx100x00xxxxxxxxxx  n         st1     memvs x5sp : q0 index2 x5sp x16immvs
+0x001101100xxxxx100001xxxxxxxxxx  n         st1     memvs x5sp : q0 index3 x5sp x16immvs
+0x001100000000001000xxxxxxxxxxxx  n         st2          memvm : vmsz vt0 vt1
+0x001100100xxxxx1000xxxxxxxxxxxx  n         st2     memvm x5sp : vmsz vt0 vt1 x5sp x16imm
+0x00110100100000000xxxxxxxxxxxxx  n         st2          memvs : q0 q0p1 index0
+0x00110100100000010xx0xxxxxxxxxx  n         st2          memvs : q0 q0p1 index1
+0x00110100100000100x00xxxxxxxxxx  n         st2          memvs : q0 q0p1 index2
+0x00110100100000100001xxxxxxxxxx  n         st2          memvs : q0 q0p1 index3
+0x001101101xxxxx000xxxxxxxxxxxxx  n         st2     memvs x5sp : q0 q0p1 index0 x5sp x16immvs
+0x001101101xxxxx010xx0xxxxxxxxxx  n         st2     memvs x5sp : q0 q0p1 index1 x5sp x16immvs
+0x001101101xxxxx100x00xxxxxxxxxx  n         st2     memvs x5sp : q0 q0p1 index2 x5sp x16immvs
+0x001101101xxxxx100001xxxxxxxxxx  n         st2     memvs x5sp : q0 q0p1 index3 x5sp x16immvs
+0x001100000000000100xxxxxxxxxxxx  n         st3          memvm : vmsz vt0 vt1 vt2
+0x001100100xxxxx0100xxxxxxxxxxxx  n         st3     memvm x5sp : vmsz vt0 vt1 vt2 x5sp x16imm
+0x00110100000000001xxxxxxxxxxxxx  n         st3          memvs : q0 q0p1 q0p2 index0
+0x00110100000000011xx0xxxxxxxxxx  n         st3          memvs : q0 q0p1 q0p2 index1
+0x00110100000000101x00xxxxxxxxxx  n         st3          memvs : q0 q0p1 q0p2 index2
+0x00110100000000101001xxxxxxxxxx  n         st3          memvs : q0 q0p1 q0p2 index3
+0x001101100xxxxx001xxxxxxxxxxxxx  n         st3     memvs x5sp : q0 q0p1 q0p2 index0 x5sp x16immvs
+0x001101100xxxxx011xx0xxxxxxxxxx  n         st3     memvs x5sp : q0 q0p1 q0p2 index1 x5sp x16immvs
+0x001101100xxxxx101x00xxxxxxxxxx  n         st3     memvs x5sp : q0 q0p1 q0p2 index2 x5sp x16immvs
+0x001101100xxxxx101001xxxxxxxxxx  n         st3     memvs x5sp : q0 q0p1 q0p2 index3 x5sp x16immvs
+0x001100000000000000xxxxxxxxxxxx  n         st4          memvm : vmsz vt0 vt1 vt2 vt3
+0x001100100xxxxx0000xxxxxxxxxxxx  n         st4     memvm x5sp : vmsz vt0 vt1 vt2 vt3 x5sp x16imm
+0x00110100100000001xxxxxxxxxxxxx  n         st4          memvs : q0 q0p1 q0p2 q0p3 index0
+0x00110100100000011xx0xxxxxxxxxx  n         st4          memvs : q0 q0p1 q0p2 q0p3 index1
+0x00110100100000101x00xxxxxxxxxx  n         st4          memvs : q0 q0p1 q0p2 q0p3 index2
+0x00110100100000101001xxxxxxxxxx  n         st4          memvs : q0 q0p1 q0p2 q0p3 index3
+0x001101101xxxxx001xxxxxxxxxxxxx  n         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index0 x5sp x16immvs
+0x001101101xxxxx011xx0xxxxxxxxxx  n         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index1 x5sp x16immvs
+0x001101101xxxxx101x00xxxxxxxxxx  n         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index2 x5sp x16immvs
+0x001101101xxxxx101001xxxxxxxxxx  n         st4     memvs x5sp : q0 q0p1 q0p2 q0p3 index3 x5sp x16immvs
+10001000100xxxxx1xxxxxxxxxxxxxxx  n        stlr           mem0 : w0 ign10 ign16
+11001000100xxxxx1xxxxxxxxxxxxxxx  n        stlr           mem0 : x0 ign10 ign16
+00001000100xxxxx1xxxxxxxxxxxxxxx  n       stlrb           mem0 : w0 ign10 ign16
+01001000100xxxxx1xxxxxxxxxxxxxxx  n       stlrh           mem0 : w0 ign10 ign16
+10001000001xxxxx1xxxxxxxxxxxxxxx  n       stlxp      mem0p w16 : w0 w10
+11001000001xxxxx1xxxxxxxxxxxxxxx  n       stlxp      mem0p w16 : x0 x10
+10001000000xxxxx1xxxxxxxxxxxxxxx  n       stlxr       mem0 w16 : w0 ign10
+11001000000xxxxx1xxxxxxxxxxxxxxx  n       stlxr       mem0 w16 : x0 ign10
+00001000000xxxxx1xxxxxxxxxxxxxxx  n      stlxrb       mem0 w16 : w0 ign10
+01001000000xxxxx1xxxxxxxxxxxxxxx  n      stlxrh       mem0 w16 : w0 ign10
+0010100000xxxxxxxxxxxxxxxxxxxxxx  n        stnp           mem7 : w0 w10
+0010110000xxxxxxxxxxxxxxxxxxxxxx  n        stnp           mem7 : s0 s10
+0110110000xxxxxxxxxxxxxxxxxxxxxx  n        stnp           mem7 : d0 d10
+1010100000xxxxxxxxxxxxxxxxxxxxxx  n        stnp           mem7 : x0 x10
+1010110000xxxxxxxxxxxxxxxxxxxxxx  n        stnp           mem7 : q0 q10
+0010100010xxxxxxxxxxxxxxxxxxxxxx  n         stp  mem7post x5sp : w0 w10 x5sp mem7off
+0010110010xxxxxxxxxxxxxxxxxxxxxx  n         stp  mem7post x5sp : s0 s10 x5sp mem7off
+0110110010xxxxxxxxxxxxxxxxxxxxxx  n         stp  mem7post x5sp : d0 d10 x5sp mem7off
+1010100010xxxxxxxxxxxxxxxxxxxxxx  n         stp  mem7post x5sp : x0 x10 x5sp mem7off
+1010110010xxxxxxxxxxxxxxxxxxxxxx  n         stp  mem7post x5sp : q0 q10 x5sp mem7off
+0010100100xxxxxxxxxxxxxxxxxxxxxx  n         stp           mem7 : w0 w10
+0010110100xxxxxxxxxxxxxxxxxxxxxx  n         stp           mem7 : s0 s10
+0110110100xxxxxxxxxxxxxxxxxxxxxx  n         stp           mem7 : d0 d10
+1010100100xxxxxxxxxxxxxxxxxxxxxx  n         stp           mem7 : x0 x10
+1010110100xxxxxxxxxxxxxxxxxxxxxx  n         stp           mem7 : q0 q10
+0010100110xxxxxxxxxxxxxxxxxxxxxx  n         stp      mem7 x5sp : w0 w10 x5sp mem7off
+0010110110xxxxxxxxxxxxxxxxxxxxxx  n         stp      mem7 x5sp : s0 s10 x5sp mem7off
+0110110110xxxxxxxxxxxxxxxxxxxxxx  n         stp      mem7 x5sp : d0 d10 x5sp mem7off
+1010100110xxxxxxxxxxxxxxxxxxxxxx  n         stp      mem7 x5sp : x0 x10 x5sp mem7off
+1010110110xxxxxxxxxxxxxxxxxxxxxx  n         stp      mem7 x5sp : q0 q10 x5sp mem7off
+00111100000xxxxxxxxx01xxxxxxxxxx  n         str  mem9post x5sp : b0 x5sp mem9off
+00111100100xxxxxxxxx01xxxxxxxxxx  n         str  mem9qpost x5sp : q0 x5sp mem9off
+01111100000xxxxxxxxx01xxxxxxxxxx  n         str  mem9post x5sp : h0 x5sp mem9off
+10111000000xxxxxxxxx01xxxxxxxxxx  n         str  mem9post x5sp : w0 x5sp mem9off
+10111100000xxxxxxxxx01xxxxxxxxxx  n         str  mem9post x5sp : s0 x5sp mem9off
+11111000000xxxxxxxxx01xxxxxxxxxx  n         str  mem9post x5sp : x0 x5sp mem9off
+11111100000xxxxxxxxx01xxxxxxxxxx  n         str  mem9post x5sp : d0 x5sp mem9off
+00111100000xxxxxxxxx11xxxxxxxxxx  n         str      mem9 x5sp : b0 x5sp mem9off
+00111100100xxxxxxxxx11xxxxxxxxxx  n         str     mem9q x5sp : q0 x5sp mem9off
+01111100000xxxxxxxxx11xxxxxxxxxx  n         str      mem9 x5sp : h0 x5sp mem9off
+10111000000xxxxxxxxx11xxxxxxxxxx  n         str      mem9 x5sp : w0 x5sp mem9off
+10111100000xxxxxxxxx11xxxxxxxxxx  n         str      mem9 x5sp : s0 x5sp mem9off
+11111000000xxxxxxxxx11xxxxxxxxxx  n         str      mem9 x5sp : x0 x5sp mem9off
+11111100000xxxxxxxxx11xxxxxxxxxx  n         str      mem9 x5sp : d0 x5sp mem9off
+00111100001xxxxxxxxx10xxxxxxxxxx  n         str         memreg : b0
+00111100101xxxxxxxxx10xxxxxxxxxx  n         str        memregq : b0
+01111100001xxxxxxxxx10xxxxxxxxxx  n         str         memreg : h0
+10111000001xxxxxxxxx10xxxxxxxxxx  n         str         memreg : w0
+10111100001xxxxxxxxx10xxxxxxxxxx  n         str         memreg : s0
+11111000001xxxxxxxxx10xxxxxxxxxx  n         str         memreg : x0
+11111100001xxxxxxxxx10xxxxxxxxxx  n         str         memreg : d0
+0011110100xxxxxxxxxxxxxxxxxxxxxx  n         str          mem12 : b0
+0011110110xxxxxxxxxxxxxxxxxxxxxx  n         str         mem12q : q0
+0111110100xxxxxxxxxxxxxxxxxxxxxx  n         str          mem12 : h0
+1011100100xxxxxxxxxxxxxxxxxxxxxx  n         str          mem12 : w0
+1011110100xxxxxxxxxxxxxxxxxxxxxx  n         str          mem12 : s0
+1111100100xxxxxxxxxxxxxxxxxxxxxx  n         str          mem12 : x0
+1111110100xxxxxxxxxxxxxxxxxxxxxx  n         str          mem12 : d0
+00111000000xxxxxxxxx01xxxxxxxxxx  n        strb  mem9post x5sp : w0 x5sp mem9off  # STRB Wt,[Xn],#simm
+00111000000xxxxxxxxx11xxxxxxxxxx  n        strb      mem9 x5sp : w0 x5sp mem9off  # STRB Wt,[Xn,#simm]!
+00111000001xxxxxxxxx10xxxxxxxxxx  n        strb         memreg : w0
+0011100100xxxxxxxxxxxxxxxxxxxxxx  n        strb          mem12 : w0  # STRB Wt,[Xn,#simm]
+01111000000xxxxxxxxx01xxxxxxxxxx  n        strh  mem9post x5sp : w0 x5sp mem9off
+01111000000xxxxxxxxx11xxxxxxxxxx  n        strh      mem9 x5sp : w0 x5sp mem9off
+01111000001xxxxxxxxx10xxxxxxxxxx  n        strh         memreg : w0
+0111100100xxxxxxxxxxxxxxxxxxxxxx  n        strh          mem12 : w0
+10111000000xxxxxxxxx10xxxxxxxxxx  n        sttr           mem9 : w0
+11111000000xxxxxxxxx10xxxxxxxxxx  n        sttr           mem9 : x0
+00111000000xxxxxxxxx10xxxxxxxxxx  n       sttrb           mem9 : w0
+01111000000xxxxxxxxx10xxxxxxxxxx  n       sttrh           mem9 : w0
+10111000000xxxxxxxxx00xxxxxxxxxx  n        stur           mem9 : w0
+11111000000xxxxxxxxx00xxxxxxxxxx  n        stur           mem9 : x0
+00111100000xxxxxxxxx00xxxxxxxxxx  n        stur           mem9 : b0
+01111100000xxxxxxxxx00xxxxxxxxxx  n        stur           mem9 : h0
+10111100000xxxxxxxxx00xxxxxxxxxx  n        stur           mem9 : s0
+11111100000xxxxxxxxx00xxxxxxxxxx  n        stur           mem9 : d0
+00111100100xxxxxxxxx00xxxxxxxxxx  n        stur          mem9q : q0
+00111000000xxxxxxxxx00xxxxxxxxxx  n       sturb           mem9 : w0
+01111000000xxxxxxxxx00xxxxxxxxxx  n       sturh           mem9 : w0
+10001000001xxxxx0xxxxxxxxxxxxxxx  n        stxp      mem0p w16 : w0 w10
+11001000001xxxxx0xxxxxxxxxxxxxxx  n        stxp      mem0p w16 : x0 x10
+10001000000xxxxx0xxxxxxxxxxxxxxx  n        stxr       mem0 w16 : w0 ign10
+11001000000xxxxx0xxxxxxxxxxxxxxx  n        stxr       mem0 w16 : x0 ign10
+00001000000xxxxx0xxxxxxxxxxxxxxx  n       stxrb       mem0 w16 : w0 ign10
+01001000000xxxxx0xxxxxxxxxxxxxxx  n       stxrh       mem0 w16 : w0 ign10
+x10100010xxxxxxxxxxxxxxxxxxxxxxx  n         sub          wx0sp : wx5sp imm12 lsl imm12sh
+x1001011xx0xxxxxxxxxxxxxxxxxxxxx  n         sub            wx0 : wx5 wx16 shift3 imm6
+x1001011001xxxxxxxxxxxxxxxxxxxxx  n         sub          wx0sp : wx5sp wx16 ext extam
+0x101110xx1xxxxx100001xxxxxxxxxx  n         sub            dq0 : dq5 dq16 bhsd_sz
+00001110xx1xxxxx011000xxxxxxxxxx  n       subhn             d0 : q5 q16 bhs_sz
+01001110xx1xxxxx011000xxxxxxxxxx  n      subhn2             q0 : q5 q16 bhs_sz
+x11100010xxxxxxxxxxxxxxxxxxxxxxx  w        subs            wx0 : wx5sp imm12 lsl imm12sh
+x1101011xx0xxxxxxxxxxxxxxxxxxxxx  w        subs            wx0 : wx5 wx16 shift3 imm6
+x1101011001xxxxxxxxxxxxxxxxxxxxx  w        subs            wx0 : wx5sp wx16 ext extam
+0101111000100000001110xxxxxxxxxx  n      suqadd             b0 : b5
+0101111001100000001110xxxxxxxxxx  n      suqadd             h0 : h5
+0101111010100000001110xxxxxxxxxx  n      suqadd             s0 : s5
+0101111011100000001110xxxxxxxxxx  n      suqadd             d0 : d5
+0x001110xx100000001110xxxxxxxxxx  n      suqadd            dq0 : dq5 bhsd_sz
+11010100000xxxxxxxxxxxxxxxx00001  n         svc                : imm16
+10111000001xxxxx100000xxxxxxxxxx  n         swp        w0 mem0 : w16 mem0
+11111000001xxxxx100000xxxxxxxxxx  n         swp        x0 mem0 : x16 mem0
+10111000101xxxxx100000xxxxxxxxxx  n        swpa        w0 mem0 : w16 mem0
+11111000101xxxxx100000xxxxxxxxxx  n        swpa        x0 mem0 : x16 mem0
+00111000101xxxxx100000xxxxxxxxxx  n       swpab        w0 mem0 : w16 mem0
+01111000101xxxxx100000xxxxxxxxxx  n       swpah        w0 mem0 : w16 mem0
+10111000111xxxxx100000xxxxxxxxxx  n       swpal        w0 mem0 : w16 mem0
+11111000111xxxxx100000xxxxxxxxxx  n       swpal        x0 mem0 : x16 mem0
+00111000111xxxxx100000xxxxxxxxxx  n      swpalb        w0 mem0 : w16 mem0
+01111000111xxxxx100000xxxxxxxxxx  n      swpalh        w0 mem0 : w16 mem0
+00111000001xxxxx100000xxxxxxxxxx  n        swpb        w0 mem0 : w16 mem0
+01111000001xxxxx100000xxxxxxxxxx  n        swph        w0 mem0 : w16 mem0
+10111000011xxxxx100000xxxxxxxxxx  n        swpl        w0 mem0 : w16 mem0
+11111000011xxxxx100000xxxxxxxxxx  n        swpl        x0 mem0 : x16 mem0
+00111000011xxxxx100000xxxxxxxxxx  n       swplb        w0 mem0 : w16 mem0
+01111000011xxxxx100000xxxxxxxxxx  n       swplh        w0 mem0 : w16 mem0
+1101010100001xxxxxxxxxxxxxxxxxxx  n         sys                : sysops memx0
+1101010100101xxxxxxxxxxxxxxxxxxx  n        sysl             x0 : op1 crn imm4 op2
+0x001110000xxxxx0xx000xxxxxxxxxx  n         tbl            dq0 : dq5 dq16 len
+x0110111xxxxxxxxxxxxxxxxxxxxxxxx  n        tbnz            tbz
+0x001110000xxxxx0xx100xxxxxxxxxx  n         tbx            dq0 : dq5 dq16 len
+x0110110xxxxxxxxxxxxxxxxxxxxxxxx  n         tbz            tbz
+0x001110xx0xxxxx001010xxxxxxxxxx  n        trn1            dq0 : dq5 dq16 bhsd_sz
+0x001110xx0xxxxx011010xxxxxxxxxx  n        trn2            dq0 : dq5 dq16 bhsd_sz
+0x101110xx1xxxxx011111xxxxxxxxxx  n        uaba            dq0 : dq5 dq16 bhs_sz
+00101110xx1xxxxx010100xxxxxxxxxx  n       uabal             q0 : d5 d16 bhs_sz
+01101110xx1xxxxx010100xxxxxxxxxx  n      uabal2             q0 : q5 q16 bhs_sz
+0x101110xx1xxxxx011101xxxxxxxxxx  n        uabd            dq0 : dq5 dq16 bhs_sz
+00101110xx1xxxxx011100xxxxxxxxxx  n       uabdl             q0 : d5 d16 bhs_sz
+01101110xx1xxxxx011100xxxxxxxxxx  n      uabdl2             q0 : q5 q16 bhs_sz
+0x101110xx100000011010xxxxxxxxxx  n      uadalp            dq0 : dq5 bhsd_sz
+00101110xx1xxxxx000000xxxxxxxxxx  n       uaddl             q0 : d5 d16 bhs_sz
+01101110xx1xxxxx000000xxxxxxxxxx  n      uaddl2             q0 : q5 q16 bhs_sz
+0x101110xx100000001010xxxxxxxxxx  n      uaddlp            dq0 : dq5 bhsd_sz
+0x101110xx110000001110xxxxxxxxxx  n      uaddlv            dq0 : dq5 bhsd_sz
+00101110xx1xxxxx000100xxxxxxxxxx  n       uaddw             q0 : q5 d16 bhs_sz
+01101110xx1xxxxx000100xxxxxxxxxx  n      uaddw2             q0 : q5 q16 bhs_sz
+0101001100xxxxxxxxxxxxxxxxxxxxxx  n        ubfm             w0 : w5 immr imms
+1101001101xxxxxxxxxxxxxxxxxxxxxx  n        ubfm             x0 : x5 immr imms
+x001111000100011000000xxxxxxxxxx  n       ucvtf             s0 : wx5
+x001111001100011000000xxxxxxxxxx  n       ucvtf             d0 : wx5
+0111111000100001110110xxxxxxxxxx  n       ucvtf             s0 : s5
+0111111001100001110110xxxxxxxxxx  n       ucvtf             d0 : d5
+0x1011100x100001110110xxxxxxxxxx  n       ucvtf            dq0 : dq5 sd_sz
+x001111000000011xxxxxxxxxxxxxxxx  n       ucvtf             s0 : wx5 scale
+x001111001000011xxxxxxxxxxxxxxxx  n       ucvtf             d0 : wx5 scale
+0111111000xxxxxx111001xxxxxxxxxx  n       ucvtf             s0 : s5 immhb_fxp
+0111111001xxxxxx111001xxxxxxxxxx  n       ucvtf             d0 : d5 immhb_fxp
+0x1011110xxxxxxx111001xxxxxxxxxx  n       ucvtf            dq0 : dq5 bhsd_immh_sz immhb_fxp
+x0011010110xxxxx000010xxxxxxxxxx  n        udiv            wx0 : wx5 wx16
+0x101110100xxxxx100101xxxxxxxxxx  n        udot            dq0 : dq5 dq16 s_const_sz b_const_sz # v8.2
+0x101110xx1xxxxx000001xxxxxxxxxx  n       uhadd            dq0 : dq5 dq16 bhs_sz
+0x101110xx1xxxxx001001xxxxxxxxxx  n       uhsub            dq0 : dq5 dq16 bhs_sz
+10011011101xxxxx0xxxxxxxxxxxxxxx  n      umaddl             x0 : w5 w16 x10
+0x101110xx1xxxxx011001xxxxxxxxxx  n        umax            dq0 : dq5 dq16 bhs_sz
+0x101110xx1xxxxx101001xxxxxxxxxx  n       umaxp            dq0 : dq5 dq16 bhs_sz
+0x101110xx110000101010xxxxxxxxxx  n       umaxv            dq0 : dq5 bhsd_sz
+0x101110xx1xxxxx011011xxxxxxxxxx  n        umin            dq0 : dq5 dq16 bhs_sz
+0x101110xx1xxxxx101011xxxxxxxxxx  n       uminp            dq0 : dq5 dq16 bhs_sz
+0x101110xx110001101010xxxxxxxxxx  n       uminv            dq0 : dq5 bhsd_sz
+00101110xx1xxxxx100000xxxxxxxxxx  n       umlal             q0 : d5 d16 bhs_sz
+01101110xx1xxxxx100000xxxxxxxxxx  n      umlal2             q0 : q5 q16 bhs_sz
+00101110xx1xxxxx101000xxxxxxxxxx  n       umlsl             q0 : d5 d16 bhs_sz
+01101110xx1xxxxx101000xxxxxxxxxx  n      umlsl2             q0 : q5 q16 bhs_sz
+0x001110000xxxxx001111xxxxxxxxxx  n        umov     wx0_imm5_q : q5 imm5
+10011011101xxxxx1xxxxxxxxxxxxxxx  n      umsubl             x0 : w5 w16 x10
+10011011110xxxxx0xxxxxxxxxxxxxxx  n       umulh             x0 : x5 x16 ign10
+00101110xx1xxxxx110000xxxxxxxxxx  n       umull             q0 : d5 d16 bhs_sz
+01101110xx1xxxxx110000xxxxxxxxxx  n      umull2             q0 : q5 q16 bhs_sz
+0x101110xx1xxxxx000011xxxxxxxxxx  n       uqadd            dq0 : dq5 dq16 bhsd_sz
+0x101110xx1xxxxx010111xxxxxxxxxx  n      uqrshl            dq0 : dq5 dq16 bhsd_sz
+0010111100xxxxxx100111xxxxxxxxxx  n     uqrshrn             d0 : q5 hsd_immh_sz immhb_shf
+0110111100xxxxxx100111xxxxxxxxxx  n    uqrshrn2             q0 : q5 hsd_immh_sz immhb_shf
+0x101110xx1xxxxx010011xxxxxxxxxx  n       uqshl            dq0 : dq5 dq16 bhsd_sz
+001011110xxxxxxx100101xxxxxxxxxx  n      uqshrn             d0 : q5 hsd_immh_sz immhb_shf
+011011110xxxxxxx100101xxxxxxxxxx  n     uqshrn2             q0 : q5 hsd_immh_sz immhb_shf
+0x101110xx1xxxxx001011xxxxxxxxxx  n       uqsub            dq0 : dq5 dq16 bhsd_sz
+0111111000100001010010xxxxxxxxxx  n       uqxtn             b0 : h5
+0111111001100001010010xxxxxxxxxx  n       uqxtn             h0 : s5
+0111111010100001010010xxxxxxxxxx  n       uqxtn             s0 : d5
+00101110xx100001010010xxxxxxxxxx  n       uqxtn             d0 : d5 bhs_sz
+01101110xx100001010010xxxxxxxxxx  n      uqxtn2             q0 : q5 bhs_sz
+0x0011101x100001110010xxxxxxxxxx  n      urecpe            dq0 : dq5 sd_sz
+0x101110xx1xxxxx000101xxxxxxxxxx  n      urhadd            dq0 : dq5 dq16 bhs_sz
+0x101110xx1xxxxx010101xxxxxxxxxx  n       urshl            dq0 : dq5 dq16 bhsd_sz
+0x1011110xxxxxxx001001xxxxxxxxxx  n       urshr            dq0 : dq5 bhsd_immh_sz immhb_shf
+0111111101xxxxxx001101xxxxxxxxxx  n       ursra             d0 : d5 immhb_shf
+0x1011110xxxxxxx001101xxxxxxxxxx  n       ursra            dq0 : dq5 bhsd_immh_sz immhb_shf
+0x101110xx1xxxxx010001xxxxxxxxxx  n        ushl            dq0 : dq5 dq16 bhsd_sz
+0010111100xxxxxx101001xxxxxxxxxx  n       ushll             q0 : d5 bhsd_immh_sz immhb_0shf
+0110111100xxxxxx101001xxxxxxxxxx  n      ushll2             q0 : q5 bhsd_immh_sz immhb_0shf
+0111111101xxxxxx000001xxxxxxxxxx  n        ushr             d0 : d5 immhb_shf
+0x1011110xxxxxxx000001xxxxxxxxxx  n        ushr            dq0 : dq5 bhsd_immh_sz immhb_shf
+0111111000100000001110xxxxxxxxxx  n      usqadd             b0 : b5
+0111111001100000001110xxxxxxxxxx  n      usqadd             h0 : h5
+0111111010100000001110xxxxxxxxxx  n      usqadd             s0 : s5
+0111111011100000001110xxxxxxxxxx  n      usqadd             d0 : d5
+0x101110xx100000001110xxxxxxxxxx  n      usqadd            dq0 : dq5 bhsd_sz
+0111111101xxxxxx000101xxxxxxxxxx  n        usra             d0 : d5 immhb_shf
+0x1011110xxxxxxx000101xxxxxxxxxx  n        usra            dq0 : dq5 bhsd_immh_sz immhb_shf
+00101110xx1xxxxx001000xxxxxxxxxx  n       usubl             q0 : d5 d16 bhs_sz
+01101110xx1xxxxx001000xxxxxxxxxx  n      usubl2             q0 : q5 q16 bhs_sz
+00101110xx1xxxxx001100xxxxxxxxxx  n       usubw             q0 : q5 d16 bhs_sz
+01101110xx1xxxxx001100xxxxxxxxxx  n      usubw2             q0 : q5 q16 bhs_sz
+0x001110xx0xxxxx000110xxxxxxxxxx  n        uzp1            dq0 : dq5 dq16 bhsd_sz
+0x001110xx0xxxxx010110xxxxxxxxxx  n        uzp2            dq0 : dq5 dq16 bhsd_sz
+11010101000000110010000001011111  n         wfe                :
+11010101000000110010000001111111  n         wfi                :
+11010101000000110010000011111111  n     xpaclri                :
+00001110xx100001001010xxxxxxxxxx  n         xtn             d0 : d5 bhsd_sz
+01001110xx100001001010xxxxxxxxxx  n        xtn2             q0 : q5 bhsd_sz
+11010101000000110010000000111111  n       yield                :
+0x001110xx0xxxxx001110xxxxxxxxxx  n        zip1            dq0 : dq5 dq16 bhsd_sz
+0x001110xx0xxxxx011110xxxxxxxxxx  n        zip2            dq0 : dq5 dq16 bhsd_sz
+
+# SVE instructions
+00000100xx1xxxxx000000xxxxxxxxxx  n         add             z0 : z5 z16 bhsd_sz
+00000100xx011010000xxxxxxxxxxxxx  n         and             z0 : p10_low z0 z5 bhsd_sz
+00000100xx011011000xxxxxxxxxxxxx  n         bic             z0 : p10_low z0 z5 bhsd_sz
+00000100xx011001000xxxxxxxxxxxxx  n         eor             z0 : p10_low z0 z5 bhsd_sz
+00000100xx011000000xxxxxxxxxxxxx  n         orr             z0 : p10_low z0 z5 bhsd_sz
+00000100xx1xxxxx000100xxxxxxxxxx  n       sqadd             z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000110xxxxxxxxxx  n       sqsub             z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000001xxxxxxxxxx  n         sub             z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000101xxxxxxxxxx  n       uqadd             z0 : z5 z16 bhsd_sz
+00000100xx1xxxxx000111xxxxxxxxxx  n       uqsub             z0 : z5 z16 bhsd_sz
