@@ -188,11 +188,15 @@ main(int argc, char *argv[])
 #        endif
         buf[j * 7 + 1] = 0x67; /* addr16 */
         buf[j * 7 + 2] = 0x8b; /* load */
-        /* Can't handle the stack pointer being off */
+#        ifdef WINDOWS
+        /* Windows can't handle stack pointer being off */
         if (reg == 4) { /* xsp */
-            buf[j * 7 + 3] = j | 0x8; /* Make it ebp */
+            buf[j * 7 + 3] = j | 0x8;
         } else
             buf[j * 7 + 3] = j; /* nearly every single modrm byte */
+#        else
+        buf[j * 7 + 3] = j;    /* every single modrm byte */
+#        endif
         if (mod == 1) {
             buf[j * 7 + 4] = 0x03; /* disp */
             buf[j * 7 + 5] = 0xc3;
@@ -209,10 +213,20 @@ main(int argc, char *argv[])
     print_access_vio = false;
     for (j = 0; j < 256; j++) {
         i = SIGSETJMP(mark);
-        if (i == 0)
+        if (i == 0) {
             test_modrm16(&buf[j * 7]);
-        else
-            continue;
+        } else {
+            int reg = ((j >> 3) & 0x7); /* middle 3 bits */
+
+            /* We do not expect a signal in any other case.
+             * XXX: In the iterations where we write xsp
+             * (the ones where reg == 4), ret segfaults as
+             * the stack ptr is clobbered. Improve testing for
+             * those cases by restoring the stack ptr before
+             * ret.
+             */
+            assert(reg == 4 /* xsp */);
+        }
     }
     print("Done with modrm test: tested %d\n", j);
     count = 0;
