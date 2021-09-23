@@ -1140,41 +1140,6 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
 #endif
 
 static uint64
-find_remote_ntdll_base(HANDLE phandle, bool find64bit)
-{
-    MEMORY_BASIC_INFORMATION64 mbi;
-    uint64 got;
-    NTSTATUS res;
-    uint64 addr = 0;
-    char name[MAXIMUM_PATH];
-    do {
-        res = remote_query_virtual_memory_maybe64(phandle, addr, &mbi, sizeof(mbi), &got);
-        if (got != sizeof(mbi) || !NT_SUCCESS(res))
-            break;
-#if VERBOSE
-        print_file(STDERR, "0x%I64x-0x%I64x type=0x%x state=0x%x\n", mbi.BaseAddress,
-                   mbi.BaseAddress + mbi.RegionSize, mbi.Type, mbi.State);
-#endif
-        if (mbi.Type == MEM_IMAGE && mbi.BaseAddress == mbi.AllocationBase) {
-            bool is_64;
-            if (get_remote_dll_short_name(phandle, mbi.BaseAddress, name,
-                                          BUFFER_SIZE_ELEMENTS(name), &is_64)) {
-#if VERBOSE
-                print_file(STDERR, "found |%s| @ 0x%I64x 64=%d\n", name, mbi.BaseAddress,
-                           is_64);
-#endif
-                if (strcmp(name, "ntdll.dll") == 0 && BOOLS_MATCH(find64bit, is_64))
-                    return mbi.BaseAddress;
-            }
-        }
-        if (addr + mbi.RegionSize < addr)
-            break;
-        addr += mbi.RegionSize;
-    } while (true);
-    return 0;
-}
-
-static uint64
 inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_location,
                              byte hook_buf[EARLY_INJECT_HOOK_SIZE], byte *map,
                              void *must_reach, bool x86_code, bool late_injection)
@@ -1235,7 +1200,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
 
     /* see below on why it's easier to point at args in memory */
     args.dr_base = (uint64)map;
-    args.ntdll_base = find_remote_ntdll_base(phandle, target_64);
+    args.ntdll_base = find_remote_dll_base(phandle, target_64, "ntdll.dll");
     if (args.ntdll_base == 0)
         goto error;
     args.tofree_base = remote_code_buf;
@@ -1572,7 +1537,7 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
         }
         if (hook_location == 0) {
             bool target_64 = !x86_code IF_X64(|| DYNAMO_OPTION(inject_x64));
-            uint64 ntdll_base = find_remote_ntdll_base(phandle, target_64);
+            uint64 ntdll_base = find_remote_dll_base(phandle, target_64, "ntdll.dll");
             uint64 thread_start =
                 get_remote_proc_address(phandle, ntdll_base, "RtlUserThreadStart");
             if (thread_start != 0)

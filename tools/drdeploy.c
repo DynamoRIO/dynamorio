@@ -310,6 +310,18 @@ const char *options_list_str =
     "                          to fail with EINTR.\n"
 #        endif
 #    endif
+#    ifdef WINDOWS
+    "       -attach <pid>      (Experimental)\n"
+    "                          Attach to the process with the given pid.\n"
+    "                          If attach to a process which is in middle of blocking\n"
+    "                          system call, attach could fail.\n"
+    "                          Try takeover_sleep and larger takeovers to increase\n"
+    "                          the chances of success:\n"
+    "       -takeover_sleep    Sleep 1 millisecond between takeover attempts.\n"
+    "       -takeovers <num>   Number of takeover attempts. Defaults to 8.\n"
+    "                          The larger, the more likely attach will succeed,\n"
+    "                          however, the attach process will take longer.\n"
+#    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
@@ -1265,7 +1277,6 @@ _tmain(int argc, TCHAR *targv[])
         }
 #    endif
         else if (strcmp(argv[i], "-attach") == 0) {
-#    ifdef UNIX
             const char *pid_str = argv[++i];
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
@@ -1274,13 +1285,23 @@ _tmain(int argc, TCHAR *targv[])
                 usage(false, "attach to invalid pid");
             }
             attach_pid = pid;
-#    endif
 #    ifdef UNIX
             use_ptrace = true;
 #    endif
 #    ifdef WINDOWS
-            usage(false, "attach in Windows not yet implemented");
+            use_late_injection = true;
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-skip_terminating_threads");
 #    endif
+            continue;
+        } else if (strcmp(argv[i], "-takeovers") == 0) {
+            const char *num_attemps = argv[++i];
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-takeover_attempts %s", num_attemps);
+            continue;
+        } else if (strcmp(argv[i], "-takeover_sleep") == 0) {
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-sleep_between_takeovers");
             continue;
         }
 #    ifdef UNIX
@@ -1568,7 +1589,6 @@ done_with_options:
         _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
         NULL_TERMINATE_BUFFER(exe_str);
         size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
-#        endif /* UNIX */
         if (size > 0) {
             if (size < BUFFER_SIZE_ELEMENTS(exe))
                 exe[size] = '\0';
@@ -1577,6 +1597,7 @@ done_with_options:
         } else {
             usage(false, "attach to invalid pid");
         }
+#        endif /* UNIX */
         app_name = exe;
     }
     /* Support no app if the tool has its own frontend, under the assumption
@@ -1789,7 +1810,11 @@ done_with_options:
         errcode =
             dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
     } else
-#    endif /* UNIX */
+#    elif defined(WINDOWS)
+    if (attach_pid != 0) {
+        errcode = dr_inject_process_attach(attach_pid, &inject_data, &app_name);
+    } else
+#    endif /* WINDOWS */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
         info("created child with pid " PIDFMT " for %s",

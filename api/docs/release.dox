@@ -238,6 +238,7 @@ Further non-compatibility-affecting changes include:
  - Added \p drstatecmp Extension which provides mechanisms to enable systematic
    and exhaustive machine state comparisons across instrumentation sequences.
  - Added drmodtrack_lookup_segment().
+ - Added a new drrun option \p -attach for attaching to a running process.
 
 **************************************************
 <hr>
@@ -1754,6 +1755,11 @@ I/O and nudges.
     through the Windows-On-Windows or WOW64 emulator so system call and
     indirect call processing clients must be aware of
     #instr_is_wow64_syscall().
+  - On all versions of Windows, attaching DynamoRIO to an already-running
+    process can result in loss of control if the attach point is in the
+    middle of an operating system event callback. From the callback return
+    point until the next system call hook, no instructions will be observed
+    by a client.
 \anchor limits_64bit
   - This release of DynamoRIO supports running
     64-bit Windows applications, using the 64-bit DynamoRIO build, on
