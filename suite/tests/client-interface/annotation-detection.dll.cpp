@@ -46,6 +46,9 @@
 #include "drmgr.h"
 #include "drreg.h"
 #include <string.h> /* memset */
+#ifdef WINDOWS
+#    pragma warning(disable : 4100) /* unreferenced formal parameter */
+#endif
 
 /* Distinguishes client output from app output */
 #define PRINT(s) dr_fprintf(STDERR, "      <" s ">\n");
@@ -153,6 +156,7 @@ bb_event_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
             ASSERT(res == DRREG_SUCCESS);
         }
     }
+
     return DR_EMIT_DEFAULT;
 }
 
