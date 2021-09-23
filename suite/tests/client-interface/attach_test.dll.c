@@ -31,6 +31,7 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 
 static thread_id_t injection_tid;
 static bool first_thread = true;
@@ -51,6 +52,13 @@ dr_thread_init(void *drcontext)
     }
 }
 
+static bool
+dr_exception_event(void *drcontext, dr_exception_t *excpt)
+{
+    thread_id_t tid = dr_get_thread_id(drcontext);
+    dr_fprintf(STDERR, "exception in thread %p\n", tid);
+}
+
 DR_EXPORT
 void
 dr_init(client_id_t id)
@@ -59,5 +67,6 @@ dr_init(client_id_t id)
     injection_tid = dr_get_thread_id(drcontext);
     dr_register_exit_event(dr_exit);
     dr_register_thread_init_event(dr_thread_init);
+    dr_register_exception_event(dr_exception_event);
     dr_fprintf(STDERR, "thank you for testing attach\n");
 }
