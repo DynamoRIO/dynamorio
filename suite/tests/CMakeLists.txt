@@ -1308,9 +1308,16 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       # We always run infloop.
       get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
     else ()
-      # It's easier to run our own infloop, which prints so we know when it's up,
-      # than to run notepad or sthg.
-      get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
+      if ("${runall}" MATCHES "<attach>")
+        # For attach we use attachee, which is identical to infloop, aside for writing
+        # a starting message to the output file. This allows us to detect when it is
+        # up and running and we can start the attach process.
+        get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
+      else ()
+        # It's easier to run our own infloop, which prints so we know when it's up,
+        # than to run notepad or sthg.
+        get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
+      endif ()
     endif ()
     # Swap from drrun to run_in_bg to run the test in the background and print the pid.
     # XXX i#1874: add support for running on Android
@@ -1346,6 +1353,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
       string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
       string(REGEX REPLACE " " "\\\\;" nudge_arg "${nudge_arg}")
+    elseif ("${runall}" MATCHES "<attach>")
+      # move params to nudge
+      string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
+      string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<attach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # clear client from dr command and run native
+      string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
@@ -2390,6 +2405,7 @@ if (UNIX)
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
   endif ()
 else (UNIX)
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
   tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
@@ -4268,6 +4284,7 @@ if (UNIX)
   endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
+  add_exe(win32.attachee win32/attachee.c)
   if (PROGRAM_SHEPHERDING)
     # too flaky across platforms so we limit to security mode only: not too useful
     # for other than testing our ASLR anyway

@@ -2880,8 +2880,6 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 #endif
 }
 
-#define MAX_TAKE_OVER_ATTEMPTS 8
-
 /* Mark this thread as under DR, and take over other threads in the current process.
  */
 void
@@ -2892,6 +2890,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
      */
     bool found_threads;
     uint attempts = 0;
+    uint max_takeover_attempts = DYNAMO_OPTION(takeover_attempts);
 
     os_process_under_dynamorio_initiate(dcontext);
     /* We can start this thread now that we've set up process-wide actions such
@@ -2912,7 +2911,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         attempts++;
         if (found_threads && !bb_lock_start)
             bb_lock_start = true;
-    } while (found_threads && attempts < MAX_TAKE_OVER_ATTEMPTS);
+        if (DYNAMO_OPTION(sleep_between_takeovers))
+            os_thread_sleep(1);
+    } while (found_threads && attempts < max_takeover_attempts);
     os_process_under_dynamorio_complete(dcontext);
     /* End the barrier to new threads. */
     signal_event(dr_attach_finished);

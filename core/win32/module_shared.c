@@ -1326,6 +1326,48 @@ read_remote_maybe64(HANDLE process, uint64 addr, size_t bufsz, void *buf)
         num_read == bufsz;
 }
 
+uint64
+find_remote_dll_base(HANDLE phandle, bool find64bit, char *dll_name)
+{
+    MEMORY_BASIC_INFORMATION64 mbi;
+    uint64 got;
+    NTSTATUS res;
+    uint64 addr = 0;
+    char name[MAXIMUM_PATH];
+    do {
+        res = remote_query_virtual_memory_maybe64(phandle, addr, &mbi, sizeof(mbi), &got);
+        if (got != sizeof(mbi) || !NT_SUCCESS(res))
+            break;
+#    if VERBOSE
+        print_file(STDERR, "0x%I64x-0x%I64x type=0x%x state=0x%x\n", mbi.BaseAddress,
+                   mbi.BaseAddress + mbi.RegionSize, mbi.Type, mbi.State);
+#    endif
+        if (mbi.Type == MEM_IMAGE && mbi.BaseAddress == mbi.AllocationBase) {
+            bool is_64;
+            if (get_remote_dll_short_name(phandle, mbi.BaseAddress, name,
+                                          BUFFER_SIZE_ELEMENTS(name), &is_64)) {
+#    if VERBOSE
+                print_file(STDERR, "found |%s| @ 0x%I64x 64=%d\n", name, mbi.BaseAddress,
+                           is_64);
+#    endif
+                if (_strcmpi(name, dll_name) == 0 && BOOLS_MATCH(find64bit, is_64))
+                    return mbi.BaseAddress;
+            }
+        }
+        if (addr + mbi.RegionSize < addr)
+            break;
+        /* XXX - this check is needed because otherwise, for 32-bit targets on a 64
+         * bit machine, this loop doesn't return if the dll is not loaded.
+         * When addr passes 0x800000000000 remote_query_virtual_memory_maybe64
+         * returns the previous mbi (ending at 0x7FFFFFFF0000).
+         * For now just return if the addr is not inside the mbi region. */
+        if (mbi.BaseAddress + mbi.RegionSize < addr)
+            break;
+        addr += mbi.RegionSize;
+    } while (true);
+    return 0;
+}
+
 /* Handles 32-bit or 64-bit remote processes.
  * Ignores forwarders and ordinals.
  */
