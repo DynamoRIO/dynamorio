@@ -3274,8 +3274,8 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                get_syscall_method() == SYSCALL_METHOD_INT);
 #    ifdef LINUX
 
-        /* PR 5037: 32-bit apps on AMD machines have OP_syscall instruction in
-         * vsyscall page. We need to hook that too.
+        /* i#4407: An OP_syscall instruction on 32-bit AMD returns to a hardcoded vsyscall PC no
+         * matter where it is. Thus we must hook the vsyscall just like we do for OP_sysenter.
          */
         if (new_method ==
             SYSCALL_METHOD_SYSENTER IF_X86_32(||
