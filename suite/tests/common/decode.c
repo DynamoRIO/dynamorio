@@ -56,7 +56,7 @@ test_nops(void);
 void
 test_sse3(char *buf);
 void
-test_avx512_vex(char *buf);
+test_avx512_vex(void);
 void
 test_3dnow(char *buf);
 void
@@ -157,11 +157,18 @@ actual_call_target(void)
 #        define PROLOG_START 0
 #        define TEST_SEQ_START (PROLOG_START + PROLOG_SIZE)
 #        define EPILOG_START (TEST_SEQ_START + TEST_SEQ_SIZE)
-#        define TOTAL_SEQ_SIZE (EPILOG_START + EPILOG_SIZE)
+#        define EACH_SEQ_SIZE (EPILOG_START + EPILOG_SIZE)
+#        define TOTAL_BUF_SIZE (EACH_SEQ_SIZE * 256 + 1)
 
 static void
 construct_modrm_test_buf(char *buf)
 {
+    /* Add an encoded instr for each of the 256 variants of the modr/m
+     * byte. Each of these instructions is part of a sequence of instrs:
+     * prolog -> modrm instr -> epilog -> ret
+     * nop may be added so that each of these parts have consistent size
+     * for all 256 variants.
+     */
     for (int j = 0; j < 256; j++) {
         int mod = ((j >> 6) & 0x3); /* top 2 bits */
         int reg = ((j >> 3) & 0x7); /* middle 3 bits */
@@ -173,51 +180,54 @@ construct_modrm_test_buf(char *buf)
              * Without this, esp will get clobbered and ret may segfault.
              * Not yet ported to X86-64 as this test is disabled there.
              */
-            buf[j * TOTAL_SEQ_SIZE + PROLOG_START + 0] = 0x89; /* mov */
-            buf[j * TOTAL_SEQ_SIZE + EPILOG_START + 0] = 0x89; /* mov */
+            buf[j * EACH_SEQ_SIZE + PROLOG_START + 0] = 0x89; /* mov */
+            buf[j * EACH_SEQ_SIZE + EPILOG_START + 0] = 0x89; /* mov */
             if (mod == 3 && rm == 0) {
                 /* As eax is a source reg, we use ebx as the save slot instead. */
-                buf[j * TOTAL_SEQ_SIZE + PROLOG_START + 1] = 0xe3; /* esp -> ebx */
-                buf[j * TOTAL_SEQ_SIZE + EPILOG_START + 1] = 0xdc; /* ebx -> esp */
+                buf[j * EACH_SEQ_SIZE + PROLOG_START + 1] = 0xe3; /* esp -> ebx */
+                buf[j * EACH_SEQ_SIZE + EPILOG_START + 1] = 0xdc; /* ebx -> esp */
             } else {
                 /* Use eax to save esp in prolog and restore in epilog. */
-                buf[j * TOTAL_SEQ_SIZE + PROLOG_START + 1] = 0xe0; /* esp -> eax */
-                buf[j * TOTAL_SEQ_SIZE + EPILOG_START + 1] = 0xc4; /* eax -> esp */
+                buf[j * EACH_SEQ_SIZE + PROLOG_START + 1] = 0xe0; /* esp -> eax */
+                buf[j * EACH_SEQ_SIZE + EPILOG_START + 1] = 0xc4; /* eax -> esp */
             }
         } else {
             /* Prolog and epilog are not needed for non-xsp dest, as we can
              * handle other regs being clobbered.
              */
-            buf[j * TOTAL_SEQ_SIZE + PROLOG_START + 0] = NOP_ENC;
-            buf[j * TOTAL_SEQ_SIZE + PROLOG_START + 1] = NOP_ENC;
-            buf[j * TOTAL_SEQ_SIZE + EPILOG_START + 0] = NOP_ENC;
-            buf[j * TOTAL_SEQ_SIZE + EPILOG_START + 1] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + PROLOG_START + 0] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + PROLOG_START + 1] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + EPILOG_START + 0] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + EPILOG_START + 1] = NOP_ENC;
         }
-        buf[j * TOTAL_SEQ_SIZE + EPILOG_START + 2] = 0xc3; /* ret */
+        buf[j * EACH_SEQ_SIZE + EPILOG_START + 2] = 0xc3; /* ret */
 
         /* Set test sequence. */
 #        if defined(UNIX) || defined(X64)
-        buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 0] = 0x65; /* gs: */
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 0] = 0x65; /* gs: */
 #        else
-        buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 0] = 0x64; /* fs: */
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 0] = 0x64; /* fs: */
 #        endif
-        buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 1] = 0x67; /* addr16 */
-        buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 2] = 0x8b; /* load */
-        buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 3] = j;    /* every single modrm byte */
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 1] = 0x67; /* addr16 */
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 2] = 0x8b; /* load */
+        buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 3] = j;    /* every single modrm byte */
         if (mod == 1) {
-            buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 4] = 0x03; /* disp */
-            buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 5] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 4] = 0x03; /* disp */
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 5] = NOP_ENC;
         } else if (mod == 2 || (mod == 0 && rm == 6)) {
-            buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 4] = 0x03; /* disp */
-            buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 5] = 0x00; /* disp */
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 4] = 0x03; /* disp */
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 5] = 0x00; /* disp */
         } else {
-            buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 4] = NOP_ENC;
-            buf[j * TOTAL_SEQ_SIZE + TEST_SEQ_START + 5] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 4] = NOP_ENC;
+            buf[j * EACH_SEQ_SIZE + TEST_SEQ_START + 5] = NOP_ENC;
         }
     }
-    buf[256 * TOTAL_SEQ_SIZE] = 0xcc;
+    buf[256 * EACH_SEQ_SIZE] = 0xcc;
 }
-#    endif /* !X64 */
+#    else /* X64 */
+/* Allocate size sufficient for a zmm reg. */
+#        define TOTAL_BUF_SIZE (512)
+#    endif
 
 int
 main(int argc, char *argv[])
@@ -235,7 +245,7 @@ main(int argc, char *argv[])
 #    else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)our_top_handler);
 #    endif
-    buf = allocate_mem(TOTAL_SEQ_SIZE * 256 + 1, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
+    buf = allocate_mem(TOTAL_BUF_SIZE, ALLOW_READ | ALLOW_WRITE | ALLOW_EXEC);
     assert(buf != NULL);
     print("Start\n");
 
@@ -244,7 +254,7 @@ main(int argc, char *argv[])
     construct_modrm_test_buf(buf);
     print_access_vio = false;
     for (j = 0; j < 256; j++) {
-        test_modrm16(&buf[j * TOTAL_SEQ_SIZE]);
+        test_modrm16(&buf[j * EACH_SEQ_SIZE]);
     }
     print("Done with modrm test: tested %d\n", j);
     count = 0;
@@ -325,7 +335,7 @@ main(int argc, char *argv[])
     /* AVX-512 VEX tests */
 #    ifdef __AVX512F__
     print("Testing AVX-512 VEX\n");
-    test_avx512_vex(buf);
+    test_avx512_vex();
 #    endif
 
     print("All done\n");
@@ -409,7 +419,6 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME test_avx512_vex
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov    REG_XAX, ARG1
         PUSH_CALLEE_SAVED_REGS()
         END_PROLOG
 
