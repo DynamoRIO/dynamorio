@@ -497,12 +497,22 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
             reset_aflags_spill_slot(pt);
         }
     }
-    /* Before each app read, or at end of bb, restore spilled registers to app values: */
+    /* Before each app read, or at end of bb, restore spilled registers to app values.
+     * XXX i#5121: multi-phase use causes correctness issues here!  Our restore
+     * in the insertion phase here could actually restore the tool value from the
+     * app2app phase.  A better solution is needed for multi-phase, or perhaps
+     * disallowing the use of the same register.
+     */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (regs_restored != NULL)
             regs_restored[GPR_IDX(reg)] = false;
         if (!pt->reg[GPR_IDX(reg)].native) {
             if (force_restore || instr_reads_from_reg(inst, reg, DR_QUERY_INCLUDE_ALL) ||
+                /* Restore all app values prior to an annotation to ensure the
+                 * arguments passed to the annotation handler are correct.
+                 */
+                (instr_is_label(inst) &&
+                 (ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION) ||
                 /* Treat a partial write as a read, to restore rest of reg */
                 (instr_writes_to_reg(inst, reg, DR_QUERY_INCLUDE_ALL) &&
                  !instr_writes_to_exact_reg(inst, reg, DR_QUERY_INCLUDE_ALL)) ||

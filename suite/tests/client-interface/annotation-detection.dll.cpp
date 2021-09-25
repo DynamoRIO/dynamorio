@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2015 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -43,7 +43,12 @@
 #include "client_tools.h"
 #include "dr_ir_opnd.h"
 #include "dr_annotation.h"
+#include "drmgr.h"
+#include "drreg.h"
 #include <string.h> /* memset */
+#ifdef WINDOWS
+#    pragma warning(disable : 4100) /* unreferenced formal parameter */
+#endif
 
 /* Distinguishes client output from app output */
 #define PRINT(s) dr_fprintf(STDERR, "      <" s ">\n");
@@ -92,9 +97,66 @@ test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, ui
            a, b, c, d, e, f, g, h, i, j);
 }
 
-dr_emit_flags_t
-empty_bb_event(void *, void *, instrlist_t *, bool, bool)
+static dr_emit_flags_t
+bb_event_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
+                  bool translating, OUT void **user_data)
 {
+    *(ptr_uint_t *)user_data = 0;
+    for (instr_t *inst = instrlist_first(bb); inst != NULL; inst = instr_get_next(inst)) {
+        if (instr_is_label(inst) &&
+            (ptr_uint_t)instr_get_note(inst) == DR_NOTE_ANNOTATION) {
+            *(ptr_uint_t *)user_data = 1;
+            break;
+        }
+    }
+    return DR_EMIT_DEFAULT;
+}
+
+dr_emit_flags_t
+bb_event_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                bool for_trace, bool translating, void *user_data)
+{
+    if ((ptr_uint_t)user_data == 0)
+        return DR_EMIT_DEFAULT;
+
+    const reg_id_t regs[] = {
+    /* Put non-app values in all the annotation parameter registers. */
+#ifdef X64
+#    ifdef UNIX
+        DR_REG_XDI, DR_REG_XSI, DR_REG_XDX, DR_REG_XCX, DR_REG_R8, DR_REG_R9
+#    else
+        DR_REG_XCX, DR_REG_XDX, DR_REG_R8, DR_REG_R9
+#    endif
+#else
+        DR_REG_XDX, DR_REG_XCX
+#endif
+    };
+    /* Test i#5118: not having app values in regs at annotation call point. */
+    if (drmgr_is_first_nonlabel_instr(drcontext, inst)) {
+        drvector_t allowed;
+        drreg_init_and_fill_vector(&allowed, false);
+        /* For each param register, reserve it for the whole bb and set it to zero. */
+        for (size_t i = 0; i < sizeof(regs) / sizeof(regs[0]); ++i) {
+            drreg_set_vector_entry(&allowed, regs[i], true);
+            reg_id_t got;
+            drreg_status_t res =
+                drreg_reserve_register(drcontext, bb, inst, &allowed, &got);
+            ASSERT(res == DRREG_SUCCESS && got == regs[i]);
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_sub_s(drcontext,
+                                                        opnd_create_reg(regs[i]),
+                                                        opnd_create_reg(regs[i])));
+            drreg_set_vector_entry(&allowed, regs[i], false);
+        }
+        drvector_delete(&allowed);
+    }
+    if (drmgr_is_last_instr(drcontext, inst)) {
+        for (size_t i = 0; i < sizeof(regs) / sizeof(regs[0]); ++i) {
+            drreg_status_t res = drreg_unreserve_register(drcontext, bb, inst, regs[i]);
+            ASSERT(res == DRREG_SUCCESS);
+        }
+    }
+
     return DR_EMIT_DEFAULT;
 }
 
@@ -129,6 +191,15 @@ register_call(const char *annotation, void *target, uint num_args)
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
 }
 
+static void
+event_exit(void)
+{
+    if (!drmgr_unregister_bb_instrumentation_event(bb_event_analysis) ||
+        drreg_exit() != DRREG_SUCCESS)
+        PRINT("exit failed");
+    drmgr_exit();
+}
+
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
 {
@@ -141,13 +212,21 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     /* XXX: should use droption */
     if (argc > 1 && strcmp(argv[1], "full-decode") == 0) {
         PRINT("Init annotation test client with full decoding");
-        dr_register_bb_event(empty_bb_event);
+        drreg_options_t ops = { sizeof(ops), 2 /*max slots needed*/, false };
+        if (!drmgr_init() || drreg_init(&ops) != DRREG_SUCCESS ||
+            !drmgr_register_bb_instrumentation_event(bb_event_analysis, bb_event_insert,
+                                                     NULL))
+            PRINT("init failed");
+        dr_register_exit_event(event_exit);
     } else if (argc > 1 && strlen(argv[1]) >= 8 && strncmp(argv[1], "truncate", 8) == 0) {
         bb_truncation_length = (argv[1][9] - '0'); /* format is "truncate@n" (0<n<10) */
         ASSERT(bb_truncation_length < 10 && bb_truncation_length > 0);
         PRINT("Init annotation test client with bb truncation");
+        /* We deliberately test without drmgr for this case. */
+#undef dr_register_bb_event
         dr_register_bb_event(bb_event_truncate);
     } else {
+        /* We again do not use drmgr here to ensure we have fast decoding. */
         PRINT("Init annotation test client with fast decoding");
     }
 

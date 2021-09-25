@@ -3044,6 +3044,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
     opnd_t *args = NULL;
 
     ASSERT(handler->type == DR_ANNOTATION_HANDLER_CALL);
+    LOG(THREAD, LOG_INTERP, 3, "inserting call to annotation handler\n");
 
     while (receiver != NULL) {
         if (handler->num_args != 0) {

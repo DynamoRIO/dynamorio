@@ -2398,7 +2398,6 @@ drmgr_register_signal_event_user_data(dr_signal_action_t (*func)(void *drcontext
     return drmgr_generic_event_add(&cblist_signal, signal_event_lock,
                                    (void (*)(void))func, priority, true, user_data);
 }
-
 DR_EXPORT
 /* clang-format off */ /* (work around clang-format newline-after-type bug) */
 bool
