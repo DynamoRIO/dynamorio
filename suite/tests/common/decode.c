@@ -490,6 +490,7 @@ GLOBAL_LABEL(FUNCNAME:)
         RAW(c4) RAW(e3) RAW(f9) RAW(31) RAW(ec) RAW(05) /* kshiftrq $0x5,%k4,%k5 */
         RAW(c4) RAW(e3) RAW(79) RAW(31) RAW(fe) RAW(2f) /* kshiftrd $0x2f,%k6,%k7 */
 
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
         POP_CALLEE_SAVED_REGS()
         ret
         END_FUNC(FUNCNAME)
