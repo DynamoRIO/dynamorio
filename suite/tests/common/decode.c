@@ -147,7 +147,7 @@ actual_call_target(void)
 
 #    ifndef X64
 /****************************************************************************
- * Macros and routines to construct the encoded instruction buffer for the
+ * Macros and routine to construct the encoded instruction buffer for the
  * modrm test.
  */
 #        define NOP_ENC 0x90
@@ -227,7 +227,7 @@ construct_modrm_test_buf(char *buf)
 #    else /* X64 */
 /* Allocate size sufficient for a zmm reg. */
 #        define TOTAL_BUF_SIZE (512)
-#    endif
+#    endif /* !X64/X64 */
 
 int
 main(int argc, char *argv[])
