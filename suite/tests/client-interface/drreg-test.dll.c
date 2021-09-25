@@ -380,6 +380,34 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve aflags");
             }
         }
+    } else if (subtest == DRREG_TEST_38_C) {
+        CHECK(drreg_set_bb_properties(
+                  drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
+              "unable to set bb properties");
+        /* Reset for this bb. */
+        tls_offs_app2app_spilled_reg = -1;
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #38: app2app phase\n");
+        for (inst = instrlist_first_app(bb); inst != NULL;
+             inst = instr_get_next_app(inst)) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
+                tls_offs_app2app_spilled_reg =
+                    spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG, &allowed, true);
+            } else if (instr_is_mov(inst) && opnd_is_reg(instr_get_src(inst, 0)) &&
+                       opnd_get_reg(instr_get_src(inst, 0)) == TEST_REG) {
+                /* Make sure that the app2app value of TEST_REG isn't dead. If it is
+                 * dead, the insertion phase spill will only reserve a slot, but not
+                 * actually write to it.
+                 */
+                instrlist_meta_preinsert(bb, inst,
+                                         XINST_CREATE_add(drcontext,
+                                                          opnd_create_reg(TEST_REG),
+                                                          OPND_CREATE_INT32(1)));
+                CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                          DRREG_SUCCESS,
+                      "cannot unreserve register");
+            }
+        }
     }
     drvector_delete(&allowed);
     return DR_EMIT_DEFAULT;
@@ -1041,6 +1069,20 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         } else if (drmgr_is_last_instr(drcontext, inst)) {
             CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot unreserve aflags");
+        }
+    } else if (subtest == DRREG_TEST_38_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #38: insertion phase\n");
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
+            CHECK(tls_offs_app2app_spilled_reg != -1,
+                  "unable to use any spill slot in app2app phase.");
+            uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
+                                                   &allowed_test_reg_1, true);
+            CHECK(tls_offs_app2app_spilled_reg != tls_offs,
+                  "found conflict in use of spill slots across multiple phases");
+        } else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
         }
     }
 #ifdef X86
