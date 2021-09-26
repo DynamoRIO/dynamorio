@@ -459,6 +459,11 @@ DR_EXPORT
  * \p *swap.  It is up to the caller to un-reserve the register in
  * that case.
  *
+ * For regs that were reserved in a prior phase also, this routine
+ * restores the reg's meta value from that prior phase, OR if the
+ * current phase is the first one where the reg is reserved, it
+ * restores the actual app value.
+ *
  * @return whether successful or an error code on failure.  On failure,
  * any values that were already restored are not undone.
  */
@@ -507,6 +512,10 @@ DR_EXPORT
  * To restore the arithmetic flags, pass #DR_REG_NULL for \p reg.
  *
  * On ARM, passing \p reg equal to dr_get_stolen_reg() is not supported.
+ *
+ * For regs that were reserved in a prior phase also, this routine restores the reg's
+ * meta value from that prior phase, OR if the current phase is the first one where the
+ * reg is reserved, it restores the actual app value.
  *
  * @return whether successful or an error code on failure.
  */

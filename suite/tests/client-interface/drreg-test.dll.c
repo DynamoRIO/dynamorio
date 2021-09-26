@@ -54,7 +54,11 @@ static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
 /* Enum describing the different types of notes in drreg-test. */
-enum { DRREG_TEST_LABEL_MARKER, DRREG_TEST_NOTE_COUNT };
+enum {
+    DRREG_TEST_LABEL_MARKER,
+    DRREG_TEST_APP_VAL_RESTORE_MARKER,
+    DRREG_TEST_NOTE_COUNT
+};
 
 uint tls_offs_app2app_spilled_aflags;
 uint tls_offs_app2app_spilled_reg;
@@ -65,6 +69,15 @@ static bool
 is_drreg_test_label_marker(instr_t *inst)
 {
     if (instr_is_label(inst) && instr_get_note(inst) == NOTE_VAL(DRREG_TEST_LABEL_MARKER))
+        return true;
+    return false;
+}
+
+static bool
+is_drreg_app_val_restore_marker(instr_t *inst)
+{
+    if (instr_is_label(inst) &&
+        instr_get_note(inst) == NOTE_VAL(DRREG_TEST_APP_VAL_RESTORE_MARKER))
         return true;
     return false;
 }
@@ -380,6 +393,60 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                       "cannot unreserve aflags");
             }
         }
+    } else if (subtest == DRREG_TEST_39_C) {
+        CHECK(drreg_set_bb_properties(
+                  drcontext, DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS) == DRREG_SUCCESS,
+              "unable to set bb properties");
+        /* Reset for this bb. */
+        tls_offs_app2app_spilled_reg = -1;
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #39: app2app phase\n");
+        for (inst = instrlist_first_app(bb); inst != NULL;
+             inst = instr_get_next_app(inst)) {
+            if (instr_is_mov_constant(inst, &val) &&
+                val == TEST_INSTRUMENTATION_MARKER_1) {
+                tls_offs_app2app_spilled_reg =
+                    spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG, &allowed, true);
+            } else if (instr_is_mov_constant(inst, &val) &&
+                       val == TEST_INSTRUMENTATION_MARKER_3) {
+                /* Make sure that the app2app value of TEST_REG isn't dead. If it is
+                 * dead, the insertion phase spill will only reserve a slot, but not
+                 * actually write to it.
+                 */
+                instrlist_meta_preinsert(bb, inst,
+                                         XINST_CREATE_add(drcontext,
+                                                          opnd_create_reg(TEST_REG),
+                                                          OPND_CREATE_INT32(1)));
+
+                /*******************************************************************
+                 * Read app value for reg reserved in app2app and insertion phases:
+                 * step 1/2 (here): get app value in app2app phase
+                 * step 2/2: See DRREG_TEST_39_C in event_app_instruction
+                 */
+                CHECK(drreg_get_app_value(drcontext, bb, inst, TEST_REG, TEST_REG) ==
+                          DRREG_SUCCESS,
+                      "unable to get app value");
+                instr_t *label = INSTR_CREATE_label(drcontext);
+                instr_set_note(label, NOTE_VAL(DRREG_TEST_APP_VAL_RESTORE_MARKER));
+                instrlist_meta_preinsert(bb, inst, label);
+                /* Make sure that the TEST_REG value is live, so that the insertion
+                 * phase re-spills the app value to its slot. This makes the app
+                 * value available to the insertion phase.
+                 */
+                instrlist_meta_preinsert(bb, inst,
+                                         XINST_CREATE_add(drcontext,
+                                                          opnd_create_reg(TEST_REG),
+                                                          OPND_CREATE_INT32(0)));
+
+                /*******************************************************************
+                 * Step 1 end.
+                 */
+
+            } else if (inst == instrlist_last(bb)) {
+                CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                          DRREG_SUCCESS,
+                      "cannot unreserve register");
+            }
+        }
     }
     drvector_delete(&allowed);
     return DR_EMIT_DEFAULT;
@@ -403,6 +470,7 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static void
 check_const_eq(ptr_int_t reg, ptr_int_t val)
 {
+    dr_printf("AAA comparing %llx %llx\n",reg,val);
     CHECK(reg == val, "register value not preserved");
 }
 
@@ -1042,6 +1110,52 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             CHECK(drreg_unreserve_aflags(drcontext, bb, inst) == DRREG_SUCCESS,
                   "cannot unreserve aflags");
         }
+    } else if (subtest == DRREG_TEST_39_C) {
+        dr_log(drcontext, DR_LOG_ALL, 1, "drreg test #39: insertion phase\n");
+        if (instr_is_mov_constant(inst, &val) && val == TEST_INSTRUMENTATION_MARKER_1) {
+            CHECK(tls_offs_app2app_spilled_reg != -1,
+                  "unable to use any spill slot in app2app phase.");
+            uint tls_offs = spill_test_reg_to_slot(drcontext, bb, inst, TEST_REG,
+                                                   &allowed_test_reg_1, false);
+            /* Overwrite with a different constant than app2app. */
+            instrlist_meta_preinsert(bb, inst,
+                                     XINST_CREATE_load_int(drcontext,
+                                                           opnd_create_reg(TEST_REG),
+                                                           OPND_CREATE_INT32(0x8bad)));
+            CHECK(tls_offs_app2app_spilled_reg != tls_offs,
+                  "found conflict in use of spill slots across multiple phases");
+        } else if (instr_is_mov_constant(inst, &val) &&
+                   val == TEST_INSTRUMENTATION_MARKER_2) {
+            /**********************************************************************
+             * Read app2app value for reg reserved in app2app and insertion phases.
+             */
+            CHECK(drreg_statelessly_restore_app_value(drcontext, bb, TEST_REG, inst, inst,
+                                                      NULL, NULL) == DRREG_SUCCESS,
+                  "unable to get app value");
+            dr_insert_clean_call(drcontext, bb, inst, (void *)check_const_eq, false, 2,
+                                 opnd_create_reg(TEST_REG), OPND_CREATE_INT32(MAGIC_VAL));
+        }
+        /*******************************************************************
+         * Read app value for reg reserved in app2app and insertion phases:
+         * step 1/2: See DRREG_TEST_39_C in event_app2app
+         * step 2/2 (here): get value from insertion phase slot.
+         */
+        else if (is_drreg_app_val_restore_marker(inst)) {
+            CHECK(drreg_statelessly_restore_app_value(drcontext, bb, TEST_REG, inst, inst,
+                                                      NULL, NULL) == DRREG_SUCCESS,
+                  "unable to get app value");
+            dr_insert_clean_call(drcontext, bb, inst, (void *)check_const_eq, false, 2,
+                                 opnd_create_reg(TEST_REG),
+                                 OPND_CREATE_INT32(DRREG_TEST_39_C));
+        }
+        /*******************************************************************
+         * Step 2 done.
+         */
+        else if (drmgr_is_last_instr(drcontext, inst)) {
+            CHECK(drreg_unreserve_register(drcontext, bb, inst, TEST_REG) ==
+                      DRREG_SUCCESS,
+                  "cannot unreserve register");
+        }
     }
 #ifdef X86
     drvector_delete(&allowed_test_reg_xax);
@@ -1081,7 +1195,7 @@ event_instru2instru(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         subtest == DRREG_TEST_31_C || subtest == DRREG_TEST_32_C ||
         subtest == DRREG_TEST_33_C || subtest == DRREG_TEST_34_C ||
         subtest == DRREG_TEST_35_C || subtest == DRREG_TEST_36_C ||
-        subtest == DRREG_TEST_37_C) {
+        subtest == DRREG_TEST_37_C || subtest == DRREG_TEST_39_C) {
         return DR_EMIT_DEFAULT;
     }
 
