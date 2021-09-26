@@ -438,7 +438,7 @@ event_app2app(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                                                           OPND_CREATE_INT32(0)));
 
                 /*******************************************************************
-                 * Step 1 end.
+                 * Step 1 done.
                  */
 
             } else if (inst == instrlist_last(bb)) {
@@ -470,7 +470,6 @@ event_app_analysis(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
 static void
 check_const_eq(ptr_int_t reg, ptr_int_t val)
 {
-    dr_printf("AAA comparing %llx %llx\n",reg,val);
     CHECK(reg == val, "register value not preserved");
 }
 
