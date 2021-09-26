@@ -1027,6 +1027,13 @@ GLOBAL_LABEL(FUNCNAME:)
         /* Unreachable, but we want this bb to end here. */
         jmp      test38
 
+        /* Test 38: Tests that the insertion phase slot contains the
+         * correct app value when there's overlapping spill regions for
+         * some reg due to multi-phase drreg use in app2app and insertion
+         * phases. The insertion phase should update the reg value in its own
+         * slot by re-spilling it after an app2app instruction that restored
+         * the app value for an app read.
+         */
      test38:
         mov      TEST_REG_ASM, DRREG_TEST_38_ASM
         mov      TEST_REG_ASM, DRREG_TEST_38_ASM
