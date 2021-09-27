@@ -3273,7 +3273,15 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
         ASSERT(get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED ||
                get_syscall_method() == SYSCALL_METHOD_INT);
 #    ifdef LINUX
-        if (new_method == SYSCALL_METHOD_SYSENTER) {
+
+        /* i#4407: An OP_syscall instruction on 32-bit AMD returns to a hardcoded vsyscall
+         * PC no matter where it is. Thus we must hook the vsyscall just like we do for
+         * OP_sysenter.
+         */
+        if (new_method ==
+            SYSCALL_METHOD_SYSENTER IF_X86_32(||
+                                              (new_method == SYSCALL_METHOD_SYSCALL &&
+                                               cpu_info.vendor == VENDOR_AMD))) {
 #        ifndef HAVE_TLS
             if (DYNAMO_OPTION(hook_vsyscall)) {
                 /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */
@@ -3320,6 +3328,10 @@ get_syscall_method(void)
 bool
 does_syscall_ret_to_callsite(void)
 {
+    /* We hook vsyscall page in AMD 32-bit (LOL64) */
+    if (syscall_method == SYSCALL_METHOD_SYSCALL && cpu_info.vendor == VENDOR_AMD)
+        return IF_X86_64_ELSE(true, false);
+
     return (syscall_method == SYSCALL_METHOD_INT ||
             syscall_method == SYSCALL_METHOD_SYSCALL ||
             syscall_method ==

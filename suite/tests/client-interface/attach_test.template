@@ -1,0 +1,7 @@
+starting attachee
+thank you for testing attach
+thread init
+#ifdef WINDOWS
+MessageBox closed
+#endif
+done

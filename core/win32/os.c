@@ -2497,6 +2497,15 @@ static bool
 os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool suspended)
 {
     bool success = true;
+
+    if (DYNAMO_OPTION(skip_terminating_threads)) {
+        if (nt_is_thread_terminating(hthread)) {
+            // Takeover fails when attaching and trying to takeover terminating threads.
+            // Luckily, we don't really need to take over them.
+            return success;
+        }
+    }
+
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
     char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));

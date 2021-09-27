@@ -801,6 +801,10 @@ typedef struct _module_data_t module_data_t;
 #        define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
 #    endif
 enum {
+    /**
+     * Identifies an annotation point.  This label will be replaced by a
+     * clean call to the registered annotation handler.
+     */
     DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1,
     DR_NOTE_RSEQ,
     DR_NOTE_LDEX,

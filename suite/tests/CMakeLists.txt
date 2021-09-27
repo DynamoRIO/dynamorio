@@ -1308,9 +1308,16 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       # We always run infloop.
       get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
     else ()
-      # It's easier to run our own infloop, which prints so we know when it's up,
-      # than to run notepad or sthg.
-      get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
+      if ("${runall}" MATCHES "<attach>")
+        # For attach we use attachee, which is identical to infloop, aside for writing
+        # a starting message to the output file. This allows us to detect when it is
+        # up and running and we can start the attach process.
+        get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
+      else ()
+        # It's easier to run our own infloop, which prints so we know when it's up,
+        # than to run notepad or sthg.
+        get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
+      endif ()
     endif ()
     # Swap from drrun to run_in_bg to run the test in the background and print the pid.
     # XXX i#1874: add support for running on Android
@@ -1346,6 +1353,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
       string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
       string(REGEX REPLACE " " "\\\\;" nudge_arg "${nudge_arg}")
+    elseif ("${runall}" MATCHES "<attach>")
+      # move params to nudge
+      string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
+      string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<attach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # clear client from dr command and run native
+      string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
@@ -2259,6 +2274,8 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
 
   tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
     "" "" "")
+  use_DynamoRIO_extension(client.annotation-detection.dll drmgr)
+  use_DynamoRIO_extension(client.annotation-detection.dll drreg)
   set(client.annotation-detection.full-decode_expectbase
     "annotation-detection.full-decode")
   torunonly_ci(client.annotation-detection.full-decode client.annotation-detection
@@ -2285,6 +2302,8 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
   set(client.annotation-detection-opt_expectbase "annotation-detection")
   tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp
     "" "" "")
+  use_DynamoRIO_extension(client.annotation-detection-opt.dll drmgr)
+  use_DynamoRIO_extension(client.annotation-detection-opt.dll drreg)
   optimize(client.annotation-detection-opt)
   torunonly_native(client.annotation-detection-opt.native
     client.annotation-detection-opt annotation-detection.native
@@ -2390,6 +2409,7 @@ if (UNIX)
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
   endif ()
 else (UNIX)
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
   tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
@@ -3298,6 +3318,10 @@ if (BUILD_CLIENTS)
       torunonly_drcachesim(miss_analyzer stride_benchmark
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
+
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+    endif (NOT WIN32)
 
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
@@ -4264,6 +4288,7 @@ if (UNIX)
   endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
+  add_exe(win32.attachee win32/attachee.c)
   if (PROGRAM_SHEPHERDING)
     # too flaky across platforms so we limit to security mode only: not too useful
     # for other than testing our ASLR anyway
