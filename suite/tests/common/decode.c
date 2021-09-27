@@ -167,7 +167,8 @@ construct_modrm_test_buf(char *buf)
      * byte. Each of these instructions is part of a sequence of instrs:
      * prolog -> modrm instr -> epilog -> ret
      * nop may be added so that each of these parts have consistent size
-     * for all 256 variants.
+     * for all 256 variants, which simplifies sizing the instruction
+     * buffer up front.
      */
     for (int j = 0; j < 256; j++) {
         int mod = ((j >> 6) & 0x3); /* top 2 bits */
