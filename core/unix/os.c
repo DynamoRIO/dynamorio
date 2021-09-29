@@ -5035,12 +5035,7 @@ ignorable_system_call_normalized(int num)
     case SYS_readlinkat: return !DYNAMO_OPTION(early_inject);
 #endif
 #ifdef SYS_openat2
-    case SYS_openat2:
-        if (!IS_STRING_OPTION_EMPTY(xarch_root))
-            return false;
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call openat2");
-        return true;
+    case SYS_openat2: return IS_STRING_OPTION_EMPTY(xarch_root);
 #endif
 #ifdef SYS_openat
     case SYS_openat: return IS_STRING_OPTION_EMPTY(xarch_root);
