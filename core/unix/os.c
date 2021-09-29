@@ -5011,7 +5011,9 @@ ignorable_system_call_normalized(int num)
     case SYS_pselect6_time64:
 #    endif
     case SYS_pselect6:
+#    ifdef SYS_ppoll_time64
     case SYS_ppoll_time64:
+#    endif
     case SYS_ppoll:
     case SYS_epoll_pwait:
     /* Used as a lazy trigger. */
@@ -7323,7 +7325,9 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #ifdef LINUX
+#    ifdef SYS_ppoll_time64
     case SYS_ppoll_time64:
+#    endif
     case SYS_ppoll: {
         kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 3);
         dcontext->sys_param3 = (reg_t)sigmask;
@@ -8684,7 +8688,9 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 #ifdef LINUX
+#    ifdef SYS_ppoll_time64
     case SYS_ppoll_time64:
+#    endif
     case SYS_ppoll: {
         if (dcontext->sys_param3 == (reg_t)NULL)
             break;
