@@ -100,7 +100,7 @@ a performant manner.  It is compiled into two different libraries:
 instrace_x86_text, which produces a readable, text-mode trace, but is much
 slower than instrace_x86_binary, which produces a binary-format trace file.
 
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrcall.c">instrcall.c</a>
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/instrcalls.c">instrcalls.c</a>
 demonstrates how to instrument direct calls, indirect calls and returns.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memtrace_simple.c">memtrace_simple.c</a>

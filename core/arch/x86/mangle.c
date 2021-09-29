@@ -1391,7 +1391,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         reg_id_t scratch2;
         for (scratch2 = REG_XAX; scratch2 <= REG_XBX; scratch2++) {
-            if (!instr_uses_reg(instr, scratch2))
+            if (!instr_uses_reg(instr, scratch2) && scratch2 != reg)
                 break;
         }
         ASSERT(scratch2 <= REG_XBX);
@@ -3044,6 +3044,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
     opnd_t *args = NULL;
 
     ASSERT(handler->type == DR_ANNOTATION_HANDLER_CALL);
+    LOG(THREAD, LOG_INTERP, 3, "inserting call to annotation handler\n");
 
     while (receiver != NULL) {
         if (handler->num_args != 0) {
