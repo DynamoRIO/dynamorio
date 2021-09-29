@@ -500,16 +500,16 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
     /* Before each app read, or at end of bb, restore spilled registers to app values.
      * XXX i#5121: For regs that are in spilled state at this instr also during the
      * app2app phase, the following does not restore the app value, it restores the
-     * app2app meta value instead. This is expected and correct, because the drreg use
-     * in insertion phase adds spills/restores around the drreg spills/restores from
-     * previous phases like they were app instrs. So, the app2app meta value is no
-     * different than the app value for the insertion phase.
+     * app2app meta value instead. This is expected and correct, because drreg in
+     * insertion phase adds spills/restores around the drreg spills/restores from the
+     * previous phases like they were app instrs. So, the app2app meta value is treated
+     * like an app value by the insertion phase.
      *
-     * For cases where we really want the app value at some point in the insertion phase,
-     * e.g. for use with annotations, or for user-added calls to drreg_get_app_value and
-     * drreg_statelessly_restore_app_value to work as expected, the user needs to restore
-     * the app value at the same point in the app2app phase also. This aligns with other
-     * similar expectations from the user for non-insertion phase use of drreg, like
+     * For cases where instrumentation wants the app value at some point in the insertion,
+     * phase e.g. for use with annotations, or for user-added calls to drreg_get_app_value
+     * and drreg_statelessly_restore_app_value to work as expected, the user needs to
+     * restore the app value at the same point in the app2app phase also. This aligns with
+     * other similar expectations from the user for non-insertion phase use of drreg, like
      * manually restoring/re-spilling around app reads and writes, which happens
      * automatically only in the insertion phase.
      */
