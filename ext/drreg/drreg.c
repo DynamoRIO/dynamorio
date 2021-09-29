@@ -498,10 +498,18 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
         }
     }
     /* Before each app read, or at end of bb, restore spilled registers to app values.
-     * XXX i#5121: multi-phase use causes correctness issues here!  Our restore
-     * in the insertion phase here could actually restore the tool value from the
-     * app2app phase.  A better solution is needed for multi-phase, or perhaps
-     * disallowing the use of the same register.
+     * XXX i#5121: Any app2app cross-app-instr use should manually restore app values
+     * prior to app reads. That interacts well with the insertion phase since we treat
+     * those app2app restores as app writes and end up with the app value here. If the
+     * app2app phase has a regsiter in a spilled state at this instr and did not restore
+     * the app value, the following insertion phase code will not restore the app value
+     * but instead will restore the app2app meta value.
+     *
+     * For cases where instrumentation wants the app value at some point in the insertion
+     * phase (e.g., for use with annotations, or for user-added calls to
+     * drreg_get_app_value and drreg_statelessly_restore_app_value to work as expected),
+     * the user needs to restore the app value at the same point in the app2app phase
+     * also.
      */
     for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (regs_restored != NULL)

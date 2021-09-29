@@ -2679,6 +2679,11 @@ if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
   endif ()
 endif ()
 
+if (AARCH64)
+  # Create a fuzzing application for stress-testing via drstatecmp.
+  add_api_exe(drstatecmp-fuzz-app client-interface/drstatecmp-fuzz-app.c ON OFF)
+endif ()
+
 # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
 # but the system dbghelp pre-Vista is too old, so we copy one from VS.
 if ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
@@ -3319,6 +3324,10 @@ if (BUILD_CLIENTS)
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
+    # Stress-test drcachesim with drstatecmp checks.
+    if (AARCH64)
+      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+    endif ()
     if (NOT WIN32)
       torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
     endif (NOT WIN32)
