@@ -1021,10 +1021,72 @@ GLOBAL_LABEL(FUNCNAME:)
         jne      test28_fail
         cmp      al, 1
         jne      test28_fail
-        jmp      epilog
+        jmp      test39
      test28_fail:
         ud2
         /* Unreachable, but we want this bb to end here. */
+        jmp      test39
+
+        /* Test 39: Get app value of register spilled in multiple phases.
+         * This test demonstrates how to get the app value for a reg that
+         * was reserved in multiple phases (app2app and insertion phase).
+         *
+         * TODO i#5121: Simplify getting the app value for a reg reserved
+         * in multiple phases.
+         */
+     test39:
+        mov      TEST_REG_ASM, DRREG_TEST_39_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_39_ASM
+
+        /* app2app phase reserves TEST_REG_ASM here. */
+        /* app2app phase writes TEST_REG_ASM here. */
+        /* insertion phase reserves TEST_REG_ASM here. */
+        /* insertion phase writes TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /***********************************************************
+         * This section demonstrates how to get the app2app value of
+         * TEST_REG_ASM from insertion phase. See DRREG_TEST_39_C in
+         * event_app_instruction for code.
+         */
+        /* insertion phase gets the app2app value of TEST_REG_ASM
+         * here using drreg_get_app_value or
+         * drreg_statelessly_restore_app_value.
+         */
+        /***********************************************************
+         * Done.
+         */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_2
+        /**********************************************************
+         * This section demonstrates how to get the app value of
+         * TEST_REG_ASM from insertion phase. This requires the
+         * app2app and insertion phases to work together. See
+         * DRREG_TEST_39_C in event_app2app and event_app_instruction
+         * for code.
+         */
+        /* app2app phase gets the app value of TEST_REG_ASM here. */
+        /* Seeing the above write, insertion phase automatically
+         * re-spills the new value of TEST_REG_ASM to its own slot,
+         * thus making it available using drreg_get_app_value or
+         * drreg_statelessly_get_app_value in the insertion phase.
+         */
+        /* insertion phase gets the app value of TEST_REG_ASM here
+         * using drreg_get_app_value or drreg_statelessly_restore_app_value.
+         */
+        /* app2app inserts a label that marks where insertion phase
+         * should try to get the app value.
+         */
+        /* app2app adds a dummy instr that reads TEST_REG_ASM, just to
+         * make sure it is live (if it is dead then insertion phase won't
+         * re-spill the new value to its slot).
+         */
+        /**********************************************************
+         * Done.
+         */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_3
+        /* app2app phase unreserves TEST_REG_ASM here. */
+        /* insertion phase unreserves TEST_REG_ASM here. */
+        jmp      test39_done
+     test39_done:
         jmp      epilog
 
      epilog:
