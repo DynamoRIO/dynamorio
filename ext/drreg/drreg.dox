@@ -42,7 +42,12 @@ instrumentation pass scheme.  The results are most efficient when used in
 the \p drmgr instrumentation insertion phase.  Use outside of the insertion
 phase, such as during \p drmgr's instrumentation-to-instrumentation
 transformation phase, or use outside of \p drmgr entirely, is supported,
-but duplicate spills and restores may not be optimized away.  When using
+but duplicate spills and restores may not be optimized away.  Also, for
+non-insertion phases, the responsibility to restore a spilled app value
+before certain instructions like an app read or a label with the note
+#DR_NOTE_ANNOTATION, and to re-spill the app value after an app write, lies
+with the user; in the insertion phase, this is done automatically, but it
+needs to be done manually in non-insertion phases. When using
 drreg to reserve registers in multiple phases (like app2app or
 instru2instru in addition to the insertion phase), it is important to call
 drreg_set_bb_properties() with #DRREG_HANDLE_MULTI_PHASE_SLOT_RESERVATIONS
