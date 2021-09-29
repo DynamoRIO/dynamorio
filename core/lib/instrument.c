@@ -899,14 +899,22 @@ is_in_client_lib(app_pc addr)
      * clients. If we add a callback on that event we'll have to be
      * sure to deliver it only to the right client.
      */
+    if (is_in_client_lib_ignore_aux(addr))
+        return true;
+    if (client_aux_libs != NULL && vmvector_overlap(client_aux_libs, addr, addr + 1))
+        return true;
+    return false;
+}
+
+bool
+is_in_client_lib_ignore_aux(app_pc addr)
+{
     size_t i;
     for (i = 0; i < num_client_libs; i++) {
         if ((addr >= (app_pc)client_libs[i].start) && (addr < client_libs[i].end)) {
             return true;
         }
     }
-    if (client_aux_libs != NULL && vmvector_overlap(client_aux_libs, addr, addr + 1))
-        return true;
     return false;
 }
 

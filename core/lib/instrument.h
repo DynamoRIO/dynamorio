@@ -71,6 +71,12 @@ void
 instrument_exit(void);
 bool
 is_in_client_lib(app_pc addr);
+/* Does not consider auxiliary client libraries, avoiding a lock acquisition along
+ * the way (making this more suitable for diagnostics in sensitive locations at
+ * the downside of missing aux libs).
+ */
+bool
+is_in_client_lib_ignore_aux(app_pc addr);
 bool
 get_client_bounds(client_id_t client_id, app_pc *start /*OUT*/, app_pc *end /*OUT*/);
 const char *
