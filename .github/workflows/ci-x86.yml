@@ -55,8 +55,7 @@ defaults:
 jobs:
   # 32-bit Linux build with gcc and run tests:
   x86-32:
-    # TODO i#4953: Upgrade to ubuntu-20.04, same as other CI jobs.
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     # When checking out the repository that triggered a workflow, actions/checkout@v2
     # defaults to the reference or SHA for that event. See documentation for ref at

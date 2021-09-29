@@ -58,3 +58,7 @@ Signal received: 12
 Testing raw ppoll with NULL sigmask
 Signal received: 10
 Signal received: 12
+Testing raw ppoll_time64 with NULL sigmask
+Signal received: 10
+Signal received: 12
+Done

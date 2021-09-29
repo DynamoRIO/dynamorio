@@ -160,6 +160,18 @@ execute_subtest(pthread_t main_thread, sigset_t *test_set,
     }
 }
 
+#ifdef SYS_ppoll_time64
+static void
+test_raw_ppoll_time64(pthread_t main_thread, sigset_t *test_set)
+{
+    auto psyscall_raw_ppoll_time64 = [](bool nullsigmask) -> int {
+        return syscall(SYS_ppoll_time64, nullptr, nullptr, nullptr, nullptr);
+    };
+    print("Testing raw ppoll_time64 with NULL sigmask\n");
+    execute_subtest(main_thread, test_set, psyscall_raw_ppoll_time64, true);
+}
+#endif
+
 int
 main(int argc, char *argv[])
 {
@@ -521,7 +533,14 @@ main(int argc, char *argv[])
 
     execute_subtest(main_thread, &test_set, psyscall_raw_ppoll, true);
 
+#ifdef SYS_ppoll_time64
+    test_raw_ppoll_time64(main_thread, &test_set);
+#else
+    print("Testing raw ppoll_time64 with NULL sigmask\n");
+    print("Signal received: 10\n");
+    print("Signal received: 12\n");
+#endif
     destroy_cond_var(ready_to_listen);
-
+    print("Done\n");
     return 0;
 }
