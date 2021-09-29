@@ -5036,11 +5036,11 @@ ignorable_system_call_normalized(int num)
 #endif
 #ifdef SYS_openat2
     case SYS_openat2:
-        if (IS_STRING_OPTION_EMPTY(xarch_root))
-            return true;
+        if (!IS_STRING_OPTION_EMPTY(xarch_root))
+            return false;
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call openat2");
-        return false;
+        return true;
 #endif
 #ifdef SYS_openat
     case SYS_openat: return IS_STRING_OPTION_EMPTY(xarch_root);
