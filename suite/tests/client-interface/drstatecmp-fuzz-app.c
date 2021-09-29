@@ -54,24 +54,23 @@
 #ifdef AARCH64
 
 static byte *generated_code;
-static size_t code_size;
+static size_t max_code_size;
 
 static jmp_buf mark;
 static sigjmp_buf sig_mark;
 
 void
-sig_segv_fpe_handler(int signal)
+sig_segv_fpe_handler(int signal, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     siglongjmp(sig_mark, 1);
     DR_ASSERT_MSG(false, "Shouldn't be reached");
 }
 
 void
-sigill_handler(int signal, siginfo_t *siginfo, void *uctx)
+sigill_handler(int signal, siginfo_t *siginfo, ucontext_t *uctx)
 {
-    ucontext_t *context = (ucontext_t *)uctx;
     /* Skip illegal instructions. */
-    context->uc_mcontext.pc += 4;
+    uctx->uc_mcontext.pc += 4;
 }
 
 static void
@@ -110,8 +109,8 @@ generate_encoded_inst(void)
     /* Pick one of the available (side-effect-free and non-branch) opcodes
      * and randomize the non-fixed bits.
      */
-    uint32_t opcode_pick = rand() % FUZZ_INST_CNT;
-    const opcode_opnd_pair_t opcode_opnd_pair = fuzz_opcode_opnd_pairs[opcode_pick];
+    uint32_t opcode_pick = rand() % DR_FUZZ_INST_CNT;
+    const dr_opcode_opnd_pair_t opcode_opnd_pair = dr_fuzz_opcode_opnd_pairs[opcode_pick];
 
     uint32_t opnd_mask = opcode_opnd_pair.opnd;
     /* Avoid registers 16-31 for Rd (special registers and callee-saved registers) to
@@ -139,24 +138,23 @@ check_decoded_inst(instr_t *decoded_inst)
 }
 
 static byte *
-generate_inst(byte *encode_pc)
+generate_inst(byte *encode_pc, size_t *skipped_insts)
 {
     /* Pick a random side-effect-free and non-branch instruction. */
     uint32_t encoded_inst = generate_encoded_inst();
-    byte encoded_inst_bytes[4];
-    for (int i = 0; i < 4; ++i, encoded_inst >>= 8)
-        encoded_inst_bytes[i] = (byte)(encoded_inst & 0xff);
 
     /* Try to decode the randomized encoding. */
     instr_t *decoded_inst = instr_create(GLOBAL_DCONTEXT);
-    byte *nxt_pc = decode(GLOBAL_DCONTEXT, encoded_inst_bytes, decoded_inst);
+    byte *nxt_pc = decode(GLOBAL_DCONTEXT, (byte *)&encoded_inst, decoded_inst);
     /* XXX: Ideally the decoder would report as erroneous any encoding leading to SIGILL.
      * Currently, several valid decodings are illegal instructions.
      */
-    if (nxt_pc != NULL && check_decoded_inst(decoded_inst))
+    if (nxt_pc != NULL && check_decoded_inst(decoded_inst)) {
         encode_pc = append_instr(decoded_inst, encode_pc);
-    else
+    } else {
+        (*skipped_insts)++;
         instr_destroy(GLOBAL_DCONTEXT, decoded_inst);
+    }
 
     return encode_pc;
 }
@@ -165,9 +163,9 @@ static void
 generate_code()
 {
     /* Account for the generated insts and the final return. */
-    code_size = (NUM_INSTS + 1) * 4;
+    max_code_size = (NUM_INSTS + 1) * 4;
     generated_code =
-        (byte *)allocate_mem(code_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
+        (byte *)allocate_mem(max_code_size, ALLOW_EXEC | ALLOW_READ | ALLOW_WRITE);
     assert(generated_code != NULL);
 
     /* Synthesize code which includes a lot of side-effect-free instructions. Only one
@@ -175,14 +173,16 @@ generate_code()
      * flags conditionally-executed instructions are included.
      */
     byte *encode_pc = generated_code;
+    size_t skipped_insts = 0;
     for (int i = 0; i < NUM_INSTS; ++i) {
-        encode_pc = generate_inst(encode_pc);
+        encode_pc = generate_inst(encode_pc, &skipped_insts);
     }
+    size_t actual_code_size = max_code_size - skipped_insts * 4;
 
     /* The outer level is a function. */
     encode_pc = append_instr(XINST_CREATE_return(GLOBAL_DCONTEXT), encode_pc);
-    assert(encode_pc && encode_pc <= generated_code + code_size);
-    protect_mem(generated_code, code_size, ALLOW_EXEC | ALLOW_READ);
+    assert(encode_pc && encode_pc <= generated_code + actual_code_size);
+    protect_mem(generated_code, actual_code_size, ALLOW_EXEC | ALLOW_READ);
 }
 
 int
@@ -200,21 +200,13 @@ main(void)
     /* Handle execution of illegal instructions that were decodable.
      * (fairly common).
      */
-    struct sigaction act_ill;
-    memset(&act_ill, 0, sizeof(act_ill));
-    act_ill.sa_sigaction = (void (*)(int, siginfo_t *, void *))sigill_handler;
-    act_ill.sa_flags = SA_SIGINFO;
-    sigaction(SIGILL, &act_ill, NULL);
+    intercept_signal(SIGILL, sigill_handler, false);
 
     /* Handle seg faults and floating-point exceptions caused by the fuzzed insts
      * (rarely occur).
      */
-    struct sigaction act_segv_fpe;
-    memset(&act_segv_fpe, 0, sizeof(act_segv_fpe));
-    act_segv_fpe.sa_sigaction = (void (*)(int, siginfo_t *, void *))sig_segv_fpe_handler;
-    act_segv_fpe.sa_flags = SA_SIGINFO;
-    sigaction(SIGSEGV, &act_segv_fpe, NULL);
-    sigaction(SIGFPE, &act_segv_fpe, NULL);
+    intercept_signal(SIGSEGV, sig_segv_fpe_handler, false);
+    intercept_signal(SIGFPE, sig_segv_fpe_handler, false);
 
     /* Execute generated code. */
     int executed = setjmp(mark);
@@ -227,7 +219,7 @@ main(void)
     }
 
     /* Cleanup generated code. */
-    free_mem((char *)generated_code, code_size);
+    free_mem((char *)generated_code, max_code_size);
     fprintf(stderr, "All done\n");
     return 0;
 }

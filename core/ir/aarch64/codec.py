@@ -394,17 +394,17 @@ def generate_opcode_names(patterns):
 # side-effect-free and non-branch instructions suppported by the decoder.
 # The generated file is used by the drstatecmp-fuzz-app.
 def generate_opcode_opnd_pairs(patterns):
-    c = ['#ifndef OPCODE_OPND_PAIRS_H',
-         '#define OPCODE_OPND_PAIRS_H 1',
+    c = ['#ifndef DR_OPCODE_OPND_PAIRS_H',
+         '#define DR_OPCODE_OPND_PAIRS_H 1',
          '',
          '#include <stdint.h>',
          '',
          'typedef struct {',
          '  uint32_t opcode;',
          '  uint32_t opnd;',
-         '} opcode_opnd_pair_t;',
+         '} dr_opcode_opnd_pair_t;',
          '',
-         'const opcode_opnd_pair_t fuzz_opcode_opnd_pairs[] = {']
+         'const dr_opcode_opnd_pair_t dr_fuzz_opcode_opnd_pairs[] = {']
     # Exclude instructions with side-effects and branch instructions.
     # Particularly,  exclude: i) Load/Stores (opcode: x1x0);
     # ii) Branches, Exception Generating and System instructions (opcode: 101x);
@@ -421,9 +421,9 @@ def generate_opcode_opnd_pairs(patterns):
         c.append('/* %s */ {%s, %s},' % (p[2], bin(p[0]), bin(p[1])))
     c += ['};',
           '']
-    c.append('#define FUZZ_INST_CNT %d' % (cnt))
+    c.append('#define DR_FUZZ_INST_CNT %d' % (cnt))
     c += ['',
-          '#endif /* OPCODE_OPND_PAIRS_H */']
+          '#endif /* DR_OPCODE_OPND_PAIRS_H */']
     return '\n'.join(c) + '\n'
 
 def write_if_changed(file, data):
