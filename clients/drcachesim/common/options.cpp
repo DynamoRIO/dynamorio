@@ -314,13 +314,15 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string> op_simulator_type(
-    DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-    "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM ", " VIEW ", " FUNC_VIEW ", or " BASIC_COUNTS ").",
-    "Specifies the type of the simulator. "
-    "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
+droption_t<std::string>
+    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
+                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
+                      ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
+                      "Specifies the type of the simulator. "
+                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
+                      ", or " INVARIANT_CHECKER ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
