@@ -774,7 +774,7 @@ read_module_list(const char *buf, module_table_t ***tables, uint *num_mods)
     /* module table header */
     if (drmodtrack_offline_read(INVALID_FILE, buf, &buf, &handle, num_mods) !=
         DRCOVLIB_SUCCESS) {
-        WARN(2, "Failed to read module table");
+        WARN(1, "Failed to read module table");
         return NULL;
     }
 
@@ -878,24 +878,30 @@ read_file_header(const char *buf)
      */
     PRINT(4, "Reading version number\n");
     if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1) {
-        WARN(2, "Failed to read version number");
+        WARN(1, "Failed to read version number");
         return NULL;
     }
     if (version != DRCOV_VERSION) {
-        WARN(2, "Version mismatch: file version %d vs tool version %d\n", version,
-             DRCOV_VERSION);
-        return NULL;
+        if (version == DRCOV_VERSION_MODULE_OFFSETS) {
+            WARN(1,
+                 "File is in legacy version 2 format: only code in the first "
+                 "segment of each module will be reported\n");
+        } else {
+            WARN(1, "Version mismatch: file version %d vs tool version %d\n", version,
+                 DRCOV_VERSION);
+            return NULL;
+        }
     }
     buf = move_to_next_line(buf);
 
     /* flavor */
     PRINT(4, "Reading flavor\n");
     if (dr_sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
-        WARN(2, "Failed to read version number");
+        WARN(1, "Failed to read version number");
         return NULL;
     }
     if (strcmp(str, DRCOV_FLAVOR) != 0) {
-        WARN(2, "Fatal file mismatch: file %s vs tool %s\n", str, DRCOV_FLAVOR);
+        WARN(1, "Fatal file mismatch: file %s vs tool %s\n", str, DRCOV_FLAVOR);
         return NULL;
     }
     buf = move_to_next_line(buf);
@@ -914,23 +920,23 @@ open_input_file(const char *fname, const char **map_out OUT, size_t *map_size OU
     ASSERT(map_out != NULL && map_size != NULL, "map_out must not be NULL");
     f = dr_open_file(fname, DR_FILE_READ | DR_FILE_ALLOW_LARGE);
     if (f == INVALID_FILE) {
-        WARN(2, "Failed to open file %s\n", fname);
+        WARN(1, "Failed to open file %s\n", fname);
         return INVALID_FILE;
     }
     if (!dr_file_size(f, &file_size)) {
-        WARN(2, "Failed to get input file size for %s\n", fname);
+        WARN(1, "Failed to get input file size for %s\n", fname);
         dr_close_file(f);
         return INVALID_FILE;
     }
     if (file_size <= MIN_LOG_FILE_SIZE) {
-        WARN(2, "File size is 0 for %s\n", fname);
+        WARN(1, "File size is 0 for %s\n", fname);
         dr_close_file(f);
         return INVALID_FILE;
     }
     *map_size = (size_t)file_size;
     map = (char *)dr_map_file(f, map_size, 0, NULL, DR_MEMPROT_READ, 0);
     if (map == NULL || (size_t)file_size > *map_size) {
-        WARN(2, "Failed to map file %s\n", fname);
+        WARN(1, "Failed to map file %s\n", fname);
         dr_close_file(f);
         return INVALID_FILE;
     }
