@@ -113,8 +113,11 @@ typedef struct _drcovlib_options_t {
  * make drcovlib usable in standalone mode.
  */
 
-/* file format version */
-#define DRCOV_VERSION 2
+/* File format version. */
+/* Version 3 changes module offsets to be offsets from the module segment,
+ * rather than the whole module base as in version 2.
+ */
+#define DRCOV_VERSION 3
 
 /* i#1532: drsyms can't mix arch for ELF */
 #ifdef LINUX
