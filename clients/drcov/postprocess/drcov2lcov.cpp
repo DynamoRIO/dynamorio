@@ -882,7 +882,7 @@ read_file_header(const char *buf)
         return NULL;
     }
     if (version != DRCOV_VERSION) {
-        if (version == 2) {
+        if (version == DRCOV_VERSION_MODULE_OFFSETS) {
             WARN(1,
                  "File is in legacy version 2 format: only code in the first "
                  "segment of each module will be reported\n");
