@@ -136,6 +136,7 @@ stdfile_t **privmod_stdin;
 #define LIBC_STDOUT_NAME "stdout"
 #define LIBC_STDERR_NAME "stderr"
 #define LIBC_STDIN_NAME "stdin"
+#define LIBC_EARLY_INIT_NAME "__libc_early_init"
 
 /* We save the original sp from the kernel, for use by TLS setup on Android */
 void *kernel_init_sp;
@@ -657,9 +658,32 @@ privload_redirect_setup(privmod_t *privmod)
 }
 
 void
-privload_os_finalize(privmod_t *privmod_t)
+privload_os_finalize(privmod_t *privmod)
 {
-    /* nothing */
+#ifndef LINUX
+    return; /* Nothing to do. */
+#else
+    if (strstr(privmod->name, "libc.so") != privmod->name)
+        return;
+    os_privmod_data_t *opd = (os_privmod_data_t *)privmod->os_privmod_data;
+    /* Special handling for standard I/O file descriptors. */
+    privmod_stdout = (FILE **)get_proc_address_from_os_data(
+        &opd->os_data, opd->load_delta, LIBC_STDOUT_NAME, NULL);
+    privmod_stdin = (FILE **)get_proc_address_from_os_data(&opd->os_data, opd->load_delta,
+                                                           LIBC_STDIN_NAME, NULL);
+    privmod_stderr = (FILE **)get_proc_address_from_os_data(
+        &opd->os_data, opd->load_delta, LIBC_STDERR_NAME, NULL);
+    /* i#5133: glibc 2.32+ has ld.so call a hardcoded initializer before calling the
+     * regular ELF constructors.
+     */
+    void (*libc_early_init)(bool) = (void (*)(bool))get_proc_address_from_os_data(
+        &opd->os_data, opd->load_delta, LIBC_EARLY_INIT_NAME, NULL);
+    if (libc_early_init != NULL) {
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: calling %s\n", __FUNCTION__,
+            LIBC_EARLY_INIT_NAME);
+        (*libc_early_init)(true);
+    }
+#endif
 }
 
 static void
@@ -1174,16 +1198,6 @@ privload_relocate_mod(privmod_t *mod)
      */
     if (opd->tls_block_size != 0)
         privload_mod_tls_primary_thread_init(mod);
-
-    /* special handling on I/O file */
-    if (strstr(mod->name, "libc.so") == mod->name) {
-        privmod_stdout = (FILE **)get_proc_address_from_os_data(
-            &opd->os_data, opd->load_delta, LIBC_STDOUT_NAME, NULL);
-        privmod_stdin = (FILE **)get_proc_address_from_os_data(
-            &opd->os_data, opd->load_delta, LIBC_STDIN_NAME, NULL);
-        privmod_stderr = (FILE **)get_proc_address_from_os_data(
-            &opd->os_data, opd->load_delta, LIBC_STDERR_NAME, NULL);
-    }
 #else
     /* XXX i#1285: implement MacOS private loader */
 #endif
