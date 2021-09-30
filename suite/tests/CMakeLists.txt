@@ -3699,6 +3699,9 @@ if (BUILD_CLIENTS)
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
     endif (UNIX AND X86 AND X64)
 
+    torunonly_drcacheoff(invariant_checker ${ci_shared_app}
+      "" "@-simulator_type@invariant_checker" "")
+
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
     # for variety and to include threads and signals for invariant_checker.

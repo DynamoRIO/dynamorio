@@ -164,6 +164,8 @@ tools can also be created, as described in \ref sec_drcachesim_newtool.
 - \ref sec_tool_opcode_mix
 - \ref sec_tool_view
 - \ref sec_tool_func_view
+- \ref sec_tool_histogram
+- \ref sec_tool_invariant_checker
 
 \section sec_tool_cache_sim Cache Simulator
 
@@ -680,6 +682,8 @@ Function id=0: common.fib!fib
        15 returns
 \endcode
 
+\section sec_tool_histogram Cache Line Histogram
+
 The top referenced cache lines are displayed by the \p histogram tool:
 
 \code
@@ -712,6 +716,15 @@ dcache top 10
     0x7facdb6625c0: 2016
     0x7ffcc35e7e40: 1997
 \endcode
+
+\section sec_tool_invariant_checker Invariant Checker
+
+The invariant_checker tool performs sanity checks on a trace, focusing
+on program counter continuity and guarantees around kernel control
+transfer interruptions.  It optionally checks for restricted behavior
+that technically is legal but is not expected to happen in the target
+trace, helping to identify tracing problems and suitability for use of
+a trace for core simulation.
 
 ****************************************************************************
 \page sec_drcachesim_config_file Configuration File

@@ -31,8 +31,15 @@
  */
 
 #include "invariant_checker.h"
+#include "invariant_checker_create.h"
 #include <iostream>
 #include <string.h>
+
+analysis_tool_t *
+invariant_checker_create(bool offline, unsigned int verbose)
+{
+    return new invariant_checker_t(offline, verbose, "");
+}
 
 invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
                                          std::string test_name)
