@@ -228,6 +228,7 @@ check_sane_control_flow()
 bool
 check_kernel_xfer()
 {
+#ifdef UNIX
     // Return to recorded interruption point.
     {
         checker_no_abort_t checker(true /*offline*/);
@@ -266,12 +267,14 @@ check_kernel_xfer()
             return false;
         }
     }
+#endif
     return true;
 }
 
 bool
 check_rseq()
 {
+#ifdef UNIX
     // Roll back rseq final instr.
     {
         checker_no_abort_t checker(true /*offline*/);
@@ -310,6 +313,7 @@ check_rseq()
             return false;
         }
     }
+#endif
     return true;
 }
 } // namespace
