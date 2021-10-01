@@ -71,9 +71,11 @@ protected:
         {
             // We need a sentinel different from type 0.
             prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
+            last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         }
         memref_t prev_instr_ = {};
-        memref_t prev_xfer_marker_ = {};
+        memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
+        memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
 #ifdef UNIX
         // We only support sigreturn-using handlers so we have pairing: no longjmp.
         std::stack<addr_t> prev_xfer_int_pc_;

@@ -131,7 +131,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(type_is_instr(shard->prev_entry_.instr.type) &&
                                 shard->prev_prev_entry_.marker.type ==
                                     TRACE_TYPE_MARKER &&
-                                shard->prev_xfer_marker_.marker.marker_type ==
+                                shard->last_xfer_marker_.marker.marker_type ==
                                     TRACE_MARKER_TYPE_KERNEL_EVENT,
                             "Signal handler not immediately after signal marker");
             app_handler_pc_ = shard->prev_entry_.instr.addr;
@@ -216,8 +216,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             report_if_false(!shard->saw_timestamp_but_no_instr_ ||
                                 // The invariant is relaxed for a signal.
                                 // prev_xfer_marker_ is cleared on an instr, so if set to
-                                // non-zero it means it is immediately prior, in between
-                                // prev_instr_ and memref.
+                                // non-sentinel it means it is immediately prior, in
+                                // between prev_instr_ and memref.
                                 shard->prev_xfer_marker_.marker.marker_type ==
                                     TRACE_MARKER_TYPE_KERNEL_EVENT,
                             "Branch target not immediately after branch");
@@ -283,19 +283,23 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->pre_signal_instr_.pop();
         }
 #endif
-        // These 2 hash assignments cause a 2.5x slowdown for this test on Windows.
-        // We have as many other hash lookups as we can under UNIX.
-        // We could try to only update on a tid change to further reduce overhead.
         shard->prev_instr_ = memref;
         // Clear prev_xfer_marker_ on an instr (not a memref which could come between an
         // instr and a kernel-mediated far-away instr) to ensure it's *immediately*
         // prior (i#3937).
         shard->prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
         shard->saw_timestamp_but_no_instr_ = false;
+    } else if (knob_verbose_ >= 3) {
+        std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                  << " type " << memref.instr.type << "\n";
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_TIMESTAMP) {
         shard->saw_timestamp_but_no_instr_ = true;
+        if (knob_verbose_ >= 3) {
+            std::cerr << "::" << memref.data.pid << ":" << memref.data.tid << ":: "
+                      << " timestamp " << memref.marker.marker_value << "\n";
+        }
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         // Ignore timestamp, etc. markers which show up a signal delivery boundaries
@@ -318,6 +322,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             shard->pre_signal_instr_.push(shard->prev_instr_);
 #endif
         shard->prev_xfer_marker_ = memref;
+        shard->last_xfer_marker_ = memref;
     }
 
 #ifdef UNIX
