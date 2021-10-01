@@ -138,7 +138,7 @@ check_branch_target_after_branch()
         }
         if (checker.errors.size() != 1 ||
             checker.errors[0] != "Branch target not immediately after branch") {
-            std::cerr << "Failed to catch bad branch target poisition\n";
+            std::cerr << "Failed to catch bad branch target position\n";
             return false;
         }
     }
@@ -170,6 +170,23 @@ check_branch_target_after_branch()
 bool
 check_sane_control_flow()
 {
+    // Positive test: branches.
+    {
+        checker_no_abort_t checker(true /*offline*/);
+        std::vector<memref_t> memrefs = {
+            gen_instr(1, 1),   gen_branch(1, 2),  gen_instr(1, 3), // Not taken.
+            gen_branch(1, 4),  gen_instr(1, 101),                  // Taken.
+            gen_instr(1, 102),
+        };
+        for (const auto &memref : memrefs) {
+            checker.process_memref(memref);
+        }
+        for (const auto &error : checker.errors) {
+            std::cerr << "Unexpected error: " << error << "\n";
+        }
+        if (!checker.errors.empty())
+            return false;
+    }
     // Negative simple test.
     {
         checker_no_abort_t checker(true /*offline*/);
