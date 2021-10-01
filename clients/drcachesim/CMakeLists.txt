@@ -539,6 +539,14 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
 
+    add_executable(tool.drcachesim.invariant_checker_test
+      tools/invariant_checker.cpp tests/invariant_checker_test.cpp)
+    target_link_libraries(tool.drcachesim.invariant_checker_test
+        drmemtrace_static drmemtrace_analyzer)
+    add_win32_flags(tool.drcachesim.invariant_checker_test)
+    add_test(NAME tool.drcachesim.invariant_checker_test
+             COMMAND tool.drcachesim.invariant_checker_test)
+
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
