@@ -154,7 +154,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
                                       'EFLAGS_WRITE_NZCV);')
                     elif opc_props[m] in ["er", "ew"]:
                         indent_append('    // instr->eflags handling for %s is '
-                                      'manually handled in codec.c\'s decode_common().' % (m))
+                                      'manually handled in codec.c\'s decode_common().' % m)
                     else:
                         indent_append('    ASSERT(0);')
                 enc_key = fallthrough_instr_id(m, opcode_bits, opnd_bits)
@@ -421,7 +421,7 @@ def generate_opcode_opnd_pairs(patterns):
         c.append('/* %s */ {%s, %s},' % (p[2], bin(p[0]), bin(p[1])))
     c += ['};',
           '']
-    c.append('#define DR_FUZZ_INST_CNT %d' % (cnt))
+    c.append('#define DR_FUZZ_INST_CNT %d' % cnt)
     c += ['',
           '#endif /* DR_OPCODE_OPND_PAIRS_H */']
     return '\n'.join(c) + '\n'
