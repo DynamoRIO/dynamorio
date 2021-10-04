@@ -2714,6 +2714,11 @@ if (NOT ANDROID)
   use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+
+  tobuild_ci(client.drcallstack-test client-interface/drcallstack-test.c "" "" "")
+  use_DynamoRIO_extension(client.drcallstack-test.dll drsyms)
+  use_DynamoRIO_extension(client.drcallstack-test.dll drwrap)
+  use_DynamoRIO_extension(client.drcallstack-test.dll drcallstack)
 endif ()
 
 # We check these two statements here b/c not all gcc compilers support
@@ -3129,6 +3134,8 @@ if (BUILD_SAMPLES)
           torunonly_ci(sample.${sample}_repstr allasm_repstr ${sample}_test
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
+      elseif (sample STREQUAL "callstack")
+        set(sample.${sample}_expectbase "sample.callstack.control_flags")
       endif()
     endforeach ()
   endif (NOT ANDROID)

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -120,6 +120,7 @@ add_subdirectory(drutil)
 add_subdirectory(droption)
 add_subdirectory(drcovlib)
 add_subdirectory(drstatecmp)
+add_subdirectory(drcallstack)
 
 # documentation is put into main DR docs/ dir
 

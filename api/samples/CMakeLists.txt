@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -227,6 +227,7 @@ configure_DynamoRIO_global(OFF ON)
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
+add_sample_client(callstack   "callstack.cpp"   "drmgr;drwrap;drcallstack;drsyms;droption")
 add_sample_client(div         "div.c"           "drmgr")
 add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
