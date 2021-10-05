@@ -762,8 +762,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #ifdef MACOS
         }
 #endif
+#if defined(LINUX) && defined(SYS_clone3)
     }
-
+#endif
     return (void *)record;
 }
 

@@ -211,7 +211,9 @@ create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sig
     cl_args.exit_signal = SIGCHLD;
     cl_args.stack = (ptr_uint_t)my_stack;
     /* SYS_clone3 does not have a glibc wrapper yet. So, we have to manually
-     * set up the expected stack.
+     * set up the expected stack. This is based on the glibc implementation of
+     * the clone wrapper. Note that clone3 requires the provided stack address
+     * to be the lowest (inclusive) address in the stack.
      */
     void *tos = my_stack + THREAD_STACK_SIZE - sizeof(ptr_uint_t *);
     *(ptr_uint_t *)tos = (ptr_uint_t)run_with_exit;
