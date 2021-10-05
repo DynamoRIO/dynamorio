@@ -37,6 +37,7 @@
 
 #include <sys/types.h>   /* for wait and mmap */
 #include <sys/wait.h>    /* for wait */
+#include <sys/syscall.h> /* for SYS_clone3 */
 #include <linux/sched.h> /* for CLONE_ flags */
 #include <time.h>        /* for nanosleep */
 #include <sys/mman.h>    /* for mmap */
@@ -63,10 +64,14 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 /* forward declarations */
 static pid_t
 create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand);
+static pid_t
+create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sighand);
 static void
 delete_thread(pid_t pid, void *stack);
 int
 run(void *arg);
+void
+run_with_exit(void);
 static void *
 stack_alloc(int size);
 static void
@@ -85,12 +90,15 @@ static volatile bool child_done;
 static struct timespec sleeptime;
 
 void
-test_thread(bool share_sighand)
+test_thread(bool share_sighand, bool use_clone3)
 {
     /* First make a thread that shares signal handlers. */
     child_exit = false;
     child_done = false;
-    child = create_thread(run, NULL, &stack, share_sighand);
+    if (use_clone3)
+        child = create_thread_clone3(run, NULL, &stack, share_sighand);
+    else
+        child = create_thread(run, NULL, &stack, share_sighand);
     assert(child > -1);
 
     /* waste some time */
@@ -109,11 +117,13 @@ main()
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */
 
-    /* First make a thread that shares signal handlers. */
-    test_thread(true);
+    /* First test a thread that does not share (xref i#2089). */
+    test_thread(false /*share_sighand*/, false /*use_clone3*/);
+    test_thread(false /*share_sighand*/, true /*use_clone3*/);
 
-    /* Now test a thread that does not share (xref i#2089). */
-    test_thread(false);
+    /* Now make a thread that shares signal handlers. */
+    test_thread(true /*share_sighand*/, false /*use_clone3*/);
+    test_thread(true /*share_sighand*/, true /*use_clone3*/);
 }
 
 /* Procedure executed by sideline threads
@@ -142,6 +152,12 @@ run(void *arg)
     return 0;
 }
 
+void
+run_with_exit(void)
+{
+    exit(run(NULL));
+}
+
 void *p_tid, *c_tid;
 
 /* Create a new thread. It should be passed "fcn", a function which
@@ -164,7 +180,9 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
      */
     flags = (SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES |
              (share_sighand ? CLONE_SIGHAND : 0));
-    newpid = clone(fcn, my_stack, flags, arg, &p_tid, NULL, &c_tid);
+    /* the stack arg should point to its top. */
+    newpid = clone(fcn, (void *)((size_t)my_stack + THREAD_STACK_SIZE), flags, arg,
+                   &p_tid, NULL, &c_tid);
 
     if (newpid == -1) {
         print("smp.c: Error calling clone\n");
@@ -174,6 +192,42 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
 
     *stack = my_stack;
     return newpid;
+}
+
+static pid_t
+create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
+{
+    struct clone_args cl_args = { 0 };
+    void *my_stack;
+
+    my_stack = stack_alloc(THREAD_STACK_SIZE);
+    /* we're not doing CLONE_THREAD => child has its own pid
+     * (the thread.c test tests CLONE_THREAD)
+     */
+    cl_args.flags =
+        CLONE_VM | CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0);
+    /* need SIGCHLD so parent will get that signal when child dies,
+     * else have errors doing a wait */
+    cl_args.exit_signal = SIGCHLD;
+    cl_args.stack = (ptr_uint_t)my_stack;
+    /* SYS_clone3 does not have a glibc wrapper yet. So, we have to manually
+     * set up the expected stack.
+     */
+    void *tos = my_stack + THREAD_STACK_SIZE - sizeof(ptr_uint_t *);
+    *(ptr_uint_t *)tos = (ptr_uint_t)run_with_exit;
+#ifdef X64
+    cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - sizeof(ptr_uint_t *);
+#else
+    cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - 4 * sizeof(ptr_uint_t *);
+#endif
+    int ret = syscall(SYS_clone3, &cl_args, sizeof(cl_args));
+    if (ret == -1) {
+        print("smp.c: Error calling clone\n");
+        stack_free(my_stack, THREAD_STACK_SIZE);
+        return -1;
+    }
+    *stack = my_stack;
+    return (pid_t)ret;
 }
 
 static void
@@ -189,11 +243,12 @@ delete_thread(pid_t pid, void *stack)
     stack_free(stack, THREAD_STACK_SIZE);
 }
 
-/* allocate stack storage on the app's heap */
+/* allocate stack storage on the app's heap. Returns the lowest address of the
+ * stack (inclusive).
+ */
 void *
 stack_alloc(int size)
 {
-    size_t sp;
     void *q = NULL;
     void *p;
 
@@ -209,27 +264,19 @@ stack_alloc(int size)
 #ifdef DEBUG
     memset(p, 0xab, size);
 #endif
-
-    /* stack grows from high to low addresses, so return a ptr to the top of the
-       allocated region */
-    sp = (size_t)p + size;
-
-    return (void *)sp;
+    return p;
 }
 
 /* free memory-mapped stack storage */
 void
 stack_free(void *p, int size)
 {
-    size_t sp = (size_t)p - size;
-
 #ifdef DEBUG
-    memset((void *)sp, 0xcd, size);
+    memset(p, 0xcd, size);
 #endif
-    munmap((void *)sp, size);
+    munmap(p, size);
 
 #if STACK_OVERFLOW_PROTECT
-    sp = sp - PAGE_SIZE;
-    munmap((void *)sp, PAGE_SIZE);
+    munmap((void *)((size_t)p - PAGE_SIZE), PAGE_SIZE);
 #endif
 }

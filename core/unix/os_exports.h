@@ -457,6 +457,12 @@ void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp, app_pc thread_func,
                     void *func_arg);
+#elif defined(LINUX)
+create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,
+/* Refers to the struct clone_args that is defined on recent Linux versions.
+ * We do not wrap this in an ifdef to keep code simple.
+ */
+void* clone_args);
 #else
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp);
 #endif

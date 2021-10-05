@@ -3842,7 +3842,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
     ATOMIC_INC(int, uninit_thread_count);
-    void *crec = create_clone_record(dcontext, (reg_t *)&xsp);
+    void *crec = create_clone_record(dcontext, (reg_t *)&xsp, NULL);
     /* make sure client_thread_run can get the func and arg, and that
      * signal_thread_inherit gets the right syscall info
      */
@@ -5336,7 +5336,7 @@ dr_syscall_invoke_another(void *drcontext)
 }
 
 static inline bool
-is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
+is_thread_create_syscall_helper(ptr_uint_t sysnum, uint64_t flags)
 {
 #ifdef MACOS
     /* XXX i#1403: we need earlier injection to intercept
@@ -5349,8 +5349,14 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
         return true;
 #    endif
 #    ifdef LINUX
-    if (sysnum == SYS_clone && TEST(CLONE_VM, flags))
+    if ((sysnum == SYS_clone
+#        ifdef SYS_clone3
+         || sysnum == SYS_clone3
+#        endif
+         ) &&
+        TEST(CLONE_VM, flags)) {
         return true;
+    }
 #    endif
     return false;
 #endif
@@ -5360,15 +5366,29 @@ bool
 is_thread_create_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_thread_create_syscall_helper(MCXT_SYSNUM_REG(mc), sys_param(dcontext, 0));
+    ptr_uint_t sysnum = MCXT_SYSNUM_REG(mc);
+    uint64_t flags;
+#ifdef SYS_clone3
+    if (sysnum == SYS_clone3) {
+        flags = ((struct clone_args *)sys_param(dcontext, 0))->flags;
+    } else
+#endif
+        flags = sys_param(dcontext, 0);
+    return is_thread_create_syscall_helper(sysnum, flags);
 }
 
 bool
 was_thread_create_syscall(dcontext_t *dcontext)
 {
-    return is_thread_create_syscall_helper(dcontext->sys_num,
-                                           /* flags in param0 */
-                                           dcontext->sys_param0);
+    ptr_uint_t sysnum = dcontext->sys_num;
+    uint64_t flags;
+#ifdef SYS_clone3
+    if (sysnum == SYS_clone3) {
+        flags = ((struct clone_args *)dcontext->sys_param0)->flags;
+    } else
+#endif
+        flags = dcontext->sys_param0;
+    return is_thread_create_syscall_helper(sysnum, flags);
 }
 
 bool
@@ -6909,6 +6929,9 @@ pre_system_call(dcontext_t *dcontext)
     /* SPAWNING */
 
 #ifdef LINUX
+#    ifdef SYS_clone3
+    case SYS_clone3:
+#    endif
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c
          * 32-bit params: flags, newsp, ptid, tls, ctid
@@ -6918,18 +6941,34 @@ pre_system_call(dcontext_t *dcontext)
          *   sys_clone(unsigned long clone_flags, unsigned long newsp,
          *     void __user *parent_tid, void __user *child_tid, struct pt_regs *regs)
          */
-        uint flags = (uint)sys_param(dcontext, 0);
+        uint flags;
+#    ifdef SYS_clone3
+        if (dcontext->sys_num == SYS_clone3) {
+            struct clone_args *cl_args = (struct clone_args *)sys_param(dcontext, 0);
+            flags = cl_args->flags;
+            /* Save for post_system_call.
+             * We only need the flags post-syscall, but we cannot save just that. This
+             * is because flags are 64-bit, even in the 32-bit environment.
+             */
+            dcontext->sys_param0 = (reg_t)cl_args;
+            LOG(THREAD, LOG_SYSCALLS, 2, "clone3 args: " PFX "\n",
+                sys_param(dcontext, 0));
+        } else
+#    endif
+        {
+            flags = (uint64_t)sys_param(dcontext, 0);
+            /* save for post_system_call */
+            dcontext->sys_param0 = (reg_t)flags;
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "clone args: " PFX ", " PFX ", " PFX ", " PFX ", " PFX "\n",
+                sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
+                sys_param(dcontext, 3), sys_param(dcontext, 4));
+        }
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = " PFX "\n", flags);
-        LOG(THREAD, LOG_SYSCALLS, 2,
-            "args: " PFX ", " PFX ", " PFX ", " PFX ", " PFX "\n", sys_param(dcontext, 0),
-            sys_param(dcontext, 1), sys_param(dcontext, 2), sys_param(dcontext, 3),
-            sys_param(dcontext, 4));
         handle_clone(dcontext, flags);
         if ((flags & CLONE_VM) == 0) {
             LOG(THREAD, LOG_SYSCALLS, 1, "\tWARNING: CLONE_VM not set!\n");
         }
-        /* save for post_system_call */
-        dcontext->sys_param0 = (reg_t)flags;
 
         /* i#1010: If we have private fds open (usually logfiles), we should
          * clean those up before they get reused by a new thread.
@@ -6946,8 +6985,13 @@ pre_system_call(dcontext_t *dcontext)
          * Note: This must be done after sys_param0 is set.
          */
         if (is_thread_create_syscall(dcontext)) {
-            create_clone_record(dcontext,
-                                sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK));
+#    ifdef SYS_clone3
+            if (dcontext->sys_num == SYS_clone3) {
+                create_clone_record(dcontext, NULL, (void *)sys_param(dcontext, 0));
+            } else
+#    endif
+                create_clone_record(
+                    dcontext, sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK), NULL);
             os_clone_pre(dcontext);
             os_new_thread_pre();
         } else /* This is really a fork. */
@@ -6967,7 +7011,7 @@ pre_system_call(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 1,
             "bsdthread_create: thread func " PFX ", arg " PFX "\n", func, func_arg);
         handle_clone(dcontext, CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | SIGCHLD);
-        clone_rec = create_clone_record(dcontext, NULL, func, func_arg);
+        clone_rec = create_clone_record(dcontext, NULL, func, func_arg, NULL);
         dcontext->sys_param0 = (reg_t)func;
         dcontext->sys_param1 = (reg_t)func_arg;
         *sys_param_addr(dcontext, 0) = (reg_t)new_bsdthread_intercept;
@@ -7000,9 +7044,9 @@ pre_system_call(dcontext_t *dcontext)
         IF_LINUX(ASSERT(is_thread_create_syscall(dcontext)));
         dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
 #    ifdef MACOS
-        create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL);
+        create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL, NULL);
 #    else
-        create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
+        create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/, NULL);
 #    endif
         os_clone_pre(dcontext);
         os_new_thread_pre();
@@ -7767,12 +7811,6 @@ pre_system_call(dcontext_t *dcontext)
             "WARNING i#5131: possibly unhandled system call close_range");
         break;
 #endif
-#ifdef SYS_clone3
-    case SYS_clone3:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call clone3");
-        break;
-#endif
 #ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
         SYSLOG_INTERNAL_WARNING_ONCE(
@@ -8532,6 +8570,9 @@ post_system_call(dcontext_t *dcontext)
     /* SPAWNING -- fork mostly handled above */
 
 #ifdef LINUX
+#    ifdef SYS_clone3
+    case SYS_clone3:
+#    endif
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned " PFX "\n",
@@ -8845,12 +8886,6 @@ post_system_call(dcontext_t *dcontext)
     case SYS_openat2:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call openat2");
-        break;
-#endif
-#ifdef SYS_clone3
-    case SYS_clone3:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call clone3");
         break;
 #endif
     default:

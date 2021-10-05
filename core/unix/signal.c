@@ -656,6 +656,8 @@ void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, app_pc thread_func,
                     void *thread_arg)
+#elif defined(LINUX)
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, void *clone_args)
 #else
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #endif
@@ -680,11 +682,28 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
          * the clone record.
          */
         record = (clone_record_t *)(dstack - sizeof(clone_record_t));
+#if defined(LINUX) && defined(SYS_clone3)
+        struct clone_args *cl_args = (struct clone_args *)clone_args;
         ASSERT(ALIGNED(record, get_ABI_stack_alignment()));
-        record->app_thread_xsp = *app_thread_xsp;
+        /* Exactly one of these should be NULL */
+        ASSERT((app_thread_xsp == NULL) ^ (cl_args == NULL));
+        if (cl_args != NULL) {
+            /* SYS_clone3 has the lowest address of the stack in
+             * cl_args->stack. But we expect the highest (non-inclusive)
+             * in the clone record's app_thread_xsp.
+             */
+            record->app_thread_xsp = cl_args->stack + cl_args->stack_size;
+            record->clone_flags = cl_args->flags;
+
+        } else {
+#endif
+            record->app_thread_xsp = *app_thread_xsp;
+            record->clone_flags = dcontext->sys_param0;
+#if defined(LINUX) && defined(SYS_clone3)
+        }
+#endif
         /* asynch_target is set in d_r_dispatch() prior to calling pre_system_call(). */
         record->continuation_pc = dcontext->asynch_target;
-        record->clone_flags = dcontext->sys_param0;
 #ifdef MACOS
     }
 #endif
@@ -718,22 +737,32 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     LOG(THREAD, LOG_ASYNCH, 1, "create_clone_record: thread " TIDFMT ", pc " PFX "\n",
         record->caller_id, record->continuation_pc);
 
-#ifdef MACOS
-    if (app_thread_xsp != NULL) {
-#endif
-        /* Set the thread stack to point to the dstack, below the clone record.
-         * Note: it's glibc who sets up the arg to the thread start function;
-         * the kernel just does a fork + stack swap, so we can get away w/ our
-         * own stack swap if we restore before the glibc asm code takes over.
-         * We restore this parameter to the app value in
-         * restore_clone_param_from_clone_record().
-         */
-        /* i#754: set stack to be XSTATE aligned for saving YMM registers */
+#if defined(LINUX) && defined(SYS_clone3)
+    if (cl_args != NULL) {
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
-        *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
-#ifdef MACOS
-    }
+        /* SYS_clone3 expects the lowest address of the stack in cl_args->stack. */
+        cl_args->stack = (ptr_uint_t)(dstack - DYNAMORIO_STACK_SIZE);
+        cl_args->stack_size =
+            (uint64)ALIGN_BACKWARD(record, XSTATE_ALIGNMENT) - cl_args->stack;
+    } else {
 #endif
+#ifdef MACOS
+        if (app_thread_xsp != NULL) {
+#endif
+            /* Set the thread stack to point to the dstack, below the clone record.
+             * Note: it's glibc who sets up the arg to the thread start function;
+             * the kernel just does a fork + stack swap, so we can get away w/ our
+             * own stack swap if we restore before the glibc asm code takes over.
+             * We restore this parameter to the app value in
+             * restore_clone_param_from_clone_record().
+             */
+            /* i#754: set stack to be XSTATE aligned for saving YMM registers */
+            ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
+            *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
+#ifdef MACOS
+        }
+#endif
+    }
 
     return (void *)record;
 }
