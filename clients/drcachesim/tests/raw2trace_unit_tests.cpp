@@ -58,8 +58,8 @@
 #    define REG1 DR_REG_XAX
 #    define REG2 DR_REG_XDX
 #elif defined(AARCHXX)
-#    define REG1 DR_REG_X0
-#    define REG2 DR_REG_X1
+#    define REG1 DR_REG_R0
+#    define REG2 DR_REG_R1
 #else
 #    error Unsupported arch
 #endif
