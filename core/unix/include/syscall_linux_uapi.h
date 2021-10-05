@@ -289,6 +289,19 @@
 #define __NR_statx 291
 #define __NR_io_pgetevents 292
 #define __NR_rseq 293
+#define __NR_kexec_file_load 294
+#define __NR_pidfd_send_signal 424
+#define __NR_io_uring_setup 425
+#define __NR_io_uring_enter 426
+#define __NR_io_uring_register 427
+#define __NR_open_tree 428
+#define __NR_move_mount 429
+#define __NR_fsopen 430
+#define __NR_fsconfig 431
+#define __NR_fsmount 432
+#define __NR_fspick 433
+#define __NR_pidfd_open 434
+#define __NR_clone3 435
 
 #define SYS_accept __NR_accept
 #define SYS_accept4 __NR_accept4
@@ -568,5 +581,18 @@
 #define SYS_waitid __NR_waitid
 #define SYS_write __NR_write
 #define SYS_writev __NR_writev
+#define SYS_kexec_file_load __NR_kexec_file_load
+#define SYS_pidfd_send_signal __NR_pidfd_send_signal
+#define SYS_io_uring_setup __NR_io_uring_setup
+#define SYS_io_uring_enter __NR_io_uring_enter
+#define SYS_io_uring_register __NR_io_uring_register
+#define SYS_open_tree __NR_open_tree
+#define SYS_move_mount __NR_move_mount
+#define SYS_fsopen __NR_fsopen
+#define SYS_fsconfig __NR_fsconfig
+#define SYS_fsmount __NR_fsmount
+#define SYS_fspick __NR_fspick
+#define SYS_pidfd_open __NR_pidfd_open
+#define SYS_clone3 __NR_clone3
 
 #endif /* SYSCALL_LINUX_UAPI_H */

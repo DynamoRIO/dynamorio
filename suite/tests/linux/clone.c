@@ -210,6 +210,7 @@ create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sig
      * else have errors doing a wait */
     cl_args.exit_signal = SIGCHLD;
     cl_args.stack = (ptr_uint_t)my_stack;
+#ifdef X86
     /* SYS_clone3 does not have a glibc wrapper yet. So, we have to manually
      * set up the expected stack. This is based on the glibc implementation of
      * the clone wrapper. Note that clone3 requires the provided stack address
@@ -217,17 +218,36 @@ create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sig
      */
     void *tos = my_stack + THREAD_STACK_SIZE - sizeof(ptr_uint_t *);
     *(ptr_uint_t *)tos = (ptr_uint_t)run_with_exit;
-#ifdef X64
+#    ifdef X64
     cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - sizeof(ptr_uint_t *);
-#else
+#    else
     cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - 4 * sizeof(ptr_uint_t *);
+#    endif
+#else
+    /* Leave some space at the bottom of the stack, as the app stores the return
+     * value of the syscall in the local 'ret', which is allocated in the current
+     * frame in the stack. This is needed on AArch64 as the child thread doesn't
+     * directly go to a new routine, but returns here.
+     * Note that sp needs to be 16-byte aligned.
+     */
+    cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - 16 * sizeof(ptr_uint_t *);
 #endif
     int ret = syscall(SYS_clone3, &cl_args, sizeof(cl_args));
     if (ret == -1) {
-        print("smp.c: Error calling clone\n");
+        perror("smp.c: Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
     }
+#ifndef X86
+    /* As mentioned above, on AArchXX the child thread returns here, instead of
+     * starting execution directly at some routine. This is probably so because
+     * the return value is stored in a GPR. So even if the child thread gets a
+     * new stack, it still knows where to return.
+     */
+    if (ret == 0) {
+        run_with_exit();
+    }
+#endif
     *stack = my_stack;
     return (pid_t)ret;
 }
