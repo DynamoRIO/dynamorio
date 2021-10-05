@@ -72,6 +72,19 @@ class FallthroughDecode:
         self.decode_clause = decode_clause
         self.decode_function = decode_function
 
+class Pattern:
+    def __init__(self, pattern, opcode_bits, opnd_bits, opcode, opndset, enum):
+        self.pattern = pattern
+        self.opcode_bits = opcode_bits
+        self.opnd_bits = opnd_bits
+        self.opcode = opcode
+        self.opndset = opndset
+        self.enum = enum
+
+    def __iter__(self):
+        for field in (self.opcode_bits, self.opnd_bits, self.opcode, self.opndset):
+            yield field
+
 def fallthrough_instr_id(opcode, opcode_bits, opnd_bits):
     return '%s_%08x_%08x' % (opcode, opcode_bits, opnd_bits)
 
@@ -115,15 +128,15 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
     # Recursive function to generate nested conditionals in main decoder.
     def gen(c, pats, depth):
         def reorder_key(t):
-            f, v, m, t, p = t
-            return (m, t, f, v, p)
+            f, v, m, t = t
+            return (m, t, f, v)
 
         def indent_append(text):
             c.append('{}{}'.format("    " * depth, text))
 
         if len(pats) < 4:
             else_str = ""
-            for opcode_bits, opnd_bits, m, t, p in sorted(pats, key=reorder_key):
+            for opcode_bits, opnd_bits, m, t in sorted(pats, key=reorder_key):
 
                 not_zero_mask = 0
                 try:
@@ -180,7 +193,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
         for b in range(N):
             x0 = 0
             x1 = 0
-            for (f, v, _, _, _) in pats:
+            for (f, v, _, _) in pats:
                 if (1 << b) & (~f | v):
                     x0 += 1
                 if (1 << b) & (f | v):
@@ -193,7 +206,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
         pats0 = []
         pats1 = []
         for p in pats:
-            (f, v, _, _, _) = p
+            (f, v, _, _) = p
             if (1 << best_b) & (~f | v):
                 pats0.append(p)
             if (1 << best_b) & (f | v):
@@ -284,7 +297,7 @@ def generate_encoder(patterns, opndsettab, opndtab):
         c.append('')
     case = dict()
     for p in patterns:
-        (b, m, mn, f, _) = p
+        (b, m, mn, f) = p
         if not mn in case:
             case[mn] = []
         case[mn].append(p)
@@ -296,19 +309,19 @@ def generate_encoder(patterns, opndsettab, opndtab):
           '    switch (instr->opcode) {']
 
     def reorder_key(t):
-        b, m, mn, f, p = t
-        return (mn, f, b, m, p)
+        b, m, mn, f = t
+        return (mn, f, b, m)
 
     for mn in sorted(case):
         c.append('    case OP_%s:' % mn)
-        pats = sorted(case[mn], key = reorder_key)
+        pats = sorted(case[mn], key=reorder_key)
         pat1 = pats.pop()
         for p in pats:
-            (b, m, mn, f, _) = p
+            (b, m, mn, f) = p
             c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
             c.append('        if (enc != ENCFAIL)')
             c.append('            return enc;')
-        (b, m, mn, f, _) = pat1
+        (b, m, mn, f) = pat1
         c.append('        return encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
     c += ['    }',
           '    return ENCFAIL;',
@@ -316,9 +329,6 @@ def generate_encoder(patterns, opndsettab, opndtab):
     return '\n'.join(c) + '\n'
 
 def generate_opcodes(patterns):
-    mns = dict()
-    for p in patterns:
-        mns[p[2]] = 1
     c = ['#ifndef _DR_IR_OPCODES_AARCH64_H_',
          '#define _DR_IR_OPCODES_AARCH64_H_ 1',
          '',
@@ -335,16 +345,18 @@ def generate_opcodes(patterns):
          '/*   1 */     OP_UNDECODED,  /* NULL, */ /**< UNDECODED opcode */',
          '/*   2 */     OP_CONTD,    /* NULL, */ /**< CONTD opcode */',
          '/*   3 */     OP_LABEL,    /* NULL, */ /**< LABEL opcode */',
+         '/*   4 */    OP_xx, /* placeholder for undecoded instructions */',
+         '/*   5 */    OP_ldstex, /* single-entry single-exit block with exclusive load/store */',
          '']
-    i = 4
-    for mn in sorted(mns):
-        t = '/*%4d */     OP_%s,' % (i, mn)
-        t += ' ' * max(0, 34 - len(t))
-        c.append(t + '/**< AArch64 %s opcode.*/' % mn)
-        i += 1
+    pattern_d = {int(p.enum): p.opcode for p in patterns}
+    for i in range(6, max(pattern_d.keys()) + 1):
+        try:
+            c.append('/* {i:>4} */     OP_{opcode} = {i}, /**< AArch64 {opcode} opcode. */'.format(
+                i=i, opcode=pattern_d[i]))
+        except KeyError:
+            pass
     c += ['',
-          '    OP_ldstex, /* single-entry single-exit block with exclusive load/store */',
-          '    OP_xx, /* placeholder for undecoded instructions */',
+
           '',
           '    OP_AFTER_LAST,',
           '    OP_FIRST = OP_LABEL + 1,      /**< First real opcode. */',
@@ -368,9 +380,6 @@ def generate_opcodes(patterns):
     return '\n'.join(c) + '\n'
 
 def generate_opcode_names(patterns):
-    mns = dict()
-    for p in patterns:
-        mns[p[2]] = 1
     c = ['#ifndef OPCODE_NAMES_H',
          '#define OPCODE_NAMES_H 1',
          '',
@@ -378,13 +387,17 @@ def generate_opcode_names(patterns):
          '/*   0 */ "<invalid>",',
          '/*   1 */ "<undecoded>",',
          '/*   2 */ "<contd>",',
-         '/*   3 */ "<label>",']
-    i = 4
-    for mn in sorted(mns):
-        c.append('/*%4d */ "%s",' % (i, mn))
-        i += 1
-    c += ['          "ldstex",',
-          '          "xx",',
+         '/*   3 */ "<label>",',
+         '/*   4 */ "xx",',
+         '/*   5 */ "ldstex",']
+    pattern_d = {int(p.enum): p for p in patterns}
+    for i in range(6, max(pattern_d.keys()) + 1):
+        try:
+            name = pattern_d[i].opcode
+        except KeyError:
+            name = "<invalid>"
+        c.append('/*{:>4} */ "{}",'.format(i, name))
+    c += [
           '};',
           '',
           '#endif /* OPCODE_NAMES_H */']
@@ -414,11 +427,10 @@ def generate_opcode_opnd_pairs(patterns):
     excluded_opcodes = re.compile('....1.0|...101.|1..0010')
     cnt = 0;
     for p in patterns:
-        pattern = p[4]
-        if excluded_opcodes.match(pattern):
+        if excluded_opcodes.match(p.pattern):
             continue;
         cnt += 1;
-        c.append('/* %s */ {%s, %s},' % (p[2], bin(p[0]), bin(p[1])))
+        c.append('/* %s */ {%s, %s},' % (p.opcode, bin(p.opcode_bits), bin(p.opnd_bits)))
     c += ['};',
           '']
     c.append('#define DR_FUZZ_INST_CNT %d' % cnt)
@@ -439,42 +451,39 @@ def read_file(path):
     opndtab = dict()
     opc_props = dict()
     patterns = []
-    for line in file:
-        # Remove comment and trailing spaces.
-        line = re.sub("\s*(#.*)?\n?$", "", line)
-        if line == '':
+    for line in (l.split("#")[0].strip() for l in file):
+        if not line:
             continue
         if re.match("^[x\?\-\+]{32} +[a-zA-Z_0-9]+$", line):
             # Syntax: mask opndtype
-            (mask, opndtype) = line.split()
+            mask, opndtype = line.split()
             if opndtype in opndtab:
                 raise Exception('Repeated definition of opndtype %s' % opndtype)
             opndtab[opndtype] = Opnd(int(re.sub("[x\+]", "1", re.sub("[^x^\+]", "0", mask)), 2),
                                      int(re.sub("\?", "1", re.sub("[^\?]", "0", mask)), 2),
                                      int(re.sub("\+", "1", re.sub("[^\+]", "0", mask)), 2))
             continue
-        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$", line):
+        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$", line):
             # Syntax: pattern opcode opndtype* : opndtype*
-            (str1, str2) = line.split(":")
-            (words, srcs) = (str1.split(), str2.split())
-            (pattern, nzcv_rw_flag, opcode, dsts) = (words[0], words[1], words[2], words[3:])
+            pattern, nzcv_rw_flag, enum, opcode, args = line.split(None, 4)
+            dsts, srcs = [a.split() for a in args.split(":")]
             opcode_bits = int(re.sub("x", "0", pattern), 2)
             opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
-            patterns.append((opcode_bits, opnd_bits, opcode, (dsts, srcs), pattern))
+            patterns.append(Pattern(pattern, opcode_bits, opnd_bits, opcode, (dsts, srcs), enum))
             opc_props[opcode] = nzcv_rw_flag
             continue
-        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+", line):
+        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+", line):
             # Syntax: pattern opcode opndset
-            (pattern, nzcv_rw_flag, opcode, opndset) = line.split()
+            pattern, nzcv_rw_flag, enum, opcode, opndset = line.split()
             opcode_bits = int(re.sub("x", "0", pattern), 2)
             opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
-            patterns.append((opcode_bits, opnd_bits, opcode, opndset, pattern))
+            patterns.append(Pattern(pattern, opcode_bits, opnd_bits, opcode, opndset, enum))
             opc_props[opcode] = nzcv_rw_flag
             continue
         raise Exception('Cannot parse line: %s' % line)
     return (patterns, opndtab, opc_props)
 
-def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset, _):
+def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset):
     p = ''
     for i in range(N - 1, -1, -1):
         p += 'x' if (opnd_bits >> i & 1) else '%d' % (opcode_bits >> i & 1)
@@ -486,7 +495,7 @@ def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset, _):
 
 def consistency_check(patterns, opndtab):
     for p in patterns:
-        (opcode_bits, opnd_bits, opcode, opndset, _) = p
+        opcode_bits, opnd_bits, opcode, opndset = p
         if not type(opndset) is str:
             (dsts, srcs) = opndset
             bits = opnd_bits
@@ -505,9 +514,9 @@ def consistency_check(patterns, opndtab):
     # decoder's main if/then/else clauses block.
     for i in range(len(patterns)):
         for j in range(i):
-            if ((patterns[j][0] ^ patterns[i][0]) &
-                ~patterns[j][1] & ~patterns[i][1] == 0):
-                opcode_bits_i, opnd_bits_i, opcode_i, opndset_i, _ = patterns[i]
+            if ((patterns[j].opcode_bits ^ patterns[i].opcode_bits) &
+                ~patterns[j].opnd_bits & ~patterns[i].opnd_bits == 0):
+                opcode_bits_i, opnd_bits_i, opcode_i, opndset_i = patterns[i]
                 print('Overlap found between:\n%s\nand\n%s' %
                       (pattern_to_str(*patterns[j]),
                       pattern_to_str(*patterns[i])))
@@ -545,30 +554,29 @@ def reorder_opnds(fixed, dsts, srcs, opndtab):
 # smallest matching instruction word.
 def opndset_naming(patterns, opndtab):
     opndsets = dict() # maps (dst, src, opnd_bits) to smallest pattern seen so far
-    for (opcode_bits, opnd_bits, opcode, opndset, _) in patterns:
-        if not type(opndset) is str:
-            (dsts, srcs) = opndset
+    for opcode_bits, opnd_bits, opcode, opndset in patterns:
+        if type(opndset) is not str:
+            dsts, srcs = opndset
             h = (' '.join(dsts), ' '.join(srcs), opnd_bits)
-            if not h in opndsets or opcode_bits < opndsets[h]:
+            if h not in opndsets or opcode_bits < opndsets[h]:
                 opndsets[h] = opcode_bits
 
     opndsettab = dict() # maps generated name to original opndsets
-    new_patterns = []
-    for (opcode_bits, opnd_bits, opcode, opndset, pat) in patterns:
-        if type(opndset) is str:
-            new_opndset = '_' + opndset
+    for p in patterns:
+        if type(p.opndset) is str:
+            new_opndset = '_' + p.opndset
         else:
-            (dsts, srcs) = opndset
-            h = (' '.join(dsts), ' '.join(srcs), opnd_bits)
-            new_opndset = 'gen_%08x_%08x' % (opndsets[h], opnd_bits)
-            reordered = reorder_opnds(ONES & ~opnd_bits, dsts, srcs, opndtab)
+            (dsts, srcs) = p.opndset
+            h = (' '.join(dsts), ' '.join(srcs), p.opnd_bits)
+            new_opndset = 'gen_%08x_%08x' % (opndsets[h], p.opnd_bits)
+            reordered = reorder_opnds(ONES & ~p.opnd_bits, dsts, srcs, opndtab)
             if not new_opndset in opndsettab:
                 opndsettab[new_opndset] = reordered
-        new_patterns.append((opcode_bits, opnd_bits, opcode, new_opndset, pat))
-        enc_key = fallthrough_instr_id(opcode, opcode_bits, opnd_bits)
+        p.opndset = new_opndset
+        enc_key = fallthrough_instr_id(p.opcode, p.opcode_bits, p.opnd_bits)
         if enc_key in FALLTHROUGH:
             FALLTHROUGH[enc_key].opndset = new_opndset
-    return (new_patterns, opndsettab)
+    return (patterns, opndsettab)
 
 def main():
     if len(sys.argv) != 3:
