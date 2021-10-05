@@ -7011,7 +7011,7 @@ pre_system_call(dcontext_t *dcontext)
         LOG(THREAD, LOG_SYSCALLS, 1,
             "bsdthread_create: thread func " PFX ", arg " PFX "\n", func, func_arg);
         handle_clone(dcontext, CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | SIGCHLD);
-        clone_rec = create_clone_record(dcontext, NULL, func, func_arg, NULL);
+        clone_rec = create_clone_record(dcontext, NULL, func, func_arg);
         dcontext->sys_param0 = (reg_t)func;
         dcontext->sys_param1 = (reg_t)func_arg;
         *sys_param_addr(dcontext, 0) = (reg_t)new_bsdthread_intercept;
@@ -7044,7 +7044,7 @@ pre_system_call(dcontext_t *dcontext)
         IF_LINUX(ASSERT(is_thread_create_syscall(dcontext)));
         dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
 #    ifdef MACOS
-        create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL, NULL);
+        create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL);
 #    else
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/, NULL);
 #    endif
