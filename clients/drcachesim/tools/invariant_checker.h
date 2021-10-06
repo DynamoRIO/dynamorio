@@ -38,6 +38,7 @@
 
 #include "analysis_tool.h"
 #include "memref.h"
+#include <mutex>
 #include <stack>
 #include <unordered_map>
 
@@ -50,35 +51,65 @@ public:
     process_memref(const memref_t &memref) override;
     bool
     print_results() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
 
 protected:
+    // For performance we support parallel analysis.
+    // Most checks are thread-local; for thread switch checks we rely
+    // on identifying thread switch points via timestamp entries.
+    struct per_shard_t {
+        per_shard_t()
+        {
+            // We need a sentinel different from type 0.
+            prev_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
+            last_xfer_marker_.marker.marker_type = TRACE_MARKER_TYPE_VERSION;
+        }
+        memref_t prev_instr_ = {};
+        memref_t prev_xfer_marker_ = {}; // Cleared on seeing an instr.
+        memref_t last_xfer_marker_ = {}; // Not cleared: just the prior xfer marker.
+#ifdef UNIX
+        // We only support sigreturn-using handlers so we have pairing: no longjmp.
+        std::stack<addr_t> prev_xfer_int_pc_;
+        memref_t prev_entry_ = {};
+        memref_t prev_prev_entry_ = {};
+        std::stack<memref_t> pre_signal_instr_;
+        // These are only available via annotations in signal_invariants.cpp.
+        int instrs_until_interrupt_ = -1;
+        int memrefs_until_interrupt_ = -1;
+#endif
+        bool saw_timestamp_but_no_instr_ = false;
+        bool found_cache_line_size_marker_ = false;
+        bool found_instr_count_marker_ = false;
+        uint64_t last_instr_count_marker_ = 0;
+        std::string error;
+    };
+
     // We provide this for subclasses to run these invariants with custom
     // failure reporting.
     virtual void
     report_if_false(bool condition, const std::string &message);
 
+    // The keys here are int for parallel, tid for serial.
+    std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
+    // This mutex is only needed in parallel_shard_init.  In all other accesses to
+    // shard_map (process_memref, print_results) we are single-threaded.
+    std::mutex shard_map_mutex_;
+
     bool knob_offline_;
     unsigned int knob_verbose_;
     std::string knob_test_name_;
-    memref_t prev_interleaved_instr_;
-    std::unordered_map<memref_tid_t, memref_t> prev_instr_;
-    std::unordered_map<memref_tid_t, memref_t> prev_xfer_marker_;
-#ifdef UNIX
-    // We only support sigreturn-using handlers so we have pairing: no longjmp.
-    std::unordered_map<memref_tid_t, std::stack<addr_t>> prev_xfer_int_pc_;
-    std::unordered_map<memref_tid_t, memref_t> prev_entry_;
-    std::unordered_map<memref_tid_t, memref_t> prev_prev_entry_;
-    std::unordered_map<memref_tid_t, std::stack<memref_t>> pre_signal_instr_;
-    // These are only available via annotations in signal_invariants.cpp.
-    std::unordered_map<memref_tid_t, int> instrs_until_interrupt_;
-    std::unordered_map<memref_tid_t, int> memrefs_until_interrupt_;
-#endif
+    bool has_annotations_ = false;
     addr_t app_handler_pc_;
     offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
-    std::unordered_map<memref_tid_t, bool> thread_exited_;
-    std::unordered_map<memref_tid_t, bool> found_cache_line_size_marker_;
-    std::unordered_map<memref_tid_t, bool> found_instr_count_marker_;
-    std::unordered_map<memref_tid_t, uint64_t> last_instr_count_marker_;
 };
 
 #endif /* _INVARIANT_CHECKER_H_ */
