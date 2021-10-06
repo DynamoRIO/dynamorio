@@ -336,6 +336,7 @@ post_call_entry_add(app_pc postcall, bool external)
         memset(e->prior, 0, sizeof(e->prior));
     }
     if (!hashtable_add(&post_call_table, (void *)postcall, (void *)e)) {
+        NOTIFY(2, "%s: failed to add %p external=%d\n", __FUNCTION__, postcall, external);
         post_call_entry_free(e);
         return NULL;
     }
@@ -346,6 +347,7 @@ post_call_entry_add(app_pc postcall, bool external)
             cb = cb->next;
         }
     }
+    NOTIFY(3, "%s %p external=%d\n", __FUNCTION__, postcall, external);
     return e;
 }
 
@@ -398,6 +400,7 @@ post_call_lookup_for_instru(app_pc pc)
             e = NULL; /* no longer safe */
             dr_rwlock_write_lock(post_call_rwlock);
             /* might not be found now if racily removed: but that's fine */
+            NOTIFY(2, "%s: removing %p\n", __FUNCTION__, pc);
             hashtable_remove(&post_call_table, (void *)pc);
             /* invalidate cache */
             for (i = 0; i < POSTCALL_CACHE_SIZE; i++) {
@@ -407,6 +410,7 @@ post_call_lookup_for_instru(app_pc pc)
             dr_rwlock_write_unlock(post_call_rwlock);
             return res;
         } else {
+            NOTIFY(2, "%s: marking %p instrumented\n", __FUNCTION__, pc);
             e->existing_instrumented = true;
         }
     }
@@ -1735,6 +1739,8 @@ drwrap_mark_retaddr_for_instru(void *drcontext, per_thread_t *pt, app_pc decorat
      * but not finished the flush, so we check not just the entry
      * but also the existing_instrumented flag.
      */
+    NOTIFY(3, "%s => %p.%d\n", __FUNCTION__, e,
+           e == NULL ? -1 : e->existing_instrumented);
     if (e == NULL || !e->existing_instrumented) {
         if (e == NULL) {
             e = post_call_entry_add(retaddr, false);
@@ -1766,6 +1772,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, per_thread_t *pt, app_pc decorat
                 dr_recurlock_unlock(wrap_lock);
             }
             dr_atomic_add_stat_return_sum(&drwrap_stats.flush_count, 1);
+            NOTIFY(3, "%s: flushing %p\n", __FUNCTION__, retaddr);
             dr_flush_region(retaddr, 1);
             /* now we are guaranteed no thread is inside the fragment */
             /* another thread may have done a racy competing flush: should be fine */
@@ -2274,7 +2281,8 @@ drwrap_insert_post_call(void *drcontext, instrlist_t *bb, instr_t *where,
      * that requires spilling a GPR and flags and gets messy w/o drreg
      * vs other components' spill slots.
      */
-    dr_cleancall_save_t flags = 0;
+    dr_cleancall_save_t flags =
+        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
     NOTIFY(2, "drwrap inserting post-call cb at " PFX "\n", pc_as_jmp_target);
     dr_insert_clean_call_ex(drcontext, bb, where, (void *)drwrap_after_callee, flags, 2,
                             /* i#1689: retaddrs do have LSB=1 */
@@ -2326,6 +2334,7 @@ drwrap_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *ins
         dr_cleancall_save_t flags = TEST(DRWRAP_FAST_CLEANCALLS, global_flags)
             ? (DR_CLEANCALL_NOSAVE_FLAGS | DR_CLEANCALL_NOSAVE_XMM_NONPARAM)
             : 0;
+        flags |= DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT;
         dr_insert_clean_call_ex(drcontext, bb, inst, (void *)drwrap_in_callee, flags,
                                 IF_X86_ELSE(2, 3), OPND_CREATE_INTPTR((ptr_int_t)arg1),
                                 /* pass in xsp to avoid dr_get_mcontext */
@@ -2381,8 +2390,14 @@ drwrap_event_module_unload(void *drcontext, const module_data_t *info)
     /* XXX: should also remove on other code modifications: for now we assume no such
      * changes to app code that's being targeted for wrapping.
      */
+    NOTIFY(2, "%s: removing %p..%p\n", __FUNCTION__, info->start, info->end);
     dr_rwlock_write_lock(post_call_rwlock);
     hashtable_remove_range(&post_call_table, (void *)info->start, (void *)info->end);
+    /* Invalidate cache. */
+    for (int i = 0; i < POSTCALL_CACHE_SIZE; i++) {
+        if (postcall_cache[i] >= info->start && postcall_cache[i] < info->end)
+            postcall_cache[i] = NULL;
+    }
     dr_rwlock_write_unlock(post_call_rwlock);
 
     /* XXX: It's arguable whether we should remove from replace_table,

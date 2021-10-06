@@ -468,7 +468,7 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
 
 DR_EXPORT
 /**
- * Restores all unreserved registers and flags to their app values at \p where.
+ * Restores the application value for all registers and flags at \p where.
  */
 drreg_status_t
 drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *where);

@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
@@ -101,13 +102,14 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
     case FN_out_of_line: out_of_line_expected = true; break;
     }
 
-    dr_insert_clean_call(dc, bb, entry, (void *)after_callee, false, IF_X86_ELSE(6, 4),
+    dr_insert_clean_call_ex(
+        dc, bb, entry, (void *)after_callee, DR_CLEANCALL_READS_APP_CONTEXT,
+        IF_X86_ELSE(6, 4),
 #ifdef X86
-                         opnd_create_instr(before_label), opnd_create_instr(after_label),
+        opnd_create_instr(before_label), opnd_create_instr(after_label),
 #endif
-                         OPND_CREATE_INT32(inline_expected),
-                         OPND_CREATE_INT32(out_of_line_expected), OPND_CREATE_INT32(i),
-                         OPND_CREATE_INTPTR(func_names[i]));
+        OPND_CREATE_INT32(inline_expected), OPND_CREATE_INT32(out_of_line_expected),
+        OPND_CREATE_INT32(i), OPND_CREATE_INTPTR(func_names[i]));
 
     return DR_EMIT_DEFAULT;
 }

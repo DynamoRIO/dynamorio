@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -274,9 +274,10 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                                           flush_event);
                 }
 
-                dr_insert_clean_call(drcontext, bb, instr, (void *)callback, false, 2,
-                                     OPND_CREATE_INTPTR(tag),
-                                     OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
+                dr_insert_clean_call_ex(drcontext, bb, instr, (void *)callback,
+                                        DR_CLEANCALL_READS_APP_CONTEXT, 2,
+                                        OPND_CREATE_INTPTR(tag),
+                                        OPND_CREATE_INTPTR(instr_get_app_pc(instr)));
             }
         }
 #ifdef WINDOWS

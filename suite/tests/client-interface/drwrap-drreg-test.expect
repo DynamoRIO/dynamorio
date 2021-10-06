@@ -1,0 +1,10 @@
+two_args 42 43
+two_args returned -4
+reg_val_test returned 7
+loaded library
+two_args 42 43
+two_args returned -4
+reg_val_test returned 7
+loaded library
+thank you for testing the client interface
+all done

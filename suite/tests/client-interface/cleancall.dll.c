@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -336,18 +336,26 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 #ifdef X86
         /* Other unrelated tests for setting register values. */
 
-        dr_insert_clean_call(drcontext, bb, instr, set_gpr, false, 0);
-        dr_insert_clean_call(drcontext, bb, instr, check_gpr, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, set_gpr,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, check_gpr,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 
-        dr_insert_clean_call(drcontext, bb, instr, set_xmm, false, 0);
-        dr_insert_clean_call(drcontext, bb, instr, check_xmm, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, set_xmm,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, check_xmm,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 
-        dr_insert_clean_call(drcontext, bb, instr, set_ymm, false, 0);
-        dr_insert_clean_call(drcontext, bb, instr, check_ymm, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, set_ymm,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, check_ymm,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 
 #    ifdef __AVX512F__
-        dr_insert_clean_call(drcontext, bb, instr, set_zmm, false, 0);
-        dr_insert_clean_call(drcontext, bb, instr, check_zmm, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, set_zmm,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, check_zmm,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 #    endif
 #endif
     }

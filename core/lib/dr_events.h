@@ -1412,6 +1412,28 @@ DR_API
 bool
 dr_unregister_low_on_memory_event(void (*func)());
 
+DR_API
+/**
+ * Registers a callback function that is invoked whenever a clean call is inserted
+ * in instrumentation, such as by dr_insert_clean_call(), dr_insert_clean_call_ex(),
+ * or dr_insert_clean_call_ex_varg().  The callback is also invoked at points where
+ * a clean call will be inserted after instrumentation, such as for annotations.
+ */
+void
+dr_register_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                    instr_t *where,
+                                                    dr_cleancall_save_t call_flags));
+
+DR_API
+/**
+ * Unregisters a callback function that was registered with
+ * dr_register_call_insertion_event().
+ */
+bool
+dr_unregister_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                      instr_t *where,
+                                                      dr_cleancall_save_t call_flags));
+
 /****************************************************************************
  * SECURITY SUPPORT
  */

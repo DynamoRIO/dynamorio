@@ -262,6 +262,9 @@ static callback_list_t security_violation_callbacks = {
     0,
 };
 #endif
+static callback_list_t clean_call_insertion_callbacks = {
+    0,
+};
 static callback_list_t persist_ro_size_callbacks = {
     0,
 };
@@ -836,6 +839,7 @@ free_all_callback_lists()
 #else
     free_callback_list(&signal_callbacks);
 #endif
+    free_callback_list(&clean_call_insertion_callbacks);
 #ifdef PROGRAM_SHEPHERDING
     free_callback_list(&security_violation_callbacks);
 #endif
@@ -1256,6 +1260,22 @@ dr_unregister_security_event(void (*func)(void *drcontext, void *source_tag,
     return remove_callback(&security_violation_callbacks, (void (*)(void))func, true);
 }
 #endif
+
+void
+dr_register_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                    instr_t *where,
+                                                    dr_cleancall_save_t call_flags))
+{
+    add_callback(&clean_call_insertion_callbacks, (void (*)(void))func, true);
+}
+
+bool
+dr_unregister_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                      instr_t *where,
+                                                      dr_cleancall_save_t call_flags))
+{
+    return remove_callback(&clean_call_insertion_callbacks, (void (*)(void))func, true);
+}
 
 void
 dr_register_nudge_event(void (*func)(void *drcontext, uint64 argument), client_id_t id)
@@ -5116,6 +5136,20 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to " PFX "\n", callee);
+
+    if (clean_call_insertion_callbacks.num > 0) {
+        /* Some libraries need to save and restore around the call, for which we want
+         * a single instr to focus on that will put the post-call additions in the
+         * right place.
+         */
+        instr_t *mark = INSTR_CREATE_label(drcontext);
+        instr_set_note(mark, (void *)DR_NOTE_CLEAN_CALL);
+        MINSERT(ilist, where, mark);
+        call_all(clean_call_insertion_callbacks,
+                 int (*)(void *, instrlist_t *, instr_t *, dr_cleancall_save_t),
+                 (void *)dcontext, ilist, mark, save_flags);
+    }
+
     instrlist_set_auto_predicate(ilist, DR_PRED_NONE);
 #ifdef ARM
     if (instr_predicate_is_cond(auto_pred)) {
@@ -5810,11 +5844,17 @@ dr_insert_call_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *ins
         target = 0;
     }
 
-    dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 2,
-                         /* address of call is 1st parameter */
-                         OPND_CREATE_INTPTR(address),
-                         /* call target is 2nd parameter */
-                         OPND_CREATE_INTPTR(target));
+    dr_insert_clean_call_ex(
+        drcontext, ilist, instr, callee,
+        /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+         * asking the user to pass in a flag: if they're using this they are not
+         * super concerned about overhead.
+         */
+        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 2,
+        /* address of call is 1st parameter */
+        OPND_CREATE_INTPTR(address),
+        /* call target is 2nd parameter */
+        OPND_CREATE_INTPTR(target));
 }
 
 /* NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
@@ -5929,11 +5969,17 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     MINSERT(ilist, instr,
             INSTR_CREATE_xchg(dcontext, tls_opnd, opnd_create_reg(reg_target)));
 
-    dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 2,
-                         /* address of mbr is 1st param */
-                         OPND_CREATE_INTPTR(address),
-                         /* indirect target (in tls, xchg-d from ecx) is 2nd param */
-                         tls_opnd);
+    dr_insert_clean_call_ex(
+        drcontext, ilist, instr, callee,
+        /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+         * asking the user to pass in a flag: if they're using this they are not
+         * super concerned about overhead.
+         */
+        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 2,
+        /* address of mbr is 1st param */
+        OPND_CREATE_INTPTR(address),
+        /* indirect target (in tls, xchg-d from ecx) is 2nd param */
+        tls_opnd);
 #elif defined(ARM)
     /* i#1551: NYI on ARM.
      * Also, we may want to split these out into arch/{x86,arm}/ files
@@ -5988,25 +6034,37 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
         CLIENT_ASSERT(!opnd_uses_reg(user_data, DR_REG_XBX),
                       "register ebx should not be used");
         CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
-        dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 5,
-                             /* push address of mbr onto stack as 1st parameter */
-                             OPND_CREATE_INTPTR(address),
-                             /* target is 2nd parameter */
-                             OPND_CREATE_INTPTR(target),
-                             /* fall-throug is 3rd parameter */
-                             OPND_CREATE_INTPTR(fallthrough),
-                             /* branch direction (put in ebx below) is 4th parameter */
-                             opnd_create_reg(REG_XBX),
-                             /* user defined data is 5th parameter */
-                             opnd_is_null(user_data) ? OPND_CREATE_INT32(0) : user_data);
+        dr_insert_clean_call_ex(
+            drcontext, ilist, instr, callee,
+            /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+             * asking the user to pass in a flag: if they're using this they are not
+             * super concerned about overhead.
+             */
+            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 5,
+            /* push address of mbr onto stack as 1st parameter */
+            OPND_CREATE_INTPTR(address),
+            /* target is 2nd parameter */
+            OPND_CREATE_INTPTR(target),
+            /* fall-throug is 3rd parameter */
+            OPND_CREATE_INTPTR(fallthrough),
+            /* branch direction (put in ebx below) is 4th parameter */
+            opnd_create_reg(REG_XBX),
+            /* user defined data is 5th parameter */
+            opnd_is_null(user_data) ? OPND_CREATE_INT32(0) : user_data);
     } else {
-        dr_insert_clean_call(drcontext, ilist, instr, callee, false /*no fpstate*/, 3,
-                             /* push address of mbr onto stack as 1st parameter */
-                             OPND_CREATE_INTPTR(address),
-                             /* target is 2nd parameter */
-                             OPND_CREATE_INTPTR(target),
-                             /* branch direction (put in ebx below) is 3rd parameter */
-                             opnd_create_reg(REG_XBX));
+        dr_insert_clean_call_ex(
+            drcontext, ilist, instr, callee,
+            /* Many users will ask for mcontexts; some will set; it doesn't seem worth
+             * asking the user to pass in a flag: if they're using this they are not
+             * super concerned about overhead.
+             */
+            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 3,
+            /* push address of mbr onto stack as 1st parameter */
+            OPND_CREATE_INTPTR(address),
+            /* target is 2nd parameter */
+            OPND_CREATE_INTPTR(target),
+            /* branch direction (put in ebx below) is 3rd parameter */
+            opnd_create_reg(REG_XBX));
     }
 
     /* calculate whether branch taken or not

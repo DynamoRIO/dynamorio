@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -260,8 +260,9 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                 if (val1 == TEST1_MARKER) {
                     clobber_avx512_state();
                 } else if (val1 == TEST2_MARKER) {
-                    dr_insert_clean_call(drcontext, bb, instr, (void *)read_avx512_state,
-                                         false, 0);
+                    dr_insert_clean_call_ex(drcontext, bb, instr,
+                                            (void *)read_avx512_state,
+                                            DR_CLEANCALL_READS_APP_CONTEXT, 0);
                     dr_insert_clean_call(drcontext, bb, instr,
                                          (void *)clobber_avx512_state, false, 0);
                 }
