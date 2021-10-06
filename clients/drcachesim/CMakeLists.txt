@@ -512,6 +512,15 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests)
 
+  add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
+  configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
+  add_win32_flags(tool.drcacheoff.raw2trace_unit_tests)
+  target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace)
+  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drdecode)
+  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
+  add_test(NAME tool.drcacheoff.raw2trace_unit_tests
+    COMMAND tool.drcacheoff.raw2trace_unit_tests)
+
   if (DR_HOST_AARCH64)
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
