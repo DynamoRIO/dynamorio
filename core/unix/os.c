@@ -5362,9 +5362,12 @@ is_thread_create_syscall(dcontext_t *dcontext)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     ptr_uint_t sysnum = MCXT_SYSNUM_REG(mc);
     uint64_t flags;
+#ifdef LINUX
     if (sysnum == SYS_clone3) {
         flags = ((struct clone3_syscall_args *)sys_param(dcontext, 0))->flags;
-    } else {
+    } else
+#endif
+    {
         flags = sys_param(dcontext, 0);
     }
     return is_thread_create_syscall_helper(sysnum, flags);
@@ -5375,9 +5378,12 @@ was_thread_create_syscall(dcontext_t *dcontext)
 {
     ptr_uint_t sysnum = dcontext->sys_num;
     uint64_t flags;
+#ifdef LINUX
     if (sysnum == SYS_clone3) {
         flags = ((struct clone3_syscall_args *)dcontext->sys_param0)->flags;
-    } else {
+    } else
+#endif
+    {
         flags = dcontext->sys_param0;
     }
     return is_thread_create_syscall_helper(sysnum, flags);
