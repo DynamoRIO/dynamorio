@@ -37,7 +37,7 @@
 #    define __NR_unlink (__NR_SYSCALL_BASE + 10)
 #    define __NR_execve (__NR_SYSCALL_BASE + 11)
 #    define __NR_chdir (__NR_SYSCALL_BASE + 12)
-/* 13 was sys_time */
+#    define __NR_time (__NR_SYSCALL_BASE + 13)
 #    define __NR_mknod (__NR_SYSCALL_BASE + 14)
 #    define __NR_chmod (__NR_SYSCALL_BASE + 15)
 #    define __NR_lchown (__NR_SYSCALL_BASE + 16)
@@ -46,15 +46,15 @@
 #    define __NR_lseek (__NR_SYSCALL_BASE + 19)
 #    define __NR_getpid (__NR_SYSCALL_BASE + 20)
 #    define __NR_mount (__NR_SYSCALL_BASE + 21)
-/* 22 was umount */
+#    define __NR_umount (__NR_SYSCALL_BASE + 22)
 #    define __NR_setuid (__NR_SYSCALL_BASE + 23)
 #    define __NR_getuid (__NR_SYSCALL_BASE + 24)
-/* 25 was stime */
+#    define __NR_stime (__NR_SYSCALL_BASE + 25)
 #    define __NR_ptrace (__NR_SYSCALL_BASE + 26)
-/* 27 was alarm */
+#    define __NR_alarm (__NR_SYSCALL_BASE + 27)
 /* 28 was sys_fstat */
 #    define __NR_pause (__NR_SYSCALL_BASE + 29)
-/* 30 was sys_utime */
+#    define __NR_utime (__NR_SYSCALL_BASE + 30)
 /* 31 was sys_stty */
 /* 32 was sys_gtty */
 #    define __NR_access (__NR_SYSCALL_BASE + 33)
@@ -100,21 +100,21 @@
 #    define __NR_sigpending (__NR_SYSCALL_BASE + 73)
 #    define __NR_sethostname (__NR_SYSCALL_BASE + 74)
 #    define __NR_setrlimit (__NR_SYSCALL_BASE + 75)
-/* 76 was sys_getrlimit */
+#    define __NR_getrlimit (__NR_SYSCALL_BASE + 76)
 #    define __NR_getrusage (__NR_SYSCALL_BASE + 77)
 #    define __NR_gettimeofday (__NR_SYSCALL_BASE + 78)
 #    define __NR_settimeofday (__NR_SYSCALL_BASE + 79)
 #    define __NR_getgroups (__NR_SYSCALL_BASE + 80)
 #    define __NR_setgroups (__NR_SYSCALL_BASE + 81)
-/* 82 was sys_select */
+#    define __NR_select (__NR_SYSCALL_BASE + 82)
 #    define __NR_symlink (__NR_SYSCALL_BASE + 83)
 /* 84 was sys_lstat */
 #    define __NR_readlink (__NR_SYSCALL_BASE + 85)
 #    define __NR_uselib (__NR_SYSCALL_BASE + 86)
 #    define __NR_swapon (__NR_SYSCALL_BASE + 87)
 #    define __NR_reboot (__NR_SYSCALL_BASE + 88)
-/* 89 was readdir */
-/* 90 was mmap */
+#    define __NR_readdir (__NR_SYSCALL_BASE + 89)
+#    define __NR_mmap (__NR_SYSCALL_BASE + 90)
 #    define __NR_munmap (__NR_SYSCALL_BASE + 91)
 #    define __NR_truncate (__NR_SYSCALL_BASE + 92)
 #    define __NR_ftruncate (__NR_SYSCALL_BASE + 93)
@@ -126,7 +126,7 @@
 #    define __NR_statfs (__NR_SYSCALL_BASE + 99)
 #    define __NR_fstatfs (__NR_SYSCALL_BASE + 100)
 /* 101 was sys_ioperm */
-/* 102 was sys_socketcall */
+#    define __NR_socketcall (__NR_SYSCALL_BASE + 102)
 #    define __NR_syslog (__NR_SYSCALL_BASE + 103)
 #    define __NR_setitimer (__NR_SYSCALL_BASE + 104)
 #    define __NR_getitimer (__NR_SYSCALL_BASE + 105)
@@ -137,11 +137,11 @@
 /* 110 was sys_iopl */
 #    define __NR_vhangup (__NR_SYSCALL_BASE + 111)
 /* 112 was sys_idle */
-/* 113 was sys_syscall */
+#    define __NR_syscall (__NR_SYSCALL_BASE + 113)
 #    define __NR_wait4 (__NR_SYSCALL_BASE + 114)
 #    define __NR_swapoff (__NR_SYSCALL_BASE + 115)
 #    define __NR_sysinfo (__NR_SYSCALL_BASE + 116)
-/* 117 was sys_ipc */
+#    define __NR_ipc (__NR_SYSCALL_BASE + 117)
 #    define __NR_fsync (__NR_SYSCALL_BASE + 118)
 #    define __NR_sigreturn (__NR_SYSCALL_BASE + 119)
 #    define __NR_clone (__NR_SYSCALL_BASE + 120)
@@ -366,7 +366,7 @@
 #    define __NR_get_robust_list (__NR_SYSCALL_BASE + 339)
 #    define __NR_splice (__NR_SYSCALL_BASE + 340)
 #    define __NR_arm_sync_file_range (__NR_SYSCALL_BASE + 341)
-/* __NR_arm_sync_file_range was also __NR_sync_file_range2 */
+#    define __NR_sync_file_range2 __NR_arm_sync_file_range
 #    define __NR_tee (__NR_SYSCALL_BASE + 342)
 #    define __NR_vmsplice (__NR_SYSCALL_BASE + 343)
 #    define __NR_move_pages (__NR_SYSCALL_BASE + 344)
