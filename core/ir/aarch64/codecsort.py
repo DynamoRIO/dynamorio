@@ -74,7 +74,9 @@ def read_instrs():
     return instrs
 
 def handle_enums(instrs):
-    """Make sure that every instr has an  enum and that there are no clashes"""
+    """Make sure that every instr has an enum and that there are no clashes"""
+    # There are 5 values populated by default into the enum so
+    # we need to make sure that our first index is after those
     max_enum = 5
     enums = {}
     for i in (i for i in instrs if i.enum):
@@ -93,7 +95,7 @@ def handle_enums(instrs):
         try:
             i.enum = enums[i.opcode]
         except KeyError:
-            max_enum +=1
+            max_enum += 1
             i.enum = max_enum
             enums[i.opcode] = max_enum
 
