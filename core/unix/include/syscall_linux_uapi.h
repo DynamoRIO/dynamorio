@@ -38,7 +38,7 @@
 #define __NR_epoll_pwait 22
 #define __NR_dup 23
 #define __NR_dup3 24
-#define __NR_fcntl 25
+#define __NR3264_fcntl 25
 #define __NR_inotify_init1 26
 #define __NR_inotify_add_watch 27
 #define __NR_inotify_rm_watch 28
@@ -56,10 +56,10 @@
 #define __NR_mount 40
 #define __NR_pivot_root 41
 #define __NR_nfsservctl 42
-#define __NR_statfs 43
-#define __NR_fstatfs 44
-#define __NR_truncate 45
-#define __NR_ftruncate 46
+#define __NR3264_statfs 43
+#define __NR3264_fstatfs 44
+#define __NR3264_truncate 45
+#define __NR3264_ftruncate 46
 #define __NR_fallocate 47
 #define __NR_faccessat 48
 #define __NR_chdir 49
@@ -75,7 +75,7 @@
 #define __NR_pipe2 59
 #define __NR_quotactl 60
 #define __NR_getdents64 61
-#define __NR_lseek 62
+#define __NR3264_lseek 62
 #define __NR_read 63
 #define __NR_write 64
 #define __NR_readv 65
@@ -84,7 +84,7 @@
 #define __NR_pwrite64 68
 #define __NR_preadv 69
 #define __NR_pwritev 70
-#define __NR_sendfile 71
+#define __NR3264_sendfile 71
 #define __NR_pselect6 72
 #define __NR_ppoll 73
 #define __NR_signalfd4 74
@@ -92,11 +92,12 @@
 #define __NR_splice 76
 #define __NR_tee 77
 #define __NR_readlinkat 78
-#define __NR_fstatat 79
-#define __NR_fstat 80
+#define __NR3264_fstatat 79
+#define __NR3264_fstat 80
 #define __NR_sync 81
 #define __NR_fsync 82
 #define __NR_fdatasync 83
+#define __NR_sync_file_range2 84
 #define __NR_sync_file_range 84
 #define __NR_timerfd_create 85
 #define __NR_timerfd_settime 86
@@ -235,8 +236,8 @@
 #define __NR_keyctl 219
 #define __NR_clone 220
 #define __NR_execve 221
-#define __NR_mmap 222
-#define __NR_fadvise64 223
+#define __NR3264_mmap 222
+#define __NR3264_fadvise64 223
 #define __NR_swapon 224
 #define __NR_swapoff 225
 #define __NR_mprotect 226
@@ -257,7 +258,7 @@
 #define __NR_perf_event_open 241
 #define __NR_accept4 242
 #define __NR_recvmmsg 243
-
+#define __NR_arch_specific_syscall 244
 #define __NR_wait4 260
 #define __NR_prlimit64 261
 #define __NR_fanotify_init 262
@@ -294,7 +295,6 @@
 #define __NR_rseq 293
 #define __NR_kexec_file_load 294
 /* 295 through 402 are unassigned to sync up with generic numbers, don't use */
-/* 403 to 423 are defined #if __BITS_PER_LONG == 32 */
 #define __NR_clock_gettime64 403
 #define __NR_clock_settime64 404
 #define __NR_clock_adjtime64 405
@@ -315,7 +315,6 @@
 #define __NR_rt_sigtimedwait_time64 421
 #define __NR_futex_time64 422
 #define __NR_sched_rr_get_interval_time64 423
-
 #define __NR_pidfd_send_signal 424
 #define __NR_io_uring_setup 425
 #define __NR_io_uring_enter 426
@@ -356,8 +355,10 @@
 #define __NR_fstat __NR3264_fstat
 #define __NR_mmap __NR3264_mmap
 #define __NR_fadvise64 __NR3264_fadvise64
+#ifdef __NR3264_stat
 #define __NR_stat __NR3264_stat
 #define __NR_lstat __NR3264_lstat
+#endif
 #define __NR_fcntl64 __NR3264_fcntl
 #define __NR_statfs64 __NR3264_statfs
 #define __NR_fstatfs64 __NR3264_fstatfs
@@ -371,6 +372,9 @@
 #define __NR_fadvise64_64 __NR3264_fadvise64
 #define __NR_stat64 __NR3264_stat
 #define __NR_lstat64 __NR3264_lstat
+
+/* Added manually to continue defining SYS_fstatat */
+#define __NR_fstatat __NR3264_fstatat
 
 /* Derived from /usr/include/aarch64-linux-gnu/bits/syscall.h */
 /* The system call list corresponds to kernel 5.5.
