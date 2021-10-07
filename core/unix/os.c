@@ -4934,7 +4934,9 @@ ignorable_system_call_normalized(int num)
     case SYS_sigprocmask:
 #endif
 #ifdef LINUX
+#    ifdef SYS_rt_sigtimedwait_time64
     case SYS_rt_sigtimedwait_time64:
+#    endif
     case SYS_rt_sigreturn:
     case SYS_rt_sigaction:
     case SYS_rt_sigprocmask:
@@ -5003,9 +5005,13 @@ ignorable_system_call_normalized(int num)
 #endif
 #if defined(LINUX)
         /* syscalls change procsigmask */
+#    ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
+#    endif
     case SYS_pselect6:
+#    ifdef SYS_ppoll_time64
     case SYS_ppoll_time64:
+#    endif
     case SYS_ppoll:
     case SYS_epoll_pwait:
     /* Used as a lazy trigger. */
@@ -7317,7 +7323,9 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #ifdef LINUX
+#    ifdef SYS_ppoll_time64
     case SYS_ppoll_time64:
+#    endif
     case SYS_ppoll: {
         kernel_sigset_t *sigmask = (kernel_sigset_t *)sys_param(dcontext, 3);
         dcontext->sys_param3 = (reg_t)sigmask;
@@ -7759,14 +7767,18 @@ pre_system_call(dcontext_t *dcontext)
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call clone3");
         break;
+#    ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call pselect6_time64");
         break;
+#    endif
+#    ifdef SYS_rt_sigtimedwait_time64
     case SYS_rt_sigtimedwait_time64:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call rt_sigtimedwait_time64");
         break;
+#    endif
 #endif
     default: {
 #ifdef VMX86_SERVER
@@ -8671,7 +8683,9 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 #ifdef LINUX
+#    ifdef SYS_ppoll_time64
     case SYS_ppoll_time64:
+#    endif
     case SYS_ppoll: {
         if (dcontext->sys_param3 == (reg_t)NULL)
             break;
@@ -8679,7 +8693,9 @@ post_system_call(dcontext_t *dcontext)
         set_syscall_param(dcontext, 3, dcontext->sys_param3);
         break;
     }
+#    ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
+#    endif
     case SYS_pselect6: {
         if (dcontext->sys_param4 == (reg_t)NULL)
             break;
