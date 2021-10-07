@@ -1651,7 +1651,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
 # we need to strip out the #include of configure.h
 DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
   string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
-  file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
+  file(WRITE \"\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
 
 # export docs support, with consistent names
 DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_rundoxygen.cmake
@@ -1670,7 +1670,7 @@ function (register_tool_file name)
     set(listname "list32")
   endif ()
   if (NOT DEBUG) # avoid duplicates for release + debug
-    DR_install(CODE "file(APPEND \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"${name}\\n\"\n)")
+    DR_install(CODE "file(APPEND \"tools/${listname}\" \"${name}\\n\"\n)")
   endif ()
 endfunction ()
 
@@ -1857,15 +1857,15 @@ endif (BUILD_TOOLS OR WIN32)
 
 if (DO_DR_INSTALL AND BUILD_DOCS)
   # cannot use DR_install because it breaks at ;
-  install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/docs/DynamoRIO.html\" \"<html>\n<head>\n<meta http-equiv=\\\"refresh\\\" content=\\\"0; URL=./html/index.html\\\">\n</head><body></body>\")")
+  install(CODE "file(WRITE \"docs/DynamoRIO.html\" \"<html>\n<head>\n<meta http-equiv=\\\"refresh\\\" content=\\\"0; URL=./html/index.html\\\">\n</head><body></body>\")")
 endif (DO_DR_INSTALL AND BUILD_DOCS)
 
 # create empty logs dir for release package
 # be sure to escape ",$ since evaluated at install time not configure time
 # with DR_install macro we need double-escape for $
-DR_install(CODE "file(MAKE_DIRECTORY \"\\\${CMAKE_INSTALL_PREFIX}/logs\")")
+DR_install(CODE "file(MAKE_DIRECTORY \"logs\")")
 # CPack seems to ignore empty dirs so add a README file
-DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
+DR_install(CODE "file(WRITE \"logs/README\" \"Empty dir for debug-build log files.\n\")")
 
 # i#1509: generate a list of tools for drrun usage messages.
 # This is fragile: we rely on package.cmake building release first, so we
@@ -1873,7 +1873,7 @@ DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty d
 # A solution that searches at install time also has problems (with ordering
 # of subdirs).  Long-term we should add a dir iterator to drrun.
 if (NOT_DEBUG)
-  DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"\")")
+  DR_install(CODE "file(WRITE \"tools/${listname}\" \"\")")
 endif ()
 
 ###########################################################################
