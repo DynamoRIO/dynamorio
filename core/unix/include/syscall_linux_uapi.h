@@ -1,6 +1,7 @@
-/* UAPI system call numbers derived from Bionic's "unistd.h".
- * This information is necessary for user space to call into the Linux kernel.
- * These UAPI syscall numbers are shared by several current architectures.
+/* UAPI system call numbers derived from Linux's "unistd.h"; see exact
+ * sources below. This information is necessary for user space to call
+ * into the Linux kernel. These UAPI syscall numbers are shared by several
+ * current architectures.
  */
 
 #ifndef SYSCALL_LINUX_UAPI_H
