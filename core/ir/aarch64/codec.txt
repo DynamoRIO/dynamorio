@@ -1153,6 +1153,11 @@ x0011010110xxxxx000011xxxxxxxxxx  n        sdiv            wx0 : wx5 wx16
 01111111001xxxxx011001xxxxxxxxxx  n      sqshlu             s0 : s5 immhb_0shf
 0111111101xxxxxx011001xxxxxxxxxx  n      sqshlu             d0 : d5 immhb_0shf
 0x1011110xxxxxxx011001xxxxxxxxxx  n      sqshlu            dq0 : dq5 bhsd_immh_sz immhb_0shf
+0101111100001xxx100101xxxxxxxxxx  n      sqshrn             b0 : h5 immhb_shf
+010111110001xxxx100101xxxxxxxxxx  n      sqshrn             h0 : s5 immhb_shf
+01011111001xxxxx100101xxxxxxxxxx  n      sqshrn             s0 : d5 immhb_shf
+0000111100xxxxxx100101xxxxxxxxxx  n      sqshrn            dq0 : q5 hsd_immh_sz immhb_shf
+0100111100xxxxxx100101xxxxxxxxxx  n     sqshrn2            dq0 : q5 hsd_immh_sz immhb_shf
 0010111100xxxxxx100001xxxxxxxxxx  n     sqshrun             d0 : q5 hsd_immh_sz immhb_shf
 0110111100xxxxxx100001xxxxxxxxxx  n    sqshrun2             q0 : q5 hsd_immh_sz immhb_shf
 0x001110xx1xxxxx001011xxxxxxxxxx  n       sqsub            dq0 : dq5 dq16 bhsd_sz
@@ -1417,6 +1422,7 @@ x0011010110xxxxx000010xxxxxxxxxx  n        udiv            wx0 : wx5 wx16
 0x101110xx1xxxxx000101xxxxxxxxxx  n      urhadd            dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx010101xxxxxxxxxx  n       urshl            dq0 : dq5 dq16 bhsd_sz
 0x1011110xxxxxxx001001xxxxxxxxxx  n       urshr            dq0 : dq5 bhsd_immh_sz immhb_shf
+0x10111010100001110010xxxxxxxxxx  n     ursqrte            dq0 : dq5 sd_sz
 0111111101xxxxxx001101xxxxxxxxxx  n       ursra             d0 : d5 immhb_shf
 0x1011110xxxxxxx001101xxxxxxxxxx  n       ursra            dq0 : dq5 bhsd_immh_sz immhb_shf
 0x101110xx1xxxxx010001xxxxxxxxxx  n        ushl            dq0 : dq5 dq16 bhsd_sz

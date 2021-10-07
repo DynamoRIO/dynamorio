@@ -104,47 +104,95 @@ gen_exit(memref_tid_t tid)
     return memref;
 }
 
+/* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
+bool
+run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
+            const std::string &expected_message = "",
+            const std::string &toprint_if_fail = "")
+{
+    // Serial.
+    {
+        checker_no_abort_t checker(true /*offline*/);
+        for (const auto &memref : memrefs) {
+            checker.process_memref(memref);
+        }
+        if (expect_error) {
+            if (checker.errors.size() != 1 || checker.errors[0] != expected_message) {
+                std::cerr << toprint_if_fail << "\n";
+                return false;
+            }
+        } else if (!checker.errors.empty()) {
+            for (const auto &error : checker.errors) {
+                std::cerr << "Unexpected error: " << error << "\n";
+            }
+            return false;
+        }
+    }
+    // Parallel.
+    {
+        checker_no_abort_t checker(true /*offline*/);
+        void *shard1 = checker.parallel_shard_init(1, NULL);
+        void *shard2 = checker.parallel_shard_init(2, NULL);
+        void *shard3 = checker.parallel_shard_init(3, NULL);
+        for (const auto &memref : memrefs) {
+            if (memref.instr.tid == 1)
+                checker.parallel_shard_memref(shard1, memref);
+            else if (memref.instr.tid == 2)
+                checker.parallel_shard_memref(shard2, memref);
+            else if (memref.instr.tid == 3)
+                checker.parallel_shard_memref(shard3, memref);
+            else {
+                std::cerr << "Internal test error: unknown tid\n";
+                return false;
+            }
+        }
+        checker.parallel_shard_exit(shard1);
+        checker.parallel_shard_exit(shard2);
+        checker.parallel_shard_exit(shard3);
+        if (expect_error) {
+            if (checker.errors.size() != 1 || checker.errors[0] != expected_message) {
+                std::cerr << toprint_if_fail << "\n";
+                return false;
+            }
+        } else if (!checker.errors.empty()) {
+            for (const auto &error : checker.errors) {
+                std::cerr << "Unexpected error: " << error << "\n";
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
 bool
 check_branch_target_after_branch()
 {
     // Positive simple test.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1), gen_branch(1, 2),
             gen_instr(1, 3), gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_instr(2, 1),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        for (const auto &error : checker.errors) {
-            std::cerr << "Unexpected error: " << error << "\n";
-        }
-        if (!checker.errors.empty())
+        if (!run_checker(memrefs, false))
             return false;
     }
     // Negative simple test.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_branch(1, 2),
             gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_instr(2, 1),
+            gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
+            gen_instr(1, 3),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        if (checker.errors.size() != 1 ||
-            checker.errors[0] != "Branch target not immediately after branch") {
-            std::cerr << "Failed to catch bad branch target position\n";
+        if (!run_checker(memrefs, true, "Branch target not immediately after branch",
+                         "Failed to catch bad branch target position"))
             return false;
-        }
     }
     // Invariant relaxed for thread exit or signal.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_marker(3, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
             gen_branch(3, 2),
@@ -155,13 +203,7 @@ check_branch_target_after_branch()
             gen_marker(2, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_instr(2, 4),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        for (const auto &error : checker.errors) {
-            std::cerr << "Unexpected error: " << error << "\n";
-        }
-        if (!checker.errors.empty())
+        if (!run_checker(memrefs, false))
             return false;
     }
     return true;
@@ -172,40 +214,26 @@ check_sane_control_flow()
 {
     // Positive test: branches.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),   gen_branch(1, 2),  gen_instr(1, 3), // Not taken.
             gen_branch(1, 4),  gen_instr(1, 101),                  // Taken.
             gen_instr(1, 102),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        for (const auto &error : checker.errors) {
-            std::cerr << "Unexpected error: " << error << "\n";
-        }
-        if (!checker.errors.empty())
+        if (!run_checker(memrefs, false))
             return false;
     }
     // Negative simple test.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_instr(1, 3),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        if (checker.errors.size() != 1 ||
-            checker.errors[0] != "Non-explicit control flow has no marker") {
-            std::cerr << "Failed to catch bad control flow\n";
+        if (!run_checker(memrefs, true, "Non-explicit control flow has no marker",
+                         "Failed to catch bad control flow"))
             return false;
-        }
     }
     // String loop.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, 1, 1),
             gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, 1, 1),
@@ -213,30 +241,17 @@ check_sane_control_flow()
             gen_instr_type(TRACE_TYPE_INSTR_NO_FETCH, 1, 1),
             gen_instr(1, 2),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        for (const auto &error : checker.errors) {
-            std::cerr << "Unexpected error: " << error << "\n";
-        }
-        if (!checker.errors.empty())
+        if (!run_checker(memrefs, false))
             return false;
     }
     // Kernel-mediated.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        for (const auto &error : checker.errors) {
-            std::cerr << "Unexpected error: " << error << "\n";
-        }
-        if (!checker.errors.empty())
+        if (!run_checker(memrefs, false))
             return false;
     }
     return true;
@@ -248,7 +263,6 @@ check_kernel_xfer()
 #ifdef UNIX
     // Return to recorded interruption point.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
@@ -258,31 +272,19 @@ check_kernel_xfer()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(1, 2),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        for (const auto &error : checker.errors) {
-            std::cerr << "Unexpected error: " << error << "\n";
-        }
-        if (!checker.errors.empty())
+        if (!run_checker(memrefs, false))
             return false;
     }
     // Fail to return to recorded interruption point.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),   gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(1, 3),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        if (checker.errors.size() != 1 ||
-            checker.errors[0] != "Signal handler return point incorrect") {
-            std::cerr << "Failed to catch bad signal handler return\n";
+        if (!run_checker(memrefs, true, "Signal handler return point incorrect",
+                         "Failed to catch bad signal handler return"))
             return false;
-        }
     }
 #endif
     return true;
@@ -294,7 +296,6 @@ check_rseq()
 #ifdef UNIX
     // Roll back rseq final instr.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_instr(1, 2),
@@ -302,18 +303,11 @@ check_rseq()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 1),
             gen_instr(1, 1),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        for (const auto &error : checker.errors) {
-            std::cerr << "Unexpected error: " << error << "\n";
-        }
-        if (!checker.errors.empty())
+        if (!run_checker(memrefs, false))
             return false;
     }
     // Fail to roll back rseq final instr.
     {
-        checker_no_abort_t checker(true /*offline*/);
         std::vector<memref_t> memrefs = {
             gen_instr(1, 1),
             gen_instr(1, 2),
@@ -321,14 +315,9 @@ check_rseq()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 1),
         };
-        for (const auto &memref : memrefs) {
-            checker.process_memref(memref);
-        }
-        if (checker.errors.size() != 1 ||
-            checker.errors[0] != "Rseq post-abort instruction not rolled back") {
-            std::cerr << "Failed to catch bad rseq abort\n";
+        if (!run_checker(memrefs, true, "Rseq post-abort instruction not rolled back",
+                         "Failed to catch bad rseq abort"))
             return false;
-        }
     }
 #endif
     return true;

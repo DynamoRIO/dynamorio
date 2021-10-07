@@ -3391,7 +3391,8 @@ if (BUILD_CLIENTS)
       set(kernel_xfer_app client.winxfer) # We want threads and xfers.
     endif()
     if (DEBUG) # for -test_mode
-      torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
+      torunonly_drcachesim(invariants ${kernel_xfer_app}
+        "-test_mode -test_mode_name kernel_xfer_app" "")
       # This is slow on Windows.  I tried reducing the tracing window but
       # it seems to vary too much across machines, and if we delay too far
       # we start in the middle of a callback.
@@ -3584,7 +3585,8 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (LINUX AND X64 AND HAVE_RSEQ)
-      torunonly_drcacheoff(rseq linux.rseq "" "@${test_mode_flag}" "")
+      torunonly_drcacheoff(rseq linux.rseq ""
+        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
     endif ()
 
     if (AARCH64)
@@ -3736,7 +3738,7 @@ if (BUILD_CLIENTS)
     set(${testname_full}_postcmd
       "${drcachesim_path}@-indir@${testname_full}.*.dir")
     set(${testname_full}_postcmd2
-      "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
+      "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
 
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
@@ -3780,7 +3782,7 @@ if (BUILD_CLIENTS)
       set(${testname_full}_postcmd2
         "${GZIP}@${testname_full}.*.dir/trace/*")
       set(${testname_full}_postcmd3
-        "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
+        "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
     elseif (UNIX)
       message(STATUS "gzip or zlib not found: disabling ${testname_full} test")
     endif ()

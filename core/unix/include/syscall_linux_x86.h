@@ -18,6 +18,12 @@
 #    error Only use this file on Linux
 #endif
 
+/* Note that we want to continue supporting all syscalls where possible
+ * even if they were removed in a recent version of glibc or the kernel.
+ * So, while updating this file, remember to look for removed entries,
+ * and add them back.
+ */
+
 #ifdef X64
 
 /* From Debian GLIBC 2.31-13 on kernel 5.10.46
