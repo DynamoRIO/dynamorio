@@ -10,6 +10,12 @@
 #    error Only use this file on Linux
 #endif
 
+/* Note that we want to continue supporting all syscalls where possible
+ * even if they were removed in a recent version of glibc or the kernel.
+ * So, while updating this file, remember to look for removed entries,
+ * and add them back.
+ */
+
 /* Derived from /usr/include/asm-generic/unistd.h
  * on Ubuntu GLIBC 2.31-0ubuntu9 on Linux 5.4.0-72-generic
  */
@@ -2853,6 +2859,8 @@
 #endif
 
 /* Added separately as it was present earlier. */
-#define SYS_fstatat __NR_fstatat
+#ifdef __NR_fstatat
+#    define SYS_fstatat __NR_fstatat
+#endif
 
 #endif /* SYSCALL_LINUX_UAPI_H */
