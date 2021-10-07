@@ -613,14 +613,6 @@
 #        define SYS_break __NR_break
 #    endif
 
-/* We ignore this mapping as __NR_breakpoint is not defined yet and
- * SYS_breakpoint is set to __ARM_NR_breakpoint below.
- *
- * #    ifdef __NR_breakpoint
- * #        define SYS_breakpoint __NR_breakpoint
- * #    endif
- */
-
 #    ifdef __NR_brk
 #        define SYS_brk __NR_brk
 #    endif
@@ -628,14 +620,6 @@
 #    ifdef __NR_cachectl
 #        define SYS_cachectl __NR_cachectl
 #    endif
-
-/* We ignore this mapping as __NR_cacheflush is not defined yet and
- * SYS_cacheflush is set to __ARM_NR_cacheflush below.
- *
- * #    ifdef __NR_cacheflush
- * #        define SYS_cacheflush __NR_cacheflush
- * #    endif
- */
 
 #    ifdef __NR_capget
 #        define SYS_capget __NR_capget
@@ -2452,14 +2436,6 @@
 #    ifdef __NR_set_tid_address
 #        define SYS_set_tid_address __NR_set_tid_address
 #    endif
-
-/* We ignore this mapping as __NR_set_tls is not defined yet and
- * SYS_set_tls is set to __ARM_NR_set_tls below.
- *
- * #    ifdef __NR_set_tls
- * #        define SYS_set_tls __NR_set_tls
- * #    endif
- */
 
 #    ifdef __NR_setdomainname
 #        define SYS_setdomainname __NR_setdomainname
