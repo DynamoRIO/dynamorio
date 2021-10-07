@@ -5002,7 +5002,7 @@ ignorable_system_call_normalized(int num)
     case SYS_cacheflush:
 #endif
 #if defined(LINUX)
-/* syscalls change procsigmask */
+        /* syscalls change procsigmask */
     case SYS_pselect6_time64:
     case SYS_pselect6:
     case SYS_ppoll_time64:
@@ -7743,20 +7743,18 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
-#endif
-
-#ifdef SYS_openat2
+#    ifdef SYS_openat2
     case SYS_openat2:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call openat2");
         break;
-#endif
-#ifdef SYS_close_range
+#    endif
+#    ifdef SYS_close_range
     case SYS_close_range:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call close_range");
         break;
-#endif
+#    endif
     case SYS_clone3:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call clone3");
@@ -7769,6 +7767,7 @@ pre_system_call(dcontext_t *dcontext)
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call rt_sigtimedwait_time64");
         break;
+#endif
     default: {
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(dcontext->sys_num)) {
@@ -8820,18 +8819,18 @@ post_system_call(dcontext_t *dcontext)
             rseq_locate_rseq_regions();
         }
         break;
-#endif
-#ifdef SYS_openat2
+#    ifdef SYS_openat2
     case SYS_openat2:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call openat2");
         break;
-#endif
+#    endif
     case SYS_clone3:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call clone3");
         break;
     default:
+#endif
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(sysnum)) {
             vmkuw_post_system_call(dcontext);

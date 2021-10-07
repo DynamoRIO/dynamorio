@@ -2984,7 +2984,8 @@
 /* These correspond to the ARM private SWIs defined above. */
 #    define SYS_breakpoint __ARM_NR_breakpoint
 #    define SYS_cacheflush __ARM_NR_cacheflush
-#    define SYS_usr __ARM_NR_usr // TODO: how does this work? Cannot find the define for the latter.
+/* TODO: how does this work? Cannot find the #define for __ARM_NR_usr. */
+#    define SYS_usr __ARM_NR_usr
 #    define SYS_set_tls __ARM_NR_set_tls
 #endif /* ARM */
 
