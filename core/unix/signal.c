@@ -51,6 +51,7 @@
 #ifdef LINUX
 #    include "include/sigcontext.h"
 #    include "include/signalfd.h"
+#    include "include/clone3.h"
 #    include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
 #elif defined(MACOS)
 #    include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
@@ -197,7 +198,8 @@ typedef struct _clone_record_t {
     app_pc continuation_pc;
     thread_id_t caller_id;
     int clone_sysnum;
-    uint clone_flags;
+    /* Flags in the args to SYS_clone3 are 64-bit. */
+    uint64 clone_flags;
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
     void *pcprofile_info;
@@ -657,7 +659,8 @@ void *
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, app_pc thread_func,
                     void *thread_arg)
 #elif defined(LINUX)
-create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, void *clone_args)
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp,
+                    struct clone3_syscall_args *cl_args)
 #else
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #endif
@@ -682,8 +685,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
          * the clone record.
          */
         record = (clone_record_t *)(dstack - sizeof(clone_record_t));
-#if defined(LINUX) && defined(SYS_clone3)
-        struct clone_args *cl_args = (struct clone_args *)clone_args;
+#if defined(LINUX)
         ASSERT(ALIGNED(record, get_ABI_stack_alignment()));
         /* Exactly one of these should be NULL */
         ASSERT((app_thread_xsp == NULL) ^ (cl_args == NULL));
@@ -695,13 +697,12 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
             record->app_thread_xsp = cl_args->stack + cl_args->stack_size;
             record->clone_flags = cl_args->flags;
 
-        } else {
+        } else
 #endif
+        {
             record->app_thread_xsp = *app_thread_xsp;
             record->clone_flags = dcontext->sys_param0;
-#if defined(LINUX) && defined(SYS_clone3)
         }
-#endif
         /* asynch_target is set in d_r_dispatch() prior to calling pre_system_call(). */
         record->continuation_pc = dcontext->asynch_target;
 #ifdef MACOS
@@ -737,15 +738,16 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     LOG(THREAD, LOG_ASYNCH, 1, "create_clone_record: thread " TIDFMT ", pc " PFX "\n",
         record->caller_id, record->continuation_pc);
 
-#if defined(LINUX) && defined(SYS_clone3)
+#ifdef LINUX
     if (cl_args != NULL) {
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
         /* SYS_clone3 expects the lowest address of the stack in cl_args->stack. */
         cl_args->stack = (ptr_uint_t)(dstack - DYNAMORIO_STACK_SIZE);
         cl_args->stack_size =
             (uint64)ALIGN_BACKWARD(record, XSTATE_ALIGNMENT) - cl_args->stack;
-    } else {
+    } else
 #endif
+    {
 #ifdef MACOS
         if (app_thread_xsp != NULL) {
 #endif
@@ -762,9 +764,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #ifdef MACOS
         }
 #endif
-#if defined(LINUX) && defined(SYS_clone3)
     }
-#endif
     return (void *)record;
 }
 
@@ -1760,7 +1760,7 @@ signal_reinstate_alarm_handlers(dcontext_t *dcontext)
  */
 
 void
-handle_clone(dcontext_t *dcontext, uint flags)
+handle_clone(dcontext_t *dcontext, uint64 flags)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     if ((flags & CLONE_VM) == 0) {

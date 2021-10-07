@@ -177,6 +177,7 @@ char **our_environ;
 #endif
 #ifdef LINUX
 #    include "include/syscall.h" /* our own local copy */
+#    include "include/clone3.h"
 #else
 #    include <sys/syscall.h>
 #endif
@@ -5004,7 +5005,7 @@ ignorable_system_call_normalized(int num)
     case SYS_cacheflush:
 #endif
 #if defined(LINUX)
-        /* syscalls change procsigmask */
+/* syscalls change procsigmask */
 #    ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
 #    endif
@@ -5347,12 +5348,7 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, uint64_t flags)
         return true;
 #    endif
 #    ifdef LINUX
-    if ((sysnum == SYS_clone
-#        ifdef SYS_clone3
-         || sysnum == SYS_clone3
-#        endif
-         ) &&
-        TEST(CLONE_VM, flags)) {
+    if ((sysnum == SYS_clone || sysnum == SYS_clone3) && TEST(CLONE_VM, flags)) {
         return true;
     }
 #    endif
@@ -5366,12 +5362,11 @@ is_thread_create_syscall(dcontext_t *dcontext)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     ptr_uint_t sysnum = MCXT_SYSNUM_REG(mc);
     uint64_t flags;
-#ifdef SYS_clone3
     if (sysnum == SYS_clone3) {
-        flags = ((struct clone_args *)sys_param(dcontext, 0))->flags;
-    } else
-#endif
+        flags = ((struct clone3_syscall_args *)sys_param(dcontext, 0))->flags;
+    } else {
         flags = sys_param(dcontext, 0);
+    }
     return is_thread_create_syscall_helper(sysnum, flags);
 }
 
@@ -5380,12 +5375,11 @@ was_thread_create_syscall(dcontext_t *dcontext)
 {
     ptr_uint_t sysnum = dcontext->sys_num;
     uint64_t flags;
-#ifdef SYS_clone3
     if (sysnum == SYS_clone3) {
-        flags = ((struct clone_args *)dcontext->sys_param0)->flags;
-    } else
-#endif
+        flags = ((struct clone3_syscall_args *)dcontext->sys_param0)->flags;
+    } else {
         flags = dcontext->sys_param0;
+    }
     return is_thread_create_syscall_helper(sysnum, flags);
 }
 
@@ -6927,9 +6921,7 @@ pre_system_call(dcontext_t *dcontext)
     /* SPAWNING */
 
 #ifdef LINUX
-#    ifdef SYS_clone3
     case SYS_clone3:
-#    endif
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c
          * 32-bit params: flags, newsp, ptid, tls, ctid
@@ -6939,30 +6931,31 @@ pre_system_call(dcontext_t *dcontext)
          *   sys_clone(unsigned long clone_flags, unsigned long newsp,
          *     void __user *parent_tid, void __user *child_tid, struct pt_regs *regs)
          */
-        uint flags;
-#    ifdef SYS_clone3
+        uint64_t flags;
         if (dcontext->sys_num == SYS_clone3) {
-            struct clone_args *cl_args = (struct clone_args *)sys_param(dcontext, 0);
-            flags = cl_args->flags;
+            struct clone3_syscall_args *cl_args =
+                (struct clone3_syscall_args *)sys_param(dcontext, 0);
             /* Save for post_system_call.
-             * We only need the flags post-syscall, but we cannot save just that. This
-             * is because flags are 64-bit, even in the 32-bit environment.
+             * We only need the flags, but we cannot save just that. This is
+             * because clone3 flags are 64-bit, even in 32-bit environment.
              */
             dcontext->sys_param0 = (reg_t)cl_args;
+            flags = cl_args->flags;
+            LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone3 with flags = %llu\n", flags);
             LOG(THREAD, LOG_SYSCALLS, 2, "clone3 args: " PFX "\n",
                 sys_param(dcontext, 0));
-        } else
-#    endif
-        {
-            flags = (uint64_t)sys_param(dcontext, 0);
-            /* save for post_system_call */
+        } else {
+            flags = (uint)sys_param(dcontext, 0);
+            /* Save for post_system_call.
+             * Unlike clone3, here the flags are 32-bit, so truncation is okay.
+             */
             dcontext->sys_param0 = (reg_t)flags;
+            LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = " PFX "\n", flags);
             LOG(THREAD, LOG_SYSCALLS, 2,
                 "clone args: " PFX ", " PFX ", " PFX ", " PFX ", " PFX "\n",
                 sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
                 sys_param(dcontext, 3), sys_param(dcontext, 4));
         }
-        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = " PFX "\n", flags);
         handle_clone(dcontext, flags);
         if ((flags & CLONE_VM) == 0) {
             LOG(THREAD, LOG_SYSCALLS, 1, "\tWARNING: CLONE_VM not set!\n");
@@ -6983,13 +6976,12 @@ pre_system_call(dcontext_t *dcontext)
          * Note: This must be done after sys_param0 is set.
          */
         if (is_thread_create_syscall(dcontext)) {
-#    ifdef SYS_clone3
             if (dcontext->sys_num == SYS_clone3) {
                 create_clone_record(dcontext, NULL, (void *)sys_param(dcontext, 0));
-            } else
-#    endif
+            } else {
                 create_clone_record(
                     dcontext, sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK), NULL);
+            }
             os_clone_pre(dcontext);
             os_new_thread_pre();
         } else /* This is really a fork. */
@@ -7795,6 +7787,7 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
+
 #    ifdef SYS_openat2
     case SYS_openat2:
         SYSLOG_INTERNAL_WARNING_ONCE(
@@ -7807,10 +7800,6 @@ pre_system_call(dcontext_t *dcontext)
             "WARNING i#5131: possibly unhandled system call close_range");
         break;
 #    endif
-    case SYS_clone3:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call clone3");
-        break;
 #    ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
         SYSLOG_INTERNAL_WARNING_ONCE(
@@ -8571,9 +8560,7 @@ post_system_call(dcontext_t *dcontext)
     /* SPAWNING -- fork mostly handled above */
 
 #ifdef LINUX
-#    ifdef SYS_clone3
     case SYS_clone3:
-#    endif
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned " PFX "\n",
@@ -8888,12 +8875,8 @@ post_system_call(dcontext_t *dcontext)
             "WARNING i#5131: possibly unhandled system call openat2");
         break;
 #    endif
-    case SYS_clone3:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call clone3");
-        break;
-    default:
 #endif
+    default:
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(sysnum)) {
             vmkuw_post_system_call(dcontext);

@@ -66,7 +66,7 @@ static pid_t
 create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand);
 #ifdef SYS_clone3
 static pid_t
-create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sighand);
+create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand);
 #endif
 static void
 delete_thread(pid_t pid, void *stack);
@@ -98,16 +98,14 @@ test_thread(bool share_sighand, bool use_clone3)
     child_exit = false;
     child_done = false;
     if (use_clone3) {
-
 #ifdef SYS_clone3
-        child = create_thread_clone3(run, NULL, &stack, share_sighand);
+        child = create_thread_clone3(run_with_exit, &stack, share_sighand);
 #else
         /* If SYS_clone3 is not supported on the machine, we simply use SYS_clone
          * instead, so that the expected output is the same in both cases.
          */
         child = create_thread(run, NULL, &stack, share_sighand);
 #endif
-
     } else
         child = create_thread(run, NULL, &stack, share_sighand);
     assert(child > -1);
@@ -128,7 +126,9 @@ main()
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */
 
-    /* First test a thread that does not share (xref i#2089). */
+    /* First test a thread that does not share signal handlers
+     * (xref i#2089).
+     */
     test_thread(false /*share_sighand*/, false /*use_clone3*/);
     test_thread(false /*share_sighand*/, true /*use_clone3*/);
 
@@ -191,7 +191,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
      */
     flags = (SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES |
              (share_sighand ? CLONE_SIGHAND : 0));
-    /* the stack arg should point to its top. */
+    /* the stack arg should point to the stack's highest address (non-inclusive). */
     newpid = clone(fcn, (void *)((size_t)my_stack + THREAD_STACK_SIZE), flags, arg,
                    &p_tid, NULL, &c_tid);
 
@@ -207,11 +207,10 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
 
 #ifdef SYS_clone3
 static pid_t
-create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
+create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
 {
     struct clone_args cl_args = { 0 };
     void *my_stack;
-
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* we're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
@@ -224,16 +223,22 @@ create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sig
     cl_args.stack = (ptr_uint_t)my_stack;
 #    ifdef X86
     /* SYS_clone3 does not have a glibc wrapper yet. So, we have to manually
-     * set up the expected stack. This is based on the glibc implementation of
-     * the clone wrapper. Note that clone3 requires the provided stack address
-     * to be the lowest (inclusive) address in the stack.
+     * set up the expected stack. Note that clone3 requires the provided stack
+     * address to be the lowest (inclusive) address in the stack.
      */
-    void *tos = my_stack + THREAD_STACK_SIZE - sizeof(ptr_uint_t *);
-    *(ptr_uint_t *)tos = (ptr_uint_t)run_with_exit;
+    void *my_stack_end = my_stack + THREAD_STACK_SIZE;
+    /* Set return address on stack for the first ret after the syscall. This
+     * will take us to the thread function.
+     */
+    *(ptr_uint_t *)(my_stack + THREAD_STACK_SIZE - sizeof(ptr_uint_t *)) =
+        (ptr_uint_t)fcn;
 #        ifdef X64
-    cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - sizeof(ptr_uint_t *);
+    cl_args.stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - sizeof(ptr_uint_t *));
 #        else
-    cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - 4 * sizeof(ptr_uint_t *);
+    /* After the syscall, __kernel_vsyscall pops three regs off the stack before
+     * returning.
+     */
+    cl_args.stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - 4 * sizeof(ptr_uint_t *));
 #        endif
 #    else
     /* Leave some space at the bottom of the stack, as the app stores the return
@@ -252,9 +257,9 @@ create_thread_clone3(int (*fcn)(void *), void *arg, void **stack, bool share_sig
     }
 #    ifndef X86
     /* As mentioned above, on AArchXX the child thread returns here, instead of
-     * starting execution directly at some routine. This is probably so because
-     * the return value is stored in a GPR. So even if the child thread gets a
-     * new stack, it still knows where to return.
+     * starting execution directly at some routine. As the return value is stored
+     * in a GPR, it still remembers where to return, even though its stack has
+     * been replaced.
      */
     if (ret == 0) {
         run_with_exit();
