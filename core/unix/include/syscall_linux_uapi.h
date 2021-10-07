@@ -329,6 +329,49 @@
 #define __NR_pidfd_open 434
 #define __NR_clone3 435
 
+#undef __NR_syscalls
+#define __NR_syscalls 436
+
+/*
+ * 32 bit systems traditionally used different
+ * syscalls for off_t and loff_t arguments, while
+ * 64 bit systems only need the off_t version.
+ * For new 32 bit platforms, there is no need to
+ * implement the old 32 bit off_t syscalls, so
+ * they take different names.
+ * Here we map the numbers so that both versions
+ * use the same syscall table layout.
+ */
+/* Manually removed some #ifdefs from original source
+ * for the section below. We define them in all cases.
+ */
+#define __NR_fcntl __NR3264_fcntl
+#define __NR_statfs __NR3264_statfs
+#define __NR_fstatfs __NR3264_fstatfs
+#define __NR_truncate __NR3264_truncate
+#define __NR_ftruncate __NR3264_ftruncate
+#define __NR_lseek __NR3264_lseek
+#define __NR_sendfile __NR3264_sendfile
+#define __NR_newfstatat __NR3264_fstatat
+#define __NR_fstat __NR3264_fstat
+#define __NR_mmap __NR3264_mmap
+#define __NR_fadvise64 __NR3264_fadvise64
+#define __NR_stat __NR3264_stat
+#define __NR_lstat __NR3264_lstat
+#define __NR_fcntl64 __NR3264_fcntl
+#define __NR_statfs64 __NR3264_statfs
+#define __NR_fstatfs64 __NR3264_fstatfs
+#define __NR_truncate64 __NR3264_truncate
+#define __NR_ftruncate64 __NR3264_ftruncate
+#define __NR_llseek __NR3264_lseek
+#define __NR_sendfile64 __NR3264_sendfile
+#define __NR_fstatat64 __NR3264_fstatat
+#define __NR_fstat64 __NR3264_fstat
+#define __NR_mmap2 __NR3264_mmap
+#define __NR_fadvise64_64 __NR3264_fadvise64
+#define __NR_stat64 __NR3264_stat
+#define __NR_lstat64 __NR3264_lstat
+
 /* Derived from /usr/include/aarch64-linux-gnu/bits/syscall.h */
 /* The system call list corresponds to kernel 5.5.
  * #define __GLIBC_LINUX_VERSION_CODE 328960
