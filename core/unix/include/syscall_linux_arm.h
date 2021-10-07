@@ -2447,7 +2447,9 @@
 #        define SYS_set_tid_address __NR_set_tid_address
 #    endif
 
-/*
+/* We ignore this mapping as __NR_set_tls is not defined yet and
+ * SYS_set_tls is set to __ARM_NR_set_tls below.
+ *
  * #    ifdef __NR_set_tls
  * #        define SYS_set_tls __NR_set_tls
  * #    endif
