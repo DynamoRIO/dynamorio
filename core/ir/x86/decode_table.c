@@ -6988,8 +6988,8 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rdpkru, 0xee0f0171, "rdpkru", eax, edx, xx, xx, xx, mrm, x, END_LIST},
-    {OP_wrpkru, 0xef0f0171, "wrpkru", xx, xx, eax, xx, xx, mrm, x, END_LIST},
+    {OP_rdpkru, 0xee0f0171, "rdpkru", eax, edx, ecx, xx, xx, mrm, x, END_LIST},
+    {OP_wrpkru, 0xef0f0171, "wrpkru", xx, xx, ecx, edx, eax, mrm, x, END_LIST},
   },
 };
 
