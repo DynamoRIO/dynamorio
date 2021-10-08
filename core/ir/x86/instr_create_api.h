@@ -937,7 +937,7 @@
 #define INSTR_CREATE_xsetbv(dc)                                          \
     instr_create_0dst_3src((dc), OP_xsetbv, opnd_create_reg(DR_REG_ECX), \
                            opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
-#define INSTR_CREATE_wrpkru(dc) \
+#define INSTR_CREATE_wrpkru(dc)                                          \
     instr_create_0dst_3src((dc), OP_wrpkru, opnd_create_reg(DR_REG_ECX), \
                            opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
 /** @} */ /* end doxygen group */
