@@ -1061,9 +1061,9 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
         ASSERT(nxt_pc != NULL);
 #ifdef AARCH64
         /* Unlike X86 and ARM/AArch32 which use 1 instruction for an indirect jump,
-	 * AArch64 requires 2 instructions: LDR+BR, see INSTR_CREATE_ldr()
-	 * followed by XINST_CREATE_jump_reg() calls in
-	 * emit_special_ibl_xfer().
+         * AArch64 requires 2 instructions: LDR+BR, see INSTR_CREATE_ldr()
+         * followed by XINST_CREATE_jump_reg() calls in
+         * emit_special_ibl_xfer().
          */
         len = (int)(nxt_pc - pc) + AARCH64_INSTR_SIZE;
 #else

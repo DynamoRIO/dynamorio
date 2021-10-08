@@ -1034,7 +1034,7 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
     /* ldr x1, [x(stolen), #(offs)]
      * Relinking does not require the branch instruction to change, just the
      * target load, e.g.
-     * ldr    +0x78(%x28)[8byte] -> %x1         
+     * ldr    +0x78(%x28)[8byte] -> %x1
      * br     %x1
      * See INSTR_CREATE_ldr() followed by XINST_CREATE_jump_reg() calls in
      * emit_special_ibl_xfer().
