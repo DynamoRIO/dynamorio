@@ -1059,7 +1059,16 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
             instr_encode_to_copy(dcontext, inst, vmcode_get_writable_addr(pc), pc);
         byte *nxt_pc = vmcode_get_executable_addr(nxt_writable_pc);
         ASSERT(nxt_pc != NULL);
+#ifdef AARCH64
+        /* Unlike X86 and ARM/AArch32 which use 1 instruction for an indirect jump,
+	 * AArch64 requires 2 instructions: LDR+BR, see INSTR_CREATE_ldr()
+	 * followed by XINST_CREATE_jump_reg() calls in
+	 * emit_special_ibl_xfer().
+         */
+        len = (int)(nxt_pc - pc) + AARCH64_INSTR_SIZE;
+#else
         len = (int)(nxt_pc - pc);
+#endif
         pc = nxt_pc;
 
         if (cur < patch->num_relocations && inst == patch->entry[cur].where.instr) {
@@ -5483,7 +5492,7 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
      */
     reg_id_t stub_reg = IF_AARCH64_ELSE(SCRATCH_REG0, SCRATCH_REG1);
     ushort stub_slot = IF_AARCH64_ELSE(TLS_REG0_SLOT, TLS_REG1_SLOT);
-    IF_NOT_ARM(size_t len;)
+    IF_X86(size_t len;)
     byte *ibl_linked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
     byte *ibl_unlinked_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_UNLINKED, ibl_type);
     bool absolute = !code->thread_shared;
@@ -5625,20 +5634,6 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
             dcontext, opnd_create_reg(SCRATCH_REG1),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
     APP(&ilist, XINST_CREATE_jump_reg(dcontext, opnd_create_reg(SCRATCH_REG1)));
-    /* Unlike X86 and ARM/AArch32 which use 1 instruction for an indirect jump,
-     * AArch64 requires 2 instructions: LDR+BR. In the case where cache line
-     * alignment places LDR+BR at the end of the IBL transfer stub, a relink
-     * (see relink_special_ibl_xfer) will result in the BR instruction
-     * overwriting the first instruction of the next stub, (currently
-     * clean_call_save). This code checks if LDR+BR are at the end and adds a
-     * NOP to trigger padding for cache line alignment when emitted.
-     */
-    for (len = 0, in = instrlist_first(&ilist); in != NULL; in = instr_get_next(in)) {
-        len += instr_length(dcontext, in);
-    }
-    if (ALIGNED(pc + len, proc_get_cache_line_size())) {
-        APP(&ilist, INSTR_CREATE_nop(dcontext));
-    }
 #elif defined(ARM)
     /* i#1906: loads to PC must use word-aligned addresses */
     ASSERT(ALIGNED(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt), PC_LOAD_ADDR_ALIGN));
