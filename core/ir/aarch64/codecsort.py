@@ -43,59 +43,99 @@ import os.path
 DELIMITER = "# Instructions:"
 CODEC_FILE = os.path.join(os.path.dirname(__file__), "codec.txt")
 
+class CodecLine:
+    """Container to keep line info together"""
+    def __init__(self, pattern, nzcv, enum, opcode, opndtypes):
+        self.enum = enum
+        self.pattern = pattern
+        self.nzcv = nzcv
+        self.opcode = opcode
+        self.opndtypes = opndtypes
+
 def read_instrs():
     """Read the instr lines from the codec.txt file"""
     seen_delimeter = False
     instrs = []
 
     with open(CODEC_FILE, "r") as lines:
-        for line in (l.strip() for l in lines):
+        for line in (l.strip() for l in lines if l.strip()):
             if not seen_delimeter:
                 if line == DELIMITER:
                     seen_delimeter = True
                 continue
-            if not line.strip():
-                continue
             if line.strip().startswith("#"):
                 continue
-            instrs.append(line.split(None, 3))
+            line = line.split(None, 4)
+            if not line[2].isnumeric():
+                # missing an enum entry, put a none in
+                line = [line[0], line[1], None, line[2], " ".join(line[3:])]
+            instrs.append(CodecLine(*line))
+
     return instrs
+
+def handle_enums(instrs):
+    """Make sure that every instr has an enum and that there are no clashes"""
+    # There are 5 values populated by default into the enum so
+    # we need to make sure that our first index is after those
+    max_enum = 5
+    enums = {}
+    for i in (i for i in instrs if i.enum):
+        if i.opcode in enums:
+            assert enums[i.opcode] == i.enum, \
+                "Multiple enums for the same opcode {}: {} {}".format(
+                    i.opcode, i.enum, enums[i.opcode])
+        else:
+            enums[i.opcode] = i.enum
+
+    enums = {i.opcode: i.enum for i in instrs if i.enum}
+    if enums:
+        max_enum = max(i.enum for i in instrs if i.enum)
+
+    for i in (i for i in instrs if not i.enum):
+        try:
+            i.enum = enums[i.opcode]
+        except KeyError:
+            max_enum += 1
+            i.enum = max_enum
+            enums[i.opcode] = max_enum
 
 
 def main():
     """Reorder the instr section of codec.txt, making sure to be a stable function"""
     instrs = read_instrs()
-    instrs.sort(key=lambda line: line[2])
+    instrs.sort(key=lambda line: line.opcode)
+
+    handle_enums(instrs)
 
     # Scan for some max lengths for formatting
-    instr_length = max(len(i[2]) for i in instrs)
+    instr_length = max(len(i.opcode) for i in instrs)
     pre_colon = max(
-        len(opndtypes.split(":")[0].strip())
-        for _, _, _, opndtypes in instrs
-        if ":" in opndtypes
-        and len(opndtypes.split(":")[0].strip()) < 14)
+        len(i.opndtypes.split(":")[0].strip())
+        for i in instrs
+        if ":" in i.opndtypes
+        and len(i.opndtypes.split(":")[0].strip()) < 14)
 
     contains_z =  re.compile(r'z[0-9]+')
 
-    v8_instrs = [i for i in instrs if not contains_z.match(i[3])]
-    sve_instrs = [i for i in instrs if contains_z.match(i[3])]
+    v8_instrs = [i for i in instrs if not contains_z.match(i.opndtypes)]
+    sve_instrs = [i for i in instrs if contains_z.match(i.opndtypes)]
 
     new_lines = {}
 
     for name, instr_list in (["v8", v8_instrs], ["sve", sve_instrs]):
         new_lines[name] = [
-            "{pattern}  {nzcv}{nzcv_pad} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
-                pattern=pattern,
-                nzcv=nzcv_flag,
-                nzcv_pad=(3 - len(nzcv_flag)) * " ",
-                opcode_pad=(instr_length - len(opcode)) * " ",
-                opcode=opcode,
-                opand_pad=(pre_colon - len(opndtypes.split(":")[0].strip())) * " ",
+            "{pattern}  {nzcv:<3} {enum:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
+                enum=i.enum,
+                pattern=i.pattern,
+                nzcv=i.nzcv,
+                opcode_pad=(instr_length - len(i.opcode)) * " ",
+                opcode=i.opcode,
+                opand_pad=(pre_colon - len(i.opndtypes.split(":")[0].strip())) * " ",
                 opand="{} : {}".format(
-                    opndtypes.split(":")[0].strip(),
-                    opndtypes.split(":")[1].strip()) if ":" in opndtypes
-                else opndtypes
-                ).strip() for pattern, nzcv_flag, opcode, opndtypes in instr_list]
+                    i.opndtypes.split(":")[0].strip(),
+                    i.opndtypes.split(":")[1].strip()) if ":" in i.opndtypes
+                else i.opndtypes
+                ).strip() for i in instr_list]
 
     header = []
     with open(CODEC_FILE, "r") as lines:
