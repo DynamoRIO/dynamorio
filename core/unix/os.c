@@ -6983,7 +6983,8 @@ pre_system_call(dcontext_t *dcontext)
          */
         if (is_thread_create_syscall(dcontext)) {
             if (dcontext->sys_num == SYS_clone3) {
-                create_clone_record(dcontext, NULL, (void *)sys_param(dcontext, 0));
+                create_clone_record(dcontext, NULL,
+                                    (struct clone3_syscall_args *)sys_param(dcontext, 0));
             } else {
                 create_clone_record(
                     dcontext, sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK), NULL);
@@ -7793,7 +7794,6 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
-
 #    ifdef SYS_openat2
     case SYS_openat2:
         SYSLOG_INTERNAL_WARNING_ONCE(
