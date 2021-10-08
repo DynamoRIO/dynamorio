@@ -191,3 +191,6 @@ OPCODE(getsec, getsec, getsec, 0)
 
 OPCODE(xend, xend, xend, 0)
 OPCODE(xtest, xtest, xtest, 0)
+
+OPCODE(rdpkru, rdpkru, rdpkru, 0)
+OPCODE(wrpkru, wrpkru, wrpkru, 0)

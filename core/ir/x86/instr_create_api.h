@@ -748,6 +748,8 @@
     instr_create_0dst_1src((dc), OP_vmsave, opnd_create_reg(DR_REG_XAX))
 #define INSTR_CREATE_skinit(dc) \
     instr_create_0dst_1src((dc), OP_skinit, opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_wrpkru(dc) \
+    instr_create_0dst_1src((dc), OP_wrpkru, opnd_create_reg(DR_REG_EAX))
 /** @} */ /* end doxygen group */
 
 /* no destination, 2 explicit sources */
@@ -4475,6 +4477,8 @@
 /** @} */ /* end doxygen group */
 
 /* 2 implicit destinations, no sources */
+/** @name 2 destinations: 2 implicit destinations, no sources */
+/** @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
  * supplying any implicit operands.
@@ -4483,6 +4487,10 @@
 #define INSTR_CREATE_rdtsc(dc)                                          \
     instr_create_2dst_0src((dc), OP_rdtsc, opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_rdpkru(dc)                                          \
+    instr_create_2dst_0src((dc), OP_rdpkru, opnd_create_reg(DR_REG_EAX), \
+                           opnd_create_reg(DR_REG_EDX))
+/** @} */ /* end doxygen group */
 
 /* 2 destinations: 1 implicit, 1 source */
 /** @name 2 destinations: 1 implicit, 1 source */
