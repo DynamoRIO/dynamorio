@@ -2715,10 +2715,13 @@ if (NOT ANDROID)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
-  tobuild_ci(client.drcallstack-test client-interface/drcallstack-test.c "" "" "")
-  use_DynamoRIO_extension(client.drcallstack-test.dll drsyms)
-  use_DynamoRIO_extension(client.drcallstack-test.dll drwrap)
-  use_DynamoRIO_extension(client.drcallstack-test.dll drcallstack)
+  # TODO i#2414: Port to Windows, Mac, and Android.
+  if (LINUX AND HAVE_LIBUNWIND_H)
+    tobuild_ci(client.drcallstack-test client-interface/drcallstack-test.c "" "" "")
+    use_DynamoRIO_extension(client.drcallstack-test.dll drsyms)
+    use_DynamoRIO_extension(client.drcallstack-test.dll drwrap)
+    use_DynamoRIO_extension(client.drcallstack-test.dll drcallstack)
+  endif ()
 endif ()
 
 # We check these two statements here b/c not all gcc compilers support

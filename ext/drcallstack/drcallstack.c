@@ -121,7 +121,7 @@ drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
 #    elif defined(AARCH64)
     /* unw_context_t matches at least the GPR portion of ucontext_t. */
     sigcontext_t *sc = SIGCXT_FROM_UCXT(&walk->uc);
-    sc->SC_XIP = (ptr_uint_t)mc->xip;
+    sc->SC_XIP = (ptr_uint_t)mc->pc;
     sc->SC_R0 = mc->r0;
     sc->SC_R1 = mc->r1;
     sc->SC_R2 = mc->r2;
@@ -151,7 +151,7 @@ drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
     sc->SC_R26 = mc->r26;
     sc->SC_R27 = mc->r27;
     sc->SC_R28 = mc->r28;
-    sc->SC_FP = mc->29;
+    sc->SC_FP = mc->r29;
     sc->SC_LR = mc->lr;
     sc->SC_XSP = mc->xsp;
 #    elif defined(ARM)
@@ -181,7 +181,14 @@ drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
 #endif
 
     /* Set up libunwind. */
+#ifdef unw_init_local2
+    /* Prefer this version which knows it's not our context, but it is not present
+     * in older libunwind.  Fortunately it's a macro we can test for.
+     */
     unw_init_local2(&walk->cursor, &walk->uc, UNW_INIT_SIGNAL_FRAME);
+#else
+    unw_init_local(&walk->cursor, &walk->uc);
+#endif
 
     return DRCALLSTACK_SUCCESS;
 }

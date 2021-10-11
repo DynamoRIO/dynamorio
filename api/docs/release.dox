@@ -240,8 +240,8 @@ Further non-compatibility-affecting changes include:
  - Added drmodtrack_lookup_segment().
  - Added a new drrun option \p -attach for attaching to a running process.
    This is currently an experimental option.
- - Added \ref page_drcallstack Extension with an initial Linux-only
-   implementation.
+ - Added \ref page_drcallstack Extension for walking application callstacks, with
+   an initial Linux-only implementation.
 
 **************************************************
 <hr>

@@ -120,7 +120,20 @@ add_subdirectory(drutil)
 add_subdirectory(droption)
 add_subdirectory(drcovlib)
 add_subdirectory(drstatecmp)
-add_subdirectory(drcallstack)
+if (LINUX) # TODO i#2414: Port to Windows, Mac, and Android.
+  if (HAVE_LIBUNWIND_H)
+    add_subdirectory(drcallstack)
+  else ()
+    # Require libunwind.h for automated testing.
+    # The TEST_SUITE var is set for packages too, to ensure we publish drcallstack.
+    # Unfortunately there's no simple way to install for aarchxx cross-compiles.
+    if (TEST_SUITE AND NOT CMAKE_CROSSCOMPILING)
+      message(FATAL_ERROR "libunwind-dev is required to build drcallstack")
+    else ()
+      message(STATUS "libunwind-dev package not installed: not building drcallstack")
+    endif ()
+  endif ()
+endif ()
 
 # documentation is put into main DR docs/ dir
 

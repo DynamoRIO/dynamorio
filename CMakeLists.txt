@@ -1178,8 +1178,10 @@ endif (NOT DISABLE_WARNINGS)
 
 if (LINUX)
   CHECK_INCLUDE_FILE("linux/rseq.h" HAVE_RSEQ)
+  CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
 else ()
   set(HAVE_RSEQ OFF)
+  set(HAVE_LIBUNWIND_H OFF)
 endif ()
 
 # Currently only AArch64 targets supported for half-precision FP.

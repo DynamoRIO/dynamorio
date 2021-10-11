@@ -557,9 +557,9 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
         if (old_flags == 0) { /* nothing to clobber */
             dr_get_mcontext(wrapcxt->drcontext, wrapcxt->mc);
             if (wrapcxt->where_am_i == DRWRAP_WHERE_PRE_FUNC)
-                wrapcxt->mc->xip = wrapcxt->func;
+                wrapcxt->mc->pc = wrapcxt->func;
             else
-                wrapcxt->mc->xip = wrapcxt->retaddr;
+                wrapcxt->mc->pc = wrapcxt->retaddr;
         } else {
             ASSERT(TEST(DR_MC_MULTIMEDIA, flags) && !TEST(DR_MC_MULTIMEDIA, old_flags) &&
                        TESTALL(DR_MC_INTEGER | DR_MC_CONTROL, old_flags),
