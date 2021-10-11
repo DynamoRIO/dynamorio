@@ -16,7 +16,7 @@
 #include <linux/types.h>
 
 /* Derived from struct clone_args defined in /usr/include/linux/sched.h */
-struct clone3_syscall_args {
+typedef struct {
     __aligned_u64 flags;
     __aligned_u64 pidfd;
     __aligned_u64 child_tid;
@@ -28,6 +28,6 @@ struct clone3_syscall_args {
     __aligned_u64 set_tid;
     __aligned_u64 set_tid_size;
     __aligned_u64 cgroup;
-};
+} clone3_syscall_args_t;
 
 #endif /* _CLONE3_H */

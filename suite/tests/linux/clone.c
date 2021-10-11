@@ -184,19 +184,19 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
 
     my_stack = stack_alloc(THREAD_STACK_SIZE);
 
-    /* need SIGCHLD so parent will get that signal when child dies,
+    /* Need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
-    /* we're not doing CLONE_THREAD => child has its own pid
+    /* We're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
      */
     flags = (SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES |
              (share_sighand ? CLONE_SIGHAND : 0));
-    /* the stack arg should point to the stack's highest address (non-inclusive). */
+    /* The stack arg should point to the stack's highest address (non-inclusive). */
     newpid = clone(fcn, (void *)((size_t)my_stack + THREAD_STACK_SIZE), flags, arg,
                    &p_tid, NULL, &c_tid);
 
     if (newpid == -1) {
-        print("smp.c: Error calling clone\n");
+        perror("Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
     }
@@ -213,12 +213,12 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
     void *my_stack;
     uint stack_size;
     my_stack = stack_alloc(THREAD_STACK_SIZE);
-    /* we're not doing CLONE_THREAD => child has its own pid
+    /* We're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
      */
     cl_args.flags =
         CLONE_VM | CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0);
-    /* need SIGCHLD so parent will get that signal when child dies,
+    /* Need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
     cl_args.exit_signal = SIGCHLD;
     cl_args.stack = (ptr_uint_t)my_stack;
@@ -253,7 +253,7 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
     cl_args.stack_size = stack_size;
     int ret = syscall(SYS_clone3, &cl_args, sizeof(cl_args));
     if (ret == -1) {
-        perror("smp.c: Error calling clone\n");
+        perror("Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
     } else if (IF_X86_ELSE(true, ret != 0)) {
@@ -288,7 +288,7 @@ delete_thread(pid_t pid, void *stack)
     stack_free(stack, THREAD_STACK_SIZE);
 }
 
-/* allocate stack storage on the app's heap. Returns the lowest address of the
+/* Allocate stack storage on the app's heap. Returns the lowest address of the
  * stack (inclusive).
  */
 void *

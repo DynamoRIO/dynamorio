@@ -463,8 +463,8 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_xsp, app_pc thread_func,
                     void *func_arg);
 #elif defined(LINUX)
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,
-                    struct clone3_syscall_args *dr_clone_args,
-                    struct clone3_syscall_args *app_clone_args);
+                    clone3_syscall_args_t *dr_clone_args,
+                    clone3_syscall_args_t *app_clone_args);
 #else
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp);
 #endif

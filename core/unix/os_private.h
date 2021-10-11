@@ -243,9 +243,6 @@ os_files_same(const char *path1, const char *path2);
 
 extern const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS];
 
-reg_t
-get_syscall_param(dcontext_t *dcontext, int param_num);
-
 void
 set_syscall_param(dcontext_t *dcontext, int param_num, reg_t new_value);
 
