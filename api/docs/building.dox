@@ -165,7 +165,7 @@ In order to build both 32-bit and 64-bit on the same platform you'll need
 compiler support for targeting both architectures.  Then install these packages:
 
 ```
-sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev
+sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev libunwind-dev:i386
 ```
 
 For older distributions, the `ia32-libs` package is needed.

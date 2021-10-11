@@ -74,7 +74,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          g++-multilib libunwind-dev
+          g++-multilib libunwind-dev libunwind-dev:i386
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake

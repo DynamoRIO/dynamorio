@@ -1446,8 +1446,8 @@ static const redirect_import_t redirect_imports[] = {
     /* i#1717: C++ exceptions call this on ARM Linux */
     { "__gnu_Unwind_Find_exidx", (app_pc)redirect___gnu_Unwind_Find_exidx },
 #    endif
-    { "dlsym", (app_pc)redirect_dlsym },
 #endif
+    { "dlsym", (app_pc)redirect_dlsym },
     /* We need these for clients that don't use libc (i#1747) */
     { "strlen", (app_pc)strlen },
     { "wcslen", (app_pc)wcslen },
