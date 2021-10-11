@@ -6999,7 +6999,9 @@ pre_system_call(dcontext_t *dcontext)
                  * child threads only need to restore their own
                  * SYSCALL_PARAM_CLONE3_CLONE_ARGS reg to the pointer to the
                  * app's clone_args. It is saved in the clone record for
-                 * the child thread, and in sys_param2 for the parent thread.
+                 * the child thread, and in sys_param2 for the parent thread. The
+                 * DR copy of clone_args is freed by the parent thread in the
+                 * post-syscall handling of clone3.
                  */
                 struct clone3_syscall_args *dr_clone_args =
                     (struct clone3_syscall_args *)heap_alloc(
@@ -7008,8 +7010,7 @@ pre_system_call(dcontext_t *dcontext)
                 struct clone3_syscall_args *app_clone_args =
                     (struct clone3_syscall_args *)sys_param(
                         dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
-                memcpy(dr_clone_args, app_clone_args,
-                       sizeof(struct clone3_syscall_args));
+                memcpy(dr_clone_args, app_clone_args, sizeof(struct clone3_syscall_args));
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
                     (reg_t)dr_clone_args;
                 dcontext->sys_param1 = (reg_t)dr_clone_args;
