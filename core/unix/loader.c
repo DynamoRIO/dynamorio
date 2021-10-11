@@ -1278,6 +1278,9 @@ privload_fill_os_module_info(app_pc base, OUT app_pc *out_base /* relative pc */
  * Function Redirection
  */
 
+static void *
+redirect_dlsym(void *handle, const char *symbol);
+
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
@@ -1357,9 +1360,6 @@ redirect_dl_iterate_phdr_app(int (*callback)(struct dl_phdr_info *info, size_t s
     // lib itself on the app list.
     return res;
 }
-
-static void *
-redirect_dlsym(void *handle, const char *symbol);
 
 #    if defined(ARM) && !defined(ANDROID)
 typedef struct _unwind_callback_data_t {
