@@ -198,8 +198,17 @@ typedef struct _clone_record_t {
     app_pc continuation_pc;
     thread_id_t caller_id;
     int clone_sysnum;
+#ifdef LINUX
     /* Flags in the args to SYS_clone3 are 64-bit. */
     uint64 clone_flags;
+    /* Pointer to the app's copy of clone_args.
+     * We restore this to the corresponding reg
+     * post-syscall in the child thread.
+     */
+    struct clone3_syscall_args *app_clone_args;
+#else
+    uint clone_flags;
+#endif
     thread_sig_info_t info;
     thread_sig_info_t *parent_info;
     void *pcprofile_info;
@@ -660,7 +669,8 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, app_pc thread_f
                     void *thread_arg)
 #elif defined(LINUX)
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp,
-                    struct clone3_syscall_args *cl_args)
+                    struct clone3_syscall_args *dr_clone_args,
+                    struct clone3_syscall_args *app_clone_args)
 #else
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #endif
@@ -687,15 +697,17 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         record = (clone_record_t *)(dstack - sizeof(clone_record_t));
 #if defined(LINUX)
         ASSERT(ALIGNED(record, get_ABI_stack_alignment()));
-        /* Exactly one of these should be NULL */
-        ASSERT((app_thread_xsp == NULL) ^ (cl_args == NULL));
-        if (cl_args != NULL) {
+        ASSERT((dcontext->sys_num != SYS_clone3 && app_thread_xsp != NULL) ||
+               (dcontext->sys_num == SYS_clone3 && dr_clone_args != NULL &&
+                app_clone_args != NULL));
+        if (dr_clone_args != NULL) {
             /* SYS_clone3 has the lowest address of the stack in
              * cl_args->stack. But we expect the highest (non-inclusive)
              * in the clone record's app_thread_xsp.
              */
-            record->app_thread_xsp = cl_args->stack + cl_args->stack_size;
-            record->clone_flags = cl_args->flags;
+            record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
+            record->clone_flags = dr_clone_args->flags;
+            record->app_clone_args = app_clone_args;
 
         } else
 #endif
@@ -739,12 +751,12 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         record->caller_id, record->continuation_pc);
 
 #ifdef LINUX
-    if (cl_args != NULL) {
+    if (dr_clone_args != NULL) {
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
-        /* SYS_clone3 expects the lowest address of the stack in cl_args->stack. */
-        cl_args->stack = (ptr_uint_t)(dstack - DYNAMORIO_STACK_SIZE);
-        cl_args->stack_size =
-            (uint64)ALIGN_BACKWARD(record, XSTATE_ALIGNMENT) - cl_args->stack;
+        /* SYS_clone3 expects the lowest address of the stack in dr_clone_args->stack. */
+        dr_clone_args->stack = (ptr_uint_t)(dstack - DYNAMORIO_STACK_SIZE);
+        dr_clone_args->stack_size =
+            (uint64)ALIGN_BACKWARD(record, XSTATE_ALIGNMENT) - dr_clone_args->stack;
     } else
 #endif
     {
@@ -889,12 +901,24 @@ restore_clone_param_from_clone_record(dcontext_t *dcontext, void *record)
 #ifdef LINUX
     ASSERT(record != NULL);
     clone_record_t *crec = (clone_record_t *)record;
-    if (crec->clone_sysnum == SYS_clone && TEST(CLONE_VM, crec->clone_flags)) {
-        /* Restore the original stack parameter to the syscall, which we clobbered
-         * in create_clone_record().  Some apps examine it post-syscall (i#3171).
-         */
-        set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK,
-                          get_mcontext(dcontext)->xsp);
+    if (TEST(CLONE_VM, crec->clone_flags)) {
+        if (crec->clone_sysnum == SYS_clone) {
+            /* Restore the original stack parameter to the syscall, which we clobbered
+             * in create_clone_record().  Some apps examine it post-syscall (i#3171).
+             */
+            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK,
+                              get_mcontext(dcontext)->xsp);
+        } else if (crec->clone_sysnum == SYS_clone3) {
+#    ifdef X86
+            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS,
+                              (reg_t)crec->app_clone_args);
+#    else
+            /* On AArchXX r0 is used to pass the first arg to the syscall as well as
+             * to hold its return value. As the clone_args pointer isn't available
+             * post-syscall natively anyway, there's no need to restore here.
+             */
+#    endif
+        }
     }
 #endif
 }

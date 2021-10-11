@@ -211,6 +211,7 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
 {
     struct clone_args cl_args = { 0 };
     void *my_stack;
+    uint stack_size;
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* we're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
@@ -233,12 +234,12 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
     *(ptr_uint_t *)(my_stack + THREAD_STACK_SIZE - sizeof(ptr_uint_t *)) =
         (ptr_uint_t)fcn;
 #        ifdef X64
-    cl_args.stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - sizeof(ptr_uint_t *));
+    stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - sizeof(ptr_uint_t *));
 #        else
     /* After the syscall, __kernel_vsyscall pops three regs off the stack before
      * returning.
      */
-    cl_args.stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - 4 * sizeof(ptr_uint_t *));
+    stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - 4 * sizeof(ptr_uint_t *));
 #        endif
 #    else
     /* Leave some space at the bottom of the stack, as the app stores the return
@@ -247,13 +248,17 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
      * directly go to a new routine, but returns here.
      * Note that sp needs to be 16-byte aligned.
      */
-    cl_args.stack_size = (ptr_uint_t)THREAD_STACK_SIZE - 16 * sizeof(ptr_uint_t *);
+    stack_size = (ptr_uint_t)THREAD_STACK_SIZE - 16 * sizeof(ptr_uint_t *);
 #    endif
+    cl_args.stack_size = stack_size;
     int ret = syscall(SYS_clone3, &cl_args, sizeof(cl_args));
     if (ret == -1) {
         perror("smp.c: Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
+    } else if (IF_X86_ELSE(true, ret != 0)) {
+        /* Ensure that DR restores fields in clone_args after the syscall. */
+        assert(cl_args.stack == (ptr_uint_t)my_stack && cl_args.stack_size == stack_size);
     }
 #    ifndef X86
     /* As mentioned above, on AArchXX the child thread returns here, instead of

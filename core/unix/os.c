@@ -3843,7 +3843,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
     ATOMIC_INC(int, uninit_thread_count);
-    void *crec = create_clone_record(dcontext, (reg_t *)&xsp, NULL);
+    void *crec = create_clone_record(dcontext, (reg_t *)&xsp, NULL, NULL);
     /* make sure client_thread_run can get the func and arg, and that
      * signal_thread_inherit gets the right syscall info
      */
@@ -5127,6 +5127,12 @@ static inline reg_t
 sys_param(dcontext_t *dcontext, int num)
 {
     return *sys_param_addr(dcontext, num);
+}
+
+reg_t
+get_syscall_param(dcontext_t *dcontext, int param_num)
+{
+    return sys_param(dcontext, param_num);
 }
 
 void
@@ -6983,11 +6989,36 @@ pre_system_call(dcontext_t *dcontext)
          */
         if (is_thread_create_syscall(dcontext)) {
             if (dcontext->sys_num == SYS_clone3) {
-                create_clone_record(dcontext, NULL,
-                                    (struct clone3_syscall_args *)sys_param(dcontext, 0));
+                /* create_clone_record modifies some fields in clone_args for the
+                 * clone3 syscall. Instead of reusing the app's copy of
+                 * clone_args and modifying it, we choose to create our own copy.
+                 * This obviates the need to restore the modified fields in the
+                 * app's copy of clone_args after the syscall, which is racy
+                 * under CLONE_VM as the parent and child threads both would try
+                 * to restore them. By creating a copy instead, both parent and
+                 * child threads only need to restore their own
+                 * SYSCALL_PARAM_CLONE3_CLONE_ARGS reg to the pointer to the
+                 * app's clone_args. It is saved in the clone record for
+                 * the child thread, and in sys_param2 for the parent thread.
+                 */
+                struct clone3_syscall_args *dr_clone_args =
+                    (struct clone3_syscall_args *)heap_alloc(
+                        dcontext,
+                        sizeof(struct clone3_syscall_args) HEAPACCT(ACCT_OTHER));
+                struct clone3_syscall_args *app_clone_args =
+                    (struct clone3_syscall_args *)sys_param(
+                        dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+                memcpy(dr_clone_args, app_clone_args,
+                       sizeof(struct clone3_syscall_args));
+                *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
+                    (reg_t)dr_clone_args;
+                dcontext->sys_param1 = (reg_t)dr_clone_args;
+                dcontext->sys_param2 = (reg_t)app_clone_args;
+                create_clone_record(dcontext, NULL, dr_clone_args, app_clone_args);
             } else {
-                create_clone_record(
-                    dcontext, sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK), NULL);
+                create_clone_record(dcontext,
+                                    sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK),
+                                    NULL, NULL);
             }
             os_clone_pre(dcontext);
             os_new_thread_pre();
@@ -7043,7 +7074,8 @@ pre_system_call(dcontext_t *dcontext)
 #    ifdef MACOS
         create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL);
 #    else
-        create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/, NULL);
+        create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/, NULL,
+                            NULL);
 #    endif
         os_clone_pre(dcontext);
         os_new_thread_pre();
@@ -8580,6 +8612,26 @@ post_system_call(dcontext_t *dcontext)
             if (INTERNAL_OPTION(private_loader))
                 os_switch_lib_tls(dcontext, false /*to dr*/);
             /* i#2089: we already restored the DR tls in os_clone_post() */
+        }
+        if (sysnum == SYS_clone3) {
+            /* Free DR's copy of clone_args and restore the pointer to the
+             * app's copy in the SYSCALL_PARAM_CLONE3_CLONE_ARGS reg.
+             * sys_param1 contains the pointer to DR's clone_args, and
+             * sys_param2 contains the app's original clone_args.
+             */
+#    ifdef X86
+            ASSERT(get_syscall_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) ==
+                   dcontext->sys_param1);
+            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS,
+                              dcontext->sys_param2);
+#    else
+            /* On AArchXX r0 is used to pass the first arg to the syscall as well as
+             * to hold its return value. As the clone_args pointer isn't available
+             * post-syscall natively anyway, there's no need to restore here.
+             */
+#    endif
+            heap_free(dcontext, (void *)dcontext->sys_param1,
+                      sizeof(struct clone3_syscall_args) HEAPACCT(ACCT_OTHER));
         }
         break;
     }
