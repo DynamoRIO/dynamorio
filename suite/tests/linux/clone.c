@@ -258,6 +258,13 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  : "memory");
     int ret_val = r0_ret;
     return ret_val;
+#    elif defined(ARM)
+    /* XXX: Add asm wrapper for ARM.
+     * Currently we do not run this test on ARM, so this missing support doesn't
+     * cause any test failure.
+     */
+#    else
+#        error Unsupported architecture
 #    endif
 }
 
