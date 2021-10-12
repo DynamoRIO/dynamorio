@@ -1662,20 +1662,16 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_doxyutils.cmake
 ###########################################################################
 
 # clear tools file to avoid duplicates on re-configure
-if (NOT DEBUG)
-  if (X64)
-    set(TOOLS_LISTNAME "list64")
-  else ()
-    set(TOOLS_LISTNAME "list32")
-  endif ()
-  file(WRITE ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "")
-  DR_install(FILES ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} DESTINATION tools)
-endif()
+if (X64)
+  set(TOOLS_LISTNAME "list64")
+else ()
+  set(TOOLS_LISTNAME "list32")
+endif ()
+file(WRITE ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "")
+DR_install(FILES ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} DESTINATION tools)
 
 function (register_tool_file name)
-  if (NOT DEBUG) # avoid duplicates for release + debug
-    file(APPEND ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "${name}\n")
-  endif ()
+  file(APPEND ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "${name}\n")
 endfunction ()
 
 # Used by docs, samples, and tests, so here instead of in core/CMakeLists.txt.
