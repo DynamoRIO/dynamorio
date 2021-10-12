@@ -4809,6 +4809,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.call-retarget
     code_api|client.crashmsg
     code_api|client.destructor
+    code_api|client.drcallstack-test
     code_api|client.drcontainers-test
     code_api|client.drmodtrack-test
     code_api|client.drsyms-test
