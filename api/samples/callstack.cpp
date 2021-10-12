@@ -103,7 +103,6 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
         print_qualified_function_name(frame.pc);
         ++count;
     } while (res == DRCALLSTACK_SUCCESS);
-    DR_ASSERT(res == DRCALLSTACK_NO_MORE_FRAMES);
     res = drcallstack_cleanup_walk(walk);
     DR_ASSERT(res == DRCALLSTACK_SUCCESS);
 }
