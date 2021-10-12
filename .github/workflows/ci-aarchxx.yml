@@ -74,10 +74,10 @@ jobs:
           g++-aarch64-linux-gnu qemu-user qemu-user-binfmt
         sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64
-        mkdir extract
-        for i in *.deb; do dpkg-deb -x $i extract; done
-        for i in include lib; do sudo rsync -av extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
-        sudo rsync -av extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
@@ -137,10 +137,10 @@ jobs:
           g++-arm-linux-gnueabihf qemu-user qemu-user-binfmt
         sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf
-        mkdir extract
-        for i in *.deb; do dpkg-deb -x $i extract; done
-        for i in include lib; do sudo rsync -av extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
-        sudo rsync -av extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}
