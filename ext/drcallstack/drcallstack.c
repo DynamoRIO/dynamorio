@@ -180,15 +180,13 @@ drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
     return DRCALLSTACK_ERROR_FEATURE_NOT_AVAILABLE;
 #endif
 
-    /* Set up libunwind. */
-#ifdef unw_init_local2
-    /* Prefer this version which knows it's not our context, but it is not present
-     * in older libunwind.  Fortunately it's a macro we can test for.
+    /* Set up libunwind.
+     * We'd prefer to use unw_init_local2() and pass UNW_INIT_SIGNAL_FRAME
+     * since the context we're examining is not our own, but unw_init_local2()
+     * is not available on older libunwind and as this build may be run on
+     * other machines we have to go with the lowest common denominator.
      */
-    unw_init_local2(&walk->cursor, &walk->uc, UNW_INIT_SIGNAL_FRAME);
-#else
     unw_init_local(&walk->cursor, &walk->uc);
-#endif
 
     return DRCALLSTACK_SUCCESS;
 }
