@@ -205,13 +205,61 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
     return newpid;
 }
 
+int
+make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
+{
+#ifdef X86
+    int ret;
+#    ifdef X64
+    asm volatile("syscall\n\t"
+                 "test %%rax, %%rax\n\t"
+                 "jnz label\n\t"
+                 "call *%%rdx\n\t"
+                 "label:\n\t"
+                 : "=a"(ret)
+                 : "0"(SYS_clone3), "D"(clone_args), "S"(sizeof(struct clone_args)),
+                   "d"(fcn)
+                 /* syscall clobbers rcx and r11 */
+                 : "rcx", "r11", "memory");
+#    else
+    asm volatile("int $0x80\n\t"
+                 "test %%eax, %%eax\n\t"
+                 "jnz label\n\t"
+                 "call *%%edx\n\t"
+                 "label:\n\t"
+                 : "=a"(ret)
+                 : "0"(SYS_clone3), "b"(clone_args), "c"(sizeof(struct clone_args)),
+                   "d"(fcn)
+                 : "memory");
+#    endif
+    return ret;
+#elif defined(AARCHXX)
+    register int r0_ret asm("x0");
+    register struct clone_args *r0 __asm("x0") = clone_args;
+    register int r1 __asm("x1") = sizeof(struct clone_args);
+    register void *r2 __asm("x2") = fcn;
+    register unsigned r8 __asm("x8") = SYS_clone3;
+    asm volatile("svc #0\n\t"
+                 "cmp x0, #0\n\t"
+                 "bne label\n\t"
+                 "blr x2\n\t"
+                 "label:\n\t"
+                 : "+r"(r0_ret)
+                 : "r"(r1), "r"(r2), "r"(r8)
+                 : "memory");
+    int ret_val = r0_ret;
+    return ret_val;
+#else
+#    error "Unsupported architecture"
+#endif
+}
+
 #ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
 {
     struct clone_args cl_args = { 0 };
     void *my_stack;
-    uint stack_size;
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* We're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
@@ -222,54 +270,20 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
      * else have errors doing a wait */
     cl_args.exit_signal = SIGCHLD;
     cl_args.stack = (ptr_uint_t)my_stack;
-#    ifdef X86
-    /* SYS_clone3 does not have a glibc wrapper yet. So, we have to manually
-     * set up the expected stack. Note that clone3 requires the provided stack
-     * address to be the lowest (inclusive) address in the stack.
-     */
-    void *my_stack_end = my_stack + THREAD_STACK_SIZE;
-    /* Set return address on stack for the first ret after the syscall. This
-     * will take us to the thread function.
-     */
-    *(ptr_uint_t *)(my_stack + THREAD_STACK_SIZE - sizeof(ptr_uint_t *)) =
-        (ptr_uint_t)fcn;
-#        ifdef X64
-    stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - sizeof(ptr_uint_t *));
-#        else
-    /* After the syscall, __kernel_vsyscall pops three regs off the stack before
-     * returning.
-     */
-    stack_size = (ptr_uint_t)(THREAD_STACK_SIZE - 4 * sizeof(ptr_uint_t *));
-#        endif
-#    else
-    /* Leave some space at the bottom of the stack, as the app stores the return
-     * value of the syscall in the local 'ret', which is allocated in the current
-     * frame in the stack. This is needed on AArch64 as the child thread doesn't
-     * directly go to a new routine, but returns here.
-     * Note that sp needs to be 16-byte aligned.
-     */
-    stack_size = (ptr_uint_t)THREAD_STACK_SIZE - 16 * sizeof(ptr_uint_t *);
-#    endif
-    cl_args.stack_size = stack_size;
-    int ret = syscall(SYS_clone3, &cl_args, sizeof(cl_args));
+    cl_args.stack_size = THREAD_STACK_SIZE;
+    int ret = make_clone3_syscall(&cl_args, fcn);
+    /* Child threads should already have been directed to fcn. */
+    assert(ret != 0);
     if (ret == -1) {
         perror("Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
         return -1;
-    } else if (IF_X86_ELSE(true, ret != 0)) {
+    } else {
+        assert(ret > 0);
         /* Ensure that DR restores fields in clone_args after the syscall. */
-        assert(cl_args.stack == (ptr_uint_t)my_stack && cl_args.stack_size == stack_size);
+        assert(cl_args.stack == (ptr_uint_t)my_stack &&
+               cl_args.stack_size == THREAD_STACK_SIZE);
     }
-#    ifndef X86
-    /* As mentioned above, on AArchXX the child thread returns here, instead of
-     * starting execution directly at some routine. As the return value is stored
-     * in a GPR, it still remembers where to return, even though its stack has
-     * been replaced.
-     */
-    if (ret == 0) {
-        run_with_exit();
-    }
-#    endif
     *stack = my_stack;
     return (pid_t)ret;
 }
