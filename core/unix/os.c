@@ -5005,7 +5005,7 @@ ignorable_system_call_normalized(int num)
     case SYS_cacheflush:
 #endif
 #if defined(LINUX)
-/* syscalls change procsigmask */
+/* Syscalls change procsigmask */
 #    ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
 #    endif
@@ -5348,10 +5348,10 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, reg_t sys_param0)
         return true;
 #    endif
 #    ifdef LINUX
-    /* flags in param0 */
+    /* Flags in param0 */
     if (sysnum == SYS_clone && TEST(CLONE_VM, sys_param0))
         return true;
-    /* clone_args in param0 */
+    /* Clone_args in param0 */
     if (sysnum == SYS_clone3 &&
         TEST(CLONE_VM, ((clone3_syscall_args_t *)sys_param0)->flags))
         return true;
@@ -5934,28 +5934,28 @@ handle_execve(dcontext_t *dcontext)
         /* i#909: change the target image to libdynamorio.so */
         const char *drpath = IF_X64_ELSE(x64, !x64) ? dynamorio_library_filepath
                                                     : dynamorio_alt_arch_filepath;
-        TRY_EXCEPT(
-            dcontext, /* try */
-            {
-                if (symlink_is_self_exe(argv[0])) {
-                    /* we're out of sys_param entries so we assume argv[0] == fname
-                     */
-                    dcontext->sys_param3 = (reg_t)argv;
-                    argv[0] = fname; /* XXX: handle readable but not writable! */
-                } else
-                    dcontext->sys_param3 = 0;        /* no restore in post */
-                dcontext->sys_param4 = (reg_t)fname; /* store for restore in post */
-                *sys_param_addr(dcontext, 0) = (reg_t)drpath;
-                LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
-                    (char *)sys_param(dcontext, 0));
-            },
-            /* except */
-            {
-                dcontext->sys_param3 = 0; /* no restore in post */
-                dcontext->sys_param4 = 0; /* no restore in post */
-                LOG(THREAD, LOG_SYSCALLS, 2,
-                    "argv is unreadable, expect execve to fail\n");
-            });
+        TRY_EXCEPT(dcontext, /* try */
+                   {
+                       if (symlink_is_self_exe(argv[0])) {
+                           /* we're out of sys_param entries so we assume argv[0] == fname
+                            */
+                           dcontext->sys_param3 = (reg_t)argv;
+                           argv[0] = fname; /* XXX: handle readable but not writable! */
+                       } else
+                           dcontext->sys_param3 = 0; /* no restore in post */
+                       dcontext->sys_param4 =
+                           (reg_t)fname; /* store for restore in post */
+                       *sys_param_addr(dcontext, 0) = (reg_t)drpath;
+                       LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
+                           (char *)sys_param(dcontext, 0));
+                   },
+                   /* except */
+                   {
+                       dcontext->sys_param3 = 0; /* no restore in post */
+                       dcontext->sys_param4 = 0; /* no restore in post */
+                       LOG(THREAD, LOG_SYSCALLS, 2,
+                           "argv is unreadable, expect execve to fail\n");
+                   });
     } else {
         dcontext->sys_param3 = 0; /* no restore in post */
         dcontext->sys_param4 = 0; /* no restore in post */
@@ -6609,12 +6609,11 @@ pre_system_call(dcontext_t *dcontext)
         /* not using SAFE_READ due to performance concerns (we do this for
          * every single system call on systems where we can't hook vsyscall!)
          */
-        TRY_EXCEPT(
-            dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
-            {
-                ASSERT_NOT_REACHED();
-                mc->xbp = 0;
-            });
+        TRY_EXCEPT(dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
+                   {
+                       ASSERT_NOT_REACHED();
+                       mc->xbp = 0;
+                   });
     }
 #endif
 
