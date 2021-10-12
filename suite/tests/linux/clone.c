@@ -222,9 +222,9 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 #        ifdef X64
     asm volatile("syscall\n\t"
                  "test %%rax, %%rax\n\t"
-                 "jnz label\n\t"
+                 "jnz parent\n\t"
                  "call *%%rdx\n\t"
-                 "label:\n\t"
+                 "parent:\n\t"
                  : "=a"(ret)
                  : "0"(SYS_clone3), "D"(clone_args), "S"(sizeof(struct clone_args)),
                    "d"(fcn)
@@ -233,9 +233,9 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 #        else
     asm volatile("int $0x80\n\t"
                  "test %%eax, %%eax\n\t"
-                 "jnz label\n\t"
+                 "jnz parent\n\t"
                  "call *%%edx\n\t"
-                 "label:\n\t"
+                 "parent:\n\t"
                  : "=a"(ret)
                  : "0"(SYS_clone3), "b"(clone_args), "c"(sizeof(struct clone_args)),
                    "d"(fcn)
@@ -249,10 +249,9 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
     register void *r2 __asm("x2") = fcn;
     register unsigned r8 __asm("x8") = SYS_clone3;
     asm volatile("svc #0\n\t"
-                 "cmp x0, #0\n\t"
-                 "bne label\n\t"
+                 "cbnz x0, parent\n\t"
                  "blr x2\n\t"
-                 "label:\n\t"
+                 "parent:\n\t"
                  : "+r"(r0_ret)
                  : "r"(r1), "r"(r2), "r"(r8)
                  : "memory");
