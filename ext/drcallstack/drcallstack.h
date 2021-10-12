@@ -79,9 +79,9 @@ typedef struct _drcallstack_frame_t {
     reg_t sp;
 } drcallstack_frame_t;
 
-/** Opaquce type. */
+/** Opaque type. */
 struct _drcallstack_walk_t;
-/** Opaquce type. */
+/** Opaque type. */
 typedef struct _drcallstack_walk_t drcallstack_walk_t;
 
 DR_EXPORT
@@ -109,7 +109,7 @@ drcallstack_exit(void);
 DR_EXPORT
 /**
  * Initializes a new callstack walk with the passed-in context 'mc', which
- * must have #DR_MC_CONTROL filled in.
+ * must have #DR_MC_CONTROL and #DR_MC_INTEGER filled in.
  * The 'walk' pointer should then be passed to repeated calls to
  * drcallstack_next_frame() until it returns #DRCALLSTACK_NO_MORE_FRAMES.
  * drcallstack_cleanup_walk() should then be called to free up resources.

@@ -58,11 +58,11 @@ as they are paired with corresponding calls to drcallstack_exit()).
 \section sec_drcallstack_usage Usage
 
 To produce a callstack, first a #dr_mcontext_t with the PC field and
-all general-purpose registers filled in with application values must
-be obtained.  When using a custom clean call, the PC field must be
-explicitly set by the client (typically by passing the application
-address of the next instruction to the clean call) as it is not set in
-that case by dr_get_mcontext().
+all general-purpose registers filled in with application values (i.e.,
+#DR_MC_CONTROL | #DR_MC_INTEGER) must be obtained.  When using a
+custom clean call, the PC field must be explicitly set by the client
+(typically by passing the application address of the next instruction
+to the clean call) as it is not set in that case by dr_get_mcontext().
 
 Next, call drcallstack_init_walk() to set up for a walk.  Then
 repeatedly call drcallstack_next_frame() to iterate over the frames of

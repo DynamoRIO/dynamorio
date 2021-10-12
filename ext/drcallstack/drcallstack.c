@@ -30,20 +30,13 @@
  * DAMAGE.
  */
 
-/* DynamoRIO Register Management Extension: a mediator for
- * selecting, preserving, and using registers among multiple
- * instrumentation components.
- */
-
-/* XXX i#511: currently the whole interface is tied to drmgr.
- * Should we also provide an interface that works on standalone instrlists?
- * Distinguish by name, "drregi_*" or sthg.
- */
+/* DynamoRIO Callstack Walker. */
 
 #include "dr_api.h"
 #include "drcallstack.h"
 #include "../ext_utils.h"
 #include "../../core/unix/os_public.h" /* SIGCXT_FROM_UCXT, SC_FIELD */
+#include <string.h>
 
 #define UNW_LOCAL_ONLY /* Speed up libunwind by disallowing remote. */
 #include <libunwind.h>
@@ -59,14 +52,18 @@ struct _drcallstack_walk_t {
 drcallstack_status_t
 drcallstack_init(drcallstack_options_t *ops_in)
 {
-    int count = dr_atomic_add32_return_sum(&drcallstack_init_count, 1);
-    if (count > 1)
-        return DRCALLSTACK_SUCCESS;
     /* This does nothing now.  We anticipate adding callstack storage and
      * module indexing which might need event registration in the future.
      */
     if (ops_in->struct_size != sizeof(*ops_in))
         return DRCALLSTACK_ERROR_INVALID_PARAMETER;
+    int count = dr_atomic_add32_return_sum(&drcallstack_init_count, 1);
+    if (count > 1) {
+        /* If we have failure modes in the future we may need to store the
+         * failure code and return it here on additional calls.
+         */
+        return DRCALLSTACK_SUCCESS;
+    }
     return DRCALLSTACK_SUCCESS;
 }
 
@@ -82,7 +79,7 @@ drcallstack_exit(void)
 drcallstack_status_t
 drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
 {
-    if (!TEST(DR_MC_CONTROL, mc->flags))
+    if (!TESTALL(DR_MC_CONTROL | DR_MC_INTEGER, mc->flags))
         return DRCALLSTACK_ERROR_INVALID_PARAMETER;
 
     drcallstack_walk_t *walk = dr_thread_alloc(dr_get_current_drcontext(), sizeof(*walk));
@@ -122,56 +119,12 @@ drcallstack_init_walk(dr_mcontext_t *mc, OUT drcallstack_walk_t **walk_out)
     /* unw_context_t matches at least the GPR portion of ucontext_t. */
     sigcontext_t *sc = SIGCXT_FROM_UCXT(&walk->uc);
     sc->SC_XIP = (ptr_uint_t)mc->pc;
-    sc->SC_R0 = mc->r0;
-    sc->SC_R1 = mc->r1;
-    sc->SC_R2 = mc->r2;
-    sc->SC_R3 = mc->r3;
-    sc->SC_R4 = mc->r4;
-    sc->SC_R5 = mc->r5;
-    sc->SC_R6 = mc->r6;
-    sc->SC_R7 = mc->r7;
-    sc->SC_R8 = mc->r8;
-    sc->SC_R9 = mc->r9;
-    sc->SC_R10 = mc->r10;
-    sc->SC_R11 = mc->r11;
-    sc->SC_R12 = mc->r12;
-    sc->SC_R13 = mc->r13;
-    sc->SC_R14 = mc->r14;
-    sc->SC_R15 = mc->r15;
-    sc->SC_R16 = mc->r16;
-    sc->SC_R17 = mc->r17;
-    sc->SC_R18 = mc->r18;
-    sc->SC_R19 = mc->r19;
-    sc->SC_R20 = mc->r20;
-    sc->SC_R21 = mc->r21;
-    sc->SC_R22 = mc->r22;
-    sc->SC_R23 = mc->r23;
-    sc->SC_R24 = mc->r24;
-    sc->SC_R25 = mc->r25;
-    sc->SC_R26 = mc->r26;
-    sc->SC_R27 = mc->r27;
-    sc->SC_R28 = mc->r28;
-    sc->SC_FP = mc->r29;
-    sc->SC_LR = mc->lr;
+    /* r0..r30 is in the same order with no padding. */
+    memcpy(&sc->SC_R0, &mc->r0, 31 * sizeof(sc->SC_R0));
     sc->SC_XSP = mc->xsp;
 #    elif defined(ARM)
     /* libunwind defines its own struct of 16 regs. */
-    walk->uc.regs[0] = mc->r0;
-    walk->uc.regs[1] = mc->r1;
-    walk->uc.regs[2] = mc->r2;
-    walk->uc.regs[3] = mc->r3;
-    walk->uc.regs[4] = mc->r4;
-    walk->uc.regs[5] = mc->r5;
-    walk->uc.regs[6] = mc->r6;
-    walk->uc.regs[7] = mc->r7;
-    walk->uc.regs[8] = mc->r8;
-    walk->uc.regs[9] = mc->r9;
-    walk->uc.regs[10] = mc->r10;
-    walk->uc.regs[11] = mc->r11;
-    walk->uc.regs[12] = mc->r12;
-    walk->uc.regs[13] = mc->r13;
-    walk->uc.regs[14] = mc->r14;
-    walk->uc.regs[15] = mc->r15; /* The pc. */
+    memcpy(&walk->uc.regs[0], &mc->r0, 16 * sizeof(walk->uc.regs[0]));
 #    else
     return DRCALLSTACK_ERROR_FEATURE_NOT_AVAILABLE;
 #    endif
@@ -207,12 +160,20 @@ drcallstack_next_frame(drcallstack_walk_t *walk, OUT drcallstack_frame_t *frame)
     if (res == 0)
         return DRCALLSTACK_NO_MORE_FRAMES;
     if (res < 0) {
-        /* We could expose different error codes if we find a use case. */
+        /* XXX: We could expose different error codes, or at least provide an
+         * optional way to print this diagnostic: a verbose flag set via env
+         * var?
+         */
 #ifdef VERBOSE
         dr_fprintf(STDERR, "libunwind raw error %d\n", res);
 #endif
         return DRCALLSTACK_ERROR;
     }
+    /* Today we only supply two values.  We would prefer a faster unwind, but
+     * currently libunwind is supporting all GPR's, so we could provide more:
+     * but it seems better to keep our options open to drop that in the future
+     * to reduce overhead if possible.
+     */
     if (unw_get_reg(&walk->cursor, UNW_REG_IP, (ptr_uint_t *)&frame->pc) != 0 ||
         unw_get_reg(&walk->cursor, UNW_REG_SP, &frame->sp) != 0)
         return DRCALLSTACK_ERROR;

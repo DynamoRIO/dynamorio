@@ -573,7 +573,7 @@ privload_process_imports(privmod_t *mod)
                      * work if thread-related routines are called.
                      */
                     SYSLOG_INTERNAL_WARNING(
-                        "private libpthread.so loaded but not fully supported");
+                        "private libpthread.so loaded but not fully supported (i#956)");
                 }
                 /* i#852: identify all libs that import from DR as client libs.
                  * XXX: this code seems stale as libdynamorio.so is already loaded
