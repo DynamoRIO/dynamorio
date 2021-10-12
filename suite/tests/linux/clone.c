@@ -233,7 +233,7 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  : "memory");
 #    endif
     return ret;
-#elif defined(AARCHXX)
+#elif defined(AARCH64)
     register int r0_ret asm("x0");
     register struct clone_args *r0 __asm("x0") = clone_args;
     register int r1 __asm("x1") = sizeof(struct clone_args);
@@ -249,8 +249,6 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  : "memory");
     int ret_val = r0_ret;
     return ret_val;
-#else
-#    error "Unsupported architecture"
 #endif
 }
 

@@ -718,7 +718,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #endif
             record->app_thread_xsp = *app_thread_xsp;
             record->clone_flags = dcontext->sys_param0;
-            record->app_clone_args = NULL;
+            IF_LINUX(record->app_clone_args = NULL);
 #ifdef LINUX
         }
 #endif
