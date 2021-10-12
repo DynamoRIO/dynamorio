@@ -167,6 +167,10 @@ extern uint android_tls_base_offs;
 #    define USR_TLS_COPROC_15 15
 #endif
 
+#ifdef LINUX
+#    include "include/clone3.h"
+#endif
+
 void *
 d_r_get_tls(ushort tls_offs);
 void
@@ -457,6 +461,10 @@ void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp, app_pc thread_func,
                     void *func_arg);
+#elif defined(LINUX)
+create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,
+                    clone3_syscall_args_t *dr_clone_args,
+                    clone3_syscall_args_t *app_clone_args);
 #else
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp);
 #endif
