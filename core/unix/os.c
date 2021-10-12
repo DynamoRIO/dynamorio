@@ -8898,9 +8898,9 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
-#ifdef SYS_openat2
+#    ifdef SYS_openat2
     case SYS_openat2:
-#endif
+#    endif
     case SYS_openat:
         if (dcontext->sys_param0 != 0) {
             heap_free(dcontext, (void *)dcontext->sys_param0,
