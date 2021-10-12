@@ -206,6 +206,14 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
 }
 
 #ifdef SYS_clone3
+/* glibc does not provide a wrapper for clone3 yet. This makes it difficult
+ * to create new threads in C code using syscall(), as we have to deal with
+ * complexities associated with the child thread having a fresh stack
+ * without any return addresses or space for local variables. So, we
+ * create our own wrapper for clone3.
+ * Currently, this supports a fcn that does not return and calls exit() on
+ * its own.
+ */
 int
 make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 {

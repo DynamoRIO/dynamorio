@@ -5348,8 +5348,10 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, reg_t sys_param0)
         return true;
 #    endif
 #    ifdef LINUX
+    /* flags in param0 */
     if (sysnum == SYS_clone && TEST(CLONE_VM, sys_param0))
         return true;
+    /* clone_args in param0 */
     if (sysnum == SYS_clone3 &&
         TEST(CLONE_VM, ((clone3_syscall_args_t *)sys_param0)->flags))
         return true;
@@ -5362,7 +5364,6 @@ bool
 is_thread_create_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    ASSERT(SYSCALL_PARAM_CLONE3_CLONE_ARGS == 0);
     return is_thread_create_syscall_helper(MCXT_SYSNUM_REG(mc), sys_param(dcontext, 0));
 }
 
@@ -5933,28 +5934,28 @@ handle_execve(dcontext_t *dcontext)
         /* i#909: change the target image to libdynamorio.so */
         const char *drpath = IF_X64_ELSE(x64, !x64) ? dynamorio_library_filepath
                                                     : dynamorio_alt_arch_filepath;
-        TRY_EXCEPT(dcontext, /* try */
-                   {
-                       if (symlink_is_self_exe(argv[0])) {
-                           /* we're out of sys_param entries so we assume argv[0] == fname
-                            */
-                           dcontext->sys_param3 = (reg_t)argv;
-                           argv[0] = fname; /* XXX: handle readable but not writable! */
-                       } else
-                           dcontext->sys_param3 = 0; /* no restore in post */
-                       dcontext->sys_param4 =
-                           (reg_t)fname; /* store for restore in post */
-                       *sys_param_addr(dcontext, 0) = (reg_t)drpath;
-                       LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
-                           (char *)sys_param(dcontext, 0));
-                   },
-                   /* except */
-                   {
-                       dcontext->sys_param3 = 0; /* no restore in post */
-                       dcontext->sys_param4 = 0; /* no restore in post */
-                       LOG(THREAD, LOG_SYSCALLS, 2,
-                           "argv is unreadable, expect execve to fail\n");
-                   });
+        TRY_EXCEPT(
+            dcontext, /* try */
+            {
+                if (symlink_is_self_exe(argv[0])) {
+                    /* we're out of sys_param entries so we assume argv[0] == fname
+                     */
+                    dcontext->sys_param3 = (reg_t)argv;
+                    argv[0] = fname; /* XXX: handle readable but not writable! */
+                } else
+                    dcontext->sys_param3 = 0;        /* no restore in post */
+                dcontext->sys_param4 = (reg_t)fname; /* store for restore in post */
+                *sys_param_addr(dcontext, 0) = (reg_t)drpath;
+                LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
+                    (char *)sys_param(dcontext, 0));
+            },
+            /* except */
+            {
+                dcontext->sys_param3 = 0; /* no restore in post */
+                dcontext->sys_param4 = 0; /* no restore in post */
+                LOG(THREAD, LOG_SYSCALLS, 2,
+                    "argv is unreadable, expect execve to fail\n");
+            });
     } else {
         dcontext->sys_param3 = 0; /* no restore in post */
         dcontext->sys_param4 = 0; /* no restore in post */
@@ -6608,11 +6609,12 @@ pre_system_call(dcontext_t *dcontext)
         /* not using SAFE_READ due to performance concerns (we do this for
          * every single system call on systems where we can't hook vsyscall!)
          */
-        TRY_EXCEPT(dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
-                   {
-                       ASSERT_NOT_REACHED();
-                       mc->xbp = 0;
-                   });
+        TRY_EXCEPT(
+            dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
+            {
+                ASSERT_NOT_REACHED();
+                mc->xbp = 0;
+            });
     }
 #endif
 
@@ -6925,9 +6927,10 @@ pre_system_call(dcontext_t *dcontext)
             clone3_syscall_args_t *cl_args = (clone3_syscall_args_t *)sys_param(
                 dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
             flags = cl_args->flags;
-            /* Save for post_system_call.
-             * We only need the flags, but we cannot save just that. This is
-             * because clone3 flags are 64-bit, even in 32-bit environment.
+            /* Save for post_system_call. As clone3 flags are 64-bit, even in 32-bit
+             * environment, we cannot save just the flags here. We also need to save
+             * the pointer to the app's clone_args so that we can restore it
+             * post-syscall.
              */
             dcontext->sys_param0 = (reg_t)cl_args;
             LOG(THREAD, LOG_SYSCALLS, 2,
@@ -6942,9 +6945,10 @@ pre_system_call(dcontext_t *dcontext)
              * Unlike clone3, here the flags are 32-bit, so truncation is okay.
              */
             dcontext->sys_param0 = (reg_t)flags;
-            LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = " PFX "\n", flags);
             LOG(THREAD, LOG_SYSCALLS, 2,
-                "clone args: " PFX ", " PFX ", " PFX ", " PFX ", " PFX "\n",
+                "sycall: clone with args: flags = " PFX ", stack = " PFX
+                ", tid_field_parent = " PFX ", tid_field_child = " PFX
+                ", thread_ptr = " PFX "\n",
                 sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
                 sys_param(dcontext, 3), sys_param(dcontext, 4));
         }
@@ -6972,17 +6976,19 @@ pre_system_call(dcontext_t *dcontext)
                 /* create_clone_record modifies some fields in clone_args for the
                  * clone3 syscall. Instead of reusing the app's copy of
                  * clone_args and modifying it, we choose to create our own copy.
-                 * This obviates the need to restore the modified fields in the
-                 * app's copy of clone_args after the syscall, which can be racy
-                 * under CLONE_VM as the parent and/or child threads may need to
-                 * access/modify it. By creating a copy instead, both parent and
-                 * child threads only need to restore their own
-                 * SYSCALL_PARAM_CLONE3_CLONE_ARGS reg to the pointer to the
-                 * app's clone_args. It is saved in the clone record for
-                 * the child thread, and in sys_param0 for the parent thread. The
-                 * DR copy of clone_args is freed by the parent thread in the
-                 * post-syscall handling of clone3; as it is used only by the
-                 * parent thread, there is no use-after-free danger here.
+                 * Under CLONE_VM, the parent and child threads have a pointer to
+                 * the same app clone_args. By using our own copy of clone_args
+                 * for the syscall, we obviate the need to restore the modified
+                 * fields in the app's copy after the syscall in either the parent
+                 * or the child thread, which can be racy under CLONE_VM as the
+                 * parent and/or child threads may need to access/modify it. By
+                 * creating a copy instead, both parent and child threads only
+                 * need to restore their own SYSCALL_PARAM_CLONE3_CLONE_ARGS reg
+                 * to the pointer to the app's clone_args. It is saved in the
+                 * clone record for the child thread, and in sys_param0 for the
+                 * parent thread. The DR copy of clone_args is freed by the parent
+                 * thread in the post-syscall handling of clone3; as it is used
+                 * only by the parent thread, there is no use-after-free danger here.
                  */
                 clone3_syscall_args_t *dr_clone_args = HEAP_TYPE_ALLOC(
                     dcontext, clone3_syscall_args_t, ACCT_OTHER, PROTECTED);
@@ -6993,6 +6999,7 @@ pre_system_call(dcontext_t *dcontext)
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
                     (reg_t)dr_clone_args;
                 dcontext->sys_param1 = (reg_t)dr_clone_args;
+                /* The pointer to the app's clone_args was saved in sys_param0 above. */
                 create_clone_record(dcontext, NULL, dr_clone_args, app_clone_args);
             } else {
                 create_clone_record(dcontext,
@@ -8596,7 +8603,8 @@ post_system_call(dcontext_t *dcontext)
             /* Free DR's copy of clone_args and restore the pointer to the
              * app's copy in the SYSCALL_PARAM_CLONE3_CLONE_ARGS reg.
              * sys_param1 contains the pointer to DR's clone_args, and
-             * sys_param0 contains the app's original clone_args.
+             * sys_param0 contains the pointer to the app's original
+             * clone_args.
              */
 #    ifdef X86
             ASSERT(sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) ==
