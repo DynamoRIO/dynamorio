@@ -7775,7 +7775,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    endif
 #endif
-#ifdef SYS_openat2:
+#ifdef SYS_openat2
     case SYS_openat2:
 #endif
     case SYS_openat: {
@@ -7803,7 +7803,6 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
-
 #ifdef LINUX
     case SYS_rseq:
         LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2, "syscall: rseq " PFX " %d %d %d\n",
