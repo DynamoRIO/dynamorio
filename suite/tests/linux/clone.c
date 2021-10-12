@@ -243,19 +243,23 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 #        endif
     return ret;
 #    elif defined(AARCH64)
-    register int r0_ret asm("x0");
-    register struct clone_args *r0 __asm("x0") = clone_args;
-    register int r1 __asm("x1") = sizeof(struct clone_args);
-    register void *r2 __asm("x2") = fcn;
-    register unsigned r8 __asm("x8") = SYS_clone3;
+    register int x0_ret __asm("x0");
+    register struct clone_args *x0 __asm("x0") = clone_args;
+    register int x1 __asm("x1") = sizeof(struct clone_args);
+    register void *x2 __asm("x2") = fcn;
+    register unsigned x8 __asm("x8") = SYS_clone3;
+    /* Do not add code between above declarations and their use below.
+     * This is to ensure that those registers continue to have the
+     * same data.
+     */
     asm volatile("svc #0\n\t"
                  "cbnz x0, parent\n\t"
                  "blr x2\n\t"
                  "parent:\n\t"
-                 : "+r"(r0_ret)
-                 : "r"(r1), "r"(r2), "r"(r8)
+                 : "+r"(x0_ret)
+                 : "r"(x1), "r"(x2), "r"(x8)
                  : "memory");
-    int ret_val = r0_ret;
+    int ret_val = x0_ret;
     return ret_val;
 #    elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
