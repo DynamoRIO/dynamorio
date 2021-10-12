@@ -209,9 +209,9 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
 int
 make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 {
-#ifdef X86
+#    ifdef X86
     int ret;
-#    ifdef X64
+#        ifdef X64
     asm volatile("syscall\n\t"
                  "test %%rax, %%rax\n\t"
                  "jnz label\n\t"
@@ -222,7 +222,7 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                    "d"(fcn)
                  /* syscall clobbers rcx and r11 */
                  : "rcx", "r11", "memory");
-#    else
+#        else
     asm volatile("int $0x80\n\t"
                  "test %%eax, %%eax\n\t"
                  "jnz label\n\t"
@@ -232,9 +232,9 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  : "0"(SYS_clone3), "b"(clone_args), "c"(sizeof(struct clone_args)),
                    "d"(fcn)
                  : "memory");
-#    endif
+#        endif
     return ret;
-#elif defined(AARCH64)
+#    elif defined(AARCH64)
     register int r0_ret asm("x0");
     register struct clone_args *r0 __asm("x0") = clone_args;
     register int r1 __asm("x1") = sizeof(struct clone_args);
@@ -250,7 +250,7 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  : "memory");
     int ret_val = r0_ret;
     return ret_val;
-#endif
+#    endif
 }
 
 static pid_t
