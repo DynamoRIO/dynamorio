@@ -6933,9 +6933,10 @@ pre_system_call(dcontext_t *dcontext)
              */
             dcontext->sys_param0 = (reg_t)cl_args;
             LOG(THREAD, LOG_SYSCALLS, 2,
-                "syscall: clone3 with args: flags = %" HEX64_FORMAT_STRING
-                ", exit_signal = %" HEX64_FORMAT_STRING ", stack = %" HEX64_FORMAT_STRING
-                ", stack_size = %" HEX64_FORMAT_STRING "\n",
+                "syscall: clone3 with args: flags = 0x" HEX64_FORMAT_STRING
+                ", exit_signal = 0x" HEX64_FORMAT_STRING
+                ", stack = 0x" HEX64_FORMAT_STRING ", stack_size = 0x" HEX64_FORMAT_STRING
+                "\n",
                 cl_args->flags, cl_args->exit_signal, cl_args->stack,
                 cl_args->stack_size);
         } else {
@@ -6945,7 +6946,7 @@ pre_system_call(dcontext_t *dcontext)
              */
             dcontext->sys_param0 = (reg_t)flags;
             LOG(THREAD, LOG_SYSCALLS, 2,
-                "sycall: clone with args: flags = " PFX ", stack = " PFX
+                "syscall: clone with args: flags = " PFX ", stack = " PFX
                 ", tid_field_parent = " PFX ", tid_field_child = " PFX
                 ", thread_ptr = " PFX "\n",
                 sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
