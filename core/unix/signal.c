@@ -764,9 +764,8 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         dr_clone_args->stack = (ptr_uint_t)(dstack - DYNAMORIO_STACK_SIZE);
         dr_clone_args->stack_size =
             (uint64)ALIGN_BACKWARD(record, XSTATE_ALIGNMENT) - dr_clone_args->stack;
-    } else
+    } else {
 #endif
-    {
         if (IF_MACOS_ELSE(app_thread_xsp != NULL, true)) {
             /* Set the thread stack to point to the dstack, below the clone record.
              * Note: it's glibc who sets up the arg to the thread start function;
@@ -779,7 +778,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
             ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
             *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
         }
+#ifdef LINUX
     }
+#endif
     return (void *)record;
 }
 
