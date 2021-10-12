@@ -6933,9 +6933,9 @@ pre_system_call(dcontext_t *dcontext)
              */
             dcontext->sys_param0 = (reg_t)cl_args;
             LOG(THREAD, LOG_SYSCALLS, 2,
-                "syscall: clone3 with args: flags = %" UINT64_FORMAT_CODE
-                ", exit_signal = %" UINT64_FORMAT_CODE ", stack = %" UINT64_FORMAT_CODE
-                ", stack_size = " UINT64_FORMAT_CODE "\n",
+                "syscall: clone3 with args: flags = %" HEX64_FORMAT_STRING
+                ", exit_signal = %" HEX64_FORMAT_STRING ", stack = %" HEX64_FORMAT_STRING
+                ", stack_size = %" HEX64_FORMAT_STRING "\n",
                 cl_args->flags, cl_args->exit_signal, cl_args->stack,
                 cl_args->stack_size);
         } else {
