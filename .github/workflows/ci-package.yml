@@ -70,9 +70,12 @@ jobs:
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
     # Install multilib for non-cross-compiling Linux build:
+    # GA CI uses packages.microsoft.com which is missing i386 packages, so
+    # we point at us.archive-ubuntu.com for libunwind-dev:i386.
     - name: Create Build Environment
       run: |
         sudo apt update
+        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           g++-multilib libunwind-dev libunwind-dev:i386
 
