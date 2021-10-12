@@ -205,6 +205,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
     return newpid;
 }
 
+#ifdef SYS_clone3
 int
 make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 {
@@ -252,7 +253,6 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 #endif
 }
 
-#ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
 {
