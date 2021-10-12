@@ -7002,6 +7002,12 @@ pre_system_call(dcontext_t *dcontext)
                 /* The pointer to the app's clone_args was saved in sys_param0 above. */
                 create_clone_record(dcontext, NULL, dr_clone_args, app_clone_args);
             } else {
+                /* We replace the app-provided stack pointer with our own stack
+                 * pointer in create_clone_record. Save the original pointer so
+                 * that we can restore it post-syscall in the parent. The same is
+                 * restored in the child in restore_clone_param_from_clone_record.
+                 */
+                dcontext->sys_param1 = sys_param(dcontext, SYSCALL_PARAM_CLONE_STACK);
                 create_clone_record(dcontext,
                                     sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK),
                                     NULL, NULL);
@@ -8619,6 +8625,8 @@ post_system_call(dcontext_t *dcontext)
 #    endif
             HEAP_TYPE_FREE(dcontext, dcontext->sys_param1, clone3_syscall_args_t,
                            ACCT_OTHER, PROTECTED);
+        } else if (sysnum == SYS_clone) {
+            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK, dcontext->sys_param1);
         }
         break;
     }
