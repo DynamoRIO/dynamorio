@@ -72,7 +72,7 @@ jobs:
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
           g++-aarch64-linux-gnu qemu-user qemu-user-binfmt
-        sudo add-apt-repository 'deb [arch=amd64] http://ports.ubuntu.com/ubuntu-ports focal main'
+        sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
         apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64
         mkdir extract
         for i in *.deb; do dpkg-deb -x $i extract; done
@@ -140,7 +140,7 @@ jobs:
         mkdir extract
         for i in *.deb; do dpkg-deb -x $i extract; done
         for i in include lib; do sudo rsync -av extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
-        sudo rsync -av extract/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
+        sudo rsync -av extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Run Suite
       working-directory: ${{ github.workspace }}

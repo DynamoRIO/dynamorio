@@ -84,7 +84,7 @@ jobs:
         sudo apt update
         sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          g++-multilib libunwind-dev libunwind-dev:i386
+          g++-multilib libunwind-dev libunwind8:i386 liblzma-dev:i386 libunwind-dev:i386
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake
