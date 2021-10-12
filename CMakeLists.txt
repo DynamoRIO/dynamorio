@@ -1649,9 +1649,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
 )
 # we need to strip out the #include of configure.h
-DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
-  string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
-  file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
+DR_install(FILES ${BUILD_CMAKE}/cpp2asm_defines.h DESTINATION ${INSTALL_CMAKE})
 
 # export docs support, with consistent names
 DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_rundoxygen.cmake
@@ -1663,15 +1661,17 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_doxyutils.cmake
 
 ###########################################################################
 
+# clear tools file to avoid duplicates on re-configure
+if (X64)
+  set(TOOLS_LISTNAME "list64")
+else ()
+  set(TOOLS_LISTNAME "list32")
+endif ()
+file(WRITE ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "")
+DR_install(FILES ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} DESTINATION tools)
+
 function (register_tool_file name)
-  if (X64)
-    set(listname "list64")
-  else ()
-    set(listname "list32")
-  endif ()
-  if (NOT DEBUG) # avoid duplicates for release + debug
-    DR_install(CODE "file(APPEND \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"${name}\\n\"\n)")
-  endif ()
+  file(APPEND ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "${name}\n")
 endfunction ()
 
 # Used by docs, samples, and tests, so here instead of in core/CMakeLists.txt.
@@ -1855,26 +1855,15 @@ if (BUILD_TOOLS OR WIN32)
     )
 endif (BUILD_TOOLS OR WIN32)
 
-if (DO_DR_INSTALL AND BUILD_DOCS)
-  # cannot use DR_install because it breaks at ;
-  install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/docs/DynamoRIO.html\" \"<html>\n<head>\n<meta http-equiv=\\\"refresh\\\" content=\\\"0; URL=./html/index.html\\\">\n</head><body></body>\")")
-endif (DO_DR_INSTALL AND BUILD_DOCS)
+if (BUILD_DOCS)
+  file(WRITE ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html "<html>\n<head>\n<meta http-equiv=\"refresh\" content=\"0; URL=./html/index.html\">\n</head><body></body>")
+  DR_install(FILES ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html DESTINATION docs)
+endif (BUILD_DOCS)
 
 # create empty logs dir for release package
-# be sure to escape ",$ since evaluated at install time not configure time
-# with DR_install macro we need double-escape for $
-DR_install(CODE "file(MAKE_DIRECTORY \"\\\${CMAKE_INSTALL_PREFIX}/logs\")")
 # CPack seems to ignore empty dirs so add a README file
-DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
-
-# i#1509: generate a list of tools for drrun usage messages.
-# This is fragile: we rely on package.cmake building release first, so we
-# can clear out the list file, and then append to it in debug builds.
-# A solution that searches at install time also has problems (with ordering
-# of subdirs).  Long-term we should add a dir iterator to drrun.
-if (NOT_DEBUG)
-  DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"\")")
-endif ()
+file(WRITE ${PROJECT_BINARY_DIR}/logs/README "Empty dir for debug-build log files.\n")
+DR_install(FILES ${PROJECT_BINARY_DIR}/logs/README DESTINATION logs)
 
 ###########################################################################
 
