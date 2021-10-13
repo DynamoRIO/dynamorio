@@ -566,6 +566,15 @@ privload_process_imports(privmod_t *mod)
                     privload_locate_and_load(name, mod, false /*client dir=>true*/);
                 if (impmod == NULL)
                     return false;
+                if (strstr(name, "libpthread") == name) {
+                    /* i#956: A private libpthread is not fully supported, but many
+                     * libraries import some utilities from it and do not use
+                     * threading.  We load it and just do not guarantee things will
+                     * work if thread-related routines are called.
+                     */
+                    SYSLOG_INTERNAL_WARNING(
+                        "private libpthread.so loaded but not fully supported (i#956)");
+                }
                 /* i#852: identify all libs that import from DR as client libs.
                  * XXX: this code seems stale as libdynamorio.so is already loaded
                  * (xref #3850).
@@ -1219,6 +1228,13 @@ privload_create_os_privmod_data(privmod_t *privmod, bool dyn_reloc)
                                 dyn_reloc, &opd->os_data.base_address, NULL,
                                 &opd->max_end, &opd->soname, &opd->os_data);
     module_get_os_privmod_data(privmod->base, privmod->size, false /*!relocated*/, opd);
+    /* We want libunwind to walk app libraries.
+     * XXX: Is there a cleaner way to do this for some libraries but not others?
+     */
+    if (strstr(privmod->name, "libunwind") == privmod->name) {
+        LOG(GLOBAL, LOG_LOADER, 2, "Using app imports for %s\n", privmod->name);
+        opd->use_app_imports = true;
+    }
 }
 
 static void
@@ -1262,6 +1278,9 @@ privload_fill_os_module_info(app_pc base, OUT app_pc *out_base /* relative pc */
  * Function Redirection
  */
 
+static void *
+redirect_dlsym(void *handle, const char *symbol);
+
 #if defined(LINUX) && !defined(ANDROID)
 /* These are not yet supported by Android's Bionic */
 void *
@@ -1290,7 +1309,7 @@ redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info, size_t size,
         if (mod->base == get_dynamorio_dll_start())
             continue;
         info.dlpi_addr = opd->load_delta;
-        info.dlpi_name = mod->name;
+        info.dlpi_name = mod->path;
         info.dlpi_phdr = (ELF_PROGRAM_HEADER_TYPE *)(mod->base + elf_hdr->e_phoff);
         info.dlpi_phnum = elf_hdr->e_phnum;
         res = callback(&info, sizeof(info), data);
@@ -1298,6 +1317,47 @@ redirect_dl_iterate_phdr(int (*callback)(struct dl_phdr_info *info, size_t size,
             break;
     }
     release_recursive_lock(&privload_lock);
+    return res;
+}
+
+/* For some cases we want the client library to walk the app libs: e.g., for
+ * callstack walking (i#2414).
+ */
+static int
+redirect_dl_iterate_phdr_app(int (*callback)(struct dl_phdr_info *info, size_t size,
+                                             void *data),
+                             void *data)
+{
+    int res = 0;
+    struct dl_phdr_info info;
+    module_iterator_t *iter = module_iterator_start();
+    while (module_iterator_hasnext(iter)) {
+        module_area_t *area = module_iterator_next(iter);
+        ASSERT(area != NULL);
+        ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *)area->start;
+        /* We do want to include externally loaded (if any) and clients as
+         * clients can contain C++ exception code, which will call here.
+         */
+        if (area->start == get_dynamorio_dll_start())
+            continue;
+        app_pc preferred_base =
+            IF_WINDOWS_ELSE(area->os_data.preferred_base, area->os_data.base_address);
+        info.dlpi_addr = area->start - preferred_base;
+        info.dlpi_name = area->full_path;
+        info.dlpi_phdr = (ELF_PROGRAM_HEADER_TYPE *)(area->start + elf_hdr->e_phoff);
+        info.dlpi_phnum = elf_hdr->e_phnum;
+        /* XXX: Fill in new fields dlpi_{adds,subs,tls_modid,tls_data}.
+         * For now we set the size to exclude them.
+         */
+        size_t size = offsetof(struct dl_phdr_info, dlpi_phnum) + sizeof(info.dlpi_phnum);
+        res = callback(&info, size, data);
+        if (res != 0)
+            break;
+    }
+    module_iterator_stop(iter);
+    // XXX: Pass the private ones too for callstacks or other purposes?  Sometimes
+    // private code is used to replace app code, though we do already have the client
+    // lib itself on the app list.
     return res;
 }
 
@@ -1358,6 +1418,7 @@ redirect___gnu_Unwind_Find_exidx(void *pc, int *count)
 typedef struct _redirect_import_t {
     const char *name;
     app_pc func;
+    app_pc app_func; /* Used only for dl_iterate_phdr over app libs, so far. */
 } redirect_import_t;
 
 static const redirect_import_t redirect_imports[] = {
@@ -1379,12 +1440,14 @@ static const redirect_import_t redirect_imports[] = {
 #endif
 #ifdef LINUX
     /* i#1717: C++ exceptions call this */
-    { "dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr },
+    { "dl_iterate_phdr", (app_pc)redirect_dl_iterate_phdr,
+      (app_pc)redirect_dl_iterate_phdr_app },
 #    if defined(ARM) && !defined(ANDROID)
     /* i#1717: C++ exceptions call this on ARM Linux */
     { "__gnu_Unwind_Find_exidx", (app_pc)redirect___gnu_Unwind_Find_exidx },
 #    endif
 #endif
+    { "dlsym", (app_pc)redirect_dlsym },
     /* We need these for clients that don't use libc (i#1747) */
     { "strlen", (app_pc)strlen },
     { "wcslen", (app_pc)wcslen },
@@ -1421,7 +1484,7 @@ static const redirect_import_t redirect_debug_imports[] = {
 #endif
 
 bool
-privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
+privload_redirect_sym(os_privmod_data_t *opd, ptr_uint_t *r_addr, const char *name)
 {
     int i;
     /* iterate over all symbols and redirect syms when necessary, e.g. malloc */
@@ -1431,19 +1494,32 @@ privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
             if (strcmp(redirect_debug_imports[i].name, name) == 0) {
                 *r_addr = (ptr_uint_t)redirect_debug_imports[i].func;
                 return true;
-                ;
             }
         }
     }
 #endif
     for (i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
         if (strcmp(redirect_imports[i].name, name) == 0) {
-            *r_addr = (ptr_uint_t)redirect_imports[i].func;
+            if (opd->use_app_imports && redirect_imports[i].app_func != NULL)
+                *r_addr = (ptr_uint_t)redirect_imports[i].app_func;
+            else
+                *r_addr = (ptr_uint_t)redirect_imports[i].func;
             return true;
-            ;
         }
     }
     return false;
+}
+
+static void *
+redirect_dlsym(void *handle, const char *symbol)
+{
+    for (int i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
+        if (strcmp(redirect_imports[i].name, symbol) == 0)
+            return redirect_imports[i].func;
+    }
+    /* TODO: Look in other libs via module_lookup_symbol() from module_elf.c. */
+    SYSLOG_INTERNAL_WARNING("dlsym(%s) called by private lib; returning NULL", symbol);
+    return NULL;
 }
 
 /***************************************************************************
