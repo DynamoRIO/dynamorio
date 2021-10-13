@@ -126,8 +126,7 @@ if (LINUX) # TODO i#2414: Port to Windows, Mac, and Android.
   else ()
     # Require libunwind.h for automated testing.
     # The TEST_SUITE var is set for packages too, to ensure we publish drcallstack.
-    # Unfortunately there's no simple way to install for aarchxx cross-compiles.
-    if (TEST_SUITE AND NOT CMAKE_CROSSCOMPILING AND NOT DR_HOST_NOT_TARGET)
+    if (TEST_SUITE)
       message(FATAL_ERROR "libunwind-dev is required to build drcallstack")
     else ()
       message(STATUS "libunwind-dev package not installed: not building drcallstack")
