@@ -480,6 +480,7 @@ DR_EXPORT
  * Returns the machine context of the wrapped function represented by
  * \p wrapcxt corresponding to the application state at the time
  * of the pre-function or post-function wrap callback.
+ * The pc field is set appropriately.
  * In order for any changes to the returned context to take
  * effect, drwrap_set_mcontext() must be called.
  *

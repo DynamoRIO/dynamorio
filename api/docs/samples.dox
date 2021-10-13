@@ -57,6 +57,8 @@ for reporting the dynamic execution count of all basic blocks.
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/bbsize.c">bbsize.c</a>
 collects statistics on the sizes of all basic blocks in the target application.
 
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/callstack.c">callstack.c</a> walks the application callstack at a given function entry point.
+
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/cbr.c">cbr.c</a> collects conditional branch
 execution information and shows how to dynamically
 update or replace instrumented code after it executes.
