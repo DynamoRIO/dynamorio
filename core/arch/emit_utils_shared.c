@@ -1059,16 +1059,7 @@ encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, instrlist_t *i
             instr_encode_to_copy(dcontext, inst, vmcode_get_writable_addr(pc), pc);
         byte *nxt_pc = vmcode_get_executable_addr(nxt_writable_pc);
         ASSERT(nxt_pc != NULL);
-#ifdef AARCH64
-        /* Unlike X86 and ARM/AArch32 which use 1 instruction for an indirect jump,
-         * AArch64 requires 2 instructions: LDR+BR, see INSTR_CREATE_ldr()
-         * followed by XINST_CREATE_jump_reg() calls in
-         * emit_special_ibl_xfer().
-         */
-        len = (int)(nxt_pc - pc) + AARCH64_INSTR_SIZE;
-#else
         len = (int)(nxt_pc - pc);
-#endif
         pc = nxt_pc;
 
         if (cur < patch->num_relocations && inst == patch->entry[cur].where.instr) {
@@ -5629,6 +5620,12 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     }
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_linked_tgt)));
 #elif defined(AARCH64)
+    /* Unlike X86 and ARM/AArch32 which use 1 instruction for an indirect jump,
+     * AArch64 requires 2 instructions: LDR+BR. This requires adjusting
+     * special_ibl_unlink_offs to point to the LDR when relinking by
+     * relink_special_ibl_xfer(). See adjustment below, after
+     * encode_with_patch_list().
+     */
     APP(&ilist,
         INSTR_CREATE_ldr(
             dcontext, opnd_create_reg(SCRATCH_REG1),
@@ -5648,6 +5645,9 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
 
     /* now encode the instructions */
     pc += encode_with_patch_list(dcontext, &patch, &ilist, pc);
+#if defined(AARCH64)
+    code->special_ibl_unlink_offs[index] -= AARCH64_INSTR_SIZE;
+#endif
     ASSERT(pc != NULL);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
