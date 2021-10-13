@@ -103,6 +103,10 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
         print_qualified_function_name(frame.pc);
         ++count;
     } while (res == DRCALLSTACK_SUCCESS);
+    // The return value DRCALLSTACK_NO_MORE_FRAMES indicates a complete callstack.
+    // Anything else indicates some kind of unwind info error.
+    // If this code were used inside a larger tool it would be up to that tool
+    // whether to record or act on the callstack quality.
     res = drcallstack_cleanup_walk(walk);
     DR_ASSERT(res == DRCALLSTACK_SUCCESS);
 }
