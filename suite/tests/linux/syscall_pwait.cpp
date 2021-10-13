@@ -55,7 +55,7 @@
 #include "condvar.h"
 
 typedef struct {
-    sigset_t *sigmask;
+    const sigset_t *sigmask;
     size_t sizemask;
 } data_t;
 
