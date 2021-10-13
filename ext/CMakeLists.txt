@@ -126,7 +126,8 @@ if (LINUX) # TODO i#2414: Port to Windows, Mac, and Android.
   else ()
     # Require libunwind.h for automated testing.
     # The TEST_SUITE var is set for packages too, to ensure we publish drcallstack.
-    if (TEST_SUITE)
+    # We do not install for Android nor a64-on-x86 in the suite.
+    if (TEST_SUITE AND NOT ANDROID AND NOT DR_HOST_NOT_TARGET)
       message(FATAL_ERROR "libunwind-dev is required to build drcallstack")
     else ()
       message(STATUS "libunwind-dev package not installed: not building drcallstack")
