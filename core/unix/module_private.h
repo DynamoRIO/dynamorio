@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -88,6 +88,8 @@ struct _os_privmod_data_t {
     uint tls_image_size; /* tls variables size in the file */
     uint tls_first_byte; /* aligned addr of the first tls variable */
     app_pc tls_image;    /* tls block address in memory */
+    /* This is used to get libunwind walking app libraries. */
+    bool use_app_imports;
 };
 
 #ifdef MACOS
@@ -122,7 +124,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data, ptr_int_t delta,
                               const char *name, bool *is_indirect_code OUT);
 
 bool
-privload_redirect_sym(ptr_uint_t *r_addr, const char *name);
+privload_redirect_sym(os_privmod_data_t *opd, ptr_uint_t *r_addr, const char *name);
 
 #ifdef LINUX
 void

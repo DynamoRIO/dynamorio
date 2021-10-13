@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2016 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -120,6 +120,20 @@ add_subdirectory(drutil)
 add_subdirectory(droption)
 add_subdirectory(drcovlib)
 add_subdirectory(drstatecmp)
+if (LINUX) # TODO i#2414: Port to Windows, Mac, and Android.
+  if (HAVE_LIBUNWIND_H)
+    add_subdirectory(drcallstack)
+  else ()
+    # Require libunwind.h for automated testing.
+    # The TEST_SUITE var is set for packages too, to ensure we publish drcallstack.
+    # We do not install for Android nor a64-on-x86 in the suite.
+    if (TEST_SUITE AND NOT ANDROID AND NOT DR_HOST_NOT_TARGET)
+      message(FATAL_ERROR "libunwind-dev is required to build drcallstack")
+    else ()
+      message(STATUS "libunwind-dev package not installed: not building drcallstack")
+    endif ()
+  endif ()
+endif ()
 
 # documentation is put into main DR docs/ dir
 
