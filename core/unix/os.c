@@ -5034,11 +5034,9 @@ ignorable_system_call_normalized(int num)
     case SYS_readlinkat: return !DYNAMO_OPTION(early_inject);
 #endif
 #ifdef SYS_openat2
-    case SYS_openat2: return IS_STRING_OPTION_EMPTY(xarch_root);
+    case SYS_openat2:
 #endif
-#ifdef SYS_openat
     case SYS_openat: return IS_STRING_OPTION_EMPTY(xarch_root);
-#endif
     default:
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(num))
@@ -7777,7 +7775,9 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    endif
 #endif
-#ifdef SYS_openat
+#ifdef SYS_openat2
+    case SYS_openat2:
+#endif
     case SYS_openat: {
         /* XXX: For completeness we might want to replace paths for SYS_open and
          * possibly others, but SYS_openat is all we need on modern systems so we
@@ -7803,8 +7803,6 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
-#endif
-
 #ifdef LINUX
     case SYS_rseq:
         LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2, "syscall: rseq " PFX " %d %d %d\n",
@@ -7818,12 +7816,6 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
-#    ifdef SYS_openat2
-    case SYS_openat2:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call openat2");
-        break;
-#    endif
 #    ifdef SYS_close_range
     case SYS_close_range:
         SYSLOG_INTERNAL_WARNING_ONCE(
@@ -8905,16 +8897,15 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
-
-#    ifdef SYS_openat
+#    ifdef SYS_openat2
+    case SYS_openat2:
+#    endif
     case SYS_openat:
         if (dcontext->sys_param0 != 0) {
             heap_free(dcontext, (void *)dcontext->sys_param0,
                       MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
         }
         break;
-#    endif
-
     case SYS_rseq:
         /* Lazy rseq handling. */
         if (success) {
@@ -8922,12 +8913,6 @@ post_system_call(dcontext_t *dcontext)
             rseq_locate_rseq_regions();
         }
         break;
-#    ifdef SYS_openat2
-    case SYS_openat2:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call openat2");
-        break;
-#    endif
 #endif
     default:
 #ifdef VMX86_SERVER
