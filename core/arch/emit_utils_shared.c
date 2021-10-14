@@ -5640,10 +5640,9 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
 #endif
 
-#if defined(AARCH64)
-    instr_t *offs_instr = instr_get_prev(instrlist_last(&ilist));
-#else
     instr_t *offs_instr = instrlist_last(&ilist);
+#if defined(AARCH64)
+    offs_instr = instr_get_prev(offs_instr);
 #endif
     add_patch_marker(&patch, offs_instr, PATCH_UINT_SIZED /* pc relative */,
                      0 /* point at opcode */,
