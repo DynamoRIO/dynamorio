@@ -5623,8 +5623,8 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     /* Unlike X86 and ARM/AArch32 which use 1 instruction for an indirect jump,
      * AArch64 requires 2 instructions: LDR+BR. This requires adjusting
      * special_ibl_unlink_offs to point to the LDR when relinking by
-     * relink_special_ibl_xfer(). See adjustment below, after
-     * encode_with_patch_list().
+     * relink_special_ibl_xfer(). See adjustment below, to offs_instr passed to
+     * add_patch_marker().
      */
     APP(&ilist,
         INSTR_CREATE_ldr(
@@ -5639,15 +5639,18 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
             dcontext, opnd_create_reg(DR_REG_PC),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
 #endif
-    add_patch_marker(&patch, instrlist_last(&ilist), PATCH_UINT_SIZED /* pc relative */,
+
+#if defined(AARCH64)
+    instr_t *offs_instr = instr_get_prev(instrlist_last(&ilist));
+#else
+    instr_t *offs_instr = instrlist_last(&ilist);
+#endif
+    add_patch_marker(&patch, offs_instr, PATCH_UINT_SIZED /* pc relative */,
                      0 /* point at opcode */,
                      (ptr_uint_t *)&code->special_ibl_unlink_offs[index]);
 
     /* now encode the instructions */
     pc += encode_with_patch_list(dcontext, &patch, &ilist, pc);
-#if defined(AARCH64)
-    code->special_ibl_unlink_offs[index] -= AARCH64_INSTR_SIZE;
-#endif
     ASSERT(pc != NULL);
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
