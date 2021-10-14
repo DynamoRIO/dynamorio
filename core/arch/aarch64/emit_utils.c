@@ -1031,14 +1031,23 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 
     protect_generated_code(code, WRITABLE);
 
-    /* ldr x1, [x(stolen), #(offs)] */
-    write_pc[0] = (0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
-                   get_ibl_entry_tls_offs(dcontext, ibl_tgt) >> 3 << 10);
+    /* ldr x1, [x(stolen), #(offs)]
+     * Relinking does not require the branch instruction to change, just the
+     * target load, e.g.
+     * ldr    +0x78(%x28)[8byte] -> %x1
+     * br     %x1
+     * See INSTR_CREATE_ldr() followed by XINST_CREATE_jump_reg() calls in
+     * emit_special_ibl_xfer(), where special_ibl_unlink_offs has been adjusted
+     * to point to the ldr.
+     * TODO i#1911: When modified like this, the ldr instruction is not
+     * guaranteed to be updated for all cores without synchronization. A
+     * possible fix is to use TLS to store the target so only data needs to
+     * change rather than code.
+     */
+    *write_pc = (uint)(0xf9400000 | 1 | (dr_reg_stolen - DR_REG_X0) << 5 |
+                       get_ibl_entry_tls_offs(dcontext, ibl_tgt) >> 3 << 10);
 
-    /* br x1 */
-    write_pc[1] = 0xd61f0000 | 1 << 5;
-
-    machine_cache_sync(pc, pc + 2, true);
+    machine_cache_sync(pc, pc + 1, true);
     protect_generated_code(code, READONLY);
 }
 
