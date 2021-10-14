@@ -54,6 +54,9 @@
 #include "thread.h"
 #include "condvar.h"
 
+/* One bit for each defined signal. */
+#define SIGSET_SIZE (_NSIG / 8)
+
 typedef struct {
     const sigset_t *sigmask;
     size_t sizemask;
@@ -225,7 +228,7 @@ main(int argc, char *argv[])
     auto psyscall_raw_pselect6_time64 = [test_set](bool nullsigmask) -> int {
         data_t data;
         data.sigmask = nullsigmask ? nullptr : &test_set;
-        data.sizemask = _NSIG / 8;
+        data.sizemask = SIGSET_SIZE;
         return syscall(SYS_pselect6_time64, 0, nullptr, nullptr, nullptr, nullptr, &data);
     };
     execute_subtest(main_thread, &test_set, psyscall_raw_pselect6_time64, false);
@@ -246,7 +249,7 @@ main(int argc, char *argv[])
 #ifdef SYS_ppoll_time64
     auto psyscall_raw_ppoll_time64 = [test_set](bool nullsigmask) -> int {
         return syscall(SYS_ppoll_time64, nullptr, 0, nullptr,
-                       nullsigmask ? nullptr : &test_set, _NSIG / 8);
+                       nullsigmask ? nullptr : &test_set, SIGSET_SIZE);
     };
     execute_subtest(main_thread, &test_set, psyscall_raw_ppoll_time64, false);
 #else
@@ -335,7 +338,7 @@ main(int argc, char *argv[])
             : [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
             : [sys_num] "rm"(SYS_epoll_pwait), [epfd] "rm"(epoll_fd),
               [events] "rm"(&events), [maxevents] "rm"(24), [timeout] "rm"((int64_t)-1),
-              [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(_NSIG / 8))
+              [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(SIGSET_SIZE))
             : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -349,7 +352,7 @@ main(int argc, char *argv[])
         pthread_join(child_thread, nullptr);
     }
 
-    data_t data = { &test_set, _NSIG / 8 };
+    data_t data = { &test_set, SIGSET_SIZE };
 
     print("Testing pselect, preserve mask\n");
     count = 0;
@@ -419,7 +422,7 @@ main(int argc, char *argv[])
                      [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
                      : [sys_num] "r"(SYS_ppoll), [fds] "rm"(nullptr),
                        [nfds] "rm"((nfds_t)0), [tmo_p] "rm"(nullptr),
-                       [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(_NSIG / 8))
+                       [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(SIGSET_SIZE))
                      : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -453,7 +456,7 @@ main(int argc, char *argv[])
         int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         struct epoll_event events;
         return syscall(SYS_epoll_pwait, epoll_fd, &events, 24, 60000, nullptr,
-                       (size_t)_NSIG / 8);
+                       (size_t)SIGSET_SIZE);
     };
     execute_subtest(main_thread, &test_set, psyscall_raw_epoll_pwait, true);
 
