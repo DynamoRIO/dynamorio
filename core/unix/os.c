@@ -7422,6 +7422,9 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#    ifdef SYS_pselect6_time64
+    case SYS_pselect6_time64:
+#    endif
     case SYS_pselect6: {
         typedef struct {
             kernel_sigset_t *sigmask;
@@ -7820,12 +7823,6 @@ pre_system_call(dcontext_t *dcontext)
     case SYS_close_range:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call close_range");
-        break;
-#    endif
-#    ifdef SYS_pselect6_time64
-    case SYS_pselect6_time64:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call pselect6_time64");
         break;
 #    endif
 #    ifdef SYS_rt_sigtimedwait_time64

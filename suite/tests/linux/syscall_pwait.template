@@ -11,7 +11,17 @@ Signal received: 10
 Signal received: 12
 Signal received: 10
 Signal received: 12
+Testing raw pselect6_time64
+Signal received: 10
+Signal received: 12
+Signal received: 10
+Signal received: 12
 Testing ppoll
+Signal received: 10
+Signal received: 12
+Signal received: 10
+Signal received: 12
+Testing raw ppoll_time64
 Signal received: 10
 Signal received: 12
 Signal received: 10
@@ -55,6 +65,9 @@ Testing raw pselect with NULL struct pointer, inline asm
 Signal received: 10
 Signal received: 12
 #endif
+Testing raw pselect6_time64 with NULL sigmask
+Signal received: 10
+Signal received: 12
 Testing raw ppoll with NULL sigmask
 Signal received: 10
 Signal received: 12
