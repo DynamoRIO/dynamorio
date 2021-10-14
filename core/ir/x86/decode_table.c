@@ -1599,6 +1599,10 @@ const instr_info_t * const op_instr[] =
    /* AMD monitor extensions */
    /* OP_monitorx      */   &rm_extensions[2][2],
    /* OP_mwaitx        */   &rm_extensions[2][3],
+
+   /* Intel MPK extensions */
+   /* OP_rdpkru       */    &rm_extensions[5][6],
+   /* OP_wrpkru       */    &rm_extensions[5][7],
 };
 
 
@@ -2881,7 +2885,7 @@ const instr_info_t base_extensions[][8] = {
     {MOD_EXT, 0x0f0132, "(group 7 mod ext 5)", xx, xx, xx, xx, xx, no, x, 5},
     {MOD_EXT, 0x0f0133, "(group 7 mod ext 4)", xx, xx, xx, xx, xx, no, x, 4},
     {OP_smsw, 0x0f0134, "smsw",  Ew, xx, xx, xx, xx, mrm, x, END_LIST},
-    {INVALID, 0x0f0135, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {MOD_EXT, 0x0f0135, "(group 7 mod ext 120)", xx, xx, xx, xx, xx, no, x, 120},
     {OP_lmsw, 0x0f0136, "lmsw",  xx, xx, Ew, xx, xx, mrm, x, END_LIST},
     {MOD_EXT, 0x0f0137, "(group 7 mod ext 2)", xx, xx, xx, xx, xx, no, x, 2},
   },
@@ -6913,6 +6917,10 @@ const instr_info_t mod_extensions[][2] = {
     {OP_vsqrtpd,0x660f5150, "vsqrtpd", Ved, xx, KEb, Mq, xx, mrm|evex|ttfv, x, modx[119][1]},
     {OP_vsqrtpd,0x660f5150, "vsqrtpd", Voq, xx, KEb, Uoq, xx, mrm|evex|er|ttfv, x, END_LIST},
   },
+  { /* mod extension 120 */
+    {INVALID, 0x0f0135, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
+    {RM_EXT,  0x0f0175, "(group 7 mod + rm ext 5)", xx, xx, xx, xx, xx, mrm, x, 5},
+  },
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
@@ -6972,6 +6980,16 @@ const instr_info_t rm_extensions[][8] = {
     {OP_xend,   0xd50f0172, "xend", eax, xx, xx, xx, xx, mrm|predcx, x, NA},
     {OP_xtest,  0xd60f0172, "xtest", xx, xx, xx, xx, xx, mrm, fW6, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },
+  { /* rm extension 5 */
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_rdpkru, 0xee0f0171, "rdpkru", eax, edx, ecx, xx, xx, mrm, x, END_LIST},
+    {OP_wrpkru, 0xef0f0171, "wrpkru", xx, xx, ecx, edx, eax, mrm, x, END_LIST},
   },
 };
 

@@ -1589,6 +1589,10 @@ enum {
     /* 1419 */ OP_monitorx, /**< AMD64 monitorx opcode. */
     /* 1420 */ OP_mwaitx,   /**< AMD64 mwaitx opcode. */
 
+    /* Intel MPK extensions */
+    /* 1421 */ OP_rdpkru, /**< IA-32/AMD64 MPK rdpkru opcode. */
+    /* 1422 */ OP_wrpkru, /**< IA-32/AMD64 MPK wrpkru opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */

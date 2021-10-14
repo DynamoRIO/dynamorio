@@ -2714,6 +2714,14 @@ if (NOT ANDROID)
   use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+
+  # TODO i#2414: Port to Windows, Mac, and Android.
+  if (LINUX AND HAVE_LIBUNWIND_H)
+    tobuild_ci(client.drcallstack-test client-interface/drcallstack-test.c "" "" "")
+    use_DynamoRIO_extension(client.drcallstack-test.dll drsyms)
+    use_DynamoRIO_extension(client.drcallstack-test.dll drwrap)
+    use_DynamoRIO_extension(client.drcallstack-test.dll drcallstack)
+  endif ()
 endif ()
 
 # We check these two statements here b/c not all gcc compilers support
@@ -3129,6 +3137,8 @@ if (BUILD_SAMPLES)
           torunonly_ci(sample.${sample}_repstr allasm_repstr ${sample}_test
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
+      elseif (sample STREQUAL "callstack")
+        set(sample.${sample}_expectbase "sample.callstack.control_flags")
       endif()
     endforeach ()
   endif (NOT ANDROID)
@@ -3391,7 +3401,8 @@ if (BUILD_CLIENTS)
       set(kernel_xfer_app client.winxfer) # We want threads and xfers.
     endif()
     if (DEBUG) # for -test_mode
-      torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
+      torunonly_drcachesim(invariants ${kernel_xfer_app}
+        "-test_mode -test_mode_name kernel_xfer_app" "")
       # This is slow on Windows.  I tried reducing the tracing window but
       # it seems to vary too much across machines, and if we delay too far
       # we start in the middle of a callback.
@@ -3584,7 +3595,8 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (LINUX AND X64 AND HAVE_RSEQ)
-      torunonly_drcacheoff(rseq linux.rseq "" "@${test_mode_flag}" "")
+      torunonly_drcacheoff(rseq linux.rseq ""
+        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
     endif ()
 
     if (AARCH64)
@@ -3736,7 +3748,7 @@ if (BUILD_CLIENTS)
     set(${testname_full}_postcmd
       "${drcachesim_path}@-indir@${testname_full}.*.dir")
     set(${testname_full}_postcmd2
-      "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
+      "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
 
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
@@ -3780,7 +3792,7 @@ if (BUILD_CLIENTS)
       set(${testname_full}_postcmd2
         "${GZIP}@${testname_full}.*.dir/trace/*")
       set(${testname_full}_postcmd3
-        "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
+        "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
     elseif (UNIX)
       message(STATUS "gzip or zlib not found: disabling ${testname_full} test")
     endif ()
@@ -4797,6 +4809,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.call-retarget
     code_api|client.crashmsg
     code_api|client.destructor
+    code_api|client.drcallstack-test
     code_api|client.drcontainers-test
     code_api|client.drmodtrack-test
     code_api|client.drsyms-test

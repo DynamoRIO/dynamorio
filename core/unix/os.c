@@ -177,6 +177,7 @@ char **our_environ;
 #endif
 #ifdef LINUX
 #    include "include/syscall.h" /* our own local copy */
+#    include "include/clone3.h"
 #else
 #    include <sys/syscall.h>
 #endif
@@ -3842,7 +3843,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     /* need to share signal handler table, prior to creating clone record */
     handle_clone(dcontext, flags);
     ATOMIC_INC(int, uninit_thread_count);
-    void *crec = create_clone_record(dcontext, (reg_t *)&xsp);
+    void *crec = create_clone_record(dcontext, (reg_t *)&xsp, NULL, NULL);
     /* make sure client_thread_run can get the func and arg, and that
      * signal_thread_inherit gets the right syscall info
      */
@@ -4901,9 +4902,7 @@ ignorable_system_call_normalized(int num)
 #endif
     case SYS_execve:
 #ifdef LINUX
-#    ifdef SYS_clone3
     case SYS_clone3:
-#    endif
     case SYS_clone:
 #elif defined(MACOS)
     case SYS_bsdthread_create:
@@ -5006,7 +5005,7 @@ ignorable_system_call_normalized(int num)
     case SYS_cacheflush:
 #endif
 #if defined(LINUX)
-/* syscalls change procsigmask */
+/* Syscalls change procsigmask */
 #    ifdef SYS_pselect6_time64
     case SYS_pselect6_time64:
 #    endif
@@ -5035,11 +5034,9 @@ ignorable_system_call_normalized(int num)
     case SYS_readlinkat: return !DYNAMO_OPTION(early_inject);
 #endif
 #ifdef SYS_openat2
-    case SYS_openat2: return IS_STRING_OPTION_EMPTY(xarch_root);
+    case SYS_openat2:
 #endif
-#ifdef SYS_openat
     case SYS_openat: return IS_STRING_OPTION_EMPTY(xarch_root);
-#endif
     default:
 #ifdef VMX86_SERVER
         if (is_vmkuw_sysnum(num))
@@ -5336,7 +5333,7 @@ dr_syscall_invoke_another(void *drcontext)
 }
 
 static inline bool
-is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
+is_thread_create_syscall_helper(ptr_uint_t sysnum, reg_t sys_param0)
 {
 #ifdef MACOS
     /* XXX i#1403: we need earlier injection to intercept
@@ -5349,7 +5346,12 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
         return true;
 #    endif
 #    ifdef LINUX
-    if (sysnum == SYS_clone && TEST(CLONE_VM, flags))
+    /* Flags in param0 */
+    if (sysnum == SYS_clone && TEST(CLONE_VM, sys_param0))
+        return true;
+    /* Clone_args in param0 */
+    if (sysnum == SYS_clone3 &&
+        TEST(CLONE_VM, ((clone3_syscall_args_t *)sys_param0)->flags))
         return true;
 #    endif
     return false;
@@ -5366,9 +5368,7 @@ is_thread_create_syscall(dcontext_t *dcontext)
 bool
 was_thread_create_syscall(dcontext_t *dcontext)
 {
-    return is_thread_create_syscall_helper(dcontext->sys_num,
-                                           /* flags in param0 */
-                                           dcontext->sys_param0);
+    return is_thread_create_syscall_helper(dcontext->sys_num, dcontext->sys_param0);
 }
 
 bool
@@ -6909,6 +6909,7 @@ pre_system_call(dcontext_t *dcontext)
     /* SPAWNING */
 
 #ifdef LINUX
+    case SYS_clone3:
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c
          * 32-bit params: flags, newsp, ptid, tls, ctid
@@ -6918,18 +6919,41 @@ pre_system_call(dcontext_t *dcontext)
          *   sys_clone(unsigned long clone_flags, unsigned long newsp,
          *     void __user *parent_tid, void __user *child_tid, struct pt_regs *regs)
          */
-        uint flags = (uint)sys_param(dcontext, 0);
-        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = " PFX "\n", flags);
-        LOG(THREAD, LOG_SYSCALLS, 2,
-            "args: " PFX ", " PFX ", " PFX ", " PFX ", " PFX "\n", sys_param(dcontext, 0),
-            sys_param(dcontext, 1), sys_param(dcontext, 2), sys_param(dcontext, 3),
-            sys_param(dcontext, 4));
+        uint64_t flags;
+        if (dcontext->sys_num == SYS_clone3) {
+            clone3_syscall_args_t *cl_args = (clone3_syscall_args_t *)sys_param(
+                dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+            flags = cl_args->flags;
+            /* Save for post_system_call. As clone3 flags are 64-bit, even in 32-bit
+             * environment, we cannot save just the flags here. We also need to save
+             * the pointer to the app's clone_args so that we can restore it
+             * post-syscall.
+             */
+            dcontext->sys_param0 = (reg_t)cl_args;
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "syscall: clone3 with args: flags = 0x" HEX64_FORMAT_STRING
+                ", exit_signal = 0x" HEX64_FORMAT_STRING
+                ", stack = 0x" HEX64_FORMAT_STRING ", stack_size = 0x" HEX64_FORMAT_STRING
+                "\n",
+                cl_args->flags, cl_args->exit_signal, cl_args->stack,
+                cl_args->stack_size);
+        } else {
+            flags = (uint)sys_param(dcontext, 0);
+            /* Save for post_system_call.
+             * Unlike clone3, here the flags are 32-bit, so truncation is okay.
+             */
+            dcontext->sys_param0 = (reg_t)flags;
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "syscall: clone with args: flags = " PFX ", stack = " PFX
+                ", tid_field_parent = " PFX ", tid_field_child = " PFX
+                ", thread_ptr = " PFX "\n",
+                sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
+                sys_param(dcontext, 3), sys_param(dcontext, 4));
+        }
         handle_clone(dcontext, flags);
         if ((flags & CLONE_VM) == 0) {
             LOG(THREAD, LOG_SYSCALLS, 1, "\tWARNING: CLONE_VM not set!\n");
         }
-        /* save for post_system_call */
-        dcontext->sys_param0 = (reg_t)flags;
 
         /* i#1010: If we have private fds open (usually logfiles), we should
          * clean those up before they get reused by a new thread.
@@ -6946,8 +6970,46 @@ pre_system_call(dcontext_t *dcontext)
          * Note: This must be done after sys_param0 is set.
          */
         if (is_thread_create_syscall(dcontext)) {
-            create_clone_record(dcontext,
-                                sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK));
+            if (dcontext->sys_num == SYS_clone3) {
+                /* create_clone_record modifies some fields in clone_args for the
+                 * clone3 syscall. Instead of reusing the app's copy of
+                 * clone_args and modifying it, we choose to create our own copy.
+                 * Under CLONE_VM, the parent and child threads have a pointer to
+                 * the same app clone_args. By using our own copy of clone_args
+                 * for the syscall, we obviate the need to restore the modified
+                 * fields in the app's copy after the syscall in either the parent
+                 * or the child thread, which can be racy under CLONE_VM as the
+                 * parent and/or child threads may need to access/modify it. By
+                 * creating a copy instead, both parent and child threads only
+                 * need to restore their own SYSCALL_PARAM_CLONE3_CLONE_ARGS reg
+                 * to the pointer to the app's clone_args. It is saved in the
+                 * clone record for the child thread, and in sys_param0 for the
+                 * parent thread. The DR copy of clone_args is freed by the parent
+                 * thread in the post-syscall handling of clone3; as it is used
+                 * only by the parent thread, there is no use-after-free danger here.
+                 */
+                clone3_syscall_args_t *dr_clone_args = HEAP_TYPE_ALLOC(
+                    dcontext, clone3_syscall_args_t, ACCT_OTHER, PROTECTED);
+                clone3_syscall_args_t *app_clone_args =
+                    (clone3_syscall_args_t *)sys_param(dcontext,
+                                                       SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+                memcpy(dr_clone_args, app_clone_args, sizeof(clone3_syscall_args_t));
+                *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
+                    (reg_t)dr_clone_args;
+                dcontext->sys_param1 = (reg_t)dr_clone_args;
+                /* The pointer to the app's clone_args was saved in sys_param0 above. */
+                create_clone_record(dcontext, NULL, dr_clone_args, app_clone_args);
+            } else {
+                /* We replace the app-provided stack pointer with our own stack
+                 * pointer in create_clone_record. Save the original pointer so
+                 * that we can restore it post-syscall in the parent. The same is
+                 * restored in the child in restore_clone_param_from_clone_record.
+                 */
+                dcontext->sys_param1 = sys_param(dcontext, SYSCALL_PARAM_CLONE_STACK);
+                create_clone_record(dcontext,
+                                    sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK),
+                                    NULL, NULL);
+            }
             os_clone_pre(dcontext);
             os_new_thread_pre();
         } else /* This is really a fork. */
@@ -7002,7 +7064,8 @@ pre_system_call(dcontext_t *dcontext)
 #    ifdef MACOS
         create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL);
 #    else
-        create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
+        create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/, NULL,
+                            NULL);
 #    endif
         os_clone_pre(dcontext);
         os_new_thread_pre();
@@ -7359,6 +7422,9 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#    ifdef SYS_pselect6_time64
+    case SYS_pselect6_time64:
+#    endif
     case SYS_pselect6: {
         typedef struct {
             kernel_sigset_t *sigmask;
@@ -7712,7 +7778,9 @@ pre_system_call(dcontext_t *dcontext)
     }
 #    endif
 #endif
-#ifdef SYS_openat
+#ifdef SYS_openat2
+    case SYS_openat2:
+#endif
     case SYS_openat: {
         /* XXX: For completeness we might want to replace paths for SYS_open and
          * possibly others, but SYS_openat is all we need on modern systems so we
@@ -7738,8 +7806,6 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
-#endif
-
 #ifdef LINUX
     case SYS_rseq:
         LOG(THREAD, LOG_VMAREAS | LOG_SYSCALLS, 2, "syscall: rseq " PFX " %d %d %d\n",
@@ -7753,37 +7819,18 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
-#endif
-
-#ifdef SYS_openat2
-    case SYS_openat2:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call openat2");
-        break;
-#endif
-#ifdef SYS_close_range
+#    ifdef SYS_close_range
     case SYS_close_range:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call close_range");
         break;
-#endif
-#ifdef SYS_clone3
-    case SYS_clone3:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call clone3");
-        break;
-#endif
-#ifdef SYS_pselect6_time64
-    case SYS_pselect6_time64:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call pselect6_time64");
-        break;
-#endif
-#ifdef SYS_rt_sigtimedwait_time64
+#    endif
+#    ifdef SYS_rt_sigtimedwait_time64
     case SYS_rt_sigtimedwait_time64:
         SYSLOG_INTERNAL_WARNING_ONCE(
             "WARNING i#5131: possibly unhandled system call rt_sigtimedwait_time64");
         break;
+#    endif
 #endif
     default: {
 #ifdef VMX86_SERVER
@@ -8532,6 +8579,7 @@ post_system_call(dcontext_t *dcontext)
     /* SPAWNING -- fork mostly handled above */
 
 #ifdef LINUX
+    case SYS_clone3:
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned " PFX "\n",
@@ -8545,6 +8593,29 @@ post_system_call(dcontext_t *dcontext)
             if (INTERNAL_OPTION(private_loader))
                 os_switch_lib_tls(dcontext, false /*to dr*/);
             /* i#2089: we already restored the DR tls in os_clone_post() */
+        }
+        if (sysnum == SYS_clone3) {
+            /* Free DR's copy of clone_args and restore the pointer to the
+             * app's copy in the SYSCALL_PARAM_CLONE3_CLONE_ARGS reg.
+             * sys_param1 contains the pointer to DR's clone_args, and
+             * sys_param0 contains the pointer to the app's original
+             * clone_args.
+             */
+#    ifdef X86
+            ASSERT(sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) ==
+                   dcontext->sys_param1);
+            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS,
+                              dcontext->sys_param0);
+#    else
+            /* On AArchXX r0 is used to pass the first arg to the syscall as well as
+             * to hold its return value. As the clone_args pointer isn't available
+             * post-syscall natively anyway, there's no need to restore here.
+             */
+#    endif
+            HEAP_TYPE_FREE(dcontext, dcontext->sys_param1, clone3_syscall_args_t,
+                           ACCT_OTHER, PROTECTED);
+        } else if (sysnum == SYS_clone) {
+            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK, dcontext->sys_param1);
         }
         break;
     }
@@ -8823,34 +8894,21 @@ post_system_call(dcontext_t *dcontext)
             }
         }
         break;
-
-#    ifdef SYS_openat
+#    ifdef SYS_openat2
+    case SYS_openat2:
+#    endif
     case SYS_openat:
         if (dcontext->sys_param0 != 0) {
             heap_free(dcontext, (void *)dcontext->sys_param0,
                       MAXIMUM_PATH HEAPACCT(ACCT_OTHER));
         }
         break;
-#    endif
-
     case SYS_rseq:
         /* Lazy rseq handling. */
         if (success) {
             rseq_process_syscall(dcontext);
             rseq_locate_rseq_regions();
         }
-        break;
-#endif
-#ifdef SYS_openat2
-    case SYS_openat2:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call openat2");
-        break;
-#endif
-#ifdef SYS_clone3
-    case SYS_clone3:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call clone3");
         break;
 #endif
     default:

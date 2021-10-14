@@ -78,6 +78,9 @@ droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
 // For test simplicity we use this same launcher to run some extra tests.
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run tests",
                               "Run extra analyses for testing.");
+droption_t<std::string> op_test_mode_name(DROPTION_SCOPE_ALL, "test_mode_name", "",
+                                          "Test name",
+                                          "Name of extra analyses for testing.");
 
 int
 _tmain(int argc, const TCHAR *targv[])
@@ -100,7 +103,8 @@ _tmain(int argc, const TCHAR *targv[])
         op_line_size.get_value(), op_report_top.get_value(), op_verbose.get_value());
     std::vector<analysis_tool_t *> tools;
     tools.push_back(tool1);
-    invariant_checker_t tool2(true /*offline*/, op_verbose.get_value());
+    invariant_checker_t tool2(true /*offline*/, op_verbose.get_value(),
+                              op_test_mode_name.get_value());
     if (op_test_mode.get_value()) {
         // We use this launcher to run tests as well:
         tools.push_back(&tool2);

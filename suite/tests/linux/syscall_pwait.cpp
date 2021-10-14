@@ -54,8 +54,11 @@
 #include "thread.h"
 #include "condvar.h"
 
+/* One bit for each defined signal. */
+#define SIGSET_SIZE (_NSIG / 8)
+
 typedef struct {
-    sigset_t *sigmask;
+    const sigset_t *sigmask;
     size_t sizemask;
 } data_t;
 
@@ -137,6 +140,17 @@ execute_subtest(pthread_t main_thread, sigset_t *test_set,
                 /* The immediately test must be skipped if sigmask is NULL. */
                 continue;
             }
+            /* Note that when `immediately && !nullsigmask`, the signal is blocked by
+             * the app at this point, and gets delivered to DR and queued as a pending
+             * signal before the syscall. So, we rely on DR to return an EINTR to the
+             * parent thread from a syscall that unblocks the signal by changing the
+             * the sigmask, such as pselect, ppoll, etc. If for some reason, DR does
+             * not handle any such syscall, we will see a "hang" because there's no
+             * signal left to deliver from the kernel's point of view. This helps in
+             * detecting regressions where DR's syscall handling is absent (though we
+             * still depend on the signal getting delivered to DR before the syscall).
+             * We settle for this instead of adding more complicated testing.
+             */
             pthread_t child_thread =
                 kick_off_child_signal(count, main_thread, immediately);
             pthread_sigmask(SIG_SETMASK, nullptr, &pre_syscall_set);
@@ -160,18 +174,6 @@ execute_subtest(pthread_t main_thread, sigset_t *test_set,
     }
 }
 
-#ifdef SYS_ppoll_time64
-static void
-test_raw_ppoll_time64(pthread_t main_thread, sigset_t *test_set)
-{
-    auto psyscall_raw_ppoll_time64 = [](bool nullsigmask) -> int {
-        return syscall(SYS_ppoll_time64, nullptr, nullptr, nullptr, nullptr);
-    };
-    print("Testing raw ppoll_time64 with NULL sigmask\n");
-    execute_subtest(main_thread, test_set, psyscall_raw_ppoll_time64, true);
-}
-#endif
-
 int
 main(int argc, char *argv[])
 {
@@ -186,6 +188,7 @@ main(int argc, char *argv[])
     intercept_signal(SIGUSR1, (handler_3_t)signal_handler, true);
     intercept_signal(SIGUSR2, (handler_3_t)signal_handler, true);
     print("Handlers for signals: %d, %d\n", SIGUSR1, SIGUSR2);
+
     sigemptyset(&block_set);
     sigaddset(&block_set, SIGUSR2);
     sigaddset(&block_set, SIGUSR1);
@@ -205,7 +208,6 @@ main(int argc, char *argv[])
     pthread_t main_thread = pthread_self();
 
     print("Testing epoll_pwait\n");
-
     auto psyscall_epoll_pwait = [test_set](bool nullsigmask) -> int {
         int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         struct epoll_event events;
@@ -214,30 +216,57 @@ main(int argc, char *argv[])
     execute_subtest(main_thread, &test_set, psyscall_epoll_pwait, false);
 
     print("Testing pselect\n");
-
     auto psyscall_pselect = [test_set](bool nullsigmask) -> int {
         return pselect(0, nullptr, nullptr, nullptr, nullptr,
                        nullsigmask ? nullptr : &test_set);
     };
     execute_subtest(main_thread, &test_set, psyscall_pselect, false);
 
-    print("Testing ppoll\n");
+    print("Testing raw pselect6_time64\n");
+    /* The *_time64 syscalls are defined only on 32-bit. */
+#ifdef SYS_pselect6_time64
+    auto psyscall_raw_pselect6_time64 = [test_set](bool nullsigmask) -> int {
+        data_t data;
+        data.sigmask = nullsigmask ? nullptr : &test_set;
+        data.sizemask = SIGSET_SIZE;
+        return syscall(SYS_pselect6_time64, 0, nullptr, nullptr, nullptr, nullptr, &data);
+    };
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect6_time64, false);
+#else
+    print("Signal received: 10\n");
+    print("Signal received: 12\n");
+    print("Signal received: 10\n");
+    print("Signal received: 12\n");
+#endif
 
+    print("Testing ppoll\n");
     auto psyscall_ppoll = [test_set](bool nullsigmask) -> int {
         return ppoll(nullptr, 0, nullptr, nullsigmask ? nullptr : &test_set);
     };
     execute_subtest(main_thread, &test_set, psyscall_ppoll, false);
 
-    print("Testing epoll_pwait failure\n");
+    print("Testing raw ppoll_time64\n");
+#ifdef SYS_ppoll_time64
+    auto psyscall_raw_ppoll_time64 = [test_set](bool nullsigmask) -> int {
+        return syscall(SYS_ppoll_time64, nullptr, 0, nullptr,
+                       nullsigmask ? nullptr : &test_set, SIGSET_SIZE);
+    };
+    execute_subtest(main_thread, &test_set, psyscall_raw_ppoll_time64, false);
+#else
+    print("Signal received: 10\n");
+    print("Signal received: 12\n");
+    print("Signal received: 10\n");
+    print("Signal received: 12\n");
+#endif
 
     /* XXX: The following failure tests will 'hang' if syscall succeeds, due to the
      * nature of the syscall. Maybe change this into something that will rather fail
      * immediately.
      */
 
+    print("Testing epoll_pwait failure\n");
     /* waste some time */
     nanosleep(&sleeptime, nullptr);
-
     int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     struct epoll_event events;
     if (syscall(SYS_epoll_pwait, epoll_fd, &events, 24, -1, &test_set, (size_t)0) == 0) {
@@ -249,12 +278,9 @@ main(int argc, char *argv[])
     }
 
     print("Testing pselect failure\n");
-
     /* waste some time */
     nanosleep(&sleeptime, nullptr);
-
     data_t data_wrong = { &test_set, 0 };
-
     if (syscall(SYS_pselect6, 0, nullptr, nullptr, nullptr, nullptr, &data_wrong) == 0) {
         print("expected syscall failure");
         exit(1);
@@ -264,10 +290,8 @@ main(int argc, char *argv[])
     }
 
     print("Testing ppoll failure\n");
-
     /* waste some time */
     nanosleep(&sleeptime, nullptr);
-
     if (syscall(SYS_ppoll, nullptr, (nfds_t)0, nullptr, &test_set, (size_t)0) == 0) {
         print("expected syscall failure");
         exit(1);
@@ -279,7 +303,6 @@ main(int argc, char *argv[])
 #if defined(X86) && defined(X64)
 
     print("Testing epoll_pwait, preserve mask\n");
-
     int count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
@@ -315,7 +338,7 @@ main(int argc, char *argv[])
             : [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
             : [sys_num] "rm"(SYS_epoll_pwait), [epfd] "rm"(epoll_fd),
               [events] "rm"(&events), [maxevents] "rm"(24), [timeout] "rm"((int64_t)-1),
-              [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(_NSIG / 8))
+              [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(SIGSET_SIZE))
             : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -329,10 +352,9 @@ main(int argc, char *argv[])
         pthread_join(child_thread, nullptr);
     }
 
-    data_t data = { &test_set, _NSIG / 8 };
+    data_t data = { &test_set, SIGSET_SIZE };
 
     print("Testing pselect, preserve mask\n");
-
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
@@ -372,7 +394,6 @@ main(int argc, char *argv[])
     }
 
     print("Testing ppoll, preserve mask\n");
-
     count = 0;
     while (count++ < 2) {
         int syscall_error = 0;
@@ -401,7 +422,7 @@ main(int argc, char *argv[])
                      [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
                      : [sys_num] "r"(SYS_ppoll), [fds] "rm"(nullptr),
                        [nfds] "rm"((nfds_t)0), [tmo_p] "rm"(nullptr),
-                       [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(_NSIG / 8))
+                       [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(SIGSET_SIZE))
                      : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -422,39 +443,38 @@ main(int argc, char *argv[])
     print("Signal unblocked: %d\n", SIGUSR1);
 
     print("Testing epoll_pwait with NULL sigmask\n");
-
     execute_subtest(main_thread, &test_set, psyscall_epoll_pwait, true);
 
     print("Testing pselect with NULL sigmask\n");
-
     execute_subtest(main_thread, &test_set, psyscall_pselect, true);
 
     print("Testing ppoll with NULL sigmask\n");
-
     execute_subtest(main_thread, &test_set, psyscall_ppoll, true);
 
+    print("Testing raw epoll_pwait with NULL sigmask\n");
     auto psyscall_raw_epoll_pwait = [test_set](bool nullsigmask) -> int {
         int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         struct epoll_event events;
         return syscall(SYS_epoll_pwait, epoll_fd, &events, 24, 60000, nullptr,
-                       (size_t)_NSIG / 8);
+                       (size_t)SIGSET_SIZE);
     };
+    execute_subtest(main_thread, &test_set, psyscall_raw_epoll_pwait, true);
 
+    print("Testing raw pselect with NULL sigmask\n");
     auto psyscall_raw_pselect = [test_set](bool nullsigmask) -> int {
         fd_set fds;
         struct timespec ts;
         FD_ZERO(&fds);
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
-        struct {
-            const sigset_t *sigmask;
-            size_t ss_len;
-        } data;
+        data_t data;
         data.sigmask = nullptr;
-        data.ss_len = 0;
+        data.sizemask = 0;
         return syscall(SYS_pselect6, 0, nullptr, nullptr, &fds, &ts, &data);
     };
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect, true);
 
+    print("Testing raw pselect with NULL struct pointer\n");
     auto psyscall_raw_pselect_nullptr = [test_set](bool nullsigmask) -> int {
         fd_set fds;
         struct timespec ts;
@@ -463,9 +483,10 @@ main(int argc, char *argv[])
         ts.tv_nsec = 0;
         return syscall(SYS_pselect6, 0, nullptr, nullptr, &fds, &ts, nullptr);
     };
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect_nullptr, true);
 
 #if defined(X86) && defined(X64)
-
+    print("Testing raw pselect with NULL struct pointer, inline asm\n");
     auto psyscall_raw_pselect_nullptr_inline_asm = [test_set](bool nullsigmask) -> int {
         fd_set fds;
         struct timespec ts;
@@ -495,51 +516,38 @@ main(int argc, char *argv[])
                      : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rcx", "r11");
         return syscall_error;
     };
-
+    /* We are adding this raw asm version of the same test just in case syscall() does
+     * sth funny.
+     */
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect_nullptr_inline_asm,
+                    true);
 #endif
 
+    print("Testing raw pselect6_time64 with NULL sigmask\n");
+#ifdef SYS_pselect6_time64
+    execute_subtest(main_thread, &test_set, psyscall_raw_pselect6_time64, true);
+#else
+    print("Signal received: 10\n");
+    print("Signal received: 12\n");
+#endif
+
+    print("Testing raw ppoll with NULL sigmask\n");
     auto psyscall_raw_ppoll = [test_set](bool nullsigmask) -> int {
         struct timespec ts;
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
         return syscall(SYS_ppoll, nullptr, nullptr, &ts, nullptr);
     };
-
-    print("Testing raw epoll_pwait with NULL sigmask\n");
-
-    execute_subtest(main_thread, &test_set, psyscall_raw_epoll_pwait, true);
-
-    print("Testing raw pselect with NULL sigmask\n");
-
-    execute_subtest(main_thread, &test_set, psyscall_raw_pselect, true);
-
-    print("Testing raw pselect with NULL struct pointer\n");
-
-    execute_subtest(main_thread, &test_set, psyscall_raw_pselect_nullptr, true);
-
-#if defined(X86) && defined(X64)
-
-    print("Testing raw pselect with NULL struct pointer, inline asm\n");
-
-    /* We are adding this raw asm version of the same test just in case syscall() does
-     * sth funny.
-     */
-    execute_subtest(main_thread, &test_set, psyscall_raw_pselect_nullptr_inline_asm,
-                    true);
-
-#endif
-
-    print("Testing raw ppoll with NULL sigmask\n");
-
     execute_subtest(main_thread, &test_set, psyscall_raw_ppoll, true);
 
-#ifdef SYS_ppoll_time64
-    test_raw_ppoll_time64(main_thread, &test_set);
-#else
     print("Testing raw ppoll_time64 with NULL sigmask\n");
+#ifdef SYS_ppoll_time64
+    execute_subtest(main_thread, &test_set, psyscall_raw_ppoll_time64, true);
+#else
     print("Signal received: 10\n");
     print("Signal received: 12\n");
 #endif
+
     destroy_cond_var(ready_to_listen);
     print("Done\n");
     return 0;

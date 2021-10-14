@@ -1049,6 +1049,7 @@ module_get_os_privmod_data(app_pc base, size_t size, bool dyn_reloc,
                                           DR_DISALLOW_UNSAFE_STATIC_NAME, NULL) != NULL)
             disallow_unsafe_static_calls = true;
     });
+    pd->use_app_imports = false;
 }
 
 /* Returns a pointer to the phdr of the given type.
@@ -1129,8 +1130,18 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
         ASSERT(pd != NULL && name != NULL);
         LOG(GLOBAL, LOG_LOADER, 3, "sym lookup for %s from %s = %s\n", name, pd->soname,
             mod->path);
-        res =
-            get_proc_address_from_os_data(&pd->os_data, pd->load_delta, name, &is_ifunc);
+        /* XXX i#956: A private libpthread is not fully supported.  For now we let
+         * it load but avoid using any symbols like __errno_location as those
+         * cause crashes: prefer the libc version.
+         */
+        if (strstr(pd->soname, "libpthread") == pd->soname &&
+            strstr(name, "pthread") != name) {
+            LOG(GLOBAL, LOG_LOADER, 3, "NOT using libpthread's non-pthread symbol\n");
+            res = NULL;
+        } else {
+            res = get_proc_address_from_os_data(&pd->os_data, pd->load_delta, name,
+                                                &is_ifunc);
+        }
         if (res != NULL) {
             if (is_ifunc) {
                 TRY_EXCEPT_ALLOW_NO_DCONTEXT(
@@ -1462,7 +1473,7 @@ module_relocate_symbol(ELF_REL_TYPE *rel, os_privmod_data_t *pd, bool is_rela)
     sym = &((ELF_SYM_TYPE *)pd->os_data.dynsym)[r_sym];
     name = (char *)pd->os_data.dynstr + sym->st_name;
 
-    if (INTERNAL_OPTION(private_loader) && privload_redirect_sym(r_addr, name))
+    if (INTERNAL_OPTION(private_loader) && privload_redirect_sym(pd, r_addr, name))
         return;
 
     resolved = true;

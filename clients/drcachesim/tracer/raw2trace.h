@@ -566,12 +566,16 @@ struct trace_header_t {
  * item to write. Both start and end are assumed to be pointers inside a buffer
  * returned by get_write_buffer().</LI>
  *
- * <LI>std::string write_delayed_branches(const trace_entry_t *start, const trace_entry_t
- * *end)
+ * <LI>std::string write_delayed_branches(void *tls, const trace_entry_t *start,
+ * const trace_entry_t *end)
  *
  * Similar to write(), but treat the provided traces as delayed branches: if they
  * are the last values in a record, they belong to the next record of the same
  * thread.</LI>
+ *
+ * <LI>std::string append_delayed_branch(void *tls)
+ *
+ * Flush the branches sent to write_delayed_branches().</LI>
  *
  * <LI>std::string on_thread_end(void *tls)
  *
@@ -1076,7 +1080,13 @@ private:
             }
             DR_CHECK(pc > decode_pc, "error advancing inside block");
             DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
-            // FIXME i#1729: make bundles via lazy accum until hit memref/end.
+            if (!instr->is_cti()) {
+                // Write out delayed branches now that we have a target.
+                error = impl()->append_delayed_branch(tls);
+                if (!error.empty())
+                    return error;
+            }
+            // TODO i#1729: make bundles via lazy accum until hit memref/end.
             buf->type = instr->type();
             if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                 // We want it to look like the original rep string, with just one instr
@@ -1642,7 +1652,7 @@ protected:
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
-        std::vector<char> delayed_branch;
+        std::vector<std::vector<char>> delayed_branch;
 
         // Current trace conversion state.
         bool saw_header;
@@ -1659,7 +1669,7 @@ protected:
         uint64 count_elided = 0;
     };
 
-    std::string
+    virtual std::string
     read_and_map_modules();
 
     // Processes a raw buffer which must be the next buffer in the desired (typically

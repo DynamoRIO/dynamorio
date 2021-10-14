@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -554,9 +554,13 @@ drwrap_get_mcontext_internal(drwrap_context_t *wrapcxt, dr_mcontext_flags_t flag
     if (!TESTALL(flags, wrapcxt->mc->flags)) {
         dr_mcontext_flags_t old_flags = wrapcxt->mc->flags;
         wrapcxt->mc->flags |= flags | DR_MC_INTEGER | DR_MC_CONTROL;
-        if (old_flags == 0) /* nothing to clobber */
+        if (old_flags == 0) { /* nothing to clobber */
             dr_get_mcontext(wrapcxt->drcontext, wrapcxt->mc);
-        else {
+            if (wrapcxt->where_am_i == DRWRAP_WHERE_PRE_FUNC)
+                wrapcxt->mc->pc = wrapcxt->func;
+            else
+                wrapcxt->mc->pc = wrapcxt->retaddr;
+        } else {
             ASSERT(TEST(DR_MC_MULTIMEDIA, flags) && !TEST(DR_MC_MULTIMEDIA, old_flags) &&
                        TESTALL(DR_MC_INTEGER | DR_MC_CONTROL, old_flags),
                    "logic error");
