@@ -1,0 +1,71 @@
+Source: dynamorio
+Maintainer: Felix Moessbauer <felix.moessbauer@siemens.com>
+Section: devel
+Priority: optional
+Build-Depends:
+ debhelper-compat (=13),
+ dh-exec,
+ cmake,
+ git,
+ doxygen <!nodoc>,
+ libsnappy-dev,
+ zlib1g-dev,
+ qtbase5-dev,
+ libunwind-dev
+
+Package: dynamorio-tools
+Architecture: any
+Multi-Arch: same
+Description: Tools to configure and start DynamoRIO clients
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ ${perl:Depends},
+ libdynamorio8.0
+
+Package: libdynamorio-dev
+Architecture: any
+Multi-Arch: same
+Description: Development headers for DynamoRIO clients
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ dynamorio-tools,
+ libdynamorio8.0 (=${binary:Version}),
+ libdynamorio-dbg8.0 (=${binary:Version}),
+ libdynamorio-clients8.0 (=${binary:Version}),
+ libdynamorio-clients-dbg8.0 (=${binary:Version}),
+
+Package: libdynamorio8.0
+Architecture: any
+Multi-Arch: foreign
+Description: DynamoRIO instrumentation framework
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends}
+
+Package: libdynamorio-dbg8.0
+Architecture: any
+Multi-Arch: foreign
+Description: Debug version of DynamoRIO instrumentation framework
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends}
+
+Package: libdynamorio-clients8.0
+Architecture: any
+Multi-Arch: foreign
+Description: Analysis clients using the DynamoRIO instrumentation framework
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ libdynamorio8.0
+
+Package: libdynamorio-clients-dbg8.0
+Architecture: any
+Multi-Arch: foreign
+Description: Debug version of analysis clients using the DynamoRIO instrumentation framework
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ libdynamorio-dbg8.0

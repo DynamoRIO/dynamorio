@@ -1,0 +1,42 @@
+#!/usr/bin/make -f
+
+CMAKE_COMMON_OPTS= -DBUILD_CLIENTS=ON -DBUILD_TESTS=OFF -DUSE_GNU_DIR_LAYOUT=ON -DSPLIT_SYMBOLS=OFF -DVERA_ERROR=OFF
+
+ifneq ($(filter nodoc,$(DEB_BUILD_PROFILES)),)
+	BUILD_DOCS_DEFAULT=OFF
+else
+	BUILD_DOCS_DEFAULT=ON
+endif
+
+# auto-detection of as does not work on these architectures
+ifneq ($(filter aarch64-linux-gnu,$(DEB_HOST_MULTIARCH)),)
+	CMAKE_COMMON_OPTS+= -DCMAKE_ASM_COMPILER=/usr/bin/aarch64-linux-gnu-as
+endif
+ifneq ($(filter arm-linux-gnueabihf,$(DEB_HOST_MULTIARCH)),)
+	CMAKE_COMMON_OPTS+= -DCMAKE_ASM_COMPILER=/usr/bin/arm-linux-gnueabihf-as
+endif
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	test -d build_deb_release || mkdir build_deb_release
+	dh_auto_configure -Bbuild_deb_release -- $(CMAKE_COMMON_OPTS) -DBUILD_SAMPLES=ON  -DBUILD_TOOLS=ON  -DBUILD_DOCS=$(BUILD_DOCS_DEFAULT) -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+	test -d build_deb_debug || mkdir build_deb_debug
+	dh_auto_configure -Bbuild_deb_debug   -- $(CMAKE_COMMON_OPTS) -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF -DBUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Debug
+
+override_dh_auto_build:
+	dh_auto_build -Bbuild_deb_release
+	dh_auto_build -Bbuild_deb_debug
+
+override_dh_auto_install:
+	dh_auto_install -Bbuild_deb_debug -Xusr/include -Xusr/bin -Xetc
+	dh_auto_install -Bbuild_deb_release
+
+override_dh_installexamples:
+	dh_installexamples --sourcedir build_deb_release
+
+# libdynamorio.so has to be executable so that drrun can inject via execv
+override_dh_fixperms:
+	dh_fixperms -Xlibdynamorio.so

@@ -1,0 +1,14 @@
+usr/lib/*/DynamoRIO-*/*.a
+usr/lib/*/DynamoRIO-*/release/*.a
+usr/lib/*/DynamoRIO-*/release/*.so
+usr/lib/*/DynamoRIO-*/release/clients/*.a
+usr/lib/*/DynamoRIO-*/release/clients/*.so
+usr/lib/*/DynamoRIO-*/debug/*.a
+usr/lib/*/DynamoRIO-*/debug/*.so
+usr/lib/*/DynamoRIO-*/debug/clients/*.a
+usr/lib/*/DynamoRIO-*/debug/clients/*.so
+usr/lib/*/DynamoRIO-*/examples/*.so*
+usr/lib/*/DynamoRIO-*/examples/tracedump
+usr/include/DynamoRIO
+usr/share/cmake/DynamoRIO
+usr/var/log/DynamoRIO/README

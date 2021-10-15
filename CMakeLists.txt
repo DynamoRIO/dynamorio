@@ -558,7 +558,7 @@ message(STATUS "Version number: ${VERSION_NUMBER}")
 if (UNIX AND USE_GNU_DIR_LAYOUT)
   set(LIB_EXT_SOVERSION "${LIB_EXT}.${VERSION_MAJOR_MINOR}")
 else ()
-  set (LIB_EXT_SOVERSION "${LIB_EXT}")
+  set(LIB_EXT_SOVERSION "${LIB_EXT}")
 endif ()
 
 set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")

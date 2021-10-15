@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# pass / as root, so drrun's GNU dir layout support kicks in
+exec /usr/bin/drrun -root / "$@"

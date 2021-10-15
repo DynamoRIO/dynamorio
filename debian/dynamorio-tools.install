@@ -1,0 +1,5 @@
+#!/usr/bin/dh-exec
+debian/drrun-system usr/bin
+usr/bin/dr*
+usr/bin/genhtml => usr/bin/drgenhtml
+usr/bin/nudgeunix => usr/bin/drnudgeunix
