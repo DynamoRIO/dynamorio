@@ -794,7 +794,7 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
                                            restored_for_read);
         }
         if (res != DRREG_SUCCESS)
-            drreg_report_error(res, "failed to restore for reads");
+            drreg_report_error(res, "failed to restore for clean call");
     }
     if (TEST(DR_CLEANCALL_WRITES_APP_CONTEXT, call_flags)) {
         if (TEST(DR_CLEANCALL_MULTIPATH, call_flags)) {
@@ -812,7 +812,7 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
         res = drreg_insert_update_all(drcontext, pt, ilist, where, instr_get_next(where),
                                       true, restored_for_read);
         if (res != DRREG_SUCCESS)
-            drreg_report_error(res, "failed to update for writes");
+            drreg_report_error(res, "failed to update for clean call");
     }
 }
 
@@ -1295,6 +1295,8 @@ drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *wher
     if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
         return res;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        if (reg == dr_get_stolen_reg())
+            continue;
         res = drreg_statelessly_restore_app_value(drcontext, ilist, reg, where_restore,
                                                   where_respill, restore_needed,
                                                   respill_needed);
@@ -1687,6 +1689,8 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
             restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
     }
 #elif defined(AARCHXX)
+    if (pt->aflags.native)
+        return DRREG_SUCCESS;
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
     res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, false, &scratch);
