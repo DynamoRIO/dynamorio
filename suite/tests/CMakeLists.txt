@@ -4809,7 +4809,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.call-retarget
     code_api|client.crashmsg
     code_api|client.destructor
-    code_api|client.drcallstack-test
     code_api|client.drcontainers-test
     code_api|client.drmodtrack-test
     code_api|client.drsyms-test
@@ -4840,6 +4839,11 @@ if (NOT ANDROID AND AARCHXX)
     set_tests_properties(
       code_api|common.logstderr
       code_api|common.loglevel
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+  if (HAVE_LIBUNWIND_H)
+    set_tests_properties(
+      code_api|client.drcallstack-test
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   if (AARCH64)
