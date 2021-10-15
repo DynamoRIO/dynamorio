@@ -175,8 +175,12 @@ if (CMAKE_COMPILER_IS_GNUCC AND NOT CMAKE_COMPILER_IS_CLANG)
   # Work around a false positive snprintf warning from gcc: i#4363.
   # XXX i#4363: A better solution would be nice to avoid missing
   # warnings on real snprintf issues.
-  set_source_files_properties(drdeploy.c PROPERTIES COMPILE_FLAGS "-Wno-restrict")
+  set_source_files_properties(drdeploy.c PROPERTIES
+    COMPILE_FLAGS "-Wno-restrict")
 endif ()
+set_source_files_properties(drdeploy.c PROPERTIES
+  COMPILE_DEFINITIONS "SOVERSION=${VERSION_MAJOR_MINOR}")
+
 add_executable(drconfig drdeploy.c ${RESOURCES})
 set_target_properties(drconfig PROPERTIES
   COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drconfig;DRCONFIG")

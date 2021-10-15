@@ -146,7 +146,7 @@ set_target_properties(drconfiglib PROPERTIES
   # \\\\\\\" but no spaces) we put strings in resources.rc and select
   # using RC_ defines.
   COMPILE_FLAGS "${libutil_cflags}"
-  COMPILE_DEFINITIONS "RC_IS_DRCONFIGLIB;NOT_DYNAMORIO_CORE"
+  COMPILE_DEFINITIONS "RC_IS_DRCONFIGLIB;NOT_DYNAMORIO_CORE;SOVERSION=${VERSION_MAJOR_MINOR}"
   # put in lib dir
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 add_gen_events_deps(drconfiglib)
