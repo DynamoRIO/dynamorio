@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -714,9 +714,9 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_strd,    0x010000f0, "strd",   MNRq, xx, RBEw, RB2w, xx, pred, x, top4[3][0x0f]},/*PUW=100*/
   }, { /* 1 */
     {EXT_BIT9,   0x01200000, "(ext bit9 2)", xx, xx, xx, xx, xx, no, x, 2},
-    {OP_bx,      0x01200010, "bx",     xx, xx, RDw, xx, xx, pred, x, END_LIST},
-    {OP_bxj,     0x01200020, "bxj",    xx, xx, RDw, xx, xx, pred, x, END_LIST},
-    {OP_blx_ind, 0x01200030, "blx",    LRw, xx, RDw, xx, xx, pred, x, END_LIST},
+    {OP_bx,      0x012fff10, "bx",     xx, xx, RDw, xx, xx, pred, x, END_LIST},
+    {OP_bxj,     0x012fff20, "bxj",    xx, xx, RDw, xx, xx, pred, x, END_LIST},
+    {OP_blx_ind, 0x012fff30, "blx",    LRw, xx, RDw, xx, xx, pred, x, END_LIST},
     {EXT_BIT9,   0x01200040, "(ext bit9 3)", xx, xx, xx, xx, xx, no, x, 3},
     {OP_qsub,    0x01200050, "qsub",   RBw, xx, RDw, RAw, xx, pred, x, END_LIST},
     {INVALID,    0x01200060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
