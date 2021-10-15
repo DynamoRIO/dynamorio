@@ -517,6 +517,16 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
 
 DR_EXPORT
 /**
+ * Invokes drreg_statelessly_restore_app_value() for the arithmetic flags and every
+ * general-purpose register.
+ */
+drreg_status_t
+drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *where_restore,
+                              instr_t *where_respill, bool *restore_needed OUT,
+                              bool *respill_needed OUT);
+
+DR_EXPORT
+/**
  * Returns information about the TLS slot assigned to \p reg, which
  * must be a currently-reserved register. To query information about
  * the arithmetic flags, pass #DR_REG_NULL for \p reg.

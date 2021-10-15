@@ -971,6 +971,18 @@ typedef enum {
      * restores of spilled values.
      */
     DR_CLEANCALL_WRITES_APP_CONTEXT = 0x0200,
+    /**
+     * Indicates that the clean call may be skipped by inserted tool control flow.
+     * This affects how register spilling and restoring occurs when combined with the
+     * #DR_CLEANCALL_READS_APP_CONTEXT flag.  Tool values may be clobbered when this
+     * flag is used.  If control flow and clean call context access is used with
+     * registers holding tool values across the clean call, manual restoration may be
+     * required rather than passing any of these automated flags.
+     *
+     * Combining this flag with #DR_CLEANCALL_WRITES_APP_CONTEXT is not supported.
+     * Manual updates are required for such a combination.
+     */
+    DR_CLEANCALL_MULTIPATH = 0x0400,
 } dr_cleancall_save_t;
 
 #endif /* _DR_DEFINES_H_ */

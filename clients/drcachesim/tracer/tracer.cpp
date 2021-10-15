@@ -1709,8 +1709,9 @@ event_delay_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t
 #        endif
 
     dr_insert_clean_call_ex(drcontext, bb, instr, (void *)hit_instr_count_threshold,
-                            DR_CLEANCALL_READS_APP_CONTEXT, 1,
-                            OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
+                            static_cast<dr_cleancall_save_t>(
+                                DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH),
+                            1, OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(instr)));
     MINSERT(bb, instr, skip_call);
 
 #        ifdef X86_64

@@ -375,8 +375,9 @@ DR_API
  * via the drreg extension library: \ref page_drreg), dr_insert_clean_call_ex()
  * must be called with its flags argument including
  * #DR_CLEANCALL_READS_APP_CONTEXT (for dr_get_mcontext() use) and/or
- * #DR_CLEANCALL_WRITES_APP_CONTEXT (for dr_set_mcontext() use) to ensure proper
- * interaction with register reservations.
+ * #DR_CLEANCALL_WRITES_APP_CONTEXT (for dr_set_mcontext() use) (and
+ * possibly #DR_CLEANCALL_MULTIPATH) to ensure proper interaction with
+ * register reservations.
  *
  * On x86, if \p save_fpstate is true, preserves the x87 floating-point and
  * MMX state on the
@@ -762,8 +763,8 @@ DR_API
  * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call().  If
  *   register reservation code is in use (e.g., via the drreg extension library \ref
  *   page_drreg), dr_insert_clean_call_ex() must be used with its flags argument
- *   including #DR_CLEANCALL_READS_APP_CONTEXT to ensure proper interaction with
- *   register reservations.
+ *   including #DR_CLEANCALL_READS_APP_CONTEXT (and possibly
+ *   #DR_CLEANCALL_MULTIPATH)to ensure proper interaction with register reservations.
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(),
  *   dr_register_post_syscall_event())
  * - Basic block or trace creation events (dr_register_bb_event(),
@@ -830,8 +831,9 @@ DR_API
  * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call().  If
  *   register reservation code is in use (e.g., via the drreg extension library \ref
  *   page_drreg), dr_insert_clean_call_ex() must be used with its flags argument
- *   including #DR_CLEANCALL_WRITES_APP_CONTEXT to ensure proper interaction
- *   with register reservations.
+ *   including #DR_CLEANCALL_WRITES_APP_CONTEXT (and possibly
+ *   #DR_CLEANCALL_MULTIPATH) to ensure proper interaction with register
+ *   reservations.
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(),
  *   dr_register_post_syscall_event())
  *   dr_register_thread_exit_event())

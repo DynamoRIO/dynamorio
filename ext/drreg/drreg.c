@@ -781,13 +781,31 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
     bool restored_for_read[DR_NUM_GPR_REGS];
     drreg_status_t res;
     if (TEST(DR_CLEANCALL_READS_APP_CONTEXT, call_flags)) {
-        LOG(drcontext, DR_LOG_ALL, 3, "%s: restoring for cleancall to read app regs\n",
-            __FUNCTION__);
-        res = drreg_insert_restore_all(drcontext, ilist, where, true, restored_for_read);
+        if (TEST(DR_CLEANCALL_MULTIPATH, call_flags)) {
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s: restoring statelessly for cleancall to read app regs\n",
+                __FUNCTION__);
+            res =
+                drreg_statelessly_restore_all(drcontext, ilist, where, where, NULL, NULL);
+        } else {
+            LOG(drcontext, DR_LOG_ALL, 3,
+                "%s: restoring for cleancall to read app regs\n", __FUNCTION__);
+            res = drreg_insert_restore_all(drcontext, ilist, where, true,
+                                           restored_for_read);
+        }
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to restore for reads");
     }
     if (TEST(DR_CLEANCALL_WRITES_APP_CONTEXT, call_flags)) {
+        if (TEST(DR_CLEANCALL_MULTIPATH, call_flags)) {
+            /* We do not support this, partly b/c it is rare and complex.
+             * We would need some kind of stateless re-spill.
+             */
+            drreg_report_error(DRREG_ERROR_FEATURE_NOT_AVAILABLE,
+                               "combining DR_CLEANCALL_WRITES_APP_CONTEXT and "
+                               "DR_CLEANCALL_MULTIPATH is not supported");
+            return;
+        }
         per_thread_t *pt = get_tls_data(drcontext);
         LOG(drcontext, DR_LOG_ALL, 3, "%s: updating after cleancall wrote app regs\n",
             __FUNCTION__);
@@ -1263,6 +1281,26 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
 #endif
         if (respill_needed != NULL)
         *respill_needed = false;
+    return res;
+}
+
+drreg_status_t
+drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *where_restore,
+                              instr_t *where_respill, bool *restore_needed OUT,
+                              bool *respill_needed OUT)
+{
+    drreg_status_t res = drreg_statelessly_restore_app_value(
+        drcontext, ilist, DR_REG_NULL, where_restore, where_respill, restore_needed,
+        respill_needed);
+    if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
+        return res;
+    for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        res = drreg_statelessly_restore_app_value(drcontext, ilist, reg, where_restore,
+                                                  where_respill, restore_needed,
+                                                  respill_needed);
+        if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
+            return res;
+    }
     return res;
 }
 
