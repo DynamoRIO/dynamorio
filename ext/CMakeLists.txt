@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -49,11 +50,18 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}")
 set_per_config_ouput_to_match_single_config()
 
-set(INSTALL_EXT_BASE ext)
-set(INSTALL_EXT_BIN ${INSTALL_EXT_BASE}/${INSTALL_BIN})
-set(INSTALL_EXT_LIB ${INSTALL_EXT_BASE}/${INSTALL_LIB})
-set(INSTALL_EXT_INCLUDE ${INSTALL_EXT_BASE}/include)
-set(INSTALL_EXT_CMAKE ${INSTALL_EXT_BASE}/cmake)
+if (USE_GNU_DIR_LAYOUT)
+  set(INSTALL_EXT_BIN ${CMAKE_INSTALL_BINDIR})
+  set(INSTALL_EXT_LIB ${INSTALL_LIB})
+  set(INSTALL_EXT_INCLUDE ${INSTALL_INCLUDE}/ext)
+  set(INSTALL_EXT_CMAKE ${INSTALL_CMAKE})
+else (USE_GNU_DIR_LAYOUT)
+  set(INSTALL_EXT_BASE ext)
+  set(INSTALL_EXT_BIN ${INSTALL_EXT_BASE}/${INSTALL_BIN})
+  set(INSTALL_EXT_LIB ${INSTALL_EXT_BASE}/${INSTALL_LIB})
+  set(INSTALL_EXT_INCLUDE ${INSTALL_EXT_BASE}/include)
+  set(INSTALL_EXT_CMAKE ${INSTALL_EXT_BASE}/cmake)
+endif (USE_GNU_DIR_LAYOUT)
 
 disable_compiler_warnings()
 # Extensions don't include configure.h so they don't get DR defines
@@ -80,6 +88,11 @@ macro(configure_extension target is_static)
     # Doesn't hurt to apply to shared libs as well, though CMake
     # should already be adding it.
     append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
+
+    if (USE_GNU_DIR_LAYOUT)
+      set_target_properties(${target} PROPERTIES
+        VERSION "${VERSION_NUMBER}" SOVERSION "${VERSION_MAJOR_MINOR}")
+    endif (USE_GNU_DIR_LAYOUT)
   else ()
     # For version info we need global_shared.h included in resources.rc.
     # The extension must add core/win32/resources.rc as a source.

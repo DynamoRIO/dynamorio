@@ -2,6 +2,7 @@
 # Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016-2022 ARM Limited.    All rights reserved.
+# Copyright (c) 2022 Siemens AG           All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -4188,6 +4189,8 @@ if (UNIX)
   #
   # i#2971: We test -c32/-c64 here since modern DR focuses on clients.
   if (X86)
+    # TODO i#5153: faking i386 runs does not work with gnu install-dirs as the base directory
+    # differs across platforms
     if (X64)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       if (TEST_SUITE AND TEST_32BIT_PATH)

@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2022 Siemens AG           All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -77,12 +78,18 @@ if (UNIX)
   # Set up our debugging support for gdb in the build directory.
   # We need to compute the final path of libdynamorio.so, with version number
   # applied for gdb's script autoloading to work.
-  # i#2127: we eliminated soversioning so we do not need to rename or
-  # make a symlink anymore.
-  DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
-    DESTINATION "${INSTALL_LIB}"
-    PERMISSIONS ${owner_access} OWNER_EXECUTE
-    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  if (USE_GNU_DIR_LAYOUT)
+    DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
+      DESTINATION "${INSTALL_LIB}"
+      RENAME "libdynamorio.so.${VERSION_NUMBER}-gdb.py"
+      PERMISSIONS ${owner_access} OWNER_EXECUTE
+      GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  else ()
+    DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
+      DESTINATION "${INSTALL_LIB}"
+      PERMISSIONS ${owner_access} OWNER_EXECUTE
+      GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  endif ()
 
   set(tool_cflags "")
   set(RESOURCES "")

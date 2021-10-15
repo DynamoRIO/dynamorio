@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -187,7 +188,11 @@ DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_config.h dr_config.h)
 install_exported_target(drconfiglib ${INSTALL_LIB_BASE})
 DR_export_target(drconfiglib)
 # drinject.exe and company need a copy in the bin dir (i#1737 would eliminate this)
-DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
+if (USE_GNU_DIR_LAYOUT)
+  DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_LIB})
+else (USE_GNU_DIR_LAYOUT)
+  DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
+endif (USE_GNU_DIR_LAYOUT)
 
 # drconfiglib now uses drfront_access()
 # drconfiglib needs drlibc for dr_fpu_exception_init()
@@ -212,7 +217,13 @@ if (UNIX)
   # We need our own memcpy + memset to avoid glibc versioning (i#1504).
   target_link_libraries(drfrontendlib drmemfuncs)
 endif ()
-add_static_lib_debug_info(drfrontendlib "${INSTALL_BIN}")
+
+if (USE_GNU_DIR_LAYOUT)
+  add_static_lib_debug_info(drfrontendlib ${INSTALL_LIB})
+  install_exported_target(drfrontendlib ${INSTALL_LIB})
+else (USE_GNU_DIR_LAYOUT)
+  add_static_lib_debug_info(drfrontendlib ${INSTALL_BIN})
+  install_exported_target(drfrontendlib ${INSTALL_BIN})
+endif (USE_GNU_DIR_LAYOUT)
 DR_export_target(drfrontendlib)
-install_exported_target(drfrontendlib ${INSTALL_BIN})
 DR_export_header(${CMAKE_CURRENT_SOURCE_DIR}/dr_frontend.h dr_frontend.h)

@@ -2,6 +2,7 @@
 # Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2018 Arm Limited          All rights reserved.
+# Copyright (c) 2022 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -557,7 +558,14 @@ if ("${VERSION_NUMBER}" STREQUAL "")
   set(VERSION_NUMBER ${VERSION_NUMBER_DEFAULT})
 endif()
 string(REGEX REPLACE "\\." "," VERSION_COMMA_DELIMITED "${VERSION_NUMBER}")
+string(REGEX REPLACE "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
 message(STATUS "Version number: ${VERSION_NUMBER}")
+# if we use SOVERSIONing, append to extension
+if (UNIX AND USE_GNU_DIR_LAYOUT)
+  set(LIB_EXT_SOVERSION "${LIB_EXT}.${VERSION_MAJOR_MINOR}")
+else ()
+  set(LIB_EXT_SOVERSION "${LIB_EXT}")
+endif ()
 
 set(BUILD_NUMBER "0" CACHE STRING "Build number (must be <64K)")
 set(UNIQUE_BUILD_NUMBER "0" CACHE STRING "Unique build number")
@@ -1219,30 +1227,64 @@ endif ()
 
 ###########################################################################
 
-# Issue 20: cross-arch execve depends on these being distinct and not
-# subsets of each other (e.g., not "lib" and "lib64") and on the
-# release package using these same names.
-set(INSTALL_LIB_X64 lib64)
-set(INSTALL_LIB_X86 lib32)
-if (X64)
-  set(INSTALL_LIB_BASE ${INSTALL_LIB_X64})
-  set(INSTALL_BIN bin64)
-else (X64)
-  set(INSTALL_LIB_BASE ${INSTALL_LIB_X86})
-  set(INSTALL_BIN bin32)
-endif (X64)
+option(USE_GNU_DIR_LAYOUT "use GNU install directory layout" OFF)
+
+# i#5153: The generated executables of both install layouts are not
+# fully identical, as cross-arch exec requires knowledge about the
+# install library dirs. This is currently hard-coded via the cmake
+# generated configure.h. To work around this, a config-file based
+# approach could be implemented.
+if (USE_GNU_DIR_LAYOUT)
+  include(GNUInstallDirs)
+  set(INSTALL_LIB_BASE ${CMAKE_INSTALL_LIBDIR}/${CMAKE_PROJECT_NAME}-${VERSION_MAJOR_MINOR})
+  set(INSTALL_BIN ${CMAKE_INSTALL_BINDIR})
+  set(INSTALL_INCLUDE ${CMAKE_INSTALL_INCLUDEDIR}/${CMAKE_PROJECT_NAME})
+  set(INSTALL_DOCS ${CMAKE_INSTALL_DOCDIR})
+  set(INSTALL_DOCS_EMBED ${INSTALL_DOCS}/embed)
+  set(INSTALL_CMAKE ${CMAKE_INSTALL_DATAROOTDIR}/cmake/${CMAKE_PROJECT_NAME})
+  set(INSTALL_CONFIG ${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME})
+  set(INSTALL_LOGS var/log/${CMAKE_PROJECT_NAME})
+  # compute 32/64 bit library install locations
+  if ((CMAKE_INSTALL_LIBDIR MATCHES "/i386-linux") OR (CMAKE_INSTALL_LIBDIR MATCHES "/x86_64-linux"))
+    string(REPLACE "i386-linux"   "x86_64-linux" INSTALL_LIB_BASE_X64 ${INSTALL_LIB_BASE})
+    string(REPLACE "x86_64-linux" "i386-linux"   INSTALL_LIB_BASE_X86 ${INSTALL_LIB_BASE})
+  else ()
+    string(REPLACE "/lib/"   "/lib64/" INSTALL_LIB_BASE_X64 ${INSTALL_LIB_BASE})
+    string(REPLACE "/lib64/" "/lib/"   INSTALL_LIB_BASE_X86 ${INSTALL_LIB_BASE})
+  endif ()
+else (USE_GNU_DIR_LAYOUT)
+  # i#20: cross-arch execve depends on these being distinct and not
+  # subsets of each other (e.g., not "lib" and "lib64") and on the
+  # release package using these same names.
+  set(INSTALL_LIB_BASE_X64 lib64)
+  set(INSTALL_LIB_BASE_X86 lib32)
+  if (X64)
+    set(INSTALL_LIB_BASE ${INSTALL_LIB_BASE_X64})
+    set(INSTALL_BIN bin64)
+  else (X64)
+    set(INSTALL_LIB_BASE ${INSTALL_LIB_BASE_X86})
+    set(INSTALL_BIN bin32)
+  endif (X64)
+  set(INSTALL_INCLUDE include)
+  set(INSTALL_DOCS docs)
+  set(INSTALL_DOCS_EMBED docs_embed)
+  set(INSTALL_CMAKE cmake)
+  set(INSTALL_CONFIG tools)
+  set(INSTALL_LOGS logs)
+endif (USE_GNU_DIR_LAYOUT)
+
 if (DEBUG)
   set(INSTALL_LIB ${INSTALL_LIB_BASE}/debug)
+  set(INSTALL_LIB_X64 ${INSTALL_LIB_BASE_X64}/debug)
+  set(INSTALL_LIB_X86 ${INSTALL_LIB_BASE_X86}/debug)
 else (DEBUG)
   set(INSTALL_LIB ${INSTALL_LIB_BASE}/release)
+  set(INSTALL_LIB_X64 ${INSTALL_LIB_BASE_X64}/release)
+  set(INSTALL_LIB_X86 ${INSTALL_LIB_BASE_X86}/release)
 endif (DEBUG)
-set(INSTALL_INCLUDE include)
-set(INSTALL_DOCS docs)
-set(INSTALL_DOCS_EMBED docs_embed)
 # samples are installed via api/samples/ separate CMake project
-set(INSTALL_CMAKE cmake)
-set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/${INSTALL_INCLUDE}")
-set(BUILD_CMAKE "${PROJECT_BINARY_DIR}/${INSTALL_CMAKE}")
+set(BUILD_INCLUDE "${PROJECT_BINARY_DIR}/include")
+set(BUILD_CMAKE "${PROJECT_BINARY_DIR}/cmake")
 
 # support DynamoRIO being included as a subdir inside a tool's project,
 # where the tool will likely want to suppress DR's install rules.
@@ -1333,6 +1375,7 @@ string(REGEX REPLACE
   "^[0-9]+\\.([0-9]+)\\..*" "\\1" VERSION_NUMBER_MINOR "${VERSION_NUMBER}")
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
+set(SOVERSION ${VERSION_MAJOR_MINOR})
 
 # Every release since has had minor compat breakages.
 # 8.xx broke backcompat by reordering the AArch64 opcode enum an changing
@@ -1701,7 +1744,7 @@ else ()
   set(TOOLS_LISTNAME "list32")
 endif ()
 file(WRITE ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "")
-DR_install(FILES ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} DESTINATION tools)
+DR_install(FILES ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} DESTINATION ${INSTALL_CONFIG})
 
 function (register_tool_file name)
   file(APPEND ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "${name}\n")
@@ -1723,7 +1766,8 @@ endif()
 
 DR_export_header(${PROJECT_SOURCE_DIR}/core/lib/dr_app.h dr_app.h)
 
-DR_install(DIRECTORY ${BUILD_INCLUDE} DESTINATION .
+# trailing slash to avoid a include/include subdir install
+DR_install(DIRECTORY "${BUILD_INCLUDE}/" DESTINATION ${INSTALL_INCLUDE}
   REGEX "annotations/valgrind.h|annotations/memcheck.h" EXCLUDE)
 
 # Used by tests in multiple places, and by some drcachesim non-test binaries.
@@ -1906,13 +1950,13 @@ endif (BUILD_TOOLS OR WIN32)
 
 if (BUILD_DOCS)
   file(WRITE ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html "<html>\n<head>\n<meta http-equiv=\"refresh\" content=\"0; URL=./html/index.html\">\n</head><body></body>")
-  DR_install(FILES ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html DESTINATION docs)
+  DR_install(FILES ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html DESTINATION ${INSTALL_DOCS})
 endif (BUILD_DOCS)
 
 # create empty logs dir for release package
 # CPack seems to ignore empty dirs so add a README file
 file(WRITE ${PROJECT_BINARY_DIR}/logs/README "Empty dir for debug-build log files.\n")
-DR_install(FILES ${PROJECT_BINARY_DIR}/logs/README DESTINATION logs)
+DR_install(FILES ${PROJECT_BINARY_DIR}/logs/README DESTINATION ${INSTALL_LOGS})
 
 ###########################################################################
 
