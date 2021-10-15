@@ -168,12 +168,20 @@ jobs:
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
-    # Install cross-compilers for cross-compiling Linux build:
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there is no libunwind-dev or libunwind cross-compile
+    # package so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+          g++-aarch64-linux-gnu
+        sudo add-apt-repository 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:arm64 libunwind-dev:arm64 liblzma5:arm64
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/${i}/; done
+        sudo rsync -av ../extract/lib/aarch64-linux-gnu/ /usr/aarch64-linux-gnu/lib/
 
     - name: Get Version
       id: version
@@ -244,12 +252,20 @@ jobs:
         git clone --depth=2 https://github.com/DynamoRIO/drmemory.git drmemory
         cd drmemory && git submodule update --init --depth 250 && cd ..
 
-    # Install cross-compilers for cross-compiling Linux build:
+    # Install cross-compiler for cross-compiling Linux build.
+    # Unfortunately there is no libunwind-dev or libunwind cross-compile
+    # package so we unpack the native versions and copy their files.
     - name: Create Build Environment
       run: |
         sudo apt-get update
         sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
-          g++-arm-linux-gnueabihf g++-aarch64-linux-gnu
+          g++-arm-linux-gnueabihf
+        sudo add-apt-repository 'deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports focal main'
+        apt download libunwind8:armhf libunwind-dev:armhf liblzma5:armhf
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        for i in include lib; do sudo rsync -av ../extract/usr/${i}/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/${i}/; done
+        sudo rsync -av ../extract/lib/arm-linux-gnueabihf/ /usr/arm-linux-gnueabihf/lib/
 
     - name: Get Version
       id: version

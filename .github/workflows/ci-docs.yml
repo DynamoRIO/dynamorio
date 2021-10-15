@@ -77,7 +77,8 @@ jobs:
     - name: Create Build Environment
       run: |
         sudo apt-get update
-        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev
+        sudo apt-get -y install doxygen vera++ cmake zlib1g-dev libsnappy-dev \
+          libunwind-dev
 
     - name: Get Version
       id: version
