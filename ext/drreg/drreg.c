@@ -594,7 +594,7 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
     return DRREG_SUCCESS;
 }
 
-static dr_emit_flags_t
+static drreg_status_t
 drreg_insert_update_all(void *drcontext, per_thread_t *pt, instrlist_t *bb, instr_t *inst,
                         instr_t *next, bool force_respill, bool *restored_for_read)
 {
@@ -717,7 +717,6 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
                            bool for_trace, bool translating, void *user_data)
 {
     per_thread_t *pt = get_tls_data(drcontext);
-    reg_id_t reg;
     instr_t *next = instr_get_next(inst);
     bool restored_for_read[DR_NUM_GPR_REGS];
     drreg_status_t res;
@@ -744,7 +743,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
 #ifdef DEBUG
     if (drmgr_is_last_instr(drcontext, inst)) {
         uint i;
-        for (reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
+        for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
             ASSERT(!pt->aflags.in_use, "user failed to unreserve aflags");
             ASSERT(pt->aflags.native, "user failed to unreserve aflags");
             ASSERT(!pt->reg[GPR_IDX(reg)].in_use, "user failed to unreserve a register");

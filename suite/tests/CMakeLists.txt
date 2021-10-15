@@ -2687,11 +2687,6 @@ tobuild_ci(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c "" ""
 use_DynamoRIO_extension(client.drwrap-drreg-test.dll drwrap)
 use_DynamoRIO_extension(client.drwrap-drreg-test.dll drreg)
 use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
-if (WIN32)
-  # export from asm code
-  append_link_flags(client.drwrap-drreg-test.appdll
-    "/export:makes_tailcall /export:tailcall_test2 /export:tailcall_tail")
-endif (WIN32)
 
 if (AARCH64)
   # Create a fuzzing application for stress-testing via drstatecmp.
