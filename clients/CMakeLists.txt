@@ -49,15 +49,30 @@ set_per_config_ouput_to_match_single_config()
 # We use clients/ in the build dir where we already have tools/ for utilities
 # used by DR. In our install/package, however, we use tools/ instead because
 # we want to distinguish from the sample clients.
-set(INSTALL_CLIENTS_BASE tools)
-set(INSTALL_CLIENTS_BIN ${INSTALL_CLIENTS_BASE}/${INSTALL_BIN})
-set(INSTALL_CLIENTS_LIB ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB})
-set(INSTALL_CLIENTS_CONFIG ${INSTALL_CLIENTS_BASE})
-set(INSTALL_CLIENTS_CMAKE ${INSTALL_CLIENTS_BASE}/cmake)
-# We install header files meant for use by DR clients to ext/include
-set(INSTALL_CLIENTS_DR_INCLUDE ${INSTALL_CLIENTS_BASE}/../ext/include)
-# For non-DR-client headers we use tools/include in the install package.
-set(INSTALL_CLIENTS_NONDR_INCLUDE ${INSTALL_CLIENTS_BASE}/include)
+if (USE_GNU_DIR_LAYOUT)
+  set(INSTALL_CLIENTS_BIN ${INSTALL_BIN})
+  set(INSTALL_CLIENTS_LIB ${INSTALL_LIB}/clients)
+  set(INSTALL_CLIENTS_LIB32 ${INSTALL_LIB_X86}/clients)
+  set(INSTALL_CLIENTS_LIB64 ${INSTALL_LIB_X64}/clients)
+  set(INSTALL_CLIENTS_CONFIG ${INSTALL_CONFIG})
+  set(INSTALL_CLIENTS_CMAKE ${INSTALL_CMAKE})
+  # We install header files meant for use by DR clients to ext/include
+  set(INSTALL_CLIENTS_DR_INCLUDE ${INSTALL_INCLUDE}/ext/include)
+  # For non-DR-client headers we use tools/include in the install package.
+  set(INSTALL_CLIENTS_NONDR_INCLUDE ${INSTALL_INCLUDE}/include)
+else (USE_GNU_DIR_LAYOUT)
+  set(INSTALL_CLIENTS_BASE tools)
+  set(INSTALL_CLIENTS_BIN ${INSTALL_CLIENTS_BASE}/${INSTALL_BIN})
+  set(INSTALL_CLIENTS_LIB ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB})
+  set(INSTALL_CLIENTS_LIB32 ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB_X86})
+  set(INSTALL_CLIENTS_LIB64 ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB_X64})
+  set(INSTALL_CLIENTS_CONFIG ${INSTALL_CLIENTS_BASE})
+  set(INSTALL_CLIENTS_CMAKE ${INSTALL_CLIENTS_BASE}/cmake)
+  # We install header files meant for use by DR clients to ext/include
+  set(INSTALL_CLIENTS_DR_INCLUDE ${INSTALL_CLIENTS_BASE}/../ext/include)
+  # For non-DR-client headers we use tools/include in the install package.
+  set(INSTALL_CLIENTS_NONDR_INCLUDE ${INSTALL_CLIENTS_BASE}/include)
+endif (USE_GNU_DIR_LAYOUT)
 
 macro(install_client_DR_header header)
   DR_install(FILES ${header} DESTINATION ${INSTALL_CLIENTS_DR_INCLUDE})

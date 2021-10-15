@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -203,7 +204,7 @@ DR_install(DIRECTORY
   DESTINATION ${INSTALL_DOCS}
   )
 
-if (UNIX)
+if (UNIX AND NOT USE_GNU_DIR_LAYOUT)
   DR_install(DIRECTORY
     ${CMAKE_CURRENT_BINARY_DIR}/embed/html
     DESTINATION ${INSTALL_DOCS_EMBED}

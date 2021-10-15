@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -554,15 +555,13 @@ function (configure_core_lib target)
 
     # XXX: FRAGMENT_SIZES_STUDY needs libm for sqrt but it's not supported by default
 
-    string(REGEX REPLACE
-      "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
     # We only set the version/soversion on Windows to avoid many negatives
     # (i#1374, i#2127, Android "adb push" not supporting symlinks, etc.) and
     # very few positives on UNIX platforms.  Our loader does its own version
     # checks for client compatibility.
-    if (WINDOWS)
+    if (WINDOWS OR USE_GNU_DIR_LAYOUT)
       set_target_properties(${target} PROPERTIES
-        VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
+        VERSION "${VERSION_NUMBER}" SOVERSION "${VERSION_MAJOR_MINOR}")
     endif ()
 
   else (UNIX)
@@ -881,6 +880,10 @@ add_library(${PRELOAD_NAME} SHARED ${PRELOAD_SRCS})
 if (UNIX)
   # we keep in {debug,release} subdir
   set(preload_dest "${DR_LIBRARY_OUTPUT_DIRECTORY}")
+  if (USE_GNU_DIR_LAYOUT)
+    set_target_properties(${PRELOAD_NAME} PROPERTIES
+      VERSION "${VERSION_NUMBER}" SOVERSION "${VERSION_MAJOR_MINOR}")
+  endif (USE_GNU_DIR_LAYOUT)
 else (UNIX)
   # we keep in lib{32,64} base dir
   set(preload_dest "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
