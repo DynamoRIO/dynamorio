@@ -88,9 +88,9 @@ private:
 
 class view_test_t : public view_t {
 public:
-    view_test_t(void *drcontext, instrlist_t &instrs, uint64_t skip_refs,
-                uint64_t sim_refs)
-        : view_t("", skip_refs, sim_refs, "", 0)
+    view_test_t(void *drcontext, instrlist_t &instrs, memref_tid_t thread,
+                uint64_t skip_refs, uint64_t sim_refs)
+        : view_t("", thread, skip_refs, sim_refs, "", 0)
     {
         module_mapper_ =
             std::unique_ptr<module_mapper_t>(new module_mapper_test_t(drcontext, instrs));
@@ -128,7 +128,7 @@ run_test_helper(view_test_t &view, const std::vector<memref_t> &memrefs)
 bool
 test_no_limit(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &memrefs)
 {
-    view_test_t view(drcontext, ilist, 0, 0);
+    view_test_t view(drcontext, ilist, 0, 0, 0);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != static_cast<int>(memrefs.size())) {
         std::cerr << "Incorrect line count\n";
@@ -143,7 +143,7 @@ test_num_memrefs(void *drcontext, instrlist_t &ilist,
 {
     ASSERT(static_cast<size_t>(num_memrefs) < memrefs.size(),
            "need more memrefs to limit");
-    view_test_t view(drcontext, ilist, 0, num_memrefs);
+    view_test_t view(drcontext, ilist, 0, 0, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
         std::cerr << "Incorrect num_memrefs count\n";
@@ -171,7 +171,7 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     }
     ASSERT(static_cast<size_t>(num_memrefs + skip_memrefs) <= memrefs.size(),
            "need more memrefs to skip");
-    view_test_t view(drcontext, ilist, skip_memrefs, num_memrefs);
+    view_test_t view(drcontext, ilist, 0, skip_memrefs, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
         std::cerr << "Incorrect skipped num_memrefs count\n";
@@ -188,6 +188,38 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     }
     if (found_markers != marker_count) {
         std::cerr << "Failed to skip proper number of markers\n";
+        return false;
+    }
+    return true;
+}
+
+bool
+test_thread_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
+                  void *drcontext, int thread2_id)
+{
+    int thread2_count = 0;
+    for (const auto &memref : memrefs) {
+        if (memref.data.tid == thread2_id)
+            ++thread2_count;
+    }
+    view_test_t view(drcontext, ilist, thread2_id, 0, 0);
+    std::string res = run_test_helper(view, memrefs);
+    // Count the Tnnnn prefixes.
+    std::stringstream ss;
+    ss << "T" << thread2_id;
+    std::string prefix = ss.str();
+    int found_prefixes = 0;
+    size_t pos = 0;
+    while (pos != std::string::npos) {
+        pos = res.find(prefix, pos);
+        if (pos != std::string::npos) {
+            ++found_prefixes;
+            ++pos;
+        }
+    }
+    if (std::count(res.begin(), res.end(), '\n') != thread2_count ||
+        found_prefixes != thread2_count) {
+        std::cerr << "Incorrect thread2 count\n";
         return false;
     }
     return true;
@@ -230,6 +262,28 @@ run_limit_tests(void *drcontext)
     for (int i = 1; i < 6; ++i) {
         res = test_skip_memrefs(drcontext, *ilist, memrefs, i) && res;
     }
+
+    const memref_tid_t t2 = 21;
+    std::vector<memref_t> thread_memrefs = {
+        gen_marker(t1, TRACE_MARKER_TYPE_VERSION, 3),
+        gen_marker(t1, TRACE_MARKER_TYPE_FILETYPE, 0),
+        gen_marker(t1, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+        gen_instr(t1, offs_nop1),
+        gen_data(t1, true, 0x42, 4),
+        gen_branch(t1, offs_jz),
+        gen_branch(t1, offs_nop2),
+        gen_data(t1, true, 0x42, 4),
+        gen_marker(t2, TRACE_MARKER_TYPE_VERSION, 3),
+        gen_marker(t2, TRACE_MARKER_TYPE_FILETYPE, 0),
+        gen_marker(t2, TRACE_MARKER_TYPE_CACHE_LINE_SIZE, 64),
+        gen_marker(t2, TRACE_MARKER_TYPE_TIMESTAMP, 101),
+        gen_instr(t2, offs_nop1),
+        gen_data(t2, true, 0x42, 4),
+        gen_branch(t2, offs_jz),
+        gen_branch(t2, offs_nop2),
+        gen_data(t2, true, 0x42, 4),
+    };
+    res = test_thread_limit(*ilist, thread_memrefs, drcontext, t2) && res;
 
     instrlist_clear_and_destroy(drcontext, ilist);
     return res;
