@@ -1190,7 +1190,7 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
         /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
          */
 #ifdef X86
-    if (reg != DR_REG_NULL && pt->aflags.xchg == reg) {
+    if (res != DRREG_ERROR_NO_APP_VALUE && reg != DR_REG_NULL && pt->aflags.xchg == reg) {
         ASSERT(reg == DR_REG_XAX, "xax is the only x86 reg that may have spilled aflags");
         /* If reg has aflags, they need to be spilled from reg to slot at `where_restore`,
          * and then restored from the slot to reg at `where_respill`. This is done locally
@@ -1480,10 +1480,16 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
             return DRREG_ERROR_OUT_OF_SLOTS;
         if (ops.conservative ||
             drvector_get_entry(&pt->reg[DR_REG_XAX - DR_REG_START_GPR].live,
-                               pt->live_idx) == REG_LIVE)
+                               pt->live_idx) == REG_LIVE) {
             spill_reg(drcontext, pt, DR_REG_XAX, xax_slot, ilist, where);
-        else
+            pt->reg[DR_REG_XAX - DR_REG_START_GPR].ever_spilled = true;
+        } else {
+            /* XXX: Re-analyzing this: we shouldn't need this slot?
+             * drreg_move_aflags_from_reg() undoes it for this xax-is-dead case; can
+             * we remove both?
+             */
             pt->slot_use[xax_slot] = DR_REG_XAX;
+        }
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].slot = xax_slot;
         ASSERT(pt->slot_use[xax_slot] == DR_REG_XAX, "slot should be for xax");
     }
@@ -1514,7 +1520,6 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
          */
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use = true;
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].native = false;
-        pt->reg[DR_REG_XAX - DR_REG_START_GPR].ever_spilled = true;
         pt->aflags.xchg = DR_REG_XAX;
     }
 
