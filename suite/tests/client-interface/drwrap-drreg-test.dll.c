@@ -267,7 +267,6 @@ insert_rw_call(void *drcontext, instrlist_t *bb, instr_t *inst)
 static void
 insert_multipath_call(void *drcontext, instrlist_t *bb, instr_t *inst)
 {
-    dr_log(drcontext, DR_LOG_ALL, 1, "XXXXXXXXXX %s\n", __FUNCTION__); // NOCHECK
     reg_id_t reg;
     drreg_status_t res;
     drvector_t allowed;

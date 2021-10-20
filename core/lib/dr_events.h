@@ -1418,9 +1418,9 @@ DR_API
  * in instrumentation, such as by dr_insert_clean_call(), dr_insert_clean_call_ex(),
  * or dr_insert_clean_call_ex_varg().
  * 'where' is a label with note value #DR_NOTE_CLEAN_CALL_END; the clean call
- * sequence will be inserted prior to the label.
- * instr_get_next(where) is thus past the last instruction of the clean call but
- * before the subsequent (typically application) instruction.
+ * sequence will be inserted prior to the label after all clean call callbacks
+ * are finished (so the clean call sequence is not yet visible at the time this
+ * callback is invoked).
  */
 void
 dr_register_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,

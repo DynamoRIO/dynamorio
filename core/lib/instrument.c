@@ -5142,7 +5142,8 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         /* Some libraries need to save and restore around the call, for which we want
          * a single instr to focus on that will put the post-call additions in the
          * right place instead of after 'where'.
-         * This assumes the code below does not append instructions to 'where'.
+         * This assumes the code below inserts all instructions prior to 'insert_at'
+         * and none are appended.
          */
         instr_t *mark = INSTR_CREATE_label(drcontext);
         instr_set_note(mark, (void *)DR_NOTE_CLEAN_CALL_END);
