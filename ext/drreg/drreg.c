@@ -1483,8 +1483,13 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
                                pt->live_idx) == REG_LIVE) {
             spill_reg(drcontext, pt, DR_REG_XAX, xax_slot, ilist, where);
             pt->reg[DR_REG_XAX - DR_REG_START_GPR].ever_spilled = true;
-        } else
+        } else {
+            /* XXX: Re-analyzing this: we shouldn't need this slot?
+             * drreg_move_aflags_from_reg() undoes it for this xax-is-dead case; can
+             * we remove both?
+             */
             pt->slot_use[xax_slot] = DR_REG_XAX;
+        }
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].slot = xax_slot;
         ASSERT(pt->slot_use[xax_slot] == DR_REG_XAX, "slot should be for xax");
     }
