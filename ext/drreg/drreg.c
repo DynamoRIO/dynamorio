@@ -781,7 +781,9 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
          * for later phases.
          */
         if (TESTANY(DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT,
-                    call_flags)) {
+                    call_flags) &&
+            /* Support clean calls inserted by DR during mangling. */
+            drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_NONE) {
             drreg_report_error(
                 DRREG_ERROR_FEATURE_NOT_AVAILABLE,
                 "clean call app context flags not supported outside insertion phase");
