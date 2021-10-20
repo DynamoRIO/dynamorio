@@ -808,8 +808,9 @@ enum {
     DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1,
     DR_NOTE_RSEQ,
     DR_NOTE_LDEX,
-    /** Identifies the start of a clean call. */
-    DR_NOTE_CLEAN_CALL,
+    /** Identifies the end of a clean call. */
+    /* This is used to allow instrumentation pre-and-post a clean call for i#4128. */
+    DR_NOTE_CLEAN_CALL_END,
 };
 
 /**
@@ -959,7 +960,9 @@ typedef enum {
      * requesting that register reservation code in clients and libraries restore
      * application values to all registers.  Without this flag, register values
      * observed by the callee may be values written by instrumentation rather than
-     * application values.
+     * application values.  If the intent is to have a mixture of application and
+     * tool values in registers, manual restoration is required rather than passing
+     * this automation flag.
      */
     DR_CLEANCALL_READS_APP_CONTEXT = 0x0100,
     /**
@@ -981,6 +984,12 @@ typedef enum {
      *
      * Combining this flag with #DR_CLEANCALL_WRITES_APP_CONTEXT is not supported.
      * Manual updates are required for such a combination.
+     */
+    /* XXX i#5168: Supporting multipath with writing requires extra drreg
+     * functionality for stateless respills, but given that we have not seen any code
+     * that requires it we have not put the effort into supporting it.  It is possible
+     * that the component inserting the multi-path clean call is not the one controlling
+     * the drreg usage and so would have a hard time inserting manual restores.
      */
     DR_CLEANCALL_MULTIPATH = 0x0400,
 } dr_cleancall_save_t;

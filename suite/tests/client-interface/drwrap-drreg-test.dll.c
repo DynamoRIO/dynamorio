@@ -103,7 +103,7 @@ module_unload_event(void *drcontext, const module_data_t *mod)
 }
 
 static void
-clean_call(void)
+clean_call_rw(void)
 {
     void *drcontext = dr_get_current_drcontext();
     dr_mcontext_t mc;
@@ -115,6 +115,43 @@ clean_call(void)
     IF_X86_ELSE(mc.xcx, mc.r2) = 3;
     ok = dr_set_mcontext(drcontext, &mc);
     CHECK(ok, "dr_set_mcontext failed");
+}
+
+static void
+clean_call_check_rw(reg_t reg1, reg_t reg2)
+{
+    CHECK(reg1 == SENTINEL, "tool val in arg1 not restored after call");
+    CHECK(reg2 == SENTINEL, "tool val in arg2 not restored after call");
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
+    bool ok = dr_get_mcontext(drcontext, &mc);
+    CHECK(ok, "dr_get_mcontext failed");
+    CHECK(IF_X86_ELSE(mc.xdx, mc.r1) == SENTINEL,
+          "tool val1 in mc not restored after call");
+    CHECK(IF_X86_ELSE(mc.xdi, mc.r4) == SENTINEL,
+          "tool val2 in mc not restored after call");
+}
+
+static void
+clean_call_multipath(void)
+{
+    void *drcontext = dr_get_current_drcontext();
+    dr_mcontext_t mc;
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_CONTROL | DR_MC_INTEGER;
+    bool ok = dr_get_mcontext(drcontext, &mc);
+    CHECK(ok, "dr_get_mcontext failed");
+    CHECK(IF_X86_ELSE(mc.xdx, mc.r1) == 4, "app reg val not restored for clean call");
+#ifdef X86
+    /* This tests the drreg_statelessly_restore_app_value() respill which only
+     * happens with aflags in xax.
+     */
+    CHECK(mc.xax == 0x42, "app xax not restored for clean call");
+    /* The app did SAHF with AH=0xff => 0xd7. */
+    CHECK((mc.xflags & 0xff) == 0xd7, "app aflags not restored for clean call");
+#endif
 }
 
 static dr_emit_flags_t
@@ -177,6 +214,102 @@ clobber_key_regs(void *drcontext, instrlist_t *bb, instr_t *inst)
     drvector_delete(&allowed);
 }
 
+static void
+insert_rw_call(void *drcontext, instrlist_t *bb, instr_t *inst)
+{
+    reg_id_t reg1, reg2;
+    drreg_status_t res;
+    drvector_t allowed;
+    drreg_init_and_fill_vector(&allowed, false);
+    /* Clobber the reg we check in clean_call_rw(), and pick a 2nd for a tool value. */
+#ifdef X86
+    drreg_set_vector_entry(&allowed, DR_REG_XDX, true);
+    drreg_set_vector_entry(&allowed, DR_REG_XDI, true);
+#else
+    drreg_set_vector_entry(&allowed, DR_REG_R1, true);
+    drreg_set_vector_entry(&allowed, DR_REG_R4, true);
+#endif
+    res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg1);
+    CHECK(res == DRREG_SUCCESS, "failed to reserve reg1");
+    res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg2);
+    CHECK(res == DRREG_SUCCESS, "failed to reserve reg2");
+    res = drreg_reserve_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "failed to reserve aflags");
+
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_load_int(drcontext,
+                              opnd_create_reg(IF_X64_ELSE(reg_64_to_32(reg1), reg1)),
+                              OPND_CREATE_INT32(SENTINEL)));
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_load_int(drcontext,
+                              opnd_create_reg(IF_X64_ELSE(reg_64_to_32(reg2), reg2)),
+                              OPND_CREATE_INT32(SENTINEL)));
+    dr_insert_clean_call_ex(
+        drcontext, bb, inst, clean_call_rw,
+        DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 0);
+
+    /* Ensure our tool value is restored. */
+    dr_insert_clean_call_ex(drcontext, bb, inst, clean_call_check_rw, 0, 2,
+                            opnd_create_reg(reg1), opnd_create_reg(reg2));
+
+    res = drreg_unreserve_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "failed to unreserve aflags");
+    res = drreg_unreserve_register(drcontext, bb, inst, reg2);
+    CHECK(res == DRREG_SUCCESS, "failed to unreserve reg2");
+    res = drreg_unreserve_register(drcontext, bb, inst, reg1);
+    CHECK(res == DRREG_SUCCESS, "failed to unreserve reg1");
+
+    drvector_delete(&allowed);
+}
+
+static void
+insert_multipath_call(void *drcontext, instrlist_t *bb, instr_t *inst)
+{
+    dr_log(drcontext, DR_LOG_ALL, 1, "XXXXXXXXXX %s\n", __FUNCTION__); // NOCHECK
+    reg_id_t reg;
+    drreg_status_t res;
+    drvector_t allowed;
+    drreg_init_and_fill_vector(&allowed, false);
+    /* Clobber the reg we check in clean_call_multipath(). */
+#ifdef X86
+    drreg_set_vector_entry(&allowed, DR_REG_XDX, true);
+#else
+    drreg_set_vector_entry(&allowed, DR_REG_R1, true);
+#endif
+    res = drreg_reserve_register(drcontext, bb, inst, &allowed, &reg);
+    CHECK(res == DRREG_SUCCESS, "failed to reserve");
+    res = drreg_reserve_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "failed to reserve aflags");
+
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_load_int(drcontext,
+                              opnd_create_reg(IF_X64_ELSE(reg_64_to_32(reg), reg)),
+                              OPND_CREATE_INT32(SENTINEL)));
+
+    instr_t *skip_call = INSTR_CREATE_label(drcontext);
+    /* The app executes twice and sets rcx/r0 to 0 for one of them. */
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_cmp(drcontext, opnd_create_reg(IF_X86_ELSE(DR_REG_XCX, DR_REG_R0)),
+                         OPND_CREATE_INT32(0)));
+    instrlist_meta_preinsert(
+        bb, inst,
+        XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ, opnd_create_instr(skip_call)));
+    dr_insert_clean_call_ex(drcontext, bb, inst, clean_call_multipath,
+                            DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_MULTIPATH, 0);
+    instrlist_meta_preinsert(bb, inst, skip_call);
+
+    res = drreg_unreserve_aflags(drcontext, bb, inst);
+    CHECK(res == DRREG_SUCCESS, "failed to unreserve aflags");
+    res = drreg_unreserve_register(drcontext, bb, inst, reg);
+    CHECK(res == DRREG_SUCCESS, "failed to unreserve");
+
+    drvector_delete(&allowed);
+}
+
 #ifdef ARM
 static bool
 instr_is_mov_nop(instr_t *inst)
@@ -203,20 +336,19 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
     if (drmgr_is_first_instr(drcontext, inst))
         clobber_key_regs(drcontext, bb, inst);
 
-    /* Look for nop;nop;nop in reg_val_test(). */
+    /* Look for nop;nop;nop in reg_val_test() and 4 nops in multipath_test(). */
     if (instr_is_app(inst)) {
         int *nop_count = (int *)user_data;
         if (instr_get_opcode(inst) == OP_nop IF_ARM(|| instr_is_mov_nop(inst))) {
             ++(*nop_count);
+        } else {
             if (*nop_count == 3) {
-                dr_log(drcontext, DR_LOG_ALL, 1, "XXXXXXXXXXXX\n"); // NOCHECK
-                clobber_key_regs(drcontext, bb, inst);
-                dr_insert_clean_call_ex(
-                    drcontext, bb, inst, clean_call,
-                    DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 0);
+                insert_rw_call(drcontext, bb, inst);
+            } else if (*nop_count == 4) {
+                insert_multipath_call(drcontext, bb, inst);
             }
-        } else
             *nop_count = 0;
+        }
     }
 
     if (drmgr_is_last_instr(drcontext, inst))

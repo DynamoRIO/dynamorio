@@ -3062,7 +3062,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
             dcontext, ilist, label, receiver->instrumentation.callback,
             (receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0) |
                 /* Setting a return value is already handled with an inserted app
-                 * insruction, so we do not see the WRITE_CONTEXT flag.
+                 * instruction, so we do not set the DR_CLEANCALL_WRITES_APP_CONTEXT flag.
                  */
                 DR_CLEANCALL_READS_APP_CONTEXT,
             handler->num_args, args);

@@ -1416,8 +1416,11 @@ DR_API
 /**
  * Registers a callback function that is invoked whenever a clean call is inserted
  * in instrumentation, such as by dr_insert_clean_call(), dr_insert_clean_call_ex(),
- * or dr_insert_clean_call_ex_varg().  The callback is also invoked at points where
- * a clean call will be inserted after instrumentation, such as for annotations.
+ * or dr_insert_clean_call_ex_varg().
+ * 'where' is a label with note value #DR_NOTE_CLEAN_CALL_END; the clean call
+ * sequence will be inserted prior to the label.
+ * instr_get_next(where) is thus past the last instruction of the clean call but
+ * before the subsequent (typically application) instruction.
  */
 void
 dr_register_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,

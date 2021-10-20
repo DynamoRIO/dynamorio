@@ -460,6 +460,7 @@ drreg_event_bb_instru2instru_late(void *drcontext, void *tag, instrlist_t *bb,
     return DR_EMIT_DEFAULT;
 }
 
+/* 'regs_restored' holds one slot per GPR using GPR_IDX() (no aflags slot). */
 static drreg_status_t
 drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
                          bool force_restore, OUT bool *regs_restored)
@@ -594,9 +595,11 @@ drreg_insert_restore_all(void *drcontext, instrlist_t *bb, instr_t *inst,
     return DRREG_SUCCESS;
 }
 
+/* 'restored_for_read' holds one slot per GPR using GPR_IDX() (no aflags slot). */
 static drreg_status_t
-drreg_insert_update_all(void *drcontext, per_thread_t *pt, instrlist_t *bb, instr_t *inst,
-                        instr_t *next, bool force_respill, bool *restored_for_read)
+drreg_insert_respill_all(void *drcontext, per_thread_t *pt, instrlist_t *bb,
+                         instr_t *inst, instr_t *next, bool force_respill,
+                         bool *restored_for_read)
 {
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t reg;
@@ -736,7 +739,7 @@ drreg_event_bb_insert_late(void *drcontext, void *tag, instrlist_t *bb, instr_t 
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to restore for reads");
     res =
-        drreg_insert_update_all(drcontext, pt, bb, inst, next, false, restored_for_read);
+        drreg_insert_respill_all(drcontext, pt, bb, inst, next, false, restored_for_read);
     if (res != DRREG_SUCCESS)
         drreg_report_error(res, "failed to update for writes");
 
@@ -774,8 +777,15 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
 {
     if (drmgr_current_bb_phase(drcontext) != DRMGR_PHASE_INSERTION) {
         /* We only do automatic handling for app reads/writes in the insertion phase.
-         * We do not support clean calls in app2app, and ignore for later phases.
+         * We do not support clean calls in app2app, and do not support these flags
+         * for later phases.
          */
+        if (TESTANY(DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT,
+                    call_flags)) {
+            drreg_report_error(
+                DRREG_ERROR_FEATURE_NOT_AVAILABLE,
+                "clean call app context flags not supported outside insertion phase");
+        }
         return;
     }
     bool restored_for_read[DR_NUM_GPR_REGS];
@@ -785,8 +795,8 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s: restoring statelessly for cleancall to read app regs\n",
                 __FUNCTION__);
-            res =
-                drreg_statelessly_restore_all(drcontext, ilist, where, where, NULL, NULL);
+            res = drreg_statelessly_restore_all(drcontext, ilist, where,
+                                                instr_get_next(where), NULL, NULL);
         } else {
             LOG(drcontext, DR_LOG_ALL, 3,
                 "%s: restoring for cleancall to read app regs\n", __FUNCTION__);
@@ -809,8 +819,8 @@ drreg_event_clean_call_insertion(void *drcontext, instrlist_t *ilist, instr_t *w
         per_thread_t *pt = get_tls_data(drcontext);
         LOG(drcontext, DR_LOG_ALL, 3, "%s: updating after cleancall wrote app regs\n",
             __FUNCTION__);
-        res = drreg_insert_update_all(drcontext, pt, ilist, where, instr_get_next(where),
-                                      true, restored_for_read);
+        res = drreg_insert_respill_all(drcontext, pt, ilist, where, instr_get_next(where),
+                                       true, restored_for_read);
         if (res != DRREG_SUCCESS)
             drreg_report_error(res, "failed to update for clean call");
     }
@@ -1251,7 +1261,7 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
         /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
          */
 #ifdef X86
-    if (reg != DR_REG_NULL && pt->aflags.xchg == reg) {
+    if (res != DRREG_ERROR_NO_APP_VALUE && reg != DR_REG_NULL && pt->aflags.xchg == reg) {
         ASSERT(reg == DR_REG_XAX, "xax is the only x86 reg that may have spilled aflags");
         /* If reg has aflags, they need to be spilled from reg to slot at `where_restore`,
          * and then restored from the slot to reg at `where_respill`. This is done locally
@@ -1272,6 +1282,8 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
          * and forget the spill slot.
          */
         ASSERT(pt->aflags.slot != MAX_SPILLS, "Aflags slot not reserved");
+        LOG(drcontext, DR_LOG_ALL, 3, "%s @%d." PFX " restoring aflags from slot\n",
+            __FUNCTION__, pt->live_idx, get_where_app_pc(where_restore));
         restore_reg(drcontext, pt, DR_REG_XAX, pt->aflags.slot, ilist, where_respill,
                     /*release=*/true);
         reset_aflags_spill_slot(pt);
@@ -1289,20 +1301,32 @@ drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *wher
                               instr_t *where_respill, bool *restore_needed OUT,
                               bool *respill_needed OUT)
 {
-    drreg_status_t res = drreg_statelessly_restore_app_value(
-        drcontext, ilist, DR_REG_NULL, where_restore, where_respill, restore_needed,
-        respill_needed);
+    bool restored_any = false, respilled_any = false;
+    bool restored = false, respilled = false;
+    drreg_status_t res =
+        drreg_statelessly_restore_app_value(drcontext, ilist, DR_REG_NULL, where_restore,
+                                            where_respill, &restored, &respilled);
     if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
         return res;
+    restored_any = restored_any || restored;
+    respilled_any = respilled_any || respilled;
     for (reg_id_t reg = DR_REG_START_GPR; reg <= DR_REG_STOP_GPR; reg++) {
         if (reg == dr_get_stolen_reg())
             continue;
         res = drreg_statelessly_restore_app_value(drcontext, ilist, reg, where_restore,
-                                                  where_respill, restore_needed,
-                                                  respill_needed);
+                                                  where_respill, &restored, &respilled);
+        /* We document that on an error we leave partial restores in place and do not
+         * return anything in the output parameters.
+         */
         if (res != DRREG_SUCCESS && res != DRREG_ERROR_NO_APP_VALUE)
             return res;
+        restored_any = restored_any || restored;
+        respilled_any = respilled_any || respilled;
     }
+    if (restore_needed != NULL)
+        *restore_needed = restored_any;
+    if (respill_needed != NULL)
+        *respill_needed = respilled_any;
     return res;
 }
 
@@ -1563,9 +1587,10 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
             return DRREG_ERROR_OUT_OF_SLOTS;
         if (ops.conservative ||
             drvector_get_entry(&pt->reg[DR_REG_XAX - DR_REG_START_GPR].live,
-                               pt->live_idx) == REG_LIVE)
+                               pt->live_idx) == REG_LIVE) {
             spill_reg(drcontext, pt, DR_REG_XAX, xax_slot, ilist, where);
-        else
+            pt->reg[DR_REG_XAX - DR_REG_START_GPR].ever_spilled = true;
+        } else
             pt->slot_use[xax_slot] = DR_REG_XAX;
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].slot = xax_slot;
         ASSERT(pt->slot_use[xax_slot] == DR_REG_XAX, "slot should be for xax");
@@ -1597,7 +1622,6 @@ drreg_spill_aflags(void *drcontext, instrlist_t *ilist, instr_t *where, per_thre
          */
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use = true;
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].native = false;
-        pt->reg[DR_REG_XAX - DR_REG_START_GPR].ever_spilled = true;
         pt->aflags.xchg = DR_REG_XAX;
     }
 
@@ -1624,6 +1648,8 @@ static drreg_status_t
 drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
                      per_thread_t *pt, bool release)
 {
+    if (pt->aflags.native)
+        return DRREG_SUCCESS;
 #ifdef X86
     uint aflags = (uint)(ptr_uint_t)drvector_get_entry(&pt->aflags.live, pt->live_idx);
     uint temp_slot = 0;
@@ -1634,8 +1660,6 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
         pt->live_idx, get_where_app_pc(where), release,
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use,
         pt->reg[DR_REG_XAX - DR_REG_START_GPR].slot, get_register_name(pt->aflags.xchg));
-    if (pt->aflags.native)
-        return DRREG_SUCCESS;
     if (pt->aflags.xchg == DR_REG_XAX) {
         ASSERT(pt->reg[DR_REG_XAX - DR_REG_START_GPR].in_use, "eflags-in-xax error");
     } else {
@@ -1689,8 +1713,6 @@ drreg_restore_aflags(void *drcontext, instrlist_t *ilist, instr_t *where,
             restore_reg(drcontext, pt, DR_REG_XAX, temp_slot, ilist, where, true);
     }
 #elif defined(AARCHXX)
-    if (pt->aflags.native)
-        return DRREG_SUCCESS;
     drreg_status_t res = DRREG_SUCCESS;
     reg_id_t scratch;
     res = drreg_reserve_reg_internal(drcontext, ilist, where, NULL, false, &scratch);

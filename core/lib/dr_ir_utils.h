@@ -632,6 +632,8 @@ DR_API
  * -# address of call instruction (caller)
  * -# target address of call (callee)
  * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_call_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
@@ -648,6 +650,8 @@ DR_API
  * \note \p scratch_slot must be <= dr_max_opnd_accessible_spill_slot(). \p
  * scratch_slot is used internally to this routine and will be clobbered.
  * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 /* If we re-enable -opt_speed (or -indcall2direct directly) we should add back:
  * \note This routine is not supported when the -opt_speed option is specified.
@@ -665,6 +669,8 @@ DR_API
  * -# target address of branch
  * -# 0 if the branch is not taken, 1 if it is taken
  * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
@@ -682,6 +688,8 @@ DR_API
  * -# user defined operand (e.g., TLS slot, immed value, register, etc.)
  * \note The user defined operand cannot use register ebx!
  * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist, instr_t *instr,
@@ -699,6 +707,8 @@ DR_API
  * \warning Basic block eliding is controlled by -max_elide_jmp.  If that
  * option is set to non-zero, ubrs may never be seen.
  * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_ubr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,

@@ -5133,6 +5133,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     byte *encode_pc;
     instr_t *label = INSTR_CREATE_label(drcontext);
     dr_pred_type_t auto_pred = instrlist_get_auto_predicate(ilist);
+    instr_t *insert_at = where;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to " PFX "\n", callee);
@@ -5140,11 +5141,13 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     if (clean_call_insertion_callbacks.num > 0) {
         /* Some libraries need to save and restore around the call, for which we want
          * a single instr to focus on that will put the post-call additions in the
-         * right place.
+         * right place instead of after 'where'.
+         * This assumes the code below does not append instructions to 'where'.
          */
         instr_t *mark = INSTR_CREATE_label(drcontext);
-        instr_set_note(mark, (void *)DR_NOTE_CLEAN_CALL);
+        instr_set_note(mark, (void *)DR_NOTE_CLEAN_CALL_END);
         MINSERT(ilist, where, mark);
+        insert_at = mark;
         call_all(clean_call_insertion_callbacks,
                  int (*)(void *, instrlist_t *, instr_t *, dr_cleancall_save_t),
                  (void *)dcontext, ilist, mark, save_flags);
@@ -5155,22 +5158,24 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     if (instr_predicate_is_cond(auto_pred)) {
         /* auto_predicate is set, though we handle the clean call with a cbr
          * because we require inserting instrumentation which modifies cpsr.
+         * We don't need to set DR_CLEANCALL_MULTIPATH because this jump is
+         * *after* the register restores just above here.
          */
-        MINSERT(ilist, where,
+        MINSERT(ilist, insert_at,
                 XINST_CREATE_jump_cond(drcontext, instr_invert_predicate(auto_pred),
                                        opnd_create_instr(label)));
     }
 #endif
     /* analyze the clean call, return true if clean call can be inlined. */
-    if (analyze_clean_call(dcontext, &cci, where, callee, save_fpstate,
+    if (analyze_clean_call(dcontext, &cci, insert_at, callee, save_fpstate,
                            TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags), num_args,
                            args) &&
         !TEST(DR_CLEANCALL_ALWAYS_OUT_OF_LINE, save_flags)) {
         /* we can perform the inline optimization and return. */
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee " PFX "\n", callee);
-        insert_inline_clean_call(dcontext, &cci, ilist, where, args);
-        MINSERT(ilist, where, label);
+        insert_inline_clean_call(dcontext, &cci, ilist, insert_at, args);
+        MINSERT(ilist, insert_at, label);
         instrlist_set_auto_predicate(ilist, auto_pred);
         return;
     }
@@ -5228,7 +5233,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         encode_pc = vmcode_unreachable_pc();
     else
         encode_pc = vmcode_get_start();
-    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, where, encode_pc);
+    dstack_offs = prepare_for_call_ex(dcontext, &cci, ilist, insert_at, encode_pc);
     /* PR 218790: we assume that dr_prepare_for_call() leaves stack 16-byte
      * aligned, which is what insert_meta_call_vargs requires.
      */
@@ -5243,15 +5248,15 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         pad = ALIGN_FORWARD_UINT(dstack_offs, 16) - dstack_offs;
         IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(buf_sz + pad),
                              "dr_insert_clean_call: internal truncation error"));
-        MINSERT(ilist, where,
+        MINSERT(ilist, insert_at,
                 XINST_CREATE_sub(dcontext, opnd_create_reg(REG_XSP),
                                  OPND_CREATE_INT32((int)(buf_sz + pad))));
-        dr_insert_save_fpstate(drcontext, ilist, where,
+        dr_insert_save_fpstate(drcontext, ilist, insert_at,
                                opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_512));
     }
 
     /* PR 302951: restore state if clean call args reference app memory.
-     * We use a hack here: this is the only instance where we mark as our-mangling
+     * We use a hack here: this is the only instance insert_at we mark as our-mangling
      * but do not have a translation target set, which indicates to the restore
      * routines that this is a clean call.  If the client adds instrs in the middle
      * translation will fail; if the client modifies any instr, the our-mangling
@@ -5260,20 +5265,20 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
     instrlist_set_our_mangling(ilist, true);
     if (TEST(DR_CLEANCALL_RETURNS_TO_NATIVE, save_flags))
         call_flags |= META_CALL_RETURNS_TO_NATIVE;
-    insert_meta_call_vargs(dcontext, ilist, where, call_flags, encode_pc, callee,
+    insert_meta_call_vargs(dcontext, ilist, insert_at, call_flags, encode_pc, callee,
                            num_args, args);
     instrlist_set_our_mangling(ilist, false);
 
     if (save_fpstate) {
         dr_insert_restore_fpstate(
-            drcontext, ilist, where,
+            drcontext, ilist, insert_at,
             opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0, OPSZ_512));
-        MINSERT(ilist, where,
+        MINSERT(ilist, insert_at,
                 XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                                  OPND_CREATE_INT32(buf_sz + pad)));
     }
-    cleanup_after_call_ex(dcontext, &cci, ilist, where, 0, encode_pc);
-    MINSERT(ilist, where, label);
+    cleanup_after_call_ex(dcontext, &cci, ilist, insert_at, 0, encode_pc);
+    MINSERT(ilist, insert_at, label);
     instrlist_set_auto_predicate(ilist, auto_pred);
 }
 

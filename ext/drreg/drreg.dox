@@ -121,7 +121,10 @@ have a barrier auto-inserted by passing #DR_CLEANCALL_READS_APP_CONTEXT to
 dr_insert_clean_call_ex() or dr_insert_clean_call_ex_varg().  Similarly,
 clean calls that modify the application context (via dr_set_mcontext())
 should pass #DR_CLEANCALL_WRITES_APP_CONTEXT to ensure that \p drreg
-updates the new application values.
+updates the new application values.  There can be failures to restore
+application values at points in an instruction list where a register is
+considered dead and its value is not available.  If this is an issue, set
+drreg_options_t.conservative to true.
 
 If a clean call is only conditionally executed due to inserted tool control
 flow, the flag #DR_CLEANCALL_MULTIPATH can be passed in addition to the
