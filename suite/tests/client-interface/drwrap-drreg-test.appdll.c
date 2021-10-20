@@ -100,7 +100,7 @@ GLOBAL_LABEL(FUNCNAME:)
 # elif defined(AARCH64)
         mov      x1, #4
         /* The clean call writes to r2, replacing this value. */
-        mov      r2, #42
+        mov      x2, #42
         /* The clean call is inserted after 3 nops. */
         nop
         nop
@@ -145,24 +145,26 @@ GLOBAL_LABEL(FUNCNAME:)
 # elif defined(AARCH64)
         mov      x0, ARG1 /* Used to skip clean call. */
         mov      x1, #4   /* Read in clean call. */
+        mov      x2, #0x42
         /* Aflags has special x86 behavior; we do not test it here. */
         /* The clean call is inserted after 4 nops. */
         nop
         nop
         nop
         nop
-        mov      x0, x1
+        add      x0, x1, x2
         ret
 # elif defined(ARM)
         mov      r0, ARG1 /* Used to skip clean call. */
         mov      r1, #4   /* Read in clean call. */
+        mov      r2, #0x42
         /* Aflags has special x86 behavior; we do not test it here. */
         /* The clean call is inserted after 4 nops. */
         nop
         nop
         nop
         nop
-        mov      r0, r1
+        add      r0, r1, r2
         bx       lr
 # endif
         END_FUNC(FUNCNAME)
