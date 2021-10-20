@@ -1190,7 +1190,7 @@ drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_
         /* XXX i#511: if we add .xchg support for GPR's we'll need to check them all here.
          */
 #ifdef X86
-    if (reg != DR_REG_NULL && pt->aflags.xchg == reg) {
+    if (res != DRREG_ERROR_NO_APP_VALUE && reg != DR_REG_NULL && pt->aflags.xchg == reg) {
         ASSERT(reg == DR_REG_XAX, "xax is the only x86 reg that may have spilled aflags");
         /* If reg has aflags, they need to be spilled from reg to slot at `where_restore`,
          * and then restored from the slot to reg at `where_respill`. This is done locally
