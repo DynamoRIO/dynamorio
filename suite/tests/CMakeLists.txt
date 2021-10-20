@@ -2679,6 +2679,15 @@ if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
   endif ()
 endif ()
 
+tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
+get_target_path_for_execution(drwrap_drreg_libpath client.drwrap-drreg-test.appdll
+  "${location_suffix}")
+tobuild_ci(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c "" ""
+  "${drwrap_drreg_libpath}")
+use_DynamoRIO_extension(client.drwrap-drreg-test.dll drwrap)
+use_DynamoRIO_extension(client.drwrap-drreg-test.dll drreg)
+use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
+
 if (AARCH64)
   # Create a fuzzing application for stress-testing via drstatecmp.
   add_api_exe(drstatecmp-fuzz-app client-interface/drstatecmp-fuzz-app.c ON OFF)
@@ -4813,6 +4822,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.drmodtrack-test
     code_api|client.drsyms-test
     code_api|client.drwrap-test-callconv
+    code_api|client.drwrap-drreg-test
     code_api|client.drxmgr-test
     code_api|client.exception
     code_api|client.int64_overrides

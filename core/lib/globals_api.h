@@ -808,6 +808,9 @@ enum {
     DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1,
     DR_NOTE_RSEQ,
     DR_NOTE_LDEX,
+    /** Identifies the end of a clean call. */
+    /* This is used to allow instrumentation pre-and-post a clean call for i#4128. */
+    DR_NOTE_CLEAN_CALL_END,
 };
 
 /**
@@ -908,5 +911,87 @@ typedef enum {
 #    endif
     DR_WHERE_LAST /**< Equals the count of DR_WHERE_xxx locations. */
 } dr_where_am_i_t;
+
+/**
+ * Flags to request non-default preservation of state in a clean call
+ * as well as other call options.  This is used with dr_insert_clean_call_ex(),
+ * dr_insert_clean_call_ex_varg(), and dr_register_clean_call_insertion_event().
+ */
+typedef enum {
+    /**
+     * Save legacy floating-point state (x86-specific; not saved by default).
+     * The last floating-point instruction address (FIP) in the saved state is
+     * left in an untranslated state (i.e., it may point into the code cache).
+     * This flag is orthogonal to the saving of SIMD registers and related flags below.
+     */
+    DR_CLEANCALL_SAVE_FLOAT = 0x0001,
+    /**
+     * Skip saving the flags and skip clearing the flags (including
+     * DF) for client execution.  Note that this can cause problems
+     * if dr_redirect_execution() is called from a clean call,
+     * as an uninitialized flags value can cause subtle errors.
+     */
+    DR_CLEANCALL_NOSAVE_FLAGS = 0x0002,
+    /** Skip saving any XMM or YMM registers (saved by default). */
+    DR_CLEANCALL_NOSAVE_XMM = 0x0004,
+    /** Skip saving any XMM or YMM registers that are never used as parameters. */
+    DR_CLEANCALL_NOSAVE_XMM_NONPARAM = 0x0008,
+    /** Skip saving any XMM or YMM registers that are never used as return values. */
+    DR_CLEANCALL_NOSAVE_XMM_NONRET = 0x0010,
+    /**
+     * Requests that an indirect call be used to ensure reachability, both for
+     * reaching the callee and for any out-of-line helper routine calls.
+     * Only honored for 64-bit mode, where r11 will be used for the indirection.
+     */
+    DR_CLEANCALL_INDIRECT = 0x0020,
+    /* internal use only: maps to META_CALL_RETURNS_TO_NATIVE in insert_meta_call_vargs */
+    DR_CLEANCALL_RETURNS_TO_NATIVE = 0x0040,
+    /**
+     * Requests that out-of-line state save and restore routines be used even
+     * when a subset of the state does not need to be preserved for this callee.
+     * Also disables inlining.
+     * This helps guarantee that the inserted code remains small.
+     */
+    DR_CLEANCALL_ALWAYS_OUT_OF_LINE = 0x0080,
+    /**
+     * Indicates that the callee will access the application context (either as
+     * passed parameters or by calling dr_get_mcontext()).  This flag is passed
+     * to callbacks registered with dr_register_clean_call_insertion_event()
+     * requesting that register reservation code in clients and libraries restore
+     * application values to all registers.  Without this flag, register values
+     * observed by the callee may be values written by instrumentation rather than
+     * application values.  If the intent is to have a mixture of application and
+     * tool values in registers, manual restoration is required rather than passing
+     * this automation flag.
+     */
+    DR_CLEANCALL_READS_APP_CONTEXT = 0x0100,
+    /**
+     * Indicates that the callee will modify the application context (by calling
+     * dr_set_mcontext()).  This flag is passed to callbacks registered with
+     * dr_register_clean_call_insertion_event() requesting that register reservation
+     * code in clients and libraries update spilled application register values.
+     * Without this flag, changes made by dr_set_mcontext() may be undone by later
+     * restores of spilled values.
+     */
+    DR_CLEANCALL_WRITES_APP_CONTEXT = 0x0200,
+    /**
+     * Indicates that the clean call may be skipped by inserted tool control flow.
+     * This affects how register spilling and restoring occurs when combined with the
+     * #DR_CLEANCALL_READS_APP_CONTEXT flag.  Tool values may be clobbered when this
+     * flag is used.  If control flow and clean call context access is used with
+     * registers holding tool values across the clean call, manual restoration may be
+     * required rather than passing any of these automated flags.
+     *
+     * Combining this flag with #DR_CLEANCALL_WRITES_APP_CONTEXT is not supported.
+     * Manual updates are required for such a combination.
+     */
+    /* XXX i#5168: Supporting multipath with writing requires extra drreg
+     * functionality for stateless respills, but given that we have not seen any code
+     * that requires it we have not put the effort into supporting it.  It is possible
+     * that the component inserting the multi-path clean call is not the one controlling
+     * the drreg usage and so would have a hard time inserting manual restores.
+     */
+    DR_CLEANCALL_MULTIPATH = 0x0400,
+} dr_cleancall_save_t;
 
 #endif /* _DR_DEFINES_H_ */

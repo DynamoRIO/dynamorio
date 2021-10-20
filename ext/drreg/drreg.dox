@@ -114,12 +114,26 @@ If a client is inserting instrumentation that reads application values, or
 is using a library routine that does the same, the client needs to tell \p
 drreg to restore the needed application registers.  This can be done with
 drreg_restore_app_values() or with drreg_get_app_value().  This essentially
-acts as a "barrier" to lazy restoring.  Library routines that require such
-a barrier include anything that reads application instruction operands,
-including dr_insert_mbr_instrumentation(),
-dr_insert_call_instrumentation(), etc.  They can also include
-dr_insert_clean_call() if not enough TLS slots were requested and as a
-consequence drreg and DR itself are sharing slots.
+acts as a "barrier" to lazy restoring.
+
+Clean calls that read the application context (via dr_get_mcontext()) can
+have a barrier auto-inserted by passing #DR_CLEANCALL_READS_APP_CONTEXT to
+dr_insert_clean_call_ex() or dr_insert_clean_call_ex_varg().  Similarly,
+clean calls that modify the application context (via dr_set_mcontext())
+should pass #DR_CLEANCALL_WRITES_APP_CONTEXT to ensure that \p drreg
+updates the new application values.  There can be failures to restore
+application values at points in an instruction list where a register is
+considered dead and its value is not available (if
+drreg_options_t.conservative is set to false), but it is assumed that the
+value is in fact dead and does not matter.
+
+If a clean call is only conditionally executed due to inserted tool control
+flow, the flag #DR_CLEANCALL_MULTIPATH can be passed in addition to the
+read or write flag.  This results in stateless restores.  However, tool
+values will be clobbered by those restores.  If control flow and clean call
+context access is used with registers holding tool values across the clean
+call, manual restoration may be required rather than passing any of these
+automated flags.
 
 \section sec_drreg_linear Linear Control Flow
 

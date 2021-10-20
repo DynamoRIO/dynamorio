@@ -369,9 +369,15 @@ DR_API
  * and will be copied into the proper location for that argument
  * slot as specified by the calling convention.
  *
- * Stores the application state information on the DR stack, where it can
- * be accessed from \c callee using dr_get_mcontext() and modified using
- * dr_set_mcontext().
+ * Stores the application state information on the DR stack, where it can be
+ * accessed from \c callee using dr_get_mcontext() and modified using
+ * dr_set_mcontext().  However, if register reservation code is in use (e.g.,
+ * via the drreg extension library: \ref page_drreg), dr_insert_clean_call_ex()
+ * must be called with its flags argument including
+ * #DR_CLEANCALL_READS_APP_CONTEXT (for dr_get_mcontext() use) and/or
+ * #DR_CLEANCALL_WRITES_APP_CONTEXT (for dr_set_mcontext() use) (and
+ * possibly #DR_CLEANCALL_MULTIPATH) to ensure proper interaction with
+ * register reservations.
  *
  * On x86, if \p save_fpstate is true, preserves the x87 floating-point and
  * MMX state on the
@@ -433,48 +439,6 @@ DR_API
 void
 dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where, void *callee,
                      bool save_fpstate, uint num_args, ...);
-
-/**
- * Flags to request non-default preservation of state in a clean call
- * as well as other call options.
- */
-typedef enum {
-    /**
-     * Save legacy floating-point state (x86-specific; not saved by default).
-     * The last floating-point instruction address (FIP) in the saved state is
-     * left in an untranslated state (i.e., it may point into the code cache).
-     * This flag is orthogonal to the saving of SIMD registers and related flags below.
-     */
-    DR_CLEANCALL_SAVE_FLOAT = 0x0001,
-    /**
-     * Skip saving the flags and skip clearing the flags (including
-     * DF) for client execution.  Note that this can cause problems
-     * if dr_redirect_execution() is called from a clean call,
-     * as an uninitialized flags value can cause subtle errors.
-     */
-    DR_CLEANCALL_NOSAVE_FLAGS = 0x0002,
-    /** Skip saving any XMM or YMM registers (saved by default). */
-    DR_CLEANCALL_NOSAVE_XMM = 0x0004,
-    /** Skip saving any XMM or YMM registers that are never used as parameters. */
-    DR_CLEANCALL_NOSAVE_XMM_NONPARAM = 0x0008,
-    /** Skip saving any XMM or YMM registers that are never used as return values. */
-    DR_CLEANCALL_NOSAVE_XMM_NONRET = 0x0010,
-    /**
-     * Requests that an indirect call be used to ensure reachability, both for
-     * reaching the callee and for any out-of-line helper routine calls.
-     * Only honored for 64-bit mode, where r11 will be used for the indirection.
-     */
-    DR_CLEANCALL_INDIRECT = 0x0020,
-    /* internal use only: maps to META_CALL_RETURNS_TO_NATIVE in insert_meta_call_vargs */
-    DR_CLEANCALL_RETURNS_TO_NATIVE = 0x0040,
-    /**
-     * Requests that out-of-line state save and restore routines be used even
-     * when a subset of the state does not need to be preserved for this callee.
-     * Also disables inlining.
-     * This helps guarantee that the inserted code remains small.
-     */
-    DR_CLEANCALL_ALWAYS_OUT_OF_LINE = 0x0080,
-} dr_cleancall_save_t;
 
 DR_API
 /**
@@ -667,6 +631,9 @@ DR_API
  * two arguments:
  * -# address of call instruction (caller)
  * -# target address of call (callee)
+ * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_call_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
@@ -682,6 +649,9 @@ DR_API
  * \note Only the address portion of a far indirect branch is considered.
  * \note \p scratch_slot must be <= dr_max_opnd_accessible_spill_slot(). \p
  * scratch_slot is used internally to this routine and will be clobbered.
+ * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 /* If we re-enable -opt_speed (or -indcall2direct directly) we should add back:
  * \note This routine is not supported when the -opt_speed option is specified.
@@ -698,6 +668,9 @@ DR_API
  * -# address of branch instruction
  * -# target address of branch
  * -# 0 if the branch is not taken, 1 if it is taken
+ * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
@@ -714,6 +687,9 @@ DR_API
  * -# 0 if the branch is not taken, 1 if it is taken
  * -# user defined operand (e.g., TLS slot, immed value, register, etc.)
  * \note The user defined operand cannot use register ebx!
+ * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist, instr_t *instr,
@@ -730,6 +706,9 @@ DR_API
  *
  * \warning Basic block eliding is controlled by -max_elide_jmp.  If that
  * option is set to non-zero, ubrs may never be seen.
+ * \note Sets #DR_CLEANCALL_READS_APP_CONTEXT and #DR_CLEANCALL_WRITES_APP_CONTEXT.
+ * Conditionally skipping the instrumentation inserted by this routine is not
+ * supported (i.e., #DR_CLEANCALL_MULTIPATH is not supported here).
  */
 void
 dr_insert_ubr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
@@ -790,7 +769,12 @@ DR_API
  * by the \p flags field of \p context into \p context.
  *
  * This routine may only be called from:
- * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call()
+
+ * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call().  If
+ *   register reservation code is in use (e.g., via the drreg extension library \ref
+ *   page_drreg), dr_insert_clean_call_ex() must be used with its flags argument
+ *   including #DR_CLEANCALL_READS_APP_CONTEXT (and possibly
+ *   #DR_CLEANCALL_MULTIPATH)to ensure proper interaction with register reservations.
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(),
  *   dr_register_post_syscall_event())
  * - Basic block or trace creation events (dr_register_bb_event(),
@@ -854,7 +838,12 @@ DR_API
  * flags field of \p context to the values in \p context.
  *
  * This routine may only be called from:
- * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call()
+ * - A clean call invoked by dr_insert_clean_call() or dr_prepare_for_call().  If
+ *   register reservation code is in use (e.g., via the drreg extension library \ref
+ *   page_drreg), dr_insert_clean_call_ex() must be used with its flags argument
+ *   including #DR_CLEANCALL_WRITES_APP_CONTEXT (and possibly
+ *   #DR_CLEANCALL_MULTIPATH) to ensure proper interaction with register
+ *   reservations.
  * - A pre- or post-syscall event (dr_register_pre_syscall_event(),
  *   dr_register_post_syscall_event())
  *   dr_register_thread_exit_event())

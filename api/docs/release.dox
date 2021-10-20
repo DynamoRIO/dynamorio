@@ -242,6 +242,15 @@ Further non-compatibility-affecting changes include:
    This is currently an experimental option.
  - Added \ref page_drcallstack Extension for walking application callstacks, with
    an initial Linux-only implementation.
+ - Added new #dr_cleancall_save_t flags which are required for proper interaction
+   between clean calls and drreg: #DR_CLEANCALL_READS_APP_CONTEXT must be set for
+   dr_get_mcontext() to obtain the proper values, and #DR_CLEANCALL_WRITES_APP_CONTEXT
+   must be set to ensure that dr_set_mcontext() is persistent.
+   If the call may be skipped by tool-inserted control flow, #DR_CLEANCALL_MULTIPATH
+   must additionally be set.
+ - Added a new event dr_register_clean_call_insertion_event(), meant for use by
+   register management libraries.
+ - Added drreg_statelessly_restore_all().
 
 **************************************************
 <hr>

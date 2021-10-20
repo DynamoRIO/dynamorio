@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
@@ -252,12 +253,14 @@ event_basic_block(void *dc, void *tag, instrlist_t *bb, bool for_trace, bool tra
 #endif
     }
 
-    dr_insert_clean_call(dc, bb, entry, (void *)after_callee, false, IF_X86_ELSE(6, 4),
+    dr_insert_clean_call_ex(dc, bb, entry, (void *)after_callee,
+                            DR_CLEANCALL_READS_APP_CONTEXT, IF_X86_ELSE(6, 4),
 #ifdef X86
-                         opnd_create_instr(before_label), opnd_create_instr(after_label),
+                            opnd_create_instr(before_label),
+                            opnd_create_instr(after_label),
 #endif
-                         OPND_CREATE_INT32(inline_expected), OPND_CREATE_INT32(false),
-                         OPND_CREATE_INT32(i), OPND_CREATE_INTPTR(func_names[i]));
+                            OPND_CREATE_INT32(inline_expected), OPND_CREATE_INT32(false),
+                            OPND_CREATE_INT32(i), OPND_CREATE_INTPTR(func_names[i]));
 
 #ifdef X86
     if (i == FN_inscount || i == FN_empty_1arg) {
@@ -306,11 +309,11 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
         dr_insert_clean_call(dc, bb, where, (void *)func_ptrs[fn_idx], false, 1, arg);
         dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
         PRE(bb, where, after_label);
-        dr_insert_clean_call(dc, bb, where, (void *)after_callee, false, 6,
-                             opnd_create_instr(before_label),
-                             opnd_create_instr(after_label), OPND_CREATE_INT32(true),
-                             OPND_CREATE_INT32(false), OPND_CREATE_INT32(fn_idx),
-                             OPND_CREATE_INTPTR(0));
+        dr_insert_clean_call_ex(
+            dc, bb, where, (void *)after_callee, DR_CLEANCALL_READS_APP_CONTEXT, 6,
+            opnd_create_instr(before_label), opnd_create_instr(after_label),
+            OPND_CREATE_INT32(true), OPND_CREATE_INT32(false), OPND_CREATE_INT32(fn_idx),
+            OPND_CREATE_INTPTR(0));
 
         /* (%reg, %other_reg, 1)-0xDEAD */
         before_label = INSTR_CREATE_label(dc);
@@ -331,11 +334,11 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
         dr_restore_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
         dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
         PRE(bb, where, after_label);
-        dr_insert_clean_call(dc, bb, where, (void *)after_callee, false, 6,
-                             opnd_create_instr(before_label),
-                             opnd_create_instr(after_label), OPND_CREATE_INT32(true),
-                             OPND_CREATE_INT32(false), OPND_CREATE_INT32(fn_idx),
-                             OPND_CREATE_INTPTR(0));
+        dr_insert_clean_call_ex(
+            dc, bb, where, (void *)after_callee, DR_CLEANCALL_READS_APP_CONTEXT, 6,
+            opnd_create_instr(before_label), opnd_create_instr(after_label),
+            OPND_CREATE_INT32(true), OPND_CREATE_INT32(false), OPND_CREATE_INT32(fn_idx),
+            OPND_CREATE_INTPTR(0));
 
         /* (%other_reg, %reg, 1)-0xDEAD */
         before_label = INSTR_CREATE_label(dc);
@@ -357,11 +360,11 @@ test_inlined_call_args(void *dc, instrlist_t *bb, instr_t *where, int fn_idx)
         dr_restore_reg(dc, bb, where, other_reg, SPILL_SLOT_2);
         dr_restore_reg(dc, bb, where, reg, SPILL_SLOT_1);
         PRE(bb, where, after_label);
-        dr_insert_clean_call(dc, bb, where, (void *)after_callee, false, 6,
-                             opnd_create_instr(before_label),
-                             opnd_create_instr(after_label), OPND_CREATE_INT32(true),
-                             OPND_CREATE_INT32(false), OPND_CREATE_INT32(fn_idx),
-                             OPND_CREATE_INTPTR(0));
+        dr_insert_clean_call_ex(
+            dc, bb, where, (void *)after_callee, DR_CLEANCALL_READS_APP_CONTEXT, 6,
+            opnd_create_instr(before_label), opnd_create_instr(after_label),
+            OPND_CREATE_INT32(true), OPND_CREATE_INT32(false), OPND_CREATE_INT32(fn_idx),
+            OPND_CREATE_INTPTR(0));
     }
 }
 #endif
