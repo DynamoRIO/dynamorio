@@ -1010,8 +1010,6 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG2_ASM, 1
         /* xax statelessly restored here. */
         mov      TEST_REG2_ASM, 2
-        /* xax is dead, so initial aflags spill should not use slot. */
-        mov      REG_XAX, 0
         jmp      test28_done
      test28_done:
         /* Fail if aflags were not restored correctly. */
@@ -1276,6 +1274,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
         nop
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -1887,6 +1886,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* app2app phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -1972,6 +1972,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* app2app phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2050,6 +2051,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2135,6 +2137,7 @@ GLOBAL_LABEL(FUNCNAME:)
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2220,6 +2223,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
         nop
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2831,6 +2835,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* insertion phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
         /* app2app phase will reserve aflags here. */
