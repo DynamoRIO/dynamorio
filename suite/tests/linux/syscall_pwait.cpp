@@ -532,7 +532,7 @@ main(int argc, char *argv[])
 #endif
 
     print("Testing raw ppoll with NULL sigmask\n");
-    auto psyscall_raw_ppoll = [test_set](bool nullsigmask) -> int {
+    auto psyscall_raw_ppoll = [](bool nullsigmask) -> int {
         struct timespec ts;
         ts.tv_sec = 60;
         ts.tv_nsec = 0;
