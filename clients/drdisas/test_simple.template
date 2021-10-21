@@ -1,4 +1,5 @@
 #if defined(AARCH64)
+ 00000000   xx     $0x00000000 %x0 %x0 %x0 %x0 -> %x0 %x0 %x0 %x0
  f94017a0   ldr    +0x28(%x29)[8byte] -> %x0
  a9be7bfd   stp    %x29 %x30 %sp $0xffffffffffffffe0 -> -0x20(%sp)[16byte] %sp
 disassembly failed: invalid instruction: not enough bytes: 0x88

@@ -1869,7 +1869,7 @@ if (BUILD_CLIENTS)
   # and other code here to support tests being declared locally rather than
   # in one central place.
   if (AARCH64)
-    set(drdisas_args "f94017a0" "a9be7bfd" "88")
+    set(drdisas_args "00000000" "f94017a0" "a9be7bfd" "88")
   elseif (ARM)
     set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
   else ()
