@@ -169,7 +169,7 @@ else ()
       # Included committed, staged, and unstaged changes.
       # We assume "origin/master" contains the top-of-trunk.
       # We pass -U0 so clang-format-diff only complains about touched lines.
-      execute_process(COMMAND ${GIT} diff -U0 origin/master
+      execute_process(COMMAND ${GIT} diff -U0 origin/master -- . ":!debian"
         WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
