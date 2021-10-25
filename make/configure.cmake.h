@@ -130,8 +130,8 @@
 #endif
 
 /* Issue 20: we need to know lib dirs for cross-arch execve */
-#define LIBDIR_X64 ${INSTALL_LIB_X64}
-#define LIBDIR_X86 ${INSTALL_LIB_X86}
+#define LIBDIR_X64 ${INSTALL_LIB_BASE_X64}
+#define LIBDIR_X86 ${INSTALL_LIB_BASE_X86}
 
 /* i#955: private loader search paths */
 #define DR_RPATH_SUFFIX "${DR_RPATH_SUFFIX}"
