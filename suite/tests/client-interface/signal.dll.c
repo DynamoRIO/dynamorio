@@ -110,7 +110,6 @@ signal_event(void *dcontext, dr_siginfo_t *info)
         return DR_SIGNAL_SUPPRESS;
     } else if (info->sig == SIGUSR2) {
         ASSERT(redirect_tag != NULL);
-        dr_printf("AAA redirect_tag is %p\n",redirect_tag);
         info->mcontext->pc = redirect_tag;
         return DR_SIGNAL_REDIRECT;
     } else if (info->sig == SIGSEGV) {
