@@ -63,24 +63,28 @@ long_jump_to_mark(void)
     SIGLONGJMP(mark, 1);
 }
 
-static void
-hook_and_long_jump(void)
+static void __attribute__((noinline)) hook_and_long_jump(void)
 {
-    /* use 2 NOPs + call so client can locate this spot */
-    NOP_NOP_CALL(foo);
-
-    /* We perform the print and the long-jump in a separate routine
-     * (long_jump_to_mark) because we need to avoid accessing global
-     * objects such as 'mark' or string constants in
-     * hook_and_long_jump. This is because we use DR_SIGNAL_REDIRECT
-     * to redirect control to the start of the above nop-nop-call
-     * sequence; this ends up skipping the call to __x86.get_pc_thunk
-     * at the beginning of this routine. That call is required before
-     * global object accesses in PIC, so that they can be accessed
-     * using a fixed offset from code. We avoid skipping that
-     * required call by moving the global variable accesses to the
-     * following routine that we do execute from the beginning.
+    /* use 2 NOPs + call so client can locate this spot and use
+     * DR_SIGNAL_REDIRECT to start executing from here. Note that starting
+     * execution from the middle of a routine in this manner can cause crashes
+     * if essential asm sequences in the beginning of the routine are skipped.
+     * We disable inlining of this routine so that any asm code that saves/sets
+     * the frame pointer becomes part of the NOP_NOP_CALL basic block and does
+     * not get skipped accidentally. In some other cases, there may be a call to
+     * __x86.get_pc_thunk at the beginning of this routine which will be in a
+     * fragment previous to the NOP_NOP_CALL one, and so will end up getting
+     * skipped for sure. This call is required before global object accesses in
+     * PIC, so that they can be accessed using a fixed offset from code, so
+     * skipping it may cause crashes if we access global objects such as 'mark' or
+     * string constants. To avoid such issues, we perform the print and the
+     * long-jump in a separate routine (long_jump_to_mark) that we do execute from
+     * the beginning.
+     * XXX: A better solution instead of these workarounds would be to use the
+     * starting address of hook_and_long_jump for DR_SIGNAL_REDIRECT. But may be
+     * good to keep this to show downsides of redirecting to an arbitrary pc.
      */
+    NOP_NOP_CALL(foo);
     long_jump_to_mark();
 }
 
