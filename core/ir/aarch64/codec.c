@@ -2711,6 +2711,116 @@ encode_opnd_bhsd_immh_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *
     return true;
 }
 
+static inline bool
+decode_hsd_immh_regx(int rpos, uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int highest_bit;
+    if (!highest_bit_set(enc, 19, 4, &highest_bit))
+        return false;
+
+    if (highest_bit < 0 || highest_bit > 2)
+        return false;
+
+    return decode_opnd_vector_reg(rpos, highest_bit + 1, enc, opnd);
+}
+
+static inline bool
+encode_hsd_immh_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
+                     OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg_t reg = opnd_get_reg(opnd);
+    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return encode_opnd_vector_reg(rpos, 3, opnd, enc_out);
+    else if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
+        return encode_opnd_vector_reg(rpos, 2, opnd, enc_out);
+    else if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
+        return encode_opnd_vector_reg(rpos, 1, opnd, enc_out);
+    else
+        return false;
+}
+
+static inline bool
+decode_bhsd_immh_regx(int rpos, uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int highest_bit;
+    if (!highest_bit_set(enc, 19, 4, &highest_bit))
+        return false;
+
+    if (highest_bit < 0 || highest_bit > 3)
+        return false;
+
+    return decode_opnd_vector_reg(rpos, highest_bit, enc, opnd);
+}
+
+static inline bool
+encode_bhsd_immh_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
+                      OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg_t reg = opnd_get_reg(opnd);
+    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return encode_opnd_vector_reg(rpos, 3, opnd, enc_out);
+    else if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
+        return encode_opnd_vector_reg(rpos, 2, opnd, enc_out);
+    else if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
+        return encode_opnd_vector_reg(rpos, 1, opnd, enc_out);
+    else if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
+        return encode_opnd_vector_reg(rpos, 0, opnd, enc_out);
+    else
+        return false;
+}
+
+static inline bool
+decode_opnd_hsd_immh_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_hsd_immh_regx(0, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_hsd_immh_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_hsd_immh_regx(0, enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_bhsd_immh_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_bhsd_immh_regx(0, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_bhsd_immh_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_bhsd_immh_regx(0, enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_hsd_immh_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_hsd_immh_regx(5, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_hsd_immh_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_hsd_immh_regx(5, enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_bhsd_immh_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_bhsd_immh_regx(5, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_bhsd_immh_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_bhsd_immh_regx(5, enc, opcode, pc, opnd, enc_out);
+}
+
 /* vindex_SD: Index for vector with single or double elements. */
 
 static inline bool
@@ -3208,6 +3318,65 @@ encode_opnd_shift4(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
 }
 
 static inline bool
+decode_hsd_size_regx(int rpos, uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint size = extract_uint(enc, 22, 2);
+
+    if (size < 0 || size > 2)
+        return false;
+
+    return decode_opnd_vector_reg(rpos, size + 1, enc, opnd);
+}
+
+static inline bool
+encode_hsd_size_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
+                     OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+
+    reg_t reg = opnd_get_reg(opnd);
+    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return encode_opnd_vector_reg(rpos, 3, opnd, enc_out);
+    else if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
+        return encode_opnd_vector_reg(rpos, 2, opnd, enc_out);
+    else if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
+        return encode_opnd_vector_reg(rpos, 1, opnd, enc_out);
+    else
+        return false;
+}
+
+static inline bool
+decode_bhsd_size_regx(int rpos, uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    uint size = extract_uint(enc, 22, 2);
+
+    if (size < 0 || size > 3)
+        return false;
+
+    return decode_opnd_vector_reg(rpos, size, enc, opnd);
+}
+
+static inline bool
+encode_bhsd_size_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
+                      OUT uint *enc_out)
+{
+    if (!opnd_is_reg(opnd))
+        return false;
+    reg_t reg = opnd_get_reg(opnd);
+    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return encode_opnd_vector_reg(rpos, 3, opnd, enc_out);
+    else if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
+        return encode_opnd_vector_reg(rpos, 2, opnd, enc_out);
+    else if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
+        return encode_opnd_vector_reg(rpos, 1, opnd, enc_out);
+    else if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
+        return encode_opnd_vector_reg(rpos, 0, opnd, enc_out);
+    else
+        return false;
+}
+
+static inline bool
 decode_opnd_float_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_float_reg(0, enc, opnd);
@@ -3220,6 +3389,30 @@ encode_opnd_float_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *en
 }
 
 static inline bool
+decode_opnd_hsd_size_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_hsd_size_regx(0, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_hsd_size_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_hsd_size_regx(0, enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_bhsd_size_reg0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_bhsd_size_regx(0, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_bhsd_size_reg0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_bhsd_size_regx(0, enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
 decode_opnd_float_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     return decode_opnd_float_reg(5, enc, opnd);
@@ -3229,6 +3422,30 @@ static inline bool
 encode_opnd_float_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_float_reg(5, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_hsd_size_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_hsd_size_regx(5, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_hsd_size_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_hsd_size_regx(5, enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_bhsd_size_reg5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_bhsd_size_regx(5, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_bhsd_size_reg5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_bhsd_size_regx(5, enc, opcode, pc, opnd, enc_out);
 }
 
 static inline bool
@@ -3253,6 +3470,31 @@ static inline bool
 encode_opnd_float_reg16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_float_reg(16, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_hsd_size_reg16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_hsd_size_regx(16, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_hsd_size_reg16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return encode_hsd_size_regx(16, enc, opcode, pc, opnd, enc_out);
+}
+
+static inline bool
+decode_opnd_bhsd_size_reg16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return decode_bhsd_size_regx(16, enc, opcode, pc, opnd);
+}
+
+static inline bool
+encode_opnd_bhsd_size_reg16(uint enc, int opcode, byte *pc, opnd_t opnd,
+                            OUT uint *enc_out)
+{
+    return encode_bhsd_size_regx(16, enc, opcode, pc, opnd, enc_out);
 }
 
 /* mem0p: as mem0, but a pair of registers, so double size */
