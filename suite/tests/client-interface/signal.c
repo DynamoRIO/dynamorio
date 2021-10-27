@@ -49,43 +49,17 @@
 static SIGJMP_BUF mark;
 
 static void
-#ifdef UNIX
-    __attribute__((used)) /* Prevents deletion as unreachable. */
-#endif
-    foo(void)
-{ /* nothing: just a marker */
+foo(void)
+{
+    print("In foo\n");
 }
 
-static void
-long_jump_to_mark(void)
+EXPORT void
+hook_and_long_jump(void)
 {
     print("Redirected\n");
+    foo();
     SIGLONGJMP(mark, 1);
-}
-
-static void __attribute__((noinline)) hook_and_long_jump(void)
-{
-    /* use 2 NOPs + call so client can locate this spot and use
-     * DR_SIGNAL_REDIRECT to start executing from here. Note that starting
-     * execution from the middle of a routine in this manner can cause crashes
-     * if essential asm sequences in the beginning of the routine are skipped.
-     * We disable inlining of this routine so that any asm code that saves/sets
-     * the frame pointer becomes part of the NOP_NOP_CALL basic block and does
-     * not get skipped accidentally. In some other cases, there may be a call to
-     * __x86.get_pc_thunk at the beginning of this routine which will be in a
-     * fragment previous to the NOP_NOP_CALL one, and so will end up getting
-     * skipped for sure. This call is required before global object accesses in
-     * PIC, so that they can be accessed using a fixed offset from code, so
-     * skipping it may cause crashes if we access global objects such as 'mark' or
-     * string constants. To avoid such issues, we perform the print and the
-     * long-jump in a separate routine (long_jump_to_mark) that we do execute from
-     * the beginning.
-     * XXX: A better solution instead of these workarounds would be to use the
-     * starting address of hook_and_long_jump for DR_SIGNAL_REDIRECT. But may be
-     * good to keep this to show downsides of redirecting to an arbitrary pc.
-     */
-    NOP_NOP_CALL(foo);
-    long_jump_to_mark();
 }
 
 static void

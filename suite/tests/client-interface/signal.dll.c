@@ -202,20 +202,6 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     instr_t *instr, *next_instr, *next_next_instr;
     if (child_alive == NULL)
         test_syscall_auto_restart();
-    /* Look for 3 nops to locate redirection target */
-    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next(instr);
-        if (next_instr != NULL)
-            next_next_instr = instr_get_next(next_instr);
-        else
-            next_next_instr = NULL;
-        if (instr_is_nop(instr) && next_instr != NULL && instr_is_nop(next_instr) &&
-            next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
-
-            redirect_tag = dr_app_pc_as_jump_target(instr_get_isa_mode(instr), tag);
-            break;
-        }
-    }
     return DR_EMIT_DEFAULT;
 }
 
@@ -226,4 +212,8 @@ dr_init(client_id_t id)
     dr_register_bb_event(bb_event);
     dr_register_signal_event(signal_event);
     dr_register_kernel_xfer_event(kernel_xfer_event);
+    module_data_t *exe = dr_get_main_module();
+    DR_ASSERT(exe != NULL);
+    redirect_tag = (app_pc)dr_get_proc_address(exe->handle, "hook_and_long_jump");
+    dr_free_module_data(exe);
 }
