@@ -807,7 +807,7 @@ LLC {                          // LLC
   size            1M
   assoc           16
   inclusive       true
-  parent          mem
+  parent          memory
   replace_policy  LRU
   miss_file       misses.txt
 }
