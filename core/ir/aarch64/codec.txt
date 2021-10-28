@@ -68,6 +68,8 @@
                                              # distinguish FP16 and float/double encs
 --------------------------------  b_const_sz # as above, but for byte width
 --------------------------------  s_const_sz # as above, but for single width
+--------------------------------  d_const_sz # as above, but for double width
+--------------------------------  vindex_D1  # An implicit index, at index 1
 ----------------------------xxxx  nzcv       # flag bit specifier for CCMN, CCMP
 ---------------------------xxxxx  w0         # W register (or WZR)
 ---------------------------xxxxx  w0p0       # even-numbered W register (or WZR)
@@ -117,9 +119,11 @@
 ----------------xxxx------------  crn        # 4 bit immediate from 12-15
 ----------------xxxx------------  cond       # condition for CCMN, CCMP
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
+----------------xxxxxxxxxxxxxxxx  imm16_0    # imm16 at position 0
 -------------xxx----------------  op1        # 3 bit immediate from 16-18
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:9
+-------------xxx------xxxxx-----  exp_imm8   # expanded immediate from 16:18 and 5:9
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
@@ -364,6 +368,7 @@ x101101011000000000100xxxxxxxxxx  n   60         clz            wx0 : wx5
 0101111011100000100010xxxxxxxxxx  n   63        cmgt             d0 : d5
 01011110111xxxxx001101xxxxxxxxxx  n   63        cmgt             d0 : d5 d16
 0x101110xx1xxxxx001101xxxxxxxxxx  n   64        cmhi            dq0 : dq5 dq16 bhsd_sz
+01111110111xxxxx001101xxxxxxxxxx  n   64        cmhi             d0 : d5 d16
 0x101110xx1xxxxx001111xxxxxxxxxx  n   65        cmhs            dq0 : dq5 dq16 bhsd_sz
 0111111011100000100110xxxxxxxxxx  n   66        cmle             d0 : d5
 0x101110xx100000100110xxxxxxxxxx  n   66        cmle            dq0 : dq5 bhsd_sz
@@ -445,6 +450,7 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90         eor            wx0 : wx5 wx16 s
 0101111010100000110010xxxxxxxxxx  n   104      fcmgt             s0 : s5
 0101111011100000110010xxxxxxxxxx  n   104      fcmgt             d0 : d5
 0101111011111000110010xxxxxxxxxx  n   104      fcmgt             h0 : h5
+011111101x1xxxxx111001xxxxxxxxxx  n   104      fcmgt  bhsd_size_reg0 : bhsd_size_reg5 bhsd_size_reg16
 0111111011111000110110xxxxxxxxxx  n   105      fcmle             h0 : h5
 0111111010100000110110xxxxxxxxxx  n   105      fcmle             s0 : s5
 0111111011100000110110xxxxxxxxxx  n   105      fcmle             d0 : d5
@@ -608,6 +614,9 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126     fcvtzu            wx0 : d5 scale
 1001111001100110000000xxxxxxxxxx  n   147       fmov             x0 : d5
 0x00111100000xxx111111xxxxxxxxxx  n   147       fmov            dq0 : fpimm8 h_sz # Armv8.2
 00011110xx100000010000xxxxxxxxxx  n   147       fmov     float_reg0 : float_reg5
+0x00111100000xxx111101xxxxxxxxxx  n   147       fmov            dq0 : fpimm8 s_const_sz
+1001111010101110000000xxxxxxxxxx  n   147       fmov             x0 : q5 vindex_D1 d_const_sz
+0110111100000xxx111101xxxxxxxxxx  n   147       fmov             q0 : fpimm8 d_const_sz
 00011111xx0xxxxx1xxxxxxxxxxxxxxx  n   148      fmsub     float_reg0 : float_reg5 float_reg16 float_reg10
 0x0011111xxxxxxx1001x0xxxxxxxxxx  n   149       fmul            dq0 : dq5 dq16 vindex_SD sd_sz
 0x00111100xxxxxx1001x0xxxxxxxxxx  n   149       fmul            dq0 : dq5 dq16_h_sz vindex_H h_sz
@@ -980,6 +989,8 @@ x0011011000xxxxx0xxxxxxxxxxxxxxx  n   311       madd            wx0 : wx5 wx16 w
 0x00111100000xxx10x001xxxxxxxxxx  n   314       movi            dq0 : imm8 cmode_h_sz
 0x00111100000xxx0xx001xxxxxxxxxx  n   314       movi            dq0 : imm8 cmode_s_sz
 0x00111100000xxx110x01xxxxxxxxxx  n   314       movi            dq0 : imm8 cmode4_s_sz_msl
+0010111100000xxx111001xxxxxxxxxx  n   314       movi             d0 : exp_imm8
+0110111100000xxx111001xxxxxxxxxx  n   314       movi             q0 : exp_imm8 d_const_sz
 011100101xxxxxxxxxxxxxxxxxxxxxxx  n   315       movk             w0 : w0 imm16 lsl imm16sh
 111100101xxxxxxxxxxxxxxxxxxxxxxx  n   315       movk             x0 : x0 imm16 lsl imm16sh
 000100101xxxxxxxxxxxxxxxxxxxxxxx  n   316       movn             w0 : imm16 lsl imm16sh
@@ -1403,6 +1414,7 @@ x001111000000011xxxxxxxxxxxxxxxx  n   510      ucvtf             s0 : wx5 scale
 x001111001000011xxxxxxxxxxxxxxxx  n   510      ucvtf             d0 : wx5 scale
 011111110xxxxxxx111001xxxxxxxxxx  n   510      ucvtf  bhsd_immh_reg0 : bhsd_immh_reg5 immhb_fxp
 0x1011110xxxxxxx111001xxxxxxxxxx  n   510      ucvtf            dq0 : dq5 bhsd_immh_sz immhb_fxp
+0000000000000000xxxxxxxxxxxxxxxx  n   567        udf                : imm16_0
 x0011010110xxxxx000010xxxxxxxxxx  n   511       udiv            wx0 : wx5 wx16
 0x101110100xxxxx100101xxxxxxxxxx  n   512       udot            dq0 : dq5 dq16 s_const_sz b_const_sz # v8.2
 0x101110xx1xxxxx000001xxxxxxxxxx  n   513      uhadd            dq0 : dq5 dq16 bhs_sz
