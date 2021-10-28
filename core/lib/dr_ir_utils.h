@@ -922,6 +922,10 @@ DR_API
  * (dr_register_exception_event()).  From a signal event callback, use the
  * #DR_SIGNAL_REDIRECT return value rather than calling this routine.
  *
+ * \note If control is being redirected to a new pc (determined using drsyms,
+ * dr_get_proc_address, or any other way) ensure that the app state (such as
+ * the register values) are set as expected by the transfer point.
+ *
  * \return false if unsuccessful; if successful, does not return.
  */
 bool

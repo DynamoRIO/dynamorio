@@ -1307,6 +1307,9 @@ typedef enum {
     /**
      * Do not deliver the signal.  Instead, redirect control to the
      * application state specified in dr_siginfo_t.mcontext.
+     * Clients may modify dr_siginfo_t.mcontext.pc to redirect control to
+     * a desired pc, but beware that it is important to set the app state
+     * (like the register values) as expected by the transfer point.
      */
     DR_SIGNAL_REDIRECT,
 } dr_signal_action_t;

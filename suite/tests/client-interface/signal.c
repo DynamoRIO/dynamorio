@@ -49,39 +49,17 @@
 static SIGJMP_BUF mark;
 
 static void
-#ifdef UNIX
-    __attribute__((used)) /* Prevents deletion as unreachable. */
-#endif
-    foo(void)
-{ /* nothing: just a marker */
-}
-
-static void
-long_jump_to_mark(void)
+foo(void)
 {
-    print("Redirected\n");
-    SIGLONGJMP(mark, 1);
+    print("In foo\n");
 }
 
-static void
+EXPORT void
 hook_and_long_jump(void)
 {
-    /* use 2 NOPs + call so client can locate this spot */
-    NOP_NOP_CALL(foo);
-
-    /* We perform the print and the long-jump in a separate routine
-     * (long_jump_to_mark) because we need to avoid accessing global
-     * objects such as 'mark' or string constants in
-     * hook_and_long_jump. This is because we use DR_SIGNAL_REDIRECT
-     * to redirect control to the start of the above nop-nop-call
-     * sequence; this ends up skipping the call to __x86.get_pc_thunk
-     * at the beginning of this routine. That call is required before
-     * global object accesses in PIC, so that they can be accessed
-     * using a fixed offset from code. We avoid skipping that
-     * required call by moving the global variable accesses to the
-     * following routine that we do execute from the beginning.
-     */
-    long_jump_to_mark();
+    print("Redirected\n");
+    foo();
+    SIGLONGJMP(mark, 1);
 }
 
 static void
