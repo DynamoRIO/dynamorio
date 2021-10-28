@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016 ARM Limited. All rights reserved.
+# Copyright (c) 2016-2021 ARM Limited. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -153,6 +153,10 @@
 ----------xxxxxxxxxxxxxxxxx-----  prf12      # size is 0 bytes (prefetch variant of mem12)
 ---------????-------------------  hsd_immh_sz  # encoding of vector element size in immh field
 ---------????-------------------  bhsd_immh_sz # encoding of vector element size in immh field
+---------????--------------xxxxx  hsd_immh_reg0    # hsd register, depending on immh field
+---------????--------------xxxxx  bhsd_immh_reg0   # bhsd register, depending on immh field
+---------????---------xxxxx-----  hsd_immh_reg5    # hsd register, depending on immh field
+---------????---------xxxxx-----  bhsd_immh_reg5   # bhsd register, depending on immh field
 ---------?x---------x-----------  vindex_SD  # Index for vector with single or double
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
                                              # elements, depending on bit 22 (sz)
@@ -169,9 +173,15 @@
 --------xx----------------------  shift3     # shift type for add/sub (shifted register)
 --------xx----------------------  shift4     # shift type for logical (shifted register)
 --------xx-----------------xxxxx  float_reg0  # H, S or D register
+--------xx-----------------xxxxx  hsd_size_reg0    # hsd register, depending on size opcode
+--------xx-----------------xxxxx  bhsd_size_reg0   # bhsd register, depending on size opcode
 --------xx------------xxxxx-----  float_reg5  # H, S or D register
+--------xx------------xxxxx-----  hsd_size_reg5    # hsd register, depending on size opcode
+--------xx------------xxxxx-----  bhsd_size_reg5   # bhsd register, depending on size opcode
 --------xx-------xxxxx----------  float_reg10 # H, S or D register
 --------xx-xxxxx----------------  float_reg16 # H, S or D register
+--------xx-xxxxx----------------  hsd_size_reg16   # hsd register, depending on size opcode
+--------xx-xxxxx----------------  bhsd_size_reg16  # bhsd register, depending on size opcode
 -?--------------------xxxxx-----  mem0p      # gets size from 30; no offset, pair
 -?---------xxxxx????------------  x16imm     # computes immed from 30 and 15:12
 -x------------------------------  index3     # index of D subreg in Q: 0-1
@@ -1391,8 +1401,7 @@ x001111001100011000000xxxxxxxxxx  n   510      ucvtf             d0 : wx5
 0x1011100x100001110110xxxxxxxxxx  n   510      ucvtf            dq0 : dq5 sd_sz
 x001111000000011xxxxxxxxxxxxxxxx  n   510      ucvtf             s0 : wx5 scale
 x001111001000011xxxxxxxxxxxxxxxx  n   510      ucvtf             d0 : wx5 scale
-0111111000xxxxxx111001xxxxxxxxxx  n   510      ucvtf             s0 : s5 immhb_fxp
-0111111001xxxxxx111001xxxxxxxxxx  n   510      ucvtf             d0 : d5 immhb_fxp
+011111110xxxxxxx111001xxxxxxxxxx  n   510      ucvtf  bhsd_immh_reg0 : bhsd_immh_reg5 immhb_fxp
 0x1011110xxxxxxx111001xxxxxxxxxx  n   510      ucvtf            dq0 : dq5 bhsd_immh_sz immhb_fxp
 x0011010110xxxxx000010xxxxxxxxxx  n   511       udiv            wx0 : wx5 wx16
 0x101110100xxxxx100101xxxxxxxxxx  n   512       udot            dq0 : dq5 dq16 s_const_sz b_const_sz # v8.2

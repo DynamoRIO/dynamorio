@@ -13671,52 +13671,161 @@ eadf13ff : tst    xzr, xzr, ror #4        : ands   %xzr %xzr ror $0x04 -> %xzr
 53031041 : ubfx   w1, w2, #3, #2          : ubfm   %w2 $0x03 $0x04 -> %w1
 d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 
-1e03f105 : ucvtf s5, w8, #4                         : ucvtf  %w8 $0x04 -> %s5
-9e03c0ed : ucvtf s13, x7, #16                       : ucvtf  %x7 $0x10 -> %s13
-1e438011 : ucvtf d17, w0, #32                       : ucvtf  %w0 $0x20 -> %d17
-9e43016d : ucvtf d13, x11, #64                      : ucvtf  %x11 $0x40 -> %d13
-7e3fe509 : ucvtf s9, s8, #1                         : ucvtf  %s8 $0x01 -> %s9
-7e3ee495 : ucvtf s21, s4, #2                        : ucvtf  %s4 $0x02 -> %s21
-7e3ce674 : ucvtf s20, s19, #4                       : ucvtf  %s19 $0x04 -> %s20
-7e38e4e6 : ucvtf s6, s7, #8                         : ucvtf  %s7 $0x08 -> %s6
-7e30e7cc : ucvtf s12, s30, #16                      : ucvtf  %s30 $0x10 -> %s12
-7e20e532 : ucvtf s18, s9, #32                       : ucvtf  %s9 $0x20 -> %s18
-7e2be6b6 : ucvtf s22, s21, #21                      : ucvtf  %s21 $0x15 -> %s22
-7e21e66b : ucvtf s11, s19, #31                      : ucvtf  %s19 $0x1f -> %s11
-7e7fe56d : ucvtf d13, d11, #1                       : ucvtf  %d11 $0x01 -> %d13
-2e21d843 : ucvtf d3, d2, #2                         : ucvtf  %d2 $0x02 -> %d3
-7e7ce633 : ucvtf d19, d17, #4                       : ucvtf  %d17 $0x04 -> %d19
-7e78e53e : ucvtf d30, d9, #8                        : ucvtf  %d9 $0x08 -> %d30
-7e70e571 : ucvtf d17, d11, #16                      : ucvtf  %d11 $0x10 -> %d17
-7e60e488 : ucvtf d8, d4, #32                        : ucvtf  %d4 $0x20 -> %d8
-7e40e6bd : ucvtf d29, d21, #64                      : ucvtf  %d21 $0x40 -> %d29
-7e6be7be : ucvtf d30, d29, #21                      : ucvtf  %d29 $0x15 -> %d30
-7e56e5b1 : ucvtf d17, d13, #42                      : ucvtf  %d13 $0x2a -> %d17
-6f3fe420 : ucvtf v0.4s, v1.4s, #1                   : ucvtf  %q1 $0x02 $0x01 -> %q0
-6f3ee462 : ucvtf v2.4s, v3.4s, #2                   : ucvtf  %q3 $0x02 $0x02 -> %q2
-6f3ce4a4 : ucvtf v4.4s, v5.4s, #4                   : ucvtf  %q5 $0x02 $0x04 -> %q4
-6f38e4e6 : ucvtf v6.4s, v7.4s, #8                   : ucvtf  %q7 $0x02 $0x08 -> %q6
-6f30e528 : ucvtf v8.4s, v9.4s, #16                  : ucvtf  %q9 $0x02 $0x10 -> %q8
-6f20e56a : ucvtf v10.4s, v11.4s, #32                : ucvtf  %q11 $0x02 $0x20 -> %q10
-6f2be7bc : ucvtf v28.4s, v29.4s, #21                : ucvtf  %q29 $0x02 $0x15 -> %q28
-6f21e7fe : ucvtf v30.4s, v31.4s, #31                : ucvtf  %q31 $0x02 $0x1f -> %q30
-6f7fe420 : ucvtf v0.2d, v1.2d, #1                   : ucvtf  %q1 $0x03 $0x01 -> %q0
-6f7ee462 : ucvtf v2.2d, v3.2d, #2                   : ucvtf  %q3 $0x03 $0x02 -> %q2
-6f7ce4a4 : ucvtf v4.2d, v5.2d, #4                   : ucvtf  %q5 $0x03 $0x04 -> %q4
-6f78e4e6 : ucvtf v6.2d, v7.2d, #8                   : ucvtf  %q7 $0x03 $0x08 -> %q6
-6f70e528 : ucvtf v8.2d, v9.2d, #16                  : ucvtf  %q9 $0x03 $0x10 -> %q8
-6f60e56a : ucvtf v10.2d, v11.2d, #32                : ucvtf  %q11 $0x03 $0x20 -> %q10
-6f40e5ac : ucvtf v12.2d, v13.2d, #64                : ucvtf  %q13 $0x03 $0x40 -> %q12
-6f6be7bc : ucvtf v28.2d, v29.2d, #21                : ucvtf  %q29 $0x03 $0x15 -> %q28
-6f56e7fe : ucvtf v30.2d, v31.2d, #42                : ucvtf  %q31 $0x03 $0x2a -> %q30
-2f3fe420 : ucvtf v0.2s, v1.2s, #1                   : ucvtf  %d1 $0x02 $0x01 -> %d0
-2f3ee462 : ucvtf v2.2s, v3.2s, #2                   : ucvtf  %d3 $0x02 $0x02 -> %d2
-2f3ce4a4 : ucvtf v4.2s, v5.2s, #4                   : ucvtf  %d5 $0x02 $0x04 -> %d4
-2f38e4e6 : ucvtf v6.2s, v7.2s, #8                   : ucvtf  %d7 $0x02 $0x08 -> %d6
-2f30e528 : ucvtf v8.2s, v9.2s, #16                  : ucvtf  %d9 $0x02 $0x10 -> %d8
-2f20e56a : ucvtf v10.2s, v11.2s, #32                : ucvtf  %d11 $0x02 $0x20 -> %d10
-2f2be7bc : ucvtf v28.2s, v29.2s, #21                : ucvtf  %d29 $0x02 $0x15 -> %d28
-2f21e7fe : ucvtf v30.2s, v31.2s, #31                : ucvtf  %d31 $0x02 $0x1f -> %d30
+# UCVTF <V><d>, <V><n>, #<fbits>
+7f3fe420 : ucvtf s0, s1, #1                          : ucvtf  %s1 $0x01 -> %s0
+7f3de462 : ucvtf s2, s3, #3                          : ucvtf  %s3 $0x03 -> %s2
+7f3be4a4 : ucvtf s4, s5, #5                          : ucvtf  %s5 $0x05 -> %s4
+7f39e4e6 : ucvtf s6, s7, #7                          : ucvtf  %s7 $0x07 -> %s6
+7f37e528 : ucvtf s8, s9, #9                          : ucvtf  %s9 $0x09 -> %s8
+7f35e56a : ucvtf s10, s11, #11                       : ucvtf  %s11 $0x0b -> %s10
+7f33e5ac : ucvtf s12, s13, #13                       : ucvtf  %s13 $0x0d -> %s12
+7f31e5ee : ucvtf s14, s15, #15                       : ucvtf  %s15 $0x0f -> %s14
+7f2ee630 : ucvtf s16, s17, #18                       : ucvtf  %s17 $0x12 -> %s16
+7f2ce672 : ucvtf s18, s19, #20                       : ucvtf  %s19 $0x14 -> %s18
+7f2ae6b4 : ucvtf s20, s21, #22                       : ucvtf  %s21 $0x16 -> %s20
+7f28e6f6 : ucvtf s22, s23, #24                       : ucvtf  %s23 $0x18 -> %s22
+7f26e738 : ucvtf s24, s25, #26                       : ucvtf  %s25 $0x1a -> %s24
+7f24e77a : ucvtf s26, s27, #28                       : ucvtf  %s27 $0x1c -> %s26
+7f22e7bc : ucvtf s28, s29, #30                       : ucvtf  %s29 $0x1e -> %s28
+7f20e7fe : ucvtf s30, s31, #32                       : ucvtf  %s31 $0x20 -> %s30
+7f7fe420 : ucvtf d0, d1, #1                          : ucvtf  %d1 $0x01 -> %d0
+7f7be462 : ucvtf d2, d3, #5                          : ucvtf  %d3 $0x05 -> %d2
+7f77e4a4 : ucvtf d4, d5, #9                          : ucvtf  %d5 $0x09 -> %d4
+7f73e4e6 : ucvtf d6, d7, #13                         : ucvtf  %d7 $0x0d -> %d6
+7f6ee528 : ucvtf d8, d9, #18                         : ucvtf  %d9 $0x12 -> %d8
+7f6ae56a : ucvtf d10, d11, #22                       : ucvtf  %d11 $0x16 -> %d10
+7f66e5ac : ucvtf d12, d13, #26                       : ucvtf  %d13 $0x1a -> %d12
+7f62e5ee : ucvtf d14, d15, #30                       : ucvtf  %d15 $0x1e -> %d14
+7f5de630 : ucvtf d16, d17, #35                       : ucvtf  %d17 $0x23 -> %d16
+7f59e672 : ucvtf d18, d19, #39                       : ucvtf  %d19 $0x27 -> %d18
+7f55e6b4 : ucvtf d20, d21, #43                       : ucvtf  %d21 $0x2b -> %d20
+7f51e6f6 : ucvtf d22, d23, #47                       : ucvtf  %d23 $0x2f -> %d22
+7f4ce738 : ucvtf d24, d25, #52                       : ucvtf  %d25 $0x34 -> %d24
+7f48e77a : ucvtf d26, d27, #56                       : ucvtf  %d27 $0x38 -> %d26
+7f44e7bc : ucvtf d28, d29, #60                       : ucvtf  %d29 $0x3c -> %d28
+7f40e7fe : ucvtf d30, d31, #64                       : ucvtf  %d31 $0x40 -> %d30
+
+# UCVTF <Vd>.<T>, <Vn>.<T>, #<fbits>
+2f3fe420 : ucvtf v0.2s, v1.2s, #1                    : ucvtf  %d1 $0x02 $0x01 -> %d0
+2f3de462 : ucvtf v2.2s, v3.2s, #3                    : ucvtf  %d3 $0x02 $0x03 -> %d2
+2f3be4a4 : ucvtf v4.2s, v5.2s, #5                    : ucvtf  %d5 $0x02 $0x05 -> %d4
+2f39e4e6 : ucvtf v6.2s, v7.2s, #7                    : ucvtf  %d7 $0x02 $0x07 -> %d6
+2f37e528 : ucvtf v8.2s, v9.2s, #9                    : ucvtf  %d9 $0x02 $0x09 -> %d8
+2f35e56a : ucvtf v10.2s, v11.2s, #11                 : ucvtf  %d11 $0x02 $0x0b -> %d10
+2f33e5ac : ucvtf v12.2s, v13.2s, #13                 : ucvtf  %d13 $0x02 $0x0d -> %d12
+2f31e5ee : ucvtf v14.2s, v15.2s, #15                 : ucvtf  %d15 $0x02 $0x0f -> %d14
+2f2ee630 : ucvtf v16.2s, v17.2s, #18                 : ucvtf  %d17 $0x02 $0x12 -> %d16
+2f2ce672 : ucvtf v18.2s, v19.2s, #20                 : ucvtf  %d19 $0x02 $0x14 -> %d18
+2f2ae6b4 : ucvtf v20.2s, v21.2s, #22                 : ucvtf  %d21 $0x02 $0x16 -> %d20
+2f28e6f6 : ucvtf v22.2s, v23.2s, #24                 : ucvtf  %d23 $0x02 $0x18 -> %d22
+2f26e738 : ucvtf v24.2s, v25.2s, #26                 : ucvtf  %d25 $0x02 $0x1a -> %d24
+2f24e77a : ucvtf v26.2s, v27.2s, #28                 : ucvtf  %d27 $0x02 $0x1c -> %d26
+2f22e7bc : ucvtf v28.2s, v29.2s, #30                 : ucvtf  %d29 $0x02 $0x1e -> %d28
+2f20e7fe : ucvtf v30.2s, v31.2s, #32                 : ucvtf  %d31 $0x02 $0x20 -> %d30
+6f3fe420 : ucvtf v0.4s, v1.4s, #1                    : ucvtf  %q1 $0x02 $0x01 -> %q0
+6f3de462 : ucvtf v2.4s, v3.4s, #3                    : ucvtf  %q3 $0x02 $0x03 -> %q2
+6f3be4a4 : ucvtf v4.4s, v5.4s, #5                    : ucvtf  %q5 $0x02 $0x05 -> %q4
+6f39e4e6 : ucvtf v6.4s, v7.4s, #7                    : ucvtf  %q7 $0x02 $0x07 -> %q6
+6f37e528 : ucvtf v8.4s, v9.4s, #9                    : ucvtf  %q9 $0x02 $0x09 -> %q8
+6f35e56a : ucvtf v10.4s, v11.4s, #11                 : ucvtf  %q11 $0x02 $0x0b -> %q10
+6f33e5ac : ucvtf v12.4s, v13.4s, #13                 : ucvtf  %q13 $0x02 $0x0d -> %q12
+6f31e5ee : ucvtf v14.4s, v15.4s, #15                 : ucvtf  %q15 $0x02 $0x0f -> %q14
+6f2ee630 : ucvtf v16.4s, v17.4s, #18                 : ucvtf  %q17 $0x02 $0x12 -> %q16
+6f2ce672 : ucvtf v18.4s, v19.4s, #20                 : ucvtf  %q19 $0x02 $0x14 -> %q18
+6f2ae6b4 : ucvtf v20.4s, v21.4s, #22                 : ucvtf  %q21 $0x02 $0x16 -> %q20
+6f28e6f6 : ucvtf v22.4s, v23.4s, #24                 : ucvtf  %q23 $0x02 $0x18 -> %q22
+6f26e738 : ucvtf v24.4s, v25.4s, #26                 : ucvtf  %q25 $0x02 $0x1a -> %q24
+6f24e77a : ucvtf v26.4s, v27.4s, #28                 : ucvtf  %q27 $0x02 $0x1c -> %q26
+6f22e7bc : ucvtf v28.4s, v29.4s, #30                 : ucvtf  %q29 $0x02 $0x1e -> %q28
+6f20e7fe : ucvtf v30.4s, v31.4s, #32                 : ucvtf  %q31 $0x02 $0x20 -> %q30
+6f7fe420 : ucvtf v0.2d, v1.2d, #1                    : ucvtf  %q1 $0x03 $0x01 -> %q0
+6f7be462 : ucvtf v2.2d, v3.2d, #5                    : ucvtf  %q3 $0x03 $0x05 -> %q2
+6f77e4a4 : ucvtf v4.2d, v5.2d, #9                    : ucvtf  %q5 $0x03 $0x09 -> %q4
+6f73e4e6 : ucvtf v6.2d, v7.2d, #13                   : ucvtf  %q7 $0x03 $0x0d -> %q6
+6f6ee528 : ucvtf v8.2d, v9.2d, #18                   : ucvtf  %q9 $0x03 $0x12 -> %q8
+6f6ae56a : ucvtf v10.2d, v11.2d, #22                 : ucvtf  %q11 $0x03 $0x16 -> %q10
+6f66e5ac : ucvtf v12.2d, v13.2d, #26                 : ucvtf  %q13 $0x03 $0x1a -> %q12
+6f62e5ee : ucvtf v14.2d, v15.2d, #30                 : ucvtf  %q15 $0x03 $0x1e -> %q14
+6f5de630 : ucvtf v16.2d, v17.2d, #35                 : ucvtf  %q17 $0x03 $0x23 -> %q16
+6f59e672 : ucvtf v18.2d, v19.2d, #39                 : ucvtf  %q19 $0x03 $0x27 -> %q18
+6f55e6b4 : ucvtf v20.2d, v21.2d, #43                 : ucvtf  %q21 $0x03 $0x2b -> %q20
+6f51e6f6 : ucvtf v22.2d, v23.2d, #47                 : ucvtf  %q23 $0x03 $0x2f -> %q22
+6f4ce738 : ucvtf v24.2d, v25.2d, #52                 : ucvtf  %q25 $0x03 $0x34 -> %q24
+6f48e77a : ucvtf v26.2d, v27.2d, #56                 : ucvtf  %q27 $0x03 $0x38 -> %q26
+6f44e7bc : ucvtf v28.2d, v29.2d, #60                 : ucvtf  %q29 $0x03 $0x3c -> %q28
+6f40e7fe : ucvtf v30.2d, v31.2d, #64                 : ucvtf  %q31 $0x03 $0x40 -> %q30
+
+# UCVTF <Sd>, <Wn>, #<fbits>
+1e03fc20 : ucvtf s0, w1, #1                          : ucvtf  %w1 $0x01 -> %s0
+1e03f462 : ucvtf s2, w3, #3                          : ucvtf  %w3 $0x03 -> %s2
+1e03eca4 : ucvtf s4, w5, #5                          : ucvtf  %w5 $0x05 -> %s4
+1e03e4e6 : ucvtf s6, w7, #7                          : ucvtf  %w7 $0x07 -> %s6
+1e03dd28 : ucvtf s8, w9, #9                          : ucvtf  %w9 $0x09 -> %s8
+1e03d56a : ucvtf s10, w11, #11                       : ucvtf  %w11 $0x0b -> %s10
+1e03cdac : ucvtf s12, w13, #13                       : ucvtf  %w13 $0x0d -> %s12
+1e03c5ee : ucvtf s14, w15, #15                       : ucvtf  %w15 $0x0f -> %s14
+1e03ba30 : ucvtf s16, w17, #18                       : ucvtf  %w17 $0x12 -> %s16
+1e03b272 : ucvtf s18, w19, #20                       : ucvtf  %w19 $0x14 -> %s18
+1e03aab4 : ucvtf s20, w21, #22                       : ucvtf  %w21 $0x16 -> %s20
+1e03a2f6 : ucvtf s22, w23, #24                       : ucvtf  %w23 $0x18 -> %s22
+1e039b38 : ucvtf s24, w25, #26                       : ucvtf  %w25 $0x1a -> %s24
+1e03937a : ucvtf s26, w27, #28                       : ucvtf  %w27 $0x1c -> %s26
+1e038bbc : ucvtf s28, w29, #30                       : ucvtf  %w29 $0x1e -> %s28
+1e03801e : ucvtf s30, w0, #32                        : ucvtf  %w0 $0x20 -> %s30
+
+# UCVTF <Dd>, <Wn>, #<fbits>
+1e43fc20 : ucvtf d0, w1, #1                          : ucvtf  %w1 $0x01 -> %d0
+1e43f462 : ucvtf d2, w3, #3                          : ucvtf  %w3 $0x03 -> %d2
+1e43eca4 : ucvtf d4, w5, #5                          : ucvtf  %w5 $0x05 -> %d4
+1e43e4e6 : ucvtf d6, w7, #7                          : ucvtf  %w7 $0x07 -> %d6
+1e43dd28 : ucvtf d8, w9, #9                          : ucvtf  %w9 $0x09 -> %d8
+1e43d56a : ucvtf d10, w11, #11                       : ucvtf  %w11 $0x0b -> %d10
+1e43cdac : ucvtf d12, w13, #13                       : ucvtf  %w13 $0x0d -> %d12
+1e43c5ee : ucvtf d14, w15, #15                       : ucvtf  %w15 $0x0f -> %d14
+1e43ba30 : ucvtf d16, w17, #18                       : ucvtf  %w17 $0x12 -> %d16
+1e43b272 : ucvtf d18, w19, #20                       : ucvtf  %w19 $0x14 -> %d18
+1e43aab4 : ucvtf d20, w21, #22                       : ucvtf  %w21 $0x16 -> %d20
+1e43a2f6 : ucvtf d22, w23, #24                       : ucvtf  %w23 $0x18 -> %d22
+1e439b38 : ucvtf d24, w25, #26                       : ucvtf  %w25 $0x1a -> %d24
+1e43937a : ucvtf d26, w27, #28                       : ucvtf  %w27 $0x1c -> %d26
+1e438bbc : ucvtf d28, w29, #30                       : ucvtf  %w29 $0x1e -> %d28
+1e43801e : ucvtf d30, w0, #32                        : ucvtf  %w0 $0x20 -> %d30
+
+# UCVTF <Sd>, <Xn>, #<fbits>
+9e03fc20 : ucvtf s0, x1, #1                          : ucvtf  %x1 $0x01 -> %s0
+9e03ec62 : ucvtf s2, x3, #5                          : ucvtf  %x3 $0x05 -> %s2
+9e03dca4 : ucvtf s4, x5, #9                          : ucvtf  %x5 $0x09 -> %s4
+9e03cce6 : ucvtf s6, x7, #13                         : ucvtf  %x7 $0x0d -> %s6
+9e03b928 : ucvtf s8, x9, #18                         : ucvtf  %x9 $0x12 -> %s8
+9e03a96a : ucvtf s10, x11, #22                       : ucvtf  %x11 $0x16 -> %s10
+9e0399ac : ucvtf s12, x13, #26                       : ucvtf  %x13 $0x1a -> %s12
+9e0389ee : ucvtf s14, x15, #30                       : ucvtf  %x15 $0x1e -> %s14
+9e037630 : ucvtf s16, x17, #35                       : ucvtf  %x17 $0x23 -> %s16
+9e036672 : ucvtf s18, x19, #39                       : ucvtf  %x19 $0x27 -> %s18
+9e0356b4 : ucvtf s20, x21, #43                       : ucvtf  %x21 $0x2b -> %s20
+9e0346f6 : ucvtf s22, x23, #47                       : ucvtf  %x23 $0x2f -> %s22
+9e033338 : ucvtf s24, x25, #52                       : ucvtf  %x25 $0x34 -> %s24
+9e03237a : ucvtf s26, x27, #56                       : ucvtf  %x27 $0x38 -> %s26
+9e0313bc : ucvtf s28, x29, #60                       : ucvtf  %x29 $0x3c -> %s28
+9e03001e : ucvtf s30, x0, #64                        : ucvtf  %x0 $0x40 -> %s30
+
+# UCVTF <Dd>, <Xn>, #<fbits>
+9e43fc20 : ucvtf d0, x1, #1                          : ucvtf  %x1 $0x01 -> %d0
+9e43ec62 : ucvtf d2, x3, #5                          : ucvtf  %x3 $0x05 -> %d2
+9e43dca4 : ucvtf d4, x5, #9                          : ucvtf  %x5 $0x09 -> %d4
+9e43cce6 : ucvtf d6, x7, #13                         : ucvtf  %x7 $0x0d -> %d6
+9e43b928 : ucvtf d8, x9, #18                         : ucvtf  %x9 $0x12 -> %d8
+9e43a96a : ucvtf d10, x11, #22                       : ucvtf  %x11 $0x16 -> %d10
+9e4399ac : ucvtf d12, x13, #26                       : ucvtf  %x13 $0x1a -> %d12
+9e4389ee : ucvtf d14, x15, #30                       : ucvtf  %x15 $0x1e -> %d14
+9e437630 : ucvtf d16, x17, #35                       : ucvtf  %x17 $0x23 -> %d16
+9e436672 : ucvtf d18, x19, #39                       : ucvtf  %x19 $0x27 -> %d18
+9e4356b4 : ucvtf d20, x21, #43                       : ucvtf  %x21 $0x2b -> %d20
+9e4346f6 : ucvtf d22, x23, #47                       : ucvtf  %x23 $0x2f -> %d22
+9e433338 : ucvtf d24, x25, #52                       : ucvtf  %x25 $0x34 -> %d24
+9e43237a : ucvtf d26, x27, #56                       : ucvtf  %x27 $0x38 -> %d26
+9e4313bc : ucvtf d28, x29, #60                       : ucvtf  %x29 $0x3c -> %d28
+9e43001e : ucvtf d30, x0, #64                        : ucvtf  %x0 $0x40 -> %d30
 
 9ac30841 : udiv   x1, x2, x3              : udiv   %x2 %x3 -> %x1
 

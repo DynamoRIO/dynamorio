@@ -89,7 +89,7 @@ def handle_enums(instrs):
 
     enums = {i.opcode: i.enum for i in instrs if i.enum}
     if enums:
-        max_enum = max(i.enum for i in instrs if i.enum)
+        max_enum = max(int(i.enum) for i in instrs if i.enum)
 
     for i in (i for i in instrs if not i.enum):
         try:
