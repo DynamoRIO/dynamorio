@@ -924,7 +924,7 @@ DR_API
  *
  * \note If control is being redirected to a new pc (determined using drsyms,
  * dr_get_proc_address, or any other way) ensure that the app state (such as
- * the register values) are set as expected by the transfer point (i#5177).
+ * the register values) are set as expected by the transfer point.
  *
  * \return false if unsuccessful; if successful, does not return.
  */

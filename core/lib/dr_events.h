@@ -1309,7 +1309,7 @@ typedef enum {
      * application state specified in dr_siginfo_t.mcontext.
      * Clients may modify dr_siginfo_t.mcontext.pc to redirect control to
      * a desired pc, but beware that it is important to set the app state
-     * (like the register values) as expected by the transfer point (i#5177).
+     * (like the register values) as expected by the transfer point.
      */
     DR_SIGNAL_REDIRECT,
 } dr_signal_action_t;

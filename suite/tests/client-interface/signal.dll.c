@@ -109,7 +109,6 @@ signal_event(void *dcontext, dr_siginfo_t *info)
     } else if (info->sig == SIGTERM) {
         return DR_SIGNAL_SUPPRESS;
     } else if (info->sig == SIGUSR2) {
-        ASSERT(redirect_tag != NULL);
         info->mcontext->pc = redirect_tag;
         return DR_SIGNAL_REDIRECT;
     } else if (info->sig == SIGSEGV) {
@@ -215,5 +214,7 @@ dr_init(client_id_t id)
     module_data_t *exe = dr_get_main_module();
     DR_ASSERT(exe != NULL);
     redirect_tag = (app_pc)dr_get_proc_address(exe->handle, "hook_and_long_jump");
+    /* The following check may fail if -rdynamic is not used. */
+    ASSERT(redirect_tag != NULL);
     dr_free_module_data(exe);
 }
