@@ -444,8 +444,8 @@ app_pc
 module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
                                           OUT size_t *module_size)
 {
-    if (modhandle_ == nullptr || modlist_.empty()) {
-        last_error_ = "Failed to call get_module_list() first";
+    if (modvec_.empty()) {
+        last_error_ = "Failed to call get_loaded_modules() first";
         return nullptr;
     }
 

@@ -73,10 +73,10 @@ protected:
     raw2trace_directory_t directory_;
     unsigned int knob_verbose_;
     int trace_version_;
-    uint64_t instr_count_;
     static const std::string TOOL_NAME;
     uint64_t knob_skip_refs_;
     uint64_t knob_sim_refs_;
+    bool refs_limited_;
     std::string knob_syntax_;
     std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;
