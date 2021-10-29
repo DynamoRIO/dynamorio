@@ -85,6 +85,13 @@ class Pattern:
         for field in (self.opcode_bits, self.opnd_bits, self.opcode, self.opndset):
             yield field
 
+    def all_opnds(self):
+        if isinstance(self.opndset, tuple):
+            return self.opndset[0] + self.opndset[1]
+        if isinstance(self.opndset, str):
+            return [self.opndset]
+        return self.opndset
+
 def fallthrough_instr_id(opcode, opcode_bits, opnd_bits):
     return '%s_%08x_%08x' % (opcode, opcode_bits, opnd_bits)
 
@@ -495,32 +502,48 @@ def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset):
 
 def consistency_check(patterns, opndtab):
     for p in patterns:
-        opcode_bits, opnd_bits, opcode, opndset = p
-        if not type(opndset) is str:
-            (dsts, srcs) = opndset
-            bits = opnd_bits
-            bits0 = bits
+        if not isinstance(p.opndset, str):
+            dsts, srcs = p.opndset
+            unhandled_bits = p.opnd_bits
             for ot in dsts + srcs:
-                if not ot in opndtab:
+                try:
+                    unhandled_bits &= ~opndtab[ot].gen
+                except KeyError:
                     raise Exception('Undefined opndtype %s in:\n%s' %
                                     (ot, pattern_to_str(*p)))
-                bits &= ~opndtab[ot].gen
-            if bits != 0:
+            if unhandled_bits:
                 raise Exception('Unhandled bits:\n%32s in:\n%s' %
-                                (re.sub('1', 'x', re.sub('0', ' ', bin(bits)[2:])),
+                                (re.sub('1', 'x', re.sub('0', ' ', bin(unhandled_bits)[2:])),
                                  pattern_to_str(*p)))
     # Detect and mark overlapping patterns for special handling. Named as
     # 'fallthrough' because the special handling is done at the end of the
     # decoder's main if/then/else clauses block.
-    for i in range(len(patterns)):
-        for j in range(i):
-            if ((patterns[j].opcode_bits ^ patterns[i].opcode_bits) &
-                ~patterns[j].opnd_bits & ~patterns[i].opnd_bits == 0):
-                opcode_bits_i, opnd_bits_i, opcode_i, opndset_i = patterns[i]
+    for i, pattern_a in enumerate(patterns):
+        for pattern_b in patterns[:i]:
+            non_zero_bits_a = 0
+            non_zero_bits_b = 0
+            try:
+                for opnd in (opndtab[op] for op in pattern_a.all_opnds()):
+                    non_zero_bits_a &= opnd.non_zero
+            except KeyError:
+                pass
+            try:
+                for opnd in (opndtab[op] for op in pattern_b.all_opnds()):
+                    non_zero_bits_b &= opnd.non_zero
+            except KeyError:
+                pass
+
+            zero_overlap = (
+                non_zero_bits_a & pattern_b.opnd_bits == 0 or
+                non_zero_bits_b & pattern_b.opnd_bits == 0)
+
+            if ((pattern_b.opcode_bits ^ pattern_a.opcode_bits) &
+                ~pattern_b.opnd_bits & ~pattern_a.opnd_bits == 0 and
+                not zero_overlap):
                 print('Overlap found between:\n%s\nand\n%s' %
-                      (pattern_to_str(*patterns[j]),
-                      pattern_to_str(*patterns[i])))
-                enc_key = fallthrough_instr_id(opcode_i, opcode_bits_i, opnd_bits_i)
+                      (pattern_to_str(*pattern_b),
+                      pattern_to_str(*pattern_a)))
+                enc_key = fallthrough_instr_id(pattern_a.opcode, pattern_a.opcode_bits, pattern_a.opnd_bits)
                 if enc_key in FALLTHROUGH:
                     raise Exception('Error: multiple overlaps detected for '
                                     '%s. Unable to resolve.\n' % enc_key)
