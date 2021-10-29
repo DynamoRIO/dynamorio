@@ -1371,7 +1371,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
       if (UNIX)
-        get_target_path_for_execution(toolbindir nudgeunix "${location_suffix}")
+        get_target_path_for_execution(toolbindir drnudgeunix "${location_suffix}")
       else ()
         get_target_path_for_execution(toolbindir drconfig "${location_suffix}")
       endif ()
@@ -3965,7 +3965,7 @@ if (UNIX)
   #
   # i#2971: We test -c32/-c64 here since modern DR focuses on clients.
   if (X86)
-    # TODO: faking i386 runs does not work with gnu install-dirs as the base directory
+    # TODO i#5153: faking i386 runs does not work with gnu install-dirs as the base directory
     # differs across platforms
     if (X64 AND NOT USE_GNU_DIR_LAYOUT)
       add_exe(linux.execve-sub64 linux/execve-sub.c)

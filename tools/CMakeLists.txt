@@ -40,7 +40,7 @@ if (UNIX)
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)
-    add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/unix/nudgesig.c)
+    add_executable(drnudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/unix/nudgesig.c)
   endif ()
   add_executable(drloader drloader.c)
 
@@ -97,7 +97,10 @@ if (UNIX)
   set(RESOURCES "")
 
   if (NOT APPLE) # FIXME i#1286: add MacOS nudge support
-    DR_install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
+    DR_install(TARGETS drnudgeunix DESTINATION ${INSTALL_BIN})
+    add_custom_command(TARGET drnudgeunix POST_BUILD
+      WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+      COMMAND ${CMAKE_COMMAND} -E create_symlink drnudgeunix nudgeunix)
   endif ()
 else (UNIX)
   # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
@@ -178,8 +181,6 @@ if (CMAKE_COMPILER_IS_GNUCC AND NOT CMAKE_COMPILER_IS_CLANG)
   set_source_files_properties(drdeploy.c PROPERTIES
     COMPILE_FLAGS "-Wno-restrict")
 endif ()
-set_source_files_properties(drdeploy.c PROPERTIES
-  COMPILE_DEFINITIONS "SOVERSION=${VERSION_MAJOR_MINOR}")
 
 add_executable(drconfig drdeploy.c ${RESOURCES})
 set_target_properties(drconfig PROPERTIES

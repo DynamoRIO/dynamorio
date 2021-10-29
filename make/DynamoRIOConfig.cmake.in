@@ -278,6 +278,7 @@ get_filename_component(DynamoRIO_cwd "${CMAKE_CURRENT_LIST_FILE}" PATH)
 # for further customization.
 if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
   set(DynamoRIO_INCLUDE_DIRS "${DynamoRIO_cwd}/../include")
+  # if we include from a system-wide install, use the full path to the headers
   if (@USE_GNU_DIR_LAYOUT@ AND NOT EXISTS "${DynamoRIO_INCLUDE_DIRS}/dr_frontend.h")
     set(DynamoRIO_INCLUDE_DIRS "@CMAKE_INSTALL_PREFIX@/include/DynamoRIO")
   endif ()
@@ -945,7 +946,7 @@ function (configure_DynamoRIO_client target)
 
   # We clear LINK_FLAGS and let the helper routines append to them:
   set_target_properties(${target} PROPERTIES LINK_FLAGS "")
-  if(@USE_GNU_DIR_LAYOUT@)
+  if (@USE_GNU_DIR_LAYOUT@)
     set_target_properties(${target} PROPERTIES
       VERSION "@VERSION_NUMBER@"
       SOVERSION "@VERSION_MAJOR_MINOR@")

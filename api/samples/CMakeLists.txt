@@ -335,10 +335,6 @@ else (USE_GNU_DIR_LAYOUT)
   set(INSTALL_SAMPLES_BIN ${INSTALL_SAMPLES}/${INSTALL_BIN})
 endif (USE_GNU_DIR_LAYOUT)
 
-if (NOT DEFINED X64)
-  message(FATAL_ERROR "we assume X64 is inherited from parent scope")
-endif (NOT DEFINED X64)
-
 DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
 DR_install(FILES "${public_clist}"

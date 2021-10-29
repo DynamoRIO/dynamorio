@@ -122,10 +122,11 @@ else (X64)
 endif (X64)
 
 function (write_config_file dst libdir64 libdir32)
-  if(NOT X64)
+  # TODO i#5187 set both paths to 32-bit client on i386 builds
+  if (NOT X64)
     set(libdir64 ${libdir32})
   endif()
-  if(USE_GNU_DIR_LAYOUT)
+  if (USE_GNU_DIR_LAYOUT)
     set(libdir64 ${CMAKE_INSTALL_PREFIX}/${libdir64})
     set(libdir32 ${CMAKE_INSTALL_PREFIX}/${libdir32})
   endif()

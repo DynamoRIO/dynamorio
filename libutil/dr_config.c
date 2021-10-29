@@ -78,22 +78,18 @@ d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 #        include <syscall.h>
 #    endif
 
+#    define FULL_LIBDIR_X86 INSTALL_PREFIX "/" LIBDIR_X86
+#    define FULL_LIBDIR_X64 INSTALL_PREFIX "/" LIBDIR_X64
 #    define RELEASE32_DLL "/lib32/release/libdynamorio.so"
 #    define DEBUG32_DLL "/lib32/debug/libdynamorio.so"
 #    define RELEASE64_DLL "/lib64/release/libdynamorio.so"
 #    define DEBUG64_DLL "/lib64/debug/libdynamorio.so"
-#    define GNU_DEBUG32_DLL                            \
-        "usr/lib/i386-linux-gnu/DynamoRIO-" STRINGIFY( \
-            SOVERSION) "/debug/libdynamorio.so." STRINGIFY(SOVERSION)
-#    define GNU_RELEASE32_DLL                          \
-        "usr/lib/i386-linux-gnu/DynamoRIO-" STRINGIFY( \
-            SOVERSION) "/release/libdynamorio.so." STRINGIFY(SOVERSION)
-#    define GNU_DEBUG64_DLL                              \
-        "usr/lib/x86_64-linux-gnu/DynamoRIO-" STRINGIFY( \
-            SOVERSION) "/debug/libdynamorio.so." STRINGIFY(SOVERSION)
-#    define GNU_RELEASE64_DLL                            \
-        "usr/lib/x86_64-linux-gnu/DynamoRIO-" STRINGIFY( \
-            SOVERSION) "/release/libdynamorio.so." STRINGIFY(SOVERSION)
+#    define GNU_DEBUG32_DLL FULL_LIBDIR_X86 "/debug/libdynamorio.so." STRINGIFY(SOVERSION)
+#    define GNU_RELEASE32_DLL \
+        FULL_LIBDIR_X86 "/release/libdynamorio.so." STRINGIFY(SOVERSION)
+#    define GNU_DEBUG64_DLL FULL_LIBDIR_X64 "/debug/libdynamorio.so." STRINGIFY(SOVERSION)
+#    define GNU_RELEASE64_DLL \
+        FULL_LIBDIR_X64 "/release/libdynamorio.so." STRINGIFY(SOVERSION)
 #    define LOG_SUBDIR "/logs"
 #    define LIB32_SUBDIR "/lib32/"
 #    undef _sntprintf
@@ -1168,7 +1164,7 @@ dr_register_process(const char *process_name, process_id_t pid, bool global,
         return status;
 
         /* set the autoinject string (i.e., path to dynamorio.dll */
-        /* TODO: cleanup and simplify */
+        /* TODO i#5153: cleanup and simplify */
 #ifndef WINDOWS
     if (strcmp(dr_root_dir, "/") == 0) {
         if (debug) {

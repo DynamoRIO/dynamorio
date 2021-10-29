@@ -1203,6 +1203,11 @@ endif ()
 
 option(USE_GNU_DIR_LAYOUT "use GNU install directory layout" OFF)
 
+# i#5153: The generated executables of both install layouts are not
+# fully identical, as cross-arch exec requires knowledge about the
+# install library dirs. This is currently hard-coded via the cmake
+# generated configure.h. To work around this, a config-file based
+# approach could be implemented.
 if (USE_GNU_DIR_LAYOUT)
   include(GNUInstallDirs)
   set(INSTALL_LIB_BASE ${CMAKE_INSTALL_LIBDIR}/${CMAKE_PROJECT_NAME}-${VERSION_MAJOR_MINOR})
@@ -1213,7 +1218,7 @@ if (USE_GNU_DIR_LAYOUT)
   set(INSTALL_CONFIG ${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME})
   set(INSTALL_LOGS var/log/${CMAKE_PROJECT_NAME})
   # compute 32/64 bit library install locations
-  if ((INSTALL_LIB_BASE MATCHES "/i386-linux") OR (CMAKE_INSTALL_LIBDIR MATCHES "/x86_64-linux"))
+  if ((CMAKE_INSTALL_LIBDIR MATCHES "/i386-linux") OR (CMAKE_INSTALL_LIBDIR MATCHES "/x86_64-linux"))
     string(REPLACE "i386-linux"   "x86_64-linux" INSTALL_LIB_BASE_X64 ${INSTALL_LIB_BASE})
     string(REPLACE "x86_64-linux" "i386-linux"   INSTALL_LIB_BASE_X86 ${INSTALL_LIB_BASE})
   else ()
@@ -1343,6 +1348,7 @@ string(REGEX REPLACE
   "^[0-9]+\\.([0-9]+)\\..*" "\\1" VERSION_NUMBER_MINOR "${VERSION_NUMBER}")
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
+set(SOVERSION ${VERSION_MAJOR_MINOR})
 
 # Every release since has had minor compat breakages.
 # 7.92 broke backcompat by changing 32-bit stack alignment to 16.
