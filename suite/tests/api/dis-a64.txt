@@ -14890,3 +14890,174 @@ d503203f : yield                          : yield
 4ec9790a : zip2 v10.2d, v8.2d, v9.2d                   : zip2   %q8 %q9 $0x03 -> %q10
 4ed37a54 : zip2 v20.2d, v18.2d, v19.2d                 : zip2   %q18 %q19 $0x03 -> %q20
 4edd7b9e : zip2 v30.2d, v28.2d, v29.2d                 : zip2   %q28 %q29 $0x03 -> %q30
+
+# UDF   #<imm>
+00000000 : udf #0x0000                               : udf    $0x0000
+0000119a : udf #0x119a                               : udf    $0x119a
+00003333 : udf #0x3333                               : udf    $0x3333
+00004ccd : udf #0x4ccd                               : udf    $0x4ccd
+00006666 : udf #0x6666                               : udf    $0x6666
+00008000 : udf #0x8000                               : udf    $0x8000
+00009999 : udf #0x9999                               : udf    $0x9999
+0000b333 : udf #0xb333                               : udf    $0xb333
+0000cccc : udf #0xcccc                               : udf    $0xcccc
+0000ffff : udf #0xffff                               : udf    $0xffff
+
+
+# MOVI    <Dd>, #<imm>
+2f00e400 : movi d0, #0x0                             : movi   $0x0000000000000000 -> %d0
+2f00e602 : movi d2, #0xff00000000                    : movi   $0x000000ff00000000 -> %d2
+2f01e404 : movi d4, #0xff0000000000                  : movi   $0x0000ff0000000000 -> %d4
+2f01e606 : movi d6, #0xffff00000000                  : movi   $0x0000ffff00000000 -> %d6
+2f02e408 : movi d8, #0xff000000000000                : movi   $0x00ff000000000000 -> %d8
+2f02e60a : movi d10, #0xff00ff00000000               : movi   $0x00ff00ff00000000 -> %d10
+2f03e40c : movi d12, #0xffff0000000000               : movi   $0x00ffff0000000000 -> %d12
+2f03e60e : movi d14, #0xffffff00000000               : movi   $0x00ffffff00000000 -> %d14
+2f04e410 : movi d16, #0xff00000000000000             : movi   $0xff00000000000000 -> %d16
+2f04e5f1 : movi d17, #0xff000000ffffffff             : movi   $0xff000000ffffffff -> %d17
+2f04e7f3 : movi d19, #0xff0000ffffffffff             : movi   $0xff0000ffffffffff -> %d19
+2f05e5f5 : movi d21, #0xff00ff00ffffffff             : movi   $0xff00ff00ffffffff -> %d21
+2f05e7f7 : movi d23, #0xff00ffffffffffff             : movi   $0xff00ffffffffffff -> %d23
+2f06e5f9 : movi d25, #0xffff0000ffffffff             : movi   $0xffff0000ffffffff -> %d25
+2f06e7fb : movi d27, #0xffff00ffffffffff             : movi   $0xffff00ffffffffff -> %d27
+2f07e7ff : movi d31, #0xffffffffffffffff             : movi   $0xffffffffffffffff -> %d31
+
+# CMHI    <Dd>, <Dn>, <Dm>
+7ee23420 : cmhi d0, d1, d2                           : cmhi   %d1 %d2 -> %d0
+7ee43462 : cmhi d2, d3, d4                           : cmhi   %d3 %d4 -> %d2
+7ee634a4 : cmhi d4, d5, d6                           : cmhi   %d5 %d6 -> %d4
+7ee834e6 : cmhi d6, d7, d8                           : cmhi   %d7 %d8 -> %d6
+7eea3528 : cmhi d8, d9, d10                          : cmhi   %d9 %d10 -> %d8
+7eec356a : cmhi d10, d11, d12                        : cmhi   %d11 %d12 -> %d10
+7eee35ac : cmhi d12, d13, d14                        : cmhi   %d13 %d14 -> %d12
+7ef035ee : cmhi d14, d15, d16                        : cmhi   %d15 %d16 -> %d14
+7ef23630 : cmhi d16, d17, d18                        : cmhi   %d17 %d18 -> %d16
+7ef33651 : cmhi d17, d18, d19                        : cmhi   %d18 %d19 -> %d17
+7ef53693 : cmhi d19, d20, d21                        : cmhi   %d20 %d21 -> %d19
+7ef736d5 : cmhi d21, d22, d23                        : cmhi   %d22 %d23 -> %d21
+7ef93717 : cmhi d23, d24, d25                        : cmhi   %d24 %d25 -> %d23
+7efb3759 : cmhi d25, d26, d27                        : cmhi   %d26 %d27 -> %d25
+7efd379b : cmhi d27, d28, d29                        : cmhi   %d28 %d29 -> %d27
+7ee1341f : cmhi d31, d0, d1                          : cmhi   %d0 %d1 -> %d31
+
+# FCMGT   <V><d>, <V><n>, <V><m>
+7ea2e420 : fcmgt s0, s1, s2                          : fcmgt  %s1 %s2 -> %s0
+7ea4e462 : fcmgt s2, s3, s4                          : fcmgt  %s3 %s4 -> %s2
+7ea6e4a4 : fcmgt s4, s5, s6                          : fcmgt  %s5 %s6 -> %s4
+7ea8e4e6 : fcmgt s6, s7, s8                          : fcmgt  %s7 %s8 -> %s6
+7eaae528 : fcmgt s8, s9, s10                         : fcmgt  %s9 %s10 -> %s8
+7eace56a : fcmgt s10, s11, s12                       : fcmgt  %s11 %s12 -> %s10
+7eaee5ac : fcmgt s12, s13, s14                       : fcmgt  %s13 %s14 -> %s12
+7eb0e5ee : fcmgt s14, s15, s16                       : fcmgt  %s15 %s16 -> %s14
+7eb2e630 : fcmgt s16, s17, s18                       : fcmgt  %s17 %s18 -> %s16
+7eb3e651 : fcmgt s17, s18, s19                       : fcmgt  %s18 %s19 -> %s17
+7eb5e693 : fcmgt s19, s20, s21                       : fcmgt  %s20 %s21 -> %s19
+7eb7e6d5 : fcmgt s21, s22, s23                       : fcmgt  %s22 %s23 -> %s21
+7eb9e717 : fcmgt s23, s24, s25                       : fcmgt  %s24 %s25 -> %s23
+7ebbe759 : fcmgt s25, s26, s27                       : fcmgt  %s26 %s27 -> %s25
+7ebde79b : fcmgt s27, s28, s29                       : fcmgt  %s28 %s29 -> %s27
+7ea1e41f : fcmgt s31, s0, s1                         : fcmgt  %s0 %s1 -> %s31
+7ee2e420 : fcmgt d0, d1, d2                          : fcmgt  %d1 %d2 -> %d0
+7ee4e462 : fcmgt d2, d3, d4                          : fcmgt  %d3 %d4 -> %d2
+7ee6e4a4 : fcmgt d4, d5, d6                          : fcmgt  %d5 %d6 -> %d4
+7ee8e4e6 : fcmgt d6, d7, d8                          : fcmgt  %d7 %d8 -> %d6
+7eeae528 : fcmgt d8, d9, d10                         : fcmgt  %d9 %d10 -> %d8
+7eece56a : fcmgt d10, d11, d12                       : fcmgt  %d11 %d12 -> %d10
+7eeee5ac : fcmgt d12, d13, d14                       : fcmgt  %d13 %d14 -> %d12
+7ef0e5ee : fcmgt d14, d15, d16                       : fcmgt  %d15 %d16 -> %d14
+7ef2e630 : fcmgt d16, d17, d18                       : fcmgt  %d17 %d18 -> %d16
+7ef3e651 : fcmgt d17, d18, d19                       : fcmgt  %d18 %d19 -> %d17
+7ef5e693 : fcmgt d19, d20, d21                       : fcmgt  %d20 %d21 -> %d19
+7ef7e6d5 : fcmgt d21, d22, d23                       : fcmgt  %d22 %d23 -> %d21
+7ef9e717 : fcmgt d23, d24, d25                       : fcmgt  %d24 %d25 -> %d23
+7efbe759 : fcmgt d25, d26, d27                       : fcmgt  %d26 %d27 -> %d25
+7efde79b : fcmgt d27, d28, d29                       : fcmgt  %d28 %d29 -> %d27
+7ee1e41f : fcmgt d31, d0, d1                         : fcmgt  %d0 %d1 -> %d31
+
+# MOVI    <Vd>.2D, #<imm>
+6f00e400 : movi v0.2d, #0x0                          : movi   $0x0000000000000000 $0x03 -> %q0
+6f00e602 : movi v2.2d, #0xff00000000                 : movi   $0x000000ff00000000 $0x03 -> %q2
+6f01e404 : movi v4.2d, #0xff0000000000               : movi   $0x0000ff0000000000 $0x03 -> %q4
+6f01e606 : movi v6.2d, #0xffff00000000               : movi   $0x0000ffff00000000 $0x03 -> %q6
+6f02e408 : movi v8.2d, #0xff000000000000             : movi   $0x00ff000000000000 $0x03 -> %q8
+6f02e60a : movi v10.2d, #0xff00ff00000000            : movi   $0x00ff00ff00000000 $0x03 -> %q10
+6f03e40c : movi v12.2d, #0xffff0000000000            : movi   $0x00ffff0000000000 $0x03 -> %q12
+6f03e60e : movi v14.2d, #0xffffff00000000            : movi   $0x00ffffff00000000 $0x03 -> %q14
+6f04e410 : movi v16.2d, #0xff00000000000000          : movi   $0xff00000000000000 $0x03 -> %q16
+6f04e5f1 : movi v17.2d, #0xff000000ffffffff          : movi   $0xff000000ffffffff $0x03 -> %q17
+6f04e7f3 : movi v19.2d, #0xff0000ffffffffff          : movi   $0xff0000ffffffffff $0x03 -> %q19
+6f05e5f5 : movi v21.2d, #0xff00ff00ffffffff          : movi   $0xff00ff00ffffffff $0x03 -> %q21
+6f05e7f7 : movi v23.2d, #0xff00ffffffffffff          : movi   $0xff00ffffffffffff $0x03 -> %q23
+6f06e5f9 : movi v25.2d, #0xffff0000ffffffff          : movi   $0xffff0000ffffffff $0x03 -> %q25
+6f06e7fb : movi v27.2d, #0xffff00ffffffffff          : movi   $0xffff00ffffffffff $0x03 -> %q27
+6f07e7ff : movi v31.2d, #0xffffffffffffffff          : movi   $0xffffffffffffffff $0x03 -> %q31
+
+# FMOV    <Vd>.<T>, #<imm>
+0f00f400 : fmov v0.2s, #2.0                          : fmov   $2.000000 $0x02 -> %d0
+0f00f422 : fmov v2.2s, #2.125                        : fmov   $2.125000 $0x02 -> %d2
+0f00f444 : fmov v4.2s, #2.25                         : fmov   $2.250000 $0x02 -> %d4
+0f00f466 : fmov v6.2s, #2.375                        : fmov   $2.375000 $0x02 -> %d6
+0f00f488 : fmov v8.2s, #2.5                          : fmov   $2.500000 $0x02 -> %d8
+0f00f4aa : fmov v10.2s, #2.625                       : fmov   $2.625000 $0x02 -> %d10
+0f00f4cc : fmov v12.2s, #2.75                        : fmov   $2.750000 $0x02 -> %d12
+0f00f4ee : fmov v14.2s, #2.875                       : fmov   $2.875000 $0x02 -> %d14
+0f00f510 : fmov v16.2s, #3.0                         : fmov   $3.000000 $0x02 -> %d16
+0f03f711 : fmov v17.2s, #1.5                         : fmov   $1.500000 $0x02 -> %d17
+0f03f733 : fmov v19.2s, #1.5625                      : fmov   $1.562500 $0x02 -> %d19
+0f03f755 : fmov v21.2s, #1.625                       : fmov   $1.625000 $0x02 -> %d21
+0f03f777 : fmov v23.2s, #1.6875                      : fmov   $1.687500 $0x02 -> %d23
+0f03f799 : fmov v25.2s, #1.75                        : fmov   $1.750000 $0x02 -> %d25
+0f03f7bb : fmov v27.2s, #1.8125                      : fmov   $1.812500 $0x02 -> %d27
+0f03f7ff : fmov v31.2s, #1.9375                      : fmov   $1.937500 $0x02 -> %d31
+4f00f400 : fmov v0.4s, #2.0                          : fmov   $2.000000 $0x02 -> %q0
+4f00f422 : fmov v2.4s, #2.125                        : fmov   $2.125000 $0x02 -> %q2
+4f00f444 : fmov v4.4s, #2.25                         : fmov   $2.250000 $0x02 -> %q4
+4f00f466 : fmov v6.4s, #2.375                        : fmov   $2.375000 $0x02 -> %q6
+4f00f488 : fmov v8.4s, #2.5                          : fmov   $2.500000 $0x02 -> %q8
+4f00f4aa : fmov v10.4s, #2.625                       : fmov   $2.625000 $0x02 -> %q10
+4f00f4cc : fmov v12.4s, #2.75                        : fmov   $2.750000 $0x02 -> %q12
+4f00f4ee : fmov v14.4s, #2.875                       : fmov   $2.875000 $0x02 -> %q14
+4f00f510 : fmov v16.4s, #3.0                         : fmov   $3.000000 $0x02 -> %q16
+4f03f711 : fmov v17.4s, #1.5                         : fmov   $1.500000 $0x02 -> %q17
+4f03f733 : fmov v19.4s, #1.5625                      : fmov   $1.562500 $0x02 -> %q19
+4f03f755 : fmov v21.4s, #1.625                       : fmov   $1.625000 $0x02 -> %q21
+4f03f777 : fmov v23.4s, #1.6875                      : fmov   $1.687500 $0x02 -> %q23
+4f03f799 : fmov v25.4s, #1.75                        : fmov   $1.750000 $0x02 -> %q25
+4f03f7bb : fmov v27.4s, #1.8125                      : fmov   $1.812500 $0x02 -> %q27
+4f03f7ff : fmov v31.4s, #1.9375                      : fmov   $1.937500 $0x02 -> %q31
+
+# FMOV    <Xd>, <Dn>.1D[1]
+9eae0020 : fmov x0, v1.d[1]                          : fmov   %q1 $0x01 $0x03 -> %x0
+9eae0062 : fmov x2, v3.d[1]                          : fmov   %q3 $0x01 $0x03 -> %x2
+9eae00a4 : fmov x4, v5.d[1]                          : fmov   %q5 $0x01 $0x03 -> %x4
+9eae00e6 : fmov x6, v7.d[1]                          : fmov   %q7 $0x01 $0x03 -> %x6
+9eae0128 : fmov x8, v9.d[1]                          : fmov   %q9 $0x01 $0x03 -> %x8
+9eae0169 : fmov x9, v11.d[1]                         : fmov   %q11 $0x01 $0x03 -> %x9
+9eae01ab : fmov x11, v13.d[1]                        : fmov   %q13 $0x01 $0x03 -> %x11
+9eae01ed : fmov x13, v15.d[1]                        : fmov   %q15 $0x01 $0x03 -> %x13
+9eae022f : fmov x15, v17.d[1]                        : fmov   %q17 $0x01 $0x03 -> %x15
+9eae0251 : fmov x17, v18.d[1]                        : fmov   %q18 $0x01 $0x03 -> %x17
+9eae0293 : fmov x19, v20.d[1]                        : fmov   %q20 $0x01 $0x03 -> %x19
+9eae02d5 : fmov x21, v22.d[1]                        : fmov   %q22 $0x01 $0x03 -> %x21
+9eae0317 : fmov x23, v24.d[1]                        : fmov   %q24 $0x01 $0x03 -> %x23
+9eae0358 : fmov x24, v26.d[1]                        : fmov   %q26 $0x01 $0x03 -> %x24
+9eae039a : fmov x26, v28.d[1]                        : fmov   %q28 $0x01 $0x03 -> %x26
+9eae001e : fmov x30, v0.d[1]                         : fmov   %q0 $0x01 $0x03 -> %x30
+
+# FMOV    <Vd>.2D, #<imm>
+6f00f400 : fmov v0.2d, #2.0                          : fmov   $2.000000 $0x03 -> %q0
+6f00f422 : fmov v2.2d, #2.125                        : fmov   $2.125000 $0x03 -> %q2
+6f00f444 : fmov v4.2d, #2.25                         : fmov   $2.250000 $0x03 -> %q4
+6f00f466 : fmov v6.2d, #2.375                        : fmov   $2.375000 $0x03 -> %q6
+6f00f488 : fmov v8.2d, #2.5                          : fmov   $2.500000 $0x03 -> %q8
+6f00f4aa : fmov v10.2d, #2.625                       : fmov   $2.625000 $0x03 -> %q10
+6f00f4cc : fmov v12.2d, #2.75                        : fmov   $2.750000 $0x03 -> %q12
+6f00f4ee : fmov v14.2d, #2.875                       : fmov   $2.875000 $0x03 -> %q14
+6f00f510 : fmov v16.2d, #3.0                         : fmov   $3.000000 $0x03 -> %q16
+6f03f711 : fmov v17.2d, #1.5                         : fmov   $1.500000 $0x03 -> %q17
+6f03f733 : fmov v19.2d, #1.5625                      : fmov   $1.562500 $0x03 -> %q19
+6f03f755 : fmov v21.2d, #1.625                       : fmov   $1.625000 $0x03 -> %q21
+6f03f777 : fmov v23.2d, #1.6875                      : fmov   $1.687500 $0x03 -> %q23
+6f03f799 : fmov v25.2d, #1.75                        : fmov   $1.750000 $0x03 -> %q25
+6f03f7bb : fmov v27.2d, #1.8125                      : fmov   $1.812500 $0x03 -> %q27
+6f03f7ff : fmov v31.2d, #1.9375                      : fmov   $1.937500 $0x03 -> %q31

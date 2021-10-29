@@ -35,7 +35,7 @@
 
 #include "decode_private.h"
 
-#define ENCFAIL (uint)0 /* a value that is not a valid instruction */
+#define ENCFAIL (uint)0xFFFFFFFF /* a value that is not a valid instruction */
 
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr);
