@@ -91,7 +91,7 @@ decode_supported_op(void *drcontext, byte *pc)
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     instr_t instr;
     instr_init(dcontext, &instr);
-    bool supported = decode_supported(dcontext, pc, instr);
+    bool supported = decode_supported(dcontext, pc, &instr);
     instr_free(dcontext, &instr);
     return supported;
 }
