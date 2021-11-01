@@ -97,6 +97,17 @@ static ptr_uint_t note_base;
 
 static bool soft_kills_enabled;
 
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+static int tls_idx;
+typedef struct _per_thread_t {
+    void *scratch_xmm_spill_slot;
+} per_thread_t;
+
+static per_thread_t *
+get_tls_data(void *drcontext);
+
+static per_thread_t init_pt;
+#endif
 static void
 soft_kills_exit(void);
 
@@ -126,11 +137,42 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info);
 #endif
 
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+static per_thread_t *
+get_tls_data(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    /* Support use during init (i#2910). */
+    if (pt == NULL)
+        return &init_pt;
+    return pt;
+}
+#endif
+
 /***************************************************************************
  * INIT
  */
 
 static int drx_init_count;
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+static void
+drx_thread_init(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
+    pt->scratch_xmm_spill_slot = dr_thread_alloc(
+        dr_get_current_drcontext(), XMM_REG_SIZE + 31 /* for 32-byte alignment */);
+    drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
+}
+
+static void
+drx_thread_exit(void *drcontext)
+{
+    per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+    dr_thread_free(drcontext, pt->scratch_xmm_spill_slot,
+                   XMM_REG_SIZE + 31 /* for 32-byte alignment */);
+    dr_thread_free(drcontext, pt, sizeof(*pt));
+}
+#endif
 
 DR_EXPORT
 bool
@@ -174,6 +216,12 @@ drx_init(void)
     if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
                                                   &fault_priority))
         return false;
+    if (!drmgr_register_thread_init_event(drx_thread_init) ||
+        !drmgr_register_thread_exit_event(drx_thread_exit))
+        return false;
+    tls_idx = drmgr_register_tls_field();
+    if (tls_idx == -1)
+        return false;
 #endif
 
     return drx_buf_init_library();
@@ -191,7 +239,9 @@ drx_exit()
         soft_kills_exit();
         soft_kills_enabled = false;
     }
-
+#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
+    drmgr_unregister_tls_field(tls_idx);
+#endif
     drx_buf_exit_library();
     drreg_exit();
     drmgr_exit();
@@ -2057,6 +2107,13 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
     return true;
 }
 
+uint
+mov_xmm_aligned32_opcode()
+{
+    ASSERT(proc_avx_enabled(), "running on unsupported processor");
+    return OP_vmovdqa;
+}
+
 #endif
 
 /*****************************************************************************************
@@ -2358,7 +2415,18 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             scratch_xmm != reg_resize_to_opsz(sg_info.gather_dst_reg, OPSZ_16))
             break;
     }
-    /* FIXME i#2985: spill scratch_xmm using a future drreg extension for simd. */
+    per_thread_t *pt = get_tls_data(drcontext);
+    instrlist_insert_mov_immed_ptrsz(
+        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, 32),
+        opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
+    uint mov_xmm_opcode = mov_xmm_aligned32_opcode();
+    /* Spill the scratch xmm. */
+    instrlist_meta_preinsert(
+        bb, sg_instr,
+        instr_create_1dst_1src(
+            drcontext, mov_xmm_opcode,
+            opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0, OPSZ_16),
+            opnd_create_reg(scratch_xmm)));
     emulated_instr_t emulated_instr;
     emulated_instr.size = sizeof(emulated_instr);
     emulated_instr.pc = instr_get_app_pc(sg_instr);
@@ -2470,6 +2538,15 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
                                             opnd_create_reg(sg_info.mask_reg)),
                          orig_app_pc));
     }
+    instrlist_insert_mov_immed_ptrsz(
+        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, 32),
+        opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
+    /* Restore the scratch xmm. */
+    instrlist_meta_preinsert(
+        bb, sg_instr,
+        instr_create_1dst_1src(
+            drcontext, mov_xmm_opcode, opnd_create_reg(scratch_xmm),
+            opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0, OPSZ_16)));
     ASSERT(scratch_reg0 != scratch_reg1,
            "Internal error: scratch registers must be different");
     if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_reg0) !=
