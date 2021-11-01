@@ -57,6 +57,16 @@ DR_API
 byte *
 decode_eflags_usage(void *drcontext, byte *pc, uint *usage, dr_opnd_query_flags_t flags);
 
+#ifdef AARCH64
+DR_API
+/**
+ * Attempts to decode the instruction at address \p pc to determine if the
+ * instruction is supported by the decoder.
+ * Returns false on decoding an invalid or unsupported instruction.
+ */
+decode_supported_op(void *drcontext, byte *pc);
+#endif /* AARCH64 */
+
 DR_API
 /**
  * Decodes the instruction at address \p pc into \p instr, filling in the

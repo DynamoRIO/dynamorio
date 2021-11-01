@@ -85,6 +85,17 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
     return NULL;
 }
 
+bool
+decode_supported_op(void *drcontext, byte *pc)
+{
+    dcontext_t *dcontext = (dcontext_t *)drcontext;
+    instr_t instr;
+    instr_init(dcontext, &instr);
+    bool supported = decode_supported(dcontext, pc, instr);
+    instr_free(dcontext, &instr);
+    return supported;
+}
+
 byte *
 decode(void *drcontext, byte *pc, instr_t *instr)
 {

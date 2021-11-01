@@ -142,20 +142,22 @@ generate_inst(byte *encode_pc, size_t *skipped_insts)
 {
     /* Pick a random side-effect-free and non-branch instruction. */
     uint32_t encoded_inst = generate_encoded_inst();
+    byte *encoded_inst_bytes = (byte *)&encoded_inst;
 
     /* Try to decode the randomized encoding. */
     instr_t *decoded_inst = instr_create(GLOBAL_DCONTEXT);
-    byte *nxt_pc = decode(GLOBAL_DCONTEXT, (byte *)&encoded_inst, decoded_inst);
-    /* XXX: Ideally the decoder would report as erroneous any encoding leading to SIGILL.
-     * Currently, several valid decodings are illegal instructions.
-     */
-    if (nxt_pc != NULL && check_decoded_inst(decoded_inst)) {
-        encode_pc = append_instr(decoded_inst, encode_pc);
-    } else {
-        (*skipped_insts)++;
-        instr_destroy(GLOBAL_DCONTEXT, decoded_inst);
+    if (decode_supported_op(GLOBAL_DCONTEXT, encoded_inst_bytes)) {
+        byte *nxt_pc = decode(GLOBAL_DCONTEXT, encoded_inst_bytes, decoded_inst);
+        /* XXX: Ideally the decoder would report as erroneous any encoding leading to
+         * SIGILL. Currently, several valid decodings are illegal instructions.
+         */
+        if (nxt_pc != NULL && check_decoded_inst(decoded_inst)) {
+            encode_pc = append_instr(decoded_inst, encode_pc);
+            return encode_pc;
+        }
     }
-
+    (*skipped_insts)++;
+    instr_destroy(GLOBAL_DCONTEXT, decoded_inst);
     return encode_pc;
 }
 
