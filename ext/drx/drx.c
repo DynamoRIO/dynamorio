@@ -2416,12 +2416,16 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             scratch_xmm != reg_resize_to_opsz(sg_info.gather_dst_reg, OPSZ_16))
             break;
     }
+    /* Spill the scratch xmm.
+     * TODO i#3844: drreg does not support spilling xmm regs yet, so we do it ourselves.
+     * When that support is available, replace the following with the required drreg API
+     * calls.
+     */
     per_thread_t *pt = get_tls_data(drcontext);
     instrlist_insert_mov_immed_ptrsz(
         drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, 32),
         opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
     uint mov_xmm_opcode = mov_xmm_aligned32_opcode();
-    /* Spill the scratch xmm. */
     instrlist_meta_preinsert(
         bb, sg_instr,
         instr_create_1dst_1src(
@@ -2539,10 +2543,10 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
                                             opnd_create_reg(sg_info.mask_reg)),
                          orig_app_pc));
     }
+    /* Restore the scratch xmm. */
     instrlist_insert_mov_immed_ptrsz(
         drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, 32),
         opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
-    /* Restore the scratch xmm. */
     instrlist_meta_preinsert(
         bb, sg_instr,
         instr_create_1dst_1src(
