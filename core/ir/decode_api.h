@@ -64,6 +64,7 @@ DR_API
  * instruction is supported by the decoder.
  * Returns false on decoding an invalid or unsupported instruction.
  */
+bool
 decode_supported_op(void *drcontext, byte *pc);
 #endif /* AARCH64 */
 
