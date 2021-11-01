@@ -153,7 +153,6 @@ get_tls_data(void *drcontext)
  * INIT
  */
 
-static int drx_init_count;
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 static void
 drx_thread_init(void *drcontext)
@@ -173,6 +172,8 @@ drx_thread_exit(void *drcontext)
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 #endif
+
+static int drx_init_count;
 
 DR_EXPORT
 bool
