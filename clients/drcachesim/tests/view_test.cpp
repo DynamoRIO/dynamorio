@@ -39,6 +39,7 @@
 #include "../tools/view.h"
 #include "../common/memref.h"
 #include "../tracer/raw2trace.h"
+#include "memref_gen.h"
 
 #define ASSERT(cond, msg, ...)        \
     do {                              \
@@ -62,7 +63,7 @@ namespace {
 // of encoded instr_t.
 class module_mapper_test_t : public module_mapper_t {
 public:
-    module_mapper_test_t(instrlist_t &instrs, void *drcontext)
+    module_mapper_test_t(void *drcontext, instrlist_t &instrs)
         : module_mapper_t(nullptr)
     {
         byte *pc = instrlist_encode(drcontext, &instrs, decode_buf_, true);
@@ -87,12 +88,12 @@ private:
 
 class view_test_t : public view_t {
 public:
-    view_test_t(instrlist_t &instrs, void *drcontext, uint64_t skip_refs,
+    view_test_t(void *drcontext, instrlist_t &instrs, uint64_t skip_refs,
                 uint64_t sim_refs)
         : view_t("", skip_refs, sim_refs, "", 0)
     {
         module_mapper_ =
-            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(instrs, drcontext));
+            std::unique_ptr<module_mapper_t>(new module_mapper_test_t(drcontext, instrs));
     }
 
     std::string
@@ -105,51 +106,6 @@ public:
         return "";
     }
 };
-
-memref_t
-gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
-{
-    memref_t memref = {};
-    memref.instr.type = load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE;
-    memref.instr.tid = tid;
-    memref.instr.addr = addr;
-    memref.instr.size = size;
-    return memref;
-}
-
-memref_t
-gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc)
-{
-    memref_t memref = {};
-    memref.instr.type = type;
-    memref.instr.tid = tid;
-    memref.instr.addr = pc;
-    memref.instr.size = 1;
-    return memref;
-}
-
-memref_t
-gen_instr(memref_tid_t tid, addr_t pc)
-{
-    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc);
-}
-
-memref_t
-gen_branch(memref_tid_t tid, addr_t pc)
-{
-    return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
-}
-
-memref_t
-gen_marker(memref_tid_t tid, trace_marker_type_t type, uintptr_t val)
-{
-    memref_t memref = {};
-    memref.marker.type = TRACE_TYPE_MARKER;
-    memref.marker.tid = tid;
-    memref.marker.marker_type = type;
-    memref.marker.marker_value = val;
-    return memref;
-}
 
 std::string
 run_test_helper(view_test_t &view, const std::vector<memref_t> &memrefs)
@@ -170,9 +126,9 @@ run_test_helper(view_test_t &view, const std::vector<memref_t> &memrefs)
 }
 
 bool
-test_no_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs, void *drcontext)
+test_no_limit(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &memrefs)
 {
-    view_test_t view(ilist, drcontext, 0, 0);
+    view_test_t view(drcontext, ilist, 0, 0);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != static_cast<int>(memrefs.size())) {
         std::cerr << "Incorrect line count\n";
@@ -182,12 +138,12 @@ test_no_limit(instrlist_t &ilist, const std::vector<memref_t> &memrefs, void *dr
 }
 
 bool
-test_num_memrefs(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
-                 void *drcontext)
+test_num_memrefs(void *drcontext, instrlist_t &ilist,
+                 const std::vector<memref_t> &memrefs, int num_memrefs)
 {
-    const int num_memrefs = 3;
-    ASSERT(num_memrefs < memrefs.size(), "need more memrefs to limit");
-    view_test_t view(ilist, drcontext, num_memrefs, 0);
+    ASSERT(static_cast<size_t>(num_memrefs) < memrefs.size(),
+           "need more memrefs to limit");
+    view_test_t view(drcontext, ilist, 0, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
         std::cerr << "Incorrect num_memrefs count\n";
@@ -197,16 +153,41 @@ test_num_memrefs(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
 }
 
 bool
-test_skip_memrefs(instrlist_t &ilist, const std::vector<memref_t> &memrefs,
-                  void *drcontext)
+test_skip_memrefs(void *drcontext, instrlist_t &ilist,
+                  const std::vector<memref_t> &memrefs, int skip_memrefs)
 {
-    const int skip_memrefs = 2;
     const int num_memrefs = 2;
-    ASSERT(num_memrefs + skip_memrefs <= memrefs.size(), "need more memrefs to skip");
-    view_test_t view(ilist, drcontext, num_memrefs, skip_memrefs);
+    // We do a simple check on the marker count.
+    // XXX: To test precisely skipping the instrs and data we'll need to spend
+    // more effort here, but the initial delayed markers are the corner cases.
+    int all_count = 0, marker_count = 0;
+    for (const auto &memref : memrefs) {
+        if (all_count++ < skip_memrefs)
+            continue;
+        if (all_count - skip_memrefs > num_memrefs)
+            break;
+        if (memref.marker.type == TRACE_TYPE_MARKER)
+            ++marker_count;
+    }
+    ASSERT(static_cast<size_t>(num_memrefs + skip_memrefs) <= memrefs.size(),
+           "need more memrefs to skip");
+    view_test_t view(drcontext, ilist, skip_memrefs, num_memrefs);
     std::string res = run_test_helper(view, memrefs);
     if (std::count(res.begin(), res.end(), '\n') != num_memrefs) {
         std::cerr << "Incorrect skipped num_memrefs count\n";
+        return false;
+    }
+    int found_markers = 0;
+    size_t pos = 0;
+    while (pos != std::string::npos) {
+        pos = res.find("marker", pos);
+        if (pos != std::string::npos) {
+            ++found_markers;
+            ++pos;
+        }
+    }
+    if (found_markers != marker_count) {
+        std::cerr << "Failed to skip proper number of markers\n";
         return false;
     }
     return true;
@@ -241,9 +222,14 @@ run_limit_tests(void *drcontext)
         gen_data(t1, true, 0x42, 4),
     };
 
-    res = test_no_limit(*ilist, memrefs, drcontext) && res;
-    res = test_num_memrefs(*ilist, memrefs, drcontext) && res;
-    res = test_skip_memrefs(*ilist, memrefs, drcontext) && res;
+    res = test_no_limit(drcontext, *ilist, memrefs) && res;
+    for (size_t i = 1; i < memrefs.size(); ++i) {
+        res = test_num_memrefs(drcontext, *ilist, memrefs, i) && res;
+    }
+    // We primarily test skipping the initial markers.
+    for (size_t i = 1; i < 6; ++i) {
+        res = test_skip_memrefs(drcontext, *ilist, memrefs, i) && res;
+    }
 
     instrlist_clear_and_destroy(drcontext, ilist);
     return res;
