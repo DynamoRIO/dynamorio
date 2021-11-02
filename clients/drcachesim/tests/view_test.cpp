@@ -223,11 +223,11 @@ run_limit_tests(void *drcontext)
     };
 
     res = test_no_limit(drcontext, *ilist, memrefs) && res;
-    for (size_t i = 1; i < memrefs.size(); ++i) {
+    for (int i = 1; i < static_cast<int>(memrefs.size()); ++i) {
         res = test_num_memrefs(drcontext, *ilist, memrefs, i) && res;
     }
     // We primarily test skipping the initial markers.
-    for (size_t i = 1; i < 6; ++i) {
+    for (int i = 1; i < 6; ++i) {
         res = test_skip_memrefs(drcontext, *ilist, memrefs, i) && res;
     }
 
