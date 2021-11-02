@@ -350,7 +350,7 @@ struct trace_metadata_reader_t {
  * Using it assumes a dr_context has already been setup.
  * This class is not thread-safe.
  */
-class module_mapper_t final {
+class module_mapper_t {
 public:
     /**
      * Parses and iterates over the list of modules.  This is provided to give the user a
@@ -398,7 +398,7 @@ public:
      * get_last_error() to ensure no error has occurred, or get the applicable error
      * message.
      */
-    const std::vector<module_t> &
+    virtual const std::vector<module_t> &
     get_loaded_modules()
     {
         if (last_error_.empty() && modvec_.empty())
@@ -430,7 +430,7 @@ public:
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.
      */
-    ~module_mapper_t();
+    virtual ~module_mapper_t();
 
     /**
      * Writes out the module list to \p buf, whose capacity is \p buf_size.
@@ -444,7 +444,7 @@ public:
                       int (*print_cb)(void *data, char *dst, size_t max_len),
                       OUT size_t *wrote);
 
-private:
+protected:
     module_mapper_t(const char *module_map,
                     const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
                     std::string (*process_cb)(drmodtrack_info_t *info, void *data,
@@ -452,6 +452,7 @@ private:
                     void *process_cb_user_data = nullptr,
                     void (*free_cb)(void *data) = nullptr, uint verbosity = 0,
                     const std::string &alt_module_dir = "");
+
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
     operator=(const module_mapper_t &) = delete;
@@ -468,7 +469,7 @@ private:
         void *user_data;
     };
 
-    void
+    virtual void
     read_and_map_modules(void);
 
     std::string

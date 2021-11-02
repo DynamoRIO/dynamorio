@@ -64,6 +64,9 @@ protected:
         void *dcontext = nullptr;
     };
 
+    bool
+    should_skip();
+
     /* We make this the first field so that dr_standalone_exit() is called after
      * destroying the other fields which may use DR heap.
      */
@@ -73,10 +76,12 @@ protected:
     raw2trace_directory_t directory_;
     unsigned int knob_verbose_;
     int trace_version_;
-    uint64_t instr_count_;
     static const std::string TOOL_NAME;
     uint64_t knob_skip_refs_;
+    uint64_t skip_refs_left_;
     uint64_t knob_sim_refs_;
+    uint64_t sim_refs_left_;
+    bool refs_limited_;
     std::string knob_syntax_;
     std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;

@@ -556,6 +556,16 @@ if (BUILD_TESTS)
     add_test(NAME tool.drcachesim.invariant_checker_test
              COMMAND tool.drcachesim.invariant_checker_test)
 
+    add_executable(tool.drcacheoff.view_test tests/view_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
+    add_win32_flags(tool.drcacheoff.view_test)
+    target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
+    add_test(NAME tool.drcacheoff.view_test
+      COMMAND tool.drcacheoff.view_test)
+
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)
     use_DynamoRIO_static_client(tool.drcacheoff.burst_static drmemtrace_static)
