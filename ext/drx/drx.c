@@ -2832,7 +2832,7 @@ restore_spilled_xmm_value(drx_state_machine_params_t *params)
     ASSERT(params->spilled_xmm_slot_addr != NULL,
            "No spill address recorded for the app xmm value");
     ASSERT(params->spilled_xmm != DR_REG_NULL && reg_is_strictly_xmm(params->spilled_xmm),
-           "no spilled xmm recorded");
+           "No spilled xmm reg recorded");
     void *spilled_xmm_val = params->spilled_xmm_slot_addr;
     for (int i = 0; i < XMM_REG_SIZE; i++) {
         xmm_val[i] = *((byte *)spilled_xmm_val + i);
@@ -2900,9 +2900,8 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
     switch (params->detect_state) {
     /* First we detect the spill address for the scratch xmm reg. */
     case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0: {
-        ASSERT(params->spilled_xmm_slot_addr == NULL &&
-                   params->spilled_xmm_slot_addr_reg == DR_REG_NULL,
-               "Spill address for xmm must be undetermined yet");
+        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
+        params->spilled_xmm_slot_addr = NULL;
         ptr_int_t spilled_xmm_slot_addr;
         if (instr_is_mov_constant(&params->inst, &spilled_xmm_slot_addr) &&
             opnd_is_reg(instr_get_dst(&params->inst, 0)) &&
@@ -2931,8 +2930,6 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
             advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
             break;
         }
-        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-        params->spilled_xmm_slot_addr = NULL;
         skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0, params);
         break;
     /* We come back to DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2 for each
@@ -2952,9 +2949,7 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                 break;
             }
         }
-        /* We don't need to ignore any instructions here, because we are already in
-         * DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2.
-         */
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0, params);
         break;
     case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
@@ -3189,9 +3184,8 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
     switch (params->detect_state) {
     /* First we detect the spill address for the scratch xmm reg. */
     case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0: {
-        ASSERT(params->spilled_xmm_slot_addr == NULL &&
-                   params->spilled_xmm_slot_addr_reg == DR_REG_NULL,
-               "Spill address for xmm must be undetermined yet");
+        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
+        params->spilled_xmm_slot_addr = NULL;
         ptr_int_t spilled_xmm_slot_addr;
         if (instr_is_mov_constant(&params->inst, &spilled_xmm_slot_addr) &&
             opnd_is_reg(instr_get_dst(&params->inst, 0)) &&
@@ -3220,8 +3214,6 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
             advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
             break;
         }
-        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-        params->spilled_xmm_slot_addr = NULL;
         skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0, params);
         break;
     /* We come back to DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2 for each
@@ -3241,9 +3233,7 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                 break;
             }
         }
-        /* We don't need to ignore any instructions here, because we are already in
-         * DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2.
-         */
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0, params);
         break;
     case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
@@ -3484,9 +3474,8 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
     switch (params->detect_state) {
     /* First we detect the spill address for the scratch xmm reg. */
     case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0: {
-        ASSERT(params->spilled_xmm_slot_addr == NULL &&
-                   params->spilled_xmm_slot_addr_reg == DR_REG_NULL,
-               "Spill address for xmm must be undetermined yet");
+        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
+        params->spilled_xmm_slot_addr = NULL;
         ptr_int_t spilled_xmm_slot_addr;
         if (instr_is_mov_constant(&params->inst, &spilled_xmm_slot_addr) &&
             opnd_is_reg(instr_get_dst(&params->inst, 0)) &&
@@ -3515,8 +3504,6 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
             advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
             break;
         }
-        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-        params->spilled_xmm_slot_addr = NULL;
         skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0, params);
         break;
     /* We come back to DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2 for each
@@ -3536,9 +3523,7 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                 break;
             }
         }
-        /* We don't need to ignore any instructions here, because we are already in
-         * DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2.
-         */
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0, params);
         break;
     case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
