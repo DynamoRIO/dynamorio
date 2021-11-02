@@ -430,7 +430,7 @@ public:
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.
      */
-    ~module_mapper_t();
+    virtual ~module_mapper_t();
 
     /**
      * Writes out the module list to \p buf, whose capacity is \p buf_size.
