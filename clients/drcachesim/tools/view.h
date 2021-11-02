@@ -43,11 +43,21 @@
 
 class view_t : public analysis_tool_t {
 public:
-    view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-           const std::string &syntax, unsigned int verbose,
+    view_t(const std::string &module_file_path, memref_tid_t thread, uint64_t skip_refs,
+           uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
     std::string
     initialize() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
     bool
     process_memref(const memref_t &memref) override;
     bool
@@ -77,6 +87,7 @@ protected:
     unsigned int knob_verbose_;
     int trace_version_;
     static const std::string TOOL_NAME;
+    memref_tid_t knob_thread_;
     uint64_t knob_skip_refs_;
     uint64_t skip_refs_left_;
     uint64_t knob_sim_refs_;

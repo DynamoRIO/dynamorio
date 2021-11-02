@@ -114,6 +114,7 @@ extern droption_t<std::string> op_dr_ops;
 extern droption_t<std::string> op_tracer;
 extern droption_t<std::string> op_tracer_alt;
 extern droption_t<std::string> op_tracer_ops;
+extern droption_t<int> op_only_thread;
 extern droption_t<bytesize_t> op_skip_refs;
 extern droption_t<bytesize_t> op_warmup_refs;
 extern droption_t<double> op_warmup_fraction;

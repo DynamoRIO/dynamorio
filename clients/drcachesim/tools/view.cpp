@@ -46,20 +46,21 @@
 const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
-view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
-                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
-                 const std::string &alt_module_dir)
+view_tool_create(const std::string &module_file_path, memref_tid_t thread,
+                 uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
+                 unsigned int verbose, const std::string &alt_module_dir)
 {
-    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose,
+    return new view_t(module_file_path, thread, skip_refs, sim_refs, syntax, verbose,
                       alt_module_dir);
 }
 
-view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-               const std::string &syntax, unsigned int verbose,
-               const std::string &alt_module_dir)
+view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
+               uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
+               unsigned int verbose, const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , trace_version_(-1)
+    , knob_thread_(thread)
     , knob_skip_refs_(skip_refs)
     , skip_refs_left_(knob_skip_refs_)
     , knob_sim_refs_(sim_refs)
@@ -102,6 +103,38 @@ view_t::initialize()
 }
 
 bool
+view_t::parallel_shard_supported()
+{
+    // When just one thread is selected, we support parallel operation to reduce
+    // overhead from reading all the other thread files in series.
+    return knob_thread_ > 0;
+}
+
+void *
+view_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    return nullptr;
+}
+
+bool
+view_t::parallel_shard_exit(void *shard_data)
+{
+    return true;
+}
+
+std::string
+view_t::parallel_shard_error(void *shard_data)
+{
+    return "";
+}
+
+bool
+view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    return process_memref(memref);
+}
+
+bool
 view_t::should_skip()
 {
     if (skip_refs_left_ > 0) {
@@ -122,6 +155,8 @@ view_t::should_skip()
 bool
 view_t::process_memref(const memref_t &memref)
 {
+    if (knob_thread_ > 0 && memref.data.tid > 0 && memref.data.tid != knob_thread_)
+        return true;
     // Even for -skip_refs we need to process the up-front version and type.
     if (memref.marker.type == TRACE_TYPE_MARKER) {
         switch (memref.marker.marker_type) {
