@@ -65,6 +65,8 @@
 
 #define XMM_REG_SIZE 16
 #define YMM_REG_SIZE 32
+#define XMM_ALIGNMENT 32
+
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
 #ifdef WINDOWS
@@ -158,8 +160,8 @@ static void
 drx_thread_init(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
-    pt->scratch_xmm_spill_slot = dr_thread_alloc(
-        dr_get_current_drcontext(), XMM_REG_SIZE + 31 /* for 32-byte alignment */);
+    pt->scratch_xmm_spill_slot =
+        dr_thread_alloc(drcontext, XMM_REG_SIZE + (XMM_ALIGNMENT - 1));
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 }
 
@@ -168,7 +170,7 @@ drx_thread_exit(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     dr_thread_free(drcontext, pt->scratch_xmm_spill_slot,
-                   XMM_REG_SIZE + 31 /* for 32-byte alignment */);
+                   XMM_REG_SIZE + (XMM_ALIGNMENT - 1));
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 #endif
@@ -2425,7 +2427,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
      */
     per_thread_t *pt = get_tls_data(drcontext);
     instrlist_insert_mov_immed_ptrsz(
-        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, 32),
+        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, XMM_ALIGNMENT),
         opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
     uint mov_xmm_opcode = mov_xmm_aligned32_opcode();
     instrlist_meta_preinsert(
@@ -2547,7 +2549,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
     }
     /* Restore the scratch xmm. */
     instrlist_insert_mov_immed_ptrsz(
-        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, 32),
+        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, XMM_ALIGNMENT),
         opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
     instrlist_meta_preinsert(
         bb, sg_instr,
