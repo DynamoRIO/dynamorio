@@ -971,14 +971,11 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                            @N@\
   GLOBAL_LABEL(FUNCNAME(name):)                             @N@\
         /* uint32_t *ref_sparse_test_buf */                 @N@\
         mov        REG_XAX, ARG1                            @N@\
-        /* uint32_t *scratch_xmm_val */                     @N@\
-        mov        REG_XCX, ARG3                            @N@\
         /* uint32_t *test_idx32_vec */                      @N@\
         mov        REG_XDX, ARG2                            @N@\
         PUSH_CALLEE_SAVED_REGS()                            @N@\
         sub        REG_XSP, FRAME_PADDING                   @N@\
         END_PROLOG                                          @N@\
-        vmovdqu32  xmm2, [REG_XCX]                          @N@\
         mov        REG_XCX, marker                          @N@\
         mov        REG_XCX, marker                          @N@\
         vmovdqu32  zmm1, [REG_XDX]                          @N@\
@@ -996,8 +993,6 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
   GLOBAL_LABEL(FUNCNAME(name):)                              @N@\
         /* uint32_t *xmm_ymm_zmm */                          @N@\
         mov         REG_XAX, ARG1                            @N@\
-        /* uint32_t *scratch_xmm_val */                      @N@\
-        mov         REG_XDI, ARG4                            @N@\
         /* uint32_t *output_sparse_test_buf OUT */           @N@\
         mov         REG_XCX, ARG3                            @N@\
         /* uint32_t *test_idx32_vec */                       @N@\
@@ -1005,7 +1000,6 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
         PUSH_CALLEE_SAVED_REGS()                             @N@\
         sub         REG_XSP, FRAME_PADDING                   @N@\
         END_PROLOG                                           @N@\
-        vmovdqu32   xmm2, [REG_XDI]                          @N@\
         vmovdqu32   zmm0, [REG_XAX + 48]                     @N@\
         mov         REG_XAX, marker                          @N@\
         mov         REG_XAX, marker                          @N@\
@@ -1022,8 +1016,6 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
 /* No marker is needed for the fault test. */
 TEST_AVX512_GATHER_MASK_RESTORE_EVENT(restore_gather_mask_fault, 0x0)
 TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_fault, 0x0)
-TEST_AVX512_GATHER_MASK_RESTORE_EVENT(restore_gather_scratch_xmm_fault, 0x0)
-TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_scratch_xmm_fault, 0x0)
 /* These tests depend on markers being present. */
 TEST_AVX512_GATHER_MASK_RESTORE_EVENT(restore_gather_mask_clobber,
                                       TEST_AVX512_GATHER_MASK_CLOBBER_MARKER)
@@ -1034,6 +1026,51 @@ TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_clobber,
 TEST_AVX512_SCATTER_MASK_RESTORE_EVENT(restore_scatter_mask_update,
                                        TEST_AVX512_SCATTER_MASK_UPDATE_MARKER)
 
+#define TEST_AVX512_GATHER_SCRATCH_XMM_RESTORE_EVENT(name)  @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                            @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                             @N@\
+        /* uint32_t *ref_sparse_test_buf */                 @N@\
+        mov        REG_XAX, ARG1                            @N@\
+        /* uint32_t *scratch_xmm_val */                     @N@\
+        mov        REG_XCX, ARG3                            @N@\
+        /* uint32_t *test_idx32_vec */                      @N@\
+        mov        REG_XDX, ARG2                            @N@\
+        PUSH_CALLEE_SAVED_REGS()                            @N@\
+        sub        REG_XSP, FRAME_PADDING                   @N@\
+        END_PROLOG                                          @N@\
+        vmovdqu32  xmm2, [REG_XCX]                          @N@\
+        vmovdqu32  zmm1, [REG_XDX]                          @N@\
+        vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]          @N@\
+        add        REG_XSP, FRAME_PADDING                   @N@\
+        POP_CALLEE_SAVED_REGS()                             @N@\
+        ret                                                 @N@\
+        END_FUNC(FUNCNAME(name))
+
+#define TEST_AVX512_SCATTER_SCRATCH_XMM_RESTORE_EVENT(name)  @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                              @N@\
+        /* uint32_t *xmm_ymm_zmm */                          @N@\
+        mov         REG_XAX, ARG1                            @N@\
+        /* uint32_t *scratch_xmm_val */                      @N@\
+        mov         REG_XDI, ARG4                            @N@\
+        /* uint32_t *output_sparse_test_buf OUT */           @N@\
+        mov         REG_XCX, ARG3                            @N@\
+        /* uint32_t *test_idx32_vec */                       @N@\
+        mov         REG_XDX, ARG2                            @N@\
+        PUSH_CALLEE_SAVED_REGS()                             @N@\
+        sub         REG_XSP, FRAME_PADDING                   @N@\
+        END_PROLOG                                           @N@\
+        vmovdqu32   xmm2, [REG_XDI]                          @N@\
+        vmovdqu32   zmm0, [REG_XAX + 48]                     @N@\
+        vmovdqu32   zmm1, [REG_XDX]                          @N@\
+        vpscatterdd [REG_XCX + zmm1 * 4] {k1}, zmm0          @N@\
+        add         REG_XSP, FRAME_PADDING                   @N@\
+        POP_CALLEE_SAVED_REGS()                              @N@\
+        ret                                                  @N@\
+        END_FUNC(FUNCNAME(name))
+
+TEST_AVX512_GATHER_SCRATCH_XMM_RESTORE_EVENT(restore_gather_scratch_xmm_fault)
+TEST_AVX512_SCATTER_SCRATCH_XMM_RESTORE_EVENT(restore_scatter_scratch_xmm_fault)
 #endif /* __AVX512F__ */
 
 /****************************************************************************
@@ -1157,14 +1194,11 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                          @N@\
   GLOBAL_LABEL(FUNCNAME(name):)                           @N@\
         /* uint32_t *ref_sparse_test_buf */               @N@\
         mov           REG_XAX, ARG1                       @N@\
-        /* uint32_t *scratch_xmm_val */                   @N@\
-        mov           REG_XCX, ARG3                       @N@\
         /* uint32_t *test_idx32_vec */                    @N@\
         mov           REG_XDX, ARG2                       @N@\
         PUSH_CALLEE_SAVED_REGS()                          @N@\
         sub           REG_XSP, FRAME_PADDING              @N@\
         END_PROLOG                                        @N@\
-        vmovdqu       xmm3, [REG_XCX]                     @N@\
         mov           REG_XCX, marker                     @N@\
         mov           REG_XCX, marker                     @N@\
         vmovdqu       ymm1, [REG_XDX]                     @N@\
@@ -1180,7 +1214,29 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                          @N@\
  */
 TEST_AVX2_GATHER_MASK_RESTORE_EVENT(restore_gather_mask_update,
                                     TEST_AVX2_GATHER_MASK_UPDATE_MARKER)
-TEST_AVX2_GATHER_MASK_RESTORE_EVENT(restore_gather_scratch_xmm_fault, 0x0)
+
+#define TEST_AVX2_GATHER_SCRATCH_XMM_RESTORE_EVENT(name)  @N@\
+DECLARE_FUNC_SEH(FUNCNAME(name))                          @N@\
+  GLOBAL_LABEL(FUNCNAME(name):)                           @N@\
+        /* uint32_t *ref_sparse_test_buf */               @N@\
+        mov           REG_XAX, ARG1                       @N@\
+        /* uint32_t *scratch_xmm_val */                   @N@\
+        mov           REG_XCX, ARG3                       @N@\
+        /* uint32_t *test_idx32_vec */                    @N@\
+        mov           REG_XDX, ARG2                       @N@\
+        PUSH_CALLEE_SAVED_REGS()                          @N@\
+        sub           REG_XSP, FRAME_PADDING              @N@\
+        END_PROLOG                                        @N@\
+        vmovdqu       xmm3, [REG_XCX]                     @N@\
+        vmovdqu       ymm1, [REG_XDX]                     @N@\
+        vpcmpeqd      ymm2, ymm2, ymm2                    @N@\
+        vpgatherdd    ymm0, [REG_XAX + ymm1 * 4], ymm2    @N@\
+        add           REG_XSP, FRAME_PADDING              @N@\
+        POP_CALLEE_SAVED_REGS()                           @N@\
+        ret                                               @N@\
+        END_FUNC(FUNCNAME(name))
+
+TEST_AVX2_GATHER_SCRATCH_XMM_RESTORE_EVENT(restore_gather_scratch_xmm_fault)
 
 #endif /* __AVX__ */
 
