@@ -265,8 +265,8 @@ const char *options_list_str =
     "                          wait.  A value of 0 means don't wait for nudges to\n"
     "                          complete."
 #    else  /* WINDOWS */
-    /* FIXME i#840: integrate nudgeunix into drconfig on Unix */
-    "Note: please use the nudgeunix tool to nudge processes on Unix.\n";
+    /* FIXME i#840: integrate drnudgeunix into drconfig on Unix */
+    "Note: please use the drnudgeunix tool to nudge processes on Unix.\n";
 #    endif /* !WINDOWS */
 #else      /* DRCONFIG */
     "       -no_wait           Return immediately: do not wait for application exit.\n"
