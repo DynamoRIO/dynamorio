@@ -41,6 +41,7 @@
 
 #include "../tools/invariant_checker.h"
 #include "../common/memref.h"
+#include "memref_gen.h"
 
 namespace {
 
@@ -60,49 +61,6 @@ protected:
             errors.push_back(message);
     }
 };
-
-memref_t
-gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc)
-{
-    memref_t memref = {};
-    memref.instr.type = type;
-    memref.instr.tid = tid;
-    memref.instr.addr = pc;
-    memref.instr.size = 1;
-    return memref;
-}
-
-memref_t
-gen_instr(memref_tid_t tid, addr_t pc)
-{
-    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc);
-}
-
-memref_t
-gen_branch(memref_tid_t tid, addr_t pc)
-{
-    return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
-}
-
-memref_t
-gen_marker(memref_tid_t tid, trace_marker_type_t type, uintptr_t val)
-{
-    memref_t memref = {};
-    memref.marker.type = TRACE_TYPE_MARKER;
-    memref.marker.tid = tid;
-    memref.marker.marker_type = type;
-    memref.marker.marker_value = val;
-    return memref;
-}
-
-memref_t
-gen_exit(memref_tid_t tid)
-{
-    memref_t memref = {};
-    memref.instr.type = TRACE_TYPE_THREAD_EXIT;
-    memref.instr.tid = tid;
-    return memref;
-}
 
 /* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
 bool

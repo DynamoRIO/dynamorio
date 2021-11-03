@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021 Google, LLC  All rights reserved.
  * **********************************************************/
 
 /*
@@ -20,7 +20,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, LLC OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -30,27 +30,67 @@
  * DAMAGE.
  */
 
-/* view tool creation */
+#ifndef _MEMREF_GEN_
+#define _MEMREF_GEN_ 1
 
-#ifndef _VIEW_CREATE_H_
-#define _VIEW_CREATE_H_ 1
+#include "../common/memref.h"
 
-#include "analysis_tool.h"
+namespace {
 
-/**
- * @file drmemtrace/view_create.h
- * @brief DrMemtrace view trace analysis tool creation.
- */
+inline memref_t
+gen_data(memref_tid_t tid, bool load, addr_t addr, size_t size)
+{
+    memref_t memref = {};
+    memref.instr.type = load ? TRACE_TYPE_READ : TRACE_TYPE_WRITE;
+    memref.instr.tid = tid;
+    memref.instr.addr = addr;
+    memref.instr.size = size;
+    return memref;
+}
 
-/**
- * Creates an analysis tool which prints out the disassembled instructions from
- * the binary in the order they are present in the trace. This tool needs access
- * to the modules.log and original libraries and binaries from the traced execution.
- * It does not support online analysis.
- */
-analysis_tool_t *
-view_tool_create(const std::string &module_file_path, memref_tid_t thread,
-                 uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
-                 unsigned int verbose = 0, const std::string &alt_module_dir = "");
+inline memref_t
+gen_instr_type(trace_type_t type, memref_tid_t tid, addr_t pc)
+{
+    memref_t memref = {};
+    memref.instr.type = type;
+    memref.instr.tid = tid;
+    memref.instr.addr = pc;
+    memref.instr.size = 1;
+    return memref;
+}
 
-#endif /* _OPCODE_MIX_CREATE_H_ */
+inline memref_t
+gen_instr(memref_tid_t tid, addr_t pc)
+{
+    return gen_instr_type(TRACE_TYPE_INSTR, tid, pc);
+}
+
+inline memref_t
+gen_branch(memref_tid_t tid, addr_t pc)
+{
+    return gen_instr_type(TRACE_TYPE_INSTR_CONDITIONAL_JUMP, tid, pc);
+}
+
+inline memref_t
+gen_marker(memref_tid_t tid, trace_marker_type_t type, uintptr_t val)
+{
+    memref_t memref = {};
+    memref.marker.type = TRACE_TYPE_MARKER;
+    memref.marker.tid = tid;
+    memref.marker.marker_type = type;
+    memref.marker.marker_value = val;
+    return memref;
+}
+
+inline memref_t
+gen_exit(memref_tid_t tid)
+{
+    memref_t memref = {};
+    memref.instr.type = TRACE_TYPE_THREAD_EXIT;
+    memref.instr.tid = tid;
+    return memref;
+}
+
+} // namespace
+
+#endif /* _MEMREF_GEN_ */

@@ -43,11 +43,21 @@
 
 class view_t : public analysis_tool_t {
 public:
-    view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-           const std::string &syntax, unsigned int verbose,
+    view_t(const std::string &module_file_path, memref_tid_t thread, uint64_t skip_refs,
+           uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
            const std::string &alt_module_dir = "");
     std::string
     initialize() override;
+    bool
+    parallel_shard_supported() override;
+    void *
+    parallel_shard_init(int shard_index, void *worker_data) override;
+    bool
+    parallel_shard_exit(void *shard_data) override;
+    bool
+    parallel_shard_memref(void *shard_data, const memref_t &memref) override;
+    std::string
+    parallel_shard_error(void *shard_data) override;
     bool
     process_memref(const memref_t &memref) override;
     bool
@@ -64,6 +74,9 @@ protected:
         void *dcontext = nullptr;
     };
 
+    bool
+    should_skip();
+
     /* We make this the first field so that dr_standalone_exit() is called after
      * destroying the other fields which may use DR heap.
      */
@@ -73,10 +86,13 @@ protected:
     raw2trace_directory_t directory_;
     unsigned int knob_verbose_;
     int trace_version_;
-    uint64_t instr_count_;
     static const std::string TOOL_NAME;
+    memref_tid_t knob_thread_;
     uint64_t knob_skip_refs_;
+    uint64_t skip_refs_left_;
     uint64_t knob_sim_refs_;
+    uint64_t sim_refs_left_;
+    bool refs_limited_;
     std::string knob_syntax_;
     std::string knob_alt_module_dir_;
     uint64_t num_disasm_instrs_;
