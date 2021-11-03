@@ -53,7 +53,7 @@ public:
     }
     std::vector<std::string> errors;
     std::vector<memref_tid_t> error_tids;
-    std::vector<uint64_t> error_refs;
+    std::vector<uint64_t> error_refs; // Memref count (ordinal) at error point.
 
 protected:
     void
