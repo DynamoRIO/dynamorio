@@ -36,6 +36,7 @@
 #include "drx.h"
 #include "hashtable.h"
 #include "../ext_utils.h"
+#include <string.h>
 
 /* We use drmgr but only internally.  A user of drx will end up loading in
  * the drmgr library, but it won't affect the user's code.
@@ -2780,7 +2781,7 @@ typedef struct _drx_state_machine_params_t {
     byte *restore_scratch_mask_start_pc;
     /* counter to allow for skipping unknown instructions */
     int skip_unknown_instr_count;
-    /* The spilled xmm register. When the_scratch_xmm in set,
+    /* The spilled xmm register. When the_scratch_xmm is set,
      * it is expected to be equal to this.
      */
     reg_id_t spilled_xmm;
@@ -2833,10 +2834,7 @@ restore_spilled_xmm_value(drx_state_machine_params_t *params)
            "No spill address recorded for the app xmm value");
     ASSERT(params->spilled_xmm != DR_REG_NULL && reg_is_strictly_xmm(params->spilled_xmm),
            "No spilled xmm reg recorded");
-    void *spilled_xmm_val = params->spilled_xmm_slot_addr;
-    for (int i = 0; i < XMM_REG_SIZE; i++) {
-        xmm_val[i] = *((byte *)spilled_xmm_val + i);
-    }
+    memcpy(xmm_val, params->spilled_xmm_slot_addr, XMM_REG_SIZE);
     reg_set_value_ex(params->spilled_xmm, params->info->mcontext, xmm_val);
 }
 
@@ -2920,7 +2918,7 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                    params->spilled_xmm_slot_addr_reg != DR_REG_NULL,
                "xmm spill address must be determined already");
         if (instr_get_opcode(&params->inst) == OP_vmovdqa &&
-            opnd_is_memory_reference(instr_get_dst(&params->inst, 0)) &&
+            opnd_is_base_disp(instr_get_dst(&params->inst, 0)) &&
             opnd_get_base(instr_get_dst(&params->inst, 0)) ==
                 params->spilled_xmm_slot_addr_reg &&
             opnd_is_reg(instr_get_src(&params->inst, 0)) &&
@@ -3204,7 +3202,7 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                    params->spilled_xmm_slot_addr_reg != DR_REG_NULL,
                "xmm spill address must be determined already");
         if (instr_get_opcode(&params->inst) == OP_vmovdqa &&
-            opnd_is_memory_reference(instr_get_dst(&params->inst, 0)) &&
+            opnd_is_base_disp(instr_get_dst(&params->inst, 0)) &&
             opnd_get_base(instr_get_dst(&params->inst, 0)) ==
                 params->spilled_xmm_slot_addr_reg &&
             opnd_is_reg(instr_get_src(&params->inst, 0)) &&
@@ -3494,7 +3492,7 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                    params->spilled_xmm_slot_addr_reg != DR_REG_NULL,
                "xmm spill address must be determined already");
         if (instr_get_opcode(&params->inst) == OP_vmovdqa &&
-            opnd_is_memory_reference(instr_get_dst(&params->inst, 0)) &&
+            opnd_is_base_disp(instr_get_dst(&params->inst, 0)) &&
             opnd_get_base(instr_get_dst(&params->inst, 0)) ==
                 params->spilled_xmm_slot_addr_reg &&
             opnd_is_reg(instr_get_src(&params->inst, 0)) &&
