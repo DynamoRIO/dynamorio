@@ -205,7 +205,7 @@ typedef struct _clone_record_t {
      * We restore this to the corresponding reg
      * post-syscall in the child thread.
      */
-    clone3_syscall_args_t *app_clone_args;
+    void *app_clone_args;
 #else
     uint clone_flags;
 #endif
@@ -674,9 +674,14 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, app_pc thread_f
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp,
                     /* Do not store dr_clone_args; it is freed in the parent thread
                      * in the post-syscall handling of clone3.
+                     *
+                     * These args are not really clone3_syscall_args_t*. The app
+                     * uses the clone_args provided by the kernel, which may have
+                     * more fields than DR's internal struct (clone3_syscall_args_t)
+                     * We also don't want to use the kernel's clone_args struct here,
+                     * because it may not be available on all LINUX versions.
                      */
-                    clone3_syscall_args_t *dr_clone_args,
-                    clone3_syscall_args_t *app_clone_args)
+                    void *dr_clone_args, void *app_clone_args)
 #else
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
 #endif
@@ -712,8 +717,9 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
              * cl_args->stack. But we expect the highest (non-inclusive)
              * in the clone record's app_thread_xsp.
              */
-            record->app_thread_xsp = app_clone_args->stack + app_clone_args->stack_size;
-            record->clone_flags = app_clone_args->flags;
+            record->app_thread_xsp = ((clone3_syscall_args_t *)app_clone_args)->stack +
+                ((clone3_syscall_args_t *)app_clone_args)->stack_size;
+            record->clone_flags = ((clone3_syscall_args_t *)app_clone_args)->flags;
             record->app_clone_args = app_clone_args;
         } else {
 #endif
@@ -762,9 +768,11 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     if (dr_clone_args != NULL) {
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
         /* SYS_clone3 expects the lowest address of the stack in dr_clone_args->stack. */
-        dr_clone_args->stack = (ptr_uint_t)(dstack - DYNAMORIO_STACK_SIZE);
-        dr_clone_args->stack_size =
-            (uint64)ALIGN_BACKWARD(record, XSTATE_ALIGNMENT) - dr_clone_args->stack;
+        ((clone3_syscall_args_t *)dr_clone_args)->stack =
+            (ptr_uint_t)(dstack - DYNAMORIO_STACK_SIZE);
+        ((clone3_syscall_args_t *)dr_clone_args)->stack_size =
+            (uint64)ALIGN_BACKWARD(record, XSTATE_ALIGNMENT) -
+            ((clone3_syscall_args_t *)dr_clone_args)->stack;
     } else {
 #endif
         if (IF_MACOS_ELSE(app_thread_xsp != NULL, true)) {

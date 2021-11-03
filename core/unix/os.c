@@ -6921,9 +6921,8 @@ pre_system_call(dcontext_t *dcontext)
          */
         uint64_t flags;
         if (dcontext->sys_num == SYS_clone3) {
-            clone3_syscall_args_t *cl_args = (clone3_syscall_args_t *)sys_param(
-                dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
-            flags = cl_args->flags;
+            void *cl_args = (void *)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+            flags = ((clone3_syscall_args_t *)cl_args)->flags;
             /* Save for post_system_call. As clone3 flags are 64-bit, even in 32-bit
              * environment, we cannot save just the flags here. We also need to save
              * the pointer to the app's clone_args so that we can restore it
@@ -6935,8 +6934,10 @@ pre_system_call(dcontext_t *dcontext)
                 ", exit_signal = 0x" HEX64_FORMAT_STRING
                 ", stack = 0x" HEX64_FORMAT_STRING ", stack_size = 0x" HEX64_FORMAT_STRING
                 "\n",
-                cl_args->flags, cl_args->exit_signal, cl_args->stack,
-                cl_args->stack_size);
+                ((clone3_syscall_args_t *)cl_args)->flags,
+                ((clone3_syscall_args_t *)cl_args)->exit_signal,
+                ((clone3_syscall_args_t *)cl_args)->stack,
+                ((clone3_syscall_args_t *)cl_args)->stack_size);
         } else {
             flags = (uint)sys_param(dcontext, 0);
             /* Save for post_system_call.
@@ -6988,12 +6989,19 @@ pre_system_call(dcontext_t *dcontext)
                  * thread in the post-syscall handling of clone3; as it is used
                  * only by the parent thread, there is no use-after-free danger here.
                  */
-                clone3_syscall_args_t *dr_clone_args = HEAP_TYPE_ALLOC(
-                    dcontext, clone3_syscall_args_t, ACCT_OTHER, PROTECTED);
-                clone3_syscall_args_t *app_clone_args =
-                    (clone3_syscall_args_t *)sys_param(dcontext,
-                                                       SYSCALL_PARAM_CLONE3_CLONE_ARGS);
-                memcpy(dr_clone_args, app_clone_args, sizeof(clone3_syscall_args_t));
+                uint app_clone_args_size =
+                    (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
+                /* Note that the struct clone_args being used by the app may have
+                 * more fields than DR's internal struct (clone3_syscall_args_t).
+                 * For creating DR's copy of the app's clone_args object, we need to
+                 * allocate as much space as specified by the app in the clone3
+                 * syscall's args.
+                 */
+                void *dr_clone_args =
+                    heap_alloc(dcontext, app_clone_args_size HEAPACCT(ACCT_OTHER));
+                void *app_clone_args =
+                    (void *)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+                memcpy(dr_clone_args, app_clone_args, app_clone_args_size);
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
                     (reg_t)dr_clone_args;
                 dcontext->sys_param1 = (reg_t)dr_clone_args;
@@ -8612,8 +8620,10 @@ post_system_call(dcontext_t *dcontext)
              * post-syscall natively anyway, there's no need to restore here.
              */
 #    endif
-            HEAP_TYPE_FREE(dcontext, dcontext->sys_param1, clone3_syscall_args_t,
-                           ACCT_OTHER, PROTECTED);
+            uint app_clone_args_size =
+                (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
+            heap_free(dcontext, (void *)dcontext->sys_param1,
+                      app_clone_args_size HEAPACCT(ACCT_OTHER));
         } else if (sysnum == SYS_clone) {
             set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK, dcontext->sys_param1);
         }
