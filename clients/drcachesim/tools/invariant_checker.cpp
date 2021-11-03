@@ -57,10 +57,12 @@ invariant_checker_t::~invariant_checker_t()
 }
 
 void
-invariant_checker_t::report_if_false(bool condition, const std::string &message)
+invariant_checker_t::report_if_false(per_shard_t *shard, bool condition,
+                                     const std::string &message)
 {
     if (!condition) {
-        std::cerr << "Trace invariant failure: " << message << "\n";
+        std::cerr << "Trace invariant failure in T" << shard->tid << " at ref # "
+                  << shard->ref_count << ": " << message << "\n";
         abort();
     }
 }
@@ -98,6 +100,9 @@ bool
 invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 {
     per_shard_t *shard = reinterpret_cast<per_shard_t *>(shard_data);
+    ++shard->ref_count;
+    if (shard->tid == -1 && memref.data.tid != 0)
+        shard->tid = memref.data.tid;
 #ifdef UNIX
     if (has_annotations_) {
         // Check conditions specific to the signal_invariants app, where it
@@ -110,6 +115,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             (shard->instrs_until_interrupt_ == 0 &&
              shard->memrefs_until_interrupt_ == 0)) {
             report_if_false(
+                shard,
                 (memref.marker.type == TRACE_TYPE_MARKER &&
                  memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT) ||
                     // TODO i#3937: Online instr bundles currently violate this.
@@ -121,14 +127,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (shard->memrefs_until_interrupt_ >= 0 &&
             (memref.data.type == TRACE_TYPE_READ ||
              memref.data.type == TRACE_TYPE_WRITE)) {
-            report_if_false(shard->memrefs_until_interrupt_ != 0,
+            report_if_false(shard, shard->memrefs_until_interrupt_ != 0,
                             "Interruption marker too late");
             --shard->memrefs_until_interrupt_;
         }
         // Check that the signal delivery marker is immediately followed by the
         // app's signal handler, which we have annotated with "prefetcht0 [1]".
         if (memref.data.type == TRACE_TYPE_PREFETCHT0 && memref.data.addr == 1) {
-            report_if_false(type_is_instr(shard->prev_entry_.instr.type) &&
+            report_if_false(shard,
+                            type_is_instr(shard->prev_entry_.instr.type) &&
                                 shard->prev_prev_entry_.marker.type ==
                                     TRACE_TYPE_MARKER &&
                                 shard->last_xfer_marker_.marker.marker_type ==
@@ -150,14 +157,16 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         shard->prev_entry_.marker.type == TRACE_TYPE_MARKER &&
         shard->prev_entry_.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
         // The rseq marker must be immediately prior to the kernel event marker.
-        report_if_false(memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT,
+        report_if_false(shard,
+                        memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT,
                         "Rseq marker not immediately prior to kernel marker");
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_RSEQ_ABORT) {
         // Check that the rseq final instruction was not executed: that raw2trace
         // rolled it back.
-        report_if_false(memref.marker.marker_value != shard->prev_instr_.instr.addr,
+        report_if_false(shard,
+                        memref.marker.marker_value != shard->prev_instr_.instr.addr,
                         "Rseq post-abort instruction not rolled back");
     }
 #endif
@@ -169,7 +178,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_INSTRUCTION_COUNT) {
         shard->found_instr_count_marker_ = true;
-        report_if_false(memref.marker.marker_value >= shard->last_instr_count_marker_,
+        report_if_false(shard,
+                        memref.marker.marker_value >= shard->last_instr_count_marker_,
                         "Instr count markers not increasing");
         shard->last_instr_count_marker_ = memref.marker.marker_value;
     }
@@ -179,14 +189,15 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
     }
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
-        report_if_false(!TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
+        report_if_false(shard,
+                        !TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
                             shard->found_instr_count_marker_,
                         "Missing instr count markers");
-        report_if_false(shard->found_cache_line_size_marker_,
+        report_if_false(shard, shard->found_cache_line_size_marker_,
                         "Missing cache line marker");
         if (knob_test_name_ == "filter_asm_instr_count") {
             static constexpr int ASM_INSTR_COUNT = 133;
-            report_if_false(shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
+            report_if_false(shard, shard->last_instr_count_marker_ == ASM_INSTR_COUNT,
                             "Incorrect instr count marker value");
         }
     }
@@ -202,7 +213,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                       << " instr x" << memref.instr.size << "\n";
         }
 #ifdef UNIX
-        report_if_false(shard->instrs_until_interrupt_ != 0,
+        report_if_false(shard, shard->instrs_until_interrupt_ != 0,
                         "Interruption marker too late");
         if (shard->instrs_until_interrupt_ > 0)
             --shard->instrs_until_interrupt_;
@@ -213,7 +224,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // interleaved stream.  Here we look for headers indicating where an interleaved
         // stream *could* switch threads, so we're stricter than necessary.
         if (knob_offline_ && type_is_instr_branch(shard->prev_instr_.instr.type)) {
-            report_if_false(!shard->saw_timestamp_but_no_instr_ ||
+            report_if_false(shard,
+                            !shard->saw_timestamp_but_no_instr_ ||
                                 // The invariant is relaxed for a signal.
                                 // prev_xfer_marker_ is cleared on an instr, so if set to
                                 // non-sentinel it means it is immediately prior, in
@@ -226,7 +238,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         // by markers.
         if (shard->prev_instr_.instr.addr != 0 /*first*/ &&
             !type_is_instr_branch(shard->prev_instr_.instr.type)) {
-            report_if_false( // Filtered.
+            report_if_false(
+                shard, // Filtered.
                 TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
                     // Regular fall-through.
                     (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
@@ -255,6 +268,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
         if (shard->prev_xfer_marker_.marker.marker_type ==
             TRACE_MARKER_TYPE_KERNEL_XFER) {
             report_if_false(
+                shard,
                 ((memref.instr.addr == shard->prev_xfer_int_pc_.top() ||
                   // DR hands us a different address for sysenter than the
                   // resumption point.
@@ -314,7 +328,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 #ifdef UNIX
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT)
             shard->prev_xfer_int_pc_.push(memref.marker.marker_value);
-        report_if_false(memref.marker.marker_value != 0,
+        report_if_false(shard, memref.marker.marker_value != 0,
                         "Kernel event marker value missing");
         if (memref.marker.marker_type == TRACE_MARKER_TYPE_KERNEL_EVENT &&
             // Give up on back-to-back signals.

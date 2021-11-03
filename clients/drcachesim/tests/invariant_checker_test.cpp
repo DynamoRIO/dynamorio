@@ -52,19 +52,26 @@ public:
     {
     }
     std::vector<std::string> errors;
+    std::vector<memref_tid_t> error_tids;
+    std::vector<uint64_t> error_refs; // Memref count (ordinal) at error point.
 
 protected:
     void
-    report_if_false(bool condition, const std::string &message) override
+    report_if_false(per_shard_t *shard, bool condition,
+                    const std::string &message) override
     {
-        if (!condition)
+        if (!condition) {
             errors.push_back(message);
+            error_tids.push_back(shard->tid);
+            error_refs.push_back(shard->ref_count);
+        }
     }
 };
 
 /* Assumes there are at most 3 threads with tids 1, 2, and 3 in memrefs. */
 bool
 run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
+            memref_tid_t error_tid = 0, uint64_t error_refs = 0,
             const std::string &expected_message = "",
             const std::string &toprint_if_fail = "")
 {
@@ -75,7 +82,9 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
             checker.process_memref(memref);
         }
         if (expect_error) {
-            if (checker.errors.size() != 1 || checker.errors[0] != expected_message) {
+            if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
+                checker.error_tids[0] != error_tid ||
+                checker.error_refs[0] != error_refs) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
@@ -108,7 +117,9 @@ run_checker(const std::vector<memref_t> &memrefs, bool expect_error,
         checker.parallel_shard_exit(shard2);
         checker.parallel_shard_exit(shard3);
         if (expect_error) {
-            if (checker.errors.size() != 1 || checker.errors[0] != expected_message) {
+            if (checker.errors.size() != 1 || checker.errors[0] != expected_message ||
+                checker.error_tids[0] != error_tid ||
+                checker.error_refs[0] != error_refs) {
                 std::cerr << toprint_if_fail << "\n";
                 return false;
             }
@@ -145,7 +156,8 @@ check_branch_target_after_branch()
             gen_marker(1, TRACE_MARKER_TYPE_TIMESTAMP, 0),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, "Branch target not immediately after branch",
+        if (!run_checker(memrefs, true, 1, 4,
+                         "Branch target not immediately after branch",
                          "Failed to catch bad branch target position"))
             return false;
     }
@@ -186,7 +198,7 @@ check_sane_control_flow()
             gen_instr(1, 1),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, "Non-explicit control flow has no marker",
+        if (!run_checker(memrefs, true, 1, 2, "Non-explicit control flow has no marker",
                          "Failed to catch bad control flow"))
             return false;
     }
@@ -240,7 +252,7 @@ check_kernel_xfer()
             gen_instr(1, 101), gen_marker(1, TRACE_MARKER_TYPE_KERNEL_XFER, 102),
             gen_instr(1, 3),
         };
-        if (!run_checker(memrefs, true, "Signal handler return point incorrect",
+        if (!run_checker(memrefs, true, 1, 5, "Signal handler return point incorrect",
                          "Failed to catch bad signal handler return"))
             return false;
     }
@@ -273,7 +285,8 @@ check_rseq()
             gen_marker(1, TRACE_MARKER_TYPE_KERNEL_EVENT, 2),
             gen_instr(1, 1),
         };
-        if (!run_checker(memrefs, true, "Rseq post-abort instruction not rolled back",
+        if (!run_checker(memrefs, true, 1, 3,
+                         "Rseq post-abort instruction not rolled back",
                          "Failed to catch bad rseq abort"))
             return false;
     }

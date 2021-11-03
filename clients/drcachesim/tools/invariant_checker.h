@@ -91,12 +91,15 @@ protected:
         bool found_instr_count_marker_ = false;
         uint64_t last_instr_count_marker_ = 0;
         std::string error;
+        // Track the location of errors.
+        memref_tid_t tid = -1;
+        uint64_t ref_count = 0;
     };
 
     // We provide this for subclasses to run these invariants with custom
     // failure reporting.
     virtual void
-    report_if_false(bool condition, const std::string &message);
+    report_if_false(per_shard_t *shard, bool condition, const std::string &message);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
