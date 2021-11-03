@@ -78,8 +78,8 @@ d_r_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 #        include <syscall.h>
 #    endif
 
-#    define FULL_LIBDIR_X86 INSTALL_PREFIX "/" LIBDIR_X86
-#    define FULL_LIBDIR_X64 INSTALL_PREFIX "/" LIBDIR_X64
+#    define FULL_LIBDIR_X86 STRINGIFY(INSTALL_PREFIX) "/" STRINGIFY(LIBDIR_X86)
+#    define FULL_LIBDIR_X64 STRINGIFY(INSTALL_PREFIX) "/" STRINGIFY(LIBDIR_X64)
 #    define RELEASE32_DLL "/lib32/release/libdynamorio.so"
 #    define DEBUG32_DLL "/lib32/debug/libdynamorio.so"
 #    define RELEASE64_DLL "/lib64/release/libdynamorio.so"
