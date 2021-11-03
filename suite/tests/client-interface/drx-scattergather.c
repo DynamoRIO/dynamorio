@@ -1040,6 +1040,8 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                            @N@\
         END_PROLOG                                          @N@\
         vmovdqu32  xmm2, [REG_XCX]                          @N@\
         vmovdqu32  zmm1, [REG_XDX]                          @N@\
+        movw       dx, 0xffff                               @N@\
+        kmovw      k1, edx                                  @N@\
         vpgatherdd zmm0 {k1}, [REG_XAX + zmm1 * 4]          @N@\
         add        REG_XSP, FRAME_PADDING                   @N@\
         POP_CALLEE_SAVED_REGS()                             @N@\
@@ -1063,6 +1065,8 @@ DECLARE_FUNC_SEH(FUNCNAME(name))                             @N@\
         vmovdqu32   xmm2, [REG_XDI]                          @N@\
         vmovdqu32   zmm0, [REG_XAX + 48]                     @N@\
         vmovdqu32   zmm1, [REG_XDX]                          @N@\
+        movw        dx, 0xffff                               @N@\
+        kmovw       k1, edx                                  @N@\
         vpscatterdd [REG_XCX + zmm1 * 4] {k1}, zmm0          @N@\
         add         REG_XSP, FRAME_PADDING                   @N@\
         POP_CALLEE_SAVED_REGS()                              @N@\

@@ -2698,7 +2698,7 @@ drx_expand_scatter_gather_exit:
  *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0
  *         mov           <xmm_spill_addr> -> %ecx
  *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1
- *         vmovdqa       %xmm2 -> (%ecx)[16byte]
+ *         vmovdqa       %xmm3 -> (%ecx)[16byte]
  *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2
  *         vextracti128  %ymm2 $0x00 -> %xmm3
  *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3
