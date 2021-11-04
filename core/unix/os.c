@@ -6921,8 +6921,9 @@ pre_system_call(dcontext_t *dcontext)
          */
         uint64_t flags;
         if (dcontext->sys_num == SYS_clone3) {
-            void *cl_args = (void *)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
-            flags = ((clone3_syscall_args_t *)cl_args)->flags;
+            clone3_syscall_args_t *cl_args = (clone3_syscall_args_t *)sys_param(
+                dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+            flags = cl_args->flags;
             /* Save for post_system_call. As clone3 flags are 64-bit, even in 32-bit
              * environment, we cannot save just the flags here. We also need to save
              * the pointer to the app's clone_args so that we can restore it
@@ -6934,10 +6935,8 @@ pre_system_call(dcontext_t *dcontext)
                 ", exit_signal = 0x" HEX64_FORMAT_STRING
                 ", stack = 0x" HEX64_FORMAT_STRING ", stack_size = 0x" HEX64_FORMAT_STRING
                 "\n",
-                ((clone3_syscall_args_t *)cl_args)->flags,
-                ((clone3_syscall_args_t *)cl_args)->exit_signal,
-                ((clone3_syscall_args_t *)cl_args)->stack,
-                ((clone3_syscall_args_t *)cl_args)->stack_size);
+                cl_args->flags, cl_args->exit_signal, cl_args->stack,
+                cl_args->stack_size);
         } else {
             flags = (uint)sys_param(dcontext, 0);
             /* Save for post_system_call.
@@ -6997,9 +6996,9 @@ pre_system_call(dcontext_t *dcontext)
                  * allocate as much space as specified by the app in the clone3
                  * syscall's args.
                  */
-                void *dr_clone_args =
+                clone3_syscall_args_t *dr_clone_args =
                     heap_alloc(dcontext, app_clone_args_size HEAPACCT(ACCT_OTHER));
-                void *app_clone_args =
+                clone3_syscall_args_t *app_clone_args =
                     (void *)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
                 memcpy(dr_clone_args, app_clone_args, app_clone_args_size);
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
