@@ -72,8 +72,8 @@ tlb_t::request(const memref_t &memref_in)
         assert(tag != TAG_INVALID && tag == tlb_entry->tag_ &&
                pid == ((tlb_entry_t *)tlb_entry)->pid_);
         stats_->access(memref_in, true /*hit*/, tlb_entry);
-        if (parent_ != NULL)
-            parent_->get_stats()->child_access(memref_in, true, tlb_entry);
+        for (caching_device_t *up = parent_; up != nullptr; up = up->get_parent())
+            up->get_stats()->child_access(memref_in, true, tlb_entry);
         access_update(last_block_idx_, last_way_);
         return;
     }
@@ -90,8 +90,8 @@ tlb_t::request(const memref_t &memref_in)
             caching_device_block_t *tlb_entry = &get_caching_device_block(block_idx, way);
             if (tlb_entry->tag_ == tag && ((tlb_entry_t *)tlb_entry)->pid_ == pid) {
                 stats_->access(memref, true /*hit*/, tlb_entry);
-                if (parent_ != NULL)
-                    parent_->get_stats()->child_access(memref, true, tlb_entry);
+                for (caching_device_t *up = parent_; up != nullptr; up = up->get_parent())
+                    up->get_stats()->child_access(memref, true, tlb_entry);
                 break;
             }
         }
@@ -103,7 +103,8 @@ tlb_t::request(const memref_t &memref_in)
             stats_->access(memref, false /*miss*/, tlb_entry);
             // If no parent we assume we get the data from main memory
             if (parent_ != NULL) {
-                parent_->get_stats()->child_access(memref, false, tlb_entry);
+                for (caching_device_t *up = parent_; up != nullptr; up = up->get_parent())
+                    up->get_stats()->child_access(memref, false, tlb_entry);
                 parent_->request(memref);
             }
 

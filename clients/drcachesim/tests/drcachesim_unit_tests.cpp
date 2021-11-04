@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,8 @@
 #include <assert.h>
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
+
+#define ALIGN_BACKWARD(x, alignment) (((uintptr_t)x) & (~((uintptr_t)(alignment)-1)))
 
 static cache_simulator_knobs_t
 make_test_knobs()
@@ -235,6 +237,64 @@ unit_test_compulsory_misses()
                                       cache_split_t::INSTRUCTION) == 6);
 }
 
+void
+unit_test_child_hits()
+{
+    // Ensure child hits include all lower levels.
+    std::string config = R"MYCONFIG(// 3-level simple config.
+num_cores       1
+line_size       64
+L1I {
+  type            instruction
+  core            0
+  size            256
+  assoc           4
+  prefetcher      none
+  parent          L2
+}
+L1D {
+  type            data
+  core            0
+  size            256
+  assoc           4
+  prefetcher      none
+  parent          L2
+}
+L2 {
+  size            8K
+  assoc           8
+  inclusive       true
+  prefetcher      none
+  parent          LLC
+}
+LLC {
+  size            1M
+  assoc           8
+  inclusive       true
+  prefetcher      none
+  parent          memory
+}
+)MYCONFIG";
+    std::istringstream config_in(config);
+    cache_simulator_t cache_sim(&config_in);
+
+    memref_t ref;
+    ref.data.type = TRACE_TYPE_READ;
+    ref.data.size = 1;
+
+    const int num_accesses = 16;
+    for (int i = 0; i < num_accesses; i++) {
+        ref.data.addr = 64 + i;
+        if (!cache_sim.process_memref(ref)) {
+            std::cerr << "drcachesim unit_test_child_hits failed: "
+                      << cache_sim.get_error_string() << "\n";
+            exit(1);
+        }
+    }
+    assert(cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, 3, 0) ==
+           num_accesses - 1);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -243,5 +303,6 @@ main(int argc, const char *argv[])
     unit_test_warmup_fraction();
     unit_test_warmup_refs();
     unit_test_sim_refs();
+    unit_test_child_hits();
     return 0;
 }
