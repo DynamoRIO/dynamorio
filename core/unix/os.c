@@ -6997,9 +6997,11 @@ pre_system_call(dcontext_t *dcontext)
                  * syscall's args.
                  */
                 clone3_syscall_args_t *dr_clone_args =
-                    heap_alloc(dcontext, app_clone_args_size HEAPACCT(ACCT_OTHER));
+                    (clone3_syscall_args_t *)heap_alloc(
+                        dcontext, app_clone_args_size HEAPACCT(ACCT_OTHER));
                 clone3_syscall_args_t *app_clone_args =
-                    (void *)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+                    (clone3_syscall_args_t *)sys_param(dcontext,
+                                                       SYSCALL_PARAM_CLONE3_CLONE_ARGS);
                 memcpy(dr_clone_args, app_clone_args, app_clone_args_size);
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
                     (reg_t)dr_clone_args;
@@ -8621,7 +8623,7 @@ post_system_call(dcontext_t *dcontext)
 #    endif
             uint app_clone_args_size =
                 (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
-            heap_free(dcontext, (void *)dcontext->sys_param1,
+            heap_free(dcontext, (clone3_syscall_args_t *)dcontext->sys_param1,
                       app_clone_args_size HEAPACCT(ACCT_OTHER));
         } else if (sysnum == SYS_clone) {
             set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK, dcontext->sys_param1);
