@@ -15,12 +15,7 @@
 
 #include <linux/types.h>
 
-/* Derived from struct clone_args defined in /usr/include/linux/sched.h.
- *
- * This struct does not need to be kept in sync with the kernel's clone_args.
- * It just needs to contain all fields up till the last one that DR needs to
- * be aware of.
- */
+/* Derived from struct clone_args defined in /usr/include/linux/sched.h */
 typedef struct {
     __aligned_u64 flags;
     __aligned_u64 pidfd;
@@ -29,6 +24,10 @@ typedef struct {
     __aligned_u64 exit_signal;
     __aligned_u64 stack;
     __aligned_u64 stack_size;
+    __aligned_u64 tls;
+    __aligned_u64 set_tid;
+    __aligned_u64 set_tid_size;
+    __aligned_u64 cgroup;
 } clone3_syscall_args_t;
 
 #endif /* _CLONE3_H */
