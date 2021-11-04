@@ -7002,7 +7002,6 @@ pre_system_call(dcontext_t *dcontext)
                 clone3_syscall_args_t *app_clone_args =
                     (clone3_syscall_args_t *)sys_param(dcontext,
                                                        SYSCALL_PARAM_CLONE3_CLONE_ARGS);
-                dr_printf("AAA dr %p app %p\n",dr_clone_args, app_clone_args);
                 memcpy(dr_clone_args, app_clone_args, app_clone_args_size);
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
                     (reg_t)dr_clone_args;
