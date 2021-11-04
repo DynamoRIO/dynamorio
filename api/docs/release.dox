@@ -172,6 +172,9 @@ compatibility changes:
  - drcov's output now uses a module segment offset, rather than a module base offset.
    This better supports modules with code beyond the first segment and with
    gaps between segments.
+ - Changed the drcachesim view tool's behavior to count all trace entries, rather
+   than just instructions, with respect to the -skip_refs and -sim_refs flags.
+   This matches the cache and TLB simulator behavior.
 
 Further non-compatibility-affecting changes include:
 
