@@ -37,8 +37,6 @@
 #include "simulator/cache_simulator.h"
 #include "../common/memref.h"
 
-#define ALIGN_BACKWARD(x, alignment) (((uintptr_t)x) & (~((uintptr_t)(alignment)-1)))
-
 static cache_simulator_knobs_t
 make_test_knobs()
 {
