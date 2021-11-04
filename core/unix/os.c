@@ -7002,7 +7002,16 @@ pre_system_call(dcontext_t *dcontext)
                 clone3_syscall_args_t *app_clone_args =
                     (clone3_syscall_args_t *)sys_param(dcontext,
                                                        SYSCALL_PARAM_CLONE3_CLONE_ARGS);
-                memcpy(dr_clone_args, app_clone_args, app_clone_args_size);
+                if (!d_r_safe_read(app_clone_args, app_clone_args_size, dr_clone_args)) {
+                    LOG(THREAD, LOG_SYSCALLS, 2,
+                        "\treturning EFAULT to app for clone3\n");
+                    set_failure_return_val(dcontext, EFAULT);
+                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                    execute_syscall = false;
+                    heap_free(dcontext, dr_clone_args,
+                              app_clone_args_size HEAPACCT(ACCT_OTHER));
+                    break;
+                }
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
                     (reg_t)dr_clone_args;
                 dcontext->sys_param1 = (reg_t)dr_clone_args;
