@@ -30,4 +30,6 @@ typedef struct {
     __aligned_u64 cgroup;
 } clone3_syscall_args_t;
 
+#define CLONE_ARGS_SIZE_VER0 64
+
 #endif /* _CLONE3_H */

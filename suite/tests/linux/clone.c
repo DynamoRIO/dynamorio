@@ -49,6 +49,11 @@
 
 #include "tools.h" /* for nolibc_* wrappers. */
 
+/* The first published clone_args had all fields till 'tls'. A clone3
+ * syscall made by the user must have a struct of at least this size.
+ */
+#define CLONE_ARGS_SIZE_MIN_POSSIBLE 64
+
 /* i#762: Hard to get clone() from sched.h, so copy prototype. */
 extern int
 clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
@@ -215,10 +220,11 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
  * its own.
  */
 int
-make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
+make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
+                    void (*fcn)(void))
 {
-#    ifdef X86
     int ret;
+#    ifdef X86
 #        ifdef X64
     asm volatile("syscall\n\t"
                  "test %%rax, %%rax\n\t"
@@ -226,8 +232,7 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  "call *%%rdx\n\t"
                  "parent:\n\t"
                  : "=a"(ret)
-                 : "0"(SYS_clone3), "D"(clone_args), "S"(sizeof(struct clone_args)),
-                   "d"(fcn)
+                 : "0"(SYS_clone3), "D"(clone_args), "S"(clone_args_size), "d"(fcn)
                  /* syscall clobbers rcx and r11 */
                  : "rcx", "r11", "memory");
 #        else
@@ -237,15 +242,13 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  "call *%%edx\n\t"
                  "parent:\n\t"
                  : "=a"(ret)
-                 : "0"(SYS_clone3), "b"(clone_args), "c"(sizeof(struct clone_args)),
-                   "d"(fcn)
+                 : "0"(SYS_clone3), "b"(clone_args), "c"(clone_args_size), "d"(fcn)
                  : "memory");
 #        endif
-    return ret;
 #    elif defined(AARCH64)
     register int x0_ret __asm("x0");
     register struct clone_args *x0 __asm("x0") = clone_args;
-    register int x1 __asm("x1") = sizeof(struct clone_args);
+    register int x1 __asm("x1") = clone_args_size;
     register void *x2 __asm("x2") = fcn;
     register unsigned x8 __asm("x8") = SYS_clone3;
     /* Do not add code between above declarations and their use below.
@@ -259,8 +262,7 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
                  : "+r"(x0_ret)
                  : "r"(x1), "r"(x2), "r"(x8)
                  : "memory");
-    int ret_val = x0_ret;
-    return ret_val;
+    ret = x0_ret;
 #    elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
      * Currently we do not run this test on ARM, so this missing support doesn't
@@ -269,6 +271,11 @@ make_clone3_syscall(struct clone_args *clone_args, void (*fcn)(void))
 #    else
 #        error Unsupported architecture
 #    endif
+    if (ret < 0) {
+        errno = -ret;
+        return -1;
+    }
+    return ret;
 }
 
 static pid_t
@@ -287,7 +294,17 @@ create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
     cl_args.exit_signal = SIGCHLD;
     cl_args.stack = (ptr_uint_t)my_stack;
     cl_args.stack_size = THREAD_STACK_SIZE;
-    int ret = make_clone3_syscall(&cl_args, fcn);
+    int ret = make_clone3_syscall(NULL, sizeof(struct clone_args), fcn);
+    assert(errno == EFAULT);
+
+    ret = make_clone3_syscall((void *)0x123 /* bogus address */,
+                              sizeof(struct clone_args), fcn);
+    assert(errno == EFAULT);
+
+    ret = make_clone3_syscall(&cl_args, CLONE_ARGS_SIZE_MIN_POSSIBLE - 1, fcn);
+    assert(errno == EINVAL);
+
+    ret = make_clone3_syscall(&cl_args, sizeof(struct clone_args), fcn);
     /* Child threads should already have been directed to fcn. */
     assert(ret != 0);
     if (ret == -1) {
