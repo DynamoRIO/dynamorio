@@ -8646,30 +8646,32 @@ post_system_call(dcontext_t *dcontext)
             if (INTERNAL_OPTION(private_loader))
                 os_switch_lib_tls(dcontext, false /*to dr*/);
             /* i#2089: we already restored the DR tls in os_clone_post() */
-        }
-        if (sysnum == SYS_clone3) {
-            /* Free DR's copy of clone_args and restore the pointer to the
-             * app's copy in the SYSCALL_PARAM_CLONE3_CLONE_ARGS reg.
-             * sys_param1 contains the pointer to DR's clone_args, and
-             * sys_param0 contains the pointer to the app's original
-             * clone_args.
-             */
+
+            if (sysnum == SYS_clone3) {
+                /* Free DR's copy of clone_args and restore the pointer to the
+                 * app's copy in the SYSCALL_PARAM_CLONE3_CLONE_ARGS reg.
+                 * sys_param1 contains the pointer to DR's clone_args, and
+                 * sys_param0 contains the pointer to the app's original
+                 * clone_args.
+                 */
 #    ifdef X86
-            ASSERT(sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) ==
-                   dcontext->sys_param1);
-            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS,
-                              dcontext->sys_param0);
+                ASSERT(sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) ==
+                       dcontext->sys_param1);
+                set_syscall_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS,
+                                  dcontext->sys_param0);
 #    else
-            /* On AArchXX r0 is used to pass the first arg to the syscall as well as
-             * to hold its return value. As the clone_args pointer isn't available
-             * post-syscall natively anyway, there's no need to restore here.
-             */
+                /* On AArchXX r0 is used to pass the first arg to the syscall as well as
+                 * to hold its return value. As the clone_args pointer isn't available
+                 * post-syscall natively anyway, there's no need to restore here.
+                 */
 #    endif
-            uint app_clone_args_size = (uint)dcontext->sys_param2;
-            heap_free(dcontext, (clone3_syscall_args_t *)dcontext->sys_param1,
-                      app_clone_args_size HEAPACCT(ACCT_OTHER));
-        } else if (sysnum == SYS_clone) {
-            set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK, dcontext->sys_param1);
+                uint app_clone_args_size = (uint)dcontext->sys_param2;
+                heap_free(dcontext, (clone3_syscall_args_t *)dcontext->sys_param1,
+                          app_clone_args_size HEAPACCT(ACCT_OTHER));
+            } else if (sysnum == SYS_clone) {
+                set_syscall_param(dcontext, SYSCALL_PARAM_CLONE_STACK,
+                                  dcontext->sys_param1);
+            }
         }
         break;
     }
