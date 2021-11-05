@@ -6925,10 +6925,9 @@ pre_system_call(dcontext_t *dcontext)
          * without any fault, and to avoid modifying the app's clone_args in the
          * is_thread_create_syscall case (see below).
          */
-        clone3_syscall_args_t *dr_clone_args, *app_clone_args;
-        uint app_clone_args_size;
+        clone3_syscall_args_t *dr_clone_args = NULL, *app_clone_args = NULL;
         if (dcontext->sys_num == SYS_clone3) {
-            app_clone_args_size =
+            uint app_clone_args_size =
                 (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
             if (app_clone_args_size < CLONE_ARGS_SIZE_VER0) {
                 LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL to app for clone3\n");
@@ -7036,6 +7035,7 @@ pre_system_call(dcontext_t *dcontext)
                  * thread in the post-syscall handling of clone3; as it is used
                  * only by the parent thread, there is no use-after-free danger here.
                  */
+                ASSERT(app_clone_args != NULL && dr_clone_args != NULL);
                 *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
                     (reg_t)dr_clone_args;
                 /* The pointer to the app's clone_args was saved in sys_param0 above. */
