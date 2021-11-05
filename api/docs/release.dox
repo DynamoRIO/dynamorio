@@ -175,6 +175,8 @@ compatibility changes:
  - Changed the drcachesim view tool's behavior to count all trace entries, rather
    than just instructions, with respect to the -skip_refs and -sim_refs flags.
    This matches the cache and TLB simulator behavior.
+ - drcachesim's child cache statistics now include hits from all lower levels and
+   not just the immediately lower level child caches.
 
 Further non-compatibility-affecting changes include:
 

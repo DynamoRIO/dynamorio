@@ -1001,7 +1001,9 @@ sec_drcachesim_extend.
 For L2 caching devices, the L1 caching devices are considered its _children_.
 Two separate miss rates are computed, one (the "Local miss rate") considering
 just requests that reach L2 while the other (the "Total miss rate")
-includes the child hits.
+includes the child hits.  This generalizes to deeper hierarchies:
+lower level caches are children and reported child hits are cumulative
+across all lower levels.
 
 For memory requests that cross blocks, each block touched is
 considered separately, resulting in separate hit and miss statistics.  This
