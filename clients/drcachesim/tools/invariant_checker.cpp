@@ -46,7 +46,6 @@ invariant_checker_t::invariant_checker_t(bool offline, unsigned int verbose,
     : knob_offline_(offline)
     , knob_verbose_(verbose)
     , knob_test_name_(test_name)
-    , app_handler_pc_(0)
 {
     if (knob_test_name_ == "kernel_xfer_app" || knob_test_name_ == "rseq_app")
         has_annotations_ = true;
@@ -141,7 +140,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                                 shard->last_xfer_marker_.marker.marker_type ==
                                     TRACE_MARKER_TYPE_KERNEL_EVENT,
                             "Signal handler not immediately after signal marker");
-            app_handler_pc_ = shard->prev_entry_.instr.addr;
+            shard->app_handler_pc_ = shard->prev_entry_.instr.addr;
         }
         // Look for annotations where signal_invariants.c and rseq.c pass info to us on
         // what to check for.  We assume the app does not have prefetch instrs w/ low
@@ -173,7 +172,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_FILETYPE) {
-        file_type_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
+        shard->file_type_ = static_cast<offline_file_type_t>(memref.marker.marker_value);
     }
     if (memref.marker.type == TRACE_TYPE_MARKER &&
         memref.marker.marker_type == TRACE_MARKER_TYPE_INSTRUCTION_COUNT) {
@@ -190,7 +189,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
 
     if (memref.exit.type == TRACE_TYPE_THREAD_EXIT) {
         report_if_false(shard,
-                        !TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
+                        !TESTALL(OFFLINE_FILE_TYPE_FILTERED, shard->file_type_) ||
                             shard->found_instr_count_marker_,
                         "Missing instr count markers");
         report_if_false(shard, shard->found_cache_line_size_marker_,
@@ -240,7 +239,7 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
             !type_is_instr_branch(shard->prev_instr_.instr.type)) {
             report_if_false(
                 shard, // Filtered.
-                TESTALL(OFFLINE_FILE_TYPE_FILTERED, file_type_) ||
+                TESTALL(OFFLINE_FILE_TYPE_FILTERED, shard->file_type_) ||
                     // Regular fall-through.
                     (shard->prev_instr_.instr.addr + shard->prev_instr_.instr.size ==
                      memref.instr.addr) ||
@@ -285,8 +284,8 @@ invariant_checker_t::parallel_shard_memref(void *shard_data, const memref_t &mem
                   shard->pre_signal_instr_.top().instr.type ==
                       TRACE_TYPE_INSTR_SYSENTER)) ||
                     // Nested signal.  XXX: This only works for our annotated test
-                    // signal_invariants where we know app_handler_pc_.
-                    memref.instr.addr == app_handler_pc_ ||
+                    // signal_invariants where we know shard->app_handler_pc_.
+                    memref.instr.addr == shard->app_handler_pc_ ||
                     // Marker for rseq abort handler.  Not as unique as a prefetch, but
                     // we need an instruction and not a data type.
                     memref.instr.type == TRACE_TYPE_INSTR_DIRECT_JUMP,
