@@ -6551,6 +6551,158 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
 #endif /* X86/AARCHXX */
 }
 
+#ifdef LINUX
+static bool
+handle_clone_pre(dcontext_t *dcontext)
+{
+    /* For the clone syscall, in /usr/src/linux/arch/i386/kernel/process.c
+     * 32-bit params: flags, newsp, ptid, tls, ctid
+     * 64-bit params: should be the same yet tls (for ARCH_SET_FS) is in r8?!?
+     *   I don't see how sys_clone gets its special args: shouldn't it
+     *   just get pt_regs as a "special system call"?
+     *   sys_clone(unsigned long clone_flags, unsigned long newsp,
+     *     void __user *parent_tid, void __user *child_tid, struct pt_regs *regs)
+     */
+    uint64_t flags;
+    /* For the clone3 syscall, DR creates its own copy of clone_args for two
+     * reasons: to ensure that the app-provided clone_args is readable
+     * without any fault, and to avoid modifying the app's clone_args in the
+     * is_thread_create_syscall case (see below).
+     */
+    clone3_syscall_args_t *dr_clone_args = NULL, *app_clone_args = NULL;
+    uint app_clone_args_size = 0;
+    if (dcontext->sys_num == SYS_clone3) {
+        app_clone_args_size =
+            (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
+        if (app_clone_args_size < CLONE_ARGS_SIZE_VER0) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL to app for clone3\n");
+            set_failure_return_val(dcontext, EINVAL);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            return false;
+        }
+        app_clone_args =
+            (clone3_syscall_args_t *)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
+        /* Note that the struct clone_args being used by the app may have
+         * more fields than DR's internal struct (clone3_syscall_args_t).
+         * For creating DR's copy of the app's clone_args object, we need to
+         * allocate as much space as specified by the app in the clone3
+         * syscall's args.
+         */
+        dr_clone_args = (clone3_syscall_args_t *)heap_alloc(
+            dcontext, app_clone_args_size HEAPACCT(ACCT_OTHER));
+        if (!d_r_safe_read(app_clone_args, app_clone_args_size, dr_clone_args)) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for clone3\n");
+            set_failure_return_val(dcontext, EFAULT);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            heap_free(dcontext, dr_clone_args, app_clone_args_size HEAPACCT(ACCT_OTHER));
+            return false;
+        }
+        flags = dr_clone_args->flags;
+
+        /* Save for post_system_call */
+        /* As clone3 flags are 64-bit, even in 32-bit
+         * environment, we cannot save just the flags here. We also need to save
+         * the pointer to the app's clone_args so that we can restore it
+         * post-syscall.
+         */
+        dcontext->sys_param0 = (reg_t)app_clone_args;
+        /* For freeing the allocated memory. */
+        dcontext->sys_param1 = (reg_t)dr_clone_args;
+        dcontext->sys_param2 = (reg_t)app_clone_args_size;
+        LOG(THREAD, LOG_SYSCALLS, 2,
+            "syscall: clone3 with args: flags = 0x" HEX64_FORMAT_STRING
+            ", exit_signal = 0x" HEX64_FORMAT_STRING ", stack = 0x" HEX64_FORMAT_STRING
+            ", stack_size = 0x" HEX64_FORMAT_STRING "\n",
+            dr_clone_args->flags, dr_clone_args->exit_signal, dr_clone_args->stack,
+            dr_clone_args->stack_size);
+    } else {
+        flags = (uint)sys_param(dcontext, 0);
+        /* Save for post_system_call.
+         * Unlike clone3, here the flags are 32-bit, so truncation is okay.
+         */
+        dcontext->sys_param0 = (reg_t)flags;
+        LOG(THREAD, LOG_SYSCALLS, 2,
+            "syscall: clone with args: flags = " PFX ", stack = " PFX
+            ", tid_field_parent = " PFX ", tid_field_child = " PFX ", thread_ptr = " PFX
+            "\n",
+            sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
+            sys_param(dcontext, 3), sys_param(dcontext, 4));
+    }
+    handle_clone(dcontext, flags);
+    if ((flags & CLONE_VM) == 0) {
+        LOG(THREAD, LOG_SYSCALLS, 1, "\tWARNING: CLONE_VM not set!\n");
+    }
+
+    /* i#1010: If we have private fds open (usually logfiles), we should
+     * clean those up before they get reused by a new thread.
+     * XXX: Ideally we'd do this in fd_table_add(), but we can't acquire
+     * thread_initexit_lock there.
+     */
+    cleanup_after_vfork_execve(dcontext);
+
+    /* For thread creation clone syscalls a clone_record_t structure
+     * containing the pc after the app's syscall instr and other data
+     * (see i#27) is placed at the bottom of the dstack (which is allocated
+     * by create_clone_record() - it also saves app stack and switches
+     * to dstack).  xref i#149/PR 403015.
+     * Note: This must be done after sys_param0 is set.
+     */
+    if (is_thread_create_syscall(dcontext)) {
+        if (dcontext->sys_num == SYS_clone3) {
+            /* create_clone_record modifies some fields in clone_args for the
+             * clone3 syscall. Instead of reusing the app's copy of
+             * clone_args and modifying it, we choose to use our own copy.
+             * Under CLONE_VM, the parent and child threads have a pointer to
+             * the same app clone_args. By using our own copy of clone_args
+             * for the syscall, we obviate the need to restore the modified
+             * fields in the app's copy after the syscall in either the parent
+             * or the child thread, which can be racy under CLONE_VM as the
+             * parent and/or child threads may need to access/modify it. By
+             * using a copy instead, both parent and child threads only
+             * need to restore their own SYSCALL_PARAM_CLONE3_CLONE_ARGS reg
+             * to the pointer to the app's clone_args. It is saved in the
+             * clone record for the child thread, and in sys_param0 for the
+             * parent thread. The DR copy of clone_args is freed by the parent
+             * thread in the post-syscall handling of clone3; as it is used
+             * only by the parent thread, there is no use-after-free danger here.
+             */
+            ASSERT(app_clone_args != NULL && dr_clone_args != NULL);
+            *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
+                (reg_t)dr_clone_args;
+            /* The pointer to the app's clone_args was saved in sys_param0 above. */
+            create_clone_record(dcontext, NULL, dr_clone_args, app_clone_args);
+        } else {
+            /* We replace the app-provided stack pointer with our own stack
+             * pointer in create_clone_record. Save the original pointer so
+             * that we can restore it post-syscall in the parent. The same is
+             * restored in the child in restore_clone_param_from_clone_record.
+             */
+            dcontext->sys_param1 = sys_param(dcontext, SYSCALL_PARAM_CLONE_STACK);
+            create_clone_record(dcontext,
+                                sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK), NULL,
+                                NULL);
+        }
+        os_clone_pre(dcontext);
+        os_new_thread_pre();
+    } else {
+        /* This is really a fork. */
+        if (dcontext->sys_num == SYS_clone3) {
+            /* We free this memory before the actual fork, to avoid having to free
+             * it in the parent *and* the child later.
+             */
+            ASSERT(app_clone_args_size == (uint)dcontext->sys_param2);
+            ASSERT(dr_clone_args == (clone3_syscall_args_t *)dcontext->sys_param1);
+            heap_free(dcontext, dr_clone_args, app_clone_args_size HEAPACCT(ACCT_OTHER));
+            /* We do not need these anymore for the fork case. */
+            dcontext->sys_param1 = 0;
+            dcontext->sys_param2 = 0;
+        }
+        os_fork_pre(dcontext);
+    }
+    return true;
+}
+#endif
+
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
@@ -6910,165 +7062,7 @@ pre_system_call(dcontext_t *dcontext)
 
 #ifdef LINUX
     case SYS_clone3:
-    case SYS_clone: {
-        /* For the clone syscall, in /usr/src/linux/arch/i386/kernel/process.c
-         * 32-bit params: flags, newsp, ptid, tls, ctid
-         * 64-bit params: should be the same yet tls (for ARCH_SET_FS) is in r8?!?
-         *   I don't see how sys_clone gets its special args: shouldn't it
-         *   just get pt_regs as a "special system call"?
-         *   sys_clone(unsigned long clone_flags, unsigned long newsp,
-         *     void __user *parent_tid, void __user *child_tid, struct pt_regs *regs)
-         */
-        uint64_t flags;
-        /* For the clone3 syscall, DR creates its own copy of clone_args for two
-         * reasons: to ensure that the app-provided clone_args is readable
-         * without any fault, and to avoid modifying the app's clone_args in the
-         * is_thread_create_syscall case (see below).
-         */
-        clone3_syscall_args_t *dr_clone_args = NULL, *app_clone_args = NULL;
-        uint app_clone_args_size = 0;
-        if (dcontext->sys_num == SYS_clone3) {
-            app_clone_args_size =
-                (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
-            if (app_clone_args_size < CLONE_ARGS_SIZE_VER0) {
-                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL to app for clone3\n");
-                set_failure_return_val(dcontext, EINVAL);
-                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-                execute_syscall = false;
-                break;
-            }
-            app_clone_args = (clone3_syscall_args_t *)sys_param(
-                dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
-            if (app_clone_args == NULL) {
-                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for clone3\n");
-                set_failure_return_val(dcontext, EFAULT);
-                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-                execute_syscall = false;
-                break;
-            }
-            /* Note that the struct clone_args being used by the app may have
-             * more fields than DR's internal struct (clone3_syscall_args_t).
-             * For creating DR's copy of the app's clone_args object, we need to
-             * allocate as much space as specified by the app in the clone3
-             * syscall's args.
-             */
-            dr_clone_args = (clone3_syscall_args_t *)heap_alloc(
-                dcontext, app_clone_args_size HEAPACCT(ACCT_OTHER));
-            if (!d_r_safe_read(app_clone_args, app_clone_args_size, dr_clone_args)) {
-                LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EFAULT to app for clone3\n");
-                set_failure_return_val(dcontext, EFAULT);
-                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-                execute_syscall = false;
-                heap_free(dcontext, dr_clone_args,
-                          app_clone_args_size HEAPACCT(ACCT_OTHER));
-                break;
-            }
-            flags = app_clone_args->flags;
-
-            /* Save for post_system_call */
-            /* As clone3 flags are 64-bit, even in 32-bit
-             * environment, we cannot save just the flags here. We also need to save
-             * the pointer to the app's clone_args so that we can restore it
-             * post-syscall.
-             */
-            dcontext->sys_param0 = (reg_t)app_clone_args;
-            /* For freeing the allocated memory. */
-            dcontext->sys_param1 = (reg_t)dr_clone_args;
-            dcontext->sys_param2 = (reg_t)app_clone_args_size;
-            LOG(THREAD, LOG_SYSCALLS, 2,
-                "syscall: clone3 with args: flags = 0x" HEX64_FORMAT_STRING
-                ", exit_signal = 0x" HEX64_FORMAT_STRING
-                ", stack = 0x" HEX64_FORMAT_STRING ", stack_size = 0x" HEX64_FORMAT_STRING
-                "\n",
-                app_clone_args->flags, app_clone_args->exit_signal, app_clone_args->stack,
-                app_clone_args->stack_size);
-        } else {
-            flags = (uint)sys_param(dcontext, 0);
-            /* Save for post_system_call.
-             * Unlike clone3, here the flags are 32-bit, so truncation is okay.
-             */
-            dcontext->sys_param0 = (reg_t)flags;
-            LOG(THREAD, LOG_SYSCALLS, 2,
-                "syscall: clone with args: flags = " PFX ", stack = " PFX
-                ", tid_field_parent = " PFX ", tid_field_child = " PFX
-                ", thread_ptr = " PFX "\n",
-                sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
-                sys_param(dcontext, 3), sys_param(dcontext, 4));
-        }
-        handle_clone(dcontext, flags);
-        if ((flags & CLONE_VM) == 0) {
-            LOG(THREAD, LOG_SYSCALLS, 1, "\tWARNING: CLONE_VM not set!\n");
-        }
-
-        /* i#1010: If we have private fds open (usually logfiles), we should
-         * clean those up before they get reused by a new thread.
-         * XXX: Ideally we'd do this in fd_table_add(), but we can't acquire
-         * thread_initexit_lock there.
-         */
-        cleanup_after_vfork_execve(dcontext);
-
-        /* For thread creation clone syscalls a clone_record_t structure
-         * containing the pc after the app's syscall instr and other data
-         * (see i#27) is placed at the bottom of the dstack (which is allocated
-         * by create_clone_record() - it also saves app stack and switches
-         * to dstack).  xref i#149/PR 403015.
-         * Note: This must be done after sys_param0 is set.
-         */
-        if (is_thread_create_syscall(dcontext)) {
-            if (dcontext->sys_num == SYS_clone3) {
-                /* create_clone_record modifies some fields in clone_args for the
-                 * clone3 syscall. Instead of reusing the app's copy of
-                 * clone_args and modifying it, we choose to use our own copy.
-                 * Under CLONE_VM, the parent and child threads have a pointer to
-                 * the same app clone_args. By using our own copy of clone_args
-                 * for the syscall, we obviate the need to restore the modified
-                 * fields in the app's copy after the syscall in either the parent
-                 * or the child thread, which can be racy under CLONE_VM as the
-                 * parent and/or child threads may need to access/modify it. By
-                 * using a copy instead, both parent and child threads only
-                 * need to restore their own SYSCALL_PARAM_CLONE3_CLONE_ARGS reg
-                 * to the pointer to the app's clone_args. It is saved in the
-                 * clone record for the child thread, and in sys_param0 for the
-                 * parent thread. The DR copy of clone_args is freed by the parent
-                 * thread in the post-syscall handling of clone3; as it is used
-                 * only by the parent thread, there is no use-after-free danger here.
-                 */
-                ASSERT(app_clone_args != NULL && dr_clone_args != NULL);
-                *sys_param_addr(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS) =
-                    (reg_t)dr_clone_args;
-                /* The pointer to the app's clone_args was saved in sys_param0 above. */
-                create_clone_record(dcontext, NULL, dr_clone_args, app_clone_args);
-            } else {
-                /* We replace the app-provided stack pointer with our own stack
-                 * pointer in create_clone_record. Save the original pointer so
-                 * that we can restore it post-syscall in the parent. The same is
-                 * restored in the child in restore_clone_param_from_clone_record.
-                 */
-                dcontext->sys_param1 = sys_param(dcontext, SYSCALL_PARAM_CLONE_STACK);
-                create_clone_record(dcontext,
-                                    sys_param_addr(dcontext, SYSCALL_PARAM_CLONE_STACK),
-                                    NULL, NULL);
-            }
-            os_clone_pre(dcontext);
-            os_new_thread_pre();
-        } else {
-            /* This is really a fork. */
-            if (dcontext->sys_num == SYS_clone3) {
-                /* We free this memory before the actual fork, to avoid having to free
-                 * it in the parent *and* the child later.
-                 */
-                ASSERT(app_clone_args_size == (uint)dcontext->sys_param2);
-                ASSERT(dr_clone_args == (clone3_syscall_args_t *)dcontext->sys_param1);
-                heap_free(dcontext, dr_clone_args,
-                          app_clone_args_size HEAPACCT(ACCT_OTHER));
-                /* We do not need these anymore for the fork case. */
-                dcontext->sys_param1 = 0;
-                dcontext->sys_param2 = 0;
-            }
-            os_fork_pre(dcontext);
-        }
-        break;
-    }
+    case SYS_clone: execute_syscall = handle_clone_pre(dcontext); break;
 #elif defined(MACOS)
     case SYS_bsdthread_create: {
         /* XXX i#1403: we need earlier injection to intercept
