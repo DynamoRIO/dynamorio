@@ -125,7 +125,9 @@ view_t::parallel_shard_exit(void *shard_data)
 std::string
 view_t::parallel_shard_error(void *shard_data)
 {
-    return "";
+    // Our parallel operation ignores all but one thread, so we need just
+    // the one global error string.
+    return error_string_;
 }
 
 bool
