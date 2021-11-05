@@ -6926,8 +6926,9 @@ pre_system_call(dcontext_t *dcontext)
          * is_thread_create_syscall case (see below).
          */
         clone3_syscall_args_t *dr_clone_args = NULL, *app_clone_args = NULL;
+        uint app_clone_args_size = 0;
         if (dcontext->sys_num == SYS_clone3) {
-            uint app_clone_args_size =
+            app_clone_args_size =
                 (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
             if (app_clone_args_size < CLONE_ARGS_SIZE_VER0) {
                 LOG(THREAD, LOG_SYSCALLS, 2, "\treturning EINVAL to app for clone3\n");
@@ -6971,10 +6972,7 @@ pre_system_call(dcontext_t *dcontext)
              * post-syscall.
              */
             dcontext->sys_param0 = (reg_t)app_clone_args;
-            /* For freeing the allocated memory, post-syscall. Note that we do not really
-             * need dr_clone_args anymore for the !is_thread_create_syscall case. But we
-             * free the memory post-syscall anyway.
-             */
+            /* For freeing the allocated memory. */
             dcontext->sys_param1 = (reg_t)dr_clone_args;
             dcontext->sys_param2 = (reg_t)app_clone_args_size;
             LOG(THREAD, LOG_SYSCALLS, 2,
@@ -7053,8 +7051,22 @@ pre_system_call(dcontext_t *dcontext)
             }
             os_clone_pre(dcontext);
             os_new_thread_pre();
-        } else /* This is really a fork. */
+        } else {
+            /* This is really a fork. */
+            if (dcontext->sys_num == SYS_clone3) {
+                /* We free this memory before the actual fork, to avoid having to free
+                 * it in the parent *and* the child later.
+                 */
+                ASSERT(app_clone_args_size == (uint)dcontext->sys_param2);
+                ASSERT(dr_clone_args == (clone3_syscall_args_t *)dcontext->sys_param1);
+                heap_free(dcontext, dr_clone_args,
+                          app_clone_args_size HEAPACCT(ACCT_OTHER));
+                /* We do not need these anymore for the fork case. */
+                dcontext->sys_param1 = 0;
+                dcontext->sys_param2 = 0;
+            }
             os_fork_pre(dcontext);
+        }
         break;
     }
 #elif defined(MACOS)
