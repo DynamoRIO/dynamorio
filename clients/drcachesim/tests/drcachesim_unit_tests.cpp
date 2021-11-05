@@ -280,6 +280,7 @@ LLC {
     ref.data.type = TRACE_TYPE_READ;
     ref.data.size = 1;
 
+    // We perform a bunch of accesses to the same cache line to ensure they hit.
     const int num_accesses = 16;
     for (int i = 0; i < num_accesses; i++) {
         ref.data.addr = 64 + i;
@@ -289,6 +290,16 @@ LLC {
             exit(1);
         }
     }
+    assert(cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, 1, 0,
+                                      cache_split_t::DATA) == 0);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 1, 0, cache_split_t::DATA) ==
+           1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 1, 0, cache_split_t::DATA) ==
+           num_accesses - 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::MISSES, 2, 0) == 1);
+    assert(cache_sim.get_cache_metric(metric_name_t::HITS, 2, 0) == 0);
+    assert(cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, 2, 0) ==
+           num_accesses - 1);
     assert(cache_sim.get_cache_metric(metric_name_t::CHILD_HITS, 3, 0) ==
            num_accesses - 1);
 }
