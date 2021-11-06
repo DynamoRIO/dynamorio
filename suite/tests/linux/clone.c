@@ -116,11 +116,11 @@ main()
     test_thread(false /*share_sighand*/, false /*clone_vm*/, false /*use_clone3*/);
     test_thread(false /*share_sighand*/, false /*clone_vm*/, true /*use_clone3*/);
 
-    /* Now test a thread that does not share signal handlers and isn't cloned. */
+    /* Now test a thread that does not share signal handlers, but is cloned. */
     test_thread(false /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
     test_thread(false /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
 
-    /* Now make a thread that shares signal handlers, which also required it to
+    /* Now make a thread that shares signal handlers, which also requires it to
      * be cloned.
      */
     test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);

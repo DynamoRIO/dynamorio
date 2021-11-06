@@ -6583,7 +6583,7 @@ handle_clone_pre(dcontext_t *dcontext)
         app_clone_args =
             (clone3_syscall_args_t *)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS);
         /* Note that the struct clone_args being used by the app may have
-         * more fields than DR's internal struct (clone3_syscall_args_t).
+         * less/more fields than DR's internal struct (clone3_syscall_args_t).
          * For creating DR's copy of the app's clone_args object, we need to
          * allocate as much space as specified by the app in the clone3
          * syscall's args.
