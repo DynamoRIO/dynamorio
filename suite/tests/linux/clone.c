@@ -68,10 +68,11 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
 /* forward declarations */
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand);
+create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
+              bool clone_vm);
 #ifdef SYS_clone3
 static pid_t
-create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand);
+create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm);
 #endif
 static void
 delete_thread(pid_t pid, void *stack);
@@ -88,58 +89,42 @@ stack_free(void *p, int size);
 static pid_t child;
 static void *stack;
 
-/* these are used solely to provide deterministic output */
-/* this is read by child, written by parent, tells child whether to exit */
-static volatile bool child_exit;
-/* this is read by parent, written by child, tells parent whether child done */
-static volatile bool child_done;
-
-static struct timespec sleeptime;
-
 void
-test_thread(bool share_sighand, bool use_clone3)
+test_thread(bool share_sighand, bool clone_vm, bool use_clone3)
 {
-    /* First make a thread that shares signal handlers. */
-    child_exit = false;
-    child_done = false;
     if (use_clone3) {
 #ifdef SYS_clone3
-        child = create_thread_clone3(run_with_exit, &stack, share_sighand);
+        child = create_thread_clone3(run_with_exit, &stack, share_sighand, clone_vm);
 #else
         /* If SYS_clone3 is not supported on the machine, we simply use SYS_clone
          * instead, so that the expected output is the same in both cases.
          */
-        child = create_thread(run, NULL, &stack, share_sighand);
+        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
 #endif
     } else
-        child = create_thread(run, NULL, &stack, share_sighand);
+        child = create_thread(run, NULL, &stack, share_sighand, clone_vm);
     assert(child > -1);
-
-    /* waste some time */
-    nanosleep(&sleeptime, NULL);
-
-    child_exit = true;
-    /* we want deterministic printf ordering */
-    while (!child_done)
-        nanosleep(&sleeptime, NULL);
     delete_thread(child, stack);
 }
 
 int
 main()
 {
-    sleeptime.tv_sec = 0;
-    sleeptime.tv_nsec = 10 * 1000 * 1000; /* 10ms */
-
     /* First test a thread that does not share signal handlers
      * (xref i#2089).
      */
-    test_thread(false /*share_sighand*/, false /*use_clone3*/);
-    test_thread(false /*share_sighand*/, true /*use_clone3*/);
+    test_thread(false /*share_sighand*/, false /*clone_vm*/, false /*use_clone3*/);
+    test_thread(false /*share_sighand*/, false /*clone_vm*/, true /*use_clone3*/);
 
-    /* Now make a thread that shares signal handlers. */
-    test_thread(true /*share_sighand*/, false /*use_clone3*/);
-    test_thread(true /*share_sighand*/, true /*use_clone3*/);
+    /* Now test a thread that does not share signal handlers and isn't cloned. */
+    test_thread(false /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
+    test_thread(false /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
+
+    /* Now make a thread that shares signal handlers, which also required it to
+     * be cloned.
+     */
+    test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
+    test_thread(true /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
 }
 
 /* Procedure executed by sideline threads
@@ -161,10 +146,7 @@ run(void *arg)
         if (i % 25000000 == 0)
             break;
     }
-    while (!child_exit)
-        nolibc_nanosleep(&sleeptime);
     nolibc_print("Sideline thread finished\n");
-    child_done = true;
     return 0;
 }
 
@@ -181,8 +163,11 @@ void *p_tid, *c_tid;
  * first argument is passed in "arg". Returns the PID of the new
  * thread */
 static pid_t
-create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
+create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
+              bool clone_vm)
 {
+    /* !clone_vm && share_sighand is not supported. */
+    assert(clone_vm || !share_sighand);
     pid_t newpid;
     int flags;
     void *my_stack;
@@ -194,8 +179,8 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand)
     /* We're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
      */
-    flags = (SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES |
-             (share_sighand ? CLONE_SIGHAND : 0));
+    flags = (SIGCHLD | CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0) |
+             (clone_vm ? CLONE_VM : 0));
     /* The stack arg should point to the stack's highest address (non-inclusive). */
     newpid = clone(fcn, (void *)((size_t)my_stack + THREAD_STACK_SIZE), flags, arg,
                    &p_tid, NULL, &c_tid);
@@ -279,16 +264,18 @@ make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
 }
 
 static pid_t
-create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand)
+create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
+    /* !clone_vm && share_sighand is not supported. */
+    assert(clone_vm || !share_sighand);
     struct clone_args cl_args = { 0 };
     void *my_stack;
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* We're not doing CLONE_THREAD => child has its own pid
      * (the thread.c test tests CLONE_THREAD)
      */
-    cl_args.flags =
-        CLONE_VM | CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0);
+    cl_args.flags = CLONE_FS | CLONE_FILES | (share_sighand ? CLONE_SIGHAND : 0) |
+        (clone_vm ? CLONE_VM : 0);
     /* Need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
     cl_args.exit_signal = SIGCHLD;
@@ -327,7 +314,6 @@ delete_thread(pid_t pid, void *stack)
 {
     pid_t result;
     /* do not print out pids to make diff easy */
-    print("Waiting for child to exit\n");
     result = waitpid(pid, NULL, 0);
     print("Child has exited\n");
     if (result == -1 || result != pid)

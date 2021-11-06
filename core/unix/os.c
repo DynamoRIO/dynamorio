@@ -8344,7 +8344,10 @@ post_system_call(dcontext_t *dcontext)
             SYS_fork
 #endif
                 IF_LINUX(
-                    || (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)))) {
+                    || (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)) ||
+                    (sysnum == SYS_clone3 &&
+                     !TEST(CLONE_VM,
+                           ((clone3_syscall_args_t *)dcontext->sys_param0)->flags)))) {
         if (result == 0) {
             /* we're the child */
             thread_id_t child = get_sys_thread_id();

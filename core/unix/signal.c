@@ -1011,9 +1011,12 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                 ? "vfork"
                 :
 #endif
-                (IF_LINUX(record->clone_sysnum == SYS_clone ? "clone" :) IF_MACOS(
-                    record->clone_sysnum == SYS_bsdthread_create ? "bsdthread_create"
-                                                                 :) "unexpected"),
+                (IF_LINUX(record->clone_sysnum == SYS_clone        ? "clone"
+                              : record->clone_sysnum == SYS_clone3 ? "clone3"
+                                                                   :)
+                     IF_MACOS(record->clone_sysnum == SYS_bsdthread_create
+                                  ? "bsdthread_create"
+                                  :) "unexpected"),
             record->clone_flags);
 #ifdef SYS_vfork
         if (record->clone_sysnum == SYS_vfork) {
