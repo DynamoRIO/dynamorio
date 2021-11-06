@@ -208,46 +208,60 @@ int
 make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
                     void (*fcn)(void))
 {
-    int ret;
+    int result;
 #    ifdef X86
 #        ifdef X64
-    asm volatile("syscall\n\t"
+    uint64 clone_args_size_64 = (uint64)clone_args_size;
+    asm volatile("mov %[sys_clone3], %%rax\n\t"
+                 "mov %[clone_args], %%rdi\n\t"
+                 "mov %[clone_args_size], %%rsi\n\t"
+                 "mov %[fcn], %%rdx\n\t"
+                 "syscall\n\t"
                  "test %%rax, %%rax\n\t"
                  "jnz parent\n\t"
                  "call *%%rdx\n\t"
                  "parent:\n\t"
-                 : "=a"(ret)
-                 : "0"(SYS_clone3), "D"(clone_args), "S"(clone_args_size), "d"(fcn)
+                 "mov %%rax, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
                  /* syscall clobbers rcx and r11 */
-                 : "rcx", "r11", "memory");
+                 : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory");
 #        else
-    asm volatile("int $0x80\n\t"
+    asm volatile("mov %[sys_clone3], %%eax\n\t"
+                 "mov %[clone_args], %%ebx\n\t"
+                 "mov %[clone_args_size], %%ecx\n\t"
+                 "mov %[fcn], %%edx\n\t"
+                 "int $0x80\n\t"
                  "test %%eax, %%eax\n\t"
                  "jnz parent\n\t"
                  "call *%%edx\n\t"
                  "parent:\n\t"
-                 : "=a"(ret)
-                 : "0"(SYS_clone3), "b"(clone_args), "c"(clone_args_size), "d"(fcn)
-                 : "memory");
+                 "mov %%eax, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
+                 : "eax", "ebx", "ecx", "edx", "memory");
 #        endif
 #    elif defined(AARCH64)
-    register int x0_ret __asm("x0");
-    register struct clone_args *x0 __asm("x0") = clone_args;
-    register int x1 __asm("x1") = clone_args_size;
-    register void *x2 __asm("x2") = fcn;
-    register unsigned x8 __asm("x8") = SYS_clone3;
+    uint64 clone_args_size_64 = (uint64)clone_args_size;
     /* Do not add code between above declarations and their use below.
      * This is to ensure that those registers continue to have the
      * same data.
      */
-    asm volatile("svc #0\n\t"
+    asm volatile("mov x8, #%[sys_clone3]\n\t"
+                 "ldr x0, %[clone_args]\n\t"
+                 "ldr x1, %[clone_args_size]\n\t"
+                 "ldr x2, %[fcn]\n\t"
+                 "svc #0\n\t"
                  "cbnz x0, parent\n\t"
                  "blr x2\n\t"
                  "parent:\n\t"
-                 : "+r"(x0_ret)
-                 : "r"(x1), "r"(x2), "r"(x8)
-                 : "memory");
-    ret = x0_ret;
+                 "str x0, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
+                 : "x0", "x1", "x2", "x8", "memory");
 #    elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
      * Currently we do not run this test on ARM, so this missing support doesn't
@@ -256,11 +270,11 @@ make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
 #    else
 #        error Unsupported architecture
 #    endif
-    if (ret < 0) {
-        errno = -ret;
+    if (result < 0) {
+        errno = -result;
         return -1;
     }
-    return ret;
+    return result;
 }
 
 static pid_t
