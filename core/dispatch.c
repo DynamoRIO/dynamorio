@@ -2032,7 +2032,7 @@ handle_system_call(dcontext_t *dcontext)
          * if so, move #include of sys/syscall.h too
          */
         /* We use was_thread_create_syscall even though the syscall has not really
-         * happened yet. THis is because, for the clone3 syscall, we want to avoid
+         * happened yet. This is because, for the clone3 syscall, we want to avoid
          * reading the user-provided clone args without a safe-read, so instead we
          * use the flags and sysnum that we saved in dcontext during pre_system_call.
          */

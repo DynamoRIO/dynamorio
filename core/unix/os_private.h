@@ -114,7 +114,7 @@
 
 #define SYSCALL_PARAM_CLONE3_CLONE_ARGS 0
 #define SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE 1
-#define CLONE3_FLAGS_4_BYTE_MASK 0xffffffff
+#define CLONE3_FLAGS_4_BYTE_MASK 0x00000000ffffffffUL
 
 struct _os_local_state_t;
 

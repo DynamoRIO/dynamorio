@@ -5371,8 +5371,8 @@ is_thread_create_syscall(dcontext_t *dcontext _IF_LINUX(void *maybe_clone_args))
     return is_thread_create_syscall_helper(sysnum, flags);
 }
 
-ptr_uint_t
-get_clone3_flags(dcontext_t *dcontext)
+static ptr_uint_t
+get_stored_clone3_flags(dcontext_t *dcontext)
 {
     return ((uint64)dcontext->sys_param4 << 32) | dcontext->sys_param3;
 }
@@ -5383,7 +5383,7 @@ was_thread_create_syscall(dcontext_t *dcontext)
     uint64 flags = dcontext->sys_param0;
 #ifdef LINUX
     if (dcontext->sys_num == SYS_clone3)
-        flags = get_clone3_flags(dcontext);
+        flags = get_stored_clone3_flags(dcontext);
 #endif
     return is_thread_create_syscall_helper(dcontext->sys_num, flags);
 }
@@ -6628,7 +6628,7 @@ handle_clone_pre(dcontext_t *dcontext)
          * two reg_t vars on 32-bit. We do it on 64-bit systems as well for simpler code.
          */
         dcontext->sys_param3 = (reg_t)(flags & CLONE3_FLAGS_4_BYTE_MASK);
-        ASSERT(((flags >> 32) & ~CLONE3_FLAGS_4_BYTE_MASK) == 0);
+        ASSERT((flags >> 32 & ~CLONE3_FLAGS_4_BYTE_MASK) == 0);
         dcontext->sys_param4 = (reg_t)((flags >> 32));
         LOG(THREAD, LOG_SYSCALLS, 2,
             "syscall: clone3 with args: flags = 0x" HEX64_FORMAT_STRING
@@ -8367,7 +8367,7 @@ post_system_call(dcontext_t *dcontext)
                 IF_LINUX(||
                          (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)) ||
                          (sysnum == SYS_clone3 &&
-                          !TEST(CLONE_VM, get_clone3_flags(dcontext))))) {
+                          !TEST(CLONE_VM, get_stored_clone3_flags(dcontext))))) {
         if (result == 0) {
             /* we're the child */
             thread_id_t child = get_sys_thread_id();
