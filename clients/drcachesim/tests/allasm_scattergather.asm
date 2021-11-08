@@ -44,6 +44,21 @@ _start:
         // Align stack pointer to cache line.
         and      rsp, -16
 
+        // Load data into xmm0.
+        // drx_expand_scatter_gather picks as scratch the lowest-numbered
+        // xmm reg not being used by the scatter/gather instr being expanded.
+        // This will be xmm0 in this app. We want to test that xmm0 is indeed
+        // restored to its app value after the expansion.
+        mov      eax, 0x0123
+        vpinsrd  xmm0, xmm0, eax, 0x00
+        mov      eax, 0x4567
+        vpinsrd  xmm0, xmm0, eax, 0x01
+        mov      eax, 0x89ab
+        vpinsrd  xmm0, xmm0, eax, 0x02
+        mov      eax, 0xcdef
+        vpinsrd  xmm0, xmm0, eax, 0x03
+        vmovdqu  save_xmm0, xmm0
+
         // Load data into xmm10.
         // We embed data in instrs to avoid adding extra loads.
         mov      eax, 0xdead
@@ -89,16 +104,30 @@ _start:
         mov      eax, 0x00
         vpinsrd  xmm10, xmm10, eax, 0x01
         vpinsrd  xmm10, xmm10, eax, 0x02
-        cmpss    xmm10, xmm12, 0
+        vcmpeqss xmm9, xmm10, xmm12
+        vpextrb  eax, xmm9, 0
+        cmp      eax, 0xff
+        jne      incorrect
+
+        // Check whether the scratch reg (here, xmm0) was restored to its
+        // original app value.
+        vmovdqu  xmm1, save_xmm0
+        vcmpeqss xmm9, xmm1, xmm0
+        vpextrb  eax, xmm9, 0
+        cmp      eax, 0xff
+        jne      incorrect_scratch
 
         // Print comparison result.
-        jne      incorrect
         lea      rsi, correct_str
         mov      rdx, 8           // sizeof(correct_str)
         jmp      done_cmp
 incorrect:
         lea      rsi, incorrect_str
         mov      rdx, 10          // sizeof(incorrect_str)
+        jmp      done_cmp
+incorrect_scratch:
+        lea      rsi, incorrect_scratch_str
+        mov      rdx, 18
 done_cmp:
         mov      rdi, 1           // stdout
         mov      eax, 1           // SYS_write
@@ -124,5 +153,9 @@ correct_str:
         .string  "Correct\n"
 incorrect_str:
         .string  "Incorrect\n"
+incorrect_scratch_str:
+        .string  "Incorrect scratch\n"
 arr:
+        .zero    16
+save_xmm0:
         .zero    16

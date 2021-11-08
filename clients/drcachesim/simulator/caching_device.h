@@ -121,6 +121,9 @@ protected:
     access_update(int block_idx, int way);
     virtual int
     replace_which_way(int block_idx);
+    virtual void
+    record_access_stats(const memref_t &memref, bool hit,
+                        caching_device_block_t *cache_block);
 
     inline addr_t
     compute_tag(addr_t addr)

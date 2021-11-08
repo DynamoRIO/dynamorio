@@ -91,12 +91,20 @@ protected:
         bool found_instr_count_marker_ = false;
         uint64_t last_instr_count_marker_ = 0;
         std::string error;
+        // Track the location of errors.
+        memref_tid_t tid = -1;
+        uint64_t ref_count = 0;
+        // We do not expect these to vary by thread but it is simpler to keep
+        // separate values per thread as we discover their values during parallel
+        // operation.
+        addr_t app_handler_pc_ = 0;
+        offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
     };
 
     // We provide this for subclasses to run these invariants with custom
     // failure reporting.
     virtual void
-    report_if_false(bool condition, const std::string &message);
+    report_if_false(per_shard_t *shard, bool condition, const std::string &message);
 
     // The keys here are int for parallel, tid for serial.
     std::unordered_map<memref_tid_t, std::unique_ptr<per_shard_t>> shard_map_;
@@ -108,8 +116,6 @@ protected:
     unsigned int knob_verbose_;
     std::string knob_test_name_;
     bool has_annotations_ = false;
-    addr_t app_handler_pc_;
-    offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
 };
 
 #endif /* _INVARIANT_CHECKER_H_ */
