@@ -5371,11 +5371,13 @@ is_thread_create_syscall(dcontext_t *dcontext _IF_LINUX(void *maybe_clone_args))
     return is_thread_create_syscall_helper(sysnum, flags);
 }
 
+#ifdef LINUX
 static ptr_uint_t
 get_stored_clone3_flags(dcontext_t *dcontext)
 {
     return ((uint64)dcontext->sys_param4 << 32) | dcontext->sys_param3;
 }
+#endif
 
 bool
 was_thread_create_syscall(dcontext_t *dcontext)
