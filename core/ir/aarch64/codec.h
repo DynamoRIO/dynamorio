@@ -37,6 +37,9 @@
 
 #define ENCFAIL (uint)0xFFFFFFFF /* a value that is not a valid instruction */
 
+bool
+decode_supported(dcontext_t *dcontext, byte *pc, instr_t *instr);
+
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr);
 uint

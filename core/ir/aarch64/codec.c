@@ -4510,6 +4510,13 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 
 /******************************************************************************/
 
+bool
+decode_supported(dcontext_t *dcontext, byte *pc, instr_t *instr)
+{
+    uint enc = *(uint *)pc;
+    return decoder(enc, dcontext, pc, instr);
+}
+
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
 {
