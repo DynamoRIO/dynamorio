@@ -8656,6 +8656,7 @@ post_system_call(dcontext_t *dcontext)
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned " PFX "\n",
             MCXT_SYSCALL_RES(mc));
+        /* TODO i#5131: Handle clone3 returning ENOSYS. */
         /* We switch the lib tls segment back to dr's privlib segment.
          * Please refer to comment on os_switch_lib_tls.
          * It is only called in parent thread.
