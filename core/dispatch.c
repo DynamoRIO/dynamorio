@@ -2034,7 +2034,7 @@ handle_system_call(dcontext_t *dcontext)
         /* We use was_thread_create_syscall even though the syscall has not really
          * happened yet. THis is because, for the clone3 syscall, we want to avoid
          * reading the user-provided clone args without a safe-read, so instead we
-         * use the flags that we saved in dcontext during pre_system_call.
+         * use the flags and sysnum that we saved in dcontext during pre_system_call.
          */
         if (was_thread_create_syscall(dcontext)) {
             /* Code for after clone is in generated code do_clone_syscall. */
