@@ -5333,7 +5333,7 @@ dr_syscall_invoke_another(void *drcontext)
 }
 
 static inline bool
-is_thread_create_syscall_helper(ptr_uint_t sysnum, reg_t sys_param0)
+is_thread_create_syscall_helper(ptr_uint_t sysnum, uint64 flags)
 {
 #ifdef MACOS
     /* XXX i#1403: we need earlier injection to intercept
@@ -5346,12 +5346,7 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, reg_t sys_param0)
         return true;
 #    endif
 #    ifdef LINUX
-    /* Flags in param0 */
-    if (sysnum == SYS_clone && TEST(CLONE_VM, sys_param0))
-        return true;
-    /* Clone_args in param0 */
-    if (sysnum == SYS_clone3 &&
-        TEST(CLONE_VM, ((clone3_syscall_args_t *)sys_param0)->flags))
+    if ((sysnum == SYS_clone || sysnum == SYS_clone3) && TEST(CLONE_VM, flags))
         return true;
 #    endif
     return false;
@@ -5359,16 +5354,38 @@ is_thread_create_syscall_helper(ptr_uint_t sysnum, reg_t sys_param0)
 }
 
 bool
-is_thread_create_syscall(dcontext_t *dcontext)
+is_thread_create_syscall(dcontext_t *dcontext _IF_LINUX(void *maybe_clone_args))
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_thread_create_syscall_helper(MCXT_SYSNUM_REG(mc), sys_param(dcontext, 0));
+    uint64 flags = sys_param(dcontext, 0);
+    ptr_uint_t sysnum = MCXT_SYSNUM_REG(mc);
+#ifdef LINUX
+    /* For clone3, we use flags from the clone_args that was obtained using a
+     * a safe read from the user-provided syscall args.
+     */
+    if (sysnum == SYS_clone3) {
+        ASSERT(maybe_clone_args != NULL);
+        flags = ((clone3_syscall_args_t *)maybe_clone_args)->flags;
+    }
+#endif
+    return is_thread_create_syscall_helper(sysnum, flags);
+}
+
+ptr_uint_t
+get_clone3_flags(dcontext_t *dcontext)
+{
+    return ((uint64)dcontext->sys_param4 << 32) | dcontext->sys_param3;
 }
 
 bool
 was_thread_create_syscall(dcontext_t *dcontext)
 {
-    return is_thread_create_syscall_helper(dcontext->sys_num, dcontext->sys_param0);
+    uint64 flags = dcontext->sys_param0;
+#ifdef LINUX
+    if (dcontext->sys_num == SYS_clone3)
+        flags = get_clone3_flags(dcontext);
+#endif
+    return is_thread_create_syscall_helper(dcontext->sys_num, flags);
 }
 
 bool
@@ -6600,15 +6617,19 @@ handle_clone_pre(dcontext_t *dcontext)
         flags = dr_clone_args->flags;
 
         /* Save for post_system_call */
-        /* As clone3 flags are 64-bit, even in 32-bit
-         * environment, we cannot save just the flags here. We also need to save
-         * the pointer to the app's clone_args so that we can restore it
+        /* We need to save the pointer to the app's clone_args so that we can restore it
          * post-syscall.
          */
         dcontext->sys_param0 = (reg_t)app_clone_args;
         /* For freeing the allocated memory. */
         dcontext->sys_param1 = (reg_t)dr_clone_args;
         dcontext->sys_param2 = (reg_t)app_clone_args_size;
+        /* clone3 flags are 64-bit even on 32-bit systems. So we need to split them across
+         * two reg_t vars on 32-bit. We do it on 64-bit systems as well for simpler code.
+         */
+        dcontext->sys_param3 = (reg_t)(flags & CLONE3_FLAGS_4_BYTE_MASK);
+        ASSERT(((flags >> 32) & ~CLONE3_FLAGS_4_BYTE_MASK) == 0);
+        dcontext->sys_param4 = (reg_t)((flags >> 32));
         LOG(THREAD, LOG_SYSCALLS, 2,
             "syscall: clone3 with args: flags = 0x" HEX64_FORMAT_STRING
             ", exit_signal = 0x" HEX64_FORMAT_STRING ", stack = 0x" HEX64_FORMAT_STRING
@@ -6647,7 +6668,7 @@ handle_clone_pre(dcontext_t *dcontext)
      * to dstack).  xref i#149/PR 403015.
      * Note: This must be done after sys_param0 is set.
      */
-    if (is_thread_create_syscall(dcontext)) {
+    if (is_thread_create_syscall(dcontext, dr_clone_args)) {
         if (dcontext->sys_num == SYS_clone3) {
             /* create_clone_record modifies some fields in clone_args for the
              * clone3 syscall. Instead of reusing the app's copy of
@@ -7106,7 +7127,7 @@ pre_system_call(dcontext_t *dcontext)
         /* vfork has the same needs as clone.  Pass info via a clone_record_t
          * structure to child.  See SYS_clone for info about i#149/PR 403015.
          */
-        IF_LINUX(ASSERT(is_thread_create_syscall(dcontext)));
+        IF_LINUX(ASSERT(is_thread_create_syscall(dcontext, NULL)));
         dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
 #    ifdef MACOS
         create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL);
@@ -8343,11 +8364,10 @@ post_system_call(dcontext_t *dcontext)
         || sysnum ==
             SYS_fork
 #endif
-                IF_LINUX(
-                    || (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)) ||
-                    (sysnum == SYS_clone3 &&
-                     !TEST(CLONE_VM,
-                           ((clone3_syscall_args_t *)dcontext->sys_param0)->flags)))) {
+                IF_LINUX(||
+                         (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)) ||
+                         (sysnum == SYS_clone3 &&
+                          !TEST(CLONE_VM, get_clone3_flags(dcontext))))) {
         if (result == 0) {
             /* we're the child */
             thread_id_t child = get_sys_thread_id();

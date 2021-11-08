@@ -173,10 +173,12 @@
 #    define IF_LINUX(x) x
 #    define IF_LINUX_ELSE(x, y) x
 #    define IF_LINUX_(x) x,
+#    define _IF_LINUX(x) , x
 #else
 #    define IF_LINUX(x)
 #    define IF_LINUX_ELSE(x, y) y
 #    define IF_LINUX_(x)
+#    define _IF_LINUX(x)
 #endif
 
 #ifdef MACOS
