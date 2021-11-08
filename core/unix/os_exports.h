@@ -351,8 +351,6 @@ extern app_pc vsyscall_sysenter_displaced_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
 
 bool
-is_thread_create_syscall(dcontext_t *dcontext);
-bool
 was_thread_create_syscall(dcontext_t *dcontext);
 bool
 is_sigreturn_syscall(dcontext_t *dcontext);

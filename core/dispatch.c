@@ -2031,7 +2031,12 @@ handle_system_call(dcontext_t *dcontext)
         /* FIXME: move into some routine inside unix/?
          * if so, move #include of sys/syscall.h too
          */
-        if (is_thread_create_syscall(dcontext)) {
+        /* We use was_thread_create_syscall even though the syscall has not really
+         * happened yet. This is because, for the clone3 syscall, we want to avoid
+         * reading the user-provided clone args without a safe-read, so instead we
+         * use the flags and sysnum that we saved in dcontext during pre_system_call.
+         */
+        if (was_thread_create_syscall(dcontext)) {
             /* Code for after clone is in generated code do_clone_syscall. */
             do_syscall = (app_pc)get_do_clone_syscall_entry(dcontext);
         } else if (is_sigreturn_syscall(dcontext)) {
@@ -2085,7 +2090,7 @@ handle_system_call(dcontext_t *dcontext)
              * d_r_dispatch so there's no worry about unbounded delay.
              */
             ASSERT((!is_sigreturn_syscall(dcontext) &&
-                    !is_thread_create_syscall(dcontext)) ||
+                    !was_thread_create_syscall(dcontext)) ||
                    !is_ignorable);
             if (!is_ignorable && dcontext->signals_pending > 0)
                 dcontext->signals_pending = -1;

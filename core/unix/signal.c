@@ -707,13 +707,13 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
                 dr_clone_args == NULL && app_clone_args == NULL) ||
                (dcontext->sys_num == SYS_clone3 && dr_clone_args != NULL &&
                 app_clone_args != NULL && app_thread_xsp == NULL));
-        if (app_clone_args != NULL) {
+        if (dr_clone_args != NULL) {
             /* SYS_clone3 has the lowest address of the stack in
              * cl_args->stack. But we expect the highest (non-inclusive)
              * in the clone record's app_thread_xsp.
              */
-            record->app_thread_xsp = app_clone_args->stack + app_clone_args->stack_size;
-            record->clone_flags = app_clone_args->flags;
+            record->app_thread_xsp = dr_clone_args->stack + dr_clone_args->stack_size;
+            record->clone_flags = dr_clone_args->flags;
             record->app_clone_args = app_clone_args;
         } else {
 #endif
@@ -1011,9 +1011,12 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                 ? "vfork"
                 :
 #endif
-                (IF_LINUX(record->clone_sysnum == SYS_clone ? "clone" :) IF_MACOS(
-                    record->clone_sysnum == SYS_bsdthread_create ? "bsdthread_create"
-                                                                 :) "unexpected"),
+                (IF_LINUX(record->clone_sysnum == SYS_clone
+                              ? "clone"
+                              : record->clone_sysnum == SYS_clone3 ? "clone3" :)
+                     IF_MACOS(record->clone_sysnum == SYS_bsdthread_create
+                                  ? "bsdthread_create"
+                                  :) "unexpected"),
             record->clone_flags);
 #ifdef SYS_vfork
         if (record->clone_sysnum == SYS_vfork) {
