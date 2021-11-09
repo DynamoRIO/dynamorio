@@ -70,6 +70,7 @@ view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
     , num_disasm_instrs_(0)
     , prev_tid_(-1)
     , filetype_(-1)
+    , num_refs_(0)
 {
 }
 
@@ -139,6 +140,7 @@ view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
 bool
 view_t::should_skip()
 {
+    num_refs_++;
     if (skip_refs_left_ > 0) {
         skip_refs_left_--;
         // I considered printing the version and filetype even when skipped but
@@ -200,14 +202,14 @@ view_t::process_memref(const memref_t &memref)
         printed_header_.insert(memref.marker.tid);
         if (trace_version_ != -1) { // Old versions may not have a version marker.
             if (!should_skip()) {
-                std::cerr << "T" << memref.marker.tid << " "
-                          << "<marker: version " << trace_version_ << ">\n";
+                print_prefix(memref);
+                std::cerr << "<marker: version " << trace_version_ << ">\n";
             }
         }
         if (filetype_ != -1) { // Handle old/malformed versions.
             if (!should_skip()) {
-                std::cerr << "T" << memref.marker.tid << " "
-                          << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
+                print_prefix(memref);
+                std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
                           << ">\n";
             }
         }
@@ -217,10 +219,7 @@ view_t::process_memref(const memref_t &memref)
         return true;
 
     if (memref.instr.tid != 0) {
-        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
-            std::cerr << "------------------------------------------------------------\n";
-        prev_tid_ = memref.instr.tid;
-        std::cerr << "T" << memref.instr.tid << " ";
+        print_prefix(memref);
     }
 
     if (memref.marker.type == TRACE_TYPE_MARKER) {
@@ -333,7 +332,7 @@ view_t::process_memref(const memref_t &memref)
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
-        prefix << "T" << memref.instr.tid << " ";
+        print_prefix(memref, prefix);
         disasm.insert(newline + 1, prefix.str());
     }
     std::cerr << disasm;

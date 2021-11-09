@@ -134,6 +134,13 @@ test_no_limit(void *drcontext, instrlist_t &ilist, const std::vector<memref_t> &
         std::cerr << "Incorrect line count\n";
         return false;
     }
+    std::stringstream ss(res);
+    int prefix;
+    ss >> prefix;
+    if (prefix != 1) {
+        std::cerr << "Expect 1-based line prefixes\n";
+        return false;
+    }
     return true;
 }
 
@@ -188,6 +195,14 @@ test_skip_memrefs(void *drcontext, instrlist_t &ilist,
     }
     if (found_markers != marker_count) {
         std::cerr << "Failed to skip proper number of markers\n";
+        return false;
+    }
+    std::stringstream ss(res);
+    int prefix;
+    ss >> prefix;
+    if (prefix != 1 + skip_memrefs) {
+        std::cerr << "Expect to start after skip count " << skip_memrefs << " but found "
+                  << prefix << "\n";
         return false;
     }
     return true;

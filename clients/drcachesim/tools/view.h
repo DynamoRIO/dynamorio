@@ -33,6 +33,8 @@
 #ifndef _VIEW_H_
 #define _VIEW_H_ 1
 
+#include <iomanip>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -77,6 +79,15 @@ protected:
     bool
     should_skip();
 
+    inline void
+    print_prefix(const memref_t &memref, std::ostream &stream = std::cerr)
+    {
+        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
+            stream << "------------------------------------------------------------\n";
+        prev_tid_ = memref.instr.tid;
+        stream << std::setw(9) << num_refs_ << ": T" << memref.marker.tid << " ";
+    }
+
     /* We make this the first field so that dr_standalone_exit() is called after
      * destroying the other fields which may use DR heap.
      */
@@ -100,6 +111,7 @@ protected:
     memref_tid_t prev_tid_;
     intptr_t filetype_;
     std::unordered_set<memref_tid_t> printed_header_;
+    uint64_t num_refs_;
 };
 
 #endif /* _VIEW_H_ */
