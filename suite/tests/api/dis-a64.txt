@@ -16429,3 +16429,425 @@ d503203f : yield                          : yield
 5ebbb359 : sqdmlsl d25, s26, s27                     : sqdmlsl %d25 %s26 %s27 -> %d25
 5ebdb39b : sqdmlsl d27, s28, s29                     : sqdmlsl %d27 %s28 %s29 -> %d27
 5ea1b01f : sqdmlsl d31, s0, s1                       : sqdmlsl %d31 %s0 %s1 -> %d31
+
+# FMLS    <V><d>, <V><n>, <Vm>.<T>[<index>]
+5f825020 : fmls s0, s1, v2.s[0]                      : fmls   %s0 %s1 %q2 $0x00 $0x02 -> %s0
+5f845062 : fmls s2, s3, v4.s[0]                      : fmls   %s2 %s3 %q4 $0x00 $0x02 -> %s2
+5f8650a4 : fmls s4, s5, v6.s[0]                      : fmls   %s4 %s5 %q6 $0x00 $0x02 -> %s4
+5fa850e6 : fmls s6, s7, v8.s[1]                      : fmls   %s6 %s7 %q8 $0x01 $0x02 -> %s6
+5faa5128 : fmls s8, s9, v10.s[1]                     : fmls   %s8 %s9 %q10 $0x01 $0x02 -> %s8
+5fac516a : fmls s10, s11, v12.s[1]                   : fmls   %s10 %s11 %q12 $0x01 $0x02 -> %s10
+5fae51ac : fmls s12, s13, v14.s[1]                   : fmls   %s12 %s13 %q14 $0x01 $0x02 -> %s12
+5fb051ee : fmls s14, s15, v16.s[1]                   : fmls   %s14 %s15 %q16 $0x01 $0x02 -> %s14
+5f925a30 : fmls s16, s17, v18.s[2]                   : fmls   %s16 %s17 %q18 $0x02 $0x02 -> %s16
+5f935a51 : fmls s17, s18, v19.s[2]                   : fmls   %s17 %s18 %q19 $0x02 $0x02 -> %s17
+5f955a93 : fmls s19, s20, v21.s[2]                   : fmls   %s19 %s20 %q21 $0x02 $0x02 -> %s19
+5f975ad5 : fmls s21, s22, v23.s[2]                   : fmls   %s21 %s22 %q23 $0x02 $0x02 -> %s21
+5f995b17 : fmls s23, s24, v25.s[2]                   : fmls   %s23 %s24 %q25 $0x02 $0x02 -> %s23
+5f9b5b59 : fmls s25, s26, v27.s[2]                   : fmls   %s25 %s26 %q27 $0x02 $0x02 -> %s25
+5fbd5b9b : fmls s27, s28, v29.s[3]                   : fmls   %s27 %s28 %q29 $0x03 $0x02 -> %s27
+5fa1581f : fmls s31, s0, v1.s[3]                     : fmls   %s31 %s0 %q1 $0x03 $0x02 -> %s31
+5fc25020 : fmls d0, d1, v2.d[0]                      : fmls   %d0 %d1 %q2 $0x00 $0x03 -> %d0
+5fc45062 : fmls d2, d3, v4.d[0]                      : fmls   %d2 %d3 %q4 $0x00 $0x03 -> %d2
+5fc650a4 : fmls d4, d5, v6.d[0]                      : fmls   %d4 %d5 %q6 $0x00 $0x03 -> %d4
+5fc850e6 : fmls d6, d7, v8.d[0]                      : fmls   %d6 %d7 %q8 $0x00 $0x03 -> %d6
+5fca5128 : fmls d8, d9, v10.d[0]                     : fmls   %d8 %d9 %q10 $0x00 $0x03 -> %d8
+5fcc516a : fmls d10, d11, v12.d[0]                   : fmls   %d10 %d11 %q12 $0x00 $0x03 -> %d10
+5fce51ac : fmls d12, d13, v14.d[0]                   : fmls   %d12 %d13 %q14 $0x00 $0x03 -> %d12
+5fd051ee : fmls d14, d15, v16.d[0]                   : fmls   %d14 %d15 %q16 $0x00 $0x03 -> %d14
+5fd25a30 : fmls d16, d17, v18.d[1]                   : fmls   %d16 %d17 %q18 $0x01 $0x03 -> %d16
+5fd35a51 : fmls d17, d18, v19.d[1]                   : fmls   %d17 %d18 %q19 $0x01 $0x03 -> %d17
+5fd55a93 : fmls d19, d20, v21.d[1]                   : fmls   %d19 %d20 %q21 $0x01 $0x03 -> %d19
+5fd75ad5 : fmls d21, d22, v23.d[1]                   : fmls   %d21 %d22 %q23 $0x01 $0x03 -> %d21
+5fd95b17 : fmls d23, d24, v25.d[1]                   : fmls   %d23 %d24 %q25 $0x01 $0x03 -> %d23
+5fdb5b59 : fmls d25, d26, v27.d[1]                   : fmls   %d25 %d26 %q27 $0x01 $0x03 -> %d25
+5fdd5b9b : fmls d27, d28, v29.d[1]                   : fmls   %d27 %d28 %q29 $0x01 $0x03 -> %d27
+5fc1581f : fmls d31, d0, v1.d[1]                     : fmls   %d31 %d0 %q1 $0x01 $0x03 -> %d31
+
+# FMLA    <V><d>, <V><n>, <Vm>.<T>[<index>]
+5f821020 : fmla s0, s1, v2.s[0]                      : fmla   %s0 %s1 %q2 $0x00 $0x02 -> %s0
+5f841062 : fmla s2, s3, v4.s[0]                      : fmla   %s2 %s3 %q4 $0x00 $0x02 -> %s2
+5f8610a4 : fmla s4, s5, v6.s[0]                      : fmla   %s4 %s5 %q6 $0x00 $0x02 -> %s4
+5fa810e6 : fmla s6, s7, v8.s[1]                      : fmla   %s6 %s7 %q8 $0x01 $0x02 -> %s6
+5faa1128 : fmla s8, s9, v10.s[1]                     : fmla   %s8 %s9 %q10 $0x01 $0x02 -> %s8
+5fac116a : fmla s10, s11, v12.s[1]                   : fmla   %s10 %s11 %q12 $0x01 $0x02 -> %s10
+5fae11ac : fmla s12, s13, v14.s[1]                   : fmla   %s12 %s13 %q14 $0x01 $0x02 -> %s12
+5fb011ee : fmla s14, s15, v16.s[1]                   : fmla   %s14 %s15 %q16 $0x01 $0x02 -> %s14
+5f921a30 : fmla s16, s17, v18.s[2]                   : fmla   %s16 %s17 %q18 $0x02 $0x02 -> %s16
+5f931a51 : fmla s17, s18, v19.s[2]                   : fmla   %s17 %s18 %q19 $0x02 $0x02 -> %s17
+5f951a93 : fmla s19, s20, v21.s[2]                   : fmla   %s19 %s20 %q21 $0x02 $0x02 -> %s19
+5f971ad5 : fmla s21, s22, v23.s[2]                   : fmla   %s21 %s22 %q23 $0x02 $0x02 -> %s21
+5f991b17 : fmla s23, s24, v25.s[2]                   : fmla   %s23 %s24 %q25 $0x02 $0x02 -> %s23
+5f9b1b59 : fmla s25, s26, v27.s[2]                   : fmla   %s25 %s26 %q27 $0x02 $0x02 -> %s25
+5fbd1b9b : fmla s27, s28, v29.s[3]                   : fmla   %s27 %s28 %q29 $0x03 $0x02 -> %s27
+5fa1181f : fmla s31, s0, v1.s[3]                     : fmla   %s31 %s0 %q1 $0x03 $0x02 -> %s31
+5fc21020 : fmla d0, d1, v2.d[0]                      : fmla   %d0 %d1 %q2 $0x00 $0x03 -> %d0
+5fc41062 : fmla d2, d3, v4.d[0]                      : fmla   %d2 %d3 %q4 $0x00 $0x03 -> %d2
+5fc610a4 : fmla d4, d5, v6.d[0]                      : fmla   %d4 %d5 %q6 $0x00 $0x03 -> %d4
+5fc810e6 : fmla d6, d7, v8.d[0]                      : fmla   %d6 %d7 %q8 $0x00 $0x03 -> %d6
+5fca1128 : fmla d8, d9, v10.d[0]                     : fmla   %d8 %d9 %q10 $0x00 $0x03 -> %d8
+5fcc116a : fmla d10, d11, v12.d[0]                   : fmla   %d10 %d11 %q12 $0x00 $0x03 -> %d10
+5fce11ac : fmla d12, d13, v14.d[0]                   : fmla   %d12 %d13 %q14 $0x00 $0x03 -> %d12
+5fd011ee : fmla d14, d15, v16.d[0]                   : fmla   %d14 %d15 %q16 $0x00 $0x03 -> %d14
+5fd21a30 : fmla d16, d17, v18.d[1]                   : fmla   %d16 %d17 %q18 $0x01 $0x03 -> %d16
+5fd31a51 : fmla d17, d18, v19.d[1]                   : fmla   %d17 %d18 %q19 $0x01 $0x03 -> %d17
+5fd51a93 : fmla d19, d20, v21.d[1]                   : fmla   %d19 %d20 %q21 $0x01 $0x03 -> %d19
+5fd71ad5 : fmla d21, d22, v23.d[1]                   : fmla   %d21 %d22 %q23 $0x01 $0x03 -> %d21
+5fd91b17 : fmla d23, d24, v25.d[1]                   : fmla   %d23 %d24 %q25 $0x01 $0x03 -> %d23
+5fdb1b59 : fmla d25, d26, v27.d[1]                   : fmla   %d25 %d26 %q27 $0x01 $0x03 -> %d25
+5fdd1b9b : fmla d27, d28, v29.d[1]                   : fmla   %d27 %d28 %q29 $0x01 $0x03 -> %d27
+5fc1181f : fmla d31, d0, v1.d[1]                     : fmla   %d31 %d0 %q1 $0x01 $0x03 -> %d31
+
+# FACGT   <V><d>, <V><n>, <V><m>
+7ea2ec20 : facgt s0, s1, s2                          : facgt  %s1 %s2 -> %s0
+7ea4ec62 : facgt s2, s3, s4                          : facgt  %s3 %s4 -> %s2
+7ea6eca4 : facgt s4, s5, s6                          : facgt  %s5 %s6 -> %s4
+7ea8ece6 : facgt s6, s7, s8                          : facgt  %s7 %s8 -> %s6
+7eaaed28 : facgt s8, s9, s10                         : facgt  %s9 %s10 -> %s8
+7eaced6a : facgt s10, s11, s12                       : facgt  %s11 %s12 -> %s10
+7eaeedac : facgt s12, s13, s14                       : facgt  %s13 %s14 -> %s12
+7eb0edee : facgt s14, s15, s16                       : facgt  %s15 %s16 -> %s14
+7eb2ee30 : facgt s16, s17, s18                       : facgt  %s17 %s18 -> %s16
+7eb3ee51 : facgt s17, s18, s19                       : facgt  %s18 %s19 -> %s17
+7eb5ee93 : facgt s19, s20, s21                       : facgt  %s20 %s21 -> %s19
+7eb7eed5 : facgt s21, s22, s23                       : facgt  %s22 %s23 -> %s21
+7eb9ef17 : facgt s23, s24, s25                       : facgt  %s24 %s25 -> %s23
+7ebbef59 : facgt s25, s26, s27                       : facgt  %s26 %s27 -> %s25
+7ebdef9b : facgt s27, s28, s29                       : facgt  %s28 %s29 -> %s27
+7ea1ec1f : facgt s31, s0, s1                         : facgt  %s0 %s1 -> %s31
+7ee2ec20 : facgt d0, d1, d2                          : facgt  %d1 %d2 -> %d0
+7ee4ec62 : facgt d2, d3, d4                          : facgt  %d3 %d4 -> %d2
+7ee6eca4 : facgt d4, d5, d6                          : facgt  %d5 %d6 -> %d4
+7ee8ece6 : facgt d6, d7, d8                          : facgt  %d7 %d8 -> %d6
+7eeaed28 : facgt d8, d9, d10                         : facgt  %d9 %d10 -> %d8
+7eeced6a : facgt d10, d11, d12                       : facgt  %d11 %d12 -> %d10
+7eeeedac : facgt d12, d13, d14                       : facgt  %d13 %d14 -> %d12
+7ef0edee : facgt d14, d15, d16                       : facgt  %d15 %d16 -> %d14
+7ef2ee30 : facgt d16, d17, d18                       : facgt  %d17 %d18 -> %d16
+7ef3ee51 : facgt d17, d18, d19                       : facgt  %d18 %d19 -> %d17
+7ef5ee93 : facgt d19, d20, d21                       : facgt  %d20 %d21 -> %d19
+7ef7eed5 : facgt d21, d22, d23                       : facgt  %d22 %d23 -> %d21
+7ef9ef17 : facgt d23, d24, d25                       : facgt  %d24 %d25 -> %d23
+7efbef59 : facgt d25, d26, d27                       : facgt  %d26 %d27 -> %d25
+7efdef9b : facgt d27, d28, d29                       : facgt  %d28 %d29 -> %d27
+7ee1ec1f : facgt d31, d0, d1                         : facgt  %d0 %d1 -> %d31
+
+# FACGE   <V><d>, <V><n>, <V><m>
+7e22ec20 : facge s0, s1, s2                          : facge  %s1 %s2 -> %s0
+7e24ec62 : facge s2, s3, s4                          : facge  %s3 %s4 -> %s2
+7e26eca4 : facge s4, s5, s6                          : facge  %s5 %s6 -> %s4
+7e28ece6 : facge s6, s7, s8                          : facge  %s7 %s8 -> %s6
+7e2aed28 : facge s8, s9, s10                         : facge  %s9 %s10 -> %s8
+7e2ced6a : facge s10, s11, s12                       : facge  %s11 %s12 -> %s10
+7e2eedac : facge s12, s13, s14                       : facge  %s13 %s14 -> %s12
+7e30edee : facge s14, s15, s16                       : facge  %s15 %s16 -> %s14
+7e32ee30 : facge s16, s17, s18                       : facge  %s17 %s18 -> %s16
+7e33ee51 : facge s17, s18, s19                       : facge  %s18 %s19 -> %s17
+7e35ee93 : facge s19, s20, s21                       : facge  %s20 %s21 -> %s19
+7e37eed5 : facge s21, s22, s23                       : facge  %s22 %s23 -> %s21
+7e39ef17 : facge s23, s24, s25                       : facge  %s24 %s25 -> %s23
+7e3bef59 : facge s25, s26, s27                       : facge  %s26 %s27 -> %s25
+7e3def9b : facge s27, s28, s29                       : facge  %s28 %s29 -> %s27
+7e21ec1f : facge s31, s0, s1                         : facge  %s0 %s1 -> %s31
+7e62ec20 : facge d0, d1, d2                          : facge  %d1 %d2 -> %d0
+7e64ec62 : facge d2, d3, d4                          : facge  %d3 %d4 -> %d2
+7e66eca4 : facge d4, d5, d6                          : facge  %d5 %d6 -> %d4
+7e68ece6 : facge d6, d7, d8                          : facge  %d7 %d8 -> %d6
+7e6aed28 : facge d8, d9, d10                         : facge  %d9 %d10 -> %d8
+7e6ced6a : facge d10, d11, d12                       : facge  %d11 %d12 -> %d10
+7e6eedac : facge d12, d13, d14                       : facge  %d13 %d14 -> %d12
+7e70edee : facge d14, d15, d16                       : facge  %d15 %d16 -> %d14
+7e72ee30 : facge d16, d17, d18                       : facge  %d17 %d18 -> %d16
+7e73ee51 : facge d17, d18, d19                       : facge  %d18 %d19 -> %d17
+7e75ee93 : facge d19, d20, d21                       : facge  %d20 %d21 -> %d19
+7e77eed5 : facge d21, d22, d23                       : facge  %d22 %d23 -> %d21
+7e79ef17 : facge d23, d24, d25                       : facge  %d24 %d25 -> %d23
+7e7bef59 : facge d25, d26, d27                       : facge  %d26 %d27 -> %d25
+7e7def9b : facge d27, d28, d29                       : facge  %d28 %d29 -> %d27
+7e61ec1f : facge d31, d0, d1                         : facge  %d0 %d1 -> %d31
+
+# FRINTX  <Vd>.<T>, <Vn>.<T>
+2e219820 : frintx v0.2s, v1.2s                       : frintx %d1 $0x02 -> %d0
+2e219862 : frintx v2.2s, v3.2s                       : frintx %d3 $0x02 -> %d2
+2e2198a4 : frintx v4.2s, v5.2s                       : frintx %d5 $0x02 -> %d4
+2e2198e6 : frintx v6.2s, v7.2s                       : frintx %d7 $0x02 -> %d6
+2e219928 : frintx v8.2s, v9.2s                       : frintx %d9 $0x02 -> %d8
+2e21996a : frintx v10.2s, v11.2s                     : frintx %d11 $0x02 -> %d10
+2e2199ac : frintx v12.2s, v13.2s                     : frintx %d13 $0x02 -> %d12
+2e2199ee : frintx v14.2s, v15.2s                     : frintx %d15 $0x02 -> %d14
+2e219a30 : frintx v16.2s, v17.2s                     : frintx %d17 $0x02 -> %d16
+2e219a51 : frintx v17.2s, v18.2s                     : frintx %d18 $0x02 -> %d17
+2e219a93 : frintx v19.2s, v20.2s                     : frintx %d20 $0x02 -> %d19
+2e219ad5 : frintx v21.2s, v22.2s                     : frintx %d22 $0x02 -> %d21
+2e219b17 : frintx v23.2s, v24.2s                     : frintx %d24 $0x02 -> %d23
+2e219b59 : frintx v25.2s, v26.2s                     : frintx %d26 $0x02 -> %d25
+2e219b9b : frintx v27.2s, v28.2s                     : frintx %d28 $0x02 -> %d27
+2e21981f : frintx v31.2s, v0.2s                      : frintx %d0 $0x02 -> %d31
+6e219820 : frintx v0.4s, v1.4s                       : frintx %q1 $0x02 -> %q0
+6e219862 : frintx v2.4s, v3.4s                       : frintx %q3 $0x02 -> %q2
+6e2198a4 : frintx v4.4s, v5.4s                       : frintx %q5 $0x02 -> %q4
+6e2198e6 : frintx v6.4s, v7.4s                       : frintx %q7 $0x02 -> %q6
+6e219928 : frintx v8.4s, v9.4s                       : frintx %q9 $0x02 -> %q8
+6e21996a : frintx v10.4s, v11.4s                     : frintx %q11 $0x02 -> %q10
+6e2199ac : frintx v12.4s, v13.4s                     : frintx %q13 $0x02 -> %q12
+6e2199ee : frintx v14.4s, v15.4s                     : frintx %q15 $0x02 -> %q14
+6e219a30 : frintx v16.4s, v17.4s                     : frintx %q17 $0x02 -> %q16
+6e219a51 : frintx v17.4s, v18.4s                     : frintx %q18 $0x02 -> %q17
+6e219a93 : frintx v19.4s, v20.4s                     : frintx %q20 $0x02 -> %q19
+6e219ad5 : frintx v21.4s, v22.4s                     : frintx %q22 $0x02 -> %q21
+6e219b17 : frintx v23.4s, v24.4s                     : frintx %q24 $0x02 -> %q23
+6e219b59 : frintx v25.4s, v26.4s                     : frintx %q26 $0x02 -> %q25
+6e219b9b : frintx v27.4s, v28.4s                     : frintx %q28 $0x02 -> %q27
+6e21981f : frintx v31.4s, v0.4s                      : frintx %q0 $0x02 -> %q31
+6e619820 : frintx v0.2d, v1.2d                       : frintx %q1 $0x03 -> %q0
+6e619862 : frintx v2.2d, v3.2d                       : frintx %q3 $0x03 -> %q2
+6e6198a4 : frintx v4.2d, v5.2d                       : frintx %q5 $0x03 -> %q4
+6e6198e6 : frintx v6.2d, v7.2d                       : frintx %q7 $0x03 -> %q6
+6e619928 : frintx v8.2d, v9.2d                       : frintx %q9 $0x03 -> %q8
+6e61996a : frintx v10.2d, v11.2d                     : frintx %q11 $0x03 -> %q10
+6e6199ac : frintx v12.2d, v13.2d                     : frintx %q13 $0x03 -> %q12
+6e6199ee : frintx v14.2d, v15.2d                     : frintx %q15 $0x03 -> %q14
+6e619a30 : frintx v16.2d, v17.2d                     : frintx %q17 $0x03 -> %q16
+6e619a51 : frintx v17.2d, v18.2d                     : frintx %q18 $0x03 -> %q17
+6e619a93 : frintx v19.2d, v20.2d                     : frintx %q20 $0x03 -> %q19
+6e619ad5 : frintx v21.2d, v22.2d                     : frintx %q22 $0x03 -> %q21
+6e619b17 : frintx v23.2d, v24.2d                     : frintx %q24 $0x03 -> %q23
+6e619b59 : frintx v25.2d, v26.2d                     : frintx %q26 $0x03 -> %q25
+6e619b9b : frintx v27.2d, v28.2d                     : frintx %q28 $0x03 -> %q27
+6e61981f : frintx v31.2d, v0.2d                      : frintx %q0 $0x03 -> %q31
+
+# FCMGE   <V><d>, <V><n>, <V><m>
+7e22e420 : fcmge s0, s1, s2                          : fcmge  %s1 %s2 -> %s0
+7e24e462 : fcmge s2, s3, s4                          : fcmge  %s3 %s4 -> %s2
+7e26e4a4 : fcmge s4, s5, s6                          : fcmge  %s5 %s6 -> %s4
+7e28e4e6 : fcmge s6, s7, s8                          : fcmge  %s7 %s8 -> %s6
+7e2ae528 : fcmge s8, s9, s10                         : fcmge  %s9 %s10 -> %s8
+7e2ce56a : fcmge s10, s11, s12                       : fcmge  %s11 %s12 -> %s10
+7e2ee5ac : fcmge s12, s13, s14                       : fcmge  %s13 %s14 -> %s12
+7e30e5ee : fcmge s14, s15, s16                       : fcmge  %s15 %s16 -> %s14
+7e32e630 : fcmge s16, s17, s18                       : fcmge  %s17 %s18 -> %s16
+7e33e651 : fcmge s17, s18, s19                       : fcmge  %s18 %s19 -> %s17
+7e35e693 : fcmge s19, s20, s21                       : fcmge  %s20 %s21 -> %s19
+7e37e6d5 : fcmge s21, s22, s23                       : fcmge  %s22 %s23 -> %s21
+7e39e717 : fcmge s23, s24, s25                       : fcmge  %s24 %s25 -> %s23
+7e3be759 : fcmge s25, s26, s27                       : fcmge  %s26 %s27 -> %s25
+7e3de79b : fcmge s27, s28, s29                       : fcmge  %s28 %s29 -> %s27
+7e21e41f : fcmge s31, s0, s1                         : fcmge  %s0 %s1 -> %s31
+7e62e420 : fcmge d0, d1, d2                          : fcmge  %d1 %d2 -> %d0
+7e64e462 : fcmge d2, d3, d4                          : fcmge  %d3 %d4 -> %d2
+7e66e4a4 : fcmge d4, d5, d6                          : fcmge  %d5 %d6 -> %d4
+7e68e4e6 : fcmge d6, d7, d8                          : fcmge  %d7 %d8 -> %d6
+7e6ae528 : fcmge d8, d9, d10                         : fcmge  %d9 %d10 -> %d8
+7e6ce56a : fcmge d10, d11, d12                       : fcmge  %d11 %d12 -> %d10
+7e6ee5ac : fcmge d12, d13, d14                       : fcmge  %d13 %d14 -> %d12
+7e70e5ee : fcmge d14, d15, d16                       : fcmge  %d15 %d16 -> %d14
+7e72e630 : fcmge d16, d17, d18                       : fcmge  %d17 %d18 -> %d16
+7e73e651 : fcmge d17, d18, d19                       : fcmge  %d18 %d19 -> %d17
+7e75e693 : fcmge d19, d20, d21                       : fcmge  %d20 %d21 -> %d19
+7e77e6d5 : fcmge d21, d22, d23                       : fcmge  %d22 %d23 -> %d21
+7e79e717 : fcmge d23, d24, d25                       : fcmge  %d24 %d25 -> %d23
+7e7be759 : fcmge d25, d26, d27                       : fcmge  %d26 %d27 -> %d25
+7e7de79b : fcmge d27, d28, d29                       : fcmge  %d28 %d29 -> %d27
+7e61e41f : fcmge d31, d0, d1                         : fcmge  %d0 %d1 -> %d31
+
+# FRINTI  <Vd>.<T>, <Vn>.<T>
+2ea19820 : frinti v0.2s, v1.2s                       : frinti %d1 $0x02 -> %d0
+2ea19862 : frinti v2.2s, v3.2s                       : frinti %d3 $0x02 -> %d2
+2ea198a4 : frinti v4.2s, v5.2s                       : frinti %d5 $0x02 -> %d4
+2ea198e6 : frinti v6.2s, v7.2s                       : frinti %d7 $0x02 -> %d6
+2ea19928 : frinti v8.2s, v9.2s                       : frinti %d9 $0x02 -> %d8
+2ea1996a : frinti v10.2s, v11.2s                     : frinti %d11 $0x02 -> %d10
+2ea199ac : frinti v12.2s, v13.2s                     : frinti %d13 $0x02 -> %d12
+2ea199ee : frinti v14.2s, v15.2s                     : frinti %d15 $0x02 -> %d14
+2ea19a30 : frinti v16.2s, v17.2s                     : frinti %d17 $0x02 -> %d16
+2ea19a51 : frinti v17.2s, v18.2s                     : frinti %d18 $0x02 -> %d17
+2ea19a93 : frinti v19.2s, v20.2s                     : frinti %d20 $0x02 -> %d19
+2ea19ad5 : frinti v21.2s, v22.2s                     : frinti %d22 $0x02 -> %d21
+2ea19b17 : frinti v23.2s, v24.2s                     : frinti %d24 $0x02 -> %d23
+2ea19b59 : frinti v25.2s, v26.2s                     : frinti %d26 $0x02 -> %d25
+2ea19b9b : frinti v27.2s, v28.2s                     : frinti %d28 $0x02 -> %d27
+2ea1981f : frinti v31.2s, v0.2s                      : frinti %d0 $0x02 -> %d31
+6ea19820 : frinti v0.4s, v1.4s                       : frinti %q1 $0x02 -> %q0
+6ea19862 : frinti v2.4s, v3.4s                       : frinti %q3 $0x02 -> %q2
+6ea198a4 : frinti v4.4s, v5.4s                       : frinti %q5 $0x02 -> %q4
+6ea198e6 : frinti v6.4s, v7.4s                       : frinti %q7 $0x02 -> %q6
+6ea19928 : frinti v8.4s, v9.4s                       : frinti %q9 $0x02 -> %q8
+6ea1996a : frinti v10.4s, v11.4s                     : frinti %q11 $0x02 -> %q10
+6ea199ac : frinti v12.4s, v13.4s                     : frinti %q13 $0x02 -> %q12
+6ea199ee : frinti v14.4s, v15.4s                     : frinti %q15 $0x02 -> %q14
+6ea19a30 : frinti v16.4s, v17.4s                     : frinti %q17 $0x02 -> %q16
+6ea19a51 : frinti v17.4s, v18.4s                     : frinti %q18 $0x02 -> %q17
+6ea19a93 : frinti v19.4s, v20.4s                     : frinti %q20 $0x02 -> %q19
+6ea19ad5 : frinti v21.4s, v22.4s                     : frinti %q22 $0x02 -> %q21
+6ea19b17 : frinti v23.4s, v24.4s                     : frinti %q24 $0x02 -> %q23
+6ea19b59 : frinti v25.4s, v26.4s                     : frinti %q26 $0x02 -> %q25
+6ea19b9b : frinti v27.4s, v28.4s                     : frinti %q28 $0x02 -> %q27
+6ea1981f : frinti v31.4s, v0.4s                      : frinti %q0 $0x02 -> %q31
+6ee19820 : frinti v0.2d, v1.2d                       : frinti %q1 $0x03 -> %q0
+6ee19862 : frinti v2.2d, v3.2d                       : frinti %q3 $0x03 -> %q2
+6ee198a4 : frinti v4.2d, v5.2d                       : frinti %q5 $0x03 -> %q4
+6ee198e6 : frinti v6.2d, v7.2d                       : frinti %q7 $0x03 -> %q6
+6ee19928 : frinti v8.2d, v9.2d                       : frinti %q9 $0x03 -> %q8
+6ee1996a : frinti v10.2d, v11.2d                     : frinti %q11 $0x03 -> %q10
+6ee199ac : frinti v12.2d, v13.2d                     : frinti %q13 $0x03 -> %q12
+6ee199ee : frinti v14.2d, v15.2d                     : frinti %q15 $0x03 -> %q14
+6ee19a30 : frinti v16.2d, v17.2d                     : frinti %q17 $0x03 -> %q16
+6ee19a51 : frinti v17.2d, v18.2d                     : frinti %q18 $0x03 -> %q17
+6ee19a93 : frinti v19.2d, v20.2d                     : frinti %q20 $0x03 -> %q19
+6ee19ad5 : frinti v21.2d, v22.2d                     : frinti %q22 $0x03 -> %q21
+6ee19b17 : frinti v23.2d, v24.2d                     : frinti %q24 $0x03 -> %q23
+6ee19b59 : frinti v25.2d, v26.2d                     : frinti %q26 $0x03 -> %q25
+6ee19b9b : frinti v27.2d, v28.2d                     : frinti %q28 $0x03 -> %q27
+6ee1981f : frinti v31.2d, v0.2d                      : frinti %q0 $0x03 -> %q31
+
+# FRSQRTS <V><d>, <V><n>, <V><m>
+5ea2fc20 : frsqrts s0, s1, s2                        : frsqrts %s1 %s2 -> %s0
+5ea4fc62 : frsqrts s2, s3, s4                        : frsqrts %s3 %s4 -> %s2
+5ea6fca4 : frsqrts s4, s5, s6                        : frsqrts %s5 %s6 -> %s4
+5ea8fce6 : frsqrts s6, s7, s8                        : frsqrts %s7 %s8 -> %s6
+5eaafd28 : frsqrts s8, s9, s10                       : frsqrts %s9 %s10 -> %s8
+5eacfd6a : frsqrts s10, s11, s12                     : frsqrts %s11 %s12 -> %s10
+5eaefdac : frsqrts s12, s13, s14                     : frsqrts %s13 %s14 -> %s12
+5eb0fdee : frsqrts s14, s15, s16                     : frsqrts %s15 %s16 -> %s14
+5eb2fe30 : frsqrts s16, s17, s18                     : frsqrts %s17 %s18 -> %s16
+5eb3fe51 : frsqrts s17, s18, s19                     : frsqrts %s18 %s19 -> %s17
+5eb5fe93 : frsqrts s19, s20, s21                     : frsqrts %s20 %s21 -> %s19
+5eb7fed5 : frsqrts s21, s22, s23                     : frsqrts %s22 %s23 -> %s21
+5eb9ff17 : frsqrts s23, s24, s25                     : frsqrts %s24 %s25 -> %s23
+5ebbff59 : frsqrts s25, s26, s27                     : frsqrts %s26 %s27 -> %s25
+5ebdff9b : frsqrts s27, s28, s29                     : frsqrts %s28 %s29 -> %s27
+5ea1fc1f : frsqrts s31, s0, s1                       : frsqrts %s0 %s1 -> %s31
+5ee2fc20 : frsqrts d0, d1, d2                        : frsqrts %d1 %d2 -> %d0
+5ee4fc62 : frsqrts d2, d3, d4                        : frsqrts %d3 %d4 -> %d2
+5ee6fca4 : frsqrts d4, d5, d6                        : frsqrts %d5 %d6 -> %d4
+5ee8fce6 : frsqrts d6, d7, d8                        : frsqrts %d7 %d8 -> %d6
+5eeafd28 : frsqrts d8, d9, d10                       : frsqrts %d9 %d10 -> %d8
+5eecfd6a : frsqrts d10, d11, d12                     : frsqrts %d11 %d12 -> %d10
+5eeefdac : frsqrts d12, d13, d14                     : frsqrts %d13 %d14 -> %d12
+5ef0fdee : frsqrts d14, d15, d16                     : frsqrts %d15 %d16 -> %d14
+5ef2fe30 : frsqrts d16, d17, d18                     : frsqrts %d17 %d18 -> %d16
+5ef3fe51 : frsqrts d17, d18, d19                     : frsqrts %d18 %d19 -> %d17
+5ef5fe93 : frsqrts d19, d20, d21                     : frsqrts %d20 %d21 -> %d19
+5ef7fed5 : frsqrts d21, d22, d23                     : frsqrts %d22 %d23 -> %d21
+5ef9ff17 : frsqrts d23, d24, d25                     : frsqrts %d24 %d25 -> %d23
+5efbff59 : frsqrts d25, d26, d27                     : frsqrts %d26 %d27 -> %d25
+5efdff9b : frsqrts d27, d28, d29                     : frsqrts %d28 %d29 -> %d27
+5ee1fc1f : frsqrts d31, d0, d1                       : frsqrts %d0 %d1 -> %d31
+
+# FRINTN  <Vd>.<T>, <Vn>.<T>
+0e218820 : frintn v0.2s, v1.2s                       : frintn %d1 $0x02 -> %d0
+0e218862 : frintn v2.2s, v3.2s                       : frintn %d3 $0x02 -> %d2
+0e2188a4 : frintn v4.2s, v5.2s                       : frintn %d5 $0x02 -> %d4
+0e2188e6 : frintn v6.2s, v7.2s                       : frintn %d7 $0x02 -> %d6
+0e218928 : frintn v8.2s, v9.2s                       : frintn %d9 $0x02 -> %d8
+0e21896a : frintn v10.2s, v11.2s                     : frintn %d11 $0x02 -> %d10
+0e2189ac : frintn v12.2s, v13.2s                     : frintn %d13 $0x02 -> %d12
+0e2189ee : frintn v14.2s, v15.2s                     : frintn %d15 $0x02 -> %d14
+0e218a30 : frintn v16.2s, v17.2s                     : frintn %d17 $0x02 -> %d16
+0e218a51 : frintn v17.2s, v18.2s                     : frintn %d18 $0x02 -> %d17
+0e218a93 : frintn v19.2s, v20.2s                     : frintn %d20 $0x02 -> %d19
+0e218ad5 : frintn v21.2s, v22.2s                     : frintn %d22 $0x02 -> %d21
+0e218b17 : frintn v23.2s, v24.2s                     : frintn %d24 $0x02 -> %d23
+0e218b59 : frintn v25.2s, v26.2s                     : frintn %d26 $0x02 -> %d25
+0e218b9b : frintn v27.2s, v28.2s                     : frintn %d28 $0x02 -> %d27
+0e21881f : frintn v31.2s, v0.2s                      : frintn %d0 $0x02 -> %d31
+4e218820 : frintn v0.4s, v1.4s                       : frintn %q1 $0x02 -> %q0
+4e218862 : frintn v2.4s, v3.4s                       : frintn %q3 $0x02 -> %q2
+4e2188a4 : frintn v4.4s, v5.4s                       : frintn %q5 $0x02 -> %q4
+4e2188e6 : frintn v6.4s, v7.4s                       : frintn %q7 $0x02 -> %q6
+4e218928 : frintn v8.4s, v9.4s                       : frintn %q9 $0x02 -> %q8
+4e21896a : frintn v10.4s, v11.4s                     : frintn %q11 $0x02 -> %q10
+4e2189ac : frintn v12.4s, v13.4s                     : frintn %q13 $0x02 -> %q12
+4e2189ee : frintn v14.4s, v15.4s                     : frintn %q15 $0x02 -> %q14
+4e218a30 : frintn v16.4s, v17.4s                     : frintn %q17 $0x02 -> %q16
+4e218a51 : frintn v17.4s, v18.4s                     : frintn %q18 $0x02 -> %q17
+4e218a93 : frintn v19.4s, v20.4s                     : frintn %q20 $0x02 -> %q19
+4e218ad5 : frintn v21.4s, v22.4s                     : frintn %q22 $0x02 -> %q21
+4e218b17 : frintn v23.4s, v24.4s                     : frintn %q24 $0x02 -> %q23
+4e218b59 : frintn v25.4s, v26.4s                     : frintn %q26 $0x02 -> %q25
+4e218b9b : frintn v27.4s, v28.4s                     : frintn %q28 $0x02 -> %q27
+4e21881f : frintn v31.4s, v0.4s                      : frintn %q0 $0x02 -> %q31
+4e618820 : frintn v0.2d, v1.2d                       : frintn %q1 $0x03 -> %q0
+4e618862 : frintn v2.2d, v3.2d                       : frintn %q3 $0x03 -> %q2
+4e6188a4 : frintn v4.2d, v5.2d                       : frintn %q5 $0x03 -> %q4
+4e6188e6 : frintn v6.2d, v7.2d                       : frintn %q7 $0x03 -> %q6
+4e618928 : frintn v8.2d, v9.2d                       : frintn %q9 $0x03 -> %q8
+4e61896a : frintn v10.2d, v11.2d                     : frintn %q11 $0x03 -> %q10
+4e6189ac : frintn v12.2d, v13.2d                     : frintn %q13 $0x03 -> %q12
+4e6189ee : frintn v14.2d, v15.2d                     : frintn %q15 $0x03 -> %q14
+4e618a30 : frintn v16.2d, v17.2d                     : frintn %q17 $0x03 -> %q16
+4e618a51 : frintn v17.2d, v18.2d                     : frintn %q18 $0x03 -> %q17
+4e618a93 : frintn v19.2d, v20.2d                     : frintn %q20 $0x03 -> %q19
+4e618ad5 : frintn v21.2d, v22.2d                     : frintn %q22 $0x03 -> %q21
+4e618b17 : frintn v23.2d, v24.2d                     : frintn %q24 $0x03 -> %q23
+4e618b59 : frintn v25.2d, v26.2d                     : frintn %q26 $0x03 -> %q25
+4e618b9b : frintn v27.2d, v28.2d                     : frintn %q28 $0x03 -> %q27
+4e61881f : frintn v31.2d, v0.2d                      : frintn %q0 $0x03 -> %q31
+
+# FRECPS  <V><d>, <V><n>, <V><m>
+5e22fc20 : frecps s0, s1, s2                         : frecps %s1 %s2 -> %s0
+5e24fc62 : frecps s2, s3, s4                         : frecps %s3 %s4 -> %s2
+5e26fca4 : frecps s4, s5, s6                         : frecps %s5 %s6 -> %s4
+5e28fce6 : frecps s6, s7, s8                         : frecps %s7 %s8 -> %s6
+5e2afd28 : frecps s8, s9, s10                        : frecps %s9 %s10 -> %s8
+5e2cfd6a : frecps s10, s11, s12                      : frecps %s11 %s12 -> %s10
+5e2efdac : frecps s12, s13, s14                      : frecps %s13 %s14 -> %s12
+5e30fdee : frecps s14, s15, s16                      : frecps %s15 %s16 -> %s14
+5e32fe30 : frecps s16, s17, s18                      : frecps %s17 %s18 -> %s16
+5e33fe51 : frecps s17, s18, s19                      : frecps %s18 %s19 -> %s17
+5e35fe93 : frecps s19, s20, s21                      : frecps %s20 %s21 -> %s19
+5e37fed5 : frecps s21, s22, s23                      : frecps %s22 %s23 -> %s21
+5e39ff17 : frecps s23, s24, s25                      : frecps %s24 %s25 -> %s23
+5e3bff59 : frecps s25, s26, s27                      : frecps %s26 %s27 -> %s25
+5e3dff9b : frecps s27, s28, s29                      : frecps %s28 %s29 -> %s27
+5e21fc1f : frecps s31, s0, s1                        : frecps %s0 %s1 -> %s31
+5e62fc20 : frecps d0, d1, d2                         : frecps %d1 %d2 -> %d0
+5e64fc62 : frecps d2, d3, d4                         : frecps %d3 %d4 -> %d2
+5e66fca4 : frecps d4, d5, d6                         : frecps %d5 %d6 -> %d4
+5e68fce6 : frecps d6, d7, d8                         : frecps %d7 %d8 -> %d6
+5e6afd28 : frecps d8, d9, d10                        : frecps %d9 %d10 -> %d8
+5e6cfd6a : frecps d10, d11, d12                      : frecps %d11 %d12 -> %d10
+5e6efdac : frecps d12, d13, d14                      : frecps %d13 %d14 -> %d12
+5e70fdee : frecps d14, d15, d16                      : frecps %d15 %d16 -> %d14
+5e72fe30 : frecps d16, d17, d18                      : frecps %d17 %d18 -> %d16
+5e73fe51 : frecps d17, d18, d19                      : frecps %d18 %d19 -> %d17
+5e75fe93 : frecps d19, d20, d21                      : frecps %d20 %d21 -> %d19
+5e77fed5 : frecps d21, d22, d23                      : frecps %d22 %d23 -> %d21
+5e79ff17 : frecps d23, d24, d25                      : frecps %d24 %d25 -> %d23
+5e7bff59 : frecps d25, d26, d27                      : frecps %d26 %d27 -> %d25
+5e7dff9b : frecps d27, d28, d29                      : frecps %d28 %d29 -> %d27
+5e61fc1f : frecps d31, d0, d1                        : frecps %d0 %d1 -> %d31
+
+# FCMEQ   <V><d>, <V><n>, <V><m>
+5e22e420 : fcmeq s0, s1, s2                          : fcmeq  %s1 %s2 -> %s0
+5e24e462 : fcmeq s2, s3, s4                          : fcmeq  %s3 %s4 -> %s2
+5e26e4a4 : fcmeq s4, s5, s6                          : fcmeq  %s5 %s6 -> %s4
+5e28e4e6 : fcmeq s6, s7, s8                          : fcmeq  %s7 %s8 -> %s6
+5e2ae528 : fcmeq s8, s9, s10                         : fcmeq  %s9 %s10 -> %s8
+5e2ce56a : fcmeq s10, s11, s12                       : fcmeq  %s11 %s12 -> %s10
+5e2ee5ac : fcmeq s12, s13, s14                       : fcmeq  %s13 %s14 -> %s12
+5e30e5ee : fcmeq s14, s15, s16                       : fcmeq  %s15 %s16 -> %s14
+5e32e630 : fcmeq s16, s17, s18                       : fcmeq  %s17 %s18 -> %s16
+5e33e651 : fcmeq s17, s18, s19                       : fcmeq  %s18 %s19 -> %s17
+5e35e693 : fcmeq s19, s20, s21                       : fcmeq  %s20 %s21 -> %s19
+5e37e6d5 : fcmeq s21, s22, s23                       : fcmeq  %s22 %s23 -> %s21
+5e39e717 : fcmeq s23, s24, s25                       : fcmeq  %s24 %s25 -> %s23
+5e3be759 : fcmeq s25, s26, s27                       : fcmeq  %s26 %s27 -> %s25
+5e3de79b : fcmeq s27, s28, s29                       : fcmeq  %s28 %s29 -> %s27
+5e21e41f : fcmeq s31, s0, s1                         : fcmeq  %s0 %s1 -> %s31
+5e62e420 : fcmeq d0, d1, d2                          : fcmeq  %d1 %d2 -> %d0
+5e64e462 : fcmeq d2, d3, d4                          : fcmeq  %d3 %d4 -> %d2
+5e66e4a4 : fcmeq d4, d5, d6                          : fcmeq  %d5 %d6 -> %d4
+5e68e4e6 : fcmeq d6, d7, d8                          : fcmeq  %d7 %d8 -> %d6
+5e6ae528 : fcmeq d8, d9, d10                         : fcmeq  %d9 %d10 -> %d8
+5e6ce56a : fcmeq d10, d11, d12                       : fcmeq  %d11 %d12 -> %d10
+5e6ee5ac : fcmeq d12, d13, d14                       : fcmeq  %d13 %d14 -> %d12
+5e70e5ee : fcmeq d14, d15, d16                       : fcmeq  %d15 %d16 -> %d14
+5e72e630 : fcmeq d16, d17, d18                       : fcmeq  %d17 %d18 -> %d16
+5e73e651 : fcmeq d17, d18, d19                       : fcmeq  %d18 %d19 -> %d17
+5e75e693 : fcmeq d19, d20, d21                       : fcmeq  %d20 %d21 -> %d19
+5e77e6d5 : fcmeq d21, d22, d23                       : fcmeq  %d22 %d23 -> %d21
+5e79e717 : fcmeq d23, d24, d25                       : fcmeq  %d24 %d25 -> %d23
+5e7be759 : fcmeq d25, d26, d27                       : fcmeq  %d26 %d27 -> %d25
+5e7de79b : fcmeq d27, d28, d29                       : fcmeq  %d28 %d29 -> %d27
+5e61e41f : fcmeq d31, d0, d1                         : fcmeq  %d0 %d1 -> %d31
