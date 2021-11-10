@@ -57,7 +57,7 @@ for reporting the dynamic execution count of all basic blocks.
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/bbsize.c">bbsize.c</a>
 collects statistics on the sizes of all basic blocks in the target application.
 
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/callstack.c">callstack.c</a> walks the application callstack at a given function entry point.
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/callstack.cpp">callstack.cpp</a> walks the application callstack at a given function entry point.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/cbr.c">cbr.c</a> collects conditional branch
 execution information and shows how to dynamically
@@ -110,6 +110,10 @@ is provided as an example client that illustrates how to gather a memory
 trace in a simple, cross-platform way.  It is much slower than
 memtrace_x86_binary, however.
 
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memval_simple.c">memval_simple.c</a>
+is provided as an example client that illustrates how to gather a memory
+trace of stored addresses and the values being stored.
+
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/memtrace_x86.c">memtrace_x86.c</a>
 is provided as an example client that illustrates how to create a private
 code cache and perform lean procedure calls.  It is compiled into two
@@ -127,7 +131,7 @@ are executed.
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer.c">modxfer.c</a>
 reports the control flow transfers between modules.
 
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer.c">modxfer_app2lib.c</a>
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/modxfer_app2lib.c">modxfer_app2lib.c</a>
 reports the control flow transfers between the application executable and
 other dynamic libraries and modules.
 It illustrates how to perform performant clean calls on different modules.
@@ -142,7 +146,10 @@ processor types.
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/signal.c">signal.c</a> demonstrates how to
 use the signal event.
 
-The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/stl_test.c">stl_test.c</a> is provided
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/statecmp.c">statecmp.c</a> demonstrates how to
+use the drstatecmp instrumentation testing library.
+
+The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/stl_test.cpp">stl_test.cpp</a> is provided
 as an example client that uses C++ STL containers.
 
 The sample <a href="https://github.com/DynamoRIO/dynamorio/tree/master/api/samples/syscall.c">syscall.c</a> displays how to
