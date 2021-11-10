@@ -1451,13 +1451,25 @@ x0011010110xxxxx000010xxxxxxxxxx  n   511       udiv            wx0 : wx5 wx16
 00101110xx1xxxxx110000xxxxxxxxxx  n   529      umull             q0 : d5 d16 bhs_sz
 01101110xx1xxxxx110000xxxxxxxxxx  n   530     umull2             q0 : q5 q16 bhs_sz
 0x101110xx1xxxxx000011xxxxxxxxxx  n   531      uqadd            dq0 : dq5 dq16 bhsd_sz
+01111110001xxxxx000011xxxxxxxxxx  n   531      uqadd             b0 : b5 b16
+01111110011xxxxx000011xxxxxxxxxx  n   531      uqadd             h0 : h5 h16
+01111110101xxxxx000011xxxxxxxxxx  n   531      uqadd             s0 : s5 s16
+01111110111xxxxx000011xxxxxxxxxx  n   531      uqadd             d0 : d5 d16
 0x101110xx1xxxxx010111xxxxxxxxxx  n   532     uqrshl            dq0 : dq5 dq16 bhsd_sz
+01111110001xxxxx010111xxxxxxxxxx  n   532     uqrshl             b0 : b5 b16
+01111110011xxxxx010111xxxxxxxxxx  n   532     uqrshl             h0 : h5 h16
+01111110101xxxxx010111xxxxxxxxxx  n   532     uqrshl             s0 : s5 s16
+01111110111xxxxx010111xxxxxxxxxx  n   532     uqrshl             d0 : d5 d16
 0010111100xxxxxx100111xxxxxxxxxx  n   533    uqrshrn             d0 : q5 hsd_immh_sz immhb_shf
 0110111100xxxxxx100111xxxxxxxxxx  n   534   uqrshrn2             q0 : q5 hsd_immh_sz immhb_shf
 0x101110xx1xxxxx010011xxxxxxxxxx  n   535      uqshl            dq0 : dq5 dq16 bhsd_sz
 001011110xxxxxxx100101xxxxxxxxxx  n   536     uqshrn             d0 : q5 hsd_immh_sz immhb_shf
 011011110xxxxxxx100101xxxxxxxxxx  n   537    uqshrn2             q0 : q5 hsd_immh_sz immhb_shf
 0x101110xx1xxxxx001011xxxxxxxxxx  n   538      uqsub            dq0 : dq5 dq16 bhsd_sz
+01111110001xxxxx001011xxxxxxxxxx  n   538      uqsub             b0 : b5 b16
+01111110011xxxxx001011xxxxxxxxxx  n   538      uqsub             h0 : h5 h16
+01111110101xxxxx001011xxxxxxxxxx  n   538      uqsub             s0 : s5 s16
+01111110111xxxxx001011xxxxxxxxxx  n   538      uqsub             d0 : d5 d16
 0111111000100001010010xxxxxxxxxx  n   539      uqxtn             b0 : h5
 0111111001100001010010xxxxxxxxxx  n   539      uqxtn             h0 : s5
 0111111010100001010010xxxxxxxxxx  n   539      uqxtn             s0 : d5
@@ -1466,11 +1478,13 @@ x0011010110xxxxx000010xxxxxxxxxx  n   511       udiv            wx0 : wx5 wx16
 0x0011101x100001110010xxxxxxxxxx  n   541     urecpe            dq0 : dq5 sd_sz
 0x101110xx1xxxxx000101xxxxxxxxxx  n   542     urhadd            dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx010101xxxxxxxxxx  n   543      urshl            dq0 : dq5 dq16 bhsd_sz
+01111110111xxxxx010101xxxxxxxxxx  n   543      urshl             d0 : d5 d16
 0x1011110xxxxxxx001001xxxxxxxxxx  n   544      urshr            dq0 : dq5 bhsd_immh_sz immhb_shf
 0x10111010100001110010xxxxxxxxxx  n   545    ursqrte            dq0 : dq5 sd_sz
 0111111101xxxxxx001101xxxxxxxxxx  n   546      ursra             d0 : d5 immhb_shf
 0x1011110xxxxxxx001101xxxxxxxxxx  n   546      ursra            dq0 : dq5 bhsd_immh_sz immhb_shf
 0x101110xx1xxxxx010001xxxxxxxxxx  n   547       ushl            dq0 : dq5 dq16 bhsd_sz
+01111110111xxxxx010001xxxxxxxxxx  n   547       ushl             d0 : d5 d16
 0010111100xxxxxx101001xxxxxxxxxx  n   548      ushll             q0 : d5 bhsd_immh_sz immhb_0shf
 0110111100xxxxxx101001xxxxxxxxxx  n   549     ushll2             q0 : q5 bhsd_immh_sz immhb_0shf
 0111111101xxxxxx000001xxxxxxxxxx  n   550       ushr             d0 : d5 immhb_shf
