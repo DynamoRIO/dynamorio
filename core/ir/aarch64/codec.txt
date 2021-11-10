@@ -1147,7 +1147,15 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363       sdiv            wx0 : wx5 wx16
 0101111101xxxxxx1100x0xxxxxxxxxx  n   408    sqdmulh             h0 : h5 dq16_h_sz vindex_H h_sz
 010111111xxxxxxx1100x0xxxxxxxxxx  n   408    sqdmulh             s0 : s5 dq16 vindex_SD sd_sz
 00001110xx1xxxxx110100xxxxxxxxxx  n   409    sqdmull             q0 : d5 d16 hs_sz
+0000111101xxxxxx1011x0xxxxxxxxxx  n   409    sqdmull             q0 : d5 dq16_h_sz vindex_H hs_sz
+0000111110xxxxxx1011x0xxxxxxxxxx  n   409    sqdmull             q0 : d5 dq16 vindex_SD sd_sz
+0101111101xxxxxx1011x0xxxxxxxxxx  n   409    sqdmull             s0 : h5 dq16_h_sz vindex_H hs_sz
+0101111110xxxxxx1011x0xxxxxxxxxx  n   409    sqdmull             d0 : s5 dq16 vindex_SD sd_sz
+01011110011xxxxx110100xxxxxxxxxx  n   409    sqdmull             s0 : h5 h16
+01011110101xxxxx110100xxxxxxxxxx  n   409    sqdmull             d0 : s5 s16
 01001110xx1xxxxx110100xxxxxxxxxx  n   410   sqdmull2             q0 : q5 q16 hs_sz
+0100111101xxxxxx1011x0xxxxxxxxxx  n   410   sqdmull2             q0 : q5 dq16_h_sz vindex_H hs_sz
+0100111110xxxxxx1011x0xxxxxxxxxx  n   410   sqdmull2             q0 : q5 dq16 vindex_SD sd_sz
 0111111000100000011110xxxxxxxxxx  n   411      sqneg             b0 : b5
 0111111001100000011110xxxxxxxxxx  n   411      sqneg             h0 : h5
 0111111010100000011110xxxxxxxxxx  n   411      sqneg             s0 : s5
@@ -1449,7 +1457,11 @@ x0011010110xxxxx000010xxxxxxxxxx  n   511       udiv            wx0 : wx5 wx16
 10011011101xxxxx1xxxxxxxxxxxxxxx  n   527     umsubl             x0 : w5 w16 x10
 10011011110xxxxx0xxxxxxxxxxxxxxx  n   528      umulh             x0 : x5 x16 ign10
 00101110xx1xxxxx110000xxxxxxxxxx  n   529      umull             q0 : d5 d16 bhs_sz
+0010111101xxxxxx1010x0xxxxxxxxxx  n   529      umull             q0 : d5 dq16_h_sz vindex_H hs_sz
+0010111110xxxxxx1010x0xxxxxxxxxx  n   529      umull             q0 : d5 dq16 vindex_SD sd_sz
 01101110xx1xxxxx110000xxxxxxxxxx  n   530     umull2             q0 : q5 q16 bhs_sz
+0110111101xxxxxx1010x0xxxxxxxxxx  n   530     umull2             q0 : q5 dq16_h_sz vindex_H hs_sz
+0110111110xxxxxx1010x0xxxxxxxxxx  n   530     umull2             q0 : q5 dq16 vindex_SD sd_sz
 0x101110xx1xxxxx000011xxxxxxxxxx  n   531      uqadd            dq0 : dq5 dq16 bhsd_sz
 01111110001xxxxx000011xxxxxxxxxx  n   531      uqadd             b0 : b5 b16
 01111110011xxxxx000011xxxxxxxxxx  n   531      uqadd             h0 : h5 h16
