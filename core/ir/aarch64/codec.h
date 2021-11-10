@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2021 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,15 @@
 #include "decode_private.h"
 
 #define ENCFAIL (uint)0xFFFFFFFF /* a value that is not a valid instruction */
+
+typedef enum {
+    BYTE_REG = 0,
+    HALF_REG = 1,
+    SINGLE_REG = 2,
+    DOUBLE_REG = 3,
+    QUAD_REG = 4,
+    NOT_A_REG = DR_REG_INVALID
+} aarch64_reg_offset;
 
 byte *
 decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr);
