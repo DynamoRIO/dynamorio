@@ -572,7 +572,8 @@ on Windows (see \ref sec_alertable).  While most non-graphical
 non-alertable Windows API routines are supported, native threading libraries
 such as \p libpthread.so on Linux are known to cause problems.
 
-Currently we provide a private loader for both Windows and Linux.
+Currently we provide a private loader for both Windows and Linux which
+supplies support for client external library use.
 Clients must either link statically to all libraries or load them using
 our private loader, which will happen automatically for shared libraries
 loaded in a typical manner.
