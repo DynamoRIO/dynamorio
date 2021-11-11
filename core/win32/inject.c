@@ -1142,7 +1142,8 @@ generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
 static uint64
 inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_location,
                              byte hook_buf[EARLY_INJECT_HOOK_SIZE], byte *map,
-                             void *must_reach, bool x86_code, bool late_injection)
+                             void *must_reach, bool x86_code, bool late_injection,
+                             uint old_hook_prot)
 {
     uint64 remote_code_buf = 0, remote_data;
     byte *local_code_buf = NULL;
@@ -1205,6 +1206,7 @@ inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, uint64 hook_loca
         goto error;
     args.tofree_base = remote_code_buf;
     args.hook_location = hook_location;
+    args.hook_prot = old_hook_prot;
     args.late_injection = late_injection;
     strncpy(args.dynamorio_lib_path, dynamo_path,
             BUFFER_SIZE_ELEMENTS(args.dynamorio_lib_path));
@@ -1380,7 +1382,7 @@ error:
 static uint64
 inject_gencode_mapped(HANDLE phandle, char *dynamo_path, uint64 hook_location,
                       byte hook_buf[EARLY_INJECT_HOOK_SIZE], void *must_reach,
-                      bool x86_code, bool late_injection)
+                      bool x86_code, bool late_injection, uint old_hook_prot)
 {
     bool success = false;
     NTSTATUS res;
@@ -1424,8 +1426,9 @@ inject_gencode_mapped(HANDLE phandle, char *dynamo_path, uint64 hook_location,
     if (!NT_SUCCESS(res))
         goto done;
 
-    ret = inject_gencode_mapped_helper(phandle, dynamo_path, hook_location, hook_buf, map,
-                                       must_reach, x86_code, late_injection);
+    ret =
+        inject_gencode_mapped_helper(phandle, dynamo_path, hook_location, hook_buf, map,
+                                     must_reach, x86_code, late_injection, old_hook_prot);
 done:
     if (ret == 0) {
         close_handle(file);
@@ -1557,6 +1560,11 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
         num_bytes_out != sizeof(hook_buf)) {
         goto error;
     }
+    /* Even if skipping we have to mark writable since gencode writes to it. */
+    if (!remote_protect_virtual_memory_maybe64(phandle, hook_location, sizeof(hook_buf),
+                                               PAGE_EXECUTE_READWRITE, &old_prot)) {
+        goto error;
+    }
 
     /* Win8 wow64 has ntdll up high but it reserves all the reachable addresses,
      * so we cannot use a relative jump to reach our code.  Rather than have
@@ -1569,7 +1577,7 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
      */
     if (map) {
         hook_target = inject_gencode_mapped(phandle, dynamo_path, hook_location, hook_buf,
-                                            NULL, x86_code, late_injection);
+                                            NULL, x86_code, late_injection, old_prot);
     } else {
         /* No support for 32-to-64. */
         hook_target = (uint64)inject_gencode_at_ldr(
@@ -1620,11 +1628,6 @@ inject_into_new_process(HANDLE phandle, HANDLE thandle, char *dynamo_path, bool 
             *(int *)(&hook_buf[2]) = 0; /* rip-rel to following address */
             *(uint64 *)(&hook_buf[6]) = hook_target;
         }
-    }
-    /* Even if skipping we have to mark writable since gencode writes to it. */
-    if (!remote_protect_virtual_memory_maybe64(phandle, hook_location, sizeof(hook_buf),
-                                               PAGE_EXECUTE_READWRITE, &old_prot)) {
-        goto error;
     }
     if (!write_remote_memory_maybe64(phandle, hook_location, hook_buf, sizeof(hook_buf),
                                      &num_bytes_out) ||
