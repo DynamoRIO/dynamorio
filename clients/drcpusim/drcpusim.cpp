@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -756,8 +756,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_save_reg(drcontext, bb, instr, DR_REG_XCX, SPILL_SLOT_2);
         // XXX: technically drmgr doesn't want us inserting instrs *after* the
         // app instr but this is the simplest way to go.
-        dr_insert_clean_call(drcontext, bb, instr_get_next(instr), (void *)fake_cpuid,
-                             false, 0);
+        dr_insert_clean_call_ex(
+            drcontext, bb, instr_get_next(instr), (void *)fake_cpuid,
+            static_cast<dr_cleancall_save_t>(DR_CLEANCALL_READS_APP_CONTEXT |
+                                             DR_CLEANCALL_WRITES_APP_CONTEXT),
+            0);
     }
 #endif
     return DR_EMIT_DEFAULT;

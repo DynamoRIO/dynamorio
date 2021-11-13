@@ -179,8 +179,9 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             opnd_get_reg(instr_get_dst(instr, 0)) == dr_get_stolen_reg() &&
             next_instr != NULL && instr_is_nop(next_instr) && next_next_instr != NULL &&
             instr_is_nop(next_next_instr)) {
-            dr_insert_clean_call(
-                drcontext, bb, next_next_instr, (void *)do_flush, false /*fpstate */, 1,
+            dr_insert_clean_call_ex(
+                drcontext, bb, next_next_instr, (void *)do_flush,
+                DR_CLEANCALL_READS_APP_CONTEXT, 1,
                 OPND_CREATE_INTPTR((ptr_uint_t)instr_get_app_pc(next_next_instr)));
             break;
         }
@@ -190,12 +191,13 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
         if (instr_is_mov_constant(instr, &imm1) && opnd_is_reg(instr_get_dst(instr, 0)) &&
             opnd_get_reg(instr_get_dst(instr, 0)) == dr_get_stolen_reg() &&
             imm1 == 0xdead) {
-            dr_insert_clean_call(drcontext, bb, instr, (void *)change_stolen_reg_value,
-                                 false /*fpstate */, 0);
+            dr_insert_clean_call_ex(
+                drcontext, bb, instr, (void *)change_stolen_reg_value,
+                DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 0);
 
-            dr_insert_clean_call(drcontext, bb, instr,
-                                 (void *)read_and_restore_stolen_reg_value,
-                                 false /*fpstate */, 0);
+            dr_insert_clean_call_ex(
+                drcontext, bb, instr, (void *)read_and_restore_stolen_reg_value,
+                DR_CLEANCALL_READS_APP_CONTEXT | DR_CLEANCALL_WRITES_APP_CONTEXT, 0);
         }
     }
     return DR_EMIT_DEFAULT;

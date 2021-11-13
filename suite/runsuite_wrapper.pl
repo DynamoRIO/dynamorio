@@ -220,6 +220,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.drwrap-test-detach' => 1, # i#4616
                 'code_api|client.cbr4' => 1, # i#4792
                 'code_api|win32.hookerfirst' => 1, # i#4870
+                'code_api|client.attach_test' => 1, # i#725
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972
@@ -233,6 +234,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.nudge_ex' => 1,
                 'code_api|client.alloc-noreset' => 1, # i#4436
                 # These are from the long suite.
+                'code_api,thread_private,tracedump_binary|common.fib' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private|common.decode-stress' => 1, # i#1807
                 'code_api,thread_private,disable_traces|common.decode-stress' => 1, # i#1807
@@ -253,6 +255,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|tool.histogram.offline' => 1, # i#4621
                 'code_api|tool.drcacheoff.burst_static' => 1, # i#4486
                 'code_api|tool.drcacheoff.burst_replace' => 1, # i#4486
+                'code_api|client.attach_test' => 1, # i#725
                 # i#4617: These need build-and-test to build
                 # the 32-bit test app in our separate 64-bit job.
                 'code_api|win32.mixedmode_late' => 1, # i#4617
@@ -314,11 +317,12 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                                    'code_api|linux.fib-conflict-early' => 1,
                                    'code_api|linux.mangle_asynch' => 1,
                                    'code_api|tool.drcachesim.phys' => 1, # i#4922
-                                   'code_api|tool.drcacheoff.rseq' => 1, # i#4924
                                    'code_api|api.rseq' => 1, # i#4923
                                    'code_api|tool.drcachesim.TLB-threads' => 1, # i#4928
                                    'code_api|tool.drcachesim.threads' => 1, # i#4928
                                    'code_api,tracedump_text,tracedump_origins,syntax_intel|common.loglevel' => 1, # i#1807
+                                   'code_api|tool.drcachesim.threads-with-config-file' => 1, # i#4954
+                                   'code_api|tool.drcachesim.coherence' => 1, # i#2417
                                    );
             if ($is_32) {
                 $issue_no = "#2416";
@@ -342,6 +346,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|pthreads.ptsig' => 1, # i#2921
                 'code_api|client.drwrap-test-detach' => 1, # i#4593
                 'code_api|linux.thread-reset' => 1, # i#4604
+                'code_api|linux.clone-reset' => 1, # i#4604
                 # These are from the long suite.
                 'common.decode-stress' => 1, # i#1807 Ignored for all options.
                 );
@@ -351,10 +356,11 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 # These are from the long suite.
                 'code_api,opt_memory|common.loglevel' => 1, # i#1807
                 'code_api,opt_speed|common.decode-stress' => 1, # i#1807
-                'code_api,opt_memory|common.nativeexec_retakeover_opt' => 1, # i#1807
                 'code_api,opt_memory|common.nativeexec_exe_opt' => 1, # i#1807
-                'code_api,opt_memory|common.nativeexec_bindnow_opt' => 1, # i#1807
-                'common.nativeexec_bindnow' => 1, # i#1807, i#4868 Ignored for all options.
+                'common.nativeexec_bindnow_opt' => 1, # i#5010 Ignored for all options.
+                'common.nativeexec_retakeover_opt' => 1, # i#5010 Ignored for all options.
+                'common.nativeexec_exe' => 1, # i#5010 Ignored for all options.
+                'common.nativeexec_bindnow' => 1, # i#5010 Ignored for all options.
                 );
             $issue_no = "#2941";
         }

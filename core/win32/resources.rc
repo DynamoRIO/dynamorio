@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016 Google, Inc.  All rights reserved.
+ * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -197,6 +197,10 @@
 #elif defined(RC_IS_drcovlib) || defined(RC_IS_drcovlib_static)
 # define FILE_NAME "drcovlib.dll"
 # define FILE_DESCRIPTION PRODUCT_NAME " code coverage library"
+# define FILE_TYPE VFT_DLL
+#elif defined(RC_IS_drcallstack) || defined(RC_IS_drcallstack_static)
+# define FILE_NAME "drcallstack.dll"
+# define FILE_DESCRIPTION PRODUCT_NAME " callstack walker"
 # define FILE_TYPE VFT_DLL
 /* tests */
 #elif defined(RC_IS_TEST)

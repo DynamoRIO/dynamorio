@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -76,13 +76,16 @@ parse_bytes(std::string token, std::vector<byte> &bytes)
     // the format for raw data obtained from od or gdb or a binary file.)
     uint64 entry;
     std::stringstream stream;
+    size_t digits = token.size();
+    if (digits > 2 && token[0] == '0' && (token[1] == 'x' || token[1] == 'X'))
+        digits -= 2;
     stream << std::hex << token;
     if (!(stream >> entry))
         return false;
-    do {
+    for (unsigned int i = 0; i < digits / 2; ++i) {
         bytes.push_back(entry & 0xff);
         entry >>= 8;
-    } while (entry > 0);
+    }
     return true;
 }
 };

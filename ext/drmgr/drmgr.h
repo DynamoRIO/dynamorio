@@ -107,8 +107,8 @@ extern "C" {
  */
 
 /**
- * Callback function for the first and last stages: app2app and instru2instru
- * transformations on the whole instruction list.
+ * Callback function for the first, fourth, and fifth stages: app2app, instru2instru, and
+ * meta_instru transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
  * any instrumentation pass requests #DR_EMIT_STORE_TRANSLATIONS, they
@@ -138,8 +138,8 @@ typedef dr_emit_flags_t (*drmgr_analysis_cb_t)(void *drcontext, void *tag,
 typedef drmgr_analysis_cb_t drmgr_app2app_ex_cb_t;
 
 /**
- * Callback function for the second and last stages when using a user
- * data parameter for all four: analysis and instru2instru
+ * Callback function for the second, fourth, and fifth stages when using a user
+ * data parameter for all five: analysis, instru2instru, and meta_instru
  * transformations on the whole instruction list.
  *
  * See #dr_emit_flags_t for an explanation of the return value.  If
@@ -209,6 +209,22 @@ typedef struct _drmgr_priority_t {
     int priority;
 } drmgr_priority_t;
 
+/** Specifies the callbacks when registering all \p drmgr's bb instrumentation events */
+typedef struct _drmgr_instru_events_t {
+    /** The size of the drmgr_instru_events_t struct. */
+    size_t struct_size;
+    /** Callback for the app2app event. */
+    drmgr_app2app_ex_cb_t app2app_func;
+    /** Callback for the analysis event. */
+    drmgr_ilist_ex_cb_t analysis_func;
+    /** Callback for the insertion event. */
+    drmgr_insertion_cb_t insertion_func;
+    /** Callback for the instru2instru event. */
+    drmgr_ilist_ex_cb_t instru2instru_func;
+    /** Callback for the meta_instru event. */
+    drmgr_ilist_ex_cb_t meta_instru_func;
+} drmgr_instru_events_t;
+
 /** Labels the current bb building phase */
 typedef enum {
     DRMGR_PHASE_NONE,          /**< Not currently in a bb building event. */
@@ -216,6 +232,7 @@ typedef enum {
     DRMGR_PHASE_ANALYSIS,      /**< Currently in the analysis phase. */
     DRMGR_PHASE_INSERTION,     /**< Currently in the instrumentation insertion phase. */
     DRMGR_PHASE_INSTRU2INSTRU, /**< Currently in the instru2instru phase. */
+    DRMGR_PHASE_META_INSTRU,   /**< Currently in the meta-instrumentation phase. */
 } drmgr_bb_phase_t;
 
 /***************************************************************************
@@ -249,7 +266,7 @@ DR_EXPORT
 /**
  * Registers a callback function for the first instrumentation stage:
  * application-to-application ("app2app") transformations on each
- * basic block.  drmgr will call \p func as the first of four
+ * basic block.  drmgr will call \p func as the first of five
  * instrumentation stages for each dynamic application basic block.
  * Examples of app2app transformations include replacing one function
  * with another or replacing one instruction with another throughout
@@ -301,7 +318,7 @@ DR_EXPORT
 /**
  * Registers callback functions for the second and third
  * instrumentation stages: application analysis and instrumentation
- * insertion.  drmgr will call \p func as the second of four
+ * insertion.  drmgr will call \p func as the second of five
  * instrumentation stages for each dynamic application basic block.
  *
  * The first stage performed any changes to the original application
@@ -399,7 +416,7 @@ DR_EXPORT
 /**
  * Registers a callback function for the fourth instrumentation stage:
  * instrumentation-to-instrumentation transformations on each
- * basic block.  drmgr will call \p func as the fourth of four
+ * basic block.  drmgr will call \p func as the fourth of five
  * instrumentation stages for each dynamic application basic block.
  * Instrumentation-to-instrumentation passes are allowed to insert meta
  * instructions but not non-meta instructions, and are intended for
@@ -433,15 +450,14 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func);
 
 DR_EXPORT
 /**
- * Registers callbacks for all four instrumentation passes at once, with a \p
+ * Registers callbacks for the first four instrumentation passes at once, with a \p
  * user_data parameter passed among them all, enabling data sharing for all
- * four.  See the documentation for drmgr_register_bb_app2app_event(),
- * drmgr_register_bb_instrumentation_event(), and
- * drmgr_register_bb_instru2instru_event() for further details of each pass.
- * The aforemented routines are identical to this with the exception of the
- * extra \p user_data parameter, which is an OUT parameter to the \p
- * app2app_func and passed in to the three subsequent callbacks.
- * The \p priority param can be NULL, in which case a default priority is used.
+ * four of them.  See the documentation for drmgr_register_bb_app2app_event(),
+ * drmgr_register_bb_instrumentation_event(), and drmgr_register_bb_instru2instru_event()
+ * for further details of each pass. The aforementioned routines are identical to this
+ * with the exception of the extra \p user_data parameter, which is an OUT parameter to
+ * the \p app2app_func and passed in to the three subsequent callbacks. The \p priority
+ * param can be NULL, in which case a default priority is used.
  */
 bool
 drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
@@ -452,7 +468,7 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
 
 DR_EXPORT
 /**
- * Unregisters the given four callbacks that
+ * Unregisters the four given callbacks that
  * were registered via drmgr_register_bb_instrumentation_ex_event().
  * \return true if unregistration is successful and false if it is not
  * (e.g., \p func was not registered).
@@ -514,6 +530,71 @@ DR_EXPORT
 bool
 drmgr_unregister_opcode_instrumentation_event(drmgr_opcode_insertion_cb_t func,
                                               int opcode);
+
+DR_EXPORT
+/**
+ * Registers a callback function for the fifth instrumentation stage:
+ * meta-instrumentation analysis and transformations on each
+ * basic block.  drmgr will call \p func as the fifth of five
+ * instrumentation stages for each dynamic application basic block.
+ * Meta-instrumentation passes are allowed to insert both meta and
+ * non-meta instructions, and are primarily intended for debugging prior
+ * instrumentation passes.
+ *
+ * All instrumentation must follow the guidelines for
+ * #dr_register_bb_event().
+ *
+ * \return false if the given priority request cannot be satisfied
+ * (e.g., \p priority->before is already ordered after \p
+ * priority->after) or the given name is already taken.
+ *
+ * @param[in]  func        The callback to be called.
+ * @param[in]  priority    Specifies the relative ordering of the callback.
+ *                         Can be NULL, in which case a default priority is used.
+ */
+bool
+drmgr_register_bb_meta_instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregisters a callback function for the fifth instrumentation stage.
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ *
+ * The recommendations for dr_unregister_bb_event() about when it
+ * is safe to unregister apply here as well.
+ */
+bool
+drmgr_unregister_bb_meta_instru_event(drmgr_xform_cb_t func);
+
+DR_EXPORT
+/**
+ * Registers callbacks for all five instrumentation passes at once, with a \p
+ * user_data parameter passed among them all, enabling data sharing for all
+ * five of them.  See the documentation for drmgr_register_bb_app2app_event(),
+ * drmgr_register_bb_instrumentation_event(), drmgr_register_bb_instru2instru_event(), and
+ * drmgr_register_bb_meta_instru_event() for further details of each pass. The
+ * aforementioned routines are identical to this with the exception of the extra \p
+ * user_data parameter, which is an OUT parameter to the \p app2app_func and passed in to
+ * the four subsequent callbacks. The \p priority param can be NULL, in which case a
+ * default priority is used.
+ */
+bool
+drmgr_register_bb_instrumentation_all_events(drmgr_instru_events_t *events,
+                                             drmgr_priority_t *priority);
+
+DR_EXPORT
+/**
+ * Unregisters the callbacks that were registered via
+ * drmgr_register_bb_instrumentation_all_events().
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ *
+ * The recommendations for dr_unregister_bb_event() about when it
+ * is safe to unregister apply here as well.
+ */
+bool
+drmgr_unregister_bb_instrumentation_all_events(drmgr_instru_events_t *events);
 
 DR_EXPORT
 /**

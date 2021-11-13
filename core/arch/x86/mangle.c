@@ -1391,7 +1391,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         reg_id_t scratch2;
         for (scratch2 = REG_XAX; scratch2 <= REG_XBX; scratch2++) {
-            if (!instr_uses_reg(instr, scratch2))
+            if (!instr_uses_reg(instr, scratch2) && scratch2 != reg)
                 break;
         }
         ASSERT(scratch2 <= REG_XBX);
@@ -3044,6 +3044,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
     opnd_t *args = NULL;
 
     ASSERT(handler->type == DR_ANNOTATION_HANDLER_CALL);
+    LOG(THREAD, LOG_INTERP, 3, "inserting call to annotation handler\n");
 
     while (receiver != NULL) {
         if (handler->num_args != 0) {
@@ -3057,10 +3058,14 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
                 dcontext, (ptr_int_t)pc, dr_reg_spill_slot_opnd(dcontext, SPILL_SLOT_2),
                 ilist, label, NULL, NULL);
         }
-        dr_insert_clean_call_ex_varg(dcontext, ilist, label,
-                                     receiver->instrumentation.callback,
-                                     receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
-                                     handler->num_args, args);
+        dr_insert_clean_call_ex_varg(
+            dcontext, ilist, label, receiver->instrumentation.callback,
+            (receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0) |
+                /* Setting a return value is already handled with an inserted app
+                 * instruction, so we do not set the DR_CLEANCALL_WRITES_APP_CONTEXT flag.
+                 */
+                DR_CLEANCALL_READS_APP_CONTEXT,
+            handler->num_args, args);
         if (handler->num_args != 0) {
             HEAP_ARRAY_FREE(dcontext, args, opnd_t, handler->num_args, ACCT_CLEANCALL,
                             UNPROTECTED);

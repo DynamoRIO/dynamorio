@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2020 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -227,6 +227,12 @@ configure_DynamoRIO_global(OFF ON)
 add_sample_client(bbbuf       "bbbuf.c"         "drmgr;drreg;drx")
 add_sample_client(bbcount     "bbcount.c"       "drmgr;drreg;drx")
 add_sample_client(bbsize      "bbsize.c"        "drmgr;drx")
+if (LINUX)
+  CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
+  if (HAVE_LIBUNWIND_H)
+    add_sample_client(callstack "callstack.cpp" "drmgr;drwrap;drcallstack;drsyms;droption")
+  endif ()
+endif ()
 add_sample_client(div         "div.c"           "drmgr")
 add_sample_client(empty       "empty.c"         "")
 add_sample_client(memtrace_simple "memtrace_simple.c;utils.c" "drmgr;drreg;drutil;drx")
@@ -262,6 +268,9 @@ endif (X86)
 add_sample_client(wrap        "wrap.c"          "drmgr;drwrap")
 add_sample_client(signal      "signal.c"        "drmgr")
 add_sample_client(syscall     "syscall.c"       "drmgr")
+if (NOT WIN32)
+  add_sample_client(statecmp    "statecmp.c"      "drmgr;drstatecmp")
+endif (NOT WIN32)
 add_sample_client(inline      "inline.c"        "drmgr;drcontainers")
 add_sample_client(inscount    "inscount.cpp"    "drmgr;droption")
 add_sample_client(opcodes     "opcodes.c"       "drmgr;drreg;drx")
@@ -348,4 +357,5 @@ DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
   )
 
-DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/${INSTALL_SAMPLES}/README\" \"This directory contains sample clients that show how to use the DR API.  If this is an official release package that includes DRMF, for samples that use the DRMF API, see ../drmemory/drmf/samples/.\n\")")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/README "This directory contains sample clients that show how to use the DR API.  If this is an official release package that includes DRMF, for samples that use the DRMF API, see ../drmemory/drmf/samples/.\n")
+DR_install(FILES ${CMAKE_CURRENT_BINARY_DIR}/README DESTINATION ${INSTALL_SAMPLES})

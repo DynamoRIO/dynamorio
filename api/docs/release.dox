@@ -169,6 +169,14 @@ compatibility changes:
    drmgr_in_emulation_region(): #DR_EMULATE_IS_FIRST_INSTR.  This flag addition preserves
    binary compatibility, but source code that did not zero the structure could end
    up with an uninitialized flags field when calling drmgr_insert_emulation_start().
+ - drcov's output now uses a module segment offset, rather than a module base offset.
+   This better supports modules with code beyond the first segment and with
+   gaps between segments.
+ - Changed the drcachesim view tool's behavior to count all trace entries, rather
+   than just instructions, with respect to the -skip_refs and -sim_refs flags.
+   This matches the cache and TLB simulator behavior.
+ - drcachesim's child cache statistics now include hits from all lower levels and
+   not just the immediately lower level child caches.
 
 Further non-compatibility-affecting changes include:
 
@@ -228,6 +236,26 @@ Further non-compatibility-affecting changes include:
  - Augmented drmemtrace #TRACE_MARKER_TYPE_KERNEL_EVENT entries with the absolute
    PC of the interruption point, including for restartable sequence aborts, which
    now also have an additional #TRACE_MARKER_TYPE_RSEQ_ABORT identifier.
+ - Added a fifth instrumentation phase (meta_instru) that executes after the
+   insertion of instrumentation and instrumentation optimizations. Its primary purpose
+   is to enable debugging of instrumentation sequences and detection of
+   instrumentation-induced bugs.
+ - Added \p drstatecmp Extension which provides mechanisms to enable systematic
+   and exhaustive machine state comparisons across instrumentation sequences.
+ - Added drmodtrack_lookup_segment().
+ - Added a new drrun option \p -attach for attaching to a running process.
+   This is currently an experimental option.
+ - Added \ref page_drcallstack Extension for walking application callstacks, with
+   an initial Linux-only implementation.
+ - Added new #dr_cleancall_save_t flags which are required for proper interaction
+   between clean calls and drreg: #DR_CLEANCALL_READS_APP_CONTEXT must be set for
+   dr_get_mcontext() to obtain the proper values, and #DR_CLEANCALL_WRITES_APP_CONTEXT
+   must be set to ensure that dr_set_mcontext() is persistent.
+   If the call may be skipped by tool-inserted control flow, #DR_CLEANCALL_MULTIPATH
+   must additionally be set.
+ - Added a new event dr_register_clean_call_insertion_event(), meant for use by
+   register management libraries.
+ - Added drreg_statelessly_restore_all().
 
 **************************************************
 <hr>
@@ -1744,6 +1772,11 @@ I/O and nudges.
     through the Windows-On-Windows or WOW64 emulator so system call and
     indirect call processing clients must be aware of
     #instr_is_wow64_syscall().
+  - On all versions of Windows, attaching DynamoRIO to an already-running
+    process can result in loss of control if the attach point is in the
+    middle of an operating system event callback. From the callback return
+    point until the next system call hook, no instructions will be observed
+    by a client.
 \anchor limits_64bit
   - This release of DynamoRIO supports running
     64-bit Windows applications, using the 64-bit DynamoRIO build, on

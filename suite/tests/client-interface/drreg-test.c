@@ -1010,8 +1010,6 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      TEST_REG2_ASM, 1
         /* xax statelessly restored here. */
         mov      TEST_REG2_ASM, 2
-        /* xax is dead, so initial aflags spill should not use slot. */
-        mov      REG_XAX, 0
         jmp      test28_done
      test28_done:
         /* Fail if aflags were not restored correctly. */
@@ -1021,8 +1019,42 @@ GLOBAL_LABEL(FUNCNAME:)
         jne      test28_fail
         cmp      al, 1
         jne      test28_fail
-        jmp      epilog
+        jmp      test38
      test28_fail:
+        ud2
+        /* Unreachable, but we want this bb to end here. */
+        jmp      test38
+
+        /* Test 38: Tests that the insertion phase slot contains the
+         * correct app value when there's overlapping spill regions for
+         * some reg due to multi-phase drreg use in app2app and insertion
+         * phases. The insertion phase should update the reg value in its own
+         * slot by re-spilling it after an app2app instruction that restored
+         * the app value for an app read.
+         */
+     test38:
+        mov      TEST_REG_ASM, DRREG_TEST_38_ASM
+        mov      TEST_REG_ASM, DRREG_TEST_38_ASM
+        /* app2app phase reserves TEST_REG_ASM here. */
+        /* app2app phase writes TEST_REG_ASM here. */
+        /* insertion phase reserves TEST_REG_ASM here,
+         * storing the app2app value in its slot.
+         */
+        /* insertion phase writes TEST_REG_ASM here. */
+        mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        /* app2app unreserves TEST_REG_ASM here.
+         * Seeing this app2app write, insertion phase automatically
+         * re-spills TEST_REG_ASM to its slot.
+         */
+         /* insertion phase automatically restores TEST_REG_ASM
+          * here, for the app read below.
+          */
+        mov      TEST_REG2_ASM, TEST_REG_ASM
+        cmp      TEST_REG2_ASM, DRREG_TEST_38_ASM
+        jne      test38_fail
+     test38_done:
+        jmp      epilog
+     test38_fail:
         ud2
         /* Unreachable, but we want this bb to end here. */
         jmp      epilog
@@ -1242,6 +1274,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
         nop
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -1853,6 +1886,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* app2app phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -1938,6 +1972,7 @@ GLOBAL_LABEL(FUNCNAME:)
         /* app2app phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2016,6 +2051,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2101,6 +2137,7 @@ GLOBAL_LABEL(FUNCNAME:)
          */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2186,6 +2223,7 @@ GLOBAL_LABEL(FUNCNAME:)
         sahf
         nop
 
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
 
@@ -2797,6 +2835,7 @@ GLOBAL_LABEL(FUNCNAME:)
 
         /* insertion phase will reserve aflags here. */
         mov      TEST_REG2_ASM, TEST_INSTRUMENTATION_MARKER_1
+        not      REG_XAX /* ensure xax isn't dead */
         mov      REG_XAX, 0
         mov      REG_XAX, PTRSZ [REG_XAX] /* crash */
         /* app2app phase will reserve aflags here. */

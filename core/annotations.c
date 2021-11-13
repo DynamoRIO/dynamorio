@@ -388,6 +388,9 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
                      * The placeholder is "ok to mangle" because it (partially)
                      * implements the app's annotation. The placeholder will be
                      * removed post-client during mangling.
+                     * We only support writing the return value and no other registers
+                     * (otherwise we'd need drrg to further special-case
+                     * DR_NOTE_ANNOTATION).
                      */
                     instr_t *return_placeholder =
                         INSTR_XL8(INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
@@ -476,6 +479,8 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
     /* Append `mov $0x0,%edx` so that clients and tools recognize that %xdx will be
      * written here. The placeholder is "ok to mangle" because it (partially) implements
      * the app's annotation. The placeholder will be removed post-client during mangling.
+     * We only support writing the return value and no other registers (otherwise
+     * we'd need drreg to further special-case DR_NOTE_ANNOTATION).
      */
     return_placeholder = INSTR_XL8(
         INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XDX), OPND_CREATE_INT32(0)),

@@ -1308,9 +1308,16 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       # We always run infloop.
       get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
     else ()
-      # It's easier to run our own infloop, which prints so we know when it's up,
-      # than to run notepad or sthg.
-      get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
+      if ("${runall}" MATCHES "<attach>")
+        # For attach we use attachee, which is identical to infloop, aside for writing
+        # a starting message to the output file. This allows us to detect when it is
+        # up and running and we can start the attach process.
+        get_target_path_for_execution(app_path win32.attachee "${location_suffix}")
+      else ()
+        # It's easier to run our own infloop, which prints so we know when it's up,
+        # than to run notepad or sthg.
+        get_target_path_for_execution(app_path win32.infloop "${location_suffix}")
+      endif ()
     endif ()
     # Swap from drrun to run_in_bg to run the test in the background and print the pid.
     # XXX i#1874: add support for running on Android
@@ -1346,6 +1353,14 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
       string(REGEX MATCHALL "<client_nudge[^>]+" nudge_arg "${runall}")
       string(REGEX REPLACE "<client_nudge" "-client" nudge_arg "${nudge_arg}")
       string(REGEX REPLACE " " "\\\\;" nudge_arg "${nudge_arg}")
+    elseif ("${runall}" MATCHES "<attach>")
+      # move params to nudge
+      string(REGEX MATCH ";-quiet;(.*);--" nudge_arg "${rundr}")
+      string(REGEX REPLACE ";--" "" nudge_arg "${nudge_arg}")
+      string(PREPEND nudge_arg "<attach>")
+      string(REGEX REPLACE ";" "@" nudge_arg "${nudge_arg}")
+      # clear client from dr command and run native
+      string(REGEX REPLACE ";-quiet;(.*);--" ";-no_inject;--;" rundr "${rundr}")
     endif ()
     set(cmd_with_at ${rundr} ${app_path} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
@@ -1854,7 +1869,7 @@ if (BUILD_CLIENTS)
   # and other code here to support tests being declared locally rather than
   # in one central place.
   if (AARCH64)
-    set(drdisas_args "f94017a0" "a9be7bfd" "88")
+    set(drdisas_args "00000000" "f94017a0" "a9be7bfd" "88")
   elseif (ARM)
     set(drdisas_args "6813" "f243" "42c8" "b2db" "88")
   else ()
@@ -2259,6 +2274,8 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
 
   tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp
     "" "" "")
+  use_DynamoRIO_extension(client.annotation-detection.dll drmgr)
+  use_DynamoRIO_extension(client.annotation-detection.dll drreg)
   set(client.annotation-detection.full-decode_expectbase
     "annotation-detection.full-decode")
   torunonly_ci(client.annotation-detection.full-decode client.annotation-detection
@@ -2285,6 +2302,8 @@ if (ANNOTATIONS AND NOT CMAKE_COMPILER_IS_CLANG)
   set(client.annotation-detection-opt_expectbase "annotation-detection")
   tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp
     "" "" "")
+  use_DynamoRIO_extension(client.annotation-detection-opt.dll drmgr)
+  use_DynamoRIO_extension(client.annotation-detection-opt.dll drreg)
   optimize(client.annotation-detection-opt)
   torunonly_native(client.annotation-detection-opt.native
     client.annotation-detection-opt annotation-detection.native
@@ -2390,6 +2409,7 @@ if (UNIX)
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
   endif ()
 else (UNIX)
+  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
   tobuild_ci(client.events_cpp client-interface/events_cpp.cpp
@@ -2659,6 +2679,20 @@ if (NOT AARCHXX) # TODO i#1578: Hanging on AArch64.
   endif ()
 endif ()
 
+tobuild_appdll(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c)
+get_target_path_for_execution(drwrap_drreg_libpath client.drwrap-drreg-test.appdll
+  "${location_suffix}")
+tobuild_ci(client.drwrap-drreg-test client-interface/drwrap-drreg-test.c "" ""
+  "${drwrap_drreg_libpath}")
+use_DynamoRIO_extension(client.drwrap-drreg-test.dll drwrap)
+use_DynamoRIO_extension(client.drwrap-drreg-test.dll drreg)
+use_DynamoRIO_extension(client.drwrap-drreg-test.dll drmgr)
+
+if (AARCH64)
+  # Create a fuzzing application for stress-testing via drstatecmp.
+  add_api_exe(drstatecmp-fuzz-app client-interface/drstatecmp-fuzz-app.c ON OFF)
+endif ()
+
 # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
 # but the system dbghelp pre-Vista is too old, so we copy one from VS.
 if ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
@@ -2689,6 +2723,14 @@ if (NOT ANDROID)
   use_MT_not_MTd(client-interface/drsyms-test.appdll.cpp)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
+
+  # TODO i#2414: Port to Windows, Mac, and Android.
+  if (LINUX AND HAVE_LIBUNWIND_H)
+    tobuild_ci(client.drcallstack-test client-interface/drcallstack-test.c "" "" "")
+    use_DynamoRIO_extension(client.drcallstack-test.dll drsyms)
+    use_DynamoRIO_extension(client.drcallstack-test.dll drwrap)
+    use_DynamoRIO_extension(client.drcallstack-test.dll drcallstack)
+  endif ()
 endif ()
 
 # We check these two statements here b/c not all gcc compilers support
@@ -3104,6 +3146,8 @@ if (BUILD_SAMPLES)
           torunonly_ci(sample.${sample}_repstr allasm_repstr ${sample}_test
             samples/${sample}_repstr "-log_to_stderr" "" "")
         endif ()
+      elseif (sample STREQUAL "callstack")
+        set(sample.${sample}_expectbase "sample.callstack.control_flags")
       endif()
     endforeach ()
   endif (NOT ANDROID)
@@ -3199,9 +3243,6 @@ if (BUILD_CLIENTS)
     endif ()
 
     set(test_mode_flag "-test_mode")
-    if (NOT DEBUG)
-      set(test_mode_flag "")
-    endif ()
     torunonly_drcachesim(filter-simple ${ci_shared_app}
       "-L0_filter ${test_mode_flag}" "")
     if (DEBUG AND DR_HOST_X86 AND DR_HOST_X64 AND LINUX)
@@ -3302,6 +3343,14 @@ if (BUILD_CLIENTS)
         "-simulator_type miss_analyzer -miss_count_threshold 5000 -miss_frac_threshold 0.25" "")
     endif ()
 
+    # Stress-test drcachesim with drstatecmp checks.
+    if (AARCH64)
+      torunonly_drcachesim(drstatecmp-fuzz drstatecmp-fuzz-app "-trace_after_instrs 10M -enable_drstatecmp" "" "")
+    endif ()
+    if (NOT WIN32)
+      torunonly_drcachesim(drstatecmp-delay-simple ${ci_shared_app} "-trace_after_instrs 20000 -exit_after_tracing 10000 -enable_drstatecmp" "")
+    endif (NOT WIN32)
+
     # Test other analysis tools
     macro (torunonly_simtool testname exetgt sim_ops app_args)
       torunonly_ci(tool.${testname} ${exetgt} drcachesim
@@ -3344,7 +3393,7 @@ if (BUILD_CLIENTS)
       endif ()
     endif ()
 
-    # We run an app w/ kernel xfers to test trace_invariants online.
+    # We run an app w/ kernel xfers to test invariant_checker online.
     # Offline invariants are tested in the tool.histogram.offline test below.
     if (UNIX)
       # The signal_invariants asm is x86-only.  The extra checks are cross-arch
@@ -3361,7 +3410,8 @@ if (BUILD_CLIENTS)
       set(kernel_xfer_app client.winxfer) # We want threads and xfers.
     endif()
     if (DEBUG) # for -test_mode
-      torunonly_drcachesim(invariants ${kernel_xfer_app} "-test_mode" "")
+      torunonly_drcachesim(invariants ${kernel_xfer_app}
+        "-test_mode -test_mode_name kernel_xfer_app" "")
       # This is slow on Windows.  I tried reducing the tracing window but
       # it seems to vary too much across machines, and if we delay too far
       # we start in the middle of a callback.
@@ -3477,6 +3527,8 @@ if (BUILD_CLIENTS)
     torunonly_drcacheoff(delay-func ${ci_shared_app}
       # Delay enough that zero data should be logged to test that function
       # tracing is delayed (i#4893).
+      # This is also large enough to test the (non-triggering portion of) the
+      # per-thread counter feature (i#5026).
       "-trace_after_instrs 200M -record_heap"
       "@-simulator_type@basic_counts" "")
 
@@ -3552,7 +3604,8 @@ if (BUILD_CLIENTS)
     endif ()
 
     if (LINUX AND X64 AND HAVE_RSEQ)
-      torunonly_drcacheoff(rseq linux.rseq "" "@${test_mode_flag}" "")
+      torunonly_drcacheoff(rseq linux.rseq ""
+        "@${test_mode_flag}@-test_mode_name@rseq_app" "")
     endif ()
 
     if (AARCH64)
@@ -3667,9 +3720,12 @@ if (BUILD_CLIENTS)
       unset(tool.drcachesim.allasm-repstr-basic-counts_rawtemp) # use preprocessor
     endif (UNIX AND X86 AND X64)
 
+    torunonly_drcacheoff(invariant_checker ${ci_shared_app}
+      "" "@-simulator_type@invariant_checker" "")
+
     # Test the standalone histogram tool.
     # ${ci_shared_app} is already used for an offline test, so we run other apps
-    # for variety and to include threads and signals for trace_invariants.
+    # for variety and to include threads and signals for invariant_checker.
     set(histo_app ${kernel_xfer_app})
     if (WIN32)
       # winxfer produces a 500M+ trace and test taking >3mins so we narrow
@@ -3701,7 +3757,7 @@ if (BUILD_CLIENTS)
     set(${testname_full}_postcmd
       "${drcachesim_path}@-indir@${testname_full}.*.dir")
     set(${testname_full}_postcmd2
-      "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
+      "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
 
     if (AARCH64)
       set(testname_full "tool.drcacheoff.allasm-aarch64-prefetch-counts")
@@ -3745,7 +3801,7 @@ if (BUILD_CLIENTS)
       set(${testname_full}_postcmd2
         "${GZIP}@${testname_full}.*.dir/trace/*")
       set(${testname_full}_postcmd3
-        "${histo_path}@-test_mode@-trace_dir@${testname_full}.*.dir/trace")
+        "${histo_path}@-test_mode@-test_mode_name@kernel_xfer_app@-trace_dir@${testname_full}.*.dir/trace")
     elseif (UNIX)
       message(STATUS "gzip or zlib not found: disabling ${testname_full} test")
     endif ()
@@ -3859,10 +3915,11 @@ if (BUILD_CLIENTS)
       set(tool.drcpusim.cpuid-${model}_basedir
         "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
     endmacro ()
-    # Not running earlier than Klamath b/c the app likely will have bad opcodes
+    # Not running earlier than Klamath b/c the app likely will have bad opcodes.
     if (NOT X64)
-      add_cpusim_cpuid_test(Klamath)
-      add_cpusim_cpuid_test(Deschutes)
+      # i#5109: We do not run Klamath or Deschutes since gcc on Ubuntu20 includes
+      # CET instructions which cannot be avoided.  DR currently thinks they're
+      # SSE-added multi-byte nops; we'll have more trouble when i#4040 is implemented.
       add_cpusim_cpuid_test(Pentium3)
       add_cpusim_cpuid_test(Banias)
     endif ()
@@ -4264,6 +4321,7 @@ if (UNIX)
   endif ()
 else (UNIX)
   add_exe(win32.infloop win32/infloop.c)
+  add_exe(win32.attachee win32/attachee.c)
   if (PROGRAM_SHEPHERDING)
     # too flaky across platforms so we limit to security mode only: not too useful
     # for other than testing our ASLR anyway
@@ -4764,6 +4822,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.drmodtrack-test
     code_api|client.drsyms-test
     code_api|client.drwrap-test-callconv
+    code_api|client.drwrap-drreg-test
     code_api|client.drxmgr-test
     code_api|client.exception
     code_api|client.int64_overrides
@@ -4790,6 +4849,11 @@ if (NOT ANDROID AND AARCHXX)
     set_tests_properties(
       code_api|common.logstderr
       code_api|common.loglevel
+      PROPERTIES LABELS RUNS_ON_QEMU)
+  endif ()
+  if (HAVE_LIBUNWIND_H)
+    set_tests_properties(
+      code_api|client.drcallstack-test
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
   if (AARCH64)

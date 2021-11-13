@@ -140,9 +140,7 @@ caching_device_t::request(const memref_t &memref_in)
         caching_device_block_t *cache_block =
             &get_caching_device_block(last_block_idx_, last_way_);
         assert(tag != TAG_INVALID && tag == cache_block->tag_);
-        stats_->access(memref_in, true /*hit*/, cache_block);
-        if (parent_ != NULL)
-            parent_->stats_->child_access(memref_in, true, cache_block);
+        record_access_stats(memref_in, true /*hit*/, cache_block);
         access_update(last_block_idx_, last_way_);
         return;
     }
@@ -161,9 +159,7 @@ caching_device_t::request(const memref_t &memref_in)
             // Access is a hit.
             caching_device_block_t *cache_block = block_way.first;
             way = block_way.second;
-            stats_->access(memref, true /*hit*/, cache_block);
-            if (parent_ != NULL)
-                parent_->stats_->child_access(memref, true, cache_block);
+            record_access_stats(memref, true /*hit*/, cache_block);
             if (coherent_cache_ && memref.data.type == TRACE_TYPE_WRITE) {
                 // On a hit, we must notify the snoop filter of the write or propagate
                 // the write to a snooped cache.
@@ -181,13 +177,11 @@ caching_device_t::request(const memref_t &memref_in)
             caching_device_block_t *cache_block =
                 &get_caching_device_block(block_idx, way);
 
-            stats_->access(memref, false /*miss*/, cache_block);
+            record_access_stats(memref, false /*miss*/, cache_block);
             missed = true;
             // If no parent we assume we get the data from main memory
-            if (parent_ != NULL) {
-                parent_->stats_->child_access(memref, false, cache_block);
+            if (parent_ != NULL)
                 parent_->request(memref);
-            }
             if (snoop_filter_ != NULL) {
                 // Update snoop filter, other private caches invalidated on write.
                 snoop_filter_->snoop(tag, id_, (memref.data.type == TRACE_TYPE_WRITE));
@@ -377,4 +371,18 @@ caching_device_t::propagate_write(addr_t tag, const caching_device_t *requester)
     } else if (parent_ != NULL) {
         parent_->propagate_write(tag, this);
     }
+}
+
+void
+caching_device_t::record_access_stats(const memref_t &memref, bool hit,
+                                      caching_device_block_t *cache_block)
+{
+    stats_->access(memref, hit, cache_block);
+    // We propagate hits all the way up the hierachy.
+    // But to avoid over-counting we only propagate misses one level up.
+    if (hit) {
+        for (caching_device_t *up = parent_; up != nullptr; up = up->parent_)
+            up->stats_->child_access(memref, hit, cache_block);
+    } else if (parent_ != nullptr)
+        parent_->stats_->child_access(memref, hit, cache_block);
 }

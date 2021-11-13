@@ -867,10 +867,12 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                     coarse_info_t *info = dcontext->coarse_exit.dir_exit;
                     ASSERT(info != NULL);
                     if (info->mod_shift != 0 &&
-                        dcontext->next_tag >= info->persist_base &&
-                        dcontext->next_tag <
-                            info->persist_base + (info->end_pc - info->base_pc))
+                        dcontext->next_tag >= info->base_pc + info->mod_shift &&
+                        dcontext->next_tag < info->end_pc + info->mod_shift) {
                         dcontext->next_tag -= info->mod_shift;
+                        LOG(THREAD, LOG_INTERP, 3, "adjusted shifted-coarse tag to %p\n",
+                            dcontext->next_tag);
+                    }
                 }
             }
         }
@@ -1780,6 +1782,9 @@ adjust_syscall_continuation(dcontext_t *dcontext)
      * continuation pc, we have no work to do here either (except for
      * 4.4.8+ kernels: i#1939)!
      */
+
+    bool syscall_method_is_syscall = get_syscall_method() == SYSCALL_METHOD_SYSCALL;
+
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
 #    ifdef MACOS
         if (!dcontext->sys_was_int) {
@@ -1803,20 +1808,24 @@ adjust_syscall_continuation(dcontext_t *dcontext)
                 dcontext->asynch_target);
         }
 #    endif
-    } else if (vsyscall_syscall_end_pc != NULL &&
-               /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
-                * OP_syscall in a vsyscall page
-                */
-               get_syscall_method() != SYSCALL_METHOD_SYSCALL) {
-        /* If we fail to hook we currently bail out to int; but we then
-         * need to manually jump to the sysenter return point.
-         * Once we have PR 288330 we can remove this.
+    } else if (vsyscall_syscall_end_pc != NULL) {
+        /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
+         * OP_syscall and OP_sysenter on Intel hardware in a vsyscall page.
+         *
+         * We added hook on vsyscall page, through that we manually jump to
+         * sysenter/syscall return point and go to dispatch.
+         *
+         * We should adjust target when hardware is AMD, app is 32-bit (LOL64)
+         * and system call instruction is OP_syscall.
          */
-        if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
-            ASSERT(vsyscall_sysenter_return_pc != NULL);
-            dcontext->asynch_target = vsyscall_sysenter_return_pc;
-            LOG(THREAD, LOG_SYSCALLS, 3, "%s: asynch_target => " PFX "\n", __FUNCTION__,
-                dcontext->asynch_target);
+        if (IF_X86_32((syscall_method_is_syscall &&
+                       cpu_info.vendor == VENDOR_AMD) ||) !syscall_method_is_syscall) {
+            if (dcontext->asynch_target == vsyscall_syscall_end_pc) {
+                ASSERT(vsyscall_sysenter_return_pc != NULL);
+                dcontext->asynch_target = vsyscall_sysenter_return_pc;
+                LOG(THREAD, LOG_SYSCALLS, 3, "%s: asynch_target => " PFX "\n",
+                    __FUNCTION__, dcontext->asynch_target);
+            }
         }
     }
 }
@@ -2022,7 +2031,12 @@ handle_system_call(dcontext_t *dcontext)
         /* FIXME: move into some routine inside unix/?
          * if so, move #include of sys/syscall.h too
          */
-        if (is_thread_create_syscall(dcontext)) {
+        /* We use was_thread_create_syscall even though the syscall has not really
+         * happened yet. This is because, for the clone3 syscall, we want to avoid
+         * reading the user-provided clone args without a safe-read, so instead we
+         * use the flags and sysnum that we saved in dcontext during pre_system_call.
+         */
+        if (was_thread_create_syscall(dcontext)) {
             /* Code for after clone is in generated code do_clone_syscall. */
             do_syscall = (app_pc)get_do_clone_syscall_entry(dcontext);
         } else if (is_sigreturn_syscall(dcontext)) {
@@ -2076,7 +2090,7 @@ handle_system_call(dcontext_t *dcontext)
              * d_r_dispatch so there's no worry about unbounded delay.
              */
             ASSERT((!is_sigreturn_syscall(dcontext) &&
-                    !is_thread_create_syscall(dcontext)) ||
+                    !was_thread_create_syscall(dcontext)) ||
                    !is_ignorable);
             if (!is_ignorable && dcontext->signals_pending > 0)
                 dcontext->signals_pending = -1;

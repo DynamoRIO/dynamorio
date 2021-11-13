@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -176,7 +176,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         res = drreg_restore_all(drcontext, bb, instr);
         CHECK(res == DRREG_SUCCESS, "failed to restore all");
 
-        dr_insert_clean_call(drcontext, bb, instr, set_reg_val, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, set_reg_val,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 
         res = drreg_reserve_aflags(drcontext, bb, instr);
         CHECK(res == DRREG_SUCCESS, "failed to reserve flags");
@@ -197,7 +198,8 @@ event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *instr,
         res = drreg_restore_all(drcontext, bb, instr);
         CHECK(res == DRREG_SUCCESS, "failed to restore all");
 
-        dr_insert_clean_call(drcontext, bb, instr, check_reg_val, false, 0);
+        dr_insert_clean_call_ex(drcontext, bb, instr, check_reg_val,
+                                DR_CLEANCALL_READS_APP_CONTEXT, 0);
 
         drvector_delete(&allowed);
     }

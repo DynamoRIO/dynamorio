@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -49,8 +49,8 @@
  * It does not support online analysis.
  */
 analysis_tool_t *
-view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
-                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose = 0,
-                 const std::string &alt_module_dir = "");
+view_tool_create(const std::string &module_file_path, memref_tid_t thread,
+                 uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
+                 unsigned int verbose = 0, const std::string &alt_module_dir = "");
 
 #endif /* _OPCODE_MIX_CREATE_H_ */

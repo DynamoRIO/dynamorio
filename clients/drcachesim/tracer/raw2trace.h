@@ -350,7 +350,7 @@ struct trace_metadata_reader_t {
  * Using it assumes a dr_context has already been setup.
  * This class is not thread-safe.
  */
-class module_mapper_t final {
+class module_mapper_t {
 public:
     /**
      * Parses and iterates over the list of modules.  This is provided to give the user a
@@ -398,7 +398,7 @@ public:
      * get_last_error() to ensure no error has occurred, or get the applicable error
      * message.
      */
-    const std::vector<module_t> &
+    virtual const std::vector<module_t> &
     get_loaded_modules()
     {
         if (last_error_.empty() && modvec_.empty())
@@ -430,7 +430,7 @@ public:
     /**
      * Unload modules loaded with read_and_map_modules(), freeing associated resources.
      */
-    ~module_mapper_t();
+    virtual ~module_mapper_t();
 
     /**
      * Writes out the module list to \p buf, whose capacity is \p buf_size.
@@ -444,7 +444,7 @@ public:
                       int (*print_cb)(void *data, char *dst, size_t max_len),
                       OUT size_t *wrote);
 
-private:
+protected:
     module_mapper_t(const char *module_map,
                     const char *(*parse_cb)(const char *src, OUT void **data) = nullptr,
                     std::string (*process_cb)(drmodtrack_info_t *info, void *data,
@@ -452,6 +452,7 @@ private:
                     void *process_cb_user_data = nullptr,
                     void (*free_cb)(void *data) = nullptr, uint verbosity = 0,
                     const std::string &alt_module_dir = "");
+
     module_mapper_t(const module_mapper_t &) = delete;
     module_mapper_t &
     operator=(const module_mapper_t &) = delete;
@@ -468,7 +469,7 @@ private:
         void *user_data;
     };
 
-    void
+    virtual void
     read_and_map_modules(void);
 
     std::string
@@ -566,12 +567,16 @@ struct trace_header_t {
  * item to write. Both start and end are assumed to be pointers inside a buffer
  * returned by get_write_buffer().</LI>
  *
- * <LI>std::string write_delayed_branches(const trace_entry_t *start, const trace_entry_t
- * *end)
+ * <LI>std::string write_delayed_branches(void *tls, const trace_entry_t *start,
+ * const trace_entry_t *end)
  *
  * Similar to write(), but treat the provided traces as delayed branches: if they
  * are the last values in a record, they belong to the next record of the same
  * thread.</LI>
+ *
+ * <LI>std::string append_delayed_branch(void *tls)
+ *
+ * Flush the branches sent to write_delayed_branches().</LI>
  *
  * <LI>std::string on_thread_end(void *tls)
  *
@@ -1030,8 +1035,9 @@ private:
             TESTANY(OFFLINE_FILE_TYPE_FILTERED, impl()->get_file_type(tls));
         bool is_instr_only_trace =
             TESTANY(OFFLINE_FILE_TYPE_INSTRUCTION_ONLY, impl()->get_file_type(tls));
-        uint64_t cur_pc =
-            reinterpret_cast<uint64_t>(modvec_()[in_entry->pc.modidx].orig_seg_base) +
+        // Cast to unsigned pointer-sized int first to avoid sign-extending.
+        uint64_t cur_pc = static_cast<uint64_t>(reinterpret_cast<ptr_uint_t>(
+                              modvec_()[in_entry->pc.modidx].orig_seg_base)) +
             (in_entry->pc.modoffs - modvec_()[in_entry->pc.modidx].seg_offs);
         // Legacy traces need the offset, not the pc.
         uint64_t cur_offs = in_entry->pc.modoffs;
@@ -1075,7 +1081,13 @@ private:
             }
             DR_CHECK(pc > decode_pc, "error advancing inside block");
             DR_CHECK(!instr->is_cti() || i == instr_count - 1, "invalid cti");
-            // FIXME i#1729: make bundles via lazy accum until hit memref/end.
+            if (!instr->is_cti()) {
+                // Write out delayed branches now that we have a target.
+                error = impl()->append_delayed_branch(tls);
+                if (!error.empty())
+                    return error;
+            }
+            // TODO i#1729: make bundles via lazy accum until hit memref/end.
             buf->type = instr->type();
             if (buf->type == TRACE_TYPE_INSTR_MAYBE_FETCH) {
                 // We want it to look like the original rep string, with just one instr
@@ -1252,7 +1264,9 @@ private:
                     // assert or check that here or in the tracer.)
                     rseq_rollback = true;
                 }
-                impl()->log(4, "Checking whether reached signal/exception %p vs cur %p\n",
+                impl()->log(4,
+                            "Checking whether reached signal/exception %p vs "
+                            "cur 0x" HEX64_FORMAT_STRING "\n",
                             marker_val, cur_pc);
                 if (marker_val == 0 || at_interrupted_pc || rseq_rollback) {
                     impl()->log(4, "Signal/exception interrupted the bb @ %p\n", cur_pc);
@@ -1639,7 +1653,7 @@ protected:
         std::vector<offline_entry_t> pre_read;
 
         // Used to delay a thread-buffer-final branch to keep it next to its target.
-        std::vector<char> delayed_branch;
+        std::vector<std::vector<char>> delayed_branch;
 
         // Current trace conversion state.
         bool saw_header;
@@ -1656,7 +1670,7 @@ protected:
         uint64 count_elided = 0;
     };
 
-    std::string
+    virtual std::string
     read_and_map_modules();
 
     // Processes a raw buffer which must be the next buffer in the desired (typically

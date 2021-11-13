@@ -468,7 +468,8 @@ drreg_restore_app_values(void *drcontext, instrlist_t *ilist, instr_t *where, op
 
 DR_EXPORT
 /**
- * Restores all unreserved registers and flags to their app values at \p where.
+ * Restores the spilled value (typically the application value) for
+ * all registers and flags at \p where.
  */
 drreg_status_t
 drreg_restore_all(void *drcontext, instrlist_t *bb, instr_t *where);
@@ -514,6 +515,19 @@ drreg_status_t
 drreg_statelessly_restore_app_value(void *drcontext, instrlist_t *ilist, reg_id_t reg,
                                     instr_t *where_restore, instr_t *where_respill,
                                     bool *restore_needed OUT, bool *respill_needed OUT);
+
+DR_EXPORT
+/**
+ * Invokes drreg_statelessly_restore_app_value() for the arithmetic flags and every
+ * general-purpose register.  Returns the logical OR of the 'restore_needed' and
+ * 'respill_needed' results from all of the drreg_statelessly_restore_app_value() calls.
+ * If any step results in an error, that error is returned and the output parameters
+ * are not filled in (despite partial restores potentially remaining in place).
+ */
+drreg_status_t
+drreg_statelessly_restore_all(void *drcontext, instrlist_t *ilist, instr_t *where_restore,
+                              instr_t *where_respill, bool *restore_needed OUT,
+                              bool *respill_needed OUT);
 
 DR_EXPORT
 /**

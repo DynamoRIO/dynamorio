@@ -11,6 +11,7 @@ Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                              [45][90][0-9]
     Misses:                              [5-9]
+    Compulsory misses:                   *[0-9,\.]*
     Invalidations:                       0
     Flushes:                             1
     Prefetch hits:                       1
@@ -19,6 +20,7 @@ Core #0 \(1 thread\(s\)\)
   L1D stats:
     Hits:                               1[0-9]
     Misses:                              [1-9]
+    Compulsory misses:                   *[0-9,\.]*
     Invalidations:                       0
     Prefetch hits:                       1
     Prefetch misses:                     3
@@ -29,6 +31,7 @@ Core #3 \(0 thread\(s\)\)
 LL stats:
     Hits:                                1
     Misses:                             [ 1][0-9]
+    Compulsory misses:                  *[0-9,\.]*
     Invalidations:                       0
     Flushes:                             1
     Prefetch hits:                       1

@@ -46,28 +46,31 @@
 const std::string view_t::TOOL_NAME = "View tool";
 
 analysis_tool_t *
-view_tool_create(const std::string &module_file_path, uint64_t skip_refs,
-                 uint64_t sim_refs, const std::string &syntax, unsigned int verbose,
-                 const std::string &alt_module_dir)
+view_tool_create(const std::string &module_file_path, memref_tid_t thread,
+                 uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
+                 unsigned int verbose, const std::string &alt_module_dir)
 {
-    return new view_t(module_file_path, skip_refs, sim_refs, syntax, verbose,
+    return new view_t(module_file_path, thread, skip_refs, sim_refs, syntax, verbose,
                       alt_module_dir);
 }
 
-view_t::view_t(const std::string &module_file_path, uint64_t skip_refs, uint64_t sim_refs,
-               const std::string &syntax, unsigned int verbose,
-               const std::string &alt_module_dir)
+view_t::view_t(const std::string &module_file_path, memref_tid_t thread,
+               uint64_t skip_refs, uint64_t sim_refs, const std::string &syntax,
+               unsigned int verbose, const std::string &alt_module_dir)
     : module_file_path_(module_file_path)
     , knob_verbose_(verbose)
     , trace_version_(-1)
-    , instr_count_(0)
+    , knob_thread_(thread)
     , knob_skip_refs_(skip_refs)
+    , skip_refs_left_(knob_skip_refs_)
     , knob_sim_refs_(sim_refs)
+    , sim_refs_left_(knob_sim_refs_)
     , knob_syntax_(syntax)
     , knob_alt_module_dir_(alt_module_dir)
     , num_disasm_instrs_(0)
     , prev_tid_(-1)
-    , prev_filetype_(0)
+    , filetype_(-1)
+    , num_refs_(0)
 {
 }
 
@@ -101,33 +104,65 @@ view_t::initialize()
 }
 
 bool
-view_t::process_memref(const memref_t &memref)
+view_t::parallel_shard_supported()
 {
-    if (instr_count_ < knob_skip_refs_ ||
-        instr_count_ >= (knob_skip_refs_ + knob_sim_refs_)) {
-        if (type_is_instr(memref.instr.type) ||
-            memref.data.type == TRACE_TYPE_INSTR_NO_FETCH)
-            ++instr_count_;
+    // When just one thread is selected, we support parallel operation to reduce
+    // overhead from reading all the other thread files in series.
+    return knob_thread_ > 0;
+}
+
+void *
+view_t::parallel_shard_init(int shard_index, void *worker_data)
+{
+    return nullptr;
+}
+
+bool
+view_t::parallel_shard_exit(void *shard_data)
+{
+    return true;
+}
+
+std::string
+view_t::parallel_shard_error(void *shard_data)
+{
+    // Our parallel operation ignores all but one thread, so we need just
+    // the one global error string.
+    return error_string_;
+}
+
+bool
+view_t::parallel_shard_memref(void *shard_data, const memref_t &memref)
+{
+    return process_memref(memref);
+}
+
+bool
+view_t::should_skip()
+{
+    num_refs_++;
+    if (skip_refs_left_ > 0) {
+        skip_refs_left_--;
+        // I considered printing the version and filetype even when skipped but
+        // it adds more confusion from the memref counting than it removes.
+        // A user can do two views, one without a skip, to see the headers.
         return true;
     }
-
-    if (memref.instr.tid != 0) {
-        if (prev_tid_ != -1 && prev_tid_ != memref.instr.tid)
-            std::cerr << "------------------------------------------------------------\n";
-        prev_tid_ = memref.instr.tid;
-        std::cerr << "T" << memref.instr.tid << " ";
+    if (knob_sim_refs_ > 0) {
+        if (sim_refs_left_ == 0)
+            return true;
+        sim_refs_left_--;
     }
+    return false;
+}
 
+bool
+view_t::process_memref(const memref_t &memref)
+{
+    if (knob_thread_ > 0 && memref.data.tid > 0 && memref.data.tid != knob_thread_)
+        return true;
+    // Even for -skip_refs we need to process the up-front version and type.
     if (memref.marker.type == TRACE_TYPE_MARKER) {
-        if (memref.marker.tid != 0 &&
-            printed_header_.find(memref.marker.tid) == printed_header_.end()) {
-            printed_header_.insert(memref.marker.tid);
-            std::cerr << "<marker: version " << trace_version_ << ">\n";
-            std::cerr << "T" << memref.instr.tid << " ";
-            std::cerr << "<marker: filetype 0x" << std::hex << prev_filetype_ << std::dec
-                      << ">\n";
-            std::cerr << "T" << memref.instr.tid << " ";
-        }
         switch (memref.marker.marker_type) {
         case TRACE_MARKER_TYPE_VERSION:
             // We delay printing until we know the tid.
@@ -137,10 +172,15 @@ view_t::process_memref(const memref_t &memref)
                 error_string_ = std::string("Version mismatch across files");
                 return false;
             }
-            break;
+            return true; // Do not count toward -sim_refs yet b/c we don't have tid.
         case TRACE_MARKER_TYPE_FILETYPE:
             // We delay printing until we know the tid.
-            prev_filetype_ = memref.marker.marker_value;
+            if (filetype_ == -1)
+                filetype_ = static_cast<intptr_t>(memref.marker.marker_value);
+            else if (filetype_ != static_cast<intptr_t>(memref.marker.marker_value)) {
+                error_string_ = std::string("Filetype mismatch across files");
+                return false;
+            }
             if (TESTANY(OFFLINE_FILE_TYPE_ARCH_ALL, memref.marker.marker_value) &&
                 !TESTANY(build_target_arch_type(), memref.marker.marker_value)) {
                 error_string_ = std::string("Architecture mismatch: trace recorded on ") +
@@ -149,6 +189,46 @@ view_t::process_memref(const memref_t &memref)
                     " but tool built for " + trace_arch_string(build_target_arch_type());
                 return false;
             }
+            return true; // Do not count toward -sim_refs yet b/c we don't have tid.
+        default: break;
+        }
+    }
+
+    // We delay the initial markers until we know the tid.
+    // There are always at least 2 markers (timestamp+cpu) immediately after the
+    // first two, and on newer versions there is a 3rd (line size).
+    if (memref.marker.type == TRACE_TYPE_MARKER && memref.marker.tid != 0 &&
+        printed_header_.find(memref.marker.tid) == printed_header_.end()) {
+        printed_header_.insert(memref.marker.tid);
+        if (trace_version_ != -1) { // Old versions may not have a version marker.
+            if (!should_skip()) {
+                print_prefix(memref);
+                std::cerr << "<marker: version " << trace_version_ << ">\n";
+            }
+        }
+        if (filetype_ != -1) { // Handle old/malformed versions.
+            if (!should_skip()) {
+                print_prefix(memref);
+                std::cerr << "<marker: filetype 0x" << std::hex << filetype_ << std::dec
+                          << ">\n";
+            }
+        }
+    }
+
+    if (should_skip())
+        return true;
+
+    if (memref.instr.tid != 0) {
+        print_prefix(memref);
+    }
+
+    if (memref.marker.type == TRACE_TYPE_MARKER) {
+        switch (memref.marker.marker_type) {
+        case TRACE_MARKER_TYPE_VERSION:
+            // Handled above.
+            break;
+        case TRACE_MARKER_TYPE_FILETYPE:
+            // Handled above.
             break;
         case TRACE_MARKER_TYPE_TIMESTAMP:
             std::cerr << "<marker: timestamp " << memref.marker.marker_value << ">\n";
@@ -220,8 +300,6 @@ view_t::process_memref(const memref_t &memref)
         return true;
     }
 
-    ++instr_count_;
-
     app_pc mapped_pc;
     app_pc orig_pc = (app_pc)memref.instr.addr;
     mapped_pc = module_mapper_->find_mapped_trace_address(orig_pc);
@@ -254,7 +332,7 @@ view_t::process_memref(const memref_t &memref)
     auto newline = disasm.find('\n');
     if (newline != std::string::npos && newline < disasm.size() - 1) {
         std::stringstream prefix;
-        prefix << "T" << memref.instr.tid << " ";
+        print_prefix(memref, prefix);
         disasm.insert(newline + 1, prefix.str());
     }
     std::cerr << disasm;

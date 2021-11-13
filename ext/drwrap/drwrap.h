@@ -279,7 +279,8 @@ DR_EXPORT
  * and calling \p post_func_cb after every invocation of \p original.
  * One of the callbacks can be NULL, but not both. Uses the default
  * calling convention for the platform (see DRWRAP_CALLCONV_DEFAULT
- * in #drwrap_callconv_t).
+ * in #drwrap_callconv_t) and passes both #DR_CLEANCALL_READS_APP_CONTEXT
+ * and #DR_CLEANCALL_WRITES_APP_CONTEXT to the insertion of the calls.
  *
  * Wrap requests should normally be made up front during process
  * initialization or module load (see
@@ -480,6 +481,7 @@ DR_EXPORT
  * Returns the machine context of the wrapped function represented by
  * \p wrapcxt corresponding to the application state at the time
  * of the pre-function or post-function wrap callback.
+ * The pc field is set appropriately.
  * In order for any changes to the returned context to take
  * effect, drwrap_set_mcontext() must be called.
  *

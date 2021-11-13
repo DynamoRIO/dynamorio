@@ -7,6 +7,7 @@ Core #0 \(1 thread\(s\)\)
     Warmup misses:                *[0-9,\.]*
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
     Invalidations:                *0
 .*    Miss rate:                        [0-1][,\.]..%
   L1D stats:
@@ -14,6 +15,7 @@ Core #0 \(1 thread\(s\)\)
     Warmup misses:                *[0-9,\.]*
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
     Invalidations:                *0
 .*   Miss rate:                        [0-9][,\.]..%
 Core #1 \(0 thread\(s\)\)
@@ -24,6 +26,7 @@ LL stats:
     Warmup misses:                *[0-9,\.]*
     Hits:                         *[0-9,\.]*
     Misses:                       *[0-9,\.]*
+    Compulsory misses:            *[0-9,\.]*
     Invalidations:                *0
 .*   Local miss rate:        *[0-9,.]*%
     Child hits:                   *[0-9,\.]*

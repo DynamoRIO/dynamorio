@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -354,10 +354,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
             /* Callout for the not-taken case.  Insert after
              * the cbr (i.e., 3rd argument is NULL).
              */
-            dr_insert_clean_call(drcontext, bb, NULL, (void *)at_not_taken,
-                                 false /* don't save fp state */,
-                                 2 /* 2 args for at_not_taken */, OPND_CREATE_INTPTR(src),
-                                 OPND_CREATE_INTPTR(fall));
+            dr_insert_clean_call_ex(drcontext, bb, NULL, (void *)at_not_taken,
+                                    DR_CLEANCALL_READS_APP_CONTEXT |
+                                        DR_CLEANCALL_MULTIPATH,
+                                    2 /* 2 args for at_not_taken */,
+                                    OPND_CREATE_INTPTR(src), OPND_CREATE_INTPTR(fall));
         }
 
         /* After the callout, jump to the original fallthrough
@@ -380,10 +381,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
 
         if (insert_taken) {
             /* Callout for the taken case */
-            dr_insert_clean_call(drcontext, bb, NULL, (void *)at_taken,
-                                 false /* don't save fp state */,
-                                 2 /* 2 args for at_taken */, OPND_CREATE_INTPTR(src),
-                                 OPND_CREATE_INTPTR(targ));
+            dr_insert_clean_call_ex(drcontext, bb, NULL, (void *)at_taken,
+                                    DR_CLEANCALL_READS_APP_CONTEXT |
+                                        DR_CLEANCALL_MULTIPATH,
+                                    2 /* 2 args for at_taken */, OPND_CREATE_INTPTR(src),
+                                    OPND_CREATE_INTPTR(targ));
         }
 
         /* After the callout, jump to the original target

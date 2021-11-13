@@ -1278,6 +1278,31 @@ test_x64_inc(void *dc)
     instr = INSTR_CREATE_inc(dc, opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 2);
 }
+
+static void
+test_x64_vmovq(void *dc)
+{
+    /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]
+     * 62 61 fe 08 7e 0c 0a vmovq  (%rdx,%rcx)[8byte] -> %xmm25
+     */
+    byte *pc;
+    const byte b1[] = { 0x62, 0x61, 0xfd, 0x08, 0xd6, 0x0c, 0x0a, 0x00 };
+    const byte b2[] = { 0x62, 0x61, 0xfe, 0x08, 0x7e, 0x0c, 0x0a, 0x00 };
+    char dbuf[512];
+    int len;
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b1[7]);
+    ASSERT(strcmp(dbuf, "vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]\n") == 0);
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b2[7]);
+    ASSERT(strcmp(dbuf, "vmovq  (%rdx,%rcx)[8byte] -> %xmm25\n") == 0);
+}
 #endif
 
 static void
@@ -2487,6 +2512,8 @@ main(int argc, char *argv[])
     test_x64_abs_addr(dcontext);
 
     test_x64_inc(dcontext);
+
+    test_x64_vmovq(dcontext);
 #endif
 
     test_regs(dcontext);

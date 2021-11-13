@@ -251,7 +251,7 @@ typedef enum _dr_tuple_type_t {
 #define PREFIX_PRED_BITS 5
 #define PREFIX_PRED_BITPOS (32 - PREFIX_PRED_BITS)
 #define PREFIX_PRED_MASK \
-    (((1 << PREFIX_PRED_BITS) - 1) << PREFIX_PRED_BITPOS) /*0xf8000000 */
+    (((1U << PREFIX_PRED_BITS) - 1) << PREFIX_PRED_BITPOS) /*0xf8000000 */
 
 bool
 instr_branch_is_padded(instr_t *instr);

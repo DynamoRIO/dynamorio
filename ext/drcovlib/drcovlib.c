@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -152,16 +152,17 @@ bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start, uint size)
 {
     bb_entry_t *bb_entry = drtable_alloc(data->bb_table, 1, NULL);
     uint mod_id;
-    app_pc mod_start;
-    drcovlib_status_t res = drmodtrack_lookup(drcontext, start, &mod_id, &mod_start);
+    app_pc mod_seg_start;
+    drcovlib_status_t res =
+        drmodtrack_lookup_segment(drcontext, start, &mod_id, &mod_seg_start);
     /* we do not de-duplicate repeated bbs */
     ASSERT(size < USHRT_MAX, "size overflow");
     bb_entry->size = (ushort)size;
     if (res == DRCOVLIB_SUCCESS) {
         ASSERT(mod_id < USHRT_MAX, "module id overflow");
         bb_entry->mod_id = (ushort)mod_id;
-        ASSERT(start > mod_start, "wrong module");
-        bb_entry->start = (uint)(start - mod_start);
+        ASSERT(start >= mod_seg_start, "wrong module");
+        bb_entry->start = (uint)(start - mod_seg_start);
     } else {
         /* XXX: we just truncate the address, which may have wrong value
          * in x64 arch. It should be ok now since it is an unknown module,

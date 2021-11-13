@@ -112,6 +112,10 @@
 
 #define SYSCALL_PARAM_CLONE_STACK 1
 
+#define SYSCALL_PARAM_CLONE3_CLONE_ARGS 0
+#define SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE 1
+#define CLONE3_FLAGS_4_BYTE_MASK 0x00000000ffffffffUL
+
 struct _os_local_state_t;
 
 /* thread-local data that's os-private, for modularity */
@@ -305,7 +309,7 @@ signal_reinstate_handlers(dcontext_t *dcontext, bool ignore_alarm);
 void
 signal_reinstate_alarm_handlers(dcontext_t *dcontext);
 void
-handle_clone(dcontext_t *dcontext, uint flags);
+handle_clone(dcontext_t *dcontext, uint64 flags);
 /* If returns false to skip the syscall, the result is in "result". */
 bool
 handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
