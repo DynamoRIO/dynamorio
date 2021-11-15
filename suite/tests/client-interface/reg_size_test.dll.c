@@ -17,6 +17,10 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
         if (get_register_name(i)[0] == '\0') {
             continue;
         }
+#if defined(X86) && !defined(X64)
+        if (i >= REG_START_64 && i <= REG_STOP_64)
+            continue;
+#endif
         res = reg_get_size(i);
     }
 }
