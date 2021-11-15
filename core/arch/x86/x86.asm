@@ -2671,14 +2671,16 @@ inv64_return_to_32:
  * C code.  C code takes over when it returns to use.  We restore
  * regs and return to app code.
  * Executes on app stack but we assume app stack is fine at this point.
+ *
+ * We've pushed a retaddr on the stack, but we expect all our takeover
+ * points to be at function entry where the app's retaddr was just pushed
+ * and thus stack alignment was at +ptrsz and is +2*ptrsz on entry here.
  */
         DECLARE_EXPORTED_FUNC(dynamorio_earliest_init_takeover)
 GLOBAL_LABEL(dynamorio_earliest_init_takeover:)
-        push     REG_XAX /* Save xax (PUSH_PRIV_MCXT clobbers it) and align x64 stack. */
-# ifndef X64
-        lea      REG_XSP, [REG_XSP - 2*ARG_SZ] /* Align 32-bit stack. */
-# endif
-        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
+        push     REG_XAX /* Save xax (PUSH_PRIV_MCXT clobbers it). */
+        lea      REG_XSP, [REG_XSP - ARG_SZ] /* Align stack whether 32 or 64-bit. */
+        PUSH_PRIV_MCXT(PTRSZ [REG_XSP + 2*ARG_SZ -\
                        PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* Return address as pc. */
 # ifdef EARLIEST_INIT_DEBUGBREAK
         /* giant loop so can attach debugger, then change ebx to 1
@@ -2695,22 +2697,22 @@ dynamorio_earliest_init_repeatme:
         jg       dynamorio_earliest_init_repeat_outer
 # endif
         lea      REG_XDX, [REG_XSP] /* Pointer to priv_mcontext_t. */
+        /* Fix up app's xsp from the retaddr + push + align we did. */
+        mov      REG_XAX, PTRSZ [REG_XSP + MCONTEXT_XSP_OFFS]
+        lea      REG_XAX, [REG_XAX + 3*ARG_SZ]
+        mov      PTRSZ [REG_XSP + MCONTEXT_XSP_OFFS], REG_XAX
         /* Load passed-in xax which points to the arg struct. */
-        mov      REG_XAX, PTRSZ [REG_XSP + PRIV_MCXT_SIZE + FRAME_ALIGNMENT - 2*ARG_SZ]
+        mov      REG_XAX, PTRSZ [REG_XSP + PRIV_MCXT_SIZE + ARG_SZ]
         /* Load earliest_args_t.app_xax, written by our gencode. */
         mov      REG_XCX, PTRSZ [REG_XAX]
         /* Store into xax slot on stack. */
-        mov      PTRSZ [MCONTEXT_XAX_OFFS + REG_XSP], REG_XCX
+        mov      PTRSZ [REG_XSP + MCONTEXT_XAX_OFFS], REG_XCX
         CALLC2(GLOBAL_REF(dynamorio_earliest_init_takeover_C), REG_XAX, REG_XDX)
         /* We will either be under DR control or running natively at this point. */
 
         /* Restore. */
         POP_PRIV_MCXT_GPRS()
-# ifdef X64
-        lea      REG_XSP, [REG_XSP + ARG_SZ] /* Undo push. */
-# else
-        lea      REG_XSP, [REG_XSP + 3*ARG_SZ] /* Undo alignment. */
-# endif
+        lea      REG_XSP, [REG_XSP + 2*ARG_SZ] /* Undo align + push. */
         ret
         END_FUNC(dynamorio_earliest_init_takeover)
 #endif /* WINDOWS */
