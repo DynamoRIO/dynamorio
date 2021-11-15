@@ -9077,10 +9077,10 @@ earliest_inject_init(byte *arg_ptr)
          * should we just silently go native?
          */
     } else {
-        /* Restore +rx to hook location before DR init scans it */
+        /* Restore the prior protections to the hook location before DR init scans it. */
         uint old_prot;
         if (!bootstrap_protect_virtual_memory((byte *)(ptr_int_t)args->hook_location,
-                                              EARLY_INJECT_HOOK_SIZE, PAGE_EXECUTE_READ,
+                                              EARLY_INJECT_HOOK_SIZE, args->hook_prot,
                                               &old_prot)) {
             /* XXX: again, how handle failure? */
         }
