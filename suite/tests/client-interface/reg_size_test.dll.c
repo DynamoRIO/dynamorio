@@ -14,6 +14,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     for (int i = DR_REG_NULL + 1; i < DR_REG_LAST_VALID_ENUM; ++i) {
         if (i == DR_REG_INVALID)
             continue;
+        if (get_register_name(i)[0] == '\0') {
+            continue;
+        }
         res = reg_get_size(i);
     }
 }
