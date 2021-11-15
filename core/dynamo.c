@@ -2962,10 +2962,12 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
         control_all_threads = automatic_startup;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-        /* Adjust the app stack to account for the return address + alignment.
-         * See dynamorio_app_take_over in x86.asm.
-         */
-        mc->xsp += DYNAMO_START_XSP_ADJUST;
+        if (!dr_earliest_injected && !dr_early_injected) {
+            /* Adjust the app stack to account for the return address + alignment.
+             * See dynamorio_app_take_over in x86.asm.
+             */
+            mc->xsp += DYNAMO_START_XSP_ADJUST;
+        }
 
         /* For hotp_only and thin_client, the app should run native, except
          * for our hooks.
