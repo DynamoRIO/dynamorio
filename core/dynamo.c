@@ -2962,7 +2962,7 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
         control_all_threads = automatic_startup;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-        if (!dr_earliest_injected && !dr_early_injected) {
+        if (IF_WINDOWS_ELSE(!dr_earliest_injected && !dr_early_injected, true)) {
             /* Adjust the app stack to account for the return address + alignment.
              * See dynamorio_app_take_over in x86.asm.
              */
