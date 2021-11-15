@@ -3021,7 +3021,7 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
 /* Called with DR library mapped in but without its imports processed.
  */
 void
-dynamorio_earliest_init_takeover_C(byte *arg_ptr)
+dynamorio_earliest_init_takeover_C(byte *arg_ptr, priv_mcontext_t *mc)
 {
     int res;
     bool earliest_inject;
@@ -3044,21 +3044,7 @@ dynamorio_earliest_init_takeover_C(byte *arg_ptr)
      * confusing the exec areas scan
      */
 
-    /* Take over at retaddr
-     *
-     * XXX i#626: app_takeover sets preinjected for rct (should prob. rename)
-     * which needs to be done whenever we takeover not at the bottom of the
-     * callstack.  For earliest won't need to set this if we takeover
-     * in such a way as to handle the return back to our hook code without a
-     * violation -- though currently we will see 3 rets (return from
-     * dynamorio_app_take_over(), return from here, and return from
-     * dynamorio_earliest_init_takeover() to app hook code).
-     * Should we have dynamorio_earliest_init_takeover() set up an
-     * mcontext that we can go to directly instead of interpreting
-     * the returns in our own code?  That would make tools that shadow
-     * callstacks simpler too.
-     */
-    dynamorio_app_take_over();
+    dynamorio_app_take_over_helper(mc);
 }
 #endif /* WINDOWS */
 
