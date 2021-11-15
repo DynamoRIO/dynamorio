@@ -2539,7 +2539,8 @@ reg_get_size(reg_id_t reg)
     if (reg == DR_REG_TPIDRURW || reg == DR_REG_TPIDRURO)
         return OPSZ_PTR;
 #endif
-    LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg, get_register_name(reg), DR_REG_LAST_ENUM);
+    LOG(GLOBAL, LOG_ANNOTATIONS, 2, "reg=%d, %s, last reg=%d\n", reg,
+        get_register_name(reg), DR_REG_LAST_ENUM);
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
 }
