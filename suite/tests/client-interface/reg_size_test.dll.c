@@ -22,6 +22,12 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             continue;
         if (i >= REG_START_x64_8 && i <= REG_STOP_x64_8)
             continue;
+        if (i >= DR_REG_STOP_XMM && i <= DR_REG_START_YMM)
+            continue;
+        if (i >= DR_REG_STOP_YMM && i <= DR_REG_START_ZMM)
+            continue;
+        if (i >= DR_REG_STOP_ZMM && i <= RESERVED_ZMM)
+            continue;
 #endif
         res = reg_get_size(i);
     }
