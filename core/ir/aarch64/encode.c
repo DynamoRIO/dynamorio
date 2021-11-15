@@ -79,7 +79,7 @@ const char *const reg_names[] = {
     "z23",         "z24",       "z25", "z26", "z27",  "z28",  "z29",  "z30",
     "z31",         "p0",        "p1",  "p2",  "p3",   "p4",   "p5",   "p6",
     "p7",          "p8",        "p9",  "p10", "p11",  "p12",  "p13",  "p14",
-    "p15",
+    "p15", "cntvct_el0",
 };
 
 /* Maps sub-registers to their containing register. */
