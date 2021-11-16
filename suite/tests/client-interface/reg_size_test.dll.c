@@ -1,8 +1,13 @@
 #include "dr_api.h"
+#include "string.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define CHECK(x, msg)                                                                \
+    do {                                                                             \
+        if (!(x)) {                                                                  \
+            dr_fprintf(STDERR, "CHECK failed %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            dr_abort();                                                              \
+        }                                                                            \
+    } while (0);
 
 DR_EXPORT void
 dr_client_main(client_id_t id, int argc, const char *argv[])
@@ -11,28 +16,39 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
                        "http://dynamorio.org/issues");
 
     opnd_size_t res;
-    for (int i = DR_REG_NULL + 1; i < DR_REG_LAST_VALID_ENUM; ++i) {
+    const char *reg;
+    for (int i = DR_REG_NULL + 1; i <= DR_REG_LAST_VALID_ENUM; ++i) {
         if (i == DR_REG_INVALID)
             continue;
-        if (get_register_name(i)[0] == '\0') {
-            continue;
-        }
-#if defined(X86) && !defined(X64)
+#ifdef X86
+#    ifndef X64
         if (i >= REG_START_64 && i <= REG_STOP_64)
             continue;
         if (i >= REG_START_x64_8 && i <= REG_STOP_x64_8)
             continue;
-        if (i >= DR_REG_STOP_XMM && i <= DR_REG_START_YMM)
+#    endif
+        // Filter out reserved register enum
+        if (i >= DR_REG_STOP_XMM && i <= RESERVED_XMM)
             continue;
-        if (i >= DR_REG_STOP_YMM && i <= DR_REG_START_ZMM)
+        if (i >= DR_REG_STOP_YMM && i <= RESERVED_YMM)
             continue;
         if (i >= DR_REG_STOP_ZMM && i <= RESERVED_ZMM)
             continue;
+        if (i >= DR_REG_STOP_OPMASK && i <= RESERVED_OPMASK)
+            continue;
 #endif
+        // checking register name by its length
+        reg = get_register_name(i);
+        res = strlen(reg);
+        CHECK(res != 0, "register name should not be empty!");
+        for (int j = 0; j < res; ++j) {
+            if (!((reg[j] >= 'a' && reg[j] <= 'z') || (reg[j] >= '0' && reg[j] <= '9') ||
+                  reg[j] == '_')) {
+                dr_fprintf(STDERR, "register name is invalid: %s\n", reg);
+                CHECK(false, "register should be named with a-z/0-9/_");
+            }
+        }
         res = reg_get_size(i);
+        CHECK(res != OPSZ_NA, "reg_get_size return OPSZ_NA!");
     }
 }
-
-#ifdef __cplusplus
-}
-#endif
