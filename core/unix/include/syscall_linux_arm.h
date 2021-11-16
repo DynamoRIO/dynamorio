@@ -2977,9 +2977,9 @@
  * corresponding syscall. These entries should be deleted when the above
  * list is updated with a newer header file that contains them already.
  */
-#ifdef __NR_close_range
-#    define SYS_close_range __NR_close_range
-#endif
+#    ifdef __NR_close_range
+#        define SYS_close_range __NR_close_range
+#    endif
 #endif /* ARM */
 
 #endif /* _SYSCALL_LINUX_ARM_H_ */
