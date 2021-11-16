@@ -15,6 +15,7 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_set_client_name("DynamoRIO Sample Client 'test_reg_size'",
                        "http://dynamorio.org/issues");
 
+    int n;
     opnd_size_t res;
     const char *reg;
     for (int i = DR_REG_NULL + 1; i <= DR_REG_LAST_VALID_ENUM; ++i) {
@@ -39,9 +40,9 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
 #endif
         // checking register name by its length
         reg = get_register_name(i);
-        res = strlen(reg);
-        CHECK(res != 0, "register name should not be empty!");
-        for (int j = 0; j < res; ++j) {
+        n = strlen(reg);
+        CHECK(n != 0, "register name should not be empty!");
+        for (int j = 0; j < n; ++j) {
             if (!((reg[j] >= 'a' && reg[j] <= 'z') || (reg[j] >= '0' && reg[j] <= '9') ||
                   reg[j] == '_')) {
                 dr_fprintf(STDERR, "register name is invalid: %s\n", reg);
