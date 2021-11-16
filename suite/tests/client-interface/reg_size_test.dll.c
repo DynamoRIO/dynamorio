@@ -29,13 +29,13 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
             continue;
 #    endif
         // Filter out reserved register enum
-        if (i >= DR_REG_STOP_XMM && i <= RESERVED_XMM)
+        if (i > DR_REG_STOP_XMM && i <= RESERVED_XMM)
             continue;
-        if (i >= DR_REG_STOP_YMM && i <= RESERVED_YMM)
+        if (i > DR_REG_STOP_YMM && i <= RESERVED_YMM)
             continue;
-        if (i >= DR_REG_STOP_ZMM && i <= RESERVED_ZMM)
+        if (i > DR_REG_STOP_ZMM && i <= RESERVED_ZMM)
             continue;
-        if (i >= DR_REG_STOP_OPMASK && i <= RESERVED_OPMASK)
+        if (i > DR_REG_STOP_OPMASK && i <= RESERVED_OPMASK)
             continue;
 #endif
         // checking register name by its length
