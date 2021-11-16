@@ -7654,10 +7654,6 @@ pre_system_call(dcontext_t *dcontext)
             set_failure_return_val(dcontext, ret);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
         }
-        /* Restore syscall params for transparency. */
-        set_syscall_param(dcontext, 0, first_fd);
-        set_syscall_param(dcontext, 1, last_fd);
-        set_syscall_param(dcontext, 2, flags);
         break;
     }
 #endif
