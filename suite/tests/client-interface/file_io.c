@@ -39,6 +39,8 @@
 #    include <stdio.h>
 #    include <sys/syscall.h>
 #    include <errno.h>
+#    include <fcntl.h>
+#    include <linux/close_range.h>
 struct compat_rlimit {
     unsigned int rlim_cur;
     unsigned int rlim_max;
@@ -46,6 +48,8 @@ struct compat_rlimit {
 #else
 #    include <float.h>
 #endif
+
+#define DR_STEAL_FDS 96
 
 #if defined(UNIX) && defined(SYS_prlimit64)
 int
@@ -60,20 +64,12 @@ int
 main()
 {
 #ifdef UNIX
-    /* test i#357 by trying to close the client's file */
-    int i;
-    for (i = 3; i < 5000; i++) {
-        dup2(0, i);
-        close(i);
-    }
-
-    /* further tests of i#357 -steal_fds */
-    struct rlimit rlimit, new_rlimit;
+    /* Test -steal_fds (i#357). */
+    struct rlimit rlimit;
     if (getrlimit(RLIMIT_NOFILE, &rlimit) != 0) {
         perror("getrlimit failed");
         return 1;
     }
-
     /* DR should have taken -steal_fds == 96.  To avoid hardcoding the 4096
      * typical max we assume it's just a power of 2.
      */
@@ -86,8 +82,55 @@ main()
                  */
                 (unsigned long long)rlimit.rlim_max);
         /* We continue to make it easier to run this app natively. */
+    } else {
+        if (((rlimit.rlim_max + DR_STEAL_FDS) & (rlimit.rlim_max + DR_STEAL_FDS - 1)) !=
+            0)
+            fprintf(stderr,
+                    "Expected rlim_max + DR_STEAL_FDS to be a power of 2 under DR\n");
     }
 
+    /* Test i#357 by trying to close the client's file.
+     * Above, we verified that DR has indeed stolen some FDs from the high side.
+     * Now we try to dup/close those and confirm that we fail.
+     */
+    /* Test dup/close for stolen FDs. */
+    for (int i = rlimit.rlim_max; i < rlimit.rlim_max + DR_STEAL_FDS; i++) {
+        if (dup2(0, i) != -1 || errno != EBADF)
+            fprintf(stderr, "Expected dup2 to return EBADF for stolen FD %d\n", i);
+        if (close(i) != -1 || errno != EBADF)
+            fprintf(stderr, "Expected close to return EBADF for stolen FD %d\n", i);
+    }
+    /* Test dup/close for non-stolen FDs. */
+    for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
+        if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
+            fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+        if (close(i) != 0 || fcntl(i, F_GETFD) != -1 || errno != EBADF)
+            fprintf(stderr, "close failed unexpectedly for non-stolen FD %d\n", i);
+    }
+
+#    ifdef __NR_close_range
+    /* Test close_range. First open some FDs. */
+    for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
+        if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
+            fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+    }
+    /* close_range should close the open FDs, and not return any error for
+     * any unopen or DR-private FDs.
+     */
+    if (syscall(__NR_close_range, rlimit.rlim_max - 10, rlimit.rlim_max + DR_STEAL_FDS,
+                0) == -1) {
+        perror("close_range failed");
+    }
+    /* Confirm that the previously open FDs are actually closed after the close_range. */
+    for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
+        if (fcntl(i, F_GETFD) != -1 || errno != EBADF)
+            fprintf(stderr, "FD not closed by close_range\n");
+    }
+
+    if (syscall(__NR_close_range, 3, 2, 0) != -1 && errno != EINVAL)
+        fprintf(stderr, "expected EINVAL from close_range");
+#    endif
+    struct rlimit new_rlimit;
     /* setrlimit with lower soft value */
     new_rlimit.rlim_max = rlimit.rlim_max;
     new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
