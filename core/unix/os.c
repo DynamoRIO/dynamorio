@@ -6156,11 +6156,13 @@ handle_close_pre(dcontext_t *dcontext)
                                     true /*set_return_val*/);
 }
 
+#ifdef SYS_close_range
 static bool
 handle_close_range_pre(dcontext_t *dcontext, file_t fd)
 {
     return handle_close_generic_pre(dcontext, fd, false /*set_return_val*/);
 }
+#endif
 
 /***************************************************************************/
 

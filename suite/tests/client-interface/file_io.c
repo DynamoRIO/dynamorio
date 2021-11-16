@@ -70,7 +70,7 @@ main()
         perror("getrlimit failed");
         return 1;
     }
-    /* DR should have taken -steal_fds == 96.  To avoid hardcoding the 4096
+    /* DR should have taken -steal_fds == 96.  To avoid hardcoding the
      * typical max we assume it's just a power of 2.
      */
     if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
