@@ -7620,7 +7620,8 @@ pre_system_call(dcontext_t *dcontext)
         bool cur_range_valid = false;
         int ret = 0;
         for (int i = first_fd; i <= last_fd; i++) {
-            if ((is_cloexec && fd_is_in_private_range(i)) ||
+            /* Do not allow any changes to DR-owned FDs. */
+            if ((is_cloexec && fd_is_dr_owned(i)) ||
                 (!is_cloexec && !handle_close_range_pre(dcontext, i))) {
                 SYSLOG_INTERNAL_WARNING_ONCE("app trying to close private fd(s)");
                 if (cur_range_valid) {
