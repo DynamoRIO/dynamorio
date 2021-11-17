@@ -2522,6 +2522,8 @@ tobuild_ci(client.option_parse client-interface/option_parse.cpp
 use_DynamoRIO_extension(client.option_parse.dll droption)
 set(client.option_parse_client_ops_islist ON)
 
+tobuild_ci(client.reg_size_test client-interface/reg_size_test.c "" "" "")
+
 tobuild_ci(client.thread_exit_xl8 client-interface/thread_exit_xl8.c "" "" "")
 
 if (UNIX) # The test uses signals.
@@ -4830,6 +4832,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.modules
     code_api|client.null_instrument
     code_api|client.option_parse
+    code_api|client.reg_size_test
     code_api|client.partial_module_map
     code_api|client.stack-overflow
     code_api|client.thread_exit_xl8
