@@ -40,7 +40,9 @@
 #    include <sys/syscall.h>
 #    include <errno.h>
 #    include <fcntl.h>
-#    include <linux/close_range.h>
+#    ifdef __NR_close_range
+#        include <linux/close_range.h>
+#    endif
 struct compat_rlimit {
     unsigned int rlim_cur;
     unsigned int rlim_max;
