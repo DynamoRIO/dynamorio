@@ -7614,8 +7614,8 @@ pre_system_call(dcontext_t *dcontext)
             ASSERT_NOT_TESTED();
         }
         /* We do not let the app execute their own close_range ever. Instead we
-         * we make multiple close_range syscalls ourselves, one for each contiguous
-         * range of non-DR-private fds in [first, last].
+         * make multiple close_range syscalls ourselves, one for each contiguous
+         * sub-range of non-DR-private fds in [first, last].
          */
         execute_syscall = false;
         if (first_fd > last_fd) {

@@ -131,7 +131,7 @@ main()
                  fcntl(rlimit.rlim_max - 1, F_GETFD) | FD_CLOEXEC) == 0);
 #        endif
     if (!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)))
-        fprintf(stderr, "clone_range failed to set the close-on-exec flag\n");
+        fprintf(stderr, "close_range failed to set the close-on-exec flag\n");
     /* close_range should close the open FDs, and not return any error for
      * any unopen or DR-private FDs.
      * [rlim_max-20, rlim_max-10) are unopen
