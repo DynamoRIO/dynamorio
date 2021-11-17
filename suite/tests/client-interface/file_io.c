@@ -33,6 +33,7 @@
 
 #ifdef UNIX
 #    define _GNU_SOURCE
+#    include <assert.h>
 #    include <unistd.h>
 #    include <sys/time.h>
 #    include <sys/resource.h>
@@ -52,6 +53,7 @@ struct compat_rlimit {
 #endif
 
 #define DR_STEAL_FDS 96
+#define TEST(mask, var) (((mask) & (var)) != 0)
 
 #if defined(UNIX) && defined(SYS_prlimit64)
 int
@@ -116,6 +118,20 @@ main()
         if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
             fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
     }
+    /* Mark one FD as close-on-exec. */
+    assert(!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)));
+#        ifdef CLOSE_RANGE_CLOEXEC
+    /* CLOSE_RANGE_CLOEXEC is available only on kernel version >= 5.11 */
+    if (syscall(__NR_close_range, rlimit.rlim_max - 1, rlimit.rlim_max - 1,
+                CLOSE_RANGE_CLOEXEC) == -1) {
+        perror("close_range mark as close-on-exec failed");
+    }
+#        else
+    assert(fcntl(rlimit.rlim_max - 1, F_SETFD,
+                 fcntl(rlimit.rlim_max - 1, F_GETFD) | FD_CLOEXEC) == 0);
+#        endif
+    if (!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)))
+        fprintf(stderr, "clone_range failed to set the close-on-exec flag\n");
     /* close_range should close the open FDs, and not return any error for
      * any unopen or DR-private FDs.
      */
@@ -129,6 +145,7 @@ main()
             fprintf(stderr, "FD not closed by close_range\n");
     }
 
+    /* Test EINVAL. */
     if (syscall(__NR_close_range, 3, 2, 0) != -1 && errno != EINVAL)
         fprintf(stderr, "expected EINVAL from close_range");
 #    endif

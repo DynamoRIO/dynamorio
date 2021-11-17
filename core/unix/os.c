@@ -7606,6 +7606,12 @@ pre_system_call(dcontext_t *dcontext)
         uint first_fd = sys_param(dcontext, 0), last_fd = sys_param(dcontext, 1);
         uint flags = sys_param(dcontext, 2);
         bool is_cloexec = TEST(CLOSE_RANGE_CLOEXEC, flags);
+        if (is_cloexec) {
+            /* client.file_io has a test for CLOSE_RANGE_CLOEXEC, but it hasn't been
+             * verified on a system with kernel version >= 5.11 yet.
+             */
+            ASSERT_NOT_TESTED();
+        }
         /* We do not let the app execute their own close_range ever. Instead we
          * we make multiple close_range syscalls ourselves, one for each contiguous
          * range of non-DR-private fds in [first, last].
