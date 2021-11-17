@@ -134,9 +134,13 @@ main()
         fprintf(stderr, "clone_range failed to set the close-on-exec flag\n");
     /* close_range should close the open FDs, and not return any error for
      * any unopen or DR-private FDs.
+     * [rlim_max-20, rlim_max-10) are unopen
+     * [rlim_max-10, rlim_max) are open
+     * [rlim_max, rlim_max + DR_STEAL_FDS) are DR-private when run under DR,
+     * and outside the allowed FD range when run natively.
      */
-    if (syscall(__NR_close_range, rlimit.rlim_max - 10, rlimit.rlim_max + DR_STEAL_FDS,
-                0) == -1) {
+    if (syscall(__NR_close_range, rlimit.rlim_max - 20,
+                rlimit.rlim_max + DR_STEAL_FDS - 1, 0) == -1) {
         perror("close_range failed");
     }
     /* Confirm that the previously open FDs are actually closed after the close_range. */
