@@ -354,6 +354,7 @@ x1111010010xxxxxxxxx00xxxxx0xxxx  rw  57        ccmp                : wx5 wx16 n
 x1111010010xxxxxxxxx10xxxxx0xxxx  rw  57        ccmp                : wx5 imm5 nzcv cond
 11010101000000110011xxxx01011111  n   58       clrex                : imm4
 x101101011000000000101xxxxxxxxxx  n   59         cls            wx0 : wx5
+0x001110xx100000010010xxxxxxxxxx  n   59         cls            dq0 : dq5 bhs_sz
 x101101011000000000100xxxxxxxxxx  n   60         clz            wx0 : wx5
 0x101110xx100000010010xxxxxxxxxx  n   60         clz            dq0 : dq5 bhs_sz
 0x101110xx1xxxxx100011xxxxxxxxxx  n   61        cmeq            dq0 : dq5 dq16 bhsd_sz
@@ -363,6 +364,7 @@ x101101011000000000100xxxxxxxxxx  n   60         clz            wx0 : wx5
 0x001110xx1xxxxx001111xxxxxxxxxx  n   62        cmge            dq0 : dq5 dq16 bhsd_sz
 0x101110xx100000100010xxxxxxxxxx  n   62        cmge            dq0 : dq5 bhsd_sz
 0111111011100000100010xxxxxxxxxx  n   62        cmge             d0 : d5
+01011110111xxxxx001111xxxxxxxxxx  n   62        cmge             d0 : d5 d16
 0x001110xx1xxxxx001101xxxxxxxxxx  n   63        cmgt            dq0 : dq5 dq16 bhsd_sz
 0x001110xx100000100010xxxxxxxxxx  n   63        cmgt            dq0 : dq5 bhsd_sz
 0101111011100000100010xxxxxxxxxx  n   63        cmgt             d0 : d5
@@ -370,11 +372,13 @@ x101101011000000000100xxxxxxxxxx  n   60         clz            wx0 : wx5
 0x101110xx1xxxxx001101xxxxxxxxxx  n   64        cmhi            dq0 : dq5 dq16 bhsd_sz
 01111110111xxxxx001101xxxxxxxxxx  n   64        cmhi             d0 : d5 d16
 0x101110xx1xxxxx001111xxxxxxxxxx  n   65        cmhs            dq0 : dq5 dq16 bhsd_sz
+01111110111xxxxx001111xxxxxxxxxx  n   65        cmhs             d0 : d5 d16
 0111111011100000100110xxxxxxxxxx  n   66        cmle             d0 : d5
 0x101110xx100000100110xxxxxxxxxx  n   66        cmle            dq0 : dq5 bhsd_sz
 0x001110xx100000101010xxxxxxxxxx  n   67        cmlt            dq0 : dq5 bhsd_sz
 0101111011100000101010xxxxxxxxxx  n   67        cmlt             d0 : d5
 0x001110xx1xxxxx100011xxxxxxxxxx  n   68       cmtst            dq0 : dq5 dq16 bhsd_sz
+01011110111xxxxx100011xxxxxxxxxx  n   68       cmtst             d0 : d5 d16
 0x00111000100000010110xxxxxxxxxx  n   69         cnt            dq0 : dq5
 00011010110xxxxx010000xxxxxxxxxx  n   70      crc32b             w0 : w5 w16
 00011010110xxxxx010100xxxxxxxxxx  n   71     crc32cb             w0 : w5 w16
