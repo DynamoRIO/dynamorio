@@ -1168,6 +1168,10 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363       sdiv            wx0 : wx5 wx16
 0101111101xxxxxx1101x0xxxxxxxxxx  n   413   sqrdmulh             h0 : h5 dq16_h_sz vindex_H h_sz
 010111111xxxxxxx1101x0xxxxxxxxxx  n   413   sqrdmulh             s0 : s5 dq16 vindex_SD sd_sz
 0x001110xx1xxxxx010111xxxxxxxxxx  n   414     sqrshl            dq0 : dq5 dq16 bhsd_sz
+01011110001xxxxx010111xxxxxxxxxx  n   414     sqrshl             b0 : b5 b16
+01011110011xxxxx010111xxxxxxxxxx  n   414     sqrshl             h0 : h5 h16
+01011110101xxxxx010111xxxxxxxxxx  n   414     sqrshl             s0 : s5 s16
+01011110111xxxxx010111xxxxxxxxxx  n   414     sqrshl             d0 : d5 d16
 000011110xxxxxxx100111xxxxxxxxxx  n   415    sqrshrn             d0 : q5 hsd_immh_sz immhb_shf
 010011110xxxxxxx100111xxxxxxxxxx  n   416   sqrshrn2             q0 : q5 hsd_immh_sz immhb_shf
 0010111100xxxxxx100011xxxxxxxxxx  n   417   sqrshrun             d0 : q5 hsd_immh_sz immhb_shf
@@ -1195,6 +1199,10 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363       sdiv            wx0 : wx5 wx16
 0010111100xxxxxx100001xxxxxxxxxx  n   423    sqshrun             d0 : q5 hsd_immh_sz immhb_shf
 0110111100xxxxxx100001xxxxxxxxxx  n   424   sqshrun2             q0 : q5 hsd_immh_sz immhb_shf
 0x001110xx1xxxxx001011xxxxxxxxxx  n   425      sqsub            dq0 : dq5 dq16 bhsd_sz
+01011110001xxxxx001011xxxxxxxxxx  n   425      sqsub             b0 : b5 b16
+01011110011xxxxx001011xxxxxxxxxx  n   425      sqsub             h0 : h5 h16
+01011110101xxxxx001011xxxxxxxxxx  n   425      sqsub             s0 : s5 s16
+01011110111xxxxx001011xxxxxxxxxx  n   425      sqsub             d0 : d5 d16
 0101111000100001010010xxxxxxxxxx  n   426      sqxtn             b0 : h5
 0101111001100001010010xxxxxxxxxx  n   426      sqxtn             h0 : s5
 0101111010100001010010xxxxxxxxxx  n   426      sqxtn             s0 : d5
@@ -1209,11 +1217,13 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363       sdiv            wx0 : wx5 wx16
 0111111101xxxxxx010001xxxxxxxxxx  n   431        sri             d0 : d5 immhb_shf
 0x1011110xxxxxxx010001xxxxxxxxxx  n   431        sri            dq0 : dq5 bhsd_immh_sz immhb_shf
 0x001110xx1xxxxx010101xxxxxxxxxx  n   432      srshl            dq0 : dq5 dq16 bhsd_sz
+01011110111xxxxx010101xxxxxxxxxx  n   432      srshl             d0 : d5 d16
 0101111101xxxxxx001001xxxxxxxxxx  n   433      srshr             d0 : d5 immhb_shf
 0x0011110xxxxxxx001001xxxxxxxxxx  n   433      srshr            dq0 : dq5 bhsd_immh_sz immhb_shf
 0101111101xxxxxx001101xxxxxxxxxx  n   434      srsra             d0 : d5 immhb_shf
 0x0011110xxxxxxx001101xxxxxxxxxx  n   434      srsra            dq0 : dq5 bhsd_immh_sz immhb_shf
 0x001110xx1xxxxx010001xxxxxxxxxx  n   435       sshl            dq0 : dq5 dq16 bhsd_sz
+01011110111xxxxx010001xxxxxxxxxx  n   435       sshl             d0 : d5 d16
 000011110xxxxxxx101001xxxxxxxxxx  n   436      sshll             q0 : d5 bhsd_immh_sz immhb_0shf
 010011110xxxxxxx101001xxxxxxxxxx  n   437     sshll2             q0 : q5 bhsd_immh_sz immhb_0shf
 0101111101xxxxxx000001xxxxxxxxxx  n   438       sshr             d0 : d5 immhb_shf
@@ -1359,6 +1369,7 @@ x10100010xxxxxxxxxxxxxxxxxxxxxxx  n   470        sub          wx0sp : wx5sp imm1
 x1001011xx0xxxxxxxxxxxxxxxxxxxxx  n   470        sub            wx0 : wx5 wx16 shift3 imm6
 x1001011001xxxxxxxxxxxxxxxxxxxxx  n   470        sub          wx0sp : wx5sp wx16 ext extam
 0x101110xx1xxxxx100001xxxxxxxxxx  n   470        sub            dq0 : dq5 dq16 bhsd_sz
+01111110111xxxxx100001xxxxxxxxxx  n   470        sub             d0 : d5 d16
 00001110xx1xxxxx011000xxxxxxxxxx  n   471      subhn             d0 : q5 q16 bhs_sz
 01001110xx1xxxxx011000xxxxxxxxxx  n   472     subhn2             q0 : q5 q16 bhs_sz
 x11100010xxxxxxxxxxxxxxxxxxxxxxx  w   473       subs            wx0 : wx5sp imm12 lsl imm12sh
