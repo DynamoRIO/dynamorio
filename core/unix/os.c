@@ -6075,6 +6075,7 @@ set_stdfile_fileno(stdfile_t **stdfile, file_t file_no)
         "backing these.");
 #endif
 }
+
 /* returns whether to execute syscall */
 static bool
 handle_close_generic_pre(dcontext_t *dcontext, file_t fd, bool set_return_val)
@@ -7660,6 +7661,8 @@ pre_system_call(dcontext_t *dcontext)
         if (ret != 0) {
             set_failure_return_val(dcontext, ret);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+        } else {
+            set_success_return_val(dcontext, 0);
         }
         break;
     }

@@ -146,7 +146,7 @@ main()
     }
 
     /* Test EINVAL. */
-    if (syscall(__NR_close_range, 3, 2, 0) != -1 && errno != EINVAL)
+    if (syscall(__NR_close_range, 3, 2, 0) != -1 || errno != EINVAL)
         fprintf(stderr, "expected EINVAL from close_range");
 #    endif
     struct rlimit new_rlimit;
