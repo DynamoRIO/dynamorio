@@ -2970,6 +2970,16 @@
 #    define SYS_cacheflush __ARM_NR_cacheflush
 #    define SYS_usr __ARM_NR_usr
 #    define SYS_set_tls __ARM_NR_set_tls
+
+/* The following SYS_* constants are defined manually for some of the above
+ * __NR_* constants that do not have a corresponding SYS_* constant defined
+ * in the header files yet. This is so that we can add support for the
+ * corresponding syscall. These entries should be deleted when the above
+ * list is updated with a newer header file that contains them already.
+ */
+#    ifdef __NR_close_range
+#        define SYS_close_range __NR_close_range
+#    endif
 #endif /* ARM */
 
 #endif /* _SYSCALL_LINUX_ARM_H_ */
