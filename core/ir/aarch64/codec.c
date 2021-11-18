@@ -4379,20 +4379,18 @@ encode_opnds_ccm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     uint rm_imm5 = 0;
     uint imm5_flag = 0;
     if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 3 &&
-        encode_opnd_rn(false, 5, instr_get_src(instr, 0), &rn) &&   /* Rn */
-        opnd_is_immed_int(instr_get_src(instr, 2)) &&               /* nzcv */
-        (uint)(instr_get_predicate(instr) - DR_PRED_EQ) < 16)       /* cond */
+        encode_opnd_rn(false, 5, instr_get_src(instr, 0), &rn) && /* Rn */
+        opnd_is_immed_int(instr_get_src(instr, 2)) &&             /* nzcv */
+        (uint)(instr_get_predicate(instr) - DR_PRED_EQ) < 16)     /* cond */
     {
         uint nzcv = opnd_get_immed_int(instr_get_src(instr, 2));
         uint cond = instr_get_predicate(instr) - DR_PRED_EQ;
-        if (opnd_is_immed_int(instr_get_src(instr, 1))) {           /* imm5 */
+        if (opnd_is_immed_int(instr_get_src(instr, 1))) { /* imm5 */
             rm_imm5 = opnd_get_immed_int(instr_get_src(instr, 1)) << 16;
             imm5_flag = 1;
-        }
-        else if (opnd_is_reg(instr_get_src(instr, 1))) {            /* Rm */
+        } else if (opnd_is_reg(instr_get_src(instr, 1))) { /* Rm */
             encode_opnd_rn(false, 16, instr_get_src(instr, 1), &rm_imm5);
-       }
-       else
+        } else
             return ENCFAIL;
         return (enc | nzcv | rn | (imm5_flag << 11) | rm_imm5 | (cond << 12));
     }
