@@ -7679,8 +7679,10 @@ pre_system_call(dcontext_t *dcontext)
 #endif
         break;
     }
-#if defined(SYS_dup2) || defined(LINUX)
-        IF_LINUX(case SYS_dup3:)
+#if defined(SYS_dup2) || defined(SYS_dup3)
+#    ifdef SYS_dup3
+    case SYS_dup3:
+#    endif
 #    ifdef SYS_dup2
     case SYS_dup2:
 #    endif
