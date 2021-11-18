@@ -117,6 +117,7 @@ main()
         }
 #    ifdef LINUX
         else {
+            /* Not available on MacOS. */
             if (dup3(0, i, 0) != -1 || errno != EBADF)
                 fprintf(stderr, "Expected dup3 to return EBADF for stolen FD %d\n", i);
         }
