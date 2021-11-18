@@ -87,19 +87,17 @@ main()
      * typical max we assume it's just a power of 2.
      */
     if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
-        fprintf(stderr,
-                "RLIMIT_NOFILE max is %llu but shouldn't be power of 2 "
-                "under DR\n",
-                /* The size of rlim_max depends on whether __USE_FILE_OFFSET64
-                 * is defined. We simply cast it to 8-byte for printing.
-                 */
-                (unsigned long long)rlimit.rlim_max);
+        print("RLIMIT_NOFILE max is %llu but shouldn't be power of 2 "
+              "under DR\n",
+              /* The size of rlim_max depends on whether __USE_FILE_OFFSET64
+               * is defined. We simply cast it to 8-byte for printing.
+               */
+              (unsigned long long)rlimit.rlim_max);
         /* We continue to make it easier to run this app natively. */
     } else {
         if (((rlimit.rlim_max + DR_STEAL_FDS) & (rlimit.rlim_max + DR_STEAL_FDS - 1)) !=
             0)
-            fprintf(stderr,
-                    "Expected rlim_max + DR_STEAL_FDS to be a power of 2 under DR\n");
+            print("Expected rlim_max + DR_STEAL_FDS to be a power of 2 under DR\n");
     }
 
     /* Test i#357 by trying to close the client's file.
@@ -113,33 +111,33 @@ main()
              * with dup3.
              */
             if (dup2(0, i) != -1 || errno != EBADF)
-                fprintf(stderr, "Expected dup2 to return EBADF for stolen FD %d\n", i);
+                print("Expected dup2 to return EBADF for stolen FD %d\n", i);
         }
 #    ifdef LINUX
         else {
             /* Not available on MacOS. */
             if (dup3(0, i, 0) != -1 || errno != EBADF)
-                fprintf(stderr, "Expected dup3 to return EBADF for stolen FD %d\n", i);
+                print("Expected dup3 to return EBADF for stolen FD %d\n", i);
         }
 #    endif
         if (close(i) != -1 || errno != EBADF)
-            fprintf(stderr, "Expected close to return EBADF for stolen FD %d\n", i);
+            print("Expected close to return EBADF for stolen FD %d\n", i);
     }
     /* Test dup/close for non-stolen FDs. */
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
         if (IF_LINUX_ELSE(i % 2 == 0, true)) {
             if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
-                fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+                print("dup2 failed unexpectedly for non-stolen FD %d\n", i);
 
         }
 #    ifdef LINUX
         else {
             if (dup3(0, i, 0) != i || fcntl(i, F_GETFD) == -1)
-                fprintf(stderr, "dup3 failed unexpectedly for non-stolen FD %d\n", i);
+                print("dup3 failed unexpectedly for non-stolen FD %d\n", i);
         }
 #    endif
         if (close(i) != 0 || fcntl(i, F_GETFD) != -1 || errno != EBADF)
-            fprintf(stderr, "close failed unexpectedly for non-stolen FD %d\n", i);
+            print("close failed unexpectedly for non-stolen FD %d\n", i);
     }
 
 #    ifdef __NR_close_range
@@ -147,12 +145,12 @@ main()
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
         if (IF_LINUX_ELSE(i % 2 == 0, true)) {
             if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
-                fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+                print("dup2 failed unexpectedly for non-stolen FD %d\n", i);
         }
 #        ifdef LINUX
         else {
             if (dup3(0, i, 0) != i || fcntl(i, F_GETFD) == -1)
-                fprintf(stderr, "dup3 failed unexpectedly for non-stolen FD %d\n", i);
+                print("dup3 failed unexpectedly for non-stolen FD %d\n", i);
         }
 #        endif
     }
@@ -169,7 +167,7 @@ main()
                  fcntl(rlimit.rlim_max - 1, F_GETFD) | FD_CLOEXEC) == 0);
 #        endif
     if (!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)))
-        fprintf(stderr, "close_range failed to set the close-on-exec flag\n");
+        print("close_range failed to set the close-on-exec flag\n");
     /* close_range should close the open FDs, and not return any error for
      * any unopen or DR-private FDs.
      * [rlim_max-20, rlim_max-10) are unopen
@@ -184,61 +182,57 @@ main()
     /* Confirm that the previously open FDs are actually closed after the close_range. */
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
         if (fcntl(i, F_GETFD) != -1 || errno != EBADF)
-            fprintf(stderr, "FD not closed by close_range\n");
+            print("FD not closed by close_range\n");
     }
 
     /* Test EINVAL. */
     if (syscall(__NR_close_range, 3, 2, 0) != -1 || errno != EINVAL)
-        fprintf(stderr, "expected EINVAL from close_range");
+        print("expected EINVAL from close_range");
 #    endif
     struct rlimit new_rlimit;
     /* setrlimit with lower soft value */
     new_rlimit.rlim_max = rlimit.rlim_max;
     new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr,
-                "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
-                "lower soft value\n",
-                errno);
+        print("Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
+              "lower soft value\n",
+              errno);
         return 1;
     }
     /* setrlimit with the same value */
     new_rlimit = rlimit;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr,
-                "Error: fail(%d) to set rlimit for RLIMIT_NOFILE "
-                "back to the same value\n",
-                errno);
+        print("Error: fail(%d) to set rlimit for RLIMIT_NOFILE "
+              "back to the same value\n",
+              errno);
         return 1;
     }
     /* setrlimit with higher value */
     new_rlimit.rlim_cur++;
     new_rlimit.rlim_max++;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0 || errno != EPERM) {
-        fprintf(stderr,
-                "Error: should fail to set rlimit for RLIMIT_NOFILE with higher value\n");
+        print("Error: should fail to set rlimit for RLIMIT_NOFILE with higher value\n");
         return 1;
     }
     /* ensure can't raise hard once lower it */
     new_rlimit.rlim_max = rlimit.rlim_max - 1;
     new_rlimit.rlim_cur = rlimit.rlim_cur / 2;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) != 0) {
-        fprintf(stderr,
-                "Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
-                "lower soft + hard values\n",
-                errno);
+        print("Error: fail(%d) to set rlimit for RLIMIT_NOFILE with "
+              "lower soft + hard values\n",
+              errno);
         return 1;
     }
     new_rlimit.rlim_max = rlimit.rlim_max;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0 || errno != EPERM) {
-        fprintf(stderr, "Error: should fail to raise hard limit\n");
+        print("Error: should fail to raise hard limit\n");
         return 1;
     }
     /* test invalid values */
     new_rlimit.rlim_max = rlimit.rlim_max;
     new_rlimit.rlim_cur = rlimit.rlim_max + 1;
     if (setrlimit(RLIMIT_NOFILE, &new_rlimit) == 0 || errno != EINVAL) {
-        fprintf(stderr, "Error: should fail with EINVAL if max>cur\n");
+        print("Error: should fail with EINVAL if max>cur\n");
         return 1;
     }
 
@@ -250,8 +244,8 @@ main()
         return 1;
     }
     if ((crlimit.rlim_max & (crlimit.rlim_max - 1)) == 0) {
-        fprintf(stderr, "RLIMIT_NOFILE max is %d but shouldn't be power of 2 under DR\n",
-                crlimit.rlim_max);
+        print("RLIMIT_NOFILE max is %d but shouldn't be power of 2 under DR\n",
+              crlimit.rlim_max);
     }
 #    endif
 
@@ -260,33 +254,30 @@ main()
     struct rlimit64 rlim64, new_rlim64;
     /* get rlimit */
     if (sys_prlimit(0, RLIMIT_NOFILE, NULL, &rlim64) != 0) {
-        fprintf(stderr, "Error: fail(%d) to get prlimit for RLIMIT_NOFILE\n", errno);
+        print("Error: fail(%d) to get prlimit for RLIMIT_NOFILE\n", errno);
         return 1;
     }
     /* set rlimit */
     new_rlim64.rlim_max = rlim64.rlim_max;
     new_rlim64.rlim_cur = rlim64.rlim_cur / 2;
     if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) != 0) {
-        fprintf(stderr,
-                "Error: fail(%d) to set prlimit for RLIMIT_NOFILE with "
-                "lower soft value\n",
-                errno);
+        print("Error: fail(%d) to set prlimit for RLIMIT_NOFILE with "
+              "lower soft value\n",
+              errno);
         return 1;
     }
     new_rlim64 = rlim64;
     if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) != 0) {
-        fprintf(stderr,
-                "Error: fail(%d) to set prlimit for RLIMIT_NOFILE back "
-                "to the same value\n",
-                errno);
+        print("Error: fail(%d) to set prlimit for RLIMIT_NOFILE back "
+              "to the same value\n",
+              errno);
         return 1;
     }
     new_rlim64.rlim_cur++;
     new_rlim64.rlim_max++;
     if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, NULL) == 0) {
-        fprintf(stderr,
-                "Error: should fail to set prlimit for RLIMIT_NOFILE with higher "
-                "value\n");
+        print("Error: should fail to set prlimit for RLIMIT_NOFILE with higher "
+              "value\n");
         return 1;
     }
     new_rlim64 = rlim64;
@@ -295,7 +286,7 @@ main()
     if (sys_prlimit(0, RLIMIT_NOFILE, &new_rlim64, &rlim64) != 0 ||
         new_rlim64.rlim_cur != rlim64.rlim_cur ||
         new_rlim64.rlim_max != rlim64.rlim_max) {
-        fprintf(stderr, "Error: fail(%d) to set/get rlimit\n", errno);
+        print("Error: fail(%d) to set/get rlimit\n", errno);
     }
 #    endif
 
@@ -315,13 +306,13 @@ main()
          * https://code.woboq.org/userspace/glibc/sysdeps/aarch64/fpu/feenablxcpt.c.html#37
          */
         if (errno != EPERM)
-            fprintf(stderr, "feenableexcept failed with something other than EPERM\n");
+            print("feenableexcept failed with something other than EPERM\n");
 #    else
-        fprintf(stderr, "feenableexcept failed\n");
+        print("feenableexcept failed\n");
 #    endif
     } else {
         if (!(fegetexcept() & FE_DIVBYZERO))
-            fprintf(stderr, "feenableexcept was successful yet FE_DIVBYZERO not set\n");
+            print("feenableexcept was successful yet FE_DIVBYZERO not set\n");
     }
 #else
     /* MacOS does not support feenableexcept. We use the following inline
