@@ -575,7 +575,7 @@ enum {
  * \param Rn      The GPR source register.
  * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
  * to create the operand) or a GPR source register.
- * \param nzcv    The 4 bit NZCV flags bit specifier
+ * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
  * (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
  * \param cond    The comparison condition specified by dr_pred_type_t, e.g. DR_PRED_EQ.
  * (use opnd_create_cond(val) to create the operand).
@@ -593,7 +593,7 @@ enum {
  * \param Rn      The GPR source register.
  * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
  * to create the operand) or a GPR source register.
- * \param nzcv    The 4 bit NZCV flags bit specifier
+ * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
  * (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
  * \param cond    The comparison condition specified by dr_pred_type_t, e.g. DR_PRED_EQ.
  * (use opnd_create_cond(val) to create the operand).
