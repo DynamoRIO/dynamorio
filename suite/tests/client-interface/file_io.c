@@ -134,6 +134,7 @@ main()
     }
 
 #    ifdef __NR_close_range
+    fprintf(stderr, "AAA close_range available on this system\n");
     /* Test close_range. First open some FDs. */
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
         if (i % 2 == 0) {
@@ -147,12 +148,14 @@ main()
     /* Mark one FD as close-on-exec. */
     assert(!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)));
 #        ifdef CLOSE_RANGE_CLOEXEC
+    fprintf(stderr, "AAA CLOSE_RANGE_CLOEXEC available on this system\n");
     /* CLOSE_RANGE_CLOEXEC is available only on kernel version >= 5.11 */
     if (syscall(__NR_close_range, rlimit.rlim_max - 1, rlimit.rlim_max - 1,
                 CLOSE_RANGE_CLOEXEC) == -1) {
         perror("close_range mark as close-on-exec failed");
     }
 #        else
+    fprintf(stderr, "AAA CLOSE_RANGE_CLOEXEC NOT available on this system\n");
     assert(fcntl(rlimit.rlim_max - 1, F_SETFD,
                  fcntl(rlimit.rlim_max - 1, F_GETFD) | FD_CLOEXEC) == 0);
 #        endif
@@ -178,6 +181,8 @@ main()
     /* Test EINVAL. */
     if (syscall(__NR_close_range, 3, 2, 0) != -1 || errno != EINVAL)
         fprintf(stderr, "expected EINVAL from close_range");
+#    else
+    fprintf(stderr, "AAA close_range NOT available on this system\n");
 #    endif
     struct rlimit new_rlimit;
     /* setrlimit with lower soft value */
@@ -298,6 +303,7 @@ main()
     _control87(_MCW_EM & (~_EM_ZERODIVIDE), _MCW_EM);
 #else
     if (feenableexcept(FE_DIVBYZERO) == -1) {
+        perror("AAA feenableexcept failed");
 #    ifdef AARCH64
         /* This call may return EPERM on AArch64.
          * https://code.woboq.org/userspace/glibc/sysdeps/aarch64/fpu/feenablxcpt.c.html#37
@@ -308,6 +314,7 @@ main()
         fprintf(stderr, "feenableexcept failed\n");
 #    endif
     } else {
+        fprintf(stderr, "AAA feenableexcept succeeded\n");
         if (!(fegetexcept() & FE_DIVBYZERO))
             fprintf(stderr, "feenableexcept was successful yet FE_DIVBYZERO not set\n");
     }
