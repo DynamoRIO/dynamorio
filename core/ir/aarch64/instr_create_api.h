@@ -3147,7 +3147,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlal_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlal, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlal, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMLAL2 vector instruction.
@@ -3159,7 +3159,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlal2_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlal2, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlal2, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMLSL vector instruction.
@@ -3171,7 +3171,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlsl_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlsl, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlsl, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMLSL2 vector instruction.
@@ -3183,7 +3183,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlsl2_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlsl2, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlsl2, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMULL vector instruction.
