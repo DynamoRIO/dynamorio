@@ -31,9 +31,10 @@
  * DAMAGE.
  */
 
+#include "tools.h"
 #ifdef UNIX
-#    define _GNU_SOURCE
 #    include <assert.h>
+#    include <fenv.h>
 #    include <unistd.h>
 #    include <sys/time.h>
 #    include <sys/resource.h>
@@ -53,7 +54,6 @@ struct compat_rlimit {
 #endif
 
 #define DR_STEAL_FDS 96
-#define TEST(mask, var) (((mask) & (var)) != 0)
 
 #if defined(UNIX) && defined(SYS_prlimit64)
 int
@@ -73,6 +73,13 @@ main()
     if (getrlimit(RLIMIT_NOFILE, &rlimit) != 0) {
         perror("getrlimit failed");
         return 1;
+    }
+    if (rlimit.rlim_max != rlimit.rlim_cur) {
+        rlimit.rlim_cur = rlimit.rlim_max;
+        if (setrlimit(RLIMIT_NOFILE, &rlimit) != 0) {
+            perror("setrlimit failed");
+            return 1;
+        }
     }
     /* DR should have taken -steal_fds == 96.  To avoid hardcoding the
      * typical max we assume it's just a power of 2.
@@ -271,8 +278,20 @@ main()
 #ifdef WINDOWS
     _control87(_MCW_EM & (~_EM_ZERODIVIDE), _MCW_EM);
 #else
-    int cw = 0x033; /* finit sets to 0x037 and we remove divide=0x4 */
-    __asm("fldcw %0" : : "m"(cw));
+    if (feenableexcept(FE_DIVBYZERO) == -1) {
+#ifdef AARCH64
+        /* This call may return EPERM on AArch64.
+         * https://code.woboq.org/userspace/glibc/sysdeps/aarch64/fpu/feenablxcpt.c.html#37
+         */
+        if (errno != EPERM)
+            fprintf(stderr, "feenableexcept failed with something other than EPERM\n");
+#else
+        fprintf(stderr, "feenableexcept failed\n");
+#endif
+    } else {
+        if (!(fegetexcept() & FE_DIVBYZERO))
+            fprintf(stderr, "feenableexcept was successful yet FE_DIVBYZERO not set\n");
+    }
 #endif
     return 0;
 }
