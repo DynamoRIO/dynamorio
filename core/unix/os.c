@@ -4961,7 +4961,9 @@ ignorable_system_call_normalized(int num)
 #ifdef MACOS
     case SYS_close_nocancel:
 #endif
+#ifdef SYS_close_range
     case SYS_close_range:
+#endif
     case SYS_close:
 #ifdef SYS_dup2
     case SYS_dup2:
@@ -6155,11 +6157,13 @@ handle_close_pre(dcontext_t *dcontext)
                                     true /*set_return_val*/);
 }
 
+#ifdef SYS_close_range
 static bool
 handle_close_range_pre(dcontext_t *dcontext, file_t fd)
 {
     return handle_close_generic_pre(dcontext, fd, false /*set_return_val*/);
 }
+#endif
 
 /***************************************************************************/
 
@@ -7598,6 +7602,7 @@ pre_system_call(dcontext_t *dcontext)
 #ifdef MACOS
     case SYS_close_nocancel:
 #endif
+#ifdef SYS_close_range
     case SYS_close_range: {
         /* client.file_io indeed tests this for all arch, but it hasn't yet been
          * run on a machine that has close_range available.
@@ -7665,6 +7670,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#endif
     case SYS_close: {
         execute_syscall = handle_close_pre(dcontext);
 #ifdef LINUX
