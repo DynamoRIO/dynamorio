@@ -3183,7 +3183,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlsl2_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_4src(dc, OP_umlsl2, Rd, Rd,Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlsl2, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMULL vector instruction.
