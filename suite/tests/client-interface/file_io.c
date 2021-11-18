@@ -106,15 +106,29 @@ main()
      */
     /* Test dup/close for stolen FDs. */
     for (int i = rlimit.rlim_max; i < rlimit.rlim_max + DR_STEAL_FDS; i++) {
-        if (dup2(0, i) != -1 || errno != EBADF)
-            fprintf(stderr, "Expected dup2 to return EBADF for stolen FD %d\n", i);
+        if (i % 2 == 0) {
+            /* Note that on AArch64 dup2 is not available and is automatically replaced
+             * with dup3.
+             */
+            if (dup2(0, i) != -1 || errno != EBADF)
+                fprintf(stderr, "Expected dup2 to return EBADF for stolen FD %d\n", i);
+        } else {
+            if (dup3(0, i, 0) != -1 || errno != EBADF)
+                fprintf(stderr, "Expected dup3 to return EBADF for stolen FD %d\n", i);
+        }
         if (close(i) != -1 || errno != EBADF)
             fprintf(stderr, "Expected close to return EBADF for stolen FD %d\n", i);
     }
     /* Test dup/close for non-stolen FDs. */
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
-        if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
-            fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+        if (i % 2 == 0) {
+            if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
+                fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+
+        } else {
+            if (dup3(0, i, 0) != i || fcntl(i, F_GETFD) == -1)
+                fprintf(stderr, "dup3 failed unexpectedly for non-stolen FD %d\n", i);
+        }
         if (close(i) != 0 || fcntl(i, F_GETFD) != -1 || errno != EBADF)
             fprintf(stderr, "close failed unexpectedly for non-stolen FD %d\n", i);
     }
@@ -122,8 +136,13 @@ main()
 #    ifdef __NR_close_range
     /* Test close_range. First open some FDs. */
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
-        if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
-            fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+        if (i % 2 == 0) {
+            if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
+                fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
+        } else {
+            if (dup3(0, i, 0) != i || fcntl(i, F_GETFD) == -1)
+                fprintf(stderr, "dup3 failed unexpectedly for non-stolen FD %d\n", i);
+        }
     }
     /* Mark one FD as close-on-exec. */
     assert(!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)));
@@ -279,15 +298,15 @@ main()
     _control87(_MCW_EM & (~_EM_ZERODIVIDE), _MCW_EM);
 #else
     if (feenableexcept(FE_DIVBYZERO) == -1) {
-#ifdef AARCH64
+#    ifdef AARCH64
         /* This call may return EPERM on AArch64.
          * https://code.woboq.org/userspace/glibc/sysdeps/aarch64/fpu/feenablxcpt.c.html#37
          */
         if (errno != EPERM)
             fprintf(stderr, "feenableexcept failed with something other than EPERM\n");
-#else
+#    else
         fprintf(stderr, "feenableexcept failed\n");
-#endif
+#    endif
     } else {
         if (!(fegetexcept() & FE_DIVBYZERO))
             fprintf(stderr, "feenableexcept was successful yet FE_DIVBYZERO not set\n");
