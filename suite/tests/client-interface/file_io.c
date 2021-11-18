@@ -34,7 +34,6 @@
 #include "tools.h"
 #ifdef UNIX
 #    include <assert.h>
-#    include <fenv.h>
 #    include <unistd.h>
 #    include <sys/time.h>
 #    include <sys/resource.h>
@@ -42,6 +41,9 @@
 #    include <sys/syscall.h>
 #    include <errno.h>
 #    include <fcntl.h>
+#    ifdef LINUX
+#        include <fenv.h>
+#    endif
 #    ifdef __NR_close_range
 #        include <linux/close_range.h>
 #    endif
@@ -106,29 +108,35 @@ main()
      */
     /* Test dup/close for stolen FDs. */
     for (int i = rlimit.rlim_max; i < rlimit.rlim_max + DR_STEAL_FDS; i++) {
-        if (i % 2 == 0) {
+        if (IF_LINUX_ELSE(i % 2 == 0, true)) {
             /* Note that on AArch64 dup2 is not available and is automatically replaced
              * with dup3.
              */
             if (dup2(0, i) != -1 || errno != EBADF)
                 fprintf(stderr, "Expected dup2 to return EBADF for stolen FD %d\n", i);
-        } else {
+        }
+#    ifdef LINUX
+        else {
             if (dup3(0, i, 0) != -1 || errno != EBADF)
                 fprintf(stderr, "Expected dup3 to return EBADF for stolen FD %d\n", i);
         }
+#    endif
         if (close(i) != -1 || errno != EBADF)
             fprintf(stderr, "Expected close to return EBADF for stolen FD %d\n", i);
     }
     /* Test dup/close for non-stolen FDs. */
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
-        if (i % 2 == 0) {
+        if (IF_LINUX_ELSE(i % 2 == 0, true)) {
             if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
                 fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
 
-        } else {
+        }
+#    ifdef LINUX
+        else {
             if (dup3(0, i, 0) != i || fcntl(i, F_GETFD) == -1)
                 fprintf(stderr, "dup3 failed unexpectedly for non-stolen FD %d\n", i);
         }
+#    endif
         if (close(i) != 0 || fcntl(i, F_GETFD) != -1 || errno != EBADF)
             fprintf(stderr, "close failed unexpectedly for non-stolen FD %d\n", i);
     }
@@ -136,13 +144,16 @@ main()
 #    ifdef __NR_close_range
     /* Test close_range. First open some FDs. */
     for (int i = rlimit.rlim_max - 1; i >= rlimit.rlim_max - 10; i--) {
-        if (i % 2 == 0) {
+        if (IF_LINUX_ELSE(i % 2 == 0, true)) {
             if (dup2(0, i) != i || fcntl(i, F_GETFD) == -1)
                 fprintf(stderr, "dup2 failed unexpectedly for non-stolen FD %d\n", i);
-        } else {
+        }
+#        ifdef LINUX
+        else {
             if (dup3(0, i, 0) != i || fcntl(i, F_GETFD) == -1)
                 fprintf(stderr, "dup3 failed unexpectedly for non-stolen FD %d\n", i);
         }
+#        endif
     }
     /* Mark one FD as close-on-exec. */
     assert(!TEST(FD_CLOEXEC, fcntl(rlimit.rlim_max - 1, F_GETFD)));
@@ -296,7 +307,7 @@ main()
      */
 #ifdef WINDOWS
     _control87(_MCW_EM & (~_EM_ZERODIVIDE), _MCW_EM);
-#else
+#elif defined(LINUX)
     if (feenableexcept(FE_DIVBYZERO) == -1) {
 #    ifdef AARCH64
         /* This call may return EPERM on AArch64.
@@ -311,6 +322,17 @@ main()
         if (!(fegetexcept() & FE_DIVBYZERO))
             fprintf(stderr, "feenableexcept was successful yet FE_DIVBYZERO not set\n");
     }
+#else
+    /* MacOS does not support feenableexcept. We use the following inline
+     * asm instead. An alternative that works on non-x86 is to use
+     * fegetenv/fesetenv directly.
+     */
+#    ifdef X86
+    int cw = 0x033; /* finit sets to 0x037 and we remove divide=0x4 */
+    __asm("fldcw %0" : : "m"(cw));
+#    else
+#        error Unsupported architecture
+#    endif
 #endif
     return 0;
 }

@@ -7604,6 +7604,10 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 #ifdef SYS_close_range
     case SYS_close_range: {
+        /* client.file_io indeed tests this for all arch, but it hasn't yet been
+         * run on a machine that has close_range available.
+         */
+        IF_AARCHXX(ASSERT_NOT_TESTED());
         uint first_fd = sys_param(dcontext, 0), last_fd = sys_param(dcontext, 1);
         uint flags = sys_param(dcontext, 2);
         bool is_cloexec = TEST(CLOSE_RANGE_CLOEXEC, flags);
