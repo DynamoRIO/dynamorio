@@ -178,6 +178,7 @@ char **our_environ;
 #ifdef LINUX
 #    include "include/syscall.h" /* our own local copy */
 #    include "include/clone3.h"
+#    include "include/close_range.h"
 #else
 #    include <sys/syscall.h>
 #endif
@@ -6077,10 +6078,8 @@ set_stdfile_fileno(stdfile_t **stdfile, file_t file_no)
 
 /* returns whether to execute syscall */
 static bool
-handle_close_pre(dcontext_t *dcontext)
+handle_close_generic_pre(dcontext_t *dcontext, file_t fd, bool set_return_val)
 {
-    /* in fs/open.c: asmlinkage long sys_close(unsigned int fd) */
-    uint fd = (uint)sys_param(dcontext, 0);
     LOG(THREAD, LOG_SYSCALLS, 3, "syscall: close fd %d\n", fd);
 
     /* prevent app from closing our files */
@@ -6088,11 +6087,13 @@ handle_close_pre(dcontext_t *dcontext)
         SYSLOG_INTERNAL_WARNING_ONCE("app trying to close DR file(s)");
         LOG(THREAD, LOG_TOP | LOG_SYSCALLS, 1,
             "WARNING: app trying to close DR file %d!  Not allowing it.\n", fd);
-        if (DYNAMO_OPTION(fail_on_stolen_fds)) {
-            set_failure_return_val(dcontext, EBADF);
-            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-        } else
-            set_success_return_val(dcontext, 0);
+        if (set_return_val) {
+            if (DYNAMO_OPTION(fail_on_stolen_fds)) {
+                set_failure_return_val(dcontext, EBADF);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else
+                set_success_return_val(dcontext, 0);
+        }
         return false; /* do not execute syscall */
     }
 
@@ -6148,6 +6149,21 @@ handle_close_pre(dcontext_t *dcontext)
     }
     return true;
 }
+
+static bool
+handle_close_pre(dcontext_t *dcontext)
+{
+    return handle_close_generic_pre(dcontext, (uint)sys_param(dcontext, 0),
+                                    true /*set_return_val*/);
+}
+
+#ifdef SYS_close_range
+static bool
+handle_close_range_pre(dcontext_t *dcontext, file_t fd)
+{
+    return handle_close_generic_pre(dcontext, fd, false /*set_return_val*/);
+}
+#endif
 
 /***************************************************************************/
 
@@ -7586,6 +7602,71 @@ pre_system_call(dcontext_t *dcontext)
 #ifdef MACOS
     case SYS_close_nocancel:
 #endif
+#ifdef SYS_close_range
+    case SYS_close_range: {
+        uint first_fd = sys_param(dcontext, 0), last_fd = sys_param(dcontext, 1);
+        uint flags = sys_param(dcontext, 2);
+        bool is_cloexec = TEST(CLOSE_RANGE_CLOEXEC, flags);
+        if (is_cloexec) {
+            /* client.file_io has a test for CLOSE_RANGE_CLOEXEC, but it hasn't been
+             * verified on a system with kernel version >= 5.11 yet.
+             */
+            ASSERT_NOT_TESTED();
+        }
+        /* We do not let the app execute their own close_range ever. Instead we
+         * make multiple close_range syscalls ourselves, one for each contiguous
+         * sub-range of non-DR-private fds in [first, last].
+         */
+        execute_syscall = false;
+        if (first_fd > last_fd) {
+            set_failure_return_val(dcontext, EINVAL);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            break;
+        }
+        uint cur_range_first_fd, cur_range_last_fd;
+        bool cur_range_valid = false;
+        int ret = 0;
+        for (int i = first_fd; i <= last_fd; i++) {
+            /* Do not allow any changes to DR-owned FDs. */
+            if ((is_cloexec && fd_is_dr_owned(i)) ||
+                (!is_cloexec && !handle_close_range_pre(dcontext, i))) {
+                SYSLOG_INTERNAL_WARNING_ONCE("app trying to close private fd(s)");
+                if (cur_range_valid) {
+                    cur_range_valid = false;
+                    ret = dynamorio_syscall(SYS_close_range, 3, cur_range_first_fd,
+                                            cur_range_last_fd, flags);
+                    if (ret != 0)
+                        break;
+                }
+            } else {
+#    ifdef LINUX
+                if (!is_cloexec) {
+                    signal_handle_close(dcontext, i);
+                }
+#    endif
+                if (cur_range_valid) {
+                    ASSERT(cur_range_last_fd == i - 1);
+                    cur_range_last_fd = i;
+                } else {
+                    cur_range_first_fd = i;
+                    cur_range_last_fd = i;
+                    cur_range_valid = true;
+                }
+            }
+        }
+        if (cur_range_valid) {
+            ret = dynamorio_syscall(SYS_close_range, 3, cur_range_first_fd,
+                                    cur_range_last_fd, flags);
+        }
+        if (ret != 0) {
+            set_failure_return_val(dcontext, ret);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+        } else {
+            set_success_return_val(dcontext, 0);
+        }
+        break;
+    }
+#endif
     case SYS_close: {
         execute_syscall = handle_close_pre(dcontext);
 #ifdef LINUX
@@ -7594,7 +7675,6 @@ pre_system_call(dcontext_t *dcontext)
 #endif
         break;
     }
-
 #ifdef SYS_dup2
     case SYS_dup2:
         IF_LINUX(case SYS_dup3:)
@@ -7889,12 +7969,6 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
-#    ifdef SYS_close_range
-    case SYS_close_range:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call close_range");
-        break;
-#    endif
 #    ifdef SYS_rt_sigtimedwait_time64
     case SYS_rt_sigtimedwait_time64:
         SYSLOG_INTERNAL_WARNING_ONCE(
