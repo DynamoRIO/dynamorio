@@ -2864,6 +2864,16 @@
 #    define SYS_writev __NR_writev
 #endif
 
+/* The following SYS_* constants are defined manually for some of the above
+ * __NR_* constants that do not have a corresponding SYS_* constant defined
+ * in the header files yet. This is so that we can add support for the
+ * corresponding syscall. These entries should be deleted when the above
+ * list is updated with a newer header file that contains them already.
+ */
+#ifdef __NR_close_range
+#    define SYS_close_range __NR_close_range
+#endif
+
 /* Added separately as it was present earlier. */
 #ifdef __NR_fstatat
 #    define SYS_fstatat __NR_fstatat
