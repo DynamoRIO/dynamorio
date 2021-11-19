@@ -905,6 +905,8 @@ detect_unsupported_syscalls()
     int clone3_errno = make_failing_clone3_syscall();
     ASSERT(clone3_errno == ENOSYS || clone3_errno == EINVAL);
     is_clone3_enosys = clone3_errno == ENOSYS;
+    dr_printf("AAA is_clone3_enosys=%d %d %d %d\n", is_clone3_enosys, clone3_errno,
+              ENOSYS, EINVAL);
 }
 #endif
 
