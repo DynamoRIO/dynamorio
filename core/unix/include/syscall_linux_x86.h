@@ -26,7 +26,7 @@
 
 #ifdef X64
 
-/* From Debian GLIBC 2.31-13 on kernel 5.10.46
+/* From Debian GLIBC 2.32-4 on kernel 5.10.46
  * /usr/include/{x86_64-linux-gnu,i386-linux-gnu}/asm/unistd_64.h
  */
 #    define __NR_read 0
@@ -384,7 +384,7 @@
 
 #else
 
-/* From Debian GLIBC 2.31-13 on kernel 5.10.46
+/* From Debian GLIBC 2.32-4 on kernel 5.10.46
  * /usr/include/{x86_64-linux-gnu,i386-linux-gnu}/asm/unistd_32.h
  */
 #    define __NR_restart_syscall 0
@@ -819,7 +819,7 @@
 #    define __NR_process_madvise 440
 #endif
 
-/* From Debian GLIBC 2.31-13 on kernel 5.10.46
+/* From Debian GLIBC 2.32-4 on kernel 5.10.46
  * /usr/include/x86_64-linux-gnu/bits/syscall.h
  */
 
@@ -889,6 +889,18 @@
 
 #ifdef __NR_alloc_hugepages
 #    define SYS_alloc_hugepages __NR_alloc_hugepages
+#endif
+
+#ifdef __NR_arc_gettls
+#    define SYS_arc_gettls __NR_arc_gettls
+#endif
+
+#ifdef __NR_arc_settls
+#    define SYS_arc_settls __NR_arc_settls
+#endif
+
+#ifdef __NR_arc_usr_cmpxchg
+#    define SYS_arc_usr_cmpxchg __NR_arc_usr_cmpxchg
 #endif
 
 #ifdef __NR_arch_prctl
@@ -1895,6 +1907,10 @@
 #    define SYS_openat __NR_openat
 #endif
 
+#ifdef __NR_openat2
+#    define SYS_openat2 __NR_openat2
+#endif
+
 #ifdef __NR_osf_adjtime
 #    define SYS_osf_adjtime __NR_osf_adjtime
 #endif
@@ -2367,6 +2383,10 @@
 #    define SYS_personality __NR_personality
 #endif
 
+#ifdef __NR_pidfd_getfd
+#    define SYS_pidfd_getfd __NR_pidfd_getfd
+#endif
+
 #ifdef __NR_pidfd_open
 #    define SYS_pidfd_open __NR_pidfd_open
 #endif
@@ -2595,12 +2615,12 @@
 #    define SYS_rt_sigsuspend __NR_rt_sigsuspend
 #endif
 
-#ifdef __NR_rt_sigtimedwait_time64
-#    define SYS_rt_sigtimedwait_time64 __NR_rt_sigtimedwait_time64
-#endif
-
 #ifdef __NR_rt_sigtimedwait
 #    define SYS_rt_sigtimedwait __NR_rt_sigtimedwait
+#endif
+
+#ifdef __NR_rt_sigtimedwait_time64
+#    define SYS_rt_sigtimedwait_time64 __NR_rt_sigtimedwait_time64
 #endif
 
 #ifdef __NR_rt_tgsigqueueinfo
