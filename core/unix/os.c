@@ -846,12 +846,15 @@ get_uname(void)
 static int
 make_failing_clone3_syscall()
 {
+#    ifdef DR_HOST_NOT_TARGET
+    ASSERT_NOT_REACHED();
+#    else
     int result;
     /* We know that clone3 fails with EINVAL with these args. */
     uint clone_args_size = 0;
     void *clone_args = NULL;
-#    ifdef X86
-#        ifdef X64
+#        ifdef X86
+#            ifdef X64
     uint64 clone_args_size_64 = (uint64)clone_args_size;
     asm volatile("mov %[sys_clone3], %%rax\n\t"
                  "mov %[clone_args], %%rdi\n\t"
@@ -863,7 +866,7 @@ make_failing_clone3_syscall()
                    [clone_args_size] "m"(clone_args_size_64)
                  /* syscall clobbers rcx and r11 */
                  : "rax", "rdi", "rsi", "rcx", "r11", "memory");
-#        else
+#            else
     asm volatile("mov %[sys_clone3], %%eax\n\t"
                  "mov %[clone_args], %%ebx\n\t"
                  "mov %[clone_args_size], %%ecx\n\t"
@@ -873,8 +876,8 @@ make_failing_clone3_syscall()
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size)
                  : "eax", "ebx", "ecx", "memory");
-#        endif
-#    elif defined(AARCH64)
+#            endif
+#        elif defined(AARCH64)
     uint64 clone_args_size_64 = (uint64)clone_args_size;
     asm volatile("mov x8, #%[sys_clone3]\n\t"
                  "ldr x0, %[clone_args]\n\t"
@@ -885,13 +888,12 @@ make_failing_clone3_syscall()
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64)
                  : "x0", "x1", "x8", "memory");
-#    elif defined(ARM)
-    /* XXX: Add asm wrapper for ARM. */
-#    else
-#        error Unsupported architecture
-#    endif
+#        elif defined(ARM)
+    /* TODO i#5221: Implement for ARM. */
+#        endif
     ASSERT(result < 0);
     return -result;
+#    endif
 }
 
 /* For some syscalls, detects whether they are unsupported by the system
