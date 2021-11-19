@@ -13897,21 +13897,205 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 2eb0aec3 : uminp v3.2s, v22.2s, v16.2s              : uminp  %d22 %d16 $0x02 -> %d3
 6eb0aec3 : uminp v3.4s, v22.4s, v16.4s              : uminp  %q22 %q16 $0x02 -> %q3
 
-2e218396 : umlal v22.8h, v28.8b, v1.8b              : umlal  %d28 %d1 $0x00 -> %q22
-2e618396 : umlal v22.4s, v28.4h, v1.4h              : umlal  %d28 %d1 $0x01 -> %q22
-2ea18396 : umlal v22.2d, v28.2s, v1.2s              : umlal  %d28 %d1 $0x02 -> %q22
+# UMLAL2  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+6e228020 : umlal2 v0.8h, v1.16b, v2.16b              : umlal2 %q0 %q1 %q2 $0x00 -> %q0
+6e248062 : umlal2 v2.8h, v3.16b, v4.16b              : umlal2 %q2 %q3 %q4 $0x00 -> %q2
+6e2680a4 : umlal2 v4.8h, v5.16b, v6.16b              : umlal2 %q4 %q5 %q6 $0x00 -> %q4
+6e2880e6 : umlal2 v6.8h, v7.16b, v8.16b              : umlal2 %q6 %q7 %q8 $0x00 -> %q6
+6e2a8128 : umlal2 v8.8h, v9.16b, v10.16b             : umlal2 %q8 %q9 %q10 $0x00 -> %q8
+6e2c816a : umlal2 v10.8h, v11.16b, v12.16b           : umlal2 %q10 %q11 %q12 $0x00 -> %q10
+6e2e81ac : umlal2 v12.8h, v13.16b, v14.16b           : umlal2 %q12 %q13 %q14 $0x00 -> %q12
+6e3081ee : umlal2 v14.8h, v15.16b, v16.16b           : umlal2 %q14 %q15 %q16 $0x00 -> %q14
+6e328230 : umlal2 v16.8h, v17.16b, v18.16b           : umlal2 %q16 %q17 %q18 $0x00 -> %q16
+6e338251 : umlal2 v17.8h, v18.16b, v19.16b           : umlal2 %q17 %q18 %q19 $0x00 -> %q17
+6e358293 : umlal2 v19.8h, v20.16b, v21.16b           : umlal2 %q19 %q20 %q21 $0x00 -> %q19
+6e3782d5 : umlal2 v21.8h, v22.16b, v23.16b           : umlal2 %q21 %q22 %q23 $0x00 -> %q21
+6e398317 : umlal2 v23.8h, v24.16b, v25.16b           : umlal2 %q23 %q24 %q25 $0x00 -> %q23
+6e3b8359 : umlal2 v25.8h, v26.16b, v27.16b           : umlal2 %q25 %q26 %q27 $0x00 -> %q25
+6e3d839b : umlal2 v27.8h, v28.16b, v29.16b           : umlal2 %q27 %q28 %q29 $0x00 -> %q27
+6e21801f : umlal2 v31.8h, v0.16b, v1.16b             : umlal2 %q31 %q0 %q1 $0x00 -> %q31
+6e628020 : umlal2 v0.4s, v1.8h, v2.8h                : umlal2 %q0 %q1 %q2 $0x01 -> %q0
+6e648062 : umlal2 v2.4s, v3.8h, v4.8h                : umlal2 %q2 %q3 %q4 $0x01 -> %q2
+6e6680a4 : umlal2 v4.4s, v5.8h, v6.8h                : umlal2 %q4 %q5 %q6 $0x01 -> %q4
+6e6880e6 : umlal2 v6.4s, v7.8h, v8.8h                : umlal2 %q6 %q7 %q8 $0x01 -> %q6
+6e6a8128 : umlal2 v8.4s, v9.8h, v10.8h               : umlal2 %q8 %q9 %q10 $0x01 -> %q8
+6e6c816a : umlal2 v10.4s, v11.8h, v12.8h             : umlal2 %q10 %q11 %q12 $0x01 -> %q10
+6e6e81ac : umlal2 v12.4s, v13.8h, v14.8h             : umlal2 %q12 %q13 %q14 $0x01 -> %q12
+6e7081ee : umlal2 v14.4s, v15.8h, v16.8h             : umlal2 %q14 %q15 %q16 $0x01 -> %q14
+6e728230 : umlal2 v16.4s, v17.8h, v18.8h             : umlal2 %q16 %q17 %q18 $0x01 -> %q16
+6e738251 : umlal2 v17.4s, v18.8h, v19.8h             : umlal2 %q17 %q18 %q19 $0x01 -> %q17
+6e758293 : umlal2 v19.4s, v20.8h, v21.8h             : umlal2 %q19 %q20 %q21 $0x01 -> %q19
+6e7782d5 : umlal2 v21.4s, v22.8h, v23.8h             : umlal2 %q21 %q22 %q23 $0x01 -> %q21
+6e798317 : umlal2 v23.4s, v24.8h, v25.8h             : umlal2 %q23 %q24 %q25 $0x01 -> %q23
+6e7b8359 : umlal2 v25.4s, v26.8h, v27.8h             : umlal2 %q25 %q26 %q27 $0x01 -> %q25
+6e7d839b : umlal2 v27.4s, v28.8h, v29.8h             : umlal2 %q27 %q28 %q29 $0x01 -> %q27
+6e61801f : umlal2 v31.4s, v0.8h, v1.8h               : umlal2 %q31 %q0 %q1 $0x01 -> %q31
+6ea28020 : umlal2 v0.2d, v1.4s, v2.4s                : umlal2 %q0 %q1 %q2 $0x02 -> %q0
+6ea48062 : umlal2 v2.2d, v3.4s, v4.4s                : umlal2 %q2 %q3 %q4 $0x02 -> %q2
+6ea680a4 : umlal2 v4.2d, v5.4s, v6.4s                : umlal2 %q4 %q5 %q6 $0x02 -> %q4
+6ea880e6 : umlal2 v6.2d, v7.4s, v8.4s                : umlal2 %q6 %q7 %q8 $0x02 -> %q6
+6eaa8128 : umlal2 v8.2d, v9.4s, v10.4s               : umlal2 %q8 %q9 %q10 $0x02 -> %q8
+6eac816a : umlal2 v10.2d, v11.4s, v12.4s             : umlal2 %q10 %q11 %q12 $0x02 -> %q10
+6eae81ac : umlal2 v12.2d, v13.4s, v14.4s             : umlal2 %q12 %q13 %q14 $0x02 -> %q12
+6eb081ee : umlal2 v14.2d, v15.4s, v16.4s             : umlal2 %q14 %q15 %q16 $0x02 -> %q14
+6eb28230 : umlal2 v16.2d, v17.4s, v18.4s             : umlal2 %q16 %q17 %q18 $0x02 -> %q16
+6eb38251 : umlal2 v17.2d, v18.4s, v19.4s             : umlal2 %q17 %q18 %q19 $0x02 -> %q17
+6eb58293 : umlal2 v19.2d, v20.4s, v21.4s             : umlal2 %q19 %q20 %q21 $0x02 -> %q19
+6eb782d5 : umlal2 v21.2d, v22.4s, v23.4s             : umlal2 %q21 %q22 %q23 $0x02 -> %q21
+6eb98317 : umlal2 v23.2d, v24.4s, v25.4s             : umlal2 %q23 %q24 %q25 $0x02 -> %q23
+6ebb8359 : umlal2 v25.2d, v26.4s, v27.4s             : umlal2 %q25 %q26 %q27 $0x02 -> %q25
+6ebd839b : umlal2 v27.2d, v28.4s, v29.4s             : umlal2 %q27 %q28 %q29 $0x02 -> %q27
+6ea1801f : umlal2 v31.2d, v0.4s, v1.4s               : umlal2 %q31 %q0 %q1 $0x02 -> %q31
 
-6e3e831d : umlal2 v29.8h, v24.16b, v30.16b          : umlal2 %q24 %q30 $0x00 -> %q29
-6e7e831d : umlal2 v29.4s, v24.8h, v30.8h            : umlal2 %q24 %q30 $0x01 -> %q29
-6ebe831d : umlal2 v29.2d, v24.4s, v30.4s            : umlal2 %q24 %q30 $0x02 -> %q29
+# UMLSL2  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+6e22a020 : umlsl2 v0.8h, v1.16b, v2.16b              : umlsl2 %q0 %q1 %q2 $0x00 -> %q0
+6e24a062 : umlsl2 v2.8h, v3.16b, v4.16b              : umlsl2 %q2 %q3 %q4 $0x00 -> %q2
+6e26a0a4 : umlsl2 v4.8h, v5.16b, v6.16b              : umlsl2 %q4 %q5 %q6 $0x00 -> %q4
+6e28a0e6 : umlsl2 v6.8h, v7.16b, v8.16b              : umlsl2 %q6 %q7 %q8 $0x00 -> %q6
+6e2aa128 : umlsl2 v8.8h, v9.16b, v10.16b             : umlsl2 %q8 %q9 %q10 $0x00 -> %q8
+6e2ca16a : umlsl2 v10.8h, v11.16b, v12.16b           : umlsl2 %q10 %q11 %q12 $0x00 -> %q10
+6e2ea1ac : umlsl2 v12.8h, v13.16b, v14.16b           : umlsl2 %q12 %q13 %q14 $0x00 -> %q12
+6e30a1ee : umlsl2 v14.8h, v15.16b, v16.16b           : umlsl2 %q14 %q15 %q16 $0x00 -> %q14
+6e32a230 : umlsl2 v16.8h, v17.16b, v18.16b           : umlsl2 %q16 %q17 %q18 $0x00 -> %q16
+6e33a251 : umlsl2 v17.8h, v18.16b, v19.16b           : umlsl2 %q17 %q18 %q19 $0x00 -> %q17
+6e35a293 : umlsl2 v19.8h, v20.16b, v21.16b           : umlsl2 %q19 %q20 %q21 $0x00 -> %q19
+6e37a2d5 : umlsl2 v21.8h, v22.16b, v23.16b           : umlsl2 %q21 %q22 %q23 $0x00 -> %q21
+6e39a317 : umlsl2 v23.8h, v24.16b, v25.16b           : umlsl2 %q23 %q24 %q25 $0x00 -> %q23
+6e3ba359 : umlsl2 v25.8h, v26.16b, v27.16b           : umlsl2 %q25 %q26 %q27 $0x00 -> %q25
+6e3da39b : umlsl2 v27.8h, v28.16b, v29.16b           : umlsl2 %q27 %q28 %q29 $0x00 -> %q27
+6e21a01f : umlsl2 v31.8h, v0.16b, v1.16b             : umlsl2 %q31 %q0 %q1 $0x00 -> %q31
+6e62a020 : umlsl2 v0.4s, v1.8h, v2.8h                : umlsl2 %q0 %q1 %q2 $0x01 -> %q0
+6e64a062 : umlsl2 v2.4s, v3.8h, v4.8h                : umlsl2 %q2 %q3 %q4 $0x01 -> %q2
+6e66a0a4 : umlsl2 v4.4s, v5.8h, v6.8h                : umlsl2 %q4 %q5 %q6 $0x01 -> %q4
+6e68a0e6 : umlsl2 v6.4s, v7.8h, v8.8h                : umlsl2 %q6 %q7 %q8 $0x01 -> %q6
+6e6aa128 : umlsl2 v8.4s, v9.8h, v10.8h               : umlsl2 %q8 %q9 %q10 $0x01 -> %q8
+6e6ca16a : umlsl2 v10.4s, v11.8h, v12.8h             : umlsl2 %q10 %q11 %q12 $0x01 -> %q10
+6e6ea1ac : umlsl2 v12.4s, v13.8h, v14.8h             : umlsl2 %q12 %q13 %q14 $0x01 -> %q12
+6e70a1ee : umlsl2 v14.4s, v15.8h, v16.8h             : umlsl2 %q14 %q15 %q16 $0x01 -> %q14
+6e72a230 : umlsl2 v16.4s, v17.8h, v18.8h             : umlsl2 %q16 %q17 %q18 $0x01 -> %q16
+6e73a251 : umlsl2 v17.4s, v18.8h, v19.8h             : umlsl2 %q17 %q18 %q19 $0x01 -> %q17
+6e75a293 : umlsl2 v19.4s, v20.8h, v21.8h             : umlsl2 %q19 %q20 %q21 $0x01 -> %q19
+6e77a2d5 : umlsl2 v21.4s, v22.8h, v23.8h             : umlsl2 %q21 %q22 %q23 $0x01 -> %q21
+6e79a317 : umlsl2 v23.4s, v24.8h, v25.8h             : umlsl2 %q23 %q24 %q25 $0x01 -> %q23
+6e7ba359 : umlsl2 v25.4s, v26.8h, v27.8h             : umlsl2 %q25 %q26 %q27 $0x01 -> %q25
+6e7da39b : umlsl2 v27.4s, v28.8h, v29.8h             : umlsl2 %q27 %q28 %q29 $0x01 -> %q27
+6e61a01f : umlsl2 v31.4s, v0.8h, v1.8h               : umlsl2 %q31 %q0 %q1 $0x01 -> %q31
+6ea2a020 : umlsl2 v0.2d, v1.4s, v2.4s                : umlsl2 %q0 %q1 %q2 $0x02 -> %q0
+6ea4a062 : umlsl2 v2.2d, v3.4s, v4.4s                : umlsl2 %q2 %q3 %q4 $0x02 -> %q2
+6ea6a0a4 : umlsl2 v4.2d, v5.4s, v6.4s                : umlsl2 %q4 %q5 %q6 $0x02 -> %q4
+6ea8a0e6 : umlsl2 v6.2d, v7.4s, v8.4s                : umlsl2 %q6 %q7 %q8 $0x02 -> %q6
+6eaaa128 : umlsl2 v8.2d, v9.4s, v10.4s               : umlsl2 %q8 %q9 %q10 $0x02 -> %q8
+6eaca16a : umlsl2 v10.2d, v11.4s, v12.4s             : umlsl2 %q10 %q11 %q12 $0x02 -> %q10
+6eaea1ac : umlsl2 v12.2d, v13.4s, v14.4s             : umlsl2 %q12 %q13 %q14 $0x02 -> %q12
+6eb0a1ee : umlsl2 v14.2d, v15.4s, v16.4s             : umlsl2 %q14 %q15 %q16 $0x02 -> %q14
+6eb2a230 : umlsl2 v16.2d, v17.4s, v18.4s             : umlsl2 %q16 %q17 %q18 $0x02 -> %q16
+6eb3a251 : umlsl2 v17.2d, v18.4s, v19.4s             : umlsl2 %q17 %q18 %q19 $0x02 -> %q17
+6eb5a293 : umlsl2 v19.2d, v20.4s, v21.4s             : umlsl2 %q19 %q20 %q21 $0x02 -> %q19
+6eb7a2d5 : umlsl2 v21.2d, v22.4s, v23.4s             : umlsl2 %q21 %q22 %q23 $0x02 -> %q21
+6eb9a317 : umlsl2 v23.2d, v24.4s, v25.4s             : umlsl2 %q23 %q24 %q25 $0x02 -> %q23
+6ebba359 : umlsl2 v25.2d, v26.4s, v27.4s             : umlsl2 %q25 %q26 %q27 $0x02 -> %q25
+6ebda39b : umlsl2 v27.2d, v28.4s, v29.4s             : umlsl2 %q27 %q28 %q29 $0x02 -> %q27
+6ea1a01f : umlsl2 v31.2d, v0.4s, v1.4s               : umlsl2 %q31 %q0 %q1 $0x02 -> %q31
 
-2e35a13f : umlsl v31.8h, v9.8b, v21.8b              : umlsl  %d9 %d21 $0x00 -> %q31
-2e75a13f : umlsl v31.4s, v9.4h, v21.4h              : umlsl  %d9 %d21 $0x01 -> %q31
-2eb5a13f : umlsl v31.2d, v9.2s, v21.2s              : umlsl  %d9 %d21 $0x02 -> %q31
+# UMLSL   <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+2e22a020 : umlsl v0.8h, v1.8b, v2.8b                 : umlsl  %q0 %d1 %d2 $0x00 -> %q0
+2e24a062 : umlsl v2.8h, v3.8b, v4.8b                 : umlsl  %q2 %d3 %d4 $0x00 -> %q2
+2e26a0a4 : umlsl v4.8h, v5.8b, v6.8b                 : umlsl  %q4 %d5 %d6 $0x00 -> %q4
+2e28a0e6 : umlsl v6.8h, v7.8b, v8.8b                 : umlsl  %q6 %d7 %d8 $0x00 -> %q6
+2e2aa128 : umlsl v8.8h, v9.8b, v10.8b                : umlsl  %q8 %d9 %d10 $0x00 -> %q8
+2e2ca16a : umlsl v10.8h, v11.8b, v12.8b              : umlsl  %q10 %d11 %d12 $0x00 -> %q10
+2e2ea1ac : umlsl v12.8h, v13.8b, v14.8b              : umlsl  %q12 %d13 %d14 $0x00 -> %q12
+2e30a1ee : umlsl v14.8h, v15.8b, v16.8b              : umlsl  %q14 %d15 %d16 $0x00 -> %q14
+2e32a230 : umlsl v16.8h, v17.8b, v18.8b              : umlsl  %q16 %d17 %d18 $0x00 -> %q16
+2e33a251 : umlsl v17.8h, v18.8b, v19.8b              : umlsl  %q17 %d18 %d19 $0x00 -> %q17
+2e35a293 : umlsl v19.8h, v20.8b, v21.8b              : umlsl  %q19 %d20 %d21 $0x00 -> %q19
+2e37a2d5 : umlsl v21.8h, v22.8b, v23.8b              : umlsl  %q21 %d22 %d23 $0x00 -> %q21
+2e39a317 : umlsl v23.8h, v24.8b, v25.8b              : umlsl  %q23 %d24 %d25 $0x00 -> %q23
+2e3ba359 : umlsl v25.8h, v26.8b, v27.8b              : umlsl  %q25 %d26 %d27 $0x00 -> %q25
+2e3da39b : umlsl v27.8h, v28.8b, v29.8b              : umlsl  %q27 %d28 %d29 $0x00 -> %q27
+2e21a01f : umlsl v31.8h, v0.8b, v1.8b                : umlsl  %q31 %d0 %d1 $0x00 -> %q31
+2e62a020 : umlsl v0.4s, v1.4h, v2.4h                 : umlsl  %q0 %d1 %d2 $0x01 -> %q0
+2e64a062 : umlsl v2.4s, v3.4h, v4.4h                 : umlsl  %q2 %d3 %d4 $0x01 -> %q2
+2e66a0a4 : umlsl v4.4s, v5.4h, v6.4h                 : umlsl  %q4 %d5 %d6 $0x01 -> %q4
+2e68a0e6 : umlsl v6.4s, v7.4h, v8.4h                 : umlsl  %q6 %d7 %d8 $0x01 -> %q6
+2e6aa128 : umlsl v8.4s, v9.4h, v10.4h                : umlsl  %q8 %d9 %d10 $0x01 -> %q8
+2e6ca16a : umlsl v10.4s, v11.4h, v12.4h              : umlsl  %q10 %d11 %d12 $0x01 -> %q10
+2e6ea1ac : umlsl v12.4s, v13.4h, v14.4h              : umlsl  %q12 %d13 %d14 $0x01 -> %q12
+2e70a1ee : umlsl v14.4s, v15.4h, v16.4h              : umlsl  %q14 %d15 %d16 $0x01 -> %q14
+2e72a230 : umlsl v16.4s, v17.4h, v18.4h              : umlsl  %q16 %d17 %d18 $0x01 -> %q16
+2e73a251 : umlsl v17.4s, v18.4h, v19.4h              : umlsl  %q17 %d18 %d19 $0x01 -> %q17
+2e75a293 : umlsl v19.4s, v20.4h, v21.4h              : umlsl  %q19 %d20 %d21 $0x01 -> %q19
+2e77a2d5 : umlsl v21.4s, v22.4h, v23.4h              : umlsl  %q21 %d22 %d23 $0x01 -> %q21
+2e79a317 : umlsl v23.4s, v24.4h, v25.4h              : umlsl  %q23 %d24 %d25 $0x01 -> %q23
+2e7ba359 : umlsl v25.4s, v26.4h, v27.4h              : umlsl  %q25 %d26 %d27 $0x01 -> %q25
+2e7da39b : umlsl v27.4s, v28.4h, v29.4h              : umlsl  %q27 %d28 %d29 $0x01 -> %q27
+2e61a01f : umlsl v31.4s, v0.4h, v1.4h                : umlsl  %q31 %d0 %d1 $0x01 -> %q31
+2ea2a020 : umlsl v0.2d, v1.2s, v2.2s                 : umlsl  %q0 %d1 %d2 $0x02 -> %q0
+2ea4a062 : umlsl v2.2d, v3.2s, v4.2s                 : umlsl  %q2 %d3 %d4 $0x02 -> %q2
+2ea6a0a4 : umlsl v4.2d, v5.2s, v6.2s                 : umlsl  %q4 %d5 %d6 $0x02 -> %q4
+2ea8a0e6 : umlsl v6.2d, v7.2s, v8.2s                 : umlsl  %q6 %d7 %d8 $0x02 -> %q6
+2eaaa128 : umlsl v8.2d, v9.2s, v10.2s                : umlsl  %q8 %d9 %d10 $0x02 -> %q8
+2eaca16a : umlsl v10.2d, v11.2s, v12.2s              : umlsl  %q10 %d11 %d12 $0x02 -> %q10
+2eaea1ac : umlsl v12.2d, v13.2s, v14.2s              : umlsl  %q12 %d13 %d14 $0x02 -> %q12
+2eb0a1ee : umlsl v14.2d, v15.2s, v16.2s              : umlsl  %q14 %d15 %d16 $0x02 -> %q14
+2eb2a230 : umlsl v16.2d, v17.2s, v18.2s              : umlsl  %q16 %d17 %d18 $0x02 -> %q16
+2eb3a251 : umlsl v17.2d, v18.2s, v19.2s              : umlsl  %q17 %d18 %d19 $0x02 -> %q17
+2eb5a293 : umlsl v19.2d, v20.2s, v21.2s              : umlsl  %q19 %d20 %d21 $0x02 -> %q19
+2eb7a2d5 : umlsl v21.2d, v22.2s, v23.2s              : umlsl  %q21 %d22 %d23 $0x02 -> %q21
+2eb9a317 : umlsl v23.2d, v24.2s, v25.2s              : umlsl  %q23 %d24 %d25 $0x02 -> %q23
+2ebba359 : umlsl v25.2d, v26.2s, v27.2s              : umlsl  %q25 %d26 %d27 $0x02 -> %q25
+2ebda39b : umlsl v27.2d, v28.2s, v29.2s              : umlsl  %q27 %d28 %d29 $0x02 -> %q27
+2ea1a01f : umlsl v31.2d, v0.2s, v1.2s                : umlsl  %q31 %d0 %d1 $0x02 -> %q31
 
-6e3da264 : umlsl2 v4.8h, v19.16b, v29.16b           : umlsl2 %q19 %q29 $0x00 -> %q4
-6e7da264 : umlsl2 v4.4s, v19.8h, v29.8h             : umlsl2 %q19 %q29 $0x01 -> %q4
-6ebda264 : umlsl2 v4.2d, v19.4s, v29.4s             : umlsl2 %q19 %q29 $0x02 -> %q4
+# UMLAL   <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+2e228020 : umlal v0.8h, v1.8b, v2.8b                 : umlal  %q0 %d1 %d2 $0x00 -> %q0
+2e248062 : umlal v2.8h, v3.8b, v4.8b                 : umlal  %q2 %d3 %d4 $0x00 -> %q2
+2e2680a4 : umlal v4.8h, v5.8b, v6.8b                 : umlal  %q4 %d5 %d6 $0x00 -> %q4
+2e2880e6 : umlal v6.8h, v7.8b, v8.8b                 : umlal  %q6 %d7 %d8 $0x00 -> %q6
+2e2a8128 : umlal v8.8h, v9.8b, v10.8b                : umlal  %q8 %d9 %d10 $0x00 -> %q8
+2e2c816a : umlal v10.8h, v11.8b, v12.8b              : umlal  %q10 %d11 %d12 $0x00 -> %q10
+2e2e81ac : umlal v12.8h, v13.8b, v14.8b              : umlal  %q12 %d13 %d14 $0x00 -> %q12
+2e3081ee : umlal v14.8h, v15.8b, v16.8b              : umlal  %q14 %d15 %d16 $0x00 -> %q14
+2e328230 : umlal v16.8h, v17.8b, v18.8b              : umlal  %q16 %d17 %d18 $0x00 -> %q16
+2e338251 : umlal v17.8h, v18.8b, v19.8b              : umlal  %q17 %d18 %d19 $0x00 -> %q17
+2e358293 : umlal v19.8h, v20.8b, v21.8b              : umlal  %q19 %d20 %d21 $0x00 -> %q19
+2e3782d5 : umlal v21.8h, v22.8b, v23.8b              : umlal  %q21 %d22 %d23 $0x00 -> %q21
+2e398317 : umlal v23.8h, v24.8b, v25.8b              : umlal  %q23 %d24 %d25 $0x00 -> %q23
+2e3b8359 : umlal v25.8h, v26.8b, v27.8b              : umlal  %q25 %d26 %d27 $0x00 -> %q25
+2e3d839b : umlal v27.8h, v28.8b, v29.8b              : umlal  %q27 %d28 %d29 $0x00 -> %q27
+2e21801f : umlal v31.8h, v0.8b, v1.8b                : umlal  %q31 %d0 %d1 $0x00 -> %q31
+2e628020 : umlal v0.4s, v1.4h, v2.4h                 : umlal  %q0 %d1 %d2 $0x01 -> %q0
+2e648062 : umlal v2.4s, v3.4h, v4.4h                 : umlal  %q2 %d3 %d4 $0x01 -> %q2
+2e6680a4 : umlal v4.4s, v5.4h, v6.4h                 : umlal  %q4 %d5 %d6 $0x01 -> %q4
+2e6880e6 : umlal v6.4s, v7.4h, v8.4h                 : umlal  %q6 %d7 %d8 $0x01 -> %q6
+2e6a8128 : umlal v8.4s, v9.4h, v10.4h                : umlal  %q8 %d9 %d10 $0x01 -> %q8
+2e6c816a : umlal v10.4s, v11.4h, v12.4h              : umlal  %q10 %d11 %d12 $0x01 -> %q10
+2e6e81ac : umlal v12.4s, v13.4h, v14.4h              : umlal  %q12 %d13 %d14 $0x01 -> %q12
+2e7081ee : umlal v14.4s, v15.4h, v16.4h              : umlal  %q14 %d15 %d16 $0x01 -> %q14
+2e728230 : umlal v16.4s, v17.4h, v18.4h              : umlal  %q16 %d17 %d18 $0x01 -> %q16
+2e738251 : umlal v17.4s, v18.4h, v19.4h              : umlal  %q17 %d18 %d19 $0x01 -> %q17
+2e758293 : umlal v19.4s, v20.4h, v21.4h              : umlal  %q19 %d20 %d21 $0x01 -> %q19
+2e7782d5 : umlal v21.4s, v22.4h, v23.4h              : umlal  %q21 %d22 %d23 $0x01 -> %q21
+2e798317 : umlal v23.4s, v24.4h, v25.4h              : umlal  %q23 %d24 %d25 $0x01 -> %q23
+2e7b8359 : umlal v25.4s, v26.4h, v27.4h              : umlal  %q25 %d26 %d27 $0x01 -> %q25
+2e7d839b : umlal v27.4s, v28.4h, v29.4h              : umlal  %q27 %d28 %d29 $0x01 -> %q27
+2e61801f : umlal v31.4s, v0.4h, v1.4h                : umlal  %q31 %d0 %d1 $0x01 -> %q31
+2ea28020 : umlal v0.2d, v1.2s, v2.2s                 : umlal  %q0 %d1 %d2 $0x02 -> %q0
+2ea48062 : umlal v2.2d, v3.2s, v4.2s                 : umlal  %q2 %d3 %d4 $0x02 -> %q2
+2ea680a4 : umlal v4.2d, v5.2s, v6.2s                 : umlal  %q4 %d5 %d6 $0x02 -> %q4
+2ea880e6 : umlal v6.2d, v7.2s, v8.2s                 : umlal  %q6 %d7 %d8 $0x02 -> %q6
+2eaa8128 : umlal v8.2d, v9.2s, v10.2s                : umlal  %q8 %d9 %d10 $0x02 -> %q8
+2eac816a : umlal v10.2d, v11.2s, v12.2s              : umlal  %q10 %d11 %d12 $0x02 -> %q10
+2eae81ac : umlal v12.2d, v13.2s, v14.2s              : umlal  %q12 %d13 %d14 $0x02 -> %q12
+2eb081ee : umlal v14.2d, v15.2s, v16.2s              : umlal  %q14 %d15 %d16 $0x02 -> %q14
+2eb28230 : umlal v16.2d, v17.2s, v18.2s              : umlal  %q16 %d17 %d18 $0x02 -> %q16
+2eb38251 : umlal v17.2d, v18.2s, v19.2s              : umlal  %q17 %d18 %d19 $0x02 -> %q17
+2eb58293 : umlal v19.2d, v20.2s, v21.2s              : umlal  %q19 %d20 %d21 $0x02 -> %q19
+2eb782d5 : umlal v21.2d, v22.2s, v23.2s              : umlal  %q21 %d22 %d23 $0x02 -> %q21
+2eb98317 : umlal v23.2d, v24.2s, v25.2s              : umlal  %q23 %d24 %d25 $0x02 -> %q23
+2ebb8359 : umlal v25.2d, v26.2s, v27.2s              : umlal  %q25 %d26 %d27 $0x02 -> %q25
+2ebd839b : umlal v27.2d, v28.2s, v29.2s              : umlal  %q27 %d28 %d29 $0x02 -> %q27
+2ea1801f : umlal v31.2d, v0.2s, v1.2s                : umlal  %q31 %d0 %d1 $0x02 -> %q31
 
 9ba39041 : umsubl x1, w2, w3, x4          : umsubl %w2 %w3 %x4 -> %x1
 
@@ -15837,3 +16021,140 @@ d503203f : yield                          : yield
 6f8eab59 : umull2 v25.2d, v26.4s, v14.s[2]           : umull2 %q26 %q14 $0x02 $0x02 -> %q25
 6fafab9b : umull2 v27.2d, v28.4s, v15.s[3]           : umull2 %q28 %q15 $0x03 $0x02 -> %q27
 6fa1a81f : umull2 v31.2d, v0.4s, v1.s[3]             : umull2 %q0 %q1 $0x03 $0x02 -> %q31
+
+# UMLSL2  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Ts>[<index>]
+6f426020 : umlsl2 v0.4s, v1.8h, v2.h[0]              : umlsl2 %q0 %q1 %q2 $0x00 $0x01 -> %q0
+6f436062 : umlsl2 v2.4s, v3.8h, v3.h[0]              : umlsl2 %q2 %q3 %q3 $0x00 $0x01 -> %q2
+6f5460a4 : umlsl2 v4.4s, v5.8h, v4.h[1]              : umlsl2 %q4 %q5 %q4 $0x01 $0x01 -> %q4
+6f5560e6 : umlsl2 v6.4s, v7.8h, v5.h[1]              : umlsl2 %q6 %q7 %q5 $0x01 $0x01 -> %q6
+6f666128 : umlsl2 v8.4s, v9.8h, v6.h[2]              : umlsl2 %q8 %q9 %q6 $0x02 $0x01 -> %q8
+6f67616a : umlsl2 v10.4s, v11.8h, v7.h[2]            : umlsl2 %q10 %q11 %q7 $0x02 $0x01 -> %q10
+6f7861ac : umlsl2 v12.4s, v13.8h, v8.h[3]            : umlsl2 %q12 %q13 %q8 $0x03 $0x01 -> %q12
+6f7961ee : umlsl2 v14.4s, v15.8h, v9.h[3]            : umlsl2 %q14 %q15 %q9 $0x03 $0x01 -> %q14
+6f4a6a30 : umlsl2 v16.4s, v17.8h, v10.h[4]           : umlsl2 %q16 %q17 %q10 $0x04 $0x01 -> %q16
+6f4a6a51 : umlsl2 v17.4s, v18.8h, v10.h[4]           : umlsl2 %q17 %q18 %q10 $0x04 $0x01 -> %q17
+6f4b6a93 : umlsl2 v19.4s, v20.8h, v11.h[4]           : umlsl2 %q19 %q20 %q11 $0x04 $0x01 -> %q19
+6f5c6ad5 : umlsl2 v21.4s, v22.8h, v12.h[5]           : umlsl2 %q21 %q22 %q12 $0x05 $0x01 -> %q21
+6f5d6b17 : umlsl2 v23.4s, v24.8h, v13.h[5]           : umlsl2 %q23 %q24 %q13 $0x05 $0x01 -> %q23
+6f6e6b59 : umlsl2 v25.4s, v26.8h, v14.h[6]           : umlsl2 %q25 %q26 %q14 $0x06 $0x01 -> %q25
+6f6f6b9b : umlsl2 v27.4s, v28.8h, v15.h[6]           : umlsl2 %q27 %q28 %q15 $0x06 $0x01 -> %q27
+6f71681f : umlsl2 v31.4s, v0.8h, v1.h[7]             : umlsl2 %q31 %q0 %q1 $0x07 $0x01 -> %q31
+6f826020 : umlsl2 v0.2d, v1.4s, v2.s[0]              : umlsl2 %q0 %q1 %q2 $0x00 $0x02 -> %q0
+6f836062 : umlsl2 v2.2d, v3.4s, v3.s[0]              : umlsl2 %q2 %q3 %q3 $0x00 $0x02 -> %q2
+6f8460a4 : umlsl2 v4.2d, v5.4s, v4.s[0]              : umlsl2 %q4 %q5 %q4 $0x00 $0x02 -> %q4
+6fa560e6 : umlsl2 v6.2d, v7.4s, v5.s[1]              : umlsl2 %q6 %q7 %q5 $0x01 $0x02 -> %q6
+6fa66128 : umlsl2 v8.2d, v9.4s, v6.s[1]              : umlsl2 %q8 %q9 %q6 $0x01 $0x02 -> %q8
+6fa7616a : umlsl2 v10.2d, v11.4s, v7.s[1]            : umlsl2 %q10 %q11 %q7 $0x01 $0x02 -> %q10
+6fa861ac : umlsl2 v12.2d, v13.4s, v8.s[1]            : umlsl2 %q12 %q13 %q8 $0x01 $0x02 -> %q12
+6fa961ee : umlsl2 v14.2d, v15.4s, v9.s[1]            : umlsl2 %q14 %q15 %q9 $0x01 $0x02 -> %q14
+6f8a6a30 : umlsl2 v16.2d, v17.4s, v10.s[2]           : umlsl2 %q16 %q17 %q10 $0x02 $0x02 -> %q16
+6f8a6a51 : umlsl2 v17.2d, v18.4s, v10.s[2]           : umlsl2 %q17 %q18 %q10 $0x02 $0x02 -> %q17
+6f8b6a93 : umlsl2 v19.2d, v20.4s, v11.s[2]           : umlsl2 %q19 %q20 %q11 $0x02 $0x02 -> %q19
+6f8c6ad5 : umlsl2 v21.2d, v22.4s, v12.s[2]           : umlsl2 %q21 %q22 %q12 $0x02 $0x02 -> %q21
+6f8d6b17 : umlsl2 v23.2d, v24.4s, v13.s[2]           : umlsl2 %q23 %q24 %q13 $0x02 $0x02 -> %q23
+6f8e6b59 : umlsl2 v25.2d, v26.4s, v14.s[2]           : umlsl2 %q25 %q26 %q14 $0x02 $0x02 -> %q25
+6faf6b9b : umlsl2 v27.2d, v28.4s, v15.s[3]           : umlsl2 %q27 %q28 %q15 $0x03 $0x02 -> %q27
+6fa1681f : umlsl2 v31.2d, v0.4s, v1.s[3]             : umlsl2 %q31 %q0 %q1 $0x03 $0x02 -> %q31
+
+# UMLAL   <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Ts>[<index>]
+2f422020 : umlal v0.4s, v1.4h, v2.h[0]               : umlal  %q0 %d1 %d2 $0x00 $0x01 -> %q0
+2f432062 : umlal v2.4s, v3.4h, v3.h[0]               : umlal  %q2 %d3 %d3 $0x00 $0x01 -> %q2
+2f5420a4 : umlal v4.4s, v5.4h, v4.h[1]               : umlal  %q4 %d5 %d4 $0x01 $0x01 -> %q4
+2f5520e6 : umlal v6.4s, v7.4h, v5.h[1]               : umlal  %q6 %d7 %d5 $0x01 $0x01 -> %q6
+2f662128 : umlal v8.4s, v9.4h, v6.h[2]               : umlal  %q8 %d9 %d6 $0x02 $0x01 -> %q8
+2f67216a : umlal v10.4s, v11.4h, v7.h[2]             : umlal  %q10 %d11 %d7 $0x02 $0x01 -> %q10
+2f7821ac : umlal v12.4s, v13.4h, v8.h[3]             : umlal  %q12 %d13 %d8 $0x03 $0x01 -> %q12
+2f7921ee : umlal v14.4s, v15.4h, v9.h[3]             : umlal  %q14 %d15 %d9 $0x03 $0x01 -> %q14
+2f4a2a30 : umlal v16.4s, v17.4h, v10.h[4]            : umlal  %q16 %d17 %d10 $0x04 $0x01 -> %q16
+2f4a2a51 : umlal v17.4s, v18.4h, v10.h[4]            : umlal  %q17 %d18 %d10 $0x04 $0x01 -> %q17
+2f4b2a93 : umlal v19.4s, v20.4h, v11.h[4]            : umlal  %q19 %d20 %d11 $0x04 $0x01 -> %q19
+2f5c2ad5 : umlal v21.4s, v22.4h, v12.h[5]            : umlal  %q21 %d22 %d12 $0x05 $0x01 -> %q21
+2f5d2b17 : umlal v23.4s, v24.4h, v13.h[5]            : umlal  %q23 %d24 %d13 $0x05 $0x01 -> %q23
+2f6e2b59 : umlal v25.4s, v26.4h, v14.h[6]            : umlal  %q25 %d26 %d14 $0x06 $0x01 -> %q25
+2f6f2b9b : umlal v27.4s, v28.4h, v15.h[6]            : umlal  %q27 %d28 %d15 $0x06 $0x01 -> %q27
+2f71281f : umlal v31.4s, v0.4h, v1.h[7]              : umlal  %q31 %d0 %d1 $0x07 $0x01 -> %q31
+2f822020 : umlal v0.2d, v1.2s, v2.s[0]               : umlal  %q0 %d1 %d2 $0x00 $0x02 -> %q0
+2f832062 : umlal v2.2d, v3.2s, v3.s[0]               : umlal  %q2 %d3 %d3 $0x00 $0x02 -> %q2
+2f8420a4 : umlal v4.2d, v5.2s, v4.s[0]               : umlal  %q4 %d5 %d4 $0x00 $0x02 -> %q4
+2fa520e6 : umlal v6.2d, v7.2s, v5.s[1]               : umlal  %q6 %d7 %d5 $0x01 $0x02 -> %q6
+2fa62128 : umlal v8.2d, v9.2s, v6.s[1]               : umlal  %q8 %d9 %d6 $0x01 $0x02 -> %q8
+2fa7216a : umlal v10.2d, v11.2s, v7.s[1]             : umlal  %q10 %d11 %d7 $0x01 $0x02 -> %q10
+2fa821ac : umlal v12.2d, v13.2s, v8.s[1]             : umlal  %q12 %d13 %d8 $0x01 $0x02 -> %q12
+2fa921ee : umlal v14.2d, v15.2s, v9.s[1]             : umlal  %q14 %d15 %d9 $0x01 $0x02 -> %q14
+2f8a2a30 : umlal v16.2d, v17.2s, v10.s[2]            : umlal  %q16 %d17 %d10 $0x02 $0x02 -> %q16
+2f8a2a51 : umlal v17.2d, v18.2s, v10.s[2]            : umlal  %q17 %d18 %d10 $0x02 $0x02 -> %q17
+2f8b2a93 : umlal v19.2d, v20.2s, v11.s[2]            : umlal  %q19 %d20 %d11 $0x02 $0x02 -> %q19
+2f8c2ad5 : umlal v21.2d, v22.2s, v12.s[2]            : umlal  %q21 %d22 %d12 $0x02 $0x02 -> %q21
+2f8d2b17 : umlal v23.2d, v24.2s, v13.s[2]            : umlal  %q23 %d24 %d13 $0x02 $0x02 -> %q23
+2f8e2b59 : umlal v25.2d, v26.2s, v14.s[2]            : umlal  %q25 %d26 %d14 $0x02 $0x02 -> %q25
+2faf2b9b : umlal v27.2d, v28.2s, v15.s[3]            : umlal  %q27 %d28 %d15 $0x03 $0x02 -> %q27
+2fa1281f : umlal v31.2d, v0.2s, v1.s[3]              : umlal  %q31 %d0 %d1 $0x03 $0x02 -> %q31
+
+# UMLSL   <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Ts>[<index>]
+2f426020 : umlsl v0.4s, v1.4h, v2.h[0]               : umlsl  %q0 %d1 %d2 $0x00 $0x01 -> %q0
+2f436062 : umlsl v2.4s, v3.4h, v3.h[0]               : umlsl  %q2 %d3 %d3 $0x00 $0x01 -> %q2
+2f5460a4 : umlsl v4.4s, v5.4h, v4.h[1]               : umlsl  %q4 %d5 %d4 $0x01 $0x01 -> %q4
+2f5560e6 : umlsl v6.4s, v7.4h, v5.h[1]               : umlsl  %q6 %d7 %d5 $0x01 $0x01 -> %q6
+2f666128 : umlsl v8.4s, v9.4h, v6.h[2]               : umlsl  %q8 %d9 %d6 $0x02 $0x01 -> %q8
+2f67616a : umlsl v10.4s, v11.4h, v7.h[2]             : umlsl  %q10 %d11 %d7 $0x02 $0x01 -> %q10
+2f7861ac : umlsl v12.4s, v13.4h, v8.h[3]             : umlsl  %q12 %d13 %d8 $0x03 $0x01 -> %q12
+2f7961ee : umlsl v14.4s, v15.4h, v9.h[3]             : umlsl  %q14 %d15 %d9 $0x03 $0x01 -> %q14
+2f4a6a30 : umlsl v16.4s, v17.4h, v10.h[4]            : umlsl  %q16 %d17 %d10 $0x04 $0x01 -> %q16
+2f4a6a51 : umlsl v17.4s, v18.4h, v10.h[4]            : umlsl  %q17 %d18 %d10 $0x04 $0x01 -> %q17
+2f4b6a93 : umlsl v19.4s, v20.4h, v11.h[4]            : umlsl  %q19 %d20 %d11 $0x04 $0x01 -> %q19
+2f5c6ad5 : umlsl v21.4s, v22.4h, v12.h[5]            : umlsl  %q21 %d22 %d12 $0x05 $0x01 -> %q21
+2f5d6b17 : umlsl v23.4s, v24.4h, v13.h[5]            : umlsl  %q23 %d24 %d13 $0x05 $0x01 -> %q23
+2f6e6b59 : umlsl v25.4s, v26.4h, v14.h[6]            : umlsl  %q25 %d26 %d14 $0x06 $0x01 -> %q25
+2f6f6b9b : umlsl v27.4s, v28.4h, v15.h[6]            : umlsl  %q27 %d28 %d15 $0x06 $0x01 -> %q27
+2f71681f : umlsl v31.4s, v0.4h, v1.h[7]              : umlsl  %q31 %d0 %d1 $0x07 $0x01 -> %q31
+2f826020 : umlsl v0.2d, v1.2s, v2.s[0]               : umlsl  %q0 %d1 %d2 $0x00 $0x02 -> %q0
+2f836062 : umlsl v2.2d, v3.2s, v3.s[0]               : umlsl  %q2 %d3 %d3 $0x00 $0x02 -> %q2
+2f8460a4 : umlsl v4.2d, v5.2s, v4.s[0]               : umlsl  %q4 %d5 %d4 $0x00 $0x02 -> %q4
+2fa560e6 : umlsl v6.2d, v7.2s, v5.s[1]               : umlsl  %q6 %d7 %d5 $0x01 $0x02 -> %q6
+2fa66128 : umlsl v8.2d, v9.2s, v6.s[1]               : umlsl  %q8 %d9 %d6 $0x01 $0x02 -> %q8
+2fa7616a : umlsl v10.2d, v11.2s, v7.s[1]             : umlsl  %q10 %d11 %d7 $0x01 $0x02 -> %q10
+2fa861ac : umlsl v12.2d, v13.2s, v8.s[1]             : umlsl  %q12 %d13 %d8 $0x01 $0x02 -> %q12
+2fa961ee : umlsl v14.2d, v15.2s, v9.s[1]             : umlsl  %q14 %d15 %d9 $0x01 $0x02 -> %q14
+2f8a6a30 : umlsl v16.2d, v17.2s, v10.s[2]            : umlsl  %q16 %d17 %d10 $0x02 $0x02 -> %q16
+2f8a6a51 : umlsl v17.2d, v18.2s, v10.s[2]            : umlsl  %q17 %d18 %d10 $0x02 $0x02 -> %q17
+2f8b6a93 : umlsl v19.2d, v20.2s, v11.s[2]            : umlsl  %q19 %d20 %d11 $0x02 $0x02 -> %q19
+2f8c6ad5 : umlsl v21.2d, v22.2s, v12.s[2]            : umlsl  %q21 %d22 %d12 $0x02 $0x02 -> %q21
+2f8d6b17 : umlsl v23.2d, v24.2s, v13.s[2]            : umlsl  %q23 %d24 %d13 $0x02 $0x02 -> %q23
+2f8e6b59 : umlsl v25.2d, v26.2s, v14.s[2]            : umlsl  %q25 %d26 %d14 $0x02 $0x02 -> %q25
+2faf6b9b : umlsl v27.2d, v28.2s, v15.s[3]            : umlsl  %q27 %d28 %d15 $0x03 $0x02 -> %q27
+2fa1681f : umlsl v31.2d, v0.2s, v1.s[3]              : umlsl  %q31 %d0 %d1 $0x03 $0x02 -> %q31
+
+# UMLAL2  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Ts>[<index>]
+6f422020 : umlal2 v0.4s, v1.8h, v2.h[0]              : umlal2 %q0 %q1 %q2 $0x00 $0x01 -> %q0
+6f432062 : umlal2 v2.4s, v3.8h, v3.h[0]              : umlal2 %q2 %q3 %q3 $0x00 $0x01 -> %q2
+6f5420a4 : umlal2 v4.4s, v5.8h, v4.h[1]              : umlal2 %q4 %q5 %q4 $0x01 $0x01 -> %q4
+6f5520e6 : umlal2 v6.4s, v7.8h, v5.h[1]              : umlal2 %q6 %q7 %q5 $0x01 $0x01 -> %q6
+6f662128 : umlal2 v8.4s, v9.8h, v6.h[2]              : umlal2 %q8 %q9 %q6 $0x02 $0x01 -> %q8
+6f67216a : umlal2 v10.4s, v11.8h, v7.h[2]            : umlal2 %q10 %q11 %q7 $0x02 $0x01 -> %q10
+6f7821ac : umlal2 v12.4s, v13.8h, v8.h[3]            : umlal2 %q12 %q13 %q8 $0x03 $0x01 -> %q12
+6f7921ee : umlal2 v14.4s, v15.8h, v9.h[3]            : umlal2 %q14 %q15 %q9 $0x03 $0x01 -> %q14
+6f4a2a30 : umlal2 v16.4s, v17.8h, v10.h[4]           : umlal2 %q16 %q17 %q10 $0x04 $0x01 -> %q16
+6f4a2a51 : umlal2 v17.4s, v18.8h, v10.h[4]           : umlal2 %q17 %q18 %q10 $0x04 $0x01 -> %q17
+6f4b2a93 : umlal2 v19.4s, v20.8h, v11.h[4]           : umlal2 %q19 %q20 %q11 $0x04 $0x01 -> %q19
+6f5c2ad5 : umlal2 v21.4s, v22.8h, v12.h[5]           : umlal2 %q21 %q22 %q12 $0x05 $0x01 -> %q21
+6f5d2b17 : umlal2 v23.4s, v24.8h, v13.h[5]           : umlal2 %q23 %q24 %q13 $0x05 $0x01 -> %q23
+6f6e2b59 : umlal2 v25.4s, v26.8h, v14.h[6]           : umlal2 %q25 %q26 %q14 $0x06 $0x01 -> %q25
+6f6f2b9b : umlal2 v27.4s, v28.8h, v15.h[6]           : umlal2 %q27 %q28 %q15 $0x06 $0x01 -> %q27
+6f71281f : umlal2 v31.4s, v0.8h, v1.h[7]             : umlal2 %q31 %q0 %q1 $0x07 $0x01 -> %q31
+6f822020 : umlal2 v0.2d, v1.4s, v2.s[0]              : umlal2 %q0 %q1 %q2 $0x00 $0x02 -> %q0
+6f832062 : umlal2 v2.2d, v3.4s, v3.s[0]              : umlal2 %q2 %q3 %q3 $0x00 $0x02 -> %q2
+6f8420a4 : umlal2 v4.2d, v5.4s, v4.s[0]              : umlal2 %q4 %q5 %q4 $0x00 $0x02 -> %q4
+6fa520e6 : umlal2 v6.2d, v7.4s, v5.s[1]              : umlal2 %q6 %q7 %q5 $0x01 $0x02 -> %q6
+6fa62128 : umlal2 v8.2d, v9.4s, v6.s[1]              : umlal2 %q8 %q9 %q6 $0x01 $0x02 -> %q8
+6fa7216a : umlal2 v10.2d, v11.4s, v7.s[1]            : umlal2 %q10 %q11 %q7 $0x01 $0x02 -> %q10
+6fa821ac : umlal2 v12.2d, v13.4s, v8.s[1]            : umlal2 %q12 %q13 %q8 $0x01 $0x02 -> %q12
+6fa921ee : umlal2 v14.2d, v15.4s, v9.s[1]            : umlal2 %q14 %q15 %q9 $0x01 $0x02 -> %q14
+6f8a2a30 : umlal2 v16.2d, v17.4s, v10.s[2]           : umlal2 %q16 %q17 %q10 $0x02 $0x02 -> %q16
+6f8a2a51 : umlal2 v17.2d, v18.4s, v10.s[2]           : umlal2 %q17 %q18 %q10 $0x02 $0x02 -> %q17
+6f8b2a93 : umlal2 v19.2d, v20.4s, v11.s[2]           : umlal2 %q19 %q20 %q11 $0x02 $0x02 -> %q19
+6f8c2ad5 : umlal2 v21.2d, v22.4s, v12.s[2]           : umlal2 %q21 %q22 %q12 $0x02 $0x02 -> %q21
+6f8d2b17 : umlal2 v23.2d, v24.4s, v13.s[2]           : umlal2 %q23 %q24 %q13 $0x02 $0x02 -> %q23
+6f8e2b59 : umlal2 v25.2d, v26.4s, v14.s[2]           : umlal2 %q25 %q26 %q14 $0x02 $0x02 -> %q25
+6faf2b9b : umlal2 v27.2d, v28.4s, v15.s[3]           : umlal2 %q27 %q28 %q15 $0x03 $0x02 -> %q27
+6fa1281f : umlal2 v31.2d, v0.4s, v1.s[3]             : umlal2 %q31 %q0 %q1 $0x03 $0x02 -> %q31
+
