@@ -482,6 +482,11 @@ our_libc_errno_loc(void)
  */
 typedef int *(*errno_loc_t)(void);
 
+#ifdef LINUX
+/* Stores whether clone3 is unsupported on the system we're running on. */
+static bool is_clone3_enosys = false;
+#endif
+
 static errno_loc_t
 get_libc_errno_location(bool do_init)
 {
@@ -837,6 +842,72 @@ get_uname(void)
 #endif
 }
 
+#ifdef LINUX
+static int
+make_failing_clone3_syscall()
+{
+    int result;
+    /* We know that clone3 fails with EINVAL with these args. */
+    uint clone_args_size = 0;
+    void *clone_args = NULL;
+#    ifdef X86
+#        ifdef X64
+    uint64 clone_args_size_64 = (uint64)clone_args_size;
+    asm volatile("mov %[sys_clone3], %%rax\n\t"
+                 "mov %[clone_args], %%rdi\n\t"
+                 "mov %[clone_args_size], %%rsi\n\t"
+                 "syscall\n\t"
+                 "mov %%rax, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size_64)
+                 /* syscall clobbers rcx and r11 */
+                 : "rax", "rdi", "rsi", "rcx", "r11", "memory");
+#        else
+    asm volatile("mov %[sys_clone3], %%eax\n\t"
+                 "mov %[clone_args], %%ebx\n\t"
+                 "mov %[clone_args_size], %%ecx\n\t"
+                 "int $0x80\n\t"
+                 "mov %%eax, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size)
+                 : "eax", "ebx", "ecx", "memory");
+#        endif
+#    elif defined(AARCH64)
+    uint64 clone_args_size_64 = (uint64)clone_args_size;
+    asm volatile("mov x8, #%[sys_clone3]\n\t"
+                 "ldr x0, %[clone_args]\n\t"
+                 "ldr x1, %[clone_args_size]\n\t"
+                 "svc #0\n\t"
+                 "str x0, %[result]\n\t"
+                 : [result] "=m"(result)
+                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size_64)
+                 : "x0", "x1", "x8", "memory");
+#    elif defined(ARM)
+    /* XXX: Add asm wrapper for ARM. */
+#    else
+#        error Unsupported architecture
+#    endif
+    ASSERT(result < 0);
+    return -result;
+}
+
+/* For some syscalls, detects whether they are unsupported by the system
+ * we're running on. Particularly, we are interested in detecting missing
+ * support early-on for syscalls that require complex pre-syscall handling
+ * by DR. We use this information to fail early for those syscalls.
+ */
+static void
+detect_unsupported_syscalls()
+{
+    int clone3_errno = make_failing_clone3_syscall();
+    ASSERT(clone3_errno == ENOSYS || clone3_errno == EINVAL);
+    is_clone3_enosys = clone3_errno == ENOSYS;
+}
+#endif
+
 /* os-specific initializations */
 void
 d_r_os_init(void)
@@ -924,6 +995,9 @@ d_r_os_init(void)
 #endif
 #ifdef MACOS64
     tls_process_init();
+#endif
+#ifdef LINUX
+    detect_unsupported_syscalls();
 #endif
 }
 
@@ -6591,6 +6665,12 @@ handle_clone_pre(dcontext_t *dcontext)
     clone3_syscall_args_t *dr_clone_args = NULL, *app_clone_args = NULL;
     uint app_clone_args_size = 0;
     if (dcontext->sys_num == SYS_clone3) {
+        if (is_clone3_enosys) {
+            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning ENOSYS to app for clone3\n");
+            set_failure_return_val(dcontext, ENOSYS);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            return false;
+        }
         app_clone_args_size =
             (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
         if (app_clone_args_size < CLONE_ARGS_SIZE_VER0) {
