@@ -139,12 +139,9 @@ main()
      */
     int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
     assert(ret_failure_clone3 == -1);
-    print("AAA clone3 returned %d EINVAL=%d ENOSYS=%d\n", errno, EINVAL, ENOSYS);
 #ifdef SYS_clone3
-    print("AAA clone3 supported\n");
     assert(errno == EINVAL);
 #else
-    print("AAA clone3 NOT supported\n");
     assert(errno == ENOSYS);
 #endif
 }

@@ -133,10 +133,16 @@ jobs:
 
   # 64-bit Linux build with gcc and run tests:
   x86-64:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
+
+    # Cancel any prior runs for a PR (but do not cancel master branch runs).
+    - uses: n1hility/cancel-previous-runs@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+      if: ${{ github.event_name == 'pull_request' }}
 
     - run: git fetch --no-tags --depth=1 origin master
 
@@ -160,9 +166,6 @@ jobs:
         DYNAMORIO_CROSS_AARCHXX_LINUX_ONLY: no
         CI_TRIGGER: ${{ github.event_name }}
         CI_BRANCH: ${{ github.ref }}
-
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
 
     - name: Send failure mail to dynamorio-devs
       if: failure() && github.ref == 'refs/heads/master'
