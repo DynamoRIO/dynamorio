@@ -842,13 +842,11 @@ get_uname(void)
 #endif
 }
 
-#ifdef LINUX
+#if defined(LINUX) && !defined(DR_HOST_NOT_TARGET)
 static int
 make_failing_clone3_syscall()
 {
-#    ifdef DR_HOST_NOT_TARGET
-    ASSERT_NOT_REACHED();
-#    elif defined(ARM)
+#    if defined(ARM)
     /* TODO i#5221: Implement for ARM. */
 #    else
     int result;
@@ -999,7 +997,7 @@ d_r_os_init(void)
 #ifdef MACOS64
     tls_process_init();
 #endif
-#ifdef LINUX
+#if defined(LINUX) && !defined(DR_HOST_NOT_TARGET)
     detect_unsupported_syscalls();
 #endif
 }
