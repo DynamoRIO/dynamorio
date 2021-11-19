@@ -334,9 +334,14 @@
 #define __NR_fspick 433
 #define __NR_pidfd_open 434
 #define __NR_clone3 435
+#define __NR_close_range 436
+#define __NR_openat2 437
+#define __NR_pidfd_getfd 438
+#define __NR_faccessat2 439
+#define __NR_process_madvise 440
 
 #undef __NR_syscalls
-#define __NR_syscalls 436
+#define __NR_syscalls 441
 
 /*
  * 32 bit systems traditionally used different
@@ -2857,6 +2862,16 @@
 
 #ifdef __NR_writev
 #    define SYS_writev __NR_writev
+#endif
+
+/* The following SYS_* constants are defined manually for some of the above
+ * __NR_* constants that do not have a corresponding SYS_* constant defined
+ * in the header files yet. This is so that we can add support for the
+ * corresponding syscall. These entries should be deleted when the above
+ * list is updated with a newer header file that contains them already.
+ */
+#ifdef __NR_close_range
+#    define SYS_close_range __NR_close_range
 #endif
 
 /* Added separately as it was present earlier. */
