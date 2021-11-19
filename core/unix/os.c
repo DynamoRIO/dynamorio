@@ -848,6 +848,8 @@ make_failing_clone3_syscall()
 {
 #    ifdef DR_HOST_NOT_TARGET
     ASSERT_NOT_REACHED();
+#    elif defined(ARM)
+    /* TODO i#5221: Implement for ARM. */
 #    else
     int result;
     /* We know that clone3 fails with EINVAL with these args. */
@@ -888,12 +890,11 @@ make_failing_clone3_syscall()
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64)
                  : "x0", "x1", "x8", "memory");
-#        elif defined(ARM)
-    /* TODO i#5221: Implement for ARM. */
 #        endif
     ASSERT(result < 0);
     return -result;
 #    endif
+    return 0;
 }
 
 /* For some syscalls, detects whether they are unsupported by the system
@@ -907,8 +908,6 @@ detect_unsupported_syscalls()
     int clone3_errno = make_failing_clone3_syscall();
     ASSERT(clone3_errno == ENOSYS || clone3_errno == EINVAL);
     is_clone3_enosys = clone3_errno == ENOSYS;
-    dr_printf("AAA is_clone3_enosys=%d %d %d %d\n", is_clone3_enosys, clone3_errno,
-              ENOSYS, EINVAL);
 }
 #endif
 
@@ -6670,6 +6669,9 @@ handle_clone_pre(dcontext_t *dcontext)
     uint app_clone_args_size = 0;
     if (dcontext->sys_num == SYS_clone3) {
         if (is_clone3_enosys) {
+            /* We know that clone3 will return ENOSYS, so we skip the pre-syscall
+             * handling and fail early.
+             */
             LOG(THREAD, LOG_SYSCALLS, 2, "\treturning ENOSYS to app for clone3\n");
             set_failure_return_val(dcontext, ENOSYS);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
