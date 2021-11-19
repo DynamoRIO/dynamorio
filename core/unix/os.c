@@ -6668,6 +6668,7 @@ handle_clone_pre(dcontext_t *dcontext)
     uint app_clone_args_size = 0;
     if (dcontext->sys_num == SYS_clone3) {
         if (is_clone3_enosys) {
+            dr_printf("AAA returning early from clone3\n");
             LOG(THREAD, LOG_SYSCALLS, 2, "\treturning ENOSYS to app for clone3\n");
             set_failure_return_val(dcontext, ENOSYS);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
