@@ -2874,6 +2874,10 @@
 #    define SYS_close_range __NR_close_range
 #endif
 
+#ifdef __NR_openat2
+#    define SYS_openat2 __NR_openat2
+#endif
+
 /* Added separately as it was present earlier. */
 #ifdef __NR_fstatat
 #    define SYS_fstatat __NR_fstatat
