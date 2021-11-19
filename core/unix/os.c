@@ -892,7 +892,8 @@ make_failing_clone3_syscall()
     ASSERT(result < 0);
     return -result;
 #    endif
-    return 0;
+    /* By default, assume that the syscall is available. */
+    return EINVAL;
 }
 
 /* For some syscalls, detects whether they are unsupported by the system
