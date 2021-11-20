@@ -2441,9 +2441,9 @@ else (UNIX)
 
   tobuild_ci(client.winxfer client-interface/winxfer.c "" "" "")
 endif (UNIX)
+tobuild_ci(client.file_io client-interface/file_io.c
+  "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
 if (X86) # FIXME i#1551, i#1569: port asm to ARM and AArch64
-  tobuild_ci(client.file_io client-interface/file_io.c
-    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
   if (DEBUG) # FIXME i#1806: fails in release; also in OSX list below.
     # we add custom option to flush test based on dr ops in torun_ci()
     tobuild_ci(client.flush client-interface/flush.c "" "" "")

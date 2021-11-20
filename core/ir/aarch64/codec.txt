@@ -1449,10 +1449,18 @@ x0011010110xxxxx000010xxxxxxxxxx  n   511       udiv            wx0 : wx5 wx16
 0x101110xx1xxxxx011011xxxxxxxxxx  n   519       umin            dq0 : dq5 dq16 bhs_sz
 0x101110xx1xxxxx101011xxxxxxxxxx  n   520      uminp            dq0 : dq5 dq16 bhs_sz
 0x101110xx110001101010xxxxxxxxxx  n   521      uminv            dq0 : dq5 bhsd_sz
-00101110xx1xxxxx100000xxxxxxxxxx  n   522      umlal             q0 : d5 d16 bhs_sz
-01101110xx1xxxxx100000xxxxxxxxxx  n   523     umlal2             q0 : q5 q16 bhs_sz
-00101110xx1xxxxx101000xxxxxxxxxx  n   524      umlsl             q0 : d5 d16 bhs_sz
-01101110xx1xxxxx101000xxxxxxxxxx  n   525     umlsl2             q0 : q5 q16 bhs_sz
+00101110xx1xxxxx100000xxxxxxxxxx  n   522      umlal             q0 : q0 d5 d16 bhs_sz
+0010111101xxxxxx0010x0xxxxxxxxxx  n   522      umlal             q0 : q0 d5 dq16_h_sz vindex_H hs_sz
+0010111110xxxxxx0010x0xxxxxxxxxx  n   522      umlal             q0 : q0 d5 dq16 vindex_SD sd_sz
+01101110xx1xxxxx100000xxxxxxxxxx  n   523     umlal2             q0 : q0 q5 q16 bhs_sz
+0110111101xxxxxx0010x0xxxxxxxxxx  n   523     umlal2             q0 : q0 q5 dq16_h_sz vindex_H hs_sz
+0110111110xxxxxx0010x0xxxxxxxxxx  n   523     umlal2             q0 : q0 q5 dq16 vindex_SD sd_sz
+00101110xx1xxxxx101000xxxxxxxxxx  n   524      umlsl             q0 : q0 d5 d16 bhs_sz
+0010111101xxxxxx0110x0xxxxxxxxxx  n   524      umlsl             q0 : q0 d5 dq16_h_sz vindex_H hs_sz
+0010111110xxxxxx0110x0xxxxxxxxxx  n   524      umlsl             q0 : q0 d5 dq16 vindex_SD sd_sz
+01101110xx1xxxxx101000xxxxxxxxxx  n   525     umlsl2             q0 : q0 q5 q16 bhs_sz
+0110111101xxxxxx0110x0xxxxxxxxxx  n   525     umlsl2             q0 : q0 q5 dq16_h_sz vindex_H hs_sz
+0110111110xxxxxx0110x0xxxxxxxxxx  n   525     umlsl2             q0 : q0 q5 dq16 vindex_SD sd_sz
 0x001110000xxxxx001111xxxxxxxxxx  n   526       umov     wx0_imm5_q : q5 imm5
 10011011101xxxxx1xxxxxxxxxxxxxxx  n   527     umsubl             x0 : w5 w16 x10
 10011011110xxxxx0xxxxxxxxxxxxxxx  n   528      umulh             x0 : x5 x16 ign10

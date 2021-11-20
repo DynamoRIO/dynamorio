@@ -263,10 +263,6 @@ make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
                  : "eax", "ebx", "ecx", "edx", "memory");
 #    endif
 #elif defined(AARCH64)
-    /* Do not add code between above declarations and their use below.
-     * This is to ensure that those registers continue to have the
-     * same data.
-     */
     asm volatile("mov x8, #%[sys_clone3]\n\t"
                  "ldr x0, %[clone_args]\n\t"
                  "ldr x1, %[clone_args_size]\n\t"
