@@ -851,11 +851,10 @@ make_failing_clone3_syscall()
 #    else
     long result;
     /* We know that clone3 fails with EINVAL with these args. */
-    uint clone_args_size = 0;
+    ulong clone_args_size = 0;
     void *clone_args = NULL;
 #        ifdef X86
 #            ifdef X64
-    uint64 clone_args_size_64 = (uint64)clone_args_size;
     asm volatile("mov %[sys_clone3], %%rax\n\t"
                  "mov %[clone_args], %%rdi\n\t"
                  "mov %[clone_args_size], %%rsi\n\t"
@@ -863,7 +862,7 @@ make_failing_clone3_syscall()
                  "mov %%rax, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size_64)
+                   [clone_args_size] "m"(clone_args_size)
                  /* syscall clobbers rcx and r11 */
                  : "rax", "rdi", "rsi", "rcx", "r11", "memory");
 #            else
@@ -878,7 +877,6 @@ make_failing_clone3_syscall()
                  : "eax", "ebx", "ecx", "memory");
 #            endif
 #        elif defined(AARCH64)
-    uint64 clone_args_size_64 = (uint64)clone_args_size;
     asm volatile("mov x8, #%[sys_clone3]\n\t"
                  "ldr x0, %[clone_args]\n\t"
                  "ldr x1, %[clone_args_size]\n\t"
@@ -886,7 +884,7 @@ make_failing_clone3_syscall()
                  "str x0, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size_64)
+                   [clone_args_size] "m"(clone_args_size)
                  : "x0", "x1", "x8", "memory");
 #        endif
     ASSERT(result < 0);

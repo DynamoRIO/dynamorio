@@ -74,7 +74,7 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 
 /* forward declarations */
 static int
-make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void));
+make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
 create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
               bool clone_vm);
@@ -223,7 +223,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
  * its own.
  */
 static int
-make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
+make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
 {
 #ifdef SYS_clone3
     assert(CLONE3_SYSCALL_NUM == SYS_clone3);
@@ -231,7 +231,6 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
     long result;
 #ifdef X86
 #    ifdef X64
-    uint64 clone_args_size_64 = (uint64)clone_args_size;
     asm volatile("mov %[sys_clone3], %%rax\n\t"
                  "mov %[clone_args], %%rdi\n\t"
                  "mov %[clone_args_size], %%rsi\n\t"
@@ -244,7 +243,7 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
                  "mov %%rax, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  /* syscall clobbers rcx and r11 */
                  : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory");
 #    else
@@ -264,7 +263,6 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
                  : "eax", "ebx", "ecx", "edx", "memory");
 #    endif
 #elif defined(AARCH64)
-    uint64 clone_args_size_64 = (uint64)clone_args_size;
     /* Do not add code between above declarations and their use below.
      * This is to ensure that those registers continue to have the
      * same data.
@@ -280,7 +278,7 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
                  "str x0, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "x0", "x1", "x2", "x8", "memory");
 #elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
