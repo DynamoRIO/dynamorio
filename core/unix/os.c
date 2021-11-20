@@ -860,7 +860,7 @@ make_failing_clone3_syscall()
                  "mov %[clone_args], %%rdi\n\t"
                  "mov %[clone_args_size], %%rsi\n\t"
                  "syscall\n\t"
-                 "mov %%rax, %[result]\n\t"
+                 "mov %%eax, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64)
@@ -883,7 +883,7 @@ make_failing_clone3_syscall()
                  "ldr x0, %[clone_args]\n\t"
                  "ldr x1, %[clone_args_size]\n\t"
                  "svc #0\n\t"
-                 "str x0, %[result]\n\t"
+                 "str w0, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64)
@@ -8741,7 +8741,7 @@ post_system_call(dcontext_t *dcontext)
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned " PFX "\n",
             MCXT_SYSCALL_RES(mc));
-        /* TODO i#5131: Handle clone3 returning ENOSYS. */
+        /* TODO i#5221: Handle clone3 returning errors other than ENOSYS. */
         /* We switch the lib tls segment back to dr's privlib segment.
          * Please refer to comment on os_switch_lib_tls.
          * It is only called in parent thread.

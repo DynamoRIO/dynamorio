@@ -277,7 +277,7 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
                  "cbnz x0, parent\n\t"
                  "blr x2\n\t"
                  "parent:\n\t"
-                 "str x0, %[result]\n\t"
+                 "str w0, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
