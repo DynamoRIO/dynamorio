@@ -228,7 +228,7 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
 #ifdef SYS_clone3
     assert(CLONE3_SYSCALL_NUM == SYS_clone3);
 #endif
-    int result;
+    long result;
 #ifdef X86
 #    ifdef X64
     uint64 clone_args_size_64 = (uint64)clone_args_size;
@@ -241,7 +241,7 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
                  "jnz parent\n\t"
                  "call *%%rdx\n\t"
                  "parent:\n\t"
-                 "mov %%eax, %[result]\n\t"
+                 "mov %%rax, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
@@ -277,7 +277,7 @@ make_clone3_syscall(void *clone_args, uint clone_args_size, void (*fcn)(void))
                  "cbnz x0, parent\n\t"
                  "blr x2\n\t"
                  "parent:\n\t"
-                 "str w0, %[result]\n\t"
+                 "str x0, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)

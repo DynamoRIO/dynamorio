@@ -849,7 +849,7 @@ make_failing_clone3_syscall()
 #    if defined(ARM)
     /* TODO i#5221: Implement for ARM. */
 #    else
-    int result;
+    long result;
     /* We know that clone3 fails with EINVAL with these args. */
     uint clone_args_size = 0;
     void *clone_args = NULL;
@@ -860,7 +860,7 @@ make_failing_clone3_syscall()
                  "mov %[clone_args], %%rdi\n\t"
                  "mov %[clone_args_size], %%rsi\n\t"
                  "syscall\n\t"
-                 "mov %%eax, %[result]\n\t"
+                 "mov %%rax, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64)
@@ -883,7 +883,7 @@ make_failing_clone3_syscall()
                  "ldr x0, %[clone_args]\n\t"
                  "ldr x1, %[clone_args_size]\n\t"
                  "svc #0\n\t"
-                 "str w0, %[result]\n\t"
+                 "str x0, %[result]\n\t"
                  : [result] "=m"(result)
                  : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size_64)
