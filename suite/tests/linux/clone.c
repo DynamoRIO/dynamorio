@@ -35,7 +35,7 @@
  * test of clone call
  */
 
-#include <sys/types.h>   /* for wait and mmap */
+#include <sys/types.h>   /* for wait, mmap and ulong */
 #include <sys/wait.h>    /* for wait */
 #include <sys/syscall.h> /* for SYS_clone3 */
 #include <linux/sched.h> /* for CLONE_ flags */
@@ -48,6 +48,10 @@
 #include <errno.h>
 
 #include "tools.h" /* for nolibc_* wrappers. */
+
+#ifdef ANDROID
+typedef unsigned long ulong;
+#endif
 
 /* The first published clone_args had all fields till 'tls'. A clone3
  * syscall made by the user must have a struct of at least this size.
