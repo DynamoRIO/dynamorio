@@ -843,69 +843,27 @@ get_uname(void)
 #endif
 }
 
-#if defined(LINUX) && !defined(DR_HOST_NOT_TARGET)
-static int
-make_failing_clone3_syscall()
-{
-#    if defined(ARM)
-    /* TODO i#5221: Implement for ARM. */
-#    else
-    long result;
-    /* We know that clone3 fails with EINVAL with these args. */
-    ulong clone_args_size = 0;
-    void *clone_args = NULL;
-#        ifdef X86
-#            ifdef X64
-    asm volatile("mov %[sys_clone3], %%rax\n\t"
-                 "mov %[clone_args], %%rdi\n\t"
-                 "mov %[clone_args_size], %%rsi\n\t"
-                 "syscall\n\t"
-                 "mov %%rax, %[result]\n\t"
-                 : [result] "=m"(result)
-                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size)
-                 /* syscall clobbers rcx and r11 */
-                 : "rax", "rdi", "rsi", "rcx", "r11", "memory");
-#            else
-    asm volatile("mov %[sys_clone3], %%eax\n\t"
-                 "mov %[clone_args], %%ebx\n\t"
-                 "mov %[clone_args_size], %%ecx\n\t"
-                 "int $0x80\n\t"
-                 "mov %%eax, %[result]\n\t"
-                 : [result] "=m"(result)
-                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size)
-                 : "eax", "ebx", "ecx", "memory");
-#            endif
-#        elif defined(AARCH64)
-    asm volatile("mov x8, #%[sys_clone3]\n\t"
-                 "ldr x0, %[clone_args]\n\t"
-                 "ldr x1, %[clone_args_size]\n\t"
-                 "svc #0\n\t"
-                 "str x0, %[result]\n\t"
-                 : [result] "=m"(result)
-                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size)
-                 : "x0", "x1", "x8", "memory");
-#        endif
-    ASSERT(result < 0);
-    return -result;
-#    endif
-    /* By default, assume that the syscall is available. */
-    return EINVAL;
-}
-
+#if defined(LINUX)
 /* For some syscalls, detects whether they are unsupported by the system
  * we're running on. Particularly, we are interested in detecting missing
  * support early-on for syscalls that require complex pre-syscall handling
  * by DR. We use this information to fail early for those syscalls.
+ *
+ * XXX: Move other logic for detecting unsupported syscalls from their
+ * respective locations to here at init time, like that for
+ * SYS_memfd_create in os_create_memory_file.
+ *
  */
 static void
 detect_unsupported_syscalls()
 {
-    int clone3_errno = make_failing_clone3_syscall();
-    ASSERT(clone3_errno == ENOSYS || clone3_errno == EINVAL);
-    is_clone3_enosys = clone3_errno == ENOSYS;
+    /* We know that when clone3 is available, it fails with EINVAL with
+     * these args.
+     */
+    int clone3_errno =
+        dynamorio_syscall(SYS_clone3, 2, NULL /*clone_args*/, 0 /*clone_args_size*/);
+    ASSERT(clone3_errno == -ENOSYS || clone3_errno == -EINVAL);
+    is_clone3_enosys = clone3_errno == -ENOSYS;
 }
 #endif
 
@@ -997,7 +955,7 @@ d_r_os_init(void)
 #ifdef MACOS64
     tls_process_init();
 #endif
-#if defined(LINUX) && !defined(DR_HOST_NOT_TARGET)
+#if defined(LINUX)
     detect_unsupported_syscalls();
 #endif
 }
