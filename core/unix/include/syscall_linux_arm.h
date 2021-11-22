@@ -2980,6 +2980,10 @@
 #    ifdef __NR_close_range
 #        define SYS_close_range __NR_close_range
 #    endif
+
+#    ifdef __NR_openat2
+#        define SYS_openat2 __NR_openat2
+#    endif
 #endif /* ARM */
 
 #endif /* _SYSCALL_LINUX_ARM_H_ */
