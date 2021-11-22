@@ -421,8 +421,12 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90         eor            wx0 : wx5 wx16 s
 0x00111011111000111110xxxxxxxxxx  n   95        fabs            dq0 : dq5 h_sz
 0x101110010xxxxx001011xxxxxxxxxx  n   96       facge            dq0 : dq5 dq16 h_sz
 0x1011100x1xxxxx111011xxxxxxxxxx  n   96       facge            dq0 : dq5 dq16 sd_sz
+01111110001xxxxx111011xxxxxxxxxx  n   96       facge             s0 : s5 s16
+01111110011xxxxx111011xxxxxxxxxx  n   96       facge             d0 : d5 d16
 0x101110110xxxxx001011xxxxxxxxxx  n   97       facgt            dq0 : dq5 dq16 h_sz
 0x1011101x1xxxxx111011xxxxxxxxxx  n   97       facgt            dq0 : dq5 dq16 sd_sz
+01111110101xxxxx111011xxxxxxxxxx  n   97       facgt             s0 : s5 s16
+01111110111xxxxx111011xxxxxxxxxx  n   97       facgt             d0 : d5 d16
 0x001110010xxxxx000101xxxxxxxxxx  n   98        fadd            dq0 : dq5 dq16 h_sz
 0x0011100x1xxxxx110101xxxxxxxxxx  n   98        fadd            dq0 : dq5 dq16 sd_sz
 00011110xx1xxxxx001010xxxxxxxxxx  n   98        fadd     float_reg0 : float_reg5 float_reg16
@@ -440,6 +444,8 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90         eor            wx0 : wx5 wx16 s
 0101111010100000110110xxxxxxxxxx  n   102      fcmeq             s0 : s5
 0101111011100000110110xxxxxxxxxx  n   102      fcmeq             d0 : d5
 0101111011111000110110xxxxxxxxxx  n   102      fcmeq             h0 : h5
+01011110001xxxxx111001xxxxxxxxxx  n   102      fcmeq             s0 : s5 s16
+01011110011xxxxx111001xxxxxxxxxx  n   102      fcmeq             d0 : d5 d16
 0x101110010xxxxx001001xxxxxxxxxx  n   103      fcmge            dq0 : dq5 dq16 h_sz
 0x1011100x1xxxxx111001xxxxxxxxxx  n   103      fcmge            dq0 : dq5 dq16 sd_sz
 0x1011101x100000110010xxxxxxxxxx  n   103      fcmge            dq0 : dq5 sd_sz
@@ -447,6 +453,8 @@ x1001010xx0xxxxxxxxxxxxxxxxxxxxx  n   90         eor            wx0 : wx5 wx16 s
 0111111010100000110010xxxxxxxxxx  n   103      fcmge             s0 : s5
 0111111011100000110010xxxxxxxxxx  n   103      fcmge             d0 : d5
 0111111011111000110010xxxxxxxxxx  n   103      fcmge             h0 : h5
+01111110001xxxxx111001xxxxxxxxxx  n   103      fcmge             s0 : s5 s16
+01111110011xxxxx111001xxxxxxxxxx  n   103      fcmge             d0 : d5 d16
 0x101110110xxxxx001001xxxxxxxxxx  n   104      fcmgt            dq0 : dq5 dq16 h_sz
 0x1011101x1xxxxx111001xxxxxxxxxx  n   104      fcmgt            dq0 : dq5 dq16 sd_sz
 0x0011101x100000110010xxxxxxxxxx  n   104      fcmgt            dq0 : dq5 sd_sz
@@ -598,12 +606,16 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126     fcvtzu            wx0 : d5 scale
 0x001110010xxxxx000011xxxxxxxxxx  n   141       fmla            dq0 : dq0 dq5 dq16 h_sz
 0x0011100x1xxxxx110011xxxxxxxxxx  n   141       fmla            dq0 : dq0 dq5 dq16 sd_sz
 0x0011111xxxxxxx0001x0xxxxxxxxxx  n   141       fmla            dq0 : dq0 dq5 dq16 vindex_SD sd_sz
+0101111110xxxxxx0001x0xxxxxxxxxx  n   141       fmla             s0 : s0 s5 dq16 vindex_SD sd_sz
+0101111111xxxxxx0001x0xxxxxxxxxx  n   141       fmla             d0 : d0 d5 dq16 vindex_SD sd_sz
 0x001110001xxxxx111011xxxxxxxxxx  n   142      fmlal            dq0 : dq0 dq5 dq16
 0x101110001xxxxx110011xxxxxxxxxx  n   143     fmlal2            dq0 : dq0 dq5 dq16
 0x001110110xxxxx000011xxxxxxxxxx  n   144       fmls            dq0 : dq0 dq5 dq16 h_sz
 0x0011111xxxxxxx0101x0xxxxxxxxxx  n   144       fmls            dq0 : dq5 dq16 vindex_SD sd_sz
 0x00111100xxxxxx0101x0xxxxxxxxxx  n   144       fmls            dq0 : dq5 dq16_h_sz vindex_H h_sz
 0x0011101x1xxxxx110011xxxxxxxxxx  n   144       fmls            dq0 : dq0 dq5 dq16 sd_sz
+0101111110xxxxxx0101x0xxxxxxxxxx  n   144       fmls             s0 : s0 s5 dq16 vindex_SD sd_sz
+0101111111xxxxxx0101x0xxxxxxxxxx  n   144       fmls             d0 : d0 d5 dq16 vindex_SD sd_sz
 0x001110101xxxxx111011xxxxxxxxxx  n   145      fmlsl            dq0 : dq0 dq5 dq16
 0x101110101xxxxx110011xxxxxxxxxx  n   146     fmlsl2            dq0 : dq0 dq5 dq16
 00011110111xxxxxxxx10000000xxxxx  n   147       fmov             h0 : fpimm13 # Armv8.2
@@ -644,18 +656,23 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126     fcvtzu            wx0 : d5 scale
 0x0011101x100001110110xxxxxxxxxx  n   155     frecpe            dq0 : dq5 sd_sz
 0x001110010xxxxx001111xxxxxxxxxx  n   156     frecps            dq0 : dq5 dq16 h_sz
 0x0011100x1xxxxx111111xxxxxxxxxx  n   156     frecps            dq0 : dq5 dq16 sd_sz
+01011110001xxxxx111111xxxxxxxxxx  n   156     frecps             s0 : s5 s16
+01011110011xxxxx111111xxxxxxxxxx  n   156     frecps             d0 : d5 d16
 0101111011111001111110xxxxxxxxxx  n   157     frecpx             h0 : h5
 0101111010100001111110xxxxxxxxxx  n   157     frecpx             s0 : s5
 0101111011100001111110xxxxxxxxxx  n   157     frecpx             d0 : d5
 00011110xx100110010000xxxxxxxxxx  n   158     frinta     float_reg0 : float_reg5
 0x1011100x100001100010xxxxxxxxxx  n   158     frinta            dq0 : dq5 sd_sz
 00011110xx100111110000xxxxxxxxxx  n   159     frinti     float_reg0 : float_reg5
+0x1011101x100001100110xxxxxxxxxx  n   159     frinti            dq0 : dq5 sd_sz
 00011110xx100101010000xxxxxxxxxx  n   160     frintm     float_reg0 : float_reg5
 0x0011100x100001100110xxxxxxxxxx  n   160     frintm            dq0 : dq5 sd_sz
 00011110xx100100010000xxxxxxxxxx  n   161     frintn     float_reg0 : float_reg5
+0x0011100x100001100010xxxxxxxxxx  n   161     frintn            dq0 : dq5 sd_sz
 00011110xx100100110000xxxxxxxxxx  n   162     frintp     float_reg0 : float_reg5
 0x0011101x100001100010xxxxxxxxxx  n   162     frintp            dq0 : dq5 sd_sz
 00011110xx100111010000xxxxxxxxxx  n   163     frintx     float_reg0 : float_reg5
+0x1011100x100001100110xxxxxxxxxx  n   163     frintx            dq0 : dq5 sd_sz
 00011110xx100101110000xxxxxxxxxx  n   164     frintz     float_reg0 : float_reg5
 0x0011101x100001100110xxxxxxxxxx  n   164     frintz            dq0 : dq5 sd_sz
 0111111011111001110110xxxxxxxxxx  n   165    frsqrte             h0 : h5
@@ -664,6 +681,8 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126     fcvtzu            wx0 : d5 scale
 0x1011101x100001110110xxxxxxxxxx  n   165    frsqrte            dq0 : dq5 bd_sz
 0x001110110xxxxx001111xxxxxxxxxx  n   166    frsqrts            dq0 : dq5 dq16 h_sz
 0x0011101x1xxxxx111111xxxxxxxxxx  n   166    frsqrts            dq0 : dq5 dq16 sd_sz
+01011110101xxxxx111111xxxxxxxxxx  n   166    frsqrts             s0 : s5 s16
+01011110111xxxxx111111xxxxxxxxxx  n   166    frsqrts             d0 : d5 d16
 00011110xx100001110000xxxxxxxxxx  n   167      fsqrt     float_reg0 : float_reg5
 0x1011101x100001111110xxxxxxxxxx  n   167      fsqrt            dq0 : dq5 sd_sz
 0x001110110xxxxx000101xxxxxxxxxx  n   168       fsub            dq0 : dq5 dq16 h_sz
