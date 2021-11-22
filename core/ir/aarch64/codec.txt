@@ -1136,9 +1136,25 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363       sdiv            wx0 : wx5 wx16
 01011110111xxxxx000011xxxxxxxxxx  n   403      sqadd             d0 : d5 d16
 0x001110xx1xxxxx000011xxxxxxxxxx  n   403      sqadd            dq0 : dq5 dq16 bhsd_sz
 00001110xx1xxxxx100100xxxxxxxxxx  n   404    sqdmlal             q0 : d5 d16 hs_sz
+01011110011xxxxx100100xxxxxxxxxx  n   404    sqdmlal             s0 : s0 h5 h16
+01011110101xxxxx100100xxxxxxxxxx  n   404    sqdmlal             d0 : d0 s5 s16
+0101111101xxxxxx0011x0xxxxxxxxxx  n   404    sqdmlal             s0 : s0 h5 dq16_h_sz vindex_H hs_sz
+0101111110xxxxxx0011x0xxxxxxxxxx  n   404    sqdmlal             d0 : d0 s5 dq16 vindex_SD sd_sz
+0000111101xxxxxx0011x0xxxxxxxxxx  n   404    sqdmlal             q0 : q0 d5 dq16_h_sz vindex_H hs_sz
+0000111110xxxxxx0011x0xxxxxxxxxx  n   404    sqdmlal             q0 : q0 d5 dq16 vindex_SD sd_sz
 01001110xx1xxxxx100100xxxxxxxxxx  n   405   sqdmlal2             q0 : q5 q16 hs_sz
+0100111101xxxxxx0011x0xxxxxxxxxx  n   405   sqdmlal2             q0 : q0 q5 dq16_h_sz vindex_H hs_sz
+0100111110xxxxxx0011x0xxxxxxxxxx  n   405   sqdmlal2             q0 : q0 q5 dq16 vindex_SD sd_sz
 00001110xx1xxxxx101100xxxxxxxxxx  n   406    sqdmlsl             q0 : d5 d16 hs_sz
+0101111101xxxxxx0111x0xxxxxxxxxx  n   406    sqdmlsl             s0 : s0 h5 dq16_h_sz vindex_H hs_sz
+0101111110xxxxxx0111x0xxxxxxxxxx  n   406    sqdmlsl             d0 : d0 s5 dq16 vindex_SD sd_sz
+0000111101xxxxxx0111x0xxxxxxxxxx  n   406    sqdmlsl             q0 : q0 d5 dq16_h_sz vindex_H hs_sz
+0000111110xxxxxx0111x0xxxxxxxxxx  n   406    sqdmlsl             q0 : q0 d5 dq16 vindex_SD sd_sz
+01011110011xxxxx101100xxxxxxxxxx  n   406    sqdmlsl             s0 : s0 h5 h16
+01011110101xxxxx101100xxxxxxxxxx  n   406    sqdmlsl             d0 : d0 s5 s16
 01001110xx1xxxxx101100xxxxxxxxxx  n   407   sqdmlsl2             q0 : q5 q16 hs_sz
+0100111101xxxxxx0111x0xxxxxxxxxx  n   407   sqdmlsl2             q0 : q0 q5 dq16_h_sz vindex_H hs_sz
+0100111110xxxxxx0111x0xxxxxxxxxx  n   407   sqdmlsl2             q0 : q0 q5 dq16 vindex_SD sd_sz
 0x001110xx1xxxxx101101xxxxxxxxxx  n   408    sqdmulh            dq0 : dq5 dq16 hs_sz
 01011110011xxxxx101101xxxxxxxxxx  n   408    sqdmulh             h0 : h5 h16
 01011110101xxxxx101101xxxxxxxxxx  n   408    sqdmulh             s0 : s5 s16
