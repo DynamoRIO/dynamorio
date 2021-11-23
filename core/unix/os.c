@@ -4968,13 +4968,13 @@ ignorable_system_call_normalized(int num)
     case SYS_sigprocmask:
 #endif
 #ifdef LINUX
-#    ifdef SYS_rt_sigtimedwait_time64
-    case SYS_rt_sigtimedwait_time64:
-#    endif
     case SYS_rt_sigreturn:
     case SYS_rt_sigaction:
     case SYS_rt_sigprocmask:
     case SYS_rt_sigpending:
+#    ifdef SYS_rt_sigtimedwait_time64
+    case SYS_rt_sigtimedwait_time64:
+#    endif
     case SYS_rt_sigtimedwait:
     case SYS_rt_sigqueueinfo:
     case SYS_rt_sigsuspend:
@@ -7503,6 +7503,9 @@ pre_system_call(dcontext_t *dcontext)
 #    endif
 #endif
 #ifdef LINUX
+#    ifdef SYS_rt_sigtimedwait_time64
+    case SYS_rt_sigtimedwait_time64: /* 421 */
+#    endif
     case SYS_rt_sigtimedwait: /* 177 */
     case SYS_rt_sigqueueinfo: /* 178 */
 #endif
@@ -8018,12 +8021,6 @@ pre_system_call(dcontext_t *dcontext)
             dcontext->sys_param0 = sys_param(dcontext, 0);
         }
         break;
-#    ifdef SYS_rt_sigtimedwait_time64
-    case SYS_rt_sigtimedwait_time64:
-        SYSLOG_INTERNAL_WARNING_ONCE(
-            "WARNING i#5131: possibly unhandled system call rt_sigtimedwait_time64");
-        break;
-#    endif
 #endif
     default: {
 #ifdef VMX86_SERVER
