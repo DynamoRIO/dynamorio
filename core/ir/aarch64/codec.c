@@ -3076,7 +3076,7 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     return false;
 }
 
-/* dq_sz_reg5: D/Q register at bit position 5; bit 22 selects Q reg */
+/* dq5_sz: D/Q register at bit position 5; bit 22 selects Q reg */
 
 static inline bool
 decode_opnd_dq5_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
