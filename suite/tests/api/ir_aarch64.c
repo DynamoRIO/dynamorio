@@ -7130,19 +7130,21 @@ test_scvtf_vector_fixed(void *dc)
  * CCMN <Wn>, #<imm>, #<nzcv>, <cond>
  * CCMN <Xn>, #<imm>, #<nzcv>, <cond>
  */
-#define ccm_r_i(cmptype, reg)                                                 \
-    nzcv = 0;                                                                 \
-    cond = 0;                                                                 \
-    imm = 0;                                                                  \
-    for (int rsrc = DR_REG_##reg##0; rsrc < DR_REG_##reg##SP; rsrc++) {       \
-        instr = INSTR_CREATE_ccm##cmptype(                                    \
-            dc, opnd_create_reg(rsrc), opnd_create_immed_int(imm++, OPSZ_5b), \
-            opnd_create_immed_int(nzcv++, OPSZ_4b), conds[cond++]);           \
-        test_instr_encoding(dc, OP_ccm##cmptype, instr);                      \
-        imm = imm > 31 ? 0 : imm;                                             \
-        nzcv = nzcv > 15 ? 0 : nzcv;                                          \
-        cond = cond > 17 ? 0 : cond;                                          \
-    }
+#define CCM_R_I(cmptype, reg)                                                     \
+    do {                                                                          \
+        nzcv = 0;                                                                 \
+        cond = 0;                                                                 \
+        imm = 0;                                                                  \
+        for (int rsrc = DR_REG_##reg##0; rsrc < DR_REG_##reg##SP; rsrc++) {       \
+            instr = INSTR_CREATE_ccm##cmptype(                                    \
+                dc, opnd_create_reg(rsrc), opnd_create_immed_int(imm++, OPSZ_5b), \
+                opnd_create_immed_int(nzcv++, OPSZ_4b), conds[cond++]);           \
+            test_instr_encoding(dc, OP_ccm##cmptype, instr);                      \
+            imm = imm > 31 ? 0 : imm;                                             \
+            nzcv = nzcv > 15 ? 0 : nzcv;                                          \
+            cond = cond > 17 ? 0 : cond;                                          \
+        }                                                                         \
+    } while (0)
 
 /* Macro expansion generates sequence of instruction creation tests for:
  * CCMP <Wn>, <Wm>, #<nzcv>, <cond>
@@ -7150,18 +7152,20 @@ test_scvtf_vector_fixed(void *dc)
  * CCMN <Wn>, <Wm>, #<nzcv>, <cond>
  * CCMN <Xn>, <Xm>, #<nzcv>, <cond>
  */
-#define ccm_r_r(cmptype, reg)                                              \
-    nzcv = 0;                                                              \
-    cond = 0;                                                              \
-    rsrc1 = DR_REG_##reg##30;                                              \
-    for (int rsrc0 = DR_REG_##reg##0; rsrc0 < DR_REG_##reg##SP; rsrc0++) { \
-        instr = INSTR_CREATE_ccm##cmptype(                                 \
-            dc, opnd_create_reg(rsrc0), opnd_create_reg(rsrc1--),          \
-            opnd_create_immed_int(nzcv++, OPSZ_4b), conds[cond++]);        \
-        test_instr_encoding(dc, OP_ccm##cmptype, instr);                   \
-        nzcv = nzcv > 15 ? 0 : nzcv;                                       \
-        cond = cond > 17 ? 0 : cond;                                       \
-    }
+#define CCM_R_R(cmptype, reg)                                                  \
+    do {                                                                       \
+        nzcv = 0;                                                              \
+        cond = 0;                                                              \
+        rsrc1 = DR_REG_##reg##30;                                              \
+        for (int rsrc0 = DR_REG_##reg##0; rsrc0 < DR_REG_##reg##SP; rsrc0++) { \
+            instr = INSTR_CREATE_ccm##cmptype(                                 \
+                dc, opnd_create_reg(rsrc0), opnd_create_reg(rsrc1--),          \
+                opnd_create_immed_int(nzcv++, OPSZ_4b), conds[cond++]);        \
+            test_instr_encoding(dc, OP_ccm##cmptype, instr);                   \
+            nzcv = nzcv > 15 ? 0 : nzcv;                                       \
+            cond = cond > 17 ? 0 : cond;                                       \
+        }                                                                      \
+    } while (0)
 
 static void
 test_ccmp_ccmn(void *dc)
@@ -7182,7 +7186,7 @@ test_ccmp_ccmn(void *dc)
     int imm;
     int nzcv;
     int cond;
-    ccm_r_i(p, W);
+    CCM_R_I(p, W);
 
     // CCMP <Xn>, #<imm>, #<nzcv>, EQ
     instr = INSTR_CREATE_ccmp(dc, opnd_create_reg(DR_REG_X0),
@@ -7190,7 +7194,7 @@ test_ccmp_ccmn(void *dc)
                               opnd_create_immed_int(0b1010, OPSZ_4b), DR_PRED_EQ);
     test_instr_encoding(dc, OP_ccmp, instr);
 
-    ccm_r_i(p, X);
+    CCM_R_I(p, X);
 
     // CCMP <Wn>, <Wm>, #<nzcv>, GE
     instr =
@@ -7199,7 +7203,7 @@ test_ccmp_ccmn(void *dc)
     test_instr_encoding(dc, OP_ccmp, instr);
 
     int rsrc1;
-    ccm_r_r(p, W);
+    CCM_R_R(p, W);
 
     // CCMP <Xn>, <Xm>, #<nzcv>, GE
     instr =
@@ -7207,7 +7211,7 @@ test_ccmp_ccmn(void *dc)
                           opnd_create_immed_int(0b1010, OPSZ_4b), DR_PRED_GE);
     test_instr_encoding(dc, OP_ccmp, instr);
 
-    ccm_r_r(p, X);
+    CCM_R_R(p, X);
 
     // CCMN <Wn>, #<imm>, #<nzcv>, EQ
     instr = INSTR_CREATE_ccmn(dc, opnd_create_reg(DR_REG_W0),
@@ -7215,7 +7219,7 @@ test_ccmp_ccmn(void *dc)
                               opnd_create_immed_int(0b0101, OPSZ_4b), DR_PRED_EQ);
     test_instr_encoding(dc, OP_ccmn, instr);
 
-    ccm_r_i(n, W);
+    CCM_R_I(n, W);
 
     // CCMN <Xn>, #<imm>, #<nzcv>, LT
     instr = INSTR_CREATE_ccmn(dc, opnd_create_reg(DR_REG_X15),
@@ -7223,7 +7227,7 @@ test_ccmp_ccmn(void *dc)
                               opnd_create_immed_int(0b1001, OPSZ_4b), DR_PRED_LT);
     test_instr_encoding(dc, OP_ccmn, instr);
 
-    ccm_r_i(n, X);
+    CCM_R_I(n, X);
 
     // CCMN <Wn>, <Wm>, #<nzcv>, VS
     instr =
@@ -7231,14 +7235,14 @@ test_ccmp_ccmn(void *dc)
                           opnd_create_immed_int(0b1010, OPSZ_4b), DR_PRED_VS);
     test_instr_encoding(dc, OP_ccmn, instr);
 
-    ccm_r_r(n, W);
+    CCM_R_R(n, W);
 
     // CCMN <Xn>, <Xm>, #<nzcv>, PL
     instr = INSTR_CREATE_ccmn(dc, opnd_create_reg(DR_REG_X9), opnd_create_reg(DR_REG_X10),
                               opnd_create_immed_int(0b1111, OPSZ_4b), DR_PRED_PL);
     test_instr_encoding(dc, OP_ccmn, instr);
 
-    ccm_r_r(n, X);
+    CCM_R_R(n, X);
 }
 
 int

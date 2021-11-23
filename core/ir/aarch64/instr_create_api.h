@@ -571,14 +571,14 @@ enum {
  * Creates a CCMP (Conditional Compare) instruction. Sets the NZCV flags to the
  * result of a comparison of its two source values if the named input condition
  * is true, or to an immediate value if the input condition is false.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
  * \param Rn      The GPR source register.
- * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
- * to create the operand) or a GPR source register.
+ * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create
+   the operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
  * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
- * (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
- * \param cond    The comparison condition specified by dr_pred_type_t, e.g. DR_PRED_EQ.
- * (use opnd_create_cond(val) to create the operand).
+ * (use #opnd_create_immed_uint() to create the operand, e.g.
+ * opnd_create_immed_uint(val, #OPSZ_4b)).
  */
 #define INSTR_CREATE_ccmp(dc, Rn, Op, nzcv, cond) \
     (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmp, Rn, Op, nzcv), (cond)))
@@ -589,14 +589,14 @@ enum {
  * input condition is true, or to an immediate value if the input condition is
  * false. The comparison is based on a negated second source value (Op) if an
  * immediate, inverted if a register.
- * \param dc      The void * dcontext used to allocate memory for the instr_t.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
  * \param Rn      The GPR source register.
- * \param Op      Either a 5-bit immediate (use opnd_create_immed_uint(val, OPSZ_5b)
- * to create the operand) or a GPR source register.
+ * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create the
+ * operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
  * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
- * (use opnd_create_immed_uint(val, OPSZ_4b) to create the operand).
- * \param cond    The comparison condition specified by dr_pred_type_t, e.g. DR_PRED_EQ.
- * (use opnd_create_cond(val) to create the operand).
+ * (use #opnd_create_immed_uint() to create the operand, e.g.
+ * opnd_create_immed_uint(val, #OPSZ_4b)).
  */
 #define INSTR_CREATE_ccmn(dc, Rn, Op, nzcv, cond) \
     (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmn, Rn, Op, nzcv), (cond)))
