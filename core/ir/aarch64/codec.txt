@@ -653,6 +653,11 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126     fcvtzu            wx0 : d5 scale
 00011110xx1xxxxx000010xxxxxxxxxx  n   149       fmul     float_reg0 : float_reg5 float_reg16
 0x001110010xxxxx000111xxxxxxxxxx  n   150      fmulx            dq0 : dq5 dq16 h_sz
 0x0011100x1xxxxx110111xxxxxxxxxx  n   150      fmulx            dq0 : dq5 dq16 sd_sz
+0x1011111xxxxxxx1001x0xxxxxxxxxx  n   150      fmulx            dq0 : dq5 dq16 vindex_SD sd_sz
+0111111110xxxxxx1001x0xxxxxxxxxx  n   150      fmulx             s0 : s5 q16 vindex_SD sd_sz
+0111111111xxxxxx1001x0xxxxxxxxxx  n   150      fmulx             d0 : d5 q16 vindex_SD sd_sz
+01011110001xxxxx110111xxxxxxxxxx  n   150      fmulx             s0 : s5 s16
+01011110011xxxxx110111xxxxxxxxxx  n   150      fmulx             d0 : d5 d16
 00011110xx100001010000xxxxxxxxxx  n   151       fneg     float_reg0 : float_reg5
 0x1011101x100000111110xxxxxxxxxx  n   151       fneg            dq0 : dq5 sd_sz
 0x10111011111000111110xxxxxxxxxx  n   151       fneg            dq0 : dq5 h_sz
