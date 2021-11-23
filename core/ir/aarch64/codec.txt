@@ -165,6 +165,7 @@
 ---------x----------------------  imm12sh    # shift for ADD/SUB (immediate); '0x'
                                              # elements, depending on bit 22 (sz)
 ---------x----------------------  sd_sz      # element width of FP vector reg for single
+---------x------------xxxxx-----  dq5_sz     # as dqx, but depending on the sz bit rather than the Q bit
 ---------++++xxx----------------  immhb_shf  # encoding of #shift value in immh:immb fields
 ---------++++xxx----------------  immhb_0shf # encoding of #shift value in zero-indexed immh:immb fields
 ---------++++xxx----------------  immhb_fxp  # encoding of #fbits value in immh:immb fields
@@ -581,11 +582,15 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126     fcvtzu            wx0 : d5 scale
 00011110xx1xxxxx011010xxxxxxxxxx  n   130     fmaxnm     float_reg0 : float_reg5 float_reg16
 0x101110010xxxxx000001xxxxxxxxxx  n   131    fmaxnmp            dq0 : dq5 dq16 h_sz
 0x1011100x1xxxxx110001xxxxxxxxxx  n   131    fmaxnmp            dq0 : dq5 dq16 sd_sz
+0111111000110000110010xxxxxxxxxx  n   131    fmaxnmp             s0 : dq5_sz sd_sz
+0111111001110000110010xxxxxxxxxx  n   131    fmaxnmp             d0 : dq5_sz sd_sz
 0000111000110000110010xxxxxxxxxx  n   132    fmaxnmv             h0 : d5
 0100111000110000110010xxxxxxxxxx  n   132    fmaxnmv             h0 : q5
 0110111000110000110010xxxxxxxxxx  n   132    fmaxnmv             s0 : q5
 0x101110010xxxxx001101xxxxxxxxxx  n   133      fmaxp            dq0 : dq5 dq16 h_sz
 0x1011100x1xxxxx111101xxxxxxxxxx  n   133      fmaxp            dq0 : dq5 dq16 sd_sz
+0111111000110000111110xxxxxxxxxx  n   133      fmaxp             s0 : dq5_sz sd_sz
+0111111001110000111110xxxxxxxxxx  n   133      fmaxp             d0 : dq5_sz sd_sz
 0x10111000110000111110xxxxxxxxxx  n   134      fmaxv             s0 : dq5
 0x00111000110000111110xxxxxxxxxx  n   134      fmaxv             h0 : dq5
 0x001110110xxxxx001101xxxxxxxxxx  n   135       fmin            dq0 : dq5 dq16 h_sz
@@ -596,11 +601,15 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126     fcvtzu            wx0 : d5 scale
 00011110xx1xxxxx011110xxxxxxxxxx  n   136     fminnm     float_reg0 : float_reg5 float_reg16
 0x101110110xxxxx000001xxxxxxxxxx  n   137    fminnmp            dq0 : dq5 dq16 h_sz
 0x1011101x1xxxxx110001xxxxxxxxxx  n   137    fminnmp            dq0 : dq5 dq16 sd_sz
+0111111010110000110010xxxxxxxxxx  n   137    fminnmp             s0 : dq5_sz sd_sz
+0111111011110000110010xxxxxxxxxx  n   137    fminnmp             d0 : dq5_sz sd_sz
 0000111010110000110010xxxxxxxxxx  n   138    fminnmv             h0 : d5
 0100111010110000110010xxxxxxxxxx  n   138    fminnmv             h0 : q5
 0110111010110000110010xxxxxxxxxx  n   138    fminnmv             s0 : q5
 0x101110110xxxxx001101xxxxxxxxxx  n   139      fminp            dq0 : dq5 dq16 h_sz
 0x1011101x1xxxxx111101xxxxxxxxxx  n   139      fminp            dq0 : dq5 dq16 sd_sz
+0111111010110000111110xxxxxxxxxx  n   139      fminp             s0 : dq5_sz sd_sz
+0111111011110000111110xxxxxxxxxx  n   139      fminp             d0 : dq5_sz sd_sz
 0x10111010110000111110xxxxxxxxxx  n   140      fminv             s0 : dq5
 0x00111010110000111110xxxxxxxxxx  n   140      fminv             h0 : dq5
 0x001110010xxxxx000011xxxxxxxxxx  n   141       fmla            dq0 : dq0 dq5 dq16 h_sz
