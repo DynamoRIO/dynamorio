@@ -148,6 +148,12 @@ print_opcode_name(instr_t *instr, const char *name, char *buf, size_t bufsz,
     if (instr_get_opcode(instr) == OP_bcond) {
         print_to_buffer(buf, bufsz, sofar, "b.%s",
                         pred_names[instr_get_predicate(instr)]);
+    } else if (instr_get_opcode(instr) == OP_ccmp) {
+        print_to_buffer(buf, bufsz, sofar, "ccmp.%s",
+                        pred_names[instr_get_predicate(instr)]);
+    } else if (instr_get_opcode(instr) == OP_ccmn) {
+        print_to_buffer(buf, bufsz, sofar, "ccmn.%s",
+                        pred_names[instr_get_predicate(instr)]);
     } else
         print_to_buffer(buf, bufsz, sofar, "%s", name);
 }

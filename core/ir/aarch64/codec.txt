@@ -349,10 +349,10 @@ x1101010xx1xxxxxxxxxxxxxxxxxxxxx  w   30        bics            wx0 : wx5 wx16 s
 01001000001xxxxx111111xxxxxxxxxx  n   53       caspl  x16p0 x16p1 mem0p : x16p0 x16p1 x0p0 x0p1 mem0p
 x0110101xxxxxxxxxxxxxxxxxxxxxxxx  n   54        cbnz            cbz
 x0110100xxxxxxxxxxxxxxxxxxxxxxxx  n   55         cbz            cbz
-x0111010010xxxxxxxxx00xxxxx0xxxx  rw  56        ccmn                : wx5 wx16 nzcv cond
-x0111010010xxxxxxxxx10xxxxx0xxxx  rw  56        ccmn                : wx5 imm5 nzcv cond
-x1111010010xxxxxxxxx00xxxxx0xxxx  rw  57        ccmp                : wx5 wx16 nzcv cond
-x1111010010xxxxxxxxx10xxxxx0xxxx  rw  57        ccmp                : wx5 imm5 nzcv cond
+x0111010010xxxxxxxxx00xxxxx0xxxx  w   56        ccmn            ccm
+x0111010010xxxxxxxxx10xxxxx0xxxx  w   56        ccmn            ccm
+x1111010010xxxxxxxxx00xxxxx0xxxx  w   57        ccmp            ccm
+x1111010010xxxxxxxxx10xxxxx0xxxx  w   57        ccmp            ccm
 11010101000000110011xxxx01011111  n   58       clrex                : imm4
 x101101011000000000101xxxxxxxxxx  n   59         cls            wx0 : wx5
 0x001110xx100000010010xxxxxxxxxx  n   59         cls            dq0 : dq5 bhs_sz

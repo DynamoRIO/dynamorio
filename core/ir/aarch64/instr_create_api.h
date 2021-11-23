@@ -567,6 +567,40 @@ enum {
 #define INSTR_CREATE_bl(dc, pc) \
     instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
 
+/**
+ * Creates a CCMP (Conditional Compare) instruction. Sets the NZCV flags to the
+ * result of a comparison of its two source values if the named input condition
+ * is true, or to an immediate value if the input condition is false.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param Rn      The GPR source register.
+ * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create
+   the operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
+ * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
+ * (use #opnd_create_immed_uint() to create the operand, e.g.
+ * opnd_create_immed_uint(val, #OPSZ_4b)).
+ */
+#define INSTR_CREATE_ccmp(dc, Rn, Op, nzcv, cond) \
+    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmp, Rn, Op, nzcv), (cond)))
+
+/**
+ * Creates a CCMN (Conditional Compare Negative) instruction. Sets the NZCV
+ * flags to the result of a comparison of its two source values if the named
+ * input condition is true, or to an immediate value if the input condition is
+ * false. The comparison is based on a negated second source value (Op) if an
+ * immediate, inverted if a register.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param Rn      The GPR source register.
+ * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create the
+ * operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
+ * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
+ * (use #opnd_create_immed_uint() to create the operand, e.g.
+ * opnd_create_immed_uint(val, #OPSZ_4b)).
+ */
+#define INSTR_CREATE_ccmn(dc, Rn, Op, nzcv, cond) \
+    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmn, Rn, Op, nzcv), (cond)))
+
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
     instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))

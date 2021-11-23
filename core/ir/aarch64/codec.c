@@ -4356,6 +4356,61 @@ encode_opnds_bcond(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     return ENCFAIL;
 }
 
+/* ccm: operands for conditional compare instructions */
+
+static inline bool
+decode_opnds_ccm(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int opcode)
+{
+    instr_set_opcode(instr, opcode);
+    instr_set_num_opnds(dcontext, instr, 0, 3);
+
+    /* Rn */
+    opnd_t rn;
+    if (!decode_opnd_rn(false, 5, enc, &rn))
+        return false;
+    instr_set_src(instr, 0, rn);
+
+    opnd_t rm;
+    if (TEST(1U << 11, enc)) /* imm5 */
+        instr_set_src(instr, 1, opnd_create_immed_int(extract_uint(enc, 16, 5), OPSZ_5b));
+    else if (!decode_opnd_rn(false, 16, enc, &rm)) /* Rm */
+        return false;
+    else
+        instr_set_src(instr, 1, rm);
+
+    /* nzcv */
+    instr_set_src(instr, 2, opnd_create_immed_int(extract_uint(enc, 0, 4), OPSZ_4b));
+    /* cond */
+    instr_set_predicate(instr, DR_PRED_EQ + extract_uint(enc, 12, 4));
+
+    return true;
+}
+
+static inline uint
+encode_opnds_ccm(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
+{
+    uint rn;
+    uint rm_imm5 = 0;
+    uint imm5_flag = 0;
+    if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 3 &&
+        encode_opnd_rn(false, 5, instr_get_src(instr, 0), &rn) && /* Rn */
+        opnd_is_immed_int(instr_get_src(instr, 2)) &&             /* nzcv */
+        (uint)(instr_get_predicate(instr) - DR_PRED_EQ) < 16) {   /* cond */
+        uint nzcv = opnd_get_immed_int(instr_get_src(instr, 2));
+        uint cond = instr_get_predicate(instr) - DR_PRED_EQ;
+        if (opnd_is_immed_int(instr_get_src(instr, 1))) { /* imm5 */
+            rm_imm5 = opnd_get_immed_int(instr_get_src(instr, 1)) << 16;
+            imm5_flag = 1;
+        } else if (opnd_is_reg(instr_get_src(instr, 1))) { /* Rm */
+            encode_opnd_rn(false, 16, instr_get_src(instr, 1), &rm_imm5);
+        } else
+            return ENCFAIL;
+        return (enc | nzcv | rn | (imm5_flag << 11) | rm_imm5 | (cond << 12));
+    }
+
+    return ENCFAIL;
+}
+
 /* cbz: used for CBNZ and CBZ */
 
 static inline bool
