@@ -299,22 +299,27 @@ const char *options_list_str =
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
 #    endif
 #    ifdef UNIX
+#        if DISABLED_UNTIL_BUG_5054_IS_FIXED /* Code is there, just not advertised. */
     "       -attach <pid>      Attach to the process with the given pid.\n"
-    "                          If attach to a process which is in middle of blocking\n"
-    "                          system call, dynamorio will wait until it returns.\n"
-#        ifdef X86
+    "                          Attaching is an experimental feature and is not yet\n"
+    "                          as well-supported as launching a new process.\n"
+    "                          When attaching to a process in the middle of a blocking\n"
+    "                          system call, DynamoRIO will wait until it returns.\n"
+#            ifdef X86
     "                          Can be used with -skip_syscall.\n"
     "       -skip_syscall      (Experimental)\n"
-    "                          Only work with -attach.\n"
+    "                          Only works with -attach.\n"
     "                          Attaching to a process will force blocking system calls\n"
     "                          to fail with EINTR.\n"
-#        endif
+#            endif
+#        endif /* DISABLED_UNTIL_BUG_5054_IS_FIXED */
 #    endif
 #    ifdef WINDOWS
-    "       -attach <pid>      (Experimental)\n"
-    "                          Attach to the process with the given pid.\n"
-    "                          If attach to a process which is in middle of blocking\n"
-    "                          system call, attach could fail.\n"
+    "       -attach <pid>      Attach to the process with the given pid.\n"
+    "                          Attaching is an experimental feature and is not yet\n"
+    "                          as well-supported as launching a new process.\n"
+    "                          Attaching to a process in the middle of a blocking\n"
+    "                          system call could fail.\n"
     "                          Try takeover_sleep and larger takeovers to increase\n"
     "                          the chances of success:\n"
     "       -takeover_sleep    Sleep 1 millisecond between takeover attempts.\n"
