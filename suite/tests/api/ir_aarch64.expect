@@ -814,18 +814,18 @@ uabdl  %d15 %d25 $0x02 -> %q26
 uabdl2 %q13 %q27 $0x00 -> %q30
 uabdl2 %q13 %q27 $0x01 -> %q30
 uabdl2 %q13 %q27 $0x02 -> %q30
-umlal  %d28 %d1 $0x00 -> %q22
-umlal  %d28 %d1 $0x01 -> %q22
-umlal  %d28 %d1 $0x02 -> %q22
-umlal2 %q24 %q30 $0x00 -> %q29
-umlal2 %q24 %q30 $0x01 -> %q29
-umlal2 %q24 %q30 $0x02 -> %q29
-umlsl  %d9 %d21 $0x00 -> %q31
-umlsl  %d9 %d21 $0x01 -> %q31
-umlsl  %d9 %d21 $0x02 -> %q31
-umlsl2 %q19 %q29 $0x00 -> %q4
-umlsl2 %q19 %q29 $0x01 -> %q4
-umlsl2 %q19 %q29 $0x02 -> %q4
+umlal  %q22 %d28 %d1 $0x00 -> %q22
+umlal  %q22 %d28 %d1 $0x01 -> %q22
+umlal  %q22 %d28 %d1 $0x02 -> %q22
+umlal2 %q29 %q24 %q30 $0x00 -> %q29
+umlal2 %q29 %q24 %q30 $0x01 -> %q29
+umlal2 %q29 %q24 %q30 $0x02 -> %q29
+umlsl  %q31 %d9 %d21 $0x00 -> %q31
+umlsl  %q31 %d9 %d21 $0x01 -> %q31
+umlsl  %q31 %d9 %d21 $0x02 -> %q31
+umlsl2 %q4 %q19 %q29 $0x00 -> %q4
+umlsl2 %q4 %q19 %q29 $0x01 -> %q4
+umlsl2 %q4 %q19 %q29 $0x02 -> %q4
 umull  %d11 %d2 $0x00 -> %q6
 umull  %d11 %d2 $0x01 -> %q6
 umull  %d11 %d2 $0x02 -> %q6

@@ -245,10 +245,6 @@ make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
 #        endif
 #    elif defined(AARCH64)
     uint64 clone_args_size_64 = (uint64)clone_args_size;
-    /* Do not add code between above declarations and their use below.
-     * This is to ensure that those registers continue to have the
-     * same data.
-     */
     asm volatile("mov x8, #%[sys_clone3]\n\t"
                  "ldr x0, %[clone_args]\n\t"
                  "ldr x1, %[clone_args_size]\n\t"

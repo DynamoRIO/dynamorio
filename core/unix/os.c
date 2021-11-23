@@ -7604,6 +7604,10 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 #ifdef SYS_close_range
     case SYS_close_range: {
+        /* client.file_io indeed tests this for all arch, but it hasn't yet been
+         * run on an AArchXX machine that has close_range available.
+         */
+        IF_AARCHXX(ASSERT_NOT_TESTED());
         uint first_fd = sys_param(dcontext, 0), last_fd = sys_param(dcontext, 1);
         uint flags = sys_param(dcontext, 2);
         bool is_cloexec = TEST(CLOSE_RANGE_CLOEXEC, flags);
@@ -7675,24 +7679,28 @@ pre_system_call(dcontext_t *dcontext)
 #endif
         break;
     }
-#ifdef SYS_dup2
+#if defined(SYS_dup2) || defined(SYS_dup3)
+#    ifdef SYS_dup3
+    case SYS_dup3:
+#    endif
+#    ifdef SYS_dup2
     case SYS_dup2:
-        IF_LINUX(case SYS_dup3:)
-        {
-            file_t newfd = (file_t)sys_param(dcontext, 1);
-            if (fd_is_dr_owned(newfd) || fd_is_in_private_range(newfd)) {
-                SYSLOG_INTERNAL_WARNING_ONCE("app trying to dup-close DR file(s)");
-                LOG(THREAD, LOG_TOP | LOG_SYSCALLS, 1,
-                    "WARNING: app trying to dup2/dup3 to %d.  Disallowing.\n", newfd);
-                if (DYNAMO_OPTION(fail_on_stolen_fds)) {
-                    set_failure_return_val(dcontext, EBADF);
-                    DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
-                } else
-                    set_success_return_val(dcontext, 0);
-                execute_syscall = false;
-            }
-            break;
+#    endif
+    {
+        file_t newfd = (file_t)sys_param(dcontext, 1);
+        if (fd_is_dr_owned(newfd) || fd_is_in_private_range(newfd)) {
+            SYSLOG_INTERNAL_WARNING_ONCE("app trying to dup-close DR file(s)");
+            LOG(THREAD, LOG_TOP | LOG_SYSCALLS, 1,
+                "WARNING: app trying to dup2/dup3 to %d.  Disallowing.\n", newfd);
+            if (DYNAMO_OPTION(fail_on_stolen_fds)) {
+                set_failure_return_val(dcontext, EBADF);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            } else
+                set_success_return_val(dcontext, 0);
+            execute_syscall = false;
         }
+        break;
+    }
 #endif
 
 #ifdef MACOS
