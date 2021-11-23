@@ -17373,3 +17373,121 @@ d503203f : yield                          : yield
 7ef0fb59 : fminp d25, v26.2d                         : fminp  %q26 $0x03 -> %d25
 7ef0fb9b : fminp d27, v28.2d                         : fminp  %q28 $0x03 -> %d27
 7ef0f81f : fminp d31, v0.2d                          : fminp  %q0 $0x03 -> %d31
+
+# FMULX   <Vd>.<Ta>, <Vn>.<T>, <Vm>.<Tb>[<index>]
+2f829020 : fmulx v0.2s, v1.2s, v2.s[0]               : fmulx  %d1 %d2 $0x00 $0x02 -> %d0
+2f849062 : fmulx v2.2s, v3.2s, v4.s[0]               : fmulx  %d3 %d4 $0x00 $0x02 -> %d2
+2f8690a4 : fmulx v4.2s, v5.2s, v6.s[0]               : fmulx  %d5 %d6 $0x00 $0x02 -> %d4
+2fa890e6 : fmulx v6.2s, v7.2s, v8.s[1]               : fmulx  %d7 %d8 $0x01 $0x02 -> %d6
+2faa9128 : fmulx v8.2s, v9.2s, v10.s[1]              : fmulx  %d9 %d10 $0x01 $0x02 -> %d8
+2fac916a : fmulx v10.2s, v11.2s, v12.s[1]            : fmulx  %d11 %d12 $0x01 $0x02 -> %d10
+2fae91ac : fmulx v12.2s, v13.2s, v14.s[1]            : fmulx  %d13 %d14 $0x01 $0x02 -> %d12
+2fb091ee : fmulx v14.2s, v15.2s, v16.s[1]            : fmulx  %d15 %d16 $0x01 $0x02 -> %d14
+2f929a30 : fmulx v16.2s, v17.2s, v18.s[2]            : fmulx  %d17 %d18 $0x02 $0x02 -> %d16
+2f939a51 : fmulx v17.2s, v18.2s, v19.s[2]            : fmulx  %d18 %d19 $0x02 $0x02 -> %d17
+2f959a93 : fmulx v19.2s, v20.2s, v21.s[2]            : fmulx  %d20 %d21 $0x02 $0x02 -> %d19
+2f979ad5 : fmulx v21.2s, v22.2s, v23.s[2]            : fmulx  %d22 %d23 $0x02 $0x02 -> %d21
+2f999b17 : fmulx v23.2s, v24.2s, v25.s[2]            : fmulx  %d24 %d25 $0x02 $0x02 -> %d23
+2f9b9b59 : fmulx v25.2s, v26.2s, v27.s[2]            : fmulx  %d26 %d27 $0x02 $0x02 -> %d25
+2fbd9b9b : fmulx v27.2s, v28.2s, v29.s[3]            : fmulx  %d28 %d29 $0x03 $0x02 -> %d27
+2fa1981f : fmulx v31.2s, v0.2s, v1.s[3]              : fmulx  %d0 %d1 $0x03 $0x02 -> %d31
+6f829020 : fmulx v0.4s, v1.4s, v2.s[0]               : fmulx  %q1 %q2 $0x00 $0x02 -> %q0
+6f849062 : fmulx v2.4s, v3.4s, v4.s[0]               : fmulx  %q3 %q4 $0x00 $0x02 -> %q2
+6f8690a4 : fmulx v4.4s, v5.4s, v6.s[0]               : fmulx  %q5 %q6 $0x00 $0x02 -> %q4
+6fa890e6 : fmulx v6.4s, v7.4s, v8.s[1]               : fmulx  %q7 %q8 $0x01 $0x02 -> %q6
+6faa9128 : fmulx v8.4s, v9.4s, v10.s[1]              : fmulx  %q9 %q10 $0x01 $0x02 -> %q8
+6fac916a : fmulx v10.4s, v11.4s, v12.s[1]            : fmulx  %q11 %q12 $0x01 $0x02 -> %q10
+6fae91ac : fmulx v12.4s, v13.4s, v14.s[1]            : fmulx  %q13 %q14 $0x01 $0x02 -> %q12
+6fb091ee : fmulx v14.4s, v15.4s, v16.s[1]            : fmulx  %q15 %q16 $0x01 $0x02 -> %q14
+6f929a30 : fmulx v16.4s, v17.4s, v18.s[2]            : fmulx  %q17 %q18 $0x02 $0x02 -> %q16
+6f939a51 : fmulx v17.4s, v18.4s, v19.s[2]            : fmulx  %q18 %q19 $0x02 $0x02 -> %q17
+6f959a93 : fmulx v19.4s, v20.4s, v21.s[2]            : fmulx  %q20 %q21 $0x02 $0x02 -> %q19
+6f979ad5 : fmulx v21.4s, v22.4s, v23.s[2]            : fmulx  %q22 %q23 $0x02 $0x02 -> %q21
+6f999b17 : fmulx v23.4s, v24.4s, v25.s[2]            : fmulx  %q24 %q25 $0x02 $0x02 -> %q23
+6f9b9b59 : fmulx v25.4s, v26.4s, v27.s[2]            : fmulx  %q26 %q27 $0x02 $0x02 -> %q25
+6fbd9b9b : fmulx v27.4s, v28.4s, v29.s[3]            : fmulx  %q28 %q29 $0x03 $0x02 -> %q27
+6fa1981f : fmulx v31.4s, v0.4s, v1.s[3]              : fmulx  %q0 %q1 $0x03 $0x02 -> %q31
+6fc29020 : fmulx v0.2d, v1.2d, v2.d[0]               : fmulx  %q1 %q2 $0x00 $0x03 -> %q0
+6fc49062 : fmulx v2.2d, v3.2d, v4.d[0]               : fmulx  %q3 %q4 $0x00 $0x03 -> %q2
+6fc690a4 : fmulx v4.2d, v5.2d, v6.d[0]               : fmulx  %q5 %q6 $0x00 $0x03 -> %q4
+6fc890e6 : fmulx v6.2d, v7.2d, v8.d[0]               : fmulx  %q7 %q8 $0x00 $0x03 -> %q6
+6fca9128 : fmulx v8.2d, v9.2d, v10.d[0]              : fmulx  %q9 %q10 $0x00 $0x03 -> %q8
+6fcc916a : fmulx v10.2d, v11.2d, v12.d[0]            : fmulx  %q11 %q12 $0x00 $0x03 -> %q10
+6fce91ac : fmulx v12.2d, v13.2d, v14.d[0]            : fmulx  %q13 %q14 $0x00 $0x03 -> %q12
+6fd091ee : fmulx v14.2d, v15.2d, v16.d[0]            : fmulx  %q15 %q16 $0x00 $0x03 -> %q14
+6fd29230 : fmulx v16.2d, v17.2d, v18.d[0]            : fmulx  %q17 %q18 $0x00 $0x03 -> %q16
+6fd39a51 : fmulx v17.2d, v18.2d, v19.d[1]            : fmulx  %q18 %q19 $0x01 $0x03 -> %q17
+6fd59a93 : fmulx v19.2d, v20.2d, v21.d[1]            : fmulx  %q20 %q21 $0x01 $0x03 -> %q19
+6fd79ad5 : fmulx v21.2d, v22.2d, v23.d[1]            : fmulx  %q22 %q23 $0x01 $0x03 -> %q21
+6fd99b17 : fmulx v23.2d, v24.2d, v25.d[1]            : fmulx  %q24 %q25 $0x01 $0x03 -> %q23
+6fdb9b59 : fmulx v25.2d, v26.2d, v27.d[1]            : fmulx  %q26 %q27 $0x01 $0x03 -> %q25
+6fdd9b9b : fmulx v27.2d, v28.2d, v29.d[1]            : fmulx  %q28 %q29 $0x01 $0x03 -> %q27
+6fc1981f : fmulx v31.2d, v0.2d, v1.d[1]              : fmulx  %q0 %q1 $0x01 $0x03 -> %q31
+
+# FMULX   <V><d>, <V><n>, <Vm>.<T>[<index>]
+7f829020 : fmulx s0, s1, v2.s[0]                     : fmulx  %s1 %q2 $0x00 $0x02 -> %s0
+7f849062 : fmulx s2, s3, v4.s[0]                     : fmulx  %s3 %q4 $0x00 $0x02 -> %s2
+7f8690a4 : fmulx s4, s5, v6.s[0]                     : fmulx  %s5 %q6 $0x00 $0x02 -> %s4
+7fa890e6 : fmulx s6, s7, v8.s[1]                     : fmulx  %s7 %q8 $0x01 $0x02 -> %s6
+7faa9128 : fmulx s8, s9, v10.s[1]                    : fmulx  %s9 %q10 $0x01 $0x02 -> %s8
+7fac916a : fmulx s10, s11, v12.s[1]                  : fmulx  %s11 %q12 $0x01 $0x02 -> %s10
+7fae91ac : fmulx s12, s13, v14.s[1]                  : fmulx  %s13 %q14 $0x01 $0x02 -> %s12
+7fb091ee : fmulx s14, s15, v16.s[1]                  : fmulx  %s15 %q16 $0x01 $0x02 -> %s14
+7f929a30 : fmulx s16, s17, v18.s[2]                  : fmulx  %s17 %q18 $0x02 $0x02 -> %s16
+7f939a51 : fmulx s17, s18, v19.s[2]                  : fmulx  %s18 %q19 $0x02 $0x02 -> %s17
+7f959a93 : fmulx s19, s20, v21.s[2]                  : fmulx  %s20 %q21 $0x02 $0x02 -> %s19
+7f979ad5 : fmulx s21, s22, v23.s[2]                  : fmulx  %s22 %q23 $0x02 $0x02 -> %s21
+7f999b17 : fmulx s23, s24, v25.s[2]                  : fmulx  %s24 %q25 $0x02 $0x02 -> %s23
+7f9b9b59 : fmulx s25, s26, v27.s[2]                  : fmulx  %s26 %q27 $0x02 $0x02 -> %s25
+7fbd9b9b : fmulx s27, s28, v29.s[3]                  : fmulx  %s28 %q29 $0x03 $0x02 -> %s27
+7fa1981f : fmulx s31, s0, v1.s[3]                    : fmulx  %s0 %q1 $0x03 $0x02 -> %s31
+7fc29020 : fmulx d0, d1, v2.d[0]                     : fmulx  %d1 %q2 $0x00 $0x03 -> %d0
+7fc49062 : fmulx d2, d3, v4.d[0]                     : fmulx  %d3 %q4 $0x00 $0x03 -> %d2
+7fc690a4 : fmulx d4, d5, v6.d[0]                     : fmulx  %d5 %q6 $0x00 $0x03 -> %d4
+7fc890e6 : fmulx d6, d7, v8.d[0]                     : fmulx  %d7 %q8 $0x00 $0x03 -> %d6
+7fca9128 : fmulx d8, d9, v10.d[0]                    : fmulx  %d9 %q10 $0x00 $0x03 -> %d8
+7fcc916a : fmulx d10, d11, v12.d[0]                  : fmulx  %d11 %q12 $0x00 $0x03 -> %d10
+7fce91ac : fmulx d12, d13, v14.d[0]                  : fmulx  %d13 %q14 $0x00 $0x03 -> %d12
+7fd091ee : fmulx d14, d15, v16.d[0]                  : fmulx  %d15 %q16 $0x00 $0x03 -> %d14
+7fd29230 : fmulx d16, d17, v18.d[0]                  : fmulx  %d17 %q18 $0x00 $0x03 -> %d16
+7fd39a51 : fmulx d17, d18, v19.d[1]                  : fmulx  %d18 %q19 $0x01 $0x03 -> %d17
+7fd59a93 : fmulx d19, d20, v21.d[1]                  : fmulx  %d20 %q21 $0x01 $0x03 -> %d19
+7fd79ad5 : fmulx d21, d22, v23.d[1]                  : fmulx  %d22 %q23 $0x01 $0x03 -> %d21
+7fd99b17 : fmulx d23, d24, v25.d[1]                  : fmulx  %d24 %q25 $0x01 $0x03 -> %d23
+7fdb9b59 : fmulx d25, d26, v27.d[1]                  : fmulx  %d26 %q27 $0x01 $0x03 -> %d25
+7fdd9b9b : fmulx d27, d28, v29.d[1]                  : fmulx  %d28 %q29 $0x01 $0x03 -> %d27
+7fc1981f : fmulx d31, d0, v1.d[1]                    : fmulx  %d0 %q1 $0x01 $0x03 -> %d31
+
+# FMULX   <V><d>, <V><n>, <V><m>
+5e22dc20 : fmulx s0, s1, s2                          : fmulx  %s1 %s2 -> %s0
+5e24dc62 : fmulx s2, s3, s4                          : fmulx  %s3 %s4 -> %s2
+5e26dca4 : fmulx s4, s5, s6                          : fmulx  %s5 %s6 -> %s4
+5e28dce6 : fmulx s6, s7, s8                          : fmulx  %s7 %s8 -> %s6
+5e2add28 : fmulx s8, s9, s10                         : fmulx  %s9 %s10 -> %s8
+5e2cdd6a : fmulx s10, s11, s12                       : fmulx  %s11 %s12 -> %s10
+5e2eddac : fmulx s12, s13, s14                       : fmulx  %s13 %s14 -> %s12
+5e30ddee : fmulx s14, s15, s16                       : fmulx  %s15 %s16 -> %s14
+5e32de30 : fmulx s16, s17, s18                       : fmulx  %s17 %s18 -> %s16
+5e33de51 : fmulx s17, s18, s19                       : fmulx  %s18 %s19 -> %s17
+5e35de93 : fmulx s19, s20, s21                       : fmulx  %s20 %s21 -> %s19
+5e37ded5 : fmulx s21, s22, s23                       : fmulx  %s22 %s23 -> %s21
+5e39df17 : fmulx s23, s24, s25                       : fmulx  %s24 %s25 -> %s23
+5e3bdf59 : fmulx s25, s26, s27                       : fmulx  %s26 %s27 -> %s25
+5e3ddf9b : fmulx s27, s28, s29                       : fmulx  %s28 %s29 -> %s27
+5e21dc1f : fmulx s31, s0, s1                         : fmulx  %s0 %s1 -> %s31
+5e62dc20 : fmulx d0, d1, d2                          : fmulx  %d1 %d2 -> %d0
+5e64dc62 : fmulx d2, d3, d4                          : fmulx  %d3 %d4 -> %d2
+5e66dca4 : fmulx d4, d5, d6                          : fmulx  %d5 %d6 -> %d4
+5e68dce6 : fmulx d6, d7, d8                          : fmulx  %d7 %d8 -> %d6
+5e6add28 : fmulx d8, d9, d10                         : fmulx  %d9 %d10 -> %d8
+5e6cdd6a : fmulx d10, d11, d12                       : fmulx  %d11 %d12 -> %d10
+5e6eddac : fmulx d12, d13, d14                       : fmulx  %d13 %d14 -> %d12
+5e70ddee : fmulx d14, d15, d16                       : fmulx  %d15 %d16 -> %d14
+5e72de30 : fmulx d16, d17, d18                       : fmulx  %d17 %d18 -> %d16
+5e73de51 : fmulx d17, d18, d19                       : fmulx  %d18 %d19 -> %d17
+5e75de93 : fmulx d19, d20, d21                       : fmulx  %d20 %d21 -> %d19
+5e77ded5 : fmulx d21, d22, d23                       : fmulx  %d22 %d23 -> %d21
+5e79df17 : fmulx d23, d24, d25                       : fmulx  %d24 %d25 -> %d23
+5e7bdf59 : fmulx d25, d26, d27                       : fmulx  %d26 %d27 -> %d25
+5e7ddf9b : fmulx d27, d28, d29                       : fmulx  %d28 %d29 -> %d27
+5e61dc1f : fmulx d31, d0, d1                         : fmulx  %d0 %d1 -> %d31
