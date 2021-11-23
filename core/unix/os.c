@@ -483,6 +483,11 @@ our_libc_errno_loc(void)
  */
 typedef int *(*errno_loc_t)(void);
 
+#ifdef LINUX
+/* Stores whether clone3 is unsupported on the system we're running on. */
+static bool is_clone3_enosys = false;
+#endif
+
 static errno_loc_t
 get_libc_errno_location(bool do_init)
 {
@@ -838,6 +843,30 @@ get_uname(void)
 #endif
 }
 
+#if defined(LINUX)
+/* For some syscalls, detects whether they are unsupported by the system
+ * we're running on. Particularly, we are interested in detecting missing
+ * support early-on for syscalls that require complex pre-syscall handling
+ * by DR. We use this information to fail early for those syscalls.
+ *
+ * XXX: Move other logic for detecting unsupported syscalls from their
+ * respective locations to here at init time, like that for
+ * SYS_memfd_create in os_create_memory_file.
+ *
+ */
+static void
+detect_unsupported_syscalls()
+{
+    /* We know that when clone3 is available, it fails with EINVAL with
+     * these args.
+     */
+    int clone3_errno =
+        dynamorio_syscall(SYS_clone3, 2, NULL /*clone_args*/, 0 /*clone_args_size*/);
+    ASSERT(clone3_errno == -ENOSYS || clone3_errno == -EINVAL);
+    is_clone3_enosys = clone3_errno == -ENOSYS;
+}
+#endif
+
 /* os-specific initializations */
 void
 d_r_os_init(void)
@@ -925,6 +954,9 @@ d_r_os_init(void)
 #endif
 #ifdef MACOS64
     tls_process_init();
+#endif
+#if defined(LINUX)
+    detect_unsupported_syscalls();
 #endif
 }
 
@@ -6607,6 +6639,15 @@ handle_clone_pre(dcontext_t *dcontext)
     clone3_syscall_args_t *dr_clone_args = NULL, *app_clone_args = NULL;
     uint app_clone_args_size = 0;
     if (dcontext->sys_num == SYS_clone3) {
+        if (is_clone3_enosys) {
+            /* We know that clone3 will return ENOSYS, so we skip the pre-syscall
+             * handling and fail early.
+             */
+            LOG(THREAD, LOG_SYSCALLS, 2, "\treturning ENOSYS to app for clone3\n");
+            set_failure_return_val(dcontext, ENOSYS);
+            DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+            return false;
+        }
         app_clone_args_size =
             (uint)sys_param(dcontext, SYSCALL_PARAM_CLONE3_CLONE_ARGS_SIZE);
         if (app_clone_args_size < CLONE_ARGS_SIZE_VER0) {
@@ -8738,7 +8779,7 @@ post_system_call(dcontext_t *dcontext)
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned " PFX "\n",
             MCXT_SYSCALL_RES(mc));
-        /* TODO i#5131: Handle clone3 returning ENOSYS. */
+        /* TODO i#5221: Handle clone3 returning errors other than ENOSYS. */
         /* We switch the lib tls segment back to dr's privlib segment.
          * Please refer to comment on os_switch_lib_tls.
          * It is only called in parent thread.

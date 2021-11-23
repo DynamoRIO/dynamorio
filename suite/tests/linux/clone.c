@@ -35,7 +35,7 @@
  * test of clone call
  */
 
-#include <sys/types.h>   /* for wait and mmap */
+#include <sys/types.h>   /* for wait, mmap and ulong */
 #include <sys/wait.h>    /* for wait */
 #include <sys/syscall.h> /* for SYS_clone3 */
 #include <linux/sched.h> /* for CLONE_ flags */
@@ -49,10 +49,20 @@
 
 #include "tools.h" /* for nolibc_* wrappers. */
 
+#ifdef ANDROID
+typedef unsigned long ulong;
+#endif
+
 /* The first published clone_args had all fields till 'tls'. A clone3
  * syscall made by the user must have a struct of at least this size.
  */
 #define CLONE_ARGS_SIZE_MIN_POSSIBLE 64
+
+/* We define this constant so that we can try to make the clone3
+ * syscall on systems where it is not available, to verify that it
+ * returns ENOSYS.
+ */
+#define CLONE3_SYSCALL_NUM 435
 
 /* i#762: Hard to get clone() from sched.h, so copy prototype. */
 extern int
@@ -67,6 +77,8 @@ clone(int (*fn)(void *arg), void *child_stack, int flags, void *arg, ...);
 #endif
 
 /* forward declarations */
+static int
+make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void));
 static pid_t
 create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
               bool clone_vm);
@@ -125,6 +137,17 @@ main()
      */
     test_thread(true /*share_sighand*/, true /*clone_vm*/, false /*use_clone3*/);
     test_thread(true /*share_sighand*/, true /*clone_vm*/, true /*use_clone3*/);
+
+    /* We use this test in os.c to find whether the system supports clone3 or
+     * not.
+     */
+    int ret_failure_clone3 = make_clone3_syscall(NULL, 0, NULL);
+    assert(ret_failure_clone3 == -1);
+#ifdef SYS_clone3
+    assert(errno == EINVAL);
+#else
+    assert(errno == ENOSYS);
+#endif
 }
 
 /* Procedure executed by sideline threads
@@ -195,7 +218,6 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
     return newpid;
 }
 
-#ifdef SYS_clone3
 /* glibc does not provide a wrapper for clone3 yet. This makes it difficult
  * to create new threads in C code using syscall(), as we have to deal with
  * complexities associated with the child thread having a fresh stack
@@ -204,14 +226,15 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool share_sighand,
  * Currently, this supports a fcn that does not return and calls exit() on
  * its own.
  */
-int
-make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
-                    void (*fcn)(void))
+static int
+make_clone3_syscall(void *clone_args, ulong clone_args_size, void (*fcn)(void))
 {
-    int result;
-#    ifdef X86
-#        ifdef X64
-    uint64 clone_args_size_64 = (uint64)clone_args_size;
+#ifdef SYS_clone3
+    assert(CLONE3_SYSCALL_NUM == SYS_clone3);
+#endif
+    long result;
+#ifdef X86
+#    ifdef X64
     asm volatile("mov %[sys_clone3], %%rax\n\t"
                  "mov %[clone_args], %%rdi\n\t"
                  "mov %[clone_args_size], %%rsi\n\t"
@@ -223,11 +246,11 @@ make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
                  "parent:\n\t"
                  "mov %%rax, %[result]\n\t"
                  : [result] "=m"(result)
-                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  /* syscall clobbers rcx and r11 */
                  : "rax", "rdi", "rsi", "rdx", "rcx", "r11", "memory");
-#        else
+#    else
     asm volatile("mov %[sys_clone3], %%eax\n\t"
                  "mov %[clone_args], %%ebx\n\t"
                  "mov %[clone_args_size], %%ecx\n\t"
@@ -239,12 +262,11 @@ make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
                  "parent:\n\t"
                  "mov %%eax, %[result]\n\t"
                  : [result] "=m"(result)
-                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
                    [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "eax", "ebx", "ecx", "edx", "memory");
-#        endif
-#    elif defined(AARCH64)
-    uint64 clone_args_size_64 = (uint64)clone_args_size;
+#    endif
+#elif defined(AARCH64)
     asm volatile("mov x8, #%[sys_clone3]\n\t"
                  "ldr x0, %[clone_args]\n\t"
                  "ldr x1, %[clone_args_size]\n\t"
@@ -255,17 +277,17 @@ make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
                  "parent:\n\t"
                  "str x0, %[result]\n\t"
                  : [result] "=m"(result)
-                 : [sys_clone3] "i"(SYS_clone3), [clone_args] "m"(clone_args),
-                   [clone_args_size] "m"(clone_args_size_64), [fcn] "m"(fcn)
+                 : [sys_clone3] "i"(CLONE3_SYSCALL_NUM), [clone_args] "m"(clone_args),
+                   [clone_args_size] "m"(clone_args_size), [fcn] "m"(fcn)
                  : "x0", "x1", "x2", "x8", "memory");
-#    elif defined(ARM)
+#elif defined(ARM)
     /* XXX: Add asm wrapper for ARM.
      * Currently we do not run this test on ARM, so this missing support doesn't
      * cause any test failure.
      */
-#    else
-#        error Unsupported architecture
-#    endif
+#else
+#    error Unsupported architecture
+#endif
     if (result < 0) {
         errno = -result;
         return -1;
@@ -273,6 +295,7 @@ make_clone3_syscall(struct clone_args *clone_args, uint clone_args_size,
     return result;
 }
 
+#ifdef SYS_clone3
 static pid_t
 create_thread_clone3(void (*fcn)(void), void **stack, bool share_sighand, bool clone_vm)
 {
