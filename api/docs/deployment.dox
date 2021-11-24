@@ -215,7 +215,8 @@ bin32/drrun.exe -c samples/bin32/bbsize.dll -- notepad
 \endcode
 
 Alternatively, you can first run \c notepad.exe, and then use \c drrun
-to attach to it:
+to attach to it, but please note that attaching is an experimental
+feature and is not yet as well-supported as launching a new process:
 \code
 bin32/drrun.exe -attach <notepad_pid> -c samples/bin32/bbsize.dll
 \endcode
@@ -314,11 +315,14 @@ under DynamoRIO with the bbsize sample client:
 % bin32/drrun -c samples/bin32/libbbsize.so -- ls
 \endcode
 
+\if DISABLED_UNTIL_BUG_5054_IS_FIXED
 Alternatively, you can first run the target, and then use \c drrun
-to attach to it:
+to attach to it, but please note that attaching is an experimental
+feature and is not yet as well-supported as launching a new process:
 \code
 % bin32/drrun -attach <target_pid> -c samples/bin32/libbbsize.so
 \endcode
+\endif
 
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across

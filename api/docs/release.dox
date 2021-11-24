@@ -244,7 +244,8 @@ Further non-compatibility-affecting changes include:
    and exhaustive machine state comparisons across instrumentation sequences.
  - Added drmodtrack_lookup_segment().
  - Added a new drrun option \p -attach for attaching to a running process.
-   This is currently an experimental option.
+   This is currently an experimental option and is not yet as well-supported
+   as launching a new process.
  - Added \ref page_drcallstack Extension for walking application callstacks, with
    an initial Linux-only implementation.
  - Added new #dr_cleancall_save_t flags which are required for proper interaction
