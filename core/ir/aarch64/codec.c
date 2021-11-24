@@ -4591,11 +4591,11 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                   "decode: instr is already decoded, may need to call instr_reset()");
 
     if (!decoder(enc, dcontext, orig_pc, instr)) {
-	/* This clause handles undefined HINT instructions. See the comment
-	 * 'Notes on specific instructions' in codec.txt for details. If the
-	 * decoder reads an undefined hint, a message with the unallocated
-	 * CRm:op2 field value is output and the encoding converted into a NOP
-	 * instruction.
+        /* This clause handles undefined HINT instructions. See the comment
+         * 'Notes on specific instructions' in codec.txt for details. If the
+         * decoder reads an undefined hint, a message with the unallocated
+         * CRm:op2 field value is output and the encoding converted into a NOP
+         * instruction.
          */
         if ((enc & 0xfffff01f) == 0xd503201f) {
             SYSLOG_INTERNAL_WARNING("Undefined HINT instruction found: encoding 0x%x (CRm:op2 0x%x)\n", enc, (enc & 0xfe0) >> 5);
