@@ -62,6 +62,31 @@
 #   0xx0  32(s) 0,8,16,24
 #   110x  32(s) 8,16 (MSL, shifting ones)
 
+# Notes on specific instructions:
+#
+# HINT #<imm>
+# -----------
+# The HINT instruction reserves an encoding space of 127 hints each hint
+# defined in its CRm:op2 field, which is partially used. The unused encodings
+# are reserved for hint functionality in future revisions of the architecture.
+# Assemblers and disassemblers convert the HINT mnemonic to the name of defined
+# hints, e.g. YIELD, WFE, WFI, SEV, SEVL:
+# 400078:       d503201f        nop
+# 40007c:       d503203f        yield
+# 400080:       d503205f        wfe
+# 400084:       d503207f        wfi
+# 400088:       d503209f        sev
+# 40008c:       d50320bf        sevl
+# 400090:       d503219f        autia1716
+# 400094:       d50321df        autib1716
+# 400098:       d50320ff        xpaclri
+#
+# HINT encodings with undefined CRm:op2 fields are treated as NOPs, as
+# specified in the Arm reference manual. There is one defined NOP hint:
+# CRm:op2=0. If the decoder reads an undefined hint, a message with the
+# unallocated CRm:op2 field value is output and the encoding converted into a
+# NOP instruction, see decode_common() in codec.c.
+
 --------------------------------  impx30     # implicit X30 operand
 --------------------------------  lsl        # implicit LSL for ADD/MOV (immediate)
 --------------------------------  h_sz       # element width of FP vector reg, used to
