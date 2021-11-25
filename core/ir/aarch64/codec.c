@@ -167,21 +167,21 @@ highest_bit_set(uint enc, int pos, int len, int *highest_bit)
     return false;
 }
 
-static inline uint
-get_reg_offset(reg_t reg, uint *offset)
+static inline aarch64_reg_offset
+get_reg_offset(reg_t reg)
 {
-    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
-        *offset = 3;
+    if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
+        return QUAD_REG;
+    else if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return DOUBLE_REG;
     else if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
-        *offset = 2;
+        return SINGLE_REG;
     else if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
-        *offset = 1;
+        return HALF_REG;
     else if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
-        *offset = 0;
+        return BYTE_REG;
     else
-        return false;
-
-    return true;
+        return NOT_A_REG;
 }
 
 static inline bool
@@ -2851,12 +2851,17 @@ decode_opnd_bhsd_immh_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
         return false;
 
     switch (highest_bit) {
-    case 0: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_BYTE, OPSZ_2b); break;
-    case 1: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b); break;
-    case 2: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b); break;
-    case 3: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b); break;
+    case BYTE_REG: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_BYTE, OPSZ_2b); break;
+    case HALF_REG: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b); break;
+    case SINGLE_REG:
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
+        break;
+    case DOUBLE_REG:
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b);
+        break;
     default: return false;
     }
+
     return true;
 }
 
@@ -2869,14 +2874,18 @@ encode_opnd_bhsd_immh_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *
 static inline bool
 decode_hsd_immh_regx(int rpos, uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    int highest_bit;
-    if (!highest_bit_set(enc, 19, 4, &highest_bit))
+    int offset;
+    if (!highest_bit_set(enc, 19, 4, &offset))
         return false;
 
-    if (highest_bit < 0 || highest_bit > 2)
+    /* The binary representation starts at HALF_BIT=0, so shift to align with the normal
+       offset */
+    offset += 1;
+
+    if (offset < HALF_REG || offset > DOUBLE_REG)
         return false;
 
-    return decode_opnd_vector_reg(rpos, highest_bit + 1, enc, opnd);
+    return decode_opnd_vector_reg(rpos, offset, enc, opnd);
 }
 
 static inline bool
@@ -2886,10 +2895,8 @@ encode_hsd_immh_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
     if (!opnd_is_reg(opnd))
         return false;
     reg_t reg = opnd_get_reg(opnd);
-    uint offset;
-    if (!get_reg_offset(reg, &offset))
-        return false;
-    if (offset == 0)
+    aarch64_reg_offset offset = get_reg_offset(reg);
+    if (offset == BYTE_REG || offset > DOUBLE_REG)
         return false;
 
     return encode_opnd_vector_reg(rpos, offset, opnd, enc_out);
@@ -2915,8 +2922,9 @@ encode_bhsd_immh_regx(int rpos, uint enc, int opcode, byte *pc, opnd_t opnd,
     if (!opnd_is_reg(opnd))
         return false;
     reg_t reg = opnd_get_reg(opnd);
-    uint offset;
-    if (!get_reg_offset(reg, &offset))
+
+    aarch64_reg_offset offset = get_reg_offset(reg);
+    if (offset > DOUBLE_REG)
         return false;
 
     return encode_opnd_vector_reg(rpos, offset, opnd, enc_out);
@@ -3504,8 +3512,8 @@ encode_scalar_size_regx(uint size_offset, int rpos, uint enc, int opcode, byte *
 
     reg_t reg = opnd_get_reg(opnd);
 
-    uint offset = 0;
-    if (!get_reg_offset(reg, &offset)) {
+    aarch64_reg_offset offset = get_reg_offset(reg);
+    if (offset > DOUBLE_REG) {
         return false;
     }
     bool reg_written = encode_opnd_vector_reg(rpos, offset, opnd, enc_out);
