@@ -4591,25 +4591,39 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
                   "decode: instr is already decoded, may need to call instr_reset()");
 
     if (!decoder(enc, dcontext, orig_pc, instr)) {
-        /* We use OP_xx for instructions not yet handled by the decoder.
-         * If an A64 instruction accesses a general-purpose register
-         * (except X30) then the number of that register appears in one
-         * of four possible places in the instruction word, so we can
-         * pessimistically assume that an unrecognised instruction reads
-         * and writes all four of those registers, and this is
-         * sufficient to enable correct (though often excessive) mangling.
+        /* This clause handles undefined HINT instructions. See the comment
+         * 'Notes on specific instructions' in codec.txt for details. If the
+         * decoder reads an undefined hint, a message with the unallocated
+         * CRm:op2 field value is output and the encoding converted into a NOP
+         * instruction.
          */
-        instr_set_opcode(instr, OP_xx);
-        instr_set_num_opnds(dcontext, instr, 4, 5);
-        instr->src0 = OPND_CREATE_INT32(enc);
-        instr->srcs[0] = opnd_create_reg(DR_REG_X0 + (enc & 31));
-        instr->dsts[0] = opnd_create_reg(DR_REG_X0 + (enc & 31));
-        instr->srcs[1] = opnd_create_reg(DR_REG_X0 + (enc >> 5 & 31));
-        instr->dsts[1] = opnd_create_reg(DR_REG_X0 + (enc >> 5 & 31));
-        instr->srcs[2] = opnd_create_reg(DR_REG_X0 + (enc >> 10 & 31));
-        instr->dsts[2] = opnd_create_reg(DR_REG_X0 + (enc >> 10 & 31));
-        instr->srcs[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
-        instr->dsts[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
+        if ((enc & 0xfffff01f) == 0xd503201f) {
+            SYSLOG_INTERNAL_WARNING("Undefined HINT instruction found: "
+                                    "encoding 0x%x (CRm:op2 0x%x)\n",
+                                    enc, (enc & 0xfe0) >> 5);
+            instr_set_opcode(instr, OP_nop);
+            instr_set_num_opnds(dcontext, instr, 0, 0);
+        } else {
+            /* We use OP_xx for instructions not yet handled by the decoder.
+             * If an A64 instruction accesses a general-purpose register
+             * (except X30) then the number of that register appears in one
+             * of four possible places in the instruction word, so we can
+             * pessimistically assume that an unrecognised instruction reads
+             * and writes all four of those registers, and this is
+             * sufficient to enable correct (though often excessive) mangling.
+             */
+            instr_set_opcode(instr, OP_xx);
+            instr_set_num_opnds(dcontext, instr, 4, 5);
+            instr->src0 = OPND_CREATE_INT32(enc);
+            instr->srcs[0] = opnd_create_reg(DR_REG_X0 + (enc & 31));
+            instr->dsts[0] = opnd_create_reg(DR_REG_X0 + (enc & 31));
+            instr->srcs[1] = opnd_create_reg(DR_REG_X0 + (enc >> 5 & 31));
+            instr->dsts[1] = opnd_create_reg(DR_REG_X0 + (enc >> 5 & 31));
+            instr->srcs[2] = opnd_create_reg(DR_REG_X0 + (enc >> 10 & 31));
+            instr->dsts[2] = opnd_create_reg(DR_REG_X0 + (enc >> 10 & 31));
+            instr->srcs[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
+            instr->dsts[3] = opnd_create_reg(DR_REG_X0 + (enc >> 16 & 31));
+        }
     }
 
     /* XXX i#2374: This determination of flag usage should be separate from the

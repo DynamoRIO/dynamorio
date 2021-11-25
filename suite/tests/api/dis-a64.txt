@@ -349,10 +349,20 @@ f2400441 : ands   x1, x2, #0x3            : ands   %x2 $0x0000000000000003 -> %x
 937fffff : asr    xzr, xzr, #63           : sbfm   %xzr $0x3f $0x3f -> %xzr
 9ac32841 : asr    x1, x2, x3              : asrv   %x2 %x3 -> %x1
 
+# HINT #<imm>
+# The HINT instruction reserves an encoding space of 127 hint encodings, which
+# is partially used. The unused encodings are reserved for hint functionality
+# in future revisions of the architecture. Assemblers and disassemblers convert
+# the HINT mnemonic to the name of defined hints, see the comment 'Notes on
+# specific instructions' in codec.txt for details.
+d503201f : nop                            : nop
+d503203f : yield                          : yield
+d503205f : wfe                            : wfe
+d503207f : wfi                            : wfi
+d503209f : sev                            : sev
+d50320bf : sevl                           : sevl
 d503219f : autia1716                      : autia1716
-
 d50321df : autib1716                      : autib1716
-
 d50320ff : xpaclri                        : xpaclri
 
 14081041 : b      10204104                : b      $0x0000000010204104
@@ -6077,8 +6087,6 @@ eb9f13ff : negs   xzr, xzr, asr #4        : subs   %xzr %xzr asr $0x04 -> %xzr
 
 fa1f03ff : ngcs   xzr, xzr                : sbcs   %xzr %xzr -> %xzr
 
-d503201f : nop                            : nop
-
 2a231041 : orn    w1, w2, w3, lsl #4      : orn    %w2 %w3 lsl $0x04 -> %w1
 aa631041 : orn    x1, x2, x3, lsr #4      : orn    %x2 %x3 lsr $0x04 -> %x1
 0ee31c9c : orn v28.8b, v4.8b, v3.8b                 : orn    %d4 %d3 -> %d28
@@ -6777,10 +6785,6 @@ da030041 : sbc    x1, x2, x3              : sbc    %x2 %x3 -> %x1
 4e9b9759 : sdot V25.4s, V26.16b, V27.16b             : sdot   %q26 %q27 $0x02 $0x00 -> %q25
 4e9e97bc : sdot V28.4s, V29.16b, V30.16b             : sdot   %q29 %q30 $0x02 $0x00 -> %q28
 4e81941f : sdot V31.4s, V0.16b, V1.16b               : sdot   %q0 %q1 $0x02 $0x00 -> %q31
-
-d503209f : sev                            : sev
-
-d50320bf : sevl                           : sevl
 
 5e020020 : sha1c q0, s1, v2.4s                      : sha1c  %s1 %d2 -> %q0
 5e040065 : sha1c q5, s3, v4.4s                      : sha1c  %s3 %d4 -> %q5
@@ -15325,10 +15329,6 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 4ed75b19 : uzp2 v25.2d, v24.2d, v23.2d       : uzp2   %q24 %q23 $0x03 -> %q25
 4edc5bbe : uzp2 v30.2d, v29.2d, v28.2d       : uzp2   %q29 %q28 $0x03 -> %q30
 
-d503205f : wfe                            : wfe
-
-d503207f : wfi                            : wfi
-
 # XTN <Vd>.<Tb>, <Vn>.<Ta>
 0e212801 : xtn v1.8b, v0.8h               : xtn    %d0 $0x00 -> %d1
 0e212885 : xtn v5.8b, v4.8h               : xtn    %d4 $0x00 -> %d5
@@ -15374,8 +15374,6 @@ d503207f : wfi                            : wfi
 4ea12a74 : xtn2 v20.4s, v19.2d            : xtn2   %q19 $0x02 -> %q20
 4ea12b19 : xtn2 v25.4s, v24.2d            : xtn2   %q24 $0x02 -> %q25
 4ea12bbe : xtn2 v30.4s, v29.2d            : xtn2   %q29 $0x02 -> %q30
-
-d503203f : yield                          : yield
 
 # ZIP1: <Vd>.8b, <Vn>.8b, <Vm>.8b
 0e023820 : zip1 v0.8b, v1.8b, v2.8b                    : zip1   %d1 %d2 $0x00 -> %d0
