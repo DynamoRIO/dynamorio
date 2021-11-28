@@ -1307,6 +1307,11 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     if (UNIX)
       # We always run infloop.
       get_target_path_for_execution(app_path linux.infloop "${location_suffix}")
+      if ("${runall}" MATCHES "<attach>")
+        # Add a starting message with -v, and avoid mprotect for now (i#38: mprotect
+        # is failing).
+        set(exe_ops "${exe_ops};-v;-attach")
+      endif ()
     else ()
       if ("${runall}" MATCHES "<attach>")
         # For attach we use attachee, which is identical to infloop, aside for writing
@@ -2369,6 +2374,8 @@ if (ANNOTATIONS AND NOT ARM)
       client-interface/vg-annot.c "truncate@2" "" "")
   endif (UNIX OR NOT X64)
 endif (ANNOTATIONS AND NOT ARM)
+# TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
+tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
 if (UNIX)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     if (AARCH64)
@@ -2409,7 +2416,6 @@ if (UNIX)
     use_DynamoRIO_extension(client.emulation_api_simple.dll drmgr)
   endif ()
 else (UNIX)
-  tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
   tobuild_ci(client.events client-interface/events.c
     "" "" "${events_appdll_path}")
   tobuild_ci(client.events_cpp client-interface/events_cpp.cpp

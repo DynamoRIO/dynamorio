@@ -875,6 +875,7 @@ enum { MAX_SHELL_CODE = 4096 };
 #        define USER_REGS_TYPE user_regs_struct
 #        define REG_PC_FIELD IF_X64_ELSE(rip, eip)
 #        define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
+#        define REG_DI_FIELD IF_X64_ELSE(rdi, edi)
 #        define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
 #    elif defined(DR_HOST_ARM)
 /* On AArch32, glibc uses user_regs instead of user_regs_struct.
@@ -1372,6 +1373,53 @@ injectee_prot(byte *addr, size_t size, uint prot /*MEMPROT_*/)
     return true;
 }
 
+static void *
+injectee_memset(void *dst, int val, size_t size)
+{
+    ptr_int_t *dst_addr = dst;
+    ptr_int_t src_val;
+    long r;
+    if (!ALIGNED(dst_addr, sizeof(ptr_int_t))) {
+        dst_addr = (ptr_int_t *)ALIGN_BACKWARD(dst_addr, sizeof(ptr_int_t));
+        r = our_ptrace(PTRACE_PEEKDATA, injector_info->pid, dst_addr, &src_val);
+        if (r < 0)
+            return NULL;
+        /* Set the top bytes to val. */
+        uint offs = (byte *)dst - (byte *)dst_addr;
+        byte *dst_byte = (byte *)&src_val;
+        dst_byte += offs;
+        for (int i = 0; i < sizeof(ptr_int_t) - offs; i++, dst_byte++)
+            *dst_byte = val;
+        r = our_ptrace(PTRACE_POKEDATA, injector_info->pid, dst_addr, (void *)src_val);
+        if (r < 0)
+            return NULL;
+        dst_addr++;
+    }
+    src_val = 0;
+    for (uint i = 0; i < sizeof(ptr_int_t); i++)
+        src_val |= val << 8 * i;
+    for (; dst_addr + 1 < (ptr_int_t *)((byte *)dst + size); dst_addr++) {
+        r = our_ptrace(PTRACE_POKEDATA, injector_info->pid, dst_addr, (void *)src_val);
+        if (r < 0)
+            return NULL;
+    }
+    if (dst_addr + 1 > (ptr_int_t *)((byte *)dst + size)) {
+        r = our_ptrace(PTRACE_PEEKDATA, injector_info->pid, dst_addr, &src_val);
+        if (r < 0)
+            return NULL;
+        /* Set the bottom bytes to val. */
+        int offs = (byte *)(dst_addr + 1) - ((byte *)dst + size);
+        byte *dst_byte = (byte *)&src_val;
+        for (int i = 0; i < sizeof(ptr_int_t) - offs; i++, dst_byte++)
+            *dst_byte = val;
+        r = our_ptrace(PTRACE_POKEDATA, injector_info->pid, dst_addr, (void *)src_val);
+        if (r < 0)
+            return NULL;
+        dst_addr++;
+    }
+    return dst;
+}
+
 /* Convert a user_regs_struct used by the ptrace API into DR's priv_mcontext_t
  * struct.
  */
@@ -1599,9 +1647,9 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     injector_info = info;
     injector_dr_fd = loader.fd;
     injectee_dr_fd = dr_fd;
-    injected_base = elf_loader_map_phdrs(&loader, true /*fixed*/, injectee_map_file,
-                                         injectee_unmap, injectee_prot, NULL,
-                                         MODLOAD_SEPARATE_PROCESS /*!reachable*/);
+    injected_base = elf_loader_map_phdrs(
+        &loader, true /*fixed*/, injectee_map_file, injectee_unmap, injectee_prot, NULL,
+        injectee_memset, MODLOAD_SEPARATE_PROCESS /*!reachable*/);
     if (injected_base == NULL) {
         if (verbose)
             fprintf(stderr, "Unable to mmap libdynamorio.so in injectee\n");
@@ -1667,6 +1715,11 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     ptrace_write_memory(info->pid, (void *)regs.REG_SP_FIELD, &args, sizeof(args));
 #    else
 #        error "depends on arch stack growth direction"
+#    endif
+
+#    ifdef X86
+    /* _start for x86 assumes xdi starts out 0.  Otherwise relocation is skipped. */
+    regs.REG_DI_FIELD = 0;
 #    endif
 
     regs.REG_PC_FIELD = (ptr_int_t)injected_dr_start;
