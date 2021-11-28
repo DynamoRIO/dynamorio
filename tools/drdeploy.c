@@ -1920,8 +1920,7 @@ done_with_options:
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
 #    ifdef DRRUN
         if (attach_pid != 0) {
-            error("unable to attach to %d; check pid and system ptrace permissions",
-                  attach_pid);
+            error("unable to attach; check pid and system ptrace permissions");
             goto error;
         }
         error("unable to inject: exec of |%s| failed", drlib_path);

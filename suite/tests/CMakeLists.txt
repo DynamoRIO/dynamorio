@@ -2374,8 +2374,14 @@ if (ANNOTATIONS AND NOT ARM)
       client-interface/vg-annot.c "truncate@2" "" "")
   endif (UNIX OR NOT X64)
 endif (ANNOTATIONS AND NOT ARM)
-# TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
-tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+
+if (NOT ANDROID) # TODO i#38: Port test to Android.
+  if (X86) # TODO i#38,i#1550: Port injector.c attach gencode to AArchXX.
+    # TODO i#38: Add targeted Linux tests of attaching during a blocking syscall.
+    tobuild_ci(client.attach_test client-interface/attach_test.runall "" "" "")
+  endif ()
+endif ()
+
 if (UNIX)
   if (NOT ARM) # FIXME i#1551: fix bugs on ARM
     if (AARCH64)
