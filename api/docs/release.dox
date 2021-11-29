@@ -276,7 +276,7 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
- - Added a requirement that a C++11-complient compiler be used with \ref page_droption.
+ - Added a requirement that a C++11-compliant compiler be used with \ref page_droption.
  - Changed the syntax of the drcachesim -record_function option.  It no longer takes
    in an identifier: the identifier is computed by the tracer.  It thus takes pairs,
    with an optional third argument for flags such as "noret" to indicate that the
