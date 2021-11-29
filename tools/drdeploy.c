@@ -299,20 +299,18 @@ const char *options_list_str =
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
 #    endif
 #    ifdef UNIX
-#        if DISABLED_UNTIL_BUG_5054_IS_FIXED /* Code is there, just not advertised. */
     "       -attach <pid>      Attach to the process with the given pid.\n"
     "                          Attaching is an experimental feature and is not yet\n"
     "                          as well-supported as launching a new process.\n"
     "                          When attaching to a process in the middle of a blocking\n"
     "                          system call, DynamoRIO will wait until it returns.\n"
-#            ifdef X86
-    "                          Can be used with -skip_syscall.\n"
+#        ifdef X86
+    "                          Use -skip_syscall to force interruption.\n"
     "       -skip_syscall      (Experimental)\n"
     "                          Only works with -attach.\n"
     "                          Attaching to a process will force blocking system calls\n"
     "                          to fail with EINTR.\n"
-#            endif
-#        endif /* DISABLED_UNTIL_BUG_5054_IS_FIXED */
+#        endif
 #    endif
 #    ifdef WINDOWS
     "       -attach <pid>      Attach to the process with the given pid.\n"
@@ -1282,12 +1280,14 @@ _tmain(int argc, TCHAR *targv[])
         }
 #    endif
         else if (strcmp(argv[i], "-attach") == 0) {
+            if (i + 1 >= argc)
+                usage(false, "attach requires a process id");
             const char *pid_str = argv[++i];
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
-                usage(false, "attach expects an integer pid");
+                usage(false, "attach expects an integer pid: '%s'", pid_str);
             if (pid == 0) {
-                usage(false, "attach to invalid pid");
+                usage(false, "attach passed an invalid pid: '%s'", pid_str);
             }
             attach_pid = pid;
 #    ifdef UNIX
@@ -1903,6 +1903,8 @@ done_with_options:
             goto error;
         } else {
             info("using ptrace to inject");
+            if (wait_syscall)
+                warn("using experimental attach feature; if it hangs, try -skip_syscall");
         }
     }
     if (kill_group) {
@@ -1917,6 +1919,10 @@ done_with_options:
 
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
 #    ifdef DRRUN
+        if (attach_pid != 0) {
+            error("unable to attach; check pid and system ptrace permissions");
+            goto error;
+        }
         error("unable to inject: exec of |%s| failed", drlib_path);
 #    else
         error("unable to inject: did you forget to run drconfig first?");
@@ -1957,7 +1963,8 @@ done_with_options:
         success = true; /* Don't kill the child if we're not waiting. */
     }
 
-    exitcode = dr_inject_process_exit(inject_data, !success /*kill process*/);
+    exitcode = dr_inject_process_exit(
+        inject_data, attach_pid != 0 ? false : !success /*kill process*/);
 
     if (limit < 0)
         exitcode = 0; /* Return success if we didn't wait. */
@@ -1970,8 +1977,10 @@ error:
     /* we created the process suspended so if we later had an error be sure
      * to kill it instead of leaving it hanging
      */
-    if (inject_data != NULL)
-        dr_inject_process_exit(inject_data, true /*kill process*/);
+    if (inject_data != NULL) {
+        dr_inject_process_exit(inject_data,
+                               attach_pid != 0 ? false : true /*kill process*/);
+    }
 #    ifdef DRRUN
     if (tofree != NULL)
         free(tofree);

@@ -522,9 +522,9 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, modload_flags_
         }
         return NULL;
     }
-    base =
-        elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func, prot_func,
-                             privload_check_new_map_bounds, privload_map_flags(flags));
+    base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func, unmap_func,
+                                prot_func, privload_check_new_map_bounds, memset,
+                                privload_map_flags(flags));
     if (base != NULL) {
         if (size != NULL)
             *size = loader.image_size;
@@ -1897,7 +1897,7 @@ reload_dynamorio(void **init_sp, app_pc conflict_start, app_pc conflict_end)
     /* Now load the 2nd libdynamorio.so */
     dr_map = elf_loader_map_phdrs(&dr_ld, false /*!fixed*/, os_map_file, os_unmap_file,
                                   os_set_protection, privload_check_new_map_bounds,
-                                  privload_map_flags(0 /*!reachable*/));
+                                  memset, privload_map_flags(0 /*!reachable*/));
     ASSERT(dr_map != NULL);
     ASSERT(is_elf_so_header(dr_map, 0));
 
@@ -2054,7 +2054,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
                                    true,
                                    /* ensure there's space for the brk */
                                    map_exe_file_and_brk, os_unmap_file, os_set_protection,
-                                   privload_check_new_map_bounds,
+                                   privload_check_new_map_bounds, memset,
                                    privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
     apicheck(exe_map != NULL,
              "Failed to load application.  "
@@ -2114,7 +2114,7 @@ privload_early_inject(void **sp, byte *old_libdr_base, size_t old_libdr_size)
         apicheck(success, "Failed to read ELF interpreter headers.");
         interp_map = elf_loader_map_phdrs(
             &interp_ld, false /* fixed */, os_map_file, os_unmap_file, os_set_protection,
-            privload_check_new_map_bounds,
+            privload_check_new_map_bounds, memset,
             privload_map_flags(MODLOAD_IS_APP /*!reachable*/));
         apicheck(interp_map != NULL && is_elf_so_header(interp_map, 0),
                  "Failed to map ELF interpreter.");

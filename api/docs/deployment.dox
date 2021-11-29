@@ -315,14 +315,21 @@ under DynamoRIO with the bbsize sample client:
 % bin32/drrun -c samples/bin32/libbbsize.so -- ls
 \endcode
 
-\if DISABLED_UNTIL_BUG_5054_IS_FIXED
 Alternatively, you can first run the target, and then use \c drrun
 to attach to it, but please note that attaching is an experimental
-feature and is not yet as well-supported as launching a new process:
+feature and is not yet as well-supported as launching a new process.
+In particular, if the application is in the middle of a blocking syscall,
+DynamoRIO will wait for that to finish.  To instead force interruption of
+the syscall, additionally pass -skip_syscall.
 \code
 % bin32/drrun -attach <target_pid> -c samples/bin32/libbbsize.so
 \endcode
-\endif
+
+This attach feature requires ptrace capabilities, which can be enabled
+with this command:
+\code
+% echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+\endcode
 
 Run \c drrun with no options to get a list of the options and
 environment variable shortcuts it supports.  To disable following across

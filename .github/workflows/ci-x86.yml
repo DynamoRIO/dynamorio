@@ -92,6 +92,7 @@ jobs:
         sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
         sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
         sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake
@@ -152,6 +153,7 @@ jobs:
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
           g++-multilib libunwind-dev
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake

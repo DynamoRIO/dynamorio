@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +33,9 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
-#include "Windows.h"
+#ifdef WINDOWS
+#    include <windows.h>
+#endif
 
 static thread_id_t injection_tid;
 static bool first_thread = true;
@@ -40,19 +43,31 @@ static bool first_thread = true;
 static void
 dr_exit(void)
 {
+#ifdef WINDOWS
     dr_fprintf(STDERR, "done\n");
+#else
+    /* The app prints 'done' for us. */
+#endif
 }
 
 static void
 dr_thread_init(void *drcontext)
 {
     thread_id_t tid = dr_get_thread_id(drcontext);
+#ifdef WINDOWS
+    /* On Windows there is an additional thread used for attach injection.
+     * XXX i#725: We should remove it or hide it, and not rely on it here.
+     */
     if (tid != injection_tid && first_thread) {
         first_thread = false;
         dr_fprintf(STDERR, "thread init\n");
     }
+#else
+    dr_fprintf(STDERR, "thread init\n");
+#endif
 }
 
+#ifdef WINDOWS
 static bool
 dr_exception_event(void *drcontext, dr_exception_t *excpt)
 {
@@ -71,6 +86,7 @@ dr_exception_event(void *drcontext, dr_exception_t *excpt)
 
     return true;
 }
+#endif
 
 DR_EXPORT
 void
@@ -80,6 +96,8 @@ dr_init(client_id_t id)
     injection_tid = dr_get_thread_id(drcontext);
     dr_register_exit_event(dr_exit);
     dr_register_thread_init_event(dr_thread_init);
+#ifdef WINDOWS
     dr_register_exception_event(dr_exception_event);
+#endif
     dr_fprintf(STDERR, "thank you for testing attach\n");
 }
