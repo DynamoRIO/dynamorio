@@ -651,14 +651,20 @@ enum {
 #define INSTR_CREATE_ldarh(dc, Rt, mem) \
     instr_create_1dst_1src((dc), OP_ldarh, (Rt), (mem))
 #define INSTR_CREATE_ldxr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldxr, (Rd), (mem))
-#define INSTR_CREATE_ldxrb(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldxrb, (Rd), (mem))
-#define INSTR_CREATE_ldxrh(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldxrh, (Rd), (mem))
+#define INSTR_CREATE_ldxrb(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldxrb, (Rd), (mem))
+#define INSTR_CREATE_ldxrh(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldxrh, (Rd), (mem))
 #define INSTR_CREATE_ldxp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src((dc), OP_ldxp, rt1, rt2, (mem))
-#define INSTR_CREATE_ldaxr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldaxr, (Rd), (mem))
-#define INSTR_CREATE_ldaxrb(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldaxrb, (Rd), (mem))
-#define INSTR_CREATE_ldaxrh(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldaxrh, (Rd), (mem))
-#define INSTR_CREATE_ldaxp(dc, rt1, rt2, mem) instr_create_2dst_1src((dc), OP_ldaxp, rt1, rt2, (mem))
+#define INSTR_CREATE_ldaxr(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldaxr, (Rd), (mem))
+#define INSTR_CREATE_ldaxrb(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldaxrb, (Rd), (mem))
+#define INSTR_CREATE_ldaxrh(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldaxrh, (Rd), (mem))
+#define INSTR_CREATE_ldaxp(dc, rt1, rt2, mem) \
+    instr_create_2dst_1src((dc), OP_ldaxp, rt1, rt2, (mem))
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
     instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movn(dc, rt, imm16, lsl) \
@@ -679,13 +685,20 @@ enum {
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
 #define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
 #define INST_CREATE_stlr(dc, mem, rt) instr_create_1dst_1src(dc, OP_stlr, mem, rt)
-#define INSTR_CREATE_stxr(dc, mem, rs, rt) instr_create_2dst_1src(dc, OP_stxr, mem, rs, rt)
-#define INSTR_CREATE_stxrb(dc, mem, rs, rt) instr_create_2dst_1src(dc, OP_stxrb, mem, rs, rt)
-#define INSTR_CREATE_stxrh(dc, mem, rs, rt) instr_create_2dst_1src(dc, OP_stxrh, mem, rs, rt)
-#define INSTR_CREATE_stxp(dc, mem, rs, rt1, rt2) instr_create_2dst_2src(dc, OP_stxp, mem, rs, rt1, rt2)
-#define INSTR_CREATE_stlxr(dc, mem, rs, rt) instr_create_2dst_1src(dc, OP_stlxr, mem, rs, rt)
-#define INSTR_CREATE_stlxrb(dc, mem, rs, rt) instr_create_2dst_1src(dc, OP_stlxrb, mem, rs, rt)
-#define INSTR_CREATE_stlxrh(dc, mem, rs, rt) instr_create_2dst_1src(dc, OP_stlxrh, mem, rs, rt)
+#define INSTR_CREATE_stxr(dc, mem, rs, rt) \
+    instr_create_2dst_1src(dc, OP_stxr, mem, rs, rt)
+#define INSTR_CREATE_stxrb(dc, mem, rs, rt) \
+    instr_create_2dst_1src(dc, OP_stxrb, mem, rs, rt)
+#define INSTR_CREATE_stxrh(dc, mem, rs, rt) \
+    instr_create_2dst_1src(dc, OP_stxrh, mem, rs, rt)
+#define INSTR_CREATE_stxp(dc, mem, rs, rt1, rt2) \
+    instr_create_2dst_2src(dc, OP_stxp, mem, rs, rt1, rt2)
+#define INSTR_CREATE_stlxr(dc, mem, rs, rt) \
+    instr_create_2dst_1src(dc, OP_stlxr, mem, rs, rt)
+#define INSTR_CREATE_stlxrb(dc, mem, rs, rt) \
+    instr_create_2dst_1src(dc, OP_stlxrb, mem, rs, rt)
+#define INSTR_CREATE_stlxrh(dc, mem, rs, rt) \
+    instr_create_2dst_1src(dc, OP_stlxrh, mem, rs, rt)
 #define INSTR_CREATE_stlxp(dc, mem, rs, rt1, rt2) \
     instr_create_2dst_2src(dc, OP_stlxp, mem, rs, rt1, rt2)
 #define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm)                                         \
