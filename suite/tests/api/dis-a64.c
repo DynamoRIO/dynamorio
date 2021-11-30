@@ -65,7 +65,8 @@ map_file(const char *file_name, byte **map_base, size_t *map_size)
 }
 
 void
-check_inst(void *dc, uint enc, uint expected_enc, const char *dis, size_t len, bool verbose, bool *failed)
+check_inst(void *dc, uint enc, uint expected_enc, const char *dis, size_t len,
+           bool verbose, bool *failed)
 {
     size_t buflen = (len < 100 ? 100 : len) + 2;
     char *buf = malloc(buflen);
