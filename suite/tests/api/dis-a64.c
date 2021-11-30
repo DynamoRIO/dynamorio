@@ -122,7 +122,7 @@ error(const char *line, size_t len, const char *s)
     exit(1);
 }
 
-const char*
+const char *
 skip_whitespace(const char *end, const char *s)
 {
     while (s < end && isspace(*s))
@@ -138,8 +138,8 @@ do_line(void *dc, const char *line, size_t len, bool verbose, bool *failed)
     const char *end = line + len;
     const char *cursor = line;
 
-    const char* field_start[4];
-    const char* field_end[4];
+    const char *field_start[4];
+    const char *field_end[4];
     int fields;
 
     cursor = skip_whitespace(end, cursor);
@@ -153,7 +153,7 @@ do_line(void *dc, const char *line, size_t len, bool verbose, bool *failed)
             cursor++;
         field_end[field] = cursor;
         field++;
-        cursor++; //skip the :
+        cursor++; // skip the :
         cursor = skip_whitespace(end, cursor);
     }
     fields = field;
@@ -162,12 +162,12 @@ do_line(void *dc, const char *line, size_t len, bool verbose, bool *failed)
     char *ptr;
     uint enc = strtoul(field_start[0], &ptr, 16);
 
-    if (ptr < field_start[0] + 8 )
+    if (ptr < field_start[0] + 8)
         error(line, len, "First field is not a valid hex encoding");
 
-    //field 2 contains the assembly for reference and is skipped
+    // field 2 contains the assembly for reference and is skipped
 
-    const char* decode_start;
+    const char *decode_start;
     uint decode_length;
     uint expected_enc = 0;
     if (fields == 3) {
@@ -184,8 +184,8 @@ do_line(void *dc, const char *line, size_t len, bool verbose, bool *failed)
 
         expected_enc = strtoul(field_start[2], &ptr, 16);
 
-    if (ptr < field_start[2] + 8 )
-        error(line, len, "expected encoding field is not a valid hex encoding");
+        if (ptr < field_start[2] + 8)
+            error(line, len, "expected encoding field is not a valid hex encoding");
     }
 
     check_inst(dc, enc, expected_enc, decode_start, decode_length, verbose, failed);
