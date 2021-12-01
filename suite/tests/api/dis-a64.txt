@@ -36,16 +36,19 @@
 # test the decoder.
 
 # The first field contains the hex encoding of the instruction and
-# its operands
+# its operands.
+
 # The second field is the disassembly of the first field and is not
-# used by testing
+# used by testing.
+
 # The optional third field is the expected encoding of the instruction if the
 # re-encoding differs from the initial encoding in the first field. This
 # is usually set if the instruction has "soft bits" which are required
-# to be ignored
+# to be ignored.
+
 # The fourth field (or third if no expected encoding is present) is the
 # disassembly that is expected to be produced by DynamoRIO. It is both case
-# and white-space sensitive
+# and white-space sensitive.
 
 # ABS d<d>, d<n>
 5ee0b820 : abs    d0, d1                  : abs    %d1 -> %d0
