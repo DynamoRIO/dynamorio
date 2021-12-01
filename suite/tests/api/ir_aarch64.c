@@ -5336,8 +5336,28 @@ test_asimddiff(void *dc)
     test_instr_encoding(dc, OP_umull2, instr);
 }
 
+/* Virtual address used by cache management instruction tests. */
+#define VIRTADDR(xreg)                                                   \
+    opnd_create_base_disp_aarch64(xreg, DR_REG_NULL, 0, false, 0, 0,     \
+                                  OPSZ_sys)
+#define REG(xreg) opnd_create_reg(xreg)
+
+/* Macro expansion generates sequence of tests for creating cache instructions
+ * which are aliases of SYS instruction variants:
+ * DC ZVA, Xt        DC CVAC, Xt        DC CVAU, Xt        DC CIVAC Xt
+ * DC IVAC Xt        DC ISW Xt          DC CSW Xt          DC CISW Xt
+ * IC IVAU, Xt       IC IALLU           IC IALLUIS
+ */
+#define SYS_CACHE(cache, op, reg_modifier)                               \
+    do {                                                                 \
+        for (int x = DR_REG_X1; x < DR_REG_XSP; x++) {                   \
+            instr = INSTR_CREATE_##cache##_##op(dc, reg_modifier(x));    \
+            test_instr_encoding(dc, OP_##cache##_##op, instr);           \
+        }                                                                \
+    } while (0)
+
 static void
-test_sys(void *dc)
+test_sys_cache(void *dc)
 {
     instr_t *instr;
 
@@ -5350,30 +5370,47 @@ test_sys(void *dc)
      */
 
     /* DC ZVA, Xt => SYS #3, C7, C4, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(DR_DC_ZVA, OPSZ_2),
-        opnd_create_base_disp_aarch64(DR_REG_X0, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
-
-    test_instr_encoding(dc, OP_sys, instr);
+    instr = INSTR_CREATE_dc_zva(dc, VIRTADDR(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_zva, instr);
+    SYS_CACHE(dc, zva, VIRTADDR);
 
     /* DC CVAC, Xt => SYS #3, C7, C10, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(DR_DC_CVAC, OPSZ_2),
-        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
-
-    test_instr_encoding(dc, OP_sys, instr);
+    instr = INSTR_CREATE_dc_cvac(dc, VIRTADDR(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_cvac, instr);
+    SYS_CACHE(dc, cvac, VIRTADDR);
 
     /* DC CVAU, Xt => SYS #3, C7, C11, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(DR_DC_CVAU, OPSZ_2),
-        opnd_create_base_disp_aarch64(DR_REG_X29, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
-    test_instr_encoding(dc, OP_sys, instr);
+    instr = INSTR_CREATE_dc_cvau(dc, VIRTADDR(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_cvau, instr);
+    SYS_CACHE(dc, cvau, VIRTADDR);
 
     /* DC CIVAC Xt => SYS #3, C7, C14, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(DR_DC_CIVAC, OPSZ_2),
-        opnd_create_base_disp_aarch64(DR_REG_X30, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
-    test_instr_encoding(dc, OP_sys, instr);
+    instr = INSTR_CREATE_dc_civac(dc, VIRTADDR(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_civac, instr);
+    SYS_CACHE(dc, civac, VIRTADDR);
+
+    /* DC IVAC Xt => SYS #0 C7 C6 #1, Xt */
+    instr = INSTR_CREATE_dc_ivac(dc, VIRTADDR(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_ivac, instr);
+    SYS_CACHE(dc, ivac, VIRTADDR);
+
+    /* These instructions do not use the input register to hold a virtual
+     * address. The register holds SetWay and cache level input.
+     * DC ISW Xt => SYS #0 C7 C6 #2, Xt
+     */
+    instr = INSTR_CREATE_dc_isw(dc, opnd_create_reg(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_isw, instr);
+    SYS_CACHE(dc, isw, REG);
+
+    /* DC CSW Xt => SYS #0 C7 C10 #2, Xt */
+    instr = INSTR_CREATE_dc_csw(dc, opnd_create_reg(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_csw, instr);
+    SYS_CACHE(dc, csw, REG);
+
+    /* DC CISW Xt => SYS #0 C7 C14 #2, Xt */
+    instr = INSTR_CREATE_dc_cisw(dc, opnd_create_reg(DR_REG_X0));
+    test_instr_encoding(dc, OP_dc_cisw, instr);
+    SYS_CACHE(dc, cisw, REG);
 
     /*
      * Similarly, instruction cache operations are also aliases of SYS:
@@ -5383,11 +5420,17 @@ test_sys(void *dc)
      */
 
     /* IC IVAU, Xt => SYS #3, C7, C5, #1, Xt */
-    instr = INSTR_CREATE_sys(
-        dc, opnd_create_immed_int(DR_IC_IVAU, OPSZ_2),
-        opnd_create_base_disp_aarch64(DR_REG_X1, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys));
+    instr = INSTR_CREATE_ic_ivau(dc, VIRTADDR(DR_REG_X0));
+    test_instr_encoding(dc, OP_ic_ivau, instr);
+    SYS_CACHE(ic, ivau, VIRTADDR);
 
-    test_instr_encoding(dc, OP_sys, instr);
+    /* IC IALLU => SYS #0 C7 C5 #0 */
+    instr = INSTR_CREATE_ic_iallu(dc);
+    test_instr_encoding(dc, OP_ic_iallu, instr);
+
+    /* IC IALLUIS => SYS #0 C7 C1 #0 */
+    instr = INSTR_CREATE_ic_ialluis(dc);
+    test_instr_encoding(dc, OP_ic_ialluis, instr);
 }
 
 static void
@@ -7305,8 +7348,8 @@ main(int argc, char *argv[])
     test_asimddiff(dcontext);
     print("test_asimddiff complete\n");
 
-    test_sys(dcontext);
-    print("test_sys complete\n");
+    test_sys_cache(dcontext);
+    print("test_sys_cache complete\n");
 
     test_exclusive_memops(dcontext);
     print("test_exclusive_memops complete\n");
