@@ -1771,20 +1771,6 @@ encode_opnd_imm4idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_o
     return encode_opnd_int(11, 4, false, 0, 0, opnd, enc_out);
 }
 
-/* ign10: ignored register field at bit position 10 in load/store exclusive */
-
-static inline bool
-decode_opnd_ign10(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_int(10, 5, false, 0, OPSZ_5b, 0, enc, opnd);
-}
-
-static inline bool
-encode_opnd_ign10(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_int(10, 5, false, 0, 0, opnd, enc_out);
-}
-
 /* w10: W register or WZR at bit position 10 */
 
 static inline bool
@@ -2299,20 +2285,6 @@ encode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_
         ASSERT(false);
     *enc_out = num << 5;
     return true;
-}
-
-/* ign16: ignored register field at bit position 16 in load/store exclusive */
-
-static inline bool
-decode_opnd_ign16(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    return decode_opnd_int(16, 5, false, 0, OPSZ_5b, 0, enc, opnd);
-}
-
-static inline bool
-encode_opnd_ign16(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    return encode_opnd_int(16, 5, false, 0, 0, opnd, enc_out);
 }
 
 /* imm5: immediate operand for conditional compare (immediate) */

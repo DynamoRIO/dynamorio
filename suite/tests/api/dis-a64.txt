@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2016 ARM Limited. All rights reserved.
+# Copyright (c) 2016-2021 ARM Limited. All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -32,9 +32,23 @@
 
 # The script "dis-a64.pl" can generate a draft version of this file.
 
-# Field 1: Encoding.
-# Field 2: Disassembly produced by objdump (not used for testing).
-# Field 3: Disassembly produced by DynamoRIO.
+# This file contains colon-separated fields that are used to
+# test the decoder.
+
+# The first field contains the hex encoding of the instruction and
+# its operands.
+
+# The second field is the disassembly of the first field and is not
+# used by testing.
+
+# The optional third field is the expected encoding of the instruction if the
+# re-encoding differs from the initial encoding in the first field. This
+# is usually set if the instruction has "soft bits" which are required
+# to be ignored.
+
+# The fourth field (or third if no expected encoding is present) is the
+# disassembly that is expected to be produced by DynamoRIO. It is both case
+# and white-space sensitive.
 
 # ABS d<d>, d<n>
 5ee0b820 : abs    d0, d1                  : abs    %d1 -> %d0
@@ -4574,21 +4588,27 @@ c8dfffff : ldar   xzr, [sp]               : ldar   (%sp)[8byte] -> %xzr
 
 48dfffff : ldarh  wzr, [sp]               : ldarh  (%sp)[2byte] -> %wzr
 
-88689041 : ldaxp  w1, w4, [x2]            : ldaxp  (%x2)[8byte] $0x08 -> %w1 %w4
-887fffff : ldaxp  wzr, wzr, [sp]          : ldaxp  (%sp)[8byte] $0x1f -> %wzr %wzr
-c8689041 : ldaxp  x1, x4, [x2]            : ldaxp  (%x2)[16byte] $0x08 -> %x1 %x4
-c87fffff : ldaxp  xzr, xzr, [sp]          : ldaxp  (%sp)[16byte] $0x1f -> %xzr %xzr
+88689041 : ldaxp  w1, w4, [x2]            : 887f9041 : ldaxp  (%x2)[8byte] -> %w1 %w4
+887f9041 : ldaxp  w1, w4, [x2]            : ldaxp  (%x2)[8byte] -> %w1 %w4
+887fffff : ldaxp  wzr, wzr, [sp]          : ldaxp  (%sp)[8byte] -> %wzr %wzr
+c8689041 : ldaxp  x1, x4, [x2]            : c87f9041 : ldaxp  (%x2)[16byte] -> %x1 %x4
+c87f9041 : ldaxp  x1, x4, [x2]            : ldaxp  (%x2)[16byte] -> %x1 %x4
+c87fffff : ldaxp  xzr, xzr, [sp]          : ldaxp  (%sp)[16byte] -> %xzr %xzr
 
-88489041 : ldaxr  w1, [x2]                : ldaxr  (%x2)[4byte] $0x04 $0x08 -> %w1
-885fffff : ldaxr  wzr, [sp]               : ldaxr  (%sp)[4byte] $0x1f $0x1f -> %wzr
-c8489041 : ldaxr  x1, [x2]                : ldaxr  (%x2)[8byte] $0x04 $0x08 -> %x1
-c85fffff : ldaxr  xzr, [sp]               : ldaxr  (%sp)[8byte] $0x1f $0x1f -> %xzr
+88489041 : ldaxr  w1, [x2]                : 885ffc41 : ldaxr  (%x2)[4byte] -> %w1
+885ffc41 : ldaxr  w1, [x2]                : ldaxr  (%x2)[4byte] -> %w1
+885fffff : ldaxr  wzr, [sp]               : ldaxr  (%sp)[4byte] -> %wzr
+c8489041 : ldaxr  x1, [x2]                : c85ffc41 : ldaxr  (%x2)[8byte] -> %x1
+c85ffc41 : ldaxr  x1, [x2]                : ldaxr  (%x2)[8byte] -> %x1
+c85fffff : ldaxr  xzr, [sp]               : ldaxr  (%sp)[8byte] -> %xzr
 
-08489041 : ldaxrb w1, [x2]                : ldaxrb (%x2)[1byte] $0x04 $0x08 -> %w1
-085fffff : ldaxrb wzr, [sp]               : ldaxrb (%sp)[1byte] $0x1f $0x1f -> %wzr
+08489041 : ldaxrb w1, [x2]                : 085ffc41 : ldaxrb (%x2)[1byte] -> %w1
+085ffc41 : ldaxrb w1, [x2]                : ldaxrb (%x2)[1byte] -> %w1
+085fffff : ldaxrb wzr, [sp]               : ldaxrb (%sp)[1byte] -> %wzr
 
-48489041 : ldaxrh w1, [x2]                : ldaxrh (%x2)[2byte] $0x04 $0x08 -> %w1
-485fffff : ldaxrh wzr, [sp]               : ldaxrh (%sp)[2byte] $0x1f $0x1f -> %wzr
+48489041 : ldaxrh w1, [x2]                : 485ffc41 : ldaxrh (%x2)[2byte] -> %w1
+485ffc41 : ldaxrh w1, [x2]                : ldaxrh (%x2)[2byte] -> %w1
+485fffff : ldaxrh wzr, [sp]               : ldaxrh (%sp)[2byte] -> %wzr
 
 b8281041 : ldclr  w8, w1, [x2]            : ldclr  %w8 (%x2)[4byte] -> %w1 (%x2)[4byte]
 f8281041 : ldclr  x8, x1, [x2]            : ldclr  %x8 (%x2)[8byte] -> %x1 (%x2)[8byte]
@@ -5370,21 +5390,27 @@ fc5ff3ff : ldur   d31, [sp,#-1]           : ldur   -0x01(%sp)[8byte] -> %d31
 b8881041 : ldursw x1, [x2,#129]           : ldursw +0x81(%x2)[4byte] -> %x1
 b89ff3ff : ldursw xzr, [sp,#-1]           : ldursw -0x01(%sp)[4byte] -> %xzr
 
-88681041 : ldxp   w1, w4, [x2]            : ldxp   (%x2)[8byte] $0x08 -> %w1 %w4
-887f7fff : ldxp   wzr, wzr, [sp]          : ldxp   (%sp)[8byte] $0x1f -> %wzr %wzr
-c8681041 : ldxp   x1, x4, [x2]            : ldxp   (%x2)[16byte] $0x08 -> %x1 %x4
-c87f7fff : ldxp   xzr, xzr, [sp]          : ldxp   (%sp)[16byte] $0x1f -> %xzr %xzr
+88681041 : ldxp   w1, w4, [x2]            : 887f1041 : ldxp   (%x2)[8byte] -> %w1 %w4
+887f1041 : ldxp   w1, w4, [x2]            : ldxp   (%x2)[8byte] -> %w1 %w4
+887f7fff : ldxp   wzr, wzr, [sp]          : ldxp   (%sp)[8byte] -> %wzr %wzr
+c8681041 : ldxp   x1, x4, [x2]            : c87f1041 : ldxp   (%x2)[16byte] -> %x1 %x4
+c87f1041 : ldxp   x1, x4, [x2]            : ldxp   (%x2)[16byte] -> %x1 %x4
+c87f7fff : ldxp   xzr, xzr, [sp]          : ldxp   (%sp)[16byte] -> %xzr %xzr
 
-88481041 : ldxr   w1, [x2]                : ldxr   (%x2)[4byte] $0x04 $0x08 -> %w1
-885f7fff : ldxr   wzr, [sp]               : ldxr   (%sp)[4byte] $0x1f $0x1f -> %wzr
-c8481041 : ldxr   x1, [x2]                : ldxr   (%x2)[8byte] $0x04 $0x08 -> %x1
-c85f7fff : ldxr   xzr, [sp]               : ldxr   (%sp)[8byte] $0x1f $0x1f -> %xzr
+88481041 : ldxr   w1, [x2]                : 885f7c41 : ldxr   (%x2)[4byte] -> %w1
+885f7c41 : ldxr   w1, [x2]                : ldxr   (%x2)[4byte] -> %w1
+885f7fff : ldxr   wzr, [sp]               : ldxr   (%sp)[4byte] -> %wzr
+c8481041 : ldxr   x1, [x2]                : c85f7c41 : ldxr   (%x2)[8byte] -> %x1
+c85f7c41 : ldxr   x1, [x2]                : ldxr   (%x2)[8byte] -> %x1
+c85f7fff : ldxr   xzr, [sp]               : ldxr   (%sp)[8byte] -> %xzr
 
-08481041 : ldxrb  w1, [x2]                : ldxrb  (%x2)[1byte] $0x04 $0x08 -> %w1
-085f7fff : ldxrb  wzr, [sp]               : ldxrb  (%sp)[1byte] $0x1f $0x1f -> %wzr
+08481041 : ldxrb  w1, [x2]                : 085f7c41 : ldxrb  (%x2)[1byte] -> %w1
+085f7c41 : ldxrb  w1, [x2]                : ldxrb  (%x2)[1byte] -> %w1
+085f7fff : ldxrb  wzr, [sp]               : ldxrb  (%sp)[1byte] -> %wzr
 
-48481041 : ldxrh  w1, [x2]                : ldxrh  (%x2)[2byte] $0x04 $0x08 -> %w1
-485f7fff : ldxrh  wzr, [sp]               : ldxrh  (%sp)[2byte] $0x1f $0x1f -> %wzr
+48481041 : ldxrh  w1, [x2]                : 485f7c41 : ldxrh  (%x2)[2byte] -> %w1
+485f7c41 : ldxrh  w1, [x2]                : ldxrh  (%x2)[2byte] -> %w1
+485f7fff : ldxrh  wzr, [sp]               : ldxrh  (%sp)[2byte] -> %wzr
 
 1ac323e1 : lsl    w1, wzr, w3             : lslv   %wzr %w3 -> %w1
 
@@ -7135,7 +7161,8 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 
 9b23fc41 : smnegl x1, w2, w3              : smsubl %w2 %w3 %xzr -> %x1
 
-9b4313e1 : smulh  x1, xzr, x3             : smulh  %xzr %x3 $0x04 -> %x1
+9b4313e1 : smulh  x1, xzr, x3             : 9b437fe1 : smulh  %xzr %x3 -> %x1
+9b437fe1 : smulh  x1, xzr, x3             : smulh  %xzr %x3 -> %x1
 
 0e22c020 : smull v0.8h, v1.8b, v2.8b                 : smull  %d1 %d2 $0x00 -> %q0
 0e25c083 : smull v3.8h, v4.8b, v5.8b                 : smull  %d4 %d5 $0x00 -> %q3
@@ -12858,32 +12885,40 @@ f87f23ff : steorl xzr, [sp]               : ldeorl %xzr (%sp)[8byte] -> %xzr (%s
 
 787f23ff : steorlh wzr, [sp]              : ldeorlh %wzr (%sp)[2byte] -> %wzr (%sp)[2byte]
 
-88889041 : stlr   w1, [x2]                : stlr   %w1 $0x04 $0x08 -> (%x2)[4byte]
-889fffff : stlr   wzr, [sp]               : stlr   %wzr $0x1f $0x1f -> (%sp)[4byte]
-c8889041 : stlr   x1, [x2]                : stlr   %x1 $0x04 $0x08 -> (%x2)[8byte]
-c89fffff : stlr   xzr, [sp]               : stlr   %xzr $0x1f $0x1f -> (%sp)[8byte]
+88889041 : stlr   w1, [x2]                : 889ffc41 : stlr   %w1 -> (%x2)[4byte]
+889ffc41 : stlr   w1, [x2]                : stlr   %w1 -> (%x2)[4byte]
+889fffff : stlr   wzr, [sp]               : stlr   %wzr -> (%sp)[4byte]
+c8889041 : stlr   x1, [x2]                : c89ffc41 : stlr   %x1 -> (%x2)[8byte]
+c89ffc41 : stlr   x1, [x2]                : stlr   %x1 -> (%x2)[8byte]
+c89fffff : stlr   xzr, [sp]               : stlr   %xzr -> (%sp)[8byte]
 
-08889041 : stlrb  w1, [x2]                : stlrb  %w1 $0x04 $0x08 -> (%x2)[1byte]
-089fffff : stlrb  wzr, [sp]               : stlrb  %wzr $0x1f $0x1f -> (%sp)[1byte]
+08889041 : stlrb  w1, [x2]                : 089ffc41 : stlrb  %w1 -> (%x2)[1byte]
+089ffc41 : stlrb  w1, [x2]                : stlrb  %w1 -> (%x2)[1byte]
+089fffff : stlrb  wzr, [sp]               : stlrb  %wzr -> (%sp)[1byte]
 
-48889041 : stlrh  w1, [x2]                : stlrh  %w1 $0x04 $0x08 -> (%x2)[2byte]
-489fffff : stlrh  wzr, [sp]               : stlrh  %wzr $0x1f $0x1f -> (%sp)[2byte]
+48889041 : stlrh  w1, [x2]                : 489ffc41 : stlrh  %w1 -> (%x2)[2byte]
+489ffc41 : stlrh  w1, [x2]                : stlrh  %w1 -> (%x2)[2byte]
+489fffff : stlrh  wzr, [sp]               : stlrh  %wzr -> (%sp)[2byte]
 
 88289041 : stlxp  w8, w1, w4, [x2]        : stlxp  %w1 %w4 -> (%x2)[8byte] %w8
 883fffff : stlxp  wzr, wzr, wzr, [sp]     : stlxp  %wzr %wzr -> (%sp)[8byte] %wzr
 c8289041 : stlxp  w8, x1, x4, [x2]        : stlxp  %x1 %x4 -> (%x2)[16byte] %w8
 c83fffff : stlxp  wzr, xzr, xzr, [sp]     : stlxp  %xzr %xzr -> (%sp)[16byte] %wzr
 
-88089041 : stlxr  w8, w1, [x2]            : stlxr  %w1 $0x04 -> (%x2)[4byte] %w8
-881fffff : stlxr  wzr, wzr, [sp]          : stlxr  %wzr $0x1f -> (%sp)[4byte] %wzr
-c8089041 : stlxr  w8, x1, [x2]            : stlxr  %x1 $0x04 -> (%x2)[8byte] %w8
-c81fffff : stlxr  wzr, xzr, [sp]          : stlxr  %xzr $0x1f -> (%sp)[8byte] %wzr
+88089041 : stlxr  w8, w1, [x2]            : 8808fc41 : stlxr  %w1 -> (%x2)[4byte] %w8
+8808fc41 : stlxr  w8, w1, [x2]            : stlxr  %w1 -> (%x2)[4byte] %w8
+881fffff : stlxr  wzr, wzr, [sp]          : stlxr  %wzr -> (%sp)[4byte] %wzr
+c8089041 : stlxr  w8, x1, [x2]            : c808fc41 : stlxr  %x1 -> (%x2)[8byte] %w8
+c808fc41 : stlxr  w8, x1, [x2]            : stlxr  %x1 -> (%x2)[8byte] %w8
+c81fffff : stlxr  wzr, xzr, [sp]          : stlxr  %xzr -> (%sp)[8byte] %wzr
 
-08089041 : stlxrb w8, w1, [x2]            : stlxrb %w1 $0x04 -> (%x2)[1byte] %w8
-081fffff : stlxrb wzr, wzr, [sp]          : stlxrb %wzr $0x1f -> (%sp)[1byte] %wzr
+08089041 : stlxrb w8, w1, [x2]            : 0808fc41 : stlxrb %w1 -> (%x2)[1byte] %w8
+0808fc41 : stlxrb w8, w1, [x2]            : stlxrb %w1 -> (%x2)[1byte] %w8
+081fffff : stlxrb wzr, wzr, [sp]          : stlxrb %wzr -> (%sp)[1byte] %wzr
 
-48089041 : stlxrh w8, w1, [x2]            : stlxrh %w1 $0x04 -> (%x2)[2byte] %w8
-481fffff : stlxrh wzr, wzr, [sp]          : stlxrh %wzr $0x1f -> (%sp)[2byte] %wzr
+48089041 : stlxrh w8, w1, [x2]            : 4808fc41 : stlxrh %w1 -> (%x2)[2byte] %w8
+4808fc41 : stlxrh w8, w1, [x2]            : stlxrh %w1 -> (%x2)[2byte] %w8
+481fffff : stlxrh wzr, wzr, [sp]          : stlxrh %wzr -> (%sp)[2byte] %wzr
 
 28000000 : stnp   w0, w0, [x0]            : stnp   %w0 %w0 -> (%x0)[8byte]
 283fffff : stnp   wzr, wzr, [sp,#-4]      : stnp   %wzr %wzr -> -0x04(%sp)[8byte]
@@ -13321,16 +13356,20 @@ fc1ff3ff : stur   d31, [sp,#-1]           : stur   %d31 -> -0x01(%sp)[8byte]
 c8281041 : stxp   w8, x1, x4, [x2]        : stxp   %x1 %x4 -> (%x2)[16byte] %w8
 c83f7fff : stxp   wzr, xzr, xzr, [sp]     : stxp   %xzr %xzr -> (%sp)[16byte] %wzr
 
-88081041 : stxr   w8, w1, [x2]            : stxr   %w1 $0x04 -> (%x2)[4byte] %w8
-881f7fff : stxr   wzr, wzr, [sp]          : stxr   %wzr $0x1f -> (%sp)[4byte] %wzr
-c8081041 : stxr   w8, x1, [x2]            : stxr   %x1 $0x04 -> (%x2)[8byte] %w8
-c81f7fff : stxr   wzr, xzr, [sp]          : stxr   %xzr $0x1f -> (%sp)[8byte] %wzr
+88081041 : stxr   w8, w1, [x2]            : 88087c41 : stxr   %w1 -> (%x2)[4byte] %w8
+88087c41 : stxr   w8, w1, [x2]            : stxr   %w1 -> (%x2)[4byte] %w8
+881f7fff : stxr   wzr, wzr, [sp]          : stxr   %wzr -> (%sp)[4byte] %wzr
+c8081041 : stxr   w8, x1, [x2]            : c8087c41 : stxr   %x1 -> (%x2)[8byte] %w8
+c8087c41 : stxr   w8, x1, [x2]            : stxr   %x1 -> (%x2)[8byte] %w8
+c81f7fff : stxr   wzr, xzr, [sp]          : stxr   %xzr -> (%sp)[8byte] %wzr
 
-08081041 : stxrb  w8, w1, [x2]            : stxrb  %w1 $0x04 -> (%x2)[1byte] %w8
-081f7fff : stxrb  wzr, wzr, [sp]          : stxrb  %wzr $0x1f -> (%sp)[1byte] %wzr
+08081041 : stxrb  w8, w1, [x2]            : 08087c41 : stxrb  %w1 -> (%x2)[1byte] %w8
+08087c41 : stxrb  w8, w1, [x2]            : stxrb  %w1 -> (%x2)[1byte] %w8
+081f7fff : stxrb  wzr, wzr, [sp]          : stxrb  %wzr -> (%sp)[1byte] %wzr
 
-48081041 : stxrh  w8, w1, [x2]            : stxrh  %w1 $0x04 -> (%x2)[2byte] %w8
-481f7fff : stxrh  wzr, wzr, [sp]          : stxrh  %wzr $0x1f -> (%sp)[2byte] %wzr
+48081041 : stxrh  w8, w1, [x2]            : 48087c41 : stxrh  %w1 -> (%x2)[2byte] %w8
+48087c41 : stxrh  w8, w1, [x2]            : stxrh  %w1 -> (%x2)[2byte] %w8
+481f7fff : stxrh  wzr, wzr, [sp]          : stxrh  %wzr -> (%sp)[2byte] %wzr
 
 4b031041 : sub    w1, w2, w3, lsl #4      : sub    %w2 %w3 lsl $0x04 -> %w1
 51000c41 : sub    w1, w2, #0x3            : sub    %w2 $0x0003 lsl $0x00 -> %w1
@@ -14489,7 +14528,8 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 
 9ba39041 : umsubl x1, w2, w3, x4          : umsubl %w2 %w3 %x4 -> %x1
 
-9bc31041 : umulh  x1, x2, x3              : umulh  %x2 %x3 $0x04 -> %x1
+9bc31041 : umulh  x1, x2, x3              : 9bc37c41 : umulh  %x2 %x3 -> %x1
+9bc37c41 : umulh  x1, x2, x3              : umulh  %x2 %x3 -> %x1
 
 2e22c166 : umull v6.8h, v11.8b, v2.8b               : umull  %d11 %d2 $0x00 -> %q6
 2e62c166 : umull v6.4s, v11.4h, v2.4h               : umull  %d11 %d2 $0x01 -> %q6
