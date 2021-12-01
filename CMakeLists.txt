@@ -1309,7 +1309,8 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages.
-# 8.xx broke backcompat by changing drcachesim field names, drmodtrack callbacks,
+# 8.xx broke backcompat by reordering the AArch64 opcode enum an changing
+#   drcachesim field names, drmodtrack callbacks,
 #   emulated_instr_t fields, drcov output, drcachesim view counting, and
 #   drcachesim child statistics.
 # 7.92 broke backcompat by changing 32-bit stack alignment to 16.
