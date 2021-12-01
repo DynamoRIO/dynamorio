@@ -5337,9 +5337,8 @@ test_asimddiff(void *dc)
 }
 
 /* Virtual address used by cache management instruction tests. */
-#define VIRTADDR(xreg)                                                   \
-    opnd_create_base_disp_aarch64(xreg, DR_REG_NULL, 0, false, 0, 0,     \
-                                  OPSZ_sys)
+#define VIRTADDR(xreg) \
+    opnd_create_base_disp_aarch64(xreg, DR_REG_NULL, 0, false, 0, 0, OPSZ_sys)
 #define REG(xreg) opnd_create_reg(xreg)
 
 /* Macro expansion generates sequence of tests for creating cache instructions
@@ -5348,12 +5347,12 @@ test_asimddiff(void *dc)
  * DC IVAC Xt        DC ISW Xt          DC CSW Xt          DC CISW Xt
  * IC IVAU, Xt       IC IALLU           IC IALLUIS
  */
-#define SYS_CACHE(cache, op, reg_modifier)                               \
-    do {                                                                 \
-        for (int x = DR_REG_X1; x < DR_REG_XSP; x++) {                   \
-            instr = INSTR_CREATE_##cache##_##op(dc, reg_modifier(x));    \
-            test_instr_encoding(dc, OP_##cache##_##op, instr);           \
-        }                                                                \
+#define SYS_CACHE(cache, op, reg_modifier)                            \
+    do {                                                              \
+        for (int x = DR_REG_X1; x < DR_REG_XSP; x++) {                \
+            instr = INSTR_CREATE_##cache##_##op(dc, reg_modifier(x)); \
+            test_instr_encoding(dc, OP_##cache##_##op, instr);        \
+        }                                                             \
     } while (0)
 
 static void
