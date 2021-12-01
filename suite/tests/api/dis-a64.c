@@ -178,8 +178,8 @@ do_line(void *dc, const char *line, size_t len, bool verbose, bool *failed)
         // Sometimes we don't expect the encoded value to match the initial value,
         // such as when there are bits that are allowed to vary in the spec (soft bits).
         // In these cases there will be an additional field at position 3 with an
-        // encoding, wind forward looking for a :, making sure we note the current
-        // position in case we don't find one
+        // encoding. Wind forward looking for a :, making sure we note the current
+        // position in case we don't find one.
         decode_start = field_start[3];
         decode_length = field_end[3] - field_start[3];
 

@@ -95,7 +95,7 @@ class Pattern:
             return [self.opndset]
         return self.opndset
 
-    def ignored_bits(self):
+    def ignored_bit_mask(self):
         return ~(self.opnd_bits | self.high_soft_bits)
 
     def set_bits(self):
@@ -164,7 +164,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
 
                 indent_append('%sif ((enc & 0x%08x) == 0x%08x%s)'  % (
                     else_str,
-                    ((1 << N) - 1) & pattern.ignored_bits(),
+                    ((1 << N) - 1) & pattern.ignored_bit_mask(),
                     pattern.opcode_bits,
                     " && (enc & 0x%08x) != 0" % not_zero_mask if not_zero_mask else ""))
 
@@ -193,7 +193,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
                     indent_append('    %s = true;' % FALLTHROUGH[enc_key].flag_name)
                     FALLTHROUGH[enc_key].decode_clause = \
                         'if ((enc & 0x%08x) == 0x%08x && %s == true)' % \
-                        (((1 << N) - 1) & pattern.ignored_bits(), pattern.opcode_bits, \
+                        (((1 << N) - 1) & pattern.ignored_bit_mask(), pattern.opcode_bits, \
                         FALLTHROUGH[enc_key].flag_name)
                     FALLTHROUGH[enc_key].decode_function = \
                         'return decode_opnds%s(enc, dc, pc, instr, OP_%s);' % \
@@ -213,12 +213,12 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
             bit_set_or_variable = 0
             for p in pats:
                 # In how many patterns is this bit not set or included
-                # in the variable bits
+                # in the variable bits.
                 if (1 << switch_bit) & (~p.opcode_bits | p.opnd_bits | p.high_soft_bits):
                     bit_not_set_or_variable += 1
-                # how many patterns have this b set and or in the variable
-                # bits
-                if (1 << switch_bit) & (p.opcode_bits | p.opnd_bits| p.high_soft_bits):
+                # How many patterns have this b set and or in the variable
+                # bits.
+                if (1 << switch_bit) & (p.opcode_bits | p.opnd_bits | p.high_soft_bits):
                     bit_set_or_variable += 1
             patterns_selected = max(bit_not_set_or_variable, bit_set_or_variable)
             if patterns_selected < least_patterns_selected:
@@ -228,7 +228,7 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
         pats0 = []
         pats1 = []
         # Split the decode tree on this bit, if the bit
-        # lies in the operand bits, then it goes in both trees
+        # lies in the operand bits, then it goes in both trees.
         for p in pats:
             if (1 << best_switch_bit) & (~p.opcode_bits | p.opnd_bits | p.high_soft_bits):
                 pats0.append(p)
