@@ -1115,18 +1115,6 @@ ic_ivau (%x30)[1byte]
 ic_iallu
 ic_ialluis
 test_sys_cache complete
-ldxr   (%x1)[8byte] $0x000000000000001f $0x000000000000001f -> %x0
-ldxrb  (%x1)[1byte] $0x000000000000001f $0x000000000000001f -> %w0
-ldxrh  (%x1)[2byte] $0x000000000000001f $0x000000000000001f -> %w0
-ldxp   (%x2)[8byte] $0x000000000000001f -> %w0 %w1
-ldxp   (%x2)[16byte] $0x000000000000001f -> %x0 %x1
-ldaxr  (%x1)[8byte] $0x000000000000001f $0x000000000000001f -> %x0
-ldaxrb (%x1)[1byte] $0x000000000000001f $0x000000000000001f -> %w0
-ldaxrh (%x1)[2byte] $0x000000000000001f $0x000000000000001f -> %w0
-ldaxp  (%x2)[8byte] $0x000000000000001f -> %w0 %w1
-stxr   %x0 $0x000000000000001f -> (%x1)[8byte] %w2
-stxrb  %w0 $0x000000000000001f -> (%x1)[1byte] %w2
-stxrh  %w0 $0x000000000000001f -> (%x1)[2byte] %w2
 ldxr   (%x1)[8byte] -> %x0
 ldxrb  (%x1)[1byte] -> %w0
 ldxrh  (%x1)[2byte] -> %w0

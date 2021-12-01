@@ -816,12 +816,12 @@ x001111001011001xxxxxxxxxxxxxxxx  n   126      fcvtzu            wx0 : d5 scale
 1100100011011111111111xxxxxxxxxx  n   193        ldar             x0 : mem0
 0000100011011111111111xxxxxxxxxx  n   194       ldarb             w0 : mem0
 0100100011011111111111xxxxxxxxxx  n   195       ldarh             w0 : mem0
-10001000011^^^^^1xxxxxxxxxxxxxxx  n   196      ldaxp         w0 w10 : mem0p
-11001000011^^^^^1xxxxxxxxxxxxxxx  n   196      ldaxp         x0 x10 : mem0p
-10001000010^^^^^1^^^^^xxxxxxxxxx  n   197      ldaxr             w0 : mem0
-11001000010^^^^^1^^^^^xxxxxxxxxx  n   197      ldaxr             x0 : mem0
-00001000010^^^^^1^^^^^xxxxxxxxxx  n   198     ldaxrb             w0 : mem0
-01001000010^^^^^1^^^^^xxxxxxxxxx  n   199     ldaxrh             w0 : mem0
+10001000011^^^^^1xxxxxxxxxxxxxxx  n   196       ldaxp         w0 w10 : mem0p
+11001000011^^^^^1xxxxxxxxxxxxxxx  n   196       ldaxp         x0 x10 : mem0p
+10001000010^^^^^1^^^^^xxxxxxxxxx  n   197       ldaxr             w0 : mem0
+11001000010^^^^^1^^^^^xxxxxxxxxx  n   197       ldaxr             x0 : mem0
+00001000010^^^^^1^^^^^xxxxxxxxxx  n   198      ldaxrb             w0 : mem0
+01001000010^^^^^1^^^^^xxxxxxxxxx  n   199      ldaxrh             w0 : mem0
 10111000001xxxxx000100xxxxxxxxxx  n   200       ldclr        w0 mem0 : w16 mem0
 11111000001xxxxx000100xxxxxxxxxx  n   200       ldclr        x0 mem0 : x16 mem0
 10111000101xxxxx000100xxxxxxxxxx  n   201      ldclra        w0 mem0 : w16 mem0
