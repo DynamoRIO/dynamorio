@@ -2045,6 +2045,15 @@ expand_avx512_scatter_store_scalar_value(void *drcontext, instrlist_t *bb,
         drreg_get_app_value(drcontext, bb, sg_instr, sg_info->base_reg,
                             sg_info->base_reg);
     }
+#    ifdef X64
+    if (sg_info->scalar_index_size == OPSZ_4) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(
+                   INSTR_CREATE_movsxd(drcontext, opnd_create_reg(scalar_index_reg),
+                                       opnd_create_reg(reg_64_to_32(scalar_index_reg))),
+                   orig_app_pc));
+    }
+#    endif
     if (sg_info->scalar_value_size == OPSZ_4) {
         PREXL8(bb, sg_instr,
                INSTR_XL8(INSTR_CREATE_mov_st(
@@ -2085,6 +2094,15 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
         drreg_get_app_value(drcontext, bb, sg_instr, sg_info->base_reg,
                             sg_info->base_reg);
     }
+#    ifdef X64
+    if (sg_info->scalar_index_size == OPSZ_4) {
+        PREXL8(bb, sg_instr,
+               INSTR_XL8(
+                   INSTR_CREATE_movsxd(drcontext, opnd_create_reg(scalar_index_reg),
+                                       opnd_create_reg(reg_64_to_32(scalar_index_reg))),
+                   orig_app_pc));
+    }
+#    endif
     if (sg_info->scalar_value_size == OPSZ_4) {
         PREXL8(
             bb, sg_instr,
