@@ -80,8 +80,8 @@ _start:
         mov      eax, 0x02
         vpinsrd  xmm11, xmm11, eax, 0x03
 
-        // Test 1: Verify correct functioning of scatter followed
-        // by a gather.
+        // Test 1: Verify correctness of a scatter followed by a gather
+        // for the same data.
 #ifdef __AVX512F__
         // Scatter xmm10 data to arr, skipping element at index 1 in xmm10.
         mov      ebx, 0xd
@@ -115,18 +115,18 @@ _start:
         jne      incorrect
 
 
-        // Test 2: Check whether the scratch reg (here, xmm0) was restored to its
+        // Test 2: Verify that the scratch reg (here, xmm0) was restored to its
         // original app value.
         vmovdqu  xmm1, save_xmm0
         pcmpeqq  xmm1, xmm0
         vpextrd  eax, xmm1, 0
         cmp      eax, 0xffffffff
-        jne      incorrect
+        jne      incorrect_scratch
         vpextrd  eax, xmm1, 2
         cmp      eax, 0xffffffff
-        jne      incorrect
+        jne      incorrect_scratch
 
-        // Test 3: Use negative indices to verify that they are sign extended.
+        // Test 3: Verify that negative indices are sign extended.
         mov      eax, -0x01
         vpinsrd  xmm11, xmm11, eax, 0x00
 
@@ -137,14 +137,17 @@ _start:
         vpscatterdd [arr + xmm11*4]{k1}, xmm10
 #else
         // Emulate scatter instr if not available.
-        mov      dword ptr [arr_neg], 0x00008bad
+        mov      dword ptr [arr_neg], 0xdead
+        // Match instr count in the #if block above.
+        nop
+        nop
 #endif
         mov      ebx, dword ptr [arr_neg]
         cmp      ebx, 0xdead
         jne      incorrect
 
-        // Gather arr data into xmm14, using negative index, same as above
-        // scatter.
+        // Gather the element at arr-4 into xmm14, using a negative index
+        // same as above scatter.
         pcmpgtd    xmm13, xmm13
         xor        eax, eax
         not        eax
