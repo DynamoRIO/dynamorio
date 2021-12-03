@@ -739,8 +739,10 @@
  * \param Rn   The input register containing the virtual address to use.
  *             No alignment restrictions apply to this VA.
  */
-#define INSTR_CREATE_dc_civac(dc, Rn) instr_create_0dst_1src(dc, OP_dc_civac, \
-    opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, 0, false, 0, 0, OPSZ_512))
+#define INSTR_CREATE_dc_civac(dc, Rn)                                                   \
+    instr_create_0dst_1src(dc, OP_dc_civac,                                             \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_512))
 
 /**
  * Creates a DC CSW instruction to Clean data cache line by Set/Way.
@@ -757,8 +759,10 @@
  * \param Rn   The input register containing the virtual address to use.
  *             No alignment restrictions apply to this VA.
  */
-#define INSTR_CREATE_dc_cvac(dc, Rn) instr_create_0dst_1src(dc, OP_dc_cvac, \
-    opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, 0, false, 0, 0, OPSZ_512))
+#define INSTR_CREATE_dc_cvac(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_cvac,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_512))
 
 /**
  * Creates a DC CVAU instruction to Clean data cache by Virtual Address to
@@ -767,8 +771,10 @@
  * \param Rn   The input register containing the virtual address to use.
  *             No alignment restrictions apply to this VA.
  */
-#define INSTR_CREATE_dc_cvau(dc, Rn) instr_create_0dst_1src(dc, OP_dc_cvau, \
-    opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, 0, false, 0, 0, OPSZ_512))
+#define INSTR_CREATE_dc_cvau(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_cvau,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_512))
 
 /**
  * Creates a DC ISW instruction to Invalidate data cache line by Set/Way.
@@ -785,8 +791,10 @@
  * \param Rn   The input register containing the virtual address to use.
  *             No alignment restrictions apply to this VA.
  */
-#define INSTR_CREATE_dc_ivac(dc, Rn) instr_create_0dst_1src(dc, OP_dc_ivac, \
-    opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, 0, false, 0, 0, OPSZ_512))
+#define INSTR_CREATE_dc_ivac(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_ivac,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_512))
 
 /**
  * Creates a DC ZVA instruction to Zero data cache by Virtual Address.
@@ -797,8 +805,10 @@
  *             There is no alignment restriction on the address within the
  *             block of N bytes that is used.
  */
-#define INSTR_CREATE_dc_zva(dc, Rn) instr_create_1dst_0src(dc, OP_dc_zva, \
-    opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, 0, false, 0, 0, OPSZ_512))
+#define INSTR_CREATE_dc_zva(dc, Rn)                                                     \
+    instr_create_1dst_0src(dc, OP_dc_zva,                                               \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_512))
 
 /**
  * Creates an IC IVAU instruction to Invalidate instruction cache line by
@@ -807,8 +817,10 @@
  * \param Rn   The input register containing the virtual address to use.
  *             No alignment restrictions apply to this VA.
  */
-#define INSTR_CREATE_ic_ivau(dc, Rn) instr_create_0dst_1src(dc, OP_ic_ivau, \
-    opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, 0, false, 0, 0, OPSZ_512))
+#define INSTR_CREATE_ic_ivau(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_ic_ivau,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_512))
 
 /**
  * Creates an IC IALLU instruction to Invalidate All of instruction caches
