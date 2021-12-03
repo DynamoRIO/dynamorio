@@ -106,6 +106,7 @@ _start:
         mov      eax, 0x00
         vpinsrd  xmm10, xmm10, eax, 0x01
         vpinsrd  xmm10, xmm10, eax, 0x02
+        // Compare the two 64-bit quad-words that make up an xmm reg.
         pcmpeqq  xmm12, xmm10
         vpextrd  eax, xmm12, 0
         cmp      eax, 0xffffffff
