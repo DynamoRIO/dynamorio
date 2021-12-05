@@ -176,7 +176,7 @@ patchable_exit_cti_align_offs(dcontext_t *dcontext, instr_t *inst, cache_pc pc)
     /* FIXME : would be better to use a instr_is_cti_long or some such
      * also should check for addr16 flag (we shouldn't have any prefixes) */
     ASSERT((instr_is_cti(inst) && !instr_is_cti_short(inst) &&
-            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN),
+            !TESTANY(~(PREFIX_JCC_TAKEN | PREFIX_JCC_NOT_TAKEN | PREFIX_PRED_MASK),
                      instr_get_prefixes(inst))) ||
            instr_is_cti_short_rewrite(inst, NULL));
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(

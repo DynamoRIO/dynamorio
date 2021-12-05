@@ -2193,9 +2193,14 @@ dr_pred_type_t
 decode_predicate_from_instr_info(uint opcode, const instr_info_t *info)
 {
     if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags)) {
-        if (TEST(HAS_PRED_CC, info->flags))
-            return DR_PRED_O + instr_cmovcc_to_jcc(opcode) - OP_jo;
-        else
+        if (TEST(HAS_PRED_CC, info->flags)) {
+            if (opcode >= OP_jo && opcode <= OP_jnle)
+                return DR_PRED_O + opcode - OP_jo;
+            else if (opcode >= OP_jo_short && opcode <= OP_jnle_short)
+                return DR_PRED_O + opcode - OP_jo_short;
+            else
+                return DR_PRED_O + instr_cmovcc_to_jcc(opcode) - OP_jo;
+        } else
             return DR_PRED_COMPLEX;
     }
     return DR_PRED_NONE;
