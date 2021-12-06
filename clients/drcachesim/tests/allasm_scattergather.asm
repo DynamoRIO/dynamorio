@@ -96,9 +96,9 @@ _start:
 
         // Gather arr data into xmm12, skipping index 2 at xmm12,
         // using same indices as scatter.
-        pcmpeqd    xmm13, xmm13
-        xor        eax, eax
-        vpinsrd    xmm13, xmm13, eax, 0x02
+        pcmpeqd  xmm13, xmm13
+        xor      eax, eax
+        vpinsrd  xmm13, xmm13, eax, 0x02
         vpgatherdd xmm12, [arr + xmm11*4], xmm13
 
         // Compare xmm10 and xmm12.
@@ -149,10 +149,10 @@ _start:
 
         // Gather the element at arr-4 into xmm14, using a negative index
         // same as above scatter.
-        pcmpgtd    xmm13, xmm13
-        xor        eax, eax
-        not        eax
-        vpinsrd    xmm13, xmm13, eax, 0x00
+        pcmpgtd  xmm13, xmm13
+        xor      eax, eax
+        not      eax
+        vpinsrd  xmm13, xmm13, eax, 0x00
         vpgatherdd xmm14, [arr + xmm11*4], xmm13
 
         // Compare xmm10 and xmm14.
