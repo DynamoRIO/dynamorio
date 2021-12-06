@@ -80,6 +80,8 @@ _start:
         mov      eax, 0x02
         vpinsrd  xmm11, xmm11, eax, 0x03
 
+        // Test 1: Verify correctness of a scatter followed by a gather
+        // for the same data.
 #ifdef __AVX512F__
         // Scatter xmm10 data to arr, skipping element at index 1 in xmm10.
         mov      ebx, 0xd
@@ -100,22 +102,71 @@ _start:
         vpgatherdd xmm12, [arr + xmm11*4], xmm13
 
         // Compare xmm10 and xmm12.
-        // Only first and last elements should be equal.
+        // Only zeroth and last elements should be equal.
         mov      eax, 0x00
         vpinsrd  xmm10, xmm10, eax, 0x01
         vpinsrd  xmm10, xmm10, eax, 0x02
-        vcmpeqss xmm9, xmm10, xmm12
-        vpextrb  eax, xmm9, 0
-        cmp      eax, 0xff
+        // Compare the two 64-bit quad-words that make up an xmm reg.
+        pcmpeqq  xmm12, xmm10
+        vpextrd  eax, xmm12, 0
+        cmp      eax, 0xffffffff
+        jne      incorrect
+        vpextrd  eax, xmm12, 2
+        cmp      eax, 0xffffffff
         jne      incorrect
 
-        // Check whether the scratch reg (here, xmm0) was restored to its
+
+        // Test 2: Verify that the scratch reg (here, xmm0) was restored to its
         // original app value.
         vmovdqu  xmm1, save_xmm0
-        vcmpeqss xmm9, xmm1, xmm0
-        vpextrb  eax, xmm9, 0
-        cmp      eax, 0xff
+        pcmpeqq  xmm1, xmm0
+        vpextrd  eax, xmm1, 0
+        cmp      eax, 0xffffffff
         jne      incorrect_scratch
+        vpextrd  eax, xmm1, 2
+        cmp      eax, 0xffffffff
+        jne      incorrect_scratch
+
+        // Test 3: Verify that negative indices are sign extended.
+        mov      eax, -0x01
+        vpinsrd  xmm11, xmm11, eax, 0x00
+
+#ifdef __AVX512F__
+        // Scatter only the zeroth element.
+        mov      ebx, 0x1
+        kmovw    k1, ebx
+        vpscatterdd [arr + xmm11*4]{k1}, xmm10
+#else
+        // Emulate scatter instr if not available.
+        mov      dword ptr [arr_neg], 0xdead
+        // Match instr count in the #if block above.
+        nop
+        nop
+#endif
+        mov      ebx, dword ptr [arr_neg]
+        cmp      ebx, 0xdead
+        jne      incorrect
+
+        // Gather the element at arr-4 into xmm14, using a negative index
+        // same as above scatter.
+        pcmpgtd  xmm13, xmm13
+        xor      eax, eax
+        not      eax
+        vpinsrd  xmm13, xmm13, eax, 0x00
+        vpgatherdd xmm14, [arr + xmm11*4], xmm13
+
+        // Compare xmm10 and xmm14.
+        // Only zeroth elements should be equal. Elements at index 1 and 2
+        // in xmm10 were already set to zero above.
+        mov      eax, 0x00
+        vpinsrd  xmm10, xmm10, eax, 0x03
+        pcmpeqq  xmm14, xmm10
+        vpextrd  eax, xmm14, 0
+        cmp      eax, 0xffffffff
+        jne      incorrect
+        vpextrd  eax, xmm14, 2
+        cmp      eax, 0xffffffff
+        jne      incorrect
 
         // Print comparison result.
         lea      rsi, correct_str
@@ -155,6 +206,8 @@ incorrect_str:
         .string  "Incorrect\n"
 incorrect_scratch_str:
         .string  "Incorrect scratch\n"
+arr_neg:
+        .zero    4
 arr:
         .zero    16
 save_xmm0:

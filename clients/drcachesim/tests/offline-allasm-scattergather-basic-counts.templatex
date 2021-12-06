@@ -2,12 +2,12 @@ Correct
 Hello world!
 Basic counts tool results:
 Total counts:
-          59 total \(fetched\) instructions
-          59 total unique \(fetched\) instructions
+          87 total \(fetched\) instructions
+          87 total unique \(fetched\) instructions
            0 total non-fetched instructions
            0 total prefetches
-           4 total data loads
-           4 total data stores
+           6 total data loads
+           5 total data stores
            0 total icache flushes
            0 total dcache flushes
            1 total threads
@@ -19,12 +19,12 @@ Total counts:
      .* total function return value markers
      .* total other markers
 Thread .* counts:
-          59 \(fetched\) instructions
-          59 unique \(fetched\) instructions
+          87 \(fetched\) instructions
+          87 unique \(fetched\) instructions
            0 non-fetched instructions
            0 prefetches
-           4 data loads
-           4 data stores
+           6 data loads
+           5 data stores
            0 icache flushes
            0 dcache flushes
      .* scheduling markers
