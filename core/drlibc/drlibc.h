@@ -68,6 +68,9 @@ clear_icache(void *beg, void *end);
 
 bool
 get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size);
+
+bool
+get_dcache_zero_blk_size(OUT size_t *dzcva_block_size);
 #endif
 
 void

@@ -188,6 +188,34 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
 #    endif
     return false;
 }
+
+/* Reads the block size in bytes required by cache instructions like the DC ZVA
+ * (Data Cache Zero by Address) instruction.
+ * Returns false if no value was written.
+ * This is required to be called at init time when linked into DR. This is to
+ * avoid races and write issues with the static variable used.
+ */
+bool
+get_dcache_zero_blk_size(OUT size_t *dzcva_block_size)
+{
+#    ifndef DR_HOST_NOT_TARGET
+    static size_t dcache_zero_info = 0;
+
+    /* "Data Cache Zero ID register" contains:
+     * DCZID_EL0 [3:0]   : Log2 of number of words (4 bytes) of the block size.
+     *                     The maximum size supported is 2KB => value = 9, i.e.
+                           2^9 x 4 = 512 x 4 = 2048 bytes.
+     * https://developer.arm.com/documentation/ddi0595/2021-09/AArch64-Registers/
+     * DCZID-EL0--Data-Cache-Zero-ID-register
+     */
+    if (dcache_zero_info == 0)
+        __asm__ __volatile__("mrs %0, dczid_el0" : "=r"(dcache_zero_info));
+    if (dzcva_block_size != NULL)
+        *dzcva_block_size = 4 << (dcache_zero_info & 0xf);
+    return true;
+#    endif
+    return false;
+}
 #endif
 
 #ifdef UNIX

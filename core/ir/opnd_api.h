@@ -1869,6 +1869,11 @@ opnd_t
 opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                               dr_extend_type_t extend_type, bool scaled, int disp,
                               dr_opnd_flags_t flags, opnd_size_t size);
+
+DR_API
+/** Returns the data cache block size in bytes for zeroing the cache. */
+size_t
+proc_get_dcache_zva_size(void);
 #endif
 
 DR_API

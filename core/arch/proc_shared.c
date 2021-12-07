@@ -102,12 +102,16 @@ proc_init(void)
     proc_init_arch();
     CLIENT_ASSERT(cache_line_size > 0, "invalid cache line size");
     mask = (cache_line_size - 1);
+    CLIENT_ASSERT(dcache_zva_size > 0, "invalid dcache block size for zeroing");
+
+    CLIENT_ASSERT(cache_line_size == dcache_zva_size, "cache line and block sizes do not match");
 
     LOG(GLOBAL, LOG_TOP, 1, "Cache line size is %d bytes\n", cache_line_size);
     LOG(GLOBAL, LOG_TOP, 1, "L1 icache=%s, L1 dcache=%s, L2 cache=%s\n",
         proc_get_cache_size_str(proc_get_L1_icache_size()),
         proc_get_cache_size_str(proc_get_L1_dcache_size()),
         proc_get_cache_size_str(proc_get_L2_cache_size()));
+    LOG(GLOBAL, LOG_TOP, 1, "Data cache block size for zeroing is %d bytes\n", dcache_zva_size);
     LOG(GLOBAL, LOG_TOP, 1, "Processor brand string = %s\n", cpu_info.brand_string);
     LOG(GLOBAL, LOG_TOP, 1, "Type=0x%x, Family=0x%x, Model=0x%x, Stepping=0x%x\n",
         cpu_info.type, cpu_info.family, cpu_info.model, cpu_info.stepping);
