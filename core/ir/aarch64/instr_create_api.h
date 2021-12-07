@@ -108,7 +108,7 @@
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
-#define OPSZ_CACHE_LINE() proc_get_dcache_zva_size()
+#define OPSZ_CACHE_LINE() opnd_size_from_bytes(proc_get_dcache_zva_size())
 
 
 /****************************************************************************
