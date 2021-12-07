@@ -137,7 +137,7 @@ proc_init(void)
     LOG(GLOBAL, LOG_TOP, 1, "Data cache block size for zeroing is %d bytes\n",
         dcache_zva_size);
     CLIENT_ASSERT(cache_line_size == dcache_zva_size,
-        "cache line and block sizes do not match");
+                  "cache line and block sizes do not match");
 #endif
 }
 
