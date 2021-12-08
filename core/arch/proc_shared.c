@@ -133,6 +133,9 @@ proc_init(void)
         global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
         os_close(cpuinfo);
     }
+#ifdef DR_HOST_NOT_TARGET
+    dcache_zva_size = cache_line_size;
+#endif
     CLIENT_ASSERT(dcache_zva_size > 0, "invalid dcache block size for zeroing");
     LOG(GLOBAL, LOG_TOP, 1, "Data cache block size for zeroing is %d bytes\n",
         dcache_zva_size);
