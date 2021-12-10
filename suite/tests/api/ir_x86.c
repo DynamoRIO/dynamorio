@@ -933,12 +933,12 @@ test_cti_predicates(void *dc)
         { 0x7e, 0x10 },
         // 0f 84 99 00 00 00    je     403e08
         { 0x0f, 0x84, 0x99, 0x00, 0x00, 0x00 },
-        // 4d 0f 46 ca          cmovbe %r10,%r9
-        { 0x4d, 0x0f, 0x46, 0xca },
+        // 0f 44 c2             cmovbe %edx,%eax
+        { 0x0f, 0x46, 0xc2 },
     };
     test_cti_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
     test_cti_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
-    test_cti_predicate(dc, data[2], 4, OP_cmovbe, DR_PRED_BE);
+    test_cti_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
 }
 
 static void
