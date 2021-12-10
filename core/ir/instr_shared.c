@@ -734,9 +734,7 @@ instr_get_prefixes(instr_t *instr)
 bool
 instr_is_predicated(instr_t *instr)
 {
-    /* XXX i#1556: we should also mark conditional branches and string loops
-     * as predicated!
-     */
+    /* XXX i#1556: we should also mark jecxz and string loops as predicated! */
     dr_pred_type_t pred = instr_get_predicate(instr);
     return instr_predicate_is_cond(pred);
 }

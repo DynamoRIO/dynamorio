@@ -914,6 +914,34 @@ test_cti_prefixes(void *dc)
 }
 
 static void
+test_cti_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
+{
+    instr_t *instr = instr_create(dc);
+    byte *end = decode(dc, data, instr);
+    ASSERT(end == data + len);
+    ASSERT(instr_get_opcode(instr) == opcode);
+    ASSERT(instr_is_predicated(instr));
+    ASSERT(instr_get_predicate(instr) == pred);
+    instr_destroy(dc, instr);
+}
+
+static void
+test_cti_predicates(void *dc)
+{
+    byte data[][16] = {
+        // 7e 10                jle    10
+        { 0x7e, 0x10 },
+        // 0f 84 99 00 00 00    je     403e08
+        { 0x0f, 0x84, 0x99, 0x00, 0x00, 0x00 },
+        // 0f 44 c2             cmovbe %edx,%eax
+        { 0x0f, 0x46, 0xc2 },
+    };
+    test_cti_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
+    test_cti_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
+    test_cti_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
+}
+
+static void
 test_modrm16_helper(void *dc, reg_id_t base, reg_id_t scale, uint disp, uint len)
 {
     instr_t *instr;
@@ -2495,6 +2523,8 @@ main(int argc, char *argv[])
     test_indirect_cti(dcontext);
 
     test_cti_prefixes(dcontext);
+
+    test_cti_predicates(dcontext);
 
 #ifndef X64
     test_modrm16(dcontext);
