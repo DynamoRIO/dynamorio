@@ -52,9 +52,6 @@ proc_init_arch(void)
                              /* icache_line_size= */ NULL)) {
         LOG(GLOBAL, LOG_TOP, 1, "Unable to obtain cache line size");
     }
-    if (!get_dcache_zero_blk_size(&dcache_zva_size)) {
-        LOG(GLOBAL, LOG_TOP, 1, "Unable to obtain dcache block size");
-    }
 
     /* FIXME i#1569: NYI */
 }

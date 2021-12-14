@@ -266,6 +266,9 @@ enum {
 #define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
 #define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
 #define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
+#ifdef AARCH64
+#    define OPSZ_sys OPSZ_1 /**< Operand size for sys instruction memory reference. */
+#endif
 
 /* We encode this enum plus the OPSZ_ extensions in bytes, so we can have
  * at most 256 total DR_REG_ plus OPSZ_ values.  Currently there are 165-odd.
@@ -1869,11 +1872,6 @@ opnd_t
 opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
                               dr_extend_type_t extend_type, bool scaled, int disp,
                               dr_opnd_flags_t flags, opnd_size_t size);
-
-DR_API
-/** Returns the data cache block size in bytes for zeroing the cache. */
-size_t
-proc_get_dcache_zva_size(void);
 #endif
 
 DR_API

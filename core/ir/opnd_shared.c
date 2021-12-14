@@ -744,14 +744,6 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
         CLIENT_ASSERT(false, "opnd_create_base_disp_aarch64: invalid extend type");
     return opnd;
 }
-
-size_t dcache_zva_size;
-
-size_t
-proc_get_dcache_zva_size(void)
-{
-    return dcache_zva_size;
-}
 #endif
 
 #undef opnd_get_base

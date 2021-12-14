@@ -108,7 +108,6 @@
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
-#define OPSZ_CACHE_LINE() opnd_size_from_bytes(proc_get_dcache_zva_size())
 
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros
@@ -725,6 +724,11 @@
 
 #define INSTR_CREATE_sys(dc, op, Rn) instr_create_0dst_2src(dc, OP_sys, op, Rn)
 
+/* TODO i#4400: Cache instructions which behave like memory stores (e.g. DC
+ * ZVA) should implement memory operand which encapsulates back-aligned start
+ * address as well as cache line size (read from system regiater).
+ */
+
 /**
  * Creates a DC CISW instruction to Clean and Invalidate data cache line by Set/Way.
  * \param dc   The void * dcontext used to allocate memory for the #instr_t.
@@ -744,7 +748,7 @@
     instr_create_0dst_1src(dc, OP_dc_civac,                                             \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          0, false, 0, 0,                \
-                                                         OPSZ_CACHE_LINE()))
+                                                         OPSZ_sys))
 
 /**
  * Creates a DC CSW instruction to Clean data cache line by Set/Way.
@@ -765,7 +769,7 @@
     instr_create_0dst_1src(dc, OP_dc_cvac,                                              \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          0, false, 0, 0,                \
-                                                         OPSZ_CACHE_LINE()))
+                                                         OPSZ_sys))
 
 /**
  * Creates a DC CVAU instruction to Clean data cache by Virtual Address to
@@ -778,7 +782,7 @@
     instr_create_0dst_1src(dc, OP_dc_cvau,                                              \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          0, false, 0, 0,                \
-                                                         OPSZ_CACHE_LINE()))
+                                                         OPSZ_sys))
 
 /**
  * Creates a DC ISW instruction to Invalidate data cache line by Set/Way.
@@ -799,7 +803,7 @@
     instr_create_0dst_1src(dc, OP_dc_ivac,                                              \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          0, false, 0, 0,                \
-                                                         OPSZ_CACHE_LINE()))
+                                                         OPSZ_sys))
 
 /**
  * Creates a DC ZVA instruction to Zero data cache by Virtual Address.
@@ -814,7 +818,7 @@
     instr_create_1dst_0src(dc, OP_dc_zva,                                               \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          0, false, 0, 0,                \
-                                                         OPSZ_CACHE_LINE()))
+                                                         OPSZ_sys))
 
 /**
  * Creates an IC IVAU instruction to Invalidate instruction cache line by
@@ -827,7 +831,7 @@
     instr_create_0dst_1src(dc, OP_ic_ivau,                                              \
                            opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
                                                          0, false, 0, 0,                \
-                                                         OPSZ_CACHE_LINE()))
+                                                         OPSZ_sys))
 
 /**
  * Creates an IC IALLU instruction to Invalidate All of instruction caches

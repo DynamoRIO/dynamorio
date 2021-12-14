@@ -46,7 +46,6 @@
 
 /* exported for efficient access */
 extern size_t cache_line_size;
-extern size_t dcache_zva_size;
 
 #define CACHE_LINE_SIZE() cache_line_size
 
