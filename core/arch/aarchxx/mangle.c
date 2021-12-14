@@ -3277,7 +3277,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         swap_reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL,
                                     DR_REG_NULL, false, &swap_slot, &swap_restore);
-        insert_save_to_tls_if_necessary(dcontext, ilist, instr, swap_reg, swap_slot);
+        if (swap_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, swap_reg, swap_slot);
         if (instr_reads_from_reg(instr, dr_reg_stolen, DR_QUERY_DEFAULT)) {
             PRE(ilist, instr,
                 instr_create_restore_from_tls(dcontext, swap_reg, TLS_REG_STOLEN_SLOT));
@@ -3300,7 +3301,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (!stex_in_same_block && value_reg == DR_REG_XZR) {
         xzr_repl = pick_scratch_reg(dcontext, instr, swap_reg, DR_REG_NULL, DR_REG_NULL,
                                     true, &xzr_slot, &xzr_restore);
-        insert_save_to_tls_if_necessary(dcontext, ilist, instr, xzr_repl, xzr_slot);
+        if (xzr_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, xzr_repl, xzr_slot);
         opnd_t value_op = instr_get_dst(instr, 0);
         opnd_replace_reg_resize(&value_op, opnd_get_reg(value_op), xzr_repl);
         instr_set_dst(instr, 0, value_op);
@@ -3315,7 +3317,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
         xzr2_repl = pick_scratch_reg(dcontext, instr, swap_reg, xzr_repl, DR_REG_NULL,
                                      true, &xzr2_slot, &xzr2_restore);
-        insert_save_to_tls_if_necessary(dcontext, ilist, instr, xzr2_repl, xzr2_slot);
+        if (xzr2_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, xzr2_repl, xzr2_slot);
         opnd_t value2_op = instr_get_dst(instr, 1);
         opnd_replace_reg_resize(&value2_op, opnd_get_reg(value2_op), xzr2_repl);
         instr_set_dst(instr, 1, value2_op);
@@ -3340,7 +3343,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         bool should_restore;
         reg_id_t scratch = pick_scratch_reg(dcontext, instr, swap_reg, xzr_repl,
                                             xzr2_repl, true, &slot, &should_restore);
-        insert_save_to_tls_if_necessary(dcontext, ilist, where, scratch, slot);
+        if (should_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, where, scratch, slot);
         /* Write the address and value to TLS. */
         /* Pair store requires consecutive register numbers for 32-bit. */
         bool use_pair = IF_AARCH64_ELSE(base_reg != DR_REG_SP, false);
@@ -3495,7 +3499,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         swap_reg = pick_scratch_reg(dcontext, instr, reg_orig_ld_val, reg_orig_ld_val2,
                                     DR_REG_NULL, false, &swap_slot, &swap_restore);
-        insert_save_to_tls_if_necessary(dcontext, ilist, instr, swap_reg, swap_slot);
+        if (swap_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, swap_reg, swap_slot);
         if (instr_reads_from_reg(instr, dr_reg_stolen, DR_QUERY_DEFAULT)) {
             PRE(ilist, instr,
                 instr_create_restore_from_tls(dcontext, swap_reg, TLS_REG_STOLEN_SLOT));
@@ -3532,7 +3537,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, reg_orig_ld_val,
                                         reg_orig_ld_val2,
                                         /*dead_reg_ok=*/false, &slot3, &should_restore3);
-            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
+            if (should_restore3)
+                insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
         }
     } else {
         ASSERT(reg_orig_ld_val == DR_REG_NULL &&
@@ -3540,7 +3546,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* We pass false to avoid the status reg, which we ourselves use. */
         scratch = pick_scratch_reg(dcontext, instr, swap_reg, DR_REG_NULL, DR_REG_NULL,
                                    false, &slot, &should_restore);
-        insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
+        if (should_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
 #ifdef ARM
         if (!is_cbnz_available(dcontext, reg_res)) {
             /* We have no CBNZ so we need to preserve the flags. */
@@ -3554,8 +3561,10 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                         /*dead_reg_ok=*/false, &slot2, &should_restore2);
             scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, scratch, scratch2,
                                         /*dead_reg_ok=*/false, &slot3, &should_restore3);
-            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch2, slot2);
-            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
+            if (should_restore2)
+                insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch2, slot2);
+            if (should_restore3)
+                insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
         }
         /* Compare address, arranging op_res to show failure on mismatch (though
          * now that we have a stex after no_match for fault fidelity it will set
@@ -3704,7 +3713,8 @@ mangle_exclusive_monitor_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *i
         bool should_restore;
         reg_id_t scratch = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL,
                                             DR_REG_NULL, true, &slot, &should_restore);
-        insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
+        if (should_restore)
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
         PRE(ilist, instr,
             XINST_CREATE_load_int(dcontext, opnd_create_reg(scratch),
                                   OPND_CREATE_INT(0)));

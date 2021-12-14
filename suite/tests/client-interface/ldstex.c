@@ -156,12 +156,16 @@ test_shapes(void)
     my_var.counter2 = 117;
     added = ldstex_inc32_with_xzr(&my_var);
     /* We zero both and only the 2nd's add sticks. */
-    if (my_var.counter2 != added)
-        print("Error in ldstex_inc32_with_xzr: %d\n", my_var.counter2);
+    if (my_var.counter1 != 0 || my_var.counter2 != added) {
+        print("Error in ldstex_inc32_with_xzr: %d %d\n", my_var.counter1,
+              my_var.counter2);
+    }
     two_counters64_t my_var64 = { 42, 117 };
     added = ldstex_inc64_with_xzr(&my_var64);
-    if (my_var64.counter2 != added)
-        print("Error in ldstex_inc64_with_xzr: %ld\n", my_var64.counter2);
+    if (my_var64.counter1 != 0 || my_var64.counter2 != added) {
+        print("Error in ldstex_inc64_with_xzr: %ld %ld\n", my_var64.counter1,
+              my_var64.counter2);
+    }
 #    endif
 }
 
@@ -887,6 +891,10 @@ GLOBAL_LABEL(FUNCNAME:)
 #define FUNCNAME ldstex_inc32_with_xzr
         DECLARE_FUNC_SEH(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        /* The clean call version thwarts the single-block optimized mangling,
+         * so we do not need to make separate-block versions of these as we
+         * have tests of both the fastpath and slowpath.
+         */
       1:
         ldaxr    wzr, [x0]
         stlxr    w3, wzr, [x0]
