@@ -68,6 +68,10 @@
 #define XMM_REG_SIZE 16
 #define YMM_REG_SIZE 32
 #define ZMM_REG_SIZE 64
+/* For simplicity, we use the largest alignment required by the opcodes
+ * returned by get_mov_scratch_mm_opcode_and_size.
+ */
+#define MM_ALIGNMENT 64
 
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
@@ -105,6 +109,7 @@ static bool soft_kills_enabled;
 static int tls_idx;
 typedef struct _per_thread_t {
     void *scratch_mm_spill_slot;
+    void *scratch_mm_spill_slot_aligned;
 } per_thread_t;
 
 static per_thread_t *
@@ -164,12 +169,12 @@ get_mov_scratch_mm_opcode_and_size(int *opcode_out, opnd_size_t *opnd_size_out)
     /* We use same opcodes as used by fcache enter/return. */
     if (proc_avx512_enabled()) {
         /* ZMM enabled. */
-        opcode = OP_vmovups;
+        opcode = OP_vmovaps; /* Requires 64-byte alignment. */
         opnd_size = OPSZ_64;
     } else {
         /* YMM enabled. */
         ASSERT(proc_avx_enabled(), "Scatter/gather instrs not available");
-        opcode = OP_vmovdqu;
+        opcode = OP_vmovdqa; /* Requires 32-byte alignment. */
         opnd_size = OPSZ_32;
     }
     if (opcode_out != NULL)
@@ -184,7 +189,10 @@ drx_thread_init(void *drcontext)
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
     opnd_size_t mm_opsz;
     get_mov_scratch_mm_opcode_and_size(NULL, &mm_opsz);
-    pt->scratch_mm_spill_slot = dr_thread_alloc(drcontext, opnd_size_in_bytes(mm_opsz));
+    pt->scratch_mm_spill_slot =
+        dr_thread_alloc(drcontext, opnd_size_in_bytes(mm_opsz) + (MM_ALIGNMENT - 1));
+    pt->scratch_mm_spill_slot_aligned =
+        (void *)ALIGN_FORWARD(pt->scratch_mm_spill_slot, MM_ALIGNMENT);
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 }
 
@@ -194,7 +202,8 @@ drx_thread_exit(void *drcontext)
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     opnd_size_t mm_opsz;
     get_mov_scratch_mm_opcode_and_size(NULL, &mm_opsz);
-    dr_thread_free(drcontext, pt->scratch_mm_spill_slot, opnd_size_in_bytes(mm_opsz));
+    dr_thread_free(drcontext, pt->scratch_mm_spill_slot,
+                   opnd_size_in_bytes(mm_opsz) + (MM_ALIGNMENT - 1));
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 #endif
@@ -2474,7 +2483,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         INSTR_CREATE_mov_ld(
             drcontext, opnd_create_reg(scratch_reg0),
             OPND_CREATE_MEMPTR(scratch_reg0,
-                               offsetof(per_thread_t, scratch_mm_spill_slot))));
+                               offsetof(per_thread_t, scratch_mm_spill_slot_aligned))));
 
     if (mov_scratch_mm_opnd_sz == OPSZ_64) {
         instrlist_meta_preinsert(
@@ -2612,7 +2621,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
         INSTR_CREATE_mov_ld(
             drcontext, opnd_create_reg(scratch_reg0),
             OPND_CREATE_MEMPTR(scratch_reg0,
-                               offsetof(per_thread_t, scratch_mm_spill_slot))));
+                               offsetof(per_thread_t, scratch_mm_spill_slot_aligned))));
     if (mov_scratch_mm_opnd_sz == OPSZ_64) {
         instrlist_meta_preinsert(
             bb, sg_instr,
@@ -2889,7 +2898,7 @@ restore_spilled_mm_value(void *drcontext, drx_state_machine_params_t *params)
                (reg_is_strictly_ymm(params->spilled_mm) ||
                 reg_is_strictly_zmm(params->spilled_mm)),
            "No spilled ymm/zmm reg recorded");
-    memcpy(mm_val, get_tls_data(drcontext)->scratch_mm_spill_slot,
+    memcpy(mm_val, get_tls_data(drcontext)->scratch_mm_spill_slot_aligned,
            reg_is_strictly_ymm(params->spilled_mm) ? YMM_REG_SIZE : ZMM_REG_SIZE);
     reg_set_value_ex(params->spilled_mm, params->info->mcontext, mm_val);
 }
