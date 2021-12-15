@@ -3014,7 +3014,7 @@ create_ld_from_ldex(dcontext_t *dcontext, instr_t *ldex)
 }
 
 static instr_t *
-create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg OUT,
+create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg INOUT,
                       /* For a pair, we need a caller-set-up scratch reg for the 2nd. */
                       reg_id_t dest_reg2,
                       /* Whether to merge a pair of 4-bytes into one 8-byte. */
@@ -3041,9 +3041,17 @@ create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg O
      * disallowed (at least, it's unpredictable behavior: we assume that us
      * clobbering it falls under possible unpredictable results, though that's
      * probably not true if we fault the base).
+     * For a pair, we rely on comparing this first value first, as the compare
+     * result writes the same store result register.
      */
     opnd_size_t opsz = opnd_get_size(instr_get_src(strex, 0));
-    *dest_reg = reg_resize_to_opsz(opnd_get_reg(instr_get_dst(strex, 1)), opsz);
+    /* The store dest reg could equal a load dest reg, in which case the caller must
+     * pass us a scratch reg.
+     */
+    if (*dest_reg == DR_REG_NULL)
+        *dest_reg = reg_resize_to_opsz(opnd_get_reg(instr_get_dst(strex, 1)), opsz);
+    else
+        *dest_reg = reg_resize_to_opsz(*dest_reg, opsz);
     opnd_t regop = opnd_create_reg(*dest_reg);
     /* TODO i#1698: Preserve ARM predication and add tests. */
     switch (instr_get_opcode(strex)) {
@@ -3238,6 +3246,18 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 opnd_get_size(instr_get_src(in, 0)) ==
                     opnd_get_size(instr_get_dst(instr, 0)) &&
                 opnd_get_base(instr_get_dst(in, 0)) == base_reg &&
+                /* pick_scratch_reg() only takes 3 conflicts, so we push a pair with the
+                 * store res matching a load dest and using the stolen reg to the
+                 * unoptimized sequence.  We keep non-stolen-reg cases on the optimized
+                 * path because this is relatively common: a store-release pair uses a
+                 * monitor because there is no store-release-pair opcode; its load
+                 * destinations are discarded, but both cannot be XZR since that is
+                 * undefined behavior: so the dead register store result is used.
+                 */
+                (!instr_uses_reg(in, dr_reg_stolen) ||
+                 (reg_to_pointer_sized(opnd_get_reg(instr_get_dst(in, 1))) != value_reg &&
+                  reg_to_pointer_sized(opnd_get_reg(instr_get_dst(in, 1))) !=
+                      value2_reg)) &&
                 /* We bail on optimizing A32 where we have no OP_cbnz and we'd need
                  * to complicate the optimized sequence with a flags spill.
                  */
@@ -3263,7 +3283,7 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * since we have a bunch of TLS refs inside that would then have a non-standard
      * base and confuse translation code.  Instead we change the ldex.
      */
-    reg_id_t swap_reg = DR_REG_NULL;
+    reg_id_t stolen_swap_reg = DR_REG_NULL;
     ushort swap_slot = 0;
     bool swap_restore = false;
     if (instr_uses_reg(instr, dr_reg_stolen)) {
@@ -3275,15 +3295,18 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             stex_in_same_block = false;
         }
-        swap_reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL,
-                                    DR_REG_NULL, false, &swap_slot, &swap_restore);
-        if (swap_restore)
-            insert_save_to_tls_if_necessary(dcontext, ilist, instr, swap_reg, swap_slot);
+        stolen_swap_reg = pick_scratch_reg(dcontext, instr, DR_REG_NULL, DR_REG_NULL,
+                                           DR_REG_NULL, false, &swap_slot, &swap_restore);
+        if (swap_restore) {
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, stolen_swap_reg,
+                                            swap_slot);
+        }
         if (instr_reads_from_reg(instr, dr_reg_stolen, DR_QUERY_DEFAULT)) {
             PRE(ilist, instr,
-                instr_create_restore_from_tls(dcontext, swap_reg, TLS_REG_STOLEN_SLOT));
+                instr_create_restore_from_tls(dcontext, stolen_swap_reg,
+                                              TLS_REG_STOLEN_SLOT));
         }
-        instr_replace_reg_resize(instr, dr_reg_stolen, swap_reg);
+        instr_replace_reg_resize(instr, dr_reg_stolen, stolen_swap_reg);
         /* Re-acquire registers we may have replaced. */
         value_reg = reg_to_pointer_sized(opnd_get_reg(instr_get_dst(instr, 0)));
         if (instr_num_dsts(instr) == 2)
@@ -3299,8 +3322,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * forever: i#5245).  For same-block we statically skip the compare.
      */
     if (!stex_in_same_block && value_reg == DR_REG_XZR) {
-        xzr_repl = pick_scratch_reg(dcontext, instr, swap_reg, DR_REG_NULL, DR_REG_NULL,
-                                    true, &xzr_slot, &xzr_restore);
+        xzr_repl = pick_scratch_reg(dcontext, instr, stolen_swap_reg, DR_REG_NULL,
+                                    DR_REG_NULL, true, &xzr_slot, &xzr_restore);
         if (xzr_restore)
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, xzr_repl, xzr_slot);
         opnd_t value_op = instr_get_dst(instr, 0);
@@ -3315,8 +3338,8 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
              */
             ASSERT_NOT_TESTED();
         }
-        xzr2_repl = pick_scratch_reg(dcontext, instr, swap_reg, xzr_repl, DR_REG_NULL,
-                                     true, &xzr2_slot, &xzr2_restore);
+        xzr2_repl = pick_scratch_reg(dcontext, instr, stolen_swap_reg, xzr_repl,
+                                     DR_REG_NULL, true, &xzr2_slot, &xzr2_restore);
         if (xzr2_restore)
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, xzr2_repl, xzr2_slot);
         opnd_t value2_op = instr_get_dst(instr, 1);
@@ -3341,7 +3364,7 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* We need a scratch register. */
         ushort slot;
         bool should_restore;
-        reg_id_t scratch = pick_scratch_reg(dcontext, instr, swap_reg, xzr_repl,
+        reg_id_t scratch = pick_scratch_reg(dcontext, instr, stolen_swap_reg, xzr_repl,
                                             xzr2_repl, true, &slot, &should_restore);
         if (should_restore)
             insert_save_to_tls_if_necessary(dcontext, ilist, where, scratch, slot);
@@ -3421,14 +3444,14 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* Replace the exclusive load with a non-exclusive version. */
     instr_t *ld_nonex = create_ld_from_ldex(dcontext, instr);
     instrlist_preinsert(ilist, instr, ld_nonex);
-    if (swap_reg != DR_REG_NULL) {
-        if (instr_writes_to_reg(instr, swap_reg, DR_QUERY_INCLUDE_COND_DSTS)) {
+    if (stolen_swap_reg != DR_REG_NULL) {
+        if (instr_writes_to_reg(instr, stolen_swap_reg, DR_QUERY_INCLUDE_COND_DSTS)) {
             PRE(ilist, where,
-                instr_create_save_to_tls(dcontext, swap_reg, TLS_REG_STOLEN_SLOT));
+                instr_create_save_to_tls(dcontext, stolen_swap_reg, TLS_REG_STOLEN_SLOT));
         }
         if (swap_restore) {
             PRE(ilist, where,
-                instr_create_restore_from_tls(dcontext, swap_reg, swap_slot));
+                instr_create_restore_from_tls(dcontext, stolen_swap_reg, swap_slot));
         }
     }
     if (xzr_restore)
@@ -3485,7 +3508,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             break;
         }
     }
-    reg_id_t swap_reg = DR_REG_NULL;
+    reg_id_t stolen_swap_reg = DR_REG_NULL;
     ushort swap_slot = 0;
     bool swap_restore = false;
     /* If the stex uses the stolen reg, we do not swap around it as we normally do,
@@ -3497,15 +3520,19 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * Below we make sure our scratch reg is distinct from this swap reg,
          * which fortunately is a separate case from having prior value regs.
          */
-        swap_reg = pick_scratch_reg(dcontext, instr, reg_orig_ld_val, reg_orig_ld_val2,
-                                    DR_REG_NULL, false, &swap_slot, &swap_restore);
-        if (swap_restore)
-            insert_save_to_tls_if_necessary(dcontext, ilist, instr, swap_reg, swap_slot);
+        stolen_swap_reg =
+            pick_scratch_reg(dcontext, instr, reg_orig_ld_val, reg_orig_ld_val2,
+                             DR_REG_NULL, false, &swap_slot, &swap_restore);
+        if (swap_restore) {
+            insert_save_to_tls_if_necessary(dcontext, ilist, instr, stolen_swap_reg,
+                                            swap_slot);
+        }
         if (instr_reads_from_reg(instr, dr_reg_stolen, DR_QUERY_DEFAULT)) {
             PRE(ilist, instr,
-                instr_create_restore_from_tls(dcontext, swap_reg, TLS_REG_STOLEN_SLOT));
+                instr_create_restore_from_tls(dcontext, stolen_swap_reg,
+                                              TLS_REG_STOLEN_SLOT));
         }
-        instr_replace_reg_resize(instr, dr_reg_stolen, swap_reg);
+        instr_replace_reg_resize(instr, dr_reg_stolen, stolen_swap_reg);
     }
 
     reg_id_t reg_res = opnd_get_reg(instr_get_dst(instr, 1));
@@ -3525,27 +3552,58 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * we put in the dead status reg): so 7 regs, but only 3 slots.  The stolen reg
      * swap does not add because the store would then use one fewer of the scratch
      * reg range.
+     * For our scratch registers used for comparisons, we cannot easily use a dead
+     * register because the compares have to write to the store result (so the mismatch
+     * case has the right result), and that would clobber a subsequent compare's
+     * sources: thus we pass false for dead_reg_ok.  (We do use the dead store result
+     * for the first live-value in create_ldax_from_stex() which works out as we
+     * compare that one immediately.)
      */
     reg_id_t scratch = DR_REG_NULL, scratch2 = DR_REG_NULL, scratch3 = DR_REG_NULL;
     ushort slot, slot2, slot3;
     bool should_restore = false, should_restore2 = false, should_restore3 = false;
+    reg_id_t reg_new_ld_val = DR_REG_NULL;
+    reg_id_t reg_new_ld_val2 = DR_REG_NULL;
+    bool compare_second_first = false;
     if (ldex_in_same_block) {
         /* We aren't saving the flags so we can only handle Thumb mode with CBNZ. */
         IF_ARM(ASSERT(is_cbnz_available(dcontext, reg_res)));
+        if (reg_to_pointer_sized(reg_res) == reg_orig_ld_val ||
+            reg_to_pointer_sized(reg_res) == reg_orig_ld_val2) {
+            /* We can't use the store res in the synthetic load if it has a value. */
+            scratch = pick_scratch_reg(dcontext, instr, stolen_swap_reg, reg_orig_ld_val,
+                                       reg_orig_ld_val2,
+                                       /*dead_reg_ok=*/false, &slot, &should_restore);
+            if (should_restore)
+                insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
+            reg_new_ld_val = scratch;
+            if (reg_to_pointer_sized(reg_res) == reg_orig_ld_val2)
+                compare_second_first = true;
+        }
         if (is_pair) {
             /* We do need one scratch reg for the value comparison. */
-            scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, reg_orig_ld_val,
+            /* pick_scratch_reg() only takes 3 conflicts, so we push a pair with the
+             * store res matching a load dest (scratch != DR_REG_NULL) and using the
+             * stolen register (stolen_swap_reg != DR_REG_NULL) to not use
+             * ldex_in_same_block.
+             */
+            ASSERT(stolen_swap_reg == DR_REG_NULL || scratch == DR_REG_NULL);
+            reg_id_t swap_or_scratch =
+                (stolen_swap_reg == DR_REG_NULL) ? scratch : stolen_swap_reg;
+            scratch3 = pick_scratch_reg(dcontext, instr, swap_or_scratch, reg_orig_ld_val,
                                         reg_orig_ld_val2,
                                         /*dead_reg_ok=*/false, &slot3, &should_restore3);
             if (should_restore3)
                 insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
+            reg_new_ld_val2 = scratch3;
         }
     } else {
         ASSERT(reg_orig_ld_val == DR_REG_NULL &&
-               reg_orig_ld_val2 == DR_REG_NULL); /* We only have to avoid swap_reg. */
+               reg_orig_ld_val2 ==
+                   DR_REG_NULL); /* We only have to avoid stolen_swap_reg. */
         /* We pass false to avoid the status reg, which we ourselves use. */
-        scratch = pick_scratch_reg(dcontext, instr, swap_reg, DR_REG_NULL, DR_REG_NULL,
-                                   false, &slot, &should_restore);
+        scratch = pick_scratch_reg(dcontext, instr, stolen_swap_reg, DR_REG_NULL,
+                                   DR_REG_NULL, false, &slot, &should_restore);
         if (should_restore)
             insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
 #ifdef ARM
@@ -3557,14 +3615,17 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
 #endif
         if (is_pair) {
-            scratch2 = pick_scratch_reg(dcontext, instr, swap_reg, scratch, DR_REG_NULL,
-                                        /*dead_reg_ok=*/false, &slot2, &should_restore2);
-            scratch3 = pick_scratch_reg(dcontext, instr, swap_reg, scratch, scratch2,
-                                        /*dead_reg_ok=*/false, &slot3, &should_restore3);
+            scratch2 =
+                pick_scratch_reg(dcontext, instr, stolen_swap_reg, scratch, DR_REG_NULL,
+                                 /*dead_reg_ok=*/false, &slot2, &should_restore2);
+            scratch3 =
+                pick_scratch_reg(dcontext, instr, stolen_swap_reg, scratch, scratch2,
+                                 /*dead_reg_ok=*/false, &slot3, &should_restore3);
             if (should_restore2)
                 insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch2, slot2);
             if (should_restore3)
                 insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch3, slot3);
+            reg_new_ld_val2 = scratch3;
         }
         /* Compare address, arranging op_res to show failure on mismatch (though
          * now that we have a stex after no_match for fault fidelity it will set
@@ -3609,8 +3670,6 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             reg_orig_ld_val2 = scratch2;
         }
     }
-    reg_id_t reg_new_ld_val;
-    reg_id_t reg_new_ld_val2 = is_pair ? scratch3 : DR_REG_NULL;
     PRE(ilist, instr,
         create_ldax_from_stex(dcontext, instr, &reg_new_ld_val, reg_new_ld_val2,
                               !is_pair));
@@ -3619,12 +3678,24 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * This is not an optimization, but required to avoid an infinite loop (i#5245).
      * (For !ldex_in_same_block, we handle this when mangling the load.)
      */
+    if (is_pair &&
+        /* If the 2nd matches the store results, we have to compare it first, since
+         * op_res will clobber the value.
+         */
+        compare_second_first IF_AARCH64(
+            &&(!ldex_in_same_block || reg_orig_ld_val2 != DR_REG_XZR))) {
+        insert_compare_and_jump_not_equal(dcontext, ilist, instr, op_res,
+                                          opnd_create_reg(reg_new_ld_val2),
+                                          opnd_create_reg(reg_orig_ld_val2), no_match);
+    }
     if (IF_AARCH64_ELSE(!ldex_in_same_block || reg_orig_ld_val != DR_REG_XZR, true)) {
         insert_compare_and_jump_not_equal(dcontext, ilist, instr, op_res,
                                           opnd_create_reg(reg_new_ld_val),
                                           opnd_create_reg(reg_orig_ld_val), no_match);
     }
-    if (is_pair IF_AARCH64(&&(!ldex_in_same_block || reg_orig_ld_val2 != DR_REG_XZR))) {
+    if (is_pair &&
+        !compare_second_first IF_AARCH64(
+            &&(!ldex_in_same_block || reg_orig_ld_val2 != DR_REG_XZR))) {
         insert_compare_and_jump_not_equal(dcontext, ilist, instr, op_res,
                                           opnd_create_reg(reg_new_ld_val2),
                                           opnd_create_reg(reg_orig_ld_val2), no_match);
@@ -3660,14 +3731,14 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (should_restore3) {
         PRE(ilist, post_store, instr_create_restore_from_tls(dcontext, scratch3, slot3));
     }
-    if (swap_reg != DR_REG_NULL) {
-        if (instr_writes_to_reg(instr, swap_reg, DR_QUERY_INCLUDE_COND_DSTS)) {
+    if (stolen_swap_reg != DR_REG_NULL) {
+        if (instr_writes_to_reg(instr, stolen_swap_reg, DR_QUERY_INCLUDE_COND_DSTS)) {
             PRE(ilist, post_store,
-                instr_create_save_to_tls(dcontext, swap_reg, TLS_REG_STOLEN_SLOT));
+                instr_create_save_to_tls(dcontext, stolen_swap_reg, TLS_REG_STOLEN_SLOT));
         }
         if (swap_restore) {
             PRE(ilist, post_store,
-                instr_create_restore_from_tls(dcontext, swap_reg, swap_slot));
+                instr_create_restore_from_tls(dcontext, stolen_swap_reg, swap_slot));
         }
     }
     return next_instr;

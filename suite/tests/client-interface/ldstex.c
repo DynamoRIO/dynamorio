@@ -475,7 +475,28 @@ GLOBAL_LABEL(FUNCNAME:)
         add      w2, w2, #0x1
         stxp     w3, w1, w2, [x0]
         cbnz     w3, 4b
-        mov      w0, #4
+        /* Test store-res == load-dest (i#5247). */
+      5:
+        ldaxp    w1, w2, [x0]
+        add      w4, w1, #0x1
+        add      w5, w2, #0x1
+        stlxp    w1, w4, w5, [x0]
+        cbnz     w1, 5b
+      6:
+        ldaxp    w2, w1, [x0] /* Test the other order too. */
+        add      w4, w2, #0x1
+        add      w5, w1, #0x1
+        stlxp    w1, w4, w5, [x0]
+        cbnz     w1, 6b
+      7:
+        stp      x28, x29, [sp, #-16]!
+        ldaxp    w2, w28, [x0] /* Test stolen reg. */
+        add      w4, w2, #0x1
+        add      w5, w28, #0x1
+        stlxp    w28, w4, w5, [x0]
+        cbnz     w28, 7b
+        ldp      x28, x29, [sp], #16
+        mov      w0, #7
         ret
 #elif defined(ARM)
       1:
@@ -492,7 +513,25 @@ GLOBAL_LABEL(FUNCNAME:)
         strexd   r1, r2, r3, [r0]
         cmp      r1, #0
         bne      2b
-        mov      r0, #2
+        /* Test store-res == load-dest (i#5247). */
+        push     {r4, r5, r10, r11}
+      3:
+        ldaexd   r2, r3, [r0]
+        add      r4, r2, #0x1
+        add      r5, r3, #0x1
+        stlexd   r2, r4, r5, [r0]
+        cmp      r2, #0
+        bne      3b
+      4:
+        ldaexd   r10, r11, [r0] /* Test stolen reg. */
+        add      r4, r10, #0x1
+        add      r5, r11, #0x1
+        stlexd   r10, r4, r5, [r0]
+        cmp      r10, #0
+        bne      4b
+        /* ARM pairs must be in order so we can't re-order. */
+        pop      {r4, r5, r10, r11}
+        mov      r0, #4
         bx       lr
 #else
 #    error Unsupported arch
