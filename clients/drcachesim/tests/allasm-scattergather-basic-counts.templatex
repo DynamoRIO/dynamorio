@@ -3,8 +3,8 @@ Hello world!
 ---- <application exited with code 0> ----
 Basic counts tool results:
 Total counts:
-          87 total \(fetched\) instructions
-          87 total unique \(fetched\) instructions
+          96 total \(fetched\) instructions
+          96 total unique \(fetched\) instructions
            0 total non-fetched instructions
            0 total prefetches
            6 total data loads
@@ -20,8 +20,8 @@ Total counts:
      .* total function return value markers
      .* total other markers
 Thread .* counts:
-          87 \(fetched\) instructions
-          87 unique \(fetched\) instructions
+          96 \(fetched\) instructions
+          96 unique \(fetched\) instructions
            0 non-fetched instructions
            0 prefetches
            6 data loads
