@@ -2455,9 +2455,9 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             break;
     }
     /* Spill the scratch mm reg. We spill the largest reg corresponding to scratch_xmm
-     * support by the system. This is required because writing a part of a ymm/zmm reg
-     * zeroes the remaining automatically. So we need to save the complete ymm/zmm reg
-     * and not just the lower xmm bits.
+     * that is supported by the system. This is required because writing a part of a
+     * ymm/zmm reg zeroes the remaining automatically. So we need to save the complete
+     * ymm/zmm reg and not just the lower xmm bits.
      * TODO i#3844: drreg does not support spilling mm regs yet, so we do it ourselves.
      * When that support is available, replace the following with the required drreg API
      * calls.
@@ -2948,7 +2948,7 @@ static bool
 drx_avx2_gather_sequence_state_machine(void *drcontext,
                                        drx_state_machine_params_t *params)
 {
-    uint mov_scratch_mm_opcode;
+    int mov_scratch_mm_opcode;
     opnd_size_t mov_scratch_mm_opnd_sz;
     get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
     uint mov_scratch_mm_opnd_pos = (mov_scratch_mm_opnd_sz == OPSZ_64 ? 1 : 0);
@@ -3217,7 +3217,7 @@ static bool
 drx_avx512_scatter_sequence_state_machine(void *drcontext,
                                           drx_state_machine_params_t *params)
 {
-    uint mov_scratch_mm_opcode;
+    int mov_scratch_mm_opcode;
     opnd_size_t mov_scratch_mm_opnd_sz;
     get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
     uint mov_scratch_mm_opnd_pos = (mov_scratch_mm_opnd_sz == OPSZ_64 ? 1 : 0);
@@ -3492,7 +3492,7 @@ static bool
 drx_avx512_gather_sequence_state_machine(void *drcontext,
                                          drx_state_machine_params_t *params)
 {
-    uint mov_scratch_mm_opcode;
+    int mov_scratch_mm_opcode;
     opnd_size_t mov_scratch_mm_opnd_sz;
     get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
     uint mov_scratch_mm_opnd_pos = (mov_scratch_mm_opnd_sz == OPSZ_64 ? 1 : 0);
