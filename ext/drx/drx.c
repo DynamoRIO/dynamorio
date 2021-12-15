@@ -157,7 +157,7 @@ get_tls_data(void *drcontext)
 }
 
 static void
-get_mov_scratch_mm_opcode_and_size(uint *opcode_out, opnd_size_t *opnd_size_out)
+get_mov_scratch_mm_opcode_and_size(int *opcode_out, opnd_size_t *opnd_size_out)
 {
     uint opcode;
     opnd_size_t opnd_size;
@@ -2462,7 +2462,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
      * When that support is available, replace the following with the required drreg API
      * calls.
      */
-    uint mov_scratch_mm_opcode;
+    int mov_scratch_mm_opcode;
     opnd_size_t mov_scratch_mm_opnd_sz;
     reg_id_t scratch_mm;
     get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
