@@ -3468,8 +3468,7 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                        instr_t *next_instr)
 {
     ASSERT(instr_is_exclusive_store(instr));
-    /* XXX i#4532: There is a bogus int opnd we have to account for here. */
-    bool is_pair = instr_num_srcs(instr) > 1 && opnd_is_reg(instr_get_src(instr, 1));
+    bool is_pair = instr_num_srcs(instr) > 1;
 #ifdef ARM
     /* TODO i#1698: Preserve ARM predication and add tests.  For now we bail. */
     if (instr_is_predicated(instr)) {
