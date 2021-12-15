@@ -520,14 +520,14 @@ GLOBAL_LABEL(FUNCNAME:)
         add      r4, r2, #0x1
         add      r5, r3, #0x1
         stlexd   r2, r4, r5, [r0]
-        cmp      r1, #0
+        cmp      r2, #0
         bne      3b
       4:
         ldaexd   r10, r11, [r0] /* Test stolen reg. */
         add      r4, r10, #0x1
         add      r5, r11, #0x1
         stlexd   r10, r4, r5, [r0]
-        cmp      r1, #0
+        cmp      r10, #0
         bne      4b
         /* ARM pairs must be in order so we can't re-order. */
         pop      {r4, r5, r10, r11}

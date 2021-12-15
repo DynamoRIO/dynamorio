@@ -3041,6 +3041,8 @@ create_ldax_from_stex(dcontext_t *dcontext, instr_t *strex, reg_id_t *dest_reg I
      * disallowed (at least, it's unpredictable behavior: we assume that us
      * clobbering it falls under possible unpredictable results, though that's
      * probably not true if we fault the base).
+     * For a pair, we rely on comparing this first value first, as the compare
+     * result writes the same store result register.
      */
     opnd_size_t opsz = opnd_get_size(instr_get_src(strex, 0));
     /* The store dest reg could equal a load dest reg, in which case the caller must
@@ -3244,9 +3246,13 @@ mangle_exclusive_load(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 opnd_get_size(instr_get_src(in, 0)) ==
                     opnd_get_size(instr_get_dst(instr, 0)) &&
                 opnd_get_base(instr_get_dst(in, 0)) == base_reg &&
-                /* pick_scratch_reg() only takes 3 conflicts, so we push a pair with
-                 * the store res matching a load dest and using the stolen reg to the
-                 * unoptimized sequence.
+                /* pick_scratch_reg() only takes 3 conflicts, so we push a pair with the
+                 * store res matching a load dest and using the stolen reg to the
+                 * unoptimized sequence.  We keep non-stolen-reg cases on the optimized
+                 * path because this is relatively common: a store-release pair uses a
+                 * monitor because there is no store-release-pair opcode; its load
+                 * destinations are discarded, but both cannot be XZR since that is
+                 * undefined behavior: so the dead register store result is used.
                  */
                 (!instr_uses_reg(in, dr_reg_stolen) ||
                  (reg_to_pointer_sized(opnd_get_reg(instr_get_dst(in, 1))) != value_reg &&
@@ -3539,6 +3545,12 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * we put in the dead status reg): so 7 regs, but only 3 slots.  The stolen reg
      * swap does not add because the store would then use one fewer of the scratch
      * reg range.
+     * For our scratch registers used for comparisons, we cannot easily use a dead
+     * register because the compares have to write to the store result (so the mismatch
+     * case has the right result), and that would clobber a subsequent compare's
+     * sources: thus we pass false for dead_reg_ok.  (We do use the dead store result
+     * for the first live-value in create_ldax_from_stex() which works out as we
+     * compare that one immediately.)
      */
     reg_id_t scratch = DR_REG_NULL, scratch2 = DR_REG_NULL, scratch3 = DR_REG_NULL;
     ushort slot, slot2, slot3;
@@ -3555,7 +3567,8 @@ mangle_exclusive_store(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             scratch = pick_scratch_reg(dcontext, instr, swap_reg, reg_orig_ld_val,
                                        reg_orig_ld_val2,
                                        /*dead_reg_ok=*/false, &slot, &should_restore);
-            insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
+            if (should_restore)
+                insert_save_to_tls_if_necessary(dcontext, ilist, instr, scratch, slot);
             reg_new_ld_val = scratch;
             if (reg_to_pointer_sized(reg_res) == reg_orig_ld_val2)
                 compare_second_first = true;
