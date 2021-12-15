@@ -2482,6 +2482,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             instr_create_1dst_2src(drcontext, mov_scratch_mm_opcode,
                                    opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0,
                                                          mov_scratch_mm_opnd_sz),
+                                   /* k0 denotes unmasked operation. */
                                    opnd_create_reg(DR_REG_K0),
                                    opnd_create_reg(scratch_mm)));
     } else {
