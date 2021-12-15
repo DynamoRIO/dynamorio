@@ -2455,7 +2455,7 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             break;
     }
     /* Spill the scratch mm reg. We spill the largest reg corresponding to scratch_xmm
-     * that is supported by the system. This is required because writing a part of a
+     * that is supported by the system. This is required because mov-ing a part of a
      * ymm/zmm reg zeroes the remaining automatically. So we need to save the complete
      * ymm/zmm reg and not just the lower xmm bits.
      * TODO i#3844: drreg does not support spilling mm regs yet, so we do it ourselves.
