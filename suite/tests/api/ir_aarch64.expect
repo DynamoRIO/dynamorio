@@ -834,6 +834,7 @@ umull2 %q6 %q3 $0x01 -> %q6
 umull2 %q6 %q3 $0x02 -> %q6
 test_asimddiff complete
 dc_zva  -> (%x0)[1byte]
+dc_zva  -> (%x0)[1byte]
 dc_zva  -> (%x1)[1byte]
 dc_zva  -> (%x2)[1byte]
 dc_zva  -> (%x3)[1byte]
@@ -864,6 +865,7 @@ dc_zva  -> (%x27)[1byte]
 dc_zva  -> (%x28)[1byte]
 dc_zva  -> (%x29)[1byte]
 dc_zva  -> (%x30)[1byte]
+dc_cvac (%x0)[1byte]
 dc_cvac (%x0)[1byte]
 dc_cvac (%x1)[1byte]
 dc_cvac (%x2)[1byte]
@@ -896,6 +898,7 @@ dc_cvac (%x28)[1byte]
 dc_cvac (%x29)[1byte]
 dc_cvac (%x30)[1byte]
 dc_cvau (%x0)[1byte]
+dc_cvau (%x0)[1byte]
 dc_cvau (%x1)[1byte]
 dc_cvau (%x2)[1byte]
 dc_cvau (%x3)[1byte]
@@ -926,6 +929,7 @@ dc_cvau (%x27)[1byte]
 dc_cvau (%x28)[1byte]
 dc_cvau (%x29)[1byte]
 dc_cvau (%x30)[1byte]
+dc_civac (%x0)[1byte]
 dc_civac (%x0)[1byte]
 dc_civac (%x1)[1byte]
 dc_civac (%x2)[1byte]
@@ -958,6 +962,7 @@ dc_civac (%x28)[1byte]
 dc_civac (%x29)[1byte]
 dc_civac (%x30)[1byte]
 dc_ivac (%x0)[1byte]
+dc_ivac (%x0)[1byte]
 dc_ivac (%x1)[1byte]
 dc_ivac (%x2)[1byte]
 dc_ivac (%x3)[1byte]
@@ -988,6 +993,7 @@ dc_ivac (%x27)[1byte]
 dc_ivac (%x28)[1byte]
 dc_ivac (%x29)[1byte]
 dc_ivac (%x30)[1byte]
+dc_isw %x0
 dc_isw %x0
 dc_isw %x1
 dc_isw %x2
@@ -1020,6 +1026,7 @@ dc_isw %x28
 dc_isw %x29
 dc_isw %x30
 dc_csw %x0
+dc_csw %x0
 dc_csw %x1
 dc_csw %x2
 dc_csw %x3
@@ -1051,6 +1058,7 @@ dc_csw %x28
 dc_csw %x29
 dc_csw %x30
 dc_cisw %x0
+dc_cisw %x0
 dc_cisw %x1
 dc_cisw %x2
 dc_cisw %x3
@@ -1081,6 +1089,7 @@ dc_cisw %x27
 dc_cisw %x28
 dc_cisw %x29
 dc_cisw %x30
+ic_ivau (%x0)[1byte]
 ic_ivau (%x0)[1byte]
 ic_ivau (%x1)[1byte]
 ic_ivau (%x2)[1byte]

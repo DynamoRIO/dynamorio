@@ -5343,9 +5343,9 @@ test_asimddiff(void *dc)
  * IC IVAU, Xt       IC IALLU           IC IALLUIS
  */
 
-#define SYS_CACHE_TEST_ALL_REGS(cache, op)                                             \
+#define SYS_CACHE_TEST_ALL_REGS(cache, op)                               \
     do {                                                                 \
-        for (int x = DR_REG_X1; x < DR_REG_XSP; x++) {                   \
+        for (int x = DR_REG_START_GPR; x < DR_REG_STOP_GPR; x++) {       \
             instr = INSTR_CREATE_##cache##_##op(dc, opnd_create_reg(x)); \
             test_instr_encoding(dc, OP_##cache##_##op, instr);           \
         }                                                                \

@@ -177,6 +177,11 @@ compatibility changes:
    This matches the cache and TLB simulator behavior.
  - drcachesim's child cache statistics now include hits from all lower levels and
    not just the immediately lower level child caches.
+ - For AArch64 the OP_sys opcode is still implemented but has been split up
+   into its data and instruction cache opcodes. In cases where OP_sys was used
+   with enums representing data and instruction cache opcodes, OP_sys is no
+   longer used, replaced by the relevant data and instruction cache opcodes
+   starting with OP_dc_ and OP_ic_, e.g. OP_ic_ivau, OP_dc_zva.
 
 Further non-compatibility-affecting changes include:
 
