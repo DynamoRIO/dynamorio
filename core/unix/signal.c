@@ -2308,6 +2308,11 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
      * (in cases where it is not skipped) to avoid a second read of app_set,
      * by the kernel.
      */
+    if (sigsetsize != sizeof(kernel_sigset_t)) {
+        if (error_code != NULL)
+            *error_code = EINVAL;
+        return false;
+    }
     if (app_set != NULL && !d_r_safe_read(app_set, sizeof(safe_set), &safe_set)) {
         if (error_code != NULL)
             *error_code = EFAULT;
@@ -2327,7 +2332,6 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             *error_code = EINVAL;
         return false;
     }
-    /* TODO i#5255: Handle bad sigsetsize. */
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");

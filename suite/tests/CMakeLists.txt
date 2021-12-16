@@ -4789,6 +4789,7 @@ if (APPLE)
     code_api|api.dis
     code_api|api.ir-static
     code_api|api.drdecode
+    code_api|linux.sigaction
     PROPERTIES LABELS OSX)
   if (DEBUG) # FIXME i#1806: fails in release
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)
