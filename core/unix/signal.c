@@ -3665,7 +3665,6 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         sc_interrupted->SC_XIP = official_xl8;
     }
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
-    IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
 
     /* Set our sigreturn context to point to fcache_return!
      * Then we'll go back through kernel, appear in fcache_return,
@@ -5713,10 +5712,6 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         sc->SC_LR = (reg_t)info->app_sigaction[sig]->restorer;
     else
         sc->SC_LR = (reg_t)dynamorio_sigreturn;
-#    ifndef AARCH64
-    /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
-    set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
-#    endif
 #endif
     /* Set our sigreturn context (NOT for the app: we already copied the
      * translated context to the app stack) to point to fcache_return!

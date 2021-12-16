@@ -4916,6 +4916,22 @@ if (NOT ANDROID AND AARCHXX)
       code_api|linux.alarm
       code_api|linux.fork-sleep
       code_api|linux.signal_race
+      code_api|linux.signal0000
+      code_api|linux.signal0001
+      code_api|linux.signal0010
+      code_api|linux.signal0011
+      code_api|linux.signal0100
+      code_api|linux.signal0101
+      code_api|linux.signal0110
+      code_api|linux.signal0111
+      code_api|linux.signal1000
+      code_api|linux.signal1001
+      code_api|linux.signal1010
+      code_api|linux.signal1011
+      code_api|linux.signal1100
+      code_api|linux.signal1101
+      code_api|linux.signal1110
+      code_api|linux.signal1111
       code_api|linux.sigplain000
       code_api|linux.sigplain001
       code_api|linux.sigplain010

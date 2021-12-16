@@ -4479,8 +4479,11 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     }
 #endif /* X86 */
 
-    DOLOG(4, LOG_INTERP, {
-        LOG(THREAD, LOG_INTERP, 4, "bb ilist before mangling:\n");
+    /* We make "before mangling" level 5 b/c there's not much there (just final jmp)
+     * beyond "after instrumentation".
+     */
+    DOLOG(5, LOG_INTERP, {
+        LOG(THREAD, LOG_INTERP, 5, "bb ilist before mangling:\n");
         instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
     });
     d_r_mangle(dcontext, bb->ilist, &bb->flags, true, bb->record_translation);
