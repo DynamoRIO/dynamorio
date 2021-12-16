@@ -115,6 +115,41 @@ set_sigaction_handler(int sig, void *action)
     assert(rc == 0);
 }
 
+#if !defined(MACOS)
+static void
+test_rt_sigprocmask()
+{
+    uint64 new = 0, old;
+    /* Save original sigprocmask. Both return the current sigprocmask. */
+    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, NULL, &old,
+                   /*sizeof(kernel_sigset_t)*/ 8) == 0);
+    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, &old, 8) == 0);
+
+    /* EFAULT cases. */
+    assert(syscall(SYS_rt_sigprocmask, ~0, 0x123, NULL, 8) == -1);
+    assert(errno == EFAULT);
+    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, 0x123, 8) == -1);
+    assert(errno == EFAULT);
+    assert(syscall(SYS_rt_sigprocmask, SIG_BLOCK, 0x123, NULL, 8) == -1);
+    assert(errno == EFAULT);
+    assert(syscall(SYS_rt_sigprocmask, SIG_BLOCK, NULL, 0x123, 8) == -1);
+    assert(errno == EFAULT);
+
+    /* EINVAL cases. */
+    assert(syscall(SYS_rt_sigprocmask, ~0, &new, NULL, 8) == -1);
+    assert(errno == EINVAL);
+    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK + 1, &new, NULL, 8) == -1);
+    assert(errno == EINVAL);
+
+    /* Success. */
+    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, NULL, 8) == 0);
+    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &new, NULL, 8) == 0);
+
+    /* Restore original sigprocmask. */
+    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &old, NULL, 8) == 0);
+}
+#endif
+
 #if !defined(MACOS) && !defined(X64)
 static void
 test_non_rt_sigaction(int sig)
@@ -163,6 +198,9 @@ int
 main(int argc, char **argv)
 {
     test_query(SIGTERM);
+#if !defined(MACOS)
+    test_rt_sigprocmask();
+#endif
 #if !defined(MACOS) && !defined(X64)
     test_non_rt_sigaction(SIGPIPE);
 #endif

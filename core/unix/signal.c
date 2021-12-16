@@ -2293,17 +2293,29 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
 /* Returns whether to execute the syscall */
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
-                   kernel_sigset_t *oset, size_t sigsetsize)
+                   kernel_sigset_t *oset, size_t sigsetsize, uint *errno_val)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
-    kernel_sigset_t safe_set;
+    kernel_sigset_t safe_set, safe_old_set;
+    if ((app_set != NULL && !d_r_safe_read(app_set, sizeof(safe_set), &safe_set)) ||
+        (oset != NULL && !d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set))) {
+        if (errno_val != NULL)
+            *errno_val = EFAULT;
+        return false;
+    }
+    if (app_set != NULL && !(how >= SIG_BLOCK && how <= SIG_SETMASK)) {
+        if (errno_val != NULL)
+            *errno_val = EINVAL;
+        return false;
+    }
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
     if (oset != NULL)
         info->pre_syscall_app_sigblocked = info->app_sigblocked;
-    if (app_set != NULL && d_r_safe_read(app_set, sizeof(safe_set), &safe_set)) {
+    if (app_set != NULL) {
+        /* app_set was already read into safe_set above. */
         if (execute_syscall) {
             /* The syscall will execute, so remove from the set passed
              * to it.   We restore post-syscall.
