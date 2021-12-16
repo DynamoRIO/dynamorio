@@ -143,6 +143,10 @@ test_sigprocmask(long sysnum)
     assert(errno == EFAULT);
 
     /* EINVAL cases. */
+    /* Bad size. */
+    assert(syscall(sysnum, SIG_SETMASK, &new, NULL, 7) == -1);
+    assert(errno == EINVAL);
+    /* Bad 'how' arg. */
     assert(syscall(sysnum, ~0, &new, NULL, 8) == -1);
     assert(errno == EINVAL);
     assert(syscall(sysnum, SIG_SETMASK + 1, &new, NULL, 8) == -1);
