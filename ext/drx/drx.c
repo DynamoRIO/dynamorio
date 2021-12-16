@@ -36,6 +36,7 @@
 #include "drx.h"
 #include "hashtable.h"
 #include "../ext_utils.h"
+#include <stddef.h> /* for offsetof */
 #include <string.h>
 
 /* We use drmgr but only internally.  A user of drx will end up loading in
@@ -66,7 +67,11 @@
 
 #define XMM_REG_SIZE 16
 #define YMM_REG_SIZE 32
-#define XMM_ALIGNMENT 32
+#define ZMM_REG_SIZE 64
+/* For simplicity, we use the largest alignment required by the opcodes
+ * returned by get_mov_scratch_mm_opcode_and_size.
+ */
+#define MM_ALIGNMENT 64
 
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
 
@@ -103,7 +108,8 @@ static bool soft_kills_enabled;
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 static int tls_idx;
 typedef struct _per_thread_t {
-    void *scratch_xmm_spill_slot;
+    void *scratch_mm_spill_slot;
+    void *scratch_mm_spill_slot_aligned;
 } per_thread_t;
 
 static per_thread_t *
@@ -140,6 +146,10 @@ drx_event_restore_state(void *drcontext, bool restore_memory,
                         dr_restore_state_info_t *info);
 #endif
 
+/***************************************************************************
+ * INIT
+ */
+
 #ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 static per_thread_t *
 get_tls_data(void *drcontext)
@@ -150,19 +160,39 @@ get_tls_data(void *drcontext)
         return &init_pt;
     return pt;
 }
-#endif
 
-/***************************************************************************
- * INIT
- */
+static void
+get_mov_scratch_mm_opcode_and_size(int *opcode_out, opnd_size_t *opnd_size_out)
+{
+    uint opcode;
+    opnd_size_t opnd_size;
+    /* We use same opcodes as used by fcache enter/return. */
+    if (proc_avx512_enabled()) {
+        /* ZMM enabled. */
+        opcode = OP_vmovaps; /* Requires 64-byte alignment. */
+        opnd_size = OPSZ_64;
+    } else {
+        /* YMM enabled. */
+        ASSERT(proc_avx_enabled(), "Scatter/gather instrs not available");
+        opcode = OP_vmovdqa; /* Requires 32-byte alignment. */
+        opnd_size = OPSZ_32;
+    }
+    if (opcode_out != NULL)
+        *opcode_out = opcode;
+    if (opnd_size_out != NULL)
+        *opnd_size_out = opnd_size;
+}
 
-#ifdef PLATFORM_SUPPORTS_SCATTER_GATHER
 static void
 drx_thread_init(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)dr_thread_alloc(drcontext, sizeof(*pt));
-    pt->scratch_xmm_spill_slot =
-        dr_thread_alloc(drcontext, XMM_REG_SIZE + (XMM_ALIGNMENT - 1));
+    opnd_size_t mm_opsz;
+    get_mov_scratch_mm_opcode_and_size(NULL, &mm_opsz);
+    pt->scratch_mm_spill_slot =
+        dr_thread_alloc(drcontext, opnd_size_in_bytes(mm_opsz) + (MM_ALIGNMENT - 1));
+    pt->scratch_mm_spill_slot_aligned =
+        (void *)ALIGN_FORWARD(pt->scratch_mm_spill_slot, MM_ALIGNMENT);
     drmgr_set_tls_field(drcontext, tls_idx, (void *)pt);
 }
 
@@ -170,8 +200,10 @@ static void
 drx_thread_exit(void *drcontext)
 {
     per_thread_t *pt = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
-    dr_thread_free(drcontext, pt->scratch_xmm_spill_slot,
-                   XMM_REG_SIZE + (XMM_ALIGNMENT - 1));
+    opnd_size_t mm_opsz;
+    get_mov_scratch_mm_opcode_and_size(NULL, &mm_opsz);
+    dr_thread_free(drcontext, pt->scratch_mm_spill_slot,
+                   opnd_size_in_bytes(mm_opsz) + (MM_ALIGNMENT - 1));
     dr_thread_free(drcontext, pt, sizeof(*pt));
 }
 #endif
@@ -220,11 +252,11 @@ drx_init(void)
     if (!drmgr_register_restore_state_ex_event_ex(drx_event_restore_state,
                                                   &fault_priority))
         return false;
-    if (!drmgr_register_thread_init_event(drx_thread_init) ||
-        !drmgr_register_thread_exit_event(drx_thread_exit))
-        return false;
     tls_idx = drmgr_register_tls_field();
     if (tls_idx == -1)
+        return false;
+    if (!drmgr_register_thread_init_event(drx_thread_init) ||
+        !drmgr_register_thread_exit_event(drx_thread_exit))
         return false;
 #endif
 
@@ -2128,14 +2160,6 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
     }
     return true;
 }
-
-uint
-mov_xmm_aligned32_opcode()
-{
-    ASSERT(proc_avx_enabled(), "running on unsupported processor");
-    return OP_vmovdqa;
-}
-
 #endif
 
 /*****************************************************************************************
@@ -2439,22 +2463,46 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
             scratch_xmm != reg_resize_to_opsz(sg_info.gather_dst_reg, OPSZ_16))
             break;
     }
-    /* Spill the scratch xmm.
-     * TODO i#3844: drreg does not support spilling xmm regs yet, so we do it ourselves.
+    /* Spill the scratch mm reg. We spill the largest reg corresponding to scratch_xmm
+     * that is supported by the system. This is required because mov-ing a part of a
+     * ymm/zmm reg zeroes the remaining automatically. So we need to save the complete
+     * ymm/zmm reg and not just the lower xmm bits.
+     * TODO i#3844: drreg does not support spilling mm regs yet, so we do it ourselves.
      * When that support is available, replace the following with the required drreg API
      * calls.
      */
-    per_thread_t *pt = get_tls_data(drcontext);
-    instrlist_insert_mov_immed_ptrsz(
-        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, XMM_ALIGNMENT),
-        opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
-    uint mov_xmm_opcode = mov_xmm_aligned32_opcode();
+    int mov_scratch_mm_opcode;
+    opnd_size_t mov_scratch_mm_opnd_sz;
+    reg_id_t scratch_mm;
+    get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
+    scratch_mm = reg_resize_to_opsz(scratch_xmm, mov_scratch_mm_opnd_sz);
+
+    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, sg_instr, scratch_reg0);
     instrlist_meta_preinsert(
         bb, sg_instr,
-        instr_create_1dst_1src(
-            drcontext, mov_xmm_opcode,
-            opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0, OPSZ_16),
-            opnd_create_reg(scratch_xmm)));
+        INSTR_CREATE_mov_ld(
+            drcontext, opnd_create_reg(scratch_reg0),
+            OPND_CREATE_MEMPTR(scratch_reg0,
+                               offsetof(per_thread_t, scratch_mm_spill_slot_aligned))));
+
+    if (mov_scratch_mm_opnd_sz == OPSZ_64) {
+        instrlist_meta_preinsert(
+            bb, sg_instr,
+            instr_create_1dst_2src(drcontext, mov_scratch_mm_opcode,
+                                   opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0,
+                                                         mov_scratch_mm_opnd_sz),
+                                   /* k0 denotes unmasked operation. */
+                                   opnd_create_reg(DR_REG_K0),
+                                   opnd_create_reg(scratch_mm)));
+    } else {
+        instrlist_meta_preinsert(
+            bb, sg_instr,
+            instr_create_1dst_1src(drcontext, mov_scratch_mm_opcode,
+                                   opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0,
+                                                         mov_scratch_mm_opnd_sz),
+                                   opnd_create_reg(scratch_mm)));
+    }
+
     emulated_instr_t emulated_instr;
     emulated_instr.size = sizeof(emulated_instr);
     emulated_instr.pc = instr_get_app_pc(sg_instr);
@@ -2567,14 +2615,29 @@ drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
                          orig_app_pc));
     }
     /* Restore the scratch xmm. */
-    instrlist_insert_mov_immed_ptrsz(
-        drcontext, ALIGN_FORWARD(pt->scratch_xmm_spill_slot, XMM_ALIGNMENT),
-        opnd_create_reg(scratch_reg0), bb, sg_instr, NULL, NULL);
+    drmgr_insert_read_tls_field(drcontext, tls_idx, bb, sg_instr, scratch_reg0);
     instrlist_meta_preinsert(
         bb, sg_instr,
-        instr_create_1dst_1src(
-            drcontext, mov_xmm_opcode, opnd_create_reg(scratch_xmm),
-            opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0, OPSZ_16)));
+        INSTR_CREATE_mov_ld(
+            drcontext, opnd_create_reg(scratch_reg0),
+            OPND_CREATE_MEMPTR(scratch_reg0,
+                               offsetof(per_thread_t, scratch_mm_spill_slot_aligned))));
+    if (mov_scratch_mm_opnd_sz == OPSZ_64) {
+        instrlist_meta_preinsert(
+            bb, sg_instr,
+            instr_create_1dst_2src(drcontext, mov_scratch_mm_opcode,
+                                   opnd_create_reg(scratch_mm),
+                                   opnd_create_reg(DR_REG_K0),
+                                   opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0,
+                                                         mov_scratch_mm_opnd_sz)));
+    } else {
+        instrlist_meta_preinsert(
+            bb, sg_instr,
+            instr_create_1dst_1src(drcontext, mov_scratch_mm_opcode,
+                                   opnd_create_reg(scratch_mm),
+                                   opnd_create_base_disp(scratch_reg0, DR_REG_NULL, 0, 0,
+                                                         mov_scratch_mm_opnd_sz)));
+    }
     ASSERT(scratch_reg0 != scratch_reg1,
            "Internal error: scratch registers must be different");
     if (drreg_unreserve_register(drcontext, bb, sg_instr, scratch_reg0) !=
@@ -2650,32 +2713,30 @@ drx_expand_scatter_gather_exit:
  * AVX-512 gather sequence detection example:
  *
  *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0
- *         mov           <xmm_spill_addr> -> %ecx
+ *         vmovups       {%k0} %zmm2 -> (%rcx)[64byte]
  *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1
- *         vmovdqa       %xmm2 -> (%ecx)[16byte]
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2
  *         vextracti32x4 {%k0} $0x00 %zmm1 -> %xmm2
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3
- *         vpextrd       %xmm2 $0x00 -> %ecx
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4
- *         mov           (%rax,%rcx,4)[4byte] -> %ecx
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5
- * (a)     vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6
- * (a)     vpinsrd       %xmm2 %ecx $0x00 -> %xmm2
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7
- * (a)     vinserti32x4  {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8
- * (a)     mov           $0x00000001 -> %ecx
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9
- * (a)     kmovw         %k0 -> %edx
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10
- * (a)     kmovw         %ecx -> %k0
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11
- * (a) (b) kandnw        %k0 %k1 -> %k1
- *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_12
- *     (b) kmovw         %edx -> %k0
  *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2
+ *         vpextrd       %xmm2 $0x00 -> %ecx
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3
+ *         mov           (%rax,%rcx,4)[4byte] -> %ecx
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4
+ * (a)     vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5
+ * (a)     vpinsrd       %xmm2 %ecx $0x00 -> %xmm2
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6
+ * (a)     vinserti32x4  {%k0} $0x00 %zmm0 %xmm2 -> %zmm0
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7
+ * (a)     mov           $0x00000001 -> %ecx
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8
+ * (a)     kmovw         %k0 -> %edx
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9
+ * (a)     kmovw         %ecx -> %k0
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10
+ * (a) (b) kandnw        %k0 %k1 -> %k1
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11
+ *     (b) kmovw         %edx -> %k0
+ *         DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1
  *
  * (a): The instruction window where the destination mask state hadn't been updated yet.
  * (b): The instruction window where the scratch mask is clobbered w/o support by drreg.
@@ -2683,30 +2744,28 @@ drx_expand_scatter_gather_exit:
  * AVX-512 scatter sequence detection example:
  *
  *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0
- *         mov           <xmm_spill_addr> -> %edx
+ *         vmovups       {%k0} %zmm2 -> (%rcx)[64byte]
  *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1
- *         vmovdqa       %xmm2 -> (%edx)[16byte]
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2
  *         vextracti32x4 {%k0} $0x00 %zmm1 -> %xmm2
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3
- *         vpextrd       %xmm2 $0x00 -> %edx
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4
- *         vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5
- *         vpextrd       %xmm2 $0x00 -> %ebx
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6
- *         mov           %ebx -> (%rcx,%rdx,4)[4byte]
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7
- * (a)     mov           $0x00000001 -> %edx
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8
- * (a)     kmovw         %k0 -> %ebp
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9
- * (a)     kmovw         %edx -> %k0
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10
- * (a) (b) kandnw        %k0 %k1 -> %k1
- *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_11
- *     (b) kmovw         %ebp -> %k0
  *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2
+ *         vpextrd       %xmm2 $0x00 -> %edx
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3
+ *         vextracti32x4 {%k0} $0x00 %zmm0 -> %xmm2
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4
+ *         vpextrd       %xmm2 $0x00 -> %ebx
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5
+ *         mov           %ebx -> (%rcx,%rdx,4)[4byte]
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6
+ * (a)     mov           $0x00000001 -> %edx
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7
+ * (a)     kmovw         %k0 -> %ebp
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8
+ * (a)     kmovw         %edx -> %k0
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9
+ * (a) (b) kandnw        %k0 %k1 -> %k1
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10
+ *     (b) kmovw         %ebp -> %k0
+ *         DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1
  *
  * (a): The instruction window where the destination mask state hadn't been updated yet.
  * (b): The instruction window where the scratch mask is clobbered w/o support by drreg.
@@ -2714,30 +2773,28 @@ drx_expand_scatter_gather_exit:
  * AVX2 gather sequence detection example:
  *
  *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0
- *         mov           <xmm_spill_addr> -> %ecx
+ *         vmovups       {%k0} %zmm3 -> (%rcx)[64byte]
  *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1
- *         vmovdqa       %xmm3 -> (%ecx)[16byte]
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2
  *         vextracti128  %ymm2 $0x00 -> %xmm3
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3
- *         vpextrd       %xmm3 $0x00 -> %ecx
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4
- *         mov           (%rax,%rcx,4)[4byte] -> %ecx
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5
- * (a)     vextracti128  %ymm0 $0x00 -> %xmm3
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6
- * (a)     vpinsrd       %xmm3 %ecx $0x00 -> %xmm3
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7
- * (a)     vinserti128   %ymm0 %xmm3 $0x00 -> %ymm0
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8
- * (a)     xor           %ecx %ecx -> %ecx
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9
- * (a)     vextracti128  %ymm2 $0x00 -> %xmm3
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10
- * (a)     vpinsrd       %xmm3 %ecx $0x00 -> %xmm3
- *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_11
- * (a)     vinserti128   %ymm2 %xmm3 $0x00 -> %ymm2
  *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2
+ *         vpextrd       %xmm3 $0x00 -> %ecx
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3
+ *         mov           (%rax,%rcx,4)[4byte] -> %ecx
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4
+ * (a)     vextracti128  %ymm0 $0x00 -> %xmm3
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5
+ * (a)     vpinsrd       %xmm3 %ecx $0x00 -> %xmm3
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6
+ * (a)     vinserti128   %ymm0 %xmm3 $0x00 -> %ymm0
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7
+ * (a)     xor           %ecx %ecx -> %ecx
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8
+ * (a)     vextracti128  %ymm2 $0x00 -> %xmm3
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9
+ * (a)     vpinsrd       %xmm3 %ecx $0x00 -> %xmm3
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10
+ * (a)     vinserti128   %ymm2 %xmm3 $0x00 -> %ymm2
+ *         DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1
  *
  * (a): The instruction window where the destination mask state hadn't been updated yet.
  *
@@ -2758,7 +2815,6 @@ drx_expand_scatter_gather_exit:
 #    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9 9
 #    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10 10
 #    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11 11
-#    define DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_12 12
 
 /* States of the AVX-512 scatter detection state machine. */
 #    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0 0
@@ -2772,7 +2828,6 @@ drx_expand_scatter_gather_exit:
 #    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8 8
 #    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9 9
 #    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10 10
-#    define DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_11 11
 
 /* States of the AVX2 gather detection state machine. */
 #    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0 0
@@ -2786,7 +2841,6 @@ drx_expand_scatter_gather_exit:
 #    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8 8
 #    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9 9
 #    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10 10
-#    define DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_11 11
 
 typedef struct _drx_state_machine_params_t {
     byte *pc;
@@ -2799,18 +2853,10 @@ typedef struct _drx_state_machine_params_t {
     byte *restore_scratch_mask_start_pc;
     /* counter to allow for skipping unknown instructions */
     int skip_unknown_instr_count;
-    /* The spilled xmm register. When the_scratch_xmm is set,
-     * it is expected to be equal to this.
+    /* The spilled ymm/zmm register. When the_scratch_xmm is set,
+     * it is expected to correspond to this.
      */
-    reg_id_t spilled_xmm;
-    /* The address where the spilled xmm reg's app value is
-     * stored.
-     */
-    void *spilled_xmm_slot_addr;
-    /* The reg with spilled_xmm_slot_addr, so that we can use it
-     * in the actual spill instr.
-     */
-    reg_id_t spilled_xmm_slot_addr_reg;
+    reg_id_t spilled_mm;
     /* detected scratch xmm register for mask update */
     reg_id_t the_scratch_xmm;
     /* detected gpr register that holds the mask update immediate */
@@ -2845,15 +2891,16 @@ skip_unknown_instr_inc(int reset_state, drx_state_machine_params_t *params)
 }
 
 static void
-restore_spilled_xmm_value(drx_state_machine_params_t *params)
+restore_spilled_mm_value(void *drcontext, drx_state_machine_params_t *params)
 {
-    byte xmm_val[XMM_REG_SIZE];
-    ASSERT(params->spilled_xmm_slot_addr != NULL,
-           "No spill address recorded for the app xmm value");
-    ASSERT(params->spilled_xmm != DR_REG_NULL && reg_is_strictly_xmm(params->spilled_xmm),
-           "No spilled xmm reg recorded");
-    memcpy(xmm_val, params->spilled_xmm_slot_addr, XMM_REG_SIZE);
-    reg_set_value_ex(params->spilled_xmm, params->info->mcontext, xmm_val);
+    byte mm_val[ZMM_REG_SIZE];
+    ASSERT(params->spilled_mm != DR_REG_NULL &&
+               (reg_is_strictly_ymm(params->spilled_mm) ||
+                reg_is_strictly_zmm(params->spilled_mm)),
+           "No spilled ymm/zmm reg recorded");
+    memcpy(mm_val, get_tls_data(drcontext)->scratch_mm_spill_slot_aligned,
+           reg_is_strictly_ymm(params->spilled_mm) ? YMM_REG_SIZE : ZMM_REG_SIZE);
+    reg_set_value_ex(params->spilled_mm, params->info->mcontext, mm_val);
 }
 
 /* Run the state machines and decode the code cache. The state machines will search the
@@ -2872,9 +2919,7 @@ drx_restore_state_scatter_gather(
     params.detect_state = 0;
     params.skip_unknown_instr_count = 0;
     params.the_scratch_xmm = DR_REG_NULL;
-    params.spilled_xmm = DR_REG_NULL;
-    params.spilled_xmm_slot_addr = NULL;
-    params.spilled_xmm_slot_addr_reg = DR_REG_NULL;
+    params.spilled_mm = DR_REG_NULL;
     params.gpr_bit_mask = DR_REG_NULL;
     params.gpr_save_scratch_mask = DR_REG_NULL;
     params.scalar_mask_update_no = 0;
@@ -2913,61 +2958,46 @@ static bool
 drx_avx2_gather_sequence_state_machine(void *drcontext,
                                        drx_state_machine_params_t *params)
 {
+    int mov_scratch_mm_opcode;
+    opnd_size_t mov_scratch_mm_opnd_sz;
+    get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
+    uint mov_scratch_mm_opnd_pos = (mov_scratch_mm_opnd_sz == OPSZ_64 ? 1 : 0);
     switch (params->detect_state) {
-    /* First we detect the spill address for the scratch xmm reg. */
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0: {
-        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-        params->spilled_xmm_slot_addr = NULL;
-        ptr_int_t spilled_xmm_slot_addr;
-        if (instr_is_mov_constant(&params->inst, &spilled_xmm_slot_addr) &&
-            opnd_is_reg(instr_get_dst(&params->inst, 0)) &&
-            reg_is_gpr(opnd_get_reg(instr_get_dst(&params->inst, 0)))) {
-            params->spilled_xmm_slot_addr = (void *)spilled_xmm_slot_addr;
-            params->spilled_xmm_slot_addr_reg =
-                opnd_get_reg(instr_get_dst(&params->inst, 0));
-            advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
-        }
-        break;
-    }
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1:
-        ASSERT(params->spilled_xmm == DR_REG_NULL,
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0:
+        ASSERT(params->spilled_mm == DR_REG_NULL,
                "Spilled xmm reg must be undetermined yet");
-        ASSERT(params->spilled_xmm_slot_addr != NULL &&
-                   params->spilled_xmm_slot_addr_reg != DR_REG_NULL,
-               "xmm spill address must be determined already");
-        if (instr_get_opcode(&params->inst) == OP_vmovdqa &&
-            opnd_is_base_disp(instr_get_dst(&params->inst, 0)) &&
-            opnd_get_base(instr_get_dst(&params->inst, 0)) ==
-                params->spilled_xmm_slot_addr_reg &&
-            opnd_is_reg(instr_get_src(&params->inst, 0)) &&
-            reg_is_strictly_xmm(opnd_get_reg(instr_get_src(&params->inst, 0)))) {
-            params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-            params->spilled_xmm = opnd_get_reg(instr_get_src(&params->inst, 0));
-            advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        if (instr_get_opcode(&params->inst) == mov_scratch_mm_opcode &&
+            opnd_is_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos)) &&
+            (reg_is_strictly_ymm(
+                 opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos))) ||
+             reg_is_strictly_zmm(
+                 opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos))))) {
+            params->spilled_mm =
+                opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos));
+            advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
             break;
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0, params);
         break;
-    /* We come back to DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2 for each
+    /* We come back to DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1 for each
      * scalar load sequence of the expanded gather instr.
      */
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1:
         if (instr_get_opcode(&params->inst) == OP_vextracti128) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0)) {
                 reg_id_t tmp_reg = opnd_get_reg(dst0);
                 if (!reg_is_strictly_xmm(tmp_reg))
                     break;
-                ASSERT(params->spilled_xmm == tmp_reg,
+                ASSERT(reg_resize_to_opsz(params->spilled_mm, OPSZ_16) == tmp_reg,
                        "Only the spilled xmm should be used as scratch");
                 params->the_scratch_xmm = tmp_reg;
-                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3, params);
+                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_0, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
@@ -2983,15 +3013,15 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                 if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
                     params->the_scratch_xmm = DR_REG_NULL;
                     params->gpr_scratch_index = opnd_get_reg(dst0);
-                    advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4, params);
+                    advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3, params);
                     break;
                 }
             }
         }
         /* Intentionally not else if */
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_3:
         if (!instr_is_reg_spill_or_restore(drcontext, &params->inst, NULL, NULL, NULL,
                                            NULL)) {
             if (instr_reads_memory(&params->inst)) {
@@ -3001,7 +3031,7 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                         opnd_t dst0 = instr_get_dst(&params->inst, 0);
                         if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
                             params->restore_dest_mask_start_pc = params->pc;
-                            advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5,
+                            advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4,
                                           params);
                             break;
                         }
@@ -3009,26 +3039,26 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_4:
         if (instr_get_opcode(&params->inst) == OP_vextracti128) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0)) {
                 reg_id_t tmp_reg = opnd_get_reg(dst0);
                 if (!reg_is_strictly_xmm(tmp_reg))
                     break;
-                ASSERT(params->spilled_xmm == tmp_reg,
+                ASSERT(reg_resize_to_opsz(params->spilled_mm, OPSZ_16) == tmp_reg,
                        "Only the spilled xmm should be used as scratch");
                 params->the_scratch_xmm = tmp_reg;
-                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6, params);
+                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5, params);
                 break;
             }
         }
         /* Intentionally not else if */
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_5:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
@@ -3041,25 +3071,25 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(&params->inst, 0));
             if (tmp_reg == params->the_scratch_xmm) {
                 params->the_scratch_xmm = DR_REG_NULL;
-                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7, params);
+                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_6:
         if (instr_get_opcode(&params->inst) == OP_vinserti128) {
             ASSERT(opnd_is_reg(instr_get_dst(&params->inst, 0)),
                    "internal error: unexpected instruction format");
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(&params->inst, 0));
             if (tmp_reg == params->sg_info->gather_dst_reg) {
-                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8, params);
+                advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_7:
         if (instr_get_opcode(&params->inst) == OP_xor) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             opnd_t src0 = instr_get_src(&params->inst, 0);
@@ -3073,13 +3103,13 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                        "internal error: unexpected instruction format");
                 if (reg_dst0 == reg_src0 && reg_src0 == reg_src1) {
                     params->gpr_bit_mask = reg_dst0;
-                    advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9, params);
+                    advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8, params);
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_8:
         if (instr_get_opcode(&params->inst) == OP_vextracti128) {
             opnd_t src0 = instr_get_src(&params->inst, 0);
             if (opnd_is_reg(src0)) {
@@ -3089,19 +3119,19 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                         reg_id_t tmp_reg = opnd_get_reg(dst0);
                         if (!reg_is_strictly_xmm(tmp_reg))
                             break;
-                        ASSERT(params->spilled_xmm == tmp_reg,
+                        ASSERT(reg_resize_to_opsz(params->spilled_mm, OPSZ_16) == tmp_reg,
                                "Only the spilled xmm should be used as scratch");
                         params->the_scratch_xmm = tmp_reg;
-                        advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10,
+                        advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_9:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
@@ -3116,16 +3146,16 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                            "internal error: unexpected instruction format");
                     reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(&params->inst, 0));
                     if (tmp_reg == params->the_scratch_xmm) {
-                        advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_11,
+                        advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_11:
+    case DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_10:
         if (instr_get_opcode(&params->inst) == OP_vinserti128) {
             ASSERT(opnd_is_reg(instr_get_dst(&params->inst, 0)) &&
                        opnd_is_reg(instr_get_src(&params->inst, 0)) &&
@@ -3163,7 +3193,7 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                                 reg_set_value_ex(params->sg_info->mask_reg,
                                                  params->info->mcontext, val);
                             }
-                            restore_spilled_xmm_value(params);
+                            restore_spilled_mm_value(drcontext, params);
                             /* We are done. */
                             return true;
                         }
@@ -3178,14 +3208,14 @@ drx_avx2_gather_sequence_state_machine(void *drcontext,
                              */
                             return true;
                         }
-                        advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2,
+                        advance_state(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX2_GATHER_EVENT_STATE_1, params);
         break;
     default: ASSERT(false, "internal error: invalid state.");
     }
@@ -3197,61 +3227,46 @@ static bool
 drx_avx512_scatter_sequence_state_machine(void *drcontext,
                                           drx_state_machine_params_t *params)
 {
+    int mov_scratch_mm_opcode;
+    opnd_size_t mov_scratch_mm_opnd_sz;
+    get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
+    uint mov_scratch_mm_opnd_pos = (mov_scratch_mm_opnd_sz == OPSZ_64 ? 1 : 0);
     switch (params->detect_state) {
-    /* First we detect the spill address for the scratch xmm reg. */
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0: {
-        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-        params->spilled_xmm_slot_addr = NULL;
-        ptr_int_t spilled_xmm_slot_addr;
-        if (instr_is_mov_constant(&params->inst, &spilled_xmm_slot_addr) &&
-            opnd_is_reg(instr_get_dst(&params->inst, 0)) &&
-            reg_is_gpr(opnd_get_reg(instr_get_dst(&params->inst, 0)))) {
-            params->spilled_xmm_slot_addr = (void *)spilled_xmm_slot_addr;
-            params->spilled_xmm_slot_addr_reg =
-                opnd_get_reg(instr_get_dst(&params->inst, 0));
-            advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
-        }
-        break;
-    }
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1:
-        ASSERT(params->spilled_xmm == DR_REG_NULL,
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0:
+        ASSERT(params->spilled_mm == DR_REG_NULL,
                "Spilled xmm reg must be undetermined yet");
-        ASSERT(params->spilled_xmm_slot_addr != NULL &&
-                   params->spilled_xmm_slot_addr_reg != DR_REG_NULL,
-               "xmm spill address must be determined already");
-        if (instr_get_opcode(&params->inst) == OP_vmovdqa &&
-            opnd_is_base_disp(instr_get_dst(&params->inst, 0)) &&
-            opnd_get_base(instr_get_dst(&params->inst, 0)) ==
-                params->spilled_xmm_slot_addr_reg &&
-            opnd_is_reg(instr_get_src(&params->inst, 0)) &&
-            reg_is_strictly_xmm(opnd_get_reg(instr_get_src(&params->inst, 0)))) {
-            params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-            params->spilled_xmm = opnd_get_reg(instr_get_src(&params->inst, 0));
-            advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        if (instr_get_opcode(&params->inst) == mov_scratch_mm_opcode &&
+            opnd_is_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos)) &&
+            (reg_is_strictly_ymm(
+                 opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos))) ||
+             reg_is_strictly_zmm(
+                 opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos))))) {
+            params->spilled_mm =
+                opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos));
+            advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
             break;
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0, params);
         break;
-    /* We come back to DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2 for each
+    /* We come back to DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1 for each
      * scalar store sequence of the expanded scatter instr.
      */
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1:
         if (instr_get_opcode(&params->inst) == OP_vextracti32x4) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0)) {
                 reg_id_t tmp_reg = opnd_get_reg(dst0);
                 if (!reg_is_strictly_xmm(tmp_reg))
                     break;
-                ASSERT(params->spilled_xmm == tmp_reg,
+                ASSERT(reg_resize_to_opsz(params->spilled_mm, OPSZ_16) == tmp_reg,
                        "Only the spilled xmm should be used as scratch");
                 params->the_scratch_xmm = tmp_reg;
-                advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3, params);
+                advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_0, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
@@ -3267,33 +3282,33 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                 if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
                     params->the_scratch_xmm = DR_REG_NULL;
                     params->gpr_scratch_index = opnd_get_reg(dst0);
-                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4,
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3,
                                   params);
                     break;
                 }
             }
         }
         /* Intentionally not else if */
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_3:
         if (instr_get_opcode(&params->inst) == OP_vextracti32x4) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0)) {
                 reg_id_t tmp_reg = opnd_get_reg(dst0);
                 if (!reg_is_strictly_xmm(tmp_reg))
                     break;
-                ASSERT(params->spilled_xmm == tmp_reg,
+                ASSERT(reg_resize_to_opsz(params->spilled_mm, OPSZ_16) == tmp_reg,
                        "Only the spilled xmm should be used as scratch");
                 params->the_scratch_xmm = tmp_reg;
-                advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5, params);
+                advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4, params);
                 break;
             }
         }
         /* Intentionally not else if */
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_4:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
@@ -3309,15 +3324,15 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                 if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
                     params->the_scratch_xmm = DR_REG_NULL;
                     params->gpr_scratch_value = opnd_get_reg(dst0);
-                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6,
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5,
                                   params);
                     break;
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6: {
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_5: {
         if (!instr_is_reg_spill_or_restore(drcontext, &params->inst, NULL, NULL, NULL,
                                            NULL)) {
             if (instr_writes_memory(&params->inst)) {
@@ -3328,17 +3343,17 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                         opnd_uses_reg(src0, params->gpr_scratch_value) &&
                         opnd_uses_reg(dst0, params->gpr_scratch_index)) {
                         params->restore_dest_mask_start_pc = params->pc;
-                        advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7,
+                        advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
     }
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7: {
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_6: {
         ptr_int_t val;
         if (instr_is_mov_constant(&params->inst, &val)) {
             /* If more than one bit is set, this is not what we're looking for. */
@@ -3349,16 +3364,16 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                 reg_id_t tmp_gpr = opnd_get_reg(dst0);
                 if (reg_is_gpr(tmp_gpr)) {
                     params->gpr_bit_mask = tmp_gpr;
-                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8,
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7,
                                   params);
                     break;
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
     }
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_7:
         if (instr_get_opcode(&params->inst) == OP_kmovw) {
             opnd_t src0 = instr_get_src(&params->inst, 0);
             if (opnd_is_reg(src0) && opnd_get_reg(src0) == DR_REG_K0) {
@@ -3367,16 +3382,16 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                     reg_id_t tmp_gpr = opnd_get_reg(dst0);
                     if (reg_is_gpr(tmp_gpr)) {
                         params->gpr_save_scratch_mask = tmp_gpr;
-                        advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9,
+                        advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_8:
         ASSERT(params->gpr_bit_mask != DR_REG_NULL,
                "internal error: expected gpr register to be recorded in state "
                "machine.");
@@ -3386,15 +3401,15 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                 opnd_t dst0 = instr_get_dst(&params->inst, 0);
                 if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
                     params->restore_scratch_mask_start_pc = params->pc;
-                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10,
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9,
                                   params);
                     break;
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_9:
         if (instr_get_opcode(&params->inst) == OP_kandnw) {
             opnd_t src0 = instr_get_src(&params->inst, 0);
             opnd_t src1 = instr_get_src(&params->inst, 1);
@@ -3432,15 +3447,15 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                          */
                         return true;
                     }
-                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_11,
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10,
                                   params);
                     break;
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_11:
+    case DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_10:
         if (instr_get_opcode(&params->inst) == OP_kmovw) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
@@ -3464,18 +3479,18 @@ drx_avx512_scatter_sequence_state_machine(void *drcontext,
                                               params->info->raw_mcontext) &
                                 0xffff;
                         }
-                        restore_spilled_xmm_value(params);
+                        restore_spilled_mm_value(drcontext, params);
                         /* We are done. If we did fix up the scatter's destination
                          * mask, this already has happened.
                          */
                         return true;
                     }
-                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2,
+                    advance_state(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1,
                                   params);
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_SCATTER_EVENT_STATE_1, params);
         break;
     default: ASSERT(false, "internal error: invalid state.");
     }
@@ -3487,61 +3502,46 @@ static bool
 drx_avx512_gather_sequence_state_machine(void *drcontext,
                                          drx_state_machine_params_t *params)
 {
+    int mov_scratch_mm_opcode;
+    opnd_size_t mov_scratch_mm_opnd_sz;
+    get_mov_scratch_mm_opcode_and_size(&mov_scratch_mm_opcode, &mov_scratch_mm_opnd_sz);
+    uint mov_scratch_mm_opnd_pos = (mov_scratch_mm_opnd_sz == OPSZ_64 ? 1 : 0);
     switch (params->detect_state) {
-    /* First we detect the spill address for the scratch xmm reg. */
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0: {
-        params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-        params->spilled_xmm_slot_addr = NULL;
-        ptr_int_t spilled_xmm_slot_addr;
-        if (instr_is_mov_constant(&params->inst, &spilled_xmm_slot_addr) &&
-            opnd_is_reg(instr_get_dst(&params->inst, 0)) &&
-            reg_is_gpr(opnd_get_reg(instr_get_dst(&params->inst, 0)))) {
-            params->spilled_xmm_slot_addr = (void *)spilled_xmm_slot_addr;
-            params->spilled_xmm_slot_addr_reg =
-                opnd_get_reg(instr_get_dst(&params->inst, 0));
-            advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
-        }
-        break;
-    }
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1:
-        ASSERT(params->spilled_xmm == DR_REG_NULL,
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0:
+        ASSERT(params->spilled_mm == DR_REG_NULL,
                "Spilled xmm reg must be undetermined yet");
-        ASSERT(params->spilled_xmm_slot_addr != NULL &&
-                   params->spilled_xmm_slot_addr_reg != DR_REG_NULL,
-               "xmm spill address must be determined already");
-        if (instr_get_opcode(&params->inst) == OP_vmovdqa &&
-            opnd_is_base_disp(instr_get_dst(&params->inst, 0)) &&
-            opnd_get_base(instr_get_dst(&params->inst, 0)) ==
-                params->spilled_xmm_slot_addr_reg &&
-            opnd_is_reg(instr_get_src(&params->inst, 0)) &&
-            reg_is_strictly_xmm(opnd_get_reg(instr_get_src(&params->inst, 0)))) {
-            params->spilled_xmm_slot_addr_reg = DR_REG_NULL;
-            params->spilled_xmm = opnd_get_reg(instr_get_src(&params->inst, 0));
-            advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        if (instr_get_opcode(&params->inst) == mov_scratch_mm_opcode &&
+            opnd_is_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos)) &&
+            (reg_is_strictly_ymm(
+                 opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos))) ||
+             reg_is_strictly_zmm(
+                 opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos))))) {
+            params->spilled_mm =
+                opnd_get_reg(instr_get_src(&params->inst, mov_scratch_mm_opnd_pos));
+            advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
             break;
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0, params);
         break;
-    /* We come back to DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2 for each
+    /* We come back to DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1 for each
      * scalar load sequence of the expanded gather instr.
      */
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1:
         if (instr_get_opcode(&params->inst) == OP_vextracti32x4) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0)) {
                 reg_id_t tmp_reg = opnd_get_reg(dst0);
                 if (!reg_is_strictly_xmm(tmp_reg))
                     break;
-                ASSERT(params->spilled_xmm == tmp_reg,
+                ASSERT(reg_resize_to_opsz(params->spilled_mm, OPSZ_16) == tmp_reg,
                        "Only the spilled xmm should be used as scratch");
                 params->the_scratch_xmm = tmp_reg;
-                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3, params);
+                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_0, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
@@ -3557,15 +3557,15 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                 if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
                     params->the_scratch_xmm = DR_REG_NULL;
                     params->gpr_scratch_index = opnd_get_reg(dst0);
-                    advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4, params);
+                    advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3, params);
                     break;
                 }
             }
         }
         /* Intentionally not else if */
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_3:
         if (!instr_is_reg_spill_or_restore(drcontext, &params->inst, NULL, NULL, NULL,
                                            NULL)) {
             if (instr_reads_memory(&params->inst)) {
@@ -3575,32 +3575,32 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                     opnd_t dst0 = instr_get_dst(&params->inst, 0);
                     if (opnd_is_reg(dst0) && reg_is_gpr(opnd_get_reg(dst0))) {
                         params->restore_dest_mask_start_pc = params->pc;
-                        advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5,
+                        advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_4:
         if (instr_get_opcode(&params->inst) == OP_vextracti32x4) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0)) {
                 reg_id_t tmp_reg = opnd_get_reg(dst0);
                 if (!reg_is_strictly_xmm(tmp_reg))
                     break;
-                ASSERT(params->spilled_xmm == tmp_reg,
+                ASSERT(reg_resize_to_opsz(params->spilled_mm, OPSZ_16) == tmp_reg,
                        "Only the spilled xmm should be used as scratch");
                 params->the_scratch_xmm = tmp_reg;
-                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6, params);
+                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_5:
         ASSERT(params->the_scratch_xmm != DR_REG_NULL,
                "internal error: expected xmm register to be recorded in state "
                "machine.");
@@ -3612,25 +3612,25 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                    "internal error: unexpected instruction format");
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(&params->inst, 0));
             if (tmp_reg == params->the_scratch_xmm) {
-                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7, params);
+                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_6:
         if (instr_get_opcode(&params->inst) == OP_vinserti32x4) {
             ASSERT(opnd_is_reg(instr_get_dst(&params->inst, 0)),
                    "internal error: unexpected instruction format");
             reg_id_t tmp_reg = opnd_get_reg(instr_get_dst(&params->inst, 0));
             if (tmp_reg == params->sg_info->gather_dst_reg) {
-                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8, params);
+                advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7, params);
                 break;
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8: {
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_7: {
         ptr_int_t val;
         if (instr_is_mov_constant(&params->inst, &val)) {
             /* If more than one bit is set, this is not what we're looking for. */
@@ -3641,15 +3641,15 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                 reg_id_t tmp_gpr = opnd_get_reg(dst0);
                 if (reg_is_gpr(tmp_gpr)) {
                     params->gpr_bit_mask = tmp_gpr;
-                    advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9, params);
+                    advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8, params);
                     break;
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
     }
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_8:
         if (instr_get_opcode(&params->inst) == OP_kmovw) {
             opnd_t src0 = instr_get_src(&params->inst, 0);
             if (opnd_is_reg(src0) && opnd_get_reg(src0) == DR_REG_K0) {
@@ -3658,16 +3658,16 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                     reg_id_t tmp_gpr = opnd_get_reg(dst0);
                     if (reg_is_gpr(tmp_gpr)) {
                         params->gpr_save_scratch_mask = tmp_gpr;
-                        advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10,
+                        advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_9:
         ASSERT(params->gpr_bit_mask != DR_REG_NULL,
                "internal error: expected gpr register to be recorded in state "
                "machine.");
@@ -3677,15 +3677,15 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                 opnd_t dst0 = instr_get_dst(&params->inst, 0);
                 if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
                     params->restore_scratch_mask_start_pc = params->pc;
-                    advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11,
+                    advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10,
                                   params);
                     break;
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_10:
         if (instr_get_opcode(&params->inst) == OP_kandnw) {
             opnd_t src0 = instr_get_src(&params->inst, 0);
             opnd_t src1 = instr_get_src(&params->inst, 1);
@@ -3723,16 +3723,16 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                              */
                             return true;
                         }
-                        advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_12,
+                        advance_state(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11,
                                       params);
                         break;
                     }
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
-    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_12:
+    case DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_11:
         if (instr_get_opcode(&params->inst) == OP_kmovw) {
             opnd_t dst0 = instr_get_dst(&params->inst, 0);
             if (opnd_is_reg(dst0) && opnd_get_reg(dst0) == DR_REG_K0) {
@@ -3757,7 +3757,7 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                                                   params->info->raw_mcontext) &
                                     0xffff;
                             }
-                            restore_spilled_xmm_value(params);
+                            restore_spilled_mm_value(drcontext, params);
                             /* We are done. If we did fix up the gather's destination
                              * mask, this already has happened.
                              */
@@ -3767,7 +3767,7 @@ drx_avx512_gather_sequence_state_machine(void *drcontext,
                 }
             }
         }
-        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_2, params);
+        skip_unknown_instr_inc(DRX_DETECT_RESTORE_AVX512_GATHER_EVENT_STATE_1, params);
         break;
     default: ASSERT(false, "internal error: invalid state.");
     }

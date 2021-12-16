@@ -31,10 +31,12 @@
  */
 
 /* This is a statically-linked app.
- * XXX i#2985, i#3844: We intentionally use high-numbered xmm registers here,
- * to avoid conflict with the xmm spill reg selection logic which is very naive
- * as of today. Maybe replace with lower-numbered xmm registers when drreg
- * support for xmm spills is complete.
+ * XXX i#3107: Pure-asm apps like this are difficult to maintain; things like
+ * setting up zmm or comparing mm regs are more easily done in a C+asm app. We
+ * need this to be pure-asm so that we can verify exact instruction, load and
+ * store counts for the emulated scatter/gather sequence. With support for
+ * #3107, we can use annotations to mark app phases and compute those counts
+ * for only the intended parts in the C+asm app.
  */
 .text
 .globl _start
@@ -44,20 +46,52 @@ _start:
         // Align stack pointer to cache line.
         and      rsp, -16
 
-        // Load data into xmm0.
+        // Load data into ymm0/zmm0.
         // drx_expand_scatter_gather picks as scratch the lowest-numbered
         // xmm reg not being used by the scatter/gather instr being expanded.
-        // This will be xmm0 in this app. We want to test that xmm0 is indeed
-        // restored to its app value after the expansion.
-        mov      eax, 0x0123
-        vpinsrd  xmm0, xmm0, eax, 0x00
-        mov      eax, 0x4567
-        vpinsrd  xmm0, xmm0, eax, 0x01
-        mov      eax, 0x89ab
-        vpinsrd  xmm0, xmm0, eax, 0x02
-        mov      eax, 0xcdef
-        vpinsrd  xmm0, xmm0, eax, 0x03
-        vmovdqu  save_xmm0, xmm0
+        // This will be xmm0 in this app. We want to test that ymm0/zmm0 is
+        // indeed restored to its app value after the expansion.
+#ifdef __AVX512F__
+        mov      rax, 0x0123456701234567
+        vpinsrq  xmm3, xmm3, rax, 0x00
+        mov      rax, 0x89abcdef89abcdef
+        vpinsrq  xmm3, xmm3, rax, 0x01
+        vinserti64x2 zmm0, zmm0, xmm3, 0
+
+        mov      rax, 0x02468ace02468ace
+        vpinsrq  xmm3, xmm3, rax, 0x00
+        mov      rax, 0x13579bdf13579bdf
+        vpinsrq  xmm3, xmm3, rax, 0x01
+        vinserti64x2 zmm0, zmm0, xmm3, 1
+
+        mov      rax, 0x1111222211112222
+        vpinsrq  xmm3, xmm3, rax, 0x00
+        mov      rax, 0x3333444433334444
+        vpinsrq  xmm3, xmm3, rax, 0x01
+        vinserti64x2 zmm0, zmm0, xmm3, 2
+
+        mov      rax, 0x5555666655556666
+        vpinsrq  xmm3, xmm3, rax, 0x00
+        mov      rax, 0x7777888877778888
+        vpinsrq  xmm3, xmm3, rax, 0x01
+        vinserti64x2 zmm0, zmm0, xmm3, 3
+
+        vmovups  save_mm0, zmm0
+#else
+        mov      rax, 0x0123456701234567
+        vpinsrq  xmm3, xmm3, rax, 0x00
+        mov      rax, 0x89abcdef89abcdef
+        vpinsrq  xmm3, xmm3, rax, 0x01
+        vinserti128 ymm0, ymm0, xmm3, 0
+
+        mov      rax, 0x02468ace02468ace
+        vpinsrq  xmm3, xmm3, rax, 0x00
+        mov      rax, 0x13579bdf13579bdf
+        vpinsrq  xmm3, xmm3, rax, 0x01
+        vinserti128 ymm0, ymm0, xmm3, 1
+
+        vmovups  save_mm0, ymm0
+#endif
 
         // Load data into xmm10.
         // We embed data in instrs to avoid adding extra loads.
@@ -115,17 +149,33 @@ _start:
         cmp      eax, 0xffffffff
         jne      incorrect
 
-
         // Test 2: Verify that the scratch reg (here, xmm0) was restored to its
         // original app value.
-        vmovdqu  xmm1, save_xmm0
-        pcmpeqq  xmm1, xmm0
+#ifdef __AVX512F__
+        vmovups  zmm3, save_mm0
+        vpcmpeqq k1, zmm0, zmm3
+        kmovw    ebx, k1
+        cmp      ebx, 0xff
+        jne      incorrect_scratch
+#else
+        vmovups  ymm3, save_mm0
+        vpcmpeqq ymm2, ymm0, ymm3
+        /* Verify equality for each of the 4 qwords individually. */
+        vextracti128 xmm1, ymm2, 0
         vpextrd  eax, xmm1, 0
         cmp      eax, 0xffffffff
         jne      incorrect_scratch
         vpextrd  eax, xmm1, 2
         cmp      eax, 0xffffffff
         jne      incorrect_scratch
+        vextracti128 xmm1, ymm2, 1
+        vpextrd  eax, xmm1, 0
+        cmp      eax, 0xffffffff
+        jne      incorrect_scratch
+        vpextrd  eax, xmm1, 2
+        cmp      eax, 0xffffffff
+        jne      incorrect_scratch
+#endif
 
         // Test 3: Verify that negative indices are sign extended.
         mov      eax, -0x01
@@ -140,7 +190,6 @@ _start:
         // Emulate scatter instr if not available.
         mov      dword ptr [arr_neg], 0xdead
         // Match instr count in the #if block above.
-        nop
         nop
 #endif
         mov      ebx, dword ptr [arr_neg]
@@ -210,5 +259,5 @@ arr_neg:
         .zero    4
 arr:
         .zero    16
-save_xmm0:
-        .zero    16
+save_mm0:
+        .zero    64
