@@ -2413,6 +2413,10 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
+    /* TODO i#5255: Handle the case where the old sigset was writable in
+     * handle_sigprocmask but not now. Also, for the case where app_set is only
+     * readable but not writable.
+     */
     if (!DYNAMO_OPTION(intercept_all_signals)) {
         /* Restore app memory */
         safe_write_ex(app_set, sizeof(*app_set), &info->pre_syscall_app_sigprocmask,
