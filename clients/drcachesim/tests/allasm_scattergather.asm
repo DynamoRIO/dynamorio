@@ -31,10 +31,12 @@
  */
 
 /* This is a statically-linked app.
- * XXX i#2985, i#3844: We intentionally use high-numbered xmm registers here,
- * to avoid conflict with the xmm spill reg selection logic which is very naive
- * as of today. Maybe replace with lower-numbered xmm registers when drreg
- * support for xmm spills is complete.
+ * XXX i#3107: Pure-asm apps like this are difficult to maintain; things like
+ * setting up zmm or comparing mm regs are more easily done in a C+asm app. We
+ * need this to be pure-asm so that we can verify exact instruction, load and
+ * store counts for the emulated scatter/gather sequence. With support for
+ * #3107, we can use annotations to mark app phases and compute those counts
+ * for only the intended parts in the C+asm app.
  */
 .text
 .globl _start
