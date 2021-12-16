@@ -185,11 +185,9 @@ instru_t::instr_to_prefetch_type(instr_t *instr)
 bool
 instru_t::is_aarch64_icache_flush_op(instr_t *instr)
 {
-    if (instr_get_opcode(instr) != OP_sys)
-        return false;
-    switch (opnd_get_immed_int(instr_get_src(instr, 0))) {
+    switch (instr_get_opcode(instr)) {
     // TODO i#4406: Handle privileged icache operations.
-    case DR_IC_IVAU: return true;
+    case OP_ic_ivau: return true;
     }
     return false;
 }
@@ -197,14 +195,12 @@ instru_t::is_aarch64_icache_flush_op(instr_t *instr)
 bool
 instru_t::is_aarch64_dcache_flush_op(instr_t *instr)
 {
-    if (instr_get_opcode(instr) != OP_sys)
-        return false;
-    switch (opnd_get_immed_int(instr_get_src(instr, 0))) {
+    switch (instr_get_opcode(instr)) {
     // TODO i#4406: Handle all privileged dcache operations.
-    case DR_DC_IVAC:
-    case DR_DC_CVAU:
-    case DR_DC_CIVAC:
-    case DR_DC_CVAC: return true;
+    case OP_dc_ivac:
+    case OP_dc_cvau:
+    case OP_dc_civac:
+    case OP_dc_cvac: return true;
     }
     return false;
 }
@@ -212,9 +208,7 @@ instru_t::is_aarch64_dcache_flush_op(instr_t *instr)
 bool
 instru_t::is_aarch64_dc_zva_instr(instr_t *instr)
 {
-    // TODO i#4393: Split OP_sys into multiple opcodes based on the operation.
-    return instr_get_opcode(instr) == OP_sys &&
-        opnd_get_immed_int(instr_get_src(instr, 0)) == DR_DC_ZVA;
+    return instr_get_opcode(instr) == OP_dc_zva;
 }
 #endif
 

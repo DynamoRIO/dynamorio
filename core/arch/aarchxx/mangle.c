@@ -2884,8 +2884,8 @@ mangle_icache_op(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr, app_pc pc)
 {
     int opc = instr_get_opcode(instr);
-    if (opc == OP_sys) {
-        reg_id_t xt = opnd_get_base(instr_get_src(instr, 1));
+    if (opc == OP_ic_ivau) {
+        reg_id_t xt = opnd_get_base(instr_get_src(instr, 0));
         /* ic ivau, xT is replaced with: */
         PRE(ilist, instr, /* stp x0, x30, [x28] */
             INSTR_CREATE_stp(
