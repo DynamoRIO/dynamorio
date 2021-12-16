@@ -7337,7 +7337,7 @@ pre_system_call(dcontext_t *dcontext)
              size_t sigsetsize)
          */
         /* we also need access to the params in post_system_call */
-        uint errno_val = 0;
+        uint error_code = 0;
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         dcontext->sys_param2 = sys_param(dcontext, 2);
@@ -7345,12 +7345,12 @@ pre_system_call(dcontext_t *dcontext)
         execute_syscall = handle_sigprocmask(dcontext, (int)sys_param(dcontext, 0),
                                              (kernel_sigset_t *)sys_param(dcontext, 1),
                                              (kernel_sigset_t *)sys_param(dcontext, 2),
-                                             (size_t)sys_param(dcontext, 3), &errno_val);
+                                             (size_t)sys_param(dcontext, 3), &error_code);
         if (!execute_syscall) {
-            if (errno_val == 0)
+            if (error_code == 0)
                 set_success_return_val(dcontext, 0);
             else
-                set_failure_return_val(dcontext, errno_val);
+                set_failure_return_val(dcontext, error_code);
         }
         break;
     }

@@ -2293,22 +2293,41 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
 /* Returns whether to execute the syscall */
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
-                   kernel_sigset_t *oset, size_t sigsetsize, uint *errno_val)
+                   kernel_sigset_t *oset, size_t sigsetsize, uint *error_code)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
     kernel_sigset_t safe_set, safe_old_set;
-    if ((app_set != NULL && !d_r_safe_read(app_set, sizeof(safe_set), &safe_set)) ||
-        (oset != NULL && !d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set))) {
-        if (errno_val != NULL)
-            *errno_val = EFAULT;
+    /* Some code uses this syscall to check whether the given address is
+     * readable. E.g.
+     * github.com/abseil/abseil-cpp/blob/master/absl/debugging/internal/
+     * address_is_readable.cc#L85
+     * Those uses as well as our checks below don't guarantee that the given
+     * address will _remain_ readable or writable, even if they succeed now.
+     * TODO i#5255: DR can atleast pass the safe_set to the actual syscall
+     * (in cases where it is not skipped) to avoid a second read of app_set,
+     * by the kernel.
+     */
+    if (app_set != NULL && !d_r_safe_read(app_set, sigsetsize, &safe_set)) {
+        if (error_code != NULL)
+            *error_code = EFAULT;
         return false;
+    }
+    if (oset != NULL) {
+        /* Old sigset should be writable too. */
+        if (!d_r_safe_read(oset, sigsetsize, &safe_old_set) ||
+            !safe_write_ex(oset, sigsetsize, &safe_old_set, NULL)) {
+            if (error_code != NULL)
+                *error_code = EFAULT;
+            return false;
+        }
     }
     if (app_set != NULL && !(how >= SIG_BLOCK && how <= SIG_SETMASK)) {
-        if (errno_val != NULL)
-            *errno_val = EINVAL;
+        if (error_code != NULL)
+            *error_code = EINVAL;
         return false;
     }
+    /* TODO i#5255: Handle bad sigsetsize. */
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");

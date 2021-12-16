@@ -115,42 +115,48 @@ set_sigaction_handler(int sig, void *action)
     assert(rc == 0);
 }
 
-#if !defined(MACOS)
 static void
-test_rt_sigprocmask()
+test_sigprocmask(long sysnum)
 {
     uint64 new = 0xf00d, old, original;
     /* Save original sigprocmask. Both return the current sigprocmask. */
-    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, NULL, &original,
+    /* Even though SYS_sigprocmask does not need the last size arg, we
+     * pass it anyway to allow sharing of code between SYS_sigprocmask
+     * and SYS_rt_sigprocmask. DR and kernel would just ignore that
+     * last arg when the actual call is made in syscall().
+     */
+    assert(syscall(sysnum, SIG_SETMASK, NULL, &original,
                    /*sizeof(kernel_sigset_t)*/ 8) == 0);
-    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, &original, 8) == 0);
+    assert(syscall(sysnum, ~0, NULL, &original, 8) == 0);
 
     /* EFAULT cases. */
-    assert(syscall(SYS_rt_sigprocmask, ~0, 0x123, NULL, 8) == -1);
+    assert(syscall(sysnum, ~0, 0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
-    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, 0x123, 8) == -1);
+    assert(syscall(sysnum, ~0, NULL, 0x123, 8) == -1);
     assert(errno == EFAULT);
-    assert(syscall(SYS_rt_sigprocmask, SIG_BLOCK, 0x123, NULL, 8) == -1);
+    assert(syscall(sysnum, SIG_BLOCK, 0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
-    assert(syscall(SYS_rt_sigprocmask, SIG_BLOCK, NULL, 0x123, 8) == -1);
+    assert(syscall(sysnum, SIG_BLOCK, NULL, 0x123, 8) == -1);
+    assert(errno == EFAULT);
+    /* EFAULT due to unwritable address. */
+    assert(syscall(sysnum, SIG_BLOCK, NULL, test_sigprocmask, 8) == -1);
     assert(errno == EFAULT);
 
     /* EINVAL cases. */
-    assert(syscall(SYS_rt_sigprocmask, ~0, &new, NULL, 8) == -1);
+    assert(syscall(sysnum, ~0, &new, NULL, 8) == -1);
     assert(errno == EINVAL);
-    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK + 1, &new, NULL, 8) == -1);
+    assert(syscall(sysnum, SIG_SETMASK + 1, &new, NULL, 8) == -1);
     assert(errno == EINVAL);
 
     /* Success. */
-    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, NULL, 8) == 0);
-    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &new, NULL, 8) == 0);
-    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, &old, 8) == 0);
+    assert(syscall(sysnum, ~0, NULL, NULL, 8) == 0);
+    assert(syscall(sysnum, SIG_SETMASK, &new, NULL, 8) == 0);
+    assert(syscall(sysnum, ~0, NULL, &old, 8) == 0);
     assert(new == old);
 
     /* Restore original sigprocmask. */
-    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &original, NULL, 8) == 0);
+    assert(syscall(sysnum, SIG_SETMASK, &original, NULL, 8) == 0);
 }
-#endif
 
 #if !defined(MACOS) && !defined(X64)
 static void
@@ -200,8 +206,10 @@ int
 main(int argc, char **argv)
 {
     test_query(SIGTERM);
-#if !defined(MACOS)
-    test_rt_sigprocmask();
+#ifdef MACOS
+    test_sigprocmask(SYS_sigprocmask);
+#else
+    test_sigprocmask(SYS_rt_sigprocmask);
 #endif
 #if !defined(MACOS) && !defined(X64)
     test_non_rt_sigaction(SIGPIPE);
