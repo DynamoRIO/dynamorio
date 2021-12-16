@@ -2308,15 +2308,15 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
      * (in cases where it is not skipped) to avoid a second read of app_set,
      * by the kernel.
      */
-    if (app_set != NULL && !d_r_safe_read(app_set, sigsetsize, &safe_set)) {
+    if (app_set != NULL && !d_r_safe_read(app_set, sizeof(safe_set), &safe_set)) {
         if (error_code != NULL)
             *error_code = EFAULT;
         return false;
     }
     if (oset != NULL) {
         /* Old sigset should be writable too. */
-        if (!d_r_safe_read(oset, sigsetsize, &safe_old_set) ||
-            !safe_write_ex(oset, sigsetsize, &safe_old_set, NULL)) {
+        if (!d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set) ||
+            !safe_write_ex(oset, sizeof(safe_old_set), &safe_old_set, NULL)) {
             if (error_code != NULL)
                 *error_code = EFAULT;
             return false;
