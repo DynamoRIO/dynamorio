@@ -7344,12 +7344,13 @@ pre_system_call(dcontext_t *dcontext)
         /* SYS_sigprocmask on MacOS does not have a size arg. So we use the
          * kernel_sigset_t size instead.
          */
-        dcontext->sys_param3 =
-            IF_MACOS_ELSE(sizeof(kernel_sigset_t), sys_param(dcontext, 3));
+        size_t sigsetsize =
+            (size_t)IF_MACOS_ELSE(sizeof(kernel_sigset_t), sys_param(dcontext, 3));
+        dcontext->sys_param3 = (reg_t)sigsetsize;
         execute_syscall = handle_sigprocmask(dcontext, (int)sys_param(dcontext, 0),
                                              (kernel_sigset_t *)sys_param(dcontext, 1),
                                              (kernel_sigset_t *)sys_param(dcontext, 2),
-                                             (size_t)sys_param(dcontext, 3), &error_code);
+                                             sigsetsize, &error_code);
         if (!execute_syscall) {
             if (error_code == 0)
                 set_success_return_val(dcontext, 0);
