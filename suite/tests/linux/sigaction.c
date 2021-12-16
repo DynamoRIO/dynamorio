@@ -119,11 +119,11 @@ set_sigaction_handler(int sig, void *action)
 static void
 test_rt_sigprocmask()
 {
-    uint64 new = 0, old;
+    uint64 new = 0xf00d, old, original;
     /* Save original sigprocmask. Both return the current sigprocmask. */
-    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, NULL, &old,
+    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, NULL, &original,
                    /*sizeof(kernel_sigset_t)*/ 8) == 0);
-    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, &old, 8) == 0);
+    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, &original, 8) == 0);
 
     /* EFAULT cases. */
     assert(syscall(SYS_rt_sigprocmask, ~0, 0x123, NULL, 8) == -1);
@@ -144,9 +144,11 @@ test_rt_sigprocmask()
     /* Success. */
     assert(syscall(SYS_rt_sigprocmask, ~0, NULL, NULL, 8) == 0);
     assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &new, NULL, 8) == 0);
+    assert(syscall(SYS_rt_sigprocmask, ~0, NULL, &old, 8) == 0);
+    assert(new == old);
 
     /* Restore original sigprocmask. */
-    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &old, NULL, 8) == 0);
+    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &original, NULL, 8) == 0);
 }
 #endif
 
