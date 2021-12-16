@@ -119,12 +119,13 @@ static void
 test_sigprocmask(long sysnum)
 {
     uint64 new = 0xf00d, old, original;
-    /* Save original sigprocmask. Both return the current sigprocmask. */
-    /* Even though SYS_sigprocmask does not need the last size arg, we
-     * pass it anyway to allow sharing of code between SYS_sigprocmask
-     * and SYS_rt_sigprocmask. DR and kernel would just ignore that
-     * last arg when the actual call is made in syscall().
+    /* In all these syscalls, even though SYS_sigprocmask does not need
+     * the last size arg, we pass it anyway to allow sharing of code
+     * between SYS_sigprocmask and SYS_rt_sigprocmask. DR and kernel
+     * would just ignore that last arg when the actual call is made in
+     * syscall().
      */
+    /* Save original sigprocmask. Both return the current sigprocmask. */
     assert(syscall(sysnum, SIG_SETMASK, NULL, &original,
                    /*sizeof(kernel_sigset_t)*/ 8) == 0);
     assert(syscall(sysnum, ~0, NULL, &original, 8) == 0);
