@@ -120,8 +120,15 @@ test_sigprocmask(long sysnum)
 {
     uint64 new = 0xf00d, old, original;
     /* Save original sigprocmask. Both return the current sigprocmask. */
+    asm volatile("nop\n\t"
+                 "nop\n\t"
+                 "nop\n\t"
+                 "nop\n\t"
+                 "mov %[constant], %%rdx\n\t"
+                 ::[constant] "i"(0xdeadbeef):"rdx");
     assert(syscall(sysnum, SIG_SETMASK, NULL, &original,
                    /*sizeof(kernel_sigset_t)*/ 8) == 0);
+#ifdef REAL
     assert(syscall(sysnum, ~0, NULL, &original, 8) == 0);
 
     /* EFAULT cases. */
@@ -162,6 +169,7 @@ test_sigprocmask(long sysnum)
 
     /* Restore original sigprocmask. */
     assert(syscall(sysnum, SIG_SETMASK, &original, NULL, 8) == 0);
+#endif
 }
 
 #if !defined(MACOS) && !defined(X64)
@@ -211,6 +219,9 @@ test_non_rt_sigaction(int sig)
 int
 main(int argc, char **argv)
 {
+#ifndef REAL
+    test_sigprocmask(SYS_sigprocmask);
+#else
     test_query(SIGTERM);
 #ifdef MACOS
     test_sigprocmask(SYS_sigprocmask);
@@ -227,4 +238,5 @@ main(int argc, char **argv)
     print("Sending SIGTERM second time\n");
     kill(getpid(), SIGTERM);
     print("Should not be reached\n");
+#endif
 }
