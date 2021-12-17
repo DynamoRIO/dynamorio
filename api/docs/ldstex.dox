@@ -183,7 +183,7 @@ One complication is multiple different load-exclusive opcodes pairing with a sin
 - Storing the load opcode into its own TLS slot, but we do not know what to compare it with when we reach the store-exclusive, especially for cases like dr_prepopulate_cache().
 - Just always using the acquire version for the store-exclusive size.  Since the size must match, this is the only variation, and it should not affect correctness to add the barriers even when they are not needed.  This is the solution that we choose.
 
-There are other complexities, such as saving and comparing a second value in another TLS slot for pair opcodes.  32-bit ARM raises even more issues, such as requiring saving the flags, requiring consecutive registers for pair opcodes, and predication, all of which add further complexity.
+There are other complexities, such as saving and comparing a second value in another TLS slot for pair opcodes, and handling a load-exclusive that discards a result by targeting the zero register.  32-bit ARM raises even more issues, such as requiring saving the flags, requiring consecutive registers for pair opcodes, and predication, all of which add further complexity.
 
 This solution should also act on a `clrex` instruction, clearing the stored monitor values in order to avoid incorrect success in a load-exclusive, `clrex`, store-exclusive sequence.
 

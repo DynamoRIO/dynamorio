@@ -73,10 +73,13 @@ class FallthroughDecode:
         self.decode_function = decode_function
 
 class Pattern:
-    def __init__(self, pattern, opcode_bits, opnd_bits, opcode, opndset, enum):
+    def __init__(self, pattern, opcode_bits, opnd_bits, high_soft_bits, opcode, opndset, enum):
         self.pattern = pattern
         self.opcode_bits = opcode_bits
         self.opnd_bits = opnd_bits
+        # High soft bits are bits that are allowed to vary by the spec but
+        # default to 1.They are represented by ^ in codec.txt
+        self.high_soft_bits = high_soft_bits
         self.opcode = opcode
         self.opndset = opndset
         self.enum = enum
@@ -92,6 +95,12 @@ class Pattern:
             return [self.opndset]
         return self.opndset
 
+    def ignored_bit_mask(self):
+        return ~(self.opnd_bits | self.high_soft_bits)
+
+    def set_bits(self):
+        return self.opcode_bits | self.high_soft_bits
+
 def fallthrough_instr_id(opcode, opcode_bits, opnd_bits):
     return '%s_%08x_%08x' % (opcode, opcode_bits, opnd_bits)
 
@@ -102,9 +111,9 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
               FALLTHROUGH.values()]
         c += ['\n']
         for name in sorted(opndsettab):
-            os = opndsettab[name]
-            (dsts, srcs) = (os.dsts, os.srcs)
-            c += ['/* %s <- %s */' % (os.dsts, os.srcs)]
+            opnd_set = opndsettab[name]
+            (dsts, srcs) = (opnd_set.dsts, opnd_set.srcs)
+            c += ['/* %s <- %s */' % (opnd_set.dsts, opnd_set.srcs)]
             c += ['static bool',
                   'decode_opnds%s(uint enc, dcontext_t *dcontext, byte *pc, '
                   'instr_t *instr, int opcode)' % name, '{']
@@ -143,80 +152,87 @@ def generate_decoder(patterns, opndsettab, opndtab, opc_props):
 
         if len(pats) < 4:
             else_str = ""
-            for opcode_bits, opnd_bits, m, t in sorted(pats, key=reorder_key):
+            for pattern in sorted(pats, key=reorder_key):
 
                 not_zero_mask = 0
                 try:
-                    os  = opndsettab[t]
-                    for mask in (opndtab[o].non_zero for o in (os.dsts + os.srcs)):
+                    opnd_set  = opndsettab[pattern.opndset]
+                    for mask in (opndtab[o].non_zero for o in opnd_set.dsts + opnd_set.srcs):
                         not_zero_mask |= mask
                 except KeyError:
                     pass
 
                 indent_append('%sif ((enc & 0x%08x) == 0x%08x%s)'  % (
                     else_str,
-                    ((1 << N) - 1) & ~opnd_bits,
-                    opcode_bits,
+                    ((1 << N) - 1) & pattern.ignored_bit_mask(),
+                    pattern.opcode_bits,
                     " && (enc & 0x%08x) != 0" % not_zero_mask if not_zero_mask else ""))
 
                 if not else_str:
                     else_str = "else "
-                if opc_props[m] != 'n':
+                if opc_props[pattern.opcode] != 'n':
                     c[-1] = c[-1] + ' {'
                     # Uncomment this for debug output in generated code:
                     # indent_append('    // %s->%s' % (m, opc_props[m]))
-                    if opc_props[m] == 'r':
+                    if opc_props[pattern.opcode] == 'r':
                         indent_append('    instr->eflags |= EFLAGS_READ_NZCV;')
-                    elif opc_props[m] == 'w':
+                    elif opc_props[pattern.opcode] == 'w':
                         indent_append('    instr->eflags |= EFLAGS_WRITE_NZCV;')
-                    elif opc_props[m] in ["rw", "wr"]:
+                    elif opc_props[pattern.opcode] in ["rw", "wr"]:
                         indent_append('    instr->eflags |= (EFLAGS_READ_NZCV | '
                                       'EFLAGS_WRITE_NZCV);')
-                    elif opc_props[m] in ["er", "ew"]:
-                        indent_append('    // instr->eflags handling for %s is '
-                                      'manually handled in codec.c\'s decode_common().' % m)
+                    elif opc_props[pattern.opcode] in ["er", "ew"]:
+                        indent_append(
+                            '    // instr->eflags handling for %s is '
+                            'manually handled in codec.c\'s decode_common().' % pattern.opcode)
                     else:
                         indent_append('    ASSERT(0);')
-                enc_key = fallthrough_instr_id(m, opcode_bits, opnd_bits)
-                if enc_key in FALLTHROUGH and t == FALLTHROUGH[enc_key].opndset:
+                enc_key = fallthrough_instr_id(
+                    pattern.opcode, pattern.opcode_bits, pattern.opnd_bits)
+                if enc_key in FALLTHROUGH and patten.opndset == FALLTHROUGH[enc_key].opndset:
                     indent_append('    %s = true;' % FALLTHROUGH[enc_key].flag_name)
                     FALLTHROUGH[enc_key].decode_clause = \
                         'if ((enc & 0x%08x) == 0x%08x && %s == true)' % \
-                        (((1 << N) - 1) & ~opnd_bits, opcode_bits, \
+                        (((1 << N) - 1) & pattern.ignored_bit_mask(), pattern.opcode_bits, \
                         FALLTHROUGH[enc_key].flag_name)
                     FALLTHROUGH[enc_key].decode_function = \
                         'return decode_opnds%s(enc, dc, pc, instr, OP_%s);' % \
-                        (t, m)
+                        (pattern.opndset, pattern.opcode)
                 else:
                     indent_append('    return decode_opnds%s(enc, dc, pc, '
-                                  'instr, OP_%s);' % (t, m))
-                if opc_props[m] != 'n':
+                                  'instr, OP_%s);' % (pattern.opndset, pattern.opcode))
+                if opc_props[pattern.opcode] != 'n':
                     indent_append('}')
             return
         # Look for best bit to test. We aim to reduce the number of patterns
         # remaining.
-        best_b = -1
-        best_x = len(pats)
-        for b in range(N):
-            x0 = 0
-            x1 = 0
-            for (f, v, _, _) in pats:
-                if (1 << b) & (~f | v):
-                    x0 += 1
-                if (1 << b) & (f | v):
-                    x1 += 1
-            x = max(x0, x1)
-            if x < best_x:
-                best_b = b
-                best_x = x
-        indent_append('if ((enc >> %d & 1) == 0) {' % (best_b,))
+        best_switch_bit = -1
+        least_patterns_selected = len(pats)
+        for switch_bit in range(N):
+            bit_not_set_or_variable = 0
+            bit_set_or_variable = 0
+            for p in pats:
+                # In how many patterns is this bit not set or included
+                # in the variable bits.
+                if (1 << switch_bit) & (~p.opcode_bits | p.opnd_bits | p.high_soft_bits):
+                    bit_not_set_or_variable += 1
+                # How many patterns have this b set and or in the variable
+                # bits.
+                if (1 << switch_bit) & (p.opcode_bits | p.opnd_bits | p.high_soft_bits):
+                    bit_set_or_variable += 1
+            patterns_selected = max(bit_not_set_or_variable, bit_set_or_variable)
+            if patterns_selected < least_patterns_selected:
+                best_switch_bit = switch_bit
+                least_patterns_selected = patterns_selected
+        indent_append('if ((enc >> %d & 1) == 0) {' % (best_switch_bit,))
         pats0 = []
         pats1 = []
+        # Split the decode tree on this bit, if the bit
+        # lies in the operand bits, then it goes in both trees.
         for p in pats:
-            (f, v, _, _) = p
-            if (1 << best_b) & (~f | v):
+            if (1 << best_switch_bit) & (~p.opcode_bits | p.opnd_bits | p.high_soft_bits):
                 pats0.append(p)
-            if (1 << best_b) & (f | v):
+            if (1 << best_switch_bit) & (p.opcode_bits | p.opnd_bits | p.high_soft_bits):
                 pats1.append(p)
         gen(c, pats0, depth + 1)
         indent_append('} else {')
@@ -246,7 +262,7 @@ def find_required(fixed, reordered, i, opndtab):
         if opndtab[reordered[j][2]].gen & used & ~known != 0:
             req = req + ['%s%d' % (reordered[j][0], reordered[j][1])]
             known = known | opndtab[reordered[j][2]].gen
-    return ('enc' if req == [] else '(enc | %s)' % ' | '.join(req))
+    return 'enc' if req == [] else '(enc | %s)' % ' | '.join(req)
 
 def make_enc(n, reordered, f, opndtab):
     (ds, i, ot) = reordered[n]
@@ -321,15 +337,15 @@ def generate_encoder(patterns, opndsettab, opndtab):
 
     for mn in sorted(case):
         c.append('    case OP_%s:' % mn)
-        pats = sorted(case[mn], key=reorder_key)
-        pat1 = pats.pop()
-        for p in pats:
-            (b, m, mn, f) = p
-            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
+        patterns = sorted(case[mn], key=reorder_key)
+        last_pattern = patterns.pop()
+        for pattern in patterns:
+            c.append('        enc = encode_opnds%s(pc, instr, 0x%08x, di);' % (
+                pattern.opndset, pattern.set_bits()))
             c.append('        if (enc != ENCFAIL)')
             c.append('            return enc;')
-        (b, m, mn, f) = pat1
-        c.append('        return encode_opnds%s(pc, instr, 0x%08x, di);' % (f, b))
+        c.append('        return encode_opnds%s(pc, instr, 0x%08x, di);' % (
+            last_pattern.opndset, last_pattern.set_bits()))
     c += ['    }',
           '    return ENCFAIL;',
           '}']
@@ -432,11 +448,11 @@ def generate_opcode_opnd_pairs(patterns):
     # The allowed instructions include all the Data Processing instructions (including
     # the FP and SIMD ones) and the non-memory SVE instructions.
     excluded_opcodes = re.compile('....1.0|...101.|1..0010')
-    cnt = 0;
+    cnt = 0
     for p in patterns:
         if excluded_opcodes.match(p.pattern):
-            continue;
-        cnt += 1;
+            continue
+        cnt += 1
         c.append('/* %s */ {%s, %s},' % (p.opcode, bin(p.opcode_bits), bin(p.opnd_bits)))
     c += ['};',
           '']
@@ -454,41 +470,44 @@ def write_if_changed(file, data):
     open(file, 'w').write(data)
 
 def read_file(path):
-    file = open(path, 'r')
     opndtab = dict()
     opc_props = dict()
     patterns = []
-    for line in (l.split("#")[0].strip() for l in file):
-        if not line:
-            continue
-        if re.match("^[x\?\-\+]{32} +[a-zA-Z_0-9]+$", line):
-            # Syntax: mask opndtype
-            mask, opndtype = line.split()
-            if opndtype in opndtab:
-                raise Exception('Repeated definition of opndtype %s' % opndtype)
-            opndtab[opndtype] = Opnd(int(re.sub("[x\+]", "1", re.sub("[^x^\+]", "0", mask)), 2),
-                                     int(re.sub("\?", "1", re.sub("[^\?]", "0", mask)), 2),
-                                     int(re.sub("\+", "1", re.sub("[^\+]", "0", mask)), 2))
-            continue
-        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$", line):
-            # Syntax: pattern opcode opndtype* : opndtype*
-            pattern, nzcv_rw_flag, enum, opcode, args = line.split(None, 4)
-            dsts, srcs = [a.split() for a in args.split(":")]
-            opcode_bits = int(re.sub("x", "0", pattern), 2)
-            opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
-            patterns.append(Pattern(pattern, opcode_bits, opnd_bits, opcode, (dsts, srcs), enum))
-            opc_props[opcode] = nzcv_rw_flag
-            continue
-        if re.match("^[01x]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+", line):
-            # Syntax: pattern opcode opndset
-            pattern, nzcv_rw_flag, enum, opcode, opndset = line.split()
-            opcode_bits = int(re.sub("x", "0", pattern), 2)
-            opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
-            patterns.append(Pattern(pattern, opcode_bits, opnd_bits, opcode, opndset, enum))
-            opc_props[opcode] = nzcv_rw_flag
-            continue
-        raise Exception('Cannot parse line: %s' % line)
-    return (patterns, opndtab, opc_props)
+
+    with open(path, 'r') as file:
+        for line in (l.split("#")[0].strip() for l in file):
+            if not line:
+                continue
+            if re.match("^[x\?\-\+]{32} +[a-zA-Z_0-9]+$", line):
+                # Syntax: mask opndtype
+                mask, opndtype = line.split()
+                if opndtype in opndtab:
+                    raise Exception('Repeated definition of opndtype %s' % opndtype)
+                opndtab[opndtype] = Opnd(int(re.sub("[x\+]", "1", re.sub("[^x^\+]", "0", mask)), 2),
+                                         int(re.sub("\?", "1", re.sub("[^\?]", "0", mask)), 2),
+                                         int(re.sub("\+", "1", re.sub("[^\+]", "0", mask)), 2))
+                continue
+            if re.match("^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z_0-9][a-zA-Z_0-9 ]*:[a-zA-Z_0-9 ]*$", line):
+                # Syntax: pattern opcode opndtype* : opndtype*
+                pattern, nzcv_rw_flag, enum, opcode, args = line.split(None, 4)
+                dsts, srcs = [a.split() for a in args.split(":")]
+                opcode_bits = int(re.sub("[\^x]", "0", pattern), 2)
+                opnd_bits = int(re.sub("x", "1", re.sub("[1\^]", "0", pattern)), 2)
+                high_soft_bits = int(re.sub("\^", "1", re.sub("[10x]", "0", pattern)), 2)
+                patterns.append(Pattern(pattern, opcode_bits, opnd_bits, high_soft_bits, opcode, (dsts, srcs), enum))
+                opc_props[opcode] = nzcv_rw_flag
+                continue
+            if re.match("^[01x\^]{32} +[n|r|w|rw|wr|er|ew]+ +[0-9]+ +[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+", line):
+                # Syntax: pattern opcode opndset
+                pattern, nzcv_rw_flag, enum, opcode, opndset = line.split()
+                opcode_bits = int(re.sub("x", "0", pattern), 2)
+                opnd_bits = int(re.sub("x", "1", re.sub("1", "0", pattern)), 2)
+                high_soft_bits = int(re.sub("\^", "1", re.sub("[10x]", "0", pattern)), 2)
+                patterns.append(Pattern(pattern, opcode_bits, opnd_bits,high_soft_bits, opcode, opndset, enum))
+                opc_props[opcode] = nzcv_rw_flag
+                continue
+            raise Exception('Cannot parse line: %s' % line)
+    return patterns, opndtab, opc_props
 
 def pattern_to_str(opcode_bits, opnd_bits, opcode, opndset):
     p = ''

@@ -2293,17 +2293,52 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
 /* Returns whether to execute the syscall */
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
-                   kernel_sigset_t *oset, size_t sigsetsize)
+                   kernel_sigset_t *oset, size_t sigsetsize, uint *error_code)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
-    kernel_sigset_t safe_set;
+    kernel_sigset_t safe_set, safe_old_set;
+    /* Some code uses this syscall to check whether the given address is
+     * readable. E.g.
+     * github.com/abseil/abseil-cpp/blob/master/absl/debugging/internal/
+     * address_is_readable.cc#L85
+     * Those uses as well as our checks below don't guarantee that the given
+     * address will _remain_ readable or writable, even if they succeed now.
+     * TODO i#5255: DR can at least pass the safe_set to the actual syscall
+     * (in cases where it is not skipped) to avoid a second read of app_set,
+     * by the kernel.
+     */
+    if (sigsetsize != sizeof(kernel_sigset_t)) {
+        if (error_code != NULL)
+            *error_code = EINVAL;
+        return false;
+    }
+    if (app_set != NULL && !d_r_safe_read(app_set, sizeof(safe_set), &safe_set)) {
+        if (error_code != NULL)
+            *error_code = EFAULT;
+        return false;
+    }
+    if (app_set != NULL && !(how >= SIG_BLOCK && how <= SIG_SETMASK)) {
+        if (error_code != NULL)
+            *error_code = EINVAL;
+        return false;
+    }
+    if (oset != NULL) {
+        /* Old sigset should be writable too. */
+        if (!d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set) ||
+            !safe_write_ex(oset, sizeof(safe_old_set), &safe_old_set, NULL)) {
+            if (error_code != NULL)
+                *error_code = EFAULT;
+            return false;
+        }
+    }
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
     if (oset != NULL)
         info->pre_syscall_app_sigblocked = info->app_sigblocked;
-    if (app_set != NULL && d_r_safe_read(app_set, sizeof(safe_set), &safe_set)) {
+    if (app_set != NULL) {
+        /* app_set was already read into safe_set above. */
         if (execute_syscall) {
             /* The syscall will execute, so remove from the set passed
              * to it.   We restore post-syscall.
@@ -2382,6 +2417,10 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
+    /* TODO i#5255: Handle the case where the old sigset was writable in
+     * handle_sigprocmask but not now. Also, for the case where app_set is only
+     * readable but not writable.
+     */
     if (!DYNAMO_OPTION(intercept_all_signals)) {
         /* Restore app memory */
         safe_write_ex(app_set, sizeof(*app_set), &info->pre_syscall_app_sigprocmask,
@@ -3665,7 +3704,6 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, kernel_ucontext
         sc_interrupted->SC_XIP = official_xl8;
     }
     dcontext->next_tag = canonicalize_pc_target(dcontext, next_pc);
-    IF_ARM(dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), NULL));
 
     /* Set our sigreturn context to point to fcache_return!
      * Then we'll go back through kernel, appear in fcache_return,
@@ -5713,10 +5751,6 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
         sc->SC_LR = (reg_t)info->app_sigaction[sig]->restorer;
     else
         sc->SC_LR = (reg_t)dynamorio_sigreturn;
-#    ifndef AARCH64
-    /* We're going to our fcache_return gencode which uses DEFAULT_ISA_MODE */
-    set_pc_mode_in_cpsr(sc, DEFAULT_ISA_MODE);
-#    endif
 #endif
     /* Set our sigreturn context (NOT for the app: we already copied the
      * translated context to the app stack) to point to fcache_return!
