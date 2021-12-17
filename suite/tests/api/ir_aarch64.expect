@@ -833,12 +833,297 @@ umull2 %q6 %q3 $0x00 -> %q6
 umull2 %q6 %q3 $0x01 -> %q6
 umull2 %q6 %q3 $0x02 -> %q6
 test_asimddiff complete
-sys    $0x1ba1 (%x0)[1byte]
-sys    $0x1bd1 (%x1)[1byte]
-sys    $0x1bd9 (%x29)[1byte]
-sys    $0x1bf1 (%x30)[1byte]
-sys    $0x1ba9 (%x1)[1byte]
-test_sys complete
+dc_zva  -> (%x0)[1byte]
+dc_zva  -> (%x0)[1byte]
+dc_zva  -> (%x1)[1byte]
+dc_zva  -> (%x2)[1byte]
+dc_zva  -> (%x3)[1byte]
+dc_zva  -> (%x4)[1byte]
+dc_zva  -> (%x5)[1byte]
+dc_zva  -> (%x6)[1byte]
+dc_zva  -> (%x7)[1byte]
+dc_zva  -> (%x8)[1byte]
+dc_zva  -> (%x9)[1byte]
+dc_zva  -> (%x10)[1byte]
+dc_zva  -> (%x11)[1byte]
+dc_zva  -> (%x12)[1byte]
+dc_zva  -> (%x13)[1byte]
+dc_zva  -> (%x14)[1byte]
+dc_zva  -> (%x15)[1byte]
+dc_zva  -> (%x16)[1byte]
+dc_zva  -> (%x17)[1byte]
+dc_zva  -> (%x18)[1byte]
+dc_zva  -> (%x19)[1byte]
+dc_zva  -> (%x20)[1byte]
+dc_zva  -> (%x21)[1byte]
+dc_zva  -> (%x22)[1byte]
+dc_zva  -> (%x23)[1byte]
+dc_zva  -> (%x24)[1byte]
+dc_zva  -> (%x25)[1byte]
+dc_zva  -> (%x26)[1byte]
+dc_zva  -> (%x27)[1byte]
+dc_zva  -> (%x28)[1byte]
+dc_zva  -> (%x29)[1byte]
+dc_zva  -> (%x30)[1byte]
+dc_cvac (%x0)[1byte]
+dc_cvac (%x0)[1byte]
+dc_cvac (%x1)[1byte]
+dc_cvac (%x2)[1byte]
+dc_cvac (%x3)[1byte]
+dc_cvac (%x4)[1byte]
+dc_cvac (%x5)[1byte]
+dc_cvac (%x6)[1byte]
+dc_cvac (%x7)[1byte]
+dc_cvac (%x8)[1byte]
+dc_cvac (%x9)[1byte]
+dc_cvac (%x10)[1byte]
+dc_cvac (%x11)[1byte]
+dc_cvac (%x12)[1byte]
+dc_cvac (%x13)[1byte]
+dc_cvac (%x14)[1byte]
+dc_cvac (%x15)[1byte]
+dc_cvac (%x16)[1byte]
+dc_cvac (%x17)[1byte]
+dc_cvac (%x18)[1byte]
+dc_cvac (%x19)[1byte]
+dc_cvac (%x20)[1byte]
+dc_cvac (%x21)[1byte]
+dc_cvac (%x22)[1byte]
+dc_cvac (%x23)[1byte]
+dc_cvac (%x24)[1byte]
+dc_cvac (%x25)[1byte]
+dc_cvac (%x26)[1byte]
+dc_cvac (%x27)[1byte]
+dc_cvac (%x28)[1byte]
+dc_cvac (%x29)[1byte]
+dc_cvac (%x30)[1byte]
+dc_cvau (%x0)[1byte]
+dc_cvau (%x0)[1byte]
+dc_cvau (%x1)[1byte]
+dc_cvau (%x2)[1byte]
+dc_cvau (%x3)[1byte]
+dc_cvau (%x4)[1byte]
+dc_cvau (%x5)[1byte]
+dc_cvau (%x6)[1byte]
+dc_cvau (%x7)[1byte]
+dc_cvau (%x8)[1byte]
+dc_cvau (%x9)[1byte]
+dc_cvau (%x10)[1byte]
+dc_cvau (%x11)[1byte]
+dc_cvau (%x12)[1byte]
+dc_cvau (%x13)[1byte]
+dc_cvau (%x14)[1byte]
+dc_cvau (%x15)[1byte]
+dc_cvau (%x16)[1byte]
+dc_cvau (%x17)[1byte]
+dc_cvau (%x18)[1byte]
+dc_cvau (%x19)[1byte]
+dc_cvau (%x20)[1byte]
+dc_cvau (%x21)[1byte]
+dc_cvau (%x22)[1byte]
+dc_cvau (%x23)[1byte]
+dc_cvau (%x24)[1byte]
+dc_cvau (%x25)[1byte]
+dc_cvau (%x26)[1byte]
+dc_cvau (%x27)[1byte]
+dc_cvau (%x28)[1byte]
+dc_cvau (%x29)[1byte]
+dc_cvau (%x30)[1byte]
+dc_civac (%x0)[1byte]
+dc_civac (%x0)[1byte]
+dc_civac (%x1)[1byte]
+dc_civac (%x2)[1byte]
+dc_civac (%x3)[1byte]
+dc_civac (%x4)[1byte]
+dc_civac (%x5)[1byte]
+dc_civac (%x6)[1byte]
+dc_civac (%x7)[1byte]
+dc_civac (%x8)[1byte]
+dc_civac (%x9)[1byte]
+dc_civac (%x10)[1byte]
+dc_civac (%x11)[1byte]
+dc_civac (%x12)[1byte]
+dc_civac (%x13)[1byte]
+dc_civac (%x14)[1byte]
+dc_civac (%x15)[1byte]
+dc_civac (%x16)[1byte]
+dc_civac (%x17)[1byte]
+dc_civac (%x18)[1byte]
+dc_civac (%x19)[1byte]
+dc_civac (%x20)[1byte]
+dc_civac (%x21)[1byte]
+dc_civac (%x22)[1byte]
+dc_civac (%x23)[1byte]
+dc_civac (%x24)[1byte]
+dc_civac (%x25)[1byte]
+dc_civac (%x26)[1byte]
+dc_civac (%x27)[1byte]
+dc_civac (%x28)[1byte]
+dc_civac (%x29)[1byte]
+dc_civac (%x30)[1byte]
+dc_ivac (%x0)[1byte]
+dc_ivac (%x0)[1byte]
+dc_ivac (%x1)[1byte]
+dc_ivac (%x2)[1byte]
+dc_ivac (%x3)[1byte]
+dc_ivac (%x4)[1byte]
+dc_ivac (%x5)[1byte]
+dc_ivac (%x6)[1byte]
+dc_ivac (%x7)[1byte]
+dc_ivac (%x8)[1byte]
+dc_ivac (%x9)[1byte]
+dc_ivac (%x10)[1byte]
+dc_ivac (%x11)[1byte]
+dc_ivac (%x12)[1byte]
+dc_ivac (%x13)[1byte]
+dc_ivac (%x14)[1byte]
+dc_ivac (%x15)[1byte]
+dc_ivac (%x16)[1byte]
+dc_ivac (%x17)[1byte]
+dc_ivac (%x18)[1byte]
+dc_ivac (%x19)[1byte]
+dc_ivac (%x20)[1byte]
+dc_ivac (%x21)[1byte]
+dc_ivac (%x22)[1byte]
+dc_ivac (%x23)[1byte]
+dc_ivac (%x24)[1byte]
+dc_ivac (%x25)[1byte]
+dc_ivac (%x26)[1byte]
+dc_ivac (%x27)[1byte]
+dc_ivac (%x28)[1byte]
+dc_ivac (%x29)[1byte]
+dc_ivac (%x30)[1byte]
+dc_isw %x0
+dc_isw %x0
+dc_isw %x1
+dc_isw %x2
+dc_isw %x3
+dc_isw %x4
+dc_isw %x5
+dc_isw %x6
+dc_isw %x7
+dc_isw %x8
+dc_isw %x9
+dc_isw %x10
+dc_isw %x11
+dc_isw %x12
+dc_isw %x13
+dc_isw %x14
+dc_isw %x15
+dc_isw %x16
+dc_isw %x17
+dc_isw %x18
+dc_isw %x19
+dc_isw %x20
+dc_isw %x21
+dc_isw %x22
+dc_isw %x23
+dc_isw %x24
+dc_isw %x25
+dc_isw %x26
+dc_isw %x27
+dc_isw %x28
+dc_isw %x29
+dc_isw %x30
+dc_csw %x0
+dc_csw %x0
+dc_csw %x1
+dc_csw %x2
+dc_csw %x3
+dc_csw %x4
+dc_csw %x5
+dc_csw %x6
+dc_csw %x7
+dc_csw %x8
+dc_csw %x9
+dc_csw %x10
+dc_csw %x11
+dc_csw %x12
+dc_csw %x13
+dc_csw %x14
+dc_csw %x15
+dc_csw %x16
+dc_csw %x17
+dc_csw %x18
+dc_csw %x19
+dc_csw %x20
+dc_csw %x21
+dc_csw %x22
+dc_csw %x23
+dc_csw %x24
+dc_csw %x25
+dc_csw %x26
+dc_csw %x27
+dc_csw %x28
+dc_csw %x29
+dc_csw %x30
+dc_cisw %x0
+dc_cisw %x0
+dc_cisw %x1
+dc_cisw %x2
+dc_cisw %x3
+dc_cisw %x4
+dc_cisw %x5
+dc_cisw %x6
+dc_cisw %x7
+dc_cisw %x8
+dc_cisw %x9
+dc_cisw %x10
+dc_cisw %x11
+dc_cisw %x12
+dc_cisw %x13
+dc_cisw %x14
+dc_cisw %x15
+dc_cisw %x16
+dc_cisw %x17
+dc_cisw %x18
+dc_cisw %x19
+dc_cisw %x20
+dc_cisw %x21
+dc_cisw %x22
+dc_cisw %x23
+dc_cisw %x24
+dc_cisw %x25
+dc_cisw %x26
+dc_cisw %x27
+dc_cisw %x28
+dc_cisw %x29
+dc_cisw %x30
+ic_ivau (%x0)[1byte]
+ic_ivau (%x0)[1byte]
+ic_ivau (%x1)[1byte]
+ic_ivau (%x2)[1byte]
+ic_ivau (%x3)[1byte]
+ic_ivau (%x4)[1byte]
+ic_ivau (%x5)[1byte]
+ic_ivau (%x6)[1byte]
+ic_ivau (%x7)[1byte]
+ic_ivau (%x8)[1byte]
+ic_ivau (%x9)[1byte]
+ic_ivau (%x10)[1byte]
+ic_ivau (%x11)[1byte]
+ic_ivau (%x12)[1byte]
+ic_ivau (%x13)[1byte]
+ic_ivau (%x14)[1byte]
+ic_ivau (%x15)[1byte]
+ic_ivau (%x16)[1byte]
+ic_ivau (%x17)[1byte]
+ic_ivau (%x18)[1byte]
+ic_ivau (%x19)[1byte]
+ic_ivau (%x20)[1byte]
+ic_ivau (%x21)[1byte]
+ic_ivau (%x22)[1byte]
+ic_ivau (%x23)[1byte]
+ic_ivau (%x24)[1byte]
+ic_ivau (%x25)[1byte]
+ic_ivau (%x26)[1byte]
+ic_ivau (%x27)[1byte]
+ic_ivau (%x28)[1byte]
+ic_ivau (%x29)[1byte]
+ic_ivau (%x30)[1byte]
+ic_iallu
+ic_ialluis
+test_sys_cache complete
 ldxr   (%x1)[8byte] -> %x0
 ldxrb  (%x1)[1byte] -> %w0
 ldxrh  (%x1)[2byte] -> %w0

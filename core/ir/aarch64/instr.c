@@ -275,8 +275,7 @@ bool
 instr_is_icache_op(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-#define SYS_ARG_IC_IVAU 0x1ba9
-    if (opc == OP_sys && opnd_get_immed_int(instr_get_src(instr, 0)) == SYS_ARG_IC_IVAU)
+    if (opc == OP_ic_ivau)
         return true; /* ic ivau, xT */
     if (opc == OP_isb)
         return true; /* isb */
