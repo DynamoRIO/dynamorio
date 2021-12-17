@@ -126,13 +126,14 @@ test_rt_sigprocmask()
     assert(syscall(SYS_rt_sigprocmask, ~0, NULL, &original, 8) == 0);
 
     /* EFAULT cases. */
-    assert(syscall(SYS_rt_sigprocmask, ~0, 0x123, NULL, 8) == -1);
-    assert(errno == EFAULT);
     assert(syscall(SYS_rt_sigprocmask, ~0, NULL, 0x123, 8) == -1);
     assert(errno == EFAULT);
     assert(syscall(SYS_rt_sigprocmask, SIG_BLOCK, 0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
     assert(syscall(SYS_rt_sigprocmask, SIG_BLOCK, NULL, 0x123, 8) == -1);
+    assert(errno == EFAULT);
+    /* Bad new sigmask EFAULT gets reported before bad 'how' EINVAL. */
+    assert(syscall(SYS_rt_sigprocmask, ~0, 0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
     /* EFAULT due to unwritable address. */
     assert(syscall(SYS_rt_sigprocmask, SIG_BLOCK, NULL, test_rt_sigprocmask, 8) == -1);
@@ -142,10 +143,16 @@ test_rt_sigprocmask()
     /* Bad size. */
     assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, &new, NULL, 7) == -1);
     assert(errno == EINVAL);
+    /* Bad size EINVAL gets reported before bad new sigmask EFAULT. */
+    assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK, 0x123, NULL, 7) == -1);
+    assert(errno == EINVAL);
     /* Bad 'how' arg. */
     assert(syscall(SYS_rt_sigprocmask, ~0, &new, NULL, 8) == -1);
     assert(errno == EINVAL);
     assert(syscall(SYS_rt_sigprocmask, SIG_SETMASK + 1, &new, NULL, 8) == -1);
+    assert(errno == EINVAL);
+    /* Bad 'how' EINVAL gets reported before bad old sigset EFAULT. */
+    assert(syscall(SYS_rt_sigprocmask, ~0, &new, 0x123, 8) == -1);
     assert(errno == EINVAL);
 
     /* Success. */

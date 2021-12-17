@@ -2304,7 +2304,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
      * address_is_readable.cc#L85
      * Those uses as well as our checks below don't guarantee that the given
      * address will _remain_ readable or writable, even if they succeed now.
-     * TODO i#5255: DR can atleast pass the safe_set to the actual syscall
+     * TODO i#5255: DR can at least pass the safe_set to the actual syscall
      * (in cases where it is not skipped) to avoid a second read of app_set,
      * by the kernel.
      */
@@ -2318,6 +2318,11 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             *error_code = EFAULT;
         return false;
     }
+    if (app_set != NULL && !(how >= SIG_BLOCK && how <= SIG_SETMASK)) {
+        if (error_code != NULL)
+            *error_code = EINVAL;
+        return false;
+    }
     if (oset != NULL) {
         /* Old sigset should be writable too. */
         if (!d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set) ||
@@ -2326,11 +2331,6 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                 *error_code = EFAULT;
             return false;
         }
-    }
-    if (app_set != NULL && !(how >= SIG_BLOCK && how <= SIG_SETMASK)) {
-        if (error_code != NULL)
-            *error_code = EINVAL;
-        return false;
     }
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
