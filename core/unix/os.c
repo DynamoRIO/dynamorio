@@ -7331,22 +7331,33 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
     case IF_MACOS_ELSE(SYS_sigprocmask, SYS_rt_sigprocmask): { /* 175 */
+        /* TODO i#5256: Fx this path and enable linux.sigaction on MacOS. */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset,
              size_t sigsetsize)
          */
         /* we also need access to the params in post_system_call */
+        uint error_code = 0;
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         dcontext->sys_param2 = sys_param(dcontext, 2);
-        dcontext->sys_param3 = sys_param(dcontext, 3);
+        /* SYS_sigprocmask on MacOS does not have a size arg. So we use the
+         * kernel_sigset_t size instead.
+         */
+        size_t sigsetsize =
+            (size_t)IF_MACOS_ELSE(sizeof(kernel_sigset_t), sys_param(dcontext, 3));
+        dcontext->sys_param3 = (reg_t)sigsetsize;
         execute_syscall = handle_sigprocmask(dcontext, (int)sys_param(dcontext, 0),
                                              (kernel_sigset_t *)sys_param(dcontext, 1),
                                              (kernel_sigset_t *)sys_param(dcontext, 2),
-                                             (size_t)sys_param(dcontext, 3));
-        if (!execute_syscall)
-            set_success_return_val(dcontext, 0);
+                                             sigsetsize, &error_code);
+        if (!execute_syscall) {
+            if (error_code == 0)
+                set_success_return_val(dcontext, 0);
+            else
+                set_failure_return_val(dcontext, error_code);
+        }
         break;
     }
 #ifdef MACOS

@@ -350,7 +350,7 @@ handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack, stack_t *old_stac
 
 bool
 handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
-                   kernel_sigset_t *oset, size_t sigsetsize);
+                   kernel_sigset_t *oset, size_t sigsetsize, uint *error_code);
 void
 handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                         kernel_sigset_t *oset, size_t sigsetsize);
