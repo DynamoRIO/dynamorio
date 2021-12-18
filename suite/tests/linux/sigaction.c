@@ -149,9 +149,6 @@ test_sigprocmask()
     assert(make_sigprocmask(~0, NULL, &original, 8) == 0);
 
     /* EFAULT cases. */
-    /* TODO: bad old sigset does not cause EFAULT on Mac. Fix before
-     * submitting.
-     */
     /* sigprocmask on MacOS does not fail when the old sigset is not
      * readable or not writeable.
      */
