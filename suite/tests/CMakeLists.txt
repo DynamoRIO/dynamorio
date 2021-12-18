@@ -4142,6 +4142,9 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
+  # We want a native run to verify our assumptions of kernel behaviour.
+  torunonly_native(linux.sigaction.native linux.sigaction
+    "" linux/sigaction.c "")
   if (LINUX)
     tobuild(linux.syscall_pwait linux/syscall_pwait.cpp)
     link_with_pthread(linux.syscall_pwait)
