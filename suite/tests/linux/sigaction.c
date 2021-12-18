@@ -138,10 +138,13 @@ static void
 test_sigprocmask()
 {
 #if defined(MACOS)
-    sigset_t new, old, original;
-    sigfillset(&new);
+    sigset_t new = 0xf00d, old, original;
+    /* We explicitly add SIGSEGV to the blocked set as it is one of the
+     * signals that DR intercepts.
+     */
+    sigaddset(&new, SIGSEGV);
 #else
-    uint64 new = 0xffffffff, old, original;
+    uint64 new = 0xf00d | SIGSEGV, old, original;
 #endif
 
     /* Save original sigprocmask. Both return the current sigprocmask. */

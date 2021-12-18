@@ -99,6 +99,8 @@ endif (UNIX)
 set(main_run_list
   # our main configuration
   "SHORT::-code_api"
+  # no_intercept_all_signals tests.
+  "SHORT::ONLY::signal_intercept$::-no_code_api -no_intercept_all_signals"
   # sanity check: run single app to make sure these options aren't totally broken
   # i#1575: ARM doesn't yet support -coarse_units
   "SHORT::X86::ONLY::client.events$::-code_api -opt_memory"
@@ -4141,11 +4143,9 @@ if (UNIX)
   tobuild(linux.sigplain101 linux/sigplain101.c)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
-  tobuild(linux.sigaction   linux/sigaction.c)
-  tobuild_ops(linux.sigaction.no_code_api linux/sigaction.c
-    "-no_code_api -no_intercept_all_signals" "")
+  tobuild(linux.sigaction.signal_intercept   linux/sigaction.c)
   # We want a native run to verify our assumptions of kernel behaviour.
-  torunonly_native(code_api|linux.sigaction.native linux.sigaction
+  torunonly_native(code_api|linux.sigaction.native linux.sigaction.signal_intercept
     "" linux/sigaction.c "")
   if (LINUX)
     tobuild(linux.syscall_pwait linux/syscall_pwait.cpp)
