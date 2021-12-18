@@ -2304,7 +2304,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
      * address_is_readable.cc#L85
      * Those uses as well as our checks below don't guarantee that the given
      * address will _remain_ readable or writable, even if they succeed now.
-     * TODO i#5255: DR can at least pass the safe_set to the actual syscall
+     * TODO i#5254: DR can at least pass the safe_set to the actual syscall
      * (in cases where it is not skipped) to avoid a second read of app_set,
      * by the kernel.
      */
@@ -2421,7 +2421,7 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
-    /* TODO i#5255: Handle the case where the old sigset was writable in
+    /* TODO i#5254: Handle the case where the old sigset was writable in
      * handle_sigprocmask but not now. Also, for the case where app_set is only
      * readable but not writable.
      */
