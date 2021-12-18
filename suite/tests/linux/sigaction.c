@@ -142,11 +142,11 @@ test_sigprocmask()
     /* We explicitly add SIGSEGV to the blocked set as it is one of the
      * signals that DR intercepts.
      */
+    sigaddset(&new, SIGBUS);
     sigaddset(&new, SIGSEGV);
 #else
-    uint64 new = 0xf00d | SIGSEGV, old, original;
+    uint64 new = (0xf00d | (1<<SIGBUS)) & ~(1<<SIGSEGV), old, original;
 #endif
-
     /* Save original sigprocmask. Both return the current sigprocmask. */
     assert(make_sigprocmask(SIG_SETMASK, NULL, &original,
                             /*sizeof(kernel_sigset_t)*/ 8) == 0);

@@ -4829,7 +4829,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|linux.infinite
     code_api|linux.longjmp
     code_api|linux.readlink
-    code_api|linux.sigaction
+    code_api|linux.sigaction.signal_intercept
     code_api|linux.signalfd
     code_api|linux.signal_racesys
     code_api|security-common.codemod
