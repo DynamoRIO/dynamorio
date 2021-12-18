@@ -143,7 +143,7 @@ test_sigprocmask()
      * signals that DR intercepts.
      */
     sigaddset(&new, SIGBUS);
-    sigaddset(&new, SIGSEGV);
+    sigdelset(&new, SIGSEGV);
 #else
     uint64 new = (0xf00d | (1<<SIGBUS)) & ~(1<<SIGSEGV), old, original;
 #endif
