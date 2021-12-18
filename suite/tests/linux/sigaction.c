@@ -78,9 +78,13 @@ test_query(int sig)
     memset((void *)&old_act, 0xff, sizeof(old_act));
     rc = sigaction(sig, NULL, &old_act);
     assert(rc == 0 && old_act.sa_sigaction == first_act.sa_sigaction &&
-           /* The flags do not match due to SA_RESTORER. */
-           /* The rest of mask is uninit stack values from the libc wrapper. */
+    /* The flags do not match due to SA_RESTORER. */
+    /* The rest of mask is uninit stack values from the libc wrapper. */
+#if defined(MACOS)
+           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
+#else
            *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
+#endif
 
     /* Test with a new action. */
     memset((void *)&old_act, 0xff, sizeof(old_act));
@@ -89,9 +93,13 @@ test_query(int sig)
     sigemptyset(&new_act.sa_mask);
     rc = sigaction(sig, &new_act, &old_act);
     assert(rc == 0 && old_act.sa_sigaction == first_act.sa_sigaction &&
-           /* The flags do not match due to SA_RESTORER. */
-           /* The rest of mask is uninit stack values from the libc wrapper. */
+    /* The flags do not match due to SA_RESTORER. */
+    /* The rest of mask is uninit stack values from the libc wrapper. */
+#if defined(MACOS)
+           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
+#else
            *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
+#endif
 
     /* Test pattern from i#1984 issue and ensure no assert. */
     memset(&new_act, 0, sizeof(new_act));
@@ -211,13 +219,9 @@ test_non_rt_sigaction(int sig)
     memset((void *)&old_act, 0xff, sizeof(old_act));
     rc = dynamorio_syscall(SYS_sigaction, 3, sig, NULL, &old_act);
     assert(rc == 0 && old_act.handler == first_act.handler &&
-    /* The flags do not match due to SA_RESTORER. */
-    /* The rest of mask is uninit stack values from the libc wrapper. */
-#    if defined(MACOS)
-           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
-#    else
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
            *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
-#    endif
 
     /* Test with a new action. */
     memset((void *)&old_act, 0xff, sizeof(old_act));
@@ -225,13 +229,9 @@ test_non_rt_sigaction(int sig)
     new_act.handler = (void (*)(int, siginfo_t *, void *))SIG_IGN;
     rc = dynamorio_syscall(SYS_sigaction, 3, sig, &new_act, &old_act);
     assert(rc == 0 && old_act.handler == first_act.handler &&
-    /* The flags do not match due to SA_RESTORER. */
-    /* The rest of mask is uninit stack values from the libc wrapper. */
-#    if defined(MACOS)
-           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
-#    else
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
            *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
-#    endif
 
     /* Clear handler */
     memset((void *)&new_act, 0, sizeof(new_act));

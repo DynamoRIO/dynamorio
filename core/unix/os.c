@@ -7331,7 +7331,6 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
     case IF_MACOS_ELSE(SYS_sigprocmask, SYS_rt_sigprocmask): { /* 175 */
-        /* TODO i#5256: Fx this path and enable linux.sigaction on MacOS. */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset,
