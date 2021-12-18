@@ -4794,7 +4794,8 @@ if (APPLE)
     code_api|api.dis
     code_api|api.ir-static
     code_api|api.drdecode
-    code_api|linux.sigaction
+    code_api|linux.sigaction.signal_intercept
+    no_code_api,no_intercept_all_signals|linux.sigaction.signal_intercept
     code_api|linux.sigaction.native
     PROPERTIES LABELS OSX)
   if (DEBUG) # FIXME i#1806: fails in release
