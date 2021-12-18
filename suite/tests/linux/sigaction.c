@@ -138,15 +138,27 @@ static void
 test_sigprocmask()
 {
 #if defined(MACOS)
-    sigset_t new = 0xf00d, old, original;
+    sigset_t new, old, original;
+    sigfillset(&new);
 #else
-    uint64 new = 0xf00d, old, original;
+    uint64 new = 0xffffffff, old, original;
 #endif
 
     /* Save original sigprocmask. Both return the current sigprocmask. */
     assert(make_sigprocmask(SIG_SETMASK, NULL, &original,
                             /*sizeof(kernel_sigset_t)*/ 8) == 0);
     assert(make_sigprocmask(~0, NULL, &original, 8) == 0);
+
+    /* Success cases.
+     * The following should come before other tests so that some
+     * signals that DR intercepts are blocked, which would require
+     * DR to fix the old sigset manually before returning to the user
+     * in -no_intercept_all_signals.
+     */
+    assert(make_sigprocmask(~0, NULL, NULL, 8) == 0);
+    assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 8) == 0);
+    assert(make_sigprocmask(~0, NULL, &old, 8) == 0);
+    assert(new == old);
 
     /* EFAULT cases. */
     /* sigprocmask on MacOS does not fail when the old sigset is not
@@ -195,12 +207,6 @@ test_sigprocmask()
     /* Bad 'how' EINVAL gets reported before bad old sigset EFAULT. */
     assert(make_sigprocmask(~0, &new, (void *)0x123, 8) == -1);
     assert(errno == EINVAL);
-
-    /* Success. */
-    assert(make_sigprocmask(~0, NULL, NULL, 8) == 0);
-    assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 8) == 0);
-    assert(make_sigprocmask(~0, NULL, &old, 8) == 0);
-    assert(new == old);
 
     /* Restore original sigprocmask. */
     assert(make_sigprocmask(SIG_SETMASK, &original, NULL, 8) == 0);

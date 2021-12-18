@@ -4142,6 +4142,8 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
+  tobuild_ops(linux.sigaction.no_code_api linux/sigaction.c
+    "-no_code_api -no_intercept_all_signals" "")
   # We want a native run to verify our assumptions of kernel behaviour.
   torunonly_native(code_api|linux.sigaction.native linux.sigaction
     "" linux/sigaction.c "")

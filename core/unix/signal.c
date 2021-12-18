@@ -2434,6 +2434,7 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
         if (DYNAMO_OPTION(intercept_all_signals))
             safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked, NULL);
         else {
+            dr_printf("AAA !intercept_all_signals\n");
             /* the syscall wrote to oset already, so just add any additional */
             for (i = 1; i <= MAX_SIGNUM; i++) {
                 if (EMULATE_SIGMASK(info, i) &&
@@ -2441,6 +2442,7 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                      * from this syscall itself! (PR 523394)
                      */
                     kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
+                    dr_printf("AAA writing to oset %llx\n",oset);
                     kernel_sigaddset(oset, i);
                 }
             }
