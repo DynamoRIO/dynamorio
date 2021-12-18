@@ -8926,9 +8926,12 @@ post_system_call(dcontext_t *dcontext)
              size_t sigsetsize)
          */
         /* FIXME i#148: Handle syscall failure. */
-        handle_post_sigprocmask(
+        int status = handle_post_sigprocmask(
             dcontext, (int)dcontext->sys_param0, (kernel_sigset_t *)dcontext->sys_param1,
             (kernel_sigset_t *)dcontext->sys_param2, (size_t)dcontext->sys_param3);
+        if (status != 0) {
+            set_failure_return_val(dcontext, status);
+        }
         break;
     }
 #if defined(LINUX) && !defined(X64)

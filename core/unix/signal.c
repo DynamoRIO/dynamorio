@@ -2415,37 +2415,64 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
 }
 
 /* need to add in our signals that the app thinks are blocked */
-void
+int
 handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                         kernel_sigset_t *oset, size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
-    /* TODO i#5254: Handle the case where the old sigset was writable in
-     * handle_sigprocmask but not now. Also, for the case where app_set is only
-     * readable but not writable.
-     */
     if (!DYNAMO_OPTION(intercept_all_signals)) {
-        /* Restore app memory */
+        /* Restore app memory.
+         * XXX i#1187: See comment in handle_sigprocmask about read-only
+         * app_set. Ideally, we would replace app_set with our own copy
+         * pre-syscall.
+         * In case of a write failure below, we do not return an EFAULT as it would
+         * be incorrect. We try continuing and return a cloberred app_set to the app.
+         * This is low priority as -intercept_all_signals is true by default.
+         */
         safe_write_ex(app_set, sizeof(*app_set), &info->pre_syscall_app_sigprocmask,
                       NULL);
     }
     if (oset != NULL) {
-        if (DYNAMO_OPTION(intercept_all_signals))
-            safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked, NULL);
-        else {
-            /* the syscall wrote to oset already, so just add any additional */
-            for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (EMULATE_SIGMASK(info, i) &&
-                    /* use the pre-syscall value: do not take into account changes
-                     * from this syscall itself! (PR 523394)
-                     */
-                    kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
-                    kernel_sigaddset(oset, i);
-                }
-            }
+        /* We want to handle the following cases where we are unable to fix oset
+         * because it is not writeable (anymore). Note that handle_sigprocmask
+         * does the writeability check only for non-MacOS.
+         * - On non-Mac systems, if oset was initially writable in our
+         *   handle_sigprocmask check, but is unwriteable now, we want to
+         *   return EFAULT.
+         * - On Mac systems, where a bad oset does not cause EFAULT,
+         *   we want to fail the write silently.
+         */
+        if (DYNAMO_OPTION(intercept_all_signals)) {
+            if (!safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked,
+                               NULL))
+                return IF_MACOS_ELSE(0, EFAULT);
+        } else {
+            bool write_fault = true;
+            TRY_EXCEPT(
+                dcontext,
+                {
+                    /* the syscall wrote to oset already, so just add any additional */
+                    for (i = 1; i <= MAX_SIGNUM; i++) {
+                        if (EMULATE_SIGMASK(info, i) &&
+                            /* use the pre-syscall value: do not take into account changes
+                             * from this syscall itself! (PR 523394)
+                             */
+                            kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
+                            kernel_sigaddset(oset, i);
+                        }
+                    }
+                    write_fault = false;
+                },
+                {
+                    /* EXCEPT */
+                    /* nothing: write_fault is already true */
+                });
+            if (write_fault)
+                return IF_MACOS_ELSE(0, EFAULT);
         }
     }
+    return 0;
 }
 
 void
