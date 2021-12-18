@@ -115,61 +115,77 @@ set_sigaction_handler(int sig, void *action)
     assert(rc == 0);
 }
 
-static void
-test_sigprocmask(long sysnum)
+static int
+make_sigprocmask(int how, void *sigset, void *oldsigset, int size)
 {
+#if defined(MACOS)
+    /* The raw syscall does not work on Mac. */
+    return sigprocmask(how, sigset, oldsigset);
+#else
+    return syscall(SYS_rt_sigprocmask, how, sigset, oldsigset, size);
+#endif
+}
+
+static void
+test_sigprocmask()
+{
+#if defined(MACOS)
+    sigset_t new = 0xf00d, old, original;
+#else
     uint64 new = 0xf00d, old, original;
+#endif
+
     /* Save original sigprocmask. Both return the current sigprocmask. */
-    asm volatile("nop\n\t"
-                 "nop\n\t"
-                 "nop\n\t"
-                 "nop\n\t"
-                 "mov %[constant], %%rdx\n\t"
-                 ::[constant] "i"(0xdeadbeef):"rdx");
-    assert(syscall(sysnum, SIG_SETMASK, NULL, &original,
-                   /*sizeof(kernel_sigset_t)*/ 8) == 0);
-#ifdef REAL
-    assert(syscall(sysnum, ~0, NULL, &original, 8) == 0);
+    assert(make_sigprocmask(SIG_SETMASK, NULL, &original,
+                            /*sizeof(kernel_sigset_t)*/ 8) == 0);
+    assert(make_sigprocmask(~0, NULL, &original, 8) == 0);
 
     /* EFAULT cases. */
-    assert(syscall(sysnum, ~0, NULL, 0x123, 8) == -1);
+    /* TODO: bad old sigset does not cause EFAULT on Mac. Fix before
+     * submitting.
+     */
+    assert(make_sigprocmask(~0, NULL, (void *)0x123, 8) == -1);
     assert(errno == EFAULT);
-    assert(syscall(sysnum, SIG_BLOCK, 0x123, NULL, 8) == -1);
+    assert(make_sigprocmask(SIG_BLOCK, (void *)0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
-    assert(syscall(sysnum, SIG_BLOCK, NULL, 0x123, 8) == -1);
+    assert(make_sigprocmask(SIG_BLOCK, NULL, (void *)0x123, 8) == -1);
     assert(errno == EFAULT);
     /* Bad new sigmask EFAULT gets reported before bad 'how' EINVAL. */
-    assert(syscall(sysnum, ~0, 0x123, NULL, 8) == -1);
+    assert(make_sigprocmask(~0, (void *)0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
     /* EFAULT due to unwritable address. */
-    assert(syscall(sysnum, SIG_BLOCK, NULL, test_sigprocmask, 8) == -1);
+    assert(make_sigprocmask(SIG_BLOCK, NULL, test_sigprocmask, 8) == -1);
     assert(errno == EFAULT);
 
     /* EINVAL cases. */
+#if defined(MACOS)
+    /* Size arg is ignored on MacOS. */
+#else
     /* Bad size. */
-    assert(syscall(sysnum, SIG_SETMASK, &new, NULL, 7) == -1);
+    assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 7) == -1);
     assert(errno == EINVAL);
     /* Bad size EINVAL gets reported before bad new sigmask EFAULT. */
-    assert(syscall(sysnum, SIG_SETMASK, 0x123, NULL, 7) == -1);
+    assert(make_sigprocmask(SIG_SETMASK, (void *)0x123, NULL, 7) == -1);
     assert(errno == EINVAL);
+
+#endif
     /* Bad 'how' arg. */
-    assert(syscall(sysnum, ~0, &new, NULL, 8) == -1);
+    assert(make_sigprocmask(~0, &new, NULL, 8) == -1);
     assert(errno == EINVAL);
-    assert(syscall(sysnum, SIG_SETMASK + 1, &new, NULL, 8) == -1);
+    assert(make_sigprocmask(SIG_SETMASK + 1, &new, NULL, 8) == -1);
     assert(errno == EINVAL);
     /* Bad 'how' EINVAL gets reported before bad old sigset EFAULT. */
-    assert(syscall(sysnum, ~0, &new, 0x123, 8) == -1);
+    assert(make_sigprocmask(~0, &new, (void *)0x123, 8) == -1);
     assert(errno == EINVAL);
 
     /* Success. */
-    assert(syscall(sysnum, ~0, NULL, NULL, 8) == 0);
-    assert(syscall(sysnum, SIG_SETMASK, &new, NULL, 8) == 0);
-    assert(syscall(sysnum, ~0, NULL, &old, 8) == 0);
+    assert(make_sigprocmask(~0, NULL, NULL, 8) == 0);
+    assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 8) == 0);
+    assert(make_sigprocmask(~0, NULL, &old, 8) == 0);
     assert(new == old);
 
     /* Restore original sigprocmask. */
-    assert(syscall(sysnum, SIG_SETMASK, &original, NULL, 8) == 0);
-#endif
+    assert(make_sigprocmask(SIG_SETMASK, &original, NULL, 8) == 0);
 }
 
 #if !defined(MACOS) && !defined(X64)
@@ -195,9 +211,13 @@ test_non_rt_sigaction(int sig)
     memset((void *)&old_act, 0xff, sizeof(old_act));
     rc = dynamorio_syscall(SYS_sigaction, 3, sig, NULL, &old_act);
     assert(rc == 0 && old_act.handler == first_act.handler &&
-           /* The flags do not match due to SA_RESTORER. */
-           /* The rest of mask is uninit stack values from the libc wrapper. */
+    /* The flags do not match due to SA_RESTORER. */
+    /* The rest of mask is uninit stack values from the libc wrapper. */
+#    if defined(MACOS)
+           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
+#    else
            *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
+#    endif
 
     /* Test with a new action. */
     memset((void *)&old_act, 0xff, sizeof(old_act));
@@ -205,9 +225,13 @@ test_non_rt_sigaction(int sig)
     new_act.handler = (void (*)(int, siginfo_t *, void *))SIG_IGN;
     rc = dynamorio_syscall(SYS_sigaction, 3, sig, &new_act, &old_act);
     assert(rc == 0 && old_act.handler == first_act.handler &&
-           /* The flags do not match due to SA_RESTORER. */
-           /* The rest of mask is uninit stack values from the libc wrapper. */
+    /* The flags do not match due to SA_RESTORER. */
+    /* The rest of mask is uninit stack values from the libc wrapper. */
+#    if defined(MACOS)
+           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
+#    else
            *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
+#    endif
 
     /* Clear handler */
     memset((void *)&new_act, 0, sizeof(new_act));
@@ -219,15 +243,8 @@ test_non_rt_sigaction(int sig)
 int
 main(int argc, char **argv)
 {
-#ifndef REAL
-    test_sigprocmask(SYS_sigprocmask);
-#else
     test_query(SIGTERM);
-#ifdef MACOS
-    test_sigprocmask(SYS_sigprocmask);
-#else
-    test_sigprocmask(SYS_rt_sigprocmask);
-#endif
+    test_sigprocmask();
 #if !defined(MACOS) && !defined(X64)
     test_non_rt_sigaction(SIGPIPE);
 #endif
@@ -238,5 +255,4 @@ main(int argc, char **argv)
     print("Sending SIGTERM second time\n");
     kill(getpid(), SIGTERM);
     print("Should not be reached\n");
-#endif
 }
