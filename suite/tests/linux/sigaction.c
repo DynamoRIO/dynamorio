@@ -152,18 +152,31 @@ test_sigprocmask()
     /* TODO: bad old sigset does not cause EFAULT on Mac. Fix before
      * submitting.
      */
-    assert(make_sigprocmask(~0, NULL, (void *)0x123, 8) == -1);
+    /* sigprocmask on MacOS does not fail when the old sigset is not
+     * readable or not writeable.
+     */
+    int expected_result_bad_old_sigset = IF_MACOS_ELSE(0, -1);
+    assert(make_sigprocmask(~0, NULL, (void *)0x123, 8) ==
+           expected_result_bad_old_sigset);
+#if !defined(MACOS)
     assert(errno == EFAULT);
+#endif
     assert(make_sigprocmask(SIG_BLOCK, (void *)0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
-    assert(make_sigprocmask(SIG_BLOCK, NULL, (void *)0x123, 8) == -1);
+    assert(make_sigprocmask(SIG_BLOCK, NULL, (void *)0x123, 8) ==
+           expected_result_bad_old_sigset);
+#if !defined(MACOS)
     assert(errno == EFAULT);
+#endif
     /* Bad new sigmask EFAULT gets reported before bad 'how' EINVAL. */
     assert(make_sigprocmask(~0, (void *)0x123, NULL, 8) == -1);
     assert(errno == EFAULT);
     /* EFAULT due to unwritable address. */
-    assert(make_sigprocmask(SIG_BLOCK, NULL, test_sigprocmask, 8) == -1);
+    assert(make_sigprocmask(SIG_BLOCK, NULL, test_sigprocmask, 8) ==
+           expected_result_bad_old_sigset);
+#if !defined(MACOS)
     assert(errno == EFAULT);
+#endif
 
     /* EINVAL cases. */
 #if defined(MACOS)

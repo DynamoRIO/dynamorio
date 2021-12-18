@@ -2297,7 +2297,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
-    kernel_sigset_t safe_set, safe_old_set;
+    kernel_sigset_t safe_set;
     /* Some code uses this syscall to check whether the given address is
      * readable. E.g.
      * github.com/abseil/abseil-cpp/blob/master/absl/debugging/internal/
@@ -2323,7 +2323,11 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             *error_code = EINVAL;
         return false;
     }
-    if (oset != NULL) {
+    /* On MacOS, sigprocmask does not fail if the old sigset is not readable
+     * or not writeable.
+     */
+    if (IF_MACOS_ELSE(false, oset != NULL)) {
+        kernel_sigset_t safe_old_set;
         /* Old sigset should be writable too. */
         if (!d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set) ||
             !safe_write_ex(oset, sizeof(safe_old_set), &safe_old_set, NULL)) {
