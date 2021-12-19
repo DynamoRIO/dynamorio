@@ -87,6 +87,9 @@
 #    include "include/syscall.h"
 #else
 #    include <sys/syscall.h>
+#    ifdef MACOS
+#        include "include/syscall_mach.h"
+#    endif
 #endif
 
 #include "instrument.h"
