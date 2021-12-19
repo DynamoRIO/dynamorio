@@ -31,7 +31,7 @@
  */
 
 /*
- * test of sigaction
+ * Tests for sigaction and sigprocmask.
  */
 #include "tools.h"
 
@@ -127,7 +127,7 @@ static int
 make_sigprocmask(int how, void *sigset, void *oldsigset, int size)
 {
 #if defined(MACOS)
-    /* The raw syscall does not work on Mac. */
+    /* XXX: Couldn't get the raw syscall to work on Mac. */
     return sigprocmask(how, sigset, oldsigset);
 #else
     return syscall(SYS_rt_sigprocmask, how, sigset, oldsigset, size);
