@@ -1,0 +1,343 @@
+diff --git a/core/arch/arch.c b/core/arch/arch.c
+index e132a289..68a4101d 100644
+--- a/core/arch/arch.c
++++ b/core/arch/arch.c
+@@ -2819,6 +2819,7 @@ get_global_do_syscall_entry()
+             return (byte *)global_do_syscall_sygate_int;
+         else
+ #endif
++        dr_printf("AAA returning global_do_syscall_int\n");
+             return (byte *)global_do_syscall_int;
+     } else if (method == SYSCALL_METHOD_SYSENTER) {
+ #ifdef WINDOWS
+@@ -2827,6 +2828,7 @@ get_global_do_syscall_entry()
+         else
+             return (byte *)global_do_syscall_sysenter;
+ #else
++        dr_printf("AAA returning global_do_syscall_int\n");
+         return (byte *)global_do_syscall_int;
+ #endif
+     }
+@@ -2836,11 +2838,13 @@ get_global_do_syscall_entry()
+ #endif
+     else if (method == SYSCALL_METHOD_SYSCALL) {
+ #if defined(X86) && defined(X64)
++        dr_printf("AAA returning global_do_syscall_syscall\n");
+         return (byte *)global_do_syscall_syscall;
+ #else
+ #    ifdef WINDOWS
+         ASSERT_NOT_IMPLEMENTED(false && "PR 205898: 32-bit syscall on Windows NYI");
+ #    else
++        dr_printf("AAA returning global_do_syscall_int\n");
+         return (byte *)global_do_syscall_int;
+ #    endif
+ #endif
+@@ -2849,6 +2853,7 @@ get_global_do_syscall_entry()
+         /* PR 205310: we sometimes have to execute syscalls before we
+          * see an app syscall: for a signal default action, e.g.
+          */
++        dr_printf("AAA returning global_do_syscall_int\n");
+         return (byte *)IF_X86_64_ELSE(global_do_syscall_syscall, global_do_syscall_int);
+ #else
+         ASSERT_NOT_REACHED();
+@@ -2862,14 +2867,17 @@ get_global_do_syscall_entry()
+ byte *
+ get_cleanup_and_terminate_global_do_syscall_entry()
+ {
++    dr_printf("AAA in get_cleanup_and_terminate_global_do_syscall_entry\n");
+     /* see note above: for 32-bit linux apps we use int.
+      * xref PR 332427 as well where sysenter causes a crash
+      * if called from cleanup_and_terminate() where ebp is
+      * left pointing to the old freed stack.
+      */
+ #if defined(WINDOWS) || (defined(X86) && defined(X64))
+-    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER)
++    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
++        dr_printf("AAA returning global_do_syscall_sysenter\n");
+         return (byte *)global_do_syscall_sysenter;
++    }
+     else
+ #endif
+ #ifdef WINDOWS
+@@ -2877,8 +2885,11 @@ get_cleanup_and_terminate_global_do_syscall_entry()
+         return (byte *)global_do_syscall_wow64_index0;
+     else
+ #endif
++{
++    dr_printf("AAA calling get_global_do_syscall_entry\n");
+         return get_global_do_syscall_entry();
+ }
++}
+ 
+ #ifdef MACOS
+ /* There is no single resumption point from sysenter: each sysenter stores
+diff --git a/core/arch/x86/x86.asm b/core/arch/x86/x86.asm
+index 249f3b72..c756d664 100644
+--- a/core/arch/x86/x86.asm
++++ b/core/arch/x86/x86.asm
+@@ -155,6 +155,7 @@ DECL_EXTERN(dr_app_start_helper)
+ DECL_EXTERN(dynamo_process_exit)
+ DECL_EXTERN(dynamo_thread_exit)
+ DECL_EXTERN(dynamo_thread_stack_free_and_exit)
++DECL_EXTERN(dynamo_debug)
+ DECL_EXTERN(dynamorio_app_take_over_helper)
+ DECL_EXTERN(found_modified_code)
+ DECL_EXTERN(get_cleanup_and_terminate_global_do_syscall_entry)
+@@ -690,6 +691,7 @@ cat_no_thread2:
+ # ifdef UNIX
+         pop      REG_XDI   /* sys_arg1 */
+         pop      REG_XSI   /* sys_arg2 */
++        //CALLC4(GLOBAL_REF(dynamo_debug), REG_XAX, r10, REG_XDI, REG_XSI) 
+ # else
+         pop      REG_XCX   /* sys_arg1 */
+         pop      REG_XDX   /* sys_arg2 */
+@@ -837,6 +839,7 @@ GLOBAL_LABEL(global_do_syscall_sygate_sysenter:)
+        DECLARE_FUNC(global_do_syscall_syscall)
+ GLOBAL_LABEL(global_do_syscall_syscall:)
+         mov      r10, REG_XCX
++        CALLC4(GLOBAL_REF(dynamo_debug), REG_XAX, REG_XCX, REG_XDI, REG_XSI) 
+         syscall
+ #   ifdef DEBUG
+         jmp      GLOBAL_REF(debug_infinite_loop)
+diff --git a/core/dynamo.c b/core/dynamo.c
+index 80bb4ca7..0ef14abb 100644
+--- a/core/dynamo.c
++++ b/core/dynamo.c
+@@ -1422,6 +1422,7 @@ dynamo_nullcalls_exit(void)
+ int
+ dynamo_process_exit(void)
+ {
++    dr_printf("AAA in dynamo_process_exit\n");
+ #ifndef DEBUG
+     bool each_thread;
+ #endif
+@@ -2698,17 +2699,25 @@ dynamo_other_thread_exit(thread_record_t *tr _IF_WINDOWS(bool detach_stacked_cal
+                                      IF_WINDOWS_(detach_stacked_callbacks) true);
+ }
+ 
++void
++dynamo_debug(uint64 a, uint64 b, uint64 c, uint64 d) {
++
++dr_printf("AAA dynamo_debug %lld %lld %lld %lld\n",a,b,c,d);
++}
++
+ /* Called from another stack to finish cleaning up a thread.
+  * The final steps are to free the stack and perform the exit hook.
+  */
+ void
+ dynamo_thread_stack_free_and_exit(byte *stack)
+ {
++    dr_printf("AAA in dynamo_thread_stack_free_and_exit\n");
+     if (stack != NULL) {
+         stack_free(stack, DYNAMORIO_STACK_SIZE);
+         /* ASSUMPTION: if stack is NULL here, the exit was done earlier
+          * (fixes case 6967)
+          */
++        dr_printf("AAA calling exiting_dr\n");
+         EXITING_DR();
+     }
+ }
+diff --git a/core/globals.h b/core/globals.h
+index 0aadd6cd..c83789fa 100644
+--- a/core/globals.h
++++ b/core/globals.h
+@@ -524,6 +524,8 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc, void *os_data,
+ int
+ dynamo_thread_exit(void);
+ void
++dynamo_debug(uint64 a, uint64 b, uint64 c, uint64 d);
++void
+ dynamo_thread_stack_free_and_exit(byte *stack);
+ int
+ dynamo_other_thread_exit(thread_record_t *tr _IF_WINDOWS(bool detach_stacked_callbacks));
+diff --git a/core/unix/os.c b/core/unix/os.c
+index 78edfab3..12e6bd54 100644
+--- a/core/unix/os.c
++++ b/core/unix/os.c
+@@ -1381,15 +1381,20 @@ block_cleanup_and_terminate(dcontext_t *dcontext, int sysnum, ptr_uint_t sys_arg
+                             /* these 2 args are only used for Mac thread exit */
+                             ptr_uint_t sys_arg3, ptr_uint_t sys_arg4)
+ {
++    dr_printf("AAA in block_cleanup_and_terminate, sysnum %d %d\n", sysnum, SYS_kill);
+     /* This thread is on its way to exit. We are blocking all signals since any
+      * signal that reaches us now can be delayed until after the exit is complete.
+      * We may still receive a suspend signal for synchronization that we may need
+      * to reply to (i#2921).
+      */
+-    if (sysnum == SYS_kill)
+-        block_all_noncrash_signals_except(NULL, 2, dcontext->sys_param0, SUSPEND_SIGNAL);
++    if (sysnum == SYS_kill) {
++        block_all_noncrash_signals_except(NULL, 3, dcontext->sys_param0, SUSPEND_SIGNAL,
++                                          SIGINT);
++    }
+     else
+         block_all_noncrash_signals_except(NULL, 1, SUSPEND_SIGNAL);
++    dr_printf("AAA calling cleanup_and_terminate %d %lld %lld\n", sysnum, sys_arg1,
++              sys_arg2);
+     cleanup_and_terminate(dcontext, sysnum, sys_arg1, sys_arg2, exitproc, sys_arg3,
+                           sys_arg4);
+ }
+@@ -5984,28 +5989,28 @@ handle_execve(dcontext_t *dcontext)
+         /* i#909: change the target image to libdynamorio.so */
+         const char *drpath = IF_X64_ELSE(x64, !x64) ? dynamorio_library_filepath
+                                                     : dynamorio_alt_arch_filepath;
+-        TRY_EXCEPT(dcontext, /* try */
+-                   {
+-                       if (symlink_is_self_exe(argv[0])) {
+-                           /* we're out of sys_param entries so we assume argv[0] == fname
+-                            */
+-                           dcontext->sys_param3 = (reg_t)argv;
+-                           argv[0] = fname; /* XXX: handle readable but not writable! */
+-                       } else
+-                           dcontext->sys_param3 = 0; /* no restore in post */
+-                       dcontext->sys_param4 =
+-                           (reg_t)fname; /* store for restore in post */
+-                       *sys_param_addr(dcontext, 0) = (reg_t)drpath;
+-                       LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
+-                           (char *)sys_param(dcontext, 0));
+-                   },
+-                   /* except */
+-                   {
+-                       dcontext->sys_param3 = 0; /* no restore in post */
+-                       dcontext->sys_param4 = 0; /* no restore in post */
+-                       LOG(THREAD, LOG_SYSCALLS, 2,
+-                           "argv is unreadable, expect execve to fail\n");
+-                   });
++        TRY_EXCEPT(
++            dcontext, /* try */
++            {
++                if (symlink_is_self_exe(argv[0])) {
++                    /* we're out of sys_param entries so we assume argv[0] == fname
++                     */
++                    dcontext->sys_param3 = (reg_t)argv;
++                    argv[0] = fname; /* XXX: handle readable but not writable! */
++                } else
++                    dcontext->sys_param3 = 0;        /* no restore in post */
++                dcontext->sys_param4 = (reg_t)fname; /* store for restore in post */
++                *sys_param_addr(dcontext, 0) = (reg_t)drpath;
++                LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
++                    (char *)sys_param(dcontext, 0));
++            },
++            /* except */
++            {
++                dcontext->sys_param3 = 0; /* no restore in post */
++                dcontext->sys_param4 = 0; /* no restore in post */
++                LOG(THREAD, LOG_SYSCALLS, 2,
++                    "argv is unreadable, expect execve to fail\n");
++            });
+     } else {
+         dcontext->sys_param3 = 0; /* no restore in post */
+         dcontext->sys_param4 = 0; /* no restore in post */
+@@ -6839,11 +6844,12 @@ pre_system_call(dcontext_t *dcontext)
+         /* not using SAFE_READ due to performance concerns (we do this for
+          * every single system call on systems where we can't hook vsyscall!)
+          */
+-        TRY_EXCEPT(dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
+-                   {
+-                       ASSERT_NOT_REACHED();
+-                       mc->xbp = 0;
+-                   });
++        TRY_EXCEPT(
++            dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
++            {
++                ASSERT_NOT_REACHED();
++                mc->xbp = 0;
++            });
+     }
+ #endif
+ 
+diff --git a/core/unix/signal.c b/core/unix/signal.c
+index d64fada2..8a3ddd2d 100644
+--- a/core/unix/signal.c
++++ b/core/unix/signal.c
+@@ -1011,9 +1011,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
+                 ? "vfork"
+                 :
+ #endif
+-                (IF_LINUX(record->clone_sysnum == SYS_clone
+-                              ? "clone"
+-                              : record->clone_sysnum == SYS_clone3 ? "clone3" :)
++                (IF_LINUX(record->clone_sysnum == SYS_clone        ? "clone"
++                              : record->clone_sysnum == SYS_clone3 ? "clone3"
++                                                                   :)
+                      IF_MACOS(record->clone_sysnum == SYS_bsdthread_create
+                                   ? "bsdthread_create"
+                                   :) "unexpected"),
+@@ -3553,15 +3553,16 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+         IF_NOT_X64(IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
+                                                         (sigframe_plain_t *)sp, size);));
+     } else {
+-        TRY_EXCEPT(dcontext, /* try */
+-                   {
+-                       if (rtframe)
+-                           memcpy_rt_frame(frame, sp, from_pending);
+-                       IF_NOT_X64(IF_LINUX(
+-                           else convert_frame_to_nonrt(dcontext, sig, frame,
+-                                                       (sigframe_plain_t *)sp, size);));
+-                   },
+-                   /* except */ { stack_unwritable = true; });
++        TRY_EXCEPT(
++            dcontext, /* try */
++            {
++                if (rtframe)
++                    memcpy_rt_frame(frame, sp, from_pending);
++                IF_NOT_X64(
++                    IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
++                                                         (sigframe_plain_t *)sp, size);));
++            },
++            /* except */ { stack_unwritable = true; });
+     }
+     if (stack_unwritable) {
+         /* Override the no-nested check in record_pending_signal(): it's ok b/c
+@@ -4926,10 +4927,11 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
+         /* Be sure to use the interrupted mode and not the last-dispatch mode */
+         dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), &old_mode);
+     });
+-    TRY_EXCEPT(dcontext, { decode(dcontext, instr_cache_pc, &instr); },
+-               {
+-                   return NULL; /* instr_cache_pc was unreadable */
+-               });
++    TRY_EXCEPT(
++        dcontext, { decode(dcontext, instr_cache_pc, &instr); },
++        {
++            return NULL; /* instr_cache_pc was unreadable */
++        });
+     IF_ARM(dr_set_isa_mode(dcontext, old_mode, NULL));
+ 
+     if (!instr_valid(&instr)) {
+@@ -6194,11 +6196,16 @@ execute_native_handler(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame)
+ static void
+ terminate_via_kill(dcontext_t *dcontext)
+ {
++    dr_printf("AAA in terminate_viakill\n");
+     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
+     ASSERT(dcontext == get_thread_private_dcontext());
+     /* Enure signal_thread_exit() will not re-block */
+     memset(&info->app_sigblocked, 0, sizeof(info->app_sigblocked));
+ 
++    dr_printf("AAA calling block_cleanup_and_terminate %d %d %d\n", SYS_kill,
++              IF_VMX86(os_in_vmkernel_userworld() ? -(int)get_process_id() :)
++                  get_process_id(),
++              dcontext->sys_param0);
+     /* FIXME PR 541760: there can be multiple thread groups and thus
+      * this may not exit all threads in the address space
+      */
+@@ -6225,8 +6232,10 @@ is_currently_on_sigaltstack(dcontext_t *dcontext)
+ static void
+ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
+ {
++    dr_printf("AAA in terminate_via_kill_from_anywhere sig %d\n", sig);
+     dcontext->sys_param0 = sig; /* store arg to SYS_kill */
+     if (is_currently_on_sigaltstack(dcontext)) {
++        dr_printf("AAA currently on sigaltstac\n");
+         /* We can't clean up our sigstack properly when we're on it
+          * (i#1160) so we terminate on the dstack.
+          */
+@@ -6234,6 +6243,7 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
+                           (void (*)(void *))terminate_via_kill, NULL /*!d_r_initstack */,
+                           false /*no return */);
+     } else {
++        dr_printf("AAA terminate_via_kill call\n");
+         terminate_via_kill(dcontext);
+     }
+     ASSERT_NOT_REACHED();
