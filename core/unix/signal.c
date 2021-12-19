@@ -2305,11 +2305,6 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
      * readable. E.g.
      * github.com/abseil/abseil-cpp/blob/master/absl/debugging/internal/
      * address_is_readable.cc#L85
-     * Those uses as well as our checks below don't guarantee that the given
-     * address will _remain_ readable or writable, even if they succeed now.
-     * TODO i#5254: DR can at least pass the safe_set to the actual syscall
-     * (in cases where it is not skipped) to avoid a second read of app_set,
-     * by the kernel.
      */
     if (sigsetsize != sizeof(kernel_sigset_t)) {
         if (error_code != NULL)
@@ -2352,7 +2347,9 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              * XXX i#1187: we could crash here touching app memory -- could
              * use TRY, but the app could pass read-only memory and it
              * would work natively!  Better to swap in our own
-             * allocated data struct.  There's a transparency issue w/
+             * allocated data struct. This would prevent a second read (by
+             * the kernel) too, which might fail if it does not _remain_
+             * readable anymore.  There's a transparency issue w/
              * races too if another thread looks at this memory.  This
              * won't happen by default b/c -intercept_all_signals is
              * on by default so we don't try to solve all these
@@ -2428,10 +2425,12 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
         /* Restore app memory.
          * XXX i#1187: See comment in handle_sigprocmask about read-only
          * app_set. Ideally, we would replace app_set with our own copy
-         * pre-syscall.
+         * pre-syscall so that we only need to restore a pointer to the original
+         * app copy post-syscall.
          * In case of a write failure below, we do not return an EFAULT as it would
-         * be incorrect. We try continuing and return a cloberred app_set to the app.
-         * This is low priority as -intercept_all_signals is true by default.
+         * be incorrect to expect app_set to be writeable. We try continuing and
+         * return a cloberred app_set to the app. This is low priority as
+         * -intercept_all_signals is true by default.
          */
         safe_write_ex(app_set, sizeof(*app_set), &info->pre_syscall_app_sigprocmask,
                       NULL);
