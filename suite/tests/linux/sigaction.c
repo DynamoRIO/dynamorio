@@ -136,14 +136,17 @@ static void
 test_sigprocmask()
 {
 #if defined(MACOS)
-    sigset_t new = 0xf00d, old, original;
+    sigset_t new = 0xf00d, new2 = 0x1234, old, original;
     /* We explicitly add SIGBUS to the blocked set as it is one of the
      * signals that DR intercepts.
      */
     sigaddset(&new, SIGBUS);
 #else
-    uint64 new = 0xf00d | (1 << SIGBUS), old, original;
+    uint64 new = 0xf00d | (1 << SIGBUS), new2 = 0x1234, old, original;
 #endif
+    void *fault_addr = (void *)0x123;
+    void *read_only_addr = test_sigprocmask;
+
     /* Save original sigprocmask. Both return the current sigprocmask. */
     assert(make_sigprocmask(SIG_SETMASK, NULL, &original,
                             /*sizeof(kernel_sigset_t)*/ 8) == 0);
@@ -165,23 +168,22 @@ test_sigprocmask()
      * readable or not writeable.
      */
     int expected_result_bad_old_sigset = IF_MACOS_ELSE(0, -1);
-    assert(make_sigprocmask(~0, NULL, (void *)0x123, 8) ==
-           expected_result_bad_old_sigset);
+    assert(make_sigprocmask(~0, NULL, fault_addr, 8) == expected_result_bad_old_sigset);
 #if !defined(MACOS)
     assert(errno == EFAULT);
 #endif
-    assert(make_sigprocmask(SIG_BLOCK, (void *)0x123, NULL, 8) == -1);
+    assert(make_sigprocmask(SIG_BLOCK, fault_addr, NULL, 8) == -1);
     assert(errno == EFAULT);
-    assert(make_sigprocmask(SIG_BLOCK, NULL, (void *)0x123, 8) ==
+    assert(make_sigprocmask(SIG_BLOCK, NULL, fault_addr, 8) ==
            expected_result_bad_old_sigset);
 #if !defined(MACOS)
     assert(errno == EFAULT);
 #endif
     /* Bad new sigmask EFAULT gets reported before bad 'how' EINVAL. */
-    assert(make_sigprocmask(~0, (void *)0x123, NULL, 8) == -1);
+    assert(make_sigprocmask(~0, fault_addr, NULL, 8) == -1);
     assert(errno == EFAULT);
     /* EFAULT due to unwritable address. */
-    assert(make_sigprocmask(SIG_BLOCK, NULL, test_sigprocmask, 8) ==
+    assert(make_sigprocmask(SIG_BLOCK, NULL, read_only_addr, 8) ==
            expected_result_bad_old_sigset);
 #if !defined(MACOS)
     assert(errno == EFAULT);
@@ -195,7 +197,7 @@ test_sigprocmask()
     assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 7) == -1);
     assert(errno == EINVAL);
     /* Bad size EINVAL gets reported before bad new sigmask EFAULT. */
-    assert(make_sigprocmask(SIG_SETMASK, (void *)0x123, NULL, 7) == -1);
+    assert(make_sigprocmask(SIG_SETMASK, fault_addr, NULL, 7) == -1);
     assert(errno == EINVAL);
 
 #endif
@@ -205,19 +207,18 @@ test_sigprocmask()
     assert(make_sigprocmask(SIG_SETMASK + 1, &new, NULL, 8) == -1);
     assert(errno == EINVAL);
     /* Bad 'how' EINVAL gets reported before bad old sigset EFAULT. */
-    assert(make_sigprocmask(~0, &new, (void *)0x123, 8) == -1);
+    assert(make_sigprocmask(~0, &new, fault_addr, 8) == -1);
     assert(errno == EINVAL);
 
     /* EFAULT due to bad old sigset still sets the new mask. */
     assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 8) == 0);
-    new = 0x1234;
-    assert(make_sigprocmask(SIG_SETMASK, &new, (void *)0x123, 8) ==
+    assert(make_sigprocmask(SIG_SETMASK, &new2, fault_addr, 8) ==
            expected_result_bad_old_sigset);
 #if !defined(MACOS)
     assert(errno == EFAULT);
 #endif
     assert(make_sigprocmask(~0, NULL, &old, 8) == 0);
-    assert(new == old);
+    assert(new2 == old);
 
     /* Restore original sigprocmask. */
     assert(make_sigprocmask(SIG_SETMASK, &original, NULL, 8) == 0);
