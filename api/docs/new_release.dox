@@ -68,13 +68,13 @@ To create a new build:
 2. Click on "ci-package" on the list of workflows on the left.
 3. Click on "Run workflow" on the right.
 4. Select the branch.
-5. Fill in the version number.  For a test build or periodic build (i.e., not an official new-version-number release), use the current version major.minor and the date-based patchlevel.  The patchlevel can be found from CMake's configuration output by running `cmake .`:
+5. Fill in the version number.  For an official release, use three digits (e.g., '9.0.0'). For a test build or periodic build (i.e., not an official new-version-number release), use the current version major.minor and the date-based patchlevel.  The patchlevel can be found from CMake's configuration output by running `cmake .`:
 ```
 -- Version number: 8.0.18611
 ```
 For the build number, start at 0 for any given version number and add 1 for each attempt to produce a successful build.  If the build number is 0 it is not appended to the version number.
 
-Wait for the workflow to finish.  It should create a new tag, a new Release, upload 4 binary packages to the Release, and update the online documentation.
+Wait for the workflow to finish.  It should create a new tag, a new Release, and upload 5 binary packages to the Release.
 
 ## Update the Release Description
 
@@ -89,6 +89,16 @@ We generally edit the title to simplify it: e.g., from `release_8.0.0-1` to just
 ## Update api/docs/download.dox
 
 Make a new list of direct links for the new version at \ref page_releases.
+
+## Trigger a Docs Update
+
+1. Go to the Actions tab for the DynamoRIO/dynamorio repository.
+2. Click on "ci-docs" on the list of workflows on the left.
+3. Click on "Run workflow" on the right.
+4. Select the branch.
+5. Fill in the version number and build number to match that used for the package build.
+
+Wait for the workflow to finish.  It should update the online docs.
 
 ## Verify Package and Documentation Uploads
 
