@@ -642,6 +642,7 @@ cat_have_lock:
 #endif
         mov      REG_XSI, [2*ARG_SZ + REG_XBP]  /* sysnum */
 #ifdef MACOS64
+        /* For now we assume a BSD syscall */
         or       REG_XSI, SYSCALL_NUM_MARKER_BSD
 #endif
         pop      REG_XAX             /* syscall */

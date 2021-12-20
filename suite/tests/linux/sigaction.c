@@ -208,6 +208,17 @@ test_sigprocmask()
     assert(make_sigprocmask(~0, &new, (void *)0x123, 8) == -1);
     assert(errno == EINVAL);
 
+    /* EFAULT due to bad old sigset still sets the new mask. */
+    assert(make_sigprocmask(SIG_SETMASK, &new, NULL, 8) == 0);
+    new = 0x1234;
+    assert(make_sigprocmask(SIG_SETMASK, &new, (void *)0x123, 8) ==
+           expected_result_bad_old_sigset);
+#if !defined(MACOS)
+    assert(errno == EFAULT);
+#endif
+    assert(make_sigprocmask(~0, NULL, &old, 8) == 0);
+    assert(new == old);
+
     /* Restore original sigprocmask. */
     assert(make_sigprocmask(SIG_SETMASK, &original, NULL, 8) == 0);
 }

@@ -2321,19 +2321,6 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             *error_code = EINVAL;
         return false;
     }
-    /* On MacOS, sigprocmask does not fail if the old sigset is not readable
-     * or not writeable.
-     */
-    if (IF_MACOS_ELSE(false, oset != NULL)) {
-        kernel_sigset_t safe_old_set;
-        /* Old sigset should be writable too. */
-        if (!d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set) ||
-            !safe_write_ex(oset, sizeof(safe_old_set), &safe_old_set, NULL)) {
-            if (error_code != NULL)
-                *error_code = EFAULT;
-            return false;
-        }
-    }
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
@@ -2408,7 +2395,10 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
         check_signals_pending(dcontext, info);
     }
     if (!execute_syscall) {
-        handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
+        int status = handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
+        if (status != 0 && error_code != NULL) {
+            *error_code = status;
+        }
         return false; /* skip syscall */
     } else
         return true;
