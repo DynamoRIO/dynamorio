@@ -262,6 +262,9 @@ Further non-compatibility-affecting changes include:
  - Added a new event dr_register_clean_call_insertion_event(), meant for use by
    register management libraries.
  - Added drreg_statelessly_restore_all().
+ - Completed drx_expand_scatter_gather() support for emulating x86 scatter/gather
+   instructions using a sequence of scalar stores/loads. The scalar store/load
+   sequence makes it easier for clients to instrument each memory access.
 
 **************************************************
 <hr>
