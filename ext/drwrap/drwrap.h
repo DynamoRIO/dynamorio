@@ -278,7 +278,7 @@ DR_EXPORT
  * by calling \p pre_func_cb prior to every invocation of \p original
  * and calling \p post_func_cb after every invocation of \p original.
  * One of the callbacks can be NULL, but not both. Uses the default
- * calling convention for the platform (see DRWRAP_CALLCONV_DEFAULT
+ * calling convention for the platform (see #DRWRAP_CALLCONV_DEFAULT
  * in #drwrap_callconv_t) and passes both #DR_CLEANCALL_READS_APP_CONTEXT
  * and #DR_CLEANCALL_WRITES_APP_CONTEXT to the insertion of the calls.
  *
@@ -435,7 +435,7 @@ DR_EXPORT
  * and drwrap_get_arg() for \p func will either access the wrong argument
  * value, or will access a register or stack slot that does not contain
  * any argument value. If no calling convention is specified, defaults
- * to DRWRAP_CALLCONV_DEFAULT.
+ * to #DRWRAP_CALLCONV_DEFAULT.
  *
  * This routine may call dr_unlink_flush_region(), which means that it
  * cannot be called while any locks are held that could block a thread

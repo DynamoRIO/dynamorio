@@ -543,7 +543,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: when updating this, update the default version in ci-package.yml.
 # We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "8.0.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "9.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -1309,6 +1309,10 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages.
+# 8.xx broke backcompat by reordering the AArch64 opcode enum an changing
+#   drcachesim field names, drmodtrack callbacks,
+#   emulated_instr_t fields, drcov output, drcachesim view counting, and
+#   drcachesim child statistics.
 # 7.92 broke backcompat by changing 32-bit stack alignment to 16.
 # 7.91 broke backcompat by adding a field to instr_t .
 # 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
@@ -1316,7 +1320,7 @@ math(EXPR VERSION_NUMBER_INTEGER
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "792")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "900")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")

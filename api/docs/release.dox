@@ -127,6 +127,7 @@ clients.
 The changes between version \DR_VERSION and 8.0.0 include the following compatibility
 changes:
 
+ - The AArch64 opcode enum ordering changed.
  - A source compatibilty change in drcachesim analysis tools for users
    who have created derived classes from existing analysis tools:
    member fields of classes are now following a consistent style with
@@ -284,7 +285,7 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
- - Added a requirement that a C++11-complient compiler be used with \ref page_droption.
+ - Added a requirement that a C++11-compliant compiler be used with \ref page_droption.
  - Changed the syntax of the drcachesim -record_function option.  It no longer takes
    in an identifier: the identifier is computed by the tracer.  It thus takes pairs,
    with an optional third argument for flags such as "noret" to indicate that the
