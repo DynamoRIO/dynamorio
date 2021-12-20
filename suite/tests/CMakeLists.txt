@@ -100,6 +100,7 @@ set(main_run_list
   # our main configuration
   "SHORT::-code_api"
   # no_intercept_all_signals tests.
+  # TODO i#5261: Remove this suite when -intercept_all_signals is deprecated.
   "SHORT::ONLY::signal_intercept$::-no_code_api -no_intercept_all_signals"
   # sanity check: run single app to make sure these options aren't totally broken
   # i#1575: ARM doesn't yet support -coarse_units

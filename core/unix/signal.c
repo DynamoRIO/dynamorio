@@ -6205,7 +6205,7 @@ terminate_via_kill(dcontext_t *dcontext)
      * this may not exit all threads in the address space
      */
     block_cleanup_and_terminate(
-        dcontext, IF_MACOS(SYSCALL_NUM_MARKER_UNIX +) SYS_kill,
+        dcontext, SYS_kill,
         /* Pass -pid in case main thread has exited
          * in which case will get -ESRCH
          */

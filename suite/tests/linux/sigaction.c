@@ -45,10 +45,16 @@
 
 #define SENTINEL 0x12345678UL
 
+#ifdef MACOS
+typedef int si_mask_t;
+#else
+typedef unsigned long si_mask_t;
+#endif
+
 #if !defined(MACOS) && !defined(X64)
 typedef struct old_sigaction_t {
     void (*handler)(int, siginfo_t *, void *);
-    unsigned int sa_mask;
+    si_mask_t sa_mask;
     unsigned long sa_flags;
     void (*sa_restorer)(void);
 } old_sigaction_t;
@@ -78,13 +84,9 @@ test_query(int sig)
     memset((void *)&old_act, 0xff, sizeof(old_act));
     rc = sigaction(sig, NULL, &old_act);
     assert(rc == 0 && old_act.sa_sigaction == first_act.sa_sigaction &&
-    /* The flags do not match due to SA_RESTORER. */
-    /* The rest of mask is uninit stack values from the libc wrapper. */
-#if defined(MACOS)
-           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
-#else
-           *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
-#endif
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
+           *(si_mask_t *)&old_act.sa_mask == *(si_mask_t *)&first_act.sa_mask);
 
     /* Test with a new action. */
     memset((void *)&old_act, 0xff, sizeof(old_act));
@@ -93,13 +95,9 @@ test_query(int sig)
     sigemptyset(&new_act.sa_mask);
     rc = sigaction(sig, &new_act, &old_act);
     assert(rc == 0 && old_act.sa_sigaction == first_act.sa_sigaction &&
-    /* The flags do not match due to SA_RESTORER. */
-    /* The rest of mask is uninit stack values from the libc wrapper. */
-#if defined(MACOS)
-           *(int *)&old_act.sa_mask == *(int *)&first_act.sa_mask);
-#else
-           *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
-#endif
+           /* The flags do not match due to SA_RESTORER. */
+           /* The rest of mask is uninit stack values from the libc wrapper. */
+           *(si_mask_t *)&old_act.sa_mask == *(si_mask_t *)&first_act.sa_mask);
 
     /* Test pattern from i#1984 issue and ensure no assert. */
     memset(&new_act, 0, sizeof(new_act));
@@ -239,7 +237,7 @@ test_non_rt_sigaction(int sig)
     assert(rc == 0 && old_act.handler == first_act.handler &&
            /* The flags do not match due to SA_RESTORER. */
            /* The rest of mask is uninit stack values from the libc wrapper. */
-           *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
+           *(si_mask_t *)&old_act.sa_mask == *(si_mask_t *)&first_act.sa_mask);
 
     /* Test with a new action. */
     memset((void *)&old_act, 0xff, sizeof(old_act));
@@ -249,7 +247,7 @@ test_non_rt_sigaction(int sig)
     assert(rc == 0 && old_act.handler == first_act.handler &&
            /* The flags do not match due to SA_RESTORER. */
            /* The rest of mask is uninit stack values from the libc wrapper. */
-           *(long *)&old_act.sa_mask == *(long *)&first_act.sa_mask);
+           *(si_mask_t *)&old_act.sa_mask == *(si_mask_t *)&first_act.sa_mask);
 
     /* Clear handler */
     memset((void *)&new_act, 0, sizeof(new_act));
