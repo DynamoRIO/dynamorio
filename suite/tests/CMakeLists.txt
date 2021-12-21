@@ -101,7 +101,7 @@ set(main_run_list
   "SHORT::-code_api"
   # no_intercept_all_signals tests.
   # TODO i#5261: Remove this suite when -intercept_all_signals is deprecated.
-  "SHORT::ONLY::signal_intercept$::-no_code_api -no_intercept_all_signals"
+  "SHORT::LIN::ONLY::sigaction$::-no_code_api -no_intercept_all_signals"
   # sanity check: run single app to make sure these options aren't totally broken
   # i#1575: ARM doesn't yet support -coarse_units
   "SHORT::X86::ONLY::client.events$::-code_api -opt_memory"
@@ -4144,9 +4144,9 @@ if (UNIX)
   tobuild(linux.sigplain101 linux/sigplain101.c)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
-  tobuild(linux.sigaction.signal_intercept   linux/sigaction.c)
+  tobuild(linux.sigaction   linux/sigaction.c)
   # We want a native run to verify our assumptions of kernel behaviour.
-  torunonly_native(code_api|linux.sigaction.native linux.sigaction.signal_intercept
+  torunonly_native(code_api|linux.sigaction.native linux.sigaction
     "" linux/sigaction.c "")
   if (LINUX)
     tobuild(linux.syscall_pwait linux/syscall_pwait.cpp)
@@ -4795,8 +4795,8 @@ if (APPLE)
     code_api|api.dis
     code_api|api.ir-static
     code_api|api.drdecode
-    code_api|linux.sigaction.signal_intercept
-    no_code_api,no_intercept_all_signals|linux.sigaction.signal_intercept
+    code_api|linux.sigaction
+    no_code_api,no_intercept_all_signals|linux.sigaction
     code_api|linux.sigaction.native
     PROPERTIES LABELS OSX)
   if (DEBUG) # FIXME i#1806: fails in release
@@ -4830,7 +4830,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|linux.infinite
     code_api|linux.longjmp
     code_api|linux.readlink
-    code_api|linux.sigaction.signal_intercept
+    code_api|linux.sigaction
     code_api|linux.signalfd
     code_api|linux.signal_racesys
     code_api|security-common.codemod
