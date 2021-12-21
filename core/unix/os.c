@@ -4880,7 +4880,7 @@ os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext)
         }
     }
 #    ifdef X64
-    if (num_raw & SYSCALL_NUM_MARKER_BSD)
+    if (TEST(SYSCALL_NUM_MARKER_BSD, num_raw))
         return (int)(num_raw & 0xffffff); /* Drop BSD bit */
     else
         num = (int)num_raw; /* Keep Mach and Machdep bits */

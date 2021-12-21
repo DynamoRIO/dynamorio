@@ -2321,6 +2321,15 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             *error_code = EINVAL;
         return false;
     }
+    /* We intentionally do not check validity of oset here. This is because,
+     * for an unwriteable oset, the native sigprocmask syscall shows a weird
+     * non-atomic behavior: it returns EFAULT, but also updates the app signal
+     * mask. To replicate the same behavior, we allow the following code to
+     * update the app signal masks, which happens either by making the actual
+     * syscall (for -no_intercept_all_signals) or by updating app_sigblocked
+     * (for -intercept_all_signals). oset is checked in handle_post_sigprocmask
+     * and any failures are returned to the app.
+     */
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
