@@ -2435,14 +2435,15 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                       NULL);
     }
     if (oset != NULL) {
-        /* We want to handle the following cases where we are unable to fix oset
-         * because it is not writeable (anymore). Note that handle_sigprocmask
-         * does the writeability check only for non-MacOS.
-         * - On non-Mac systems, if oset was initially writable in our
-         *   handle_sigprocmask check, but is unwriteable now, we want to
-         *   return EFAULT.
-         * - On Mac systems, where a bad oset does not cause EFAULT,
-         *   we want to fail the write silently.
+        /* Note that we check validity of oset post-syscall only, after the app's
+         * blocked signal mask has been updated. If there's a fault writing oset,
+         * the signal mask is not reverted. This is same as the native syscall
+         * behavior, which is also non-atomic: for a bad oset, it returns EFAULT
+         * but still updates the blocked signal mask.
+         *
+         * If we are unable to fix oset because it is not writeable, we return
+         * EFAULT. However, on Mac systems, a bad oset does not cause EFAULT
+         * natively, so we fail the write silently.
          */
         if (DYNAMO_OPTION(intercept_all_signals)) {
             if (!safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked,
