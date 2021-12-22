@@ -193,6 +193,9 @@ opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_i
 bool
 opnd_is_abs_base_disp(opnd_t opnd);
 
+size_t
+get_dcache_zva_size(void);
+
 #ifndef STANDALONE_DECODER
 opnd_t
 opnd_create_dcontext_field(dcontext_t *dcontext, int offs);
