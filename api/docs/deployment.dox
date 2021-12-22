@@ -619,7 +619,7 @@ For more extensive actions on launching the tool, a custom front-end
 executable can be created that replaces \p drrun by using \p drinjectlib,
 \p drconfiglib, and \p drfrontendlib.  These three libraries facilitate
 creating cross-platform tools for configuring and launching applications
-under Dr. Memory.  For more information about the interfaces they provide,
+under DynamoRIO.  For more information about the interfaces they provide,
 see their header files: dr_inject.h, dr_config.h, dr_frontend.h.
 
 A custom front-end executable can be invoked via a \p drrun \p -t

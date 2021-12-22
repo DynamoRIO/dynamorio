@@ -100,7 +100,7 @@ jobs:
       # We only use a non-zero build # when making multiple manual builds in one day.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -188,7 +188,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -272,7 +272,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -357,7 +357,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -435,7 +435,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER=8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
+          export VERSION_NUMBER=9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}
         fi
@@ -518,7 +518,7 @@ jobs:
       # XXX: See x86 job comments on sharing the default ver# with CMakeLists.txt.
       run: |
         if test -z "${{ github.event.inputs.version }}"; then
-          export VERSION_NUMBER="8.0.$((`git log -n 1 --format=%ct` / (60*60*24)))"
+          export VERSION_NUMBER="9.0.$((`git log -n 1 --format=%ct` / (60*60*24)))"
           export PREFIX="cronbuild-"
         else
           export VERSION_NUMBER=${{ github.event.inputs.version }}

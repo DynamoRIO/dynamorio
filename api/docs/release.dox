@@ -124,9 +124,17 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 8.0.0 include the following compatibility
+The changes between version \DR_VERSION and 9.0.0 include the following compatibility
+changes:
+ - (Nothing so far: this is a placeholder.)
+
+Further non-compatibility-affecting changes include:
+ - (Nothing so far: this is a placeholder.)
+
+The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:
 
+ - The AArch64 opcode enum ordering changed.
  - A source compatibilty change in drcachesim analysis tools for users
    who have created derived classes from existing analysis tools:
    member fields of classes are now following a consistent style with
@@ -262,6 +270,9 @@ Further non-compatibility-affecting changes include:
  - Added a new event dr_register_clean_call_insertion_event(), meant for use by
    register management libraries.
  - Added drreg_statelessly_restore_all().
+ - Completed drx_expand_scatter_gather() support for emulating x86 scatter/gather
+   instructions using a sequence of scalar stores/loads. The scalar store/load
+   sequence makes it easier for clients to instrument each memory access.
 
 **************************************************
 <hr>
@@ -281,7 +292,7 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
- - Added a requirement that a C++11-complient compiler be used with \ref page_droption.
+ - Added a requirement that a C++11-compliant compiler be used with \ref page_droption.
  - Changed the syntax of the drcachesim -record_function option.  It no longer takes
    in an identifier: the identifier is computed by the tracer.  It thus takes pairs,
    with an optional third argument for flags such as "noret" to indicate that the
