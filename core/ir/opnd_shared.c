@@ -901,6 +901,25 @@ opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
     opnd->value.base_disp.scaled = scaled;
     return true;
 }
+
+bool
+opnd_get_base_aligned(opnd_t opnd)
+{
+    if (!opnd_is_base_disp(opnd))
+        CLIENT_ASSERT(false, "opnd_get_base_aligned called on invalid opnd type");
+    return opnd.value.base_disp.base_aligned;
+}
+
+bool
+opnd_set_base_aligned(opnd_t *opnd, bool base_aligned)
+{
+    if (!opnd_is_base_disp(*opnd)) {
+        CLIENT_ASSERT(false, "opnd_set_base_aligned called on invalid opnd type");
+        return false;
+    }
+    opnd->value.base_disp.base_aligned = base_aligned;
+    return true;
+}
 #endif /* AARCH64 */
 
 bool
@@ -1785,6 +1804,8 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
     case OPSZ_xsave:
         return 0; /* > 512 bytes: client to use drutil_opnd_mem_size_in_bytes */
+    case OPSZ_CACHE_LINE:
+        return get_dcache_zva_size();
     default: CLIENT_ASSERT(false, "opnd_size_in_bytes: invalid opnd type"); return 0;
     }
 }

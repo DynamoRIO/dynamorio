@@ -5356,6 +5356,10 @@ test_sys_cache(void *dc)
 {
     instr_t *instr;
 
+#ifdef DR_HOST_NOT_TARGET
+    ASSERT(opnd_size_in_bytes(OPSZ_CACHE_LINE) == 64);
+#endif
+
     /* SYS #<op1>, <Cn>, <Cm>, #<op2>{, <Xt>}
      *
      * Data cache operations are aliases of SYS:

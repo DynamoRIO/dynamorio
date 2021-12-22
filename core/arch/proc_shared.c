@@ -133,6 +133,18 @@ proc_init(void)
         global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
         os_close(cpuinfo);
     }
+#    ifdef DR_HOST_NOT_TARGET
+    /* The smallest data cache line size on AArch64 hardware is 64 bytes which
+     * we use as the default on non-AArch64 hosts.
+     */
+    cache_line_size = 64;
+    dcache_zva_size = cache_line_size;
+#    endif
+    CLIENT_ASSERT(dcache_zva_size > 0, "invalid dcache block size for zeroing");
+    LOG(GLOBAL, LOG_TOP, 1, "Data cache block size for zeroing is %d bytes\n",
+        dcache_zva_size);
+    CLIENT_ASSERT(cache_line_size == dcache_zva_size,
+                  "cache line and block sizes do not match");
 #endif
 }
 
