@@ -38,6 +38,7 @@
 #define _SYSCALL_MACH_H_ 1
 
 #define SYSCALL_NUM_MARKER_MACH 0x1000000
+#define SYSCALL_NUM_MARKER_BSD 0x2000000
 #define SYSCALL_NUM_MARKER_MACHDEP 0x3000000
 
 #define MACH__kernelrpc_mach_vm_allocate_trap 10

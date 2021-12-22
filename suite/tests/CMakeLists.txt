@@ -99,6 +99,9 @@ endif (UNIX)
 set(main_run_list
   # our main configuration
   "SHORT::-code_api"
+  # no_intercept_all_signals tests.
+  # TODO i#5261: Remove this suite when -intercept_all_signals is deprecated.
+  "SHORT::LIN::ONLY::sigaction$::-no_code_api -no_intercept_all_signals"
   # sanity check: run single app to make sure these options aren't totally broken
   # i#1575: ARM doesn't yet support -coarse_units
   "SHORT::X86::ONLY::client.events$::-code_api -opt_memory"
@@ -4142,6 +4145,9 @@ if (UNIX)
   tobuild(linux.sigplain110 linux/sigplain110.c)
   tobuild(linux.sigplain111 linux/sigplain111.c)
   tobuild(linux.sigaction   linux/sigaction.c)
+  # We want a native run to verify our assumptions of kernel behaviour.
+  torunonly_native(code_api|linux.sigaction.native linux.sigaction
+    "" linux/sigaction.c "")
   if (LINUX)
     tobuild(linux.syscall_pwait linux/syscall_pwait.cpp)
     link_with_pthread(linux.syscall_pwait)
@@ -4789,6 +4795,9 @@ if (APPLE)
     code_api|api.dis
     code_api|api.ir-static
     code_api|api.drdecode
+    code_api|linux.sigaction
+    no_code_api,no_intercept_all_signals|linux.sigaction
+    code_api|linux.sigaction.native
     PROPERTIES LABELS OSX)
   if (DEBUG) # FIXME i#1806: fails in release
     set_tests_properties(code_api|client.flush PROPERTIES LABELS OSX)

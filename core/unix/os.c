@@ -4880,7 +4880,7 @@ os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext)
         }
     }
 #    ifdef X64
-    if (num_raw >> 24 == 0x2)
+    if (TEST(SYSCALL_NUM_MARKER_BSD, num_raw))
         return (int)(num_raw & 0xffffff); /* Drop BSD bit */
     else
         num = (int)num_raw; /* Keep Mach and Machdep bits */
@@ -7331,7 +7331,6 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
     case IF_MACOS_ELSE(SYS_sigprocmask, SYS_rt_sigprocmask): { /* 175 */
-        /* TODO i#5256: Fx this path and enable linux.sigaction on MacOS. */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset,
@@ -8927,9 +8926,12 @@ post_system_call(dcontext_t *dcontext)
              size_t sigsetsize)
          */
         /* FIXME i#148: Handle syscall failure. */
-        handle_post_sigprocmask(
+        int status = handle_post_sigprocmask(
             dcontext, (int)dcontext->sys_param0, (kernel_sigset_t *)dcontext->sys_param1,
             (kernel_sigset_t *)dcontext->sys_param2, (size_t)dcontext->sys_param3);
+        if (status != 0) {
+            set_failure_return_val(dcontext, status);
+        }
         break;
     }
 #if defined(LINUX) && !defined(X64)

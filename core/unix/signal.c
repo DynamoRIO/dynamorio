@@ -87,6 +87,9 @@
 #    include "include/syscall.h"
 #else
 #    include <sys/syscall.h>
+#    ifdef MACOS
+#        include "include/syscall_mach.h"
+#    endif
 #endif
 
 #include "instrument.h"
@@ -2297,16 +2300,11 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
-    kernel_sigset_t safe_set, safe_old_set;
+    kernel_sigset_t safe_set;
     /* Some code uses this syscall to check whether the given address is
      * readable. E.g.
      * github.com/abseil/abseil-cpp/blob/master/absl/debugging/internal/
      * address_is_readable.cc#L85
-     * Those uses as well as our checks below don't guarantee that the given
-     * address will _remain_ readable or writable, even if they succeed now.
-     * TODO i#5255: DR can at least pass the safe_set to the actual syscall
-     * (in cases where it is not skipped) to avoid a second read of app_set,
-     * by the kernel.
      */
     if (sigsetsize != sizeof(kernel_sigset_t)) {
         if (error_code != NULL)
@@ -2323,15 +2321,15 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             *error_code = EINVAL;
         return false;
     }
-    if (oset != NULL) {
-        /* Old sigset should be writable too. */
-        if (!d_r_safe_read(oset, sizeof(safe_old_set), &safe_old_set) ||
-            !safe_write_ex(oset, sizeof(safe_old_set), &safe_old_set, NULL)) {
-            if (error_code != NULL)
-                *error_code = EFAULT;
-            return false;
-        }
-    }
+    /* We intentionally do not check validity of oset here. This is because,
+     * for an unwriteable oset, the native sigprocmask syscall shows a weird
+     * non-atomic behavior: it returns EFAULT, but also updates the app signal
+     * mask. To replicate the same behavior, we allow the following code to
+     * update the app signal masks, which happens either by making the actual
+     * syscall (for -no_intercept_all_signals) or by updating app_sigblocked
+     * (for -intercept_all_signals). oset is checked in handle_post_sigprocmask
+     * and any failures are returned to the app.
+     */
     /* If we're intercepting all, we emulate the whole thing */
     bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
@@ -2345,7 +2343,9 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              * XXX i#1187: we could crash here touching app memory -- could
              * use TRY, but the app could pass read-only memory and it
              * would work natively!  Better to swap in our own
-             * allocated data struct.  There's a transparency issue w/
+             * allocated data struct. This would prevent a second read (by
+             * the kernel) too, which might fail if it does not _remain_
+             * readable anymore.  There's a transparency issue w/
              * races too if another thread looks at this memory.  This
              * won't happen by default b/c -intercept_all_signals is
              * on by default so we don't try to solve all these
@@ -2404,44 +2404,77 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
         check_signals_pending(dcontext, info);
     }
     if (!execute_syscall) {
-        handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
+        int status = handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
+        if (status != 0 && error_code != NULL) {
+            *error_code = status;
+        }
         return false; /* skip syscall */
     } else
         return true;
 }
 
 /* need to add in our signals that the app thinks are blocked */
-void
+int
 handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                         kernel_sigset_t *oset, size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *)dcontext->signal_field;
     int i;
-    /* TODO i#5255: Handle the case where the old sigset was writable in
-     * handle_sigprocmask but not now. Also, for the case where app_set is only
-     * readable but not writable.
-     */
     if (!DYNAMO_OPTION(intercept_all_signals)) {
-        /* Restore app memory */
+        /* Restore app memory.
+         * XXX i#1187: See comment in handle_sigprocmask about read-only
+         * app_set. Ideally, we would replace app_set with our own copy
+         * pre-syscall so that we only need to restore a pointer to the original
+         * app copy post-syscall.
+         * In case of a write failure below, we do not return an EFAULT as it would
+         * be incorrect to expect app_set to be writeable. We try continuing and
+         * return a cloberred app_set to the app. This is low priority as
+         * -intercept_all_signals is true by default.
+         */
         safe_write_ex(app_set, sizeof(*app_set), &info->pre_syscall_app_sigprocmask,
                       NULL);
     }
     if (oset != NULL) {
-        if (DYNAMO_OPTION(intercept_all_signals))
-            safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked, NULL);
-        else {
-            /* the syscall wrote to oset already, so just add any additional */
-            for (i = 1; i <= MAX_SIGNUM; i++) {
-                if (EMULATE_SIGMASK(info, i) &&
-                    /* use the pre-syscall value: do not take into account changes
-                     * from this syscall itself! (PR 523394)
-                     */
-                    kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
-                    kernel_sigaddset(oset, i);
-                }
-            }
+        /* Note that we check validity of oset post-syscall only, after the app's
+         * blocked signal mask has been updated. If there's a fault writing oset,
+         * the signal mask is not reverted. This is same as the native syscall
+         * behavior, which is also non-atomic: for a bad oset, it returns EFAULT
+         * but still updates the blocked signal mask.
+         *
+         * If we are unable to fix oset because it is not writeable, we return
+         * EFAULT. However, on Mac systems, a bad oset does not cause EFAULT
+         * natively, so we fail the write silently.
+         */
+        if (DYNAMO_OPTION(intercept_all_signals)) {
+            if (!safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked,
+                               NULL))
+                return IF_MACOS_ELSE(0, EFAULT);
+        } else {
+            bool write_fault = true;
+            TRY_EXCEPT(
+                dcontext,
+                {
+                    /* the syscall wrote to oset already, so just add any additional */
+                    for (i = 1; i <= MAX_SIGNUM; i++) {
+                        if (EMULATE_SIGMASK(info, i) &&
+                            /* use the pre-syscall value: do not take into account changes
+                             * from this syscall itself! (PR 523394)
+                             */
+                            kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
+                            kernel_sigaddset(oset, i);
+                        }
+                    }
+                    write_fault = false;
+                },
+                {
+                    /* EXCEPT */
+                    /* nothing: write_fault is already true */
+                });
+            if (write_fault)
+                return IF_MACOS_ELSE(0, EFAULT);
         }
     }
+    return 0;
 }
 
 void
@@ -4843,7 +4876,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 static bool
 is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, kernel_siginfo_t *info)
 {
-#if !defined(VMX86_SERVER) && !defined(MACOS) /* does not use SI_KERNEL */
+#if !defined(VMX86_SERVER) /* does not use SI_KERNEL */
     /* i#133: use si_code to distinguish user-sent signals.
      * Even 2.2 Linux kernel supports <=0 meaning user-sent (except
      * SIGIO) so we assume we can rely on it.

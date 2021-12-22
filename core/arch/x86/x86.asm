@@ -641,6 +641,10 @@ cat_have_lock:
         mov      REG_XDI, REG_XAX    /* esp to use */
 #endif
         mov      REG_XSI, [2*ARG_SZ + REG_XBP]  /* sysnum */
+#ifdef MACOS64
+        /* For now we assume a BSD syscall */
+        or       REG_XSI, SYSCALL_NUM_MARKER_BSD
+#endif
         pop      REG_XAX             /* syscall */
         pop      REG_XCX             /* dstack */
 #if defined(UNIX) && !defined(X64)
@@ -1261,7 +1265,7 @@ dynamorio_sys_exit_next:
         mov      ARG2, REG_XAX /* kernel port, which we just acquired */
         mov      ARG1, 0 /* join semaphore: SEMAPHORE_NULL */
         mov      eax, SYS_bsdthread_terminate
-        or       eax, HEX(2000000) /* 2<<24 for BSD syscall */
+        or       eax, SYSCALL_NUM_MARKER_BSD
         mov      r10, rcx
         syscall
 # else
