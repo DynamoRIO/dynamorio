@@ -1157,16 +1157,16 @@ endif (UNIX)
 #   Release => -O3 -NDEBUG
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT} $ENV{CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT} $ENV{CFLAGS}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
     # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT} $ENV{CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT} $ENV{CFLAGS}")
 endif (DEBUG)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
