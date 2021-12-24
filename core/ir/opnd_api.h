@@ -218,7 +218,9 @@ enum {
     OPSZ_8x16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
                 * on 32-bit/64-bit mode.
                 */
-    OPSZ_CACHE_LINE,
+    OPSZ_CACHE_LINE, /**< Line size in bytes used by data cache instructions,
+                      * e.g. DC ZVA (Data Cache Zero by Address).
+                      */
     /* Add new size here.  Also update size_names[] in decode_shared.c along with
      * the size routines in opnd_shared.c.
      */

@@ -13454,6 +13454,11 @@ f87f83ff : swpl   xzr, xzr, [sp]          : swpl   %xzr (%sp)[8byte] -> %xzr (%s
 787f83ff : swplh  wzr, wzr, [sp]          : swplh  %wzr (%sp)[2byte] -> %wzr (%sp)[2byte]
 
 # SYS #<op1>, <Cn>, <Cm>, #<op2>{, <Xt>}
+# 64 bytes is used as the current cache line size as it covers the smallest
+# data cache line size on AArch64 hardware and is the default for non-AArch64
+# hosts, i.e. when DR_HOST_NOT_TARGET is defined. Almost all current
+# implementations are 64 bytes. These tests will change when that is no longer
+# the case.
 d5080000 : sys    #0, C0, C0, #0, x0      : sys    $0x0000 (%x0)[64byte]
 d50fffff : sys    #7, C15, C15, #7        : sys    $0x3fff (%xzr)[64byte]
 

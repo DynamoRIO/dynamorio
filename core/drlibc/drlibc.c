@@ -198,7 +198,7 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
  * avoid races and write issues with the static variable used.
  */
 bool
-get_dcache_zero_blk_size(OUT size_t *dzcva_block_size)
+query_dcache_zero_blk_size(OUT size_t *dzcva_block_size)
 {
 #    ifndef DR_HOST_NOT_TARGET
     static size_t dcache_zero_info = 0;
@@ -216,6 +216,11 @@ get_dcache_zero_blk_size(OUT size_t *dzcva_block_size)
         *dzcva_block_size = 4 << (dcache_zero_info & 0xf);
     return true;
 #    endif
+    /* The smallest data cache line size on AArch64 hardware is 64 bytes which
+     * we use as the default on non-AArch64 hosts.
+     */
+    cache_line_size = 64;
+    *dzcva_block_size = cache_line_size;
     return false;
 }
 
@@ -223,6 +228,12 @@ size_t
 get_dcache_zva_size(void)
 {
     return dcache_zva_size;
+}
+
+void
+set_dcache_zva_size(size_t dc_zva_size)
+{
+    dcache_zva_size = dc_zva_size;;
 }
 #endif
 
