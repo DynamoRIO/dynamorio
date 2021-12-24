@@ -215,9 +215,9 @@ enum {
     OPSZ_32_of_64,        /**< 256 bits: half of ZMM. */
     OPSZ_4_of_32_evex64,  /**< 32 bits: can be part of YMM or ZMM register. */
     OPSZ_8_of_32_evex64,  /**< 64 bits: can be part of YMM or ZMM register. */
-    OPSZ_8x16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
-                * on 32-bit/64-bit mode.
-                */
+    OPSZ_8x16,       /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
+                      * on 32-bit/64-bit mode.
+                      */
     OPSZ_CACHE_LINE, /**< Line size in bytes used by data cache instructions,
                       * e.g. DC ZVA (Data Cache Zero by Address).
                       */

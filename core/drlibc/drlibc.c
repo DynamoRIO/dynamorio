@@ -233,7 +233,7 @@ get_dcache_zva_size(void)
 void
 set_dcache_zva_size(size_t dc_zva_size)
 {
-    dcache_zva_size = dc_zva_size;;
+    dcache_zva_size = dc_zva_size;
 }
 #endif
 
