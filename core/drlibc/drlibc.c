@@ -222,6 +222,7 @@ query_dcache_zero_blk_size(OUT size_t *dzcva_block_size)
     *dzcva_block_size = 64;
     return false;
 }
+#endif
 
 size_t
 get_dcache_zva_size(void)
@@ -234,7 +235,6 @@ set_dcache_zva_size(size_t dc_zva_size)
 {
     dcache_zva_size = dc_zva_size;
 }
-#endif
 
 #ifdef UNIX
 /* Parse the first line of a "#!" script. If the input is recognised, the string
