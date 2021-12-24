@@ -61,7 +61,12 @@
  * cpuid instruction, use a default value of 32.
  * (see case 463 for discussion)
  */
+#ifndef AARCH64
 size_t cache_line_size = 32;
+#else
+size_t cache_line_size = 64;
+#endif
+
 static ptr_uint_t mask; /* bits that should be 0 to be cache-line-aligned */
 cpu_info_t cpu_info = { VENDOR_UNKNOWN,
 #ifdef AARCHXX

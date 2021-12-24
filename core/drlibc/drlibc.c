@@ -219,8 +219,7 @@ query_dcache_zero_blk_size(OUT size_t *dzcva_block_size)
     /* The smallest data cache line size on AArch64 hardware is 64 bytes which
      * we use as the default on non-AArch64 hosts.
      */
-    cache_line_size = 64;
-    *dzcva_block_size = cache_line_size;
+    *dzcva_block_size = 64;
     return false;
 }
 

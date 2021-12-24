@@ -1804,7 +1804,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
     case OPSZ_xsave:
         return 0; /* > 512 bytes: client to use drutil_opnd_mem_size_in_bytes */
-    case OPSZ_CACHE_LINE: return get_dcache_zva_size();
+    case OPSZ_CACHE_LINE: return (uint)get_dcache_zva_size();
     default: CLIENT_ASSERT(false, "opnd_size_in_bytes: invalid opnd type"); return 0;
     }
 }
