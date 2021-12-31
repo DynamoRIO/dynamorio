@@ -2313,20 +2313,20 @@ OPTION_DEFAULT(liststring_t, patch_proof_list, EMPTY_STRING,
 PC_OPTION_DEFAULT(bool, use_moduledb, false, "activate module database")
 OPTION_ALIAS(staged, use_moduledb, false, STATIC, OP_PCACHE_GLOBAL) /* xref case 8924 */
 /* FIXME - can't handle a company name with a ; in it */
-PC_OPTION_DEFAULT(liststring_t, whitelist_company_names_default,
+PC_OPTION_DEFAULT(liststring_t, allowlist_company_names_default,
                   OPTION_STRING(COMPANY_LONG_NAME),
                   "don't relax protections as part of moduledb matching for these ; "
                   "separated company names")
-PC_OPTION_DEFAULT(liststring_t, whitelist_company_names,
+PC_OPTION_DEFAULT(liststring_t, allowlist_company_names,
                   OPTION_STRING("Microsoft Corporation"),
                   "don't relax protections as part of moduledb matching for these ; "
                   "separated company names")
 PC_OPTION_DEFAULT(
     uint, unknown_module_policy,
     0xf, /*MODULEDB_RCT_EXEMPT_TO|MODULEDB_ALL_SECTIONS_BITS:SECTION_ALLOW|MODULEDB_REPORT_ON_LOAD*/
-    "module policy control field for non-whitelisted modules")
+    "module policy control field for non-allowlisted modules")
 OPTION_DEFAULT(uint, unknown_module_load_report_max, 10,
-               "max number of non whitelist modules to log/report at load time")
+               "max number of non allowlist modules to log/report at load time")
 OPTION_DEFAULT(uint, moduledb_exemptions_report_max, 3,
                "max number of moduledb security exemptions to report")
 /* case 9330 detect race in our security policies during DLL
@@ -3347,7 +3347,7 @@ OPTION_COMMAND(
 #ifdef PROCESS_CONTROL /* case 8594 */
 /* Dynamic because it can be turned on or off using a nudge. */
 DYNAMIC_OPTION_DEFAULT(uint, process_control, 0,
-                       "sets process control mode {off,whitelist,blacklist} thereby "
+                       "sets process control mode {off,allowlist,blocklist} thereby "
                        "deciding if a process is allowed to execute or not")
 /* FIXME: remove this after md5s are obtained from a mapped file; case 9252.*/
 DYNAMIC_OPTION_DEFAULT(uint, pc_num_hashes, 100,

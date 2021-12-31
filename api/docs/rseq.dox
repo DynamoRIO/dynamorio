@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -50,7 +50,7 @@ Internally used inside Google for a few years [0] as well as EfficiOS [1], the c
 
 During execution, DynamoRIO rewrites the target application block by basic block, copying these fragments into a new memory space along with any instrumentation that clients add. Since the kernel identifies restartable sequences based on their instruction address, the direct application of the standard execution model of DR would be incorrect due to this changing of actual instruction addresses. In addition, the preemption detection is implemented by the kernel redirecting execution to some arbitrary application address, according to configuration from the application. Similar to signal handling, DR must handle this transparently in order to retain control of the application and execute it correctly.
 
-Since Restartable Sequences are registered using a (relatively new) syscall, we could simply blacklist the syscall and claim that the kernel does not support the feature since most libraries will be written to be backwards-compatible for slightly older kernels. Barring that, DynamoRIO will have to support Restartable Sequences explicitly.
+Since Restartable Sequences are registered using a (relatively new) syscall, we could simply blocklist the syscall and claim that the kernel does not support the feature since most libraries will be written to be backwards-compatible for slightly older kernels. Barring that, DynamoRIO will have to support Restartable Sequences explicitly.
 
 ## RSEQ API/ABI
 

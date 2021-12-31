@@ -5509,8 +5509,8 @@ static const char *const env_to_propagate[] = {
 
 /* Called at pre-SYS_execve to append DR vars in the target process env vars list.
  * For late injection via libdrpreload, we call this for *all children, because
- * even if -no_follow_children is specified, a whitelist will still ask for takeover
- * and it's libdrpreload who checks the whitelist.
+ * even if -no_follow_children is specified, a allowlist will still ask for takeover
+ * and it's libdrpreload who checks the allowlist.
  * For -early, however, we check the config ahead of time and only call this routine
  * if we in fact want to inject.
  * XXX i#1679: these parent vs child differences bring up corner cases of which

@@ -3913,6 +3913,19 @@ if (BUILD_CLIENTS)
       add_cpusim_asm_test(ssse3 Prescott)
       add_cpusim_asm_test(sse41 Merom)
       add_cpusim_asm_test(sse42 Penryn)
+
+      # Test -blocklist.
+      torunonly_ci(tool.drcpusim.block tool.ssse3 drcpusim
+        "ignore" "-cpu Prescott -blocklist tool.ssse3" "" "")
+      set(tool.drcpusim.block_toolname "drcpusim")
+      set(tool.drcpusim.block_expectbase "block")
+      set(tool.drcpusim.block_basedir "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
+      # Legacy option name.
+      torunonly_ci(tool.drcpusim.legacy tool.ssse3 drcpusim
+        "ignore" "-cpu Prescott -blacklist tool.ssse3" "" "")
+      set(tool.drcpusim.legacy_toolname "drcpusim")
+      set(tool.drcpusim.legacy_expectbase "block")
+      set(tool.drcpusim.legacy_basedir "${PROJECT_SOURCE_DIR}/clients/drcpusim/tests")
     endif ()
 
     add_exe(tool.cpuid ${PROJECT_SOURCE_DIR}/clients/drcpusim/tests/cpuid.c)
@@ -4062,39 +4075,39 @@ if (UNIX)
   tobuild_ops(linux.execve-null linux/execve-null.c "" "${execve-sub-path}")
 
   if (NOT ANDROID) # XXX i#1874: get working on Android
-    # Test blacklist and whitelist child config vs follow-children options (i#1667).
+    # Test blocklist and allowlist child config vs follow-children options (i#1667).
     # Use a different name to avoid parallel test conflicts when we manipulate
     # config files.
     add_exe(linux.execve-config linux/execve-sub.c)
     # We want the environment to keep HOME for config dirs (xref i#1679).
     add_exe(linux.execv linux/execv.c)
-    set(linux.child-blacklist_expectbase "child-blacklist")
+    set(linux.child-blocklist_expectbase "child-blocklist")
     get_target_path_for_execution(execve-config-path linux.execve-config "${location_suffix}")
-    torunonly(linux.child-blacklist linux.execv linux/execv.c
+    torunonly(linux.child-blocklist linux.execv linux/execv.c
       "-follow_children" "${execve-config-path}")
     get_target_path_for_execution(drconfig_path drconfig "${location_suffix}")
     prefix_cmd_if_necessary(drconfig_path ON ${drconfig_path})
-    set(linux.child-blacklist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
-    set(linux.child-blacklist_precmd
+    set(linux.child-blocklist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(linux.child-blocklist_precmd
       "${drconfig_path}@-quiet@-reg@linux.execve-config@-norun")
-    set(linux.child-blacklist_postcmd
+    set(linux.child-blocklist_postcmd
       "${drconfig_path}@-quiet@-unreg@linux.execve-config")
 
-    set(linux.child-whitelist_expectbase "child-whitelist")
-    torunonly(linux.child-whitelist linux.execv linux/execv.c
+    set(linux.child-allowlist_expectbase "child-allowlist")
+    torunonly(linux.child-allowlist linux.execv linux/execv.c
       "-no_follow_children" "${execve-config-path}")
-    set(linux.child-whitelist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
+    set(linux.child-allowlist_runcmp "${CMAKE_CURRENT_SOURCE_DIR}/runmulti.cmake")
     if (DEBUG)
       set(debug_args "@-debug")
     else (DEBUG)
       set(debug_args "")
     endif (DEBUG)
-    set(linux.child-whitelist_precmd
+    set(linux.child-allowlist_precmd
       "${drconfig_path}@-quiet@-reg@linux.execve-config${debug_args}@-ops@-stderr_mask@@0")
-    set(linux.child-whitelist_postcmd
+    set(linux.child-allowlist_postcmd
       "${drconfig_path}@-quiet@-unreg@linux.execve-config")
-    # Can't run in parallel w/ blacklist since manipulating same config file:
-    set(linux.child-whitelist_depends linux.child-blacklist)
+    # Can't run in parallel w/ blocklist since manipulating same config file:
+    set(linux.child-allowlist_depends linux.child-blocklist)
   endif ()
 
   tobuild(linux.execve-rec linux/execve-rec.c)

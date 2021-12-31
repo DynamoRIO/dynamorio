@@ -130,6 +130,8 @@ changes:
 
 Further non-compatibility-affecting changes include:
  - Added alias support to droption.
+ - The drcpusim option -blacklist was renamed to -blocklist but the old name
+   is still accepted.
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:

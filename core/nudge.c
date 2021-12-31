@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -384,7 +384,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
     if (TEST(NUDGE_GENERIC(process_control), nudge_action_mask)) { /* Case 8594 */
         nudge_action_mask &= ~NUDGE_GENERIC(process_control);
         /* Need to synchronize because process control can be switched between
-         * on (white or black list) & off.  FIXME - the nudge mask should specify this,
+         * on (allow or block list) & off.  FIXME - the nudge mask should specify this,
          * but doesn't hurt to do it again. */
         synchronize_dynamic_options();
         if (IS_PROCESS_CONTROL_ON())
