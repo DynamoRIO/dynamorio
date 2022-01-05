@@ -41,8 +41,8 @@
 
 #include "../globals.h"
 #include "proc.h"
-#include "instr.h"        /* for dr_insert_{save,restore}_fpstate */
-#include "instrument.h"   /* for dr_insert_{save,restore}_fpstate */
+#include "instr.h"               /* for dr_insert_{save,restore}_fpstate */
+#include "instrument.h"          /* for dr_insert_{save,restore}_fpstate */
 #include "instr_create_shared.h" /* for dr_insert_{save,restore}_fpstate */
 
 #ifdef DEBUG

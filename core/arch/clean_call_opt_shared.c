@@ -214,15 +214,15 @@ decode_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc instr_pc)
     instr = instr_create(GLOBAL_DCONTEXT);
     instrlist_append(ilist, instr);
     ci->num_instrs++;
-    TRY_EXCEPT(dcontext, { next_pc = decode(GLOBAL_DCONTEXT, instr_pc, instr); },
-               { /* EXCEPT */
-                 LOG(THREAD, LOG_CLEANCALL, 2,
-                     "CLEANCALL: crash on decoding callee instruction at: " PFX "\n",
-                     instr_pc);
-                 ASSERT_CURIOSITY(false && "crashed while decoding clean call");
-                 ci->bailout = true;
-                 return NULL;
-               });
+    TRY_EXCEPT(
+        dcontext, { next_pc = decode(GLOBAL_DCONTEXT, instr_pc, instr); },
+        { /* EXCEPT */
+          LOG(THREAD, LOG_CLEANCALL, 2,
+              "CLEANCALL: crash on decoding callee instruction at: " PFX "\n", instr_pc);
+          ASSERT_CURIOSITY(false && "crashed while decoding clean call");
+          ci->bailout = true;
+          return NULL;
+        });
     if (!instr_valid(instr)) {
         LOG(THREAD, LOG_CLEANCALL, 2,
             "CLEANCALL: decoding invalid instruction at: " PFX "\n", instr_pc);

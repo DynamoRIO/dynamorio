@@ -108,7 +108,6 @@
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
 
-
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros
  */

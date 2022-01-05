@@ -274,14 +274,15 @@ dr_init(client_id_t id)
     dr_fprintf(STDERR, "dr_safe_read() check\n");
 
     /* test DR_TRY_EXCEPT */
-    DR_TRY_EXCEPT(dr_get_current_drcontext(),
-                  {
-                      ok = false;
-                      *((int *)4) = 37;
-                  },
-                  { /* EXCEPT */
-                    ok = true;
-                  });
+    DR_TRY_EXCEPT(
+        dr_get_current_drcontext(),
+        {
+            ok = false;
+            *((int *)4) = 37;
+        },
+        { /* EXCEPT */
+          ok = true;
+        });
     if (!ok)
         dr_fprintf(STDERR, "ERROR in DR_TRY_EXCEPT\n");
     dr_fprintf(STDERR, "DR_TRY_EXCEPT check\n");
