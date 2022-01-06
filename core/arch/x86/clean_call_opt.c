@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -357,12 +357,13 @@ check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_p
     app_pc tmp_pc;
     opnd_t src = OPND_CREATE_INTPTR(next_pc);
     instr_init(dcontext, &ins);
-    TRY_EXCEPT(dcontext, { tmp_pc = decode(dcontext, tgt_pc, &ins); },
-               {
-                   ASSERT_CURIOSITY(false && "crashed while decoding clean call");
-                   instr_free(dcontext, &ins);
-                   return NULL;
-               });
+    TRY_EXCEPT(
+        dcontext, { tmp_pc = decode(dcontext, tgt_pc, &ins); },
+        {
+            ASSERT_CURIOSITY(false && "crashed while decoding clean call");
+            instr_free(dcontext, &ins);
+            return NULL;
+        });
     DOLOG(3, LOG_CLEANCALL, { disassemble_with_bytes(dcontext, tgt_pc, THREAD); });
     /* "pop %r1" or "mov [%rsp] %r1" */
     if (!(((instr_get_opcode(&ins) == OP_pop) ||
@@ -383,12 +384,13 @@ check_callee_instr_level2(dcontext_t *dcontext, callee_info_t *ci, app_pc next_p
     ci->num_instrs++;
     instr_reset(dcontext, &ins);
     if (tgt_pc != next_pc) { /* a callout */
-        TRY_EXCEPT(dcontext, { tmp_pc = decode(dcontext, tmp_pc, &ins); },
-                   {
-                       ASSERT_CURIOSITY(false && "crashed while decoding clean call");
-                       instr_free(dcontext, &ins);
-                       return NULL;
-                   });
+        TRY_EXCEPT(
+            dcontext, { tmp_pc = decode(dcontext, tmp_pc, &ins); },
+            {
+                ASSERT_CURIOSITY(false && "crashed while decoding clean call");
+                instr_free(dcontext, &ins);
+                return NULL;
+            });
         if (!instr_is_return(&ins)) {
             instr_free(dcontext, &ins);
             return NULL;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,10 +41,10 @@
 
 #include "../globals.h"
 #include "proc.h"
-#include "instr.h"        /* for dr_insert_{save,restore}_fpstate */
-#include "instrument.h"   /* for dr_insert_{save,restore}_fpstate */
+#include "instr.h"               /* for dr_insert_{save,restore}_fpstate */
+#include "instrument.h"          /* for dr_insert_{save,restore}_fpstate */
 #include "instr_create_shared.h" /* for dr_insert_{save,restore}_fpstate */
-#include "decode.h"       /* for dr_insert_{save,restore}_fpstate */
+#include "decode.h"              /* for dr_insert_{save,restore}_fpstate */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2321,8 +2321,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
             }
         };
 #else
-    static const char *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] =
-        {
+    static const char
+        *const ibl_routine_names[IBL_SOURCE_TYPE_END][IBL_LINK_STATE_END] = {
             { "shared_unlinked_bb_ibl", "shared_delete_bb_ibl", "shared_bb_far",
               "shared_bb_far_unlinked", "shared_bb_ibl", "shared_bb_ibl_template" },
             { "shared_unlinked_trace_ibl", "shared_delete_trace_ibl", "shared_trace_far",
@@ -2352,8 +2352,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
     /* ibl_type is valid and will give routine or template name, and qualifier */
 
     *ibl_brtype_name = get_branch_type_name(ibl_type.branch_type);
-    return ibl_routine_names IF_X86_64(
-        [mode])[ibl_type.source_fragment_type][ibl_type.link_state];
+    return ibl_routine_names IF_X86_64([mode])[ibl_type.source_fragment_type]
+                                              [ibl_type.link_state];
 }
 
 static inline ibl_code_t *

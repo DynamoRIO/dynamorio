@@ -1,5 +1,5 @@
 /* ******************************************************
- * Copyright (c) 2014-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * ******************************************************/
 
 /*
@@ -352,12 +352,13 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
 #    endif
 
     instr_init(dcontext, &scratch);
-    TRY_EXCEPT(my_dcontext, { identify_annotation(dcontext, &layout, &scratch); },
-               { /* EXCEPT */
-                 LOG(THREAD, LOG_ANNOTATIONS, 2,
-                     "Failed to instrument annotation at " PFX "\n", *start_pc);
-                 /* layout.type is already ANNOTATION_TYPE_NONE */
-               });
+    TRY_EXCEPT(
+        my_dcontext, { identify_annotation(dcontext, &layout, &scratch); },
+        { /* EXCEPT */
+          LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to instrument annotation at " PFX "\n",
+              *start_pc);
+          /* layout.type is already ANNOTATION_TYPE_NONE */
+        });
     if (layout.type != ANNOTATION_TYPE_NONE) {
         LOG(GLOBAL, LOG_ANNOTATIONS, 2,
             "Decoded %s annotation %s. Next pc now " PFX ".\n",

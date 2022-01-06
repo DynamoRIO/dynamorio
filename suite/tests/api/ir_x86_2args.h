@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@ XOPCODE(x_and, and, and_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(sub, sub, sub, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub_s, sub, sub_s, 0, REGARG(EAX), MEMARG(OPSZ_4))
 XOPCODE(x_sub, lea, sub, 0, REGARG(XAX), IMMARG(OPSZ_4))
-OPCODE (xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
+OPCODE(xor, xor, xor, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(arpl, arpl, arpl, X86_ONLY, MEMARG(OPSZ_2), REGARG(AX))
 OPCODE(lea, lea, lea, 0, REGARG(EAX), MEMARG(OPSZ_lea))
 OPCODE(mov_ld, mov_ld, mov_ld, 0, REGARG(EAX), MEMARG(OPSZ_4))

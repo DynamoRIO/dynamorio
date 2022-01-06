@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -712,30 +712,30 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1,
             0, INVALID_THREAD_ID, 0, KSYNCH_TYPE_STATIC_INIT, KSYNCH_TYPE_STATIC_INIT \
     }
 
-#define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock)                                \
-    do {                                                                          \
-        read_write_lock_t initializer_##lock = STRUCTURE_TYPE(read_write_lock_t){ \
-            INIT_LOCK_NO_TYPE(#lock "(readwrite)"                                 \
-                                    "@" __FILE__ ":" STRINGIFY(__LINE__),         \
-                              LOCK_RANK(lock)),                                   \
-            0,                                                                    \
-            INVALID_THREAD_ID,                                                    \
-            0,                                                                    \
-            KSYNCH_TYPE_STATIC_INIT,                                              \
-            KSYNCH_TYPE_STATIC_INIT                                               \
-        };                                                                        \
-        var = initializer_##lock;                                                 \
+#define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock)                                 \
+    do {                                                                           \
+        read_write_lock_t initializer_##lock = STRUCTURE_TYPE(read_write_lock_t) { \
+            INIT_LOCK_NO_TYPE(#lock "(readwrite)"                                  \
+                                    "@" __FILE__ ":" STRINGIFY(__LINE__),          \
+                              LOCK_RANK(lock)),                                    \
+            0,                                                                     \
+            INVALID_THREAD_ID,                                                     \
+            0,                                                                     \
+            KSYNCH_TYPE_STATIC_INIT,                                               \
+            KSYNCH_TYPE_STATIC_INIT                                                \
+        };                                                                         \
+        var = initializer_##lock;                                                  \
     } while (0)
 
-#define ASSIGN_INIT_RECURSIVE_LOCK_FREE(var, lock)                              \
-    do {                                                                        \
-        recursive_lock_t initializer_##lock = STRUCTURE_TYPE(recursive_lock_t){ \
-            INIT_LOCK_NO_TYPE(#lock "(recursive)"                               \
-                                    "@" __FILE__ ":" STRINGIFY(__LINE__),       \
-                              LOCK_RANK(lock)),                                 \
-            INVALID_THREAD_ID, 0                                                \
-        };                                                                      \
-        var = initializer_##lock;                                               \
+#define ASSIGN_INIT_RECURSIVE_LOCK_FREE(var, lock)                               \
+    do {                                                                         \
+        recursive_lock_t initializer_##lock = STRUCTURE_TYPE(recursive_lock_t) { \
+            INIT_LOCK_NO_TYPE(#lock "(recursive)"                                \
+                                    "@" __FILE__ ":" STRINGIFY(__LINE__),        \
+                              LOCK_RANK(lock)),                                  \
+            INVALID_THREAD_ID, 0                                                 \
+        };                                                                       \
+        var = initializer_##lock;                                                \
     } while (0)
 
 #define INIT_SPINLOCK_FREE(lock) \

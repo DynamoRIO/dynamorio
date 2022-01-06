@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2018-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2018-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -335,10 +335,11 @@ main(int argc, char *argv[])
             "mov $1, %[mask_error]\n\t"
             "no_mask_error%=:\n"
             /* early-clobber outputs */
-            : [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
-            : [sys_num] "rm"(SYS_epoll_pwait), [epfd] "rm"(epoll_fd),
-              [events] "rm"(&events), [maxevents] "rm"(24), [timeout] "rm"((int64_t)-1),
-              [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(SIGSET_SIZE))
+            : [ syscall_error ] "=&r"(syscall_error), [ mask_error ] "=&r"(mask_error)
+            : [ sys_num ] "rm"(SYS_epoll_pwait), [ epfd ] "rm"(epoll_fd),
+              [ events ] "rm"(&events), [ maxevents ] "rm"(24),
+              [ timeout ] "rm"((int64_t)-1), [ sigmask ] "rm"(&test_set),
+              [ ss_len ] "rm"((size_t)(SIGSET_SIZE))
             : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -381,10 +382,10 @@ main(int argc, char *argv[])
             "mov $1, %[mask_error]\n\t"
             "no_mask_error%=:\n"
             /* early-clobber ouputs */
-            : [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
-            : [sys_num] "rm"(SYS_pselect6), [nfds] "rm"(0), [readfds] "rm"(nullptr),
-              [writefds] "rm"(nullptr), [exceptfds] "rm"(nullptr),
-              [timeout] "rm"(nullptr), [sigmaskstruct] "r"(&data)
+            : [ syscall_error ] "=&r"(syscall_error), [ mask_error ] "=&r"(mask_error)
+            : [ sys_num ] "rm"(SYS_pselect6), [ nfds ] "rm"(0), [ readfds ] "rm"(nullptr),
+              [ writefds ] "rm"(nullptr), [ exceptfds ] "rm"(nullptr),
+              [ timeout ] "rm"(nullptr), [ sigmaskstruct ] "r"(&data)
             : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -418,11 +419,11 @@ main(int argc, char *argv[])
                      "mov $1, %[mask_error]\n\t"
                      "no_mask_error%=:\n"
                      /* early-clobber outputs */
-                     :
-                     [syscall_error] "=&r"(syscall_error), [mask_error] "=&r"(mask_error)
-                     : [sys_num] "r"(SYS_ppoll), [fds] "rm"(nullptr),
-                       [nfds] "rm"((nfds_t)0), [tmo_p] "rm"(nullptr),
-                       [sigmask] "rm"(&test_set), [ss_len] "rm"((size_t)(SIGSET_SIZE))
+                     : [ syscall_error ] "=&r"(syscall_error),
+                       [ mask_error ] "=&r"(mask_error)
+                     : [ sys_num ] "r"(SYS_ppoll), [ fds ] "rm"(nullptr),
+                       [ nfds ] "rm"((nfds_t)0), [ tmo_p ] "rm"(nullptr),
+                       [ sigmask ] "rm"(&test_set), [ ss_len ] "rm"((size_t)(SIGSET_SIZE))
                      : "rax", "rdi", "rsi", "rdx", "r10", "r8", "rbx", "rcx", "r11");
         if (syscall_error == 0)
             perror("expected syscall error EINTR");
@@ -508,11 +509,11 @@ main(int argc, char *argv[])
                      "movl $-1, %[syscall_error]\n\t"
                      "no_syscall_error%=:\n"
                      /* early-clobber ouputs */
-                     : [syscall_error] "=&r"(syscall_error)
-                     : [sys_num] "rm"(SYS_pselect6), [nfds] "rm"(0),
-                       [readfds] "rm"(nullptr), [writefds] "rm"(nullptr),
-                       [exceptfds] "rm"(fds), [timeout] "rm"(ts),
-                       [sigmaskstruct] "rm"(nullptr)
+                     : [ syscall_error ] "=&r"(syscall_error)
+                     : [ sys_num ] "rm"(SYS_pselect6), [ nfds ] "rm"(0),
+                       [ readfds ] "rm"(nullptr), [ writefds ] "rm"(nullptr),
+                       [ exceptfds ] "rm"(fds), [ timeout ] "rm"(ts),
+                       [ sigmaskstruct ] "rm"(nullptr)
                      : "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", "rcx", "r11");
         return syscall_error;
     };

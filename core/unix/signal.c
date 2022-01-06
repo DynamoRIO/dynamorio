@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3555,15 +3555,16 @@ copy_frame_to_stack(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
         IF_NOT_X64(IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
                                                         (sigframe_plain_t *)sp, size);));
     } else {
-        TRY_EXCEPT(dcontext, /* try */
-                   {
-                       if (rtframe)
-                           memcpy_rt_frame(frame, sp, from_pending);
-                       IF_NOT_X64(IF_LINUX(
-                           else convert_frame_to_nonrt(dcontext, sig, frame,
-                                                       (sigframe_plain_t *)sp, size);));
-                   },
-                   /* except */ { stack_unwritable = true; });
+        TRY_EXCEPT(
+            dcontext, /* try */
+            {
+                if (rtframe)
+                    memcpy_rt_frame(frame, sp, from_pending);
+                IF_NOT_X64(
+                    IF_LINUX(else convert_frame_to_nonrt(dcontext, sig, frame,
+                                                         (sigframe_plain_t *)sp, size);));
+            },
+            /* except */ { stack_unwritable = true; });
     }
     if (stack_unwritable) {
         /* Override the no-nested check in record_pending_signal(): it's ok b/c
@@ -4928,10 +4929,11 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         /* Be sure to use the interrupted mode and not the last-dispatch mode */
         dr_set_isa_mode(dcontext, get_pc_mode_from_cpsr(sc), &old_mode);
     });
-    TRY_EXCEPT(dcontext, { decode(dcontext, instr_cache_pc, &instr); },
-               {
-                   return NULL; /* instr_cache_pc was unreadable */
-               });
+    TRY_EXCEPT(
+        dcontext, { decode(dcontext, instr_cache_pc, &instr); },
+        {
+            return NULL; /* instr_cache_pc was unreadable */
+        });
     IF_ARM(dr_set_isa_mode(dcontext, old_mode, NULL));
 
     if (!instr_valid(&instr)) {

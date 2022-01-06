@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2017 ARM Limited. All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
@@ -2320,30 +2320,31 @@ is_readable_without_exception_try(byte *pc, size_t size)
         return is_readable_without_exception(pc, size);
     }
 
-    TRY_EXCEPT(dcontext,
-               {
-                   byte *check_pc = (byte *)ALIGN_BACKWARD(pc, PAGE_SIZE);
-                   if (size > (size_t)((byte *)POINTER_MAX - pc)) {
-                       ASSERT_NOT_TESTED();
-                       size = (byte *)POINTER_MAX - pc;
-                   }
-                   do {
-                       PROBE_READ_PC(check_pc);
-                       /* note the minor perf benefit - we check the whole loop
-                        * in a single TRY/EXCEPT, and no system calls xref
-                        * is_readable_without_exception() [based on safe_read]
-                        * and is_readable_without_exception_query_os() [based on
-                        * query_virtual_memory].
-                        */
+    TRY_EXCEPT(
+        dcontext,
+        {
+            byte *check_pc = (byte *)ALIGN_BACKWARD(pc, PAGE_SIZE);
+            if (size > (size_t)((byte *)POINTER_MAX - pc)) {
+                ASSERT_NOT_TESTED();
+                size = (byte *)POINTER_MAX - pc;
+            }
+            do {
+                PROBE_READ_PC(check_pc);
+                /* note the minor perf benefit - we check the whole loop
+                 * in a single TRY/EXCEPT, and no system calls xref
+                 * is_readable_without_exception() [based on safe_read]
+                 * and is_readable_without_exception_query_os() [based on
+                 * query_virtual_memory].
+                 */
 
-                       check_pc += PAGE_SIZE;
-                   } while (check_pc != 0 /*overflow*/ && check_pc < pc + size);
-                   /* TRY usage note: can't return here */
-               },
-               { /* EXCEPT */
-                 /* no state to preserve */
-                 return false;
-               });
+                check_pc += PAGE_SIZE;
+            } while (check_pc != 0 /*overflow*/ && check_pc < pc + size);
+            /* TRY usage note: can't return here */
+        },
+        { /* EXCEPT */
+          /* no state to preserve */
+          return false;
+        });
 
     return true;
 }
@@ -2358,14 +2359,15 @@ is_string_readable_without_exception(char *str, size_t *str_length /* OPTIONAL O
         return false;
 
     if (dcontext != NULL) {
-        TRY_EXCEPT(dcontext, /* try */
-                   {
-                       length = strlen(str);
-                       if (str_length != NULL)
-                           *str_length = length;
-                       /* NOTE - can't return here (try usage restriction) */
-                   },
-                   /* except */ { return false; });
+        TRY_EXCEPT(
+            dcontext, /* try */
+            {
+                length = strlen(str);
+                if (str_length != NULL)
+                    *str_length = length;
+                /* NOTE - can't return here (try usage restriction) */
+            },
+            /* except */ { return false; });
         return true;
     } else {
         /* ok have to do this the hard way... */

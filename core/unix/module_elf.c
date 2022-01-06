@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -1106,12 +1106,12 @@ module_lookup_symbol(ELF_SYM_TYPE *sym, os_privmod_data_t *pd)
     res = get_proc_address_from_os_data(&pd->os_data, pd->load_delta, name, &is_ifunc);
     if (res != NULL) {
         if (is_ifunc) {
-            TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, { res = ((app_pc(*)(void))(res))(); },
-                                         { /* EXCEPT */
-                                           ASSERT_CURIOSITY(
-                                               false && "crashed while executing ifunc");
-                                           res = NULL;
-                                         });
+            TRY_EXCEPT_ALLOW_NO_DCONTEXT(
+                dcontext, { res = ((app_pc(*)(void))(res))(); },
+                { /* EXCEPT */
+                  ASSERT_CURIOSITY(false && "crashed while executing ifunc");
+                  res = NULL;
+                });
         }
         return res;
     }
