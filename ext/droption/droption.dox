@@ -182,7 +182,9 @@ reports) listed first, like this:
 \code
 droption_t<std::string> op_blocklist(
     // We support the legacy name as an alias for compatibility.
-    DROPTION_SCOPE_CLIENT, { std::string("blocklist"), std::string("blacklist") },
+    // We explicitly specity the vector type to avoid ambiguity with iterators
+    // when we have just 2 elements in the list.
+    DROPTION_SCOPE_CLIENT, std::vector<std::string>({ "blocklist", "blacklist" }),
     IF_WINDOWS_ELSE("ntdll.dll", ""), ":-separated list of libs to ignore.",
     "The blocklist is a :-separated list of library names for which violations "
     "should not be reported.");

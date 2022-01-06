@@ -47,13 +47,13 @@ static droption_t<unsigned long> op_ul(DROPTION_SCOPE_CLIENT, "ul", 0UL, 0, 64,
 static droption_t<unsigned long long> op_ull(DROPTION_SCOPE_CLIENT, "ull", 0ULL,
                                              "Some param", "Longer desc of some param.");
 static droption_t<unsigned int> op_x(DROPTION_SCOPE_CLIENT,
-                                     { std::string("x"), std::string("x_alias") }, 0, 0,
+                                     std::vector<std::string>({ "x", "x_alias" }), 0, 0,
                                      64, "Some param", "Longer desc of some param.");
 static droption_t<std::string> op_y(DROPTION_SCOPE_CLIENT, "y", DROPTION_FLAG_ACCUMULATE,
                                     "<default>", "Another param",
                                     "Longer desc of another param.");
 static droption_t<std::string> op_z(DROPTION_SCOPE_CLIENT,
-                                    { std::string("z"), std::string("z_alias") }, "",
+                                    std::vector<std::string>({ "z", "z_alias" }), "",
                                     "Yet another param",
                                     "Longer desc of yet another param.");
 static droption_t<int> op_foo(DROPTION_SCOPE_CLIENT, "foo", 8, "Missing param",
