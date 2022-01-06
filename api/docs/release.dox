@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -129,7 +129,7 @@ changes:
  - (Nothing so far: this is a placeholder.)
 
 Further non-compatibility-affecting changes include:
- - (Nothing so far: this is a placeholder.)
+ - Added alias support to droption.
 
 The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:

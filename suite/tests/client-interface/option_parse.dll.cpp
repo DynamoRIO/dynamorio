@@ -51,7 +51,9 @@ static droption_t<unsigned int> op_x(DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some
 static droption_t<std::string> op_y(DROPTION_SCOPE_CLIENT, "y", DROPTION_FLAG_ACCUMULATE,
                                     "<default>", "Another param",
                                     "Longer desc of another param.");
-static droption_t<std::string> op_z(DROPTION_SCOPE_CLIENT, "z", "", "Yet another param",
+static droption_t<std::string> op_z(DROPTION_SCOPE_CLIENT,
+                                    { std::string("z"), std::string("z_alias") }, "",
+                                    "Yet another param",
                                     "Longer desc of yet another param.");
 static droption_t<int> op_foo(DROPTION_SCOPE_CLIENT, "foo", 8, "Missing param",
                               "Longer desc of missing param.");
@@ -91,49 +93,52 @@ static droption_t<bytesize_t>
 static void
 test_argv(int argc, const char *argv[])
 {
-    ASSERT(argc == 42);
+    ASSERT(argc == 44);
 
-    ASSERT(strcmp(argv[1], "-l") == 0);
-    ASSERT(strcmp(argv[2], "-4") == 0);
-    ASSERT(strcmp(argv[3], "-ll") == 0);
-    ASSERT(strcmp(argv[4], "-3220721071790640321") == 0);
-    ASSERT(strcmp(argv[5], "-ul") == 0);
-    ASSERT(strcmp(argv[6], "4") == 0);
-    ASSERT(strcmp(argv[7], "-ull") == 0);
-    ASSERT(strcmp(argv[8], "1384772493926445887") == 0);
-    ASSERT(strcmp(argv[9], "-x") == 0);
-    ASSERT(strcmp(argv[10], "4") == 0);
-    ASSERT(strcmp(argv[11], "-y") == 0);
-    ASSERT(strcmp(argv[12], "quoted string") == 0);
-    ASSERT(strcmp(argv[13], "-z") == 0);
-    ASSERT(strcmp(argv[14], "first") == 0);
-    ASSERT(strcmp(argv[15], "-z") == 0);
-    ASSERT(strcmp(argv[16], "single quotes -dash --dashes") == 0);
-    ASSERT(strcmp(argv[17], "-front") == 0);
-    ASSERT(strcmp(argv[18], "value") == 0);
-    ASSERT(strcmp(argv[19], "-y") == 0);
-    ASSERT(strcmp(argv[20], "accum") == 0);
-    ASSERT(strcmp(argv[21], "-front2") == 0);
-    ASSERT(strcmp(argv[22], "value2") == 0);
-    ASSERT(strcmp(argv[23], "-no_flag") == 0);
-    ASSERT(strcmp(argv[24], "-takes2") == 0);
-    ASSERT(strcmp(argv[25], "1_of_4") == 0);
-    ASSERT(strcmp(argv[26], "2_of_4") == 0);
-    ASSERT(strcmp(argv[27], "-takes2") == 0);
-    ASSERT(strcmp(argv[28], "3_of_4") == 0);
-    ASSERT(strcmp(argv[29], "4_of_4") == 0);
-    ASSERT(strcmp(argv[30], "-val_sep") == 0);
-    ASSERT(strcmp(argv[31], "v1.1 v1.2") == 0);
-    ASSERT(strcmp(argv[32], "-val_sep") == 0);
-    ASSERT(strcmp(argv[33], "v2.1 v2.2") == 0);
-    ASSERT(strcmp(argv[34], "-val_sep2") == 0);
-    ASSERT(strcmp(argv[35], "v1") == 0);
-    ASSERT(strcmp(argv[36], "v2") == 0);
-    ASSERT(strcmp(argv[37], "-val_sep2") == 0);
-    ASSERT(strcmp(argv[38], "v3") == 0);
-    ASSERT(strcmp(argv[39], "v4") == 0);
-    ASSERT(strcmp(argv[40], "-large_bytesize") == 0);
-    ASSERT(strcmp(argv[41], "9999999999") == 0);
+    int i = 1;
+    ASSERT(strcmp(argv[i++], "-l") == 0);
+    ASSERT(strcmp(argv[i++], "-4") == 0);
+    ASSERT(strcmp(argv[i++], "-ll") == 0);
+    ASSERT(strcmp(argv[i++], "-3220721071790640321") == 0);
+    ASSERT(strcmp(argv[i++], "-ul") == 0);
+    ASSERT(strcmp(argv[i++], "4") == 0);
+    ASSERT(strcmp(argv[i++], "-ull") == 0);
+    ASSERT(strcmp(argv[i++], "1384772493926445887") == 0);
+    ASSERT(strcmp(argv[i++], "-x") == 0);
+    ASSERT(strcmp(argv[i++], "3") == 0);
+    ASSERT(strcmp(argv[i++], "-x_alias") == 0);
+    ASSERT(strcmp(argv[i++], "4") == 0);
+    ASSERT(strcmp(argv[i++], "-y") == 0);
+    ASSERT(strcmp(argv[i++], "quoted string") == 0);
+    ASSERT(strcmp(argv[i++], "-z") == 0);
+    ASSERT(strcmp(argv[i++], "first") == 0);
+    ASSERT(strcmp(argv[i++], "-z_alias") == 0);
+    ASSERT(strcmp(argv[i++], "single quotes -dash --dashes") == 0);
+    ASSERT(strcmp(argv[i++], "-front") == 0);
+    ASSERT(strcmp(argv[i++], "value") == 0);
+    ASSERT(strcmp(argv[i++], "-y") == 0);
+    ASSERT(strcmp(argv[i++], "accum") == 0);
+    ASSERT(strcmp(argv[i++], "-front2") == 0);
+    ASSERT(strcmp(argv[i++], "value2") == 0);
+    ASSERT(strcmp(argv[i++], "-no_flag") == 0);
+    ASSERT(strcmp(argv[i++], "-takes2") == 0);
+    ASSERT(strcmp(argv[i++], "1_of_4") == 0);
+    ASSERT(strcmp(argv[i++], "2_of_4") == 0);
+    ASSERT(strcmp(argv[i++], "-takes2") == 0);
+    ASSERT(strcmp(argv[i++], "3_of_4") == 0);
+    ASSERT(strcmp(argv[i++], "4_of_4") == 0);
+    ASSERT(strcmp(argv[i++], "-val_sep") == 0);
+    ASSERT(strcmp(argv[i++], "v1.1 v1.2") == 0);
+    ASSERT(strcmp(argv[i++], "-val_sep") == 0);
+    ASSERT(strcmp(argv[i++], "v2.1 v2.2") == 0);
+    ASSERT(strcmp(argv[i++], "-val_sep2") == 0);
+    ASSERT(strcmp(argv[i++], "v1") == 0);
+    ASSERT(strcmp(argv[i++], "v2") == 0);
+    ASSERT(strcmp(argv[i++], "-val_sep2") == 0);
+    ASSERT(strcmp(argv[i++], "v3") == 0);
+    ASSERT(strcmp(argv[i++], "v4") == 0);
+    ASSERT(strcmp(argv[i++], "-large_bytesize") == 0);
+    ASSERT(strcmp(argv[i++], "9999999999") == 0);
 }
 
 DR_EXPORT void
