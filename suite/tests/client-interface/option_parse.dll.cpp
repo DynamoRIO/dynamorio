@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -46,8 +46,9 @@ static droption_t<unsigned long> op_ul(DROPTION_SCOPE_CLIENT, "ul", 0UL, 0, 64,
                                        "Some param", "Longer desc of some param.");
 static droption_t<unsigned long long> op_ull(DROPTION_SCOPE_CLIENT, "ull", 0ULL,
                                              "Some param", "Longer desc of some param.");
-static droption_t<unsigned int> op_x(DROPTION_SCOPE_CLIENT, "x", 0, 0, 64, "Some param",
-                                     "Longer desc of some param.");
+static droption_t<unsigned int> op_x(DROPTION_SCOPE_CLIENT,
+                                     { std::string("x"), std::string("x_alias") }, 0, 0,
+                                     64, "Some param", "Longer desc of some param.");
 static droption_t<std::string> op_y(DROPTION_SCOPE_CLIENT, "y", DROPTION_FLAG_ACCUMULATE,
                                     "<default>", "Another param",
                                     "Longer desc of another param.");
