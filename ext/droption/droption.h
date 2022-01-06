@@ -229,9 +229,10 @@ public:
                         if (op->option_takes_2args() && i < argc)
                             ++i;
                         if (i == argc) {
-                            if (error_msg != NULL)
+                            if (error_msg != NULL) {
                                 *error_msg =
                                     "Option " + op->get_name() + " missing value";
+                            }
                             res = false;
                             goto parse_finished;
                         }
