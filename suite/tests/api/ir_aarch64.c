@@ -232,19 +232,11 @@ test_add(void *dc)
     adds_extend(W, DR_EXTEND_UXTB, 0);
     adds_extend(W, DR_EXTEND_UXTH, 1);
     adds_extend(W, DR_EXTEND_UXTW, 2);
-    adds_extend(W, DR_EXTEND_UXTX, 3);
     adds_extend(W, DR_EXTEND_SXTB, 4);
     adds_extend(W, DR_EXTEND_SXTH, 0);
     adds_extend(W, DR_EXTEND_SXTW, 1);
-    adds_extend(W, DR_EXTEND_SXTX, 2);
 
-    adds_extend(X, DR_EXTEND_UXTB, 0);
-    adds_extend(X, DR_EXTEND_UXTH, 1);
-    adds_extend(X, DR_EXTEND_UXTW, 2);
     adds_extend(X, DR_EXTEND_UXTX, 3);
-    adds_extend(X, DR_EXTEND_SXTB, 4);
-    adds_extend(X, DR_EXTEND_SXTH, 0);
-    adds_extend(X, DR_EXTEND_SXTW, 1);
     adds_extend(X, DR_EXTEND_SXTX, 2);
 }
 

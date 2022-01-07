@@ -24,18 +24,10 @@ adds   %x1 $0x0fff lsl $0x00 -> %x0
 adds   %w1 %w2 uxtb $0x00 -> %w0
 adds   %w1 %w2 uxth $0x01 -> %w0
 adds   %w1 %w2 uxtw $0x02 -> %w0
-adds   %w1 %w2 uxtx $0x03 -> %w0
 adds   %w1 %w2 sxtb $0x04 -> %w0
 adds   %w1 %w2 sxth $0x00 -> %w0
 adds   %w1 %w2 sxtw $0x01 -> %w0
-adds   %w1 %w2 sxtx $0x02 -> %w0
-adds   %x1 %x2 uxtb $0x00 -> %x0
-adds   %x1 %x2 uxth $0x01 -> %x0
-adds   %x1 %x2 uxtw $0x02 -> %x0
 adds   %x1 %x2 uxtx $0x03 -> %x0
-adds   %x1 %x2 sxtb $0x04 -> %x0
-adds   %x1 %x2 sxth $0x00 -> %x0
-adds   %x1 %x2 sxtw $0x01 -> %x0
 adds   %x1 %x2 sxtx $0x02 -> %x0
 test_add complete
 ldar   (%x1)[4byte] -> %w0
