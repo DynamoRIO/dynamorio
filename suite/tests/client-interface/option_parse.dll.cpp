@@ -61,8 +61,9 @@ static droption_t<int> op_foo(DROPTION_SCOPE_CLIENT, "foo", 8, "Missing param",
 static droption_t<std::string> op_bar(DROPTION_SCOPE_CLIENT, "bar",
                                       "some string with spaces", "Missing string param",
                                       "Longer desc of missing string param.");
-static droption_t<bool> op_flag(DROPTION_SCOPE_CLIENT, "flag", true, "Bool param",
-                                "Longer desc of bool param.");
+static droption_t<bool> op_flag(DROPTION_SCOPE_CLIENT,
+                                { "flag", "flag_alias1", "flag_alias2" }, true,
+                                "Bool param", "Longer desc of bool param.");
 static droption_t<std::string> op_sweep(DROPTION_SCOPE_CLIENT, "sweep",
                                         DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE,
                                         "", "All the unknown params",
@@ -94,7 +95,7 @@ static droption_t<bytesize_t>
 static void
 test_argv(int argc, const char *argv[])
 {
-    ASSERT(argc == 44);
+    ASSERT(argc == 46);
 
     int i = 1;
     ASSERT(strcmp(argv[i++], "-l") == 0);
@@ -121,7 +122,9 @@ test_argv(int argc, const char *argv[])
     ASSERT(strcmp(argv[i++], "accum") == 0);
     ASSERT(strcmp(argv[i++], "-front2") == 0);
     ASSERT(strcmp(argv[i++], "value2") == 0);
-    ASSERT(strcmp(argv[i++], "-no_flag") == 0);
+    ASSERT(strcmp(argv[i++], "-flag") == 0);
+    ASSERT(strcmp(argv[i++], "-flag_alias1") == 0);
+    ASSERT(strcmp(argv[i++], "-no_flag_alias2") == 0);
     ASSERT(strcmp(argv[i++], "-takes2") == 0);
     ASSERT(strcmp(argv[i++], "1_of_4") == 0);
     ASSERT(strcmp(argv[i++], "2_of_4") == 0);
