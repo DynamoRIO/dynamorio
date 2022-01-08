@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -56,7 +56,7 @@
 
 static bool (*opcode_supported)(instr_t *);
 
-static std::vector<std::string> blacklist;
+static std::vector<std::string> blocklist;
 
 static app_pc exe_start;
 
@@ -710,8 +710,8 @@ report_invalid_opcode(int opc, app_pc pc)
     if (mod != NULL)
         modname = dr_module_preferred_name(mod);
     if (modname != NULL) {
-        for (std::vector<std::string>::iterator i = blacklist.begin();
-             i != blacklist.end(); ++i) {
+        for (std::vector<std::string>::iterator i = blocklist.begin();
+             i != blocklist.end(); ++i) {
             if (*i == modname) {
                 dr_free_module_data(mod);
                 return;
@@ -855,11 +855,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_abort();
 #endif
 
-    if (!op_blacklist.get_value().empty()) {
-        std::stringstream stream(op_blacklist.get_value());
+    if (!op_blocklist.get_value().empty()) {
+        std::stringstream stream(op_blocklist.get_value());
         std::string entry;
         while (std::getline(stream, entry, ':'))
-            blacklist.push_back(entry);
+            blocklist.push_back(entry);
     }
 
     if (op_ignore_all_libs.get_value()) {

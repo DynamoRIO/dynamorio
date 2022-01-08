@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -238,14 +239,14 @@ void
 remove_from_file_list(WCHAR *list, const WCHAR *filename, WCHAR separator);
 
 BOOL
-blacklist_filter(WCHAR *list, const WCHAR *blacklist, BOOL check_only, WCHAR separator);
+blocklist_filter(WCHAR *list, const WCHAR *blocklist, BOOL check_only, WCHAR separator);
 
 BOOL
-whitelist_filter(WCHAR *list, const WCHAR *whitelist, BOOL check_only, WCHAR separator);
+allowlist_filter(WCHAR *list, const WCHAR *allowlist, BOOL check_only, WCHAR separator);
 
 DWORD
-set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blacklist,
-                     const WCHAR *whitelist, DWORD *list_error,
+set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
+                     const WCHAR *allowlist, DWORD *list_error,
                      const WCHAR *custom_preinject_name, WCHAR *current_list,
                      SIZE_T maxchars);
 

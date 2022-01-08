@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1129,22 +1129,22 @@ filter(WCHAR *list, const WCHAR *filter, DWORD black_or_white, BOOL check_only,
 }
 
 BOOL
-blacklist_filter(WCHAR *list, const WCHAR *blacklist, BOOL check_only, WCHAR separator)
+blocklist_filter(WCHAR *list, const WCHAR *blocklist, BOOL check_only, WCHAR separator)
 {
-    return filter(list, blacklist, BLACK, check_only, separator);
+    return filter(list, blocklist, BLACK, check_only, separator);
 }
 
 BOOL
-whitelist_filter(WCHAR *list, const WCHAR *whitelist, BOOL check_only, WCHAR separator)
+allowlist_filter(WCHAR *list, const WCHAR *allowlist, BOOL check_only, WCHAR separator)
 {
-    return filter(list, whitelist, WHITE, check_only, separator);
+    return filter(list, allowlist, WHITE, check_only, separator);
 }
 
 /* appinit key */
 
 DWORD
-set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blacklist,
-                     const WCHAR *whitelist,
+set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
+                     const WCHAR *allowlist,
                      /* OUT */ DWORD *list_error, const WCHAR *custom_preinject_name,
                      /* OUT */ WCHAR *current_list, SIZE_T maxchars)
 {
@@ -1269,20 +1269,20 @@ set_autoinjection_ex(BOOL inject, DWORD flags, const WCHAR *blacklist,
         remove_from_file_list(list, preinject_name, APPINIT_SEPARATOR_CHAR);
     }
 
-    if (TEST(APPINIT_USE_WHITELIST, flags)) {
-        if (NULL == whitelist)
+    if (TEST(APPINIT_USE_ALLOWLIST, flags)) {
+        if (NULL == allowlist)
             res = ERROR_INVALID_PARAMETER;
         else
             list_ok_ =
-                whitelist_filter(list, whitelist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
+                allowlist_filter(list, allowlist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
                                  APPINIT_SEPARATOR_CHAR);
-    } else if (TEST(APPINIT_USE_BLACKLIST, flags)) {
-        /* else if since whitelist subsumes blacklist */
-        if (NULL == blacklist)
+    } else if (TEST(APPINIT_USE_BLOCKLIST, flags)) {
+        /* else if since allowlist subsumes blocklist */
+        if (NULL == blocklist)
             res = ERROR_INVALID_PARAMETER;
         else
             list_ok_ =
-                blacklist_filter(list, blacklist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
+                blocklist_filter(list, blocklist, TEST(APPINIT_CHECK_LISTS_ONLY, flags),
                                  APPINIT_SEPARATOR_CHAR);
     }
 
@@ -1757,21 +1757,21 @@ main()
         list2 = add_to_file_list(list2, L"gee.dll", TRUE, TRUE, FALSE, sep);
 
         tmplist = wcsdup(list1);
-        DO_ASSERT(!blacklist_filter(tmplist, list2, TRUE, sep));
+        DO_ASSERT(!blocklist_filter(tmplist, list2, TRUE, sep));
         DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;C:\\bar.dll;c:\\foo.dll;d:\\gee.dll;ar.dll",
                           tmplist);
 
-        DO_ASSERT(!blacklist_filter(tmplist, list2, FALSE, sep));
+        DO_ASSERT(!blocklist_filter(tmplist, list2, FALSE, sep));
         DO_ASSERT_WSTR_EQ(L"C:\\bar.dll;ar.dll", tmplist);
 
-        DO_ASSERT(blacklist_filter(tmplist, list2, TRUE, sep));
+        DO_ASSERT(blocklist_filter(tmplist, list2, TRUE, sep));
         free_file_list(tmplist);
 
         tmplist = wcsdup(list1);
-        DO_ASSERT(!whitelist_filter(tmplist, list2, FALSE, sep));
+        DO_ASSERT(!allowlist_filter(tmplist, list2, FALSE, sep));
         DO_ASSERT_WSTR_EQ(L"C:\\shr\\Foo.dll;c:\\foo.dll;d:\\gee.dll", tmplist);
 
-        DO_ASSERT(whitelist_filter(tmplist, list2, TRUE, sep));
+        DO_ASSERT(allowlist_filter(tmplist, list2, TRUE, sep));
 
         free_file_list(tmplist);
 

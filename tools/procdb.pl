@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
+# Copyright (c) 2021-2022 Google, Inc.  All rights reserved.
 # Copyright (c) 2006 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -62,7 +63,7 @@
 # copy&paste from bugtitle.pl
 
 # FIXME: should merge with the logic from wld/wld.pl
-# about having a whitelist database on DLLs
+# about having an allowlist database on DLLs
 
 
 # adding only exe's that should be seen only once!
