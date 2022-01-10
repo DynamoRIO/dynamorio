@@ -195,7 +195,10 @@ do_line(void *dc, const char *line, size_t len, bool verbose, bool *failed)
 int
 run_test(void *dc, const char *file, bool verbose)
 {
+    bool test_failed = false;
     bool failed = false;
+    int failures = 0;
+    int lines = 0;
     byte *map_base;
     size_t map_size;
     byte *s, *end;
@@ -208,10 +211,19 @@ run_test(void *dc, const char *file, bool verbose)
     s = map_base;
     end = map_base + map_size;
     while (s < end) {
+        lines++;
+        test_failed = false;
         byte *t = memchr(s, '\n', end - s);
-        do_line(dc, (const char *)s, (t == NULL ? end : t) - s, verbose, &failed);
+        do_line(dc, (const char *)s, (t == NULL ? end : t) - s, verbose, &test_failed);
         s = (t == NULL ? end : t + 1);
+        if (test_failed) {
+            failures++;
+            failed = true;
+        }
     }
+
+    if (failures > 0)
+        dr_printf("%i out of %i tests failed\n", failures, lines);
 
     if (failed) {
         dr_printf("FAIL\n");
