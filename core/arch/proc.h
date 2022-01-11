@@ -102,7 +102,7 @@ void
 proc_init_arch(void);
 
 void
-set_cache_size(uint val, uint *dst);
+proc_set_cache_size(uint val, uint *dst);
 
 #ifdef AARCHXX
 uint
