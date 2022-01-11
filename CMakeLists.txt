@@ -653,14 +653,25 @@ else (UNIX)
 
   # cmake has CMAKE_RC_COMPILER, but no message compiler
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # this path is only present for 2008+, but we currently require PATH to
-    # be set up anyway
-    get_filename_component(sdk_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH)
-    if (X64)
-      set(sdk_bindir "${sdk_dir}/bin/x64")
-    else (X64)
-      set(sdk_bindir "${sdk_dir}/bin")
-    endif (X64)
+    # First checks for the Windows SDK through Windows Kits.
+    get_filename_component(kits_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]" REALPATH)
+
+    if (EXISTS ${kits_dir})
+      if (X64)
+        set(sdk_bindir "${kits_dir}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64")
+      else (X64)
+        set(sdk_bindir "${kits_dir}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x86")
+      endif (X64)
+    else (EXISTS ${kits_dir})
+      # this path is only present for 2008+, but we currently require PATH to
+      # be set up anyway
+      get_filename_component(sdk_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH)
+      if (X64)
+        set(sdk_bindir "${sdk_dir}/bin/x64")
+      else (X64)
+        set(sdk_bindir "${sdk_dir}/bin")
+      endif (X64)
+    endif (EXISTS ${kits_dir})
   endif ()
   if (NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
     # For MinGW (MSYS Makefiles) we do not have a message compiler.
