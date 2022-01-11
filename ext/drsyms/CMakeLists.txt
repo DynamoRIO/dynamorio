@@ -70,7 +70,7 @@ set(DynamoRIO_USE_LIBC ON)
 if (WIN32)
   # XXX: if we add any more of these .lib files we should share this code
   # (currently we have make/ntdll_imports.cmake and here).
-  find_program(LIB_EXECUTABLE lib.exe DOC "path to lib.exe")
+  find_program(LIB_EXECUTABLE lib.exe HINTS "${cl_path}" DOC "path to lib.exe")
   if (NOT LIB_EXECUTABLE)
     message(FATAL_ERROR "Cannot find lib.exe")
   endif (NOT LIB_EXECUTABLE)
