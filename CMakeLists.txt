@@ -596,6 +596,16 @@ if (UNIX)
   check_avx512_processor_and_compiler_support(proc_supports_avx512)
 endif ()
 
+# Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise
+# um/winnt.h provided since Windows 10.0.22000 will error.
+if (NOT UNIX)
+  if (X64)
+    add_definitions(-D_AMD64_)
+  else (X64)
+    add_definitions(-D_X86_)
+  endif (X64)
+endif (NOT UNIX)
+
 # Set up assembly support and CMAKE_CPP.
 # Note that in cmake < 2.6.4, I had to fix a bug in
 # /usr/share/cmake/Modules/CMakeASMInformation.cmake
