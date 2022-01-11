@@ -90,13 +90,13 @@ get_cache_sizes_amd(uint max_ext_val)
 
     if (max_ext_val >= 0x80000005) {
         our_cpuid((int *)cpuid_res_local, 0x80000005, 0);
-        set_cache_size((cpuid_res_local[2] /*ecx*/ >> 24), &cpu_info.L1_icache_size);
-        set_cache_size((cpuid_res_local[3] /*edx*/ >> 24), &cpu_info.L1_dcache_size);
+        proc_set_cache_size((cpuid_res_local[2] /*ecx*/ >> 24), &cpu_info.L1_icache_size);
+        proc_set_cache_size((cpuid_res_local[3] /*edx*/ >> 24), &cpu_info.L1_dcache_size);
     }
 
     if (max_ext_val >= 0x80000006) {
         our_cpuid((int *)cpuid_res_local, 0x80000006, 0);
-        set_cache_size((cpuid_res_local[2] /*ecx*/ >> 16), &cpu_info.L2_cache_size);
+        proc_set_cache_size((cpuid_res_local[2] /*ecx*/ >> 16), &cpu_info.L2_cache_size);
     }
 }
 
