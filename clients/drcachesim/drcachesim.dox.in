@@ -153,14 +153,15 @@ Some of the more important markers are:
 
 - #TRACE_MARKER_TYPE_KERNEL_EVENT - This identifies kernel-initiated control transfers such as signal delivery.  The next instruction record is the start of the handler for a kernel-initiated event.  The value of this type of marker contains the program counter at the kernel interruption point.  If the interruption point is just after a branch, this value is the target of that branch.
 
-- #TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return..
+- #TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return.
 
 - #TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads. It is used in the sequential analysis of a multi-threaded trace.
 
 - #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution.
 
-- #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See sec_drcachesim_funcs.
+- #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
 
+The full set of markers is listed under the enum #trace_marker_type_t.
 
 ****************************************************************************
 \page sec_drcachesim_run Running the Simulator
