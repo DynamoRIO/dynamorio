@@ -602,6 +602,10 @@ endif ()
 # where @VAR@ expansion was used, which only works for configure_file()
 #   now fixed in CMake/Modules/CMakeASMInformation.cmake:1.5
 # See top of top-level CMakeLists.txt for our workaround.
+if (NOT UNIX)
+  get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
+endif (NOT UNIX)
+
 set(cpp2asm_newline_script_path "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake")
 include(make/cpp2asm_support.cmake)
 if (UNIX)
@@ -648,8 +652,6 @@ else (UNIX)
     # we use cl pragmas and intrinsics
     message(FATAL_ERROR "cl (Microsoft C++ compiler) is required to build")
   endif (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")
-
-  get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
 
   # cmake has CMAKE_RC_COMPILER, but no message compiler
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
