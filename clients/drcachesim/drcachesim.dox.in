@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,8 +39,8 @@
 ***************************************************************************
 \page page_drcachesim Tracing and Analysis Framework
 
-\p drcachesim is a DynamoRIO client that collects memory access traces
-using its \p drmemtrace component and
+\p drcachesim is a DynamoRIO client that collects instruction and
+memory access traces using its \p drmemtrace component and
 feeds them to either an online or offline tool for analysis.  The default
 analysis tool is a CPU cache simulator, while other provided tools compute
 metrics such as reuse distance.  The trace collector and simulator support
@@ -49,6 +49,7 @@ is extensible, supporting the creation of new tools which can operate both
 online and offline.
 
  - \subpage sec_drcachesim
+ - \subpage sec_drcachesim_format
  - \subpage sec_drcachesim_run
  - \subpage sec_drcachesim_tools
  - \subpage sec_drcachesim_config_file
@@ -80,6 +81,87 @@ caches, etc. (see \ref sec_drcachesim_extend), or to build arbitrary trace
 analysis tools (see \ref sec_drcachesim_newtool).
 The default analyzer simulates the architectural behavior of caching
 devices for a target application (or multiple applications).
+
+****************************************************************************
+\page sec_drcachesim_format Trace Format
+
+\p drmemtrace traces are records of all user mode retired instructions
+and memory accesses during the traced window.
+
+A trace is presented to analysis tools as a stream of records.  Each
+record entry is of type #memref_t and represents one instruction or
+data reference or a metadata operation such as a thread exit or
+marker.  There are built-in scheduling markers providing the timestamp
+and cpu identifier on each thread transition.  Other built-in markers
+indicate disruptions in user mode control flow such as signal handler
+entry and exit.
+
+Each entry contains the common fields \p type, \p pid, and \p tid. The
+\p type field is used to identify the kind of each entry via a value
+of type #trace_marker_type_t.  The \p pid and \p tid identify the
+process and software thread owning the entry.  By default, all traced
+software threads are interleaved together, but with offline traces
+(see \ref sec_drcachesim_offline) each thread's trace can easily be
+analyzed separately as they are stored in separate files.
+
+\section sec_drcachesim_format_instrs Instruction Records
+
+Executed instructions are stored in #_memref_instr_t.  The program
+counter and length of the encoded instruction are provided.  The
+length can be used to compute the address of the subsequent instruction.
+
+The instruction records do not contain instruction encodings.  Such
+information can be obtained by disassembling the application and
+library binaries.  The provided interfaces
+module_mapper_t::get_loaded_modules() and
+module_mapper_t::find_mapped_trace_address() facilitate loading in
+copies of the binaries and reading the raw bytes for each instruction
+in order to obtain the opcode and full operand information.
+See also \ref sec_drcachesim_core.
+
+Branch targets are also not explicitly recorded (a design
+decision). The executed target as well as branch direction can be
+obtained by examining the address of the instruction immediately
+following a branch. If the program flow is changed by the kernel such
+as by signal delivery, the branch target is explicitly recorded in the
+trace in a metadata marker entry of type
+#TRACE_MARKER_TYPE_KERNEL_EVENT.
+
+\section sec_drcachesim_format_data Memory Access Records
+
+Memory accesses (data loads and stores) are stored in #_memref_data_t.
+The program counter of the instruction performing the memory access,
+the virtual address (unless \ref sec_drcachesim_phys are enabled), and
+the size are provided.
+
+\section sec_drcachesim_format_other Other Records
+
+Besides instruction and memory records, other trace entry types
+include #_memref_marker_t, #_memref_flush_t, #_memref_thread_exit_t,
+etc. These records provide specific inforamtion about events that can
+alter the program flow or the system's states.
+
+Trace markers are particularly important to allow reconstruction of
+the program execution.  Marker records in #_memref_marker_t provide
+metadata identifying some event that occurred at this point in the
+trace.  Each marker record contains two additional fields:
+
+- \p marker_type - identifies the type of marker
+- \p marker_value - carries the value of the marker
+
+Some of the more important markers are:
+
+- #TRACE_MARKER_TYPE_KERNEL_EVENT - This identifies kernel-initiated control transfers such as signal delivery.  The next instruction record is the start of the handler for a kernel-initiated event.  The value of this type of marker contains the program counter at the kernel interruption point.  If the interruption point is just after a branch, this value is the target of that branch.
+
+- #TRACE_MARKER_TYPE_KERNEL_XFER - This identifies a system call that changes control flow, such as a signal return.
+
+- #TRACE_MARKER_TYPE_TIMESTAMP - The marker value provides a timestamp for this point of the trace (in units of microseconds since Jan 1, 1601 UTC). This value can be used to synchronize records from different threads. It is used in the sequential analysis of a multi-threaded trace.
+
+- #TRACE_MARKER_TYPE_CPU_ID - The marker value contains the CPU identifier on which the subsequent records were collected. It is useful to help track thread migrations occurring during execution.
+
+- #TRACE_MARKER_TYPE_FUNC_ID, #TRACE_MARKER_TYPE_FUNC_RETADDR, #TRACE_MARKER_TYPE_FUNC_ARG, #TRACE_MARKER_TYPE_FUNC_RETVAL - These markers are used to capture information about function calls.  Which functions to capture must be explicitly selected at tracing time.  Typical candiates are heap allocation and freeing functions.  See \ref sec_drcachesim_funcs.
+
+The full set of markers is listed under the enum #trace_marker_type_t.
 
 ****************************************************************************
 \page sec_drcachesim_run Running the Simulator
@@ -1201,10 +1283,11 @@ the trace and calls the appropriate #analysis_tool_t functions for
 each tool.  An alternative mode is supported which exposes the
 iterator and allows a separate control infrastructure to be built.
 
-Each trace entry is of type #memref_t and represents one instruction or
-data reference or a metadata operation such as a thread exit or marker.
-There are built-in scheduling markers providing the timestamp and cpu
-identifier on each thread transition.  Other built-in markers indicate
+As explained in \ref sec_drcachesim_format, each trace entry is of
+type #memref_t and represents one instruction or data reference or a
+metadata operation such as a thread exit or marker.  There are
+built-in scheduling markers providing the timestamp and cpu identifier
+on each thread transition.  Other built-in markers indicate
 disruptions in user mode control flow such as signal handler entry and
 exit.
 

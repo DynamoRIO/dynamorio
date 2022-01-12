@@ -78,7 +78,7 @@ cpu_info_t cpu_info = { VENDOR_UNKNOWN,
                         { 0x6e6b6e75, 0x006e776f } };
 
 void
-set_cache_size(uint val, uint *dst)
+proc_set_cache_size(uint val, uint *dst)
 {
     CLIENT_ASSERT(dst != NULL, "invalid internal param");
     switch (val) {
