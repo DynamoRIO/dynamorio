@@ -844,8 +844,9 @@
  * Creates a CLREX instruction.
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  */
-/* TODO i#4532: Remove this superfluous operand. */
-#define INSTR_CREATE_clrex(dc) instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(0))
+#define INSTR_CREATE_clrex(dc) instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(15))
+#define INSTR_CREATE_clrex_imm(dc, imm) \
+    instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(imm))
 
 /* FIXME i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
