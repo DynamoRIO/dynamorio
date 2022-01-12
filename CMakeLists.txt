@@ -777,7 +777,6 @@ if (UNIX)
   if (suggest_override_avail)
     set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
   endif ()
-  # now that the user must set non-default -mNN we don't nec. need these:
   if (X86)
     if (X64)
       set(LD_FLAGS "-melf_x86_64")
