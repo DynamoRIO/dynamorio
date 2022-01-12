@@ -5515,6 +5515,10 @@ test_exclusive_memops(void *dc)
     instr = INSTR_CREATE_clrex(dc);
     ASSERT(!instr_is_exclusive_store(instr) && !instr_is_exclusive_load(instr));
     test_instr_encoding(dc, OP_clrex, instr);
+
+    instr = INSTR_CREATE_clrex_imm(dc, 2);
+    ASSERT(!instr_is_exclusive_store(instr) && !instr_is_exclusive_load(instr));
+    test_instr_encoding(dc, OP_clrex, instr);
 }
 
 static void

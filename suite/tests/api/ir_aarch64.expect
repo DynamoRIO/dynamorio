@@ -1142,7 +1142,8 @@ stlxr  %x0 -> (%x1)[8byte] %w2
 stlxrb %w0 -> (%x1)[1byte] %w2
 stlxrh %w0 -> (%x1)[2byte] %w2
 stlxp  %w0 %w1 -> (%x2)[8byte] %w3
-clrex  $0x0000000000000000
+clrex  $0x000000000000000f
+clrex  $0x0000000000000002
 test_exclusive_memops complete
 ldp    (%x2)[8byte] -> %w0 %w1
 stp    %w0 %w1 -> (%x2)[8byte]

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -95,7 +95,8 @@ setup(void)
         fail("timer_create");
 }
 
-int try
+int
+try
     (uint64_t time)
     {
         struct itimerspec spec = { { 0, 0 },
@@ -130,7 +131,8 @@ main(int argc, const char *argv[])
 #    if VERBOSE
         print("%8d %llu\n", i, (unsigned long long)time);
 #    endif
-        int r = try
+        int r =
+        try
             (time);
         ++counts[r];
 

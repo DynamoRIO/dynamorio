@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -181,11 +181,12 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "5:\n\t"
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
-          [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id),
+          [ cpu_id_uninit ] "i"(RSEQ_CPU_ID_UNINITIALIZED),
+          [ force_restart ] "m"(force_restart)
         : "rax", "memory");
 #elif defined(AARCH64)
     __asm__ __volatile__(
@@ -246,11 +247,12 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "5:\n\t"
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
-          [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id),
+          [ cpu_id_uninit ] "i"(RSEQ_CPU_ID_UNINITIALIZED),
+          [ force_restart ] "m"(force_restart)
         : "x0", "x1", "memory");
 #else
 #    error Unsupported arch
@@ -339,10 +341,10 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id), [ force_restart ] "m"(force_restart)
         : "rax", "rcx", "memory");
 #elif defined(AARCH64)
     __asm__ __volatile__(
@@ -409,10 +411,10 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id), [ force_restart ] "m"(force_restart)
         : "x0", "x1", "memory");
 #else
 #    error Unsupported arch
@@ -492,7 +494,7 @@ test_rseq_native_fault(void)
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
         :
         : "rax", "rcx", "xmm0", "xmm1", "memory");
 #elif defined(AARCH64)
@@ -546,7 +548,7 @@ test_rseq_native_fault(void)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
         :
         : "x0", "x1", "q0", "q1", "memory");
 #else
@@ -632,9 +634,9 @@ test_rseq_native_abort(void)
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
-        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
-          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
+        : [ cpu_mask_size ] "i"(sizeof(cpu_set_t)),
+          [ sysnum_setaffinity ] "i"(SYS_sched_setaffinity)
         : "rax", "rcx", "rdx", "xmm0", "xmm1", "memory");
 #    elif defined(AARCH64)
     __asm__ __volatile__(
@@ -705,9 +707,9 @@ test_rseq_native_abort(void)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
-        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
-          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
+        : [ cpu_mask_size ] "i"(sizeof(cpu_set_t)),
+          [ sysnum_setaffinity ] "i"(SYS_sched_setaffinity)
         : "x0", "x1", "x2", "x8", "q0", "q1", "memory");
 #    else
 #        error Unsupported arch
@@ -769,8 +771,8 @@ test_rseq_writeback_store(void)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id), [index] "=g"(index)
-        : [cpu_id] "m"(rseq_tls.cpu_id)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id), [ index ] "=g"(index)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id)
         : "x0", "x1", "x2", "x28", "memory");
     assert(id != RSEQ_CPU_ID_UNINITIALIZED);
 }
@@ -836,8 +838,8 @@ rseq_thread_loop(void *arg)
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [zero] "=m"(zero)
-        : [exit_requested] "m"(exit_requested)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ zero ] "=m"(zero)
+        : [ exit_requested ] "m"(exit_requested)
         : "rax", "memory");
 #    elif defined(AARCH64)
     __asm__ __volatile__(
@@ -887,8 +889,8 @@ rseq_thread_loop(void *arg)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [zero] "=m"(zero)
-        : [exit_requested] "m"(exit_requested)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ zero ] "=m"(zero)
+        : [ exit_requested ] "m"(exit_requested)
         : "x0", "x1", "memory");
 #    else
 #        error Unsupported arch

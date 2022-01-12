@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -256,10 +256,10 @@ fast_safe_read(void *base, size_t size, void *out_buf)
      * to pay the cost of the syscall (DrMemi#265).
      */
     bool res = true;
-    DR_TRY_EXCEPT(dr_get_current_drcontext(), { memcpy(out_buf, base, size); },
-                  { /* EXCEPT */
-                    res = false;
-                  });
+    DR_TRY_EXCEPT(
+        dr_get_current_drcontext(), { memcpy(out_buf, base, size); }, { /* EXCEPT */
+                                                                        res = false;
+        });
     return res;
 #else
     return dr_safe_read(base, size, out_buf, NULL);
@@ -1711,10 +1711,10 @@ set_retaddr_on_stack(reg_t xsp, app_pc value)
 {
     bool res = true;
     if (TEST(DRWRAP_SAFE_READ_RETADDR, global_flags)) {
-        DR_TRY_EXCEPT(dr_get_current_drcontext(), { *(app_pc *)xsp = value; },
-                      { /* EXCEPT */
-                        res = false;
-                      });
+        DR_TRY_EXCEPT(
+            dr_get_current_drcontext(), { *(app_pc *)xsp = value; }, { /* EXCEPT */
+                                                                       res = false;
+            });
     } else
         *(app_pc *)xsp = value;
     return res;

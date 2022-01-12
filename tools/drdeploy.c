@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -182,7 +182,7 @@ const char *options_list_str =
     "                          If a local file already exists it will take precedence.\n"
     "       -norun             Create a configuration that excludes the application\n"
     "                          from running under DR control.  Useful for following\n"
-    "                          all child processes except a handful (blacklist).\n"
+    "                          all child processes except a handful (blocklist).\n"
 #endif
     "       -debug             Use the DR debug library\n"
     "       -32                Target 32-bit or WOW64 applications\n"

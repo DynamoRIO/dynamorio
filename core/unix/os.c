@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -5509,8 +5509,8 @@ static const char *const env_to_propagate[] = {
 
 /* Called at pre-SYS_execve to append DR vars in the target process env vars list.
  * For late injection via libdrpreload, we call this for *all children, because
- * even if -no_follow_children is specified, a whitelist will still ask for takeover
- * and it's libdrpreload who checks the whitelist.
+ * even if -no_follow_children is specified, a allowlist will still ask for takeover
+ * and it's libdrpreload who checks the allowlist.
  * For -early, however, we check the config ahead of time and only call this routine
  * if we in fact want to inject.
  * XXX i#1679: these parent vs child differences bring up corner cases of which
@@ -5984,28 +5984,28 @@ handle_execve(dcontext_t *dcontext)
         /* i#909: change the target image to libdynamorio.so */
         const char *drpath = IF_X64_ELSE(x64, !x64) ? dynamorio_library_filepath
                                                     : dynamorio_alt_arch_filepath;
-        TRY_EXCEPT(dcontext, /* try */
-                   {
-                       if (symlink_is_self_exe(argv[0])) {
-                           /* we're out of sys_param entries so we assume argv[0] == fname
-                            */
-                           dcontext->sys_param3 = (reg_t)argv;
-                           argv[0] = fname; /* XXX: handle readable but not writable! */
-                       } else
-                           dcontext->sys_param3 = 0; /* no restore in post */
-                       dcontext->sys_param4 =
-                           (reg_t)fname; /* store for restore in post */
-                       *sys_param_addr(dcontext, 0) = (reg_t)drpath;
-                       LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
-                           (char *)sys_param(dcontext, 0));
-                   },
-                   /* except */
-                   {
-                       dcontext->sys_param3 = 0; /* no restore in post */
-                       dcontext->sys_param4 = 0; /* no restore in post */
-                       LOG(THREAD, LOG_SYSCALLS, 2,
-                           "argv is unreadable, expect execve to fail\n");
-                   });
+        TRY_EXCEPT(
+            dcontext, /* try */
+            {
+                if (symlink_is_self_exe(argv[0])) {
+                    /* we're out of sys_param entries so we assume argv[0] == fname
+                     */
+                    dcontext->sys_param3 = (reg_t)argv;
+                    argv[0] = fname; /* XXX: handle readable but not writable! */
+                } else
+                    dcontext->sys_param3 = 0;        /* no restore in post */
+                dcontext->sys_param4 = (reg_t)fname; /* store for restore in post */
+                *sys_param_addr(dcontext, 0) = (reg_t)drpath;
+                LOG(THREAD, LOG_SYSCALLS, 2, "actual execve on: %s\n",
+                    (char *)sys_param(dcontext, 0));
+            },
+            /* except */
+            {
+                dcontext->sys_param3 = 0; /* no restore in post */
+                dcontext->sys_param4 = 0; /* no restore in post */
+                LOG(THREAD, LOG_SYSCALLS, 2,
+                    "argv is unreadable, expect execve to fail\n");
+            });
     } else {
         dcontext->sys_param3 = 0; /* no restore in post */
         dcontext->sys_param4 = 0; /* no restore in post */
@@ -6839,11 +6839,12 @@ pre_system_call(dcontext_t *dcontext)
         /* not using SAFE_READ due to performance concerns (we do this for
          * every single system call on systems where we can't hook vsyscall!)
          */
-        TRY_EXCEPT(dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
-                   {
-                       ASSERT_NOT_REACHED();
-                       mc->xbp = 0;
-                   });
+        TRY_EXCEPT(
+            dcontext, /* try */ { mc->xbp = *(reg_t *)mc->xsp; }, /* except */
+            {
+                ASSERT_NOT_REACHED();
+                mc->xbp = 0;
+            });
     }
 #endif
 

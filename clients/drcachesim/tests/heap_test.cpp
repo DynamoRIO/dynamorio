@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -71,36 +71,36 @@ test_operators()
             int x = 0;
         };
         auto *aligned_class = new align64;
-        int *aligned_int = new (std::align_val_t{ 64 }) int;
+        int *aligned_int = new (std::align_val_t { 64 }) int;
         // void operator delete(void *ptr, std::align_val_t al) noexcept;
         delete aligned_class;
         // Some compilers (MSVC) will complain with just "delete".
-        ::operator delete (aligned_int, std::align_val_t{ 64 });
+        ::operator delete (aligned_int, std::align_val_t { 64 });
 
         // void *operator new[](std::size_t count, std::align_val_t al);
         auto *class_array = new align64[4];
-        int *aligned_arr = new (std::align_val_t{ 64 }) int[42];
+        int *aligned_arr = new (std::align_val_t { 64 }) int[42];
         // void operator delete[](void *ptr, std::align_val_t al) noexcept;
         delete[] class_array;
         // Some compilers (MSVC) will complain with just "delete[]".
-        ::operator delete[](aligned_arr, std::align_val_t{ 64 });
+        ::operator delete[](aligned_arr, std::align_val_t { 64 });
 
         // void *operator new(std::size_t count, std::align_val_t al,
         //                    const std::nothrow_t &);
         aligned_class = new (std::nothrow) align64;
-        aligned_int = new (std::align_val_t{ 64 }, std::nothrow) int;
+        aligned_int = new (std::align_val_t { 64 }, std::nothrow) int;
         // void operator delete(void *ptr, std::align_val_t al,
         //                      const std::nothrow_t &tag) noexcept;
         ::operator delete(aligned_class, std::nothrow);
-        ::operator delete (aligned_int, std::align_val_t{ 64 }, std::nothrow);
+        ::operator delete (aligned_int, std::align_val_t { 64 }, std::nothrow);
         // void *operator new[](std::size_t count, std::align_val_t al,
         //                     const std::nothrow_t &);
         class_array = new (std::nothrow) align64[4];
-        aligned_arr = new (std::align_val_t{ 64 }, std::nothrow) int[42];
+        aligned_arr = new (std::align_val_t { 64 }, std::nothrow) int[42];
         // void operator delete[](void *ptr, std::align_val_t al,
         //                        const std::nothrow_t &tag) noexcept;
         ::operator delete[](class_array, std::nothrow);
-        ::operator delete[](aligned_arr, std::align_val_t{ 64 }, std::nothrow);
+        ::operator delete[](aligned_arr, std::align_val_t { 64 }, std::nothrow);
 #endif
 #if defined(__cpp_sized_deallocation)
         // void operator delete(void *ptr, std::size_t sz) noexcept;
@@ -112,20 +112,20 @@ test_operators()
 #endif
 #if defined(__cpp_aligned_new) && defined(__cpp_sized_deallocation)
         aligned_class = new align64;
-        aligned_int = new (std::align_val_t{ 64 }) int;
+        aligned_int = new (std::align_val_t { 64 }) int;
         // void operator delete(void *ptr, std::size_t sz, std::align_val_t al) noexcept;
         ::operator delete (aligned_class, sizeof(*aligned_class),
-                           std::align_val_t{ alignof(*aligned_class) });
-        ::operator delete (aligned_int, sizeof(*aligned_int), std::align_val_t{ 64 });
+                           std::align_val_t { alignof(*aligned_class) });
+        ::operator delete (aligned_int, sizeof(*aligned_int), std::align_val_t { 64 });
 
         class_array = new align64[4];
-        aligned_arr = new (std::align_val_t{ 64 }) int[42];
+        aligned_arr = new (std::align_val_t { 64 }) int[42];
         // void operator delete[](void *ptr, std::size_t sz, std::align_val_t al)
         // noexcept;
         ::operator delete[](class_array, 4 * sizeof(*class_array),
-                            std::align_val_t{ alignof(*class_array) });
+                            std::align_val_t { alignof(*class_array) });
         ::operator delete[](aligned_arr, 42 * sizeof(*aligned_arr),
-                            std::align_val_t{ 64 });
+                            std::align_val_t { 64 });
 #endif
         // void *operator new(std::size_t count, void *ptr);
         void *buf = malloc(sizeof(*int_ptr));

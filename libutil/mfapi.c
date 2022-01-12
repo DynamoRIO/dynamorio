@@ -62,12 +62,12 @@ is_protection_enabled()
 }
 
 DWORD
-enable_protection_ex(BOOL inject, DWORD flags, const WCHAR *blacklist,
-                     const WCHAR *whitelist, DWORD *list_error,
+enable_protection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
+                     const WCHAR *allowlist, DWORD *list_error,
                      const WCHAR *custom_preinject_name, WCHAR *current_list,
                      SIZE_T maxchars)
 {
-    return set_autoinjection_ex(inject, flags, blacklist, whitelist, list_error,
+    return set_autoinjection_ex(inject, flags, blocklist, allowlist, list_error,
                                 custom_preinject_name, current_list, maxchars);
 }
 

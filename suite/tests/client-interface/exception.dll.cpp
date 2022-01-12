@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -77,14 +77,15 @@ dr_init(client_id_t id)
 
     bool ok;
     /* test DR_TRY_EXCEPT */
-    DR_TRY_EXCEPT(dr_get_current_drcontext(),
-                  {
-                      ok = false;
-                      *((int *)4) = 42;
-                  },
-                  { /* EXCEPT */
-                    ok = true;
-                  });
+    DR_TRY_EXCEPT(
+        dr_get_current_drcontext(),
+        {
+            ok = false;
+            *((int *)4) = 42;
+        },
+        { /* EXCEPT */
+          ok = true;
+        });
     if (!ok)
         dr_printf("DR_TRY_EXCEPT failure\n");
 

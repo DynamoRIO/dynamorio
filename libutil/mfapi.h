@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2014-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2014-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -85,8 +85,8 @@ extern "C" {
  * <policy_message> ::==
  *  POLICY_VERSION=30000
  *  APPINITFLAGS=<string>
- *  APPINITWHITELIST=<string>
- *  APPINITBLACKLIST=<string>
+ *  APPINITALLOWLIST=<string>
+ *  APPINITBLOCKLIST=<string>
  *  GLOBAL_PROTECT=<boolean>
  *  <application_block>*
  *
@@ -129,13 +129,13 @@ extern "C" {
  *
  * details:
  *
- * (1) the APPINITFLAGS, together with the APPINITBLACKLIST and
- * APPINITWHITELIST, controls how our bootstrap dll is added to the
+ * (1) the APPINITFLAGS, together with the APPINITBLOCKLIST and
+ * APPINITALLOWLIST, controls how our bootstrap dll is added to the
  * AppInit_DLLs registry key. the value of the flags should be a sum
  * of the APPINIT_* flags as defined in share/config.h
  *
- * The APPINITBLACKLIST and APPINITWHITELIST values are only used if
- * specified by the flags. we'll provide the whitelist/blacklist.
+ * The APPINITBLOCKLIST and APPINITALLOWLIST values are only used if
+ * specified by the flags. we'll provide the allowlist/blocklist.
  *
  *
  * (2) GLOBAL_PROTECT: OPTIONAL: if this is 0, then protection is
@@ -283,12 +283,12 @@ disable_protection();
  * APPINIT_FORCE_TO_BACK
  *   Forces preinject dll to the back of the AppInit_DLLs list.
  *
- * APPINIT_USE_BLACKLIST
- *   Will read blacklist from blacklist config parameter and
+ * APPINIT_USE_BLOCKLIST
+ *   Will read blocklist from blocklist config parameter and
  *     validate against it.
  *
- * APPINIT_USE_WHITELIST
- *   Will read whitelist from whitelist config parameter and
+ * APPINIT_USE_ALLOWLIST
+ *   Will read allowlist from allowlist config parameter and
  *     validate against it.
  *
  * APPINIT_CHECK_LISTS_ONLY
@@ -296,7 +296,7 @@ disable_protection();
  *     for use with at least one of the two flags below.
  *
  * APPINIT_WARN_ON_LIST_VIOLATION
- *   Whether to generate a warning if a whitelist/blacklist
+ *   Whether to generate a warning if a allowlist/blocklist
  *    violation was detected.
  *
  * APPINIT_BAIL_ON_LIST_VIOLATION
@@ -335,8 +335,8 @@ disable_protection();
 
 #define APPINIT_FORCE_TO_FRONT 0x1
 #define APPINIT_FORCE_TO_BACK 0x2
-#define APPINIT_USE_BLACKLIST 0x4
-#define APPINIT_USE_WHITELIST 0x8
+#define APPINIT_USE_BLOCKLIST 0x4
+#define APPINIT_USE_ALLOWLIST 0x8
 #define APPINIT_CHECK_LISTS_ONLY 0x10
 #define APPINIT_WARN_ON_LIST_VIOLATION 0x20
 #define APPINIT_BAIL_ON_LIST_VIOLATION 0x40
@@ -346,7 +346,7 @@ disable_protection();
 #define APPINIT_SYS32_TRUNCATE 0x800
 #define APPINIT_OVERWRITE 0x1000
 
-/* The flags, blacklist, whitelist, list_error parameters are as
+/* The flags, blocklist, allowlist, list_error parameters are as
  *  described above.
  * The inject parameter controls whether protection is enabled or
  *  disabled. If disabled all other parameters are ignored.
@@ -358,8 +358,8 @@ disable_protection();
  *  violation is reported.
  */
 DWORD
-enable_protection_ex(BOOL inject, DWORD flags, const WCHAR *blacklist,
-                     const WCHAR *whitelist, DWORD *list_error,
+enable_protection_ex(BOOL inject, DWORD flags, const WCHAR *blocklist,
+                     const WCHAR *allowlist, DWORD *list_error,
                      const WCHAR *custom_preinject_name, WCHAR *current_list,
                      SIZE_T maxchars);
 

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -217,20 +217,20 @@ endif ()
 # However, there's no simple way to do that.  For now we punt until someone
 # changes one of those.
 #
-# Prefer named version 6.0 from apt.llvm.org.
-find_program(CLANG_FORMAT_DIFF clang-format-diff-6.0 DOC "clang-format-diff")
+# Prefer named version 9.0 from apt.llvm.org.
+find_program(CLANG_FORMAT_DIFF clang-format-diff-9 DOC "clang-format-diff")
 if (NOT CLANG_FORMAT_DIFF)
   find_program(CLANG_FORMAT_DIFF clang-format-diff DOC "clang-format-diff")
 endif ()
 if (NOT CLANG_FORMAT_DIFF)
   find_program(CLANG_FORMAT_DIFF clang-format-diff.py DOC "clang-format-diff")
 endif ()
-find_package(Python2)
-if (CLANG_FORMAT_DIFF AND Python2_FOUND)
+find_package(Python3)
+if (CLANG_FORMAT_DIFF AND Python3_FOUND)
   get_filename_component(CUR_DIR "." ABSOLUTE)
   set(diff_file "${CUR_DIR}/runsuite_diff.patch")
   file(WRITE ${diff_file} "${diff_contents}")
-  execute_process(COMMAND ${Python2_EXECUTABLE} ${CLANG_FORMAT_DIFF} -p1
+  execute_process(COMMAND ${Python3_EXECUTABLE} ${CLANG_FORMAT_DIFF} -p1
     WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
     INPUT_FILE ${diff_file}
     RESULT_VARIABLE format_result
