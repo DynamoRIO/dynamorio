@@ -40,7 +40,7 @@ on:
     branches:
       - master
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchroni]
 
   # Manual trigger using the Actions page. May remove when integration complete.
   workflow_dispatch:
@@ -246,7 +246,7 @@ jobs:
         from: Github Action CI
 
   ###########################################################################
-  # 32-bit and 64-bit VS2019 release builds:
+  # 32-bit and 64-bit VS2019 debug builds:
   vs2019-builds:
     runs-on: windows-2019
 
