@@ -105,16 +105,10 @@ add_executable(DRstats WIN32
 # somehow VS2010 doesn't find its own SDK uuid.lib
 find_library(uuid_lib uuid)
 if (NOT uuid_lib)
-  # VS2012 doesn't either; nor does find_library find it
-  # XXX: put in more general solution
   if (X64)
-    set(uuid_lib "c:/Program Files (x86)/Windows Kits/8.0/Lib/win8/um/x64/Uuid.Lib")
+    set(uuid_lib "${kits_dir}/Lib/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/um/x64/Uuid.Lib")
   else (X64)
-    set(uuid_lib "c:/Program Files (x86)/Windows Kits/8.0/Lib/win8/um/x86/Uuid.Lib")
-    if (NOT EXISTS ${uuid_lib})
-      # Probably we are in 32-bit Windows which doesn't have "Program Files (x86)" folder
-      set(uuid_lib "c:/Program Files/Windows Kits/8.0/Lib/win8/um/x86/Uuid.Lib")
-    endif ()
+    set(uuid_lib "${kits_dir}/Lib/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/um/x86/Uuid.Lib")
   endif (X64)
   if (NOT EXISTS ${uuid_lib})
     message(FATAL_ERROR "uuid.lib not found")
