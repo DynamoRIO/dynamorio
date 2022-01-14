@@ -145,7 +145,7 @@ if (check_libc)
     set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
     string(REGEX MATCHALL "${glibc_version_regexp}" imports "${string}")
 
-    foreach(import ${imports})
+    foreach (import ${imports})
       string(REGEX MATCH "${glibc_version_regexp}" match "${import}")
       set(version ${CMAKE_MATCH_1})
 
