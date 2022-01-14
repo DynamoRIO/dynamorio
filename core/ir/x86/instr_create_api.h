@@ -5040,7 +5040,7 @@
                            opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX), \
                            opnd_create_reg(DR_REG_ECX))
 
-/* 3 implicit destinations, 1 source */
+/* 4 implicit destinations, 4 implicit sources */
 #define INSTR_CREATE_encls(dc)                                                       \
     instr_create_4dst_4src((dc), OP_encls, opnd_create_reg(DR_REG_EAX),              \
                            opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
