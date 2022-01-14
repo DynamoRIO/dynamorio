@@ -127,33 +127,36 @@ if (check_libc)
   if (readelf_result OR readelf_error)
     message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
   endif (readelf_result OR readelf_error)
-  # Avoid dependences beyond glibc 2.4 (2.17 on AArch64) for maximum backward
-  # portability without going to extremes with a fixed toolchain (xref i#1504):
-  execute_process(COMMAND
-    ${READELF_EXECUTABLE} -h ${${lib_file}}
-    OUTPUT_VARIABLE file_header_result
-    )
 
-  if (file_header_result MATCHES "AArch64")
-    set (glibc_version "2.17")
-  else ()
-    set (glibc_version "2.4")
-  endif ()
+  if (BUILD_PACKAGE)
+    # Avoid dependences beyond glibc 2.4 (2.17 on AArch64) for maximum backward
+    # portability without going to extremes with a fixed toolchain (xref i#1504):
+    execute_process(COMMAND
+      ${READELF_EXECUTABLE} -h ${${lib_file}}
+      OUTPUT_VARIABLE file_header_result
+      )
 
-  set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
-  string(REGEX MATCHALL "${glibc_version_regexp}" imports "${string}")
-
-  foreach(import ${imports})
-    string(REGEX MATCH "${glibc_version_regexp}" match "${import}")
-    set(version ${CMAKE_MATCH_1})
-
-    if (${version} VERSION_GREATER ${glibc_version})
-      set(too_recent "${too_recent}\n  ${import}")
+    if (file_header_result MATCHES "AArch64")
+      set (glibc_version "2.17")
+    else ()
+      set (glibc_version "2.4")
     endif ()
-  endforeach ()
 
-  if (too_recent)
-    message(FATAL_ERROR "*** Error: ${${lib_file}} has too-recent import(s):${too_recent}")
+    set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
+    string(REGEX MATCHALL "${glibc_version_regexp}" imports "${string}")
+
+    foreach(import ${imports})
+      string(REGEX MATCH "${glibc_version_regexp}" match "${import}")
+      set(version ${CMAKE_MATCH_1})
+
+      if (${version} VERSION_GREATER ${glibc_version})
+        set(too_recent "${too_recent}\n  ${import}")
+      endif ()
+    endforeach ()
+
+    if (too_recent)
+      message(FATAL_ERROR "*** Error: ${${lib_file}} has too-recent import(s):${too_recent}")
+    endif ()
   endif ()
 endif ()
 
