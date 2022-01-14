@@ -139,7 +139,7 @@ if (check_libc)
     if (file_header_result MATCHES "AArch64")
       set (glibc_version "2.17")
     else ()
-      set (glibc_version "2.4")
+      set (glibc_version "2.17")
     endif ()
 
     set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
