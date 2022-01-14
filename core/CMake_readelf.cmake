@@ -136,6 +136,15 @@ if (check_libc)
       OUTPUT_VARIABLE file_header_result
       )
 
+    # To determine the minimum version of glibc that we should support for packaging, we should
+    # check the Linux distributions that are known not to be rolling releases and offer long
+    # support, and then check the oldest option available that is not yet EOL. As of writing,
+    # these are:
+    #  * Debian Stretch, which is on glibc 2.24
+    #  * CentOS 7/RHEL 7, which is on glibc 2.17
+    #  * Ubuntu 16.04 LTS (Xenial), which is on glibc 2.23
+    #
+    # Therefore, we want to support at least glibc 2.17.
     if (file_header_result MATCHES "AArch64")
       set (glibc_version "2.17")
     else ()
