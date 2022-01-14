@@ -144,6 +144,10 @@ OPCODE(skinit, skinit, skinit, 0)
 OPCODE(invlpga, invlpga, invlpga, 0)
 OPCODE(rdtscp, rdtscp, rdtscp, 0)
 
+OPCODE(encls, encls, encls, 0)
+OPCODE(enclu, enclu, enclu, 0)
+OPCODE(enclv, enclv, enclv, 0)
+
 OPCODE(LABEL, LABEL, label, 0)
 OPCODE(out, out, out_1, 0)
 OPCODE(out4, out, out_4, 0)
