@@ -131,7 +131,6 @@ changes:
    from source is straight-forward to do on rolling release Linux
    distributions, and enabled by make/package.cmake when building a
    distributable version of DynamoRIO.
- - (Nothing so far: this is a placeholder.)
 
 Further non-compatibility-affecting changes include:
  - Added alias support to droption.
