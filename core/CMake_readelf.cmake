@@ -145,11 +145,10 @@ if (check_libc)
     #  * Ubuntu 16.04 LTS (Xenial), which is on glibc 2.23
     #
     # Therefore, we want to support at least glibc 2.17.
-    if (file_header_result MATCHES "AArch64")
-      set (glibc_version "2.17")
-    else ()
-      set (glibc_version "2.17")
-    endif ()
+    #
+    # The glibc version is independent of the architecture. For instance, RHEL 7 for AArch64 also
+    # ships glibc 2.17 as of writing.
+    set (glibc_version "2.17")
 
     set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
     string(REGEX MATCHALL "${glibc_version_regexp}" imports "${string}")
