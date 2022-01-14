@@ -2527,6 +2527,8 @@ reg_get_size(reg_id_t reg)
         return OPSZ_8;
     if (reg == DR_REG_WZR)
         return OPSZ_4;
+    if (reg >= DR_REG_MDCCSR_EL0 && reg <= DR_REG_SPSR_FIQ)
+        return OPSZ_8;
     if (reg >= DR_REG_Z0 && reg <= DR_REG_Z31)
         return OPSZ_SCALABLE;
     if (reg >= DR_REG_P0 && reg <= DR_REG_P15)

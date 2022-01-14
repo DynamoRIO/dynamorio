@@ -27034,3 +27034,236 @@ f203e81e : ands x30, x0, #0xeeeeeeeeeeeeeeee         : ands   %x0 $0xeeeeeeeeeee
 387afb38 : ldrb w24, [x25, x26, SXTX #0]             : ldrb   (%x25,%x26,sxtx #0)[1byte] -> %w24
 387cfb7a : ldrb w26, [x27, x28, SXTX #0]             : ldrb   (%x27,%x28,sxtx #0)[1byte] -> %w26
 3861f81e : ldrb w30, [x0, x1, SXTX #0]               : ldrb   (%x0,%x1,sxtx #0)[1byte] -> %w30
+
+# MSR     #<imm>, <Xt> (MSR-I.R-SR_system)
+d5130101 : msr mdccsr_el0, x1                        : msr    %x1 -> %mdccsr_el0
+d5130401 : msr dbgdtr_el0, x1                        : msr    %x1 -> %dbgdtr_el0
+d5130502 : msr dbgdtrrx_el0, x2                      : msr    %x2 -> %dbgdtrrx_el0
+d5184102 : msr sp_el0, x2                            : msr    %x2 -> %sp_el0
+d5184202 : msr spsel, x2                             : msr    %x2 -> %spsel
+d5184242 : msr currentel, x2                         : msr    %x2 -> %currentel
+d5184263 : msr pan, x3                               : msr    %x3 -> %pan
+d5184283 : msr uao, x3                               : msr    %x3 -> %uao
+d51b0023 : msr ctr_el0, x3                           : msr    %x3 -> %ctr_el0
+d51b00e4 : msr dczid_el0, x4                         : msr    %x4 -> %dczid_el0
+d51b4204 : msr nzcv, x4                              : msr    %x4 -> %nzcv
+d51b4224 : msr daif, x4                              : msr    %x4 -> %daif
+d51b4404 : msr fpcr, x4                              : msr    %x4 -> %fpcr
+d51b4425 : msr fpsr, x5                              : msr    %x5 -> %fpsr
+d51b4505 : msr dspsr_el0, x5                         : msr    %x5 -> %dspsr_el0
+d51b4525 : msr dlr_el0, x5                           : msr    %x5 -> %dlr_el0
+d51b9c05 : msr pmcr_el0, x5                          : msr    %x5 -> %pmcr_el0
+d51b9c26 : msr pmcntenset_el0, x6                    : msr    %x6 -> %pmcntenset_el0
+d51b9c46 : msr pmcntenclr_el0, x6                    : msr    %x6 -> %pmcntenclr_el0
+d51b9c66 : msr pmovsclr_el0, x6                      : msr    %x6 -> %pmovsclr_el0
+d51b9c87 : msr pmswinc_el0, x7                       : msr    %x7 -> %pmswinc_el0
+d51b9ca7 : msr pmselr_el0, x7                        : msr    %x7 -> %pmselr_el0
+d51b9cc7 : msr pmceid0_el0, x7                       : msr    %x7 -> %pmceid0_el0
+d51b9ce7 : msr pmceid1_el0, x7                       : msr    %x7 -> %pmceid1_el0
+d51b9d08 : msr pmccntr_el0, x8                       : msr    %x8 -> %pmccntr_el0
+d51b9d28 : msr pmxevtyper_el0, x8                    : msr    %x8 -> %pmxevtyper_el0
+d51b9d48 : msr pmxevcntr_el0, x8                     : msr    %x8 -> %pmxevcntr_el0
+d51b9e09 : msr pmuserenr_el0, x9                     : msr    %x9 -> %pmuserenr_el0
+d51b9e69 : msr pmovsset_el0, x9                      : msr    %x9 -> %pmovsset_el0
+d51bd049 : msr tpidr_el0, x9                         : msr    %x9 -> %tpidr_el0
+d51bd069 : msr tpidrro_el0, x9                       : msr    %x9 -> %tpidrro_el0
+d51be00a : msr cntfrq_el0, x10                       : msr    %x10 -> %cntfrq_el0
+d51be02a : msr cntpct_el0, x10                       : msr    %x10 -> %cntpct_el0
+d51be04a : msr cntvct_el0, x10                       : msr    %x10 -> %cntvct_el0
+d51be20b : msr cntp_tval_el0, x11                    : msr    %x11 -> %cntp_tval_el0
+d51be22b : msr cntp_ctl_el0, x11                     : msr    %x11 -> %cntp_ctl_el0
+d51be24b : msr cntp_cval_el0, x11                    : msr    %x11 -> %cntp_cval_el0
+d51be30b : msr cntv_tval_el0, x11                    : msr    %x11 -> %cntv_tval_el0
+d51be32c : msr cntv_ctl_el0, x12                     : msr    %x12 -> %cntv_ctl_el0
+d51be34c : msr cntv_cval_el0, x12                    : msr    %x12 -> %cntv_cval_el0
+d51be80c : msr pmevcntr0_el0, x12                    : msr    %x12 -> %pmevcntr0_el0
+d51be82c : msr pmevcntr1_el0, x12                    : msr    %x12 -> %pmevcntr1_el0
+d51be84d : msr pmevcntr2_el0, x13                    : msr    %x13 -> %pmevcntr2_el0
+d51be86d : msr pmevcntr3_el0, x13                    : msr    %x13 -> %pmevcntr3_el0
+d51be88d : msr pmevcntr4_el0, x13                    : msr    %x13 -> %pmevcntr4_el0
+d51be8ae : msr pmevcntr5_el0, x14                    : msr    %x14 -> %pmevcntr5_el0
+d51be8ce : msr pmevcntr6_el0, x14                    : msr    %x14 -> %pmevcntr6_el0
+d51be8ee : msr pmevcntr7_el0, x14                    : msr    %x14 -> %pmevcntr7_el0
+d51be90e : msr pmevcntr8_el0, x14                    : msr    %x14 -> %pmevcntr8_el0
+d51be92f : msr pmevcntr9_el0, x15                    : msr    %x15 -> %pmevcntr9_el0
+d51be94f : msr pmevcntr10_el0, x15                   : msr    %x15 -> %pmevcntr10_el0
+d51be96f : msr pmevcntr11_el0, x15                   : msr    %x15 -> %pmevcntr11_el0
+d51be990 : msr pmevcntr12_el0, x16                   : msr    %x16 -> %pmevcntr12_el0
+d51be9b0 : msr pmevcntr13_el0, x16                   : msr    %x16 -> %pmevcntr13_el0
+d51be9b0 : msr pmevcntr13_el0, x16                   : msr    %x16 -> %pmevcntr13_el0
+d51be9d0 : msr pmevcntr14_el0, x16                   : msr    %x16 -> %pmevcntr14_el0
+d51be9f1 : msr pmevcntr15_el0, x17                   : msr    %x17 -> %pmevcntr15_el0
+d51bea11 : msr pmevcntr16_el0, x17                   : msr    %x17 -> %pmevcntr16_el0
+d51bea31 : msr pmevcntr17_el0, x17                   : msr    %x17 -> %pmevcntr17_el0
+d51bea52 : msr pmevcntr18_el0, x18                   : msr    %x18 -> %pmevcntr18_el0
+d51bea72 : msr pmevcntr19_el0, x18                   : msr    %x18 -> %pmevcntr19_el0
+d51bea92 : msr pmevcntr20_el0, x18                   : msr    %x18 -> %pmevcntr20_el0
+d51beab2 : msr pmevcntr21_el0, x18                   : msr    %x18 -> %pmevcntr21_el0
+d51bead3 : msr pmevcntr22_el0, x19                   : msr    %x19 -> %pmevcntr22_el0
+d51beaf3 : msr pmevcntr23_el0, x19                   : msr    %x19 -> %pmevcntr23_el0
+d51beb13 : msr pmevcntr24_el0, x19                   : msr    %x19 -> %pmevcntr24_el0
+d51beb34 : msr pmevcntr25_el0, x20                   : msr    %x20 -> %pmevcntr25_el0
+d51beb54 : msr pmevcntr26_el0, x20                   : msr    %x20 -> %pmevcntr26_el0
+d51beb74 : msr pmevcntr27_el0, x20                   : msr    %x20 -> %pmevcntr27_el0
+d51beb94 : msr pmevcntr28_el0, x20                   : msr    %x20 -> %pmevcntr28_el0
+d51bebb5 : msr pmevcntr29_el0, x21                   : msr    %x21 -> %pmevcntr29_el0
+d51bebd5 : msr pmevcntr30_el0, x21                   : msr    %x21 -> %pmevcntr30_el0
+d51bec15 : msr pmevtyper0_el0, x21                   : msr    %x21 -> %pmevtyper0_el0
+d51bec35 : msr pmevtyper1_el0, x21                   : msr    %x21 -> %pmevtyper1_el0
+d51bec56 : msr pmevtyper2_el0, x22                   : msr    %x22 -> %pmevtyper2_el0
+d51bec76 : msr pmevtyper3_el0, x22                   : msr    %x22 -> %pmevtyper3_el0
+d51bec96 : msr pmevtyper4_el0, x22                   : msr    %x22 -> %pmevtyper4_el0
+d51becb7 : msr pmevtyper5_el0, x23                   : msr    %x23 -> %pmevtyper5_el0
+d51becd7 : msr pmevtyper6_el0, x23                   : msr    %x23 -> %pmevtyper6_el0
+d51becf7 : msr pmevtyper7_el0, x23                   : msr    %x23 -> %pmevtyper7_el0
+d51bed17 : msr pmevtyper8_el0, x23                   : msr    %x23 -> %pmevtyper8_el0
+d51bed38 : msr pmevtyper9_el0, x24                   : msr    %x24 -> %pmevtyper9_el0
+d51bed58 : msr pmevtyper10_el0, x24                  : msr    %x24 -> %pmevtyper10_el0
+d51bed78 : msr pmevtyper11_el0, x24                  : msr    %x24 -> %pmevtyper11_el0
+d51bed99 : msr pmevtyper12_el0, x25                  : msr    %x25 -> %pmevtyper12_el0
+d51bedb9 : msr pmevtyper13_el0, x25                  : msr    %x25 -> %pmevtyper13_el0
+d51bedd9 : msr pmevtyper14_el0, x25                  : msr    %x25 -> %pmevtyper14_el0
+d51bedf9 : msr pmevtyper15_el0, x25                  : msr    %x25 -> %pmevtyper15_el0
+d51bee1a : msr pmevtyper16_el0, x26                  : msr    %x26 -> %pmevtyper16_el0
+d51bee3a : msr pmevtyper17_el0, x26                  : msr    %x26 -> %pmevtyper17_el0
+d51bee5a : msr pmevtyper18_el0, x26                  : msr    %x26 -> %pmevtyper18_el0
+d51bee7b : msr pmevtyper19_el0, x27                  : msr    %x27 -> %pmevtyper19_el0
+d51bee9b : msr pmevtyper20_el0, x27                  : msr    %x27 -> %pmevtyper20_el0
+d51beebb : msr pmevtyper21_el0, x27                  : msr    %x27 -> %pmevtyper21_el0
+d51beedb : msr pmevtyper22_el0, x27                  : msr    %x27 -> %pmevtyper22_el0
+d51beefc : msr pmevtyper23_el0, x28                  : msr    %x28 -> %pmevtyper23_el0
+d51bef1c : msr pmevtyper24_el0, x28                  : msr    %x28 -> %pmevtyper24_el0
+d51bef3c : msr pmevtyper25_el0, x28                  : msr    %x28 -> %pmevtyper25_el0
+d51bef5c : msr pmevtyper26_el0, x28                  : msr    %x28 -> %pmevtyper26_el0
+d51bef7d : msr pmevtyper27_el0, x29                  : msr    %x29 -> %pmevtyper27_el0
+d51bef9d : msr pmevtyper28_el0, x29                  : msr    %x29 -> %pmevtyper28_el0
+d51befbd : msr pmevtyper29_el0, x29                  : msr    %x29 -> %pmevtyper29_el0
+d51befde : msr pmevtyper30_el0, x30                  : msr    %x30 -> %pmevtyper30_el0
+d51beffe : msr pmccfiltr_el0, x30                    : msr    %x30 -> %pmccfiltr_el0
+d51c431e : msr spsr_irq, x30                         : msr    %x30 -> %spsr_irq
+d51c433e : msr spsr_abt, x30                         : msr    %x30 -> %spsr_abt
+d51c4360 : msr spsr_fiq, x0                          : msr    %x0 -> %spsr_fiq
+
+# MRS     <Xt>, #<imm> (MRS-R.I-RS_system)
+d5330100 : mrs x0, mdccsr_el0                        : mrs    %mdccsr_el0 -> %x0
+d5330400 : mrs x0, dbgdtr_el0                        : mrs    %dbgdtr_el0 -> %x0
+d5330501 : mrs x1, dbgdtrrx_el0                      : mrs    %dbgdtrrx_el0 -> %x1
+d5384101 : mrs x1, sp_el0                            : mrs    %sp_el0 -> %x1
+d5384201 : mrs x1, spsel                             : mrs    %spsel -> %x1
+d5384241 : mrs x1, currentel                         : mrs    %currentel -> %x1
+d5384262 : mrs x2, pan                               : mrs    %pan -> %x2
+d5384282 : mrs x2, uao                               : mrs    %uao -> %x2
+d53b0022 : mrs x2, ctr_el0                           : mrs    %ctr_el0 -> %x2
+d53b00e3 : mrs x3, dczid_el0                         : mrs    %dczid_el0 -> %x3
+d53b4203 : mrs x3, nzcv                              : mrs    %nzcv -> %x3
+d53b4223 : mrs x3, daif                              : mrs    %daif -> %x3
+d53b4403 : mrs x3, fpcr                              : mrs    %fpcr -> %x3
+d53b4424 : mrs x4, fpsr                              : mrs    %fpsr -> %x4
+d53b4504 : mrs x4, dspsr_el0                         : mrs    %dspsr_el0 -> %x4
+d53b4524 : mrs x4, dlr_el0                           : mrs    %dlr_el0 -> %x4
+d53b9c04 : mrs x4, pmcr_el0                          : mrs    %pmcr_el0 -> %x4
+d53b9c25 : mrs x5, pmcntenset_el0                    : mrs    %pmcntenset_el0 -> %x5
+d53b9c45 : mrs x5, pmcntenclr_el0                    : mrs    %pmcntenclr_el0 -> %x5
+d53b9c65 : mrs x5, pmovsclr_el0                      : mrs    %pmovsclr_el0 -> %x5
+d53b9c86 : mrs x6, pmswinc_el0                       : mrs    %pmswinc_el0 -> %x6
+d53b9ca6 : mrs x6, pmselr_el0                        : mrs    %pmselr_el0 -> %x6
+d53b9cc6 : mrs x6, pmceid0_el0                       : mrs    %pmceid0_el0 -> %x6
+d53b9ce6 : mrs x6, pmceid1_el0                       : mrs    %pmceid1_el0 -> %x6
+d53b9d07 : mrs x7, pmccntr_el0                       : mrs    %pmccntr_el0 -> %x7
+d53b9d27 : mrs x7, pmxevtyper_el0                    : mrs    %pmxevtyper_el0 -> %x7
+d53b9d47 : mrs x7, pmxevcntr_el0                     : mrs    %pmxevcntr_el0 -> %x7
+d53b9e08 : mrs x8, pmuserenr_el0                     : mrs    %pmuserenr_el0 -> %x8
+d53b9e68 : mrs x8, pmovsset_el0                      : mrs    %pmovsset_el0 -> %x8
+d53bd048 : mrs x8, tpidr_el0                         : mrs    %tpidr_el0 -> %x8
+d53bd068 : mrs x8, tpidrro_el0                       : mrs    %tpidrro_el0 -> %x8
+d53be009 : mrs x9, cntfrq_el0                        : mrs    %cntfrq_el0 -> %x9
+d53be029 : mrs x9, cntpct_el0                        : mrs    %cntpct_el0 -> %x9
+d53be049 : mrs x9, cntvct_el0                        : mrs    %cntvct_el0 -> %x9
+d53be20a : mrs x10, cntp_tval_el0                    : mrs    %cntp_tval_el0 -> %x10
+d53be22a : mrs x10, cntp_ctl_el0                     : mrs    %cntp_ctl_el0 -> %x10
+d53be24a : mrs x10, cntp_cval_el0                    : mrs    %cntp_cval_el0 -> %x10
+d53be30a : mrs x10, cntv_tval_el0                    : mrs    %cntv_tval_el0 -> %x10
+d53be32b : mrs x11, cntv_ctl_el0                     : mrs    %cntv_ctl_el0 -> %x11
+d53be34b : mrs x11, cntv_cval_el0                    : mrs    %cntv_cval_el0 -> %x11
+d53be80b : mrs x11, pmevcntr0_el0                    : mrs    %pmevcntr0_el0 -> %x11
+d53be82b : mrs x11, pmevcntr1_el0                    : mrs    %pmevcntr1_el0 -> %x11
+d53be84c : mrs x12, pmevcntr2_el0                    : mrs    %pmevcntr2_el0 -> %x12
+d53be86c : mrs x12, pmevcntr3_el0                    : mrs    %pmevcntr3_el0 -> %x12
+d53be88c : mrs x12, pmevcntr4_el0                    : mrs    %pmevcntr4_el0 -> %x12
+d53be8ad : mrs x13, pmevcntr5_el0                    : mrs    %pmevcntr5_el0 -> %x13
+d53be8cd : mrs x13, pmevcntr6_el0                    : mrs    %pmevcntr6_el0 -> %x13
+d53be8ed : mrs x13, pmevcntr7_el0                    : mrs    %pmevcntr7_el0 -> %x13
+d53be90d : mrs x13, pmevcntr8_el0                    : mrs    %pmevcntr8_el0 -> %x13
+d53be92e : mrs x14, pmevcntr9_el0                    : mrs    %pmevcntr9_el0 -> %x14
+d53be94e : mrs x14, pmevcntr10_el0                   : mrs    %pmevcntr10_el0 -> %x14
+d53be96e : mrs x14, pmevcntr11_el0                   : mrs    %pmevcntr11_el0 -> %x14
+d53be98f : mrs x15, pmevcntr12_el0                   : mrs    %pmevcntr12_el0 -> %x15
+d53be9af : mrs x15, pmevcntr13_el0                   : mrs    %pmevcntr13_el0 -> %x15
+d53be9af : mrs x15, pmevcntr13_el0                   : mrs    %pmevcntr13_el0 -> %x15
+d53be9cf : mrs x15, pmevcntr14_el0                   : mrs    %pmevcntr14_el0 -> %x15
+d53be9f0 : mrs x16, pmevcntr15_el0                   : mrs    %pmevcntr15_el0 -> %x16
+d53bea10 : mrs x16, pmevcntr16_el0                   : mrs    %pmevcntr16_el0 -> %x16
+d53bea30 : mrs x16, pmevcntr17_el0                   : mrs    %pmevcntr17_el0 -> %x16
+d53bea51 : mrs x17, pmevcntr18_el0                   : mrs    %pmevcntr18_el0 -> %x17
+d53bea71 : mrs x17, pmevcntr19_el0                   : mrs    %pmevcntr19_el0 -> %x17
+d53bea91 : mrs x17, pmevcntr20_el0                   : mrs    %pmevcntr20_el0 -> %x17
+d53beab1 : mrs x17, pmevcntr21_el0                   : mrs    %pmevcntr21_el0 -> %x17
+d53bead2 : mrs x18, pmevcntr22_el0                   : mrs    %pmevcntr22_el0 -> %x18
+d53beaf2 : mrs x18, pmevcntr23_el0                   : mrs    %pmevcntr23_el0 -> %x18
+d53beb12 : mrs x18, pmevcntr24_el0                   : mrs    %pmevcntr24_el0 -> %x18
+d53beb33 : mrs x19, pmevcntr25_el0                   : mrs    %pmevcntr25_el0 -> %x19
+d53beb53 : mrs x19, pmevcntr26_el0                   : mrs    %pmevcntr26_el0 -> %x19
+d53beb73 : mrs x19, pmevcntr27_el0                   : mrs    %pmevcntr27_el0 -> %x19
+d53beb93 : mrs x19, pmevcntr28_el0                   : mrs    %pmevcntr28_el0 -> %x19
+d53bebb4 : mrs x20, pmevcntr29_el0                   : mrs    %pmevcntr29_el0 -> %x20
+d53bebd4 : mrs x20, pmevcntr30_el0                   : mrs    %pmevcntr30_el0 -> %x20
+d53bec14 : mrs x20, pmevtyper0_el0                   : mrs    %pmevtyper0_el0 -> %x20
+d53bec34 : mrs x20, pmevtyper1_el0                   : mrs    %pmevtyper1_el0 -> %x20
+d53bec55 : mrs x21, pmevtyper2_el0                   : mrs    %pmevtyper2_el0 -> %x21
+d53bec75 : mrs x21, pmevtyper3_el0                   : mrs    %pmevtyper3_el0 -> %x21
+d53bec95 : mrs x21, pmevtyper4_el0                   : mrs    %pmevtyper4_el0 -> %x21
+d53becb6 : mrs x22, pmevtyper5_el0                   : mrs    %pmevtyper5_el0 -> %x22
+d53becd6 : mrs x22, pmevtyper6_el0                   : mrs    %pmevtyper6_el0 -> %x22
+d53becf6 : mrs x22, pmevtyper7_el0                   : mrs    %pmevtyper7_el0 -> %x22
+d53bed16 : mrs x22, pmevtyper8_el0                   : mrs    %pmevtyper8_el0 -> %x22
+d53bed37 : mrs x23, pmevtyper9_el0                   : mrs    %pmevtyper9_el0 -> %x23
+d53bed57 : mrs x23, pmevtyper10_el0                  : mrs    %pmevtyper10_el0 -> %x23
+d53bed77 : mrs x23, pmevtyper11_el0                  : mrs    %pmevtyper11_el0 -> %x23
+d53bed98 : mrs x24, pmevtyper12_el0                  : mrs    %pmevtyper12_el0 -> %x24
+d53bedb8 : mrs x24, pmevtyper13_el0                  : mrs    %pmevtyper13_el0 -> %x24
+d53bedd8 : mrs x24, pmevtyper14_el0                  : mrs    %pmevtyper14_el0 -> %x24
+d53bedf8 : mrs x24, pmevtyper15_el0                  : mrs    %pmevtyper15_el0 -> %x24
+d53bee19 : mrs x25, pmevtyper16_el0                  : mrs    %pmevtyper16_el0 -> %x25
+d53bee39 : mrs x25, pmevtyper17_el0                  : mrs    %pmevtyper17_el0 -> %x25
+d53bee59 : mrs x25, pmevtyper18_el0                  : mrs    %pmevtyper18_el0 -> %x25
+d53bee7a : mrs x26, pmevtyper19_el0                  : mrs    %pmevtyper19_el0 -> %x26
+d53bee9a : mrs x26, pmevtyper20_el0                  : mrs    %pmevtyper20_el0 -> %x26
+d53beeba : mrs x26, pmevtyper21_el0                  : mrs    %pmevtyper21_el0 -> %x26
+d53beeda : mrs x26, pmevtyper22_el0                  : mrs    %pmevtyper22_el0 -> %x26
+d53beefb : mrs x27, pmevtyper23_el0                  : mrs    %pmevtyper23_el0 -> %x27
+d53bef1b : mrs x27, pmevtyper24_el0                  : mrs    %pmevtyper24_el0 -> %x27
+d53bef3b : mrs x27, pmevtyper25_el0                  : mrs    %pmevtyper25_el0 -> %x27
+d53bef5b : mrs x27, pmevtyper26_el0                  : mrs    %pmevtyper26_el0 -> %x27
+d53bef7c : mrs x28, pmevtyper27_el0                  : mrs    %pmevtyper27_el0 -> %x28
+d53bef9c : mrs x28, pmevtyper28_el0                  : mrs    %pmevtyper28_el0 -> %x28
+d53befbc : mrs x28, pmevtyper29_el0                  : mrs    %pmevtyper29_el0 -> %x28
+d53befdd : mrs x29, pmevtyper30_el0                  : mrs    %pmevtyper30_el0 -> %x29
+d53beffd : mrs x29, pmccfiltr_el0                    : mrs    %pmccfiltr_el0 -> %x29
+d53c431d : mrs x29, spsr_irq                         : mrs    %spsr_irq -> %x29
+d53c433d : mrs x29, spsr_abt                         : mrs    %spsr_abt -> %x29
+d53c437e : mrs x30, spsr_fiq                         : mrs    %spsr_fiq -> %x30
+
+# MSR     <cond>, #<imm> (MSR-I-SI_system)
+d50040bf : msr SPSel, #0x0                           : msr    %spsel $0x00
+d50041bf : msr SPSel, #0x1                           : msr    %spsel $0x01
+d50345df : msr DAIFSet, #0x5                         : msr    %daifset $0x05
+d50346df : msr DAIFSet, #0x6                         : msr    %daifset $0x06
+d50347df : msr DAIFSet, #0x7                         : msr    %daifset $0x07
+d50348df : msr DAIFSet, #0x8                         : msr    %daifset $0x08
+d50348df : msr DAIFSet, #0x8                         : msr    %daifset $0x08
+d50349df : msr DAIFSet, #0x9                         : msr    %daifset $0x09
+d5034adf : msr DAIFSet, #0xa                         : msr    %daifset $0x0a
+d5034bff : msr DAIFClr, #0xb                         : msr    %daifclr $0x0b
+d5034cff : msr DAIFClr, #0xc                         : msr    %daifclr $0x0c
+d5034dff : msr DAIFClr, #0xd                         : msr    %daifclr $0x0d
+d5034fff : msr DAIFClr, #0xf                         : msr    %daifclr $0x0f
