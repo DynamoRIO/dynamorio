@@ -4566,7 +4566,8 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
     if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 3 &&
         encode_pc_off(&off, 14, pc, instr, instr_get_src(instr, 0), di) &&
         encode_opnd_int(0, 6, false, 0, 0, instr_get_src(instr, 2), &imm6) &&
-        encode_opnd_wxn((imm6 > 31) || is_x_register, false, 0, instr_get_src(instr, 1), &xt))
+        encode_opnd_wxn((imm6 > 31) || is_x_register, false, 0, instr_get_src(instr, 1),
+                        &xt))
         return (enc | off << 5 | xt | (imm6 & 31) << 19 | (imm6 & 32) << 26);
     return ENCFAIL;
 }
