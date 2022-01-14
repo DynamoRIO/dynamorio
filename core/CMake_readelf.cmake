@@ -133,17 +133,27 @@ if (check_libc)
     ${READELF_EXECUTABLE} -h ${${lib_file}}
     OUTPUT_VARIABLE file_header_result
     )
+
   if (file_header_result MATCHES "AArch64")
-    set (glibc_version_regexp "2\\.(1[8-9]|[2-9][0-9])")
+    set (glibc_version "2.17")
   else ()
-    set (glibc_version_regexp "2\\.([5-9]|[1-9][0-9])")
+    set (glibc_version "2.4")
   endif ()
-  string(REGEX MATCH " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_${glibc_version_regexp}"
-    has_recent "${string}")
-  if (has_recent)
-    string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_${glibc_version_regexp}[^\n]*\n"
-      symname "${string}")
-    message(FATAL_ERROR "*** Error: ${${lib_file}} has too-recent import: ${symname}")
+
+  set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
+  string(REGEX MATCHALL "${glibc_version_regexp}" imports "${string}")
+
+  foreach(import ${imports})
+    string(REGEX MATCH "${glibc_version_regexp}" match "${import}")
+    set(version ${CMAKE_MATCH_1})
+
+    if (${version} VERSION_GREATER ${glibc_version})
+      set(too_recent "${too_recent}\n  ${import}")
+    endif ()
+  endforeach ()
+
+  if (too_recent)
+    message(FATAL_ERROR "*** Error: ${${lib_file}} has too-recent import(s):${too_recent}")
   endif ()
 endif ()
 
