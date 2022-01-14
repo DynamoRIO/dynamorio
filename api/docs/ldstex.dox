@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -226,6 +226,7 @@ Embedding a native sequence may be more complicated than for rseq, which has sev
 
 Advantages:
 - Tools see the original code, with some caveats below.
+
 Disadvantages:
 - Tools may never see a success case and only see the store-exclusive fail.
 - Tools will not see the native execution, yet it may have side effects, unlike rseq, not captured by the tool or different from typical runs, or behavior differing from the instrumented execution that could cause errors in taint tracking or other dataflow-sensitive tools or inaccurate memory or instruction trace recordings.
