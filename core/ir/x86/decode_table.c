@@ -6931,7 +6931,7 @@ const instr_info_t mod_extensions[][2] = {
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
 const instr_info_t rm_extensions[][8] = {
   { /* rm extension 0 */
-    {OP_enclv,    0xc00f0131, "enclv", eax, ebx, eax, ebx, ecx, mrm_xop, x, exop[0x100]},
+    {OP_enclv,    0xc00f0131, "enclv", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0x100]},
     {OP_vmcall,   0xc10f0171, "vmcall",   xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {OP_vmlaunch, 0xc20f0171, "vmlaunch", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {OP_vmresume, 0xc30f0171, "vmresume", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
@@ -6949,7 +6949,7 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_encls,  0xcf0f0131, "encls", eax, ebx, eax, ebx, ecx, mrm_xop, x, exop[0xfe]},
+    {OP_encls,  0xcf0f0131, "encls", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0xfe]},
   },
   { /* rm extension 2 */
     {OP_swapgs, 0xf80f0177, "swapgs", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
@@ -6983,7 +6983,7 @@ const instr_info_t rm_extensions[][8] = {
      */
     {OP_xend,   0xd50f0172, "xend", eax, xx, xx, xx, xx, mrm|predcx, x, NA},
     {OP_xtest,  0xd60f0172, "xtest", xx, xx, xx, xx, xx, mrm, fW6, NA},
-    {OP_enclu,  0xd70f0172, "enclu", eax, ebx, eax, ebx, ecx, mrm_xop, x, exop[0xff]},
+    {OP_enclu,  0xd70f0172, "enclu", eax, ebx, eax, ebx, ecx, mrm|xop, x, exop[0xff]},
   },
   { /* rm extension 5 */
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -10575,9 +10575,9 @@ const instr_info_t extra_operands[] =
     {OP_CONTD, 0x663a2548, "vpternlogq cont'd", xx, xx, We, xx, xx, mrm|evex|reqp, x, tevexwb[188][3]},
     {OP_CONTD, 0x663a2558, "vpternlogq cont'd", xx, xx, Mq, xx, xx, mrm|evex|reqp, x, END_LIST},
     /* 254 */
-    {OP_CONTD, 0x000000, "<encls cont'd>", ecx, edx, edx, xx, xx, no, x, END_LIST},
-    {OP_CONTD, 0x000000, "<enclu cont'd>", ecx, edx, edx, xx, xx, no, x, END_LIST},
-    {OP_CONTD, 0x000000, "<enclv cont'd>", ecx, edx, edx, xx, xx, no, x, END_LIST},
+    {OP_CONTD, 0xcf0f0131, "<encls cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
+    {OP_CONTD, 0xd70f0172, "<enclu cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
+    {OP_CONTD, 0xc00f0131, "<enclv cont'd>", ecx, edx, edx, xx, xx, mrm, x, END_LIST},
 };
 
 /* clang-format on */
