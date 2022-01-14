@@ -110,8 +110,8 @@ ba030041 : adcs   x1, x2, x3              : adcs   %x2 %x3 -> %x1
 0b9f13ff : add    wzr, wzr, wzr, asr #4   : add    %wzr %wzr asr $0x04 -> %wzr
 11000c41 : add    w1, w2, #0x3            : add    %w2 $0x0003 lsl $0x00 -> %w1
 11000fff : add    wsp, wsp, #0x3          : add    %wsp $0x0003 lsl $0x00 -> %wsp
-117fffff : add    wsp, wsp, #0xfff, lsl #12: add    %wsp $0x0fff lsl $0x10 -> %wsp
-8b3f27ff : add    sp, sp, wzr, uxth #1    : add    %sp %xzr uxth $0x01 -> %sp
+117fffff : add    wsp, wsp, #0xfff, lsl #12: add    %wsp $0x0fff lsl $0x0c -> %wsp
+8b3f27ff : add    sp, sp, wzr, uxth #1    : add    %sp %wzr uxth $0x01 -> %sp
 8b431041 : add    x1, x2, x3, lsr #4      : add    %x2 %x3 lsr $0x04 -> %x1
 8b5fffff : add    xzr, xzr, xzr, lsr #63  : add    %xzr %xzr lsr $0x3f -> %xzr
 8b9f13ff : add    xzr, xzr, xzr, asr #4   : add    %xzr %xzr asr $0x04 -> %xzr
@@ -1302,10 +1302,10 @@ b1000fff : cmn    sp, #0x3                : adds   %sp $0x0003 lsl $0x00 -> %xzr
 6b3f8fff : cmp    wsp, wzr, sxtb #3       : subs   %wsp %wzr sxtb $0x03 -> %wzr
 6b3fc7ff : cmp    wsp, wzr, sxtw #1       : subs   %wsp %wzr sxtw $0x01 -> %wzr
 71000fff : cmp    wsp, #0x3               : subs   %wsp $0x0003 lsl $0x00 -> %wzr
-eb3fabff : cmp    sp, wzr, sxth #2        : subs   %sp %xzr sxth $0x02 -> %xzr
+eb3fabff : cmp    sp, wzr, sxth #2        : subs   %sp %wzr sxth $0x02 -> %xzr
 eb3fe3ff : cmp    sp, xzr, sxtx           : subs   %sp %xzr sxtx $0x00 -> %xzr
 f1000fff : cmp    sp, #0x3                : subs   %sp $0x0003 lsl $0x00 -> %xzr
-f16003ff : cmp    sp, #0x800, lsl #12     : subs   %sp $0x0800 lsl $0x10 -> %xzr
+f16003ff : cmp    sp, #0x800, lsl #12     : subs   %sp $0x0800 lsl $0x0c -> %xzr
 
 # CMLT <V><d>, <V><n>, #0
 5ee0a820 : cmlt d0, d1, #0                : cmlt   %d1 -> %d0
@@ -13921,7 +13921,7 @@ d52ffffe : sysl x30, #7, C15, C15, #7     : sysl   $0x07 $0x0f $0x0f $0x07 -> %x
 4f20a719 : sxtl2 v25.2d, v24.4s                       : sshll2 %q24 $0x02 $0x00 -> %q25
 4f20a7be : sxtl2 v30.2d, v29.4s                       : sshll2 %q29 $0x02 $0x00 -> %q30
 
-37081041 : tbnz   w1, #1, 10000208        : tbnz   $0x0000000010000208 %x1 $0x01
+37081041 : tbnz   w1, #1, 10000208        : tbnz   $0x0000000010000208 %w1 $0x01
 b7fc0000 : tbnz   x0, #63, fff8000        : tbnz   $0x000000000fff8000 %x0 $0x3f
 b7ffffff : tbnz   xzr, #63, ffffffc       : tbnz   $0x000000000ffffffc %xzr $0x3f
 
@@ -14039,8 +14039,8 @@ b7ffffff : tbnz   xzr, #63, ffffffc       : tbnz   $0x000000000ffffffc %xzr $0x3
 4e1972b4 : tbx v20.16b, {v21.16b, v22.16b, v23.16b, v24.16b}, v25.16b  : tbx    %q21 %q25 $0x03 -> %q20
 4e1e7359 : tbx v25.16b, {v26.16b, v27.16b, v28.16b, v29.16b}, v30.16b  : tbx    %q26 %q30 $0x03 -> %q25
 
-3603ffff : tbz    wzr, #0, 10007ffc       : tbz    $0x0000000010007ffc %xzr $0x00
-36081041 : tbz    w1, #1, 10000208        : tbz    $0x0000000010000208 %x1 $0x01
+3603ffff : tbz    wzr, #0, 10007ffc       : tbz    $0x0000000010007ffc %wzr $0x00
+36081041 : tbz    w1, #1, 10000208        : tbz    $0x0000000010000208 %w1 $0x01
 b6ffffff : tbz    xzr, #63, ffffffc       : tbz    $0x000000000ffffffc %xzr $0x3f
 
 # TRN1 <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
@@ -18291,6 +18291,40 @@ d3431041 : ubfx   x1, x2, #3, #2          : ubfm   %x2 $0x03 $0x04 -> %x1
 7efd4f9b : uqshl d27, d28, d29                       : uqshl  %d28 %d29 -> %d27
 7ee14c1f : uqshl d31, d0, d1                         : uqshl  %d0 %d1 -> %d31
 
+# TBZ     <R><t>, #<imm1>, #<imm2> (TBZ-R.II-only_testbranch)
+36040000 : tbz w0, #0x0, #-0x8000                    : tbz    $0x000000000fff8000 %w0 $0x00
+36148002 : tbz w2, #0x2, #-0x7000                    : tbz    $0x000000000fff9000 %w2 $0x02
+36250004 : tbz w4, #0x4, #-0x6000                    : tbz    $0x000000000fffa000 %w4 $0x04
+36358006 : tbz w6, #0x6, #-0x5000                    : tbz    $0x000000000fffb000 %w6 $0x06
+36460008 : tbz w8, #0x8, #-0x4000                    : tbz    $0x000000000fffc000 %w8 $0x08
+36568009 : tbz w9, #0xa, #-0x3000                    : tbz    $0x000000000fffd000 %w9 $0x0a
+3667000b : tbz w11, #0xc, #-0x2000                   : tbz    $0x000000000fffe000 %w11 $0x0c
+3677800d : tbz w13, #0xe, #-0x1000                   : tbz    $0x000000000ffff000 %w13 $0x0e
+3680000f : tbz w15, #0x10, #0x0                      : tbz    $0x0000000010000000 %w15 $0x10
+36887ff1 : tbz w17, #0x11, #0xffc                    : tbz    $0x0000000010000ffc %w17 $0x11
+3698fff3 : tbz w19, #0x13, #0x1ffc                   : tbz    $0x0000000010001ffc %w19 $0x13
+36a97ff5 : tbz w21, #0x15, #0x2ffc                   : tbz    $0x0000000010002ffc %w21 $0x15
+36b9fff6 : tbz w22, #0x17, #0x3ffc                   : tbz    $0x0000000010003ffc %w22 $0x17
+36ca7ff8 : tbz w24, #0x19, #0x4ffc                   : tbz    $0x0000000010004ffc %w24 $0x19
+36dafffa : tbz w26, #0x1b, #0x5ffc                   : tbz    $0x0000000010005ffc %w26 $0x1b
+36fbfffe : tbz w30, #0x1f, #0x7ffc                   : tbz    $0x0000000010007ffc %w30 $0x1f
+b6040000 : tbz x0, #0x20, #-0x8000                   : tbz    $0x000000000fff8000 %x0 $0x20
+b6148002 : tbz x2, #0x22, #-0x7000                   : tbz    $0x000000000fff9000 %x2 $0x22
+b6250004 : tbz x4, #0x24, #-0x6000                   : tbz    $0x000000000fffa000 %x4 $0x24
+b6358006 : tbz x6, #0x26, #-0x5000                   : tbz    $0x000000000fffb000 %x6 $0x26
+b6460008 : tbz x8, #0x28, #-0x4000                   : tbz    $0x000000000fffc000 %x8 $0x28
+b6568009 : tbz x9, #0x2a, #-0x3000                   : tbz    $0x000000000fffd000 %x9 $0x2a
+b667000b : tbz x11, #0x2c, #-0x2000                  : tbz    $0x000000000fffe000 %x11 $0x2c
+b677800d : tbz x13, #0x2e, #-0x1000                  : tbz    $0x000000000ffff000 %x13 $0x2e
+b680000f : tbz x15, #0x30, #0x0                      : tbz    $0x0000000010000000 %x15 $0x30
+b6887ff1 : tbz x17, #0x31, #0xffc                    : tbz    $0x0000000010000ffc %x17 $0x31
+b698fff3 : tbz x19, #0x33, #0x1ffc                   : tbz    $0x0000000010001ffc %x19 $0x33
+b6a97ff5 : tbz x21, #0x35, #0x2ffc                   : tbz    $0x0000000010002ffc %x21 $0x35
+b6b9fff6 : tbz x22, #0x37, #0x3ffc                   : tbz    $0x0000000010003ffc %x22 $0x37
+b6ca7ff8 : tbz x24, #0x39, #0x4ffc                   : tbz    $0x0000000010004ffc %x24 $0x39
+b6dafffa : tbz x26, #0x3b, #0x5ffc                   : tbz    $0x0000000010005ffc %x26 $0x3b
+b6fbfffe : tbz x30, #0x3f, #0x7ffc                   : tbz    $0x0000000010007ffc %x30 $0x3f
+
 # CSINV   <Xd>, <Xn>, <Xm>, <cond> (CSINV-R.RR-64_condsel)
 da820020 : csinv x0, x1, x2, EQ                      : csinv  %x1 %x2 eq -> %x0
 da840062 : csinv x2, x3, x4, EQ                      : csinv  %x3 %x4 eq -> %x2
@@ -18567,6 +18601,136 @@ da81f01e : csinv x30, x0, x1, NV                     : csinv  %x0 %x1 nv -> %x30
 9adc4f7a : crc32x w26, w27, x28                      : crc32x %w27 %x28 -> %w26
 9ac14c1e : crc32x w30, w0, x1                        : crc32x %w0 %x1 -> %w30
 
+# SUB     <Xd|SP>, <Xn|SP>, <R><m>, <extend> #<imm> (SUB-R.RRI-64_addsub_ext)
+cb220020 : sub x0, x1, w2, UXTB #0                   : sub    %x1 %w2 uxtb $0x00 -> %x0
+cb240062 : sub x2, x3, w4, UXTB #0                   : sub    %x3 %w4 uxtb $0x00 -> %x2
+cb2600a4 : sub x4, x5, w6, UXTB #0                   : sub    %x5 %w6 uxtb $0x00 -> %x4
+cb2804e6 : sub x6, x7, w8, UXTB #1                   : sub    %x7 %w8 uxtb $0x01 -> %x6
+cb2a0528 : sub x8, x9, w10, UXTB #1                  : sub    %x9 %w10 uxtb $0x01 -> %x8
+cb2b0549 : sub x9, x10, w11, UXTB #1                 : sub    %x10 %w11 uxtb $0x01 -> %x9
+cb2d098b : sub x11, x12, w13, UXTB #2                : sub    %x12 %w13 uxtb $0x02 -> %x11
+cb2f09cd : sub x13, x14, w15, UXTB #2                : sub    %x14 %w15 uxtb $0x02 -> %x13
+cb310a0f : sub x15, x16, w17, UXTB #2                : sub    %x16 %w17 uxtb $0x02 -> %x15
+cb330a51 : sub x17, x18, w19, UXTB #2                : sub    %x18 %w19 uxtb $0x02 -> %x17
+cb350a93 : sub x19, x20, w21, UXTB #2                : sub    %x20 %w21 uxtb $0x02 -> %x19
+cb370ed5 : sub x21, x22, w23, UXTB #3                : sub    %x22 %w23 uxtb $0x03 -> %x21
+cb380ef6 : sub x22, x23, w24, UXTB #3                : sub    %x23 %w24 uxtb $0x03 -> %x22
+cb3a0f38 : sub x24, x25, w26, UXTB #3                : sub    %x25 %w26 uxtb $0x03 -> %x24
+cb3c137a : sub x26, x27, w28, UXTB #4                : sub    %x27 %w28 uxtb $0x04 -> %x26
+cb21101f : sub sp, x0, w1, UXTB #4                   : sub    %x0 %w1 uxtb $0x04 -> %sp
+cb222020 : sub x0, x1, w2, UXTH #0                   : sub    %x1 %w2 uxth $0x00 -> %x0
+cb242062 : sub x2, x3, w4, UXTH #0                   : sub    %x3 %w4 uxth $0x00 -> %x2
+cb2620a4 : sub x4, x5, w6, UXTH #0                   : sub    %x5 %w6 uxth $0x00 -> %x4
+cb2824e6 : sub x6, x7, w8, UXTH #1                   : sub    %x7 %w8 uxth $0x01 -> %x6
+cb2a2528 : sub x8, x9, w10, UXTH #1                  : sub    %x9 %w10 uxth $0x01 -> %x8
+cb2b2549 : sub x9, x10, w11, UXTH #1                 : sub    %x10 %w11 uxth $0x01 -> %x9
+cb2d298b : sub x11, x12, w13, UXTH #2                : sub    %x12 %w13 uxth $0x02 -> %x11
+cb2f29cd : sub x13, x14, w15, UXTH #2                : sub    %x14 %w15 uxth $0x02 -> %x13
+cb312a0f : sub x15, x16, w17, UXTH #2                : sub    %x16 %w17 uxth $0x02 -> %x15
+cb332a51 : sub x17, x18, w19, UXTH #2                : sub    %x18 %w19 uxth $0x02 -> %x17
+cb352a93 : sub x19, x20, w21, UXTH #2                : sub    %x20 %w21 uxth $0x02 -> %x19
+cb372ed5 : sub x21, x22, w23, UXTH #3                : sub    %x22 %w23 uxth $0x03 -> %x21
+cb382ef6 : sub x22, x23, w24, UXTH #3                : sub    %x23 %w24 uxth $0x03 -> %x22
+cb3a2f38 : sub x24, x25, w26, UXTH #3                : sub    %x25 %w26 uxth $0x03 -> %x24
+cb3c337a : sub x26, x27, w28, UXTH #4                : sub    %x27 %w28 uxth $0x04 -> %x26
+cb21301f : sub sp, x0, w1, UXTH #4                   : sub    %x0 %w1 uxth $0x04 -> %sp
+cb224020 : sub x0, x1, w2, UXTW #0                   : sub    %x1 %w2 uxtw $0x00 -> %x0
+cb244062 : sub x2, x3, w4, UXTW #0                   : sub    %x3 %w4 uxtw $0x00 -> %x2
+cb2640a4 : sub x4, x5, w6, UXTW #0                   : sub    %x5 %w6 uxtw $0x00 -> %x4
+cb2844e6 : sub x6, x7, w8, UXTW #1                   : sub    %x7 %w8 uxtw $0x01 -> %x6
+cb2a4528 : sub x8, x9, w10, UXTW #1                  : sub    %x9 %w10 uxtw $0x01 -> %x8
+cb2b4549 : sub x9, x10, w11, UXTW #1                 : sub    %x10 %w11 uxtw $0x01 -> %x9
+cb2d498b : sub x11, x12, w13, UXTW #2                : sub    %x12 %w13 uxtw $0x02 -> %x11
+cb2f49cd : sub x13, x14, w15, UXTW #2                : sub    %x14 %w15 uxtw $0x02 -> %x13
+cb314a0f : sub x15, x16, w17, UXTW #2                : sub    %x16 %w17 uxtw $0x02 -> %x15
+cb334a51 : sub x17, x18, w19, UXTW #2                : sub    %x18 %w19 uxtw $0x02 -> %x17
+cb354a93 : sub x19, x20, w21, UXTW #2                : sub    %x20 %w21 uxtw $0x02 -> %x19
+cb374ed5 : sub x21, x22, w23, UXTW #3                : sub    %x22 %w23 uxtw $0x03 -> %x21
+cb384ef6 : sub x22, x23, w24, UXTW #3                : sub    %x23 %w24 uxtw $0x03 -> %x22
+cb3a4f38 : sub x24, x25, w26, UXTW #3                : sub    %x25 %w26 uxtw $0x03 -> %x24
+cb3c537a : sub x26, x27, w28, UXTW #4                : sub    %x27 %w28 uxtw $0x04 -> %x26
+cb21501f : sub sp, x0, w1, UXTW #4                   : sub    %x0 %w1 uxtw $0x04 -> %sp
+cb226020 : sub x0, x1, x2, UXTX #0                   : sub    %x1 %x2 uxtx $0x00 -> %x0
+cb246062 : sub x2, x3, x4, UXTX #0                   : sub    %x3 %x4 uxtx $0x00 -> %x2
+cb2660a4 : sub x4, x5, x6, UXTX #0                   : sub    %x5 %x6 uxtx $0x00 -> %x4
+cb2864e6 : sub x6, x7, x8, UXTX #1                   : sub    %x7 %x8 uxtx $0x01 -> %x6
+cb2a6528 : sub x8, x9, x10, UXTX #1                  : sub    %x9 %x10 uxtx $0x01 -> %x8
+cb2b6549 : sub x9, x10, x11, UXTX #1                 : sub    %x10 %x11 uxtx $0x01 -> %x9
+cb2d698b : sub x11, x12, x13, UXTX #2                : sub    %x12 %x13 uxtx $0x02 -> %x11
+cb2f69cd : sub x13, x14, x15, UXTX #2                : sub    %x14 %x15 uxtx $0x02 -> %x13
+cb316a0f : sub x15, x16, x17, UXTX #2                : sub    %x16 %x17 uxtx $0x02 -> %x15
+cb336a51 : sub x17, x18, x19, UXTX #2                : sub    %x18 %x19 uxtx $0x02 -> %x17
+cb356a93 : sub x19, x20, x21, UXTX #2                : sub    %x20 %x21 uxtx $0x02 -> %x19
+cb376ed5 : sub x21, x22, x23, UXTX #3                : sub    %x22 %x23 uxtx $0x03 -> %x21
+cb386ef6 : sub x22, x23, x24, UXTX #3                : sub    %x23 %x24 uxtx $0x03 -> %x22
+cb3a6f38 : sub x24, x25, x26, UXTX #3                : sub    %x25 %x26 uxtx $0x03 -> %x24
+cb3c737a : sub x26, x27, x28, UXTX #4                : sub    %x27 %x28 uxtx $0x04 -> %x26
+cb21701f : sub sp, x0, x1, UXTX #4                   : sub    %x0 %x1 uxtx $0x04 -> %sp
+cb228020 : sub x0, x1, w2, SXTB #0                   : sub    %x1 %w2 sxtb $0x00 -> %x0
+cb248062 : sub x2, x3, w4, SXTB #0                   : sub    %x3 %w4 sxtb $0x00 -> %x2
+cb2680a4 : sub x4, x5, w6, SXTB #0                   : sub    %x5 %w6 sxtb $0x00 -> %x4
+cb2884e6 : sub x6, x7, w8, SXTB #1                   : sub    %x7 %w8 sxtb $0x01 -> %x6
+cb2a8528 : sub x8, x9, w10, SXTB #1                  : sub    %x9 %w10 sxtb $0x01 -> %x8
+cb2b8549 : sub x9, x10, w11, SXTB #1                 : sub    %x10 %w11 sxtb $0x01 -> %x9
+cb2d898b : sub x11, x12, w13, SXTB #2                : sub    %x12 %w13 sxtb $0x02 -> %x11
+cb2f89cd : sub x13, x14, w15, SXTB #2                : sub    %x14 %w15 sxtb $0x02 -> %x13
+cb318a0f : sub x15, x16, w17, SXTB #2                : sub    %x16 %w17 sxtb $0x02 -> %x15
+cb338a51 : sub x17, x18, w19, SXTB #2                : sub    %x18 %w19 sxtb $0x02 -> %x17
+cb358a93 : sub x19, x20, w21, SXTB #2                : sub    %x20 %w21 sxtb $0x02 -> %x19
+cb378ed5 : sub x21, x22, w23, SXTB #3                : sub    %x22 %w23 sxtb $0x03 -> %x21
+cb388ef6 : sub x22, x23, w24, SXTB #3                : sub    %x23 %w24 sxtb $0x03 -> %x22
+cb3a8f38 : sub x24, x25, w26, SXTB #3                : sub    %x25 %w26 sxtb $0x03 -> %x24
+cb3c937a : sub x26, x27, w28, SXTB #4                : sub    %x27 %w28 sxtb $0x04 -> %x26
+cb21901f : sub sp, x0, w1, SXTB #4                   : sub    %x0 %w1 sxtb $0x04 -> %sp
+cb22a020 : sub x0, x1, w2, SXTH #0                   : sub    %x1 %w2 sxth $0x00 -> %x0
+cb24a062 : sub x2, x3, w4, SXTH #0                   : sub    %x3 %w4 sxth $0x00 -> %x2
+cb26a0a4 : sub x4, x5, w6, SXTH #0                   : sub    %x5 %w6 sxth $0x00 -> %x4
+cb28a4e6 : sub x6, x7, w8, SXTH #1                   : sub    %x7 %w8 sxth $0x01 -> %x6
+cb2aa528 : sub x8, x9, w10, SXTH #1                  : sub    %x9 %w10 sxth $0x01 -> %x8
+cb2ba549 : sub x9, x10, w11, SXTH #1                 : sub    %x10 %w11 sxth $0x01 -> %x9
+cb2da98b : sub x11, x12, w13, SXTH #2                : sub    %x12 %w13 sxth $0x02 -> %x11
+cb2fa9cd : sub x13, x14, w15, SXTH #2                : sub    %x14 %w15 sxth $0x02 -> %x13
+cb31aa0f : sub x15, x16, w17, SXTH #2                : sub    %x16 %w17 sxth $0x02 -> %x15
+cb33aa51 : sub x17, x18, w19, SXTH #2                : sub    %x18 %w19 sxth $0x02 -> %x17
+cb35aa93 : sub x19, x20, w21, SXTH #2                : sub    %x20 %w21 sxth $0x02 -> %x19
+cb37aed5 : sub x21, x22, w23, SXTH #3                : sub    %x22 %w23 sxth $0x03 -> %x21
+cb38aef6 : sub x22, x23, w24, SXTH #3                : sub    %x23 %w24 sxth $0x03 -> %x22
+cb3aaf38 : sub x24, x25, w26, SXTH #3                : sub    %x25 %w26 sxth $0x03 -> %x24
+cb3cb37a : sub x26, x27, w28, SXTH #4                : sub    %x27 %w28 sxth $0x04 -> %x26
+cb21b01f : sub sp, x0, w1, SXTH #4                   : sub    %x0 %w1 sxth $0x04 -> %sp
+cb22c020 : sub x0, x1, w2, SXTW #0                   : sub    %x1 %w2 sxtw $0x00 -> %x0
+cb24c062 : sub x2, x3, w4, SXTW #0                   : sub    %x3 %w4 sxtw $0x00 -> %x2
+cb26c0a4 : sub x4, x5, w6, SXTW #0                   : sub    %x5 %w6 sxtw $0x00 -> %x4
+cb28c4e6 : sub x6, x7, w8, SXTW #1                   : sub    %x7 %w8 sxtw $0x01 -> %x6
+cb2ac528 : sub x8, x9, w10, SXTW #1                  : sub    %x9 %w10 sxtw $0x01 -> %x8
+cb2bc549 : sub x9, x10, w11, SXTW #1                 : sub    %x10 %w11 sxtw $0x01 -> %x9
+cb2dc98b : sub x11, x12, w13, SXTW #2                : sub    %x12 %w13 sxtw $0x02 -> %x11
+cb2fc9cd : sub x13, x14, w15, SXTW #2                : sub    %x14 %w15 sxtw $0x02 -> %x13
+cb31ca0f : sub x15, x16, w17, SXTW #2                : sub    %x16 %w17 sxtw $0x02 -> %x15
+cb33ca51 : sub x17, x18, w19, SXTW #2                : sub    %x18 %w19 sxtw $0x02 -> %x17
+cb35ca93 : sub x19, x20, w21, SXTW #2                : sub    %x20 %w21 sxtw $0x02 -> %x19
+cb37ced5 : sub x21, x22, w23, SXTW #3                : sub    %x22 %w23 sxtw $0x03 -> %x21
+cb38cef6 : sub x22, x23, w24, SXTW #3                : sub    %x23 %w24 sxtw $0x03 -> %x22
+cb3acf38 : sub x24, x25, w26, SXTW #3                : sub    %x25 %w26 sxtw $0x03 -> %x24
+cb3cd37a : sub x26, x27, w28, SXTW #4                : sub    %x27 %w28 sxtw $0x04 -> %x26
+cb21d01f : sub sp, x0, w1, SXTW #4                   : sub    %x0 %w1 sxtw $0x04 -> %sp
+cb22e020 : sub x0, x1, x2, SXTX #0                   : sub    %x1 %x2 sxtx $0x00 -> %x0
+cb24e062 : sub x2, x3, x4, SXTX #0                   : sub    %x3 %x4 sxtx $0x00 -> %x2
+cb26e0a4 : sub x4, x5, x6, SXTX #0                   : sub    %x5 %x6 sxtx $0x00 -> %x4
+cb28e4e6 : sub x6, x7, x8, SXTX #1                   : sub    %x7 %x8 sxtx $0x01 -> %x6
+cb2ae528 : sub x8, x9, x10, SXTX #1                  : sub    %x9 %x10 sxtx $0x01 -> %x8
+cb2be549 : sub x9, x10, x11, SXTX #1                 : sub    %x10 %x11 sxtx $0x01 -> %x9
+cb2de98b : sub x11, x12, x13, SXTX #2                : sub    %x12 %x13 sxtx $0x02 -> %x11
+cb2fe9cd : sub x13, x14, x15, SXTX #2                : sub    %x14 %x15 sxtx $0x02 -> %x13
+cb31ea0f : sub x15, x16, x17, SXTX #2                : sub    %x16 %x17 sxtx $0x02 -> %x15
+cb33ea51 : sub x17, x18, x19, SXTX #2                : sub    %x18 %x19 sxtx $0x02 -> %x17
+cb35ea93 : sub x19, x20, x21, SXTX #2                : sub    %x20 %x21 sxtx $0x02 -> %x19
+cb37eed5 : sub x21, x22, x23, SXTX #3                : sub    %x22 %x23 sxtx $0x03 -> %x21
+cb38eef6 : sub x22, x23, x24, SXTX #3                : sub    %x23 %x24 sxtx $0x03 -> %x22
+cb3aef38 : sub x24, x25, x26, SXTX #3                : sub    %x25 %x26 sxtx $0x03 -> %x24
+cb3cf37a : sub x26, x27, x28, SXTX #4                : sub    %x27 %x28 sxtx $0x04 -> %x26
+cb21f01f : sub sp, x0, x1, SXTX #4                   : sub    %x0 %x1 sxtx $0x04 -> %sp
+
 # BFM     <Wd>, <Wn>, #<imm1>, #<imm2> (BFM-R.RII-32M_bitfield)
 33000020 : bfm w0, w1, #0x0, #0x0                    : bfm    %w0 %w1 $0x00 $0x00 -> %w0
 33020862 : bfm w2, w3, #0x2, #0x2                    : bfm    %w2 %w3 $0x02 $0x02 -> %w2
@@ -18724,6 +18888,74 @@ da1802f6 : sbc x22, x23, x24                         : sbc    %x23 %x24 -> %x22
 da1a0338 : sbc x24, x25, x26                         : sbc    %x25 %x26 -> %x24
 da1c037a : sbc x26, x27, x28                         : sbc    %x27 %x28 -> %x26
 da01001e : sbc x30, x0, x1                           : sbc    %x0 %x1 -> %x30
+
+# ADD     <Wd|SP>, <Wn|SP>, #<imm>{, LSL <amount>} (ADD-R.RI-32_addsub_imm)
+11000020 : add w0, w1, #0x0, LSL #0                  : add    %w1 $0x0000 lsl $0x00 -> %w0
+11040062 : add w2, w3, #0x100, LSL #0                : add    %w3 $0x0100 lsl $0x00 -> %w2
+110800a4 : add w4, w5, #0x200, LSL #0                : add    %w5 $0x0200 lsl $0x00 -> %w4
+110c00e6 : add w6, w7, #0x300, LSL #0                : add    %w7 $0x0300 lsl $0x00 -> %w6
+11100128 : add w8, w9, #0x400, LSL #0                : add    %w9 $0x0400 lsl $0x00 -> %w8
+11140149 : add w9, w10, #0x500, LSL #0               : add    %w10 $0x0500 lsl $0x00 -> %w9
+1118018b : add w11, w12, #0x600, LSL #0              : add    %w12 $0x0600 lsl $0x00 -> %w11
+111c01cd : add w13, w14, #0x700, LSL #0              : add    %w14 $0x0700 lsl $0x00 -> %w13
+1120020f : add w15, w16, #0x800, LSL #0              : add    %w16 $0x0800 lsl $0x00 -> %w15
+1123fe51 : add w17, w18, #0x8ff, LSL #0              : add    %w18 $0x08ff lsl $0x00 -> %w17
+1127fe93 : add w19, w20, #0x9ff, LSL #0              : add    %w20 $0x09ff lsl $0x00 -> %w19
+112bfed5 : add w21, w22, #0xaff, LSL #0              : add    %w22 $0x0aff lsl $0x00 -> %w21
+112ffef6 : add w22, w23, #0xbff, LSL #0              : add    %w23 $0x0bff lsl $0x00 -> %w22
+1133ff38 : add w24, w25, #0xcff, LSL #0              : add    %w25 $0x0cff lsl $0x00 -> %w24
+1137ff7a : add w26, w27, #0xdff, LSL #0              : add    %w27 $0x0dff lsl $0x00 -> %w26
+113ffc1f : add wsp, w0, #0xfff, LSL #0               : add    %w0 $0x0fff lsl $0x00 -> %wsp
+11400020 : add w0, w1, #0x0, LSL #12                 : add    %w1 $0x0000 lsl $0x0c -> %w0
+11440062 : add w2, w3, #0x100, LSL #12               : add    %w3 $0x0100 lsl $0x0c -> %w2
+114800a4 : add w4, w5, #0x200, LSL #12               : add    %w5 $0x0200 lsl $0x0c -> %w4
+114c00e6 : add w6, w7, #0x300, LSL #12               : add    %w7 $0x0300 lsl $0x0c -> %w6
+11500128 : add w8, w9, #0x400, LSL #12               : add    %w9 $0x0400 lsl $0x0c -> %w8
+11540149 : add w9, w10, #0x500, LSL #12              : add    %w10 $0x0500 lsl $0x0c -> %w9
+1158018b : add w11, w12, #0x600, LSL #12             : add    %w12 $0x0600 lsl $0x0c -> %w11
+115c01cd : add w13, w14, #0x700, LSL #12             : add    %w14 $0x0700 lsl $0x0c -> %w13
+1160020f : add w15, w16, #0x800, LSL #12             : add    %w16 $0x0800 lsl $0x0c -> %w15
+1163fe51 : add w17, w18, #0x8ff, LSL #12             : add    %w18 $0x08ff lsl $0x0c -> %w17
+1167fe93 : add w19, w20, #0x9ff, LSL #12             : add    %w20 $0x09ff lsl $0x0c -> %w19
+116bfed5 : add w21, w22, #0xaff, LSL #12             : add    %w22 $0x0aff lsl $0x0c -> %w21
+116ffef6 : add w22, w23, #0xbff, LSL #12             : add    %w23 $0x0bff lsl $0x0c -> %w22
+1173ff38 : add w24, w25, #0xcff, LSL #12             : add    %w25 $0x0cff lsl $0x0c -> %w24
+1177ff7a : add w26, w27, #0xdff, LSL #12             : add    %w27 $0x0dff lsl $0x0c -> %w26
+117ffc1f : add wsp, w0, #0xfff, LSL #12              : add    %w0 $0x0fff lsl $0x0c -> %wsp
+
+# SUB     <Xd|SP>, <Xn|SP>, #<imm>{, LSL <amount>} (SUB-R.RI-64_addsub_imm)
+d1000020 : sub x0, x1, #0x0, LSL #0                  : sub    %x1 $0x0000 lsl $0x00 -> %x0
+d1040062 : sub x2, x3, #0x100, LSL #0                : sub    %x3 $0x0100 lsl $0x00 -> %x2
+d10800a4 : sub x4, x5, #0x200, LSL #0                : sub    %x5 $0x0200 lsl $0x00 -> %x4
+d10c00e6 : sub x6, x7, #0x300, LSL #0                : sub    %x7 $0x0300 lsl $0x00 -> %x6
+d1100128 : sub x8, x9, #0x400, LSL #0                : sub    %x9 $0x0400 lsl $0x00 -> %x8
+d1140149 : sub x9, x10, #0x500, LSL #0               : sub    %x10 $0x0500 lsl $0x00 -> %x9
+d118018b : sub x11, x12, #0x600, LSL #0              : sub    %x12 $0x0600 lsl $0x00 -> %x11
+d11c01cd : sub x13, x14, #0x700, LSL #0              : sub    %x14 $0x0700 lsl $0x00 -> %x13
+d120020f : sub x15, x16, #0x800, LSL #0              : sub    %x16 $0x0800 lsl $0x00 -> %x15
+d123fe51 : sub x17, x18, #0x8ff, LSL #0              : sub    %x18 $0x08ff lsl $0x00 -> %x17
+d127fe93 : sub x19, x20, #0x9ff, LSL #0              : sub    %x20 $0x09ff lsl $0x00 -> %x19
+d12bfed5 : sub x21, x22, #0xaff, LSL #0              : sub    %x22 $0x0aff lsl $0x00 -> %x21
+d12ffef6 : sub x22, x23, #0xbff, LSL #0              : sub    %x23 $0x0bff lsl $0x00 -> %x22
+d133ff38 : sub x24, x25, #0xcff, LSL #0              : sub    %x25 $0x0cff lsl $0x00 -> %x24
+d137ff7a : sub x26, x27, #0xdff, LSL #0              : sub    %x27 $0x0dff lsl $0x00 -> %x26
+d13ffc1f : sub sp, x0, #0xfff, LSL #0                : sub    %x0 $0x0fff lsl $0x00 -> %sp
+d1400020 : sub x0, x1, #0x0, LSL #12                 : sub    %x1 $0x0000 lsl $0x0c -> %x0
+d1440062 : sub x2, x3, #0x100, LSL #12               : sub    %x3 $0x0100 lsl $0x0c -> %x2
+d14800a4 : sub x4, x5, #0x200, LSL #12               : sub    %x5 $0x0200 lsl $0x0c -> %x4
+d14c00e6 : sub x6, x7, #0x300, LSL #12               : sub    %x7 $0x0300 lsl $0x0c -> %x6
+d1500128 : sub x8, x9, #0x400, LSL #12               : sub    %x9 $0x0400 lsl $0x0c -> %x8
+d1540149 : sub x9, x10, #0x500, LSL #12              : sub    %x10 $0x0500 lsl $0x0c -> %x9
+d158018b : sub x11, x12, #0x600, LSL #12             : sub    %x12 $0x0600 lsl $0x0c -> %x11
+d15c01cd : sub x13, x14, #0x700, LSL #12             : sub    %x14 $0x0700 lsl $0x0c -> %x13
+d160020f : sub x15, x16, #0x800, LSL #12             : sub    %x16 $0x0800 lsl $0x0c -> %x15
+d163fe51 : sub x17, x18, #0x8ff, LSL #12             : sub    %x18 $0x08ff lsl $0x0c -> %x17
+d167fe93 : sub x19, x20, #0x9ff, LSL #12             : sub    %x20 $0x09ff lsl $0x0c -> %x19
+d16bfed5 : sub x21, x22, #0xaff, LSL #12             : sub    %x22 $0x0aff lsl $0x0c -> %x21
+d16ffef6 : sub x22, x23, #0xbff, LSL #12             : sub    %x23 $0x0bff lsl $0x0c -> %x22
+d173ff38 : sub x24, x25, #0xcff, LSL #12             : sub    %x25 $0x0cff lsl $0x0c -> %x24
+d177ff7a : sub x26, x27, #0xdff, LSL #12             : sub    %x27 $0x0dff lsl $0x0c -> %x26
+d17ffc1f : sub sp, x0, #0xfff, LSL #12               : sub    %x0 $0x0fff lsl $0x0c -> %sp
 
 # BIC     <Wd>, <Wn>, <Wm>, <extend> #<imm> (BIC-R.RRI-32_log_shift)
 0a220020 : bic w0, w1, w2, LSL #0                    : bic    %w1 %w2 lsl $0x00 -> %w0
@@ -19066,6 +19298,40 @@ da01001e : sbc x30, x0, x1                           : sbc    %x0 %x1 -> %x30
 1a9af738 : csinc w24, w25, w26, NV                   : csinc  %w25 %w26 nv -> %w24
 1a9cf77a : csinc w26, w27, w28, NV                   : csinc  %w27 %w28 nv -> %w26
 1a81f41e : csinc w30, w0, w1, NV                     : csinc  %w0 %w1 nv -> %w30
+
+# ADDS    <Xd>, <Xn|SP>, #<imm>{, LSL <amount>} (ADDS-R.RI-64S_addsub_imm)
+b1000020 : adds x0, x1, #0x0, LSL #0                 : adds   %x1 $0x0000 lsl $0x00 -> %x0
+b1040062 : adds x2, x3, #0x100, LSL #0               : adds   %x3 $0x0100 lsl $0x00 -> %x2
+b10800a4 : adds x4, x5, #0x200, LSL #0               : adds   %x5 $0x0200 lsl $0x00 -> %x4
+b10c00e6 : adds x6, x7, #0x300, LSL #0               : adds   %x7 $0x0300 lsl $0x00 -> %x6
+b1100128 : adds x8, x9, #0x400, LSL #0               : adds   %x9 $0x0400 lsl $0x00 -> %x8
+b1140149 : adds x9, x10, #0x500, LSL #0              : adds   %x10 $0x0500 lsl $0x00 -> %x9
+b118018b : adds x11, x12, #0x600, LSL #0             : adds   %x12 $0x0600 lsl $0x00 -> %x11
+b11c01cd : adds x13, x14, #0x700, LSL #0             : adds   %x14 $0x0700 lsl $0x00 -> %x13
+b120020f : adds x15, x16, #0x800, LSL #0             : adds   %x16 $0x0800 lsl $0x00 -> %x15
+b123fe51 : adds x17, x18, #0x8ff, LSL #0             : adds   %x18 $0x08ff lsl $0x00 -> %x17
+b127fe93 : adds x19, x20, #0x9ff, LSL #0             : adds   %x20 $0x09ff lsl $0x00 -> %x19
+b12bfed5 : adds x21, x22, #0xaff, LSL #0             : adds   %x22 $0x0aff lsl $0x00 -> %x21
+b12ffef6 : adds x22, x23, #0xbff, LSL #0             : adds   %x23 $0x0bff lsl $0x00 -> %x22
+b133ff38 : adds x24, x25, #0xcff, LSL #0             : adds   %x25 $0x0cff lsl $0x00 -> %x24
+b137ff7a : adds x26, x27, #0xdff, LSL #0             : adds   %x27 $0x0dff lsl $0x00 -> %x26
+b13ffc1e : adds x30, x0, #0xfff, LSL #0              : adds   %x0 $0x0fff lsl $0x00 -> %x30
+b1400020 : adds x0, x1, #0x0, LSL #12                : adds   %x1 $0x0000 lsl $0x0c -> %x0
+b1440062 : adds x2, x3, #0x100, LSL #12              : adds   %x3 $0x0100 lsl $0x0c -> %x2
+b14800a4 : adds x4, x5, #0x200, LSL #12              : adds   %x5 $0x0200 lsl $0x0c -> %x4
+b14c00e6 : adds x6, x7, #0x300, LSL #12              : adds   %x7 $0x0300 lsl $0x0c -> %x6
+b1500128 : adds x8, x9, #0x400, LSL #12              : adds   %x9 $0x0400 lsl $0x0c -> %x8
+b1540149 : adds x9, x10, #0x500, LSL #12             : adds   %x10 $0x0500 lsl $0x0c -> %x9
+b158018b : adds x11, x12, #0x600, LSL #12            : adds   %x12 $0x0600 lsl $0x0c -> %x11
+b15c01cd : adds x13, x14, #0x700, LSL #12            : adds   %x14 $0x0700 lsl $0x0c -> %x13
+b160020f : adds x15, x16, #0x800, LSL #12            : adds   %x16 $0x0800 lsl $0x0c -> %x15
+b163fe51 : adds x17, x18, #0x8ff, LSL #12            : adds   %x18 $0x08ff lsl $0x0c -> %x17
+b167fe93 : adds x19, x20, #0x9ff, LSL #12            : adds   %x20 $0x09ff lsl $0x0c -> %x19
+b16bfed5 : adds x21, x22, #0xaff, LSL #12            : adds   %x22 $0x0aff lsl $0x0c -> %x21
+b16ffef6 : adds x22, x23, #0xbff, LSL #12            : adds   %x23 $0x0bff lsl $0x0c -> %x22
+b173ff38 : adds x24, x25, #0xcff, LSL #12            : adds   %x25 $0x0cff lsl $0x0c -> %x24
+b177ff7a : adds x26, x27, #0xdff, LSL #12            : adds   %x27 $0x0dff lsl $0x0c -> %x26
+b17ffc1e : adds x30, x0, #0xfff, LSL #12             : adds   %x0 $0x0fff lsl $0x0c -> %x30
 
 # CLS     <Wd>, <Wn> (CLS-R.R-32_dp_1src)
 5ac01420 : cls w0, w1                                : cls    %w1 -> %w0
@@ -21343,6 +21609,40 @@ d52eccd8 : sysl x24, #0x6, C12, C12, #0x6            : sysl   $0x06 $0x0c $0x0c 
 d52eddda : sysl x26, #0x6, C13, C13, #0x6            : sysl   $0x06 $0x0d $0x0d $0x06 -> %x26
 d52ffffe : sysl x30, #0x7, C15, C15, #0x7            : sysl   $0x07 $0x0f $0x0f $0x07 -> %x30
 
+# TBNZ    <R><t>, #<imm1>, #<imm2> (TBNZ-R.II-only_testbranch)
+37040000 : tbnz w0, #0x0, #-0x8000                   : tbnz   $0x000000000fff8000 %w0 $0x00
+37148002 : tbnz w2, #0x2, #-0x7000                   : tbnz   $0x000000000fff9000 %w2 $0x02
+37250004 : tbnz w4, #0x4, #-0x6000                   : tbnz   $0x000000000fffa000 %w4 $0x04
+37358006 : tbnz w6, #0x6, #-0x5000                   : tbnz   $0x000000000fffb000 %w6 $0x06
+37460008 : tbnz w8, #0x8, #-0x4000                   : tbnz   $0x000000000fffc000 %w8 $0x08
+37568009 : tbnz w9, #0xa, #-0x3000                   : tbnz   $0x000000000fffd000 %w9 $0x0a
+3767000b : tbnz w11, #0xc, #-0x2000                  : tbnz   $0x000000000fffe000 %w11 $0x0c
+3777800d : tbnz w13, #0xe, #-0x1000                  : tbnz   $0x000000000ffff000 %w13 $0x0e
+3780000f : tbnz w15, #0x10, #0x0                     : tbnz   $0x0000000010000000 %w15 $0x10
+37887ff1 : tbnz w17, #0x11, #0xffc                   : tbnz   $0x0000000010000ffc %w17 $0x11
+3798fff3 : tbnz w19, #0x13, #0x1ffc                  : tbnz   $0x0000000010001ffc %w19 $0x13
+37a97ff5 : tbnz w21, #0x15, #0x2ffc                  : tbnz   $0x0000000010002ffc %w21 $0x15
+37b9fff6 : tbnz w22, #0x17, #0x3ffc                  : tbnz   $0x0000000010003ffc %w22 $0x17
+37ca7ff8 : tbnz w24, #0x19, #0x4ffc                  : tbnz   $0x0000000010004ffc %w24 $0x19
+37dafffa : tbnz w26, #0x1b, #0x5ffc                  : tbnz   $0x0000000010005ffc %w26 $0x1b
+37fbfffe : tbnz w30, #0x1f, #0x7ffc                  : tbnz   $0x0000000010007ffc %w30 $0x1f
+b7040000 : tbnz x0, #0x20, #-0x8000                  : tbnz   $0x000000000fff8000 %x0 $0x20
+b7148002 : tbnz x2, #0x22, #-0x7000                  : tbnz   $0x000000000fff9000 %x2 $0x22
+b7250004 : tbnz x4, #0x24, #-0x6000                  : tbnz   $0x000000000fffa000 %x4 $0x24
+b7358006 : tbnz x6, #0x26, #-0x5000                  : tbnz   $0x000000000fffb000 %x6 $0x26
+b7460008 : tbnz x8, #0x28, #-0x4000                  : tbnz   $0x000000000fffc000 %x8 $0x28
+b7568009 : tbnz x9, #0x2a, #-0x3000                  : tbnz   $0x000000000fffd000 %x9 $0x2a
+b767000b : tbnz x11, #0x2c, #-0x2000                 : tbnz   $0x000000000fffe000 %x11 $0x2c
+b777800d : tbnz x13, #0x2e, #-0x1000                 : tbnz   $0x000000000ffff000 %x13 $0x2e
+b780000f : tbnz x15, #0x30, #0x0                     : tbnz   $0x0000000010000000 %x15 $0x30
+b7887ff1 : tbnz x17, #0x31, #0xffc                   : tbnz   $0x0000000010000ffc %x17 $0x31
+b798fff3 : tbnz x19, #0x33, #0x1ffc                  : tbnz   $0x0000000010001ffc %x19 $0x33
+b7a97ff5 : tbnz x21, #0x35, #0x2ffc                  : tbnz   $0x0000000010002ffc %x21 $0x35
+b7b9fff6 : tbnz x22, #0x37, #0x3ffc                  : tbnz   $0x0000000010003ffc %x22 $0x37
+b7ca7ff8 : tbnz x24, #0x39, #0x4ffc                  : tbnz   $0x0000000010004ffc %x24 $0x39
+b7dafffa : tbnz x26, #0x3b, #0x5ffc                  : tbnz   $0x0000000010005ffc %x26 $0x3b
+b7fbfffe : tbnz x30, #0x3f, #0x7ffc                  : tbnz   $0x0000000010007ffc %x30 $0x3f
+
 # ORN     <Wd>, <Wn>, <Wm>, <extend> #<imm> (ORN-R.RRI-32_log_shift)
 2a220020 : orn w0, w1, w2, LSL #0                    : orn    %w1 %w2 lsl $0x00 -> %w0
 2a240862 : orn w2, w3, w4, LSL #2                    : orn    %w3 %w4 lsl $0x02 -> %w2
@@ -21511,6 +21811,135 @@ d2f9fff8 : movz x24, #0xcfff, LSL #48                : movz   $0xcfff lsl $0x30 
 d2fbfffa : movz x26, #0xdfff, LSL #48                : movz   $0xdfff lsl $0x30 -> %x26
 d2fffffe : movz x30, #0xffff, LSL #48                : movz   $0xffff lsl $0x30 -> %x30
 
+# ADDS    <Xd>, <Xn|SP>, <R><m>, <extend> #<imm> (ADDS-R.RRI-64S_addsub_ext)
+ab220020 : adds x0, x1, w2, UXTB #0                  : adds   %x1 %w2 uxtb $0x00 -> %x0
+ab240062 : adds x2, x3, w4, UXTB #0                  : adds   %x3 %w4 uxtb $0x00 -> %x2
+ab2600a4 : adds x4, x5, w6, UXTB #0                  : adds   %x5 %w6 uxtb $0x00 -> %x4
+ab2804e6 : adds x6, x7, w8, UXTB #1                  : adds   %x7 %w8 uxtb $0x01 -> %x6
+ab2a0528 : adds x8, x9, w10, UXTB #1                 : adds   %x9 %w10 uxtb $0x01 -> %x8
+ab2b0549 : adds x9, x10, w11, UXTB #1                : adds   %x10 %w11 uxtb $0x01 -> %x9
+ab2d098b : adds x11, x12, w13, UXTB #2               : adds   %x12 %w13 uxtb $0x02 -> %x11
+ab2f09cd : adds x13, x14, w15, UXTB #2               : adds   %x14 %w15 uxtb $0x02 -> %x13
+ab310a0f : adds x15, x16, w17, UXTB #2               : adds   %x16 %w17 uxtb $0x02 -> %x15
+ab330a51 : adds x17, x18, w19, UXTB #2               : adds   %x18 %w19 uxtb $0x02 -> %x17
+ab350a93 : adds x19, x20, w21, UXTB #2               : adds   %x20 %w21 uxtb $0x02 -> %x19
+ab370ed5 : adds x21, x22, w23, UXTB #3               : adds   %x22 %w23 uxtb $0x03 -> %x21
+ab380ef6 : adds x22, x23, w24, UXTB #3               : adds   %x23 %w24 uxtb $0x03 -> %x22
+ab3a0f38 : adds x24, x25, w26, UXTB #3               : adds   %x25 %w26 uxtb $0x03 -> %x24
+ab3c137a : adds x26, x27, w28, UXTB #4               : adds   %x27 %w28 uxtb $0x04 -> %x26
+ab21101e : adds x30, x0, w1, UXTB #4                 : adds   %x0 %w1 uxtb $0x04 -> %x30
+ab222020 : adds x0, x1, w2, UXTH #0                  : adds   %x1 %w2 uxth $0x00 -> %x0
+ab242062 : adds x2, x3, w4, UXTH #0                  : adds   %x3 %w4 uxth $0x00 -> %x2
+ab2620a4 : adds x4, x5, w6, UXTH #0                  : adds   %x5 %w6 uxth $0x00 -> %x4
+ab2824e6 : adds x6, x7, w8, UXTH #1                  : adds   %x7 %w8 uxth $0x01 -> %x6
+ab2a2528 : adds x8, x9, w10, UXTH #1                 : adds   %x9 %w10 uxth $0x01 -> %x8
+ab2b2549 : adds x9, x10, w11, UXTH #1                : adds   %x10 %w11 uxth $0x01 -> %x9
+ab2d298b : adds x11, x12, w13, UXTH #2               : adds   %x12 %w13 uxth $0x02 -> %x11
+ab2f29cd : adds x13, x14, w15, UXTH #2               : adds   %x14 %w15 uxth $0x02 -> %x13
+ab312a0f : adds x15, x16, w17, UXTH #2               : adds   %x16 %w17 uxth $0x02 -> %x15
+ab332a51 : adds x17, x18, w19, UXTH #2               : adds   %x18 %w19 uxth $0x02 -> %x17
+ab352a93 : adds x19, x20, w21, UXTH #2               : adds   %x20 %w21 uxth $0x02 -> %x19
+ab372ed5 : adds x21, x22, w23, UXTH #3               : adds   %x22 %w23 uxth $0x03 -> %x21
+ab382ef6 : adds x22, x23, w24, UXTH #3               : adds   %x23 %w24 uxth $0x03 -> %x22
+ab3a2f38 : adds x24, x25, w26, UXTH #3               : adds   %x25 %w26 uxth $0x03 -> %x24
+ab3c337a : adds x26, x27, w28, UXTH #4               : adds   %x27 %w28 uxth $0x04 -> %x26
+ab21301e : adds x30, x0, w1, UXTH #4                 : adds   %x0 %w1 uxth $0x04 -> %x30
+ab224020 : adds x0, x1, w2, UXTW #0                  : adds   %x1 %w2 uxtw $0x00 -> %x0
+ab244062 : adds x2, x3, w4, UXTW #0                  : adds   %x3 %w4 uxtw $0x00 -> %x2
+ab2640a4 : adds x4, x5, w6, UXTW #0                  : adds   %x5 %w6 uxtw $0x00 -> %x4
+ab2844e6 : adds x6, x7, w8, UXTW #1                  : adds   %x7 %w8 uxtw $0x01 -> %x6
+ab2a4528 : adds x8, x9, w10, UXTW #1                 : adds   %x9 %w10 uxtw $0x01 -> %x8
+ab2b4549 : adds x9, x10, w11, UXTW #1                : adds   %x10 %w11 uxtw $0x01 -> %x9
+ab2d498b : adds x11, x12, w13, UXTW #2               : adds   %x12 %w13 uxtw $0x02 -> %x11
+ab2f49cd : adds x13, x14, w15, UXTW #2               : adds   %x14 %w15 uxtw $0x02 -> %x13
+ab314a0f : adds x15, x16, w17, UXTW #2               : adds   %x16 %w17 uxtw $0x02 -> %x15
+ab334a51 : adds x17, x18, w19, UXTW #2               : adds   %x18 %w19 uxtw $0x02 -> %x17
+ab354a93 : adds x19, x20, w21, UXTW #2               : adds   %x20 %w21 uxtw $0x02 -> %x19
+ab374ed5 : adds x21, x22, w23, UXTW #3               : adds   %x22 %w23 uxtw $0x03 -> %x21
+ab384ef6 : adds x22, x23, w24, UXTW #3               : adds   %x23 %w24 uxtw $0x03 -> %x22
+ab3a4f38 : adds x24, x25, w26, UXTW #3               : adds   %x25 %w26 uxtw $0x03 -> %x24
+ab3c537a : adds x26, x27, w28, UXTW #4               : adds   %x27 %w28 uxtw $0x04 -> %x26
+ab21501e : adds x30, x0, w1, UXTW #4                 : adds   %x0 %w1 uxtw $0x04 -> %x30
+ab226020 : adds x0, x1, x2, UXTX #0                  : adds   %x1 %x2 uxtx $0x00 -> %x0
+ab246062 : adds x2, x3, x4, UXTX #0                  : adds   %x3 %x4 uxtx $0x00 -> %x2
+ab2660a4 : adds x4, x5, x6, UXTX #0                  : adds   %x5 %x6 uxtx $0x00 -> %x4
+ab2864e6 : adds x6, x7, x8, UXTX #1                  : adds   %x7 %x8 uxtx $0x01 -> %x6
+ab2a6528 : adds x8, x9, x10, UXTX #1                 : adds   %x9 %x10 uxtx $0x01 -> %x8
+ab2b6549 : adds x9, x10, x11, UXTX #1                : adds   %x10 %x11 uxtx $0x01 -> %x9
+ab2d698b : adds x11, x12, x13, UXTX #2               : adds   %x12 %x13 uxtx $0x02 -> %x11
+ab2f69cd : adds x13, x14, x15, UXTX #2               : adds   %x14 %x15 uxtx $0x02 -> %x13
+ab316a0f : adds x15, x16, x17, UXTX #2               : adds   %x16 %x17 uxtx $0x02 -> %x15
+ab336a51 : adds x17, x18, x19, UXTX #2               : adds   %x18 %x19 uxtx $0x02 -> %x17
+ab356a93 : adds x19, x20, x21, UXTX #2               : adds   %x20 %x21 uxtx $0x02 -> %x19
+ab376ed5 : adds x21, x22, x23, UXTX #3               : adds   %x22 %x23 uxtx $0x03 -> %x21
+ab386ef6 : adds x22, x23, x24, UXTX #3               : adds   %x23 %x24 uxtx $0x03 -> %x22
+ab3a6f38 : adds x24, x25, x26, UXTX #3               : adds   %x25 %x26 uxtx $0x03 -> %x24
+ab3c737a : adds x26, x27, x28, UXTX #4               : adds   %x27 %x28 uxtx $0x04 -> %x26
+ab21701e : adds x30, x0, x1, UXTX #4                 : adds   %x0 %x1 uxtx $0x04 -> %x30
+ab228020 : adds x0, x1, w2, SXTB #0                  : adds   %x1 %w2 sxtb $0x00 -> %x0
+ab248062 : adds x2, x3, w4, SXTB #0                  : adds   %x3 %w4 sxtb $0x00 -> %x2
+ab2680a4 : adds x4, x5, w6, SXTB #0                  : adds   %x5 %w6 sxtb $0x00 -> %x4
+ab2884e6 : adds x6, x7, w8, SXTB #1                  : adds   %x7 %w8 sxtb $0x01 -> %x6
+ab2a8528 : adds x8, x9, w10, SXTB #1                 : adds   %x9 %w10 sxtb $0x01 -> %x8
+ab2b8549 : adds x9, x10, w11, SXTB #1                : adds   %x10 %w11 sxtb $0x01 -> %x9
+ab2d898b : adds x11, x12, w13, SXTB #2               : adds   %x12 %w13 sxtb $0x02 -> %x11
+ab2f89cd : adds x13, x14, w15, SXTB #2               : adds   %x14 %w15 sxtb $0x02 -> %x13
+ab318a0f : adds x15, x16, w17, SXTB #2               : adds   %x16 %w17 sxtb $0x02 -> %x15
+ab338a51 : adds x17, x18, w19, SXTB #2               : adds   %x18 %w19 sxtb $0x02 -> %x17
+ab358a93 : adds x19, x20, w21, SXTB #2               : adds   %x20 %w21 sxtb $0x02 -> %x19
+ab378ed5 : adds x21, x22, w23, SXTB #3               : adds   %x22 %w23 sxtb $0x03 -> %x21
+ab388ef6 : adds x22, x23, w24, SXTB #3               : adds   %x23 %w24 sxtb $0x03 -> %x22
+ab3a8f38 : adds x24, x25, w26, SXTB #3               : adds   %x25 %w26 sxtb $0x03 -> %x24
+ab3c937a : adds x26, x27, w28, SXTB #4               : adds   %x27 %w28 sxtb $0x04 -> %x26
+ab21901e : adds x30, x0, w1, SXTB #4                 : adds   %x0 %w1 sxtb $0x04 -> %x30
+ab22a020 : adds x0, x1, w2, SXTH #0                  : adds   %x1 %w2 sxth $0x00 -> %x0
+ab24a062 : adds x2, x3, w4, SXTH #0                  : adds   %x3 %w4 sxth $0x00 -> %x2
+ab26a0a4 : adds x4, x5, w6, SXTH #0                  : adds   %x5 %w6 sxth $0x00 -> %x4
+ab28a4e6 : adds x6, x7, w8, SXTH #1                  : adds   %x7 %w8 sxth $0x01 -> %x6
+ab2aa528 : adds x8, x9, w10, SXTH #1                 : adds   %x9 %w10 sxth $0x01 -> %x8
+ab2ba549 : adds x9, x10, w11, SXTH #1                : adds   %x10 %w11 sxth $0x01 -> %x9
+ab2da98b : adds x11, x12, w13, SXTH #2               : adds   %x12 %w13 sxth $0x02 -> %x11
+ab2fa9cd : adds x13, x14, w15, SXTH #2               : adds   %x14 %w15 sxth $0x02 -> %x13
+ab31aa0f : adds x15, x16, w17, SXTH #2               : adds   %x16 %w17 sxth $0x02 -> %x15
+ab33aa51 : adds x17, x18, w19, SXTH #2               : adds   %x18 %w19 sxth $0x02 -> %x17
+ab35aa93 : adds x19, x20, w21, SXTH #2               : adds   %x20 %w21 sxth $0x02 -> %x19
+ab37aed5 : adds x21, x22, w23, SXTH #3               : adds   %x22 %w23 sxth $0x03 -> %x21
+ab38aef6 : adds x22, x23, w24, SXTH #3               : adds   %x23 %w24 sxth $0x03 -> %x22
+ab3aaf38 : adds x24, x25, w26, SXTH #3               : adds   %x25 %w26 sxth $0x03 -> %x24
+ab3cb37a : adds x26, x27, w28, SXTH #4               : adds   %x27 %w28 sxth $0x04 -> %x26
+ab21b01e : adds x30, x0, w1, SXTH #4                 : adds   %x0 %w1 sxth $0x04 -> %x30
+ab22c020 : adds x0, x1, w2, SXTW #0                  : adds   %x1 %w2 sxtw $0x00 -> %x0
+ab24c062 : adds x2, x3, w4, SXTW #0                  : adds   %x3 %w4 sxtw $0x00 -> %x2
+ab26c0a4 : adds x4, x5, w6, SXTW #0                  : adds   %x5 %w6 sxtw $0x00 -> %x4
+ab28c4e6 : adds x6, x7, w8, SXTW #1                  : adds   %x7 %w8 sxtw $0x01 -> %x6
+ab2ac528 : adds x8, x9, w10, SXTW #1                 : adds   %x9 %w10 sxtw $0x01 -> %x8
+ab2bc549 : adds x9, x10, w11, SXTW #1                : adds   %x10 %w11 sxtw $0x01 -> %x9
+ab2dc98b : adds x11, x12, w13, SXTW #2               : adds   %x12 %w13 sxtw $0x02 -> %x11
+ab2fc9cd : adds x13, x14, w15, SXTW #2               : adds   %x14 %w15 sxtw $0x02 -> %x13
+ab31ca0f : adds x15, x16, w17, SXTW #2               : adds   %x16 %w17 sxtw $0x02 -> %x15
+ab33ca51 : adds x17, x18, w19, SXTW #2               : adds   %x18 %w19 sxtw $0x02 -> %x17
+ab35ca93 : adds x19, x20, w21, SXTW #2               : adds   %x20 %w21 sxtw $0x02 -> %x19
+ab37ced5 : adds x21, x22, w23, SXTW #3               : adds   %x22 %w23 sxtw $0x03 -> %x21
+ab38cef6 : adds x22, x23, w24, SXTW #3               : adds   %x23 %w24 sxtw $0x03 -> %x22
+ab3acf38 : adds x24, x25, w26, SXTW #3               : adds   %x25 %w26 sxtw $0x03 -> %x24
+ab3cd37a : adds x26, x27, w28, SXTW #4               : adds   %x27 %w28 sxtw $0x04 -> %x26
+ab21d01e : adds x30, x0, w1, SXTW #4                 : adds   %x0 %w1 sxtw $0x04 -> %x30
+ab22e020 : adds x0, x1, x2, SXTX #0                  : adds   %x1 %x2 sxtx $0x00 -> %x0
+ab24e062 : adds x2, x3, x4, SXTX #0                  : adds   %x3 %x4 sxtx $0x00 -> %x2
+ab26e0a4 : adds x4, x5, x6, SXTX #0                  : adds   %x5 %x6 sxtx $0x00 -> %x4
+ab28e4e6 : adds x6, x7, x8, SXTX #1                  : adds   %x7 %x8 sxtx $0x01 -> %x6
+ab2ae528 : adds x8, x9, x10, SXTX #1                 : adds   %x9 %x10 sxtx $0x01 -> %x8
+ab2be549 : adds x9, x10, x11, SXTX #1                : adds   %x10 %x11 sxtx $0x01 -> %x9
+ab2de98b : adds x11, x12, x13, SXTX #2               : adds   %x12 %x13 sxtx $0x02 -> %x11
+ab2fe9cd : adds x13, x14, x15, SXTX #2               : adds   %x14 %x15 sxtx $0x02 -> %x13
+ab31ea0f : adds x15, x16, x17, SXTX #2               : adds   %x16 %x17 sxtx $0x02 -> %x15
+ab33ea51 : adds x17, x18, x19, SXTX #2               : adds   %x18 %x19 sxtx $0x02 -> %x17
+ab35ea93 : adds x19, x20, x21, SXTX #2               : adds   %x20 %x21 sxtx $0x02 -> %x19
+ab37eed5 : adds x21, x22, x23, SXTX #3               : adds   %x22 %x23 sxtx $0x03 -> %x21
+ab38eef6 : adds x22, x23, x24, SXTX #3               : adds   %x23 %x24 sxtx $0x03 -> %x22
+ab3aef38 : adds x24, x25, x26, SXTX #3               : adds   %x25 %x26 sxtx $0x03 -> %x24
+ab3cf37a : adds x26, x27, x28, SXTX #4               : adds   %x27 %x28 sxtx $0x04 -> %x26
+ab21f01e : adds x30, x0, x1, SXTX #4                 : adds   %x0 %x1 sxtx $0x04 -> %x30
 
 # ADDS    <Xd>, <Xn>, <Xm>, <extend> #<imm> (ADDS-R.RRI-64_addsub_shift)
 ab020020 : adds x0, x1, x2, LSL #0                   : adds   %x1 %x2 lsl $0x00 -> %x0
@@ -21595,6 +22024,136 @@ ab817c1e : adds x30, x0, x1, ASR #31                 : adds   %x0 %x1 asr $0x1f 
 52b9fff8 : movz w24, #0xcfff, LSL #16                : movz   $0xcfff lsl $0x10 -> %w24
 52bbfffa : movz w26, #0xdfff, LSL #16                : movz   $0xdfff lsl $0x10 -> %w26
 52bffffe : movz w30, #0xffff, LSL #16                : movz   $0xffff lsl $0x10 -> %w30
+
+# ADD     <Xd|SP>, <Xn|SP>, <R><m>, <extend> #<imm> (ADD-R.RRI-64_addsub_ext)
+8b220020 : add x0, x1, w2, UXTB #0                   : add    %x1 %w2 uxtb $0x00 -> %x0
+8b240062 : add x2, x3, w4, UXTB #0                   : add    %x3 %w4 uxtb $0x00 -> %x2
+8b2600a4 : add x4, x5, w6, UXTB #0                   : add    %x5 %w6 uxtb $0x00 -> %x4
+8b2804e6 : add x6, x7, w8, UXTB #1                   : add    %x7 %w8 uxtb $0x01 -> %x6
+8b2a0528 : add x8, x9, w10, UXTB #1                  : add    %x9 %w10 uxtb $0x01 -> %x8
+8b2b0549 : add x9, x10, w11, UXTB #1                 : add    %x10 %w11 uxtb $0x01 -> %x9
+8b2d098b : add x11, x12, w13, UXTB #2                : add    %x12 %w13 uxtb $0x02 -> %x11
+8b2f09cd : add x13, x14, w15, UXTB #2                : add    %x14 %w15 uxtb $0x02 -> %x13
+8b310a0f : add x15, x16, w17, UXTB #2                : add    %x16 %w17 uxtb $0x02 -> %x15
+8b330a51 : add x17, x18, w19, UXTB #2                : add    %x18 %w19 uxtb $0x02 -> %x17
+8b350a93 : add x19, x20, w21, UXTB #2                : add    %x20 %w21 uxtb $0x02 -> %x19
+8b370ed5 : add x21, x22, w23, UXTB #3                : add    %x22 %w23 uxtb $0x03 -> %x21
+8b380ef6 : add x22, x23, w24, UXTB #3                : add    %x23 %w24 uxtb $0x03 -> %x22
+8b3a0f38 : add x24, x25, w26, UXTB #3                : add    %x25 %w26 uxtb $0x03 -> %x24
+8b3c137a : add x26, x27, w28, UXTB #4                : add    %x27 %w28 uxtb $0x04 -> %x26
+8b21101f : add sp, x0, w1, UXTB #4                   : add    %x0 %w1 uxtb $0x04 -> %sp
+8b222020 : add x0, x1, w2, UXTH #0                   : add    %x1 %w2 uxth $0x00 -> %x0
+8b242062 : add x2, x3, w4, UXTH #0                   : add    %x3 %w4 uxth $0x00 -> %x2
+8b2620a4 : add x4, x5, w6, UXTH #0                   : add    %x5 %w6 uxth $0x00 -> %x4
+8b2824e6 : add x6, x7, w8, UXTH #1                   : add    %x7 %w8 uxth $0x01 -> %x6
+8b2a2528 : add x8, x9, w10, UXTH #1                  : add    %x9 %w10 uxth $0x01 -> %x8
+8b2b2549 : add x9, x10, w11, UXTH #1                 : add    %x10 %w11 uxth $0x01 -> %x9
+8b2d298b : add x11, x12, w13, UXTH #2                : add    %x12 %w13 uxth $0x02 -> %x11
+8b2f29cd : add x13, x14, w15, UXTH #2                : add    %x14 %w15 uxth $0x02 -> %x13
+8b312a0f : add x15, x16, w17, UXTH #2                : add    %x16 %w17 uxth $0x02 -> %x15
+8b332a51 : add x17, x18, w19, UXTH #2                : add    %x18 %w19 uxth $0x02 -> %x17
+8b352a93 : add x19, x20, w21, UXTH #2                : add    %x20 %w21 uxth $0x02 -> %x19
+8b372ed5 : add x21, x22, w23, UXTH #3                : add    %x22 %w23 uxth $0x03 -> %x21
+8b382ef6 : add x22, x23, w24, UXTH #3                : add    %x23 %w24 uxth $0x03 -> %x22
+8b3a2f38 : add x24, x25, w26, UXTH #3                : add    %x25 %w26 uxth $0x03 -> %x24
+8b3c337a : add x26, x27, w28, UXTH #4                : add    %x27 %w28 uxth $0x04 -> %x26
+8b21301f : add sp, x0, w1, UXTH #4                   : add    %x0 %w1 uxth $0x04 -> %sp
+8b224020 : add x0, x1, w2, UXTW #0                   : add    %x1 %w2 uxtw $0x00 -> %x0
+8b244062 : add x2, x3, w4, UXTW #0                   : add    %x3 %w4 uxtw $0x00 -> %x2
+8b2640a4 : add x4, x5, w6, UXTW #0                   : add    %x5 %w6 uxtw $0x00 -> %x4
+8b2844e6 : add x6, x7, w8, UXTW #1                   : add    %x7 %w8 uxtw $0x01 -> %x6
+8b2a4528 : add x8, x9, w10, UXTW #1                  : add    %x9 %w10 uxtw $0x01 -> %x8
+8b2b4549 : add x9, x10, w11, UXTW #1                 : add    %x10 %w11 uxtw $0x01 -> %x9
+8b2d498b : add x11, x12, w13, UXTW #2                : add    %x12 %w13 uxtw $0x02 -> %x11
+8b2f49cd : add x13, x14, w15, UXTW #2                : add    %x14 %w15 uxtw $0x02 -> %x13
+8b314a0f : add x15, x16, w17, UXTW #2                : add    %x16 %w17 uxtw $0x02 -> %x15
+8b334a51 : add x17, x18, w19, UXTW #2                : add    %x18 %w19 uxtw $0x02 -> %x17
+8b354a93 : add x19, x20, w21, UXTW #2                : add    %x20 %w21 uxtw $0x02 -> %x19
+8b374ed5 : add x21, x22, w23, UXTW #3                : add    %x22 %w23 uxtw $0x03 -> %x21
+8b384ef6 : add x22, x23, w24, UXTW #3                : add    %x23 %w24 uxtw $0x03 -> %x22
+8b3a4f38 : add x24, x25, w26, UXTW #3                : add    %x25 %w26 uxtw $0x03 -> %x24
+8b3c537a : add x26, x27, w28, UXTW #4                : add    %x27 %w28 uxtw $0x04 -> %x26
+8b21501f : add sp, x0, w1, UXTW #4                   : add    %x0 %w1 uxtw $0x04 -> %sp
+8b226020 : add x0, x1, x2, UXTX #0                   : add    %x1 %x2 uxtx $0x00 -> %x0
+8b246062 : add x2, x3, x4, UXTX #0                   : add    %x3 %x4 uxtx $0x00 -> %x2
+8b2660a4 : add x4, x5, x6, UXTX #0                   : add    %x5 %x6 uxtx $0x00 -> %x4
+8b2864e6 : add x6, x7, x8, UXTX #1                   : add    %x7 %x8 uxtx $0x01 -> %x6
+8b2a6528 : add x8, x9, x10, UXTX #1                  : add    %x9 %x10 uxtx $0x01 -> %x8
+8b2b6549 : add x9, x10, x11, UXTX #1                 : add    %x10 %x11 uxtx $0x01 -> %x9
+8b2d698b : add x11, x12, x13, UXTX #2                : add    %x12 %x13 uxtx $0x02 -> %x11
+8b2f69cd : add x13, x14, x15, UXTX #2                : add    %x14 %x15 uxtx $0x02 -> %x13
+8b316a0f : add x15, x16, x17, UXTX #2                : add    %x16 %x17 uxtx $0x02 -> %x15
+8b336a51 : add x17, x18, x19, UXTX #2                : add    %x18 %x19 uxtx $0x02 -> %x17
+8b356a93 : add x19, x20, x21, UXTX #2                : add    %x20 %x21 uxtx $0x02 -> %x19
+8b376ed5 : add x21, x22, x23, UXTX #3                : add    %x22 %x23 uxtx $0x03 -> %x21
+8b386ef6 : add x22, x23, x24, UXTX #3                : add    %x23 %x24 uxtx $0x03 -> %x22
+8b3a6f38 : add x24, x25, x26, UXTX #3                : add    %x25 %x26 uxtx $0x03 -> %x24
+8b3c737a : add x26, x27, x28, UXTX #4                : add    %x27 %x28 uxtx $0x04 -> %x26
+8b21701f : add sp, x0, x1, UXTX #4                   : add    %x0 %x1 uxtx $0x04 -> %sp
+8b228020 : add x0, x1, w2, SXTB #0                   : add    %x1 %w2 sxtb $0x00 -> %x0
+8b248062 : add x2, x3, w4, SXTB #0                   : add    %x3 %w4 sxtb $0x00 -> %x2
+8b2680a4 : add x4, x5, w6, SXTB #0                   : add    %x5 %w6 sxtb $0x00 -> %x4
+8b2884e6 : add x6, x7, w8, SXTB #1                   : add    %x7 %w8 sxtb $0x01 -> %x6
+8b2a8528 : add x8, x9, w10, SXTB #1                  : add    %x9 %w10 sxtb $0x01 -> %x8
+8b2b8549 : add x9, x10, w11, SXTB #1                 : add    %x10 %w11 sxtb $0x01 -> %x9
+8b2d898b : add x11, x12, w13, SXTB #2                : add    %x12 %w13 sxtb $0x02 -> %x11
+8b2f89cd : add x13, x14, w15, SXTB #2                : add    %x14 %w15 sxtb $0x02 -> %x13
+8b318a0f : add x15, x16, w17, SXTB #2                : add    %x16 %w17 sxtb $0x02 -> %x15
+8b338a51 : add x17, x18, w19, SXTB #2                : add    %x18 %w19 sxtb $0x02 -> %x17
+8b358a93 : add x19, x20, w21, SXTB #2                : add    %x20 %w21 sxtb $0x02 -> %x19
+8b378ed5 : add x21, x22, w23, SXTB #3                : add    %x22 %w23 sxtb $0x03 -> %x21
+8b388ef6 : add x22, x23, w24, SXTB #3                : add    %x23 %w24 sxtb $0x03 -> %x22
+8b3a8f38 : add x24, x25, w26, SXTB #3                : add    %x25 %w26 sxtb $0x03 -> %x24
+8b3c937a : add x26, x27, w28, SXTB #4                : add    %x27 %w28 sxtb $0x04 -> %x26
+8b21901f : add sp, x0, w1, SXTB #4                   : add    %x0 %w1 sxtb $0x04 -> %sp
+8b22a020 : add x0, x1, w2, SXTH #0                   : add    %x1 %w2 sxth $0x00 -> %x0
+8b24a062 : add x2, x3, w4, SXTH #0                   : add    %x3 %w4 sxth $0x00 -> %x2
+8b26a0a4 : add x4, x5, w6, SXTH #0                   : add    %x5 %w6 sxth $0x00 -> %x4
+8b28a4e6 : add x6, x7, w8, SXTH #1                   : add    %x7 %w8 sxth $0x01 -> %x6
+8b2aa528 : add x8, x9, w10, SXTH #1                  : add    %x9 %w10 sxth $0x01 -> %x8
+8b2ba549 : add x9, x10, w11, SXTH #1                 : add    %x10 %w11 sxth $0x01 -> %x9
+8b2da98b : add x11, x12, w13, SXTH #2                : add    %x12 %w13 sxth $0x02 -> %x11
+8b2fa9cd : add x13, x14, w15, SXTH #2                : add    %x14 %w15 sxth $0x02 -> %x13
+8b31aa0f : add x15, x16, w17, SXTH #2                : add    %x16 %w17 sxth $0x02 -> %x15
+8b33aa51 : add x17, x18, w19, SXTH #2                : add    %x18 %w19 sxth $0x02 -> %x17
+8b35aa93 : add x19, x20, w21, SXTH #2                : add    %x20 %w21 sxth $0x02 -> %x19
+8b37aed5 : add x21, x22, w23, SXTH #3                : add    %x22 %w23 sxth $0x03 -> %x21
+8b38aef6 : add x22, x23, w24, SXTH #3                : add    %x23 %w24 sxth $0x03 -> %x22
+8b3aaf38 : add x24, x25, w26, SXTH #3                : add    %x25 %w26 sxth $0x03 -> %x24
+8b3cb37a : add x26, x27, w28, SXTH #4                : add    %x27 %w28 sxth $0x04 -> %x26
+8b21b01f : add sp, x0, w1, SXTH #4                   : add    %x0 %w1 sxth $0x04 -> %sp
+8b22c020 : add x0, x1, w2, SXTW #0                   : add    %x1 %w2 sxtw $0x00 -> %x0
+8b24c062 : add x2, x3, w4, SXTW #0                   : add    %x3 %w4 sxtw $0x00 -> %x2
+8b26c0a4 : add x4, x5, w6, SXTW #0                   : add    %x5 %w6 sxtw $0x00 -> %x4
+8b28c4e6 : add x6, x7, w8, SXTW #1                   : add    %x7 %w8 sxtw $0x01 -> %x6
+8b2ac528 : add x8, x9, w10, SXTW #1                  : add    %x9 %w10 sxtw $0x01 -> %x8
+8b2bc549 : add x9, x10, w11, SXTW #1                 : add    %x10 %w11 sxtw $0x01 -> %x9
+8b2dc98b : add x11, x12, w13, SXTW #2                : add    %x12 %w13 sxtw $0x02 -> %x11
+8b2fc9cd : add x13, x14, w15, SXTW #2                : add    %x14 %w15 sxtw $0x02 -> %x13
+8b31ca0f : add x15, x16, w17, SXTW #2                : add    %x16 %w17 sxtw $0x02 -> %x15
+8b33ca51 : add x17, x18, w19, SXTW #2                : add    %x18 %w19 sxtw $0x02 -> %x17
+8b35ca93 : add x19, x20, w21, SXTW #2                : add    %x20 %w21 sxtw $0x02 -> %x19
+8b37ced5 : add x21, x22, w23, SXTW #3                : add    %x22 %w23 sxtw $0x03 -> %x21
+8b38cef6 : add x22, x23, w24, SXTW #3                : add    %x23 %w24 sxtw $0x03 -> %x22
+8b3acf38 : add x24, x25, w26, SXTW #3                : add    %x25 %w26 sxtw $0x03 -> %x24
+8b3cd37a : add x26, x27, w28, SXTW #4                : add    %x27 %w28 sxtw $0x04 -> %x26
+8b21d01f : add sp, x0, w1, SXTW #4                   : add    %x0 %w1 sxtw $0x04 -> %sp
+8b22e020 : add x0, x1, x2, SXTX #0                   : add    %x1 %x2 sxtx $0x00 -> %x0
+8b24e062 : add x2, x3, x4, SXTX #0                   : add    %x3 %x4 sxtx $0x00 -> %x2
+8b26e0a4 : add x4, x5, x6, SXTX #0                   : add    %x5 %x6 sxtx $0x00 -> %x4
+8b28e4e6 : add x6, x7, x8, SXTX #1                   : add    %x7 %x8 sxtx $0x01 -> %x6
+8b2ae528 : add x8, x9, x10, SXTX #1                  : add    %x9 %x10 sxtx $0x01 -> %x8
+8b2be549 : add x9, x10, x11, SXTX #1                 : add    %x10 %x11 sxtx $0x01 -> %x9
+8b2de98b : add x11, x12, x13, SXTX #2                : add    %x12 %x13 sxtx $0x02 -> %x11
+8b2fe9cd : add x13, x14, x15, SXTX #2                : add    %x14 %x15 sxtx $0x02 -> %x13
+8b31ea0f : add x15, x16, x17, SXTX #2                : add    %x16 %x17 sxtx $0x02 -> %x15
+8b33ea51 : add x17, x18, x19, SXTX #2                : add    %x18 %x19 sxtx $0x02 -> %x17
+8b35ea93 : add x19, x20, x21, SXTX #2                : add    %x20 %x21 sxtx $0x02 -> %x19
+8b37eed5 : add x21, x22, x23, SXTX #3                : add    %x22 %x23 sxtx $0x03 -> %x21
+8b38eef6 : add x22, x23, x24, SXTX #3                : add    %x23 %x24 sxtx $0x03 -> %x22
+8b3aef38 : add x24, x25, x26, SXTX #3                : add    %x25 %x26 sxtx $0x03 -> %x24
+8b3cf37a : add x26, x27, x28, SXTX #4                : add    %x27 %x28 sxtx $0x04 -> %x26
+8b21f01f : add sp, x0, x1, SXTX #4                   : add    %x0 %x1 sxtx $0x04 -> %sp
 
 # ADCS    <Wd>, <Wn>, <Wm> (ADCS-R.RR-32_addsub_carry)
 3a020020 : adcs w0, w1, w2                           : adcs   %w1 %w2 -> %w0
@@ -22566,6 +23125,40 @@ ba59fb0c : ccmn x24, #0x19, #0xc, NV                 : ccmn.nv %x24 $0x19 $0x0c
 ba5bfb4d : ccmn x26, #0x1b, #0xd, NV                 : ccmn.nv %x26 $0x1b $0x0d
 ba5ffbcf : ccmn x30, #0x1f, #0xf, NV                 : ccmn.nv %x30 $0x1f $0x0f
 
+# ADD     <Xd|SP>, <Xn|SP>, #<imm>{, LSL <amount>} (ADD-R.RI-64_addsub_imm)
+91000020 : add x0, x1, #0x0, LSL #0                  : add    %x1 $0x0000 lsl $0x00 -> %x0
+91040062 : add x2, x3, #0x100, LSL #0                : add    %x3 $0x0100 lsl $0x00 -> %x2
+910800a4 : add x4, x5, #0x200, LSL #0                : add    %x5 $0x0200 lsl $0x00 -> %x4
+910c00e6 : add x6, x7, #0x300, LSL #0                : add    %x7 $0x0300 lsl $0x00 -> %x6
+91100128 : add x8, x9, #0x400, LSL #0                : add    %x9 $0x0400 lsl $0x00 -> %x8
+91140149 : add x9, x10, #0x500, LSL #0               : add    %x10 $0x0500 lsl $0x00 -> %x9
+9118018b : add x11, x12, #0x600, LSL #0              : add    %x12 $0x0600 lsl $0x00 -> %x11
+911c01cd : add x13, x14, #0x700, LSL #0              : add    %x14 $0x0700 lsl $0x00 -> %x13
+9120020f : add x15, x16, #0x800, LSL #0              : add    %x16 $0x0800 lsl $0x00 -> %x15
+9123fe51 : add x17, x18, #0x8ff, LSL #0              : add    %x18 $0x08ff lsl $0x00 -> %x17
+9127fe93 : add x19, x20, #0x9ff, LSL #0              : add    %x20 $0x09ff lsl $0x00 -> %x19
+912bfed5 : add x21, x22, #0xaff, LSL #0              : add    %x22 $0x0aff lsl $0x00 -> %x21
+912ffef6 : add x22, x23, #0xbff, LSL #0              : add    %x23 $0x0bff lsl $0x00 -> %x22
+9133ff38 : add x24, x25, #0xcff, LSL #0              : add    %x25 $0x0cff lsl $0x00 -> %x24
+9137ff7a : add x26, x27, #0xdff, LSL #0              : add    %x27 $0x0dff lsl $0x00 -> %x26
+913ffc1f : add sp, x0, #0xfff, LSL #0                : add    %x0 $0x0fff lsl $0x00 -> %sp
+91400020 : add x0, x1, #0x0, LSL #12                 : add    %x1 $0x0000 lsl $0x0c -> %x0
+91440062 : add x2, x3, #0x100, LSL #12               : add    %x3 $0x0100 lsl $0x0c -> %x2
+914800a4 : add x4, x5, #0x200, LSL #12               : add    %x5 $0x0200 lsl $0x0c -> %x4
+914c00e6 : add x6, x7, #0x300, LSL #12               : add    %x7 $0x0300 lsl $0x0c -> %x6
+91500128 : add x8, x9, #0x400, LSL #12               : add    %x9 $0x0400 lsl $0x0c -> %x8
+91540149 : add x9, x10, #0x500, LSL #12              : add    %x10 $0x0500 lsl $0x0c -> %x9
+9158018b : add x11, x12, #0x600, LSL #12             : add    %x12 $0x0600 lsl $0x0c -> %x11
+915c01cd : add x13, x14, #0x700, LSL #12             : add    %x14 $0x0700 lsl $0x0c -> %x13
+9160020f : add x15, x16, #0x800, LSL #12             : add    %x16 $0x0800 lsl $0x0c -> %x15
+9163fe51 : add x17, x18, #0x8ff, LSL #12             : add    %x18 $0x08ff lsl $0x0c -> %x17
+9167fe93 : add x19, x20, #0x9ff, LSL #12             : add    %x20 $0x09ff lsl $0x0c -> %x19
+916bfed5 : add x21, x22, #0xaff, LSL #12             : add    %x22 $0x0aff lsl $0x0c -> %x21
+916ffef6 : add x22, x23, #0xbff, LSL #12             : add    %x23 $0x0bff lsl $0x0c -> %x22
+9173ff38 : add x24, x25, #0xcff, LSL #12             : add    %x25 $0x0cff lsl $0x0c -> %x24
+9177ff7a : add x26, x27, #0xdff, LSL #12             : add    %x27 $0x0dff lsl $0x0c -> %x26
+917ffc1f : add sp, x0, #0xfff, LSL #12               : add    %x0 $0x0fff lsl $0x0c -> %sp
+
 # ANDS    <Wd>, <Wn>, <Wm>, <extend> #<imm> (ANDS-R.RRI-32_log_shift)
 6a020020 : ands w0, w1, w2, LSL #0                   : ands   %w1 %w2 lsl $0x00 -> %w0
 6a040862 : ands w2, w3, w4, LSL #2                   : ands   %w3 %w4 lsl $0x02 -> %w2
@@ -22929,6 +23522,40 @@ ba1802f6 : adcs x22, x23, x24                        : adcs   %x23 %x24 -> %x22
 ba1a0338 : adcs x24, x25, x26                        : adcs   %x25 %x26 -> %x24
 ba1c037a : adcs x26, x27, x28                        : adcs   %x27 %x28 -> %x26
 ba01001e : adcs x30, x0, x1                          : adcs   %x0 %x1 -> %x30
+
+# SUBS    <Xd>, <Xn|SP>, #<imm>{, LSL <amount>} (SUBS-R.RI-64S_addsub_imm)
+f1000020 : subs x0, x1, #0x0, LSL #0                 : subs   %x1 $0x0000 lsl $0x00 -> %x0
+f1040062 : subs x2, x3, #0x100, LSL #0               : subs   %x3 $0x0100 lsl $0x00 -> %x2
+f10800a4 : subs x4, x5, #0x200, LSL #0               : subs   %x5 $0x0200 lsl $0x00 -> %x4
+f10c00e6 : subs x6, x7, #0x300, LSL #0               : subs   %x7 $0x0300 lsl $0x00 -> %x6
+f1100128 : subs x8, x9, #0x400, LSL #0               : subs   %x9 $0x0400 lsl $0x00 -> %x8
+f1140149 : subs x9, x10, #0x500, LSL #0              : subs   %x10 $0x0500 lsl $0x00 -> %x9
+f118018b : subs x11, x12, #0x600, LSL #0             : subs   %x12 $0x0600 lsl $0x00 -> %x11
+f11c01cd : subs x13, x14, #0x700, LSL #0             : subs   %x14 $0x0700 lsl $0x00 -> %x13
+f120020f : subs x15, x16, #0x800, LSL #0             : subs   %x16 $0x0800 lsl $0x00 -> %x15
+f123fe51 : subs x17, x18, #0x8ff, LSL #0             : subs   %x18 $0x08ff lsl $0x00 -> %x17
+f127fe93 : subs x19, x20, #0x9ff, LSL #0             : subs   %x20 $0x09ff lsl $0x00 -> %x19
+f12bfed5 : subs x21, x22, #0xaff, LSL #0             : subs   %x22 $0x0aff lsl $0x00 -> %x21
+f12ffef6 : subs x22, x23, #0xbff, LSL #0             : subs   %x23 $0x0bff lsl $0x00 -> %x22
+f133ff38 : subs x24, x25, #0xcff, LSL #0             : subs   %x25 $0x0cff lsl $0x00 -> %x24
+f137ff7a : subs x26, x27, #0xdff, LSL #0             : subs   %x27 $0x0dff lsl $0x00 -> %x26
+f13ffc1e : subs x30, x0, #0xfff, LSL #0              : subs   %x0 $0x0fff lsl $0x00 -> %x30
+f1400020 : subs x0, x1, #0x0, LSL #12                : subs   %x1 $0x0000 lsl $0x0c -> %x0
+f1440062 : subs x2, x3, #0x100, LSL #12              : subs   %x3 $0x0100 lsl $0x0c -> %x2
+f14800a4 : subs x4, x5, #0x200, LSL #12              : subs   %x5 $0x0200 lsl $0x0c -> %x4
+f14c00e6 : subs x6, x7, #0x300, LSL #12              : subs   %x7 $0x0300 lsl $0x0c -> %x6
+f1500128 : subs x8, x9, #0x400, LSL #12              : subs   %x9 $0x0400 lsl $0x0c -> %x8
+f1540149 : subs x9, x10, #0x500, LSL #12             : subs   %x10 $0x0500 lsl $0x0c -> %x9
+f158018b : subs x11, x12, #0x600, LSL #12            : subs   %x12 $0x0600 lsl $0x0c -> %x11
+f15c01cd : subs x13, x14, #0x700, LSL #12            : subs   %x14 $0x0700 lsl $0x0c -> %x13
+f160020f : subs x15, x16, #0x800, LSL #12            : subs   %x16 $0x0800 lsl $0x0c -> %x15
+f163fe51 : subs x17, x18, #0x8ff, LSL #12            : subs   %x18 $0x08ff lsl $0x0c -> %x17
+f167fe93 : subs x19, x20, #0x9ff, LSL #12            : subs   %x20 $0x09ff lsl $0x0c -> %x19
+f16bfed5 : subs x21, x22, #0xaff, LSL #12            : subs   %x22 $0x0aff lsl $0x0c -> %x21
+f16ffef6 : subs x22, x23, #0xbff, LSL #12            : subs   %x23 $0x0bff lsl $0x0c -> %x22
+f173ff38 : subs x24, x25, #0xcff, LSL #12            : subs   %x25 $0x0cff lsl $0x0c -> %x24
+f177ff7a : subs x26, x27, #0xdff, LSL #12            : subs   %x27 $0x0dff lsl $0x0c -> %x26
+f17ffc1e : subs x30, x0, #0xfff, LSL #12             : subs   %x0 $0x0fff lsl $0x0c -> %x30
 
 # CBZ     <Xt>, #<imm> (CBZ-R.I-64_compbranch)
 b4800000 : cbz x0, #-0x100000                        : cbz    $0x000000000ff00000 %x0
@@ -23506,6 +24133,40 @@ eac17c1e : ands x30, x0, x1, ROR #31                 : ands   %x0 %x1 ror $0x1f 
 9adc2f7a : rorv x26, x27, x28                        : rorv   %x27 %x28 -> %x26
 9ac12c1e : rorv x30, x0, x1                          : rorv   %x0 %x1 -> %x30
 
+# ADDS    <Wd>, <Wn|SP>, #<imm>{, LSL <amount>} (ADDS-R.RI-32S_addsub_imm)
+31000020 : adds w0, w1, #0x0, LSL #0                 : adds   %w1 $0x0000 lsl $0x00 -> %w0
+31040062 : adds w2, w3, #0x100, LSL #0               : adds   %w3 $0x0100 lsl $0x00 -> %w2
+310800a4 : adds w4, w5, #0x200, LSL #0               : adds   %w5 $0x0200 lsl $0x00 -> %w4
+310c00e6 : adds w6, w7, #0x300, LSL #0               : adds   %w7 $0x0300 lsl $0x00 -> %w6
+31100128 : adds w8, w9, #0x400, LSL #0               : adds   %w9 $0x0400 lsl $0x00 -> %w8
+31140149 : adds w9, w10, #0x500, LSL #0              : adds   %w10 $0x0500 lsl $0x00 -> %w9
+3118018b : adds w11, w12, #0x600, LSL #0             : adds   %w12 $0x0600 lsl $0x00 -> %w11
+311c01cd : adds w13, w14, #0x700, LSL #0             : adds   %w14 $0x0700 lsl $0x00 -> %w13
+3120020f : adds w15, w16, #0x800, LSL #0             : adds   %w16 $0x0800 lsl $0x00 -> %w15
+3123fe51 : adds w17, w18, #0x8ff, LSL #0             : adds   %w18 $0x08ff lsl $0x00 -> %w17
+3127fe93 : adds w19, w20, #0x9ff, LSL #0             : adds   %w20 $0x09ff lsl $0x00 -> %w19
+312bfed5 : adds w21, w22, #0xaff, LSL #0             : adds   %w22 $0x0aff lsl $0x00 -> %w21
+312ffef6 : adds w22, w23, #0xbff, LSL #0             : adds   %w23 $0x0bff lsl $0x00 -> %w22
+3133ff38 : adds w24, w25, #0xcff, LSL #0             : adds   %w25 $0x0cff lsl $0x00 -> %w24
+3137ff7a : adds w26, w27, #0xdff, LSL #0             : adds   %w27 $0x0dff lsl $0x00 -> %w26
+313ffc1e : adds w30, w0, #0xfff, LSL #0              : adds   %w0 $0x0fff lsl $0x00 -> %w30
+31400020 : adds w0, w1, #0x0, LSL #12                : adds   %w1 $0x0000 lsl $0x0c -> %w0
+31440062 : adds w2, w3, #0x100, LSL #12              : adds   %w3 $0x0100 lsl $0x0c -> %w2
+314800a4 : adds w4, w5, #0x200, LSL #12              : adds   %w5 $0x0200 lsl $0x0c -> %w4
+314c00e6 : adds w6, w7, #0x300, LSL #12              : adds   %w7 $0x0300 lsl $0x0c -> %w6
+31500128 : adds w8, w9, #0x400, LSL #12              : adds   %w9 $0x0400 lsl $0x0c -> %w8
+31540149 : adds w9, w10, #0x500, LSL #12             : adds   %w10 $0x0500 lsl $0x0c -> %w9
+3158018b : adds w11, w12, #0x600, LSL #12            : adds   %w12 $0x0600 lsl $0x0c -> %w11
+315c01cd : adds w13, w14, #0x700, LSL #12            : adds   %w14 $0x0700 lsl $0x0c -> %w13
+3160020f : adds w15, w16, #0x800, LSL #12            : adds   %w16 $0x0800 lsl $0x0c -> %w15
+3163fe51 : adds w17, w18, #0x8ff, LSL #12            : adds   %w18 $0x08ff lsl $0x0c -> %w17
+3167fe93 : adds w19, w20, #0x9ff, LSL #12            : adds   %w20 $0x09ff lsl $0x0c -> %w19
+316bfed5 : adds w21, w22, #0xaff, LSL #12            : adds   %w22 $0x0aff lsl $0x0c -> %w21
+316ffef6 : adds w22, w23, #0xbff, LSL #12            : adds   %w23 $0x0bff lsl $0x0c -> %w22
+3173ff38 : adds w24, w25, #0xcff, LSL #12            : adds   %w25 $0x0cff lsl $0x0c -> %w24
+3177ff7a : adds w26, w27, #0xdff, LSL #12            : adds   %w27 $0x0dff lsl $0x0c -> %w26
+317ffc1e : adds w30, w0, #0xfff, LSL #12             : adds   %w0 $0x0fff lsl $0x0c -> %w30
+
 # UDIV    <Wd>, <Wn>, <Wm> (UDIV-R.RR-32_dp_2src)
 1ac20820 : udiv w0, w1, w2                           : udiv   %w1 %w2 -> %w0
 1ac40862 : udiv w2, w3, w4                           : udiv   %w3 %w4 -> %w2
@@ -23627,6 +24288,40 @@ eac17c1e : ands x30, x0, x1, ROR #31                 : ands   %x0 %x1 ror $0x1f 
 93da6738 : extr x24, x25, x26, #0x19                 : extr   %x25 %x26 $0x19 -> %x24
 93dc6f7a : extr x26, x27, x28, #0x1b                 : extr   %x27 %x28 $0x1b -> %x26
 93c17c1e : extr x30, x0, x1, #0x1f                   : extr   %x0 %x1 $0x1f -> %x30
+
+# SUBS    <Wd>, <Wn|SP>, #<imm>{, LSL <amount>} (SUBS-R.RI-32S_addsub_imm)
+71000020 : subs w0, w1, #0x0, LSL #0                 : subs   %w1 $0x0000 lsl $0x00 -> %w0
+71040062 : subs w2, w3, #0x100, LSL #0               : subs   %w3 $0x0100 lsl $0x00 -> %w2
+710800a4 : subs w4, w5, #0x200, LSL #0               : subs   %w5 $0x0200 lsl $0x00 -> %w4
+710c00e6 : subs w6, w7, #0x300, LSL #0               : subs   %w7 $0x0300 lsl $0x00 -> %w6
+71100128 : subs w8, w9, #0x400, LSL #0               : subs   %w9 $0x0400 lsl $0x00 -> %w8
+71140149 : subs w9, w10, #0x500, LSL #0              : subs   %w10 $0x0500 lsl $0x00 -> %w9
+7118018b : subs w11, w12, #0x600, LSL #0             : subs   %w12 $0x0600 lsl $0x00 -> %w11
+711c01cd : subs w13, w14, #0x700, LSL #0             : subs   %w14 $0x0700 lsl $0x00 -> %w13
+7120020f : subs w15, w16, #0x800, LSL #0             : subs   %w16 $0x0800 lsl $0x00 -> %w15
+7123fe51 : subs w17, w18, #0x8ff, LSL #0             : subs   %w18 $0x08ff lsl $0x00 -> %w17
+7127fe93 : subs w19, w20, #0x9ff, LSL #0             : subs   %w20 $0x09ff lsl $0x00 -> %w19
+712bfed5 : subs w21, w22, #0xaff, LSL #0             : subs   %w22 $0x0aff lsl $0x00 -> %w21
+712ffef6 : subs w22, w23, #0xbff, LSL #0             : subs   %w23 $0x0bff lsl $0x00 -> %w22
+7133ff38 : subs w24, w25, #0xcff, LSL #0             : subs   %w25 $0x0cff lsl $0x00 -> %w24
+7137ff7a : subs w26, w27, #0xdff, LSL #0             : subs   %w27 $0x0dff lsl $0x00 -> %w26
+713ffc1e : subs w30, w0, #0xfff, LSL #0              : subs   %w0 $0x0fff lsl $0x00 -> %w30
+71400020 : subs w0, w1, #0x0, LSL #12                : subs   %w1 $0x0000 lsl $0x0c -> %w0
+71440062 : subs w2, w3, #0x100, LSL #12              : subs   %w3 $0x0100 lsl $0x0c -> %w2
+714800a4 : subs w4, w5, #0x200, LSL #12              : subs   %w5 $0x0200 lsl $0x0c -> %w4
+714c00e6 : subs w6, w7, #0x300, LSL #12              : subs   %w7 $0x0300 lsl $0x0c -> %w6
+71500128 : subs w8, w9, #0x400, LSL #12              : subs   %w9 $0x0400 lsl $0x0c -> %w8
+71540149 : subs w9, w10, #0x500, LSL #12             : subs   %w10 $0x0500 lsl $0x0c -> %w9
+7158018b : subs w11, w12, #0x600, LSL #12            : subs   %w12 $0x0600 lsl $0x0c -> %w11
+715c01cd : subs w13, w14, #0x700, LSL #12            : subs   %w14 $0x0700 lsl $0x0c -> %w13
+7160020f : subs w15, w16, #0x800, LSL #12            : subs   %w16 $0x0800 lsl $0x0c -> %w15
+7163fe51 : subs w17, w18, #0x8ff, LSL #12            : subs   %w18 $0x08ff lsl $0x0c -> %w17
+7167fe93 : subs w19, w20, #0x9ff, LSL #12            : subs   %w20 $0x09ff lsl $0x0c -> %w19
+716bfed5 : subs w21, w22, #0xaff, LSL #12            : subs   %w22 $0x0aff lsl $0x0c -> %w21
+716ffef6 : subs w22, w23, #0xbff, LSL #12            : subs   %w23 $0x0bff lsl $0x0c -> %w22
+7173ff38 : subs w24, w25, #0xcff, LSL #12            : subs   %w25 $0x0cff lsl $0x0c -> %w24
+7177ff7a : subs w26, w27, #0xdff, LSL #12            : subs   %w27 $0x0dff lsl $0x0c -> %w26
+717ffc1e : subs w30, w0, #0xfff, LSL #12             : subs   %w0 $0x0fff lsl $0x0c -> %w30
 
 # EOR     <Xd>, <Xn>, <Xm>, <extend> #<imm> (EOR-R.RRI-64_log_shift)
 ca020020 : eor x0, x1, x2, LSL #0                    : eor    %x1 %x2 lsl $0x00 -> %x0
@@ -24928,6 +25623,40 @@ fa40f3cf : ccmp x30, x0, #0xf, NV                    : ccmp.nv %x30 %x0 $0x0f
 345ffffa : cbz w26, #0xbfffc                         : cbz    $0x00000000100bfffc %w26
 347ffffe : cbz w30, #0xffffc                         : cbz    $0x00000000100ffffc %w30
 
+# SUB     <Wd|SP>, <Wn|SP>, #<imm>{, LSL <amount>} (SUB-R.RI-32_addsub_imm)
+51000020 : sub w0, w1, #0x0, LSL #0                  : sub    %w1 $0x0000 lsl $0x00 -> %w0
+51040062 : sub w2, w3, #0x100, LSL #0                : sub    %w3 $0x0100 lsl $0x00 -> %w2
+510800a4 : sub w4, w5, #0x200, LSL #0                : sub    %w5 $0x0200 lsl $0x00 -> %w4
+510c00e6 : sub w6, w7, #0x300, LSL #0                : sub    %w7 $0x0300 lsl $0x00 -> %w6
+51100128 : sub w8, w9, #0x400, LSL #0                : sub    %w9 $0x0400 lsl $0x00 -> %w8
+51140149 : sub w9, w10, #0x500, LSL #0               : sub    %w10 $0x0500 lsl $0x00 -> %w9
+5118018b : sub w11, w12, #0x600, LSL #0              : sub    %w12 $0x0600 lsl $0x00 -> %w11
+511c01cd : sub w13, w14, #0x700, LSL #0              : sub    %w14 $0x0700 lsl $0x00 -> %w13
+5120020f : sub w15, w16, #0x800, LSL #0              : sub    %w16 $0x0800 lsl $0x00 -> %w15
+5123fe51 : sub w17, w18, #0x8ff, LSL #0              : sub    %w18 $0x08ff lsl $0x00 -> %w17
+5127fe93 : sub w19, w20, #0x9ff, LSL #0              : sub    %w20 $0x09ff lsl $0x00 -> %w19
+512bfed5 : sub w21, w22, #0xaff, LSL #0              : sub    %w22 $0x0aff lsl $0x00 -> %w21
+512ffef6 : sub w22, w23, #0xbff, LSL #0              : sub    %w23 $0x0bff lsl $0x00 -> %w22
+5133ff38 : sub w24, w25, #0xcff, LSL #0              : sub    %w25 $0x0cff lsl $0x00 -> %w24
+5137ff7a : sub w26, w27, #0xdff, LSL #0              : sub    %w27 $0x0dff lsl $0x00 -> %w26
+513ffc1f : sub wsp, w0, #0xfff, LSL #0               : sub    %w0 $0x0fff lsl $0x00 -> %wsp
+51400020 : sub w0, w1, #0x0, LSL #12                 : sub    %w1 $0x0000 lsl $0x0c -> %w0
+51440062 : sub w2, w3, #0x100, LSL #12               : sub    %w3 $0x0100 lsl $0x0c -> %w2
+514800a4 : sub w4, w5, #0x200, LSL #12               : sub    %w5 $0x0200 lsl $0x0c -> %w4
+514c00e6 : sub w6, w7, #0x300, LSL #12               : sub    %w7 $0x0300 lsl $0x0c -> %w6
+51500128 : sub w8, w9, #0x400, LSL #12               : sub    %w9 $0x0400 lsl $0x0c -> %w8
+51540149 : sub w9, w10, #0x500, LSL #12              : sub    %w10 $0x0500 lsl $0x0c -> %w9
+5158018b : sub w11, w12, #0x600, LSL #12             : sub    %w12 $0x0600 lsl $0x0c -> %w11
+515c01cd : sub w13, w14, #0x700, LSL #12             : sub    %w14 $0x0700 lsl $0x0c -> %w13
+5160020f : sub w15, w16, #0x800, LSL #12             : sub    %w16 $0x0800 lsl $0x0c -> %w15
+5163fe51 : sub w17, w18, #0x8ff, LSL #12             : sub    %w18 $0x08ff lsl $0x0c -> %w17
+5167fe93 : sub w19, w20, #0x9ff, LSL #12             : sub    %w20 $0x09ff lsl $0x0c -> %w19
+516bfed5 : sub w21, w22, #0xaff, LSL #12             : sub    %w22 $0x0aff lsl $0x0c -> %w21
+516ffef6 : sub w22, w23, #0xbff, LSL #12             : sub    %w23 $0x0bff lsl $0x0c -> %w22
+5173ff38 : sub w24, w25, #0xcff, LSL #12             : sub    %w25 $0x0cff lsl $0x0c -> %w24
+5177ff7a : sub w26, w27, #0xdff, LSL #12             : sub    %w27 $0x0dff lsl $0x0c -> %w26
+517ffc1f : sub wsp, w0, #0xfff, LSL #12              : sub    %w0 $0x0fff lsl $0x0c -> %wsp
+
 # LSRV    <Wd>, <Wn>, <Wm> (LSRV-R.RR-32_dp_2src)
 1ac22420 : lsrv w0, w1, w2                           : lsrv   %w1 %w2 -> %w0
 1ac42462 : lsrv w2, w3, w4                           : lsrv   %w3 %w4 -> %w2
@@ -25498,6 +26227,56 @@ fa40f3cf : ccmp x30, x0, #0xf, NV                    : ccmp.nv %x30 %x0 $0x0f
 1a1c037a : adc w26, w27, w28                         : adc    %w27 %w28 -> %w26
 1a01001e : adc w30, w0, w1                           : adc    %w0 %w1 -> %w30
 
+# SUB     <Wd>, <Wn>, <Wm>, <extend> #<imm> (SUB-R.RRI-32_addsub_shift)
+4b020020 : sub w0, w1, w2, LSL #0                    : sub    %w1 %w2 lsl $0x00 -> %w0
+4b040862 : sub w2, w3, w4, LSL #2                    : sub    %w3 %w4 lsl $0x02 -> %w2
+4b0610a4 : sub w4, w5, w6, LSL #4                    : sub    %w5 %w6 lsl $0x04 -> %w4
+4b0818e6 : sub w6, w7, w8, LSL #6                    : sub    %w7 %w8 lsl $0x06 -> %w6
+4b0a2128 : sub w8, w9, w10, LSL #8                   : sub    %w9 %w10 lsl $0x08 -> %w8
+4b0b2949 : sub w9, w10, w11, LSL #10                 : sub    %w10 %w11 lsl $0x0a -> %w9
+4b0d318b : sub w11, w12, w13, LSL #12                : sub    %w12 %w13 lsl $0x0c -> %w11
+4b0f39cd : sub w13, w14, w15, LSL #14                : sub    %w14 %w15 lsl $0x0e -> %w13
+4b11420f : sub w15, w16, w17, LSL #16                : sub    %w16 %w17 lsl $0x10 -> %w15
+4b134651 : sub w17, w18, w19, LSL #17                : sub    %w18 %w19 lsl $0x11 -> %w17
+4b154e93 : sub w19, w20, w21, LSL #19                : sub    %w20 %w21 lsl $0x13 -> %w19
+4b1756d5 : sub w21, w22, w23, LSL #21                : sub    %w22 %w23 lsl $0x15 -> %w21
+4b185ef6 : sub w22, w23, w24, LSL #23                : sub    %w23 %w24 lsl $0x17 -> %w22
+4b1a6738 : sub w24, w25, w26, LSL #25                : sub    %w25 %w26 lsl $0x19 -> %w24
+4b1c6f7a : sub w26, w27, w28, LSL #27                : sub    %w27 %w28 lsl $0x1b -> %w26
+4b017c1e : sub w30, w0, w1, LSL #31                  : sub    %w0 %w1 lsl $0x1f -> %w30
+4b420020 : sub w0, w1, w2, LSR #0                    : sub    %w1 %w2 lsr $0x00 -> %w0
+4b440862 : sub w2, w3, w4, LSR #2                    : sub    %w3 %w4 lsr $0x02 -> %w2
+4b4610a4 : sub w4, w5, w6, LSR #4                    : sub    %w5 %w6 lsr $0x04 -> %w4
+4b4818e6 : sub w6, w7, w8, LSR #6                    : sub    %w7 %w8 lsr $0x06 -> %w6
+4b4a2128 : sub w8, w9, w10, LSR #8                   : sub    %w9 %w10 lsr $0x08 -> %w8
+4b4b2949 : sub w9, w10, w11, LSR #10                 : sub    %w10 %w11 lsr $0x0a -> %w9
+4b4d318b : sub w11, w12, w13, LSR #12                : sub    %w12 %w13 lsr $0x0c -> %w11
+4b4f39cd : sub w13, w14, w15, LSR #14                : sub    %w14 %w15 lsr $0x0e -> %w13
+4b51420f : sub w15, w16, w17, LSR #16                : sub    %w16 %w17 lsr $0x10 -> %w15
+4b534651 : sub w17, w18, w19, LSR #17                : sub    %w18 %w19 lsr $0x11 -> %w17
+4b554e93 : sub w19, w20, w21, LSR #19                : sub    %w20 %w21 lsr $0x13 -> %w19
+4b5756d5 : sub w21, w22, w23, LSR #21                : sub    %w22 %w23 lsr $0x15 -> %w21
+4b585ef6 : sub w22, w23, w24, LSR #23                : sub    %w23 %w24 lsr $0x17 -> %w22
+4b5a6738 : sub w24, w25, w26, LSR #25                : sub    %w25 %w26 lsr $0x19 -> %w24
+4b5c6f7a : sub w26, w27, w28, LSR #27                : sub    %w27 %w28 lsr $0x1b -> %w26
+4b417c1e : sub w30, w0, w1, LSR #31                  : sub    %w0 %w1 lsr $0x1f -> %w30
+4b820020 : sub w0, w1, w2, ASR #0                    : sub    %w1 %w2 asr $0x00 -> %w0
+4b840862 : sub w2, w3, w4, ASR #2                    : sub    %w3 %w4 asr $0x02 -> %w2
+4b8610a4 : sub w4, w5, w6, ASR #4                    : sub    %w5 %w6 asr $0x04 -> %w4
+4b8818e6 : sub w6, w7, w8, ASR #6                    : sub    %w7 %w8 asr $0x06 -> %w6
+4b8a2128 : sub w8, w9, w10, ASR #8                   : sub    %w9 %w10 asr $0x08 -> %w8
+4b8b2949 : sub w9, w10, w11, ASR #10                 : sub    %w10 %w11 asr $0x0a -> %w9
+4b8d318b : sub w11, w12, w13, ASR #12                : sub    %w12 %w13 asr $0x0c -> %w11
+4b8f39cd : sub w13, w14, w15, ASR #14                : sub    %w14 %w15 asr $0x0e -> %w13
+4b91420f : sub w15, w16, w17, ASR #16                : sub    %w16 %w17 asr $0x10 -> %w15
+4b934651 : sub w17, w18, w19, ASR #17                : sub    %w18 %w19 asr $0x11 -> %w17
+4b954e93 : sub w19, w20, w21, ASR #19                : sub    %w20 %w21 asr $0x13 -> %w19
+4b9756d5 : sub w21, w22, w23, ASR #21                : sub    %w22 %w23 asr $0x15 -> %w21
+4b985ef6 : sub w22, w23, w24, ASR #23                : sub    %w23 %w24 asr $0x17 -> %w22
+4b9a6738 : sub w24, w25, w26, ASR #25                : sub    %w25 %w26 asr $0x19 -> %w24
+4b9c6f7a : sub w26, w27, w28, ASR #27                : sub    %w27 %w28 asr $0x1b -> %w26
+4b817c1e : sub w30, w0, w1, ASR #31                  : sub    %w0 %w1 asr $0x1f -> %w30
+
 # CCMN    <Wn>, <Wm>, #<imm>, <cond> (CCMN-R.RI-32_condcmp_reg)
 3a410000 : ccmn w0, w1, #0x0, EQ                     : ccmn.eq %w0 %w1 $0x00
 3a430041 : ccmn w2, w3, #0x1, EQ                     : ccmn.eq %w2 %w3 $0x01
@@ -25839,6 +26618,136 @@ cae17c1e : eon x30, x0, x1, ROR #31                  : eon    %x0 %x1 ror $0x1f 
 5ac00338 : rbit w24, w25                             : rbit   %w25 -> %w24
 5ac0037a : rbit w26, w27                             : rbit   %w27 -> %w26
 5ac0001e : rbit w30, w0                              : rbit   %w0 -> %w30
+
+# SUBS    <Xd>, <Xn|SP>, <R><m>, <extend> #<imm> (SUBS-R.RRI-64S_addsub_ext)
+eb220020 : subs x0, x1, w2, UXTB #0                  : subs   %x1 %w2 uxtb $0x00 -> %x0
+eb240062 : subs x2, x3, w4, UXTB #0                  : subs   %x3 %w4 uxtb $0x00 -> %x2
+eb2600a4 : subs x4, x5, w6, UXTB #0                  : subs   %x5 %w6 uxtb $0x00 -> %x4
+eb2804e6 : subs x6, x7, w8, UXTB #1                  : subs   %x7 %w8 uxtb $0x01 -> %x6
+eb2a0528 : subs x8, x9, w10, UXTB #1                 : subs   %x9 %w10 uxtb $0x01 -> %x8
+eb2b0549 : subs x9, x10, w11, UXTB #1                : subs   %x10 %w11 uxtb $0x01 -> %x9
+eb2d098b : subs x11, x12, w13, UXTB #2               : subs   %x12 %w13 uxtb $0x02 -> %x11
+eb2f09cd : subs x13, x14, w15, UXTB #2               : subs   %x14 %w15 uxtb $0x02 -> %x13
+eb310a0f : subs x15, x16, w17, UXTB #2               : subs   %x16 %w17 uxtb $0x02 -> %x15
+eb330a51 : subs x17, x18, w19, UXTB #2               : subs   %x18 %w19 uxtb $0x02 -> %x17
+eb350a93 : subs x19, x20, w21, UXTB #2               : subs   %x20 %w21 uxtb $0x02 -> %x19
+eb370ed5 : subs x21, x22, w23, UXTB #3               : subs   %x22 %w23 uxtb $0x03 -> %x21
+eb380ef6 : subs x22, x23, w24, UXTB #3               : subs   %x23 %w24 uxtb $0x03 -> %x22
+eb3a0f38 : subs x24, x25, w26, UXTB #3               : subs   %x25 %w26 uxtb $0x03 -> %x24
+eb3c137a : subs x26, x27, w28, UXTB #4               : subs   %x27 %w28 uxtb $0x04 -> %x26
+eb21101e : subs x30, x0, w1, UXTB #4                 : subs   %x0 %w1 uxtb $0x04 -> %x30
+eb222020 : subs x0, x1, w2, UXTH #0                  : subs   %x1 %w2 uxth $0x00 -> %x0
+eb242062 : subs x2, x3, w4, UXTH #0                  : subs   %x3 %w4 uxth $0x00 -> %x2
+eb2620a4 : subs x4, x5, w6, UXTH #0                  : subs   %x5 %w6 uxth $0x00 -> %x4
+eb2824e6 : subs x6, x7, w8, UXTH #1                  : subs   %x7 %w8 uxth $0x01 -> %x6
+eb2a2528 : subs x8, x9, w10, UXTH #1                 : subs   %x9 %w10 uxth $0x01 -> %x8
+eb2b2549 : subs x9, x10, w11, UXTH #1                : subs   %x10 %w11 uxth $0x01 -> %x9
+eb2d298b : subs x11, x12, w13, UXTH #2               : subs   %x12 %w13 uxth $0x02 -> %x11
+eb2f29cd : subs x13, x14, w15, UXTH #2               : subs   %x14 %w15 uxth $0x02 -> %x13
+eb312a0f : subs x15, x16, w17, UXTH #2               : subs   %x16 %w17 uxth $0x02 -> %x15
+eb332a51 : subs x17, x18, w19, UXTH #2               : subs   %x18 %w19 uxth $0x02 -> %x17
+eb352a93 : subs x19, x20, w21, UXTH #2               : subs   %x20 %w21 uxth $0x02 -> %x19
+eb372ed5 : subs x21, x22, w23, UXTH #3               : subs   %x22 %w23 uxth $0x03 -> %x21
+eb382ef6 : subs x22, x23, w24, UXTH #3               : subs   %x23 %w24 uxth $0x03 -> %x22
+eb3a2f38 : subs x24, x25, w26, UXTH #3               : subs   %x25 %w26 uxth $0x03 -> %x24
+eb3c337a : subs x26, x27, w28, UXTH #4               : subs   %x27 %w28 uxth $0x04 -> %x26
+eb21301e : subs x30, x0, w1, UXTH #4                 : subs   %x0 %w1 uxth $0x04 -> %x30
+eb224020 : subs x0, x1, w2, UXTW #0                  : subs   %x1 %w2 uxtw $0x00 -> %x0
+eb244062 : subs x2, x3, w4, UXTW #0                  : subs   %x3 %w4 uxtw $0x00 -> %x2
+eb2640a4 : subs x4, x5, w6, UXTW #0                  : subs   %x5 %w6 uxtw $0x00 -> %x4
+eb2844e6 : subs x6, x7, w8, UXTW #1                  : subs   %x7 %w8 uxtw $0x01 -> %x6
+eb2a4528 : subs x8, x9, w10, UXTW #1                 : subs   %x9 %w10 uxtw $0x01 -> %x8
+eb2b4549 : subs x9, x10, w11, UXTW #1                : subs   %x10 %w11 uxtw $0x01 -> %x9
+eb2d498b : subs x11, x12, w13, UXTW #2               : subs   %x12 %w13 uxtw $0x02 -> %x11
+eb2f49cd : subs x13, x14, w15, UXTW #2               : subs   %x14 %w15 uxtw $0x02 -> %x13
+eb314a0f : subs x15, x16, w17, UXTW #2               : subs   %x16 %w17 uxtw $0x02 -> %x15
+eb334a51 : subs x17, x18, w19, UXTW #2               : subs   %x18 %w19 uxtw $0x02 -> %x17
+eb354a93 : subs x19, x20, w21, UXTW #2               : subs   %x20 %w21 uxtw $0x02 -> %x19
+eb374ed5 : subs x21, x22, w23, UXTW #3               : subs   %x22 %w23 uxtw $0x03 -> %x21
+eb384ef6 : subs x22, x23, w24, UXTW #3               : subs   %x23 %w24 uxtw $0x03 -> %x22
+eb3a4f38 : subs x24, x25, w26, UXTW #3               : subs   %x25 %w26 uxtw $0x03 -> %x24
+eb3c537a : subs x26, x27, w28, UXTW #4               : subs   %x27 %w28 uxtw $0x04 -> %x26
+eb21501e : subs x30, x0, w1, UXTW #4                 : subs   %x0 %w1 uxtw $0x04 -> %x30
+eb226020 : subs x0, x1, x2, UXTX #0                  : subs   %x1 %x2 uxtx $0x00 -> %x0
+eb246062 : subs x2, x3, x4, UXTX #0                  : subs   %x3 %x4 uxtx $0x00 -> %x2
+eb2660a4 : subs x4, x5, x6, UXTX #0                  : subs   %x5 %x6 uxtx $0x00 -> %x4
+eb2864e6 : subs x6, x7, x8, UXTX #1                  : subs   %x7 %x8 uxtx $0x01 -> %x6
+eb2a6528 : subs x8, x9, x10, UXTX #1                 : subs   %x9 %x10 uxtx $0x01 -> %x8
+eb2b6549 : subs x9, x10, x11, UXTX #1                : subs   %x10 %x11 uxtx $0x01 -> %x9
+eb2d698b : subs x11, x12, x13, UXTX #2               : subs   %x12 %x13 uxtx $0x02 -> %x11
+eb2f69cd : subs x13, x14, x15, UXTX #2               : subs   %x14 %x15 uxtx $0x02 -> %x13
+eb316a0f : subs x15, x16, x17, UXTX #2               : subs   %x16 %x17 uxtx $0x02 -> %x15
+eb336a51 : subs x17, x18, x19, UXTX #2               : subs   %x18 %x19 uxtx $0x02 -> %x17
+eb356a93 : subs x19, x20, x21, UXTX #2               : subs   %x20 %x21 uxtx $0x02 -> %x19
+eb376ed5 : subs x21, x22, x23, UXTX #3               : subs   %x22 %x23 uxtx $0x03 -> %x21
+eb386ef6 : subs x22, x23, x24, UXTX #3               : subs   %x23 %x24 uxtx $0x03 -> %x22
+eb3a6f38 : subs x24, x25, x26, UXTX #3               : subs   %x25 %x26 uxtx $0x03 -> %x24
+eb3c737a : subs x26, x27, x28, UXTX #4               : subs   %x27 %x28 uxtx $0x04 -> %x26
+eb21701e : subs x30, x0, x1, UXTX #4                 : subs   %x0 %x1 uxtx $0x04 -> %x30
+eb228020 : subs x0, x1, w2, SXTB #0                  : subs   %x1 %w2 sxtb $0x00 -> %x0
+eb248062 : subs x2, x3, w4, SXTB #0                  : subs   %x3 %w4 sxtb $0x00 -> %x2
+eb2680a4 : subs x4, x5, w6, SXTB #0                  : subs   %x5 %w6 sxtb $0x00 -> %x4
+eb2884e6 : subs x6, x7, w8, SXTB #1                  : subs   %x7 %w8 sxtb $0x01 -> %x6
+eb2a8528 : subs x8, x9, w10, SXTB #1                 : subs   %x9 %w10 sxtb $0x01 -> %x8
+eb2b8549 : subs x9, x10, w11, SXTB #1                : subs   %x10 %w11 sxtb $0x01 -> %x9
+eb2d898b : subs x11, x12, w13, SXTB #2               : subs   %x12 %w13 sxtb $0x02 -> %x11
+eb2f89cd : subs x13, x14, w15, SXTB #2               : subs   %x14 %w15 sxtb $0x02 -> %x13
+eb318a0f : subs x15, x16, w17, SXTB #2               : subs   %x16 %w17 sxtb $0x02 -> %x15
+eb338a51 : subs x17, x18, w19, SXTB #2               : subs   %x18 %w19 sxtb $0x02 -> %x17
+eb358a93 : subs x19, x20, w21, SXTB #2               : subs   %x20 %w21 sxtb $0x02 -> %x19
+eb378ed5 : subs x21, x22, w23, SXTB #3               : subs   %x22 %w23 sxtb $0x03 -> %x21
+eb388ef6 : subs x22, x23, w24, SXTB #3               : subs   %x23 %w24 sxtb $0x03 -> %x22
+eb3a8f38 : subs x24, x25, w26, SXTB #3               : subs   %x25 %w26 sxtb $0x03 -> %x24
+eb3c937a : subs x26, x27, w28, SXTB #4               : subs   %x27 %w28 sxtb $0x04 -> %x26
+eb21901e : subs x30, x0, w1, SXTB #4                 : subs   %x0 %w1 sxtb $0x04 -> %x30
+eb22a020 : subs x0, x1, w2, SXTH #0                  : subs   %x1 %w2 sxth $0x00 -> %x0
+eb24a062 : subs x2, x3, w4, SXTH #0                  : subs   %x3 %w4 sxth $0x00 -> %x2
+eb26a0a4 : subs x4, x5, w6, SXTH #0                  : subs   %x5 %w6 sxth $0x00 -> %x4
+eb28a4e6 : subs x6, x7, w8, SXTH #1                  : subs   %x7 %w8 sxth $0x01 -> %x6
+eb2aa528 : subs x8, x9, w10, SXTH #1                 : subs   %x9 %w10 sxth $0x01 -> %x8
+eb2ba549 : subs x9, x10, w11, SXTH #1                : subs   %x10 %w11 sxth $0x01 -> %x9
+eb2da98b : subs x11, x12, w13, SXTH #2               : subs   %x12 %w13 sxth $0x02 -> %x11
+eb2fa9cd : subs x13, x14, w15, SXTH #2               : subs   %x14 %w15 sxth $0x02 -> %x13
+eb31aa0f : subs x15, x16, w17, SXTH #2               : subs   %x16 %w17 sxth $0x02 -> %x15
+eb33aa51 : subs x17, x18, w19, SXTH #2               : subs   %x18 %w19 sxth $0x02 -> %x17
+eb35aa93 : subs x19, x20, w21, SXTH #2               : subs   %x20 %w21 sxth $0x02 -> %x19
+eb37aed5 : subs x21, x22, w23, SXTH #3               : subs   %x22 %w23 sxth $0x03 -> %x21
+eb38aef6 : subs x22, x23, w24, SXTH #3               : subs   %x23 %w24 sxth $0x03 -> %x22
+eb3aaf38 : subs x24, x25, w26, SXTH #3               : subs   %x25 %w26 sxth $0x03 -> %x24
+eb3cb37a : subs x26, x27, w28, SXTH #4               : subs   %x27 %w28 sxth $0x04 -> %x26
+eb21b01e : subs x30, x0, w1, SXTH #4                 : subs   %x0 %w1 sxth $0x04 -> %x30
+eb22c020 : subs x0, x1, w2, SXTW #0                  : subs   %x1 %w2 sxtw $0x00 -> %x0
+eb24c062 : subs x2, x3, w4, SXTW #0                  : subs   %x3 %w4 sxtw $0x00 -> %x2
+eb26c0a4 : subs x4, x5, w6, SXTW #0                  : subs   %x5 %w6 sxtw $0x00 -> %x4
+eb28c4e6 : subs x6, x7, w8, SXTW #1                  : subs   %x7 %w8 sxtw $0x01 -> %x6
+eb2ac528 : subs x8, x9, w10, SXTW #1                 : subs   %x9 %w10 sxtw $0x01 -> %x8
+eb2bc549 : subs x9, x10, w11, SXTW #1                : subs   %x10 %w11 sxtw $0x01 -> %x9
+eb2dc98b : subs x11, x12, w13, SXTW #2               : subs   %x12 %w13 sxtw $0x02 -> %x11
+eb2fc9cd : subs x13, x14, w15, SXTW #2               : subs   %x14 %w15 sxtw $0x02 -> %x13
+eb31ca0f : subs x15, x16, w17, SXTW #2               : subs   %x16 %w17 sxtw $0x02 -> %x15
+eb33ca51 : subs x17, x18, w19, SXTW #2               : subs   %x18 %w19 sxtw $0x02 -> %x17
+eb35ca93 : subs x19, x20, w21, SXTW #2               : subs   %x20 %w21 sxtw $0x02 -> %x19
+eb37ced5 : subs x21, x22, w23, SXTW #3               : subs   %x22 %w23 sxtw $0x03 -> %x21
+eb38cef6 : subs x22, x23, w24, SXTW #3               : subs   %x23 %w24 sxtw $0x03 -> %x22
+eb3acf38 : subs x24, x25, w26, SXTW #3               : subs   %x25 %w26 sxtw $0x03 -> %x24
+eb3cd37a : subs x26, x27, w28, SXTW #4               : subs   %x27 %w28 sxtw $0x04 -> %x26
+eb21d01e : subs x30, x0, w1, SXTW #4                 : subs   %x0 %w1 sxtw $0x04 -> %x30
+eb22e020 : subs x0, x1, x2, SXTX #0                  : subs   %x1 %x2 sxtx $0x00 -> %x0
+eb24e062 : subs x2, x3, x4, SXTX #0                  : subs   %x3 %x4 sxtx $0x00 -> %x2
+eb26e0a4 : subs x4, x5, x6, SXTX #0                  : subs   %x5 %x6 sxtx $0x00 -> %x4
+eb28e4e6 : subs x6, x7, x8, SXTX #1                  : subs   %x7 %x8 sxtx $0x01 -> %x6
+eb2ae528 : subs x8, x9, x10, SXTX #1                 : subs   %x9 %x10 sxtx $0x01 -> %x8
+eb2be549 : subs x9, x10, x11, SXTX #1                : subs   %x10 %x11 sxtx $0x01 -> %x9
+eb2de98b : subs x11, x12, x13, SXTX #2               : subs   %x12 %x13 sxtx $0x02 -> %x11
+eb2fe9cd : subs x13, x14, x15, SXTX #2               : subs   %x14 %x15 sxtx $0x02 -> %x13
+eb31ea0f : subs x15, x16, x17, SXTX #2               : subs   %x16 %x17 sxtx $0x02 -> %x15
+eb33ea51 : subs x17, x18, x19, SXTX #2               : subs   %x18 %x19 sxtx $0x02 -> %x17
+eb35ea93 : subs x19, x20, x21, SXTX #2               : subs   %x20 %x21 sxtx $0x02 -> %x19
+eb37eed5 : subs x21, x22, x23, SXTX #3               : subs   %x22 %x23 sxtx $0x03 -> %x21
+eb38eef6 : subs x22, x23, x24, SXTX #3               : subs   %x23 %x24 sxtx $0x03 -> %x22
+eb3aef38 : subs x24, x25, x26, SXTX #3               : subs   %x25 %x26 sxtx $0x03 -> %x24
+eb3cf37a : subs x26, x27, x28, SXTX #4               : subs   %x27 %x28 sxtx $0x04 -> %x26
+eb21f01e : subs x30, x0, x1, SXTX #4                 : subs   %x0 %x1 sxtx $0x04 -> %x30
 
 # ORN     <Xd>, <Xn>, <Xm>, <extend> #<imm> (ORN-R.RRI-64_log_shift)
 aa220020 : orn x0, x1, x2, LSL #0                    : orn    %x1 %x2 lsl $0x00 -> %x0

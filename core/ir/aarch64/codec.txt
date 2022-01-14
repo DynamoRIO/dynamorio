@@ -306,7 +306,10 @@ x0011010000xxxxx000000xxxxxxxxxx  r   7           adc            wx0 : wx5 wx16
 x0111010000xxxxx000000xxxxxxxxxx  rw  8          adcs            wx0 : wx5 wx16
 x00100010xxxxxxxxxxxxxxxxxxxxxxx  n   9           add          wx0sp : wx5sp imm12 lsl imm12sh
 x0001011xx0xxxxxxxxxxxxxxxxxxxxx  n   9           add            wx0 : wx5 wx16 shift3 imm6
-x0001011001xxxxxxxxxxxxxxxxxxxxx  n   9           add          wx0sp : wx5sp wx16 ext extam
+00001011001xxxxxxxxxxxxxxxxxxxxx  n   9           add          wx0sp : wx5sp wx16 ext extam
+10001011001xxxxxx0xxxxxxxxxxxxxx  n   9           add          wx0sp : wx5sp w16 ext extam
+10001011001xxxxxxx0xxxxxxxxxxxxx  n   9           add          wx0sp : wx5sp w16 ext extam
+10001011001xxxxxx11xxxxxxxxxxxxx  n   9           add          wx0sp : wx5sp x16 ext extam
 0x001110xx1xxxxx100001xxxxxxxxxx  n   9           add            dq0 : dq5 dq16 bhsd_sz
 01011110111xxxxx100001xxxxxxxxxx  n   9           add             d0 : d5 d16
 00001110xx1xxxxx010000xxxxxxxxxx  n   10        addhn             d0 : q5 q16 bhs_sz
@@ -315,7 +318,10 @@ x0001011001xxxxxxxxxxxxxxxxxxxxx  n   9           add          wx0sp : wx5sp wx1
 0101111011110001101110xxxxxxxxxx  n   12         addp             d0 : q5
 x01100010xxxxxxxxxxxxxxxxxxxxxxx  w   13         adds            wx0 : wx5sp imm12 lsl imm12sh
 x0101011xx0xxxxxxxxxxxxxxxxxxxxx  w   13         adds            wx0 : wx5 wx16 shift3 imm6
-x0101011001xxxxxxxxxxxxxxxxxxxxx  w   13         adds            wx0 : wx5sp wx16 ext extam
+00101011001xxxxxxxxxxxxxxxxxxxxx  w   13         adds            wx0 : wx5sp wx16 ext extam
+10101011001xxxxxx0xxxxxxxxxxxxxx  w   13         adds            wx0 : wx5sp w16 ext extam
+10101011001xxxxxxx0xxxxxxxxxxxxx  w   13         adds            wx0 : wx5sp w16 ext extam
+10101011001xxxxxx11xxxxxxxxxxxxx  w   13         adds            wx0 : wx5sp x16 ext extam
 0x001110xx110001101110xxxxxxxxxx  n   14         addv            dq0 : dq5 bhsd_sz
 0xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n   15          adr            adr
 1xx10000xxxxxxxxxxxxxxxxxxxxxxxx  n   16         adrp            adr
@@ -1462,14 +1468,20 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363        sdiv            wx0 : wx5 wx16
 01001000000xxxxx0^^^^^xxxxxxxxxx  n   469       stxrh       mem0 w16 : w0
 x10100010xxxxxxxxxxxxxxxxxxxxxxx  n   470         sub          wx0sp : wx5sp imm12 lsl imm12sh
 x1001011xx0xxxxxxxxxxxxxxxxxxxxx  n   470         sub            wx0 : wx5 wx16 shift3 imm6
-x1001011001xxxxxxxxxxxxxxxxxxxxx  n   470         sub          wx0sp : wx5sp wx16 ext extam
+01001011001xxxxxxxxxxxxxxxxxxxxx  n   470         sub          wx0sp : wx5sp wx16 ext extam
+11001011001xxxxxx0xxxxxxxxxxxxxx  n   470         sub          wx0sp : wx5sp w16 ext extam
+11001011001xxxxxxx0xxxxxxxxxxxxx  n   470         sub          wx0sp : wx5sp w16 ext extam
+11001011001xxxxxx11xxxxxxxxxxxxx  n   470         sub          wx0sp : wx5sp x16 ext extam
 0x101110xx1xxxxx100001xxxxxxxxxx  n   470         sub            dq0 : dq5 dq16 bhsd_sz
 01111110111xxxxx100001xxxxxxxxxx  n   470         sub             d0 : d5 d16
 00001110xx1xxxxx011000xxxxxxxxxx  n   471       subhn             d0 : q5 q16 bhs_sz
 01001110xx1xxxxx011000xxxxxxxxxx  n   472      subhn2             q0 : q5 q16 bhs_sz
 x11100010xxxxxxxxxxxxxxxxxxxxxxx  w   473        subs            wx0 : wx5sp imm12 lsl imm12sh
 x1101011xx0xxxxxxxxxxxxxxxxxxxxx  w   473        subs            wx0 : wx5 wx16 shift3 imm6
-x1101011001xxxxxxxxxxxxxxxxxxxxx  w   473        subs            wx0 : wx5sp wx16 ext extam
+01101011001xxxxxxxxxxxxxxxxxxxxx  w   473        subs            wx0 : wx5sp wx16 ext extam
+11101011001xxxxxx0xxxxxxxxxxxxxx  w   473        subs            wx0 : wx5sp w16 ext extam
+11101011001xxxxxxx0xxxxxxxxxxxxx  w   473        subs            wx0 : wx5sp w16 ext extam
+11101011001xxxxxx11xxxxxxxxxxxxx  w   473        subs            wx0 : wx5sp x16 ext extam
 0101111000100000001110xxxxxxxxxx  n   474      suqadd             b0 : b5
 0101111001100000001110xxxxxxxxxx  n   474      suqadd             h0 : h5
 0101111010100000001110xxxxxxxxxx  n   474      suqadd             s0 : s5
