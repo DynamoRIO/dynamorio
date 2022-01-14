@@ -129,8 +129,8 @@ if (check_libc)
   endif (readelf_result OR readelf_error)
 
   if (BUILD_PACKAGE)
-    # Avoid dependences beyond glibc 2.4 (2.17 on AArch64) for maximum backward
-    # portability without going to extremes with a fixed toolchain (xref i#1504):
+    # Avoid dependences beyond glibc 2.17 for maximum backward portability without going to
+    # extremes with a fixed toolchain (xref i#1504):
     execute_process(COMMAND
       ${READELF_EXECUTABLE} -h ${${lib_file}}
       OUTPUT_VARIABLE file_header_result
