@@ -44,9 +44,6 @@
 cmake_minimum_required(VERSION 3.7)
 set(CTEST_SOURCE_DIRECTORY "${CTEST_SCRIPT_DIRECTORY}/..")
 
-# ensure that we check glibc for version incompatibilities.
-SET(BUILD_PACKAGE ON CACHE BOOL "build DynamoRIO for packaging purposes by performing glibc checks")
-
 # arguments are a ;-separated list (must escape as \; from ctest_run_script())
 # required args:
 set(arg_build "")      # build #
@@ -166,6 +163,7 @@ set(base_cache "
   ${base_cache}
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}
+  BUILD_PACKAGE:BOOL=ON
   ${arg_cacheappend}
   ")
 
