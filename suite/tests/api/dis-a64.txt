@@ -27367,3 +27367,75 @@ d5034fff : msr DAIFClr, #0xf                         : msr    %daifclr $0x0f
 5e282b59 : sha256su0 v25.4s, v26.4s                  : sha256su0 %q26 $0x02 -> %q25
 5e282b9b : sha256su0 v27.4s, v28.4s                  : sha256su0 %q28 $0x02 -> %q27
 5e28281f : sha256su0 v31.4s, v0.4s                   : sha256su0 %q0 $0x02 -> %q31
+
+# SHA512H <Qd>, <Qn>, <Vm>.2D
+ce628020 : sha512h q0, q1, v2.2d                     : sha512h %q1 %q2 $0x03 -> %q0
+ce648062 : sha512h q2, q3, v4.2d                     : sha512h %q3 %q4 $0x03 -> %q2
+ce6680a4 : sha512h q4, q5, v6.2d                     : sha512h %q5 %q6 $0x03 -> %q4
+ce6880e6 : sha512h q6, q7, v8.2d                     : sha512h %q7 %q8 $0x03 -> %q6
+ce6a8128 : sha512h q8, q9, v10.2d                    : sha512h %q9 %q10 $0x03 -> %q8
+ce6c816a : sha512h q10, q11, v12.2d                  : sha512h %q11 %q12 $0x03 -> %q10
+ce6e81ac : sha512h q12, q13, v14.2d                  : sha512h %q13 %q14 $0x03 -> %q12
+ce7081ee : sha512h q14, q15, v16.2d                  : sha512h %q15 %q16 $0x03 -> %q14
+ce728230 : sha512h q16, q17, v18.2d                  : sha512h %q17 %q18 $0x03 -> %q16
+ce738251 : sha512h q17, q18, v19.2d                  : sha512h %q18 %q19 $0x03 -> %q17
+ce758293 : sha512h q19, q20, v21.2d                  : sha512h %q20 %q21 $0x03 -> %q19
+ce7782d5 : sha512h q21, q22, v23.2d                  : sha512h %q22 %q23 $0x03 -> %q21
+ce798317 : sha512h q23, q24, v25.2d                  : sha512h %q24 %q25 $0x03 -> %q23
+ce7b8359 : sha512h q25, q26, v27.2d                  : sha512h %q26 %q27 $0x03 -> %q25
+ce7d839b : sha512h q27, q28, v29.2d                  : sha512h %q28 %q29 $0x03 -> %q27
+ce61801f : sha512h q31, q0, v1.2d                    : sha512h %q0 %q1 $0x03 -> %q31
+
+# SHA512H2 <Qd>, <Qn>, <Vm>.2D
+ce628420 : sha512h2 q0, q1, v2.2d                    : sha512h2 %q1 %q2 $0x03 -> %q0
+ce648462 : sha512h2 q2, q3, v4.2d                    : sha512h2 %q3 %q4 $0x03 -> %q2
+ce6684a4 : sha512h2 q4, q5, v6.2d                    : sha512h2 %q5 %q6 $0x03 -> %q4
+ce6884e6 : sha512h2 q6, q7, v8.2d                    : sha512h2 %q7 %q8 $0x03 -> %q6
+ce6a8528 : sha512h2 q8, q9, v10.2d                   : sha512h2 %q9 %q10 $0x03 -> %q8
+ce6c856a : sha512h2 q10, q11, v12.2d                 : sha512h2 %q11 %q12 $0x03 -> %q10
+ce6e85ac : sha512h2 q12, q13, v14.2d                 : sha512h2 %q13 %q14 $0x03 -> %q12
+ce7085ee : sha512h2 q14, q15, v16.2d                 : sha512h2 %q15 %q16 $0x03 -> %q14
+ce728630 : sha512h2 q16, q17, v18.2d                 : sha512h2 %q17 %q18 $0x03 -> %q16
+ce738651 : sha512h2 q17, q18, v19.2d                 : sha512h2 %q18 %q19 $0x03 -> %q17
+ce758693 : sha512h2 q19, q20, v21.2d                 : sha512h2 %q20 %q21 $0x03 -> %q19
+ce7786d5 : sha512h2 q21, q22, v23.2d                 : sha512h2 %q22 %q23 $0x03 -> %q21
+ce798717 : sha512h2 q23, q24, v25.2d                 : sha512h2 %q24 %q25 $0x03 -> %q23
+ce7b8759 : sha512h2 q25, q26, v27.2d                 : sha512h2 %q26 %q27 $0x03 -> %q25
+ce7d879b : sha512h2 q27, q28, v29.2d                 : sha512h2 %q28 %q29 $0x03 -> %q27
+ce61841f : sha512h2 q31, q0, v1.2d                   : sha512h2 %q0 %q1 $0x03 -> %q31
+
+# SHA512SU0 <Vd>.2D, <Vn>.2D
+cec08020 : sha512su0 v0.2d, v1.2d                    : sha512su0 %q1 $0x03 -> %q0
+cec08062 : sha512su0 v2.2d, v3.2d                    : sha512su0 %q3 $0x03 -> %q2
+cec080a4 : sha512su0 v4.2d, v5.2d                    : sha512su0 %q5 $0x03 -> %q4
+cec080e6 : sha512su0 v6.2d, v7.2d                    : sha512su0 %q7 $0x03 -> %q6
+cec08128 : sha512su0 v8.2d, v9.2d                    : sha512su0 %q9 $0x03 -> %q8
+cec0816a : sha512su0 v10.2d, v11.2d                  : sha512su0 %q11 $0x03 -> %q10
+cec081ac : sha512su0 v12.2d, v13.2d                  : sha512su0 %q13 $0x03 -> %q12
+cec081ee : sha512su0 v14.2d, v15.2d                  : sha512su0 %q15 $0x03 -> %q14
+cec08230 : sha512su0 v16.2d, v17.2d                  : sha512su0 %q17 $0x03 -> %q16
+cec08251 : sha512su0 v17.2d, v18.2d                  : sha512su0 %q18 $0x03 -> %q17
+cec08293 : sha512su0 v19.2d, v20.2d                  : sha512su0 %q20 $0x03 -> %q19
+cec082d5 : sha512su0 v21.2d, v22.2d                  : sha512su0 %q22 $0x03 -> %q21
+cec08317 : sha512su0 v23.2d, v24.2d                  : sha512su0 %q24 $0x03 -> %q23
+cec08359 : sha512su0 v25.2d, v26.2d                  : sha512su0 %q26 $0x03 -> %q25
+cec0839b : sha512su0 v27.2d, v28.2d                  : sha512su0 %q28 $0x03 -> %q27
+cec0801f : sha512su0 v31.2d, v0.2d                   : sha512su0 %q0 $0x03 -> %q31
+
+# SHA512SU1 <Vd>.2D, <Vn>.2D, <Vm>.2D
+ce628820 : sha512su1 v0.2d, v1.2d, v2.2d             : sha512su1 %q1 %q2 $0x03 -> %q0
+ce648862 : sha512su1 v2.2d, v3.2d, v4.2d             : sha512su1 %q3 %q4 $0x03 -> %q2
+ce6688a4 : sha512su1 v4.2d, v5.2d, v6.2d             : sha512su1 %q5 %q6 $0x03 -> %q4
+ce6888e6 : sha512su1 v6.2d, v7.2d, v8.2d             : sha512su1 %q7 %q8 $0x03 -> %q6
+ce6a8928 : sha512su1 v8.2d, v9.2d, v10.2d            : sha512su1 %q9 %q10 $0x03 -> %q8
+ce6c896a : sha512su1 v10.2d, v11.2d, v12.2d          : sha512su1 %q11 %q12 $0x03 -> %q10
+ce6e89ac : sha512su1 v12.2d, v13.2d, v14.2d          : sha512su1 %q13 %q14 $0x03 -> %q12
+ce7089ee : sha512su1 v14.2d, v15.2d, v16.2d          : sha512su1 %q15 %q16 $0x03 -> %q14
+ce728a30 : sha512su1 v16.2d, v17.2d, v18.2d          : sha512su1 %q17 %q18 $0x03 -> %q16
+ce738a51 : sha512su1 v17.2d, v18.2d, v19.2d          : sha512su1 %q18 %q19 $0x03 -> %q17
+ce758a93 : sha512su1 v19.2d, v20.2d, v21.2d          : sha512su1 %q20 %q21 $0x03 -> %q19
+ce778ad5 : sha512su1 v21.2d, v22.2d, v23.2d          : sha512su1 %q22 %q23 $0x03 -> %q21
+ce798b17 : sha512su1 v23.2d, v24.2d, v25.2d          : sha512su1 %q24 %q25 $0x03 -> %q23
+ce7b8b59 : sha512su1 v25.2d, v26.2d, v27.2d          : sha512su1 %q26 %q27 $0x03 -> %q25
+ce7d8b9b : sha512su1 v27.2d, v28.2d, v29.2d          : sha512su1 %q28 %q29 $0x03 -> %q27
+ce61881f : sha512su1 v31.2d, v0.2d, v1.2d            : sha512su1 %q0 %q1 $0x03 -> %q31
