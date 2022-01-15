@@ -163,6 +163,7 @@ set(base_cache "
   ${base_cache}
   BUILD_NUMBER:STRING=${arg_build}
   UNIQUE_BUILD_NUMBER:STRING=${arg_ubuild}
+  BUILD_PACKAGE:BOOL=ON
   ${arg_cacheappend}
   ")
 
