@@ -1,6 +1,5 @@
 #include "globals.h"
 
-#include <fnmatch.h>
 #include <string.h>
 
 static const char *
