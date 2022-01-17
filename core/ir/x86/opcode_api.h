@@ -1593,6 +1593,11 @@ enum {
     /* 1421 */ OP_rdpkru, /**< IA-32/AMD64 MPK rdpkru opcode. */
     /* 1422 */ OP_wrpkru, /**< IA-32/AMD64 MPK wrpkru opcode. */
 
+    /* Intel Software Guard eXtension. */
+    /* 1423 */ OP_encls, /**< IA-32/AMD64 SGX encls opcode. */
+    /* 1424 */ OP_enclu, /**< IA-32/AMD64 SGX enclu opcode. */
+    /* 1425 */ OP_enclv, /**< IA-32/AMD64 SGX enclv opcode. */
+
     OP_AFTER_LAST,
     OP_FIRST = OP_add,           /**< First real opcode. */
     OP_LAST = OP_AFTER_LAST - 1, /**< Last real opcode. */
