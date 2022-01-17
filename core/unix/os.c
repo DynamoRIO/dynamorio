@@ -10911,12 +10911,12 @@ append_path(const char *path, int is_dir, int flags, glob_t *glob)
 {
     /* Naive realloc that allocates one extra slot for the path. */
     char **paths = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char *, glob->gl_pathc + 2,
-        ACCT_OTHER, PROTECTED);
+                                    ACCT_OTHER, PROTECTED);
 
     if (glob->gl_pathv) {
         memcpy(paths, glob->gl_pathv, sizeof(char) * (glob->gl_pathc + 1));
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, glob->gl_pathv, char *, glob->gl_pathc + 1,
-            ACCT_OTHER, PROTECTED);
+                        ACCT_OTHER, PROTECTED);
     }
 
     glob->gl_pathv = paths;
@@ -10944,7 +10944,7 @@ append_path(const char *path, int is_dir, int flags, glob_t *glob)
 
     /* Store the path and NULL-terminate the array. */
     paths[glob->gl_pathc++] = new_path;
-    paths[glob->gl_pathc]   = NULL;
+    paths[glob->gl_pathc] = NULL;
 }
 
 int
@@ -11019,7 +11019,7 @@ os_globfree(glob_t *glob)
     size_t i;
 
     if (!glob || !glob->gl_pathv) {
-       return;
+        return;
     }
 
     /* Free each path. */
@@ -11029,7 +11029,7 @@ os_globfree(glob_t *glob)
 
     /* Free the array of paths. */
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, glob->gl_pathv, char *, glob->gl_pathc + 1,
-        ACCT_OTHER, PROTECTED);
+                    ACCT_OTHER, PROTECTED);
 
     /* Reset the array and count fields. */
     glob->gl_pathc = 0;
@@ -11037,7 +11037,8 @@ os_globfree(glob_t *glob)
 }
 
 int
-os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err), glob_t *glob)
+os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err),
+        glob_t *glob)
 {
     size_t offsets = 0;
     const char *directory = "";

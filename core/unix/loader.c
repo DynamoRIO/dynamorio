@@ -906,11 +906,11 @@ privload_parse_ld_conf(glob_t *search_paths, const char *config_path)
 
             /* Recursively parse the included config files. */
             for (size_t i = 0; i < includes.gl_pathc; ++i) {
-                 if (!privload_parse_ld_conf(search_paths, includes.gl_pathv[i])) {
-                      os_close(file);
+                if (!privload_parse_ld_conf(search_paths, includes.gl_pathv[i])) {
+                    os_close(file);
 
-                      return false;
-                 }
+                    return false;
+                }
             }
 
             os_globfree(&includes);
@@ -1017,7 +1017,7 @@ privload_locate(const char *name, privmod_t *dep,
             if (!IS_STRING_OPTION_EMPTY(xarch_root)) {
                 string_option_read_lock();
                 snprintf(filename, MAXIMUM_PATH, "%s/%s/%s", DYNAMO_OPTION(xarch_root),
-                    search_paths.gl_pathv[i], name);
+                         search_paths.gl_pathv[i], name);
                 filename[MAXIMUM_PATH - 1] = '\0';
                 string_option_read_unlock();
 
