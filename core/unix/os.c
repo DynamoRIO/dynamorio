@@ -10903,6 +10903,171 @@ os_check_option_compatibility(void)
     return false;
 }
 
+#include <fnmatch.h>
+#include <glob.h>
+
+static void
+append_path(const char *path, int is_dir, int flags, glob_t *glob)
+{
+    /* Naive realloc that allocates one extra slot for the path. */
+    char **paths = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char *, glob->gl_pathc + 2,
+        ACCT_OTHER, PROTECTED);
+
+    if (glob->gl_pathv) {
+        memcpy(paths, glob->gl_pathv, sizeof(char) * (glob->gl_pathc + 1));
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, glob->gl_pathv, char *, glob->gl_pathc + 1,
+            ACCT_OTHER, PROTECTED);
+    }
+
+    glob->gl_pathv = paths;
+
+    char *new_path = NULL;
+
+    if (is_dir && flags & GLOB_MARK) {
+        size_t len = strlen(path);
+
+        if (len >= 1 && path[len - 1] == '/') {
+            /* User asked to mark, but already marked. */
+            new_path = dr_strdup(path HEAPACCT(ACCT_OTHER));
+        } else {
+            /* Allocate extra space for the '/'. */
+            new_path = (char *)heap_alloc(GLOBAL_DCONTEXT, len + 2 HEAPACCT(ACCT_OTHER));
+
+            d_r_strncat(new_path, path, len);
+            new_path[len] = '/';
+            new_path[len + 1] = '\0';
+        }
+    } else {
+        /* Simply duplicate the path. */
+        new_path = dr_strdup(path HEAPACCT(ACCT_OTHER));
+    }
+
+    /* Store the path and NULL-terminate the array. */
+    paths[glob->gl_pathc++] = new_path;
+    paths[glob->gl_pathc]   = NULL;
+}
+
+int
+os_match_dir(const char *directory, const char *pattern, int flags, glob_t *glob)
+{
+    file_t dir;
+    dir_iterator_t iter;
+    int fnm_flags = 0;
+    int is_dir = 0;
+
+    /* Translate the flags for glob() to flags for fnmatch(). */
+    if (flags & GLOB_NOESCAPE) {
+        fnm_flags |= FNM_NOESCAPE;
+    }
+
+    if (flags & GLOB_PERIOD) {
+        fnm_flags |= FNM_PERIOD;
+    }
+
+    /* Iterate over the directory and match against the glob pattern. */
+    dir = os_open_directory(directory, OS_OPEN_READ);
+
+    if (dir == INVALID_FILE) {
+        return -1;
+    }
+
+    os_dir_iterator_start(&iter, dir);
+
+    while (os_dir_iterator_next(&iter)) {
+        /* Skip references to parent and self. */
+        if (strcmp(iter.name, ".") == 0 || strcmp(iter.name, "..") == 0) {
+            continue;
+        }
+
+        is_dir = (os_match_dir(iter.name, pattern, flags, glob) == 0);
+
+        /* Skip if it is not a directory and we are only interested in
+         * directories.
+         */
+        if (!is_dir && flags & GLOB_ONLYDIR) {
+            continue;
+        }
+
+        /* Match the pattern against the name of the current directory
+         * entry.
+         */
+        if (fnmatch(pattern, iter.name, fnm_flags) != 0) {
+            continue;
+        }
+
+        /* Append the path to the list. */
+        append_path(iter.name, is_dir, flags, glob);
+    }
+
+    /* Ensure there are no reading errors. */
+    ASSERT(iter.end == 0);
+
+    os_close(dir);
+
+    return 0;
+}
+
+static int
+ignore_err(const char *path, int err)
+{
+    return 0;
+}
+
+void
+os_globfree(glob_t *glob)
+{
+    size_t i;
+
+    if (!glob || !glob->gl_pathv) {
+       return;
+    }
+
+    /* Free each path. */
+    for (i = 0; i < glob->gl_pathc; ++i) {
+        dr_strfree(glob->gl_pathv[glob->gl_offs + i] HEAPACCT(ACCT_OTHER));
+    }
+
+    /* Free the array of paths. */
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, glob->gl_pathv, char *, glob->gl_pathc + 1,
+        ACCT_OTHER, PROTECTED);
+
+    /* Reset the array and count fields. */
+    glob->gl_pathc = 0;
+    glob->gl_pathv = NULL;
+}
+
+int
+os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err), glob_t *glob)
+{
+    size_t offsets = 0;
+    const char *directory = "";
+
+    /* Check if the pattern is an absolute path. */
+    if (*pattern == '/') {
+        directory = "/";
+    }
+
+    /* Whether we should use ignore the first n paths in our processing. */
+    if (flags & GLOB_DOOFFS) {
+        offsets = glob->gl_offs;
+    }
+
+    /* Provide a no-op error handler if none is provided. */
+    if (!errfunc) {
+        errfunc = ignore_err;
+    }
+
+    /* If we are not appending, then just clear the glob data. */
+    if (!(flags & GLOB_APPEND)) {
+        os_globfree(glob);
+    }
+
+    /* Start matching the pattern against the file names. */
+    os_match_dir(directory, pattern, flags, glob);
+
+    return 0;
+}
+
 #ifdef X86_32
 /* Emulate uint64 modulo and division by uint32 on ia32.
  * XXX: Does *not* handle 64-bit divisors!

@@ -269,6 +269,13 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 bool
 is_sigreturn_syscall_number(int sysnum);
 
+#include <glob.h>
+
+int
+os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int errno), glob_t *glob);
+void
+os_globfree(glob_t *glob);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
