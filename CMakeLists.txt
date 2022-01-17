@@ -143,6 +143,12 @@ endif (UNIX)
 
 # many are core-specific
 
+# whether this build of DynamoRIO is meant for distribution, in which case
+# glibc should not have any too-recent imports. See core/CMake_readelf.cmake
+# for more information. This is off by default, but gets set by
+# make/package.cmake.
+option(BUILD_PACKAGE "build DynamoRIO for packaging purposes by performing glibc checks" OFF)
+
 # configurations that also have defines
 option(DRSTATS_DEMO "build DRstats without the no-longer-supported Run, etc. controls" ON)
 

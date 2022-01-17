@@ -3007,18 +3007,32 @@ encode_opnd_vindex_SD(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     return true;
 }
 
-/* imm12sh: shift amount for 12-bit immediate of ADD/SUB, 0 or 16 */
+/* imm12sh: shift amount for 12-bit immediate of ADD/SUB, 0 or 12 */
 
 static inline bool
 decode_opnd_imm12sh(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    return decode_opnd_int(22, 1, false, 4, OPSZ_5b, 0, enc, opnd);
+
+    uint shift_bits = extract_uint(enc, 22, 2);
+    if (shift_bits > 1)
+        return false; /* 1x is reserved */
+
+    *opnd = opnd_create_immed_int(shift_bits * 12, OPSZ_5b);
+    return true;
 }
 
 static inline bool
 encode_opnd_imm12sh(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
-    return encode_opnd_int(22, 1, false, 4, 0, opnd, enc_out);
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    uint value = opnd_get_immed_int(opnd);
+    if (value != 0 && value != 12)
+        return false;
+
+    *enc_out = value / 12 << 22;
+    return true;
 }
 
 /* sd_sz: Operand size for single and double precision encoding of floating point
@@ -4533,7 +4547,9 @@ decode_opnds_tbz(uint enc, dcontext_t *dcontext, byte *pc, instr_t *instr, int o
     instr_set_num_opnds(dcontext, instr, 0, 3);
     instr_set_src(instr, 0, opnd_create_pc(pc + extract_int(enc, 5, 14) * 4));
     instr_set_src(instr, 1,
-                  opnd_create_reg(decode_reg(extract_uint(enc, 0, 5), true, false)));
+                  opnd_create_reg(decode_reg(extract_uint(enc, 0, 5),
+                                             TEST(1U << 31, enc), /* true if x, else w*/
+                                             false)));
     instr_set_src(instr, 2,
                   opnd_create_immed_int((enc >> 19 & 31) | (enc >> 26 & 32), OPSZ_5b));
     return true;
@@ -4543,10 +4559,15 @@ static inline uint
 encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 {
     uint xt, imm6, off;
+    reg_id_t reg = opnd_get_reg(instr_get_src(instr, 1));
+    /* TBZ accepts a x register in all cases, but will decode it
+     * to a w register when imm6 is less than 32 */
+    bool is_x_register = reg >= DR_REG_X0 && reg <= DR_REG_X30;
     if (instr_num_dsts(instr) == 0 && instr_num_srcs(instr) == 3 &&
         encode_pc_off(&off, 14, pc, instr, instr_get_src(instr, 0), di) &&
-        encode_opnd_wxn(true, false, 0, instr_get_src(instr, 1), &xt) &&
-        encode_opnd_int(0, 6, false, 0, 0, instr_get_src(instr, 2), &imm6))
+        encode_opnd_int(0, 6, false, 0, 0, instr_get_src(instr, 2), &imm6) &&
+        encode_opnd_wxn((imm6 > 31) || is_x_register, false, 0, instr_get_src(instr, 1),
+                        &xt))
         return (enc | off << 5 | xt | (imm6 & 31) << 19 | (imm6 & 32) << 26);
     return ENCFAIL;
 }
