@@ -276,6 +276,11 @@ os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err
 void
 os_globfree(glob_t *glob);
 
+ssize_t
+os_getdelim(char **lineptr, size_t *n, int delim, file_t file);
+ssize_t
+os_getline(char **lineptr, size_t *n, file_t file);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;

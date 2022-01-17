@@ -11068,6 +11068,90 @@ os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err
     return 0;
 }
 
+ssize_t
+os_getdelim(char **lineptr, size_t *n, int delim, file_t file)
+{
+    char *new_line, *line, *pos;
+    char c;
+    ssize_t result, nbytes = 0;
+
+    if (!lineptr || !n) {
+        return -1;
+    }
+
+    if (file == INVALID_FILE) {
+        return -1;
+    }
+
+    line = *lineptr;
+
+    if (!line || *n < 128) {
+        new_line = heap_alloc(GLOBAL_DCONTEXT, 128 HEAPACCT(ACCT_OTHER));
+
+        if (!new_line) {
+            return -1;
+        }
+
+        if (line) {
+            heap_free(GLOBAL_DCONTEXT, line, *n HEAPACCT(ACCT_OTHER));
+            line = NULL;
+        }
+
+        line = new_line;
+        *lineptr = line;
+        *n = 128;
+    }
+
+    pos = line;
+    *pos = '\0';
+
+    while ((result = dr_read_file(file, &c, 1)) > 0) {
+        if (nbytes + 1 >= SSIZE_MAX) {
+            return -1;
+        }
+
+        ++nbytes;
+
+        if (nbytes >= *n - 1) {
+            new_line = heap_alloc(GLOBAL_DCONTEXT, *n + 128 HEAPACCT(ACCT_OTHER));
+
+            if (!new_line) {
+                return -1;
+            }
+
+            if (line) {
+                memcpy(new_line, line, *n);
+                heap_free(GLOBAL_DCONTEXT, line, *n HEAPACCT(ACCT_OTHER));
+            }
+
+            line = new_line;
+            *lineptr = line;
+            *n += 128;
+            pos = line + nbytes - 1;
+        }
+
+        *pos++ = c;
+
+        if (c == delim) {
+            break;
+        }
+    }
+
+    if (result <= 0) {
+        return -1;
+    }
+
+    *pos = '\0';
+
+    return nbytes;
+}
+
+ssize_t
+os_getline(char **lineptr, size_t *n, file_t file)
+{
+    return os_getdelim(lineptr, n, '\n', file);
+}
+
 #ifdef X86_32
 /* Emulate uint64 modulo and division by uint32 on ia32.
  * XXX: Does *not* handle 64-bit divisors!
