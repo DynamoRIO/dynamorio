@@ -431,9 +431,11 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch,
                                        scratch_used);
         }
+#    ifdef AARCH64
         if (opnd_get_base_aligned(memref)) {
             // TODO
         }
+#    endif
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
             /* first try "add dst, base, #disp" */
             instr = negated
