@@ -1418,7 +1418,7 @@ str_base_register(void *dc)
     int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int reg_dest_1[] = { DR_REG_X0, DR_REG_X15, DR_REG_X29 };
-    int reg_dest_2[] = { DR_REG_W1, DR_REG_X16, DR_REG_W30, DR_REG_X28};
+    int reg_dest_2[] = { DR_REG_W1, DR_REG_X16, DR_REG_W30, DR_REG_X28 };
     int extend[] = { DR_EXTEND_UXTW, DR_EXTEND_UXTX, DR_EXTEND_SXTW, DR_EXTEND_SXTX };
 
     for (int i = 0; i < 3; i++) {
