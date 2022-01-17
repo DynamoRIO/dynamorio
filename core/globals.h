@@ -1107,6 +1107,8 @@ utf16_to_utf8_size(const wchar_t *src, size_t max_chars,
 #    define strncasecmp d_r_strncasecmp
 #    undef strtoul
 #    define strtoul d_r_strtoul
+#    undef fnmatch
+#    define fnmatch d_r_fnmatch
 #endif
 size_t
 strlen(const char *str);
@@ -1138,6 +1140,8 @@ int
 strncasecmp(const char *left, const char *right, size_t n);
 unsigned long
 strtoul(const char *str, char **end, int base);
+int
+fnmatch(const char *pattern, const char *string, int flags);
 
 /* Code cleanliness rules */
 #ifdef WINDOWS

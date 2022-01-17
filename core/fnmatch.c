@@ -1,7 +1,7 @@
+#include "globals.h"
+
 #include <fnmatch.h>
 #include <string.h>
-
-#include "globals.h"
 
 static const char *
 rangematch(const char *pattern, char input, int flags)
@@ -58,7 +58,7 @@ rangematch(const char *pattern, char input, int flags)
 }
 
 int
-fnmatch(const char *pattern, const char *string, int flags)
+d_r_fnmatch(const char *pattern, const char *string, int flags)
 {
     const char *start = string;
     char c, input;
