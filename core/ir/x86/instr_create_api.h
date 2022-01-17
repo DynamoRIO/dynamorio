@@ -5033,12 +5033,32 @@
     instr_create_3dst_0src((dc), OP_rdtscp, opnd_create_reg(DR_REG_EDX), \
                            opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_ECX))
 
-/* 3 implicit destinations, 1 source */
+/* 4 implicit destinations, 2 implicit sources */
 #define INSTR_CREATE_cpuid(dc)                                                       \
     instr_create_4dst_2src((dc), OP_cpuid, opnd_create_reg(DR_REG_EAX),              \
                            opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
                            opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX), \
                            opnd_create_reg(DR_REG_ECX))
+
+/* 4 implicit destinations, 4 implicit sources */
+#define INSTR_CREATE_encls(dc)                                                       \
+    instr_create_4dst_4src((dc), OP_encls, opnd_create_reg(DR_REG_EAX),              \
+                           opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
+                           opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX), \
+                           opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
+                           opnd_create_reg(DR_REG_EDX))
+#define INSTR_CREATE_enclu(dc)                                                       \
+    instr_create_4dst_4src((dc), OP_enclu, opnd_create_reg(DR_REG_EAX),              \
+                           opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
+                           opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX), \
+                           opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
+                           opnd_create_reg(DR_REG_EDX))
+#define INSTR_CREATE_enclv(dc)                                                       \
+    instr_create_4dst_4src((dc), OP_enclv, opnd_create_reg(DR_REG_EAX),              \
+                           opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
+                           opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX), \
+                           opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
+                           opnd_create_reg(DR_REG_EDX))
 /** @} */ /* end doxygen group */
 
 /* 3 implicit destinations, 3 implicit sources */
