@@ -1175,22 +1175,22 @@ fnmatch(const char *pattern, const char *string, int flags);
 #endif
 
 #ifdef FNM_NOESCAPE
-#undef FNM_NOESCAPE
+#    undef FNM_NOESCAPE
 #endif
 #define FNM_NOESCAPE (1 << 0)
 
 #ifdef FNM_PATHNAME
-#undef FNM_PATHNAME
+#    undef FNM_PATHNAME
 #endif
 #define FNM_PATHNAME (1 << 1)
 
 #ifdef FNM_PERIOD
-#undef FNM_PERIOD
+#    undef FNM_PERIOD
 #endif
 #define FNM_PERIOD (1 << 2)
 
 #ifdef FNM_NOMATCH
-#undef FNM_NOMATCH
+#    undef FNM_NOMATCH
 #endif
 #define FNM_NOMATCH (-1)
 
