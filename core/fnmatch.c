@@ -57,7 +57,8 @@ rangematch(const char *pattern, char input, int flags)
     return match ? pattern : NULL;
 }
 
-int fnmatch(const char *pattern, const char *string, int flags)
+int
+fnmatch(const char *pattern, const char *string, int flags)
 {
     const char *start = string;
     char c, input;
@@ -74,8 +75,7 @@ int fnmatch(const char *pattern, const char *string, int flags)
             }
 
             if (*string == '.' && (flags & FNM_PERIOD) &&
-                (string == start ||
-                ((flags & FNM_PATHNAME) && *(string - 1) == '/'))) {
+                (string == start || ((flags & FNM_PATHNAME) && *(string - 1) == '/'))) {
                 return FNM_NOMATCH;
             }
 
@@ -88,8 +88,7 @@ int fnmatch(const char *pattern, const char *string, int flags)
             }
 
             if (*string == '.' && (flags & FNM_PERIOD) &&
-                (string == start ||
-                ((flags & FNM_PATHNAME) && *(string - 1) == '/'))) {
+                (string == start || ((flags & FNM_PATHNAME) && *(string - 1) == '/'))) {
                 return FNM_NOMATCH;
             }
 
