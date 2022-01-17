@@ -308,7 +308,7 @@ typedef struct os_glob_t os_glob_t;
 #define GLOB_ONLYDIR (1 << 5)
 
 int
-os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int errno),
+os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err),
         os_glob_t *glob);
 void
 os_globfree(os_glob_t *glob);
