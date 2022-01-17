@@ -1261,7 +1261,7 @@ ldr_base_register(void *dc)
     int reg32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int dest_0[] = { DR_REG_X1, DR_REG_X17, DR_REG_X29 };
-    int dest_1[] = { DR_REG_W2, DR_REG_X18, DR_REG_W28, DR_REG_X27};
+    int dest_1[] = { DR_REG_W2, DR_REG_X18, DR_REG_W28, DR_REG_X27 };
     for (int i = 0; i < 4; i++) {
         for (int ii = 0; ii < 3; ii++) {
             instr_t *instr = INSTR_CREATE_ldr(
@@ -1287,7 +1287,7 @@ ldr_base_register_extend(void *dc)
     int reg32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int dest_0[] = { DR_REG_X1, DR_REG_X17, DR_REG_X29 };
-    int dest_1[] = { DR_REG_W2, DR_REG_X18, DR_REG_W28, DR_REG_X27};
+    int dest_1[] = { DR_REG_W2, DR_REG_X18, DR_REG_W28, DR_REG_X27 };
     for (int i = 0; i < 4; i++) {
         for (int ii = 0; ii < 3; ii++) {
             opnd_t opnd = opnd_create_base_disp_aarch64(
@@ -1447,7 +1447,7 @@ str_base_register_extend(void *dc)
     int reg_32[] = { DR_REG_W0, DR_REG_W16, DR_REG_W30 };
     int reg_64[] = { DR_REG_X0, DR_REG_X16, DR_REG_X30 };
     int reg_dest_1[] = { DR_REG_X0, DR_REG_X15, DR_REG_X29 };
-    int reg_dest_2[] = { DR_REG_W1, DR_REG_X16, DR_REG_W30, DR_REG_X28};
+    int reg_dest_2[] = { DR_REG_W1, DR_REG_X16, DR_REG_W30, DR_REG_X28 };
     int extend[] = { DR_EXTEND_UXTW, DR_EXTEND_UXTX, DR_EXTEND_SXTW, DR_EXTEND_SXTX };
 
     for (int i = 0; i < 3; i++) {
@@ -1459,8 +1459,9 @@ str_base_register_extend(void *dc)
             instr_t *instr = INSTR_CREATE_str(dc, opnd, opnd_create_reg(reg_32[i]));
             test_instr_encoding(dc, OP_str, instr);
 
-            opnd = opnd_create_base_disp_aarch64(reg_dest_1[i], reg_dest_2[ii], extend[ii],
-                                                 false, 0, DR_OPND_SHIFTED, OPSZ_8);
+            opnd =
+                opnd_create_base_disp_aarch64(reg_dest_1[i], reg_dest_2[ii], extend[ii],
+                                              false, 0, DR_OPND_SHIFTED, OPSZ_8);
             opnd_set_index_extend(&opnd, extend[ii], 3);
             instr = INSTR_CREATE_str(dc, opnd, opnd_create_reg(reg_64[i]));
             test_instr_encoding(dc, OP_str, instr);
