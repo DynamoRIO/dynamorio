@@ -1103,6 +1103,8 @@ utf16_to_utf8_size(const wchar_t *src, size_t max_chars,
 #    define tolower d_r_tolower
 #    undef strcasecmp
 #    define strcasecmp d_r_strcasecmp
+#    undef strncasecmp
+#    define strncasecmp d_r_strncasecmp
 #    undef strtoul
 #    define strtoul d_r_strtoul
 #endif
@@ -1132,6 +1134,8 @@ int
 tolower(int c);
 int
 strcasecmp(const char *left, const char *right);
+int
+strncasecmp(const char *left, const char *right, size_t n);
 unsigned long
 strtoul(const char *str, char **end, int base);
 

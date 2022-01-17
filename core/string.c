@@ -289,6 +289,22 @@ d_r_strcasecmp(const char *left, const char *right)
     return 0;
 }
 
+/* Private strncasecmp. */
+int
+d_r_strncasecmp(const char *left, const char *right, size_t n)
+{
+    size_t i;
+    for (i = 0; i < n && (left[i] != '\0' || right[i] != '\0'); i++) {
+        int l = tolower(left[i]);
+        int r = tolower(right[i]);
+        if (l < r)
+            return -1;
+        if (l > r)
+            return 1;
+    }
+    return 0;
+}
+
 /* Private strtoul.  Actual parsing is implemented in io.c.  We use plain
  * "unsigned long" to match libc prototype regardless of our internal typedefs.
  *
