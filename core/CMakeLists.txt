@@ -181,6 +181,7 @@ set(CORE_SRCS
   translate.c
   annotations.c
   jit_opt.c
+  fnmatch.c
   )
 
 if (UNIX)
