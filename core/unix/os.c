@@ -10903,9 +10903,6 @@ os_check_option_compatibility(void)
     return false;
 }
 
-#include <fnmatch.h>
-#include <glob.h>
-
 static void
 append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
 {
