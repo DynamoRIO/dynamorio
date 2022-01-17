@@ -181,7 +181,6 @@ set(CORE_SRCS
   translate.c
   annotations.c
   jit_opt.c
-  fnmatch.c
   )
 
 if (UNIX)
@@ -351,6 +350,7 @@ if (UNIX)
     unix/stackdump.c
     unix/diagnost.c
     unix/loader.c
+    unix/fnmatch.c
     )
   if (LINUX)
     if (ANDROID)
