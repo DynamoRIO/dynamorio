@@ -269,13 +269,49 @@ os_walk_address_space(memquery_iter_t *iter, bool add_modules);
 bool
 is_sigreturn_syscall_number(int sysnum);
 
-#include <glob.h>
+struct os_glob_t {
+    size_t gl_pathc;
+    char **gl_pathv;
+    size_t gl_offs;
+};
+
+typedef struct os_glob_t os_glob_t;
+
+#ifdef GLOB_MARK
+#undef GLOB_MARK
+#endif
+#define GLOB_MARK (1 << 0)
+
+#ifdef GLOB_DOOFFS
+#undef GLOB_DOOFFS
+#endif
+#define GLOB_DOOFFS (1 << 1)
+
+#ifdef GLOB_APPEND
+#undef GLOB_APPEND
+#endif
+#define GLOB_APPEND (1 << 2)
+
+#ifdef GLOB_NOESCAPE
+#undef GLOB_NOESCAPE
+#endif
+#define GLOB_NOESCAPE (1 << 3)
+
+#ifdef GLOB_PERIOD
+#undef GLOB_PERIOD
+#endif
+#define GLOB_PERIOD (1 << 4)
+
+#ifdef GLOB_ONLYDIR
+#undef GLOB_ONLYDIR
+#endif
+#define GLOB_ONLYDIR (1 << 5)
 
 int
 os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int errno),
-        glob_t *glob);
+        os_glob_t *glob);
 void
-os_globfree(glob_t *glob);
+os_globfree(os_glob_t *glob);
 
 ssize_t
 os_getdelim(char **lineptr, size_t *n, int delim, file_t file);

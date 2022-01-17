@@ -835,7 +835,7 @@ privload_search_rpath(privmod_t *mod, bool runpath, const char *name,
 }
 
 bool
-privload_parse_ld_conf(glob_t *search_paths, const char *config_path)
+privload_parse_ld_conf(os_glob_t *search_paths, const char *config_path)
 {
     file_t file;
     char *line = NULL;
@@ -877,7 +877,7 @@ privload_parse_ld_conf(glob_t *search_paths, const char *config_path)
         }
 
         if (strncasecmp(line, "include", nbytes) == 0) {
-            glob_t includes = { 0 };
+            os_glob_t includes = { 0 };
 
             /* Locate the path that should be included. */
             char *include_path = line + nbytes;
@@ -1009,7 +1009,7 @@ privload_locate(const char *name, privmod_t *dep,
         return true;
 
     /* 5) Try parsing /etc/ld.so.conf */
-    glob_t search_paths = { 0 };
+    os_glob_t search_paths = { 0 };
 
     if (privload_parse_ld_conf(&search_paths, "/etc/ld.so.conf")) {
         for (i = 0; i < search_paths.gl_pathc; ++i) {

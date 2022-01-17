@@ -10907,7 +10907,7 @@ os_check_option_compatibility(void)
 #include <glob.h>
 
 static void
-append_path(const char *path, int is_dir, int flags, glob_t *glob)
+append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
 {
     /* Naive realloc that allocates one extra slot for the path. */
     char **paths = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char *, glob->gl_pathc + 2,
@@ -10948,7 +10948,7 @@ append_path(const char *path, int is_dir, int flags, glob_t *glob)
 }
 
 int
-os_match_dir(const char *directory, const char *pattern, int flags, glob_t *glob)
+os_match_dir(const char *directory, const char *pattern, int flags, os_glob_t *glob)
 {
     file_t dir;
     dir_iterator_t iter;
@@ -11014,7 +11014,7 @@ ignore_err(const char *path, int err)
 }
 
 void
-os_globfree(glob_t *glob)
+os_globfree(os_glob_t *glob)
 {
     size_t i;
 
@@ -11038,7 +11038,7 @@ os_globfree(glob_t *glob)
 
 int
 os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err),
-        glob_t *glob)
+        os_glob_t *glob)
 {
     size_t offsets = 0;
     const char *directory = "";
