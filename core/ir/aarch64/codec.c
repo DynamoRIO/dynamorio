@@ -704,9 +704,20 @@ decode_opnd_memreg_size(opnd_size_t size, uint enc, OUT opnd_t *opnd)
 {
     if (!TEST(1U << 14, enc))
         return false;
-    *opnd = opnd_create_base_disp_aarch64(decode_reg(enc >> 5 & 31, true, true),
-                                          decode_reg(enc >> 16 & 31, true, false),
-                                          enc >> 13 & 7, TEST(1U << 12, enc), 0, 0, size);
+    dr_extend_type_t extend;
+    switch (enc >> 13 & 7) {
+    case 0b010: extend = DR_EXTEND_UXTW; break;
+    // Alias for LSL. LSL preferred in disassembly.
+    case 0b011: extend = DR_EXTEND_UXTX; break;
+    case 0b110: extend = DR_EXTEND_SXTW; break;
+    case 0b111: extend = DR_EXTEND_SXTX; break;
+    default: return false;
+    }
+
+    *opnd = opnd_create_base_disp_aarch64(
+        decode_reg(enc >> 5 & 31, true, true),
+        decode_reg(enc >> 16 & 31, TEST(1U << 13, enc), false), extend,
+        TEST(1U << 12, enc), 0, 0, size);
     return true;
 }
 
@@ -718,11 +729,14 @@ encode_opnd_memreg_size(opnd_size_t size, opnd_t opnd, OUT uint *enc_out)
     if (!opnd_is_base_disp(opnd) || opnd_get_size(opnd) != size ||
         opnd_get_disp(opnd) != 0)
         return false;
+
     option = opnd_get_index_extend(opnd, &scaled, NULL);
+
     if (!TEST(2, option))
         return false;
+
     if (!encode_reg(&rn, &xn, opnd_get_base(opnd), true) || !xn ||
-        !encode_reg(&rm, &xm, opnd_get_index(opnd), false) || !xm)
+        !encode_reg(&rm, &xm, opnd_get_index(opnd), false) || (!xm && (option & 1) != 0))
         return false;
     *enc_out = rn << 5 | rm << 16 | option << 13 | (uint)scaled << 12;
     return true;

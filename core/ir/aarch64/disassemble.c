@@ -98,9 +98,12 @@ opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     uint amount;
     dr_extend_type_t extend = opnd_get_index_extend(opnd, &scaled, &amount);
     const char *name = extend_name(extend);
-    if (scaled)
+    if (scaled) {
+        if (extend == DR_EXTEND_UXTX)
+            name = shift_name(DR_SHIFT_LSL);
+
         print_to_buffer(buf, bufsz, sofar, ",%s #%d", name, amount);
-    else if (extend != DR_EXTEND_UXTX)
+    } else if (extend != DR_EXTEND_UXTX)
         print_to_buffer(buf, bufsz, sofar, ",%s", name);
 }
 
