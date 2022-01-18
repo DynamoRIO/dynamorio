@@ -43,7 +43,7 @@
 #include "../arch/asm_defines.asm"
 #include "../arch/x86/x86_asm_defines.asm" /* PUSHGPR, POPGPR, etc. */
 #ifdef MACOS
-# include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_MACH */
+# include "include/syscall_mach.h" /* SYSCALL_NUM_MARKER_* */
 #endif
 START_FILE
 
@@ -67,8 +67,8 @@ GLOBAL_LABEL(dynamorio_syscall:)
         mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
         mov      rax, ARG1 /* sysnum: only need eax, but need rax for ARG1 (or movzx) */
 #  ifdef MACOS
-        /* for now we assume a BSD syscall */
-        or       rax, 0x2000000
+        /* For now we assume a BSD syscall */
+        or       rax, SYSCALL_NUM_MARKER_BSD
 #  endif
         cmp      REG_XBX, 0
         je       syscall_ready

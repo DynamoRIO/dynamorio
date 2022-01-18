@@ -171,7 +171,8 @@ get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size)
      * CTR_EL0 [31]    : 1
      * CTR_EL0 [19:16] : Log2 of number of 4-byte words in smallest dcache line
      * CTR_EL0 [3:0]   : Log2 of number of 4-byte words in smallest icache line
-     * https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/ctr_el0
+     * https://developer.arm.com/documentation/ddi0595/2021-09/AArch64-Registers/
+     * CTR-EL0--Cache-Type-Register
      *
      * Also, the whitepaper below documents AArch64 words being 32 bits wide.
      * https://developer.arm.com/-/media/Files/pdf/

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2019-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2019-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -59,6 +59,7 @@
 #include <sched.h>
 #include <linux/rseq.h>
 #include <errno.h>
+#undef NDEBUG
 #include <assert.h>
 
 #define EXPANDSTR(x) #x
@@ -94,6 +95,9 @@
 static __thread volatile struct rseq rseq_tls;
 /* Make it harder to find rseq_tls for DR's heuristic by adding more static TLS. */
 static __thread volatile struct rseq fill_up_tls[128];
+
+extern void
+test_rseq_native_abort_pre_commit();
 
 #ifdef RSEQ_TEST_ATTACH
 static atomic_int exit_requested;
@@ -149,8 +153,8 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* Test a restart in the middle of the sequence via ud2a SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
-        /* For -test_mode trace_invariants: expect a signal after ud2a.
-         * (An alternative is to add decoding to trace_invariants but with
+        /* For -test_mode invariant_checker: expect a signal after ud2a.
+         * (An alternative is to add decoding to invariant_checker but with
          * i#2007 and other problems that liimts the test.)
          */
         "prefetcht2 1\n\t"
@@ -166,7 +170,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "jmp 42f\n\t"
         "42:\n\t"
         "addl $1, %[restarts]\n\t"
@@ -177,11 +181,12 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "5:\n\t"
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
-          [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id),
+          [ cpu_id_uninit ] "i"(RSEQ_CPU_ID_UNINITIALIZED),
+          [ force_restart ] "m"(force_restart)
         : "rax", "memory");
 #elif defined(AARCH64)
     __asm__ __volatile__(
@@ -214,7 +219,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
-        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
+        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for invariant_checker. */
         ".word 0\n\t"              /* udf */
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
@@ -229,7 +234,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to udf. */
+        /* Start with jmp to avoid invariant_checker assert on return to udf. */
         "b 42f\n\t"
         "42:\n\t"
         "ldr x1, %[restarts]\n\t"
@@ -242,11 +247,12 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "5:\n\t"
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [cpu_id_uninit] "i"(RSEQ_CPU_ID_UNINITIALIZED),
-          [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id),
+          [ cpu_id_uninit ] "i"(RSEQ_CPU_ID_UNINITIALIZED),
+          [ force_restart ] "m"(force_restart)
         : "x0", "x1", "memory");
 #else
 #    error Unsupported arch
@@ -308,7 +314,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* Test a restart via ud2a SIGILL. */
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
-        "prefetcht2 1\n\t" /* See above: annotation for trace_invariants. */
+        "prefetcht2 1\n\t" /* See above: annotation for invariant_checker. */
         "ud2a\n\t"
         "7:\n\t"
         "addl $1, %[completions]\n\t"
@@ -321,7 +327,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "jmp 42f\n\t"
         "42:\n\t"
         "addl $1, %[restarts]\n\t"
@@ -335,10 +341,10 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id), [ force_restart ] "m"(force_restart)
         : "rax", "rcx", "memory");
 #elif defined(AARCH64)
     __asm__ __volatile__(
@@ -374,7 +380,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "ldrb w0, %[force_restart]\n\t"
         "cbz x0, 7f\n\t"
         "mov x0, #1\n\t"
-        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for trace_invariants. */
+        "prfm pldl3keep, [x0]\n\t" /* See above: annotation for invariant_checker. */
         ".word 0\n\t"              /* udf */
         "7:\n\t"
         "ldr x1, %[completions]\n\t"
@@ -389,7 +395,7 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to udf. */
+        /* Start with jmp to avoid invariant_checker assert on return to udf. */
         "b 42f\n\t"
         "42:\n\t"
         "ldr x1, %[restarts]\n\t"
@@ -405,10 +411,10 @@ test_rseq_branches_once(bool force_restart, int *completions_out, int *restarts_
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id),
-          [completions] "=m"(completions), [restarts] "=m"(restarts),
-          [force_restart_write] "=m"(force_restart)
-        : [cpu_id] "m"(rseq_tls.cpu_id), [force_restart] "m"(force_restart)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id),
+          [ completions ] "=m"(completions), [ restarts ] "=m"(restarts),
+          [ force_restart_write ] "=m"(force_restart)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id), [ force_restart ] "m"(force_restart)
         : "x0", "x1", "memory");
 #else
 #    error Unsupported arch
@@ -477,7 +483,7 @@ test_rseq_native_fault(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "jmp 42f\n\t"
         "42:\n\t"
         "addl $1, %[restarts]\n\t"
@@ -488,7 +494,7 @@ test_rseq_native_fault(void)
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
         :
         : "rax", "rcx", "xmm0", "xmm1", "memory");
 #elif defined(AARCH64)
@@ -529,7 +535,7 @@ test_rseq_native_fault(void)
         /* clang-format off */ /* (avoid indenting next few lines) */
         ".long " STRINGIFY(RSEQ_SIG) "\n\t"
         "4:\n\t"
-        /* Start with jmp to avoid trace_invariants assert on return to u2da. */
+        /* Start with jmp to avoid invariant_checker assert on return to u2da. */
         "b 42f\n\t"
         "42:\n\t"
         "ldr x1, %[restarts]\n\t"
@@ -542,7 +548,7 @@ test_rseq_native_fault(void)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
         :
         : "x0", "x1", "q0", "q1", "memory");
 #else
@@ -602,6 +608,8 @@ test_rseq_native_abort(void)
         "leaq sched_mask_2(%%rip), %%rdx\n\t"
         "mov %[sysnum_setaffinity], %%eax\n\t"
         "syscall\n\t"
+        ".global test_rseq_native_abort_pre_commit\n\t"
+        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -626,9 +634,9 @@ test_rseq_native_abort(void)
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
-        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
-          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
+        : [ cpu_mask_size ] "i"(sizeof(cpu_set_t)),
+          [ sysnum_setaffinity ] "i"(SYS_sched_setaffinity)
         : "rax", "rcx", "rdx", "xmm0", "xmm1", "memory");
 #    elif defined(AARCH64)
     __asm__ __volatile__(
@@ -670,6 +678,8 @@ test_rseq_native_abort(void)
         "add x2, x2, :lo12:sched_mask_2\n\t"
         "mov w8, #%[sysnum_setaffinity]\n\t"
         "svc #0\n\t"
+        ".global test_rseq_native_abort_pre_commit\n\t"
+        "test_rseq_native_abort_pre_commit:\n\t"
         "11:\n\t"
         "nop\n\t"
 
@@ -697,9 +707,9 @@ test_rseq_native_abort(void)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [restarts] "=m"(restarts)
-        : [cpu_mask_size] "i"(sizeof(cpu_set_t)),
-          [sysnum_setaffinity] "i"(SYS_sched_setaffinity)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ restarts ] "=m"(restarts)
+        : [ cpu_mask_size ] "i"(sizeof(cpu_set_t)),
+          [ sysnum_setaffinity ] "i"(SYS_sched_setaffinity)
         : "x0", "x1", "x2", "x8", "q0", "q1", "memory");
 #    else
 #        error Unsupported arch
@@ -761,8 +771,8 @@ test_rseq_writeback_store(void)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [id] "=m"(id), [index] "=g"(index)
-        : [cpu_id] "m"(rseq_tls.cpu_id)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ id ] "=m"(id), [ index ] "=g"(index)
+        : [ cpu_id ] "m"(rseq_tls.cpu_id)
         : "x0", "x1", "x2", "x28", "memory");
     assert(id != RSEQ_CPU_ID_UNINITIALIZED);
 }
@@ -828,8 +838,8 @@ rseq_thread_loop(void *arg)
         "movq $0, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [zero] "=m"(zero)
-        : [exit_requested] "m"(exit_requested)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ zero ] "=m"(zero)
+        : [ exit_requested ] "m"(exit_requested)
         : "rax", "memory");
 #    elif defined(AARCH64)
     __asm__ __volatile__(
@@ -879,8 +889,8 @@ rseq_thread_loop(void *arg)
         "str xzr, %[rseq_tls]\n\t"
         /* clang-format on */
 
-        : [rseq_tls] "=m"(rseq_tls.rseq_cs), [zero] "=m"(zero)
-        : [exit_requested] "m"(exit_requested)
+        : [ rseq_tls ] "=m"(rseq_tls.rseq_cs), [ zero ] "=m"(zero)
+        : [ exit_requested ] "m"(exit_requested)
         : "x0", "x1", "memory");
 #    else
 #        error Unsupported arch
@@ -906,6 +916,32 @@ kernel_xfer_event(void *drcontext, const dr_kernel_xfer_info_t *info)
     mc.flags = DR_MC_ALL;
     ok = dr_get_mcontext(drcontext, &mc);
     assert(ok);
+    /* All transfer cases in this test should have source info. */
+    assert(info->source_mcontext != NULL);
+    if (info->type == DR_XFER_RSEQ_ABORT) {
+        /* The interrupted context should be identical except the pc. */
+        assert(info->source_mcontext->pc != mc.pc);
+#    ifdef X86
+        assert(info->source_mcontext->xax == mc.xax);
+        assert(info->source_mcontext->xcx == mc.xcx);
+        assert(info->source_mcontext->xdx == mc.xdx);
+        assert(info->source_mcontext->xbx == mc.xbx);
+        assert(info->source_mcontext->xsi == mc.xsi);
+        assert(info->source_mcontext->xdi == mc.xdi);
+        assert(info->source_mcontext->xbp == mc.xbp);
+        assert(info->source_mcontext->xsp == mc.xsp);
+#    elif defined(AARCH64)
+        assert(memcmp(&info->source_mcontext->r0, &mc.r0, sizeof(mc.r0) * 32) == 0);
+#    else
+#        error Unsupported arch
+#    endif
+#    ifdef DEBUG /* See above: special code in core/ is DEBUG-only> */
+        /* Check that the interrupted PC for the true abort case is *prior* to the
+         * committing store.
+         */
+        assert(info->source_mcontext->pc == (app_pc)test_rseq_native_abort_pre_commit);
+#    endif
+    }
 }
 
 DR_EXPORT void

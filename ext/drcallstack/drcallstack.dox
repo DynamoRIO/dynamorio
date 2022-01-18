@@ -1,0 +1,100 @@
+/* **********************************************************
+ * Copyright (c) 2021 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drcallstack Callstack Walking
+
+The \p drcallstack DynamoRIO Callstack Walker provides clients with
+walking of the application callstack.
+
+ - \ref sec_drcallstack_setup
+ - \ref sec_drcallstack_usage
+ - \ref sec_drcallstack_limits
+
+\section sec_drcallstack_setup Setup
+
+To use \p drcallstack with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drcallstack) \endcode
+
+That will automatically set up the include path and library dependence.
+
+The initialization routine \p drcallstack_init() must be called prior to any of
+the other routines.  Additional calls to drcallstack_init() are allowed (so long
+as they are paired with corresponding calls to drcallstack_exit()).
+
+\section sec_drcallstack_usage Usage
+
+To produce a callstack, first a #dr_mcontext_t with the PC field and
+all general-purpose registers filled in with application values (i.e.,
+#DR_MC_CONTROL | #DR_MC_INTEGER) must be obtained.  When using a
+custom clean call, the PC field must be explicitly set by the client
+(typically by passing the application address of the next instruction
+to the clean call) as it is not set in that case by dr_get_mcontext().
+
+Next, call drcallstack_init_walk() to set up for a walk.  Then
+repeatedly call drcallstack_next_frame() to iterate over the frames of
+the callstack.  When #DRCALLSTACK_NO_MORE_FRAMES or an error code is
+returned, clean up with drcallstack_cleanup_walk().
+
+Here is some example code:
+
+\code
+    dr_mcontext_t *mc = drwrap_get_mcontext(wrapcxt);
+    drcallstack_walk_t *walk;
+    drcallstack_status_t res = drcallstack_init_walk(mc, &walk);
+    DR_ASSERT(res == DRCALLSTACK_SUCCESS);
+    drcallstack_frame_t frame = {
+        sizeof(frame),
+    };
+    int count = 0;
+    symbolize_pc(drwrap_get_func(wrapcxt));
+    do {
+        res = drcallstack_next_frame(walk, &frame);
+        if (res != DRCALLSTACK_SUCCESS)
+            break;
+        symbolize_pc(frame.pc);
+        ++count;
+    } while (res == DRCALLSTACK_SUCCESS);
+    DR_ASSERT(res == DRCALLSTACK_NO_MORE_FRAMES);
+    res = drcallstack_cleanup_walk(walk);
+    DR_ASSERT(res == DRCALLSTACK_SUCCESS);
+\endcode
+
+\section sec_drcallstack_limits Limitations
+
+Currently, \p drcallstack is only implemented for Linux.
+
+*/

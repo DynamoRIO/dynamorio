@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2017 Google, Inc.   All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,6 +42,7 @@ declaration and parsing for both clients and standalone programs.
  - \ref sec_droption_usage
  - \ref sec_droption_types
  - \ref sec_droption_html
+ - \ref sec_droption_aliases
 
 \section sec_droption_setup Setup
 
@@ -171,5 +172,22 @@ main(int argc, const char *argv[])
 This program can be built and run at documentation generation time to
 produce HTML that can then be embedded into Doxygen or other
 documentation.
+
+\section sec_droption_aliases Aliases
+
+To support multiple strings to trigger the same option, pass a vector
+of strings as the name, with the primary name (the one used in usage
+reports) listed first, like this:
+
+\code
+droption_t<std::string> op_blocklist(
+    // We support the legacy name as an alias for compatibility.
+    // We explicitly specity the vector type to avoid ambiguity with iterators
+    // when we have just 2 elements in the list.
+    DROPTION_SCOPE_CLIENT, std::vector<std::string>({ "blocklist", "blacklist" }),
+    IF_WINDOWS_ELSE("ntdll.dll", ""), ":-separated list of libs to ignore.",
+    "The blocklist is a :-separated list of library names for which violations "
+    "should not be reported.");
+\endcode
 
 */

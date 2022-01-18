@@ -11,11 +11,13 @@ Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                              6[34].
     Misses:                             11
+    Compulsory misses:                  *[0-9,\.]*
     Invalidations:                       0
     Miss rate:                        1[,\.]69%
   L1D stats:
     Hits:                               3[0-9]
     Misses:                             *[0-9]*
+    Compulsory misses:                  *[0-9,\.]*
     Invalidations:                       0
     Prefetch hits:                       1
     Prefetch misses:                     6
@@ -26,6 +28,7 @@ Core #3 \(0 thread\(s\)\)
 LL stats:
     Hits:                                3
     Misses:                             1[0-9]
+    Compulsory misses:                  *[0-9,\.]*
     Invalidations:                       0
     Prefetch hits:                       1
     Prefetch misses:                     [56]

@@ -218,6 +218,11 @@ public:
     // This is a per-buffer-writeout header.
     virtual int
     append_unit_header(byte *buf_ptr, thread_id_t tid) = 0;
+    virtual void
+    set_frozen_timestamp(uint64 timestamp)
+    {
+        frozen_timestamp_ = timestamp;
+    }
 
     // These insert inlined code to add an entry into the trace buffer.
     virtual int
@@ -263,6 +268,8 @@ public:
     get_cpu_id();
     static uint64
     get_timestamp();
+    static int
+    count_app_instrs(instrlist_t *ilist);
     virtual void
     insert_obtain_addr(void *drcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_addr, reg_id_t reg_scratch, opnd_t ref,
@@ -275,6 +282,9 @@ protected:
     bool memref_needs_full_info_;
     drvector_t *reg_vector_;
     bool disable_optimizations_;
+    // Stores a timestamp to use for all future unit headers.  This is meant for
+    // avoiding time gaps for max-limit scenarios (i#5021).
+    uint64 frozen_timestamp_ = 0;
 
 private:
     instru_t()
@@ -365,7 +375,7 @@ public:
     set_entry_addr(byte *buf_ptr, addr_t addr) override;
 
     uint64_t
-    get_modoffs(void *drcontext, app_pc pc);
+    get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx);
 
     int
     append_pid(byte *buf_ptr, process_id_t pid) override;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -141,7 +141,23 @@ public:
     droption_parser_t(unsigned int scope, std::string name, std::string desc_short,
                       std::string desc_long, unsigned int flags)
         : scope_(scope)
-        , name_(name)
+        , names_(std::vector<std::string>(1, name))
+        , is_specified_(false)
+        , desc_short_(desc_short)
+        , desc_long_(desc_long)
+        , flags_(flags)
+    {
+        // We assume no synch is needed as this is a static initializer.
+        // XXX: any way to check/assert on that?
+        allops().push_back(this);
+        if (TESTANY(DROPTION_FLAG_SWEEP, flags_))
+            sweeper() = this;
+    }
+
+    droption_parser_t(unsigned int scope, std::vector<std::string> names,
+                      std::string desc_short, std::string desc_long, unsigned int flags)
+        : scope_(scope)
+        , names_(names)
         , is_specified_(false)
         , desc_short_(desc_short)
         , desc_long_(desc_long)
@@ -213,8 +229,10 @@ public:
                         if (op->option_takes_2args() && i < argc)
                             ++i;
                         if (i == argc) {
-                            if (error_msg != NULL)
-                                *error_msg = "Option " + op->name_ + " missing value";
+                            if (error_msg != NULL) {
+                                *error_msg =
+                                    "Option " + op->get_name() + " missing value";
+                            }
                             res = false;
                             goto parse_finished;
                         }
@@ -225,8 +243,8 @@ public:
                                  !op->convert_from_string(argv[i - 1], argv[i])) ||
                                 !op->clamp_value()) {
                                 if (error_msg != NULL) {
-                                    *error_msg =
-                                        "Option " + op->name_ + " value out of range";
+                                    *error_msg = "Option " + op->get_name() +
+                                        " value out of range";
                                 }
                                 res = false;
                                 goto parse_finished;
@@ -239,8 +257,8 @@ public:
                                  !sweeper()->convert_from_string(argv[i - 1], argv[i])) ||
                                 !sweeper()->clamp_value()) {
                                 if (error_msg != NULL) {
-                                    *error_msg =
-                                        "Option " + op->name_ + " value out of range";
+                                    *error_msg = "Option " + op->get_name() +
+                                        " value out of range";
                                 }
                                 res = false;
                                 goto parse_finished;
@@ -277,7 +295,7 @@ public:
             droption_parser_t *op = *opi;
             if (!TESTALL(DROPTION_FLAG_INTERNAL, op->flags_) &&
                 TESTANY(scope, op->scope_)) {
-                oss << " -" << std::setw(20) << std::left << op->name_ << "["
+                oss << " -" << std::setw(20) << std::left << op->get_name() << "["
                     << std::setw(6) << std::right << op->default_as_string() << "]"
                     << "  " << std::left << op->desc_short_ << std::endl;
             }
@@ -303,7 +321,7 @@ public:
             // XXX: we should also add the min and max values
             if (!TESTALL(DROPTION_FLAG_INTERNAL, op->flags_) &&
                 TESTANY(scope, op->scope_)) {
-                oss << pre_name << "-" << op->name_ << post_name << pre_value
+                oss << pre_name << "-" << op->get_name() << post_name << pre_value
                     << "default value: " << op->default_as_string() << post_value
                     << pre_desc << op->desc_long_ << post_desc << std::endl;
             }
@@ -321,7 +339,7 @@ public:
     std::string
     get_name()
     {
-        return name_;
+        return names_[0];
     }
 
 protected:
@@ -355,7 +373,7 @@ protected:
     }
 
     unsigned int scope_; // made up of droption_scope_t bitfields
-    std::string name_;
+    std::vector<std::string> names_;
     bool is_specified_;
     std::string desc_short_;
     std::string desc_long_;
@@ -416,6 +434,68 @@ public:
     droption_t(unsigned int scope, std::string name, T defval, T minval, T maxval,
                std::string desc_short, std::string desc_long)
         : droption_parser_t(scope, name, desc_short, desc_long, 0)
+        , value_(defval)
+        , defval_(defval)
+        , valsep_(DROPTION_DEFAULT_VALUE_SEP)
+        , has_range_(true)
+        , minval_(minval)
+        , maxval_(maxval)
+    {
+    }
+
+    /**
+     * Declares a new option of type T with the given scope, list of alternative names,
+     * default value, and description in short and long forms.
+     */
+    droption_t(unsigned int scope, std::vector<std::string> names, T defval,
+               std::string desc_short, std::string desc_long)
+        : droption_parser_t(scope, names, desc_short, desc_long, 0)
+        , value_(defval)
+        , defval_(defval)
+        , valsep_(DROPTION_DEFAULT_VALUE_SEP)
+        , has_range_(false)
+    {
+    }
+
+    /**
+     * Declares a new option of type T with the given scope, list of alternative names,
+     * behavior flags, default value, and description in short and long forms.
+     */
+    droption_t(unsigned int scope, std::vector<std::string> names, unsigned int flags,
+               T defval, std::string desc_short, std::string desc_long)
+        : droption_parser_t(scope, names, desc_short, desc_long, flags)
+        , value_(defval)
+        , defval_(defval)
+        , valsep_(DROPTION_DEFAULT_VALUE_SEP)
+        , has_range_(false)
+    {
+    }
+
+    /**
+     * Declares a new option of type T with the given scope, list of alternative names,
+     * behavior flags,
+     * accumulated value separator (see #DROPTION_FLAG_ACCUMULATE), default value, and
+     * description in short and long forms. The first listed name is considered the
+     * primary name; the others are aliases.
+     */
+    droption_t(unsigned int scope, std::vector<std::string> names, unsigned int flags,
+               std::string valsep, T defval, std::string desc_short,
+               std::string desc_long)
+        : droption_parser_t(scope, names, desc_short, desc_long, 0)
+        , value_(defval)
+        , defval_(defval)
+        , valsep_(DROPTION_DEFAULT_VALUE_SEP)
+        , has_range_(false)
+    {
+    }
+
+    /**
+     * Declares a new option of type T with the given scope, list of alternative names,
+     * default value, minimum and maximum values, and description in short and long forms.
+     */
+    droption_t(unsigned int scope, std::vector<std::string> names, T defval, T minval,
+               T maxval, std::string desc_short, std::string desc_long)
+        : droption_parser_t(scope, names, desc_short, desc_long, 0)
         , value_(defval)
         , defval_(defval)
         , valsep_(DROPTION_DEFAULT_VALUE_SEP)
@@ -515,23 +595,31 @@ template <typename T>
 inline bool
 droption_t<T>::name_match(const char *arg)
 {
-    return (std::string("-").append(name_) == arg ||
-            std::string("--").append(name_) == arg);
+    for (const auto &name : names_) {
+        if (std::string("-").append(name) == arg || std::string("--").append(name) == arg)
+            return true;
+    }
+    return false;
 }
 template <>
 inline bool
 droption_t<bool>::name_match(const char *arg)
 {
-    if (std::string("-").append(name_) == arg || std::string("--").append(name_) == arg) {
-        value_ = true;
-        return true;
+    for (const auto &name : names_) {
+        if (std::string("-").append(name) == arg ||
+            std::string("--").append(name) == arg) {
+            value_ = true;
+            return true;
+        }
     }
-    if (std::string("-no").append(name_) == arg ||
-        std::string("-no_").append(name_) == arg ||
-        std::string("--no").append(name_) == arg ||
-        std::string("--no_").append(name_) == arg) {
-        value_ = false;
-        return true;
+    for (const auto &name : names_) {
+        if (std::string("-no").append(name) == arg ||
+            std::string("-no_").append(name) == arg ||
+            std::string("--no").append(name) == arg ||
+            std::string("--no_").append(name) == arg) {
+            value_ = false;
+            return true;
+        }
     }
     return false;
 }

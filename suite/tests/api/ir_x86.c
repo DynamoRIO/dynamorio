@@ -914,6 +914,34 @@ test_cti_prefixes(void *dc)
 }
 
 static void
+test_cti_predicate(void *dc, byte *data, uint len, int opcode, dr_pred_type_t pred)
+{
+    instr_t *instr = instr_create(dc);
+    byte *end = decode(dc, data, instr);
+    ASSERT(end == data + len);
+    ASSERT(instr_get_opcode(instr) == opcode);
+    ASSERT(instr_is_predicated(instr));
+    ASSERT(instr_get_predicate(instr) == pred);
+    instr_destroy(dc, instr);
+}
+
+static void
+test_cti_predicates(void *dc)
+{
+    byte data[][16] = {
+        // 7e 10                jle    10
+        { 0x7e, 0x10 },
+        // 0f 84 99 00 00 00    je     403e08
+        { 0x0f, 0x84, 0x99, 0x00, 0x00, 0x00 },
+        // 0f 44 c2             cmovbe %edx,%eax
+        { 0x0f, 0x46, 0xc2 },
+    };
+    test_cti_predicate(dc, data[0], 2, OP_jle_short, DR_PRED_LE);
+    test_cti_predicate(dc, data[1], 6, OP_je, DR_PRED_EQ);
+    test_cti_predicate(dc, data[2], 3, OP_cmovbe, DR_PRED_BE);
+}
+
+static void
 test_modrm16_helper(void *dc, reg_id_t base, reg_id_t scale, uint disp, uint len)
 {
     instr_t *instr;
@@ -1277,6 +1305,31 @@ test_x64_inc(void *dc)
 
     instr = INSTR_CREATE_inc(dc, opnd_create_reg(DR_REG_EAX));
     test_instr_encode(dc, instr, 2);
+}
+
+static void
+test_x64_vmovq(void *dc)
+{
+    /* 62 61 fd 08 d6 0c 0a vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]
+     * 62 61 fe 08 7e 0c 0a vmovq  (%rdx,%rcx)[8byte] -> %xmm25
+     */
+    byte *pc;
+    const byte b1[] = { 0x62, 0x61, 0xfd, 0x08, 0xd6, 0x0c, 0x0a, 0x00 };
+    const byte b2[] = { 0x62, 0x61, 0xfe, 0x08, 0x7e, 0x0c, 0x0a, 0x00 };
+    char dbuf[512];
+    int len;
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b1[7]);
+    ASSERT(strcmp(dbuf, "vmovq  %xmm25[8byte] -> (%rdx,%rcx)[8byte]\n") == 0);
+
+    pc =
+        disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false /*no pc*/,
+                              false /*no bytes*/, dbuf, BUFFER_SIZE_ELEMENTS(dbuf), &len);
+    ASSERT(pc == &b2[7]);
+    ASSERT(strcmp(dbuf, "vmovq  (%rdx,%rcx)[8byte] -> %xmm25\n") == 0);
 }
 #endif
 
@@ -2471,6 +2524,8 @@ main(int argc, char *argv[])
 
     test_cti_prefixes(dcontext);
 
+    test_cti_predicates(dcontext);
+
 #ifndef X64
     test_modrm16(dcontext);
 #endif
@@ -2487,6 +2542,8 @@ main(int argc, char *argv[])
     test_x64_abs_addr(dcontext);
 
     test_x64_inc(dcontext);
+
+    test_x64_vmovq(dcontext);
 #endif
 
     test_regs(dcontext);

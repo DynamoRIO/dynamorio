@@ -1,0 +1,14 @@
+two_args 42 43
+two_args returned -4
+reg_val_test returned 7
+multipath_test A returned 70
+multipath_test B returned 70
+loaded library
+two_args 42 43
+two_args returned -4
+reg_val_test returned 7
+multipath_test A returned 70
+multipath_test B returned 70
+loaded library
+thank you for testing the client interface
+all done

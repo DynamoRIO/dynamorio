@@ -144,11 +144,8 @@ set(drcachesim_srcs
   simulator/analyzer_interface.cpp
   tracer/instru.cpp
   tracer/instru_online.cpp
-  )
-if (DEBUG)
-  # We include the invariants analyzer for testing.
-  set(drcachesim_srcs ${drcachesim_srcs} tests/trace_invariants.cpp)
-endif ()
+  # We include the invariants analyzer for sanity checks.
+  tools/invariant_checker.cpp)
 add_executable(drcachesim ${drcachesim_srcs})
 # In order to embed raw2trace we need to be standalone:
 configure_DynamoRIO_standalone(drcachesim)
@@ -211,10 +208,10 @@ install_client_nonDR_header(drmemtrace tracer/raw2trace.h)
 
 # We show one example of how to create a standalone analyzer of trace
 # files that does not need to link with DR.
-# We also use this to link in our trace_invariants sanity checker.
+# We also use this to link in our invariant_checker sanity checker.
 add_executable(histogram_launcher
   tools/histogram_launcher.cpp
-  tests/trace_invariants.cpp
+  tools/invariant_checker.cpp
   )
 target_link_libraries(histogram_launcher drmemtrace_analyzer drmemtrace_histogram
   drfrontendlib)
@@ -285,6 +282,7 @@ macro(add_drmemtrace name type)
   use_DynamoRIO_extension(${name} drwrap${ext_sfx})
   use_DynamoRIO_extension(${name} drreg${ext_sfx})
   use_DynamoRIO_extension(${name} drutil${ext_sfx})
+  use_DynamoRIO_extension(${name} drstatecmp${ext_sfx})
   use_DynamoRIO_extension(${name} drx${ext_sfx})
   use_DynamoRIO_extension(${name} droption)
   use_DynamoRIO_extension(${name} drcovlib${ext_sfx})
@@ -514,6 +512,15 @@ if (BUILD_TESTS)
   add_test(NAME tool.drcachesim.unit_tests
            COMMAND tool.drcachesim.unit_tests)
 
+  add_executable(tool.drcacheoff.raw2trace_unit_tests tests/raw2trace_unit_tests.cpp)
+  configure_DynamoRIO_standalone(tool.drcacheoff.raw2trace_unit_tests)
+  add_win32_flags(tool.drcacheoff.raw2trace_unit_tests)
+  target_link_libraries(tool.drcacheoff.raw2trace_unit_tests drmemtrace_raw2trace)
+  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drdecode)
+  use_DynamoRIO_extension(tool.drcacheoff.raw2trace_unit_tests drcovlib_static)
+  add_test(NAME tool.drcacheoff.raw2trace_unit_tests
+    COMMAND tool.drcacheoff.raw2trace_unit_tests)
+
   if (DR_HOST_AARCH64)
     add_executable(tool.drcacheoff.burst_aarch64_sys tests/burst_aarch64_sys.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_aarch64_sys)
@@ -540,6 +547,24 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcachesim.miss_analyzer_unit_test)
     add_test(NAME tool.drcachesim.miss_analyzer_unit_test
              COMMAND tool.drcachesim.miss_analyzer_unit_test)
+
+    add_executable(tool.drcachesim.invariant_checker_test
+      tools/invariant_checker.cpp tests/invariant_checker_test.cpp)
+    target_link_libraries(tool.drcachesim.invariant_checker_test
+        drmemtrace_static drmemtrace_analyzer)
+    add_win32_flags(tool.drcachesim.invariant_checker_test)
+    add_test(NAME tool.drcachesim.invariant_checker_test
+             COMMAND tool.drcachesim.invariant_checker_test)
+
+    add_executable(tool.drcacheoff.view_test tests/view_test.cpp)
+    configure_DynamoRIO_standalone(tool.drcacheoff.view_test)
+    add_win32_flags(tool.drcacheoff.view_test)
+    target_link_libraries(tool.drcacheoff.view_test drmemtrace_view drmemtrace_raw2trace)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drreg_static)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drcovlib_static)
+    use_DynamoRIO_extension(tool.drcacheoff.view_test drdecode)
+    add_test(NAME tool.drcacheoff.view_test
+      COMMAND tool.drcacheoff.view_test)
 
     add_executable(tool.drcacheoff.burst_static tests/burst_static.cpp)
     configure_DynamoRIO_static(tool.drcacheoff.burst_static)

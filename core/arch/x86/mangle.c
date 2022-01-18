@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1391,7 +1391,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         reg_id_t scratch2;
         for (scratch2 = REG_XAX; scratch2 <= REG_XBX; scratch2++) {
-            if (!instr_uses_reg(instr, scratch2))
+            if (!instr_uses_reg(instr, scratch2) && scratch2 != reg)
                 break;
         }
         ASSERT(scratch2 <= REG_XBX);
@@ -3044,6 +3044,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
     opnd_t *args = NULL;
 
     ASSERT(handler->type == DR_ANNOTATION_HANDLER_CALL);
+    LOG(THREAD, LOG_INTERP, 3, "inserting call to annotation handler\n");
 
     while (receiver != NULL) {
         if (handler->num_args != 0) {
@@ -3057,10 +3058,14 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *label, instrlist_t *ilis
                 dcontext, (ptr_int_t)pc, dr_reg_spill_slot_opnd(dcontext, SPILL_SLOT_2),
                 ilist, label, NULL, NULL);
         }
-        dr_insert_clean_call_ex_varg(dcontext, ilist, label,
-                                     receiver->instrumentation.callback,
-                                     receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
-                                     handler->num_args, args);
+        dr_insert_clean_call_ex_varg(
+            dcontext, ilist, label, receiver->instrumentation.callback,
+            (receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0) |
+                /* Setting a return value is already handled with an inserted app
+                 * instruction, so we do not set the DR_CLEANCALL_WRITES_APP_CONTEXT flag.
+                 */
+                DR_CLEANCALL_READS_APP_CONTEXT,
+            handler->num_args, args);
         if (handler->num_args != 0) {
             HEAP_ARRAY_FREE(dcontext, args, opnd_t, handler->num_args, ACCT_CLEANCALL,
                             UNPROTECTED);
@@ -3887,10 +3892,10 @@ static uint selfmod_eflags[] = { FRAG_WRITES_EFLAGS_6, FRAG_WRITES_EFLAGS_OF, 0 
 static app_pc selfmod_gt4G[] = { NULL, (app_pc)(POINTER_MAX - 2) /*so end can be +2*/ };
 #    define SELFMOD_NUM_GT4G (sizeof(selfmod_gt4G) / sizeof(selfmod_gt4G[0]))
 #endif
-uint selfmod_copy_start_offs[SELFMOD_NUM_S2RO][SELFMOD_NUM_EFLAGS] IF_X64([
-    SELFMOD_NUM_GT4G]);
-uint selfmod_copy_end_offs[SELFMOD_NUM_S2RO][SELFMOD_NUM_EFLAGS] IF_X64([
-    SELFMOD_NUM_GT4G]);
+uint selfmod_copy_start_offs[SELFMOD_NUM_S2RO]
+                            [SELFMOD_NUM_EFLAGS] IF_X64([SELFMOD_NUM_GT4G]);
+uint selfmod_copy_end_offs[SELFMOD_NUM_S2RO]
+                          [SELFMOD_NUM_EFLAGS] IF_X64([SELFMOD_NUM_GT4G]);
 
 void
 set_selfmod_sandbox_offsets(dcontext_t *dcontext)

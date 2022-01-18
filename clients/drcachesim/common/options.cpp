@@ -167,7 +167,8 @@ droption_t<bool> op_L0_filter(
     "that miss in this initial cache.  This cache is direct-mapped with sizes equal to "
     "-L0I_size and -L0D_size.  It uses virtual addresses regardless of -use_physical. "
     "The dynamic (pre-filtered) per-thread instruction count is tracked and supplied "
-    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread exit.");
+    "via a #TRACE_MARKER_TYPE_INSTRUCTION_COUNT marker at thread buffer boundaries "
+    "and at thread exit.");
 
 droption_t<bytesize_t> op_L0I_size(
     DROPTION_SCOPE_CLIENT, "L0I_size", 32 * 1024U,
@@ -240,8 +241,14 @@ droption_t<bytesize_t> op_trace_after_instrs(
     "Do not start tracing until N instructions",
     "If non-zero, this causes tracing to be suppressed until this many dynamic "
     "instruction "
-    "executions are observed.  At that point, regular tracing is put into place.  Use "
-    "-max_trace_size to set a limit on the subsequent trace length.");
+    "executions are observed.  At that point, regular tracing is put into place. "
+    "The threshold should be considered approximate, especially for larger values. "
+    "Switching to regular tracing takes some amount of time during which other "
+    "threads than the one that triggered the switch can continue to execute, "
+    "resulting in a larger count of executed instructions before tracing actually "
+    "starts than this given threshold. "
+    "Use -max_trace_size or -max_global_trace_refs to set a limit on the subsequent "
+    "trace length.");
 
 droption_t<bytesize_t> op_exit_after_tracing(
     DROPTION_SCOPE_CLIENT, "exit_after_tracing", 0,
@@ -307,13 +314,15 @@ droption_t<std::string>
                           "Specifies the replacement policy for TLBs. "
                           "Supported policies: LFU (Least Frequently Used).");
 
-droption_t<std::string> op_simulator_type(
-    DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
-    "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM ", " VIEW ", " FUNC_VIEW ", or " BASIC_COUNTS ").",
-    "Specifies the type of the simulator. "
-    "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB ", " REUSE_DIST
-    ", " REUSE_TIME ", " HISTOGRAM "or " BASIC_COUNTS ".");
+droption_t<std::string>
+    op_simulator_type(DROPTION_SCOPE_FRONTEND, "simulator_type", CPU_CACHE,
+                      "Simulator type (" CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " VIEW
+                      ", " FUNC_VIEW ", " BASIC_COUNTS ", or " INVARIANT_CHECKER ").",
+                      "Specifies the type of the simulator. "
+                      "Supported types: " CPU_CACHE ", " MISS_ANALYZER ", " TLB
+                      ", " REUSE_DIST ", " REUSE_TIME ", " HISTOGRAM ", " BASIC_COUNTS
+                      ", or " INVARIANT_CHECKER ".");
 
 droption_t<unsigned int> op_verbose(DROPTION_SCOPE_ALL, "verbose", 0, 0, 64,
                                     "Verbosity level",
@@ -324,13 +333,11 @@ droption_t<bool>
                        "Show every traced call in the func_trace tool",
                        "In the func_trace tool, this controls whether every traced call "
                        "is shown or instead only aggregate statistics are shown.");
-#ifdef DEBUG
 droption_t<bool> op_test_mode(DROPTION_SCOPE_ALL, "test_mode", false, "Run sanity tests",
                               "Run extra analyses for sanity checks on the trace.");
 droption_t<std::string> op_test_mode_name(
     DROPTION_SCOPE_ALL, "test_mode_name", "", "Run custom sanity tests",
     "Run extra analyses for specific sanity checks by name on the trace.");
-#endif
 droption_t<bool> op_disable_optimizations(
     DROPTION_SCOPE_ALL, "disable_optimizations", false,
     "Disable offline trace optimizations for testing",
@@ -366,6 +373,12 @@ droption_t<std::string> op_tracer_ops(
     DROPTION_FLAG_SWEEP | DROPTION_FLAG_ACCUMULATE | DROPTION_FLAG_INTERNAL, "",
     "(For internal use: sweeps up tracer options)",
     "This is an internal option that sweeps up other options to pass to the tracer.");
+
+droption_t<int>
+    op_only_thread(DROPTION_SCOPE_FRONTEND, "only_thread", 0,
+                   "Only analyze this thread (0 means all)",
+                   "For simulator types that support it, limits analyis to the single "
+                   "thread with the given identifier.  0 enables all threads.");
 
 droption_t<bytesize_t>
     op_skip_refs(DROPTION_SCOPE_FRONTEND, "skip_refs", 0,
@@ -557,3 +570,7 @@ droption_t<double> op_confidence_threshold(
     "results. Confidence in a discovered pattern for a load instruction is calculated "
     "as the fraction of the load's misses with the discovered pattern over all the "
     "load's misses.");
+droption_t<bool> op_enable_drstatecmp(
+    DROPTION_SCOPE_CLIENT, "enable_drstatecmp", false, "Enable the drstatecmp library.",
+    "When true, this option enables the drstatecmp library that performs state "
+    "comparisons to detect instrumentation-induced bugs due to state clobbering.");

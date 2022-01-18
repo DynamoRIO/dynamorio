@@ -661,7 +661,7 @@ if (UNIX)
         ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
              -D check_textrel=${check_textrel}
              -D check_deps=${check_deps}
-             -D check_libc=OFF
+             -D check_libc=${BUILD_PACKAGE}
              -D check_interp=ON
              -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
              -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
@@ -757,7 +757,7 @@ else (UNIX)
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
 
   # ensure there are no dependencies other than ntdll
-  find_program(DUMPBIN_EXECUTABLE dumpbin.exe DOC "path to dumpbin.exe")
+  find_program(DUMPBIN_EXECUTABLE dumpbin.exe HINTS "${cl_path}" DOC "path to dumpbin.exe")
   if (DUMPBIN_EXECUTABLE)
     add_custom_command(TARGET dynamorio
       POST_BUILD
@@ -931,7 +931,7 @@ if (UNIX)
       ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D check_textrel=ON
            -D check_deps=OFF
-           -D check_libc=ON
+           -D check_libc=${BUILD_PACKAGE}
            -D check_interp=ON
            -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
            -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake

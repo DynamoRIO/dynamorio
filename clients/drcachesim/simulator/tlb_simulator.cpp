@@ -85,11 +85,14 @@ tlb_simulator_t::tlb_simulator_t(const tlb_simulator_knobs_t &knobs)
         }
 
         if (!itlbs_[i]->init(knobs_.TLB_L1I_assoc, (int)knobs_.page_size,
-                             knobs_.TLB_L1I_entries, lltlbs_[i], new tlb_stats_t) ||
+                             knobs_.TLB_L1I_entries, lltlbs_[i],
+                             new tlb_stats_t((int)knobs_.page_size)) ||
             !dtlbs_[i]->init(knobs_.TLB_L1D_assoc, (int)knobs_.page_size,
-                             knobs_.TLB_L1D_entries, lltlbs_[i], new tlb_stats_t) ||
+                             knobs_.TLB_L1D_entries, lltlbs_[i],
+                             new tlb_stats_t((int)knobs_.page_size)) ||
             !lltlbs_[i]->init(knobs_.TLB_L2_assoc, (int)knobs_.page_size,
-                              knobs_.TLB_L2_entries, NULL, new tlb_stats_t)) {
+                              knobs_.TLB_L2_entries, NULL,
+                              new tlb_stats_t((int)knobs_.page_size))) {
             error_string_ =
                 "Usage error: failed to initialize TLbs_. Ensure entry number, "
                 "page size and associativity are powers of 2.";

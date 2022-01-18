@@ -946,9 +946,12 @@ typedef struct _dr_kernel_xfer_info_t {
     dr_kernel_xfer_type_t type;
     /**
      * The source machine context which is about to be changed.  This may be NULL
-     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER and
-     * #DR_XFER_RSEQ_ABORT (where the PC is not known but the rest of the state
-     * matches the current state).
+     * if it is unknown, which is the case for #DR_XFER_CALLBACK_DISPATCHER.
+     * For #DR_XFER_RSEQ_ABORT, due to the constraints of handling restartable
+     * sequences, the abort PC will point prior to the committing store, while
+     * that store already executed during instrumentation.  We recommend that
+     * clients treat the store as never-executed in that situation, if possible,
+     * to produce a more-representative sequence.
      */
     const dr_mcontext_t *source_mcontext;
     /**
@@ -1304,6 +1307,9 @@ typedef enum {
     /**
      * Do not deliver the signal.  Instead, redirect control to the
      * application state specified in dr_siginfo_t.mcontext.
+     * Clients may modify dr_siginfo_t.mcontext.pc to redirect control to
+     * a desired pc, but beware that it is important to set the app state
+     * (like the register values) as expected by the transfer point.
      */
     DR_SIGNAL_REDIRECT,
 } dr_signal_action_t;
@@ -1408,6 +1414,31 @@ DR_API
  */
 bool
 dr_unregister_low_on_memory_event(void (*func)());
+
+DR_API
+/**
+ * Registers a callback function that is invoked whenever a clean call is inserted
+ * in instrumentation, such as by dr_insert_clean_call(), dr_insert_clean_call_ex(),
+ * or dr_insert_clean_call_ex_varg().
+ * 'where' is a label with note value #DR_NOTE_CLEAN_CALL_END; the clean call
+ * sequence will be inserted prior to the label after all clean call callbacks
+ * are finished (so the clean call sequence is not yet visible at the time this
+ * callback is invoked).
+ */
+void
+dr_register_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                    instr_t *where,
+                                                    dr_cleancall_save_t call_flags));
+
+DR_API
+/**
+ * Unregisters a callback function that was registered with
+ * dr_register_call_insertion_event().
+ */
+bool
+dr_unregister_clean_call_insertion_event(void (*func)(void *drcontext, instrlist_t *ilist,
+                                                      instr_t *where,
+                                                      dr_cleancall_save_t call_flags));
 
 /****************************************************************************
  * SECURITY SUPPORT

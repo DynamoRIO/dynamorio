@@ -54,6 +54,7 @@
 #    include "dr_ir_instr.h"
 #    include "dr_ir_utils.h"
 #endif
+#include <limits.h> /* For SCHAR_MAX, SCHAR_MIN. */
 
 /**
  * Set the translation field for an instruction. For example:

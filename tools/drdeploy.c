@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -182,7 +182,7 @@ const char *options_list_str =
     "                          If a local file already exists it will take precedence.\n"
     "       -norun             Create a configuration that excludes the application\n"
     "                          from running under DR control.  Useful for following\n"
-    "                          all child processes except a handful (blacklist).\n"
+    "                          all child processes except a handful (blocklist).\n"
 #endif
     "       -debug             Use the DR debug library\n"
     "       -32                Target 32-bit or WOW64 applications\n"
@@ -296,9 +296,34 @@ const char *options_list_str =
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
     "       -early             Requests early injection (the default).\n"
 #        endif
-    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
-    "                          for pid to launch and inject into a new process.\n"
     "       -logdir <dir>      Logfiles will be stored in this directory.\n"
+#    endif
+#    ifdef UNIX
+    "       -attach <pid>      Attach to the process with the given pid.\n"
+    "                          Attaching is an experimental feature and is not yet\n"
+    "                          as well-supported as launching a new process.\n"
+    "                          When attaching to a process in the middle of a blocking\n"
+    "                          system call, DynamoRIO will wait until it returns.\n"
+#        ifdef X86
+    "                          Use -skip_syscall to force interruption.\n"
+    "       -skip_syscall      (Experimental)\n"
+    "                          Only works with -attach.\n"
+    "                          Attaching to a process will force blocking system calls\n"
+    "                          to fail with EINTR.\n"
+#        endif
+#    endif
+#    ifdef WINDOWS
+    "       -attach <pid>      Attach to the process with the given pid.\n"
+    "                          Attaching is an experimental feature and is not yet\n"
+    "                          as well-supported as launching a new process.\n"
+    "                          Attaching to a process in the middle of a blocking\n"
+    "                          system call could fail.\n"
+    "                          Try takeover_sleep and larger takeovers to increase\n"
+    "                          the chances of success:\n"
+    "       -takeover_sleep    Sleep 1 millisecond between takeover attempts.\n"
+    "       -takeovers <num>   Number of takeover attempts. Defaults to 8.\n"
+    "                          The larger, the more likely attach will succeed,\n"
+    "                          however, the attach process will take longer.\n"
 #    endif
     "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
     "       -force             Inject regardless of configuration.\n"
@@ -1100,8 +1125,10 @@ _tmain(int argc, TCHAR *targv[])
     time_t start_time, end_time;
 #    else
     bool use_ptrace = false;
+    bool wait_syscall = true;
     bool kill_group = false;
 #    endif
+    process_id_t attach_pid = 0;
     char *app_name = NULL;
     char full_app_name[MAXIMUM_PATH];
     const char **app_argv;
@@ -1122,6 +1149,7 @@ _tmain(int argc, TCHAR *targv[])
     char native_tool[MAXIMUM_PATH];
 #endif
 #ifdef DRRUN
+    char exe[MAXIMUM_PATH];
     void *tofree = NULL;
     bool configure = true;
 #endif
@@ -1251,20 +1279,48 @@ _tmain(int argc, TCHAR *targv[])
             continue;
         }
 #    endif
+        else if (strcmp(argv[i], "-attach") == 0) {
+            if (i + 1 >= argc)
+                usage(false, "attach requires a process id");
+            const char *pid_str = argv[++i];
+            process_id_t pid = strtoul(pid_str, NULL, 10);
+            if (pid == ULONG_MAX)
+                usage(false, "attach expects an integer pid: '%s'", pid_str);
+            if (pid == 0) {
+                usage(false, "attach passed an invalid pid: '%s'", pid_str);
+            }
+            attach_pid = pid;
+#    ifdef UNIX
+            use_ptrace = true;
+#    endif
+#    ifdef WINDOWS
+            use_late_injection = true;
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-skip_terminating_threads");
+#    endif
+            continue;
+        } else if (strcmp(argv[i], "-takeovers") == 0) {
+            const char *num_attemps = argv[++i];
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-takeover_attempts %s", num_attemps);
+            continue;
+        } else if (strcmp(argv[i], "-takeover_sleep") == 0) {
+            add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops), &extra_ops_sofar,
+                             "-sleep_between_takeovers");
+            continue;
+        }
+#    ifdef UNIX
+#        ifdef X86
+        else if (strcmp(argv[i], "-skip_syscall") == 0) {
+            wait_syscall = false;
+            continue;
+        }
+#        endif
+#    endif
 #    ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {
             /* Undocumented option for using ptrace on a fresh process. */
             use_ptrace = true;
-            continue;
-        } else if (strcmp(argv[i], "-attach") == 0) {
-            const char *pid_str = argv[++i];
-            process_id_t pid = strtoul(pid_str, NULL, 10);
-            if (pid == ULONG_MAX)
-                usage(false, "-attach expects an integer pid");
-            if (pid != 0)
-                usage(false, "attaching to running processes is not yet implemented");
-            use_ptrace = true;
-            /* FIXME: use pid below to attach. */
             continue;
         }
 #        ifndef MACOS /* XXX i#1285: private loader NYI on MacOS */
@@ -1531,10 +1587,28 @@ done_with_options:
 
 #if defined(DRRUN) || defined(DRINJECT)
 #    ifdef DRRUN
+    if (attach_pid != 0) {
+        ssize_t size = 0;
+#        ifdef UNIX
+        char exe_str[MAXIMUM_PATH];
+        _snprintf(exe_str, BUFFER_SIZE_ELEMENTS(exe_str), "/proc/%d/exe", attach_pid);
+        NULL_TERMINATE_BUFFER(exe_str);
+        size = readlink(exe_str, exe, BUFFER_SIZE_ELEMENTS(exe));
+        if (size > 0) {
+            if (size < BUFFER_SIZE_ELEMENTS(exe))
+                exe[size] = '\0';
+            else
+                NULL_TERMINATE_BUFFER(exe);
+        } else {
+            usage(false, "attach to invalid pid");
+        }
+#        endif /* UNIX */
+        app_name = exe;
+    }
     /* Support no app if the tool has its own frontend, under the assumption
      * it may have post-processing or other features.
      */
-    if (i < argc || native_tool[0] == '\0') {
+    if (attach_pid == 0 && (i < argc || native_tool[0] == '\0')) {
 #    endif
         if (i >= argc)
             usage(false, "%s", "no app specified");
@@ -1737,8 +1811,15 @@ done_with_options:
     if (limit == 0 && !use_ptrace && !kill_group) {
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
+    } else if (attach_pid != 0) {
+        errcode =
+            dr_inject_prepare_to_attach(attach_pid, app_name, wait_syscall, &inject_data);
     } else
-#    endif /* UNIX */
+#    elif defined(WINDOWS)
+    if (attach_pid != 0) {
+        errcode = dr_inject_process_attach(attach_pid, &inject_data, &app_name);
+    } else
+#    endif /* WINDOWS */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
         info("created child with pid " PIDFMT " for %s",
@@ -1822,6 +1903,8 @@ done_with_options:
             goto error;
         } else {
             info("using ptrace to inject");
+            if (wait_syscall)
+                warn("using experimental attach feature; if it hangs, try -skip_syscall");
         }
     }
     if (kill_group) {
@@ -1836,6 +1919,10 @@ done_with_options:
 
     if (inject && !dr_inject_process_inject(inject_data, force_injection, drlib_path)) {
 #    ifdef DRRUN
+        if (attach_pid != 0) {
+            error("unable to attach; check pid and system ptrace permissions");
+            goto error;
+        }
         error("unable to inject: exec of |%s| failed", drlib_path);
 #    else
         error("unable to inject: did you forget to run drconfig first?");
@@ -1876,7 +1963,8 @@ done_with_options:
         success = true; /* Don't kill the child if we're not waiting. */
     }
 
-    exitcode = dr_inject_process_exit(inject_data, !success /*kill process*/);
+    exitcode = dr_inject_process_exit(
+        inject_data, attach_pid != 0 ? false : !success /*kill process*/);
 
     if (limit < 0)
         exitcode = 0; /* Return success if we didn't wait. */
@@ -1889,8 +1977,10 @@ error:
     /* we created the process suspended so if we later had an error be sure
      * to kill it instead of leaving it hanging
      */
-    if (inject_data != NULL)
-        dr_inject_process_exit(inject_data, true /*kill process*/);
+    if (inject_data != NULL) {
+        dr_inject_process_exit(inject_data,
+                               attach_pid != 0 ? false : true /*kill process*/);
+    }
 #    ifdef DRRUN
     if (tofree != NULL)
         free(tofree);

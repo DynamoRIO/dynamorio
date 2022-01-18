@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2016-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2021 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -13,7 +13,7 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  *
- * * Neither the name of Google, Inc. nor the names of its contributors may be
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  *
@@ -30,42 +30,44 @@
  * DAMAGE.
  */
 
-/* trace_invariants: a memory trace invariants checker.
- */
+#include "tools.h"
 
-#ifndef _TRACE_INVARIANTS_H_
-#define _TRACE_INVARIANTS_H_ 1
+#ifdef LINUX
+#    define NOINLINE __attribute__((noinline))
+#else
+#    error NYI
+#endif
 
-#include "../analysis_tool.h"
-#include "../common/memref.h"
-#include <unordered_map>
+NOINLINE int
+qux(void)
+{
+    print("in qux\n");
+    return 0;
+}
 
-class trace_invariants_t : public analysis_tool_t {
-public:
-    trace_invariants_t(bool offline = true, unsigned int verbose = 0,
-                       std::string test_name = "");
-    virtual ~trace_invariants_t();
-    bool
-    process_memref(const memref_t &memref) override;
-    bool
-    print_results() override;
+NOINLINE int
+baz(void)
+{
+    print("in baz\n");
+    return qux();
+}
 
-protected:
-    bool knob_offline_;
-    unsigned int knob_verbose_;
-    std::string knob_test_name_;
-    memref_t prev_instr_;
-    memref_t prev_xfer_marker_;
-    memref_t prev_entry_;
-    memref_t prev_prev_entry_;
-    memref_t pre_signal_instr_;
-    int instrs_until_interrupt_;
-    int memrefs_until_interrupt_;
-    addr_t app_handler_pc_;
-    offline_file_type_t file_type_ = OFFLINE_FILE_TYPE_DEFAULT;
-    std::unordered_map<memref_tid_t, bool> thread_exited_;
-    std::unordered_map<memref_tid_t, bool> found_cache_line_size_marker_;
-    std::unordered_map<memref_tid_t, bool> found_instr_count_marker_;
-};
+NOINLINE int
+bar(void)
+{
+    print("in bar\n");
+    return baz();
+}
 
-#endif /* _TRACE_INVARIANTS_H_ */
+NOINLINE int
+foo(void)
+{
+    print("in foo\n");
+    return bar();
+}
+
+int
+main(int argc, char **argv)
+{
+    return foo();
+}

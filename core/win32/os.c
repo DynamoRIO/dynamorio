@@ -2497,6 +2497,15 @@ static bool
 os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool suspended)
 {
     bool success = true;
+
+    if (DYNAMO_OPTION(skip_terminating_threads)) {
+        if (nt_is_thread_terminating(hthread)) {
+            // Takeover fails when attaching and trying to takeover terminating threads.
+            // Luckily, we don't really need to take over them.
+            return success;
+        }
+    }
+
     DWORD cxt_flags = CONTEXT_DR_STATE;
     size_t bufsz = nt_get_context_size(cxt_flags);
     char *buf = (char *)heap_alloc(dcontext, bufsz HEAPACCT(ACCT_THREAD_MGT));
@@ -9068,10 +9077,10 @@ earliest_inject_init(byte *arg_ptr)
          * should we just silently go native?
          */
     } else {
-        /* Restore +rx to hook location before DR init scans it */
+        /* Restore the prior protections to the hook location before DR init scans it. */
         uint old_prot;
         if (!bootstrap_protect_virtual_memory((byte *)(ptr_int_t)args->hook_location,
-                                              EARLY_INJECT_HOOK_SIZE, PAGE_EXECUTE_READ,
+                                              EARLY_INJECT_HOOK_SIZE, args->hook_prot,
                                               &old_prot)) {
             /* XXX: again, how handle failure? */
         }

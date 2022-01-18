@@ -734,9 +734,7 @@ instr_get_prefixes(instr_t *instr)
 bool
 instr_is_predicated(instr_t *instr)
 {
-    /* XXX i#1556: we should also mark conditional branches and string loops
-     * as predicated!
-     */
+    /* XXX i#1556: we should also mark jecxz and string loops as predicated! */
     dr_pred_type_t pred = instr_get_predicate(instr);
     return instr_predicate_is_cond(pred);
 }
@@ -751,7 +749,8 @@ instr_get_predicate(instr_t *instr)
 instr_t *
 instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
 {
-    instr->prefixes |= ((pred << PREFIX_PRED_BITPOS) & PREFIX_PRED_MASK);
+    instr->prefixes = ((instr->prefixes & ~PREFIX_PRED_MASK) |
+                       ((pred << PREFIX_PRED_BITPOS) & PREFIX_PRED_MASK));
     return instr;
 }
 
@@ -3697,7 +3696,8 @@ instr_is_reg_spill_or_restore_ex(void *drcontext, instr_t *instr, bool DR_only, 
     if (reg == NULL)
         reg = &myreg;
     if (instr_check_tls_spill_restore(instr, spill, reg, &check_disp)) {
-        if (!DR_only ||
+        /* We do not want to count an mcontext base load as a reg spill/restore. */
+        if ((!DR_only && check_disp != os_tls_offset((ushort)TLS_DCONTEXT_SLOT)) ||
             (reg_spill_tls_offs(*reg) != -1 &&
              /* Mangling may choose to spill registers to a not natural tls offset,
               * e.g. rip-rel mangling will, if rax is used by the instruction. We

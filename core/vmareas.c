@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4360,21 +4360,22 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
          */
         if (DYNAMO_OPTION(detect_mode_max) > 0) {
             /* global counter for violations in all threads */
-            DO_THRESHOLD_SAFE(DYNAMO_OPTION(detect_mode_max), FREQ_PROTECTED_SECTION,
-                              { /* < max */
-                                LOG(GLOBAL, LOG_ALL, 1,
-                                    "security_violation: allowing violation #%d "
-                                    "[max %d], tid=" TIDFMT "\n",
-                                    do_threshold_cur, DYNAMO_OPTION(detect_mode_max),
-                                    d_r_get_thread_id());
-                              },
-                              { /* >= max */
-                                allow = false;
-                                LOG(GLOBAL, LOG_ALL, 1,
-                                    "security_violation: reached maximum allowed %d, "
-                                    "tid=" TIDFMT "\n",
-                                    DYNAMO_OPTION(detect_mode_max), d_r_get_thread_id());
-                              });
+            DO_THRESHOLD_SAFE(
+                DYNAMO_OPTION(detect_mode_max), FREQ_PROTECTED_SECTION,
+                { /* < max */
+                  LOG(GLOBAL, LOG_ALL, 1,
+                      "security_violation: allowing violation #%d "
+                      "[max %d], tid=" TIDFMT "\n",
+                      do_threshold_cur, DYNAMO_OPTION(detect_mode_max),
+                      d_r_get_thread_id());
+                },
+                { /* >= max */
+                  allow = false;
+                  LOG(GLOBAL, LOG_ALL, 1,
+                      "security_violation: reached maximum allowed %d, "
+                      "tid=" TIDFMT "\n",
+                      DYNAMO_OPTION(detect_mode_max), d_r_get_thread_id());
+                });
         } else {
             LOG(GLOBAL, LOG_ALL, 1,
                 "security_violation: allowing violation, no max, tid=%d\n",
@@ -4420,9 +4421,9 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
                    e.g. attacked handler can still point to valid RET */
                 bool global_max_reached = true;
                 /* check global counter as well */
-                DO_THRESHOLD_SAFE(DYNAMO_OPTION(throw_exception_max),
-                                  FREQ_PROTECTED_SECTION, { global_max_reached = false; },
-                                  { global_max_reached = true; });
+                DO_THRESHOLD_SAFE(
+                    DYNAMO_OPTION(throw_exception_max), FREQ_PROTECTED_SECTION,
+                    { global_max_reached = false; }, { global_max_reached = true; });
                 if (!global_max_reached) {
                     thread_local->thrown_exceptions++;
                     LOG(GLOBAL, LOG_ALL, 1,

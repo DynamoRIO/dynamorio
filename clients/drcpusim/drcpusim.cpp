@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2015-2017 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -56,7 +56,7 @@
 
 static bool (*opcode_supported)(instr_t *);
 
-static std::vector<std::string> blacklist;
+static std::vector<std::string> blocklist;
 
 static app_pc exe_start;
 
@@ -710,8 +710,8 @@ report_invalid_opcode(int opc, app_pc pc)
     if (mod != NULL)
         modname = dr_module_preferred_name(mod);
     if (modname != NULL) {
-        for (std::vector<std::string>::iterator i = blacklist.begin();
-             i != blacklist.end(); ++i) {
+        for (std::vector<std::string>::iterator i = blocklist.begin();
+             i != blocklist.end(); ++i) {
             if (*i == modname) {
                 dr_free_module_data(mod);
                 return;
@@ -756,8 +756,11 @@ event_app_instruction(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_save_reg(drcontext, bb, instr, DR_REG_XCX, SPILL_SLOT_2);
         // XXX: technically drmgr doesn't want us inserting instrs *after* the
         // app instr but this is the simplest way to go.
-        dr_insert_clean_call(drcontext, bb, instr_get_next(instr), (void *)fake_cpuid,
-                             false, 0);
+        dr_insert_clean_call_ex(
+            drcontext, bb, instr_get_next(instr), (void *)fake_cpuid,
+            static_cast<dr_cleancall_save_t>(DR_CLEANCALL_READS_APP_CONTEXT |
+                                             DR_CLEANCALL_WRITES_APP_CONTEXT),
+            0);
     }
 #endif
     return DR_EMIT_DEFAULT;
@@ -852,11 +855,11 @@ dr_client_main(client_id_t id, int argc, const char *argv[])
     dr_abort();
 #endif
 
-    if (!op_blacklist.get_value().empty()) {
-        std::stringstream stream(op_blacklist.get_value());
+    if (!op_blocklist.get_value().empty()) {
+        std::stringstream stream(op_blocklist.get_value());
         std::string entry;
         while (std::getline(stream, entry, ':'))
-            blacklist.push_back(entry);
+            blocklist.push_back(entry);
     }
 
     if (op_ignore_all_libs.get_value()) {

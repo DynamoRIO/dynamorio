@@ -683,8 +683,8 @@ entrance_stub_target_tag(cache_pc stub, coarse_info_t *info)
      */
     if (info == NULL)
         info = get_stub_coarse_info(stub);
-    if (info->mod_shift != 0 && tag >= info->persist_base &&
-        tag < info->persist_base + (info->end_pc - info->base_pc))
+    if (info->mod_shift != 0 && tag >= info->base_pc + info->mod_shift &&
+        tag < info->end_pc + info->mod_shift)
         tag -= info->mod_shift;
     return tag;
 }
@@ -1294,6 +1294,11 @@ update_indirect_exit_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 int
 fragment_prefix_size(uint flags)
 {
+#ifdef AARCH64
+    /* For AArch64, there is no need to save the flags
+     * so we always have the same ibt prefix. */
+    return fragment_ibt_prefix_size(flags);
+#else
     if (use_ibt_prefix(flags)) {
         return fragment_ibt_prefix_size(flags);
     } else {
@@ -1302,6 +1307,7 @@ fragment_prefix_size(uint flags)
         else
             return 0;
     }
+#endif
 }
 
 #ifdef PROFILE_RDTSC
@@ -5614,6 +5620,12 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
     }
     APP(&ilist, XINST_CREATE_jump(dcontext, opnd_create_pc(ibl_linked_tgt)));
 #elif defined(AARCH64)
+    /* Unlike X86 and ARM/AArch32 which use 1 instruction for an indirect jump,
+     * AArch64 requires 2 instructions: LDR+BR. This requires adjusting
+     * special_ibl_unlink_offs to point to the LDR when relinking by
+     * relink_special_ibl_xfer(). See adjustment below, to offs_instr passed to
+     * add_patch_marker().
+     */
     APP(&ilist,
         INSTR_CREATE_ldr(
             dcontext, opnd_create_reg(SCRATCH_REG1),
@@ -5627,7 +5639,12 @@ emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code, ui
             dcontext, opnd_create_reg(DR_REG_PC),
             OPND_TLS_FIELD(get_ibl_entry_tls_offs(dcontext, ibl_linked_tgt))));
 #endif
-    add_patch_marker(&patch, instrlist_last(&ilist), PATCH_UINT_SIZED /* pc relative */,
+
+    instr_t *offs_instr = instrlist_last(&ilist);
+#if defined(AARCH64)
+    offs_instr = instr_get_prev(offs_instr);
+#endif
+    add_patch_marker(&patch, offs_instr, PATCH_UINT_SIZED /* pc relative */,
                      0 /* point at opcode */,
                      (ptr_uint_t *)&code->special_ibl_unlink_offs[index]);
 

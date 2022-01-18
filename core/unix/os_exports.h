@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2020 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -165,6 +165,10 @@ extern uint android_tls_base_offs;
  */
 #    define USR_TLS_REG_OPCODE 3
 #    define USR_TLS_COPROC_15 15
+#endif
+
+#ifdef LINUX
+#    include "include/clone3.h"
 #endif
 
 void *
@@ -347,8 +351,6 @@ extern app_pc vsyscall_sysenter_displaced_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
 
 bool
-is_thread_create_syscall(dcontext_t *dcontext);
-bool
 was_thread_create_syscall(dcontext_t *dcontext);
 bool
 is_sigreturn_syscall(dcontext_t *dcontext);
@@ -455,10 +457,14 @@ mcontext_to_os_context(os_cxt_ptr_t osc, dr_mcontext_t *dmc, priv_mcontext_t *mc
 
 void *
 #ifdef MACOS
-create_clone_record(dcontext_t *dcontext, reg_t *app_xsp, app_pc thread_func,
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp, app_pc thread_func,
                     void *func_arg);
+#elif defined(LINUX)
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp,
+                    clone3_syscall_args_t *dr_clone_args,
+                    clone3_syscall_args_t *app_clone_args);
 #else
-create_clone_record(dcontext_t *dcontext, reg_t *app_xsp);
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp);
 #endif
 
 #ifdef MACOS
@@ -545,6 +551,9 @@ extern vm_area_vector_t *d_r_rseq_areas;
 bool
 rseq_get_region_info(app_pc pc, app_pc *start OUT, app_pc *end OUT, app_pc *handler OUT,
                      bool **reg_written OUT, int *reg_written_size OUT);
+
+bool
+rseq_set_final_instr_pc(app_pc start, app_pc final_instr_pc);
 
 int
 rseq_get_tls_ptr_offset(void);

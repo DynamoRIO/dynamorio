@@ -1,0 +1,14 @@
+#ifdef LINUX
+in foo
+in bar
+in baz
+client.drcallstack-test!qux
+client.drcallstack-test!baz
+client.drcallstack-test!bar
+client.drcallstack-test!foo
+client.drcallstack-test!main
+libc.so.6!.*
+client.drcallstack-test!<unknown>
+in qux
+#else
+#endif

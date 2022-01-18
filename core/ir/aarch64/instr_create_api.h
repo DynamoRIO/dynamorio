@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc. All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc. All rights reserved.
  * Copyright (c) 2016-2018 ARM Limited. All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc. All rights reserved.
  * **********************************************************/
@@ -107,21 +107,6 @@
 
 /** Create an operand specifying LSL, the default shift type when there is no shift. */
 #define OPND_CREATE_LSL() opnd_add_flags(OPND_CREATE_INT(DR_SHIFT_LSL), DR_OPND_IS_SHIFT)
-
-/** INSTR_CREATE_sys() operations are specified by the following immediates. */
-enum {
-    DR_DC_ZVA = 0x1ba1,    /**< Zero dcache by address. */
-    DR_DC_IVAC = 0x3b1,    /**< Invalidate dcache to Point of Coherency. */
-    DR_DC_ISW = 0x3b2,     /**< Invalidate dcache by set/way. */
-    DR_DC_CVAC = 0x1bd1,   /**< Clean dcache to point of coherency. */
-    DR_DC_CSW = 0x3d2,     /**< Clean dcache by set/way. */
-    DR_DC_CVAU = 0x1bd9,   /**< Clean dcache to point of unification. */
-    DR_DC_CIVAC = 0x1bf1,  /**< Clean and invalidate dcache to point of coherency. */
-    DR_DC_CISW = 0x3f2,    /**< Clean and invalidate dcache by set/way. */
-    DR_IC_IALLUIS = 0x388, /**< Invalidate icaches in ISD to point of unification. */
-    DR_IC_IALLU = 0x3a8,   /**< Invalidate icaches to point of unification. */
-    DR_IC_IVAU = 0x1ba9 /**< Invalidate icache by address to point of unification. */,
-};
 
 /****************************************************************************
  * Platform-independent INSTR_CREATE_* macros
@@ -567,6 +552,40 @@ enum {
 #define INSTR_CREATE_bl(dc, pc) \
     instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_X30), (pc))
 
+/**
+ * Creates a CCMP (Conditional Compare) instruction. Sets the NZCV flags to the
+ * result of a comparison of its two source values if the named input condition
+ * is true, or to an immediate value if the input condition is false.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param Rn      The GPR source register.
+ * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create
+   the operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
+ * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
+ * (use #opnd_create_immed_uint() to create the operand, e.g.
+ * opnd_create_immed_uint(val, #OPSZ_4b)).
+ */
+#define INSTR_CREATE_ccmp(dc, Rn, Op, nzcv, cond) \
+    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmp, Rn, Op, nzcv), (cond)))
+
+/**
+ * Creates a CCMN (Conditional Compare Negative) instruction. Sets the NZCV
+ * flags to the result of a comparison of its two source values if the named
+ * input condition is true, or to an immediate value if the input condition is
+ * false. The comparison is based on a negated second source value (Op) if an
+ * immediate, inverted if a register.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param cond    The comparison condition specified by #dr_pred_type_t, e.g. #DR_PRED_EQ.
+ * \param Rn      The GPR source register.
+ * \param Op      Either a 5-bit immediate (use #opnd_create_immed_uint() to create the
+ * operand, e.g. opnd_create_immed_uint(val, #OPSZ_5b)) or a GPR source register.
+ * \param nzcv    The 4 bit NZCV flags value used if the input condition is false.
+ * (use #opnd_create_immed_uint() to create the operand, e.g.
+ * opnd_create_immed_uint(val, #OPSZ_4b)).
+ */
+#define INSTR_CREATE_ccmn(dc, Rn, Op, nzcv, cond) \
+    (INSTR_PRED(instr_create_0dst_3src(dc, OP_ccmn, Rn, Op, nzcv), (cond)))
+
 /** \cond disabled_until_i4106_is_fixed */
 #define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
     instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))
@@ -589,8 +608,20 @@ enum {
 #define INSTR_CREATE_brk(dc, imm) instr_create_0dst_1src((dc), OP_brk, (imm))
 #define INSTR_CREATE_cbnz(dc, pc, reg) instr_create_0dst_2src((dc), OP_cbnz, (pc), (reg))
 #define INSTR_CREATE_cbz(dc, pc, reg) instr_create_0dst_2src((dc), OP_cbz, (pc), (reg))
+#define INSTR_CREATE_tbz(dc, pc, reg, imm) \
+    instr_create_0dst_3src((dc), OP_tbz, (pc), (reg), (imm))
+#define INSTR_CREATE_tbnz(dc, pc, reg, imm) \
+    instr_create_0dst_3src((dc), OP_tbnz, (pc), (reg), (imm))
 #define INSTR_CREATE_cmp(dc, rn, rm_or_imm) \
     INSTR_CREATE_subs(dc, OPND_CREATE_ZR(rn), rn, rm_or_imm)
+#define INSTR_CREATE_eor(dc, d, s)                                      \
+    INSTR_CREATE_eor_shift(dc, d, d, s, OPND_CREATE_INT8(DR_SHIFT_LSL), \
+                           OPND_CREATE_INT8(0))
+#define INSTR_CREATE_eor_shift(dc, rd, rn, rm, sht, sha)                             \
+    instr_create_1dst_4src(dc, OP_eor, rd, rn,                                       \
+                           opnd_create_reg_ex(opnd_get_reg(rm), 0, DR_OPND_SHIFTED), \
+                           opnd_add_flags(sht, DR_OPND_IS_SHIFT), sha)
+
 #define INSTR_CREATE_ldp(dc, rt1, rt2, mem) \
     instr_create_2dst_1src(dc, OP_ldp, rt1, rt2, mem)
 #define INSTR_CREATE_ldr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldr, (Rd), (mem))
@@ -604,36 +635,21 @@ enum {
     instr_create_1dst_1src((dc), OP_ldarb, (Rt), (mem))
 #define INSTR_CREATE_ldarh(dc, Rt, mem) \
     instr_create_1dst_1src((dc), OP_ldarh, (Rt), (mem))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
-#define INSTR_CREATE_ldxr(dc, Rd, mem)                                        \
-    instr_create_1dst_3src((dc), OP_ldxr, (Rd), (mem), OPND_CREATE_INT(0x1f), \
-                           OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
-#define INSTR_CREATE_ldxrb(dc, Rd, mem)                                        \
-    instr_create_1dst_3src((dc), OP_ldxrb, (Rd), (mem), OPND_CREATE_INT(0x1f), \
-                           OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
-#define INSTR_CREATE_ldxrh(dc, Rd, mem)                                        \
-    instr_create_1dst_3src((dc), OP_ldxrh, (Rd), (mem), OPND_CREATE_INT(0x1f), \
-                           OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INSTR_CREATE_ldxr(dc, Rd, mem) instr_create_1dst_1src((dc), OP_ldxr, (Rd), (mem))
+#define INSTR_CREATE_ldxrb(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldxrb, (Rd), (mem))
+#define INSTR_CREATE_ldxrh(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldxrh, (Rd), (mem))
 #define INSTR_CREATE_ldxp(dc, rt1, rt2, mem) \
-    instr_create_2dst_2src((dc), OP_ldxp, rt1, rt2, (mem), OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
-#define INSTR_CREATE_ldaxr(dc, Rd, mem)                                        \
-    instr_create_1dst_3src((dc), OP_ldaxr, (Rd), (mem), OPND_CREATE_INT(0x1f), \
-                           OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
-#define INSTR_CREATE_ldaxrb(dc, Rd, mem)                                        \
-    instr_create_1dst_3src((dc), OP_ldaxrb, (Rd), (mem), OPND_CREATE_INT(0x1f), \
-                           OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
-#define INSTR_CREATE_ldaxrh(dc, Rd, mem)                                        \
-    instr_create_1dst_3src((dc), OP_ldaxrh, (Rd), (mem), OPND_CREATE_INT(0x1f), \
-                           OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+    instr_create_2dst_1src((dc), OP_ldxp, rt1, rt2, (mem))
+#define INSTR_CREATE_ldaxr(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldaxr, (Rd), (mem))
+#define INSTR_CREATE_ldaxrb(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldaxrb, (Rd), (mem))
+#define INSTR_CREATE_ldaxrh(dc, Rd, mem) \
+    instr_create_1dst_1src((dc), OP_ldaxrh, (Rd), (mem))
 #define INSTR_CREATE_ldaxp(dc, rt1, rt2, mem) \
-    instr_create_2dst_2src((dc), OP_ldaxp, rt1, rt2, (mem), OPND_CREATE_INT(0x1f))
+    instr_create_2dst_1src((dc), OP_ldaxp, rt1, rt2, (mem))
 #define INSTR_CREATE_movk(dc, rt, imm16, lsl) \
     instr_create_1dst_4src(dc, OP_movk, rt, rt, imm16, OPND_CREATE_LSL(), lsl)
 #define INSTR_CREATE_movn(dc, rt, imm16, lsl) \
@@ -653,32 +669,21 @@ enum {
 #define INSTR_CREATE_strh(dc, mem, rt) instr_create_1dst_1src(dc, OP_strh, mem, rt)
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
 #define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
-#define INST_CREATE_stlr(dc, mem, rt)                                   \
-    instr_create_1dst_3src(dc, OP_stlr, mem, rt, OPND_CREATE_INT(0x1f), \
-                           OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+#define INST_CREATE_stlr(dc, mem, rt) instr_create_1dst_1src(dc, OP_stlr, mem, rt)
 #define INSTR_CREATE_stxr(dc, mem, rs, rt) \
-    instr_create_2dst_2src(dc, OP_stxr, mem, rs, rt, OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+    instr_create_2dst_1src(dc, OP_stxr, mem, rs, rt)
 #define INSTR_CREATE_stxrb(dc, mem, rs, rt) \
-    instr_create_2dst_2src(dc, OP_stxrb, mem, rs, rt, OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+    instr_create_2dst_1src(dc, OP_stxrb, mem, rs, rt)
 #define INSTR_CREATE_stxrh(dc, mem, rs, rt) \
-    instr_create_2dst_2src(dc, OP_stxrh, mem, rs, rt, OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+    instr_create_2dst_1src(dc, OP_stxrh, mem, rs, rt)
 #define INSTR_CREATE_stxp(dc, mem, rs, rt1, rt2) \
     instr_create_2dst_2src(dc, OP_stxp, mem, rs, rt1, rt2)
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
 #define INSTR_CREATE_stlxr(dc, mem, rs, rt) \
-    instr_create_2dst_2src(dc, OP_stlxr, mem, rs, rt, OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+    instr_create_2dst_1src(dc, OP_stlxr, mem, rs, rt)
 #define INSTR_CREATE_stlxrb(dc, mem, rs, rt) \
-    instr_create_2dst_2src(dc, OP_stlxrb, mem, rs, rt, OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+    instr_create_2dst_1src(dc, OP_stlxrb, mem, rs, rt)
 #define INSTR_CREATE_stlxrh(dc, mem, rs, rt) \
-    instr_create_2dst_2src(dc, OP_stlxrh, mem, rs, rt, OPND_CREATE_INT(0x1f))
-/* TODO i#4532: Remove these superfluous 0x1f non-operands. */
+    instr_create_2dst_1src(dc, OP_stlxrh, mem, rs, rt)
 #define INSTR_CREATE_stlxp(dc, mem, rs, rt1, rt2) \
     instr_create_2dst_2src(dc, OP_stlxp, mem, rs, rt1, rt2)
 #define INSTR_CREATE_sub(dc, rd, rn, rm_or_imm)                                         \
@@ -718,12 +723,130 @@ enum {
 
 #define INSTR_CREATE_sys(dc, op, Rn) instr_create_0dst_2src(dc, OP_sys, op, Rn)
 
+/* TODO i#4400: Cache instructions which behave like memory stores (e.g. DC
+ * ZVA) should implement memory operand which encapsulates back-aligned start
+ * address as well as cache line size (read from system regiater).
+ */
+
+/**
+ * Creates a DC CISW instruction to Clean and Invalidate data cache line by Set/Way.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the Set/Way value and cache level.
+ *             See reference manual for a detailed explanation.
+ */
+#define INSTR_CREATE_dc_cisw(dc, Rn) instr_create_0dst_1src(dc, OP_dc_cisw, Rn)
+
+/**
+ * Creates a DC CIVAC instruction to Clean and Invalidate data cache by
+ * Virtual Address to point of Coherency.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_civac(dc, Rn)                                                   \
+    instr_create_0dst_1src(dc, OP_dc_civac,                                             \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC CSW instruction to Clean data cache line by Set/Way.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the Set/Way value and cache level.
+ *             See reference manual for a detailed explanation.
+ */
+#define INSTR_CREATE_dc_csw(dc, Rn) instr_create_0dst_1src(dc, OP_dc_csw, Rn)
+
+/**
+ * Creates a DC CVAC instruction to Clean data cache by Virtual Address to
+ * point of Coherency.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_cvac(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_cvac,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC CVAU instruction to Clean data cache by Virtual Address to
+ * point of Unification.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_cvau(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_cvau,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC ISW instruction to Invalidate data cache line by Set/Way.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the Set/Way value and cache level.
+ *             See reference manual for a detailed explanation.
+ */
+#define INSTR_CREATE_dc_isw(dc, Rn) instr_create_0dst_1src(dc, OP_dc_isw, Rn)
+
+/**
+ * Creates a DC ICVAC instruction to Clean and Invalidate data cache by
+ * Virtual Address to point of Coherency.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_dc_ivac(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_dc_ivac,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates a DC ZVA instruction to Zero data cache by Virtual Address.
+ * Zeroes a naturally aligned block of N bytes, where N is identified in
+ * DCZID_EL0 system register.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             There is no alignment restriction on the address within the
+ *             block of N bytes that is used.
+ */
+#define INSTR_CREATE_dc_zva(dc, Rn)                                                     \
+    instr_create_1dst_0src(dc, OP_dc_zva,                                               \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates an IC IVAU instruction to Invalidate instruction cache line by
+ * VA to point of Unification.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rn   The input register containing the virtual address to use.
+ *             No alignment restrictions apply to this VA.
+ */
+#define INSTR_CREATE_ic_ivau(dc, Rn)                                                    \
+    instr_create_0dst_1src(dc, OP_ic_ivau,                                              \
+                           opnd_create_base_disp_aarch64(opnd_get_reg(Rn), DR_REG_NULL, \
+                                                         0, false, 0, 0, OPSZ_sys))
+
+/**
+ * Creates an IC IALLU instruction to Invalidate All of instruction caches
+ * to point of Unification.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_ic_iallu(dc) instr_create_0dst_0src(dc, OP_ic_iallu)
+
+/**
+ * Creates an IC IALLUIS instruction to Invalidate All of instruction caches
+ * in Inner Shareable domain to point of Unification.
+ * \param dc   The void * dcontext used to allocate memory for the #instr_t.
+ */
+#define INSTR_CREATE_ic_ialluis(dc) instr_create_0dst_0src(dc, OP_ic_ialluis)
+
 /**
  * Creates a CLREX instruction.
  * \param dc   The void * dcontext used to allocate memory for the instr_t.
  */
-/* TODO i#4532: Remove this superfluous operand. */
-#define INSTR_CREATE_clrex(dc) instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(0))
+#define INSTR_CREATE_clrex(dc) instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(15))
+#define INSTR_CREATE_clrex_imm(dc, imm) \
+    instr_create_0dst_1src(dc, OP_clrex, OPND_CREATE_INT(imm))
 
 /* FIXME i#1569: these two should perhaps not be provided */
 #define INSTR_CREATE_add_shimm(dc, rd, rn, rm_or_imm, sht, sha) \
@@ -1771,6 +1894,31 @@ enum {
  */
 #define INSTR_CREATE_fcvtzu_vector_fixed(dc, Rd, Rm, width, fbits) \
     instr_create_1dst_3src(dc, OP_fcvtzu, Rd, Rm, width, fbits)
+
+/**
+ * Creates an SLI shift left and insert instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param width   The output vector element width. Use OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param shift   The number of bits to shift the result by.
+ */
+#define INSTR_CREATE_sli_vector(dc, Rd, Rn, width, shift) \
+    instr_create_1dst_3src(dc, OP_sli, Rd, Rn, width, shift)
+
+/**
+ * Creates an UQSHRN vector unsigned saturating shift right narrow (immediate)
+ * instruction.
+ * \param dc      The void * dcontext used to allocate memory for the #instr_t.
+ * \param Rd      The output register.
+ * \param Rn      The input register.
+ * \param width   The output vector element width. Use OPND_CREATE_BYTE(),
+ *                OPND_CREATE_HALF(), OPND_CREATE_SINGLE() or OPND_CREATE_DOUBLE().
+ * \param shift   The number of bits to shift the result by.
+ */
+#define INSTR_CREATE_uqshrn_vector(dc, Rd, Rn, width, shift) \
+    instr_create_1dst_3src(dc, OP_uqshrn, Rd, Rn, width, shift)
 
 /**
  * Creates a UCVTF vector instruction.
@@ -3110,7 +3258,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlal_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlal, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlal, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMLAL2 vector instruction.
@@ -3122,7 +3270,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlal2_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlal2, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlal2, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMLSL vector instruction.
@@ -3134,7 +3282,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlsl_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlsl, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlsl, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMLSL2 vector instruction.
@@ -3146,7 +3294,7 @@ enum {
  *                OPND_CREATE_HALF() or OPND_CREATE_SINGLE().
  */
 #define INSTR_CREATE_umlsl2_vector(dc, Rd, Rm, Rn, width) \
-    instr_create_1dst_3src(dc, OP_umlsl2, Rd, Rm, Rn, width)
+    instr_create_1dst_4src(dc, OP_umlsl2, Rd, Rd, Rm, Rn, width)
 
 /**
  * Creates a UMULL vector instruction.

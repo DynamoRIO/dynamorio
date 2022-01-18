@@ -75,6 +75,7 @@ typedef struct {
     uint64 ntdll_base;
     uint64 tofree_base;
     uint64 hook_location;
+    uint hook_prot;
     bool late_injection;
     char dynamorio_lib_path[MAX_PATH];
 } earliest_args_t;

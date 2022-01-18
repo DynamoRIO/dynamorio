@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -41,7 +41,7 @@ maintainable.
 
 # Automated Formatting
 
-We employ automated code formatting via [`clang-format` version 6.0](https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormat.html). The [`.clang-format` top-level file](https://github.com/DynamoRIO/dynamorio/blob/master/.clang-format) specifies the style rules for all `.h`, `.c`, and `.cpp` source code files.  Developers are expected to set up their editors to use `clang-format` when saving each file (see [the `clang-format` documentation](https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormat.html) for pointers to vim, emacs, and Visual Studio setup instructions).  Our test suite includes a format check and will fail any code whose formatting does not match the `clang-format` output.
+We employ automated code formatting via [`clang-format` version 9.0](https://releases.llvm.org/9.0.0/tools/clang/docs/ClangFormat.html). The [`.clang-format` top-level file](https://github.com/DynamoRIO/dynamorio/blob/master/.clang-format) specifies the style rules for all `.h`, `.c`, and `.cpp` source code files.  Developers are expected to set up their editors to use `clang-format` when saving each file (see [the `clang-format` documentation](https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormat.html) for pointers to vim, emacs, and Visual Studio setup instructions).  Our test suite includes a format check and will fail any code whose formatting does not match the `clang-format` output.
 
 # Legacy Code
 

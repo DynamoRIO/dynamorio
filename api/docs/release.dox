@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -124,9 +124,23 @@ Dr. Memory Framework (DRMF) in the same package as DynamoRIO.  DRMF
 provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
-The changes between version \DR_VERSION and 8.0.0 include the following compatibility
+The changes between version \DR_VERSION and 9.0.0 include the following compatibility
+changes:
+ - Introduced a new CMake option called BUILD_PACKAGE to skip glibc
+   compatibility checks. This is off by default such that building DynamoRIO
+   from source is straight-forward to do on rolling release Linux
+   distributions, and enabled by make/package.cmake when building a
+   distributable version of DynamoRIO.
+
+Further non-compatibility-affecting changes include:
+ - Added alias support to droption.
+ - The drcpusim option -blacklist was renamed to -blocklist but the old name
+   is still accepted.
+
+The changes between version 9.0.0 and 8.0.0 include the following compatibility
 changes:
 
+ - The AArch64 opcode enum ordering changed.
  - A source compatibilty change in drcachesim analysis tools for users
    who have created derived classes from existing analysis tools:
    member fields of classes are now following a consistent style with
@@ -169,6 +183,19 @@ compatibility changes:
    drmgr_in_emulation_region(): #DR_EMULATE_IS_FIRST_INSTR.  This flag addition preserves
    binary compatibility, but source code that did not zero the structure could end
    up with an uninitialized flags field when calling drmgr_insert_emulation_start().
+ - drcov's output now uses a module segment offset, rather than a module base offset.
+   This better supports modules with code beyond the first segment and with
+   gaps between segments.
+ - Changed the drcachesim view tool's behavior to count all trace entries, rather
+   than just instructions, with respect to the -skip_refs and -sim_refs flags.
+   This matches the cache and TLB simulator behavior.
+ - drcachesim's child cache statistics now include hits from all lower levels and
+   not just the immediately lower level child caches.
+ - For AArch64 the OP_sys opcode is still implemented but has been split up
+   into its data and instruction cache opcodes. In cases where OP_sys was used
+   with enums representing data and instruction cache opcodes, OP_sys is no
+   longer used, replaced by the relevant data and instruction cache opcodes
+   starting with OP_dc_ and OP_ic_, e.g. OP_ic_ivau, OP_dc_zva.
 
 Further non-compatibility-affecting changes include:
 
@@ -222,6 +249,36 @@ Further non-compatibility-affecting changes include:
  - Added the reconstructed #instrlist_t when available for the faulting fragment
    to #dr_fault_fragment_info_t. This makes it available to the restore state
    event callback(s) via the #dr_restore_state_info_t arg.
+ - Added the source context for restartable sequence aborts (#DR_XFER_RSEQ_ABORT)
+   which was previously missing.
+ - Added a #TRACE_MARKER_TYPE_VERSION entry to drmemtrace traces.
+ - Augmented drmemtrace #TRACE_MARKER_TYPE_KERNEL_EVENT entries with the absolute
+   PC of the interruption point, including for restartable sequence aborts, which
+   now also have an additional #TRACE_MARKER_TYPE_RSEQ_ABORT identifier.
+ - Added a fifth instrumentation phase (meta_instru) that executes after the
+   insertion of instrumentation and instrumentation optimizations. Its primary purpose
+   is to enable debugging of instrumentation sequences and detection of
+   instrumentation-induced bugs.
+ - Added \p drstatecmp Extension which provides mechanisms to enable systematic
+   and exhaustive machine state comparisons across instrumentation sequences.
+ - Added drmodtrack_lookup_segment().
+ - Added a new drrun option \p -attach for attaching to a running process.
+   This is currently an experimental option and is not yet as well-supported
+   as launching a new process.  It is only supported on x86 at this time.
+ - Added \ref page_drcallstack Extension for walking application callstacks, with
+   an initial Linux-only implementation.
+ - Added new #dr_cleancall_save_t flags which are required for proper interaction
+   between clean calls and drreg: #DR_CLEANCALL_READS_APP_CONTEXT must be set for
+   dr_get_mcontext() to obtain the proper values, and #DR_CLEANCALL_WRITES_APP_CONTEXT
+   must be set to ensure that dr_set_mcontext() is persistent.
+   If the call may be skipped by tool-inserted control flow, #DR_CLEANCALL_MULTIPATH
+   must additionally be set.
+ - Added a new event dr_register_clean_call_insertion_event(), meant for use by
+   register management libraries.
+ - Added drreg_statelessly_restore_all().
+ - Completed drx_expand_scatter_gather() support for emulating x86 scatter/gather
+   instructions using a sequence of scalar stores/loads. The scalar store/load
+   sequence makes it easier for clients to instrument each memory access.
 
 **************************************************
 <hr>
@@ -241,7 +298,7 @@ changes:
    enum now completely overlaps the DR_REG_ enum.
    This is a binary compatibility change for the OPSZ_ enum.
  - Added a new encoding hint field to #instr_t.
- - Added a requirement that a C++11-complient compiler be used with \ref page_droption.
+ - Added a requirement that a C++11-compliant compiler be used with \ref page_droption.
  - Changed the syntax of the drcachesim -record_function option.  It no longer takes
    in an identifier: the identifier is computed by the tracer.  It thus takes pairs,
    with an optional third argument for flags such as "noret" to indicate that the
@@ -1738,6 +1795,11 @@ I/O and nudges.
     through the Windows-On-Windows or WOW64 emulator so system call and
     indirect call processing clients must be aware of
     #instr_is_wow64_syscall().
+  - On all versions of Windows, attaching DynamoRIO to an already-running
+    process can result in loss of control if the attach point is in the
+    middle of an operating system event callback. From the callback return
+    point until the next system call hook, no instructions will be observed
+    by a client.
 \anchor limits_64bit
   - This release of DynamoRIO supports running
     64-bit Windows applications, using the 64-bit DynamoRIO build, on

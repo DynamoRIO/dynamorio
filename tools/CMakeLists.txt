@@ -198,7 +198,7 @@ foreach (deploytgt drconfig drrun drinject)
       ARGS -D lib_fileloc=${CMAKE_CURRENT_BINARY_DIR}/${locvar_name}
            -D check_textrel=ON
            -D check_deps=OFF
-           -D check_libc=ON
+           -D check_libc=${BUILD_PACKAGE}
            -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
            -P ${PROJECT_SOURCE_DIR}/core/CMake_readelf.cmake
       VERBATIM # recommended: p260

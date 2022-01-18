@@ -127,23 +127,42 @@ if (check_libc)
   if (readelf_result OR readelf_error)
     message(FATAL_ERROR "*** ${READELF_EXECUTABLE} failed: ***\n${readelf_error}")
   endif (readelf_result OR readelf_error)
-  # Avoid dependences beyond glibc 2.4 (2.17 on AArch64) for maximum backward
+
+  # Avoid dependences beyond the oldest well-supported version of glibc for maximum backward
   # portability without going to extremes with a fixed toolchain (xref i#1504):
   execute_process(COMMAND
     ${READELF_EXECUTABLE} -h ${${lib_file}}
     OUTPUT_VARIABLE file_header_result
     )
-  if (file_header_result MATCHES "AArch64")
-    set (glibc_version_regexp "2\\.(1[8-9]|[2-9][0-9])")
-  else ()
-    set (glibc_version_regexp "2\\.([5-9]|[1-9][0-9])")
-  endif ()
-  string(REGEX MATCH " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_${glibc_version_regexp}"
-    has_recent "${string}")
-  if (has_recent)
-    string(REGEX MATCH " GLOBAL DEFAULT  UND [^\n]*@GLIBC_${glibc_version_regexp}[^\n]*\n"
-      symname "${string}")
-    message(FATAL_ERROR "*** Error: ${${lib_file}} has too-recent import: ${symname}")
+
+  # To determine the minimum version of glibc that we should support for packaging, we should
+  # check the Linux distributions that are known not to be rolling releases and offer long
+  # support, and then check the oldest option available that is not yet EOL. As of writing,
+  # these are:
+  #  * Debian Stretch, which is on glibc 2.24
+  #  * CentOS 7/RHEL 7, which is on glibc 2.17
+  #  * Ubuntu 16.04 LTS (Xenial), which is on glibc 2.23
+  #
+  # Therefore, we want to support at least glibc 2.17.
+  #
+  # The glibc version is independent of the architecture. For instance, RHEL 7 for AArch64 also
+  # ships glibc 2.17 as of writing.
+  set (glibc_version "2.17")
+
+  set (glibc_version_regexp " GLOBAL [ A-Z]* UND [^\n]*@GLIBC_([0-9]+\\.[0-9]+)")
+  string(REGEX MATCHALL "${glibc_version_regexp}" imports "${string}")
+
+  foreach (import ${imports})
+    string(REGEX MATCH "${glibc_version_regexp}" match "${import}")
+    set(version ${CMAKE_MATCH_1})
+
+    if (${version} VERSION_GREATER ${glibc_version})
+      set(too_recent "${too_recent}\n  ${import}")
+    endif ()
+  endforeach ()
+
+  if (too_recent)
+    message(FATAL_ERROR "*** Error: ${${lib_file}} has too-recent import(s):${too_recent}")
   endif ()
 endif ()
 

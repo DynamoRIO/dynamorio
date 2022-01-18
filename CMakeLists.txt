@@ -143,6 +143,12 @@ endif (UNIX)
 
 # many are core-specific
 
+# whether this build of DynamoRIO is meant for distribution, in which case
+# glibc should not have any too-recent imports. See core/CMake_readelf.cmake
+# for more information. This is off by default, but gets set by
+# make/package.cmake.
+option(BUILD_PACKAGE "build DynamoRIO for packaging purposes by performing glibc checks" OFF)
+
 # configurations that also have defines
 option(DRSTATS_DEMO "build DRstats without the no-longer-supported Run, etc. controls" ON)
 
@@ -543,7 +549,7 @@ endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
 
 # N.B.: when updating this, update the default version in ci-package.yml.
 # We should find a way to share (xref i#1565).
-set(VERSION_NUMBER_DEFAULT "8.0.${VERSION_NUMBER_PATCHLEVEL}")
+set(VERSION_NUMBER_DEFAULT "9.0.${VERSION_NUMBER_PATCHLEVEL}")
 # do not store the default VERSION_NUMBER in the cache to prevent a stale one
 # from preventing future version updates in a pre-existing build dir
 set(VERSION_NUMBER "" CACHE STRING "Version number: leave empty for default")
@@ -596,12 +602,26 @@ if (UNIX)
   check_avx512_processor_and_compiler_support(proc_supports_avx512)
 endif ()
 
+# Ensure that _AMD64_ or _X86_ are defined on Microsoft Windows, as otherwise
+# um/winnt.h provided since Windows 10.0.22000 will error.
+if (NOT UNIX)
+  if (X64)
+    add_definitions(-D_AMD64_)
+  else (X64)
+    add_definitions(-D_X86_)
+  endif (X64)
+endif (NOT UNIX)
+
 # Set up assembly support and CMAKE_CPP.
 # Note that in cmake < 2.6.4, I had to fix a bug in
 # /usr/share/cmake/Modules/CMakeASMInformation.cmake
 # where @VAR@ expansion was used, which only works for configure_file()
 #   now fixed in CMake/Modules/CMakeASMInformation.cmake:1.5
 # See top of top-level CMakeLists.txt for our workaround.
+if (NOT UNIX)
+  get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
+endif (NOT UNIX)
+
 set(cpp2asm_newline_script_path "${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake")
 include(make/cpp2asm_support.cmake)
 if (UNIX)
@@ -649,40 +669,27 @@ else (UNIX)
     message(FATAL_ERROR "cl (Microsoft C++ compiler) is required to build")
   endif (NOT ${COMPILER_BASE_NAME} STREQUAL "cl")
 
-  # CMake older than 2.6.3 does not automatically look for ml or ml64
-  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # CMAKE_C_COMPILER doesn't have full path, unless user has in PATH
-    if (MSVC10)
-      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\10.0\\Setup\\VC;ProductDir] REALPATH)
-    elseif (MSVC90)
-      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\9.0\\Setup\\VC;ProductDir] REALPATH)
-    elseif (MSVC80)
-      get_filename_component(vc_dir [HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\8.0\\Setup\\VC;ProductDir] REALPATH)
-    endif()
-    if (X64)
-      set(cl_path "${vc_dir}/bin/amd64")
-    else (X64)
-      set(cl_path "${vc_dir}/bin")
-    endif (X64)
-    # while we can get the cl path, we can't run cl b/c mspdb80.dll must
-    # be on the PATH: so even w/ VS generators we require PATH to be set.
-    if ("${CMAKE_C_COMPILER}" STREQUAL "cl")
-      set(CMAKE_C_COMPILER "${cl_path}/${CMAKE_C_COMPILER}")
-    endif ()
-  else ()
-    get_filename_component(cl_path ${CMAKE_C_COMPILER} PATH)
-  endif ()
-
   # cmake has CMAKE_RC_COMPILER, but no message compiler
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-    # this path is only present for 2008+, but we currently require PATH to
-    # be set up anyway
-    get_filename_component(sdk_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH)
-    if (X64)
-      set(sdk_bindir "${sdk_dir}/bin/x64")
-    else (X64)
-      set(sdk_bindir "${sdk_dir}/bin")
-    endif (X64)
+    # First checks for the Windows SDK through Windows Kits.
+    get_filename_component(kits_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]" REALPATH)
+
+    if (EXISTS ${kits_dir})
+      if (X64)
+        set(sdk_bindir "${kits_dir}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x64")
+      else (X64)
+        set(sdk_bindir "${kits_dir}/bin/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/x86")
+      endif (X64)
+    else (EXISTS ${kits_dir})
+      # this path is only present for 2008+, but we currently require PATH to
+      # be set up anyway
+      get_filename_component(sdk_dir "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH)
+      if (X64)
+        set(sdk_bindir "${sdk_dir}/bin/x64")
+      else (X64)
+        set(sdk_bindir "${sdk_dir}/bin")
+      endif (X64)
+    endif (EXISTS ${kits_dir})
   endif ()
   if (NOT ("${CMAKE_GENERATOR}" MATCHES "MSYS Makefiles"))
     # For MinGW (MSYS Makefiles) we do not have a message compiler.
@@ -777,13 +784,10 @@ if (UNIX)
   if (suggest_override_avail)
     set(BASE_CXXONLY_FLAGS "${BASE_CXXONLY_FLAGS} -Wsuggest-override")
   endif ()
-  # now that the user must set non-default -mNN we don't nec. need these:
   if (X86)
     if (X64)
-      set(BASE_CFLAGS "-m64 ${BASE_CFLAGS}")
       set(LD_FLAGS "-melf_x86_64")
     else (X64)
-      set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
       set(LD_FLAGS "-melf_i386")
     endif (X64)
   elseif (ARM)
@@ -1157,16 +1161,16 @@ endif (UNIX)
 #   Release => -O3 -NDEBUG
 # Right now we only support gcc and cl but could change in future
 if (DEBUG)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${DBG} ${DBG_OPT} $ENV{CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${DBG} ${DBG_OPT} $ENV{CXXFLAGS}")
 else (DEBUG)
   if (CALLPROF)
     # no opts -- we need to avoid messing up call frame walking
     # FIXME: just disable frame ptr elim opt: but /Oy- ran into some issues
     set (OPT "")
   endif (CALLPROF)
-  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT}")
-  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT}")
+  set(CMAKE_C_FLAGS "${BASE_CFLAGS} ${BASE_CONLY_FLAGS} ${OPT} $ENV{CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${BASE_CFLAGS} ${BASE_CXXONLY_FLAGS} ${OPT} $ENV{CXXFLAGS}")
 endif (DEBUG)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${LINK_EXTRA_FLAGS}")
@@ -1178,8 +1182,10 @@ endif (NOT DISABLE_WARNINGS)
 
 if (LINUX)
   CHECK_INCLUDE_FILE("linux/rseq.h" HAVE_RSEQ)
+  CHECK_INCLUDE_FILE("libunwind.h" HAVE_LIBUNWIND_H)
 else ()
   set(HAVE_RSEQ OFF)
+  set(HAVE_LIBUNWIND_H OFF)
 endif ()
 
 # Currently only AArch64 targets supported for half-precision FP.
@@ -1307,6 +1313,10 @@ math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
 
 # Every release since has had minor compat breakages.
+# 8.xx broke backcompat by reordering the AArch64 opcode enum an changing
+#   drcachesim field names, drmodtrack callbacks,
+#   emulated_instr_t fields, drcov output, drcachesim view counting, and
+#   drcachesim child statistics.
 # 7.92 broke backcompat by changing 32-bit stack alignment to 16.
 # 7.91 broke backcompat by adding a field to instr_t .
 # 7.90 broke backcompat in DR_REG_ enums and OPSZ_ enums.
@@ -1314,7 +1324,7 @@ math(EXPR VERSION_NUMBER_INTEGER
 # 5.0 broke backcompat in drsyms and xmm opnd sizes
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION_DEFAULT "792")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "900")
 set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
   "Oldest compatible version: leave empty for default")
 if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
@@ -1649,9 +1659,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
 )
 # we need to strip out the #include of configure.h
-DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
-  string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
-  file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
+DR_install(FILES ${BUILD_CMAKE}/cpp2asm_defines.h DESTINATION ${INSTALL_CMAKE})
 
 # export docs support, with consistent names
 DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_rundoxygen.cmake
@@ -1663,15 +1671,17 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_doxyutils.cmake
 
 ###########################################################################
 
+# clear tools file to avoid duplicates on re-configure
+if (X64)
+  set(TOOLS_LISTNAME "list64")
+else ()
+  set(TOOLS_LISTNAME "list32")
+endif ()
+file(WRITE ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "")
+DR_install(FILES ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} DESTINATION tools)
+
 function (register_tool_file name)
-  if (X64)
-    set(listname "list64")
-  else ()
-    set(listname "list32")
-  endif ()
-  if (NOT DEBUG) # avoid duplicates for release + debug
-    DR_install(CODE "file(APPEND \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"${name}\\n\"\n)")
-  endif ()
+  file(APPEND ${PROJECT_BINARY_DIR}/tools/${TOOLS_LISTNAME} "${name}\n")
 endfunction ()
 
 # Used by docs, samples, and tests, so here instead of in core/CMakeLists.txt.
@@ -1855,26 +1865,15 @@ if (BUILD_TOOLS OR WIN32)
     )
 endif (BUILD_TOOLS OR WIN32)
 
-if (DO_DR_INSTALL AND BUILD_DOCS)
-  # cannot use DR_install because it breaks at ;
-  install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/docs/DynamoRIO.html\" \"<html>\n<head>\n<meta http-equiv=\\\"refresh\\\" content=\\\"0; URL=./html/index.html\\\">\n</head><body></body>\")")
-endif (DO_DR_INSTALL AND BUILD_DOCS)
+if (BUILD_DOCS)
+  file(WRITE ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html "<html>\n<head>\n<meta http-equiv=\"refresh\" content=\"0; URL=./html/index.html\">\n</head><body></body>")
+  DR_install(FILES ${PROJECT_BINARY_DIR}/docs/DynamoRIO.html DESTINATION docs)
+endif (BUILD_DOCS)
 
 # create empty logs dir for release package
-# be sure to escape ",$ since evaluated at install time not configure time
-# with DR_install macro we need double-escape for $
-DR_install(CODE "file(MAKE_DIRECTORY \"\\\${CMAKE_INSTALL_PREFIX}/logs\")")
 # CPack seems to ignore empty dirs so add a README file
-DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
-
-# i#1509: generate a list of tools for drrun usage messages.
-# This is fragile: we rely on package.cmake building release first, so we
-# can clear out the list file, and then append to it in debug builds.
-# A solution that searches at install time also has problems (with ordering
-# of subdirs).  Long-term we should add a dir iterator to drrun.
-if (NOT_DEBUG)
-  DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"\")")
-endif ()
+file(WRITE ${PROJECT_BINARY_DIR}/logs/README "Empty dir for debug-build log files.\n")
+DR_install(FILES ${PROJECT_BINARY_DIR}/logs/README DESTINATION logs)
 
 ###########################################################################
 

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,7 +84,7 @@ typedef enum {
     /**
      * Do not run this application under DynamoRIO control.
      * Useful for following all child processes except a handful
-     * (blacklist).
+     * (blocklist).
      */
     DR_MODE_DO_NOT_RUN = 4,
 

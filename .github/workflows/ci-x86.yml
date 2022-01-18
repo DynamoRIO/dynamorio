@@ -55,7 +55,7 @@ defaults:
 jobs:
   # 32-bit Linux build with gcc and run tests:
   x86-32:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     # When checking out the repository that triggered a workflow, actions/checkout@v2
     # defaults to the reference or SHA for that event. See documentation for ref at
@@ -77,11 +77,22 @@ jobs:
     - run: git fetch --no-tags --depth=1 origin master
 
     # Install multilib for non-cross-compiling Linux build.
+    # GA CI uses packages.microsoft.com which is missing i386 packages, and
+    # attempts at using apt with us.archive-ubuntu.com hit dep issues:
+    # so we manually install the i386 packages we need.
     - name: Create Build Environment
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          g++-multilib
+          g++-multilib libunwind-dev
+        sudo add-apt-repository 'deb [arch=i386] http://us.archive.ubuntu.com/ubuntu focal main'
+        apt download libunwind8:i386 libunwind-dev:i386 liblzma5:i386
+        mkdir ../extract
+        for i in *.deb; do dpkg-deb -x $i ../extract; done
+        sudo rsync -av ../extract/usr/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/lib/i386-linux-gnu/ /usr/lib/i386-linux-gnu/
+        sudo rsync -av ../extract/usr/include/i386-linux-gnu/ /usr/include/
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake
@@ -123,7 +134,7 @@ jobs:
 
   # 64-bit Linux build with gcc and run tests:
   x86-64:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -141,7 +152,8 @@ jobs:
       run: |
         sudo apt update
         sudo apt-get -y install doxygen vera++ zlib1g-dev libsnappy-dev \
-          g++-multilib
+          g++-multilib libunwind-dev
+        echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
 
     # Use a newer cmake to avoid 32-bit toolchain problems (i#4830).
     - name: Setup newer cmake

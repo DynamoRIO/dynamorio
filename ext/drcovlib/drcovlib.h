@@ -113,8 +113,13 @@ typedef struct _drcovlib_options_t {
  * make drcovlib usable in standalone mode.
  */
 
-/* file format version */
-#define DRCOV_VERSION 2
+/* File format version. */
+#define DRCOV_VERSION_MODULE_OFFSETS 2
+/* Version 3 changes module offsets to be offsets from the module segment,
+ * rather than the whole module base as in version 2.
+ */
+#define DRCOV_VERSION_SEGMENT_OFFSETS 3
+#define DRCOV_VERSION DRCOV_VERSION_SEGMENT_OFFSETS
 
 /* i#1532: drsyms can't mix arch for ELF */
 #ifdef LINUX
@@ -137,7 +142,10 @@ typedef struct _drcovlib_options_t {
 
 /* Data structure for the coverage info itself */
 typedef struct _bb_entry_t {
-    uint start; /* offset of bb start from the image base */
+    /* The offset of the bb start from the containing segment base.
+     * We do not support a single module segment larger than 4GB.
+     */
+    uint start;
     ushort size;
     ushort mod_id;
 } bb_entry_t;
@@ -284,14 +292,26 @@ DR_EXPORT
 /**
  * Returns the base address in \p mod_base and the unique index identifier in \p
  * mod_index for the module that contains \p pc.  If there is no such module,
- * returns DRCOVLIB_ERROR_NOT_FOUND.  For modules that containing multiple
+ * returns DRCOVLIB_ERROR_NOT_FOUND.  For modules that contain multiple
  * non-contiguous mapped segments, each segment has its own unique identifier, and
  * this routine returns the appropriate identifier, but \p mod_base contains the
  * lowest address of any segment in the module, not the start address of the
- * segment that contains pc.
+ * segment that contains pc: use drmodtrack_lookup_segment() to obtain the segment
+ * base address.
  */
 drcovlib_status_t
 drmodtrack_lookup(void *drcontext, app_pc pc, OUT uint *mod_index, OUT app_pc *mod_base);
+
+DR_EXPORT
+/**
+ * Returns the segment base address in \p segment_base and the unique
+ * segment index identifier in \p segment_index for the module segment
+ * that contains \p pc.  If there is no such module, returns
+ * DRCOVLIB_ERROR_NOT_FOUND.
+ */
+drcovlib_status_t
+drmodtrack_lookup_segment(void *drcontext, app_pc pc, OUT uint *segment_index,
+                          OUT app_pc *segment_base);
 
 DR_EXPORT
 /**

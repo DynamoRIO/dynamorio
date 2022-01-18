@@ -349,7 +349,8 @@ offline_instru_t::append_unit_header(byte *buf_ptr, thread_id_t tid)
     byte *new_buf = buf_ptr;
     offline_entry_t *entry = (offline_entry_t *)new_buf;
     entry->timestamp.type = OFFLINE_TYPE_TIMESTAMP;
-    entry->timestamp.usec = instru_t::get_timestamp();
+    entry->timestamp.usec =
+        frozen_timestamp_ != 0 ? frozen_timestamp_ : instru_t::get_timestamp();
     new_buf += sizeof(*entry);
     new_buf += append_marker(new_buf, TRACE_MARKER_TYPE_CPU_ID, instru_t::get_cpu_id());
     return (int)(new_buf - buf_ptr);
@@ -383,10 +384,10 @@ offline_instru_t::insert_save_entry(void *drcontext, instrlist_t *ilist, instr_t
 }
 
 uint64_t
-offline_instru_t::get_modoffs(void *drcontext, app_pc pc)
+offline_instru_t::get_modoffs(void *drcontext, app_pc pc, OUT uint *modidx)
 {
     app_pc modbase;
-    if (drmodtrack_lookup(drcontext, pc, NULL, &modbase) != DRCOVLIB_SUCCESS)
+    if (drmodtrack_lookup(drcontext, pc, modidx, &modbase) != DRCOVLIB_SUCCESS)
         return 0;
     return pc - modbase;
 }
@@ -597,13 +598,8 @@ offline_instru_t::instrument_instr(void *drcontext, void *tag, void **bb_field,
             return adjust;
         pc = dr_fragment_app_pc(tag);
     } else {
-        // This routine is called for the first instr in the expanded scatter/gather
-        // sequence, which turns out to be a non-app instr which doesn't have an app pc.
-        // XXX i#4865: Refactor tracer so that the first expanded scatter/gather
-        // sequence instr that we instrument doesn't need to be a non-app instr.
-        // XXX: For repstr do we want tag insted of skipping rep prefix?
-        DR_ASSERT(instr_is_app(where) || drmgr_is_first_nonlabel_instr(drcontext, where));
-        pc = instr_is_app(where) ? instr_get_app_pc(app) : dr_fragment_app_pc(tag);
+        DR_ASSERT(instr_is_app(app));
+        pc = instr_get_app_pc(app);
     }
     drreg_status_t res =
         drreg_reserve_register(drcontext, ilist, where, reg_vector_, &reg_tmp);
@@ -630,31 +626,7 @@ void
 offline_instru_t::bb_analysis(void *drcontext, void *tag, void **bb_field,
                               instrlist_t *ilist, bool repstr_expanded)
 {
-    instr_t *instr;
-    ptr_uint_t count = 0;
-    app_pc last_xl8 = NULL;
-    if (repstr_expanded) {
-        // The same-translation check below is not sufficient as drutil uses
-        // two different translations to deal with complexities.
-        // Thus we hardcode this.
-        count = 1;
-    } else {
-        for (instr = instrlist_first_app(ilist); instr != NULL;
-             instr = instr_get_next_app(instr)) {
-            // To deal with app2app changes, we do not double-count consecutive instrs
-            // with the same translation.
-            if (instr_get_app_pc(instr) != last_xl8) {
-                // Hooked native functions end up with an artifical jump whose translation
-                // is its target.  We do not want to count these.
-                if (!(instr_is_ubr(instr) && opnd_is_pc(instr_get_target(instr)) &&
-                      opnd_get_pc(instr_get_target(instr)) == instr_get_app_pc(instr)))
-                    ++count;
-            }
-            last_xl8 = instr_get_app_pc(instr);
-        }
-    }
-    *bb_field = (void *)count;
-
+    *bb_field = (void *)(ptr_uint_t)instru_t::count_app_instrs(ilist);
     identify_elidable_addresses(drcontext, ilist, OFFLINE_FILE_VERSION);
 }
 

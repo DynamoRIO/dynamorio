@@ -5,11 +5,13 @@ Core #0 \(1 thread\(s\)\)
   L1I stats:
     Hits:                 *          8[,.]?246
     Misses:                              2
+    Compulsory misses:                   *[0-9,\.]*
     Invalidations:        *              0
     Miss rate:                        0[.,]02%
   L1D stats:
     Hits:                 *          2[,.]?030
     Misses:                             16
+    Compulsory misses:                  *[0-9,\.]*
     Invalidations:        *              0
     Miss rate:                        0[.,]78%
 Core #1 \(0 thread\(s\)\)
@@ -18,6 +20,7 @@ Core #3 \(0 thread\(s\)\)
 LL stats:
     Hits:                                0
     Misses:                             18
+    Compulsory misses:                  *[0-9,\.]*
     Invalidations:        *              0
     Local miss rate:                100[.,]00%
     Child hits:           *         10[,.]?276

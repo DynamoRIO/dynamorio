@@ -2880,8 +2880,6 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 #endif
 }
 
-#define MAX_TAKE_OVER_ATTEMPTS 8
-
 /* Mark this thread as under DR, and take over other threads in the current process.
  */
 void
@@ -2892,6 +2890,7 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
      */
     bool found_threads;
     uint attempts = 0;
+    uint max_takeover_attempts = DYNAMO_OPTION(takeover_attempts);
 
     os_process_under_dynamorio_initiate(dcontext);
     /* We can start this thread now that we've set up process-wide actions such
@@ -2912,7 +2911,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
         attempts++;
         if (found_threads && !bb_lock_start)
             bb_lock_start = true;
-    } while (found_threads && attempts < MAX_TAKE_OVER_ATTEMPTS);
+        if (DYNAMO_OPTION(sleep_between_takeovers))
+            os_thread_sleep(1);
+    } while (found_threads && attempts < max_takeover_attempts);
     os_process_under_dynamorio_complete(dcontext);
     /* End the barrier to new threads. */
     signal_event(dr_attach_finished);
@@ -2961,10 +2962,12 @@ dynamorio_app_take_over_helper(priv_mcontext_t *mc)
         control_all_threads = automatic_startup;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
-        /* Adjust the app stack to account for the return address + alignment.
-         * See dynamorio_app_take_over in x86.asm.
-         */
-        mc->xsp += DYNAMO_START_XSP_ADJUST;
+        if (IF_WINDOWS_ELSE(!dr_earliest_injected && !dr_early_injected, true)) {
+            /* Adjust the app stack to account for the return address + alignment.
+             * See dynamorio_app_take_over in x86.asm.
+             */
+            mc->xsp += DYNAMO_START_XSP_ADJUST;
+        }
 
         /* For hotp_only and thin_client, the app should run native, except
          * for our hooks.
@@ -3020,7 +3023,7 @@ dynamorio_app_init_and_early_takeover(uint inject_location, void *restore_code)
 /* Called with DR library mapped in but without its imports processed.
  */
 void
-dynamorio_earliest_init_takeover_C(byte *arg_ptr)
+dynamorio_earliest_init_takeover_C(byte *arg_ptr, priv_mcontext_t *mc)
 {
     int res;
     bool earliest_inject;
@@ -3043,21 +3046,7 @@ dynamorio_earliest_init_takeover_C(byte *arg_ptr)
      * confusing the exec areas scan
      */
 
-    /* Take over at retaddr
-     *
-     * XXX i#626: app_takeover sets preinjected for rct (should prob. rename)
-     * which needs to be done whenever we takeover not at the bottom of the
-     * callstack.  For earliest won't need to set this if we takeover
-     * in such a way as to handle the return back to our hook code without a
-     * violation -- though currently we will see 3 rets (return from
-     * dynamorio_app_take_over(), return from here, and return from
-     * dynamorio_earliest_init_takeover() to app hook code).
-     * Should we have dynamorio_earliest_init_takeover() set up an
-     * mcontext that we can go to directly instead of interpreting
-     * the returns in our own code?  That would make tools that shadow
-     * callstacks simpler too.
-     */
-    dynamorio_app_take_over();
+    dynamorio_app_take_over_helper(mc);
 }
 #endif /* WINDOWS */
 

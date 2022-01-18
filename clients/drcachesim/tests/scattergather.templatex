@@ -133,12 +133,15 @@ AVX2 gather ok
 #ifdef __AVX512F__
 Test restoring the AVX-512 gather scratch mask register upon a fault
 Test restoring the AVX-512 scatter scratch mask register upon a fault
+Test restoring the AVX-512 gather scratch xmm register upon a fault
+Test restoring the AVX-512 scatter scratch xmm register upon a fault
 Test restoring the AVX-512 gather mask register upon translation events
 Test restoring the AVX-512 scatter mask register upon translation events
 Test updating the AVX-512 gather mask register upon translation events
 Test updating the AVX-512 scatter mask register upon translation events
 #endif
 Test updating the AVX2 gather mask register upon translation events
+Test restoring the AVX2 gather scratch xmm register upon a fault
 #endif
 AVX2/AVX-512 scatter/gather checks ok
 ---- <application exited with code 0> ----

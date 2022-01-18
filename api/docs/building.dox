@@ -45,7 +45,7 @@ To build DynamoRIO on Linux, use the following commands as a guide.  This builds
   ```
   # Install dependencies for Ubuntu 15+.  Adjust this command as appropriate for
   # other distributions (in particular, use "cmake3" for Ubuntu Trusty).
-  $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev
+  $ sudo apt-get install cmake g++ g++-multilib doxygen git zlib1g-dev libunwind-dev
   # Get sources.
   $ git clone https://github.com/DynamoRIO/dynamorio.git
   # Make a separate build directory.  Building in the source directory is not
@@ -165,7 +165,7 @@ In order to build both 32-bit and 64-bit on the same platform you'll need
 compiler support for targeting both architectures.  Then install these packages:
 
 ```
-sudo apt-get install cmake g++ g++-multilib doxygen
+sudo apt-get install cmake g++ g++-multilib doxygen zlib1g-dev libunwind-dev libunwind-dev:i386
 ```
 
 For older distributions, the `ia32-libs` package is needed.
@@ -821,7 +821,7 @@ Here is a sample bash function to make building easier within Cygwin:
 
 ```
 function build {
-    config=`grep ^CMAKE_CONFIGURATION_TYPES:S CMakeCache.txt | sed 's/^.*=//'`
+    config=$(grep ^CMAKE_CONFIGURATION_TYPES:S CMakeCache.txt | sed 's/^.*=//')
     /usr/bin/time cmake --build . --config $config -- /m
 }
 ```
@@ -886,7 +886,7 @@ than two cores we have seen some strange build errors that may be pdb
 creation races.  We recommend using the Visual Studio generator instead if
 you are hitting these problems.
 
-## Building the Qt DrGUI extension
+\section sec_drgui Building the Qt DrGUI extension
 
 Simply install Qt 5.x and ensure that the architecture and compiler match what you will be using to build DynamoRIO.  E.g., on Fedora:
 ```

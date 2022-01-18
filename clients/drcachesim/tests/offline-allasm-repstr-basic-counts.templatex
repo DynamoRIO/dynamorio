@@ -1,8 +1,8 @@
 Adios world!
 Basic counts tool results:
 Total counts:
-          14 total \(fetched\) instructions
-          14 total unique \(fetched\) instructions
+          19 total \(fetched\) instructions
+          19 total unique \(fetched\) instructions
 /* One for each movs after the first one. */
            4 total non-fetched instructions
            0 total prefetches
@@ -19,8 +19,8 @@ Total counts:
      .* total function return value markers
      .* total other markers
 Thread .* counts:
-          14 \(fetched\) instructions
-          14 unique \(fetched\) instructions
+          19 \(fetched\) instructions
+          19 unique \(fetched\) instructions
            4 non-fetched instructions
            0 prefetches
            5 data loads

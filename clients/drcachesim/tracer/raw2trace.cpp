@@ -444,8 +444,8 @@ app_pc
 module_mapper_t::find_mapped_trace_bounds(app_pc trace_address, OUT app_pc *module_start,
                                           OUT size_t *module_size)
 {
-    if (modhandle_ == nullptr || modlist_.empty()) {
-        last_error_ = "Failed to call get_module_list() first";
+    if (modvec_.empty()) {
+        last_error_ = "Failed to call get_loaded_modules() first";
         return nullptr;
     }
 
@@ -507,10 +507,13 @@ module_mapper_t::write_module_data(char *buf, size_t buf_size,
 std::string
 raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
 {
+    int version = tdata->version < OFFLINE_FILE_VERSION_KERNEL_INT_PC
+        ? TRACE_ENTRY_VERSION_NO_KERNEL_PC
+        : TRACE_ENTRY_VERSION;
     trace_entry_t entry;
     entry.type = TRACE_TYPE_HEADER;
     entry.size = 0;
-    entry.addr = TRACE_ENTRY_VERSION;
+    entry.addr = version;
     if (!tdata->out_file->write((char *)&entry, sizeof(entry)))
         return "Failed to write header to output file";
 
@@ -530,7 +533,8 @@ raw2trace_t::process_header(raw2trace_thread_data_t *tdata)
     DR_ASSERT(pid != (process_id_t)INVALID_PROCESS_ID);
     byte *buf_base = reinterpret_cast<byte *>(get_write_buffer(tdata));
     byte *buf = buf_base;
-    // Write the arch and other type flags.
+    // Write the version, arch, and other type flags.
+    buf += instru.append_marker(buf, TRACE_MARKER_TYPE_VERSION, version);
     buf += instru.append_marker(buf, TRACE_MARKER_TYPE_FILETYPE, tdata->file_type);
     // Write out the tid, pid, and timestamp.
     buf += trace_metadata_writer_t::write_tid(buf, tid);
@@ -590,12 +594,14 @@ raw2trace_t::process_next_thread_buffer(raw2trace_thread_data_t *tdata,
             }
             continue;
         }
-        // Append any delayed branch, but not until we output all (non-xfer) markers to
-        // ensure we group them all with the timestamp for this thread segment.
-        if (!(entry.extended.type == OFFLINE_TYPE_EXTENDED &&
-              entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
-              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_EVENT &&
-              entry.extended.valueB != TRACE_MARKER_TYPE_KERNEL_XFER)) {
+        // Append delayed branches at the end or before xfer markers; else, delay
+        // until we see a non-cti inside a block, to handle double branches (i#5141)
+        // and to group all (non-xfer) markers with a new timestamp.
+        if (entry.extended.type == OFFLINE_TYPE_EXTENDED &&
+            (entry.extended.ext == OFFLINE_EXT_TYPE_FOOTER ||
+             (entry.extended.ext == OFFLINE_EXT_TYPE_MARKER &&
+              (entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_EVENT ||
+               entry.extended.valueB == TRACE_MARKER_TYPE_KERNEL_XFER)))) {
             tdata->error = append_delayed_branch(tdata);
             if (!tdata->error.empty())
                 return tdata->error;
@@ -923,6 +929,7 @@ raw2trace_t::get_next_entry(void *tls)
     // be i/o bound (or ISA decode bound) and aren't worried about some extra copies
     // from the vector.
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    tdata->last_entry_is_split = false;
     if (!tdata->pre_read.empty()) {
         tdata->last_entry = tdata->pre_read[0];
         tdata->pre_read.erase(tdata->pre_read.begin(), tdata->pre_read.begin() + 1);
@@ -938,10 +945,31 @@ raw2trace_t::get_next_entry(void *tls)
     return &tdata->last_entry;
 }
 
+const offline_entry_t *
+raw2trace_t::get_next_entry_keep_prior(void *tls)
+{
+    auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        // Cannot record two live split entries.
+        return nullptr;
+    }
+    VPRINT(4, "Remembering split entry for unreading both at once\n");
+    tdata->last_split_first_entry = tdata->last_entry;
+    const offline_entry_t *next = get_next_entry(tls);
+    // Set this *after* calling get_next_entry as it clears the field.
+    tdata->last_entry_is_split = true;
+    return next;
+}
+
 void
 raw2trace_t::unread_last_entry(void *tls)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
+    if (tdata->last_entry_is_split) {
+        VPRINT(4, "Unreading both parts of split entry at once\n");
+        tdata->pre_read.push_back(tdata->last_split_first_entry);
+        tdata->last_entry_is_split = false;
+    }
     tdata->pre_read.push_back(tdata->last_entry);
 }
 
@@ -958,9 +986,12 @@ raw2trace_t::append_delayed_branch(void *tls)
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
     if (tdata->delayed_branch.empty())
         return "";
-    VPRINT(4, "Appending delayed branch for thread %d\n", tdata->index);
-    if (!tdata->out_file->write(&tdata->delayed_branch[0], tdata->delayed_branch.size()))
-        return "Failed to write to output file";
+    for (const auto &contents : tdata->delayed_branch) {
+        VPRINT(4, "Appending delayed branch pc=" PIFX " for thread %d\n",
+               reinterpret_cast<const trace_entry_t *>(&contents[0])->addr, tdata->index);
+        if (!tdata->out_file->write(&contents[0], contents.size()))
+            return "Failed to write to output file";
+    }
     tdata->delayed_branch.clear();
     return "";
 }
@@ -986,10 +1017,9 @@ raw2trace_t::write_delayed_branches(void *tls, const trace_entry_t *start,
                                     const trace_entry_t *end)
 {
     auto tdata = reinterpret_cast<raw2trace_thread_data_t *>(tls);
-    CHECK(tdata->delayed_branch.empty(), "Failed to flush delayed branch");
-    tdata->delayed_branch.insert(tdata->delayed_branch.begin(),
-                                 reinterpret_cast<const char *>(start),
-                                 reinterpret_cast<const char *>(end));
+    std::vector<char> contents(reinterpret_cast<const char *>(start),
+                               reinterpret_cast<const char *>(end));
+    tdata->delayed_branch.push_back(contents);
     return "";
 }
 
