@@ -2192,8 +2192,10 @@ DR_API
 app_pc
 opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
 {
+#if defined(AARCH64)
     if (!opnd_set_base_aligned(&opnd, true))
         CLIENT_ASSERT(false, "opnd_set_base_aligned failed");
+#endif
     /* only uses GPRs so we ignore mc.size */
     return opnd_compute_address_priv(opnd, dr_mcontext_as_priv_mcontext(mc));
 }
