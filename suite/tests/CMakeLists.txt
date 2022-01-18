@@ -4870,8 +4870,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.partial_module_map
     code_api|client.stack-overflow
     code_api|client.thread_exit_xl8
-    code_api|pthreads.pthreads_exit
-    code_api|pthreads.pthreads
     code_api|sample.bbbuf
     code_api|sample.bbcount
     code_api|sample.bbsize
@@ -4900,10 +4898,8 @@ if (NOT ANDROID AND AARCHXX)
     set_tests_properties(
       code_api|common.allasm_aarch64_cache
       code_api|common.allasm_aarch64_isa
-      code_api|linux.execve-rec
       code_api|linux.mangle_asynch
       code_api|linux.mmap
-      code_api|linux.prctl
       code_api|pthreads.pthreads_exit
       code_api|pthreads.pthreads
       code_api,satisfy_w_xor_x|linux.fork
@@ -4923,7 +4919,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.execfault
       code_api|client.gonative
       code_api|client.inline
-      code_api|client.large_options
       code_api|client.mangle_suspend
       code_api|client.process-id
       code_api|client.syscall-mod
