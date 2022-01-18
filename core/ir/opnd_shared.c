@@ -667,6 +667,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     opnd.value.base_disp.pre_index = true;
     opnd.value.base_disp.extend_type = DR_EXTEND_UXTX;
     opnd.value.base_disp.scaled = false;
+    opnd.value.base_disp.base_aligned = false;
 #elif defined(X86)
     opnd.value.base_disp.scale = (byte)scale;
     opnd.value.base_disp.encode_zero_disp = (byte)encode_zero_disp;
@@ -738,6 +739,7 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
     opnd.value.base_disp.pre_index = false;
+    opnd.value.base_disp.base_aligned = false;
     opnd_set_disp_helper(&opnd, disp);
     opnd.aux.flags = flags;
     if (!opnd_set_index_extend(&opnd, extend_type, scaled))
