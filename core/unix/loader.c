@@ -897,10 +897,10 @@ privload_parse_ld_conf(os_glob_t *search_paths, const char *config_path)
 
             /* We have enough room in the string to prefix it with "/etc/". */
             size_t count = strlen("/etc/");
-            strncpy(include_path - count, "/etc/", count);
+            memcpy(include_path - count, "/etc/", count);
 
             /* Glob the path. */
-            if (os_glob(include_path, 0, NULL, &includes) < 0) {
+            if (os_glob(include_path - count, 0, NULL, &includes) < 0) {
                 continue;
             }
 
