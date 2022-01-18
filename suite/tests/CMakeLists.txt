@@ -4834,7 +4834,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|common.nzcv
     code_api|linux.app_tls
     code_api|linux.execve-null
-    code_api|linux.execve-rec
     code_api|linux.exit
     code_api|linux.fib-conflict
     code_api|linux.fib-conflict-early
@@ -4843,7 +4842,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|linux.fork
     code_api|linux.infinite
     code_api|linux.longjmp
-    code_api|linux.prctl
     code_api|linux.readlink
     code_api|linux.sigaction
     code_api|linux.signalfd
@@ -4858,8 +4856,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.destructor
     code_api|client.drcontainers-test
     code_api|client.drmodtrack-test
-    code_api|client.drreg-cross
-    code_api|client.drreg-flow
     code_api|client.drsyms-test
     code_api|client.drwrap-test-callconv
     code_api|client.drwrap-drreg-test
@@ -4872,7 +4868,6 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.option_parse
     code_api|client.reg_size_test
     code_api|client.partial_module_map
-    code_api|client.process-id
     code_api|client.stack-overflow
     code_api|client.thread_exit_xl8
     code_api|pthreads.pthreads_exit
@@ -4905,8 +4900,10 @@ if (NOT ANDROID AND AARCHXX)
     set_tests_properties(
       code_api|common.allasm_aarch64_cache
       code_api|common.allasm_aarch64_isa
+      code_api|linux.execve-rec
       code_api|linux.mangle_asynch
       code_api|linux.mmap
+      code_api|linux.prctl
       code_api|pthreads.pthreads_exit
       code_api|pthreads.pthreads
       code_api,satisfy_w_xor_x|linux.fork
@@ -4916,7 +4913,9 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.cleancall-opt-1
       code_api|client.cleancallparams
       code_api|client.drmgr-test
+      code_api|client.drreg-cross
       code_api|client.drreg-end-restore
+      code_api|client.drreg-flow
       code_api|client.drreg-test
       code_api|client.drutil-test
       code_api|client.drx_buf-test
@@ -4926,6 +4925,7 @@ if (NOT ANDROID AND AARCHXX)
       code_api|client.inline
       code_api|client.large_options
       code_api|client.mangle_suspend
+      code_api|client.process-id
       code_api|client.syscall-mod
       code_api|client.tls
       code_api|client.truncate
@@ -4951,11 +4951,8 @@ if (NOT ANDROID AND AARCHXX)
       code_api|common.allasm_arm
       code_api|common.allasm_thumb
       code_api|common.broadfun-stress
-      code_api|client.stolen-reg
       code_api|linux.bad-signal-stack
       code_api|linux.alarm
-      code_api|linux.eintr-noinline
-      code_api|linux.eintr
       code_api|linux.fork-sleep
       code_api|linux.signal_race
       code_api|linux.signal0000
@@ -4974,7 +4971,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|linux.signal1101
       code_api|linux.signal1110
       code_api|linux.signal1111
-      code_api|linux.signest
       code_api|linux.sigplain000
       code_api|linux.sigplain001
       code_api|linux.sigplain010
@@ -4983,8 +4979,6 @@ if (NOT ANDROID AND AARCHXX)
       code_api|linux.sigplain101
       code_api|linux.sigplain110
       code_api|linux.sigplain111
-      code_api|linux.sigsuspend
-      code_api|pthreads.ptsig
       code_api|security-common.TestAllocWE
       PROPERTIES LABELS RUNS_ON_QEMU)
   endif ()
