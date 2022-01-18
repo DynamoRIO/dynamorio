@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -115,11 +115,11 @@ Selected tutorials and talks:
 
   - [DynamoRIO tutorial at CGO Mar 2016 (PPSX)](https://github.com/DynamoRIO/dynamorio/releases/download/release_6_1_0/DynamoRIO-tutorial-mar2016.ppsx)
 
-  - [DynamoRIO tutorial at CGO Feb 2015 (PDF)](https://bintray.com/bruening/DynamoRIO/DynamoRIO-tutorial-pdf/view) ([DynamoRIO-tutorial-2015.pdf](https://bintray.com/artifact/download/bruening/DynamoRIO/DynamoRIO-tutorial-2015.pdf))
+  - [DynamoRIO tutorial at CGO Feb 2015 (PDF)](https://www.burningcutlery.com/derek/docs/DynamoRIO-tutorial-2015.pdf)
 
-  - [DynamoRIO talk: "Building Customized Dynamic Program Inspectors" (PDF)](https://bintray.com/bruening/DynamoRIO/DynamoRIO-talk-pdf/view) ([DynamoRIO-program-inspectors-aug2014.pdf](http://dl.bintray.com/bruening/DynamoRIO/DynamoRIO-program-inspectors-aug2014.pdf))
+  - [DynamoRIO talk: "Building Customized Dynamic Program Inspectors" (PDF)](https://www.burningcutlery.com/derek/docs/DynamoRIO-program-inspectors-aug2014.pdf)
 
-  - [DynamoRIO talk: "Building Customized Dynamic Program Inspectors" (PPSX)](https://bintray.com/bruening/DynamoRIO/DynamoRIO-talk-ppsx/view) ([DynamoRIO-program-inspectors-aug2014.ppsx](http://dl.bintray.com/bruening/DynamoRIO/DynamoRIO-program-inspectors-aug2014.ppsx))
+  - [DynamoRIO talk: "Building Customized Dynamic Program Inspectors" (PPSX)](https://www.burningcutlery.com/derek/docs/DynamoRIO-program-inspectors-aug2014.ppsx)
 
 
 ***************************************************************************
