@@ -10911,7 +10911,7 @@ append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
                                     ACCT_OTHER, PROTECTED);
 
     if (glob->gl_pathv) {
-        memcpy(paths, glob->gl_pathv, sizeof(char) * (glob->gl_pathc + 1));
+        memcpy(paths, glob->gl_pathv, sizeof(char *) * (glob->gl_pathc + 1));
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, glob->gl_pathv, char *, glob->gl_pathc + 1,
                         ACCT_OTHER, PROTECTED);
     }
