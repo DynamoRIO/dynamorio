@@ -440,13 +440,13 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
              */
             PRE(bb, where,
                 XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
-                                      OPND_CREATE_INT(proc_get_cache_line_size()-1)));
+                                      OPND_CREATE_INT(proc_get_cache_line_size() - 1)));
             PRE(bb, where,
                 XINST_CREATE_sub(drcontext, opnd_create_reg(scratch),
                                  opnd_create_reg(DR_REG_XZR)));
             PRE(bb, where,
-                INSTR_CREATE_and(drcontext, opnd_create_reg(dst),
-                                 opnd_create_reg(base), opnd_create_reg(scratch)));
+                INSTR_CREATE_and(drcontext, opnd_create_reg(dst), opnd_create_reg(base),
+                                 opnd_create_reg(scratch)));
         }
 #    endif
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
