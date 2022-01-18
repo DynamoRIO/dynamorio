@@ -4877,6 +4877,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|sample.empty
     code_api|sample.inline
     code_api|sample.opcode_count
+    code_api|sample.opcodes
     code_api|sample.signal
     code_api|sample.stl_test
     code_api|sample.syscall
@@ -4897,20 +4898,31 @@ if (NOT ANDROID AND AARCHXX)
     set_tests_properties(
       code_api|common.allasm_aarch64_cache
       code_api|common.allasm_aarch64_isa
+      code_api|linux.mangle_asynch
       code_api|linux.mmap
+      code_api|pthreads.pthreads_exit
+      code_api|pthreads.pthreads
       code_api,satisfy_w_xor_x|linux.fork
       code_api|security-common.retnonexisting
       code_api|security-linux.trampoline
       code_api|client.app_inscount
       code_api|client.cleancall-opt-1
       code_api|client.cleancallparams
+      code_api|client.drmgr-test
       code_api|client.drreg-cross
       code_api|client.drreg-end-restore
       code_api|client.drreg-flow
+      code_api|client.drreg-test
+      code_api|client.drutil-test
+      code_api|client.drx_buf-test
       code_api|client.emulation_api_simple
       code_api|client.execfault
+      code_api|client.gonative
       code_api|client.inline
+      code_api|client.mangle_suspend
+      code_api|client.process-id
       code_api|client.syscall-mod
+      code_api|client.tls
       code_api|client.truncate
       code_api|client.unregister
       code_api|sample.inscount
@@ -4918,7 +4930,7 @@ if (NOT ANDROID AND AARCHXX)
       code_api|sample.inscount.prof-pcs.cleancall
       code_api|sample.instrace_simple
       code_api|sample.memtrace_simple
-      code_api|sample.opcodes
+      code_api|sample.memval_simple
       PROPERTIES LABELS RUNS_ON_QEMU)
     if (LINUX AND X64 AND HAVE_RSEQ)
       # QEMU just returns ENOSYS, but still this is testing that.
