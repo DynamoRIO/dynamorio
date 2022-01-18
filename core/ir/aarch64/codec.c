@@ -707,11 +707,13 @@ decode_opnd_memreg_size(opnd_size_t size, uint enc, OUT opnd_t *opnd)
     dr_extend_type_t extend;
     switch (enc >> 13 & 7) {
     case 0b010: extend = DR_EXTEND_UXTW; break;
-    case 0b011: extend = DR_EXTEND_UXTX; break; // Actually LSL
+    // Alias for LSL. LSL preferred in disassembly.
+    case 0b011: extend = DR_EXTEND_UXTX; break;
     case 0b110: extend = DR_EXTEND_SXTW; break;
     case 0b111: extend = DR_EXTEND_SXTX; break;
     default: return false;
     }
+
     *opnd = opnd_create_base_disp_aarch64(
         decode_reg(enc >> 5 & 31, true, true),
         decode_reg(enc >> 16 & 31, TEST(1U << 13, enc), false), extend,
