@@ -10969,7 +10969,7 @@ append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
             /* Allocate extra space for the '/'. */
             new_path = (char *)heap_alloc(GLOBAL_DCONTEXT, len + 2 HEAPACCT(ACCT_OTHER));
 
-            d_r_strncat(new_path, path, len);
+            strncpy(new_path, path, len);
             new_path[len] = '/';
             new_path[len + 1] = '\0';
         }
