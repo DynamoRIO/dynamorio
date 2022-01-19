@@ -846,6 +846,9 @@ enum {
  * OP_mrs and OP_msr to distinguish them and make things clearer.
  */
 #    ifdef AARCH64
+    DR_REG_NZCV,            /**< The "nzcv" register. */
+    DR_REG_FPCR,            /**< The "fpcr" register. */
+    DR_REG_FPSR,            /**< The "fpsr" register. */
     DR_REG_MDCCSR_EL0,      /**< The "mdccsr_el0" register. */
     DR_REG_DBGDTR_EL0,      /**< The "dbgdtr_el0" register. */
     DR_REG_DBGDTRRX_EL0,    /**< The "dbgdtrrx_el0" register. */
@@ -860,13 +863,10 @@ enum {
     DR_REG_DCZID_EL0,       /**< The "dczid_el0" register. */
     DR_REG_RNDR,            /**< The "rndr" register. */
     DR_REG_RNDRRS,          /**< The "rndrrs" register. */
-    DR_REG_NZCV,            /**< The "nzcv" register. */
     DR_REG_DAIF,            /**< The "daif" register. */
     DR_REG_DIT,             /**< The "dit" register. */
     DR_REG_SSBS,            /**< The "ssbs" register. */
     DR_REG_TCO,             /**< The "tco" register. */
-    DR_REG_FPCR,            /**< The "fpcr" register. */
-    DR_REG_FPSR,            /**< The "fpsr" register. */
     DR_REG_DSPSR_EL0,       /**< The "dspsr_el0" register. */
     DR_REG_DLR_EL0,         /**< The "dlr_el0" register. */
     DR_REG_PMCR_EL0,        /**< The "pmcr_el0" register. */
