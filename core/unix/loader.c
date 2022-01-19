@@ -911,11 +911,7 @@ privload_parse_ld_conf(os_glob_t *search_paths, const char *config_path)
 
             /* Recursively parse the included config files. */
             for (size_t i = 0; i < includes.gl_pathc; ++i) {
-                if (!privload_parse_ld_conf(search_paths, includes.gl_pathv[i])) {
-                    os_close(file);
-
-                    return false;
-                }
+                privload_parse_ld_conf(search_paths, includes.gl_pathv[i]);
             }
 
             os_globfree(&includes);
