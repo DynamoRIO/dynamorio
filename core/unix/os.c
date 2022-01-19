@@ -11117,8 +11117,29 @@ os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err
         os_globfree(glob);
     }
 
-    /* Start matching the pattern against the file names. */
-    os_match_dir(directory, pattern, flags, glob);
+    /* The pattern is not literal. */
+    if (pattern[len] != '\0') {
+        /* Start matching the pattern against the file names. */
+        os_match_dir(directory, pattern, flags, glob);
+
+        return 0;
+    }
+
+    /* Check if the file exists. */
+    if (os_file_exists(directory, true)) {
+        is_dir = 1;
+    } else if (os_file_exists(directory, false)) {
+        is_dir = 0;
+    } else {
+        return 0;
+    }
+
+    if (!is_dir && flags & GLOB_ONLYDIR) {
+        return 0;
+    }
+
+    /* Append the path to the list. */
+    append_path(directory, is_dir, flags, glob);
 
     return 0;
 }
