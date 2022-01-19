@@ -10915,27 +10915,32 @@ literal_prefix(const char *p, int escape)
         ++len;
 
         switch (c) {
-        case '\\':
+        case '\\': {
             if (!escape) {
                 break;
             }
 
             return prefix_len;
+        }
         case '?':
-        case '*':
+        case '*': {
             return prefix_len;
-        case '[':
+        }
+        case '[': {
             seen_bracket = 1;
             break;
-        case ']':
+        }
+        case ']': {
             if (seen_bracket) {
                 return prefix_len;
             }
 
             break;
-        case '/':
+        }
+        case '/': {
             prefix_len = len;
             break;
+        }
         }
     }
 
