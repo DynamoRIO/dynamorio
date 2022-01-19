@@ -895,9 +895,14 @@ privload_parse_ld_conf(os_glob_t *search_paths, const char *config_path)
                 ++include_path;
             }
 
-            /* We have enough room in the string to prefix it with "/etc/". */
-            size_t count = strlen("/etc/");
-            memcpy(include_path - count, "/etc/", count);
+            size_t count = 0;
+
+            /* Handle relative paths. */
+            if (*include_path != '/') {
+                /* We have enough room in the string to prefix it with "/etc/". */
+                count = strlen("/etc/");
+                memcpy(include_path - count, "/etc/", count);
+            }
 
             /* Glob the path. */
             if (os_glob(include_path - count, 0, NULL, &includes) < 0) {
