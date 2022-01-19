@@ -10903,6 +10903,45 @@ os_check_option_compatibility(void)
     return false;
 }
 
+static size_t
+literal_prefix(const char *p, int escape)
+{
+    size_t len = 0;
+    size_t prefix_len = 0;
+    int seen_bracket = 0;
+    char c;
+
+    while ((c = *p++)) {
+        ++len;
+
+        switch (c) {
+        case '\\':
+            if (!escape) {
+                break;
+            }
+
+            return prefix_len;
+        case '?':
+        case '*':
+            return prefix_len;
+        case '[':
+            seen_bracket = 1;
+            break;
+        case ']':
+            if (seen_bracket) {
+                return prefix_len;
+            }
+
+            break;
+        case '/':
+            prefix_len = len;
+            break;
+        }
+    }
+
+    return len;
+}
+
 static void
 append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
 {
