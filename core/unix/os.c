@@ -10984,10 +10984,11 @@ append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
 }
 
 int
-os_match_dir(const char *directory, const char *pattern, int flags, os_glob_t *glob)
+os_match_dir(char *directory, const char *pattern, int flags, os_glob_t *glob)
 {
     file_t dir;
     dir_iterator_t iter;
+    size_t len = strlen(directory);
     int fnm_flags = 0;
     int is_dir = 0;
 
@@ -11000,12 +11001,20 @@ os_match_dir(const char *directory, const char *pattern, int flags, os_glob_t *g
         fnm_flags |= FNM_PERIOD;
     }
 
+    if (len > 0 && directory[len - 1] != '/') {
+        directory[len] = '/';
+        directory[len + 1] = '\0';
+    }
+
     /* Iterate over the directory and match against the glob pattern. */
     dir = os_open_directory(directory, OS_OPEN_READ);
 
     if (dir == INVALID_FILE) {
+        directory[len] = '\0';
         return -1;
     }
+
+    ++len;
 
     os_dir_iterator_start(&iter, dir);
 
@@ -11015,24 +11024,29 @@ os_match_dir(const char *directory, const char *pattern, int flags, os_glob_t *g
             continue;
         }
 
-        is_dir = (os_match_dir(iter.name, pattern, flags, glob) == 0);
+        snprintf(directory, 4 * MAXIMUM_PATH, "%s%s", directory, iter.name);
+
+        is_dir = (os_match_dir(directory, pattern, flags, glob) == 0);
 
         /* Skip if it is not a directory and we are only interested in
          * directories.
          */
         if (!is_dir && flags & GLOB_ONLYDIR) {
+            directory[len] = '\0';
             continue;
         }
 
         /* Match the pattern against the name of the current directory
          * entry.
          */
-        if (fnmatch(pattern, iter.name, fnm_flags) != 0) {
+        if (fnmatch(pattern, directory, fnm_flags) != 0) {
+            directory[len] = '\0';
             continue;
         }
 
         /* Append the path to the list. */
-        append_path(iter.name, is_dir, flags, glob);
+        append_path(directory, is_dir, flags, glob);
+        directory[len] = '\0';
     }
 
     /* Ensure there are no reading errors. */
@@ -11077,12 +11091,16 @@ os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err
         os_glob_t *glob)
 {
     size_t offsets = 0;
-    const char *directory = "";
+    char directory[4 * MAXIMUM_PATH] = { 0 };
+    size_t len;
+    int is_dir = 0;
 
-    /* Check if the pattern is an absolute path. */
-    if (*pattern == '/') {
-        directory = "/";
-    }
+    /* Determine the literal prefix of the pattern that we can just use as a
+     * path directly.
+     */
+    len = literal_prefix(pattern, !(flags & GLOB_NOESCAPE));
+    strncpy(directory, pattern, len);
+    directory[len] = '\0';
 
     /* Whether we should use ignore the first n paths in our processing. */
     if (flags & GLOB_DOOFFS) {
