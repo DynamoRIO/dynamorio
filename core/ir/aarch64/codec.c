@@ -2224,7 +2224,7 @@ decode_opnd_pstate(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
     default: return false;
     }
 
-    *opnd =  opnd_create_reg(pstate);
+    *opnd = opnd_create_reg(pstate);
     return true;
 }
 
@@ -2236,9 +2236,18 @@ encode_opnd_pstate(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
         return false;
 
     switch (opnd_get_reg(opnd)) {
-    case DR_REG_SPSEL: upper = 0b000; lower = 0b101; break;
-    case DR_REG_DAIFSET: upper = 0b011; lower = 0b110; break;
-    case DR_REG_DAIFCLR: upper = 0b011; lower = 0b111; break;
+    case DR_REG_SPSEL:
+        upper = 0b000;
+        lower = 0b101;
+        break;
+    case DR_REG_DAIFSET:
+        upper = 0b011;
+        lower = 0b110;
+        break;
+    case DR_REG_DAIFCLR:
+        upper = 0b011;
+        lower = 0b111;
+        break;
     default: return false;
     }
 
