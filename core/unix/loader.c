@@ -905,7 +905,7 @@ privload_parse_ld_conf(os_glob_t *search_paths, const char *config_path)
             }
 
             /* Glob the path. */
-            if (os_glob(include_path - count, 0, NULL, &includes) < 0) {
+            if (os_glob(include_path - count, 0, &includes) < 0) {
                 continue;
             }
 
@@ -919,15 +919,7 @@ privload_parse_ld_conf(os_glob_t *search_paths, const char *config_path)
             continue;
         }
 
-        /* We only care about directories. */
-        int flags = GLOB_MARK | GLOB_ONLYDIR;
-
-        /* Append the path, if it is not the first path. */
-        if (search_paths->gl_pathv) {
-            flags |= GLOB_APPEND;
-        }
-
-        os_glob(line, flags, NULL, search_paths);
+        os_glob(line, OS_GLOB_ONLYDIR, search_paths);
     }
 
     if (line) {

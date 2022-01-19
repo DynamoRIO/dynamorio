@@ -10948,7 +10948,7 @@ literal_prefix(const char *p, int escape)
 }
 
 static void
-append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
+append_path(const char *path, int is_dir, os_glob_t *glob)
 {
     /* Naive realloc that allocates one extra slot for the path. */
     char **paths = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char *, glob->gl_pathc + 2,
@@ -10964,11 +10964,10 @@ append_path(const char *path, int is_dir, int flags, os_glob_t *glob)
 
     char *new_path = NULL;
 
-    if (is_dir && flags & GLOB_MARK) {
+    if (is_dir) {
         size_t len = strlen(path);
 
         if (len >= 1 && path[len - 1] == '/') {
-            /* User asked to mark, but already marked. */
             new_path = dr_strdup(path HEAPACCT(ACCT_OTHER));
         } else {
             /* Allocate extra space for the '/'. */
@@ -10994,17 +10993,7 @@ os_match_dir(char *directory, const char *pattern, int flags, os_glob_t *glob)
     file_t dir;
     dir_iterator_t iter;
     size_t len = strlen(directory);
-    int fnm_flags = 0;
     int is_dir = 0;
-
-    /* Translate the flags for glob() to flags for fnmatch(). */
-    if (flags & GLOB_NOESCAPE) {
-        fnm_flags |= FNM_NOESCAPE;
-    }
-
-    if (flags & GLOB_PERIOD) {
-        fnm_flags |= FNM_PERIOD;
-    }
 
     if (len > 0 && directory[len - 1] != '/') {
         directory[len] = '/';
@@ -11036,7 +11025,7 @@ os_match_dir(char *directory, const char *pattern, int flags, os_glob_t *glob)
         /* Skip if it is not a directory and we are only interested in
          * directories.
          */
-        if (!is_dir && flags & GLOB_ONLYDIR) {
+        if (!is_dir && flags & OS_GLOB_ONLYDIR) {
             directory[len] = '\0';
             continue;
         }
@@ -11044,13 +11033,13 @@ os_match_dir(char *directory, const char *pattern, int flags, os_glob_t *glob)
         /* Match the pattern against the name of the current directory
          * entry.
          */
-        if (fnmatch(pattern, directory, fnm_flags) != 0) {
+        if (fnmatch(pattern, directory, 0) != 0) {
             directory[len] = '\0';
             continue;
         }
 
         /* Append the path to the list. */
-        append_path(directory, is_dir, flags, glob);
+        append_path(directory, is_dir, glob);
         directory[len] = '\0';
     }
 
@@ -11059,12 +11048,6 @@ os_match_dir(char *directory, const char *pattern, int flags, os_glob_t *glob)
 
     os_close(dir);
 
-    return 0;
-}
-
-static int
-ignore_err(const char *path, int err)
-{
     return 0;
 }
 
@@ -11091,11 +11074,26 @@ os_globfree(os_glob_t *glob)
     glob->gl_pathv = NULL;
 }
 
+/* This is a much simpler implementation of the glob function provided on most
+ * POSIX-compliant systems, since we only use it to either construct a list of
+ * directories or a list of file paths. Therefore, this only supports the
+ * OS_GLOB_ONLYDIR flag for now to optionally skip files.
+ *
+ * This function always appends new paths to the list of paths and does not
+ * clear the list of paths. Use os_globfree if you need the list of paths to be
+ * cleared.
+ *
+ * While fnmatch allows you to disable escaping, this function does not expose
+ * that functionality and always assumes patterns support escaping.
+ *
+ * This function does not support skipping a number of entries in the path list
+ * or sorting.
+ *
+ * Unlike glob, this implementation does not accept an error callback.
+ */
 int
-os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err),
-        os_glob_t *glob)
+os_glob(const char *pattern, int flags, os_glob_t *glob)
 {
-    size_t offsets = 0;
     char directory[4 * MAXIMUM_PATH] = { 0 };
     size_t len;
     int is_dir = 0;
@@ -11103,24 +11101,9 @@ os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err
     /* Determine the literal prefix of the pattern that we can just use as a
      * path directly.
      */
-    len = literal_prefix(pattern, !(flags & GLOB_NOESCAPE));
+    len = literal_prefix(pattern, 1);
     strncpy(directory, pattern, len);
     directory[len] = '\0';
-
-    /* Whether we should use ignore the first n paths in our processing. */
-    if (flags & GLOB_DOOFFS) {
-        offsets = glob->gl_offs;
-    }
-
-    /* Provide a no-op error handler if none is provided. */
-    if (!errfunc) {
-        errfunc = ignore_err;
-    }
-
-    /* If we are not appending, then just clear the glob data. */
-    if (!(flags & GLOB_APPEND)) {
-        os_globfree(glob);
-    }
 
     /* The pattern is not literal. */
     if (pattern[len] != '\0') {
@@ -11139,12 +11122,12 @@ os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err
         return 0;
     }
 
-    if (!is_dir && flags & GLOB_ONLYDIR) {
+    if (!is_dir && flags & OS_GLOB_ONLYDIR) {
         return 0;
     }
 
     /* Append the path to the list. */
-    append_path(directory, is_dir, flags, glob);
+    append_path(directory, is_dir, glob);
 
     return 0;
 }

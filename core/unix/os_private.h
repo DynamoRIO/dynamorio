@@ -277,39 +277,10 @@ struct os_glob_t {
 
 typedef struct os_glob_t os_glob_t;
 
-#ifdef GLOB_MARK
-#    undef GLOB_MARK
-#endif
-#define GLOB_MARK (1 << 0)
-
-#ifdef GLOB_DOOFFS
-#    undef GLOB_DOOFFS
-#endif
-#define GLOB_DOOFFS (1 << 1)
-
-#ifdef GLOB_APPEND
-#    undef GLOB_APPEND
-#endif
-#define GLOB_APPEND (1 << 2)
-
-#ifdef GLOB_NOESCAPE
-#    undef GLOB_NOESCAPE
-#endif
-#define GLOB_NOESCAPE (1 << 3)
-
-#ifdef GLOB_PERIOD
-#    undef GLOB_PERIOD
-#endif
-#define GLOB_PERIOD (1 << 4)
-
-#ifdef GLOB_ONLYDIR
-#    undef GLOB_ONLYDIR
-#endif
-#define GLOB_ONLYDIR (1 << 5)
+#define OS_GLOB_ONLYDIR (1 << 0)
 
 int
-os_glob(const char *pattern, int flags, int (*errfunc)(const char *path, int err),
-        os_glob_t *glob);
+os_glob(const char *pattern, int flags, os_glob_t *glob);
 void
 os_globfree(os_glob_t *glob);
 
