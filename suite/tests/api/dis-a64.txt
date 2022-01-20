@@ -6812,86 +6812,6 @@ da030041 : sbc    x1, x2, x3              : sbc    %x2 %x3 -> %x1
 4e9e97bc : sdot V28.4s, V29.16b, V30.16b             : sdot   %q29 %q30 $0x02 $0x00 -> %q28
 4e81941f : sdot V31.4s, V0.16b, V1.16b               : sdot   %q0 %q1 $0x02 $0x00 -> %q31
 
-5e020020 : sha1c q0, s1, v2.4s                      : sha1c  %s1 %d2 -> %q0
-5e040065 : sha1c q5, s3, v4.4s                      : sha1c  %s3 %d4 -> %q5
-5e09010a : sha1c q10, s8, v9.4s                     : sha1c  %s8 %d9 -> %q10
-5e0e01af : sha1c q15, s13, v14.4s                   : sha1c  %s13 %d14 -> %q15
-5e130254 : sha1c q20, s18, v19.4s                   : sha1c  %s18 %d19 -> %q20
-5e1802f9 : sha1c q25, s23, v24.4s                   : sha1c  %s23 %d24 -> %q25
-5e1d039e : sha1c q30, s28, v29.4s                   : sha1c  %s28 %d29 -> %q30
-
-5e280820 : sha1h s0, s1                             : sha1h  %s1 -> %s0
-5e280885 : sha1h s5, s4                             : sha1h  %s4 -> %s5
-5e28092a : sha1h s10, s9                            : sha1h  %s9 -> %s10
-5e2809cf : sha1h s15, s14                           : sha1h  %s14 -> %s15
-5e280a74 : sha1h s20, s19                           : sha1h  %s19 -> %s20
-5e280b19 : sha1h s25, s24                           : sha1h  %s24 -> %s25
-5e280bbe : sha1h s30, s29                           : sha1h  %s29 -> %s30
-
-5e022020 : sha1m q0, s1, v2.4s                      : sha1m  %s1 %d2 -> %q0
-5e042065 : sha1m q5, s3, v4.4s                      : sha1m  %s3 %d4 -> %q5
-5e09210a : sha1m q10, s8, v9.4s                     : sha1m  %s8 %d9 -> %q10
-5e0e21af : sha1m q15, s13, v14.4s                   : sha1m  %s13 %d14 -> %q15
-5e132254 : sha1m q20, s18, v19.4s                   : sha1m  %s18 %d19 -> %q20
-5e1822f9 : sha1m q25, s23, v24.4s                   : sha1m  %s23 %d24 -> %q25
-5e1d239e : sha1m q30, s28, v29.4s                   : sha1m  %s28 %d29 -> %q30
-
-5e021020 : sha1p q0, s1, v2.4s                      : sha1p  %s1 %d2 -> %q0
-5e041065 : sha1p q5, s3, v4.4s                      : sha1p  %s3 %d4 -> %q5
-5e09110a : sha1p q10, s8, v9.4s                     : sha1p  %s8 %d9 -> %q10
-5e0e11af : sha1p q15, s13, v14.4s                   : sha1p  %s13 %d14 -> %q15
-5e131254 : sha1p q20, s18, v19.4s                   : sha1p  %s18 %d19 -> %q20
-5e1812f9 : sha1p q25, s23, v24.4s                   : sha1p  %s23 %d24 -> %q25
-5e1d139e : sha1p q30, s28, v29.4s                   : sha1p  %s28 %d29 -> %q30
-
-5e023020 : sha1su0 v0.4s, v1.4s, v2.4s              : sha1su0 %d1 %d2 -> %d0
-5e043065 : sha1su0 v5.4s, v3.4s, v4.4s              : sha1su0 %d3 %d4 -> %d5
-5e09310a : sha1su0 v10.4s, v8.4s, v9.4s             : sha1su0 %d8 %d9 -> %d10
-5e0e31af : sha1su0 v15.4s, v13.4s, v14.4s           : sha1su0 %d13 %d14 -> %d15
-5e133254 : sha1su0 v20.4s, v18.4s, v19.4s           : sha1su0 %d18 %d19 -> %d20
-5e1832f9 : sha1su0 v25.4s, v23.4s, v24.4s           : sha1su0 %d23 %d24 -> %d25
-5e1d339e : sha1su0 v30.4s, v28.4s, v29.4s           : sha1su0 %d28 %d29 -> %d30
-
-5e281820 : sha1su1 v0.4s, v1.4s                     : sha1su1 %d1 -> %d0
-5e281885 : sha1su1 v5.4s, v4.4s                     : sha1su1 %d4 -> %d5
-5e28192a : sha1su1 v10.4s, v9.4s                    : sha1su1 %d9 -> %d10
-5e2819cf : sha1su1 v15.4s, v14.4s                   : sha1su1 %d14 -> %d15
-5e281a74 : sha1su1 v20.4s, v19.4s                   : sha1su1 %d19 -> %d20
-5e281b19 : sha1su1 v25.4s, v24.4s                   : sha1su1 %d24 -> %d25
-5e281bbe : sha1su1 v30.4s, v29.4s                   : sha1su1 %d29 -> %d30
-
-5e024020 : sha256h q0, q1, v2.4s                    : sha256h %q1 %d2 -> %q0
-5e044065 : sha256h q5, q3, v4.4s                    : sha256h %q3 %d4 -> %q5
-5e09410a : sha256h q10, q8, v9.4s                   : sha256h %q8 %d9 -> %q10
-5e0e41af : sha256h q15, q13, v14.4s                 : sha256h %q13 %d14 -> %q15
-5e134254 : sha256h q20, q18, v19.4s                 : sha256h %q18 %d19 -> %q20
-5e1842f9 : sha256h q25, q23, v24.4s                 : sha256h %q23 %d24 -> %q25
-5e1d439e : sha256h q30, q28, v29.4s                 : sha256h %q28 %d29 -> %q30
-
-5e025020 : sha256h2 q0, q1, v2.4s                   : sha256h2 %q1 %d2 -> %q0
-5e045065 : sha256h2 q5, q3, v4.4s                   : sha256h2 %q3 %d4 -> %q5
-5e09510a : sha256h2 q10, q8, v9.4s                  : sha256h2 %q8 %d9 -> %q10
-5e0e51af : sha256h2 q15, q13, v14.4s                : sha256h2 %q13 %d14 -> %q15
-5e135254 : sha256h2 q20, q18, v19.4s                : sha256h2 %q18 %d19 -> %q20
-5e1852f9 : sha256h2 q25, q23, v24.4s                : sha256h2 %q23 %d24 -> %q25
-5e1d539e : sha256h2 q30, q28, v29.4s                : sha256h2 %q28 %d29 -> %q30
-
-5e282820 : sha256su0 v0.4s, v1.4s                   : sha256su0 %d1 -> %d0
-5e282885 : sha256su0 v5.4s, v4.4s                   : sha256su0 %d4 -> %d5
-5e28292a : sha256su0 v10.4s, v9.4s                  : sha256su0 %d9 -> %d10
-5e2829cf : sha256su0 v15.4s, v14.4s                 : sha256su0 %d14 -> %d15
-5e282a74 : sha256su0 v20.4s, v19.4s                 : sha256su0 %d19 -> %d20
-5e282b19 : sha256su0 v25.4s, v24.4s                 : sha256su0 %d24 -> %d25
-5e282bbe : sha256su0 v30.4s, v29.4s                 : sha256su0 %d29 -> %d30
-
-5e026020 : sha256su1 v0.4s, v1.4s, v2.4s            : sha256su1 %d1 %d2 -> %d0
-5e046065 : sha256su1 v5.4s, v3.4s, v4.4s            : sha256su1 %d3 %d4 -> %d5
-5e09610a : sha256su1 v10.4s, v8.4s, v9.4s           : sha256su1 %d8 %d9 -> %d10
-5e0e61af : sha256su1 v15.4s, v13.4s, v14.4s         : sha256su1 %d13 %d14 -> %d15
-5e136254 : sha256su1 v20.4s, v18.4s, v19.4s         : sha256su1 %d18 %d19 -> %d20
-5e1862f9 : sha256su1 v25.4s, v23.4s, v24.4s         : sha256su1 %d23 %d24 -> %d25
-5e1d639e : sha256su1 v30.4s, v28.4s, v29.4s         : sha256su1 %d28 %d29 -> %d30
-
 0e3e0762 : shadd v2.8b, v27.8b, v30.8b              : shadd  %d27 %d30 $0x00 -> %d2
 4e3e0762 : shadd v2.16b, v27.16b, v30.16b           : shadd  %q27 %q30 $0x00 -> %q2
 0e7e0762 : shadd v2.4h, v27.4h, v30.4h              : shadd  %d27 %d30 $0x01 -> %d2
@@ -27267,3 +27187,183 @@ d5034bff : msr DAIFClr, #0xb                         : msr    %daifclr $0x0b
 d5034cff : msr DAIFClr, #0xc                         : msr    %daifclr $0x0c
 d5034dff : msr DAIFClr, #0xd                         : msr    %daifclr $0x0d
 d5034fff : msr DAIFClr, #0xf                         : msr    %daifclr $0x0f
+
+# SHA1SU1 <Sd>.4S, <Sn>.4S (SHA1SU1-Q.Q-VV_cryptosha2)
+5e281820 : sha1su1 v0.4s, v1.4s                      : sha1su1 %q1 $0x02 -> %q0
+5e281862 : sha1su1 v2.4s, v3.4s                      : sha1su1 %q3 $0x02 -> %q2
+5e2818a4 : sha1su1 v4.4s, v5.4s                      : sha1su1 %q5 $0x02 -> %q4
+5e2818e6 : sha1su1 v6.4s, v7.4s                      : sha1su1 %q7 $0x02 -> %q6
+5e281928 : sha1su1 v8.4s, v9.4s                      : sha1su1 %q9 $0x02 -> %q8
+5e28196a : sha1su1 v10.4s, v11.4s                    : sha1su1 %q11 $0x02 -> %q10
+5e2819ac : sha1su1 v12.4s, v13.4s                    : sha1su1 %q13 $0x02 -> %q12
+5e2819ee : sha1su1 v14.4s, v15.4s                    : sha1su1 %q15 $0x02 -> %q14
+5e281a30 : sha1su1 v16.4s, v17.4s                    : sha1su1 %q17 $0x02 -> %q16
+5e281a51 : sha1su1 v17.4s, v18.4s                    : sha1su1 %q18 $0x02 -> %q17
+5e281a93 : sha1su1 v19.4s, v20.4s                    : sha1su1 %q20 $0x02 -> %q19
+5e281ad5 : sha1su1 v21.4s, v22.4s                    : sha1su1 %q22 $0x02 -> %q21
+5e281b17 : sha1su1 v23.4s, v24.4s                    : sha1su1 %q24 $0x02 -> %q23
+5e281b59 : sha1su1 v25.4s, v26.4s                    : sha1su1 %q26 $0x02 -> %q25
+5e281b9b : sha1su1 v27.4s, v28.4s                    : sha1su1 %q28 $0x02 -> %q27
+5e28181f : sha1su1 v31.4s, v0.4s                     : sha1su1 %q0 $0x02 -> %q31
+
+# SHA256H <Qd>, <Qn>, <Sm>.4S (SHA256H-V.VQ-QQV_cryptosha3)
+5e024020 : sha256h q0, q1, v2.4s                     : sha256h %q1 %q2 $0x02 -> %q0
+5e044062 : sha256h q2, q3, v4.4s                     : sha256h %q3 %q4 $0x02 -> %q2
+5e0640a4 : sha256h q4, q5, v6.4s                     : sha256h %q5 %q6 $0x02 -> %q4
+5e0840e6 : sha256h q6, q7, v8.4s                     : sha256h %q7 %q8 $0x02 -> %q6
+5e0a4128 : sha256h q8, q9, v10.4s                    : sha256h %q9 %q10 $0x02 -> %q8
+5e0c416a : sha256h q10, q11, v12.4s                  : sha256h %q11 %q12 $0x02 -> %q10
+5e0e41ac : sha256h q12, q13, v14.4s                  : sha256h %q13 %q14 $0x02 -> %q12
+5e1041ee : sha256h q14, q15, v16.4s                  : sha256h %q15 %q16 $0x02 -> %q14
+5e124230 : sha256h q16, q17, v18.4s                  : sha256h %q17 %q18 $0x02 -> %q16
+5e134251 : sha256h q17, q18, v19.4s                  : sha256h %q18 %q19 $0x02 -> %q17
+5e154293 : sha256h q19, q20, v21.4s                  : sha256h %q20 %q21 $0x02 -> %q19
+5e1742d5 : sha256h q21, q22, v23.4s                  : sha256h %q22 %q23 $0x02 -> %q21
+5e194317 : sha256h q23, q24, v25.4s                  : sha256h %q24 %q25 $0x02 -> %q23
+5e1b4359 : sha256h q25, q26, v27.4s                  : sha256h %q26 %q27 $0x02 -> %q25
+5e1d439b : sha256h q27, q28, v29.4s                  : sha256h %q28 %q29 $0x02 -> %q27
+5e01401f : sha256h q31, q0, v1.4s                    : sha256h %q0 %q1 $0x02 -> %q31
+
+# SHA256H2 <Qd>, <Qn>, <Sm>.4S (SHA256H2-V.VQ-QQV_cryptosha3)
+5e025020 : sha256h2 q0, q1, v2.4s                    : sha256h2 %q1 %q2 $0x02 -> %q0
+5e045062 : sha256h2 q2, q3, v4.4s                    : sha256h2 %q3 %q4 $0x02 -> %q2
+5e0650a4 : sha256h2 q4, q5, v6.4s                    : sha256h2 %q5 %q6 $0x02 -> %q4
+5e0850e6 : sha256h2 q6, q7, v8.4s                    : sha256h2 %q7 %q8 $0x02 -> %q6
+5e0a5128 : sha256h2 q8, q9, v10.4s                   : sha256h2 %q9 %q10 $0x02 -> %q8
+5e0c516a : sha256h2 q10, q11, v12.4s                 : sha256h2 %q11 %q12 $0x02 -> %q10
+5e0e51ac : sha256h2 q12, q13, v14.4s                 : sha256h2 %q13 %q14 $0x02 -> %q12
+5e1051ee : sha256h2 q14, q15, v16.4s                 : sha256h2 %q15 %q16 $0x02 -> %q14
+5e125230 : sha256h2 q16, q17, v18.4s                 : sha256h2 %q17 %q18 $0x02 -> %q16
+5e135251 : sha256h2 q17, q18, v19.4s                 : sha256h2 %q18 %q19 $0x02 -> %q17
+5e155293 : sha256h2 q19, q20, v21.4s                 : sha256h2 %q20 %q21 $0x02 -> %q19
+5e1752d5 : sha256h2 q21, q22, v23.4s                 : sha256h2 %q22 %q23 $0x02 -> %q21
+5e195317 : sha256h2 q23, q24, v25.4s                 : sha256h2 %q24 %q25 $0x02 -> %q23
+5e1b5359 : sha256h2 q25, q26, v27.4s                 : sha256h2 %q26 %q27 $0x02 -> %q25
+5e1d539b : sha256h2 q27, q28, v29.4s                 : sha256h2 %q28 %q29 $0x02 -> %q27
+5e01501f : sha256h2 q31, q0, v1.4s                   : sha256h2 %q0 %q1 $0x02 -> %q31
+
+# SHA1H   <Sd>, <Sn> (SHA1H-V.V-SS_cryptosha2)
+5e280820 : sha1h s0, s1                              : sha1h  %s1 -> %s0
+5e280862 : sha1h s2, s3                              : sha1h  %s3 -> %s2
+5e2808a4 : sha1h s4, s5                              : sha1h  %s5 -> %s4
+5e2808e6 : sha1h s6, s7                              : sha1h  %s7 -> %s6
+5e280928 : sha1h s8, s9                              : sha1h  %s9 -> %s8
+5e28096a : sha1h s10, s11                            : sha1h  %s11 -> %s10
+5e2809ac : sha1h s12, s13                            : sha1h  %s13 -> %s12
+5e2809ee : sha1h s14, s15                            : sha1h  %s15 -> %s14
+5e280a30 : sha1h s16, s17                            : sha1h  %s17 -> %s16
+5e280a51 : sha1h s17, s18                            : sha1h  %s18 -> %s17
+5e280a93 : sha1h s19, s20                            : sha1h  %s20 -> %s19
+5e280ad5 : sha1h s21, s22                            : sha1h  %s22 -> %s21
+5e280b17 : sha1h s23, s24                            : sha1h  %s24 -> %s23
+5e280b59 : sha1h s25, s26                            : sha1h  %s26 -> %s25
+5e280b9b : sha1h s27, s28                            : sha1h  %s28 -> %s27
+5e28081f : sha1h s31, s0                             : sha1h  %s0 -> %s31
+
+# SHA1SU0 <Sd>.4S, <Sn>.4S, <Sm>.4S (SHA1SU0-Q.QQ-VVV_cryptosha3)
+5e023020 : sha1su0 v0.4s, v1.4s, v2.4s               : sha1su0 %q1 %q2 $0x02 -> %q0
+5e043062 : sha1su0 v2.4s, v3.4s, v4.4s               : sha1su0 %q3 %q4 $0x02 -> %q2
+5e0630a4 : sha1su0 v4.4s, v5.4s, v6.4s               : sha1su0 %q5 %q6 $0x02 -> %q4
+5e0830e6 : sha1su0 v6.4s, v7.4s, v8.4s               : sha1su0 %q7 %q8 $0x02 -> %q6
+5e0a3128 : sha1su0 v8.4s, v9.4s, v10.4s              : sha1su0 %q9 %q10 $0x02 -> %q8
+5e0c316a : sha1su0 v10.4s, v11.4s, v12.4s            : sha1su0 %q11 %q12 $0x02 -> %q10
+5e0e31ac : sha1su0 v12.4s, v13.4s, v14.4s            : sha1su0 %q13 %q14 $0x02 -> %q12
+5e1031ee : sha1su0 v14.4s, v15.4s, v16.4s            : sha1su0 %q15 %q16 $0x02 -> %q14
+5e123230 : sha1su0 v16.4s, v17.4s, v18.4s            : sha1su0 %q17 %q18 $0x02 -> %q16
+5e133251 : sha1su0 v17.4s, v18.4s, v19.4s            : sha1su0 %q18 %q19 $0x02 -> %q17
+5e153293 : sha1su0 v19.4s, v20.4s, v21.4s            : sha1su0 %q20 %q21 $0x02 -> %q19
+5e1732d5 : sha1su0 v21.4s, v22.4s, v23.4s            : sha1su0 %q22 %q23 $0x02 -> %q21
+5e193317 : sha1su0 v23.4s, v24.4s, v25.4s            : sha1su0 %q24 %q25 $0x02 -> %q23
+5e1b3359 : sha1su0 v25.4s, v26.4s, v27.4s            : sha1su0 %q26 %q27 $0x02 -> %q25
+5e1d339b : sha1su0 v27.4s, v28.4s, v29.4s            : sha1su0 %q28 %q29 $0x02 -> %q27
+5e01301f : sha1su0 v31.4s, v0.4s, v1.4s              : sha1su0 %q0 %q1 $0x02 -> %q31
+
+# SHA1P   <Qd>, <Sn>, <Sm>.4S (SHA1P-V.VQ-QSV_cryptosha3)
+5e021020 : sha1p q0, s1, v2.4s                       : sha1p  %s1 %q2 $0x02 -> %q0
+5e041062 : sha1p q2, s3, v4.4s                       : sha1p  %s3 %q4 $0x02 -> %q2
+5e0610a4 : sha1p q4, s5, v6.4s                       : sha1p  %s5 %q6 $0x02 -> %q4
+5e0810e6 : sha1p q6, s7, v8.4s                       : sha1p  %s7 %q8 $0x02 -> %q6
+5e0a1128 : sha1p q8, s9, v10.4s                      : sha1p  %s9 %q10 $0x02 -> %q8
+5e0c116a : sha1p q10, s11, v12.4s                    : sha1p  %s11 %q12 $0x02 -> %q10
+5e0e11ac : sha1p q12, s13, v14.4s                    : sha1p  %s13 %q14 $0x02 -> %q12
+5e1011ee : sha1p q14, s15, v16.4s                    : sha1p  %s15 %q16 $0x02 -> %q14
+5e121230 : sha1p q16, s17, v18.4s                    : sha1p  %s17 %q18 $0x02 -> %q16
+5e131251 : sha1p q17, s18, v19.4s                    : sha1p  %s18 %q19 $0x02 -> %q17
+5e151293 : sha1p q19, s20, v21.4s                    : sha1p  %s20 %q21 $0x02 -> %q19
+5e1712d5 : sha1p q21, s22, v23.4s                    : sha1p  %s22 %q23 $0x02 -> %q21
+5e191317 : sha1p q23, s24, v25.4s                    : sha1p  %s24 %q25 $0x02 -> %q23
+5e1b1359 : sha1p q25, s26, v27.4s                    : sha1p  %s26 %q27 $0x02 -> %q25
+5e1d139b : sha1p q27, s28, v29.4s                    : sha1p  %s28 %q29 $0x02 -> %q27
+5e01101f : sha1p q31, s0, v1.4s                      : sha1p  %s0 %q1 $0x02 -> %q31
+
+# SHA1C   <Qd>, <Sn>, <Sm>.4S (SHA1C-V.VQ-QSV_cryptosha3)
+5e020020 : sha1c q0, s1, v2.4s                       : sha1c  %s1 %q2 $0x02 -> %q0
+5e040062 : sha1c q2, s3, v4.4s                       : sha1c  %s3 %q4 $0x02 -> %q2
+5e0600a4 : sha1c q4, s5, v6.4s                       : sha1c  %s5 %q6 $0x02 -> %q4
+5e0800e6 : sha1c q6, s7, v8.4s                       : sha1c  %s7 %q8 $0x02 -> %q6
+5e0a0128 : sha1c q8, s9, v10.4s                      : sha1c  %s9 %q10 $0x02 -> %q8
+5e0c016a : sha1c q10, s11, v12.4s                    : sha1c  %s11 %q12 $0x02 -> %q10
+5e0e01ac : sha1c q12, s13, v14.4s                    : sha1c  %s13 %q14 $0x02 -> %q12
+5e1001ee : sha1c q14, s15, v16.4s                    : sha1c  %s15 %q16 $0x02 -> %q14
+5e120230 : sha1c q16, s17, v18.4s                    : sha1c  %s17 %q18 $0x02 -> %q16
+5e130251 : sha1c q17, s18, v19.4s                    : sha1c  %s18 %q19 $0x02 -> %q17
+5e150293 : sha1c q19, s20, v21.4s                    : sha1c  %s20 %q21 $0x02 -> %q19
+5e1702d5 : sha1c q21, s22, v23.4s                    : sha1c  %s22 %q23 $0x02 -> %q21
+5e190317 : sha1c q23, s24, v25.4s                    : sha1c  %s24 %q25 $0x02 -> %q23
+5e1b0359 : sha1c q25, s26, v27.4s                    : sha1c  %s26 %q27 $0x02 -> %q25
+5e1d039b : sha1c q27, s28, v29.4s                    : sha1c  %s28 %q29 $0x02 -> %q27
+5e01001f : sha1c q31, s0, v1.4s                      : sha1c  %s0 %q1 $0x02 -> %q31
+
+# SHA256SU1 <Sd>.4S, <Sn>.4S, <Sm>.4S (SHA256SU1-Q.QQ-VVV_cryptosha3)
+5e026020 : sha256su1 v0.4s, v1.4s, v2.4s             : sha256su1 %q1 %q2 $0x02 -> %q0
+5e046062 : sha256su1 v2.4s, v3.4s, v4.4s             : sha256su1 %q3 %q4 $0x02 -> %q2
+5e0660a4 : sha256su1 v4.4s, v5.4s, v6.4s             : sha256su1 %q5 %q6 $0x02 -> %q4
+5e0860e6 : sha256su1 v6.4s, v7.4s, v8.4s             : sha256su1 %q7 %q8 $0x02 -> %q6
+5e0a6128 : sha256su1 v8.4s, v9.4s, v10.4s            : sha256su1 %q9 %q10 $0x02 -> %q8
+5e0c616a : sha256su1 v10.4s, v11.4s, v12.4s          : sha256su1 %q11 %q12 $0x02 -> %q10
+5e0e61ac : sha256su1 v12.4s, v13.4s, v14.4s          : sha256su1 %q13 %q14 $0x02 -> %q12
+5e1061ee : sha256su1 v14.4s, v15.4s, v16.4s          : sha256su1 %q15 %q16 $0x02 -> %q14
+5e126230 : sha256su1 v16.4s, v17.4s, v18.4s          : sha256su1 %q17 %q18 $0x02 -> %q16
+5e136251 : sha256su1 v17.4s, v18.4s, v19.4s          : sha256su1 %q18 %q19 $0x02 -> %q17
+5e156293 : sha256su1 v19.4s, v20.4s, v21.4s          : sha256su1 %q20 %q21 $0x02 -> %q19
+5e1762d5 : sha256su1 v21.4s, v22.4s, v23.4s          : sha256su1 %q22 %q23 $0x02 -> %q21
+5e196317 : sha256su1 v23.4s, v24.4s, v25.4s          : sha256su1 %q24 %q25 $0x02 -> %q23
+5e1b6359 : sha256su1 v25.4s, v26.4s, v27.4s          : sha256su1 %q26 %q27 $0x02 -> %q25
+5e1d639b : sha256su1 v27.4s, v28.4s, v29.4s          : sha256su1 %q28 %q29 $0x02 -> %q27
+5e01601f : sha256su1 v31.4s, v0.4s, v1.4s            : sha256su1 %q0 %q1 $0x02 -> %q31
+
+# SHA1M   <Qd>, <Sn>, <Sm>.4S (SHA1M-V.VQ-QSV_cryptosha3)
+5e022020 : sha1m q0, s1, v2.4s                       : sha1m  %s1 %q2 $0x02 -> %q0
+5e042062 : sha1m q2, s3, v4.4s                       : sha1m  %s3 %q4 $0x02 -> %q2
+5e0620a4 : sha1m q4, s5, v6.4s                       : sha1m  %s5 %q6 $0x02 -> %q4
+5e0820e6 : sha1m q6, s7, v8.4s                       : sha1m  %s7 %q8 $0x02 -> %q6
+5e0a2128 : sha1m q8, s9, v10.4s                      : sha1m  %s9 %q10 $0x02 -> %q8
+5e0c216a : sha1m q10, s11, v12.4s                    : sha1m  %s11 %q12 $0x02 -> %q10
+5e0e21ac : sha1m q12, s13, v14.4s                    : sha1m  %s13 %q14 $0x02 -> %q12
+5e1021ee : sha1m q14, s15, v16.4s                    : sha1m  %s15 %q16 $0x02 -> %q14
+5e122230 : sha1m q16, s17, v18.4s                    : sha1m  %s17 %q18 $0x02 -> %q16
+5e132251 : sha1m q17, s18, v19.4s                    : sha1m  %s18 %q19 $0x02 -> %q17
+5e152293 : sha1m q19, s20, v21.4s                    : sha1m  %s20 %q21 $0x02 -> %q19
+5e1722d5 : sha1m q21, s22, v23.4s                    : sha1m  %s22 %q23 $0x02 -> %q21
+5e192317 : sha1m q23, s24, v25.4s                    : sha1m  %s24 %q25 $0x02 -> %q23
+5e1b2359 : sha1m q25, s26, v27.4s                    : sha1m  %s26 %q27 $0x02 -> %q25
+5e1d239b : sha1m q27, s28, v29.4s                    : sha1m  %s28 %q29 $0x02 -> %q27
+5e01201f : sha1m q31, s0, v1.4s                      : sha1m  %s0 %q1 $0x02 -> %q31
+
+# SHA256SU0 <Sd>.4S, <Sn>.4S (SHA256SU0-Q.Q-VV_cryptosha2)
+5e282820 : sha256su0 v0.4s, v1.4s                    : sha256su0 %q1 $0x02 -> %q0
+5e282862 : sha256su0 v2.4s, v3.4s                    : sha256su0 %q3 $0x02 -> %q2
+5e2828a4 : sha256su0 v4.4s, v5.4s                    : sha256su0 %q5 $0x02 -> %q4
+5e2828e6 : sha256su0 v6.4s, v7.4s                    : sha256su0 %q7 $0x02 -> %q6
+5e282928 : sha256su0 v8.4s, v9.4s                    : sha256su0 %q9 $0x02 -> %q8
+5e28296a : sha256su0 v10.4s, v11.4s                  : sha256su0 %q11 $0x02 -> %q10
+5e2829ac : sha256su0 v12.4s, v13.4s                  : sha256su0 %q13 $0x02 -> %q12
+5e2829ee : sha256su0 v14.4s, v15.4s                  : sha256su0 %q15 $0x02 -> %q14
+5e282a30 : sha256su0 v16.4s, v17.4s                  : sha256su0 %q17 $0x02 -> %q16
+5e282a51 : sha256su0 v17.4s, v18.4s                  : sha256su0 %q18 $0x02 -> %q17
+5e282a93 : sha256su0 v19.4s, v20.4s                  : sha256su0 %q20 $0x02 -> %q19
+5e282ad5 : sha256su0 v21.4s, v22.4s                  : sha256su0 %q22 $0x02 -> %q21
+5e282b17 : sha256su0 v23.4s, v24.4s                  : sha256su0 %q24 $0x02 -> %q23
+5e282b59 : sha256su0 v25.4s, v26.4s                  : sha256su0 %q26 $0x02 -> %q25
+5e282b9b : sha256su0 v27.4s, v28.4s                  : sha256su0 %q28 $0x02 -> %q27
+5e28281f : sha256su0 v31.4s, v0.4s                   : sha256su0 %q0 $0x02 -> %q31
