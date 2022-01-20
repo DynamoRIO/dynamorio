@@ -126,7 +126,7 @@
 ----------------------xxxxx-----  z5         # Z register
 ----------------------xxxxx-----  mem9qpost  # size is 16 bytes; post-index
 --------------------xx----------  vmsz       # B/H/S/D for load/store multiple structures
---------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB
+--------------------xxxx--------  imm4       # option for CLREX, DSB, DMB, ISB, MSR
 -------------------x------------  cmode4_s_sz_msl # MSL bit for 32 bit element shifts
 -------------------xxx----------  extam      # extend amount
 ------------------x-------------  cmode_h_sz # Vector shift for 16 bit elements
@@ -146,6 +146,7 @@
 ----------------xxxxxx----------  scale      # encoding of #fbits value in scale field
 ----------------xxxxxxxxxxxxxxxx  imm16_0    # imm16 at position 0
 -------------xxx----------------  op1        # 3 bit immediate from 16-18
+-------------xxx--------xxx-----  pstate     # Pstate encoded in op1:op2
 -------------xxx------xxxxx-----  fpimm8     # floating-point immediate for vector fmov
 -------------xxx------xxxxx-----  imm8       # immediate from 16:18 and 5:9
 -------------xxx------xxxxx-----  exp_imm8   # expanded immediate from 16:18 and 5:9
@@ -1077,6 +1078,7 @@ x0011011000xxxxx0xxxxxxxxxxxxxxx  n   311        madd            wx0 : wx5 wx16 
 110100101xxxxxxxxxxxxxxxxxxxxxxx  n   317        movz             x0 : imm16 lsl imm16sh
 110101010011xxxxxxxxxxxxxxxxxxxx  er  318         mrs             x0 : sysreg
 110101010001xxxxxxxxxxxxxxxxxxxx  ew  319         msr            msr
+1101010100000xxx0100xxxxxxx11111  ew  319         msr                : pstate imm4
 x0011011000xxxxx1xxxxxxxxxxxxxxx  n   320        msub            wx0 : wx5 wx16 wx10
 0x001110xx1xxxxx100111xxxxxxxxxx  n   321         mul            dq0 : dq5 dq16 bhs_sz
 0x001111xxxxxxxx1000x0xxxxxxxxxx  n   321         mul            dq0 : dq5 dq16_h_sz vindex_H hs_sz

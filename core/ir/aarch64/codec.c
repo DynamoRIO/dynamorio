@@ -242,9 +242,116 @@ decode_sysreg(uint imm15)
     case 0x5a10: sysreg = DR_REG_NZCV; break;
     case 0x5a20: sysreg = DR_REG_FPCR; break;
     case 0x5a21: sysreg = DR_REG_FPSR; break;
+    case 0x1808: sysreg = DR_REG_MDCCSR_EL0; break;
+    case 0x1820: sysreg = DR_REG_DBGDTR_EL0; break;
+    case 0x1828: sysreg = DR_REG_DBGDTRRX_EL0; break;
+    case 0x4208: sysreg = DR_REG_SP_EL0; break;
+    case 0x4210: sysreg = DR_REG_SPSEL; break;
+    case 0x4212: sysreg = DR_REG_CURRENTEL; break;
+    case 0x4213: sysreg = DR_REG_PAN; break;
+    case 0x4214: sysreg = DR_REG_UAO; break;
+    case 0x5801: sysreg = DR_REG_CTR_EL0; break;
+    case 0x5807: sysreg = DR_REG_DCZID_EL0; break;
+    case 0x5920: sysreg = DR_REG_RNDR; break;
+    case 0x5921: sysreg = DR_REG_RNDRRS; break;
+    case 0x5a11: sysreg = DR_REG_DAIF; break;
+    case 0x5a15: sysreg = DR_REG_DIT; break;
+    case 0x5a16: sysreg = DR_REG_SSBS; break;
+    case 0x5a17: sysreg = DR_REG_TCO; break;
+    case 0x5a28: sysreg = DR_REG_DSPSR_EL0; break;
+    case 0x5a29: sysreg = DR_REG_DLR_EL0; break;
+    case 0x5ce0: sysreg = DR_REG_PMCR_EL0; break;
+    case 0x5ce1: sysreg = DR_REG_PMCNTENSET_EL0; break;
+    case 0x5ce2: sysreg = DR_REG_PMCNTENCLR_EL0; break;
+    case 0x5ce3: sysreg = DR_REG_PMOVSCLR_EL0; break;
+    case 0x5ce4: sysreg = DR_REG_PMSWINC_EL0; break;
+    case 0x5ce5: sysreg = DR_REG_PMSELR_EL0; break;
+    case 0x5ce6: sysreg = DR_REG_PMCEID0_EL0; break;
+    case 0x5ce7: sysreg = DR_REG_PMCEID1_EL0; break;
+    case 0x5ce8: sysreg = DR_REG_PMCCNTR_EL0; break;
+    case 0x5ce9: sysreg = DR_REG_PMXEVTYPER_EL0; break;
+    case 0x5cea: sysreg = DR_REG_PMXEVCNTR_EL0; break;
+    case 0x5cf0: sysreg = DR_REG_PMUSERENR_EL0; break;
+    case 0x5cf3: sysreg = DR_REG_PMOVSSET_EL0; break;
     case 0x5e82: sysreg = DR_REG_TPIDR_EL0; break;
     case 0x5e83: sysreg = DR_REG_TPIDRRO_EL0; break;
+    case 0x5e87: sysreg = DR_REG_SCXTNUM_EL0; break;
+    case 0x5f00: sysreg = DR_REG_CNTFRQ_EL0; break;
+    case 0x5f01: sysreg = DR_REG_CNTPCT_EL0; break;
     case 0x5f02: sysreg = DR_REG_CNTVCT_EL0; break;
+    case 0x5f10: sysreg = DR_REG_CNTP_TVAL_EL0; break;
+    case 0x5f11: sysreg = DR_REG_CNTP_CTL_EL0; break;
+    case 0x5f12: sysreg = DR_REG_CNTP_CVAL_EL0; break;
+    case 0x5f18: sysreg = DR_REG_CNTV_TVAL_EL0; break;
+    case 0x5f19: sysreg = DR_REG_CNTV_CTL_EL0; break;
+    case 0x5f1a: sysreg = DR_REG_CNTV_CVAL_EL0; break;
+    case 0x5f40: sysreg = DR_REG_PMEVCNTR0_EL0; break;
+    case 0x5f41: sysreg = DR_REG_PMEVCNTR1_EL0; break;
+    case 0x5f42: sysreg = DR_REG_PMEVCNTR2_EL0; break;
+    case 0x5f43: sysreg = DR_REG_PMEVCNTR3_EL0; break;
+    case 0x5f44: sysreg = DR_REG_PMEVCNTR4_EL0; break;
+    case 0x5f45: sysreg = DR_REG_PMEVCNTR5_EL0; break;
+    case 0x5f46: sysreg = DR_REG_PMEVCNTR6_EL0; break;
+    case 0x5f47: sysreg = DR_REG_PMEVCNTR7_EL0; break;
+    case 0x5f48: sysreg = DR_REG_PMEVCNTR8_EL0; break;
+    case 0x5f49: sysreg = DR_REG_PMEVCNTR9_EL0; break;
+    case 0x5f4a: sysreg = DR_REG_PMEVCNTR10_EL0; break;
+    case 0x5f4b: sysreg = DR_REG_PMEVCNTR11_EL0; break;
+    case 0x5f4c: sysreg = DR_REG_PMEVCNTR12_EL0; break;
+    case 0x5f4d: sysreg = DR_REG_PMEVCNTR13_EL0; break;
+    case 0x5f4e: sysreg = DR_REG_PMEVCNTR14_EL0; break;
+    case 0x5f4f: sysreg = DR_REG_PMEVCNTR15_EL0; break;
+    case 0x5f50: sysreg = DR_REG_PMEVCNTR16_EL0; break;
+    case 0x5f51: sysreg = DR_REG_PMEVCNTR17_EL0; break;
+    case 0x5f52: sysreg = DR_REG_PMEVCNTR18_EL0; break;
+    case 0x5f53: sysreg = DR_REG_PMEVCNTR19_EL0; break;
+    case 0x5f54: sysreg = DR_REG_PMEVCNTR20_EL0; break;
+    case 0x5f55: sysreg = DR_REG_PMEVCNTR21_EL0; break;
+    case 0x5f56: sysreg = DR_REG_PMEVCNTR22_EL0; break;
+    case 0x5f57: sysreg = DR_REG_PMEVCNTR23_EL0; break;
+    case 0x5f58: sysreg = DR_REG_PMEVCNTR24_EL0; break;
+    case 0x5f59: sysreg = DR_REG_PMEVCNTR25_EL0; break;
+    case 0x5f5a: sysreg = DR_REG_PMEVCNTR26_EL0; break;
+    case 0x5f5b: sysreg = DR_REG_PMEVCNTR27_EL0; break;
+    case 0x5f5c: sysreg = DR_REG_PMEVCNTR28_EL0; break;
+    case 0x5f5d: sysreg = DR_REG_PMEVCNTR29_EL0; break;
+    case 0x5f5e: sysreg = DR_REG_PMEVCNTR30_EL0; break;
+    case 0x5f60: sysreg = DR_REG_PMEVTYPER0_EL0; break;
+    case 0x5f61: sysreg = DR_REG_PMEVTYPER1_EL0; break;
+    case 0x5f62: sysreg = DR_REG_PMEVTYPER2_EL0; break;
+    case 0x5f63: sysreg = DR_REG_PMEVTYPER3_EL0; break;
+    case 0x5f64: sysreg = DR_REG_PMEVTYPER4_EL0; break;
+    case 0x5f65: sysreg = DR_REG_PMEVTYPER5_EL0; break;
+    case 0x5f66: sysreg = DR_REG_PMEVTYPER6_EL0; break;
+    case 0x5f67: sysreg = DR_REG_PMEVTYPER7_EL0; break;
+    case 0x5f68: sysreg = DR_REG_PMEVTYPER8_EL0; break;
+    case 0x5f69: sysreg = DR_REG_PMEVTYPER9_EL0; break;
+    case 0x5f6a: sysreg = DR_REG_PMEVTYPER10_EL0; break;
+    case 0x5f6b: sysreg = DR_REG_PMEVTYPER11_EL0; break;
+    case 0x5f6c: sysreg = DR_REG_PMEVTYPER12_EL0; break;
+    case 0x5f6d: sysreg = DR_REG_PMEVTYPER13_EL0; break;
+    case 0x5f6e: sysreg = DR_REG_PMEVTYPER14_EL0; break;
+    case 0x5f6f: sysreg = DR_REG_PMEVTYPER15_EL0; break;
+    case 0x5f70: sysreg = DR_REG_PMEVTYPER16_EL0; break;
+    case 0x5f71: sysreg = DR_REG_PMEVTYPER17_EL0; break;
+    case 0x5f72: sysreg = DR_REG_PMEVTYPER18_EL0; break;
+    case 0x5f73: sysreg = DR_REG_PMEVTYPER19_EL0; break;
+    case 0x5f74: sysreg = DR_REG_PMEVTYPER20_EL0; break;
+    case 0x5f75: sysreg = DR_REG_PMEVTYPER21_EL0; break;
+    case 0x5f76: sysreg = DR_REG_PMEVTYPER22_EL0; break;
+    case 0x5f77: sysreg = DR_REG_PMEVTYPER23_EL0; break;
+    case 0x5f78: sysreg = DR_REG_PMEVTYPER24_EL0; break;
+    case 0x5f79: sysreg = DR_REG_PMEVTYPER25_EL0; break;
+    case 0x5f7a: sysreg = DR_REG_PMEVTYPER26_EL0; break;
+    case 0x5f7b: sysreg = DR_REG_PMEVTYPER27_EL0; break;
+    case 0x5f7c: sysreg = DR_REG_PMEVTYPER28_EL0; break;
+    case 0x5f7d: sysreg = DR_REG_PMEVTYPER29_EL0; break;
+    case 0x5f7e: sysreg = DR_REG_PMEVTYPER30_EL0; break;
+    case 0x5f7f: sysreg = DR_REG_PMCCFILTR_EL0; break;
+    case 0x6218: sysreg = DR_REG_SPSR_IRQ; break;
+    case 0x6219: sysreg = DR_REG_SPSR_ABT; break;
+    case 0x621a: sysreg = DR_REG_SPSR_UND; break;
+    case 0x621b: sysreg = DR_REG_SPSR_FIQ; break;
     default: return opnd_create_immed_uint(imm15, OPSZ_2);
     }
     return opnd_create_reg(sysreg);
@@ -258,9 +365,116 @@ encode_sysreg(OUT uint *imm15, opnd_t opnd)
         case DR_REG_NZCV: *imm15 = 0x5a10; break;
         case DR_REG_FPCR: *imm15 = 0x5a20; break;
         case DR_REG_FPSR: *imm15 = 0x5a21; break;
+        case DR_REG_MDCCSR_EL0: *imm15 = 0x1808; break;
+        case DR_REG_DBGDTR_EL0: *imm15 = 0x1820; break;
+        case DR_REG_DBGDTRRX_EL0: *imm15 = 0x1828; break;
+        case DR_REG_SP_EL0: *imm15 = 0x4208; break;
+        case DR_REG_SPSEL: *imm15 = 0x4210; break;
+        case DR_REG_CURRENTEL: *imm15 = 0x4212; break;
+        case DR_REG_PAN: *imm15 = 0x4213; break;
+        case DR_REG_UAO: *imm15 = 0x4214; break;
+        case DR_REG_CTR_EL0: *imm15 = 0x5801; break;
+        case DR_REG_DCZID_EL0: *imm15 = 0x5807; break;
+        case DR_REG_RNDR: *imm15 = 0x5920; break;
+        case DR_REG_RNDRRS: *imm15 = 0x5921; break;
+        case DR_REG_DAIF: *imm15 = 0x5a11; break;
+        case DR_REG_DIT: *imm15 = 0x5a15; break;
+        case DR_REG_SSBS: *imm15 = 0x5a16; break;
+        case DR_REG_TCO: *imm15 = 0x5a17; break;
+        case DR_REG_DSPSR_EL0: *imm15 = 0x5a28; break;
+        case DR_REG_DLR_EL0: *imm15 = 0x5a29; break;
+        case DR_REG_PMCR_EL0: *imm15 = 0x5ce0; break;
+        case DR_REG_PMCNTENSET_EL0: *imm15 = 0x5ce1; break;
+        case DR_REG_PMCNTENCLR_EL0: *imm15 = 0x5ce2; break;
+        case DR_REG_PMOVSCLR_EL0: *imm15 = 0x5ce3; break;
+        case DR_REG_PMSWINC_EL0: *imm15 = 0x5ce4; break;
+        case DR_REG_PMSELR_EL0: *imm15 = 0x5ce5; break;
+        case DR_REG_PMCEID0_EL0: *imm15 = 0x5ce6; break;
+        case DR_REG_PMCEID1_EL0: *imm15 = 0x5ce7; break;
+        case DR_REG_PMCCNTR_EL0: *imm15 = 0x5ce8; break;
+        case DR_REG_PMXEVTYPER_EL0: *imm15 = 0x5ce9; break;
+        case DR_REG_PMXEVCNTR_EL0: *imm15 = 0x5cea; break;
+        case DR_REG_PMUSERENR_EL0: *imm15 = 0x5cf0; break;
+        case DR_REG_PMOVSSET_EL0: *imm15 = 0x5cf3; break;
         case DR_REG_TPIDR_EL0: *imm15 = 0x5e82; break;
         case DR_REG_TPIDRRO_EL0: *imm15 = 0x5e83; break;
+        case DR_REG_SCXTNUM_EL0: *imm15 = 0x5e87; break;
+        case DR_REG_CNTFRQ_EL0: *imm15 = 0x5f00; break;
+        case DR_REG_CNTPCT_EL0: *imm15 = 0x5f01; break;
         case DR_REG_CNTVCT_EL0: *imm15 = 0x5f02; break;
+        case DR_REG_CNTP_TVAL_EL0: *imm15 = 0x5f10; break;
+        case DR_REG_CNTP_CTL_EL0: *imm15 = 0x5f11; break;
+        case DR_REG_CNTP_CVAL_EL0: *imm15 = 0x5f12; break;
+        case DR_REG_CNTV_TVAL_EL0: *imm15 = 0x5f18; break;
+        case DR_REG_CNTV_CTL_EL0: *imm15 = 0x5f19; break;
+        case DR_REG_CNTV_CVAL_EL0: *imm15 = 0x5f1a; break;
+        case DR_REG_PMEVCNTR0_EL0: *imm15 = 0x5f40; break;
+        case DR_REG_PMEVCNTR1_EL0: *imm15 = 0x5f41; break;
+        case DR_REG_PMEVCNTR2_EL0: *imm15 = 0x5f42; break;
+        case DR_REG_PMEVCNTR3_EL0: *imm15 = 0x5f43; break;
+        case DR_REG_PMEVCNTR4_EL0: *imm15 = 0x5f44; break;
+        case DR_REG_PMEVCNTR5_EL0: *imm15 = 0x5f45; break;
+        case DR_REG_PMEVCNTR6_EL0: *imm15 = 0x5f46; break;
+        case DR_REG_PMEVCNTR7_EL0: *imm15 = 0x5f47; break;
+        case DR_REG_PMEVCNTR8_EL0: *imm15 = 0x5f48; break;
+        case DR_REG_PMEVCNTR9_EL0: *imm15 = 0x5f49; break;
+        case DR_REG_PMEVCNTR10_EL0: *imm15 = 0x5f4a; break;
+        case DR_REG_PMEVCNTR11_EL0: *imm15 = 0x5f4b; break;
+        case DR_REG_PMEVCNTR12_EL0: *imm15 = 0x5f4c; break;
+        case DR_REG_PMEVCNTR13_EL0: *imm15 = 0x5f4d; break;
+        case DR_REG_PMEVCNTR14_EL0: *imm15 = 0x5f4e; break;
+        case DR_REG_PMEVCNTR15_EL0: *imm15 = 0x5f4f; break;
+        case DR_REG_PMEVCNTR16_EL0: *imm15 = 0x5f50; break;
+        case DR_REG_PMEVCNTR17_EL0: *imm15 = 0x5f51; break;
+        case DR_REG_PMEVCNTR18_EL0: *imm15 = 0x5f52; break;
+        case DR_REG_PMEVCNTR19_EL0: *imm15 = 0x5f53; break;
+        case DR_REG_PMEVCNTR20_EL0: *imm15 = 0x5f54; break;
+        case DR_REG_PMEVCNTR21_EL0: *imm15 = 0x5f55; break;
+        case DR_REG_PMEVCNTR22_EL0: *imm15 = 0x5f56; break;
+        case DR_REG_PMEVCNTR23_EL0: *imm15 = 0x5f57; break;
+        case DR_REG_PMEVCNTR24_EL0: *imm15 = 0x5f58; break;
+        case DR_REG_PMEVCNTR25_EL0: *imm15 = 0x5f59; break;
+        case DR_REG_PMEVCNTR26_EL0: *imm15 = 0x5f5a; break;
+        case DR_REG_PMEVCNTR27_EL0: *imm15 = 0x5f5b; break;
+        case DR_REG_PMEVCNTR28_EL0: *imm15 = 0x5f5c; break;
+        case DR_REG_PMEVCNTR29_EL0: *imm15 = 0x5f5d; break;
+        case DR_REG_PMEVCNTR30_EL0: *imm15 = 0x5f5e; break;
+        case DR_REG_PMEVTYPER0_EL0: *imm15 = 0x5f60; break;
+        case DR_REG_PMEVTYPER1_EL0: *imm15 = 0x5f61; break;
+        case DR_REG_PMEVTYPER2_EL0: *imm15 = 0x5f62; break;
+        case DR_REG_PMEVTYPER3_EL0: *imm15 = 0x5f63; break;
+        case DR_REG_PMEVTYPER4_EL0: *imm15 = 0x5f64; break;
+        case DR_REG_PMEVTYPER5_EL0: *imm15 = 0x5f65; break;
+        case DR_REG_PMEVTYPER6_EL0: *imm15 = 0x5f66; break;
+        case DR_REG_PMEVTYPER7_EL0: *imm15 = 0x5f67; break;
+        case DR_REG_PMEVTYPER8_EL0: *imm15 = 0x5f68; break;
+        case DR_REG_PMEVTYPER9_EL0: *imm15 = 0x5f69; break;
+        case DR_REG_PMEVTYPER10_EL0: *imm15 = 0x5f6a; break;
+        case DR_REG_PMEVTYPER11_EL0: *imm15 = 0x5f6b; break;
+        case DR_REG_PMEVTYPER12_EL0: *imm15 = 0x5f6c; break;
+        case DR_REG_PMEVTYPER13_EL0: *imm15 = 0x5f6d; break;
+        case DR_REG_PMEVTYPER14_EL0: *imm15 = 0x5f6e; break;
+        case DR_REG_PMEVTYPER15_EL0: *imm15 = 0x5f6f; break;
+        case DR_REG_PMEVTYPER16_EL0: *imm15 = 0x5f70; break;
+        case DR_REG_PMEVTYPER17_EL0: *imm15 = 0x5f71; break;
+        case DR_REG_PMEVTYPER18_EL0: *imm15 = 0x5f72; break;
+        case DR_REG_PMEVTYPER19_EL0: *imm15 = 0x5f73; break;
+        case DR_REG_PMEVTYPER20_EL0: *imm15 = 0x5f74; break;
+        case DR_REG_PMEVTYPER21_EL0: *imm15 = 0x5f75; break;
+        case DR_REG_PMEVTYPER22_EL0: *imm15 = 0x5f76; break;
+        case DR_REG_PMEVTYPER23_EL0: *imm15 = 0x5f77; break;
+        case DR_REG_PMEVTYPER24_EL0: *imm15 = 0x5f78; break;
+        case DR_REG_PMEVTYPER25_EL0: *imm15 = 0x5f79; break;
+        case DR_REG_PMEVTYPER26_EL0: *imm15 = 0x5f7a; break;
+        case DR_REG_PMEVTYPER27_EL0: *imm15 = 0x5f7b; break;
+        case DR_REG_PMEVTYPER28_EL0: *imm15 = 0x5f7c; break;
+        case DR_REG_PMEVTYPER29_EL0: *imm15 = 0x5f7d; break;
+        case DR_REG_PMEVTYPER30_EL0: *imm15 = 0x5f7e; break;
+        case DR_REG_PMCCFILTR_EL0: *imm15 = 0x5f7f; break;
+        case DR_REG_SPSR_IRQ: *imm15 = 0x6218; break;
+        case DR_REG_SPSR_ABT: *imm15 = 0x6219; break;
+        case DR_REG_SPSR_UND: *imm15 = 0x621a; break;
+        case DR_REG_SPSR_FIQ: *imm15 = 0x621b; break;
         default: return false;
         }
         return true;
@@ -1991,6 +2205,55 @@ static inline bool
 encode_opnd_op1(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(16, 3, false, 0, 0, opnd, enc_out);
+}
+
+/* pstate: decode pstate from 5-7 and 16-18 */
+
+static inline bool
+decode_opnd_pstate(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int lower = enc >> 5 & 0b111;
+    int upper = enc >> 16 & 0b111;
+    int both = lower | upper << 3;
+
+    reg_t pstate;
+    switch (both) {
+    case 0b000101: pstate = DR_REG_SPSEL; break;
+    case 0b011110: pstate = DR_REG_DAIFSET; break;
+    case 0b011111: pstate = DR_REG_DAIFCLR; break;
+    default: return false;
+    }
+
+    *opnd = opnd_create_reg(pstate);
+    return true;
+}
+
+static inline bool
+encode_opnd_pstate(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    int upper, lower;
+    if (!opnd_is_reg(opnd))
+        return false;
+
+    switch (opnd_get_reg(opnd)) {
+    case DR_REG_SPSEL:
+        upper = 0b000;
+        lower = 0b101;
+        break;
+    case DR_REG_DAIFSET:
+        upper = 0b011;
+        lower = 0b110;
+        break;
+    case DR_REG_DAIFCLR:
+        upper = 0b011;
+        lower = 0b111;
+        break;
+    default: return false;
+    }
+
+    *enc_out = upper << 16 | lower << 5;
+
+    return true;
 }
 
 /* fpimm8: immediate operand for SIMD fmov */
