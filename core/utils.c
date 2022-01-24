@@ -601,9 +601,6 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                 bool both_client = (first_client && lock->rank == dr_client_mutex_rank);
                 if (dcontext->thread_owned_locks->last_lock->rank >= lock->rank &&
                     !first_client /*FIXME PR 198871: remove */ && !both_client) {
-                    /* like syslog don't synchronize options for dumpcore_mask */
-                    if (TEST(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
-                        os_dump_core("rank order violation");
                     /* report rank order violation */
                     SYSLOG_INTERNAL_NO_OPTION_SYNCH(
                         SYSLOG_CRITICAL,
@@ -611,6 +608,9 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                         dcontext->thread_owned_locks->last_lock->name,
                         d_r_get_thread_id());
                     dump_owned_locks(dcontext);
+                    /* like syslog don't synchronize options for dumpcore_mask */
+                    if (TEST(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
+                        os_dump_core("rank order violation");
                 }
                 ASSERT((dcontext->thread_owned_locks->last_lock->rank < lock->rank ||
                         first_client /*FIXME PR 198871: remove */
