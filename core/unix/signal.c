@@ -7011,7 +7011,8 @@ os_request_fatal_coredump(const char *msg)
     /* To enable getting a coredump just make sure that rlimits are
      * not preventing getting one, e.g. ulimit -c unlimited
      */
-    SYSLOG_INTERNAL_ERROR("Crashing the process deliberately for a core dump!");
+    SYSLOG_INTERNAL_ERROR("Crashing the process deliberately for a core dump for: |%s|",
+                          msg);
     os_terminate_via_signal(NULL, 0 /*no cleanup*/, SIGSEGV);
     ASSERT_NOT_REACHED();
 }
