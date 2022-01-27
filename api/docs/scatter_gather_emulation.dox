@@ -121,7 +121,7 @@ Drreg is DynamoRIO’s register reservation framework. It allows users to reserv
 - restores spilled registers to their application value before they are read by an application instruction; also, it re-spills the spilled registers if they are written by an application instruction.
 - performs application state restoration on state restore events like encountering an application fault, and DR detach.
 
-While expanding a scatter or gather instruction in the app2app phase, we need a scratch register to hold the scalar values and masks. In later phases (like the insertion or the instru2instru phase), drcachesim and other DR clients may also use drreg to get scratch registers for their instrumentation. 
+While expanding a scatter or gather instruction in the app2app phase, we need a scratch register to hold the scalar values and masks. In later phases (like the insertion or the instru2instru phase), drcachesim and other DR clients may also use drreg to get scratch registers for their instrumentation.
 
 Drreg initially supported only single phase use and did not keep any state between phases. To support multi-phase use of drreg, we need to solve the following:
 - avoid spill slot conflict across multiple phases: multi-phase use can potentially lead to spill slot conflicts if the same slot is selected in multiple phases. This may clobber the spilled application value and cause the application to crash or otherwise fail.
@@ -153,13 +153,13 @@ On a state restore event, drreg should be able to restore all spilled registers 
 Unfortunately, when a state restore event happens, we only have the encoded fragment, and none of the drreg state, like the reg to spill slot mappings. We need to reconstruct this state based on the faulting pc and the encoded fragment.
 
 
-It is complex to determine which registers need to be restored and from which spill slot. This is because drreg automatically adds spill and restore instructions to handle various complex cases like automatic re-spilling of reserved registers after their application write instruction, and automatic restore of reserved registers before their application read instruction. Drreg also uses various optimisations like lazy restores for application value in case the register is reserved again. This is even more complex for aflags, for which spill and restore are a two-step process (spilling aflags involves reading aflags into a register using `lahf` and then writing that register to a spill slot; restoring aflags involves reading aflags from its spill slot to a register, and then writing aflags from that register using `sahf`). In some cases, aflags are even kept in a register as an optimisation. 
+It is complex to determine which registers need to be restored and from which spill slot. This is because drreg automatically adds spill and restore instructions to handle various complex cases like automatic re-spilling of reserved registers after their application write instruction, and automatic restore of reserved registers before their application read instruction. Drreg also uses various optimisations like lazy restores for application value in case the register is reserved again. This is even more complex for aflags, for which spill and restore are a two-step process (spilling aflags involves reading aflags into a register using `lahf` and then writing that register to a spill slot; restoring aflags involves reading aflags from its spill slot to a register, and then writing aflags from that register using `sahf`). In some cases, aflags are even kept in a register as an optimisation.
 
 Additionally, in multi-phase use, a register may be spilled by multiple phases, with a separate spill slot for each phase. The application value for the register may reside in one or more spill slots, and may also move between spill slots based on how the spill regions from different phases overlap. See various tricky scenarios in [drreg-test.c](https://github.com/DynamoRIO/dynamorio/blob/f1d496b451eaa6e9aaff7125617030164c6cfdff/suite/tests/client-interface/drreg-test.c#L637).
 
 We explored two ways to adapt drreg’s state restoration logic to multi-phase use. This also fixed some known existing issues with drreg: [Dynamorio/dynamorio#4933](https://github.com/DynamoRIO/dynamorio/issues/4933), [DynamoRIO/dynamorio#4939](https://github.com/DynamoRIO/dynamorio/issues/4939).
 
-#### Track app values as they are moved between slots and regs 
+#### Track app values as they are moved between slots and regs
 At a state restoration event, we walk the faulting fragment from beginning to the faulting instruction, and we keep track of where the native value of each register is present. At any point, it may be present in the register itself, a spill slot, or both. We track `gpr_is_native` to denote whether a register contains its native app value or not; and `spill_slot_to_reg`, to denote which register’s app value a spill slot contains.
 
 - When a register is written by an application instruction, we invalidate all `spill_slot_to_reg` entries that are mapped to that register, and also set `gpr_is_native` for that register.
@@ -200,7 +200,7 @@ choices:
 - Extend drreg to support reservation for vector registers.
   [DynamoRIO/dynamorio#3844](https://github.com/DynamoRIO/dynamorio/issues/3844)
   aims to add this support.
-  
+
 - Use custom spill and restore logic in drx. We can do this by reserving memory in
 TLS to use as spill slot.
 
