@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -74,10 +74,10 @@
 
 typedef enum {
     DRBBDUP_ENCODING_SLOT = 0, /* Used as a spill slot for dynamic case generation. */
-    DRBBDUP_XAX_REG_SLOT = 1,
+    DRBBDUP_SCRATCH_REG_SLOT = 1,
     DRBBDUP_FLAG_REG_SLOT = 2,
     DRBBDUP_HIT_TABLE_SLOT = 3,
-    DRBBDUP_SLOT_COUNT = 4, /* Need to update if more slots are added. */
+    DRBBDUP_SLOT_COUNT,
 } drbbdup_thread_slots_t;
 
 /* A scratch register used by drbbdup's dispatcher. */
@@ -172,8 +172,8 @@ drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
 }
 
 static void
-drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where, int slot_idx,
-                       reg_id_t reg_id)
+drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       drbbdup_thread_slots_t slot_idx, reg_id_t reg_id)
 {
     opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
     instr_t *instr = XINST_CREATE_store(drcontext, slot_opnd, opnd_create_reg(reg_id));
@@ -182,7 +182,7 @@ drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where, int 
 
 static void
 drbbdup_restore_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                         int slot_idx, reg_id_t reg_id)
+                         drbbdup_thread_slots_t slot_idx, reg_id_t reg_id)
 {
     opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
     instr_t *instr = XINST_CREATE_load(drcontext, opnd_create_reg(reg_id), slot_opnd);
@@ -681,12 +681,14 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
                                    const drbbdup_manager_t *manager)
 {
     if (!manager->are_flags_dead) {
-        drbbdup_restore_register(drcontext, bb, where, 2, DRBBDUP_SCRATCH_REG);
+        drbbdup_restore_register(drcontext, bb, where, DRBBDUP_FLAG_REG_SLOT,
+                                 DRBBDUP_SCRATCH_REG);
         dr_restore_arith_flags_from_xax(drcontext, bb, where);
     }
-
-    if (!manager->is_scratch_reg_dead)
-        drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
+    if (!manager->is_scratch_reg_dead) {
+        drbbdup_restore_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG_SLOT,
+                                 DRBBDUP_SCRATCH_REG);
+    }
 }
 
 /* Calculates hash index of a particular bb to access the hit table. */
@@ -712,16 +714,20 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
      * dispatcher.
      */
     drreg_are_aflags_dead(drcontext, where, &manager->are_flags_dead);
-    if (!manager->is_scratch_reg_dead)
-        drbbdup_spill_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
-
     drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG, where,
                            &manager->is_scratch_reg_dead);
+    if (!manager->is_scratch_reg_dead) {
+        drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG_SLOT,
+                               DRBBDUP_SCRATCH_REG);
+    }
     if (!manager->are_flags_dead) {
         dr_save_arith_flags_to_xax(drcontext, bb, where);
-        drbbdup_spill_register(drcontext, bb, where, 2, DRBBDUP_SCRATCH_REG);
-        if (!manager->is_scratch_reg_dead)
-            drbbdup_restore_register(drcontext, bb, where, 1, DRBBDUP_SCRATCH_REG);
+        drbbdup_spill_register(drcontext, bb, where, DRBBDUP_FLAG_REG_SLOT,
+                               DRBBDUP_SCRATCH_REG);
+        if (!manager->is_scratch_reg_dead) {
+            drbbdup_restore_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG_SLOT,
+                                     DRBBDUP_SCRATCH_REG);
+        }
     }
 
     /* Encoding is application-specific and therefore we need the user to define the
@@ -1196,7 +1202,7 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
     }
     if (!manager->is_scratch_reg_dead) {
         reg_set_value(DRBBDUP_SCRATCH_REG, mcontext,
-                      (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_XAX_REG_SLOT));
+                      (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_SCRATCH_REG_SLOT));
     }
 
     mcontext->pc =

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -117,7 +117,7 @@ depends on the use-case, and therefore drbbdup optionally invokes the
 In terms of implementation, the call-back function must store the runtime case encoding
 to pointer-sized memory that is maintained by the client itself. By using the operand,
 which refers to the memory and is passed to drbbdup_init(), drbbdup will load the
-the current runtime case encoding and dispatch control accordingly.
+current runtime case encoding and dispatch control accordingly.
 
 The #drbbdup_insert_encode_t call-back may also be set to NULL which results in the
 dispatcher not attempting the construction of the runtime case at every start of
