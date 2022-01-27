@@ -70,7 +70,7 @@ Original issue: [DynamoRIO/dynamorio#2985](https://github.com/DynamoRIO/dynamori
 
 # Design
 
-This required the addition of new support in various DynamoRIO components, like drreg, drx, drmgr and core DR. Multiple contributors worked on designing and implementing the required changes. 
+This required the addition of new support in various DynamoRIO components, like drreg, drx, drmgr and core DR. Multiple contributors worked on designing and implementing the required changes.
 
 
 ## Scatter/gather Instruction Expansion
