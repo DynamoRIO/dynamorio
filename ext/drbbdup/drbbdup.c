@@ -172,8 +172,8 @@ drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
 }
 
 static void
-drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where, int slot_idx,
-                       reg_id_t reg_id)
+drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where,
+                       drbbdup_thread_slots_t slot_idx, reg_id_t reg_id)
 {
     opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
     instr_t *instr = XINST_CREATE_store(drcontext, slot_opnd, opnd_create_reg(reg_id));
@@ -182,7 +182,7 @@ drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where, int 
 
 static void
 drbbdup_restore_register(void *drcontext, instrlist_t *ilist, instr_t *where,
-                         int slot_idx, reg_id_t reg_id)
+                         drbbdup_thread_slots_t slot_idx, reg_id_t reg_id)
 {
     opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
     instr_t *instr = XINST_CREATE_load(drcontext, opnd_create_reg(reg_id), slot_opnd);
