@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2017-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -226,8 +226,11 @@ encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd,
         *poff = off >> 2 & (range - 1);
         return true;
     }
-    /* If !di->check_reachable we still require correct alignment. */
-    if (!di->check_reachable && ALIGNED(off, 4)) {
+    /* If !di->check_reachable we do not require correct alignment as there is
+     * a common use case of a label instruction operand whose note value holds
+     * an identifier used in instrumentation (i#5297).
+     */
+    if (!di->check_reachable) {
         *poff = 0;
         return true;
     }
