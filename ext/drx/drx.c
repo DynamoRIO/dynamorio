@@ -2371,7 +2371,7 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  * the parts that are not used as a mask:
  *   kxorq           %k1 %k1 -> %k1
  *
- * For more design details see the following wiki
+ * For more design details see the following document:
  * https://dynamorio.org/page_scatter_gather_emulation.html
  */
 bool
