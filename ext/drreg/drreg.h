@@ -147,6 +147,13 @@ typedef struct _drreg_options_t {
      *
      * If multiple drreg_init() calls are made, this field is combined by
      * logical OR.
+     *
+     * XXX i#3801: If a fault occurs between two spills of a GPR or aflags,
+     * where the second spill is after an app write, the current drreg
+     * application state restoration logic does not restore the dead GPR/aflags
+     * even with this field set to true. It is difficult to do so without
+     * additional metadata passed to the state restoration callback.
+     *
      */
     bool conservative;
     /**
