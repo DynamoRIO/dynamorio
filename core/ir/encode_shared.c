@@ -99,7 +99,7 @@ get_encoding_info(instr_t *instr)
     const instr_info_t *info = instr_get_instr_info(instr);
     decode_info_t di;
     decode_info_init_for_instr(&di, instr);
-    di.check_reachable = false;
+    IF_AARCHXX(di.check_reachable = false;)
 
     while (!encoding_possible(&di, instr, info)) {
         info = get_next_instr_info(info);
