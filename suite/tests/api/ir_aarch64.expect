@@ -65,7 +65,7 @@ fmov   %w9 -> %h10
 fmov   %w4 -> %s14
 fmov   %x8 -> %h23
 fmov   %x24 -> %d6
-fmov   %x10 -> %q9
+fmov   %x10 $0x03 -> %q9 $0x01
 test_fmov_general complete
 fmov   $1.000000 $0x01 -> %q1
 fmov   $2.000000 $0x01 -> %q1

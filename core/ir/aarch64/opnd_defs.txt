@@ -127,8 +127,15 @@
 -------------xxx------xxxxx-----  exp_imm8   # expanded immediate from 16:18 and 5:9
 -------------xxxxxxxxxxxxxx-----  sysops     # immediate operands for SYS
 ------------xxxxxxxxxxxxxxx-----  sysreg     # operand of MRS
+-----------?????----------------  bh_imm5_sz # Size encoded as least significant bit in imm5
+-----------?????----------------  bhs_imm5_sz # Size encoded as least significant bit in imm5
+-----------?????----------------  bhsd_imm5_sz # Size encoded as least significant bit in imm5
 -----------?????------xxxxx-----  wx5_imm5   # reg 5-9 d or q is inferred from bits 16:20
 -----------xxxxx----------------  imm5       # immediate for CCMN, CCMP
+
+-----------xxxxx----------------  bhs_imm5_sz_s # Size encoded as least significant bit in imm5
+-----------xxxxx----------------  bhsd_imm5_sz_s # Size encoded as least significant bit in imm5
+-----------xxxxx----------------  imm5_idx   # Index from imm5
 -----------xxxxx----------------  w16        # W register (or WZR)
 -----------xxxxx----------------  w16p0      # even-numbered W register (or WZR)
 -----------xxxxx----------------  w16p1      # ... add 1
@@ -204,7 +211,6 @@
 -x-----------------xxx----------  index0     # index of B subreg in Q: 0-15
 -x--------------????--xxxxx-----  memvm      # computes multiplier from 15:12
 -x----------xxxx----------------  dq16_h_sz # Q register (0-15) if bit 30 is set, else D
--x---------?????-----------xxxxx  wx0_imm5_q # reg 0-4 d or q is inferred from bits and encodes q
 -x---------xxxxx----------------  dq16       # Q register if bit 30 is set, else D
 ?---------------xxxxxx----------  imm6       # shift amount
 ?---------------xxxxxx----------  imms       # bitfield immediate, checks 31
