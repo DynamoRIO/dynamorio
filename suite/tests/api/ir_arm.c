@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -68,7 +68,7 @@
 static byte buf[8192];
 
 static void
-test_instr_encoding(void *dc, uint opcode, instr_t *instr)
+test_instr_encoding(void *dc, uint opcode, instr_t *instr, bool just_same_opcode)
 {
     instr_t *decin;
     byte *pc;
@@ -81,7 +81,10 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr)
     pc = instr_encode(dc, instr, buf);
     decin = instr_create(dc);
     decode(dc, buf, decin);
-    ASSERT(instr_same(instr, decin));
+    if (just_same_opcode)
+        ASSERT(instr_get_opcode(instr) == instr_get_opcode(decin));
+    else
+        ASSERT(instr_same(instr, decin));
 
     instr_destroy(dc, instr);
     instr_destroy(dc, decin);
@@ -111,28 +114,26 @@ test_pred(void *dc)
                       DR_PRED_EQ);
     ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_ARITH);
     ASSERT(instr_get_eflags(inst, 0) == (EFLAGS_READ_ARITH & (~EFLAGS_READ_GE)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
     inst = INSTR_CREATE_sel(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
                             opnd_create_reg(DR_REG_R1));
     ASSERT(instr_get_eflags(inst, DR_QUERY_INCLUDE_COND_SRCS) == EFLAGS_READ_GE);
     ASSERT(instr_get_eflags(inst, 0) == EFLAGS_READ_GE);
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
     dr_set_isa_mode(dc, old_mode, NULL);
 }
 
 static void
 test_pcrel(void *dc)
 {
-    byte *pc;
     instr_t *inst;
     inst = INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_R0),
                             opnd_create_rel_addr((void *)&buf[128], OPSZ_PTR));
-    pc = instr_encode(dc, inst, buf);
-    /* (gdb) x/2i buf+1
-     *    0x120b9 <buf+1>:     ldr     r0, [pc, #124]  ; (0x12138 <buf+128>)
+    /* On decoding our rel-addr opnd turns into a base-disp:
+     *   ldr    <rel> 0x0009d314[4byte] -> %r0
+     *   ldr    +0x7c(%pc)[4byte] -> %r0
      */
-    ASSERT(pc != NULL);
-    instr_free(dc, inst);
+    test_instr_encoding(dc, OP_ldr, inst, true /*just_same_opcode*/);
 }
 
 static void
@@ -163,21 +164,21 @@ test_flags(void *dc)
     inst = INSTR_CREATE_lsls(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1),
                              OPND_CREATE_INT(4));
     ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
 
     inst = INSTR_CREATE_movs(dc, opnd_create_reg(DR_REG_R0), OPND_CREATE_INT(4));
     ASSERT(TEST(EFLAGS_READ_C, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     ASSERT(!TEST(EFLAGS_WRITE_V, instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     ASSERT(TESTALL(EFLAGS_WRITE_N | EFLAGS_WRITE_Z | EFLAGS_WRITE_C,
                    instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
 
     inst = INSTR_CREATE_movs(dc, opnd_create_reg(DR_REG_R0), opnd_create_reg(DR_REG_R1));
     ASSERT(!TESTANY(EFLAGS_WRITE_C | EFLAGS_WRITE_V,
                     instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
     ASSERT(TESTALL(EFLAGS_WRITE_N | EFLAGS_WRITE_Z,
                    instr_get_eflags(inst, DR_QUERY_INCLUDE_ALL)));
-    instr_free(dc, inst);
+    instr_destroy(dc, inst);
 }
 
 static void
@@ -189,7 +190,7 @@ test_xinst(void *dc)
     /* XXX i#1686: add tests of remaining XINST_CREATE macros */
     /* TODO i#1686: add expected patterns to ir_arm.expect */
     instr = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_R5));
-    test_instr_encoding(dc, OP_blx_ind, instr);
+    test_instr_encoding(dc, OP_blx_ind, instr, false /*just_same_opcode*/);
 }
 
 int
