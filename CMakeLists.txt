@@ -794,7 +794,14 @@ if (UNIX)
     # i#1551: add necessary flags for ARM build.
     if (X64)
     else (X64)
-      set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
+      # On newer gcc versions such as 11.2 we need an explicit +fp to denote our
+      # gnueablihf hardware-fp-capabilities target.
+      CHECK_C_COMPILER_FLAG("-march=armv7-a+fp" armv7_fp_available)
+      if (armv7_fp_available)
+        set(BASE_CFLAGS "-mthumb -march=armv7-a+fp ${BASE_CFLAGS}")
+      else ()
+        set(BASE_CFLAGS "-mthumb -march=armv7-a ${BASE_CFLAGS}")
+      endif ()
       set(LD_FLAGS "-marmelf_linux_eabi")
       if (ANDROID OR CMAKE_C_LIBRARY_ARCHITECTURE MATCHES "gnueabi$")
         # We use eabihf by default for ARM build.
