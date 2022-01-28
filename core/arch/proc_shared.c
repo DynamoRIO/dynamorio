@@ -61,7 +61,12 @@
  * cpuid instruction, use a default value of 32.
  * (see case 463 for discussion)
  */
+#ifndef AARCH64
 size_t cache_line_size = 32;
+#else
+size_t cache_line_size = 64;
+#endif
+
 static ptr_uint_t mask; /* bits that should be 0 to be cache-line-aligned */
 cpu_info_t cpu_info = { VENDOR_UNKNOWN,
 #ifdef AARCHXX
@@ -133,6 +138,14 @@ proc_init(void)
         global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
         os_close(cpuinfo);
     }
+    /* Current implementations of the AArch64 architectural specification have
+     * equal cache line and block sizes.
+     */
+    CLIENT_ASSERT(dcache_zva_size > 0, "invalid dcache block size for zeroing");
+    LOG(GLOBAL, LOG_TOP, 1, "Data cache block size for zeroing is %d bytes\n",
+        dcache_zva_size);
+    CLIENT_ASSERT(cache_line_size == dcache_zva_size,
+                  "cache line and block sizes do not match");
 #endif
 }
 

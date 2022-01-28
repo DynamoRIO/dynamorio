@@ -68,7 +68,16 @@ clear_icache(void *beg, void *end);
 
 bool
 get_cache_line_size(OUT size_t *dcache_line_size, OUT size_t *icache_line_size);
+
+bool
+query_dcache_zero_blk_size(OUT size_t *dzcva_block_size);
 #endif
+
+size_t
+get_dcache_zva_size(void);
+
+void
+set_dcache_zva_size(size_t dc_zva_size);
 
 void
 dr_fpu_exception_init(void);

@@ -1409,7 +1409,9 @@ static inline bool
 decode_opnd_memx0(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     *opnd = opnd_create_base_disp(decode_reg(extract_uint(enc, 0, 5), true, false),
-                                  DR_REG_NULL, 0, 0, OPSZ_sys);
+                                  DR_REG_NULL, 0, 0, OPSZ_CACHE_LINE);
+    if (!opnd_set_base_aligned(opnd, true))
+        return false;
     return true;
 }
 
@@ -1420,8 +1422,10 @@ encode_opnd_memx0(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     bool is_x;
     /* Only a base address in X reg is valid */
     if (!opnd_is_base_disp(opnd) || !encode_reg(&xn, &is_x, opnd_get_base(opnd), false) ||
-        !is_x || opnd_get_size(opnd) != OPSZ_sys || opnd_get_scale(opnd) != 0 ||
+        !is_x || opnd_get_size(opnd) != OPSZ_CACHE_LINE || opnd_get_scale(opnd) != 0 ||
         opnd_get_disp(opnd) != 0 || opnd_get_index(opnd) != DR_REG_NULL)
+        return false;
+    if (!opnd_set_base_aligned(&opnd, true))
         return false;
     *enc_out = xn;
     return true;
@@ -4868,6 +4872,10 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
 
+#ifdef STANDALONE_DECODER
+    query_dcache_zero_blk_size(&dcache_zva_size);
+#endif
+
     if (!decoder(enc, dcontext, orig_pc, instr)) {
         /* This clause handles undefined HINT instructions. See the comment
          * 'Notes on specific instructions' in codec.txt for details. If the
@@ -4959,5 +4967,10 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
+
+#ifdef STANDALONE_DECODER
+    query_dcache_zero_blk_size(&dcache_zva_size);
+#endif
+
     return encoder(pc, i, di);
 }

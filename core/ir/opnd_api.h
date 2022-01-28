@@ -215,9 +215,12 @@ enum {
     OPSZ_32_of_64,        /**< 256 bits: half of ZMM. */
     OPSZ_4_of_32_evex64,  /**< 32 bits: can be part of YMM or ZMM register. */
     OPSZ_8_of_32_evex64,  /**< 64 bits: can be part of YMM or ZMM register. */
-    OPSZ_8x16, /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
-                * on 32-bit/64-bit mode.
-                */
+    OPSZ_8x16,       /**< 8 or 16 bytes, but not based on rex prefix, instead dependent
+                      * on 32-bit/64-bit mode.
+                      */
+    OPSZ_CACHE_LINE, /**< Line size in bytes used by data cache instructions,
+                      * e.g. DC ZVA (Data Cache Zero by Address).
+                      */
     /* Add new size here.  Also update size_names[] in decode_shared.c along with
      * the size routines in opnd_shared.c.
      */
@@ -266,9 +269,6 @@ enum {
 #define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
 #define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
 #define OPSZ_ptwrite OPSZ_4_rex8     /**< Operand size for ptwrite memory reference. */
-#ifdef AARCH64
-#    define OPSZ_sys OPSZ_1 /**< Operand size for sys instruction memory reference. */
-#endif
 
 /* We encode this enum plus the OPSZ_ extensions in bytes, so we can have
  * at most 256 total DR_REG_ plus OPSZ_ values.  Currently there are 165-odd.
@@ -1632,6 +1632,8 @@ struct _opnd_t {
             byte /*dr_extend_type_t*/ extend_type : 3;
             /* Shift register offset left by amount implied by size of memory operand: */
             byte /*bool*/ scaled : 1;
+            /* Alignment flag for data cache instructions like DC ZVA, <Xt> */
+            byte /*bool*/ base_aligned : 1;
 #    elif defined(ARM)
             byte /*dr_shift_type_t*/ shift_type : 3;
             byte shift_amount_minus_1 : 5; /* 1..31 so we store (val - 1) */
@@ -2544,6 +2546,22 @@ DR_API
  */
 bool
 opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled);
+
+DR_API
+/**
+ * TODO
+ * \note AArch64-only.
+ */
+bool
+opnd_get_base_aligned(opnd_t opnd);
+
+DR_API
+/**
+ * TODO
+ * \note AArch64-only.
+ */
+bool
+opnd_set_base_aligned(opnd_t *opnd, bool base_aligned);
 #endif /* AARCH64 */
 
 DR_API

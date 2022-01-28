@@ -431,6 +431,24 @@ drutil_insert_get_mem_addr_arm(void *drcontext, instrlist_t *bb, instr_t *where,
             index = replace_stolen_reg(drcontext, bb, where, memref, dst, scratch,
                                        scratch_used);
         }
+#    ifdef AARCH64
+        if (opnd_get_base_aligned(memref)) {
+            if (index != REG_NULL || opnd_get_disp(memref) != 0)
+                return false;
+            /* This is the dynamic form of the alignment sequence:
+             * address & ~(alignment-1)
+             */
+            PRE(bb, where,
+                XINST_CREATE_load_int(drcontext, opnd_create_reg(scratch),
+                                      OPND_CREATE_INT(proc_get_cache_line_size() - 1)));
+            PRE(bb, where,
+                XINST_CREATE_sub(drcontext, opnd_create_reg(scratch),
+                                 opnd_create_reg(DR_REG_XZR)));
+            PRE(bb, where,
+                INSTR_CREATE_and(drcontext, opnd_create_reg(dst), opnd_create_reg(base),
+                                 opnd_create_reg(scratch)));
+        }
+#    endif
         if (index == REG_NULL && opnd_get_disp(memref) != 0) {
             /* first try "add dst, base, #disp" */
             instr = negated

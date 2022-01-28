@@ -667,6 +667,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     opnd.value.base_disp.pre_index = true;
     opnd.value.base_disp.extend_type = DR_EXTEND_UXTX;
     opnd.value.base_disp.scaled = false;
+    opnd.value.base_disp.base_aligned = false;
 #elif defined(X86)
     opnd.value.base_disp.scale = (byte)scale;
     opnd.value.base_disp.encode_zero_disp = (byte)encode_zero_disp;
@@ -738,6 +739,7 @@ opnd_create_base_disp_aarch64(reg_id_t base_reg, reg_id_t index_reg,
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
     opnd.value.base_disp.pre_index = false;
+    opnd.value.base_disp.base_aligned = false;
     opnd_set_disp_helper(&opnd, disp);
     opnd.aux.flags = flags;
     if (!opnd_set_index_extend(&opnd, extend_type, scaled))
@@ -899,6 +901,25 @@ opnd_set_index_extend(opnd_t *opnd, dr_extend_type_t extend, bool scaled)
     }
     opnd->value.base_disp.extend_type = extend;
     opnd->value.base_disp.scaled = scaled;
+    return true;
+}
+
+bool
+opnd_get_base_aligned(opnd_t opnd)
+{
+    if (!opnd_is_base_disp(opnd))
+        CLIENT_ASSERT(false, "opnd_get_base_aligned called on invalid opnd type");
+    return opnd.value.base_disp.base_aligned;
+}
+
+bool
+opnd_set_base_aligned(opnd_t *opnd, bool base_aligned)
+{
+    if (!opnd_is_base_disp(*opnd)) {
+        CLIENT_ASSERT(false, "opnd_set_base_aligned called on invalid opnd type");
+        return false;
+    }
+    opnd->value.base_disp.base_aligned = base_aligned;
     return true;
 }
 #endif /* AARCH64 */
@@ -1785,6 +1806,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_VAR_REGLIST: return 0; /* varies to match reglist operand */
     case OPSZ_xsave:
         return 0; /* > 512 bytes: client to use drutil_opnd_mem_size_in_bytes */
+    case OPSZ_CACHE_LINE: return (uint)get_dcache_zva_size();
     default: CLIENT_ASSERT(false, "opnd_size_in_bytes: invalid opnd type"); return 0;
     }
 }
@@ -2170,6 +2192,10 @@ DR_API
 app_pc
 opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc)
 {
+#if defined(AARCH64)
+    if (!opnd_set_base_aligned(&opnd, true))
+        CLIENT_ASSERT(false, "opnd_set_base_aligned failed");
+#endif
     /* only uses GPRs so we ignore mc.size */
     return opnd_compute_address_priv(opnd, dr_mcontext_as_priv_mcontext(mc));
 }

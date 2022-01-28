@@ -46,6 +46,11 @@
 
 /* exported for efficient access */
 extern size_t cache_line_size;
+/* Current implementations of the AArch64 architectural specification have
+ * equal cache line and block sizes. This may not be the case in future hence
+ * the need to read the value from separate system registers.
+ */
+extern size_t dcache_zva_size;
 
 #define CACHE_LINE_SIZE() cache_line_size
 
