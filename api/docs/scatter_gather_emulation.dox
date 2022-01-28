@@ -91,7 +91,7 @@ to make it easier for DR clients to observe these addresses. We achieve this by
 expanding the scatter and gather instructions into a functionally equivalent
 sequence of scalar stores and loads. This way, DR clients will see regular store
 and load instructions which they can instrument as usual. This is similar to what
-DR does for repeat string operations (like `rep`, `repnz`): convert it into a
+DR does for repeat string operations (like `rep movs`, `repnz cmps`): convert it into a
 loop so that each memory access is made by a separate dynamic instruction. This
 method has worked well for such instructions that implicitly issue multiple
 memory accesses.
