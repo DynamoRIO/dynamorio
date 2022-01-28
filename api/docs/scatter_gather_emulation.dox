@@ -375,14 +375,17 @@ registers for the expansion. The GPR scratch registers are obtained using
 drreg, whereas the scratch `zmm` register and the scratch mask register are
 obtained by manually spilling them.
 
-We need to make sure that if some load or store faults, we restore the
-application state properly. While the spilled registers obtained from drreg are
+We need to make sure that we restore the application state correctly when a state
+restoration event occurs, which can be a fault in one of the scalar loads or stores
+in the expanded sequence, a fault in instrumentation added by some other DR client,
+or some async event like DR detach. While the spilled registers obtained from drreg are
 restored by the drreg state restoration logic, drx still needs to restore the
 scratch mask register that is spilled manually to a GPR, and the scratch `zmm` register
 that is spilled manually to a drx spill slot. We also need to ensure that the bit
-for the faulting access is cleared too. In case a fault or some other state restore
-event like DR detach happens, we walk the expanded sequence using a state machine
-till we reach the fault pc, keeping track of the state that needs to be restored
+for the previous access is cleared if the state restore event happened after the load
+or store completed but before we could reflect it in the mask. When a state restore
+event occurs, we walk the expanded sequence using a state machine till we reach the
+faulting pc, keeping track of the state that needs to be restored
 ([commit](https://github.com/DynamoRIO/dynamorio/commit/de511a72197e9b04a9732f33622fe7bc7fd12623),
 [commit](https://github.com/DynamoRIO/dynamorio/commit/e54913b4845794b96e8682ba6a214d54e10741a0)).
 
@@ -560,8 +563,13 @@ was implemented by
 ([commit](https://github.com/DynamoRIO/dynamorio/commit/be78c124eb787601182e3c73f4be8bb859c50ef8)).
 
 This algorithm does not need to be aware of non-drreg methods of spilling/restoring
-registers. Note that, like other drreg design, this method does not restore a
-spilled register's application value if it is dead at the faulting instruction.
+registers. Note that, like the general drreg operation, this method does not
+restore the application value of a spilled GPR/aflags if they are dead at the
+faulting instruction. However, even dead registers need to be restored when
+`drreg_options_t.conservative` is set. This can be handled if there is additional
+metadata available to the drreg state restore callback
+([DynamoRIO/dynamorio#3801](https://github.com/DynamoRIO/dynamorio/issues/3801)).
+
 
 ## Simplifying Instrumentation For Emulated Instructions
 Owner: [Derek Bruening](https://github.com/derekbruening)
