@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2019 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1607,9 +1607,11 @@ opnd_replace_reg_with_val(opnd_t *opnd, int old_reg, int val)
     case INSTR_kind:
     case FAR_INSTR_kind:
     case MEM_INSTR_kind:
-#    ifdef X64
+#    if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
+#        ifdef X64
     case ABS_ADDR_kind:
+#        endif
 #    endif
         return false;
 
