@@ -1373,12 +1373,14 @@ encode_abspc_ok(decode_info_t *di, opnd_size_t size_immed, opnd_t opnd, bool is_
         bool res = false;
         if (negated) {
             res = (delta < 0 &&
-                   encode_immed_ok(di, size_immed, -delta, scale, false /*unsigned*/,
-                                   negated));
+                   (!di->check_reachable ||
+                    encode_immed_ok(di, size_immed, -delta, scale, false /*unsigned*/,
+                                    negated)));
         } else {
             res = (delta >= 0 &&
-                   encode_immed_ok(di, size_immed, delta, scale, false /*unsigned*/,
-                                   negated));
+                   (!di->check_reachable ||
+                    encode_immed_ok(di, size_immed, delta, scale, false /*unsigned*/,
+                                    negated)));
         }
         if (res) {
             di->check_wb_base = DR_REG_PC;
