@@ -68,7 +68,7 @@
 static byte buf[8192];
 
 static void
-test_instr_encoding(void *dc, uint opcode, instr_t *instr, bool just_same_opcode)
+test_instr_encoding(void *dc, uint opcode, instr_t *instr)
 {
     instr_t *decin;
     byte *pc;
@@ -79,12 +79,10 @@ test_instr_encoding(void *dc, uint opcode, instr_t *instr, bool just_same_opcode
 
     ASSERT(instr_is_encoding_possible(instr));
     pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
     decin = instr_create(dc);
     decode(dc, buf, decin);
-    if (just_same_opcode)
-        ASSERT(instr_get_opcode(instr) == instr_get_opcode(decin));
-    else
-        ASSERT(instr_same(instr, decin));
+    ASSERT(instr_same(instr, decin));
 
     instr_destroy(dc, instr);
     instr_destroy(dc, decin);
@@ -127,13 +125,34 @@ static void
 test_pcrel(void *dc)
 {
     instr_t *inst;
+    const int offs = 128;
     inst = INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_R0),
-                            opnd_create_rel_addr((void *)&buf[128], OPSZ_PTR));
+                            opnd_create_rel_addr((void *)&buf[offs], OPSZ_PTR));
     /* On decoding our rel-addr opnd turns into a base-disp:
      *   ldr    <rel> 0x0009d314[4byte] -> %r0
      *   ldr    +0x7c(%pc)[4byte] -> %r0
+     * Thus we have our own version of the test_instr_encoding() code.
      */
-    test_instr_encoding(dc, OP_ldr, inst, true /*just_same_opcode*/);
+    instr_t *decin;
+    byte *pc;
+    instr_disassemble(dc, inst, STDERR);
+    print("\n");
+
+    ASSERT(instr_is_encoding_possible(inst));
+    pc = instr_encode(dc, inst, buf);
+    decin = instr_create(dc);
+    decode(dc, buf, decin);
+    ASSERT(instr_get_opcode(inst) == instr_get_opcode(decin));
+    /* The ISA defines the base point for PC relative as +4 from instruction start. */
+#define THUMB_CUR_PC_OFFS 4
+    instr_t *base_disp =
+        INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_R0),
+                         OPND_CREATE_MEMPTR(DR_REG_PC, offs - THUMB_CUR_PC_OFFS));
+    ASSERT(instr_same(decin, base_disp));
+
+    instr_destroy(dc, inst);
+    instr_destroy(dc, decin);
+    instr_destroy(dc, base_disp);
 }
 
 static void
@@ -190,7 +209,7 @@ test_xinst(void *dc)
     /* XXX i#1686: add tests of remaining XINST_CREATE macros */
     /* TODO i#1686: add expected patterns to ir_arm.expect */
     instr = XINST_CREATE_call_reg(dc, opnd_create_reg(DR_REG_R5));
-    test_instr_encoding(dc, OP_blx_ind, instr, false /*just_same_opcode*/);
+    test_instr_encoding(dc, OP_blx_ind, instr);
 }
 
 int
