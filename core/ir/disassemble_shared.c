@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -633,11 +633,13 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         "");
         break;
     case BASE_DISP_kind: opnd_base_disp_disassemble(buf, bufsz, sofar, opnd); break;
-#ifdef X64
+#if defined(X64) || defined(ARM)
     case REL_ADDR_kind:
         print_to_buffer(buf, bufsz, sofar, "<rel> ");
         /* fall-through */
+#    ifdef X64
     case ABS_ADDR_kind:
+#    endif
         opnd_mem_disassemble_prefix(buf, bufsz, sofar, opnd);
         if (opnd_get_segment(opnd) != REG_NULL)
             reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", ":");
