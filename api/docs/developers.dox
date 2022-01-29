@@ -53,6 +53,7 @@ Information for DynamoRIO developers/contributors:
 - \subpage page_rseq
 - \subpage page_ldstex
 - \subpage page_external_decoder
+- \subpage page_scatter_gather_emulation
 
  ****************************************************************************
  */
