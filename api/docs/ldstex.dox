@@ -89,7 +89,34 @@ The application must be prepared for monitor failure (which can also occur due t
 
 ## Problem Not Limited by Tool Type
 
-Even without a target tool like drcachesim's memory tracer inserting loads and stores, the core DynamoRIO instrumentation engine steals a register on ARM/AArch64.  If the exclusive-load or exclusive-store uses the stolen register, the engine must add instructions to use the diverted stolen register slot.  These added instructions include loads and stores and can break the monitor.  When the entire exclusive-load exclusive-store sequence is in a single block, tool instrumentation and stolen register handling can in some cases plan ahead and insert all added memory references before or after the entire sequence (with complications where tool instrumentation wants to mirror execution flow, but if there is a fault or predicated execution it can be challenging to instrument too far away from the target instruction).  However, these sequences frequently include branches and cross blocks, as discussed next.
+Even without a target tool like drcachesim's memory tracer inserting loads and stores,
+the core DynamoRIO instrumentation engine has several cases where it inserts memory
+operations between application instructions.
+
+DynamoRIO steals a register on ARM/AArch64.  If the exclusive-load or exclusive-store
+uses the stolen register, the engine must add instructions to use the diverted stolen
+register slot.  These added instructions include loads and stores and can break the
+monitor.  When the entire exclusive-load exclusive-store sequence is in a single block,
+tool instrumentation and stolen register handling can in some cases plan ahead and insert
+all added memory references before or after the entire sequence (with complications where
+tool instrumentation wants to mirror execution flow, but if there is a fault or
+predicated execution it can be challenging to instrument too far away from the target
+instruction).  However, these sequences frequently include branches and cross blocks, as
+discussed below.
+
+For sequences where the load-exclusive is in a different block than the corresponding
+store-exclusive, there are multiple scenarios where DynamoRIO can insert loads and stores
+in between the two.  First, for linking two blocks together, if the blocks are too far
+apart for a single branch instruction to reach, DynamoRIO jumps through an exit stub
+which contains loads and stores (see \ref page_aarch64_far).  Second, for building
+traces, DynamoRIO unlinks each block before execution while discovering the sequence of
+blocks to use for the new traces.  It assumes that unlinking does not perturb the
+application.  However, the unlink path goes through a stub with memory operations and
+then through DynamoRIO system code with a large number of loads and stores.  Third,
+indirect branches load entries from a hashtable, so an indirect branch between a
+load-exclusive and store-exclusive, while perhaps unlikely to occur in most code, is
+another case where even without a tool adding additional instruction the core DynamoRIO
+engine has a potential problem.
 
 ## Problem Exacerbated by Intervening Branches
 
