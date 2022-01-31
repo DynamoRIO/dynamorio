@@ -1161,10 +1161,10 @@ x0011010110xxxxx000011xxxxxxxxxx  n   363        sdiv            wx0 : wx5 wx16
 01011110000xxxxx010100xxxxxxxxxx  n   374    sha256h2             q0 : q5 q16 s_const_sz
 0101111000101000001010xxxxxxxxxx  n   375   sha256su0             q0 : q5 s_const_sz
 01011110000xxxxx011000xxxxxxxxxx  n   376   sha256su1             q0 : q5 q16 s_const_sz
-11001110011xxxxx100000xxxxxxxxxx  n   579     sha512h             q0 : q5 q16 d_const_sz
-11001110011xxxxx100001xxxxxxxxxx  n   580    sha512h2             q0 : q5 q16 d_const_sz
-1100111011000000100000xxxxxxxxxx  n   581   sha512su0             q0 : q5 d_const_sz
-11001110011xxxxx100010xxxxxxxxxx  n   582   sha512su1             q0 : q5 q16 d_const_sz
+11001110011xxxxx100000xxxxxxxxxx  n   579     sha512h             q0 : q5 q16 d_const_sz # v8.2
+11001110011xxxxx100001xxxxxxxxxx  n   580    sha512h2             q0 : q5 q16 d_const_sz # v8.2
+1100111011000000100000xxxxxxxxxx  n   581   sha512su0             q0 : q5 d_const_sz # v8.2
+11001110011xxxxx100010xxxxxxxxxx  n   582   sha512su1             q0 : q5 q16 d_const_sz # v8.2
 0x001110xx1xxxxx000001xxxxxxxxxx  n   377       shadd            dq0 : dq5 dq16 bhs_sz
 0101111101xxxxxx010101xxxxxxxxxx  n   378         shl             d0 : d5 immhb_0shf
 0x0011110xxxxxxx010101xxxxxxxxxx  n   378         shl            dq0 : dq5 bhsd_immh_sz immhb_0shf
