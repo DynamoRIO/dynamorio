@@ -669,7 +669,11 @@
 #define INSTR_CREATE_strh(dc, mem, rt) instr_create_1dst_1src(dc, OP_strh, mem, rt)
 #define INSTR_CREATE_stur(dc, mem, rt) instr_create_1dst_1src(dc, OP_stur, mem, rt)
 #define INSTR_CREATE_sturh(dc, mem, rt) instr_create_1dst_1src(dc, OP_sturh, mem, rt)
-#define INST_CREATE_stlr(dc, mem, rt) instr_create_1dst_1src(dc, OP_stlr, mem, rt)
+#define INSTR_CREATE_stlr(dc, mem, rt) instr_create_1dst_1src(dc, OP_stlr, mem, rt)
+/* This incorrect name was exported in official releases, so to avoid breaking
+ * potential existing uses we keep it as an alias.
+ */
+#define INST_CREATE_stlr INSTR_CREATE_stlr
 #define INSTR_CREATE_stxr(dc, mem, rs, rt) \
     instr_create_2dst_1src(dc, OP_stxr, mem, rs, rt)
 #define INSTR_CREATE_stxrb(dc, mem, rs, rt) \
