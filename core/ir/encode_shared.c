@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -99,6 +99,7 @@ get_encoding_info(instr_t *instr)
     const instr_info_t *info = instr_get_instr_info(instr);
     decode_info_t di;
     decode_info_init_for_instr(&di, instr);
+    IF_AARCHXX(di.check_reachable = false;)
 
     while (!encoding_possible(&di, instr, info)) {
         info = get_next_instr_info(info);

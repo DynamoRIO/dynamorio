@@ -592,7 +592,7 @@ set(INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 set(proc_supports_avx OFF)
 set(proc_supports_avx2 OFF)
 set(proc_supports_avx512 OFF)
-if (UNIX)
+if (X86 AND UNIX)
   set(CFLAGS_AVX "-mavx")
   # BMI2 instructions are typically also supported on AVX2 processors.
   set(CFLAGS_AVX2 "-mavx2 -mbmi2")

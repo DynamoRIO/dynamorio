@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013-2021 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -659,8 +659,8 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                                      OPND_CREATE_INT(-value)));
         }
         MINSERT(ilist, where,
-                INST_CREATE_stlr(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
-                                 opnd_create_reg(reg2)));
+                INSTR_CREATE_stlr(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
+                                  opnd_create_reg(reg2)));
 #    else /* ARM */
         /* TODO: This counter update has not been tested on a ARM_32 machine. */
         MINSERT(ilist, where,
@@ -2370,6 +2370,9 @@ expand_gather_load_scalar_value(void *drcontext, instrlist_t *bb, instr_t *sg_in
  * Finally, clear the entire mask register, even
  * the parts that are not used as a mask:
  *   kxorq           %k1 %k1 -> %k1
+ *
+ * For more design details see the following document:
+ * https://dynamorio.org/page_scatter_gather_emulation.html
  */
 bool
 drx_expand_scatter_gather(void *drcontext, instrlist_t *bb, OUT bool *expanded)
