@@ -226,11 +226,12 @@ encode_pc_off(OUT uint *poff, int bits, byte *pc, instr_t *instr, opnd_t opnd,
         *poff = off >> 2 & (range - 1);
         return true;
     }
-    /* If !di->check_reachable we do not require correct alignment as there is
-     * a common use case of a label instruction operand whose note value holds
-     * an identifier used in instrumentation (i#5297).
+    /* If !di->check_reachable we do not require correct alignment for instr operands as
+     * there is a common use case of a label instruction operand whose note value holds
+     * an identifier used in instrumentation (i#5297).  For pc operands, we do require
+     * correct alignment even if !di->check_reachable.
      */
-    if (!di->check_reachable) {
+    if (!di->check_reachable && (opnd.kind != PC_kind || ALIGNED(off, 4))) {
         *poff = 0;
         return true;
     }
