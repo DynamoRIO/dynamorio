@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -7280,6 +7280,22 @@ test_ccmp_ccmn(void *dc)
     CCM_R_R(n, X);
 }
 
+static void
+test_internal_encode(void *dcontext)
+{
+    instr_t *label = INSTR_CREATE_label(dcontext);
+    /* Normally a client would use drmgr_reserve_note_range() but we don't want to
+     * pull in those libraries.  We know DR's used values are very high and that
+     * 7 is safe (and un-aligned to test i#5297).
+     */
+    instr_set_note(label, (void *)(ptr_uint_t)7);
+    instr_t *jmp = INSTR_CREATE_b(dcontext, opnd_create_instr(label));
+    /* Make sure debug build doesn't assert or warn here. */
+    uint flags = instr_get_arith_flags(jmp, DR_QUERY_DEFAULT);
+    instr_destroy(dcontext, label);
+    instr_destroy(dcontext, jmp);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -7459,6 +7475,8 @@ main(int argc, char *argv[])
     ld2r(dcontext);
     ld3r(dcontext);
     ld4r(dcontext);
+
+    test_internal_encode(dcontext);
 
     print("All tests complete\n");
 #ifndef STANDALONE_DECODER

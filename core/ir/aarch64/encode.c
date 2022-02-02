@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc. All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc. All rights reserved.
  * Copyright (c) 2016 ARM Limited. All rights reserved.
  * **********************************************************/
 
@@ -248,12 +248,17 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
         } else {
             /* We were unable to encode this instruction. */
             IF_DEBUG({
-                char disas_instr[MAX_INSTR_DIS_SZ];
-                instr_disassemble_to_buffer(dcontext, instr, disas_instr,
-                                            MAX_INSTR_DIS_SZ);
-                SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
-                                      " '%s'\n",
-                                      disas_instr);
+                /* Avoid complaining for !assert_reachable as we hit failures for
+                 * branches to labels during instrumentation (i#5297).
+                 */
+                if (assert_reachable) {
+                    char disas_instr[MAX_INSTR_DIS_SZ];
+                    instr_disassemble_to_buffer(dcontext, instr, disas_instr,
+                                                MAX_INSTR_DIS_SZ);
+                    SYSLOG_INTERNAL_ERROR("Internal Error: Failed to encode instruction:"
+                                          " '%s'\n",
+                                          disas_instr);
+                }
             });
             return NULL;
         }
