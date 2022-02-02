@@ -802,7 +802,6 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
                                            reg_id_t reg_encoding, bool jmp_if_equal,
                                            instr_t *jmp_label)
 {
-#define MINSERT instrlist_meta_preinsert
 #ifdef X86
 #    ifdef X86_64
     /* XXX: We could use an immediate for small values.
