@@ -38,6 +38,7 @@
 #include "drbbdup.h"
 #include <string.h>
 #include <stdint.h>
+#include <stddef.h>
 #include "../ext_utils.h"
 
 #undef drmgr_is_first_instr
@@ -66,6 +67,10 @@
  * new unhandled cases.
  */
 #define TABLE_SIZE 65536 /* Must be a power of 2 to perform efficient mod. */
+
+#ifdef AARCHXX
+#    define MAX_IMMED_IN_CMP 256
+#endif
 
 typedef enum {
     DRBBDUP_ENCODING_SLOT = 0, /* Used as a spill slot for dynamic case generation. */
@@ -261,6 +266,9 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     manager->default_case.encoding =
         opts.set_up_bb_dups(manager, drcontext, tag, bb, &manager->enable_dup,
                             &manager->enable_dynamic_handling, opts.user_data);
+    DR_ASSERT_MSG(opts.max_case_encoding == 0 ||
+                      manager->default_case.encoding <= opts.max_case_encoding,
+                  "default case encoding > specifed max_case_encoding");
     /* Default case encoding should not be already registered. */
     DR_ASSERT_MSG(
         !drbbdup_encoding_already_included(manager, manager->default_case.encoding,
@@ -735,14 +743,15 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
                                DRBBDUP_SCRATCH_REG);
     }
 #ifdef AARCHXX
-    drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG2, where,
-                           &manager->is_scratch_reg2_dead);
-    if (!manager->is_scratch_reg2_dead) {
-        /* TODO i#4134: Add a user-set flag promising that runtime case values are
-         * always <256 so we know we don't need this 2nd scratch register.
-         */
-        drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
-                               DRBBDUP_SCRATCH_REG2);
+    if (opts.max_case_encoding > 0 && opts.max_case_encoding < MAX_IMMED_IN_CMP)
+        manager->is_scratch_reg2_dead = true; /* Avoid restore, since not used. */
+    else {
+        drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG2, where,
+                               &manager->is_scratch_reg2_dead);
+        if (!manager->is_scratch_reg2_dead) {
+            drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
+                                   DRBBDUP_SCRATCH_REG2);
+        }
     }
 #endif
     if (!manager->are_flags_dead) {
@@ -860,7 +869,7 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         }
 #    endif
     }
-    if (!inserted && current_case->encoding < 256) {
+    if (!inserted && current_case->encoding < MAX_IMMED_IN_CMP) {
         /* Various larger immediates can be handled but it varies by ISA and mode.
          * XXX: Should DR provide utilities to help figure out whether an integer
          * will fit in a compare immediate?
@@ -875,10 +884,7 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         inserted = true;
     }
     if (!inserted) {
-        /* TODO i#4134: Add a user-set flag promising that runtime case values are
-         * always <256 so we know we don't need this 2nd scratch register; then
-         * assert if we end up here and the flag is set.
-         */
+        DR_ASSERT_MSG(false, "max_case_encoding exceeded");
         instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding,
                                          opnd_create_reg(DRBBDUP_SCRATCH_REG2), bb, where,
                                          NULL, NULL);
@@ -1482,6 +1488,9 @@ drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding)
 
     drbbdup_manager_t *manager = (drbbdup_manager_t *)drbbdup_ctx;
 
+    if (opts.max_case_encoding > 0 && encoding > opts.max_case_encoding)
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
+
     /* Don't check default case because it is not yet set. */
     if (drbbdup_encoding_already_included(manager, encoding, false))
         return DRBBDUP_ERROR_CASE_ALREADY_REGISTERED;
@@ -1645,7 +1654,14 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (!drbbdup_check_case_opnd(ops_in->runtime_case_opnd))
         return DRBBDUP_ERROR_INVALID_OPND;
 
-    memcpy(&opts, ops_in, sizeof(drbbdup_options_t));
+    if (ops_in->struct_size > sizeof(drbbdup_options_t) ||
+        /* This is the first size we exported so it shouldn't be smaller. */
+        ops_in->struct_size < offsetof(drbbdup_options_t, max_case_encoding))
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
+    /* Do not copy from beyond ops_in.  We ruled out ops_in being larger than opts
+     * above.  Fields beyond ops_in will be left zero.
+     */
+    memcpy(&opts, ops_in, ops_in->struct_size);
 
     drreg_options_t drreg_ops = { sizeof(drreg_ops), 0 /* no regs needed */, false, NULL,
                                   true };
