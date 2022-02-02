@@ -264,6 +264,8 @@ dr_init(client_id_t id)
     opts.destroy_case_analysis = destroy_analysis;
     opts.instrument_instr = instrument_instr;
     opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&encode_val, OPSZ_PTR);
+    /* Though single-threaded, we sanity-check the atomic load feature. */
+    opts.atomic_load_encoding = true;
     opts.user_data = USER_DATA_VAL;
     opts.non_default_case_limit = 2;
     opts.is_stat_enabled = true;
