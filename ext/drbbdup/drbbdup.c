@@ -809,14 +809,16 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
      * We could also use jecxz and avoid flags altogether for zero values.
      */
     opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
-    MINSERT(bb, where, XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding)));
+    instrlist_meta_preinsert(
+        bb, where, XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding)));
 #    elif defined(X86_32)
     opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
-    MINSERT(bb, where, XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
+    instrlist_meta_preinsert(
+        bb, where, XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
 #    endif
-    MINSERT(bb, where,
-            INSTR_CREATE_jcc(drcontext, jmp_if_equal ? OP_jz : OP_jnz,
-                             opnd_create_instr(jmp_label)));
+    instrlist_meta_preinsert(bb, where,
+                             INSTR_CREATE_jcc(drcontext, jmp_if_equal ? OP_jz : OP_jnz,
+                                              opnd_create_instr(jmp_label)));
 #elif defined(AARCHXX)
     bool inserted = false;
     if (current_case->encoding == 0) {
@@ -825,13 +827,15 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
          */
 #    ifdef AARCH64
         if (jmp_if_equal) {
-            MINSERT(bb, where,
-                    INSTR_CREATE_cbz(drcontext, opnd_create_instr(jmp_label),
-                                     opnd_create_reg(reg_encoding)));
+            instrlist_meta_preinsert(bb, where,
+                                     INSTR_CREATE_cbz(drcontext,
+                                                      opnd_create_instr(jmp_label),
+                                                      opnd_create_reg(reg_encoding)));
         } else {
-            MINSERT(bb, where,
-                    INSTR_CREATE_cbnz(drcontext, opnd_create_instr(jmp_label),
-                                      opnd_create_reg(reg_encoding)));
+            instrlist_meta_preinsert(bb, where,
+                                     INSTR_CREATE_cbnz(drcontext,
+                                                       opnd_create_instr(jmp_label),
+                                                       opnd_create_reg(reg_encoding)));
         }
         inserted = true;
 #    else
@@ -840,17 +844,19 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
             /* CBZ has a very short reach so we use a landing pad. */
             instr_t *nojmp = INSTR_CREATE_label(drcontext);
             if (jmp_if_equal) {
-                MINSERT(bb, where,
-                        INSTR_CREATE_cbnz(drcontext, opnd_create_instr(nojmp),
-                                          opnd_create_reg(reg_encoding)));
+                instrlist_meta_preinsert(
+                    bb, where,
+                    INSTR_CREATE_cbnz(drcontext, opnd_create_instr(nojmp),
+                                      opnd_create_reg(reg_encoding)));
             } else {
-                MINSERT(bb, where,
-                        INSTR_CREATE_cbz(drcontext, opnd_create_instr(nojmp),
-                                         opnd_create_reg(reg_encoding)));
+                instrlist_meta_preinsert(bb, where,
+                                         INSTR_CREATE_cbz(drcontext,
+                                                          opnd_create_instr(nojmp),
+                                                          opnd_create_reg(reg_encoding)));
             }
-            MINSERT(bb, where,
-                    XINST_CREATE_jump(drcontext, opnd_create_instr(jmp_label)));
-            MINSERT(bb, where, nojmp);
+            instrlist_meta_preinsert(
+                bb, where, XINST_CREATE_jump(drcontext, opnd_create_instr(jmp_label)));
+            instrlist_meta_preinsert(bb, where, nojmp);
             inserted = true;
         }
 #    endif
@@ -861,11 +867,12 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
          * will fit in a compare immediate?
          */
         opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
-        MINSERT(bb, where,
-                XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
-        MINSERT(bb, where,
-                XINST_CREATE_jump_cond(drcontext, jmp_if_equal ? DR_PRED_EQ : DR_PRED_NE,
-                                       opnd_create_instr(jmp_label)));
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
+        instrlist_meta_preinsert(
+            bb, where,
+            XINST_CREATE_jump_cond(drcontext, jmp_if_equal ? DR_PRED_EQ : DR_PRED_NE,
+                                   opnd_create_instr(jmp_label)));
         inserted = true;
     }
     if (!inserted) {
@@ -876,12 +883,14 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding,
                                          opnd_create_reg(DRBBDUP_SCRATCH_REG2), bb, where,
                                          NULL, NULL);
-        MINSERT(bb, where,
-                XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding),
-                                 opnd_create_reg(DRBBDUP_SCRATCH_REG2)));
-        MINSERT(bb, where,
-                XINST_CREATE_jump_cond(drcontext, jmp_if_equal ? DR_PRED_EQ : DR_PRED_NE,
-                                       opnd_create_instr(jmp_label)));
+        instrlist_meta_preinsert(bb, where,
+                                 XINST_CREATE_cmp(drcontext,
+                                                  opnd_create_reg(reg_encoding),
+                                                  opnd_create_reg(DRBBDUP_SCRATCH_REG2)));
+        instrlist_meta_preinsert(
+            bb, where,
+            XINST_CREATE_jump_cond(drcontext, jmp_if_equal ? DR_PRED_EQ : DR_PRED_NE,
+                                   opnd_create_instr(jmp_label)));
     }
 #endif
 }
