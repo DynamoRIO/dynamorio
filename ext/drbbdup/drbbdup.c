@@ -775,7 +775,6 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
     }
 
     /* Load the encoding to the scratch register. */
-    /* FIXME i#4134: Perform lock if opts.atomic_load_encoding is set. */
     opnd_t case_opnd = opts.runtime_case_opnd;
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
 #ifdef AARCHXX
@@ -791,9 +790,25 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
                                          scratch_reg_opnd, bb, where, NULL, NULL);
         case_opnd = OPND_CREATE_MEMPTR(DRBBDUP_SCRATCH_REG, 0);
     }
+    if (opts.atomic_load_encoding) {
+#    ifdef AARCH64
+        instrlist_meta_preinsert(
+            bb, where, INSTR_CREATE_ldar(drcontext, scratch_reg_opnd, case_opnd));
+#    else
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_load(drcontext, scratch_reg_opnd, case_opnd));
+        instrlist_meta_preinsert(
+            bb, where, INSTR_CREATE_dmb(drcontext, OPND_CREATE_INT(DR_DMB_ISH)));
+#    endif
+    } else {
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_load(drcontext, scratch_reg_opnd, case_opnd));
+    }
+#else
+    /* For x86, a regular load has acquire semantics. */
+    instrlist_meta_preinsert(bb, where,
+                             XINST_CREATE_load(drcontext, scratch_reg_opnd, case_opnd));
 #endif
-    instr_t *instr = XINST_CREATE_load(drcontext, scratch_reg_opnd, case_opnd);
-    instrlist_meta_preinsert(bb, where, instr);
 }
 
 static void
