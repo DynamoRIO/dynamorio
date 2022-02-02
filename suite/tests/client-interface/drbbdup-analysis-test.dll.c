@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -152,7 +152,7 @@ dr_init(client_id_t id)
     opts.analyze_case = analyse_bb;
     opts.destroy_case_analysis = NULL;
     opts.instrument_instr = instrument_instr;
-    opts.runtime_case_opnd = opnd_create_abs_addr(&encode_val, OPSZ_PTR);
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&encode_val, OPSZ_PTR);
     opts.user_data = NULL;
     opts.non_default_case_limit = 1;
     opts.is_stat_enabled = false;

@@ -59,11 +59,6 @@
  * conditions so that different instrumentation may be efficiently executed.
  */
 
-/* TODO i#4134: ARM not yet supported. */
-#ifndef X86
-#    error ARM is not yet supported
-#endif
-
 #define HASH_BIT_TABLE 13
 
 /* Definitions for drbbdup's hit-table that drives dynamic case handling.
@@ -77,11 +72,18 @@ typedef enum {
     DRBBDUP_SCRATCH_REG_SLOT = 1,
     DRBBDUP_FLAG_REG_SLOT = 2,
     DRBBDUP_HIT_TABLE_SLOT = 3,
+#ifdef AARCHXX
+    DRBBDUP_SCRATCH_REG2_SLOT,
+#endif
     DRBBDUP_SLOT_COUNT,
 } drbbdup_thread_slots_t;
 
 /* A scratch register used by drbbdup's dispatcher. */
-#define DRBBDUP_SCRATCH_REG DR_REG_XAX
+#define DRBBDUP_SCRATCH_REG IF_X86_ELSE(DR_REG_XAX, DR_REG_R0)
+#ifdef AARCHXX
+/* RISC architectures need a 2nd scratch register. */
+#    define DRBBDUP_SCRATCH_REG2 DR_REG_R1
+#endif
 
 /* Special index values are used to help guide case selection. */
 #define DRBBDUP_DEFAULT_INDEX -1
@@ -99,6 +101,9 @@ typedef struct {
     bool enable_dynamic_handling; /* Denotes whether to dynamically generate cases. */
     bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
     bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start. */
+#ifdef AARCHXX
+    bool is_scratch_reg2_dead; /* Whether DRBBDUP_SCRATCH_REG2 is dead at start. */
+#endif
     bool is_gen; /* Denotes whether a new bb copy is dynamically being generated. */
     drbbdup_case_t default_case;
     drbbdup_case_t *cases; /* Is NULL if enable_dup is not set. */
@@ -164,18 +169,17 @@ drbbdup_get_tls_raw_slot_val(drbbdup_thread_slots_t slot_idx)
 }
 
 static opnd_t
-drbbdup_get_tls_raw_slot_opnd(drbbdup_thread_slots_t slot_idx)
+drbbdup_get_tls_raw_slot_opnd(void *drcontext, drbbdup_thread_slots_t slot_idx)
 {
-    return opnd_create_far_base_disp_ex(tls_raw_reg, REG_NULL, REG_NULL, 1,
-                                        tls_raw_base + (slot_idx * (sizeof(void *))),
-                                        OPSZ_PTR, false, true, false);
+    return dr_raw_tls_opnd(drcontext, tls_raw_reg,
+                           tls_raw_base + (slot_idx * (sizeof(void *))));
 }
 
 static void
 drbbdup_spill_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                        drbbdup_thread_slots_t slot_idx, reg_id_t reg_id)
 {
-    opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
+    opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(drcontext, slot_idx);
     instr_t *instr = XINST_CREATE_store(drcontext, slot_opnd, opnd_create_reg(reg_id));
     instrlist_meta_preinsert(ilist, where, instr);
 }
@@ -184,7 +188,7 @@ static void
 drbbdup_restore_register(void *drcontext, instrlist_t *ilist, instr_t *where,
                          drbbdup_thread_slots_t slot_idx, reg_id_t reg_id)
 {
-    opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(slot_idx);
+    opnd_t slot_opnd = drbbdup_get_tls_raw_slot_opnd(drcontext, slot_idx);
     instr_t *instr = XINST_CREATE_load(drcontext, opnd_create_reg(reg_id), slot_opnd);
     instrlist_meta_preinsert(ilist, where, instr);
 }
@@ -350,7 +354,7 @@ drbbdup_set_up_copies(void *drcontext, instrlist_t *bb, drbbdup_manager_t *manag
     int i;
     for (i = start; i >= 0; i--) {
         /* Prepend a jmp targeting the EXIT label. */
-        instr_t *jmp_exit = INSTR_CREATE_jmp(drcontext, exit_label_opnd);
+        instr_t *jmp_exit = XINST_CREATE_jump(drcontext, exit_label_opnd);
         instrlist_preinsert(bb, instrlist_first(bb), jmp_exit);
 
         /* Prepend a copy. */
@@ -421,7 +425,11 @@ drbbdup_duplicate_phase(void *drcontext, void *tag, instrlist_t *bb, bool for_tr
 
     dr_rwlock_write_unlock(rw_lock);
 
-    return DR_EMIT_STORE_TRANSLATIONS;
+    /* If there's no dynamic handling, we do not need to store translations,
+     * which saves memory (and is currently better supported in DR and drreg).
+     */
+    return manager->enable_dynamic_handling ? DR_EMIT_STORE_TRANSLATIONS
+                                            : DR_EMIT_DEFAULT;
 }
 
 /****************************************************************************
@@ -683,12 +691,18 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
     if (!manager->are_flags_dead) {
         drbbdup_restore_register(drcontext, bb, where, DRBBDUP_FLAG_REG_SLOT,
                                  DRBBDUP_SCRATCH_REG);
-        dr_restore_arith_flags_from_xax(drcontext, bb, where);
+        dr_restore_arith_flags_from_reg(drcontext, bb, where, DRBBDUP_SCRATCH_REG);
     }
     if (!manager->is_scratch_reg_dead) {
         drbbdup_restore_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG_SLOT,
                                  DRBBDUP_SCRATCH_REG);
     }
+#ifdef AARCHXX
+    if (!manager->is_scratch_reg2_dead) {
+        drbbdup_restore_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
+                                 DRBBDUP_SCRATCH_REG2);
+    }
+#endif
 }
 
 /* Calculates hash index of a particular bb to access the hit table. */
@@ -720,8 +734,19 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
         drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG_SLOT,
                                DRBBDUP_SCRATCH_REG);
     }
+#ifdef AARCHXX
+    drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG2, where,
+                           &manager->is_scratch_reg2_dead);
+    if (!manager->is_scratch_reg2_dead) {
+        /* TODO i#4134: Add a user-set flag promising that runtime case values are
+         * always <256 so we know we don't need this 2nd scratch register.
+         */
+        drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
+                               DRBBDUP_SCRATCH_REG2);
+    }
+#endif
     if (!manager->are_flags_dead) {
-        dr_save_arith_flags_to_xax(drcontext, bb, where);
+        dr_save_arith_flags_to_reg(drcontext, bb, where, DRBBDUP_SCRATCH_REG);
         drbbdup_spill_register(drcontext, bb, where, DRBBDUP_FLAG_REG_SLOT,
                                DRBBDUP_SCRATCH_REG);
         if (!manager->is_scratch_reg_dead) {
@@ -751,31 +776,123 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
 
     /* Load the encoding to the scratch register. */
     /* FIXME i#4134: Perform lock if opts.atomic_load_encoding is set. */
+    opnd_t case_opnd = opts.runtime_case_opnd;
     opnd_t scratch_reg_opnd = opnd_create_reg(DRBBDUP_SCRATCH_REG);
-    instr_t *instr =
-        XINST_CREATE_load(drcontext, scratch_reg_opnd, opts.runtime_case_opnd);
+#ifdef AARCHXX
+    if (opnd_is_rel_addr(case_opnd)) {
+        /* Work around two problems:
+         * 1) DR's AArch64 decoder doesn't yet support OP_ldr with pc-rel opnd
+         *    (i#4847, i#5316).
+         * 2) To ensure we can reach we may need to load the address into the
+         *    register in a separate step.  DR may mangle this for us (i#1834)
+         *    so we may be able to remove this in the future.
+         */
+        instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)opnd_get_addr(case_opnd),
+                                         scratch_reg_opnd, bb, where, NULL, NULL);
+        case_opnd = OPND_CREATE_MEMPTR(DRBBDUP_SCRATCH_REG, 0);
+    }
+#endif
+    instr_t *instr = XINST_CREATE_load(drcontext, scratch_reg_opnd, case_opnd);
     instrlist_meta_preinsert(bb, where, instr);
 }
 
-#ifdef X86_64
 static void
-drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
-                                drbbdup_case_t *current_case, reg_id_t reg_encoding)
+drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
+                                           instr_t *where, drbbdup_case_t *current_case,
+                                           reg_id_t reg_encoding, bool jmp_if_equal,
+                                           instr_t *jmp_label)
 {
+#ifdef X86
+#    ifdef X86_64
+    /* XXX: We could use an immediate for small values.
+     * We could also use jecxz and avoid flags altogether for zero values.
+     */
     opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
-    instr_t *instr = XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding));
-    instrlist_meta_preinsert(bb, where, instr);
-}
-#elif X86_32
-static void
-drbbdup_insert_compare_encoding(void *drcontext, instrlist_t *bb, instr_t *where,
-                                drbbdup_case_t *current_case, reg_id_t reg_encoding)
-{
+    instrlist_meta_preinsert(
+        bb, where, XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding)));
+#    elif defined(X86_32)
     opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
-    instr_t *instr = XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd);
-    instrlist_meta_preinsert(bb, where, instr);
-}
+    instrlist_meta_preinsert(
+        bb, where, XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
+#    endif
+    instrlist_meta_preinsert(bb, where,
+                             INSTR_CREATE_jcc(drcontext, jmp_if_equal ? OP_jz : OP_jnz,
+                                              opnd_create_instr(jmp_label)));
+#elif defined(AARCHXX)
+    bool inserted = false;
+    if (current_case->encoding == 0) {
+        /* XXX: CBZ does not touch the flags, so we could avoid the flags save if
+         * this is the only case.
+         */
+#    ifdef AARCH64
+        if (jmp_if_equal) {
+            instrlist_meta_preinsert(bb, where,
+                                     INSTR_CREATE_cbz(drcontext,
+                                                      opnd_create_instr(jmp_label),
+                                                      opnd_create_reg(reg_encoding)));
+        } else {
+            instrlist_meta_preinsert(bb, where,
+                                     INSTR_CREATE_cbnz(drcontext,
+                                                       opnd_create_instr(jmp_label),
+                                                       opnd_create_reg(reg_encoding)));
+        }
+        inserted = true;
+#    else
+        if (dr_get_isa_mode(drcontext) == DR_ISA_ARM_THUMB &&
+            reg_encoding <= DR_REG_R7) { /* CBZ can't take r8+ */
+            /* CBZ has a very short reach so we use a landing pad. */
+            instr_t *nojmp = INSTR_CREATE_label(drcontext);
+            if (jmp_if_equal) {
+                instrlist_meta_preinsert(
+                    bb, where,
+                    INSTR_CREATE_cbnz(drcontext, opnd_create_instr(nojmp),
+                                      opnd_create_reg(reg_encoding)));
+            } else {
+                instrlist_meta_preinsert(bb, where,
+                                         INSTR_CREATE_cbz(drcontext,
+                                                          opnd_create_instr(nojmp),
+                                                          opnd_create_reg(reg_encoding)));
+            }
+            instrlist_meta_preinsert(
+                bb, where, XINST_CREATE_jump(drcontext, opnd_create_instr(jmp_label)));
+            instrlist_meta_preinsert(bb, where, nojmp);
+            inserted = true;
+        }
+#    endif
+    }
+    if (!inserted && current_case->encoding < 256) {
+        /* Various larger immediates can be handled but it varies by ISA and mode.
+         * XXX: Should DR provide utilities to help figure out whether an integer
+         * will fit in a compare immediate?
+         */
+        opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
+        instrlist_meta_preinsert(
+            bb, where,
+            XINST_CREATE_jump_cond(drcontext, jmp_if_equal ? DR_PRED_EQ : DR_PRED_NE,
+                                   opnd_create_instr(jmp_label)));
+        inserted = true;
+    }
+    if (!inserted) {
+        /* TODO i#4134: Add a user-set flag promising that runtime case values are
+         * always <256 so we know we don't need this 2nd scratch register; then
+         * assert if we end up here and the flag is set.
+         */
+        instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding,
+                                         opnd_create_reg(DRBBDUP_SCRATCH_REG2), bb, where,
+                                         NULL, NULL);
+        instrlist_meta_preinsert(bb, where,
+                                 XINST_CREATE_cmp(drcontext,
+                                                  opnd_create_reg(reg_encoding),
+                                                  opnd_create_reg(DRBBDUP_SCRATCH_REG2)));
+        instrlist_meta_preinsert(
+            bb, where,
+            XINST_CREATE_jump_cond(drcontext, jmp_if_equal ? DR_PRED_EQ : DR_PRED_NE,
+                                   opnd_create_instr(jmp_label)));
+    }
 #endif
+}
 
 /* At the start of a bb copy, dispatcher code is inserted. The runtime encoding
  * is compared with the encoding of the defined case, and if they match control
@@ -789,13 +906,11 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
 {
     ASSERT(next_label != NULL, "the label to the next bb copy cannot be NULL");
 
-    drbbdup_insert_compare_encoding(drcontext, bb, where, current_case,
-                                    DRBBDUP_SCRATCH_REG);
-
     /* If runtime encoding not equal to encoding of current case, just jump to next.
      */
-    instr_t *instr = INSTR_CREATE_jcc(drcontext, OP_jnz, opnd_create_instr(next_label));
-    instrlist_meta_preinsert(bb, where, instr);
+    drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, current_case,
+                                               DRBBDUP_SCRATCH_REG,
+                                               false /*=jmp_if_equal*/, next_label);
 
     /* If fall-through, restore regs back to their original values. */
     drbbdup_insert_landing_restoration(drcontext, bb, where, manager);
@@ -847,20 +962,21 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
         /* Jump if runtime encoding matches default encoding.
          * Unknown encoding encountered upon fall-through.
          */
-        drbbdup_insert_compare_encoding(drcontext, bb, where, default_case,
-                                        DRBBDUP_SCRATCH_REG);
-        instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_instr(done_label));
-        instrlist_meta_preinsert(bb, where, instr);
+        drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, default_case,
+                                                   DRBBDUP_SCRATCH_REG,
+                                                   true /*=jmp_if_equal*/, done_label);
 
         /* We need DRBBDUP_SCRATCH_REG. Bail on keeping the encoding in the register. */
-        opnd_t encoding_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_ENCODING_SLOT);
+        opnd_t encoding_opnd =
+            drbbdup_get_tls_raw_slot_opnd(drcontext, DRBBDUP_ENCODING_SLOT);
         instr = XINST_CREATE_store(drcontext, encoding_opnd, drbbdup_opnd);
         instrlist_meta_preinsert(bb, where, instr);
 
         /* Don't bother insertion if threshold limit is zero. */
         if (opts.hit_threshold > 0) {
             /* Update hit count and check whether threshold is reached. */
-            opnd_t hit_table_opnd = drbbdup_get_tls_raw_slot_opnd(DRBBDUP_HIT_TABLE_SLOT);
+            opnd_t hit_table_opnd =
+                drbbdup_get_tls_raw_slot_opnd(drcontext, DRBBDUP_HIT_TABLE_SLOT);
 
             /* Load the hit counter table. */
             instr = XINST_CREATE_load(drcontext, drbbdup_opnd, hit_table_opnd);
@@ -870,9 +986,19 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
             uint hash = drbbdup_get_hitcount_hash((intptr_t)translation_pc);
             opnd_t hit_count_opnd =
                 OPND_CREATE_MEM16(DRBBDUP_SCRATCH_REG, hash * sizeof(ushort));
+#ifdef X86
             instr = INSTR_CREATE_sub(drcontext, hit_count_opnd,
                                      opnd_create_immed_uint(1, OPSZ_2));
             instrlist_meta_preinsert(bb, where, instr);
+#else
+            instr = XINST_CREATE_load_2bytes(drcontext, drbbdup_opnd, hit_count_opnd);
+            instrlist_meta_preinsert(bb, where, instr);
+            instr = XINST_CREATE_sub(drcontext, drbbdup_opnd,
+                                     opnd_create_immed_uint(1, OPSZ_2));
+            instrlist_meta_preinsert(bb, where, instr);
+            instr = XINST_CREATE_store_2bytes(drcontext, hit_count_opnd, drbbdup_opnd);
+            instrlist_meta_preinsert(bb, where, instr);
+#endif
 
             /* Load bb tag to register so that it can be accessed by outlined clean
              * call.
@@ -881,7 +1007,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
                                              where, NULL, NULL);
 
             /* Jump if hit reaches zero. */
-            instr = INSTR_CREATE_jcc(drcontext, OP_jz, opnd_create_pc(new_case_cache_pc));
+            instr = XINST_CREATE_jump_cond(drcontext, DR_PRED_EQ,
+                                           opnd_create_pc(new_case_cache_pc));
             instrlist_meta_preinsert(bb, where, instr);
 
         } else {

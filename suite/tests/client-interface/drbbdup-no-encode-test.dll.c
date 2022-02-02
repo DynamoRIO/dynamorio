@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2015-2018 Google, Inc.  All rights reserved.
+ * Copyright (c) 2015-2022 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -118,7 +118,7 @@ dr_init(client_id_t id)
     opts.struct_size = sizeof(drbbdup_options_t);
     opts.set_up_bb_dups = set_up_bb_dups;
     opts.instrument_instr = instrument_instr;
-    opts.runtime_case_opnd = opnd_create_abs_addr(&case_encoding, OPSZ_PTR);
+    opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&case_encoding, OPSZ_PTR);
     opts.atomic_load_encoding = false;
     opts.user_data = USER_DATA_VAL;
     opts.non_default_case_limit = 1;

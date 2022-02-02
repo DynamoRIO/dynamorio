@@ -2564,23 +2564,20 @@ link_with_pthread(client.drx_buf-test)
 target_include_directories(client.drx_buf-test PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/client-interface)
 
-# TODO i#4134: ARM not yet supported.
-if (X86)
-  tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
-  use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
-  use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
-  use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
+tobuild_ci(client.drbbdup-test client-interface/drbbdup-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-test.dll drreg)
+use_DynamoRIO_extension(client.drbbdup-test.dll drbbdup)
 
-  tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
-  use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
-  use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
-  use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
+tobuild_ci(client.drbbdup-no-encode-test client-interface/drbbdup-no-encode-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
+use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
-  tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
-  use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
-  use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
-  use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
-endif (X86)
+tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
+use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drbbdup)
 
 if (ARM)
   tobuild_ci(client.predicate-test client-interface/predicate-test.c "" "" "")
@@ -4854,6 +4851,9 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.call-retarget
     code_api|client.crashmsg
     code_api|client.destructor
+    code_api|client.drbbdup-test
+    code_api|client.drbbdup-no-encode-test
+    code_api|client.drbbdup-analysis-test
     code_api|client.drcontainers-test
     code_api|client.drmodtrack-test
     code_api|client.drsyms-test

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -111,10 +111,7 @@ add_subdirectory(drmgr)
 add_subdirectory(drx)
 add_subdirectory(drwrap)
 add_subdirectory(drreg)
-# TODO i#4134: ARM not yet supported.
-if (X86)
-  add_subdirectory(drbbdup)
-endif (X86)
+add_subdirectory(drbbdup)
 add_subdirectory(drsyms)
 add_subdirectory(drutil)
 add_subdirectory(droption)
