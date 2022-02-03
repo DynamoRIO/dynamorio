@@ -1755,6 +1755,8 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *reg_opn
         int compressed_disp_scale = 0;
         if (di->evex_encoded) {
             compressed_disp_scale = decode_get_compressed_disp_scale(di);
+            if (compressed_disp_scale == -1)
+                return false;
             needs_full_disp = disp % compressed_disp_scale != 0;
         }
         force_full_disp = !needs_full_disp && di->has_disp && disp >= INT8_MIN &&
