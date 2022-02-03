@@ -272,8 +272,8 @@ typedef struct {
      */
     opnd_t runtime_case_opnd;
     /**
-     * Instructs drbbdup whether or not the loading of the runtime case should be
-     * locked/atomic.
+     * Instructs drbbdup whether or not the loading of the runtime case should use
+     * release-acquire semantics.
      */
     bool atomic_load_encoding;
     /**

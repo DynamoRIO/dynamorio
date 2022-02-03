@@ -551,9 +551,9 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* check whether we can add lock */
     if (TEST(DRX_COUNTER_LOCK, flags)) {
-#ifdef ARM
-        /* FIXME i#1551: implement for ARM */
-        ASSERT(false, "DRX_COUNTER_LOCK not implemented for ARM");
+#ifdef AARCHXX
+        /* TODO i#1551,i#1569: implement for AArchXX. */
+        ASSERT(false, "DRX_COUNTER_LOCK not implemented for AArchXX");
         return false;
 #endif
         if (IF_NOT_X64(is_64 ||) /* 64-bit counter in 32-bit mode */
@@ -588,6 +588,9 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
         OPND_CREATE_INT_32OR8(value));
     if (TEST(DRX_COUNTER_LOCK, flags))
         instr = LOCK(instr);
+    /* On x86, for DRX_COUNTER_REL_ACQ, we don't need to do anything as the
+     * ISA provides release-acquire semantics for regular stores and loads.
+     */
     MINSERT(ilist, where, instr);
 
 #    ifndef X64
@@ -662,7 +665,6 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                 INSTR_CREATE_stlr(drcontext, OPND_CREATE_MEMPTR(reg1, 0),
                                   opnd_create_reg(reg2)));
 #    else /* ARM */
-        /* TODO: This counter update has not been tested on a ARM_32 machine. */
         MINSERT(ilist, where,
                 XINST_CREATE_load(drcontext, opnd_create_reg(reg2),
                                   OPND_CREATE_MEMPTR(reg1, 0)));

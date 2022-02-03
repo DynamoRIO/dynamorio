@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1573,21 +1573,23 @@ d_r_mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT, bool man
 #endif
 
 #if defined(X64) || defined(ARM)
-        /* i#393: mangle_rel_addr might destroy the instr if it is a LEA,
-         * which makes instr point to freed memory.
-         * In such case, the control should skip later checks on the instr
-         * for exit_cti and syscall.
-         * skip the rest of the loop if instr is destroyed.
+        /* XXX i#1834: We do not limit mangling of pc-relative operands to app instrs,
+         * because we were mangling tool operands before and now our own samples rely
+         * on it (when they copy an app operand to pass to a clean call, e.g.).
+         *
+         * TODO i#1834: Add full support for this to DR's translation code.
+         *
+         * TODO i#1834: Also mangle stolen register and segment usage in tool code.
+         * That may require a new opnd_t bit identifying "app operands".
          */
-        if (instr_has_rel_addr_reference(instr)
-            /* XXX i#1834: it should be up to the app to re-relativize, yet on amd64
-             * our own samples are relying on DR re-relativizing (and we just haven't
-             * run big enough apps to hit reachability problems) so for now we continue
-             * mangling meta instrs for x86 builds.
-             */
-            IF_ARM(&&instr_is_app(instr))) {
+        if (instr_has_rel_addr_reference(instr)) {
             instr_t *res = mangle_rel_addr(dcontext, ilist, instr, next_instr);
-            /* Either returns NULL == destroyed "instr", or a new next_instr */
+            /* i#393: mangle_rel_addr might destroy the instr if it is a LEA,
+             * which makes instr point to freed memory.
+             * In such case, the control should skip later checks on the instr
+             * for exit_cti and syscall.
+             * It either returns NULL == destroyed "instr", or a new next_instr.
+             */
             if (res == NULL)
                 continue;
             else
