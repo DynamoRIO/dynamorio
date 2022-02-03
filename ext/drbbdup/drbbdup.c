@@ -38,6 +38,8 @@
 #include "drbbdup.h"
 #include <string.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <limits.h>
 #include "../ext_utils.h"
 
 #undef drmgr_is_first_instr
@@ -66,6 +68,10 @@
  * new unhandled cases.
  */
 #define TABLE_SIZE 65536 /* Must be a power of 2 to perform efficient mod. */
+
+#ifdef AARCHXX
+#    define MAX_IMMED_IN_CMP 255
+#endif
 
 typedef enum {
     DRBBDUP_ENCODING_SLOT = 0, /* Used as a spill slot for dynamic case generation. */
@@ -102,7 +108,8 @@ typedef struct {
     bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
     bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start. */
 #ifdef AARCHXX
-    bool is_scratch_reg2_dead; /* Whether DRBBDUP_SCRATCH_REG2 is dead at start. */
+    bool is_scratch_reg2_needed;
+    bool is_scratch_reg2_dead; /* If _needed, is DRBBDUP_SCRATCH_REG2 dead at start. */
 #endif
     bool is_gen; /* Denotes whether a new bb copy is dynamically being generated. */
     drbbdup_case_t default_case;
@@ -261,6 +268,9 @@ drbbdup_create_manager(void *drcontext, void *tag, instrlist_t *bb)
     manager->default_case.encoding =
         opts.set_up_bb_dups(manager, drcontext, tag, bb, &manager->enable_dup,
                             &manager->enable_dynamic_handling, opts.user_data);
+    DR_ASSERT_MSG(opts.max_case_encoding == 0 ||
+                      manager->default_case.encoding <= opts.max_case_encoding,
+                  "default case encoding > specifed max_case_encoding");
     /* Default case encoding should not be already registered. */
     DR_ASSERT_MSG(
         !drbbdup_encoding_already_included(manager, manager->default_case.encoding,
@@ -698,7 +708,7 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
                                  DRBBDUP_SCRATCH_REG);
     }
 #ifdef AARCHXX
-    if (!manager->is_scratch_reg2_dead) {
+    if (manager->is_scratch_reg2_needed && !manager->is_scratch_reg2_dead) {
         drbbdup_restore_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
                                  DRBBDUP_SCRATCH_REG2);
     }
@@ -735,14 +745,16 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
                                DRBBDUP_SCRATCH_REG);
     }
 #ifdef AARCHXX
-    drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG2, where,
-                           &manager->is_scratch_reg2_dead);
-    if (!manager->is_scratch_reg2_dead) {
-        /* TODO i#4134: Add a user-set flag promising that runtime case values are
-         * always <256 so we know we don't need this 2nd scratch register.
-         */
-        drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
-                               DRBBDUP_SCRATCH_REG2);
+    if (opts.max_case_encoding > 0 && opts.max_case_encoding <= MAX_IMMED_IN_CMP)
+        manager->is_scratch_reg2_needed = false;
+    else {
+        manager->is_scratch_reg2_needed = true;
+        drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG2, where,
+                               &manager->is_scratch_reg2_dead);
+        if (!manager->is_scratch_reg2_dead) {
+            drbbdup_spill_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
+                                   DRBBDUP_SCRATCH_REG2);
+        }
     }
 #endif
     if (!manager->are_flags_dead) {
@@ -813,18 +825,24 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
 
 static void
 drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
-                                           instr_t *where, drbbdup_case_t *current_case,
+                                           instr_t *where, drbbdup_manager_t *manager,
+                                           drbbdup_case_t *current_case,
                                            reg_id_t reg_encoding, bool jmp_if_equal,
                                            instr_t *jmp_label)
 {
 #ifdef X86
 #    ifdef X86_64
-    /* XXX: We could use an immediate for small values.
-     * We could also use jecxz and avoid flags altogether for zero values.
-     */
-    opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
-    instrlist_meta_preinsert(
-        bb, where, XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding)));
+    /* XXX: We could use jecxz and avoid flags altogether for zero values. */
+    if (current_case->encoding <= INT_MAX) {
+        /* It fits in an immediate so we can avoid the load. */
+        opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_4);
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
+    } else {
+        opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding)));
+    }
 #    elif defined(X86_32)
     opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
     instrlist_meta_preinsert(
@@ -875,7 +893,7 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         }
 #    endif
     }
-    if (!inserted && current_case->encoding < 256) {
+    if (!inserted && current_case->encoding <= MAX_IMMED_IN_CMP) {
         /* Various larger immediates can be handled but it varies by ISA and mode.
          * XXX: Should DR provide utilities to help figure out whether an integer
          * will fit in a compare immediate?
@@ -890,10 +908,7 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         inserted = true;
     }
     if (!inserted) {
-        /* TODO i#4134: Add a user-set flag promising that runtime case values are
-         * always <256 so we know we don't need this 2nd scratch register; then
-         * assert if we end up here and the flag is set.
-         */
+        DR_ASSERT_MSG(manager->is_scratch_reg2_needed, "scratch2 was not saved");
         instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding,
                                          opnd_create_reg(DRBBDUP_SCRATCH_REG2), bb, where,
                                          NULL, NULL);
@@ -923,8 +938,8 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
 
     /* If runtime encoding not equal to encoding of current case, just jump to next.
      */
-    drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, current_case,
-                                               DRBBDUP_SCRATCH_REG,
+    drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, manager,
+                                               current_case, DRBBDUP_SCRATCH_REG,
                                                false /*=jmp_if_equal*/, next_label);
 
     /* If fall-through, restore regs back to their original values. */
@@ -977,8 +992,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
         /* Jump if runtime encoding matches default encoding.
          * Unknown encoding encountered upon fall-through.
          */
-        drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, default_case,
-                                                   DRBBDUP_SCRATCH_REG,
+        drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, manager,
+                                                   default_case, DRBBDUP_SCRATCH_REG,
                                                    true /*=jmp_if_equal*/, done_label);
 
         /* We need DRBBDUP_SCRATCH_REG. Bail on keeping the encoding in the register. */
@@ -1346,6 +1361,12 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
         reg_set_value(DRBBDUP_SCRATCH_REG, mcontext,
                       (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_SCRATCH_REG_SLOT));
     }
+#ifdef AARCHXX
+    if (manager->is_scratch_reg2_needed && !manager->is_scratch_reg2_dead) {
+        reg_set_value(DRBBDUP_SCRATCH_REG2, mcontext,
+                      (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_SCRATCH_REG2_SLOT));
+    }
+#endif
 
     mcontext->pc =
         dr_app_pc_as_jump_target(dr_get_isa_mode(dr_get_current_drcontext()),
@@ -1496,6 +1517,9 @@ drbbdup_register_case_encoding(void *drbbdup_ctx, uintptr_t encoding)
         return DRBBDUP_ERROR_NOT_INITIALIZED;
 
     drbbdup_manager_t *manager = (drbbdup_manager_t *)drbbdup_ctx;
+
+    if (opts.max_case_encoding > 0 && encoding > opts.max_case_encoding)
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
 
     /* Don't check default case because it is not yet set. */
     if (drbbdup_encoding_already_included(manager, encoding, false))
@@ -1660,7 +1684,14 @@ drbbdup_init(drbbdup_options_t *ops_in)
     if (!drbbdup_check_case_opnd(ops_in->runtime_case_opnd))
         return DRBBDUP_ERROR_INVALID_OPND;
 
-    memcpy(&opts, ops_in, sizeof(drbbdup_options_t));
+    if (ops_in->struct_size > sizeof(drbbdup_options_t) ||
+        /* This is the first size we exported so it shouldn't be smaller. */
+        ops_in->struct_size < offsetof(drbbdup_options_t, max_case_encoding))
+        return DRBBDUP_ERROR_INVALID_PARAMETER;
+    /* Do not copy from beyond ops_in.  We ruled out ops_in being larger than opts
+     * above.  Fields beyond ops_in will be left zero.
+     */
+    memcpy(&opts, ops_in, ops_in->struct_size);
 
     drreg_options_t drreg_ops = { sizeof(drreg_ops), 0 /* no regs needed */, false, NULL,
                                   true };
