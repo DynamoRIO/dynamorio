@@ -1006,7 +1006,7 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
         /* Use an aflags-less jump-if-zero. */
         avoid_flags = true;
         if (current_case->encoding != 0) {
-            /* Invert the compare. */
+            /* Invert the compare to ensure comparison with zero. */
             ASSERT(manager->default_case.encoding == 0, "not zero-vs-nonzero");
             current_case = &manager->default_case;
             jmp_if_equal = true;
