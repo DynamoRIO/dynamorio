@@ -825,7 +825,8 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
 
 static void
 drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
-                                           instr_t *where, drbbdup_case_t *current_case,
+                                           instr_t *where, drbbdup_manager_t *manager,
+                                           drbbdup_case_t *current_case,
                                            reg_id_t reg_encoding, bool jmp_if_equal,
                                            instr_t *jmp_label)
 {
@@ -907,8 +908,7 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         inserted = true;
     }
     if (!inserted) {
-        DR_ASSERT_MSG(opts.max_case_encoding > MAX_IMMED_IN_CMP,
-                      "max_case_encoding exceeded");
+        DR_ASSERT_MSG(manager->is_scratch_reg2_needed, "scratch2 was not saved");
         instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding,
                                          opnd_create_reg(DRBBDUP_SCRATCH_REG2), bb, where,
                                          NULL, NULL);
@@ -938,8 +938,8 @@ drbbdup_insert_dispatch(void *drcontext, instrlist_t *bb, instr_t *where,
 
     /* If runtime encoding not equal to encoding of current case, just jump to next.
      */
-    drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, current_case,
-                                               DRBBDUP_SCRATCH_REG,
+    drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, manager,
+                                               current_case, DRBBDUP_SCRATCH_REG,
                                                false /*=jmp_if_equal*/, next_label);
 
     /* If fall-through, restore regs back to their original values. */
@@ -992,8 +992,8 @@ drbbdup_insert_dynamic_handling(void *drcontext, app_pc translation_pc, void *ta
         /* Jump if runtime encoding matches default encoding.
          * Unknown encoding encountered upon fall-through.
          */
-        drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, default_case,
-                                                   DRBBDUP_SCRATCH_REG,
+        drbbdup_insert_compare_encoding_and_branch(drcontext, bb, where, manager,
+                                                   default_case, DRBBDUP_SCRATCH_REG,
                                                    true /*=jmp_if_equal*/, done_label);
 
         /* We need DRBBDUP_SCRATCH_REG. Bail on keeping the encoding in the register. */
@@ -1361,6 +1361,12 @@ drbbdup_prepare_redirect(dr_mcontext_t *mcontext, drbbdup_manager_t *manager,
         reg_set_value(DRBBDUP_SCRATCH_REG, mcontext,
                       (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_SCRATCH_REG_SLOT));
     }
+#ifdef AARCHXX
+    if (manager->is_scratch_reg2_needed && !manager->is_scratch_reg2_dead) {
+        reg_set_value(DRBBDUP_SCRATCH_REG2, mcontext,
+                      (reg_t)drbbdup_get_tls_raw_slot_val(DRBBDUP_SCRATCH_REG2_SLOT));
+    }
+#endif
 
     mcontext->pc =
         dr_app_pc_as_jump_target(dr_get_isa_mode(dr_get_current_drcontext()),
