@@ -120,6 +120,8 @@ dr_init(client_id_t id)
     opts.instrument_instr = instrument_instr;
     opts.runtime_case_opnd = OPND_CREATE_ABSMEM(&case_encoding, OPSZ_PTR);
     opts.atomic_load_encoding = false;
+    /* Test optimizations with case comparisons. */
+    opts.max_case_encoding = 1;
     opts.user_data = USER_DATA_VAL;
     opts.non_default_case_limit = 1;
 

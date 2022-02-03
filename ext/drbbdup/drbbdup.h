@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2020 Google, Inc.   All rights reserved.
+ * Copyright (c) 2020-2022 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -272,8 +272,8 @@ typedef struct {
      */
     opnd_t runtime_case_opnd;
     /**
-     * Instructs drbbdup whether or not the loading of the runtime case should be
-     * locked/atomic.
+     * Instructs drbbdup whether or not the loading of the runtime case should use
+     * release-acquire semantics.
      */
     bool atomic_load_encoding;
     /**
@@ -301,6 +301,12 @@ typedef struct {
      * set to true.
      */
     bool is_stat_enabled;
+    /**
+     * Gives an upper bound on the value of all case encodings.  This is used to
+     * optimize the dispatch code on AArchXX: in particular, an upper bound <256
+     * avoids an extra scratch register.  Set to 0 to indicate there is no bound.
+     */
+    uintptr_t max_case_encoding;
 } drbbdup_options_t;
 
 /**
