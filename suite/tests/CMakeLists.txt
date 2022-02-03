@@ -2574,6 +2574,11 @@ use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drreg)
 use_DynamoRIO_extension(client.drbbdup-no-encode-test.dll drbbdup)
 
+tobuild_ci(client.drbbdup-nonzero-test client-interface/drbbdup-nonzero-test.c "" "" "")
+use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drmgr)
+use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drreg)
+use_DynamoRIO_extension(client.drbbdup-nonzero-test.dll drbbdup)
+
 tobuild_ci(client.drbbdup-analysis-test client-interface/drbbdup-analysis-test.c "" "" "")
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drmgr)
 use_DynamoRIO_extension(client.drbbdup-analysis-test.dll drreg)
@@ -4853,6 +4858,7 @@ if (NOT ANDROID AND AARCHXX)
     code_api|client.destructor
     code_api|client.drbbdup-test
     code_api|client.drbbdup-no-encode-test
+    code_api|client.drbbdup-nonzero-test
     code_api|client.drbbdup-analysis-test
     code_api|client.drcontainers-test
     code_api|client.drmodtrack-test
