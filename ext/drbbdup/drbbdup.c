@@ -39,6 +39,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <limits.h>
 #include "../ext_utils.h"
 
 #undef drmgr_is_first_instr
@@ -813,12 +814,17 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
 {
 #ifdef X86
 #    ifdef X86_64
-    /* XXX: We could use an immediate for small values.
-     * We could also use jecxz and avoid flags altogether for zero values.
-     */
-    opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
-    instrlist_meta_preinsert(
-        bb, where, XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding)));
+    /* XXX: We could use jecxz and avoid flags altogether for zero values. */
+    if (current_case->encoding <= INT_MAX) {
+        /* It fits in an immediate so we can avoid the load. */
+        opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_4);
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_cmp(drcontext, opnd_create_reg(reg_encoding), opnd));
+    } else {
+        opnd_t opnd = opnd_create_abs_addr(&current_case->encoding, OPSZ_PTR);
+        instrlist_meta_preinsert(
+            bb, where, XINST_CREATE_cmp(drcontext, opnd, opnd_create_reg(reg_encoding)));
+    }
 #    elif defined(X86_32)
     opnd_t opnd = opnd_create_immed_uint(current_case->encoding, OPSZ_PTR);
     instrlist_meta_preinsert(
