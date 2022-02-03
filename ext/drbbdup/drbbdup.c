@@ -70,7 +70,7 @@
 #define TABLE_SIZE 65536 /* Must be a power of 2 to perform efficient mod. */
 
 #ifdef AARCHXX
-#    define MAX_IMMED_IN_CMP 256
+#    define MAX_IMMED_IN_CMP 255
 #endif
 
 typedef enum {
@@ -108,7 +108,8 @@ typedef struct {
     bool are_flags_dead;      /* Denotes whether flags are dead at the start of a bb. */
     bool is_scratch_reg_dead; /* Denotes whether DRBBDUP_SCRATCH_REG is dead at start. */
 #ifdef AARCHXX
-    bool is_scratch_reg2_dead; /* Whether DRBBDUP_SCRATCH_REG2 is dead at start. */
+    bool is_scratch_reg2_needed;
+    bool is_scratch_reg2_dead; /* If _needed, is DRBBDUP_SCRATCH_REG2 dead at start. */
 #endif
     bool is_gen; /* Denotes whether a new bb copy is dynamically being generated. */
     drbbdup_case_t default_case;
@@ -707,7 +708,7 @@ drbbdup_insert_landing_restoration(void *drcontext, instrlist_t *bb, instr_t *wh
                                  DRBBDUP_SCRATCH_REG);
     }
 #ifdef AARCHXX
-    if (!manager->is_scratch_reg2_dead) {
+    if (manager->is_scratch_reg2_needed && !manager->is_scratch_reg2_dead) {
         drbbdup_restore_register(drcontext, bb, where, DRBBDUP_SCRATCH_REG2_SLOT,
                                  DRBBDUP_SCRATCH_REG2);
     }
@@ -744,9 +745,10 @@ drbbdup_encode_runtime_case(void *drcontext, drbbdup_per_thread *pt, void *tag,
                                DRBBDUP_SCRATCH_REG);
     }
 #ifdef AARCHXX
-    if (opts.max_case_encoding > 0 && opts.max_case_encoding < MAX_IMMED_IN_CMP)
-        manager->is_scratch_reg2_dead = true; /* Avoid restore, since not used. */
+    if (opts.max_case_encoding > 0 && opts.max_case_encoding <= MAX_IMMED_IN_CMP)
+        manager->is_scratch_reg2_needed = false;
     else {
+        manager->is_scratch_reg2_needed = true;
         drreg_is_register_dead(drcontext, DRBBDUP_SCRATCH_REG2, where,
                                &manager->is_scratch_reg2_dead);
         if (!manager->is_scratch_reg2_dead) {
@@ -875,7 +877,7 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         }
 #    endif
     }
-    if (!inserted && current_case->encoding < MAX_IMMED_IN_CMP) {
+    if (!inserted && current_case->encoding <= MAX_IMMED_IN_CMP) {
         /* Various larger immediates can be handled but it varies by ISA and mode.
          * XXX: Should DR provide utilities to help figure out whether an integer
          * will fit in a compare immediate?
@@ -890,7 +892,8 @@ drbbdup_insert_compare_encoding_and_branch(void *drcontext, instrlist_t *bb,
         inserted = true;
     }
     if (!inserted) {
-        DR_ASSERT_MSG(false, "max_case_encoding exceeded");
+        DR_ASSERT_MSG(opts.max_case_encoding > MAX_IMMED_IN_CMP,
+                      "max_case_encoding exceeded");
         instrlist_insert_mov_immed_ptrsz(drcontext, current_case->encoding,
                                          opnd_create_reg(DRBBDUP_SCRATCH_REG2), bb, where,
                                          NULL, NULL);
