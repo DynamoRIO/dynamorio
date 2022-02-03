@@ -81,7 +81,7 @@ fill_scratch(void)
     int slot;
     /* Set slots to 0x000... 0x111... 0x222... etc. */
     for (slot = SPILL_SLOT_1; slot <= SPILL_SLOT_MAX; slot++) {
-        reg_t value = slot * 0x11111111;
+        reg_t value = (reg_t)slot * 0x11111111;
         dr_write_saved_reg(dc, slot, value);
     }
 }
@@ -94,7 +94,7 @@ check_scratch(void)
     /* Check that slots are 0x000... 0x111... 0x222... etc. */
     for (slot = SPILL_SLOT_1; slot <= SPILL_SLOT_MAX; slot++) {
         reg_t value = dr_read_saved_reg(dc, slot);
-        reg_t expected = slot * 0x11111111;
+        reg_t expected = (reg_t)slot * 0x11111111;
         if (value != expected)
             dr_fprintf(STDERR, "Client scratch slot clobbered by clean call!\n");
     }
