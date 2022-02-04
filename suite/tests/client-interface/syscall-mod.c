@@ -60,7 +60,9 @@ main()
     asm("mov $" STRINGIFY(SYS_getpid) ", %%eax;"
                                       "syscall;"
                                       "mov %%eax, %0"
-        : "=m"(pid));
+        : "=m"(pid)
+        :
+        : "cc", "rdi", "rsi", "rcx", "rdx", "r8", "r9", "rax");
 #else
     asm("mov $" STRINGIFY(SYS_getpid) ", %%eax;"
                                       "int $0x80;"
