@@ -4261,9 +4261,12 @@ if (UNIX)
   append_property_string(TARGET linux.fib-pie COMPILE_FLAGS "-fPIE")
   append_property_string(TARGET linux.fib-pie LINK_FLAGS "-pie")
 
+  # vfork is deprecated on macOS.
+  if (NOT APPLE)
   # FIXME i#125: bugs in these, were disabled in the past
   tobuild_ops(linux.vfork linux/vfork.c "" "${execve-sub-path}")
   #tobuild(linux.vfork-fib linux/vfork-fib.c)
+  endif ()
 
   # runs of other builds with custom DR options
   torunonly(linux.thread-reset linux.thread linux/thread.c
