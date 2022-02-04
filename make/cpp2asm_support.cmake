@@ -152,7 +152,7 @@ else ()
     # Cmake-discovered compiler on macOS does not include system
     # directories by default.
     if (APPLE)
-      set(CMAKE_CPP clang)
+      find_program(CMAKE_CPP cc)
     else ()
       set(CMAKE_CPP ${CMAKE_C_COMPILER})
     endif ()

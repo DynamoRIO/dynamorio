@@ -245,7 +245,7 @@ ASSUME fs:_DATA @N@\
 # define START_FILE SECTION .text
 # define END_FILE /* nothing */
 /* for MacOS, at least, we have to add _ ourselves */
-#define CONCAT(a, b) a ## b
+# define CONCAT(a, b) a ## b
 # define DECLARE_FUNC(symbol) global CONCAT(_, symbol)
 # define DECLARE_EXPORTED_FUNC(symbol) global CONCAT(_, symbol)
 # define END_FUNC(symbol) /* nothing */
