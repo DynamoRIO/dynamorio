@@ -31,8 +31,7 @@
  * DAMAGE.
  */
 
-#define X64
-#define MACOS
+#include "configure.h"
 
 #include <stdio.h>
 #if defined(MACOS) || defined(ANDROID)
