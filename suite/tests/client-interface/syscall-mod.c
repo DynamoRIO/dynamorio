@@ -31,7 +31,8 @@
  * DAMAGE.
  */
 
-#include "configure.h"
+#define X64
+#define MACOS
 
 #include <stdio.h>
 #if defined(MACOS) || defined(ANDROID)
@@ -52,7 +53,9 @@ main()
     asm("movz x8, " STRINGIFY(SYS_getpid) ";"
                                           "svc 0;"
                                           "mov %w0, w0"
-        : "=r"(pid));
+        : "=r"(pid)
+        :
+        : "cc", "w0");
 #elif defined(X64)
     /* we don't want vsyscall since we rely on mov immed, eax being in same bb.
      * plus, libc getpid might cache the pid value.
@@ -62,12 +65,14 @@ main()
                                       "mov %%eax, %0"
         : "=m"(pid)
         :
-        : "cc", "rdi", "rsi", "rcx", "rdx", "r8", "r9", "rax");
+        : "cc", "rcx", "r11", "rax");
 #else
     asm("mov $" STRINGIFY(SYS_getpid) ", %%eax;"
                                       "int $0x80;"
                                       "mov %%eax, %0"
-        : "=m"(pid));
+        : "=m"(pid)
+        :
+        : "cc", "eax");
 #endif
     fprintf(stderr, "pid = %d\n", pid);
 
