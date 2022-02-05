@@ -1033,7 +1033,7 @@ static void
 test_modrm_invalid(void *dc)
 {
     /* Fuzzer-generated random data (i5320). */
-    byte data[16] = {0x62, 0x03, 0xa5, 0x62, 0x03, 0xa5};
+    byte data[16] = { 0x62, 0x03, 0xa5, 0x62, 0x03, 0xa5 };
     instr_t *instr = instr_create(dc);
     byte *end = decode(dc, data, instr);
     ASSERT(end == NULL);
