@@ -1032,12 +1032,15 @@ test_modrm16(void *dc)
 static void
 test_modrm_invalid(void *dc)
 {
+/* Decoding succeeds on 32-bits. */
+#ifdef X64
     /* Fuzzer-generated random data (i5320). */
     byte data[16] = { 0x62, 0x03, 0xa5, 0x62, 0x03, 0xa5 };
     instr_t *instr = instr_create(dc);
     byte *end = decode(dc, data, instr);
     ASSERT(end == NULL);
     instr_destroy(dc, instr);
+#endif
 }
 
 /* PR 215143: auto-magically add size prefixes */
