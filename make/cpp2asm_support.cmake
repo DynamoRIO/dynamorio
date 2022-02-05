@@ -140,26 +140,25 @@ if (MSVC)
   set(CPP_KEEP_WHITESPACE "")
   set(CMAKE_CPP_FLAGS "/nologo")
 else ()
-  # "gcc -E" on a non-.c-extension file gives message:
-  #   "linker input file unused because linking not done"
-  # and doesn't produce any output, so we must use cpp for our .asm files.
-  # we assume it's in the same dir.
-  get_filename_component(compiler_path ${CMAKE_C_COMPILER} PATH)
-  # Allow user to set C pre-processor from environment variable
-  if (DEFINED ENV{CPP})
-    set(CMAKE_CPP $ENV{CPP})
-  else ()
-    find_program(CMAKE_CPP cpp HINTS "${compiler_path}" DOC "path to C preprocessor")
-    if (NOT CMAKE_CPP)
-      message(FATAL_ERROR "cpp is required to build")
-    endif (NOT CMAKE_CPP)
-  endif ()
-  mark_as_advanced(CMAKE_CPP)
-
   set(CPP_KEEP_COMMENTS -C)
   set(CPP_NO_LINENUM -P)
   set(CPP_KEEP_WHITESPACE -traditional-cpp)
-  set(CMAKE_CPP_FLAGS "")
+
+  # Allow user to set C pre-processor from environment variable
+  if (DEFINED ENV{CPP})
+    set(CMAKE_CPP $ENV{CPP})
+    set(CMAKE_CPP_FLAGS "")
+  else ()
+    # Cmake-discovered compiler on macOS does not include system
+    # directories by default.
+    if (APPLE)
+      find_program(CMAKE_CPP cc)
+    else ()
+      set(CMAKE_CPP ${CMAKE_C_COMPILER})
+    endif ()
+    set(CMAKE_CPP_FLAGS "-xc")
+  endif ()
+  mark_as_advanced(CMAKE_CPP)
 endif (MSVC)
 
 ##################################################

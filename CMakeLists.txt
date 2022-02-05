@@ -1755,6 +1755,15 @@ find_package(ZLIB)
 # On Ubuntu 14.10, 32-bit builds fail to link with -lsnappy, just ignore.
 if (UNIX AND X64)
   find_library(libsnappy snappy)
+
+  # Locate non-standard snappy directories on macOS.
+  # TODO: Write proper package for snappy lookup.
+  if (libsnappy AND APPLE)
+    find_path(SNAPPY_INCLUDE_DIR snappy.h HINTS /usr/local/include)
+    find_path(SNAPPY_LIB_DIR libsnappy.a HINTS /usr/local/lib)
+    include_directories(${SNAPPY_INCLUDE_DIR})
+    link_directories(${SNAPPY_LIB_DIR})
+  endif ()
 endif ()
 
 if (BUILD_CLIENTS)
