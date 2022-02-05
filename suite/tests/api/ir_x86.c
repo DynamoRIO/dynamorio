@@ -1028,6 +1028,18 @@ test_modrm16(void *dc)
     test_modrm16_helper(dc, DR_REG_BX, DR_REG_NULL, 0x80, 5);
 }
 
+/* Just check that decoding fails silently on invalid data. */
+static void
+test_modrm_invalid(void *dc)
+{
+    /* Fuzzer-generated random data (i5320). */
+    byte data[16] = {0x62, 0x03, 0xa5, 0x62, 0x03, 0xa5};
+    instr_t *instr = instr_create(dc);
+    byte *end = decode(dc, data, instr);
+    ASSERT(end == NULL);
+    instr_destroy(dc, instr);
+}
+
 /* PR 215143: auto-magically add size prefixes */
 static void
 test_size_changes(void *dc)
@@ -2529,6 +2541,8 @@ main(int argc, char *argv[])
 #ifndef X64
     test_modrm16(dcontext);
 #endif
+
+    test_modrm_invalid(dcontext);
 
     test_size_changes(dcontext);
 
