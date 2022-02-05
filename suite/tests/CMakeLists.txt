@@ -2,6 +2,7 @@
 # Copyright (c) 2010-2022 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # Copyright (c) 2016      ARM Limited.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -1378,7 +1379,7 @@ function(torun test key source native standalone_dr dr_ops exe_ops added_out)
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
     if (NOT APPLE) # XXX i#1286: implement nudge for MacOS
       if (UNIX)
-        get_target_path_for_execution(toolbindir nudgeunix "${location_suffix}")
+        get_target_path_for_execution(toolbindir drnudgeunix "${location_suffix}")
       else ()
         get_target_path_for_execution(toolbindir drconfig "${location_suffix}")
       endif ()
@@ -3996,7 +3997,9 @@ if (UNIX)
   #
   # i#2971: We test -c32/-c64 here since modern DR focuses on clients.
   if (X86)
-    if (X64)
+    # TODO i#5153: faking i386 runs does not work with gnu install-dirs as the base directory
+    # differs across platforms
+    if (X64 AND NOT USE_GNU_DIR_LAYOUT)
       add_exe(linux.execve-sub64 linux/execve-sub.c)
       if (TEST_SUITE AND TEST_32BIT_PATH)
         tobuild_ops(linux.execve64 linux/execve.c ""
@@ -4012,8 +4015,8 @@ if (UNIX)
         file(MAKE_DIRECTORY ${32dir})
         make_symlink(${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE}
           ${32dir}/${INSTALL_LIB_BASE})
-        make_symlink(${32dir}/${INSTALL_LIB_X86}
-          ${PROJECT_BINARY_DIR}/${INSTALL_LIB_X86})
+        make_symlink(${32dir}/${INSTALL_LIB_BASE_X86}
+          ${PROJECT_BINARY_DIR}/${INSTALL_LIB_BASE_X86})
         get_target_path_for_execution(drrun_path drrun "${location_suffix}")
         # We use a client that takes some options and prints something at
         # init and at exit to test cross-arch injection with clients.
@@ -4065,10 +4068,10 @@ if (UNIX)
         set_tests_properties(linux.execve64 PROPERTIES DEPENDS linux.execve32
           PASS_REGULAR_EXPRESSION "^${expect}$")
       endif ()
-    else (X64)
+    else (X64 AND NOT USE_GNU_DIR_LAYOUT)
       add_exe(linux.execve-sub32 linux/execve-sub.c)
       add_exe(linux.execve32 linux/execve.c)
-    endif (X64)
+    endif (X64 AND NOT USE_GNU_DIR_LAYOUT)
   endif ()
 
   # helper app for execve-null

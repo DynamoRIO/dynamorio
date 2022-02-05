@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -110,7 +111,7 @@ if (WIN32)
   add_dependencies(drcov2lcov client_dr_copy)
 endif (WIN32)
 
-set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})
+set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_CONFIG})
 
 if (X64)
   set(CONFIG_INSTALL ${PROJECT_BINARY_DIR}/drcov.drrun64)
@@ -120,32 +121,32 @@ else (X64)
   set(CONFIG_BUILD ${PROJECT_BINARY_DIR}/tools/drcov.drrun32)
 endif (X64)
 
-function (write_config_file dst libdir)
+function (write_config_file dst libdir64 libdir32)
+  # TODO i#5187 set both paths to 32-bit client on i386 builds
+  if (NOT X64)
+    set(libdir64 ${libdir32})
+  endif()
+  if (USE_GNU_DIR_LAYOUT)
+    set(libdir64 ${CMAKE_INSTALL_PREFIX}/${libdir64})
+    set(libdir32 ${CMAKE_INSTALL_PREFIX}/${libdir32})
+  endif()
   # We include the alternate-bitwidth path, though it won't be there for
   # a single build dir and such a child will have a fatal error.
-  if (X64)
-    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
-    set(CUR_BIT "64")
-    set(ALT_BIT "32")
-  else ()
-    set(CUR_BIT "32")
-    set(ALT_BIT "64")
-    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
-  endif ()
   file(WRITE  ${dst} "# drcov tool config file\n")
   file(APPEND ${dst} "# DynamoRIO options\n")
   file(APPEND ${dst} "DR_OP=-nop_initial_bblock\n")
   file(APPEND ${dst} "# client tool path\n")
-  file(APPEND ${dst} "CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
-  file(APPEND ${dst} "CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drcov${LIB_EXT}\n")
+  file(APPEND ${dst} "CLIENT64_REL=${libdir64}/${LIB_PFX}drcov${LIB_EXT_SOVERSION}\n")
+  file(APPEND ${dst} "CLIENT32_REL=${libdir32}/${LIB_PFX}drcov${LIB_EXT_SOVERSION}\n")
   file(APPEND ${dst} "# client tool options\n")
   file(APPEND ${dst} "TOOL_OP=\n")
 endfunction ()
 
-set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
+set(BUILD_CLIENTS_LIB32 clients/${INSTALL_LIB_X86})
+set(BUILD_CLIENTS_LIB64 clients/${INSTALL_LIB_X64})
 
-write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_LIB})
-write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_LIB})
+write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_LIB64} ${INSTALL_CLIENTS_LIB32})
+write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_LIB64} ${BUILD_CLIENTS_LIB32})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCOV_CONFIG})
 register_tool_file("drcov")

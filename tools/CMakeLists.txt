@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -39,7 +40,7 @@ if (UNIX)
   if (APPLE)
     # XXX i#1286: implement nudge for MacOS
   else (APPLE)
-    add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/unix/nudgesig.c)
+    add_executable(drnudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/unix/nudgesig.c)
   endif ()
   add_executable(drloader drloader.c)
 
@@ -79,16 +80,27 @@ if (UNIX)
   # applied for gdb's script autoloading to work.
   # i#2127: we eliminated soversioning so we do not need to rename or
   # make a symlink anymore.
-  DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
-    DESTINATION "${INSTALL_LIB}"
-    PERMISSIONS ${owner_access} OWNER_EXECUTE
-    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  if (USE_GNU_DIR_LAYOUT)
+    DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
+      DESTINATION "${INSTALL_LIB}"
+      RENAME "libdynamorio.so.${VERSION_NUMBER}-gdb.py"
+      PERMISSIONS ${owner_access} OWNER_EXECUTE
+      GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  else ()
+    DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
+      DESTINATION "${INSTALL_LIB}"
+      PERMISSIONS ${owner_access} OWNER_EXECUTE
+      GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  endif ()
 
   set(tool_cflags "")
   set(RESOURCES "")
 
   if (NOT APPLE) # FIXME i#1286: add MacOS nudge support
-    DR_install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
+    DR_install(TARGETS drnudgeunix DESTINATION ${INSTALL_BIN})
+    add_custom_command(TARGET drnudgeunix POST_BUILD
+      WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+      COMMAND ${CMAKE_COMMAND} -E create_symlink drnudgeunix nudgeunix)
   endif ()
 else (UNIX)
   # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
@@ -166,8 +178,10 @@ if (CMAKE_COMPILER_IS_GNUCC AND NOT CMAKE_COMPILER_IS_CLANG)
   # Work around a false positive snprintf warning from gcc: i#4363.
   # XXX i#4363: A better solution would be nice to avoid missing
   # warnings on real snprintf issues.
-  set_source_files_properties(drdeploy.c PROPERTIES COMPILE_FLAGS "-Wno-restrict")
+  set_source_files_properties(drdeploy.c PROPERTIES
+    COMPILE_FLAGS "-Wno-restrict")
 endif ()
+
 add_executable(drconfig drdeploy.c ${RESOURCES})
 set_target_properties(drconfig PROPERTIES
   COMPILE_FLAGS "${tool_cflags}" COMPILE_DEFINITIONS "RC_IS_drconfig;DRCONFIG")

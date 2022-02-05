@@ -1,5 +1,6 @@
 # **********************************************************
 # Copyright (c) 2015-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -426,25 +427,24 @@ endif ()
 install_target(drcachesim ${INSTALL_CLIENTS_BIN})
 install_target(drraw2trace ${INSTALL_CLIENTS_BIN})
 
-set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_BASE})
+set(INSTALL_DRCACHESIM_CONFIG ${INSTALL_CLIENTS_CONFIG})
 
-function (write_config_file dst bindir libdir)
+function (write_config_file dst bindir libdir64 libdir32)
   # We include the alternate-bitwidth path, though it won't be there for
   # a single build dir and such a child will have a fatal error.
-  if (X64)
-    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
-    set(CUR_BIT "64")
-    set(ALT_BIT "32")
-  else ()
-    set(CUR_BIT "32")
-    set(ALT_BIT "64")
-    string(REPLACE "lib64" "lib32" alt_libdir ${libdir})
-  endif ()
   if (DEBUG)
     set(debugopt "TOOL_OP=-dr_debug")
   else ()
     set(debugopt "")
   endif ()
+  # TODO i#5187 set both paths to 32-bit client on i386 builds
+  if (NOT X64)
+    set(libdir64 ${libdir32})
+  endif()
+  if (USE_GNU_DIR_LAYOUT)
+    set(libdir64 ${CMAKE_INSTALL_PREFIX}/${libdir64})
+    set(libdir32 ${CMAKE_INSTALL_PREFIX}/${libdir32})
+  endif()
   file(GENERATE OUTPUT ${dst} CONTENT
 "# drcachesim tool config file\n\
 FRONTEND_REL=${bindir}/$<TARGET_FILE_NAME:drcachesim>\n\
@@ -452,9 +452,9 @@ TOOL_OP=-dr\n\
 TOOL_OP_DR_PATH\n\
 TOOL_OP_DR_BUNDLE=-dr_ops\n\
 TOOL_OP=-tracer\n\
-CLIENT${CUR_BIT}_REL=${libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+CLIENT64_REL=${libdir64}/${LIB_PFX}drmemtrace${LIB_EXT_SOVERSION}\n\
 TOOL_OP=-tracer_alt\n\
-CLIENT${ALT_BIT}_REL=${alt_libdir}/${LIB_PFX}drmemtrace${LIB_EXT}\n\
+CLIENT32_REL=${libdir32}/${LIB_PFX}drmemtrace${LIB_EXT_SOVERSION}\n\
 ${debugopt}\n")
 endfunction ()
 
@@ -467,10 +467,11 @@ else (X64)
 endif (X64)
 
 set(BUILD_CLIENTS_BIN clients/${INSTALL_BIN})
-set(BUILD_CLIENTS_LIB clients/${INSTALL_LIB})
+set(BUILD_CLIENTS_LIB32 clients/${INSTALL_LIB_X86})
+set(BUILD_CLIENTS_LIB64 clients/${INSTALL_LIB_X64})
 
-write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB})
-write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB})
+write_config_file(${CONFIG_INSTALL} ${INSTALL_CLIENTS_BIN} ${INSTALL_CLIENTS_LIB64} ${INSTALL_CLIENTS_LIB32})
+write_config_file(${CONFIG_BUILD} ${BUILD_CLIENTS_BIN} ${BUILD_CLIENTS_LIB64} ${BUILD_CLIENTS_LIB32})
 
 DR_install(FILES "${CONFIG_INSTALL}" DESTINATION ${INSTALL_DRCACHESIM_CONFIG})
 register_tool_file("drcachesim")

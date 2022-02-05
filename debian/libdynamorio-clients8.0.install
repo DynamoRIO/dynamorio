@@ -1,0 +1,3 @@
+usr/lib/*/DynamoRIO-*/release/clients/*.so.*
+etc/DynamoRIO/list*
+etc/DynamoRIO/*.drrun*

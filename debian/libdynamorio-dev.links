@@ -1,0 +1,12 @@
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrutil.so      usr/lib/${DEB_HOST_MULTIARCH}/libdrutil.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrwrap.so      usr/lib/${DEB_HOST_MULTIARCH}/libdrwrap.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrbbdup.so     usr/lib/${DEB_HOST_MULTIARCH}/libdrbbdup.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrpreload.so   usr/lib/${DEB_HOST_MULTIARCH}/libdrpreload.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrmgr.so       usr/lib/${DEB_HOST_MULTIARCH}/libdrmgr.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrx.so         usr/lib/${DEB_HOST_MULTIARCH}/libdrx.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdynamorio.so   usr/lib/${DEB_HOST_MULTIARCH}/libdynamorio.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrreg.so       usr/lib/${DEB_HOST_MULTIARCH}/libdrreg.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrsyms.so      usr/lib/${DEB_HOST_MULTIARCH}/libdrsyms.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrstatecmp.so  usr/lib/${DEB_HOST_MULTIARCH}/libdrstatecmp.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrcovlib.so    usr/lib/${DEB_HOST_MULTIARCH}/libdrcovlib.so
+usr/lib/${DEB_HOST_MULTIARCH}/DynamoRIO-8.0/release/libdrcallstack.so usr/lib/${DEB_HOST_MULTIARCH}/libdrcallstack.so

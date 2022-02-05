@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -277,6 +278,10 @@ get_filename_component(DynamoRIO_cwd "${CMAKE_CURRENT_LIST_FILE}" PATH)
 # for further customization.
 if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
   set(DynamoRIO_INCLUDE_DIRS "${DynamoRIO_cwd}/../include")
+  # if we include from a system-wide install, use the full path to the headers
+  if (@USE_GNU_DIR_LAYOUT@ AND NOT EXISTS "${DynamoRIO_INCLUDE_DIRS}/dr_frontend.h")
+    set(DynamoRIO_INCLUDE_DIRS "@CMAKE_INSTALL_PREFIX@/include/DynamoRIO")
+  endif ()
 endif (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
 
 # Officially CMAKE_BUILD_TYPE is supposed to be ignored for VS generators so
@@ -941,6 +946,11 @@ function (configure_DynamoRIO_client target)
 
   # We clear LINK_FLAGS and let the helper routines append to them:
   set_target_properties(${target} PROPERTIES LINK_FLAGS "")
+  if (@USE_GNU_DIR_LAYOUT@)
+    set_target_properties(${target} PROPERTIES
+      VERSION "@VERSION_NUMBER@"
+      SOVERSION "@VERSION_MAJOR_MINOR@")
+  endif()
 
   _DR_set_compile_flags(${target} ON "")
   if (just_configured)
@@ -1155,7 +1165,11 @@ function (use_DynamoRIO_extension target extname)
     endif ()
     # See whether this Extension is packaged with DynamoRIO:
     if (UNIX)
-      file(GLOB libs "${DynamoRIO_cwd}/../ext/lib*/*/lib${extname}.*")
+      if (@USE_GNU_DIR_LAYOUT@)
+        file(GLOB libs "@CMAKE_INSTALL_PREFIX@/@INSTALL_LIB_BASE@/*/lib${extname}.*")
+      else ()
+        file(GLOB libs "${DynamoRIO_cwd}/../ext/lib*/*/lib${extname}.*")
+      endif()
     else (UNIX)
       file(GLOB libs "${DynamoRIO_cwd}/../ext/lib*/*/${extname}.*")
     endif (UNIX)
@@ -1167,7 +1181,11 @@ function (use_DynamoRIO_extension target extname)
     else ()
       # Local extensions are exported in the same cmake file as DynamoRIO
       # so we do not need to include another file here.
-      include_directories(${DynamoRIO_cwd}/../ext/include)
+      if (@USE_GNU_DIR_LAYOUT@)
+        include_directories("@CMAKE_INSTALL_PREFIX@/include/DynamoRIO/ext")
+      else ()
+        include_directories(${DynamoRIO_cwd}/../ext/include)
+      endif ()
     endif ()
   else (NOT DynamoRIO_INTERNAL)
     # support building from build dir for our own samples, and from

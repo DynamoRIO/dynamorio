@@ -1,6 +1,7 @@
 # **********************************************************
 # Copyright (c) 2010-2021 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
+# Copyright (c) 2021 Siemens AG
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -326,15 +327,13 @@ if (NOT DEFINED INSTALL_PREFIX)
   set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE INTERNAL
     "where to install" FORCE)
 endif (NOT DEFINED INSTALL_PREFIX)
-set(INSTALL_SAMPLES samples)
-if (NOT DEFINED X64)
-  message(FATAL_ERROR "we assume X64 is inherited from parent scope")
-endif (NOT DEFINED X64)
-if (X64)
-  set(INSTALL_SAMPLES_BIN ${INSTALL_SAMPLES}/bin64)
-else (X64)
-  set(INSTALL_SAMPLES_BIN ${INSTALL_SAMPLES}/bin32)
-endif (X64)
+if (USE_GNU_DIR_LAYOUT)
+  set(INSTALL_SAMPLES ${INSTALL_DOCS}/examples)
+  set(INSTALL_SAMPLES_BIN ${INSTALL_LIB_BASE}/examples)
+else (USE_GNU_DIR_LAYOUT)
+  set(INSTALL_SAMPLES samples)
+  set(INSTALL_SAMPLES_BIN ${INSTALL_SAMPLES}/${INSTALL_BIN})
+endif (USE_GNU_DIR_LAYOUT)
 
 DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
