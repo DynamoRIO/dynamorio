@@ -245,13 +245,14 @@ ASSUME fs:_DATA @N@\
 # define START_FILE SECTION .text
 # define END_FILE /* nothing */
 /* for MacOS, at least, we have to add _ ourselves */
-# define DECLARE_FUNC(symbol) global _##symbol
-# define DECLARE_EXPORTED_FUNC(symbol) global _##symbol
+# define CONCAT(a, b) a ## b
+# define DECLARE_FUNC(symbol) global CONCAT(_, symbol)
+# define DECLARE_EXPORTED_FUNC(symbol) global CONCAT(_, symbol)
 # define END_FUNC(symbol) /* nothing */
-# define DECLARE_GLOBAL(symbol) global _##symbol
-# define GLOBAL_LABEL(label) _##label
-# define ADDRTAKEN_LABEL(label) _##label
-# define GLOBAL_REF(label) _##label
+# define DECLARE_GLOBAL(symbol) global CONCAT(_, symbol)
+# define GLOBAL_LABEL(label) CONCAT(_, label)
+# define ADDRTAKEN_LABEL(label) CONCAT(_, label)
+# define GLOBAL_REF(label) CONCAT(_, label)
 # define WEAK(name) /* no support */
 # define BYTE byte
 # define WORD word

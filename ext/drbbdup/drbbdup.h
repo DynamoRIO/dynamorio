@@ -301,6 +301,12 @@ typedef struct {
      * set to true.
      */
     bool is_stat_enabled;
+    /**
+     * Gives an upper bound on the value of all case encodings.  This is used to
+     * optimize the dispatch code on AArchXX: in particular, an upper bound <256
+     * avoids an extra scratch register.  Set to 0 to indicate there is no bound.
+     */
+    uintptr_t max_case_encoding;
 } drbbdup_options_t;
 
 /**

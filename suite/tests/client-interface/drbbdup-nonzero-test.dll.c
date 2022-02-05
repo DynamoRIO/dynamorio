@@ -30,9 +30,8 @@
  * DAMAGE.
  */
 
-/* Tests the drbbdup extension when encoding is not inserted at the start of
- * basic blocks. It relies on drbbdup's guarantee that it does not modify
- * any set encoding of a thread on its own accord.
+/* Similar to drbbdup-no-encode-test, but we have a non-zero default and a zero
+ * non-default case, to test optimizations in encoding comparison checks.
  */
 
 #include "dr_api.h"
@@ -61,12 +60,12 @@ set_up_bb_dups(void *drbbdup_ctx, void *drcontext, void *tag, instrlist_t *bb,
     CHECK(enable_dynamic_handling != NULL, "should not be NULL");
     CHECK(user_data == USER_DATA_VAL, "user data does not match");
 
-    res = drbbdup_register_case_encoding(drbbdup_ctx, 1);
+    res = drbbdup_register_case_encoding(drbbdup_ctx, 0); /* zero non-default case */
     CHECK(res == DRBBDUP_SUCCESS, "failed to register case 1");
 
     *enable_dups = true;
     *enable_dynamic_handling = false; /* disable dynamic handling */
-    return 0;                         /* return default case */
+    return 1;                         /* return non-zero default case */
 }
 
 static void
