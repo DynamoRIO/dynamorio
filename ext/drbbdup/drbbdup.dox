@@ -87,6 +87,11 @@ default case as well as register additional case encodings via
 disable duplication for this particular basic block by falsifying a flag that is
 provided to the call-back function.
 
+When only two cases are used, the default and one additional, and the
+encoding value for one of them is zero, drbbdup is able to generate
+faster case dispatch code.  To produce optimal code for x86, it is best to
+have the default case use the non-zero encoding.
+
 \section sec_drbbdup_analysis Case Analysis
 
 There are two types of analysis call-back functions that are supported by drbbdup.
@@ -122,8 +127,12 @@ current runtime case encoding and dispatch control accordingly.
 The #drbbdup_insert_encode_t call-back may also be set to NULL which results in the
 dispatcher not attempting the construction of the runtime case at every start of
 a basic block execution. In such cases, it is expected that the client directly
-sets the runtime encoding directly and updates the value on demand. The drbbdup extension
+sets the runtime encoding and updates the value on demand. The drbbdup extension
 guarantees that it does not modify the set encoding on its own accord.
+
+A PC-relative case encoding operand is supported on AArchXX, with
+drbbdup adding code to obtain the linear address and so avoid
+reachability problems.
 
 \section sec_drbbdup_instrum Case Instrumentation
 
