@@ -61,7 +61,7 @@ be complete.
 
 
 ```
-{%raw %}vpscatterdd {%k1} %xmm10 -> %rax(,%xmm11,4)[4byte] %k1{%endraw %}
+{% raw %}vpscatterdd {%k1} %xmm10 -> %rax(,%xmm11,4)[4byte] %k1{% endraw %}
 ```
 
 Above is an AVX512 scatter instruction that writes 32-bit doublewords from the 128-
@@ -158,7 +158,7 @@ vpgatherdd 0x00402039(,%xmm11,4)[4byte] %xmm13 -> %xmm12 %xmm13
 
 
 ```
-{%raw %} +0    m4 @0x00007fdb2ac5e6a0  65 48 a3 e0 00 00 00 mov    %rax -> %gs:0x000000e0[8byte]
+{% raw %} +0    m4 @0x00007fdb2ac5e6a0  65 48 a3 e0 00 00 00 mov    %rax -> %gs:0x000000e0[8byte]
                                00 00 00 00
  +11   m4 @0x00007fdb2ac5eac0  9f                   lahf    -> %ah
  +12   m4 @0x00007fdb2ac5ea40  0f 90 c0             seto    -> %al                              // Spill aflags using drreg.
@@ -254,18 +254,18 @@ vpgatherdd 0x00402039(,%xmm11,4)[4byte] %xmm13 -> %xmm12 %xmm13
  +454  m4 @0x00007fdb2ac5d9e8  9e                   sahf   %ah
  +455  m4 @0x00007fdb2ac5d900  65 48 a1 e0 00 00 00 mov    %gs:0x000000e0[8byte] -> %rax        // Restore aflags using drreg.
                                00 00 00 00
- +466  m4 @0x00007fdb2ac5d818                       <label>{%endraw %}
+ +466  m4 @0x00007fdb2ac5d818                       <label>{% endraw %}
  ```
 
 
 Expansion for
 ```
-{%raw %}vpscatterdd {%k1} %xmm10 -> 0x00402039(,%xmm11,4)[4byte] %k1{%endraw %}
+{% raw %}vpscatterdd {%k1} %xmm10 -> 0x00402039(,%xmm11,4)[4byte] %k1{% endraw %}
 ```
 
 
 ```
-{%raw %} +0    m4 @0x00007fdb2ac106e0  65 48 a3 e0 00 00 00 mov    %rax -> %gs:0x000000e0[8byte]
+{% raw %} +0    m4 @0x00007fdb2ac106e0  65 48 a3 e0 00 00 00 mov    %rax -> %gs:0x000000e0[8byte]
                                00 00 00 00
  +11   m4 @0x00007fdb2ac10760  9f                   lahf    -> %ah
  +12   m4 @0x00007fdb2ac107e0  0f 90 c0             seto    -> %al                              // Spill aflags using drreg.
@@ -373,7 +373,7 @@ Expansion for
  +488  m4 @0x00007fdb2ac0b8b8  9e                   sahf   %ah
  +489  m4 @0x00007fdb2ac0cc20  65 48 a1 e0 00 00 00 mov    %gs:0x000000e0[8byte] -> %rax        // Restore aflags using drreg.
                                00 00 00 00
- +500  m4 @0x00007fdb2ac0baa0                       <label>{%endraw %}
+ +500  m4 @0x00007fdb2ac0baa0                       <label>{% endraw %}
 ```
 
 As shown by the above expanded scatter and gather sequences, we require scratch
