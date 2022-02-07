@@ -186,6 +186,10 @@ if (embeddable)
         "<object type=\"image/svg+xml\" data=\"/images/"
         string "${string}")
 
+    string(REGEX REPLACE "{%" "jekyll_raw_tag{%jekyll_endraw_tag" string "${string}")
+    string(REGEX REPLACE "%}" "jekyll_raw_tag%}jekyll_endraw_tag" string "${string}")
+    string(REGEX REPLACE "jekyll_raw_tag" "{% raw %}" string "${string}")
+    string(REGEX REPLACE "jekyll_endraw_tag" "{% endraw %}" string "${string}")
     # Collect type info for keyword searches with direct anchor links (else the
     # search finds the page but the user then has to manually search within the long
     # page -- and there are no doygen options to split each onto its own page).

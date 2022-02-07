@@ -151,7 +151,10 @@ any client that needs it, including drcachesim. This support was added by
 
 As an example, the following are the expansions of some instructions.
 
-Expansion for `vpgatherdd 0x00402039(,%xmm11,4)[4byte] %xmm13 -> %xmm12 %xmm13`
+Expansion for
+```
+vpgatherdd 0x00402039(,%xmm11,4)[4byte] %xmm13 -> %xmm12 %xmm13
+```
 
 
 ```
@@ -252,10 +255,13 @@ Expansion for `vpgatherdd 0x00402039(,%xmm11,4)[4byte] %xmm13 -> %xmm12 %xmm13`
  +455  m4 @0x00007fdb2ac5d900  65 48 a1 e0 00 00 00 mov    %gs:0x000000e0[8byte] -> %rax        // Restore aflags using drreg.
                                00 00 00 00
  +466  m4 @0x00007fdb2ac5d818                       <label>
- ```
+```
 
 
-Expansion for `vpscatterdd {%k1} %xmm10 -> 0x00402039(,%xmm11,4)[4byte] %k1`
+Expansion for
+```
+vpscatterdd {%k1} %xmm10 -> 0x00402039(,%xmm11,4)[4byte] %k1
+```
 
 
 ```
@@ -368,7 +374,7 @@ Expansion for `vpscatterdd {%k1} %xmm10 -> 0x00402039(,%xmm11,4)[4byte] %k1`
  +489  m4 @0x00007fdb2ac0cc20  65 48 a1 e0 00 00 00 mov    %gs:0x000000e0[8byte] -> %rax        // Restore aflags using drreg.
                                00 00 00 00
  +500  m4 @0x00007fdb2ac0baa0                       <label>
- ```
+```
 
 As shown by the above expanded scatter and gather sequences, we require scratch
 registers for the expansion. The GPR scratch registers are obtained using
