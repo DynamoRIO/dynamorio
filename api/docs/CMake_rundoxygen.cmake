@@ -193,6 +193,7 @@ if (embeddable)
     string(REGEX REPLACE "%}" "jekyll_raw_tag_f00d%}jekyll_endraw_tag_f00d" string "${string}")
     string(REGEX REPLACE "jekyll_raw_tag_f00d" "{% raw %}" string "${string}")
     string(REGEX REPLACE "jekyll_endraw_tag_f00d" "{% endraw %}" string "${string}")
+
     # Collect type info for keyword searches with direct anchor links (else the
     # search finds the page but the user then has to manually search within the long
     # page -- and there are no doygen options to split each onto its own page).
