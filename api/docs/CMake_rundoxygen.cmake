@@ -185,7 +185,8 @@ if (embeddable)
         "<object type=\"image/svg\\+xml\" data=\""
         "<object type=\"image/svg+xml\" data=\"/images/"
         string "${string}")
-
+    # Ensure that strings that look like Jekyll tags are not interpreted as such.
+    # We add the Jekyll raw-endraw tags around "{%" and "%}" separately.
     string(REGEX REPLACE "{%" "jekyll_raw_tag{%jekyll_endraw_tag" string "${string}")
     string(REGEX REPLACE "%}" "jekyll_raw_tag%}jekyll_endraw_tag" string "${string}")
     string(REGEX REPLACE "jekyll_raw_tag" "{% raw %}" string "${string}")
