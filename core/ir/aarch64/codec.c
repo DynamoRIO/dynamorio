@@ -1,6 +1,6 @@
 /* **********************************************************
  * Copyright (c) 2017-2022 Google, Inc.  All rights reserved.
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2022 ARM Limited. All rights reserved.
  * **********************************************************/
 
 /*
@@ -4855,9 +4855,22 @@ encode_opnds_tbz(byte *pc, instr_t *instr, uint enc, decode_info_t *di)
 
 /******************************************************************************/
 
-/* Include automatically generated decoder and encoder. */
-#include "decode_gen.h"
-#include "encode_gen.h"
+/* Include automatically generated decoder and encoder files. Decode and encode
+ * code is partitioned into versions of the AArch64 architecture starting with
+ * v8.0. The decode/encode logic is chained together into a pipeline with v8.0
+ * calling v8.1, which calls v8.2 and so on, returning from the decode/encode
+ * functions as soon as a match is found.
+ */
+#include "opnd_decode_funcs.h"
+#include "opnd_encode_funcs.h"
+#include "decode_gen_sve.h"
+#include "decode_gen_v82.h"
+#include "decode_gen_v81.h"
+#include "decode_gen_v80.h"
+#include "encode_gen_sve.h"
+#include "encode_gen_v82.h"
+#include "encode_gen_v81.h"
+#include "encode_gen_v80.h"
 
 /******************************************************************************/
 
@@ -4872,7 +4885,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
 
-    if (!decoder(enc, dcontext, orig_pc, instr)) {
+    if (!decoder_v80(enc, dcontext, orig_pc, instr)) {
         /* This clause handles undefined HINT instructions. See the comment
          * 'Notes on specific instructions' in codec.txt for details. If the
          * decoder reads an undefined hint, a message with the unallocated
@@ -4963,5 +4976,5 @@ uint
 encode_common(byte *pc, instr_t *i, decode_info_t *di)
 {
     ASSERT(((ptr_int_t)pc & 3) == 0);
-    return encoder(pc, i, di);
+    return encoder_v80(pc, i, di);
 }
