@@ -42,7 +42,7 @@ Here are some examples:
 $ bin64/drdisas 62 e2 f5 47 40 41 37
  62 e2 f5 47 40 41 37 vpmullq zmm16 {k7}, zmm17, [rcx+0x00000dc0]
 $ bin64/drdisas -mode x86 -no_show_bytes -syntax dr 62 e2 f5 47 40 41 37
-{%raw %}vpmullq {%k7} %zmm17 0x00000dc0(%ecx)[64byte] -> %zmm16{%endraw %}
+vpmullq {%k7} %zmm17 0x00000dc0(%ecx)[64byte] -> %zmm16
 \endcode
 
 Cross-architecture decoding in the same binary is not yet supported.
