@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# **********************************************************
-# Copyright (c) 2021 Arm Limited    All rights reserved.
-# **********************************************************
+# ***********************************************************
+# Copyright (c) 2021-2022 Arm Limited    All rights reserved.
+# ***********************************************************
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -31,8 +31,8 @@
 # DAMAGE.
 
 """
-Script to order instructions in codec.txt
-Usage: python codecsort.py [--rewrite]
+Script to order instructions in codec_<version>.txt
+Usage: python codecsort.py [--rewrite|--global] codec_<version>.txt
 """
 
 import re
@@ -40,8 +40,7 @@ import sys
 import os.path
 
 
-DELIMITER = "# Instructions:"
-CODEC_FILE = os.path.join(os.path.dirname(__file__), "codec.txt")
+DELIMITER = "# Instruction definitions:"
 
 class CodecLine:
     """Container to keep line info together"""
@@ -52,12 +51,12 @@ class CodecLine:
         self.opcode = opcode
         self.opndtypes = opndtypes
 
-def read_instrs():
-    """Read the instr lines from the codec.txt file"""
+def read_instrs(codec_file):
+    """Read the instr lines from the codec_<version>.txt file"""
     seen_delimeter = False
     instrs = []
 
-    with open(CODEC_FILE, "r") as lines:
+    with open(codec_file, "r") as lines:
         for line in (l.strip() for l in lines if l.strip()):
             if not seen_delimeter:
                 if line == DELIMITER:
@@ -87,6 +86,14 @@ def handle_enums(instrs):
         else:
             enums[i.opcode] = i.enum
 
+    reversed_enums = {}
+    for opcode, enum in enums.items():
+        reversed_enums.setdefault(enum, set()).add(opcode)
+    for enum, opcodes in reversed_enums.items():
+        assert len(opcodes) == 1, \
+            "Multiple opcodes for the same enum {}: {}".format(
+                enum, ','.join(opcodes))
+
     enums = {i.opcode: i.enum for i in instrs if i.enum}
     if enums:
         max_enum = max(int(i.enum) for i in instrs if i.enum)
@@ -101,11 +108,31 @@ def handle_enums(instrs):
 
 
 def main():
-    """Reorder the instr section of codec.txt, making sure to be a stable function"""
-    instrs = read_instrs()
+    """Reorder the given codec_<version>.txt """
+
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print('Usage: codecsort.py [--rewrite|--global] <codec definitions file>')
+        sys.exit(1)
+
+    is_rewrite = False
+    is_global = False
+    if len(sys.argv) == 3 and sys.argv[1] == "--rewrite":
+        is_rewrite = True
+        codec_file = sys.argv[2]
+    elif len(sys.argv) == 3 and sys.argv[1] == "--global":
+        is_global = True
+        codec_file = sys.argv[2]
+    else:
+        codec_file = sys.argv[1]
+
+    instrs = read_instrs(codec_file)
     instrs.sort(key=lambda line: line.opcode)
 
     handle_enums(instrs)
+    if is_global:
+       status = str(len(instrs)) + ' instruction definitions checked in --global mode'
+       sys.stdout.write(status)
+       return
 
     # Scan for some max lengths for formatting
     instr_length = max(len(i.opcode) for i in instrs)
@@ -115,30 +142,25 @@ def main():
         if ":" in i.opndtypes
         and len(i.opndtypes.split(":")[0].strip()) < 14)
 
-    contains_z =  re.compile(r'z[0-9]+')
+    new_lines = []
 
-    v8_instrs = [i for i in instrs if not contains_z.match(i.opndtypes)]
-    sve_instrs = [i for i in instrs if contains_z.match(i.opndtypes)]
-
-    new_lines = {}
-
-    for name, instr_list in (["v8", v8_instrs], ["sve", sve_instrs]):
-        new_lines[name] = [
+    for instr in instrs:
+        new_lines.append(
             "{pattern}  {nzcv:<3} {enum:<4} {opcode_pad}{opcode}  {opand_pad}{opand}".format(
-                enum=i.enum,
-                pattern=i.pattern,
-                nzcv=i.nzcv,
-                opcode_pad=(instr_length - len(i.opcode)) * " ",
-                opcode=i.opcode,
-                opand_pad=(pre_colon - len(i.opndtypes.split(":")[0].strip())) * " ",
+                enum=instr.enum,
+                pattern=instr.pattern,
+                nzcv=instr.nzcv,
+                opcode_pad=(instr_length - len(instr.opcode)) * " ",
+                opcode=instr.opcode,
+                opand_pad=(pre_colon - len(instr.opndtypes.split(":")[0].strip())) * " ",
                 opand="{} : {}".format(
-                    i.opndtypes.split(":")[0].strip(),
-                    i.opndtypes.split(":")[1].strip()) if ":" in i.opndtypes
-                else i.opndtypes
-                ).strip() for i in instr_list]
+                    instr.opndtypes.split(":")[0].strip(),
+                    instr.opndtypes.split(":")[1].strip()) if ":" in instr.opndtypes
+                else instr.opndtypes
+                ).strip())
 
     header = []
-    with open(CODEC_FILE, "r") as lines:
+    with open(codec_file, "r") as lines:
         for line in lines:
             header.append(line.strip("\n"))
             if line.strip() == DELIMITER:
@@ -147,13 +169,11 @@ def main():
 
     def output(dest):
         dest("\n".join(header))
-        dest("\n".join(new_lines["v8"]))
-        dest("\n# SVE instructions")
-        dest("\n".join(new_lines["sve"]))
+        dest("\n".join(new_lines))
 
-    if len(sys.argv) > 1 and sys.argv[1] == "--rewrite":
-        with open(CODEC_FILE, "w") as codec_file:
-            output(lambda l: codec_file.write(l+"\n"))
+    if is_rewrite:
+        with open(codec_file, "w") as codec_txt:
+            output(lambda l: codec_txt.write(l+"\n"))
     else:
         output(lambda l: sys.stdout.write(l + "\n"))
 
