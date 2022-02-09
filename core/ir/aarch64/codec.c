@@ -2697,8 +2697,8 @@ encode_opnd_bhs_imm5_sz_s(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint 
     return imm5_sz_encode(VECTOR_ELEM_WIDTH_SINGLE, true, opnd, enc_out);
 }
 
-/* bhsd_imm5_sz_s: The element size of a vector mediated by imm5 with possible values b, h,
- * s and d and writing out the encoding
+/* bhsd_imm5_sz_s: The element size of a vector mediated by imm5 with possible values b,
+ * h, s and d and writing out the encoding
  */
 static inline bool
 decode_opnd_bhsd_imm5_sz_s(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)

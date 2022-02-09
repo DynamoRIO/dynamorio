@@ -1505,7 +1505,7 @@ test_fmov_general(void *dc)
     test_instr_encoding(dc, OP_fmov, instr);
 
     instr = INSTR_CREATE_fmov_upper_vec(dc, opnd_create_reg(DR_REG_Q9),
-                                      opnd_create_reg(DR_REG_X10));
+                                        opnd_create_reg(DR_REG_X10));
     test_instr_encoding(dc, OP_fmov, instr);
 }
 

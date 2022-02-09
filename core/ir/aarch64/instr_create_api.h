@@ -873,8 +873,9 @@
  * \param Rd   The output register.
  * \param Rn   The first input vector register.
  */
-#define INSTR_CREATE_fmov_upper_vec(dc, Rd, Rn) \
-    instr_create_2dst_2src(dc, OP_fmov, Rd, opnd_create_immed_int(1, OPSZ_2b), Rn, OPND_CREATE_DOUBLE())
+#define INSTR_CREATE_fmov_upper_vec(dc, Rd, Rn)                                    \
+    instr_create_2dst_2src(dc, OP_fmov, Rd, opnd_create_immed_int(1, OPSZ_2b), Rn, \
+                           OPND_CREATE_DOUBLE())
 
 /* -------- Advanced SIMD three same including fp16 versions ----------------
  * Some macros are also used for
