@@ -222,7 +222,7 @@ for (my $i = 0; $i <= $#lines; ++$i) {
                 'code_api|client.cbr4' => 1, # i#4792
                 'code_api|win32.hookerfirst' => 1, # i#4870
                 'code_api|client.attach_test' => 1, # i#725
-                'code_api|client.winxfer' = 1, # i#4732
+                'code_api|client.winxfer' => 1, # i#4732
                 # These are from earlier runs on Appveyor:
                 'code_api|security-common.retnonexisting' => 1,
                 'code_api|security-win32.gbop-test' => 1, # i#2972
