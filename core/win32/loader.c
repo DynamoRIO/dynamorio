@@ -800,7 +800,6 @@ void
 restore_peb_pointer_for_thread(dcontext_t *dcontext)
 {
     PEB *tgt_peb = get_own_peb();
-    ASSERT_NOT_TESTED();
     ASSERT(INTERNAL_OPTION(private_peb));
     ASSERT(private_peb_initialized);
     ASSERT(tgt_peb != NULL);
