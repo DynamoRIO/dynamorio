@@ -3356,6 +3356,15 @@ d2400441 : eor    x1, x2, #0x3            : eor    %x2 $0x0000000000000003 -> %x
 2f20fd6a : fcvtzu v10.2s, v11.2s, #32               : fcvtzu %d11 $0x02 $0x20 -> %d10
 2f2bffbc : fcvtzu v28.2s, v29.2s, #21               : fcvtzu %d29 $0x02 $0x15 -> %d28
 2f21fffe : fcvtzu v30.2s, v31.2s, #31               : fcvtzu %d31 $0x02 $0x1f -> %d30
+7f7ffc20 : fcvtzu d0, d1, #1                        : fcvtzu %d1 $0x01 -> %d0
+2ef9b862 : fcvtzu v2.4h, v3.4h                      : fcvtzu %d3 $0x01 -> %d2
+6ef9b862 : fcvtzu v2.8h, v3.8h                      : fcvtzu %q3 $0x01 -> %q2
+7f7efc62 : fcvtzu d2, d3, #2                        : fcvtzu %d3 $0x02 -> %d2
+2ea1b862 : fcvtzu v2.2s, v3.2s                      : fcvtzu %d3 $0x02 -> %d2
+6ea1b862 : fcvtzu v2.4s, v3.4s                      : fcvtzu %q3 $0x02 -> %q2
+7f7dfc62 : fcvtzu d2, d3, #3                        : fcvtzu %d3 $0x03 -> %d2
+6ee1b862 : fcvtzu v2.2d, v3.2d                      : fcvtzu %q3 $0x03 -> %q2
+7f7cfc62 : fcvtzu d2, d3, #4                        : fcvtzu %d3 $0x04 -> %d2
 
 2e573f09 : fdiv v9.4h, v24.4h, v23.4h               : fdiv   %d24 %d23 $0x01 -> %d9
 6e573f09 : fdiv v9.8h, v24.8h, v23.8h               : fdiv   %q24 %q23 $0x01 -> %q9

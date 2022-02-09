@@ -1255,7 +1255,7 @@ encode_opnd_lsl(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 static inline bool
 decode_opnd_h_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b);
+    *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_1);
     return true;
 }
 
@@ -1265,7 +1265,8 @@ encode_opnd_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
     if (!opnd_is_immed_int(opnd))
         return false;
 
-    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_HALF)
+    if ((opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_HALF) &&
+        (opnd_get_size(opnd) == OPSZ_1))
         return true;
     return false;
 }
@@ -3508,11 +3509,11 @@ static inline bool
 decode_opnd_sd_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
     if (((enc >> 22) & 1) == 0) {
-        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_1);
         return true;
     }
     if (((enc >> 22) & 1) == 1) {
-        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b);
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_1);
         return true;
     }
     return false;
@@ -3524,11 +3525,13 @@ encode_opnd_sd_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out
     if (!opnd_is_immed_int(opnd))
         return false;
 
-    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_SINGLE) {
+    if ((opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_SINGLE) &&
+        (opnd_get_size(opnd) == OPSZ_1)) {
         *enc_out = 0;
         return true;
     }
-    if (opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_DOUBLE) {
+    if ((opnd_get_immed_int(opnd) == VECTOR_ELEM_WIDTH_DOUBLE) &&
+        (opnd_get_size(opnd) == OPSZ_1)) {
         *enc_out = 1 << 22;
         return true;
     }
