@@ -2824,9 +2824,10 @@ dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats)
      * and we need to resolve the unbounded dr_app_stop() time.
      */
     if (dynamo_initialized && !dynamo_exited && !doing_detach) {
+#    ifdef WINDOWS
         /* dynamo_thread_exit_common will later swap to app. */
         swap_peb_pointer(get_thread_private_dcontext(), true /*to priv*/);
-
+#    endif
         detach_on_permanent_stack(true /*internal*/, true /*do cleanup*/, drstats);
     }
     /* the application regains control in here */
