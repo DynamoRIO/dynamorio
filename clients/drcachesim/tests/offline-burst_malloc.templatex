@@ -1,6 +1,21 @@
 pre-DR init
-Warning: duplicated function name .*
+Warning: duplicated function name malloc in [^W]*
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
 .*
+all done
+pre-DR init
+Warning: duplicated function name malloc in [^W]*
+pre-DR start
+pre-DR detach
+DynamoRIO statistics:
+ *Peak threads under DynamoRIO control : *1
+.*
+all done
+pre-DR init
+Warning: duplicated function name malloc in [^W]*
 pre-DR start
 pre-DR detach
 DynamoRIO statistics:
