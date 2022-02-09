@@ -167,6 +167,19 @@ highest_bit_set(uint enc, int pos, int len, int *highest_bit)
     return false;
 }
 
+/* Find the lowest bit set in subfield, relative to the starting position. */
+static inline uint
+lowest_bit_set(uint enc, int pos, int len, int *lowest_bit)
+{
+    for (int i = pos; i < pos + len; i++) {
+        if (enc & (1 << i)) {
+            *lowest_bit = i - pos;
+            return true;
+        }
+    }
+    return false;
+}
+
 static inline aarch64_reg_offset
 get_reg_offset(reg_t reg)
 {
@@ -2529,30 +2542,114 @@ encode_opnd_sysreg(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_ou
     return true;
 }
 
-/* helper function for getting the index of the least
-   significant high bit of a 5 bit immediate, e.g.
-   00001 = 0, 00010 = 1, 00100 = 2 ...
-*/
-static inline int
-get_imm5_offset(int val)
+static inline bool
+imm5_sz_decode(uint max_size, uint enc, OUT opnd_t *opnd)
 {
-    for (int i = 0; i < 4; i++) {
-        if ((1 << i) & val) {
-            return i;
-        }
+    int lowest_bit;
+    if (!lowest_bit_set(enc, 16, 5, &lowest_bit))
+        return false;
+
+    if (lowest_bit > max_size)
+        return false;
+
+    switch (lowest_bit) {
+    case BYTE_REG: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_BYTE, OPSZ_2b); break;
+    case HALF_REG: *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_HALF, OPSZ_2b); break;
+    case SINGLE_REG:
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_SINGLE, OPSZ_2b);
+        break;
+    case DOUBLE_REG:
+        *opnd = opnd_create_immed_int(VECTOR_ELEM_WIDTH_DOUBLE, OPSZ_2b);
+        break;
+    default: return false;
     }
-    return -1;
+    return true;
 }
 
-/* wx5_imm5: bits 5-9 is a GPR whos width is dependent on information in
+static inline bool
+imm5_sz_encode(ptr_int_t max_size, bool write_out, opnd_t opnd, OUT uint *enc_out)
+{
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    ptr_int_t size = opnd_get_immed_int(opnd);
+
+    if (size > max_size)
+        return false;
+
+    uint imm;
+    switch (size) {
+    case VECTOR_ELEM_WIDTH_BYTE: imm = 0b00001; break;
+    case VECTOR_ELEM_WIDTH_HALF: imm = 0b00010; break;
+    case VECTOR_ELEM_WIDTH_SINGLE: imm = 0b00100; break;
+    case VECTOR_ELEM_WIDTH_DOUBLE: imm = 0b01000; break;
+    default: return false;
+    }
+
+    if (write_out)
+        *enc_out = imm << 16;
+
+    return true;
+}
+
+/* bh_imm5_sz: The element size of a vector mediated by imm5 with possible values b or h
+ */
+static inline bool
+decode_opnd_bh_imm5_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+
+    return imm5_sz_decode(HALF_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_bh_imm5_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return imm5_sz_encode(VECTOR_ELEM_WIDTH_HALF, false, opnd, enc_out);
+}
+
+/* bhs_imm5_sz: The element size of a vector mediated by imm5 with possible values b, h
+ * and s
+ */
+static inline bool
+decode_opnd_bhs_imm5_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return imm5_sz_decode(SINGLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_bhs_imm5_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return imm5_sz_encode(VECTOR_ELEM_WIDTH_SINGLE, false, opnd, enc_out);
+}
+
+/* bhsd_imm5_sz: The element size of a vector mediated by imm5 with possible values b, h,
+ * s and d
+ */
+static inline bool
+decode_opnd_bhsd_imm5_sz(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return imm5_sz_decode(DOUBLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_bhsd_imm5_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return imm5_sz_encode(VECTOR_ELEM_WIDTH_DOUBLE, false, opnd, enc_out);
+}
+
+/* wx5_imm5: bits 5-9 is a GPR whose width is dependent on information in
    an imm5 from bits 16-20
 */
 static inline bool
 decode_opnd_wx5_imm5(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
 {
-    uint imm5 = extract_int(enc, 16, 5);
-    bool is_x_register = get_imm5_offset(imm5) == 3 ? true : false;
+    int lowest_bit;
+    if (!lowest_bit_set(enc, 16, 5, &lowest_bit) || lowest_bit == 5)
+        return false;
+
+    bool is_x_register = lowest_bit == 3;
     *opnd = opnd_create_reg(decode_reg(extract_uint(enc, 5, 5), is_x_register, false));
+
     return true;
 }
 
@@ -2581,6 +2678,93 @@ static inline bool
 encode_opnd_imm5(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
 {
     return encode_opnd_int(16, 5, false, 0, 0, opnd, enc_out);
+}
+
+/* bhs_imm5_sz_s: The element size of a vector mediated by imm5 with possible values b, h,
+ * and s. Some instructions don't use the value space in the imm5 structure, so the
+ * usual strategy of allowing them to handle writing of the encoding don't work here
+ * and we have to explicitly do the encoding.
+ */
+static inline bool
+decode_opnd_bhs_imm5_sz_s(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return imm5_sz_decode(SINGLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_bhs_imm5_sz_s(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return imm5_sz_encode(VECTOR_ELEM_WIDTH_SINGLE, true, opnd, enc_out);
+}
+
+/* bhsd_imm5_sz_s: The element size of a vector mediated by imm5 with possible values b,
+ * h, s and d and writing out the encoding
+ */
+static inline bool
+decode_opnd_bhsd_imm5_sz_s(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    return imm5_sz_decode(DOUBLE_REG, enc, opnd);
+}
+
+static inline bool
+encode_opnd_bhsd_imm5_sz_s(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    return imm5_sz_encode(VECTOR_ELEM_WIDTH_DOUBLE, true, opnd, enc_out);
+}
+
+/* imm5_idx: Extract the index portion from the imm5 field
+ */
+static inline bool
+decode_opnd_imm5_idx(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
+{
+    int lowest_bit;
+    if (!lowest_bit_set(enc, 16, 5, &lowest_bit))
+        return false;
+
+    uint imm5_index = extract_uint(enc, 16 + lowest_bit + 1, 4 - lowest_bit);
+    opnd_size_t index_size;
+    switch (lowest_bit) {
+    case 0: index_size = OPSZ_4b; break;
+    case 1: index_size = OPSZ_3b; break;
+    case 2: index_size = OPSZ_2b; break;
+    case 3: index_size = OPSZ_1b; break;
+    default: return false;
+    }
+
+    *opnd = opnd_create_immed_int(imm5_index, index_size);
+
+    return true;
+}
+
+static inline bool
+encode_opnd_imm5_idx(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
+{
+    opnd_size_t index_size = opnd_get_size(opnd);
+    uint lowest_bit;
+    switch (index_size) {
+    case OPSZ_4b: lowest_bit = 0; break;
+    case OPSZ_3b: lowest_bit = 1; break;
+    case OPSZ_2b: lowest_bit = 2; break;
+    case OPSZ_1b: lowest_bit = 3; break;
+    default: return false;
+    }
+    ptr_int_t index;
+
+    if (!opnd_is_immed_int(opnd))
+        return false;
+
+    index = opnd_get_immed_int(opnd);
+    uint min_index = 0;
+    uint max_index = (1 << opnd_size_in_bits(index_size)) - 1;
+
+    if (index < min_index || index > max_index)
+        return false;
+
+    uint index_encoding = index << (lowest_bit + 1) | 1 << lowest_bit;
+
+    *enc_out = (index_encoding << 16);
+
+    return true;
 }
 
 /* w16: W register or WZR at bit position 16 */
@@ -4218,33 +4402,6 @@ encode_opnd_dq16_h_sz(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc
     if (num >= 16)
         return false;
     *enc_out = num << 16 | (uint)q << 30;
-    return true;
-}
-
-/* wx0_imm5: bits 0-4 is a GPR whos width is dependent on information in
-   an imm5 from bits 16-20 and Q from bit 30
-*/
-static inline bool
-decode_opnd_wx0_imm5_q(uint enc, int opcode, byte *pc, OUT opnd_t *opnd)
-{
-    uint imm5 = extract_int(enc, 16, 5);
-    bool is_x_register = get_imm5_offset(imm5) == 3 ? true : false;
-    *opnd = opnd_create_reg(decode_reg(extract_uint(enc, 0, 5), is_x_register, false));
-    return true;
-}
-
-static inline bool
-encode_opnd_wx0_imm5_q(uint enc, int opcode, byte *pc, opnd_t opnd, OUT uint *enc_out)
-{
-    uint num = 0;
-    bool is_x = false;
-    if (!opnd_is_reg(opnd))
-        ASSERT(false);
-    if (!encode_reg(&num, &is_x, opnd_get_reg(opnd), false))
-        ASSERT(false);
-    *enc_out = num;
-    if (is_x)
-        *enc_out |= (1 << 30);
     return true;
 }
 

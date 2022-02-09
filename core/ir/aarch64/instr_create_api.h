@@ -867,6 +867,16 @@
  */
 #define INSTR_CREATE_fmov_general(dc, Rd, Rn) instr_create_1dst_1src(dc, OP_fmov, Rd, Rn)
 
+/**
+ * Creates an FMOV instruction to move between GPRs and floating point registers.
+ * \param dc   The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd   The output register.
+ * \param Rn   The first input vector register.
+ */
+#define INSTR_CREATE_fmov_upper_vec(dc, Rd, Rn)                                    \
+    instr_create_2dst_2src(dc, OP_fmov, Rd, opnd_create_immed_int(1, OPSZ_2b), Rn, \
+                           OPND_CREATE_DOUBLE())
+
 /* -------- Advanced SIMD three same including fp16 versions ----------------
  * Some macros are also used for
  *   SVE Integer Arithmetic - Unpredicated Group

@@ -1908,39 +1908,39 @@ d5033fbf : dmb    sy                      : dmb    $0x0f
 4e1807de : dup v30.2d, v30.d[1]            : dup    %q30 $0x18 -> %q30
 
 # DUP (general) <Vd>.<8b>, <W><n>
-0e010c20 : dup v0.8b, w1                   : dup    %w1 $0x01 -> %d0
-0e010e0f : dup v15.8b, w16                 : dup    %w16 $0x01 -> %d15
-0e010fdd : dup v29.8b, w30                 : dup    %w30 $0x01 -> %d29
+0e010c20 : dup v0.8b, w1                   : dup    %w1 $0x00 -> %d0
+0e010e0f : dup v15.8b, w16                 : dup    %w16 $0x00 -> %d15
+0e010fdd : dup v29.8b, w30                 : dup    %w30 $0x00 -> %d29
 
 # DUP (general) <Vd>.<16b>, <W><n>
-4e010c20 : dup v0.16b, w1                  : dup    %x1 $0x01 -> %q0
-4e010e0f : dup v15.16b, w16                : dup    %x16 $0x01 -> %q15
-4e010fdd : dup v29.16b, w30                : dup    %x30 $0x01 -> %q29
+4e010c20 : dup v0.16b, w1                  : dup    %w1 $0x00 -> %q0
+4e010e0f : dup v15.16b, w16                : dup    %w16 $0x00 -> %q15
+4e010fdd : dup v29.16b, w30                : dup    %w30 $0x00 -> %q29
 
 # DUP (general) <Vd>.<4h>, <W><n>
-0e020c20 : dup v0.4h, w1                   : dup    %w1 $0x02 -> %d0
-0e020e0f : dup v15.4h, w16                 : dup    %w16 $0x02 -> %d15
-0e020fdd : dup v29.4h, w30                 : dup    %w30 $0x02 -> %d29
+0e020c20 : dup v0.4h, w1                   : dup    %w1 $0x01 -> %d0
+0e020e0f : dup v15.4h, w16                 : dup    %w16 $0x01 -> %d15
+0e020fdd : dup v29.4h, w30                 : dup    %w30 $0x01 -> %d29
 
 # DUP (general) <Vd>.<4h>, <W><n>
-4e020c20 : dup v0.8h, w1                   : dup    %x1 $0x02 -> %q0
-4e020e0f : dup v15.8h, w16                 : dup    %x16 $0x02 -> %q15
-4e020fdd : dup v29.8h, w30                 : dup    %x30 $0x02 -> %q29
+4e020c20 : dup v0.8h, w1                   : dup    %w1 $0x01 -> %q0
+4e020e0f : dup v15.8h, w16                 : dup    %w16 $0x01 -> %q15
+4e020fdd : dup v29.8h, w30                 : dup    %w30 $0x01 -> %q29
 
 # DUP (general) <Vd>.<2s>, <W><n>
-0e040c20 : dup v0.2s, w1                   : dup    %w1 $0x04 -> %d0
-0e040e0f : dup v15.2s, w16                 : dup    %w16 $0x04 -> %d15
-0e040fdd : dup v29.2s, w30                 : dup    %w30 $0x04 -> %d29
+0e040c20 : dup v0.2s, w1                   : dup    %w1 $0x02 -> %d0
+0e040e0f : dup v15.2s, w16                 : dup    %w16 $0x02 -> %d15
+0e040fdd : dup v29.2s, w30                 : dup    %w30 $0x02 -> %d29
 
 # DUP (general) <Vd>.<4s>, <W><n>
-4e040c20 : dup v0.4s, w1                   : dup    %x1 $0x04 -> %q0
-4e040e0f : dup v15.4s, w16                 : dup    %x16 $0x04 -> %q15
-4e040fdd : dup v29.4s, w30                 : dup    %x30 $0x04 -> %q29
+4e040c20 : dup v0.4s, w1                   : dup    %w1 $0x02 -> %q0
+4e040e0f : dup v15.4s, w16                 : dup    %w16 $0x02 -> %q15
+4e040fdd : dup v29.4s, w30                 : dup    %w30 $0x02 -> %q29
 
 # DUP (general) <Vd>.<2d>, <W><n>
-4e080c20 : dup v0.2d, x1                   : dup    %x1 $0x08 -> %q0
-4e080e0f : dup v15.2d, x16                 : dup    %x16 $0x08 -> %q15
-4e080fdd : dup v29.2d, x30                 : dup    %x30 $0x08 -> %q29
+4e080c20 : dup v0.2d, x1                   : dup    %x1 $0x03 -> %q0
+4e080e0f : dup v15.2d, x16                 : dup    %x16 $0x03 -> %q15
+4e080fdd : dup v29.2d, x30                 : dup    %x30 $0x03 -> %q29
 
 d503309f : dsb    #0x00                   : dsb    $0x00
 d5033f9f : dsb    sy                      : dsb    $0x0f
@@ -5599,70 +5599,70 @@ d2ffffff : mov    xzr, #0xffff000000000000: movz   $0xffff lsl $0x30 -> %xzr
 6e1847be : mov v30.d[1], v29.d[1]        : ins    %q29 $0x08 -> %q30 $0x18
 
 # MOV (from general): MOV <Vd>.B[<index>], W<n>
-4e011c20 : mov v0.b[0], w1               : ins    %w1 -> %q0 $0x01
-4e031c20 : mov v0.b[1], w1               : ins    %w1 -> %q0 $0x03
-4e051c20 : mov v0.b[2], w1               : ins    %w1 -> %q0 $0x05
-4e071c20 : mov v0.b[3], w1               : ins    %w1 -> %q0 $0x07
-4e091c20 : mov v0.b[4], w1               : ins    %w1 -> %q0 $0x09
-4e0b1c20 : mov v0.b[5], w1               : ins    %w1 -> %q0 $0x0b
-4e0d1c20 : mov v0.b[6], w1               : ins    %w1 -> %q0 $0x0d
-4e0f1c20 : mov v0.b[7], w1               : ins    %w1 -> %q0 $0x0f
-4e111c20 : mov v0.b[8], w1               : ins    %w1 -> %q0 $0x11
-4e131c20 : mov v0.b[9], w1               : ins    %w1 -> %q0 $0x13
-4e151c20 : mov v0.b[10], w1              : ins    %w1 -> %q0 $0x15
-4e171c20 : mov v0.b[11], w1              : ins    %w1 -> %q0 $0x17
-4e191c20 : mov v0.b[12], w1              : ins    %w1 -> %q0 $0x19
-4e1b1c20 : mov v0.b[13], w1              : ins    %w1 -> %q0 $0x1b
-4e1d1c20 : mov v0.b[14], w1              : ins    %w1 -> %q0 $0x1d
-4e1f1c20 : mov v0.b[15], w1              : ins    %w1 -> %q0 $0x1f
-4e011d4a : mov v10.b[0], w10             : ins    %w10 -> %q10 $0x01
-4e011e94 : mov v20.b[0], w20             : ins    %w20 -> %q20 $0x01
-4e011fde : mov v30.b[0], w30             : ins    %w30 -> %q30 $0x01
+4e011c20 : mov v0.b[0], w1               : ins    %w1 $0x00 -> %q0 $0x00
+4e031c20 : mov v0.b[1], w1               : ins    %w1 $0x00 -> %q0 $0x01
+4e051c20 : mov v0.b[2], w1               : ins    %w1 $0x00 -> %q0 $0x02
+4e071c20 : mov v0.b[3], w1               : ins    %w1 $0x00 -> %q0 $0x03
+4e091c20 : mov v0.b[4], w1               : ins    %w1 $0x00 -> %q0 $0x04
+4e0b1c20 : mov v0.b[5], w1               : ins    %w1 $0x00 -> %q0 $0x05
+4e0d1c20 : mov v0.b[6], w1               : ins    %w1 $0x00 -> %q0 $0x06
+4e0f1c20 : mov v0.b[7], w1               : ins    %w1 $0x00 -> %q0 $0x07
+4e111c20 : mov v0.b[8], w1               : ins    %w1 $0x00 -> %q0 $0x08
+4e131c20 : mov v0.b[9], w1               : ins    %w1 $0x00 -> %q0 $0x09
+4e151c20 : mov v0.b[10], w1              : ins    %w1 $0x00 -> %q0 $0x0a
+4e171c20 : mov v0.b[11], w1              : ins    %w1 $0x00 -> %q0 $0x0b
+4e191c20 : mov v0.b[12], w1              : ins    %w1 $0x00 -> %q0 $0x0c
+4e1b1c20 : mov v0.b[13], w1              : ins    %w1 $0x00 -> %q0 $0x0d
+4e1d1c20 : mov v0.b[14], w1              : ins    %w1 $0x00 -> %q0 $0x0e
+4e1f1c20 : mov v0.b[15], w1              : ins    %w1 $0x00 -> %q0 $0x0f
+4e011d4a : mov v10.b[0], w10             : ins    %w10 $0x00 -> %q10 $0x00
+4e011e94 : mov v20.b[0], w20             : ins    %w20 $0x00 -> %q20 $0x00
+4e011fde : mov v30.b[0], w30             : ins    %w30 $0x00 -> %q30 $0x00
 
 # MOV (from general): MOV <Vd>.H[<index>], W<n>
-4e021c20 : mov v0.h[0], w1               : ins    %w1 -> %q0 $0x02
-4e061c20 : mov v0.h[1], w1               : ins    %w1 -> %q0 $0x06
-4e0a1c20 : mov v0.h[2], w1               : ins    %w1 -> %q0 $0x0a
-4e0e1c20 : mov v0.h[3], w1               : ins    %w1 -> %q0 $0x0e
-4e121c20 : mov v0.h[4], w1               : ins    %w1 -> %q0 $0x12
-4e161c20 : mov v0.h[5], w1               : ins    %w1 -> %q0 $0x16
-4e1a1c20 : mov v0.h[6], w1               : ins    %w1 -> %q0 $0x1a
-4e1e1c20 : mov v0.h[7], w1               : ins    %w1 -> %q0 $0x1e
-4e021d4a : mov v10.h[0], w10             : ins    %w10 -> %q10 $0x02
-4e021e94 : mov v20.h[0], w20             : ins    %w20 -> %q20 $0x02
-4e021fde : mov v30.h[0], w30             : ins    %w30 -> %q30 $0x02
+4e021c20 : mov v0.h[0], w1               : ins    %w1 $0x01 -> %q0 $0x00
+4e061c20 : mov v0.h[1], w1               : ins    %w1 $0x01 -> %q0 $0x01
+4e0a1c20 : mov v0.h[2], w1               : ins    %w1 $0x01 -> %q0 $0x02
+4e0e1c20 : mov v0.h[3], w1               : ins    %w1 $0x01 -> %q0 $0x03
+4e121c20 : mov v0.h[4], w1               : ins    %w1 $0x01 -> %q0 $0x04
+4e161c20 : mov v0.h[5], w1               : ins    %w1 $0x01 -> %q0 $0x05
+4e1a1c20 : mov v0.h[6], w1               : ins    %w1 $0x01 -> %q0 $0x06
+4e1e1c20 : mov v0.h[7], w1               : ins    %w1 $0x01 -> %q0 $0x07
+4e021d4a : mov v10.h[0], w10             : ins    %w10 $0x01 -> %q10 $0x00
+4e021e94 : mov v20.h[0], w20             : ins    %w20 $0x01 -> %q20 $0x00
+4e021fde : mov v30.h[0], w30             : ins    %w30 $0x01 -> %q30 $0x00
 
 # MOV (from general): MOV <Vd>.S[<index>], W<n>
-4e041c20 : mov v0.s[0], w1               : ins    %w1 -> %q0 $0x04
-4e0c1c20 : mov v0.s[1], w1               : ins    %w1 -> %q0 $0x0c
-4e141c20 : mov v0.s[2], w1               : ins    %w1 -> %q0 $0x14
-4e1c1c20 : mov v0.s[3], w1               : ins    %w1 -> %q0 $0x1c
-4e041d4a : mov v10.s[0], w10             : ins    %w10 -> %q10 $0x04
-4e041e94 : mov v20.s[0], w20             : ins    %w20 -> %q20 $0x04
-4e041fde : mov v30.s[0], w30             : ins    %w30 -> %q30 $0x04
+4e041c20 : mov v0.s[0], w1               : ins    %w1 $0x02 -> %q0 $0x00
+4e0c1c20 : mov v0.s[1], w1               : ins    %w1 $0x02 -> %q0 $0x01
+4e141c20 : mov v0.s[2], w1               : ins    %w1 $0x02 -> %q0 $0x02
+4e1c1c20 : mov v0.s[3], w1               : ins    %w1 $0x02 -> %q0 $0x03
+4e041d4a : mov v10.s[0], w10             : ins    %w10 $0x02 -> %q10 $0x00
+4e041e94 : mov v20.s[0], w20             : ins    %w20 $0x02 -> %q20 $0x00
+4e041fde : mov v30.s[0], w30             : ins    %w30 $0x02 -> %q30 $0x00
 
 # MOV (from general): MOV <Vd>.D[<index>], X<n>
-4e081c20 : mov v0.d[0], x1               : ins    %x1 -> %q0 $0x08
-4e181c20 : mov v0.d[1], x1               : ins    %x1 -> %q0 $0x18
-4e081d4a : mov v10.d[0], x10             : ins    %x10 -> %q10 $0x08
-4e081e94 : mov v20.d[0], x20             : ins    %x20 -> %q20 $0x08
-4e081fde : mov v30.d[0], x30             : ins    %x30 -> %q30 $0x08
+4e081c20 : mov v0.d[0], x1               : ins    %x1 $0x03 -> %q0 $0x00
+4e181c20 : mov v0.d[1], x1               : ins    %x1 $0x03 -> %q0 $0x01
+4e081d4a : mov v10.d[0], x10             : ins    %x10 $0x03 -> %q10 $0x00
+4e081e94 : mov v20.d[0], x20             : ins    %x20 $0x03 -> %q20 $0x00
+4e081fde : mov v30.d[0], x30             : ins    %x30 $0x03 -> %q30 $0x00
 
 # MOV (to general): MOV <Wd>, <Vn>.S[<index>]
-0e043c00 : mov w0, v0.s[0]               : umov   %q0 $0x04 -> %w0
-0e0c3c00 : mov w0, v0.s[1]               : umov   %q0 $0x0c -> %w0
-0e143c00 : mov w0, v0.s[2]               : umov   %q0 $0x14 -> %w0
-0e1c3c00 : mov w0, v0.s[3]               : umov   %q0 $0x1c -> %w0
-0e1c3d4a : mov w10, v10.s[3]             : umov   %q10 $0x1c -> %w10
-0e1c3e94 : mov w20, v20.s[3]             : umov   %q20 $0x1c -> %w20
-0e1c3fde : mov w30, v30.s[3]             : umov   %q30 $0x1c -> %w30
+0e043c00 : mov w0, v0.s[0]               : umov   %q0 $0x00 $0x02 -> %w0
+0e0c3c00 : mov w0, v0.s[1]               : umov   %q0 $0x01 $0x02 -> %w0
+0e143c00 : mov w0, v0.s[2]               : umov   %q0 $0x02 $0x02 -> %w0
+0e1c3c00 : mov w0, v0.s[3]               : umov   %q0 $0x03 $0x02 -> %w0
+0e1c3d4a : mov w10, v10.s[3]             : umov   %q10 $0x03 $0x02 -> %w10
+0e1c3e94 : mov w20, v20.s[3]             : umov   %q20 $0x03 $0x02 -> %w20
+0e1c3fde : mov w30, v30.s[3]             : umov   %q30 $0x03 $0x02 -> %w30
 
 # MOV (to general): MOV <Xd>, <Vn>.D[<index>]
-4e083c00 : mov x0, v0.d[0]               : umov   %q0 $0x08 -> %x0
-4e183c00 : mov x0, v0.d[1]               : umov   %q0 $0x18 -> %x0
-4e183d4a : mov x10, v10.d[1]             : umov   %q10 $0x18 -> %x10
-4e183e94 : mov x20, v20.d[1]             : umov   %q20 $0x18 -> %x20
-4e183fde : mov x30, v30.d[1]             : umov   %q30 $0x18 -> %x30
+4e083c00 : mov x0, v0.d[0]               : umov   %q0 $0x00 $0x03 -> %x0
+4e183c00 : mov x0, v0.d[1]               : umov   %q0 $0x01 $0x03 -> %x0
+4e183d4a : mov x10, v10.d[1]             : umov   %q10 $0x01 $0x03 -> %x10
+4e183e94 : mov x20, v20.d[1]             : umov   %q20 $0x01 $0x03 -> %x20
+4e183fde : mov x30, v30.d[1]             : umov   %q30 $0x01 $0x03 -> %x30
 
 72881041 : movk   w1, #0x4082             : movk   %w1 $0x4082 lsl $0x00 -> %w1
 f2ffffff : movk   xzr, #0xffff, lsl #48   : movk   %xzr $0xffff lsl $0x30 -> %xzr
@@ -7782,172 +7782,6 @@ d41fffe3 : smc    #0xffff                 : smc    $0xffff
 6f48477a : sri v26.2d, v27.2d, #56                   : sri    %q27 $0x03 $0x38 -> %q26
 6f4447bc : sri v28.2d, v29.2d, #60                   : sri    %q29 $0x03 $0x3c -> %q28
 6f4047fe : sri v30.2d, v31.2d, #64                   : sri    %q31 $0x03 $0x40 -> %q30
-
-# SMOV <Wd>, <Vn>.<B>[<index>]
-0e012c00 : smov w0, v0.b[0]              : smov   %d0 $0x01 -> %w0
-0e032c00 : smov w0, v0.b[1]              : smov   %d0 $0x03 -> %w0
-0e052c00 : smov w0, v0.b[2]              : smov   %d0 $0x05 -> %w0
-0e072c00 : smov w0, v0.b[3]              : smov   %d0 $0x07 -> %w0
-0e092c00 : smov w0, v0.b[4]              : smov   %d0 $0x09 -> %w0
-0e0b2c00 : smov w0, v0.b[5]              : smov   %d0 $0x0b -> %w0
-0e0d2c00 : smov w0, v0.b[6]              : smov   %d0 $0x0d -> %w0
-0e0f2c00 : smov w0, v0.b[7]              : smov   %d0 $0x0f -> %w0
-0e112c00 : smov w0, v0.b[8]              : smov   %d0 $0x11 -> %w0
-0e132c00 : smov w0, v0.b[9]              : smov   %d0 $0x13 -> %w0
-0e152c00 : smov w0, v0.b[10]             : smov   %d0 $0x15 -> %w0
-0e172c00 : smov w0, v0.b[11]             : smov   %d0 $0x17 -> %w0
-0e192c00 : smov w0, v0.b[12]             : smov   %d0 $0x19 -> %w0
-0e1b2c00 : smov w0, v0.b[13]             : smov   %d0 $0x1b -> %w0
-0e1d2c00 : smov w0, v0.b[14]             : smov   %d0 $0x1d -> %w0
-0e1f2c00 : smov w0, v0.b[15]             : smov   %d0 $0x1f -> %w0
-0e012def : smov w15, v15.b[0]            : smov   %d15 $0x01 -> %w15
-0e032def : smov w15, v15.b[1]            : smov   %d15 $0x03 -> %w15
-0e052def : smov w15, v15.b[2]            : smov   %d15 $0x05 -> %w15
-0e072def : smov w15, v15.b[3]            : smov   %d15 $0x07 -> %w15
-0e092def : smov w15, v15.b[4]            : smov   %d15 $0x09 -> %w15
-0e0b2def : smov w15, v15.b[5]            : smov   %d15 $0x0b -> %w15
-0e0d2def : smov w15, v15.b[6]            : smov   %d15 $0x0d -> %w15
-0e0f2def : smov w15, v15.b[7]            : smov   %d15 $0x0f -> %w15
-0e112def : smov w15, v15.b[8]            : smov   %d15 $0x11 -> %w15
-0e132def : smov w15, v15.b[9]            : smov   %d15 $0x13 -> %w15
-0e152def : smov w15, v15.b[10]           : smov   %d15 $0x15 -> %w15
-0e172def : smov w15, v15.b[11]           : smov   %d15 $0x17 -> %w15
-0e192def : smov w15, v15.b[12]           : smov   %d15 $0x19 -> %w15
-0e1b2def : smov w15, v15.b[13]           : smov   %d15 $0x1b -> %w15
-0e1d2def : smov w15, v15.b[14]           : smov   %d15 $0x1d -> %w15
-0e1f2def : smov w15, v15.b[15]           : smov   %d15 $0x1f -> %w15
-0e012fde : smov w30, v30.b[0]            : smov   %d30 $0x01 -> %w30
-0e032fde : smov w30, v30.b[1]            : smov   %d30 $0x03 -> %w30
-0e052fde : smov w30, v30.b[2]            : smov   %d30 $0x05 -> %w30
-0e072fde : smov w30, v30.b[3]            : smov   %d30 $0x07 -> %w30
-0e092fde : smov w30, v30.b[4]            : smov   %d30 $0x09 -> %w30
-0e0b2fde : smov w30, v30.b[5]            : smov   %d30 $0x0b -> %w30
-0e0d2fde : smov w30, v30.b[6]            : smov   %d30 $0x0d -> %w30
-0e0f2fde : smov w30, v30.b[7]            : smov   %d30 $0x0f -> %w30
-0e112fde : smov w30, v30.b[8]            : smov   %d30 $0x11 -> %w30
-0e132fde : smov w30, v30.b[9]            : smov   %d30 $0x13 -> %w30
-0e152fde : smov w30, v30.b[10]           : smov   %d30 $0x15 -> %w30
-0e172fde : smov w30, v30.b[11]           : smov   %d30 $0x17 -> %w30
-0e192fde : smov w30, v30.b[12]           : smov   %d30 $0x19 -> %w30
-0e1b2fde : smov w30, v30.b[13]           : smov   %d30 $0x1b -> %w30
-0e1d2fde : smov w30, v30.b[14]           : smov   %d30 $0x1d -> %w30
-0e1f2fde : smov w30, v30.b[15]           : smov   %d30 $0x1f -> %w30
-
-# SMOV <Wd>, <Vn>.<H>[<index>]
-0e022c00 : smov w0, v0.h[0]              : smov   %d0 $0x02 -> %w0
-0e062c00 : smov w0, v0.h[1]              : smov   %d0 $0x06 -> %w0
-0e0a2c00 : smov w0, v0.h[2]              : smov   %d0 $0x0a -> %w0
-0e0e2c00 : smov w0, v0.h[3]              : smov   %d0 $0x0e -> %w0
-0e122c00 : smov w0, v0.h[4]              : smov   %d0 $0x12 -> %w0
-0e162c00 : smov w0, v0.h[5]              : smov   %d0 $0x16 -> %w0
-0e1a2c00 : smov w0, v0.h[6]              : smov   %d0 $0x1a -> %w0
-0e1e2c00 : smov w0, v0.h[7]              : smov   %d0 $0x1e -> %w0
-0e022def : smov w15, v15.h[0]            : smov   %d15 $0x02 -> %w15
-0e062def : smov w15, v15.h[1]            : smov   %d15 $0x06 -> %w15
-0e0a2def : smov w15, v15.h[2]            : smov   %d15 $0x0a -> %w15
-0e0e2def : smov w15, v15.h[3]            : smov   %d15 $0x0e -> %w15
-0e122def : smov w15, v15.h[4]            : smov   %d15 $0x12 -> %w15
-0e162def : smov w15, v15.h[5]            : smov   %d15 $0x16 -> %w15
-0e1a2def : smov w15, v15.h[6]            : smov   %d15 $0x1a -> %w15
-0e1e2def : smov w15, v15.h[7]            : smov   %d15 $0x1e -> %w15
-0e022fde : smov w30, v30.h[0]            : smov   %d30 $0x02 -> %w30
-0e062fde : smov w30, v30.h[1]            : smov   %d30 $0x06 -> %w30
-0e0a2fde : smov w30, v30.h[2]            : smov   %d30 $0x0a -> %w30
-0e0e2fde : smov w30, v30.h[3]            : smov   %d30 $0x0e -> %w30
-0e122fde : smov w30, v30.h[4]            : smov   %d30 $0x12 -> %w30
-0e162fde : smov w30, v30.h[5]            : smov   %d30 $0x16 -> %w30
-0e1a2fde : smov w30, v30.h[6]            : smov   %d30 $0x1a -> %w30
-0e1e2fde : smov w30, v30.h[7]            : smov   %d30 $0x1e -> %w30
-
-# SMOV <Xd>, <Vn>.<B>[<index>]
-4e012c00 : smov x0, v0.b[0]              : smov   %q0 $0x01 -> %x0
-4e032c00 : smov x0, v0.b[1]              : smov   %q0 $0x03 -> %x0
-4e052c00 : smov x0, v0.b[2]              : smov   %q0 $0x05 -> %x0
-4e072c00 : smov x0, v0.b[3]              : smov   %q0 $0x07 -> %x0
-4e092c00 : smov x0, v0.b[4]              : smov   %q0 $0x09 -> %x0
-4e0b2c00 : smov x0, v0.b[5]              : smov   %q0 $0x0b -> %x0
-4e0d2c00 : smov x0, v0.b[6]              : smov   %q0 $0x0d -> %x0
-4e0f2c00 : smov x0, v0.b[7]              : smov   %q0 $0x0f -> %x0
-4e112c00 : smov x0, v0.b[8]              : smov   %q0 $0x11 -> %x0
-4e132c00 : smov x0, v0.b[9]              : smov   %q0 $0x13 -> %x0
-4e152c00 : smov x0, v0.b[10]             : smov   %q0 $0x15 -> %x0
-4e172c00 : smov x0, v0.b[11]             : smov   %q0 $0x17 -> %x0
-4e192c00 : smov x0, v0.b[12]             : smov   %q0 $0x19 -> %x0
-4e1b2c00 : smov x0, v0.b[13]             : smov   %q0 $0x1b -> %x0
-4e1d2c00 : smov x0, v0.b[14]             : smov   %q0 $0x1d -> %x0
-4e1f2c00 : smov x0, v0.b[15]             : smov   %q0 $0x1f -> %x0
-4e012def : smov x15, v15.b[0]            : smov   %q15 $0x01 -> %x15
-4e032def : smov x15, v15.b[1]            : smov   %q15 $0x03 -> %x15
-4e052def : smov x15, v15.b[2]            : smov   %q15 $0x05 -> %x15
-4e072def : smov x15, v15.b[3]            : smov   %q15 $0x07 -> %x15
-4e092def : smov x15, v15.b[4]            : smov   %q15 $0x09 -> %x15
-4e0b2def : smov x15, v15.b[5]            : smov   %q15 $0x0b -> %x15
-4e0d2def : smov x15, v15.b[6]            : smov   %q15 $0x0d -> %x15
-4e0f2def : smov x15, v15.b[7]            : smov   %q15 $0x0f -> %x15
-4e112def : smov x15, v15.b[8]            : smov   %q15 $0x11 -> %x15
-4e132def : smov x15, v15.b[9]            : smov   %q15 $0x13 -> %x15
-4e152def : smov x15, v15.b[10]           : smov   %q15 $0x15 -> %x15
-4e172def : smov x15, v15.b[11]           : smov   %q15 $0x17 -> %x15
-4e192def : smov x15, v15.b[12]           : smov   %q15 $0x19 -> %x15
-4e1b2def : smov x15, v15.b[13]           : smov   %q15 $0x1b -> %x15
-4e1d2def : smov x15, v15.b[14]           : smov   %q15 $0x1d -> %x15
-4e1f2def : smov x15, v15.b[15]           : smov   %q15 $0x1f -> %x15
-4e012fde : smov x30, v30.b[0]            : smov   %q30 $0x01 -> %x30
-4e032fde : smov x30, v30.b[1]            : smov   %q30 $0x03 -> %x30
-4e052fde : smov x30, v30.b[2]            : smov   %q30 $0x05 -> %x30
-4e072fde : smov x30, v30.b[3]            : smov   %q30 $0x07 -> %x30
-4e092fde : smov x30, v30.b[4]            : smov   %q30 $0x09 -> %x30
-4e0b2fde : smov x30, v30.b[5]            : smov   %q30 $0x0b -> %x30
-4e0d2fde : smov x30, v30.b[6]            : smov   %q30 $0x0d -> %x30
-4e0f2fde : smov x30, v30.b[7]            : smov   %q30 $0x0f -> %x30
-4e112fde : smov x30, v30.b[8]            : smov   %q30 $0x11 -> %x30
-4e132fde : smov x30, v30.b[9]            : smov   %q30 $0x13 -> %x30
-4e152fde : smov x30, v30.b[10]           : smov   %q30 $0x15 -> %x30
-4e172fde : smov x30, v30.b[11]           : smov   %q30 $0x17 -> %x30
-4e192fde : smov x30, v30.b[12]           : smov   %q30 $0x19 -> %x30
-4e1b2fde : smov x30, v30.b[13]           : smov   %q30 $0x1b -> %x30
-4e1d2fde : smov x30, v30.b[14]           : smov   %q30 $0x1d -> %x30
-4e1f2fde : smov x30, v30.b[15]           : smov   %q30 $0x1f -> %x30
-
-# SMOV <Xd>, <Vn>.<H>[<index>]
-4e022c00 : smov x0, v0.h[0]              : smov   %q0 $0x02 -> %x0
-4e062c00 : smov x0, v0.h[1]              : smov   %q0 $0x06 -> %x0
-4e0a2c00 : smov x0, v0.h[2]              : smov   %q0 $0x0a -> %x0
-4e0e2c00 : smov x0, v0.h[3]              : smov   %q0 $0x0e -> %x0
-4e122c00 : smov x0, v0.h[4]              : smov   %q0 $0x12 -> %x0
-4e162c00 : smov x0, v0.h[5]              : smov   %q0 $0x16 -> %x0
-4e1a2c00 : smov x0, v0.h[6]              : smov   %q0 $0x1a -> %x0
-4e1e2c00 : smov x0, v0.h[7]              : smov   %q0 $0x1e -> %x0
-4e022def : smov x15, v15.h[0]            : smov   %q15 $0x02 -> %x15
-4e062def : smov x15, v15.h[1]            : smov   %q15 $0x06 -> %x15
-4e0a2def : smov x15, v15.h[2]            : smov   %q15 $0x0a -> %x15
-4e0e2def : smov x15, v15.h[3]            : smov   %q15 $0x0e -> %x15
-4e122def : smov x15, v15.h[4]            : smov   %q15 $0x12 -> %x15
-4e162def : smov x15, v15.h[5]            : smov   %q15 $0x16 -> %x15
-4e1a2def : smov x15, v15.h[6]            : smov   %q15 $0x1a -> %x15
-4e1e2def : smov x15, v15.h[7]            : smov   %q15 $0x1e -> %x15
-4e022fde : smov x30, v30.h[0]            : smov   %q30 $0x02 -> %x30
-4e062fde : smov x30, v30.h[1]            : smov   %q30 $0x06 -> %x30
-4e0a2fde : smov x30, v30.h[2]            : smov   %q30 $0x0a -> %x30
-4e0e2fde : smov x30, v30.h[3]            : smov   %q30 $0x0e -> %x30
-4e122fde : smov x30, v30.h[4]            : smov   %q30 $0x12 -> %x30
-4e162fde : smov x30, v30.h[5]            : smov   %q30 $0x16 -> %x30
-4e1a2fde : smov x30, v30.h[6]            : smov   %q30 $0x1a -> %x30
-4e1e2fde : smov x30, v30.h[7]            : smov   %q30 $0x1e -> %x30
-
-# SMOV <Xd>, <Vn>.<S>[<index>]
-4e042c00 : smov x0, v0.s[0]              : smov   %q0 $0x04 -> %x0
-4e0c2c00 : smov x0, v0.s[1]              : smov   %q0 $0x0c -> %x0
-4e142c00 : smov x0, v0.s[2]              : smov   %q0 $0x14 -> %x0
-4e1c2c00 : smov x0, v0.s[3]              : smov   %q0 $0x1c -> %x0
-4e042def : smov x15, v15.s[0]            : smov   %q15 $0x04 -> %x15
-4e0c2def : smov x15, v15.s[1]            : smov   %q15 $0x0c -> %x15
-4e142def : smov x15, v15.s[2]            : smov   %q15 $0x14 -> %x15
-4e1c2def : smov x15, v15.s[3]            : smov   %q15 $0x1c -> %x15
-4e042fde : smov x30, v30.s[0]            : smov   %q30 $0x04 -> %x30
-4e0c2fde : smov x30, v30.s[1]            : smov   %q30 $0x0c -> %x30
-4e142fde : smov x30, v30.s[2]            : smov   %q30 $0x14 -> %x30
-4e1c2fde : smov x30, v30.s[3]            : smov   %q30 $0x1c -> %x30
 
 0e225f1c : sqrshl v28.8b, v24.8b, v2.8b             : sqrshl %d24 %d2 $0x00 -> %d28
 4e225f1c : sqrshl v28.16b, v24.16b, v2.16b          : sqrshl %q24 %q2 $0x00 -> %q28
@@ -27376,3 +27210,1597 @@ d5034fff : msr DAIFClr, #0xf                         : msr    %daifclr $0x0f
 5e282b59 : sha256su0 v25.4s, v26.4s                  : sha256su0 %q26 $0x02 -> %q25
 5e282b9b : sha256su0 v27.4s, v28.4s                  : sha256su0 %q28 $0x02 -> %q27
 5e28281f : sha256su0 v31.4s, v0.4s                   : sha256su0 %q0 $0x02 -> %q31
+
+
+# UCVTF   <Dd>, <Xn>, #<imm> (UCVTF-V.RI-D64_float2fix)
+9e438020 : ucvtf d0, x1, #0x20                       : ucvtf  %x1 $0x20 -> %d0
+9e438862 : ucvtf d2, x3, #0x1e                       : ucvtf  %x3 $0x1e -> %d2
+9e4390a4 : ucvtf d4, x5, #0x1c                       : ucvtf  %x5 $0x1c -> %d4
+9e4398e6 : ucvtf d6, x7, #0x1a                       : ucvtf  %x7 $0x1a -> %d6
+9e43a128 : ucvtf d8, x9, #0x18                       : ucvtf  %x9 $0x18 -> %d8
+9e43a94a : ucvtf d10, x10, #0x16                     : ucvtf  %x10 $0x16 -> %d10
+9e43b18c : ucvtf d12, x12, #0x14                     : ucvtf  %x12 $0x14 -> %d12
+9e43b9ce : ucvtf d14, x14, #0x12                     : ucvtf  %x14 $0x12 -> %d14
+9e43c210 : ucvtf d16, x16, #0x10                     : ucvtf  %x16 $0x10 -> %d16
+9e43c651 : ucvtf d17, x18, #0xf                      : ucvtf  %x18 $0x0f -> %d17
+9e43ce93 : ucvtf d19, x20, #0xd                      : ucvtf  %x20 $0x0d -> %d19
+9e43d6d5 : ucvtf d21, x22, #0xb                      : ucvtf  %x22 $0x0b -> %d21
+9e43def7 : ucvtf d23, x23, #0x9                      : ucvtf  %x23 $0x09 -> %d23
+9e43e739 : ucvtf d25, x25, #0x7                      : ucvtf  %x25 $0x07 -> %d25
+9e43ef7b : ucvtf d27, x27, #0x5                      : ucvtf  %x27 $0x05 -> %d27
+9e43fc1f : ucvtf d31, x0, #0x1                       : ucvtf  %x0 $0x01 -> %d31
+
+# UCVTF   <Dd>, <Wn> (UCVTF-V.R-D32_float2int)
+1e630020 : ucvtf d0, w1                              : ucvtf  %w1 -> %d0
+1e630062 : ucvtf d2, w3                              : ucvtf  %w3 -> %d2
+1e6300a4 : ucvtf d4, w5                              : ucvtf  %w5 -> %d4
+1e6300e6 : ucvtf d6, w7                              : ucvtf  %w7 -> %d6
+1e630128 : ucvtf d8, w9                              : ucvtf  %w9 -> %d8
+1e63014a : ucvtf d10, w10                            : ucvtf  %w10 -> %d10
+1e63018c : ucvtf d12, w12                            : ucvtf  %w12 -> %d12
+1e6301ce : ucvtf d14, w14                            : ucvtf  %w14 -> %d14
+1e630210 : ucvtf d16, w16                            : ucvtf  %w16 -> %d16
+1e630251 : ucvtf d17, w18                            : ucvtf  %w18 -> %d17
+1e630293 : ucvtf d19, w20                            : ucvtf  %w20 -> %d19
+1e6302d5 : ucvtf d21, w22                            : ucvtf  %w22 -> %d21
+1e6302f7 : ucvtf d23, w23                            : ucvtf  %w23 -> %d23
+1e630339 : ucvtf d25, w25                            : ucvtf  %w25 -> %d25
+1e63037b : ucvtf d27, w27                            : ucvtf  %w27 -> %d27
+1e63001f : ucvtf d31, w0                             : ucvtf  %w0 -> %d31
+
+# SCVTF   <Dd>, <Wn> (SCVTF-V.R-D32_float2int)
+1e620020 : scvtf d0, w1                              : scvtf  %w1 -> %d0
+1e620062 : scvtf d2, w3                              : scvtf  %w3 -> %d2
+1e6200a4 : scvtf d4, w5                              : scvtf  %w5 -> %d4
+1e6200e6 : scvtf d6, w7                              : scvtf  %w7 -> %d6
+1e620128 : scvtf d8, w9                              : scvtf  %w9 -> %d8
+1e62014a : scvtf d10, w10                            : scvtf  %w10 -> %d10
+1e62018c : scvtf d12, w12                            : scvtf  %w12 -> %d12
+1e6201ce : scvtf d14, w14                            : scvtf  %w14 -> %d14
+1e620210 : scvtf d16, w16                            : scvtf  %w16 -> %d16
+1e620251 : scvtf d17, w18                            : scvtf  %w18 -> %d17
+1e620293 : scvtf d19, w20                            : scvtf  %w20 -> %d19
+1e6202d5 : scvtf d21, w22                            : scvtf  %w22 -> %d21
+1e6202f7 : scvtf d23, w23                            : scvtf  %w23 -> %d23
+1e620339 : scvtf d25, w25                            : scvtf  %w25 -> %d25
+1e62037b : scvtf d27, w27                            : scvtf  %w27 -> %d27
+1e62001f : scvtf d31, w0                             : scvtf  %w0 -> %d31
+
+# FCVTMS  <Xd>, <Sn> (FCVTMS-R.V-64S_float2int)
+9e300020 : fcvtms x0, s1                             : fcvtms %s1 -> %x0
+9e300062 : fcvtms x2, s3                             : fcvtms %s3 -> %x2
+9e3000a4 : fcvtms x4, s5                             : fcvtms %s5 -> %x4
+9e3000e6 : fcvtms x6, s7                             : fcvtms %s7 -> %x6
+9e300128 : fcvtms x8, s9                             : fcvtms %s9 -> %x8
+9e300169 : fcvtms x9, s11                            : fcvtms %s11 -> %x9
+9e3001ab : fcvtms x11, s13                           : fcvtms %s13 -> %x11
+9e3001ed : fcvtms x13, s15                           : fcvtms %s15 -> %x13
+9e30022f : fcvtms x15, s17                           : fcvtms %s17 -> %x15
+9e300251 : fcvtms x17, s18                           : fcvtms %s18 -> %x17
+9e300293 : fcvtms x19, s20                           : fcvtms %s20 -> %x19
+9e3002d5 : fcvtms x21, s22                           : fcvtms %s22 -> %x21
+9e300316 : fcvtms x22, s24                           : fcvtms %s24 -> %x22
+9e300358 : fcvtms x24, s26                           : fcvtms %s26 -> %x24
+9e30039a : fcvtms x26, s28                           : fcvtms %s28 -> %x26
+9e30001e : fcvtms x30, s0                            : fcvtms %s0 -> %x30
+
+# FCVTNS  <Wd>, <Sn> (FCVTNS-R.V-32S_float2int)
+1e200020 : fcvtns w0, s1                             : fcvtns %s1 -> %w0
+1e200062 : fcvtns w2, s3                             : fcvtns %s3 -> %w2
+1e2000a4 : fcvtns w4, s5                             : fcvtns %s5 -> %w4
+1e2000e6 : fcvtns w6, s7                             : fcvtns %s7 -> %w6
+1e200128 : fcvtns w8, s9                             : fcvtns %s9 -> %w8
+1e200169 : fcvtns w9, s11                            : fcvtns %s11 -> %w9
+1e2001ab : fcvtns w11, s13                           : fcvtns %s13 -> %w11
+1e2001ed : fcvtns w13, s15                           : fcvtns %s15 -> %w13
+1e20022f : fcvtns w15, s17                           : fcvtns %s17 -> %w15
+1e200251 : fcvtns w17, s18                           : fcvtns %s18 -> %w17
+1e200293 : fcvtns w19, s20                           : fcvtns %s20 -> %w19
+1e2002d5 : fcvtns w21, s22                           : fcvtns %s22 -> %w21
+1e200316 : fcvtns w22, s24                           : fcvtns %s24 -> %w22
+1e200358 : fcvtns w24, s26                           : fcvtns %s26 -> %w24
+1e20039a : fcvtns w26, s28                           : fcvtns %s28 -> %w26
+1e20001e : fcvtns w30, s0                            : fcvtns %s0 -> %w30
+
+# DUP     <Hd>.<T>, <R><n> (DUP-Q.R-asimdins_DR_r)
+0e010c20 : dup v0.8b, w1                             : dup    %w1 $0x00 -> %d0
+0e010c62 : dup v2.8b, w3                             : dup    %w3 $0x00 -> %d2
+0e010ca4 : dup v4.8b, w5                             : dup    %w5 $0x00 -> %d4
+0e010ce6 : dup v6.8b, w7                             : dup    %w7 $0x00 -> %d6
+0e010d28 : dup v8.8b, w9                             : dup    %w9 $0x00 -> %d8
+0e010d4a : dup v10.8b, w10                           : dup    %w10 $0x00 -> %d10
+0e010d8c : dup v12.8b, w12                           : dup    %w12 $0x00 -> %d12
+0e010dce : dup v14.8b, w14                           : dup    %w14 $0x00 -> %d14
+0e010e10 : dup v16.8b, w16                           : dup    %w16 $0x00 -> %d16
+0e010e51 : dup v17.8b, w18                           : dup    %w18 $0x00 -> %d17
+0e010e93 : dup v19.8b, w20                           : dup    %w20 $0x00 -> %d19
+0e010ed5 : dup v21.8b, w22                           : dup    %w22 $0x00 -> %d21
+0e010ef7 : dup v23.8b, w23                           : dup    %w23 $0x00 -> %d23
+0e010f39 : dup v25.8b, w25                           : dup    %w25 $0x00 -> %d25
+0e010f7b : dup v27.8b, w27                           : dup    %w27 $0x00 -> %d27
+0e010c1f : dup v31.8b, w0                            : dup    %w0 $0x00 -> %d31
+0e020c20 : dup v0.4h, w1                             : dup    %w1 $0x01 -> %d0
+0e020c62 : dup v2.4h, w3                             : dup    %w3 $0x01 -> %d2
+0e020ca4 : dup v4.4h, w5                             : dup    %w5 $0x01 -> %d4
+0e020ce6 : dup v6.4h, w7                             : dup    %w7 $0x01 -> %d6
+0e020d28 : dup v8.4h, w9                             : dup    %w9 $0x01 -> %d8
+0e020d4a : dup v10.4h, w10                           : dup    %w10 $0x01 -> %d10
+0e020d8c : dup v12.4h, w12                           : dup    %w12 $0x01 -> %d12
+0e020dce : dup v14.4h, w14                           : dup    %w14 $0x01 -> %d14
+0e020e10 : dup v16.4h, w16                           : dup    %w16 $0x01 -> %d16
+0e020e51 : dup v17.4h, w18                           : dup    %w18 $0x01 -> %d17
+0e020e93 : dup v19.4h, w20                           : dup    %w20 $0x01 -> %d19
+0e020ed5 : dup v21.4h, w22                           : dup    %w22 $0x01 -> %d21
+0e020ef7 : dup v23.4h, w23                           : dup    %w23 $0x01 -> %d23
+0e020f39 : dup v25.4h, w25                           : dup    %w25 $0x01 -> %d25
+0e020f7b : dup v27.4h, w27                           : dup    %w27 $0x01 -> %d27
+0e020c1f : dup v31.4h, w0                            : dup    %w0 $0x01 -> %d31
+0e040c20 : dup v0.2s, w1                             : dup    %w1 $0x02 -> %d0
+0e040c62 : dup v2.2s, w3                             : dup    %w3 $0x02 -> %d2
+0e040ca4 : dup v4.2s, w5                             : dup    %w5 $0x02 -> %d4
+0e040ce6 : dup v6.2s, w7                             : dup    %w7 $0x02 -> %d6
+0e040d28 : dup v8.2s, w9                             : dup    %w9 $0x02 -> %d8
+0e040d4a : dup v10.2s, w10                           : dup    %w10 $0x02 -> %d10
+0e040d8c : dup v12.2s, w12                           : dup    %w12 $0x02 -> %d12
+0e040dce : dup v14.2s, w14                           : dup    %w14 $0x02 -> %d14
+0e040e10 : dup v16.2s, w16                           : dup    %w16 $0x02 -> %d16
+0e040e51 : dup v17.2s, w18                           : dup    %w18 $0x02 -> %d17
+0e040e93 : dup v19.2s, w20                           : dup    %w20 $0x02 -> %d19
+0e040ed5 : dup v21.2s, w22                           : dup    %w22 $0x02 -> %d21
+0e040ef7 : dup v23.2s, w23                           : dup    %w23 $0x02 -> %d23
+0e040f39 : dup v25.2s, w25                           : dup    %w25 $0x02 -> %d25
+0e040f7b : dup v27.2s, w27                           : dup    %w27 $0x02 -> %d27
+0e040c1f : dup v31.2s, w0                            : dup    %w0 $0x02 -> %d31
+4e010c20 : dup v0.16b, w1                            : dup    %w1 $0x00 -> %q0
+4e010c62 : dup v2.16b, w3                            : dup    %w3 $0x00 -> %q2
+4e010ca4 : dup v4.16b, w5                            : dup    %w5 $0x00 -> %q4
+4e010ce6 : dup v6.16b, w7                            : dup    %w7 $0x00 -> %q6
+4e010d28 : dup v8.16b, w9                            : dup    %w9 $0x00 -> %q8
+4e010d4a : dup v10.16b, w10                          : dup    %w10 $0x00 -> %q10
+4e010d8c : dup v12.16b, w12                          : dup    %w12 $0x00 -> %q12
+4e010dce : dup v14.16b, w14                          : dup    %w14 $0x00 -> %q14
+4e010e10 : dup v16.16b, w16                          : dup    %w16 $0x00 -> %q16
+4e010e51 : dup v17.16b, w18                          : dup    %w18 $0x00 -> %q17
+4e010e93 : dup v19.16b, w20                          : dup    %w20 $0x00 -> %q19
+4e010ed5 : dup v21.16b, w22                          : dup    %w22 $0x00 -> %q21
+4e010ef7 : dup v23.16b, w23                          : dup    %w23 $0x00 -> %q23
+4e010f39 : dup v25.16b, w25                          : dup    %w25 $0x00 -> %q25
+4e010f7b : dup v27.16b, w27                          : dup    %w27 $0x00 -> %q27
+4e010c1f : dup v31.16b, w0                           : dup    %w0 $0x00 -> %q31
+4e020c20 : dup v0.8h, w1                             : dup    %w1 $0x01 -> %q0
+4e020c62 : dup v2.8h, w3                             : dup    %w3 $0x01 -> %q2
+4e020ca4 : dup v4.8h, w5                             : dup    %w5 $0x01 -> %q4
+4e020ce6 : dup v6.8h, w7                             : dup    %w7 $0x01 -> %q6
+4e020d28 : dup v8.8h, w9                             : dup    %w9 $0x01 -> %q8
+4e020d4a : dup v10.8h, w10                           : dup    %w10 $0x01 -> %q10
+4e020d8c : dup v12.8h, w12                           : dup    %w12 $0x01 -> %q12
+4e020dce : dup v14.8h, w14                           : dup    %w14 $0x01 -> %q14
+4e020e10 : dup v16.8h, w16                           : dup    %w16 $0x01 -> %q16
+4e020e51 : dup v17.8h, w18                           : dup    %w18 $0x01 -> %q17
+4e020e93 : dup v19.8h, w20                           : dup    %w20 $0x01 -> %q19
+4e020ed5 : dup v21.8h, w22                           : dup    %w22 $0x01 -> %q21
+4e020ef7 : dup v23.8h, w23                           : dup    %w23 $0x01 -> %q23
+4e020f39 : dup v25.8h, w25                           : dup    %w25 $0x01 -> %q25
+4e020f7b : dup v27.8h, w27                           : dup    %w27 $0x01 -> %q27
+4e020c1f : dup v31.8h, w0                            : dup    %w0 $0x01 -> %q31
+4e040c20 : dup v0.4s, w1                             : dup    %w1 $0x02 -> %q0
+4e040c62 : dup v2.4s, w3                             : dup    %w3 $0x02 -> %q2
+4e040ca4 : dup v4.4s, w5                             : dup    %w5 $0x02 -> %q4
+4e040ce6 : dup v6.4s, w7                             : dup    %w7 $0x02 -> %q6
+4e040d28 : dup v8.4s, w9                             : dup    %w9 $0x02 -> %q8
+4e040d4a : dup v10.4s, w10                           : dup    %w10 $0x02 -> %q10
+4e040d8c : dup v12.4s, w12                           : dup    %w12 $0x02 -> %q12
+4e040dce : dup v14.4s, w14                           : dup    %w14 $0x02 -> %q14
+4e040e10 : dup v16.4s, w16                           : dup    %w16 $0x02 -> %q16
+4e040e51 : dup v17.4s, w18                           : dup    %w18 $0x02 -> %q17
+4e040e93 : dup v19.4s, w20                           : dup    %w20 $0x02 -> %q19
+4e040ed5 : dup v21.4s, w22                           : dup    %w22 $0x02 -> %q21
+4e040ef7 : dup v23.4s, w23                           : dup    %w23 $0x02 -> %q23
+4e040f39 : dup v25.4s, w25                           : dup    %w25 $0x02 -> %q25
+4e040f7b : dup v27.4s, w27                           : dup    %w27 $0x02 -> %q27
+4e040c1f : dup v31.4s, w0                            : dup    %w0 $0x02 -> %q31
+4e080c20 : dup v0.2d, x1                             : dup    %x1 $0x03 -> %q0
+4e080c62 : dup v2.2d, x3                             : dup    %x3 $0x03 -> %q2
+4e080ca4 : dup v4.2d, x5                             : dup    %x5 $0x03 -> %q4
+4e080ce6 : dup v6.2d, x7                             : dup    %x7 $0x03 -> %q6
+4e080d28 : dup v8.2d, x9                             : dup    %x9 $0x03 -> %q8
+4e080d4a : dup v10.2d, x10                           : dup    %x10 $0x03 -> %q10
+4e080d8c : dup v12.2d, x12                           : dup    %x12 $0x03 -> %q12
+4e080dce : dup v14.2d, x14                           : dup    %x14 $0x03 -> %q14
+4e080e10 : dup v16.2d, x16                           : dup    %x16 $0x03 -> %q16
+4e080e51 : dup v17.2d, x18                           : dup    %x18 $0x03 -> %q17
+4e080e93 : dup v19.2d, x20                           : dup    %x20 $0x03 -> %q19
+4e080ed5 : dup v21.2d, x22                           : dup    %x22 $0x03 -> %q21
+4e080ef7 : dup v23.2d, x23                           : dup    %x23 $0x03 -> %q23
+4e080f39 : dup v25.2d, x25                           : dup    %x25 $0x03 -> %q25
+4e080f7b : dup v27.2d, x27                           : dup    %x27 $0x03 -> %q27
+4e080c1f : dup v31.2d, x0                            : dup    %x0 $0x03 -> %q31
+
+# FCVTMS  <Xd>, <Dn> (FCVTMS-R.V-64D_float2int)
+9e700020 : fcvtms x0, d1                             : fcvtms %d1 -> %x0
+9e700062 : fcvtms x2, d3                             : fcvtms %d3 -> %x2
+9e7000a4 : fcvtms x4, d5                             : fcvtms %d5 -> %x4
+9e7000e6 : fcvtms x6, d7                             : fcvtms %d7 -> %x6
+9e700128 : fcvtms x8, d9                             : fcvtms %d9 -> %x8
+9e700169 : fcvtms x9, d11                            : fcvtms %d11 -> %x9
+9e7001ab : fcvtms x11, d13                           : fcvtms %d13 -> %x11
+9e7001ed : fcvtms x13, d15                           : fcvtms %d15 -> %x13
+9e70022f : fcvtms x15, d17                           : fcvtms %d17 -> %x15
+9e700251 : fcvtms x17, d18                           : fcvtms %d18 -> %x17
+9e700293 : fcvtms x19, d20                           : fcvtms %d20 -> %x19
+9e7002d5 : fcvtms x21, d22                           : fcvtms %d22 -> %x21
+9e700316 : fcvtms x22, d24                           : fcvtms %d24 -> %x22
+9e700358 : fcvtms x24, d26                           : fcvtms %d26 -> %x24
+9e70039a : fcvtms x26, d28                           : fcvtms %d28 -> %x26
+9e70001e : fcvtms x30, d0                            : fcvtms %d0 -> %x30
+
+# SCVTF   <Dd>, <Wn>, #<imm> (SCVTF-V.RI-D32_float2fix)
+1e428020 : scvtf d0, w1, #0x20                       : scvtf  %w1 $0x20 -> %d0
+1e428862 : scvtf d2, w3, #0x1e                       : scvtf  %w3 $0x1e -> %d2
+1e4290a4 : scvtf d4, w5, #0x1c                       : scvtf  %w5 $0x1c -> %d4
+1e4298e6 : scvtf d6, w7, #0x1a                       : scvtf  %w7 $0x1a -> %d6
+1e42a128 : scvtf d8, w9, #0x18                       : scvtf  %w9 $0x18 -> %d8
+1e42a94a : scvtf d10, w10, #0x16                     : scvtf  %w10 $0x16 -> %d10
+1e42b18c : scvtf d12, w12, #0x14                     : scvtf  %w12 $0x14 -> %d12
+1e42b9ce : scvtf d14, w14, #0x12                     : scvtf  %w14 $0x12 -> %d14
+1e42c210 : scvtf d16, w16, #0x10                     : scvtf  %w16 $0x10 -> %d16
+1e42c651 : scvtf d17, w18, #0xf                      : scvtf  %w18 $0x0f -> %d17
+1e42ce93 : scvtf d19, w20, #0xd                      : scvtf  %w20 $0x0d -> %d19
+1e42d6d5 : scvtf d21, w22, #0xb                      : scvtf  %w22 $0x0b -> %d21
+1e42def7 : scvtf d23, w23, #0x9                      : scvtf  %w23 $0x09 -> %d23
+1e42e739 : scvtf d25, w25, #0x7                      : scvtf  %w25 $0x07 -> %d25
+1e42ef7b : scvtf d27, w27, #0x5                      : scvtf  %w27 $0x05 -> %d27
+1e42fc1f : scvtf d31, w0, #0x1                       : scvtf  %w0 $0x01 -> %d31
+
+# FMOV    <Dd>.1D[1], <Xn> (FMOV-Q.R-V64I_float2int)
+9eaf0020 : fmov v0.d[1], x1                          : fmov   %x1 $0x03 -> %q0 $0x01
+9eaf0062 : fmov v2.d[1], x3                          : fmov   %x3 $0x03 -> %q2 $0x01
+9eaf00a4 : fmov v4.d[1], x5                          : fmov   %x5 $0x03 -> %q4 $0x01
+9eaf00e6 : fmov v6.d[1], x7                          : fmov   %x7 $0x03 -> %q6 $0x01
+9eaf0128 : fmov v8.d[1], x9                          : fmov   %x9 $0x03 -> %q8 $0x01
+9eaf014a : fmov v10.d[1], x10                        : fmov   %x10 $0x03 -> %q10 $0x01
+9eaf018c : fmov v12.d[1], x12                        : fmov   %x12 $0x03 -> %q12 $0x01
+9eaf01ce : fmov v14.d[1], x14                        : fmov   %x14 $0x03 -> %q14 $0x01
+9eaf0210 : fmov v16.d[1], x16                        : fmov   %x16 $0x03 -> %q16 $0x01
+9eaf0251 : fmov v17.d[1], x18                        : fmov   %x18 $0x03 -> %q17 $0x01
+9eaf0293 : fmov v19.d[1], x20                        : fmov   %x20 $0x03 -> %q19 $0x01
+9eaf02d5 : fmov v21.d[1], x22                        : fmov   %x22 $0x03 -> %q21 $0x01
+9eaf02f7 : fmov v23.d[1], x23                        : fmov   %x23 $0x03 -> %q23 $0x01
+9eaf0339 : fmov v25.d[1], x25                        : fmov   %x25 $0x03 -> %q25 $0x01
+9eaf037b : fmov v27.d[1], x27                        : fmov   %x27 $0x03 -> %q27 $0x01
+9eaf001f : fmov v31.d[1], x0                         : fmov   %x0 $0x03 -> %q31 $0x01
+
+# FCVTPS  <Xd>, <Dn> (FCVTPS-R.V-64D_float2int)
+9e680020 : fcvtps x0, d1                             : fcvtps %d1 -> %x0
+9e680062 : fcvtps x2, d3                             : fcvtps %d3 -> %x2
+9e6800a4 : fcvtps x4, d5                             : fcvtps %d5 -> %x4
+9e6800e6 : fcvtps x6, d7                             : fcvtps %d7 -> %x6
+9e680128 : fcvtps x8, d9                             : fcvtps %d9 -> %x8
+9e680169 : fcvtps x9, d11                            : fcvtps %d11 -> %x9
+9e6801ab : fcvtps x11, d13                           : fcvtps %d13 -> %x11
+9e6801ed : fcvtps x13, d15                           : fcvtps %d15 -> %x13
+9e68022f : fcvtps x15, d17                           : fcvtps %d17 -> %x15
+9e680251 : fcvtps x17, d18                           : fcvtps %d18 -> %x17
+9e680293 : fcvtps x19, d20                           : fcvtps %d20 -> %x19
+9e6802d5 : fcvtps x21, d22                           : fcvtps %d22 -> %x21
+9e680316 : fcvtps x22, d24                           : fcvtps %d24 -> %x22
+9e680358 : fcvtps x24, d26                           : fcvtps %d26 -> %x24
+9e68039a : fcvtps x26, d28                           : fcvtps %d28 -> %x26
+9e68001e : fcvtps x30, d0                            : fcvtps %d0 -> %x30
+
+# FCVTAS  <Xd>, <Sn> (FCVTAS-R.V-64S_float2int)
+9e240020 : fcvtas x0, s1                             : fcvtas %s1 -> %x0
+9e240062 : fcvtas x2, s3                             : fcvtas %s3 -> %x2
+9e2400a4 : fcvtas x4, s5                             : fcvtas %s5 -> %x4
+9e2400e6 : fcvtas x6, s7                             : fcvtas %s7 -> %x6
+9e240128 : fcvtas x8, s9                             : fcvtas %s9 -> %x8
+9e240169 : fcvtas x9, s11                            : fcvtas %s11 -> %x9
+9e2401ab : fcvtas x11, s13                           : fcvtas %s13 -> %x11
+9e2401ed : fcvtas x13, s15                           : fcvtas %s15 -> %x13
+9e24022f : fcvtas x15, s17                           : fcvtas %s17 -> %x15
+9e240251 : fcvtas x17, s18                           : fcvtas %s18 -> %x17
+9e240293 : fcvtas x19, s20                           : fcvtas %s20 -> %x19
+9e2402d5 : fcvtas x21, s22                           : fcvtas %s22 -> %x21
+9e240316 : fcvtas x22, s24                           : fcvtas %s24 -> %x22
+9e240358 : fcvtas x24, s26                           : fcvtas %s26 -> %x24
+9e24039a : fcvtas x26, s28                           : fcvtas %s28 -> %x26
+9e24001e : fcvtas x30, s0                            : fcvtas %s0 -> %x30
+
+# UMOV    <Xd>, <Dn>.D[<imm>] (UMOV-R.Qi-asimdins_X_x)
+4e083c20 : umov x0, v1.d[0]                          : umov   %q1 $0x00 $0x03 -> %x0
+4e083c62 : umov x2, v3.d[0]                          : umov   %q3 $0x00 $0x03 -> %x2
+4e083ca4 : umov x4, v5.d[0]                          : umov   %q5 $0x00 $0x03 -> %x4
+4e083ce6 : umov x6, v7.d[0]                          : umov   %q7 $0x00 $0x03 -> %x6
+4e083d28 : umov x8, v9.d[0]                          : umov   %q9 $0x00 $0x03 -> %x8
+4e083d69 : umov x9, v11.d[0]                         : umov   %q11 $0x00 $0x03 -> %x9
+4e083dab : umov x11, v13.d[0]                        : umov   %q13 $0x00 $0x03 -> %x11
+4e083ded : umov x13, v15.d[0]                        : umov   %q15 $0x00 $0x03 -> %x13
+4e083e2f : umov x15, v17.d[0]                        : umov   %q17 $0x00 $0x03 -> %x15
+4e183e51 : umov x17, v18.d[1]                        : umov   %q18 $0x01 $0x03 -> %x17
+4e183e93 : umov x19, v20.d[1]                        : umov   %q20 $0x01 $0x03 -> %x19
+4e183ed5 : umov x21, v22.d[1]                        : umov   %q22 $0x01 $0x03 -> %x21
+4e183f16 : umov x22, v24.d[1]                        : umov   %q24 $0x01 $0x03 -> %x22
+4e183f58 : umov x24, v26.d[1]                        : umov   %q26 $0x01 $0x03 -> %x24
+4e183f9a : umov x26, v28.d[1]                        : umov   %q28 $0x01 $0x03 -> %x26
+4e183c1e : umov x30, v0.d[1]                         : umov   %q0 $0x01 $0x03 -> %x30
+
+# SCVTF   <Sd>, <Xn>, #<imm> (SCVTF-V.RI-S64_float2fix)
+9e028020 : scvtf s0, x1, #0x20                       : scvtf  %x1 $0x20 -> %s0
+9e028862 : scvtf s2, x3, #0x1e                       : scvtf  %x3 $0x1e -> %s2
+9e0290a4 : scvtf s4, x5, #0x1c                       : scvtf  %x5 $0x1c -> %s4
+9e0298e6 : scvtf s6, x7, #0x1a                       : scvtf  %x7 $0x1a -> %s6
+9e02a128 : scvtf s8, x9, #0x18                       : scvtf  %x9 $0x18 -> %s8
+9e02a94a : scvtf s10, x10, #0x16                     : scvtf  %x10 $0x16 -> %s10
+9e02b18c : scvtf s12, x12, #0x14                     : scvtf  %x12 $0x14 -> %s12
+9e02b9ce : scvtf s14, x14, #0x12                     : scvtf  %x14 $0x12 -> %s14
+9e02c210 : scvtf s16, x16, #0x10                     : scvtf  %x16 $0x10 -> %s16
+9e02c651 : scvtf s17, x18, #0xf                      : scvtf  %x18 $0x0f -> %s17
+9e02ce93 : scvtf s19, x20, #0xd                      : scvtf  %x20 $0x0d -> %s19
+9e02d6d5 : scvtf s21, x22, #0xb                      : scvtf  %x22 $0x0b -> %s21
+9e02def7 : scvtf s23, x23, #0x9                      : scvtf  %x23 $0x09 -> %s23
+9e02e739 : scvtf s25, x25, #0x7                      : scvtf  %x25 $0x07 -> %s25
+9e02ef7b : scvtf s27, x27, #0x5                      : scvtf  %x27 $0x05 -> %s27
+9e02fc1f : scvtf s31, x0, #0x1                       : scvtf  %x0 $0x01 -> %s31
+
+# SCVTF   <Dd>, <Xn> (SCVTF-V.R-D64_float2int)
+9e620020 : scvtf d0, x1                              : scvtf  %x1 -> %d0
+9e620062 : scvtf d2, x3                              : scvtf  %x3 -> %d2
+9e6200a4 : scvtf d4, x5                              : scvtf  %x5 -> %d4
+9e6200e6 : scvtf d6, x7                              : scvtf  %x7 -> %d6
+9e620128 : scvtf d8, x9                              : scvtf  %x9 -> %d8
+9e62014a : scvtf d10, x10                            : scvtf  %x10 -> %d10
+9e62018c : scvtf d12, x12                            : scvtf  %x12 -> %d12
+9e6201ce : scvtf d14, x14                            : scvtf  %x14 -> %d14
+9e620210 : scvtf d16, x16                            : scvtf  %x16 -> %d16
+9e620251 : scvtf d17, x18                            : scvtf  %x18 -> %d17
+9e620293 : scvtf d19, x20                            : scvtf  %x20 -> %d19
+9e6202d5 : scvtf d21, x22                            : scvtf  %x22 -> %d21
+9e6202f7 : scvtf d23, x23                            : scvtf  %x23 -> %d23
+9e620339 : scvtf d25, x25                            : scvtf  %x25 -> %d25
+9e62037b : scvtf d27, x27                            : scvtf  %x27 -> %d27
+9e62001f : scvtf d31, x0                             : scvtf  %x0 -> %d31
+
+# FCVTZU  <Wd>, <Sn>, #<imm> (FCVTZU-R.VI-32S_float2fix)
+1e198020 : fcvtzu w0, s1, #0x20                      : fcvtzu %s1 $0x20 -> %w0
+1e198862 : fcvtzu w2, s3, #0x1e                      : fcvtzu %s3 $0x1e -> %w2
+1e1990a4 : fcvtzu w4, s5, #0x1c                      : fcvtzu %s5 $0x1c -> %w4
+1e1998e6 : fcvtzu w6, s7, #0x1a                      : fcvtzu %s7 $0x1a -> %w6
+1e19a128 : fcvtzu w8, s9, #0x18                      : fcvtzu %s9 $0x18 -> %w8
+1e19a969 : fcvtzu w9, s11, #0x16                     : fcvtzu %s11 $0x16 -> %w9
+1e19b1ab : fcvtzu w11, s13, #0x14                    : fcvtzu %s13 $0x14 -> %w11
+1e19b9ed : fcvtzu w13, s15, #0x12                    : fcvtzu %s15 $0x12 -> %w13
+1e19c22f : fcvtzu w15, s17, #0x10                    : fcvtzu %s17 $0x10 -> %w15
+1e19c651 : fcvtzu w17, s18, #0xf                     : fcvtzu %s18 $0x0f -> %w17
+1e19ce93 : fcvtzu w19, s20, #0xd                     : fcvtzu %s20 $0x0d -> %w19
+1e19d6d5 : fcvtzu w21, s22, #0xb                     : fcvtzu %s22 $0x0b -> %w21
+1e19df16 : fcvtzu w22, s24, #0x9                     : fcvtzu %s24 $0x09 -> %w22
+1e19e758 : fcvtzu w24, s26, #0x7                     : fcvtzu %s26 $0x07 -> %w24
+1e19ef9a : fcvtzu w26, s28, #0x5                     : fcvtzu %s28 $0x05 -> %w26
+1e19fc1e : fcvtzu w30, s0, #0x1                      : fcvtzu %s0 $0x01 -> %w30
+
+# FCVTNU  <Xd>, <Dn> (FCVTNU-R.V-64D_float2int)
+9e610020 : fcvtnu x0, d1                             : fcvtnu %d1 -> %x0
+9e610062 : fcvtnu x2, d3                             : fcvtnu %d3 -> %x2
+9e6100a4 : fcvtnu x4, d5                             : fcvtnu %d5 -> %x4
+9e6100e6 : fcvtnu x6, d7                             : fcvtnu %d7 -> %x6
+9e610128 : fcvtnu x8, d9                             : fcvtnu %d9 -> %x8
+9e610169 : fcvtnu x9, d11                            : fcvtnu %d11 -> %x9
+9e6101ab : fcvtnu x11, d13                           : fcvtnu %d13 -> %x11
+9e6101ed : fcvtnu x13, d15                           : fcvtnu %d15 -> %x13
+9e61022f : fcvtnu x15, d17                           : fcvtnu %d17 -> %x15
+9e610251 : fcvtnu x17, d18                           : fcvtnu %d18 -> %x17
+9e610293 : fcvtnu x19, d20                           : fcvtnu %d20 -> %x19
+9e6102d5 : fcvtnu x21, d22                           : fcvtnu %d22 -> %x21
+9e610316 : fcvtnu x22, d24                           : fcvtnu %d24 -> %x22
+9e610358 : fcvtnu x24, d26                           : fcvtnu %d26 -> %x24
+9e61039a : fcvtnu x26, d28                           : fcvtnu %d28 -> %x26
+9e61001e : fcvtnu x30, d0                            : fcvtnu %d0 -> %x30
+
+# SMOV    <Xd>, <Hn>.<T>[<imm>] (SMOV-R.Qi-asimdins_X_x)
+4e042c20 : smov x0, v1.s[0]                          : smov   %q1 $0x00 $0x02 -> %x0
+4e042c62 : smov x2, v3.s[0]                          : smov   %q3 $0x00 $0x02 -> %x2
+4e042ca4 : smov x4, v5.s[0]                          : smov   %q5 $0x00 $0x02 -> %x4
+4e0c2ce6 : smov x6, v7.s[1]                          : smov   %q7 $0x01 $0x02 -> %x6
+4e0c2d28 : smov x8, v9.s[1]                          : smov   %q9 $0x01 $0x02 -> %x8
+4e0c2d69 : smov x9, v11.s[1]                         : smov   %q11 $0x01 $0x02 -> %x9
+4e0c2dab : smov x11, v13.s[1]                        : smov   %q13 $0x01 $0x02 -> %x11
+4e0c2ded : smov x13, v15.s[1]                        : smov   %q15 $0x01 $0x02 -> %x13
+4e142e2f : smov x15, v17.s[2]                        : smov   %q17 $0x02 $0x02 -> %x15
+4e142e51 : smov x17, v18.s[2]                        : smov   %q18 $0x02 $0x02 -> %x17
+4e142e93 : smov x19, v20.s[2]                        : smov   %q20 $0x02 $0x02 -> %x19
+4e142ed5 : smov x21, v22.s[2]                        : smov   %q22 $0x02 $0x02 -> %x21
+4e142f16 : smov x22, v24.s[2]                        : smov   %q24 $0x02 $0x02 -> %x22
+4e142f58 : smov x24, v26.s[2]                        : smov   %q26 $0x02 $0x02 -> %x24
+4e1c2f9a : smov x26, v28.s[3]                        : smov   %q28 $0x03 $0x02 -> %x26
+4e1c2c1e : smov x30, v0.s[3]                         : smov   %q0 $0x03 $0x02 -> %x30
+4e022c20 : smov x0, v1.h[0]                          : smov   %q1 $0x00 $0x01 -> %x0
+4e022c62 : smov x2, v3.h[0]                          : smov   %q3 $0x00 $0x01 -> %x2
+4e062ca4 : smov x4, v5.h[1]                          : smov   %q5 $0x01 $0x01 -> %x4
+4e062ce6 : smov x6, v7.h[1]                          : smov   %q7 $0x01 $0x01 -> %x6
+4e0a2d28 : smov x8, v9.h[2]                          : smov   %q9 $0x02 $0x01 -> %x8
+4e0a2d69 : smov x9, v11.h[2]                         : smov   %q11 $0x02 $0x01 -> %x9
+4e0e2dab : smov x11, v13.h[3]                        : smov   %q13 $0x03 $0x01 -> %x11
+4e0e2ded : smov x13, v15.h[3]                        : smov   %q15 $0x03 $0x01 -> %x13
+4e122e2f : smov x15, v17.h[4]                        : smov   %q17 $0x04 $0x01 -> %x15
+4e122e51 : smov x17, v18.h[4]                        : smov   %q18 $0x04 $0x01 -> %x17
+4e122e93 : smov x19, v20.h[4]                        : smov   %q20 $0x04 $0x01 -> %x19
+4e162ed5 : smov x21, v22.h[5]                        : smov   %q22 $0x05 $0x01 -> %x21
+4e162f16 : smov x22, v24.h[5]                        : smov   %q24 $0x05 $0x01 -> %x22
+4e1a2f58 : smov x24, v26.h[6]                        : smov   %q26 $0x06 $0x01 -> %x24
+4e1a2f9a : smov x26, v28.h[6]                        : smov   %q28 $0x06 $0x01 -> %x26
+4e1e2c1e : smov x30, v0.h[7]                         : smov   %q0 $0x07 $0x01 -> %x30
+4e012c20 : smov x0, v1.b[0]                          : smov   %q1 $0x00 $0x00 -> %x0
+4e032c62 : smov x2, v3.b[1]                          : smov   %q3 $0x01 $0x00 -> %x2
+4e052ca4 : smov x4, v5.b[2]                          : smov   %q5 $0x02 $0x00 -> %x4
+4e072ce6 : smov x6, v7.b[3]                          : smov   %q7 $0x03 $0x00 -> %x6
+4e092d28 : smov x8, v9.b[4]                          : smov   %q9 $0x04 $0x00 -> %x8
+4e0b2d69 : smov x9, v11.b[5]                         : smov   %q11 $0x05 $0x00 -> %x9
+4e0d2dab : smov x11, v13.b[6]                        : smov   %q13 $0x06 $0x00 -> %x11
+4e0f2ded : smov x13, v15.b[7]                        : smov   %q15 $0x07 $0x00 -> %x13
+4e112e2f : smov x15, v17.b[8]                        : smov   %q17 $0x08 $0x00 -> %x15
+4e112e51 : smov x17, v18.b[8]                        : smov   %q18 $0x08 $0x00 -> %x17
+4e132e93 : smov x19, v20.b[9]                        : smov   %q20 $0x09 $0x00 -> %x19
+4e152ed5 : smov x21, v22.b[10]                       : smov   %q22 $0x0a $0x00 -> %x21
+4e172f16 : smov x22, v24.b[11]                       : smov   %q24 $0x0b $0x00 -> %x22
+4e192f58 : smov x24, v26.b[12]                       : smov   %q26 $0x0c $0x00 -> %x24
+4e1b2f9a : smov x26, v28.b[13]                       : smov   %q28 $0x0d $0x00 -> %x26
+4e1f2c1e : smov x30, v0.b[15]                        : smov   %q0 $0x0f $0x00 -> %x30
+
+# UMOV    <Wd>, <Hn>.<T>[<imm>] (UMOV-R.Qi-asimdins_W_w)
+0e043c20 : umov w0, v1.s[0]                          : umov   %q1 $0x00 $0x02 -> %w0
+0e043c62 : umov w2, v3.s[0]                          : umov   %q3 $0x00 $0x02 -> %w2
+0e043ca4 : umov w4, v5.s[0]                          : umov   %q5 $0x00 $0x02 -> %w4
+0e0c3ce6 : umov w6, v7.s[1]                          : umov   %q7 $0x01 $0x02 -> %w6
+0e0c3d28 : umov w8, v9.s[1]                          : umov   %q9 $0x01 $0x02 -> %w8
+0e0c3d69 : umov w9, v11.s[1]                         : umov   %q11 $0x01 $0x02 -> %w9
+0e0c3dab : umov w11, v13.s[1]                        : umov   %q13 $0x01 $0x02 -> %w11
+0e0c3ded : umov w13, v15.s[1]                        : umov   %q15 $0x01 $0x02 -> %w13
+0e143e2f : umov w15, v17.s[2]                        : umov   %q17 $0x02 $0x02 -> %w15
+0e143e51 : umov w17, v18.s[2]                        : umov   %q18 $0x02 $0x02 -> %w17
+0e143e93 : umov w19, v20.s[2]                        : umov   %q20 $0x02 $0x02 -> %w19
+0e143ed5 : umov w21, v22.s[2]                        : umov   %q22 $0x02 $0x02 -> %w21
+0e143f16 : umov w22, v24.s[2]                        : umov   %q24 $0x02 $0x02 -> %w22
+0e143f58 : umov w24, v26.s[2]                        : umov   %q26 $0x02 $0x02 -> %w24
+0e1c3f9a : umov w26, v28.s[3]                        : umov   %q28 $0x03 $0x02 -> %w26
+0e1c3c1e : umov w30, v0.s[3]                         : umov   %q0 $0x03 $0x02 -> %w30
+0e023c20 : umov w0, v1.h[0]                          : umov   %q1 $0x00 $0x01 -> %w0
+0e023c62 : umov w2, v3.h[0]                          : umov   %q3 $0x00 $0x01 -> %w2
+0e063ca4 : umov w4, v5.h[1]                          : umov   %q5 $0x01 $0x01 -> %w4
+0e063ce6 : umov w6, v7.h[1]                          : umov   %q7 $0x01 $0x01 -> %w6
+0e0a3d28 : umov w8, v9.h[2]                          : umov   %q9 $0x02 $0x01 -> %w8
+0e0a3d69 : umov w9, v11.h[2]                         : umov   %q11 $0x02 $0x01 -> %w9
+0e0e3dab : umov w11, v13.h[3]                        : umov   %q13 $0x03 $0x01 -> %w11
+0e0e3ded : umov w13, v15.h[3]                        : umov   %q15 $0x03 $0x01 -> %w13
+0e123e2f : umov w15, v17.h[4]                        : umov   %q17 $0x04 $0x01 -> %w15
+0e123e51 : umov w17, v18.h[4]                        : umov   %q18 $0x04 $0x01 -> %w17
+0e123e93 : umov w19, v20.h[4]                        : umov   %q20 $0x04 $0x01 -> %w19
+0e163ed5 : umov w21, v22.h[5]                        : umov   %q22 $0x05 $0x01 -> %w21
+0e163f16 : umov w22, v24.h[5]                        : umov   %q24 $0x05 $0x01 -> %w22
+0e1a3f58 : umov w24, v26.h[6]                        : umov   %q26 $0x06 $0x01 -> %w24
+0e1a3f9a : umov w26, v28.h[6]                        : umov   %q28 $0x06 $0x01 -> %w26
+0e1e3c1e : umov w30, v0.h[7]                         : umov   %q0 $0x07 $0x01 -> %w30
+0e013c20 : umov w0, v1.b[0]                          : umov   %q1 $0x00 $0x00 -> %w0
+0e033c62 : umov w2, v3.b[1]                          : umov   %q3 $0x01 $0x00 -> %w2
+0e053ca4 : umov w4, v5.b[2]                          : umov   %q5 $0x02 $0x00 -> %w4
+0e073ce6 : umov w6, v7.b[3]                          : umov   %q7 $0x03 $0x00 -> %w6
+0e093d28 : umov w8, v9.b[4]                          : umov   %q9 $0x04 $0x00 -> %w8
+0e0b3d69 : umov w9, v11.b[5]                         : umov   %q11 $0x05 $0x00 -> %w9
+0e0d3dab : umov w11, v13.b[6]                        : umov   %q13 $0x06 $0x00 -> %w11
+0e0f3ded : umov w13, v15.b[7]                        : umov   %q15 $0x07 $0x00 -> %w13
+0e113e2f : umov w15, v17.b[8]                        : umov   %q17 $0x08 $0x00 -> %w15
+0e113e51 : umov w17, v18.b[8]                        : umov   %q18 $0x08 $0x00 -> %w17
+0e133e93 : umov w19, v20.b[9]                        : umov   %q20 $0x09 $0x00 -> %w19
+0e153ed5 : umov w21, v22.b[10]                       : umov   %q22 $0x0a $0x00 -> %w21
+0e173f16 : umov w22, v24.b[11]                       : umov   %q24 $0x0b $0x00 -> %w22
+0e193f58 : umov w24, v26.b[12]                       : umov   %q26 $0x0c $0x00 -> %w24
+0e1b3f9a : umov w26, v28.b[13]                       : umov   %q28 $0x0d $0x00 -> %w26
+0e1f3c1e : umov w30, v0.b[15]                        : umov   %q0 $0x0f $0x00 -> %w30
+
+# FCVTAU  <Wd>, <Sn> (FCVTAU-R.V-32S_float2int)
+1e250020 : fcvtau w0, s1                             : fcvtau %s1 -> %w0
+1e250062 : fcvtau w2, s3                             : fcvtau %s3 -> %w2
+1e2500a4 : fcvtau w4, s5                             : fcvtau %s5 -> %w4
+1e2500e6 : fcvtau w6, s7                             : fcvtau %s7 -> %w6
+1e250128 : fcvtau w8, s9                             : fcvtau %s9 -> %w8
+1e250169 : fcvtau w9, s11                            : fcvtau %s11 -> %w9
+1e2501ab : fcvtau w11, s13                           : fcvtau %s13 -> %w11
+1e2501ed : fcvtau w13, s15                           : fcvtau %s15 -> %w13
+1e25022f : fcvtau w15, s17                           : fcvtau %s17 -> %w15
+1e250251 : fcvtau w17, s18                           : fcvtau %s18 -> %w17
+1e250293 : fcvtau w19, s20                           : fcvtau %s20 -> %w19
+1e2502d5 : fcvtau w21, s22                           : fcvtau %s22 -> %w21
+1e250316 : fcvtau w22, s24                           : fcvtau %s24 -> %w22
+1e250358 : fcvtau w24, s26                           : fcvtau %s26 -> %w24
+1e25039a : fcvtau w26, s28                           : fcvtau %s28 -> %w26
+1e25001e : fcvtau w30, s0                            : fcvtau %s0 -> %w30
+
+# FCVTMS  <Wd>, <Sn> (FCVTMS-R.V-32S_float2int)
+1e300020 : fcvtms w0, s1                             : fcvtms %s1 -> %w0
+1e300062 : fcvtms w2, s3                             : fcvtms %s3 -> %w2
+1e3000a4 : fcvtms w4, s5                             : fcvtms %s5 -> %w4
+1e3000e6 : fcvtms w6, s7                             : fcvtms %s7 -> %w6
+1e300128 : fcvtms w8, s9                             : fcvtms %s9 -> %w8
+1e300169 : fcvtms w9, s11                            : fcvtms %s11 -> %w9
+1e3001ab : fcvtms w11, s13                           : fcvtms %s13 -> %w11
+1e3001ed : fcvtms w13, s15                           : fcvtms %s15 -> %w13
+1e30022f : fcvtms w15, s17                           : fcvtms %s17 -> %w15
+1e300251 : fcvtms w17, s18                           : fcvtms %s18 -> %w17
+1e300293 : fcvtms w19, s20                           : fcvtms %s20 -> %w19
+1e3002d5 : fcvtms w21, s22                           : fcvtms %s22 -> %w21
+1e300316 : fcvtms w22, s24                           : fcvtms %s24 -> %w22
+1e300358 : fcvtms w24, s26                           : fcvtms %s26 -> %w24
+1e30039a : fcvtms w26, s28                           : fcvtms %s28 -> %w26
+1e30001e : fcvtms w30, s0                            : fcvtms %s0 -> %w30
+
+# FCVTZS  <Wd>, <Dn>, #<imm> (FCVTZS-R.VI-32D_float2fix)
+1e588020 : fcvtzs w0, d1, #0x20                      : fcvtzs %d1 $0x20 -> %w0
+1e588862 : fcvtzs w2, d3, #0x1e                      : fcvtzs %d3 $0x1e -> %w2
+1e5890a4 : fcvtzs w4, d5, #0x1c                      : fcvtzs %d5 $0x1c -> %w4
+1e5898e6 : fcvtzs w6, d7, #0x1a                      : fcvtzs %d7 $0x1a -> %w6
+1e58a128 : fcvtzs w8, d9, #0x18                      : fcvtzs %d9 $0x18 -> %w8
+1e58a969 : fcvtzs w9, d11, #0x16                     : fcvtzs %d11 $0x16 -> %w9
+1e58b1ab : fcvtzs w11, d13, #0x14                    : fcvtzs %d13 $0x14 -> %w11
+1e58b9ed : fcvtzs w13, d15, #0x12                    : fcvtzs %d15 $0x12 -> %w13
+1e58c22f : fcvtzs w15, d17, #0x10                    : fcvtzs %d17 $0x10 -> %w15
+1e58c651 : fcvtzs w17, d18, #0xf                     : fcvtzs %d18 $0x0f -> %w17
+1e58ce93 : fcvtzs w19, d20, #0xd                     : fcvtzs %d20 $0x0d -> %w19
+1e58d6d5 : fcvtzs w21, d22, #0xb                     : fcvtzs %d22 $0x0b -> %w21
+1e58df16 : fcvtzs w22, d24, #0x9                     : fcvtzs %d24 $0x09 -> %w22
+1e58e758 : fcvtzs w24, d26, #0x7                     : fcvtzs %d26 $0x07 -> %w24
+1e58ef9a : fcvtzs w26, d28, #0x5                     : fcvtzs %d28 $0x05 -> %w26
+1e58fc1e : fcvtzs w30, d0, #0x1                      : fcvtzs %d0 $0x01 -> %w30
+
+# FCVTAU  <Wd>, <Dn> (FCVTAU-R.V-32D_float2int)
+1e650020 : fcvtau w0, d1                             : fcvtau %d1 -> %w0
+1e650062 : fcvtau w2, d3                             : fcvtau %d3 -> %w2
+1e6500a4 : fcvtau w4, d5                             : fcvtau %d5 -> %w4
+1e6500e6 : fcvtau w6, d7                             : fcvtau %d7 -> %w6
+1e650128 : fcvtau w8, d9                             : fcvtau %d9 -> %w8
+1e650169 : fcvtau w9, d11                            : fcvtau %d11 -> %w9
+1e6501ab : fcvtau w11, d13                           : fcvtau %d13 -> %w11
+1e6501ed : fcvtau w13, d15                           : fcvtau %d15 -> %w13
+1e65022f : fcvtau w15, d17                           : fcvtau %d17 -> %w15
+1e650251 : fcvtau w17, d18                           : fcvtau %d18 -> %w17
+1e650293 : fcvtau w19, d20                           : fcvtau %d20 -> %w19
+1e6502d5 : fcvtau w21, d22                           : fcvtau %d22 -> %w21
+1e650316 : fcvtau w22, d24                           : fcvtau %d24 -> %w22
+1e650358 : fcvtau w24, d26                           : fcvtau %d26 -> %w24
+1e65039a : fcvtau w26, d28                           : fcvtau %d28 -> %w26
+1e65001e : fcvtau w30, d0                            : fcvtau %d0 -> %w30
+
+# UCVTF   <Sd>, <Xn> (UCVTF-V.R-S64_float2int)
+9e230020 : ucvtf s0, x1                              : ucvtf  %x1 -> %s0
+9e230062 : ucvtf s2, x3                              : ucvtf  %x3 -> %s2
+9e2300a4 : ucvtf s4, x5                              : ucvtf  %x5 -> %s4
+9e2300e6 : ucvtf s6, x7                              : ucvtf  %x7 -> %s6
+9e230128 : ucvtf s8, x9                              : ucvtf  %x9 -> %s8
+9e23014a : ucvtf s10, x10                            : ucvtf  %x10 -> %s10
+9e23018c : ucvtf s12, x12                            : ucvtf  %x12 -> %s12
+9e2301ce : ucvtf s14, x14                            : ucvtf  %x14 -> %s14
+9e230210 : ucvtf s16, x16                            : ucvtf  %x16 -> %s16
+9e230251 : ucvtf s17, x18                            : ucvtf  %x18 -> %s17
+9e230293 : ucvtf s19, x20                            : ucvtf  %x20 -> %s19
+9e2302d5 : ucvtf s21, x22                            : ucvtf  %x22 -> %s21
+9e2302f7 : ucvtf s23, x23                            : ucvtf  %x23 -> %s23
+9e230339 : ucvtf s25, x25                            : ucvtf  %x25 -> %s25
+9e23037b : ucvtf s27, x27                            : ucvtf  %x27 -> %s27
+9e23001f : ucvtf s31, x0                             : ucvtf  %x0 -> %s31
+
+# FCVTZS  <Wd>, <Sn>, #<imm> (FCVTZS-R.VI-32S_float2fix)
+1e188020 : fcvtzs w0, s1, #0x20                      : fcvtzs %s1 $0x20 -> %w0
+1e188862 : fcvtzs w2, s3, #0x1e                      : fcvtzs %s3 $0x1e -> %w2
+1e1890a4 : fcvtzs w4, s5, #0x1c                      : fcvtzs %s5 $0x1c -> %w4
+1e1898e6 : fcvtzs w6, s7, #0x1a                      : fcvtzs %s7 $0x1a -> %w6
+1e18a128 : fcvtzs w8, s9, #0x18                      : fcvtzs %s9 $0x18 -> %w8
+1e18a969 : fcvtzs w9, s11, #0x16                     : fcvtzs %s11 $0x16 -> %w9
+1e18b1ab : fcvtzs w11, s13, #0x14                    : fcvtzs %s13 $0x14 -> %w11
+1e18b9ed : fcvtzs w13, s15, #0x12                    : fcvtzs %s15 $0x12 -> %w13
+1e18c22f : fcvtzs w15, s17, #0x10                    : fcvtzs %s17 $0x10 -> %w15
+1e18c651 : fcvtzs w17, s18, #0xf                     : fcvtzs %s18 $0x0f -> %w17
+1e18ce93 : fcvtzs w19, s20, #0xd                     : fcvtzs %s20 $0x0d -> %w19
+1e18d6d5 : fcvtzs w21, s22, #0xb                     : fcvtzs %s22 $0x0b -> %w21
+1e18df16 : fcvtzs w22, s24, #0x9                     : fcvtzs %s24 $0x09 -> %w22
+1e18e758 : fcvtzs w24, s26, #0x7                     : fcvtzs %s26 $0x07 -> %w24
+1e18ef9a : fcvtzs w26, s28, #0x5                     : fcvtzs %s28 $0x05 -> %w26
+1e18fc1e : fcvtzs w30, s0, #0x1                      : fcvtzs %s0 $0x01 -> %w30
+
+# FCVTMU  <Xd>, <Sn> (FCVTMU-R.V-64S_float2int)
+9e310020 : fcvtmu x0, s1                             : fcvtmu %s1 -> %x0
+9e310062 : fcvtmu x2, s3                             : fcvtmu %s3 -> %x2
+9e3100a4 : fcvtmu x4, s5                             : fcvtmu %s5 -> %x4
+9e3100e6 : fcvtmu x6, s7                             : fcvtmu %s7 -> %x6
+9e310128 : fcvtmu x8, s9                             : fcvtmu %s9 -> %x8
+9e310169 : fcvtmu x9, s11                            : fcvtmu %s11 -> %x9
+9e3101ab : fcvtmu x11, s13                           : fcvtmu %s13 -> %x11
+9e3101ed : fcvtmu x13, s15                           : fcvtmu %s15 -> %x13
+9e31022f : fcvtmu x15, s17                           : fcvtmu %s17 -> %x15
+9e310251 : fcvtmu x17, s18                           : fcvtmu %s18 -> %x17
+9e310293 : fcvtmu x19, s20                           : fcvtmu %s20 -> %x19
+9e3102d5 : fcvtmu x21, s22                           : fcvtmu %s22 -> %x21
+9e310316 : fcvtmu x22, s24                           : fcvtmu %s24 -> %x22
+9e310358 : fcvtmu x24, s26                           : fcvtmu %s26 -> %x24
+9e31039a : fcvtmu x26, s28                           : fcvtmu %s28 -> %x26
+9e31001e : fcvtmu x30, s0                            : fcvtmu %s0 -> %x30
+
+# FCVTNU  <Wd>, <Sn> (FCVTNU-R.V-32S_float2int)
+1e210020 : fcvtnu w0, s1                             : fcvtnu %s1 -> %w0
+1e210062 : fcvtnu w2, s3                             : fcvtnu %s3 -> %w2
+1e2100a4 : fcvtnu w4, s5                             : fcvtnu %s5 -> %w4
+1e2100e6 : fcvtnu w6, s7                             : fcvtnu %s7 -> %w6
+1e210128 : fcvtnu w8, s9                             : fcvtnu %s9 -> %w8
+1e210169 : fcvtnu w9, s11                            : fcvtnu %s11 -> %w9
+1e2101ab : fcvtnu w11, s13                           : fcvtnu %s13 -> %w11
+1e2101ed : fcvtnu w13, s15                           : fcvtnu %s15 -> %w13
+1e21022f : fcvtnu w15, s17                           : fcvtnu %s17 -> %w15
+1e210251 : fcvtnu w17, s18                           : fcvtnu %s18 -> %w17
+1e210293 : fcvtnu w19, s20                           : fcvtnu %s20 -> %w19
+1e2102d5 : fcvtnu w21, s22                           : fcvtnu %s22 -> %w21
+1e210316 : fcvtnu w22, s24                           : fcvtnu %s24 -> %w22
+1e210358 : fcvtnu w24, s26                           : fcvtnu %s26 -> %w24
+1e21039a : fcvtnu w26, s28                           : fcvtnu %s28 -> %w26
+1e21001e : fcvtnu w30, s0                            : fcvtnu %s0 -> %w30
+
+# SCVTF   <Sd>, <Wn> (SCVTF-V.R-S32_float2int)
+1e220020 : scvtf s0, w1                              : scvtf  %w1 -> %s0
+1e220062 : scvtf s2, w3                              : scvtf  %w3 -> %s2
+1e2200a4 : scvtf s4, w5                              : scvtf  %w5 -> %s4
+1e2200e6 : scvtf s6, w7                              : scvtf  %w7 -> %s6
+1e220128 : scvtf s8, w9                              : scvtf  %w9 -> %s8
+1e22014a : scvtf s10, w10                            : scvtf  %w10 -> %s10
+1e22018c : scvtf s12, w12                            : scvtf  %w12 -> %s12
+1e2201ce : scvtf s14, w14                            : scvtf  %w14 -> %s14
+1e220210 : scvtf s16, w16                            : scvtf  %w16 -> %s16
+1e220251 : scvtf s17, w18                            : scvtf  %w18 -> %s17
+1e220293 : scvtf s19, w20                            : scvtf  %w20 -> %s19
+1e2202d5 : scvtf s21, w22                            : scvtf  %w22 -> %s21
+1e2202f7 : scvtf s23, w23                            : scvtf  %w23 -> %s23
+1e220339 : scvtf s25, w25                            : scvtf  %w25 -> %s25
+1e22037b : scvtf s27, w27                            : scvtf  %w27 -> %s27
+1e22001f : scvtf s31, w0                             : scvtf  %w0 -> %s31
+
+# UCVTF   <Dd>, <Wn>, #<imm> (UCVTF-V.RI-D32_float2fix)
+1e438020 : ucvtf d0, w1, #0x20                       : ucvtf  %w1 $0x20 -> %d0
+1e438862 : ucvtf d2, w3, #0x1e                       : ucvtf  %w3 $0x1e -> %d2
+1e4390a4 : ucvtf d4, w5, #0x1c                       : ucvtf  %w5 $0x1c -> %d4
+1e4398e6 : ucvtf d6, w7, #0x1a                       : ucvtf  %w7 $0x1a -> %d6
+1e43a128 : ucvtf d8, w9, #0x18                       : ucvtf  %w9 $0x18 -> %d8
+1e43a94a : ucvtf d10, w10, #0x16                     : ucvtf  %w10 $0x16 -> %d10
+1e43b18c : ucvtf d12, w12, #0x14                     : ucvtf  %w12 $0x14 -> %d12
+1e43b9ce : ucvtf d14, w14, #0x12                     : ucvtf  %w14 $0x12 -> %d14
+1e43c210 : ucvtf d16, w16, #0x10                     : ucvtf  %w16 $0x10 -> %d16
+1e43c651 : ucvtf d17, w18, #0xf                      : ucvtf  %w18 $0x0f -> %d17
+1e43ce93 : ucvtf d19, w20, #0xd                      : ucvtf  %w20 $0x0d -> %d19
+1e43d6d5 : ucvtf d21, w22, #0xb                      : ucvtf  %w22 $0x0b -> %d21
+1e43def7 : ucvtf d23, w23, #0x9                      : ucvtf  %w23 $0x09 -> %d23
+1e43e739 : ucvtf d25, w25, #0x7                      : ucvtf  %w25 $0x07 -> %d25
+1e43ef7b : ucvtf d27, w27, #0x5                      : ucvtf  %w27 $0x05 -> %d27
+1e43fc1f : ucvtf d31, w0, #0x1                       : ucvtf  %w0 $0x01 -> %d31
+
+# FMOV    <Xd>, <Dn> (FMOV-R.V-64D_float2int)
+9e660020 : fmov x0, d1                               : fmov   %d1 -> %x0
+9e660062 : fmov x2, d3                               : fmov   %d3 -> %x2
+9e6600a4 : fmov x4, d5                               : fmov   %d5 -> %x4
+9e6600e6 : fmov x6, d7                               : fmov   %d7 -> %x6
+9e660128 : fmov x8, d9                               : fmov   %d9 -> %x8
+9e660169 : fmov x9, d11                              : fmov   %d11 -> %x9
+9e6601ab : fmov x11, d13                             : fmov   %d13 -> %x11
+9e6601ed : fmov x13, d15                             : fmov   %d15 -> %x13
+9e66022f : fmov x15, d17                             : fmov   %d17 -> %x15
+9e660251 : fmov x17, d18                             : fmov   %d18 -> %x17
+9e660293 : fmov x19, d20                             : fmov   %d20 -> %x19
+9e6602d5 : fmov x21, d22                             : fmov   %d22 -> %x21
+9e660316 : fmov x22, d24                             : fmov   %d24 -> %x22
+9e660358 : fmov x24, d26                             : fmov   %d26 -> %x24
+9e66039a : fmov x26, d28                             : fmov   %d28 -> %x26
+9e66001e : fmov x30, d0                              : fmov   %d0 -> %x30
+
+# FCVTZS  <Xd>, <Sn>, #<imm> (FCVTZS-R.VI-64S_float2fix)
+9e188020 : fcvtzs x0, s1, #0x20                      : fcvtzs %s1 $0x20 -> %x0
+9e188862 : fcvtzs x2, s3, #0x1e                      : fcvtzs %s3 $0x1e -> %x2
+9e1890a4 : fcvtzs x4, s5, #0x1c                      : fcvtzs %s5 $0x1c -> %x4
+9e1898e6 : fcvtzs x6, s7, #0x1a                      : fcvtzs %s7 $0x1a -> %x6
+9e18a128 : fcvtzs x8, s9, #0x18                      : fcvtzs %s9 $0x18 -> %x8
+9e18a969 : fcvtzs x9, s11, #0x16                     : fcvtzs %s11 $0x16 -> %x9
+9e18b1ab : fcvtzs x11, s13, #0x14                    : fcvtzs %s13 $0x14 -> %x11
+9e18b9ed : fcvtzs x13, s15, #0x12                    : fcvtzs %s15 $0x12 -> %x13
+9e18c22f : fcvtzs x15, s17, #0x10                    : fcvtzs %s17 $0x10 -> %x15
+9e18c651 : fcvtzs x17, s18, #0xf                     : fcvtzs %s18 $0x0f -> %x17
+9e18ce93 : fcvtzs x19, s20, #0xd                     : fcvtzs %s20 $0x0d -> %x19
+9e18d6d5 : fcvtzs x21, s22, #0xb                     : fcvtzs %s22 $0x0b -> %x21
+9e18df16 : fcvtzs x22, s24, #0x9                     : fcvtzs %s24 $0x09 -> %x22
+9e18e758 : fcvtzs x24, s26, #0x7                     : fcvtzs %s26 $0x07 -> %x24
+9e18ef9a : fcvtzs x26, s28, #0x5                     : fcvtzs %s28 $0x05 -> %x26
+9e18fc1e : fcvtzs x30, s0, #0x1                      : fcvtzs %s0 $0x01 -> %x30
+
+# FCVTZS  <Xd>, <Sn> (FCVTZS-R.V-64S_float2int)
+9e380020 : fcvtzs x0, s1                             : fcvtzs %s1 -> %x0
+9e380062 : fcvtzs x2, s3                             : fcvtzs %s3 -> %x2
+9e3800a4 : fcvtzs x4, s5                             : fcvtzs %s5 -> %x4
+9e3800e6 : fcvtzs x6, s7                             : fcvtzs %s7 -> %x6
+9e380128 : fcvtzs x8, s9                             : fcvtzs %s9 -> %x8
+9e380169 : fcvtzs x9, s11                            : fcvtzs %s11 -> %x9
+9e3801ab : fcvtzs x11, s13                           : fcvtzs %s13 -> %x11
+9e3801ed : fcvtzs x13, s15                           : fcvtzs %s15 -> %x13
+9e38022f : fcvtzs x15, s17                           : fcvtzs %s17 -> %x15
+9e380251 : fcvtzs x17, s18                           : fcvtzs %s18 -> %x17
+9e380293 : fcvtzs x19, s20                           : fcvtzs %s20 -> %x19
+9e3802d5 : fcvtzs x21, s22                           : fcvtzs %s22 -> %x21
+9e380316 : fcvtzs x22, s24                           : fcvtzs %s24 -> %x22
+9e380358 : fcvtzs x24, s26                           : fcvtzs %s26 -> %x24
+9e38039a : fcvtzs x26, s28                           : fcvtzs %s28 -> %x26
+9e38001e : fcvtzs x30, s0                            : fcvtzs %s0 -> %x30
+
+# FCVTPU  <Xd>, <Sn> (FCVTPU-R.V-64S_float2int)
+9e290020 : fcvtpu x0, s1                             : fcvtpu %s1 -> %x0
+9e290062 : fcvtpu x2, s3                             : fcvtpu %s3 -> %x2
+9e2900a4 : fcvtpu x4, s5                             : fcvtpu %s5 -> %x4
+9e2900e6 : fcvtpu x6, s7                             : fcvtpu %s7 -> %x6
+9e290128 : fcvtpu x8, s9                             : fcvtpu %s9 -> %x8
+9e290169 : fcvtpu x9, s11                            : fcvtpu %s11 -> %x9
+9e2901ab : fcvtpu x11, s13                           : fcvtpu %s13 -> %x11
+9e2901ed : fcvtpu x13, s15                           : fcvtpu %s15 -> %x13
+9e29022f : fcvtpu x15, s17                           : fcvtpu %s17 -> %x15
+9e290251 : fcvtpu x17, s18                           : fcvtpu %s18 -> %x17
+9e290293 : fcvtpu x19, s20                           : fcvtpu %s20 -> %x19
+9e2902d5 : fcvtpu x21, s22                           : fcvtpu %s22 -> %x21
+9e290316 : fcvtpu x22, s24                           : fcvtpu %s24 -> %x22
+9e290358 : fcvtpu x24, s26                           : fcvtpu %s26 -> %x24
+9e29039a : fcvtpu x26, s28                           : fcvtpu %s28 -> %x26
+9e29001e : fcvtpu x30, s0                            : fcvtpu %s0 -> %x30
+
+# FCVTZU  <Wd>, <Dn>, #<imm> (FCVTZU-R.VI-32D_float2fix)
+1e598020 : fcvtzu w0, d1, #0x20                      : fcvtzu %d1 $0x20 -> %w0
+1e598862 : fcvtzu w2, d3, #0x1e                      : fcvtzu %d3 $0x1e -> %w2
+1e5990a4 : fcvtzu w4, d5, #0x1c                      : fcvtzu %d5 $0x1c -> %w4
+1e5998e6 : fcvtzu w6, d7, #0x1a                      : fcvtzu %d7 $0x1a -> %w6
+1e59a128 : fcvtzu w8, d9, #0x18                      : fcvtzu %d9 $0x18 -> %w8
+1e59a969 : fcvtzu w9, d11, #0x16                     : fcvtzu %d11 $0x16 -> %w9
+1e59b1ab : fcvtzu w11, d13, #0x14                    : fcvtzu %d13 $0x14 -> %w11
+1e59b9ed : fcvtzu w13, d15, #0x12                    : fcvtzu %d15 $0x12 -> %w13
+1e59c22f : fcvtzu w15, d17, #0x10                    : fcvtzu %d17 $0x10 -> %w15
+1e59c651 : fcvtzu w17, d18, #0xf                     : fcvtzu %d18 $0x0f -> %w17
+1e59ce93 : fcvtzu w19, d20, #0xd                     : fcvtzu %d20 $0x0d -> %w19
+1e59d6d5 : fcvtzu w21, d22, #0xb                     : fcvtzu %d22 $0x0b -> %w21
+1e59df16 : fcvtzu w22, d24, #0x9                     : fcvtzu %d24 $0x09 -> %w22
+1e59e758 : fcvtzu w24, d26, #0x7                     : fcvtzu %d26 $0x07 -> %w24
+1e59ef9a : fcvtzu w26, d28, #0x5                     : fcvtzu %d28 $0x05 -> %w26
+1e59fc1e : fcvtzu w30, d0, #0x1                      : fcvtzu %d0 $0x01 -> %w30
+
+# FCVTMS  <Wd>, <Dn> (FCVTMS-R.V-32D_float2int)
+1e700020 : fcvtms w0, d1                             : fcvtms %d1 -> %w0
+1e700062 : fcvtms w2, d3                             : fcvtms %d3 -> %w2
+1e7000a4 : fcvtms w4, d5                             : fcvtms %d5 -> %w4
+1e7000e6 : fcvtms w6, d7                             : fcvtms %d7 -> %w6
+1e700128 : fcvtms w8, d9                             : fcvtms %d9 -> %w8
+1e700169 : fcvtms w9, d11                            : fcvtms %d11 -> %w9
+1e7001ab : fcvtms w11, d13                           : fcvtms %d13 -> %w11
+1e7001ed : fcvtms w13, d15                           : fcvtms %d15 -> %w13
+1e70022f : fcvtms w15, d17                           : fcvtms %d17 -> %w15
+1e700251 : fcvtms w17, d18                           : fcvtms %d18 -> %w17
+1e700293 : fcvtms w19, d20                           : fcvtms %d20 -> %w19
+1e7002d5 : fcvtms w21, d22                           : fcvtms %d22 -> %w21
+1e700316 : fcvtms w22, d24                           : fcvtms %d24 -> %w22
+1e700358 : fcvtms w24, d26                           : fcvtms %d26 -> %w24
+1e70039a : fcvtms w26, d28                           : fcvtms %d28 -> %w26
+1e70001e : fcvtms w30, d0                            : fcvtms %d0 -> %w30
+
+# FCVTAU  <Xd>, <Dn> (FCVTAU-R.V-64D_float2int)
+9e650020 : fcvtau x0, d1                             : fcvtau %d1 -> %x0
+9e650062 : fcvtau x2, d3                             : fcvtau %d3 -> %x2
+9e6500a4 : fcvtau x4, d5                             : fcvtau %d5 -> %x4
+9e6500e6 : fcvtau x6, d7                             : fcvtau %d7 -> %x6
+9e650128 : fcvtau x8, d9                             : fcvtau %d9 -> %x8
+9e650169 : fcvtau x9, d11                            : fcvtau %d11 -> %x9
+9e6501ab : fcvtau x11, d13                           : fcvtau %d13 -> %x11
+9e6501ed : fcvtau x13, d15                           : fcvtau %d15 -> %x13
+9e65022f : fcvtau x15, d17                           : fcvtau %d17 -> %x15
+9e650251 : fcvtau x17, d18                           : fcvtau %d18 -> %x17
+9e650293 : fcvtau x19, d20                           : fcvtau %d20 -> %x19
+9e6502d5 : fcvtau x21, d22                           : fcvtau %d22 -> %x21
+9e650316 : fcvtau x22, d24                           : fcvtau %d24 -> %x22
+9e650358 : fcvtau x24, d26                           : fcvtau %d26 -> %x24
+9e65039a : fcvtau x26, d28                           : fcvtau %d28 -> %x26
+9e65001e : fcvtau x30, d0                            : fcvtau %d0 -> %x30
+
+# FCVTZS  <Xd>, <Dn>, #<imm> (FCVTZS-R.VI-64D_float2fix)
+9e588020 : fcvtzs x0, d1, #0x20                      : fcvtzs %d1 $0x20 -> %x0
+9e588862 : fcvtzs x2, d3, #0x1e                      : fcvtzs %d3 $0x1e -> %x2
+9e5890a4 : fcvtzs x4, d5, #0x1c                      : fcvtzs %d5 $0x1c -> %x4
+9e5898e6 : fcvtzs x6, d7, #0x1a                      : fcvtzs %d7 $0x1a -> %x6
+9e58a128 : fcvtzs x8, d9, #0x18                      : fcvtzs %d9 $0x18 -> %x8
+9e58a969 : fcvtzs x9, d11, #0x16                     : fcvtzs %d11 $0x16 -> %x9
+9e58b1ab : fcvtzs x11, d13, #0x14                    : fcvtzs %d13 $0x14 -> %x11
+9e58b9ed : fcvtzs x13, d15, #0x12                    : fcvtzs %d15 $0x12 -> %x13
+9e58c22f : fcvtzs x15, d17, #0x10                    : fcvtzs %d17 $0x10 -> %x15
+9e58c651 : fcvtzs x17, d18, #0xf                     : fcvtzs %d18 $0x0f -> %x17
+9e58ce93 : fcvtzs x19, d20, #0xd                     : fcvtzs %d20 $0x0d -> %x19
+9e58d6d5 : fcvtzs x21, d22, #0xb                     : fcvtzs %d22 $0x0b -> %x21
+9e58df16 : fcvtzs x22, d24, #0x9                     : fcvtzs %d24 $0x09 -> %x22
+9e58e758 : fcvtzs x24, d26, #0x7                     : fcvtzs %d26 $0x07 -> %x24
+9e58ef9a : fcvtzs x26, d28, #0x5                     : fcvtzs %d28 $0x05 -> %x26
+9e58fc1e : fcvtzs x30, d0, #0x1                      : fcvtzs %d0 $0x01 -> %x30
+
+# FCVTZU  <Wd>, <Dn> (FCVTZU-R.V-32D_float2int)
+1e790020 : fcvtzu w0, d1                             : fcvtzu %d1 -> %w0
+1e790062 : fcvtzu w2, d3                             : fcvtzu %d3 -> %w2
+1e7900a4 : fcvtzu w4, d5                             : fcvtzu %d5 -> %w4
+1e7900e6 : fcvtzu w6, d7                             : fcvtzu %d7 -> %w6
+1e790128 : fcvtzu w8, d9                             : fcvtzu %d9 -> %w8
+1e790169 : fcvtzu w9, d11                            : fcvtzu %d11 -> %w9
+1e7901ab : fcvtzu w11, d13                           : fcvtzu %d13 -> %w11
+1e7901ed : fcvtzu w13, d15                           : fcvtzu %d15 -> %w13
+1e79022f : fcvtzu w15, d17                           : fcvtzu %d17 -> %w15
+1e790251 : fcvtzu w17, d18                           : fcvtzu %d18 -> %w17
+1e790293 : fcvtzu w19, d20                           : fcvtzu %d20 -> %w19
+1e7902d5 : fcvtzu w21, d22                           : fcvtzu %d22 -> %w21
+1e790316 : fcvtzu w22, d24                           : fcvtzu %d24 -> %w22
+1e790358 : fcvtzu w24, d26                           : fcvtzu %d26 -> %w24
+1e79039a : fcvtzu w26, d28                           : fcvtzu %d28 -> %w26
+1e79001e : fcvtzu w30, d0                            : fcvtzu %d0 -> %w30
+
+# FCVTZU  <Wd>, <Sn> (FCVTZU-R.V-32S_float2int)
+1e390020 : fcvtzu w0, s1                             : fcvtzu %s1 -> %w0
+1e390062 : fcvtzu w2, s3                             : fcvtzu %s3 -> %w2
+1e3900a4 : fcvtzu w4, s5                             : fcvtzu %s5 -> %w4
+1e3900e6 : fcvtzu w6, s7                             : fcvtzu %s7 -> %w6
+1e390128 : fcvtzu w8, s9                             : fcvtzu %s9 -> %w8
+1e390169 : fcvtzu w9, s11                            : fcvtzu %s11 -> %w9
+1e3901ab : fcvtzu w11, s13                           : fcvtzu %s13 -> %w11
+1e3901ed : fcvtzu w13, s15                           : fcvtzu %s15 -> %w13
+1e39022f : fcvtzu w15, s17                           : fcvtzu %s17 -> %w15
+1e390251 : fcvtzu w17, s18                           : fcvtzu %s18 -> %w17
+1e390293 : fcvtzu w19, s20                           : fcvtzu %s20 -> %w19
+1e3902d5 : fcvtzu w21, s22                           : fcvtzu %s22 -> %w21
+1e390316 : fcvtzu w22, s24                           : fcvtzu %s24 -> %w22
+1e390358 : fcvtzu w24, s26                           : fcvtzu %s26 -> %w24
+1e39039a : fcvtzu w26, s28                           : fcvtzu %s28 -> %w26
+1e39001e : fcvtzu w30, s0                            : fcvtzu %s0 -> %w30
+
+# UCVTF   <Sd>, <Xn>, #<imm> (UCVTF-V.RI-S64_float2fix)
+9e038020 : ucvtf s0, x1, #0x20                       : ucvtf  %x1 $0x20 -> %s0
+9e038862 : ucvtf s2, x3, #0x1e                       : ucvtf  %x3 $0x1e -> %s2
+9e0390a4 : ucvtf s4, x5, #0x1c                       : ucvtf  %x5 $0x1c -> %s4
+9e0398e6 : ucvtf s6, x7, #0x1a                       : ucvtf  %x7 $0x1a -> %s6
+9e03a128 : ucvtf s8, x9, #0x18                       : ucvtf  %x9 $0x18 -> %s8
+9e03a94a : ucvtf s10, x10, #0x16                     : ucvtf  %x10 $0x16 -> %s10
+9e03b18c : ucvtf s12, x12, #0x14                     : ucvtf  %x12 $0x14 -> %s12
+9e03b9ce : ucvtf s14, x14, #0x12                     : ucvtf  %x14 $0x12 -> %s14
+9e03c210 : ucvtf s16, x16, #0x10                     : ucvtf  %x16 $0x10 -> %s16
+9e03c651 : ucvtf s17, x18, #0xf                      : ucvtf  %x18 $0x0f -> %s17
+9e03ce93 : ucvtf s19, x20, #0xd                      : ucvtf  %x20 $0x0d -> %s19
+9e03d6d5 : ucvtf s21, x22, #0xb                      : ucvtf  %x22 $0x0b -> %s21
+9e03def7 : ucvtf s23, x23, #0x9                      : ucvtf  %x23 $0x09 -> %s23
+9e03e739 : ucvtf s25, x25, #0x7                      : ucvtf  %x25 $0x07 -> %s25
+9e03ef7b : ucvtf s27, x27, #0x5                      : ucvtf  %x27 $0x05 -> %s27
+9e03fc1f : ucvtf s31, x0, #0x1                       : ucvtf  %x0 $0x01 -> %s31
+
+# SCVTF   <Sd>, <Wn>, #<imm> (SCVTF-V.RI-S32_float2fix)
+1e028020 : scvtf s0, w1, #0x20                       : scvtf  %w1 $0x20 -> %s0
+1e028862 : scvtf s2, w3, #0x1e                       : scvtf  %w3 $0x1e -> %s2
+1e0290a4 : scvtf s4, w5, #0x1c                       : scvtf  %w5 $0x1c -> %s4
+1e0298e6 : scvtf s6, w7, #0x1a                       : scvtf  %w7 $0x1a -> %s6
+1e02a128 : scvtf s8, w9, #0x18                       : scvtf  %w9 $0x18 -> %s8
+1e02a94a : scvtf s10, w10, #0x16                     : scvtf  %w10 $0x16 -> %s10
+1e02b18c : scvtf s12, w12, #0x14                     : scvtf  %w12 $0x14 -> %s12
+1e02b9ce : scvtf s14, w14, #0x12                     : scvtf  %w14 $0x12 -> %s14
+1e02c210 : scvtf s16, w16, #0x10                     : scvtf  %w16 $0x10 -> %s16
+1e02c651 : scvtf s17, w18, #0xf                      : scvtf  %w18 $0x0f -> %s17
+1e02ce93 : scvtf s19, w20, #0xd                      : scvtf  %w20 $0x0d -> %s19
+1e02d6d5 : scvtf s21, w22, #0xb                      : scvtf  %w22 $0x0b -> %s21
+1e02def7 : scvtf s23, w23, #0x9                      : scvtf  %w23 $0x09 -> %s23
+1e02e739 : scvtf s25, w25, #0x7                      : scvtf  %w25 $0x07 -> %s25
+1e02ef7b : scvtf s27, w27, #0x5                      : scvtf  %w27 $0x05 -> %s27
+1e02fc1f : scvtf s31, w0, #0x1                       : scvtf  %w0 $0x01 -> %s31
+
+# FCVTAS  <Wd>, <Sn> (FCVTAS-R.V-32S_float2int)
+1e240020 : fcvtas w0, s1                             : fcvtas %s1 -> %w0
+1e240062 : fcvtas w2, s3                             : fcvtas %s3 -> %w2
+1e2400a4 : fcvtas w4, s5                             : fcvtas %s5 -> %w4
+1e2400e6 : fcvtas w6, s7                             : fcvtas %s7 -> %w6
+1e240128 : fcvtas w8, s9                             : fcvtas %s9 -> %w8
+1e240169 : fcvtas w9, s11                            : fcvtas %s11 -> %w9
+1e2401ab : fcvtas w11, s13                           : fcvtas %s13 -> %w11
+1e2401ed : fcvtas w13, s15                           : fcvtas %s15 -> %w13
+1e24022f : fcvtas w15, s17                           : fcvtas %s17 -> %w15
+1e240251 : fcvtas w17, s18                           : fcvtas %s18 -> %w17
+1e240293 : fcvtas w19, s20                           : fcvtas %s20 -> %w19
+1e2402d5 : fcvtas w21, s22                           : fcvtas %s22 -> %w21
+1e240316 : fcvtas w22, s24                           : fcvtas %s24 -> %w22
+1e240358 : fcvtas w24, s26                           : fcvtas %s26 -> %w24
+1e24039a : fcvtas w26, s28                           : fcvtas %s28 -> %w26
+1e24001e : fcvtas w30, s0                            : fcvtas %s0 -> %w30
+
+# FCVTNS  <Xd>, <Sn> (FCVTNS-R.V-64S_float2int)
+9e200020 : fcvtns x0, s1                             : fcvtns %s1 -> %x0
+9e200062 : fcvtns x2, s3                             : fcvtns %s3 -> %x2
+9e2000a4 : fcvtns x4, s5                             : fcvtns %s5 -> %x4
+9e2000e6 : fcvtns x6, s7                             : fcvtns %s7 -> %x6
+9e200128 : fcvtns x8, s9                             : fcvtns %s9 -> %x8
+9e200169 : fcvtns x9, s11                            : fcvtns %s11 -> %x9
+9e2001ab : fcvtns x11, s13                           : fcvtns %s13 -> %x11
+9e2001ed : fcvtns x13, s15                           : fcvtns %s15 -> %x13
+9e20022f : fcvtns x15, s17                           : fcvtns %s17 -> %x15
+9e200251 : fcvtns x17, s18                           : fcvtns %s18 -> %x17
+9e200293 : fcvtns x19, s20                           : fcvtns %s20 -> %x19
+9e2002d5 : fcvtns x21, s22                           : fcvtns %s22 -> %x21
+9e200316 : fcvtns x22, s24                           : fcvtns %s24 -> %x22
+9e200358 : fcvtns x24, s26                           : fcvtns %s26 -> %x24
+9e20039a : fcvtns x26, s28                           : fcvtns %s28 -> %x26
+9e20001e : fcvtns x30, s0                            : fcvtns %s0 -> %x30
+
+# FCVTPU  <Wd>, <Dn> (FCVTPU-R.V-32D_float2int)
+1e690020 : fcvtpu w0, d1                             : fcvtpu %d1 -> %w0
+1e690062 : fcvtpu w2, d3                             : fcvtpu %d3 -> %w2
+1e6900a4 : fcvtpu w4, d5                             : fcvtpu %d5 -> %w4
+1e6900e6 : fcvtpu w6, d7                             : fcvtpu %d7 -> %w6
+1e690128 : fcvtpu w8, d9                             : fcvtpu %d9 -> %w8
+1e690169 : fcvtpu w9, d11                            : fcvtpu %d11 -> %w9
+1e6901ab : fcvtpu w11, d13                           : fcvtpu %d13 -> %w11
+1e6901ed : fcvtpu w13, d15                           : fcvtpu %d15 -> %w13
+1e69022f : fcvtpu w15, d17                           : fcvtpu %d17 -> %w15
+1e690251 : fcvtpu w17, d18                           : fcvtpu %d18 -> %w17
+1e690293 : fcvtpu w19, d20                           : fcvtpu %d20 -> %w19
+1e6902d5 : fcvtpu w21, d22                           : fcvtpu %d22 -> %w21
+1e690316 : fcvtpu w22, d24                           : fcvtpu %d24 -> %w22
+1e690358 : fcvtpu w24, d26                           : fcvtpu %d26 -> %w24
+1e69039a : fcvtpu w26, d28                           : fcvtpu %d28 -> %w26
+1e69001e : fcvtpu w30, d0                            : fcvtpu %d0 -> %w30
+
+# FCVTNS  <Xd>, <Dn> (FCVTNS-R.V-64D_float2int)
+9e600020 : fcvtns x0, d1                             : fcvtns %d1 -> %x0
+9e600062 : fcvtns x2, d3                             : fcvtns %d3 -> %x2
+9e6000a4 : fcvtns x4, d5                             : fcvtns %d5 -> %x4
+9e6000e6 : fcvtns x6, d7                             : fcvtns %d7 -> %x6
+9e600128 : fcvtns x8, d9                             : fcvtns %d9 -> %x8
+9e600169 : fcvtns x9, d11                            : fcvtns %d11 -> %x9
+9e6001ab : fcvtns x11, d13                           : fcvtns %d13 -> %x11
+9e6001ed : fcvtns x13, d15                           : fcvtns %d15 -> %x13
+9e60022f : fcvtns x15, d17                           : fcvtns %d17 -> %x15
+9e600251 : fcvtns x17, d18                           : fcvtns %d18 -> %x17
+9e600293 : fcvtns x19, d20                           : fcvtns %d20 -> %x19
+9e6002d5 : fcvtns x21, d22                           : fcvtns %d22 -> %x21
+9e600316 : fcvtns x22, d24                           : fcvtns %d24 -> %x22
+9e600358 : fcvtns x24, d26                           : fcvtns %d26 -> %x24
+9e60039a : fcvtns x26, d28                           : fcvtns %d28 -> %x26
+9e60001e : fcvtns x30, d0                            : fcvtns %d0 -> %x30
+
+# FCVTZU  <Xd>, <Sn>, #<imm> (FCVTZU-R.VI-64S_float2fix)
+9e198020 : fcvtzu x0, s1, #0x20                      : fcvtzu %s1 $0x20 -> %x0
+9e198862 : fcvtzu x2, s3, #0x1e                      : fcvtzu %s3 $0x1e -> %x2
+9e1990a4 : fcvtzu x4, s5, #0x1c                      : fcvtzu %s5 $0x1c -> %x4
+9e1998e6 : fcvtzu x6, s7, #0x1a                      : fcvtzu %s7 $0x1a -> %x6
+9e19a128 : fcvtzu x8, s9, #0x18                      : fcvtzu %s9 $0x18 -> %x8
+9e19a969 : fcvtzu x9, s11, #0x16                     : fcvtzu %s11 $0x16 -> %x9
+9e19b1ab : fcvtzu x11, s13, #0x14                    : fcvtzu %s13 $0x14 -> %x11
+9e19b9ed : fcvtzu x13, s15, #0x12                    : fcvtzu %s15 $0x12 -> %x13
+9e19c22f : fcvtzu x15, s17, #0x10                    : fcvtzu %s17 $0x10 -> %x15
+9e19c651 : fcvtzu x17, s18, #0xf                     : fcvtzu %s18 $0x0f -> %x17
+9e19ce93 : fcvtzu x19, s20, #0xd                     : fcvtzu %s20 $0x0d -> %x19
+9e19d6d5 : fcvtzu x21, s22, #0xb                     : fcvtzu %s22 $0x0b -> %x21
+9e19df16 : fcvtzu x22, s24, #0x9                     : fcvtzu %s24 $0x09 -> %x22
+9e19e758 : fcvtzu x24, s26, #0x7                     : fcvtzu %s26 $0x07 -> %x24
+9e19ef9a : fcvtzu x26, s28, #0x5                     : fcvtzu %s28 $0x05 -> %x26
+9e19fc1e : fcvtzu x30, s0, #0x1                      : fcvtzu %s0 $0x01 -> %x30
+
+# UCVTF   <Sd>, <Wn>, #<imm> (UCVTF-V.RI-S32_float2fix)
+1e038020 : ucvtf s0, w1, #0x20                       : ucvtf  %w1 $0x20 -> %s0
+1e038862 : ucvtf s2, w3, #0x1e                       : ucvtf  %w3 $0x1e -> %s2
+1e0390a4 : ucvtf s4, w5, #0x1c                       : ucvtf  %w5 $0x1c -> %s4
+1e0398e6 : ucvtf s6, w7, #0x1a                       : ucvtf  %w7 $0x1a -> %s6
+1e03a128 : ucvtf s8, w9, #0x18                       : ucvtf  %w9 $0x18 -> %s8
+1e03a94a : ucvtf s10, w10, #0x16                     : ucvtf  %w10 $0x16 -> %s10
+1e03b18c : ucvtf s12, w12, #0x14                     : ucvtf  %w12 $0x14 -> %s12
+1e03b9ce : ucvtf s14, w14, #0x12                     : ucvtf  %w14 $0x12 -> %s14
+1e03c210 : ucvtf s16, w16, #0x10                     : ucvtf  %w16 $0x10 -> %s16
+1e03c651 : ucvtf s17, w18, #0xf                      : ucvtf  %w18 $0x0f -> %s17
+1e03ce93 : ucvtf s19, w20, #0xd                      : ucvtf  %w20 $0x0d -> %s19
+1e03d6d5 : ucvtf s21, w22, #0xb                      : ucvtf  %w22 $0x0b -> %s21
+1e03def7 : ucvtf s23, w23, #0x9                      : ucvtf  %w23 $0x09 -> %s23
+1e03e739 : ucvtf s25, w25, #0x7                      : ucvtf  %w25 $0x07 -> %s25
+1e03ef7b : ucvtf s27, w27, #0x5                      : ucvtf  %w27 $0x05 -> %s27
+1e03fc1f : ucvtf s31, w0, #0x1                       : ucvtf  %w0 $0x01 -> %s31
+
+# SMOV    <Wd>, <Hn>.<T>[<imm>] (SMOV-R.Qi-asimdins_W_w)
+0e022c20 : smov w0, v1.h[0]                          : smov   %q1 $0x00 $0x01 -> %w0
+0e022c62 : smov w2, v3.h[0]                          : smov   %q3 $0x00 $0x01 -> %w2
+0e062ca4 : smov w4, v5.h[1]                          : smov   %q5 $0x01 $0x01 -> %w4
+0e062ce6 : smov w6, v7.h[1]                          : smov   %q7 $0x01 $0x01 -> %w6
+0e0a2d28 : smov w8, v9.h[2]                          : smov   %q9 $0x02 $0x01 -> %w8
+0e0a2d69 : smov w9, v11.h[2]                         : smov   %q11 $0x02 $0x01 -> %w9
+0e0e2dab : smov w11, v13.h[3]                        : smov   %q13 $0x03 $0x01 -> %w11
+0e0e2ded : smov w13, v15.h[3]                        : smov   %q15 $0x03 $0x01 -> %w13
+0e122e2f : smov w15, v17.h[4]                        : smov   %q17 $0x04 $0x01 -> %w15
+0e122e51 : smov w17, v18.h[4]                        : smov   %q18 $0x04 $0x01 -> %w17
+0e122e93 : smov w19, v20.h[4]                        : smov   %q20 $0x04 $0x01 -> %w19
+0e162ed5 : smov w21, v22.h[5]                        : smov   %q22 $0x05 $0x01 -> %w21
+0e162f16 : smov w22, v24.h[5]                        : smov   %q24 $0x05 $0x01 -> %w22
+0e1a2f58 : smov w24, v26.h[6]                        : smov   %q26 $0x06 $0x01 -> %w24
+0e1a2f9a : smov w26, v28.h[6]                        : smov   %q28 $0x06 $0x01 -> %w26
+0e1e2c1e : smov w30, v0.h[7]                         : smov   %q0 $0x07 $0x01 -> %w30
+0e012c20 : smov w0, v1.b[0]                          : smov   %q1 $0x00 $0x00 -> %w0
+0e032c62 : smov w2, v3.b[1]                          : smov   %q3 $0x01 $0x00 -> %w2
+0e052ca4 : smov w4, v5.b[2]                          : smov   %q5 $0x02 $0x00 -> %w4
+0e072ce6 : smov w6, v7.b[3]                          : smov   %q7 $0x03 $0x00 -> %w6
+0e092d28 : smov w8, v9.b[4]                          : smov   %q9 $0x04 $0x00 -> %w8
+0e0b2d69 : smov w9, v11.b[5]                         : smov   %q11 $0x05 $0x00 -> %w9
+0e0d2dab : smov w11, v13.b[6]                        : smov   %q13 $0x06 $0x00 -> %w11
+0e0f2ded : smov w13, v15.b[7]                        : smov   %q15 $0x07 $0x00 -> %w13
+0e112e2f : smov w15, v17.b[8]                        : smov   %q17 $0x08 $0x00 -> %w15
+0e112e51 : smov w17, v18.b[8]                        : smov   %q18 $0x08 $0x00 -> %w17
+0e132e93 : smov w19, v20.b[9]                        : smov   %q20 $0x09 $0x00 -> %w19
+0e152ed5 : smov w21, v22.b[10]                       : smov   %q22 $0x0a $0x00 -> %w21
+0e172f16 : smov w22, v24.b[11]                       : smov   %q24 $0x0b $0x00 -> %w22
+0e192f58 : smov w24, v26.b[12]                       : smov   %q26 $0x0c $0x00 -> %w24
+0e1b2f9a : smov w26, v28.b[13]                       : smov   %q28 $0x0d $0x00 -> %w26
+0e1f2c1e : smov w30, v0.b[15]                        : smov   %q0 $0x0f $0x00 -> %w30
+
+# FCVTZU  <Xd>, <Sn> (FCVTZU-R.V-64S_float2int)
+9e390020 : fcvtzu x0, s1                             : fcvtzu %s1 -> %x0
+9e390062 : fcvtzu x2, s3                             : fcvtzu %s3 -> %x2
+9e3900a4 : fcvtzu x4, s5                             : fcvtzu %s5 -> %x4
+9e3900e6 : fcvtzu x6, s7                             : fcvtzu %s7 -> %x6
+9e390128 : fcvtzu x8, s9                             : fcvtzu %s9 -> %x8
+9e390169 : fcvtzu x9, s11                            : fcvtzu %s11 -> %x9
+9e3901ab : fcvtzu x11, s13                           : fcvtzu %s13 -> %x11
+9e3901ed : fcvtzu x13, s15                           : fcvtzu %s15 -> %x13
+9e39022f : fcvtzu x15, s17                           : fcvtzu %s17 -> %x15
+9e390251 : fcvtzu x17, s18                           : fcvtzu %s18 -> %x17
+9e390293 : fcvtzu x19, s20                           : fcvtzu %s20 -> %x19
+9e3902d5 : fcvtzu x21, s22                           : fcvtzu %s22 -> %x21
+9e390316 : fcvtzu x22, s24                           : fcvtzu %s24 -> %x22
+9e390358 : fcvtzu x24, s26                           : fcvtzu %s26 -> %x24
+9e39039a : fcvtzu x26, s28                           : fcvtzu %s28 -> %x26
+9e39001e : fcvtzu x30, s0                            : fcvtzu %s0 -> %x30
+
+# FCVTZU  <Xd>, <Dn>, #<imm> (FCVTZU-R.VI-64D_float2fix)
+9e598020 : fcvtzu x0, d1, #0x20                      : fcvtzu %d1 $0x20 -> %x0
+9e598862 : fcvtzu x2, d3, #0x1e                      : fcvtzu %d3 $0x1e -> %x2
+9e5990a4 : fcvtzu x4, d5, #0x1c                      : fcvtzu %d5 $0x1c -> %x4
+9e5998e6 : fcvtzu x6, d7, #0x1a                      : fcvtzu %d7 $0x1a -> %x6
+9e59a128 : fcvtzu x8, d9, #0x18                      : fcvtzu %d9 $0x18 -> %x8
+9e59a969 : fcvtzu x9, d11, #0x16                     : fcvtzu %d11 $0x16 -> %x9
+9e59b1ab : fcvtzu x11, d13, #0x14                    : fcvtzu %d13 $0x14 -> %x11
+9e59b9ed : fcvtzu x13, d15, #0x12                    : fcvtzu %d15 $0x12 -> %x13
+9e59c22f : fcvtzu x15, d17, #0x10                    : fcvtzu %d17 $0x10 -> %x15
+9e59c651 : fcvtzu x17, d18, #0xf                     : fcvtzu %d18 $0x0f -> %x17
+9e59ce93 : fcvtzu x19, d20, #0xd                     : fcvtzu %d20 $0x0d -> %x19
+9e59d6d5 : fcvtzu x21, d22, #0xb                     : fcvtzu %d22 $0x0b -> %x21
+9e59df16 : fcvtzu x22, d24, #0x9                     : fcvtzu %d24 $0x09 -> %x22
+9e59e758 : fcvtzu x24, d26, #0x7                     : fcvtzu %d26 $0x07 -> %x24
+9e59ef9a : fcvtzu x26, d28, #0x5                     : fcvtzu %d28 $0x05 -> %x26
+9e59fc1e : fcvtzu x30, d0, #0x1                      : fcvtzu %d0 $0x01 -> %x30
+
+# FMOV    <Wd>, <Sn> (FMOV-R.V-32S_float2int)
+1e260020 : fmov w0, s1                               : fmov   %s1 -> %w0
+1e260062 : fmov w2, s3                               : fmov   %s3 -> %w2
+1e2600a4 : fmov w4, s5                               : fmov   %s5 -> %w4
+1e2600e6 : fmov w6, s7                               : fmov   %s7 -> %w6
+1e260128 : fmov w8, s9                               : fmov   %s9 -> %w8
+1e260169 : fmov w9, s11                              : fmov   %s11 -> %w9
+1e2601ab : fmov w11, s13                             : fmov   %s13 -> %w11
+1e2601ed : fmov w13, s15                             : fmov   %s15 -> %w13
+1e26022f : fmov w15, s17                             : fmov   %s17 -> %w15
+1e260251 : fmov w17, s18                             : fmov   %s18 -> %w17
+1e260293 : fmov w19, s20                             : fmov   %s20 -> %w19
+1e2602d5 : fmov w21, s22                             : fmov   %s22 -> %w21
+1e260316 : fmov w22, s24                             : fmov   %s24 -> %w22
+1e260358 : fmov w24, s26                             : fmov   %s26 -> %w24
+1e26039a : fmov w26, s28                             : fmov   %s28 -> %w26
+1e26001e : fmov w30, s0                              : fmov   %s0 -> %w30
+
+# FCVTZU  <Xd>, <Dn> (FCVTZU-R.V-64D_float2int)
+9e790020 : fcvtzu x0, d1                             : fcvtzu %d1 -> %x0
+9e790062 : fcvtzu x2, d3                             : fcvtzu %d3 -> %x2
+9e7900a4 : fcvtzu x4, d5                             : fcvtzu %d5 -> %x4
+9e7900e6 : fcvtzu x6, d7                             : fcvtzu %d7 -> %x6
+9e790128 : fcvtzu x8, d9                             : fcvtzu %d9 -> %x8
+9e790169 : fcvtzu x9, d11                            : fcvtzu %d11 -> %x9
+9e7901ab : fcvtzu x11, d13                           : fcvtzu %d13 -> %x11
+9e7901ed : fcvtzu x13, d15                           : fcvtzu %d15 -> %x13
+9e79022f : fcvtzu x15, d17                           : fcvtzu %d17 -> %x15
+9e790251 : fcvtzu x17, d18                           : fcvtzu %d18 -> %x17
+9e790293 : fcvtzu x19, d20                           : fcvtzu %d20 -> %x19
+9e7902d5 : fcvtzu x21, d22                           : fcvtzu %d22 -> %x21
+9e790316 : fcvtzu x22, d24                           : fcvtzu %d24 -> %x22
+9e790358 : fcvtzu x24, d26                           : fcvtzu %d26 -> %x24
+9e79039a : fcvtzu x26, d28                           : fcvtzu %d28 -> %x26
+9e79001e : fcvtzu x30, d0                            : fcvtzu %d0 -> %x30
+
+# SCVTF   <Dd>, <Xn>, #<imm> (SCVTF-V.RI-D64_float2fix)
+9e428020 : scvtf d0, x1, #0x20                       : scvtf  %x1 $0x20 -> %d0
+9e428862 : scvtf d2, x3, #0x1e                       : scvtf  %x3 $0x1e -> %d2
+9e4290a4 : scvtf d4, x5, #0x1c                       : scvtf  %x5 $0x1c -> %d4
+9e4298e6 : scvtf d6, x7, #0x1a                       : scvtf  %x7 $0x1a -> %d6
+9e42a128 : scvtf d8, x9, #0x18                       : scvtf  %x9 $0x18 -> %d8
+9e42a94a : scvtf d10, x10, #0x16                     : scvtf  %x10 $0x16 -> %d10
+9e42b18c : scvtf d12, x12, #0x14                     : scvtf  %x12 $0x14 -> %d12
+9e42b9ce : scvtf d14, x14, #0x12                     : scvtf  %x14 $0x12 -> %d14
+9e42c210 : scvtf d16, x16, #0x10                     : scvtf  %x16 $0x10 -> %d16
+9e42c651 : scvtf d17, x18, #0xf                      : scvtf  %x18 $0x0f -> %d17
+9e42ce93 : scvtf d19, x20, #0xd                      : scvtf  %x20 $0x0d -> %d19
+9e42d6d5 : scvtf d21, x22, #0xb                      : scvtf  %x22 $0x0b -> %d21
+9e42def7 : scvtf d23, x23, #0x9                      : scvtf  %x23 $0x09 -> %d23
+9e42e739 : scvtf d25, x25, #0x7                      : scvtf  %x25 $0x07 -> %d25
+9e42ef7b : scvtf d27, x27, #0x5                      : scvtf  %x27 $0x05 -> %d27
+9e42fc1f : scvtf d31, x0, #0x1                       : scvtf  %x0 $0x01 -> %d31
+
+# FMOV    <Sd>, <Wn> (FMOV-V.R-S32_float2int)
+1e270020 : fmov s0, w1                               : fmov   %w1 -> %s0
+1e270062 : fmov s2, w3                               : fmov   %w3 -> %s2
+1e2700a4 : fmov s4, w5                               : fmov   %w5 -> %s4
+1e2700e6 : fmov s6, w7                               : fmov   %w7 -> %s6
+1e270128 : fmov s8, w9                               : fmov   %w9 -> %s8
+1e27014a : fmov s10, w10                             : fmov   %w10 -> %s10
+1e27018c : fmov s12, w12                             : fmov   %w12 -> %s12
+1e2701ce : fmov s14, w14                             : fmov   %w14 -> %s14
+1e270210 : fmov s16, w16                             : fmov   %w16 -> %s16
+1e270251 : fmov s17, w18                             : fmov   %w18 -> %s17
+1e270293 : fmov s19, w20                             : fmov   %w20 -> %s19
+1e2702d5 : fmov s21, w22                             : fmov   %w22 -> %s21
+1e2702f7 : fmov s23, w23                             : fmov   %w23 -> %s23
+1e270339 : fmov s25, w25                             : fmov   %w25 -> %s25
+1e27037b : fmov s27, w27                             : fmov   %w27 -> %s27
+1e27001f : fmov s31, w0                              : fmov   %w0 -> %s31
+
+# FCVTMU  <Wd>, <Sn> (FCVTMU-R.V-32S_float2int)
+1e310020 : fcvtmu w0, s1                             : fcvtmu %s1 -> %w0
+1e310062 : fcvtmu w2, s3                             : fcvtmu %s3 -> %w2
+1e3100a4 : fcvtmu w4, s5                             : fcvtmu %s5 -> %w4
+1e3100e6 : fcvtmu w6, s7                             : fcvtmu %s7 -> %w6
+1e310128 : fcvtmu w8, s9                             : fcvtmu %s9 -> %w8
+1e310169 : fcvtmu w9, s11                            : fcvtmu %s11 -> %w9
+1e3101ab : fcvtmu w11, s13                           : fcvtmu %s13 -> %w11
+1e3101ed : fcvtmu w13, s15                           : fcvtmu %s15 -> %w13
+1e31022f : fcvtmu w15, s17                           : fcvtmu %s17 -> %w15
+1e310251 : fcvtmu w17, s18                           : fcvtmu %s18 -> %w17
+1e310293 : fcvtmu w19, s20                           : fcvtmu %s20 -> %w19
+1e3102d5 : fcvtmu w21, s22                           : fcvtmu %s22 -> %w21
+1e310316 : fcvtmu w22, s24                           : fcvtmu %s24 -> %w22
+1e310358 : fcvtmu w24, s26                           : fcvtmu %s26 -> %w24
+1e31039a : fcvtmu w26, s28                           : fcvtmu %s28 -> %w26
+1e31001e : fcvtmu w30, s0                            : fcvtmu %s0 -> %w30
+
+# FCVTNU  <Wd>, <Dn> (FCVTNU-R.V-32D_float2int)
+1e610020 : fcvtnu w0, d1                             : fcvtnu %d1 -> %w0
+1e610062 : fcvtnu w2, d3                             : fcvtnu %d3 -> %w2
+1e6100a4 : fcvtnu w4, d5                             : fcvtnu %d5 -> %w4
+1e6100e6 : fcvtnu w6, d7                             : fcvtnu %d7 -> %w6
+1e610128 : fcvtnu w8, d9                             : fcvtnu %d9 -> %w8
+1e610169 : fcvtnu w9, d11                            : fcvtnu %d11 -> %w9
+1e6101ab : fcvtnu w11, d13                           : fcvtnu %d13 -> %w11
+1e6101ed : fcvtnu w13, d15                           : fcvtnu %d15 -> %w13
+1e61022f : fcvtnu w15, d17                           : fcvtnu %d17 -> %w15
+1e610251 : fcvtnu w17, d18                           : fcvtnu %d18 -> %w17
+1e610293 : fcvtnu w19, d20                           : fcvtnu %d20 -> %w19
+1e6102d5 : fcvtnu w21, d22                           : fcvtnu %d22 -> %w21
+1e610316 : fcvtnu w22, d24                           : fcvtnu %d24 -> %w22
+1e610358 : fcvtnu w24, d26                           : fcvtnu %d26 -> %w24
+1e61039a : fcvtnu w26, d28                           : fcvtnu %d28 -> %w26
+1e61001e : fcvtnu w30, d0                            : fcvtnu %d0 -> %w30
+
+# FCVTPU  <Wd>, <Sn> (FCVTPU-R.V-32S_float2int)
+1e290020 : fcvtpu w0, s1                             : fcvtpu %s1 -> %w0
+1e290062 : fcvtpu w2, s3                             : fcvtpu %s3 -> %w2
+1e2900a4 : fcvtpu w4, s5                             : fcvtpu %s5 -> %w4
+1e2900e6 : fcvtpu w6, s7                             : fcvtpu %s7 -> %w6
+1e290128 : fcvtpu w8, s9                             : fcvtpu %s9 -> %w8
+1e290169 : fcvtpu w9, s11                            : fcvtpu %s11 -> %w9
+1e2901ab : fcvtpu w11, s13                           : fcvtpu %s13 -> %w11
+1e2901ed : fcvtpu w13, s15                           : fcvtpu %s15 -> %w13
+1e29022f : fcvtpu w15, s17                           : fcvtpu %s17 -> %w15
+1e290251 : fcvtpu w17, s18                           : fcvtpu %s18 -> %w17
+1e290293 : fcvtpu w19, s20                           : fcvtpu %s20 -> %w19
+1e2902d5 : fcvtpu w21, s22                           : fcvtpu %s22 -> %w21
+1e290316 : fcvtpu w22, s24                           : fcvtpu %s24 -> %w22
+1e290358 : fcvtpu w24, s26                           : fcvtpu %s26 -> %w24
+1e29039a : fcvtpu w26, s28                           : fcvtpu %s28 -> %w26
+1e29001e : fcvtpu w30, s0                            : fcvtpu %s0 -> %w30
+
+# FCVTMU  <Xd>, <Dn> (FCVTMU-R.V-64D_float2int)
+9e710020 : fcvtmu x0, d1                             : fcvtmu %d1 -> %x0
+9e710062 : fcvtmu x2, d3                             : fcvtmu %d3 -> %x2
+9e7100a4 : fcvtmu x4, d5                             : fcvtmu %d5 -> %x4
+9e7100e6 : fcvtmu x6, d7                             : fcvtmu %d7 -> %x6
+9e710128 : fcvtmu x8, d9                             : fcvtmu %d9 -> %x8
+9e710169 : fcvtmu x9, d11                            : fcvtmu %d11 -> %x9
+9e7101ab : fcvtmu x11, d13                           : fcvtmu %d13 -> %x11
+9e7101ed : fcvtmu x13, d15                           : fcvtmu %d15 -> %x13
+9e71022f : fcvtmu x15, d17                           : fcvtmu %d17 -> %x15
+9e710251 : fcvtmu x17, d18                           : fcvtmu %d18 -> %x17
+9e710293 : fcvtmu x19, d20                           : fcvtmu %d20 -> %x19
+9e7102d5 : fcvtmu x21, d22                           : fcvtmu %d22 -> %x21
+9e710316 : fcvtmu x22, d24                           : fcvtmu %d24 -> %x22
+9e710358 : fcvtmu x24, d26                           : fcvtmu %d26 -> %x24
+9e71039a : fcvtmu x26, d28                           : fcvtmu %d28 -> %x26
+9e71001e : fcvtmu x30, d0                            : fcvtmu %d0 -> %x30
+
+# FMOV    <Xd>, <Dn>.1D[1] (FMOV-R.Q-64VX_float2int)
+9eae0020 : fmov x0, v1.d[1]                          : fmov   %q1 $0x01 $0x03 -> %x0
+9eae0062 : fmov x2, v3.d[1]                          : fmov   %q3 $0x01 $0x03 -> %x2
+9eae00a4 : fmov x4, v5.d[1]                          : fmov   %q5 $0x01 $0x03 -> %x4
+9eae00e6 : fmov x6, v7.d[1]                          : fmov   %q7 $0x01 $0x03 -> %x6
+9eae0128 : fmov x8, v9.d[1]                          : fmov   %q9 $0x01 $0x03 -> %x8
+9eae0169 : fmov x9, v11.d[1]                         : fmov   %q11 $0x01 $0x03 -> %x9
+9eae01ab : fmov x11, v13.d[1]                        : fmov   %q13 $0x01 $0x03 -> %x11
+9eae01ed : fmov x13, v15.d[1]                        : fmov   %q15 $0x01 $0x03 -> %x13
+9eae022f : fmov x15, v17.d[1]                        : fmov   %q17 $0x01 $0x03 -> %x15
+9eae0251 : fmov x17, v18.d[1]                        : fmov   %q18 $0x01 $0x03 -> %x17
+9eae0293 : fmov x19, v20.d[1]                        : fmov   %q20 $0x01 $0x03 -> %x19
+9eae02d5 : fmov x21, v22.d[1]                        : fmov   %q22 $0x01 $0x03 -> %x21
+9eae0316 : fmov x22, v24.d[1]                        : fmov   %q24 $0x01 $0x03 -> %x22
+9eae0358 : fmov x24, v26.d[1]                        : fmov   %q26 $0x01 $0x03 -> %x24
+9eae039a : fmov x26, v28.d[1]                        : fmov   %q28 $0x01 $0x03 -> %x26
+9eae001e : fmov x30, v0.d[1]                         : fmov   %q0 $0x01 $0x03 -> %x30
+
+# FCVTPU  <Xd>, <Dn> (FCVTPU-R.V-64D_float2int)
+9e690020 : fcvtpu x0, d1                             : fcvtpu %d1 -> %x0
+9e690062 : fcvtpu x2, d3                             : fcvtpu %d3 -> %x2
+9e6900a4 : fcvtpu x4, d5                             : fcvtpu %d5 -> %x4
+9e6900e6 : fcvtpu x6, d7                             : fcvtpu %d7 -> %x6
+9e690128 : fcvtpu x8, d9                             : fcvtpu %d9 -> %x8
+9e690169 : fcvtpu x9, d11                            : fcvtpu %d11 -> %x9
+9e6901ab : fcvtpu x11, d13                           : fcvtpu %d13 -> %x11
+9e6901ed : fcvtpu x13, d15                           : fcvtpu %d15 -> %x13
+9e69022f : fcvtpu x15, d17                           : fcvtpu %d17 -> %x15
+9e690251 : fcvtpu x17, d18                           : fcvtpu %d18 -> %x17
+9e690293 : fcvtpu x19, d20                           : fcvtpu %d20 -> %x19
+9e6902d5 : fcvtpu x21, d22                           : fcvtpu %d22 -> %x21
+9e690316 : fcvtpu x22, d24                           : fcvtpu %d24 -> %x22
+9e690358 : fcvtpu x24, d26                           : fcvtpu %d26 -> %x24
+9e69039a : fcvtpu x26, d28                           : fcvtpu %d28 -> %x26
+9e69001e : fcvtpu x30, d0                            : fcvtpu %d0 -> %x30
+
+# FCVTAS  <Xd>, <Dn> (FCVTAS-R.V-64D_float2int)
+9e640020 : fcvtas x0, d1                             : fcvtas %d1 -> %x0
+9e640062 : fcvtas x2, d3                             : fcvtas %d3 -> %x2
+9e6400a4 : fcvtas x4, d5                             : fcvtas %d5 -> %x4
+9e6400e6 : fcvtas x6, d7                             : fcvtas %d7 -> %x6
+9e640128 : fcvtas x8, d9                             : fcvtas %d9 -> %x8
+9e640169 : fcvtas x9, d11                            : fcvtas %d11 -> %x9
+9e6401ab : fcvtas x11, d13                           : fcvtas %d13 -> %x11
+9e6401ed : fcvtas x13, d15                           : fcvtas %d15 -> %x13
+9e64022f : fcvtas x15, d17                           : fcvtas %d17 -> %x15
+9e640251 : fcvtas x17, d18                           : fcvtas %d18 -> %x17
+9e640293 : fcvtas x19, d20                           : fcvtas %d20 -> %x19
+9e6402d5 : fcvtas x21, d22                           : fcvtas %d22 -> %x21
+9e640316 : fcvtas x22, d24                           : fcvtas %d24 -> %x22
+9e640358 : fcvtas x24, d26                           : fcvtas %d26 -> %x24
+9e64039a : fcvtas x26, d28                           : fcvtas %d28 -> %x26
+9e64001e : fcvtas x30, d0                            : fcvtas %d0 -> %x30
+
+# FCVTNU  <Xd>, <Sn> (FCVTNU-R.V-64S_float2int)
+9e210020 : fcvtnu x0, s1                             : fcvtnu %s1 -> %x0
+9e210062 : fcvtnu x2, s3                             : fcvtnu %s3 -> %x2
+9e2100a4 : fcvtnu x4, s5                             : fcvtnu %s5 -> %x4
+9e2100e6 : fcvtnu x6, s7                             : fcvtnu %s7 -> %x6
+9e210128 : fcvtnu x8, s9                             : fcvtnu %s9 -> %x8
+9e210169 : fcvtnu x9, s11                            : fcvtnu %s11 -> %x9
+9e2101ab : fcvtnu x11, s13                           : fcvtnu %s13 -> %x11
+9e2101ed : fcvtnu x13, s15                           : fcvtnu %s15 -> %x13
+9e21022f : fcvtnu x15, s17                           : fcvtnu %s17 -> %x15
+9e210251 : fcvtnu x17, s18                           : fcvtnu %s18 -> %x17
+9e210293 : fcvtnu x19, s20                           : fcvtnu %s20 -> %x19
+9e2102d5 : fcvtnu x21, s22                           : fcvtnu %s22 -> %x21
+9e210316 : fcvtnu x22, s24                           : fcvtnu %s24 -> %x22
+9e210358 : fcvtnu x24, s26                           : fcvtnu %s26 -> %x24
+9e21039a : fcvtnu x26, s28                           : fcvtnu %s28 -> %x26
+9e21001e : fcvtnu x30, s0                            : fcvtnu %s0 -> %x30
+
+# FCVTAU  <Xd>, <Sn> (FCVTAU-R.V-64S_float2int)
+9e250020 : fcvtau x0, s1                             : fcvtau %s1 -> %x0
+9e250062 : fcvtau x2, s3                             : fcvtau %s3 -> %x2
+9e2500a4 : fcvtau x4, s5                             : fcvtau %s5 -> %x4
+9e2500e6 : fcvtau x6, s7                             : fcvtau %s7 -> %x6
+9e250128 : fcvtau x8, s9                             : fcvtau %s9 -> %x8
+9e250169 : fcvtau x9, s11                            : fcvtau %s11 -> %x9
+9e2501ab : fcvtau x11, s13                           : fcvtau %s13 -> %x11
+9e2501ed : fcvtau x13, s15                           : fcvtau %s15 -> %x13
+9e25022f : fcvtau x15, s17                           : fcvtau %s17 -> %x15
+9e250251 : fcvtau x17, s18                           : fcvtau %s18 -> %x17
+9e250293 : fcvtau x19, s20                           : fcvtau %s20 -> %x19
+9e2502d5 : fcvtau x21, s22                           : fcvtau %s22 -> %x21
+9e250316 : fcvtau x22, s24                           : fcvtau %s24 -> %x22
+9e250358 : fcvtau x24, s26                           : fcvtau %s26 -> %x24
+9e25039a : fcvtau x26, s28                           : fcvtau %s28 -> %x26
+9e25001e : fcvtau x30, s0                            : fcvtau %s0 -> %x30
+
+# FMOV    <Dd>, <Xn> (FMOV-V.R-D64_float2int)
+9e670020 : fmov d0, x1                               : fmov   %x1 -> %d0
+9e670062 : fmov d2, x3                               : fmov   %x3 -> %d2
+9e6700a4 : fmov d4, x5                               : fmov   %x5 -> %d4
+9e6700e6 : fmov d6, x7                               : fmov   %x7 -> %d6
+9e670128 : fmov d8, x9                               : fmov   %x9 -> %d8
+9e67014a : fmov d10, x10                             : fmov   %x10 -> %d10
+9e67018c : fmov d12, x12                             : fmov   %x12 -> %d12
+9e6701ce : fmov d14, x14                             : fmov   %x14 -> %d14
+9e670210 : fmov d16, x16                             : fmov   %x16 -> %d16
+9e670251 : fmov d17, x18                             : fmov   %x18 -> %d17
+9e670293 : fmov d19, x20                             : fmov   %x20 -> %d19
+9e6702d5 : fmov d21, x22                             : fmov   %x22 -> %d21
+9e6702f7 : fmov d23, x23                             : fmov   %x23 -> %d23
+9e670339 : fmov d25, x25                             : fmov   %x25 -> %d25
+9e67037b : fmov d27, x27                             : fmov   %x27 -> %d27
+9e67001f : fmov d31, x0                              : fmov   %x0 -> %d31
+
+# UCVTF   <Sd>, <Wn> (UCVTF-V.R-S32_float2int)
+1e230020 : ucvtf s0, w1                              : ucvtf  %w1 -> %s0
+1e230062 : ucvtf s2, w3                              : ucvtf  %w3 -> %s2
+1e2300a4 : ucvtf s4, w5                              : ucvtf  %w5 -> %s4
+1e2300e6 : ucvtf s6, w7                              : ucvtf  %w7 -> %s6
+1e230128 : ucvtf s8, w9                              : ucvtf  %w9 -> %s8
+1e23014a : ucvtf s10, w10                            : ucvtf  %w10 -> %s10
+1e23018c : ucvtf s12, w12                            : ucvtf  %w12 -> %s12
+1e2301ce : ucvtf s14, w14                            : ucvtf  %w14 -> %s14
+1e230210 : ucvtf s16, w16                            : ucvtf  %w16 -> %s16
+1e230251 : ucvtf s17, w18                            : ucvtf  %w18 -> %s17
+1e230293 : ucvtf s19, w20                            : ucvtf  %w20 -> %s19
+1e2302d5 : ucvtf s21, w22                            : ucvtf  %w22 -> %s21
+1e2302f7 : ucvtf s23, w23                            : ucvtf  %w23 -> %s23
+1e230339 : ucvtf s25, w25                            : ucvtf  %w25 -> %s25
+1e23037b : ucvtf s27, w27                            : ucvtf  %w27 -> %s27
+1e23001f : ucvtf s31, w0                             : ucvtf  %w0 -> %s31
+
+# FCVTPS  <Wd>, <Dn> (FCVTPS-R.V-32D_float2int)
+1e680020 : fcvtps w0, d1                             : fcvtps %d1 -> %w0
+1e680062 : fcvtps w2, d3                             : fcvtps %d3 -> %w2
+1e6800a4 : fcvtps w4, d5                             : fcvtps %d5 -> %w4
+1e6800e6 : fcvtps w6, d7                             : fcvtps %d7 -> %w6
+1e680128 : fcvtps w8, d9                             : fcvtps %d9 -> %w8
+1e680169 : fcvtps w9, d11                            : fcvtps %d11 -> %w9
+1e6801ab : fcvtps w11, d13                           : fcvtps %d13 -> %w11
+1e6801ed : fcvtps w13, d15                           : fcvtps %d15 -> %w13
+1e68022f : fcvtps w15, d17                           : fcvtps %d17 -> %w15
+1e680251 : fcvtps w17, d18                           : fcvtps %d18 -> %w17
+1e680293 : fcvtps w19, d20                           : fcvtps %d20 -> %w19
+1e6802d5 : fcvtps w21, d22                           : fcvtps %d22 -> %w21
+1e680316 : fcvtps w22, d24                           : fcvtps %d24 -> %w22
+1e680358 : fcvtps w24, d26                           : fcvtps %d26 -> %w24
+1e68039a : fcvtps w26, d28                           : fcvtps %d28 -> %w26
+1e68001e : fcvtps w30, d0                            : fcvtps %d0 -> %w30
+
+# SCVTF   <Sd>, <Xn> (SCVTF-V.R-S64_float2int)
+9e220020 : scvtf s0, x1                              : scvtf  %x1 -> %s0
+9e220062 : scvtf s2, x3                              : scvtf  %x3 -> %s2
+9e2200a4 : scvtf s4, x5                              : scvtf  %x5 -> %s4
+9e2200e6 : scvtf s6, x7                              : scvtf  %x7 -> %s6
+9e220128 : scvtf s8, x9                              : scvtf  %x9 -> %s8
+9e22014a : scvtf s10, x10                            : scvtf  %x10 -> %s10
+9e22018c : scvtf s12, x12                            : scvtf  %x12 -> %s12
+9e2201ce : scvtf s14, x14                            : scvtf  %x14 -> %s14
+9e220210 : scvtf s16, x16                            : scvtf  %x16 -> %s16
+9e220251 : scvtf s17, x18                            : scvtf  %x18 -> %s17
+9e220293 : scvtf s19, x20                            : scvtf  %x20 -> %s19
+9e2202d5 : scvtf s21, x22                            : scvtf  %x22 -> %s21
+9e2202f7 : scvtf s23, x23                            : scvtf  %x23 -> %s23
+9e220339 : scvtf s25, x25                            : scvtf  %x25 -> %s25
+9e22037b : scvtf s27, x27                            : scvtf  %x27 -> %s27
+9e22001f : scvtf s31, x0                             : scvtf  %x0 -> %s31
+
+# FCVTAS  <Wd>, <Dn> (FCVTAS-R.V-32D_float2int)
+1e640020 : fcvtas w0, d1                             : fcvtas %d1 -> %w0
+1e640062 : fcvtas w2, d3                             : fcvtas %d3 -> %w2
+1e6400a4 : fcvtas w4, d5                             : fcvtas %d5 -> %w4
+1e6400e6 : fcvtas w6, d7                             : fcvtas %d7 -> %w6
+1e640128 : fcvtas w8, d9                             : fcvtas %d9 -> %w8
+1e640169 : fcvtas w9, d11                            : fcvtas %d11 -> %w9
+1e6401ab : fcvtas w11, d13                           : fcvtas %d13 -> %w11
+1e6401ed : fcvtas w13, d15                           : fcvtas %d15 -> %w13
+1e64022f : fcvtas w15, d17                           : fcvtas %d17 -> %w15
+1e640251 : fcvtas w17, d18                           : fcvtas %d18 -> %w17
+1e640293 : fcvtas w19, d20                           : fcvtas %d20 -> %w19
+1e6402d5 : fcvtas w21, d22                           : fcvtas %d22 -> %w21
+1e640316 : fcvtas w22, d24                           : fcvtas %d24 -> %w22
+1e640358 : fcvtas w24, d26                           : fcvtas %d26 -> %w24
+1e64039a : fcvtas w26, d28                           : fcvtas %d28 -> %w26
+1e64001e : fcvtas w30, d0                            : fcvtas %d0 -> %w30
+
+# FCVTNS  <Wd>, <Dn> (FCVTNS-R.V-32D_float2int)
+1e600020 : fcvtns w0, d1                             : fcvtns %d1 -> %w0
+1e600062 : fcvtns w2, d3                             : fcvtns %d3 -> %w2
+1e6000a4 : fcvtns w4, d5                             : fcvtns %d5 -> %w4
+1e6000e6 : fcvtns w6, d7                             : fcvtns %d7 -> %w6
+1e600128 : fcvtns w8, d9                             : fcvtns %d9 -> %w8
+1e600169 : fcvtns w9, d11                            : fcvtns %d11 -> %w9
+1e6001ab : fcvtns w11, d13                           : fcvtns %d13 -> %w11
+1e6001ed : fcvtns w13, d15                           : fcvtns %d15 -> %w13
+1e60022f : fcvtns w15, d17                           : fcvtns %d17 -> %w15
+1e600251 : fcvtns w17, d18                           : fcvtns %d18 -> %w17
+1e600293 : fcvtns w19, d20                           : fcvtns %d20 -> %w19
+1e6002d5 : fcvtns w21, d22                           : fcvtns %d22 -> %w21
+1e600316 : fcvtns w22, d24                           : fcvtns %d24 -> %w22
+1e600358 : fcvtns w24, d26                           : fcvtns %d26 -> %w24
+1e60039a : fcvtns w26, d28                           : fcvtns %d28 -> %w26
+1e60001e : fcvtns w30, d0                            : fcvtns %d0 -> %w30
+
+# FCVTZS  <Xd>, <Dn> (FCVTZS-R.V-64D_float2int)
+9e780020 : fcvtzs x0, d1                             : fcvtzs %d1 -> %x0
+9e780062 : fcvtzs x2, d3                             : fcvtzs %d3 -> %x2
+9e7800a4 : fcvtzs x4, d5                             : fcvtzs %d5 -> %x4
+9e7800e6 : fcvtzs x6, d7                             : fcvtzs %d7 -> %x6
+9e780128 : fcvtzs x8, d9                             : fcvtzs %d9 -> %x8
+9e780169 : fcvtzs x9, d11                            : fcvtzs %d11 -> %x9
+9e7801ab : fcvtzs x11, d13                           : fcvtzs %d13 -> %x11
+9e7801ed : fcvtzs x13, d15                           : fcvtzs %d15 -> %x13
+9e78022f : fcvtzs x15, d17                           : fcvtzs %d17 -> %x15
+9e780251 : fcvtzs x17, d18                           : fcvtzs %d18 -> %x17
+9e780293 : fcvtzs x19, d20                           : fcvtzs %d20 -> %x19
+9e7802d5 : fcvtzs x21, d22                           : fcvtzs %d22 -> %x21
+9e780316 : fcvtzs x22, d24                           : fcvtzs %d24 -> %x22
+9e780358 : fcvtzs x24, d26                           : fcvtzs %d26 -> %x24
+9e78039a : fcvtzs x26, d28                           : fcvtzs %d28 -> %x26
+9e78001e : fcvtzs x30, d0                            : fcvtzs %d0 -> %x30
+
+# FCVTPS  <Wd>, <Sn> (FCVTPS-R.V-32S_float2int)
+1e280020 : fcvtps w0, s1                             : fcvtps %s1 -> %w0
+1e280062 : fcvtps w2, s3                             : fcvtps %s3 -> %w2
+1e2800a4 : fcvtps w4, s5                             : fcvtps %s5 -> %w4
+1e2800e6 : fcvtps w6, s7                             : fcvtps %s7 -> %w6
+1e280128 : fcvtps w8, s9                             : fcvtps %s9 -> %w8
+1e280169 : fcvtps w9, s11                            : fcvtps %s11 -> %w9
+1e2801ab : fcvtps w11, s13                           : fcvtps %s13 -> %w11
+1e2801ed : fcvtps w13, s15                           : fcvtps %s15 -> %w13
+1e28022f : fcvtps w15, s17                           : fcvtps %s17 -> %w15
+1e280251 : fcvtps w17, s18                           : fcvtps %s18 -> %w17
+1e280293 : fcvtps w19, s20                           : fcvtps %s20 -> %w19
+1e2802d5 : fcvtps w21, s22                           : fcvtps %s22 -> %w21
+1e280316 : fcvtps w22, s24                           : fcvtps %s24 -> %w22
+1e280358 : fcvtps w24, s26                           : fcvtps %s26 -> %w24
+1e28039a : fcvtps w26, s28                           : fcvtps %s28 -> %w26
+1e28001e : fcvtps w30, s0                            : fcvtps %s0 -> %w30
+
+# FCVTZS  <Wd>, <Sn> (FCVTZS-R.V-32S_float2int)
+1e380020 : fcvtzs w0, s1                             : fcvtzs %s1 -> %w0
+1e380062 : fcvtzs w2, s3                             : fcvtzs %s3 -> %w2
+1e3800a4 : fcvtzs w4, s5                             : fcvtzs %s5 -> %w4
+1e3800e6 : fcvtzs w6, s7                             : fcvtzs %s7 -> %w6
+1e380128 : fcvtzs w8, s9                             : fcvtzs %s9 -> %w8
+1e380169 : fcvtzs w9, s11                            : fcvtzs %s11 -> %w9
+1e3801ab : fcvtzs w11, s13                           : fcvtzs %s13 -> %w11
+1e3801ed : fcvtzs w13, s15                           : fcvtzs %s15 -> %w13
+1e38022f : fcvtzs w15, s17                           : fcvtzs %s17 -> %w15
+1e380251 : fcvtzs w17, s18                           : fcvtzs %s18 -> %w17
+1e380293 : fcvtzs w19, s20                           : fcvtzs %s20 -> %w19
+1e3802d5 : fcvtzs w21, s22                           : fcvtzs %s22 -> %w21
+1e380316 : fcvtzs w22, s24                           : fcvtzs %s24 -> %w22
+1e380358 : fcvtzs w24, s26                           : fcvtzs %s26 -> %w24
+1e38039a : fcvtzs w26, s28                           : fcvtzs %s28 -> %w26
+1e38001e : fcvtzs w30, s0                            : fcvtzs %s0 -> %w30
+
+# UCVTF   <Dd>, <Xn> (UCVTF-V.R-D64_float2int)
+9e630020 : ucvtf d0, x1                              : ucvtf  %x1 -> %d0
+9e630062 : ucvtf d2, x3                              : ucvtf  %x3 -> %d2
+9e6300a4 : ucvtf d4, x5                              : ucvtf  %x5 -> %d4
+9e6300e6 : ucvtf d6, x7                              : ucvtf  %x7 -> %d6
+9e630128 : ucvtf d8, x9                              : ucvtf  %x9 -> %d8
+9e63014a : ucvtf d10, x10                            : ucvtf  %x10 -> %d10
+9e63018c : ucvtf d12, x12                            : ucvtf  %x12 -> %d12
+9e6301ce : ucvtf d14, x14                            : ucvtf  %x14 -> %d14
+9e630210 : ucvtf d16, x16                            : ucvtf  %x16 -> %d16
+9e630251 : ucvtf d17, x18                            : ucvtf  %x18 -> %d17
+9e630293 : ucvtf d19, x20                            : ucvtf  %x20 -> %d19
+9e6302d5 : ucvtf d21, x22                            : ucvtf  %x22 -> %d21
+9e6302f7 : ucvtf d23, x23                            : ucvtf  %x23 -> %d23
+9e630339 : ucvtf d25, x25                            : ucvtf  %x25 -> %d25
+9e63037b : ucvtf d27, x27                            : ucvtf  %x27 -> %d27
+9e63001f : ucvtf d31, x0                             : ucvtf  %x0 -> %d31
+
+# INS     <Hd>.<T>[<imm>], <R><n> (INS-Q.iR-asimdins_IR_r)
+4e081c40 : ins v0.d[0], x2                           : ins    %x2 $0x03 -> %q0 $0x00
+4e081c82 : ins v2.d[0], x4                           : ins    %x4 $0x03 -> %q2 $0x00
+4e081cc4 : ins v4.d[0], x6                           : ins    %x6 $0x03 -> %q4 $0x00
+4e081d06 : ins v6.d[0], x8                           : ins    %x8 $0x03 -> %q6 $0x00
+4e081d48 : ins v8.d[0], x10                          : ins    %x10 $0x03 -> %q8 $0x00
+4e081d6a : ins v10.d[0], x11                         : ins    %x11 $0x03 -> %q10 $0x00
+4e081dac : ins v12.d[0], x13                         : ins    %x13 $0x03 -> %q12 $0x00
+4e081dee : ins v14.d[0], x15                         : ins    %x15 $0x03 -> %q14 $0x00
+4e081e30 : ins v16.d[0], x17                         : ins    %x17 $0x03 -> %q16 $0x00
+4e181e71 : ins v17.d[1], x19                         : ins    %x19 $0x03 -> %q17 $0x01
+4e181eb3 : ins v19.d[1], x21                         : ins    %x21 $0x03 -> %q19 $0x01
+4e181ef5 : ins v21.d[1], x23                         : ins    %x23 $0x03 -> %q21 $0x01
+4e181f17 : ins v23.d[1], x24                         : ins    %x24 $0x03 -> %q23 $0x01
+4e181f59 : ins v25.d[1], x26                         : ins    %x26 $0x03 -> %q25 $0x01
+4e181f9b : ins v27.d[1], x28                         : ins    %x28 $0x03 -> %q27 $0x01
+4e181c3f : ins v31.d[1], x1                          : ins    %x1 $0x03 -> %q31 $0x01
+4e041c40 : ins v0.s[0], w2                           : ins    %w2 $0x02 -> %q0 $0x00
+4e041c82 : ins v2.s[0], w4                           : ins    %w4 $0x02 -> %q2 $0x00
+4e041cc4 : ins v4.s[0], w6                           : ins    %w6 $0x02 -> %q4 $0x00
+4e0c1d06 : ins v6.s[1], w8                           : ins    %w8 $0x02 -> %q6 $0x01
+4e0c1d48 : ins v8.s[1], w10                          : ins    %w10 $0x02 -> %q8 $0x01
+4e0c1d6a : ins v10.s[1], w11                         : ins    %w11 $0x02 -> %q10 $0x01
+4e0c1dac : ins v12.s[1], w13                         : ins    %w13 $0x02 -> %q12 $0x01
+4e0c1dee : ins v14.s[1], w15                         : ins    %w15 $0x02 -> %q14 $0x01
+4e141e30 : ins v16.s[2], w17                         : ins    %w17 $0x02 -> %q16 $0x02
+4e141e71 : ins v17.s[2], w19                         : ins    %w19 $0x02 -> %q17 $0x02
+4e141eb3 : ins v19.s[2], w21                         : ins    %w21 $0x02 -> %q19 $0x02
+4e141ef5 : ins v21.s[2], w23                         : ins    %w23 $0x02 -> %q21 $0x02
+4e141f17 : ins v23.s[2], w24                         : ins    %w24 $0x02 -> %q23 $0x02
+4e141f59 : ins v25.s[2], w26                         : ins    %w26 $0x02 -> %q25 $0x02
+4e1c1f9b : ins v27.s[3], w28                         : ins    %w28 $0x02 -> %q27 $0x03
+4e1c1c3f : ins v31.s[3], w1                          : ins    %w1 $0x02 -> %q31 $0x03
+4e021c40 : ins v0.h[0], w2                           : ins    %w2 $0x01 -> %q0 $0x00
+4e021c82 : ins v2.h[0], w4                           : ins    %w4 $0x01 -> %q2 $0x00
+4e061cc4 : ins v4.h[1], w6                           : ins    %w6 $0x01 -> %q4 $0x01
+4e061d06 : ins v6.h[1], w8                           : ins    %w8 $0x01 -> %q6 $0x01
+4e0a1d48 : ins v8.h[2], w10                          : ins    %w10 $0x01 -> %q8 $0x02
+4e0a1d6a : ins v10.h[2], w11                         : ins    %w11 $0x01 -> %q10 $0x02
+4e0e1dac : ins v12.h[3], w13                         : ins    %w13 $0x01 -> %q12 $0x03
+4e0e1dee : ins v14.h[3], w15                         : ins    %w15 $0x01 -> %q14 $0x03
+4e121e30 : ins v16.h[4], w17                         : ins    %w17 $0x01 -> %q16 $0x04
+4e121e71 : ins v17.h[4], w19                         : ins    %w19 $0x01 -> %q17 $0x04
+4e121eb3 : ins v19.h[4], w21                         : ins    %w21 $0x01 -> %q19 $0x04
+4e161ef5 : ins v21.h[5], w23                         : ins    %w23 $0x01 -> %q21 $0x05
+4e161f17 : ins v23.h[5], w24                         : ins    %w24 $0x01 -> %q23 $0x05
+4e1a1f59 : ins v25.h[6], w26                         : ins    %w26 $0x01 -> %q25 $0x06
+4e1a1f9b : ins v27.h[6], w28                         : ins    %w28 $0x01 -> %q27 $0x06
+4e1e1c3f : ins v31.h[7], w1                          : ins    %w1 $0x01 -> %q31 $0x07
+4e011c40 : ins v0.b[0], w2                           : ins    %w2 $0x00 -> %q0 $0x00
+4e031c82 : ins v2.b[1], w4                           : ins    %w4 $0x00 -> %q2 $0x01
+4e051cc4 : ins v4.b[2], w6                           : ins    %w6 $0x00 -> %q4 $0x02
+4e071d06 : ins v6.b[3], w8                           : ins    %w8 $0x00 -> %q6 $0x03
+4e091d48 : ins v8.b[4], w10                          : ins    %w10 $0x00 -> %q8 $0x04
+4e0b1d6a : ins v10.b[5], w11                         : ins    %w11 $0x00 -> %q10 $0x05
+4e0d1dac : ins v12.b[6], w13                         : ins    %w13 $0x00 -> %q12 $0x06
+4e0f1dee : ins v14.b[7], w15                         : ins    %w15 $0x00 -> %q14 $0x07
+4e111e30 : ins v16.b[8], w17                         : ins    %w17 $0x00 -> %q16 $0x08
+4e111e71 : ins v17.b[8], w19                         : ins    %w19 $0x00 -> %q17 $0x08
+4e131eb3 : ins v19.b[9], w21                         : ins    %w21 $0x00 -> %q19 $0x09
+4e151ef5 : ins v21.b[10], w23                        : ins    %w23 $0x00 -> %q21 $0x0a
+4e171f17 : ins v23.b[11], w24                        : ins    %w24 $0x00 -> %q23 $0x0b
+4e191f59 : ins v25.b[12], w26                        : ins    %w26 $0x00 -> %q25 $0x0c
+4e1b1f9b : ins v27.b[13], w28                        : ins    %w28 $0x00 -> %q27 $0x0d
+4e1f1c3f : ins v31.b[15], w1                         : ins    %w1 $0x00 -> %q31 $0x0f
+
+# FCVTZS  <Wd>, <Dn> (FCVTZS-R.V-32D_float2int)
+1e780020 : fcvtzs w0, d1                             : fcvtzs %d1 -> %w0
+1e780062 : fcvtzs w2, d3                             : fcvtzs %d3 -> %w2
+1e7800a4 : fcvtzs w4, d5                             : fcvtzs %d5 -> %w4
+1e7800e6 : fcvtzs w6, d7                             : fcvtzs %d7 -> %w6
+1e780128 : fcvtzs w8, d9                             : fcvtzs %d9 -> %w8
+1e780169 : fcvtzs w9, d11                            : fcvtzs %d11 -> %w9
+1e7801ab : fcvtzs w11, d13                           : fcvtzs %d13 -> %w11
+1e7801ed : fcvtzs w13, d15                           : fcvtzs %d15 -> %w13
+1e78022f : fcvtzs w15, d17                           : fcvtzs %d17 -> %w15
+1e780251 : fcvtzs w17, d18                           : fcvtzs %d18 -> %w17
+1e780293 : fcvtzs w19, d20                           : fcvtzs %d20 -> %w19
+1e7802d5 : fcvtzs w21, d22                           : fcvtzs %d22 -> %w21
+1e780316 : fcvtzs w22, d24                           : fcvtzs %d24 -> %w22
+1e780358 : fcvtzs w24, d26                           : fcvtzs %d26 -> %w24
+1e78039a : fcvtzs w26, d28                           : fcvtzs %d28 -> %w26
+1e78001e : fcvtzs w30, d0                            : fcvtzs %d0 -> %w30
+
+# FCVTMU  <Wd>, <Dn> (FCVTMU-R.V-32D_float2int)
+1e710020 : fcvtmu w0, d1                             : fcvtmu %d1 -> %w0
+1e710062 : fcvtmu w2, d3                             : fcvtmu %d3 -> %w2
+1e7100a4 : fcvtmu w4, d5                             : fcvtmu %d5 -> %w4
+1e7100e6 : fcvtmu w6, d7                             : fcvtmu %d7 -> %w6
+1e710128 : fcvtmu w8, d9                             : fcvtmu %d9 -> %w8
+1e710169 : fcvtmu w9, d11                            : fcvtmu %d11 -> %w9
+1e7101ab : fcvtmu w11, d13                           : fcvtmu %d13 -> %w11
+1e7101ed : fcvtmu w13, d15                           : fcvtmu %d15 -> %w13
+1e71022f : fcvtmu w15, d17                           : fcvtmu %d17 -> %w15
+1e710251 : fcvtmu w17, d18                           : fcvtmu %d18 -> %w17
+1e710293 : fcvtmu w19, d20                           : fcvtmu %d20 -> %w19
+1e7102d5 : fcvtmu w21, d22                           : fcvtmu %d22 -> %w21
+1e710316 : fcvtmu w22, d24                           : fcvtmu %d24 -> %w22
+1e710358 : fcvtmu w24, d26                           : fcvtmu %d26 -> %w24
+1e71039a : fcvtmu w26, d28                           : fcvtmu %d28 -> %w26
+1e71001e : fcvtmu w30, d0                            : fcvtmu %d0 -> %w30
+
+# FCVTPS  <Xd>, <Sn> (FCVTPS-R.V-64S_float2int)
+9e280020 : fcvtps x0, s1                             : fcvtps %s1 -> %x0
+9e280062 : fcvtps x2, s3                             : fcvtps %s3 -> %x2
+9e2800a4 : fcvtps x4, s5                             : fcvtps %s5 -> %x4
+9e2800e6 : fcvtps x6, s7                             : fcvtps %s7 -> %x6
+9e280128 : fcvtps x8, s9                             : fcvtps %s9 -> %x8
+9e280169 : fcvtps x9, s11                            : fcvtps %s11 -> %x9
+9e2801ab : fcvtps x11, s13                           : fcvtps %s13 -> %x11
+9e2801ed : fcvtps x13, s15                           : fcvtps %s15 -> %x13
+9e28022f : fcvtps x15, s17                           : fcvtps %s17 -> %x15
+9e280251 : fcvtps x17, s18                           : fcvtps %s18 -> %x17
+9e280293 : fcvtps x19, s20                           : fcvtps %s20 -> %x19
+9e2802d5 : fcvtps x21, s22                           : fcvtps %s22 -> %x21
+9e280316 : fcvtps x22, s24                           : fcvtps %s24 -> %x22
+9e280358 : fcvtps x24, s26                           : fcvtps %s26 -> %x24
+9e28039a : fcvtps x26, s28                           : fcvtps %s28 -> %x26
+9e28001e : fcvtps x30, s0                            : fcvtps %s0 -> %x30
+
