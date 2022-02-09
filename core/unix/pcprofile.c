@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -548,10 +548,12 @@ pcprofile_results(thread_pc_info_t *info)
                     print_file(info->file, " dispatch\n");
                 } else if (e->whereami == DR_WHERE_MONITOR) {
                     print_file(info->file, " monitor\n");
-                } else if (e->whereami == DR_WHERE_SIGNAL_HANDLER) {
-                    print_file(info->file, " signal handler\n");
                 } else if (e->whereami == DR_WHERE_SYSCALL_HANDLER) {
                     print_file(info->file, " syscall handler\n");
+                } else if (e->whereami == DR_WHERE_SIGNAL_HANDLER) {
+                    print_file(info->file, " signal handler\n");
+                } else if (e->whereami == DR_WHERE_TRAMPOLINE) {
+                    print_file(info->file, " trampoline\n");
                 } else if (e->whereami == DR_WHERE_CONTEXT_SWITCH) {
                     print_file(info->file, " context switch\n");
                 } else if (e->whereami == DR_WHERE_IBL) {
