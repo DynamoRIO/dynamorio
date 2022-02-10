@@ -28931,21 +28931,6 @@ d65f03c0 : ret x30                                   : ret    %x30
 
 # DRPS     (DRPS--64E_branch_reg)
 d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
-d6bf03e0 : drps                                      : drps
 
 # HLT     #<imm> (HLT-I-EX_exception)
 d4400000 : hlt #0x0                                  : hlt    $0x0000
@@ -29108,21 +29093,6 @@ d4bbffe2 : dcps2 #0xdfff                             : dcps2  $0xdfff
 d4bfffe2 : dcps2 #0xffff                             : dcps2  $0xffff
 
 # ERET     (ERET--64E_branch_reg)
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
-d69f03e0 : eret                                      : eret
 d69f03e0 : eret                                      : eret
 
 # DCPS3   #<imm> (DCPS3-I-DC_exception)
