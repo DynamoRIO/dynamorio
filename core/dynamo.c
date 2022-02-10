@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2021 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2022 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1099,21 +1099,20 @@ dynamo_shared_exit(thread_record_t *toexit /* must ==cur thread for Linux */
     loader_exit();
 
     if (toexit != NULL) {
-        /* free detaching thread's dcontext */
-#ifdef WINDOWS
-        /* If we use dynamo_thread_exit() when toexit is the current thread,
-         * it results in asserts in the win32.tls test, so we stick with this.
-         */
-        d_r_mutex_lock(&thread_initexit_lock);
-        dynamo_other_thread_exit(toexit, false);
-        d_r_mutex_unlock(&thread_initexit_lock);
-#else
-        /* On Linux, restoring segment registers can only be done
+        /* Free detaching thread's dcontext.
+         * Restoring the teb fields or segment registers can only be done
          * on the current thread, which must be toexit.
          */
+#ifdef WINDOWS
+        /* XXX i#5340: We used to go through dynamo_other_thread_exit() which rewinds
+         * the kstats stack as below.  To avoid a kstats assert on this new path we
+         * repeat it here but it seems like we shouldn't need it.
+         */
+        KSTOP_REWIND_DC(get_thread_private_dcontext(), thread_measured);
+        KSTART_DC(get_thread_private_dcontext(), thread_measured);
+#endif
         ASSERT(toexit->id == d_r_get_thread_id());
         dynamo_thread_exit();
-#endif
     }
 
     if (IF_WINDOWS_ELSE(!detach_stacked_callbacks, true)) {
@@ -2573,8 +2572,16 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
      * This must be called after dynamo_thread_exit_pre_client where
      * we called event callbacks.
      */
-    if (!other_thread)
+    if (!other_thread) {
         dynamo_thread_not_under_dynamo(dcontext);
+#ifdef WINDOWS
+        /* We don't do this inside os_thread_not_under_dynamo b/c we do it in
+         * context switches.  os_loader_exit() will call this, but it has no
+         * dcontext, so it won't swap internal TEB fields.
+         */
+        swap_peb_pointer(dcontext, false /*to app*/);
+#endif
+    }
 
     /* We clean up priv libs prior to setting tls dc to NULL so we can use
      * TRY_EXCEPT when calling the priv lib entry routine
@@ -2817,6 +2824,10 @@ dr_app_stop_and_cleanup_with_stats(dr_stats_t *drstats)
      * and we need to resolve the unbounded dr_app_stop() time.
      */
     if (dynamo_initialized && !dynamo_exited && !doing_detach) {
+#    ifdef WINDOWS
+        /* dynamo_thread_exit_common will later swap to app. */
+        swap_peb_pointer(get_thread_private_dcontext(), true /*to priv*/);
+#    endif
         detach_on_permanent_stack(true /*internal*/, true /*do cleanup*/, drstats);
     }
     /* the application regains control in here */
