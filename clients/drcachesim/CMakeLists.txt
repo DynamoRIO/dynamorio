@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2015-2021 Google, Inc.    All rights reserved.
+# Copyright (c) 2015-2022 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -235,10 +235,8 @@ set_property(GLOBAL PROPERTY DynamoRIO_drmemtrace_build_dir
 
 # We have one more example of a standalone launcher that uses raw2trace to catch
 # link errors (xref i#1409).  We just build it to test the linking; no test.
-# XXX i#2007: a binutils error causes static dynamorio to fail to link on AArch64.
-# We'll enable this once Travis and others have a fixed binutils.
 # XXX i#1997: static DR is not fully supported on Mac yet.
-if (NOT AARCH64 AND NOT APPLE)
+if (NOT APPLE)
   add_executable(opcode_mix_launcher
     tools/opcode_mix_launcher.cpp
     )
@@ -531,10 +529,9 @@ if (BUILD_TESTS)
     add_win32_flags(tool.drcacheoff.burst_aarch64_sys)
   endif ()
 
-  # FIXME i#2007: fails to link on A64
   # XXX i#1997: dynamorio_static is not supported on Mac yet
   # FIXME i#2949: gcc 7.3 fails to link certain configs
-  if (NOT AARCH64 AND NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
+  if (NOT APPLE AND NOT DISABLE_FOR_BUG_2949)
     # Tests for the cache miss analyzer.
     add_executable(tool.drcachesim.miss_analyzer_unit_test tests/cache_miss_analyzer_test.cpp)
     if (ZLIB_FOUND)

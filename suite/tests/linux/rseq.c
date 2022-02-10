@@ -154,8 +154,7 @@ test_rseq_call_once(bool force_restart_in, int *completions_out, int *restarts_o
         "cmpb $0, %[force_restart]\n\t"
         "jz 7f\n\t"
         /* For -test_mode invariant_checker: expect a signal after ud2a.
-         * (An alternative is to add decoding to invariant_checker but with
-         * i#2007 and other problems that liimts the test.)
+         * (An alternative is to add decoding to invariant_checker.)
          */
         "prefetcht2 1\n\t"
         "ud2a\n\t"
